@@ -1,0 +1,46 @@
+# Secrets - NEVER commit these
+secrets/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.jks
+credentials.json
+api-keys.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Worktrees (they're linked, not nested)
+worktrees/

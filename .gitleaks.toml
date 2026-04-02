@@ -1,0 +1,43 @@
+title = "Ayumi Secret Scanning"
+[[rules]]
+  id = "api-key-generic"
+  description = "Generic API Key"
+  regex = '''(?i)(api[_-]?key|apikey|api[_-]?secret)\s*[:=]\s*['\"]?[a-zA-Z0-9_\-]{20,}['\"]?'''
+  tags = ["key", "api"]
+
+[[rules]]
+  id = "private-key"
+  description = "Private Key Block"
+  regex = '''-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'''
+  tags = ["key", "private"]
+
+[[rules]]
+  id = "github-token"
+  description = "GitHub Token"
+  regex = '''gh[pousr]_[A-Za-z0-9_]{36,}'''
+  tags = ["github", "token"]
+
+[[rules]]
+  id = "aws-key"
+  description = "AWS Access Key"
+  regex = '''AKIA[0-9A-Z]{16}'''
+  tags = ["aws", "key"]
+
+[[rules]]
+  id = "openai-key"
+  description = "OpenAI API Key"
+  regex = '''sk-[A-Za-z0-9]{48}'''
+  tags = ["openai", "key"]
+
+[[rules]]
+  id = "paperclip-key"
+  description = "Paperclip API Key"
+  regex = '''pcp_[a-f0-9]{40,}'''
+  tags = ["paperclip", "key"]
+
+[allowlist]
+  paths = [
+    '''\.gitleaks\.toml''',
+    '''\.env\.example''',
+    '''tests/.*\.py''',
+  ]

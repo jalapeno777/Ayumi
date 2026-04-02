@@ -1,0 +1,54 @@
+- id: ag-001
+  fact: "Company mission: Build and scale profitable trading communities that generate sustainable revenue through proprietary trading, copy trading platforms, and community membership."
+  category: status
+  timestamp: "2026-04-02"
+  source: "2026-04-02"
+  status: active
+  superseded_by: null
+  related_entities: []
+  last_accessed: "2026-04-02"
+  access_count: 1
+
+- id: ag-002
+  fact: "Brand: Piggy Bank Academy. All divisions operate under this brand."
+  category: status
+  timestamp: "2026-04-02"
+  source: "2026-04-02"
+  status: active
+  superseded_by: null
+  related_entities: []
+  last_accessed: "2026-04-02"
+  access_count: 1
+
+- id: ag-003
+  fact: "Tech stack: cTrader for data feed and trade execution, FTMO demo accounts linked later for prop firm trials. Strategy: ICT/Smart Money Concepts (SMC)."
+  category: status
+  timestamp: "2026-04-02"
+  source: "2026-04-02"
+  status: active
+  superseded_by: null
+  related_entities: []
+  last_accessed: "2026-04-02"
+  access_count: 1
+
+- id: ag-004
+  fact: "Community platform: Discord. TikTok as zero-budget organic growth channel."
+  category: status
+  timestamp: "2026-04-02"
+  source: "2026-04-02"
+  status: active
+  superseded_by: null
+  related_entities: []
+  last_accessed: "2026-04-02"
+  access_count: 1
+
+- id: ag-005
+  fact: "Crypto drawdown tolerance: 2-3% of account balance (refined after forex proves out)."
+  category: status
+  timestamp: "2026-04-02"
+  source: "2026-04-02"
+  status: active
+  superseded_by: null
+  related_entities: []
+  last_accessed: "2026-04-02"
+  access_count: 1
