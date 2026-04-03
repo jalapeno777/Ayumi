@@ -42,19 +42,21 @@ namespace ICTSMC
         public double TrailingStopATRMultiplier;
         public bool RegimeFilterEnabled;
         public bool NewsVolatilityFilterEnabled;
+        public double Leverage;
+        public int MinBarsBetweenTrades;
 
         public static BacktestConfig Default => new BacktestConfig
         {
             StartingBalance = 10000,
             RiskPerTradePct = 0.01,
-            MaxDailyDrawdownPct = 0.02,
-            MaxTotalDrawdownPct = 0.05,
+            MaxDailyDrawdownPct = 0.03,
+            MaxTotalDrawdownPct = 0.10,
             SpreadPips = 0.5,
             CommissionPerLot = 3.5,
             MinConfidence = 0.50,
-            MinConfluences = 1,
-            MinRiskReward = 1.0,
-            MaxOpenTrades = 1,
+            MinConfluences = 2,
+            MinRiskReward = 0.8,
+            MaxOpenTrades = 2,
             MinBarsBeforeSignal = 30,
             PartialCloseEnabled = true,
             PartialCloseAtRR = 1.0,
@@ -62,18 +64,20 @@ namespace ICTSMC
             TrailingStopEnabled = false,
             TrailingStopATRMultiplier = 1.0,
             RegimeFilterEnabled = true,
-            NewsVolatilityFilterEnabled = true
+            NewsVolatilityFilterEnabled = true,
+            Leverage = 100.0,
+            MinBarsBetweenTrades = 0
         };
 
         public static BacktestConfig Aggressive => new BacktestConfig
         {
             StartingBalance = 10000,
-            RiskPerTradePct = 0.02,
+            RiskPerTradePct = 0.01,
             MaxDailyDrawdownPct = 0.05,
             MaxTotalDrawdownPct = 0.10,
             SpreadPips = 0.3,
             CommissionPerLot = 3.5,
-            MinConfidence = 0.50,
+            MinConfidence = 0.20,
             MinConfluences = 1,
             MinRiskReward = 0.8,
             MaxOpenTrades = 2,
@@ -81,10 +85,12 @@ namespace ICTSMC
             PartialCloseEnabled = true,
             PartialCloseAtRR = 1.0,
             PartialClosePct = 0.5,
-            TrailingStopEnabled = true,
+            TrailingStopEnabled = false,
             TrailingStopATRMultiplier = 1.0,
             RegimeFilterEnabled = false,
-            NewsVolatilityFilterEnabled = true
+            NewsVolatilityFilterEnabled = false,
+            Leverage = 100.0,
+            MinBarsBetweenTrades = 0
         };
 
         public static BacktestConfig Conservative => new BacktestConfig
@@ -106,7 +112,33 @@ namespace ICTSMC
             TrailingStopEnabled = false,
             TrailingStopATRMultiplier = 1.0,
             RegimeFilterEnabled = true,
-            NewsVolatilityFilterEnabled = true
+            NewsVolatilityFilterEnabled = true,
+            Leverage = 100.0,
+            MinBarsBetweenTrades = 0
+        };
+
+        public static BacktestConfig Tuned => new BacktestConfig
+        {
+            StartingBalance = 10000,
+            RiskPerTradePct = 0.005,
+            MaxDailyDrawdownPct = 0.02,
+            MaxTotalDrawdownPct = 0.05,
+            SpreadPips = 0.5,
+            CommissionPerLot = 3.5,
+            MinConfidence = 0.45,
+            MinConfluences = 2,
+            MinRiskReward = 1.2,
+            MaxOpenTrades = 1,
+            MinBarsBeforeSignal = 30,
+            PartialCloseEnabled = true,
+            PartialCloseAtRR = 1.0,
+            PartialClosePct = 0.5,
+            TrailingStopEnabled = false,
+            TrailingStopATRMultiplier = 1.0,
+            RegimeFilterEnabled = true,
+            NewsVolatilityFilterEnabled = true,
+            Leverage = 100.0,
+            MinBarsBetweenTrades = 4
         };
     }
 

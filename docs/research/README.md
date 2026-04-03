@@ -10,5 +10,6 @@
 | [forex-prop-firm-landscape-analysis.md](forex-prop-firm-landscape-analysis.md) | AYUAA-49 | Forex Prop Firm Landscape Analysis |
 | [prop-firm-alternatives-and-diversification-strategy.md](prop-firm-alternatives-and-diversification-strategy.md) | AYUAA-107 | Prop Firm Alternatives and Diversification Strategy |
 | [ai-video-generation-tools-for-tiktok-production.md](ai-video-generation-tools-for-tiktok-production.md) | AYUAA-106 | AI Video Generation Tools for TikTok Production |
+| [forex-strategy-post-mortem-alternative-approaches.md](forex-strategy-post-mortem-alternative-approaches.md) | AYUAA-127 | Forex Strategy Post-Mortem Research — Alternative Approaches to ICT/SMC |
 
 > ⚠️ **Read before starting work in this domain.** These docs contain finalized decisions, specs, and research that inform all future work.

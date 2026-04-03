@@ -17,16 +17,15 @@ namespace ICTSMC
         private DateTime _currentDay;
         private double _maxDailyLoss;
         private int _rejectedSignals;
-        private ConfluenceSignal? _pendingSignal;
-        private int _pendingSignalBarIndex;
+        private int _lastTradeBarIndex;
 
         public BacktestEngine(BacktestConfig config)
         {
             _config = config;
             _structureAnalyzer = new MarketStructureAnalyzer();
             _signalEngine = new SignalConfluenceEngine(
-                minConfidence: config.MinConfidence,
-                defaultSLMultiplier: 2.5,
+                minConfidence: 0.15,
+                defaultSLMultiplier: 3.0,
                 tp1RR: 1.0,
                 tp2RR: 2.0,
                 tp3RR: 3.0);
@@ -57,40 +56,26 @@ namespace ICTSMC
 
                 CheckOpenTrades(openTrades, bar, i, trades, equityCurve);
 
-                if (openTrades.Count < _config.MaxOpenTrades && i >= _config.MinBarsBeforeSignal)
+                if (openTrades.Count < _config.MaxOpenTrades && i >= _config.MinBarsBeforeSignal && _balance > 0 && (i - _lastTradeBarIndex) >= _config.MinBarsBetweenTrades)
                 {
-                    if (_pendingSignal.HasValue)
-                    {
-                        bool stillValid = _pendingSignalBarIndex == i - 1;
-
-                        if (stillValid)
-                        {
-                            var confirmSignal = EvaluateSignal(i);
-                            if (confirmSignal.HasValue &&
-                                confirmSignal.Value.Direction == _pendingSignal.Value.Direction &&
-                                PassesFilters(confirmSignal.Value))
-                            {
-                                var trade = OpenTrade(_pendingSignal.Value, bar, i);
-                                if (trade.HasValue)
-                                    openTrades.Add(trade.Value);
-                                else
-                                    _rejectedSignals++;
-                            }
-                            else
-                            {
-                                _rejectedSignals++;
-                            }
-                        }
-
-                        _pendingSignal = null;
-                        _pendingSignalBarIndex = -1;
-                    }
-
                     var signal = EvaluateSignal(i);
                     if (signal.HasValue && PassesFilters(signal.Value))
                     {
-                        _pendingSignal = signal.Value;
-                        _pendingSignalBarIndex = i;
+                        if (IsDuplicateSignal(signal.Value, openTrades))
+                        {
+                            _rejectedSignals++;
+                        }
+                        else
+                        {
+                            var trade = OpenTrade(signal.Value, bar, i);
+                            if (trade.HasValue)
+                            {
+                                openTrades.Add(trade.Value);
+                                _lastTradeBarIndex = i;
+                            }
+                            else
+                                _rejectedSignals++;
+                        }
                     }
                     else if (signal.HasValue)
                     {
@@ -115,8 +100,7 @@ namespace ICTSMC
             _currentDay = DateTime.MinValue;
             _dailyStartBalance = _config.StartingBalance;
             _rejectedSignals = 0;
-            _pendingSignal = null;
-            _pendingSignalBarIndex = -1;
+            _lastTradeBarIndex = -100;
         }
 
         private void UpdateDailyTracking(DateTime barTime)
@@ -153,32 +137,36 @@ namespace ICTSMC
         private void CheckOpenTrades(List<SimulatedTrade> openTrades, Bar bar,
             int barIndex, List<SimulatedTrade> closedTrades, List<double> equityCurve)
         {
-            var toClose = new List<SimulatedTrade>();
+            var toClose = new List<int>();
 
-            foreach (var trade in openTrades)
+            for (int t = 0; t < openTrades.Count; t++)
             {
-                var (hit, exitPrice, exitReason) = CheckTradeExit(trade, bar);
+                var trade = openTrades[t];
+                var (hit, exitPrice, exitReason) = CheckTradeExit(ref trade, bar);
 
                 if (_config.TrailingStopEnabled && !hit)
                 {
                     UpdateTrailingStop(ref trade, bar);
                 }
 
+                openTrades[t] = trade;
+
                 if (hit)
                 {
-                    CloseTrade(trade, barIndex, bar.Time, exitPrice, exitReason);
+                    CloseTrade(ref trade, barIndex, bar.Time, exitPrice, exitReason);
+                    openTrades[t] = trade;
                     closedTrades.Add(trade);
-                    toClose.Add(trade);
+                    toClose.Add(t);
                     equityCurve.Add(_balance);
                 }
             }
 
-            foreach (var t in toClose)
-                openTrades.Remove(t);
+            for (int i = toClose.Count - 1; i >= 0; i--)
+                openTrades.RemoveAt(toClose[i]);
         }
 
         private (bool hit, double exitPrice, ExitReason reason) CheckTradeExit(
-            SimulatedTrade trade, Bar bar)
+            ref SimulatedTrade trade, Bar bar)
         {
             if (trade.Direction == TradeDirection.Long)
             {
@@ -193,7 +181,7 @@ namespace ICTSMC
                     double partialLots = trade.LotSize * _config.PartialClosePct;
                     double partialPips = (trade.TakeProfit1 - trade.EntryPrice) /
                         GetPipValue(trade.EntryPrice);
-                    trade.PartialClosePnL = partialPips * partialLots * GetPipValue(trade.EntryPrice);
+                    trade.PartialClosePnL = partialPips * partialLots * GetPipValue(trade.EntryPrice) * 100000.0;
                     _balance += trade.PartialClosePnL;
                     trade.LotSize *= (1.0 - _config.PartialClosePct);
                 }
@@ -217,7 +205,7 @@ namespace ICTSMC
                     double partialLots = trade.LotSize * _config.PartialClosePct;
                     double partialPips = (trade.EntryPrice - trade.TakeProfit1) /
                         GetPipValue(trade.EntryPrice);
-                    trade.PartialClosePnL = partialPips * partialLots * GetPipValue(trade.EntryPrice);
+                    trade.PartialClosePnL = partialPips * partialLots * GetPipValue(trade.EntryPrice) * 100000.0;
                     _balance += trade.PartialClosePnL;
                     trade.LotSize *= (1.0 - _config.PartialClosePct);
                 }
@@ -300,23 +288,11 @@ namespace ICTSMC
             if (signal.ConfluenceCount < _config.MinConfluences) return false;
             if (signal.RiskRewardRatio < _config.MinRiskReward) return false;
 
-            if (_config.RegimeFilterEnabled)
-            {
-                var state = new MarketState
-                {
-                    Bars = _bars
-                };
-                _structureAnalyzer.Analyze(state);
+            if (_config.RegimeFilterEnabled && !signal.HasStructureAlignment)
+                return false;
 
-                if (!_structureAnalyzer.IsStrongTrend(state))
-                    return false;
-            }
-
-            if (_config.NewsVolatilityFilterEnabled)
-            {
-                if (IsATRSpikeDetected())
-                    return false;
-            }
+            if (_config.NewsVolatilityFilterEnabled && IsATRSpikeDetected())
+                return false;
 
             return true;
         }
@@ -367,6 +343,20 @@ namespace ICTSMC
             return currentATR / longerATR > 2.0;
         }
 
+        private bool IsDuplicateSignal(ConfluenceSignal signal, List<SimulatedTrade> openTrades)
+        {
+            double pipValue = GetPipValue(signal.EntryPrice);
+            double maxPipDistance = 10.0;
+
+            foreach (var trade in openTrades)
+            {
+                if (trade.Direction != signal.Direction) continue;
+                double entryDistancePips = Math.Abs(trade.EntryPrice - signal.EntryPrice) / pipValue;
+                if (entryDistancePips < maxPipDistance) return true;
+            }
+            return false;
+        }
+
         private SimulatedTrade? OpenTrade(ConfluenceSignal signal, Bar bar, int barIndex)
         {
             double riskAmount = _balance * _config.RiskPerTradePct;
@@ -384,10 +374,12 @@ namespace ICTSMC
             double adjustedRisk = Math.Abs(effectiveEntry - signal.StopLoss);
             if (adjustedRisk == 0) return null;
 
-            double lotSize = riskAmount / adjustedRisk;
+            double lotSize = riskAmount / (adjustedRisk * 100000.0);
+            if (lotSize <= 0) return null;
 
-            if (lotSize * effectiveEntry > _balance)
-                return null;
+            double maxNotional = _balance * _config.Leverage;
+            if (lotSize * 100000.0 * effectiveEntry > maxNotional)
+                lotSize = maxNotional / (100000.0 * effectiveEntry);
 
             return new SimulatedTrade
             {
@@ -412,7 +404,7 @@ namespace ICTSMC
             };
         }
 
-        private void CloseTrade(SimulatedTrade trade, int barIndex,
+        private void CloseTrade(ref SimulatedTrade trade, int barIndex,
             DateTime exitTime, double exitPrice, ExitReason reason)
         {
             trade.ExitBarIndex = barIndex;
@@ -421,6 +413,7 @@ namespace ICTSMC
             trade.ExitReason = reason;
 
             double pipValue = GetPipValue(trade.EntryPrice);
+            double pipValuePerLot = pipValue * 100000.0;
             double commissionCost = trade.LotSize * _config.CommissionPerLot;
 
             if (trade.Direction == TradeDirection.Long)
@@ -432,8 +425,9 @@ namespace ICTSMC
                 trade.Pips = (trade.EntryPrice - exitPrice) / pipValue;
             }
 
-            trade.ProfitLoss = trade.Pips * trade.LotSize * pipValue - commissionCost;
-            _balance += trade.ProfitLoss;
+            double closePnL = trade.Pips * trade.LotSize * pipValuePerLot - commissionCost;
+            trade.ProfitLoss = closePnL + trade.PartialClosePnL;
+            _balance += closePnL;
 
             trade.Outcome = trade.ProfitLoss > 0.01 ? TradeOutcome.Win :
                 trade.ProfitLoss < -0.01 ? TradeOutcome.Loss : TradeOutcome.Breakeven;
@@ -449,13 +443,14 @@ namespace ICTSMC
         private void CloseAllOpenTrades(List<SimulatedTrade> openTrades, int barIndex,
             List<SimulatedTrade> closedTrades)
         {
-            foreach (var trade in openTrades)
+            for (int i = 0; i < openTrades.Count; i++)
             {
+                var trade = openTrades[i];
                 var lastBar = _bars[barIndex];
-                double exitPrice = trade.Direction == TradeDirection.Long
-                    ? lastBar.Close : lastBar.Close;
+                double exitPrice = lastBar.Close;
 
-                CloseTrade(trade, barIndex, lastBar.Time, exitPrice, ExitReason.EndOfData);
+                CloseTrade(ref trade, barIndex, lastBar.Time, exitPrice, ExitReason.EndOfData);
+                openTrades[i] = trade;
                 closedTrades.Add(trade);
             }
             openTrades.Clear();
@@ -542,7 +537,6 @@ namespace ICTSMC
         private static double GetPipValue(double price)
         {
             if (price > 50) return 0.01;
-            if (price > 10) return 0.01;
             return 0.0001;
         }
     }

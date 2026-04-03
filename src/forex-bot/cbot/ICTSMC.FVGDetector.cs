@@ -9,15 +9,19 @@ namespace ICTSMC
         private readonly int _maxAge;
         private readonly double _miniThreshold;
         private readonly double _massiveThreshold;
+        private readonly TimeFrame _timeFrame;
 
         public FVGDetector(
             int maxAge = 20,
             double miniThreshold = 0.0003,
-            double massiveThreshold = 0.002)
+            double massiveThreshold = 0.002,
+            TimeFrame timeFrame = default)
         {
             _maxAge = maxAge;
             _miniThreshold = miniThreshold;
             _massiveThreshold = massiveThreshold;
+            _timeFrame = timeFrame.Minutes == 0 ? TimeFrame.M15 : timeFrame;
+            System.Console.WriteLine($"[DEBUG] FVGDetector created: timeFrame.Minutes={timeFrame.Minutes}, _timeFrame.Minutes={_timeFrame.Minutes}");
         }
 
         public void Detect(MarketState state)
@@ -106,8 +110,9 @@ namespace ICTSMC
                     IsFilled = filled,
                     IsMitigated = false,
                     CreatedTime = candle1.Time,
-                    TimeFrame = TimeFrame.M15
+                    TimeFrame = _timeFrame
                 });
+                System.Console.WriteLine($"[DEBUG] FVG added: _timeFrame.Minutes={_timeFrame.Minutes}, lastFVG.Minutes={state.ActiveFVGs[state.ActiveFVGs.Count-1].TimeFrame.Minutes}");
             }
 
             CleanupStale(state);
