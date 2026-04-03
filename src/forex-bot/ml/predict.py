@@ -6,7 +6,7 @@ from .train_model import load_model, FEATURE_COLUMNS
 
 class SignalFilter:
     def __init__(self, model_dir: str):
-        self.model, self.feature_names = load_model(model_dir)
+        self.model, self.feature_names, self.model_type = load_model(model_dir)
         self._feature_index = {name: i for i, name in enumerate(self.feature_names)}
 
     def predict(self, feature_row: pd.Series) -> dict:

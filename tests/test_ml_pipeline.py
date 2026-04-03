@@ -205,7 +205,7 @@ class TestPredict:
             with open(os.path.join(tmpdir, "signal_filter.pkl"), "wb") as f:
                 pickle.dump(model, f)
             with open(os.path.join(tmpdir, "signal_filter_meta.json"), "w") as f:
-                json.dump({"feature_names": ["a", "b", "c", "d", "e"]}, f)
+                json.dump({"feature_names": ["a", "b", "c", "d", "e"], "model_type": "GradientBoosting"}, f)
 
             sf = SignalFilter(tmpdir)
             result = sf.predict(pd.Series({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}))
@@ -226,7 +226,7 @@ class TestPredict:
             with open(os.path.join(tmpdir, "signal_filter.pkl"), "wb") as f:
                 pickle.dump(model, f)
             with open(os.path.join(tmpdir, "signal_filter_meta.json"), "w") as f:
-                json.dump({"feature_names": ["a", "b", "c"]}, f)
+                json.dump({"feature_names": ["a", "b", "c"], "model_type": "GradientBoosting"}, f)
 
             sf = SignalFilter(tmpdir)
             features_df = pd.DataFrame(
@@ -251,7 +251,7 @@ class TestPredict:
             with open(os.path.join(tmpdir, "signal_filter.pkl"), "wb") as f:
                 pickle.dump(model, f)
             with open(os.path.join(tmpdir, "signal_filter_meta.json"), "w") as f:
-                json.dump({"feature_names": ["a", "b", "c"]}, f)
+                json.dump({"feature_names": ["a", "b", "c"], "model_type": "GradientBoosting"}, f)
 
             sf = SignalFilter(tmpdir)
             result = sf.predict(pd.Series({"a": 1}))
