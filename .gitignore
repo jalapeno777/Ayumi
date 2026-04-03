@@ -44,3 +44,4 @@ Thumbs.db
 
 # Worktrees (they're linked, not nested)
 worktrees/
+data/forex/forex.db
