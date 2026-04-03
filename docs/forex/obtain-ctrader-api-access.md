@@ -59,7 +59,7 @@ Craig has updated the cTrader API credentials. Use these:
 **cTrader Open API (Price Data):**
 - **Host:** demo-uk-eqx-01.p.c-trader.com
 - **Port:** 5211 (SSL) / 5201 (Plain)
-- **Password:** REDACTED_CREDENTIAL
+- **Password:** [REDACTED — rotate immediately]
 - **SenderCompID:** demo.ctrader.5795523
 - **TargetCompID:** cServer
 - **SenderSubID:** QUOTE
@@ -75,7 +75,7 @@ Craig has provided the cTrader Open API credentials for price/market data access
 **cTrader Open API (Price Data):**
 - **Host:** demo-uk-eqx-01.p.c-trader.com
 - **Port:** 5211 (SSL) / 5201 (Plain)
-- **Password:** (see account 5795519 password — stored securely)
+- **Password:** (see account 5795523 password — stored in .env)
 - **SenderCompID:** demo.ctrader.5795519
 - **TargetCompID:** cServer
 - **SenderSubID:** QUOTE
