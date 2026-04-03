@@ -145,6 +145,101 @@ def analyze_walk_forward(bars, config, train_ratio=0.7):
     return train_results, test_results
 
 
+def analyze_rolling_walk_forward(
+    bars,
+    config,
+    strategies,
+    n_windows: int = 3,
+    train_ratio: float = 0.6,
+    test_ratio: float = 0.2,
+    run_fn=None,
+):
+    """Run walk-forward validation across N rolling windows.
+
+    Each window splits a contiguous slice of bars into train and test
+    segments.  The windows are anchored (non-overlapping train periods)
+    so that every bar belongs to exactly one train or one test segment.
+
+    Args:
+        bars: Full bar list.
+        config: BacktestConfig instance.
+        strategies: List of ISignalStrategy instances.
+        n_windows: Minimum number of rolling windows (default 3).
+        train_ratio: Fraction of each window used for training (default 0.6).
+        test_ratio: Fraction of each window used for testing (default 0.2).
+            The remaining ``1 - train_ratio - test_ratio`` is a gap between
+            train and test (purge period).
+        run_fn: Callable ``(bars, config, strategies) -> dict``
+            that returns ``{strategy_name: BacktestMetrics}``.  When ``None``,
+            uses ``MultiStrategyBacktestEngine.run_all_strategies``.
+
+    Returns:
+        List of dicts, one per window, each containing:
+            - ``window_id``: int
+            - ``train_start``, ``train_end``, ``test_start``, ``test_end``: datetime
+            - ``train_bars``, ``test_bars``: int
+            - ``train_results``, ``test_results``: dict of strategy metrics
+    """
+    total = len(bars)
+    window_size = total // n_windows
+    results = []
+
+    for w in range(n_windows):
+        start = w * window_size
+        end = (w + 1) * window_size if w < n_windows - 1 else total
+        window_bars = bars[start:end]
+        wlen = len(window_bars)
+
+        if wlen < 100:
+            results.append({
+                "window_id": w,
+                "train_start": bars[start].time,
+                "train_end": bars[start].time,
+                "test_start": bars[start].time,
+                "test_end": bars[start].time,
+                "train_bars": 0,
+                "test_bars": 0,
+                "train_results": {},
+                "test_results": {},
+                "error": "Insufficient bars for window",
+            })
+            continue
+
+        train_end_idx = int(wlen * train_ratio)
+        gap_end_idx = int(wlen * (train_ratio + test_ratio))
+
+        train_bars = window_bars[:train_end_idx]
+        test_bars = window_bars[gap_end_idx:]
+
+        if run_fn is None:
+            engine = MultiStrategyBacktestEngine(config, strategies)
+            train_metrics = {
+                name: r.metrics
+                for name, r in engine.run_all_strategies(train_bars).items()
+            }
+            test_metrics = {
+                name: r.metrics
+                for name, r in engine.run_all_strategies(test_bars).items()
+            }
+        else:
+            train_metrics = run_fn(train_bars, config, strategies)
+            test_metrics = run_fn(test_bars, config, strategies)
+
+        results.append({
+            "window_id": w,
+            "train_start": train_bars[0].time,
+            "train_end": train_bars[-1].time,
+            "test_start": test_bars[0].time if test_bars else bars[start].time,
+            "test_end": test_bars[-1].time if test_bars else bars[start].time,
+            "train_bars": len(train_bars),
+            "test_bars": len(test_bars),
+            "train_results": train_metrics,
+            "test_results": test_metrics,
+        })
+
+    return results
+
+
 def run_amalgamation_backtest(bars, config):
     strategies = [
         MACrossStrategy(fast_period=5, slow_period=13, atr_multiplier=2.0),
