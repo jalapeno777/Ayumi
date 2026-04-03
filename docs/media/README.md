@@ -16,5 +16,6 @@
 | [tiktok-content-calendar-month-1.md](tiktok-content-calendar-month-1.md) | AYUAA-50 | **Status:** done | **Source:** Paperclip | TikTok Content Calendar — Month 1 |
 | [youtube-channel-launch-first-5-educational-scripts.md](youtube-channel-launch-first-5-educational-scripts.md) | AYUAA-55 | **Status:** done | **Source:** Paperclip | YouTube Channel Launch + First 5 Educational Scripts |
 | [youtube-week-1-production-next-5-educational-videos.md](youtube-week-1-production-next-5-educational-videos.md) | AYUAA-63 | **Status:** done | **Source:** Paperclip | YouTube Week 1 Production — Next 5 Educational Videos |
+| [copy-trading-platform-go-to-market-content-strategy.md](copy-trading-platform-go-to-market-content-strategy.md) | AYUAA-131 | **Status:** in_progress | **Source:** Paperclip | Copy Trading Platform — Go-to-Market Content Strategy |
 
 > ⚠️ **Read before starting work in this domain.** These docs contain finalized decisions, specs, and research that inform all future work.
