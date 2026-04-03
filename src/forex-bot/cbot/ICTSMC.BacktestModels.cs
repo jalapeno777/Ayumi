@@ -40,6 +40,8 @@ namespace ICTSMC
         public double PartialClosePct;
         public bool TrailingStopEnabled;
         public double TrailingStopATRMultiplier;
+        public bool RegimeFilterEnabled;
+        public bool NewsVolatilityFilterEnabled;
 
         public static BacktestConfig Default => new BacktestConfig
         {
@@ -49,8 +51,8 @@ namespace ICTSMC
             MaxTotalDrawdownPct = 0.05,
             SpreadPips = 0.5,
             CommissionPerLot = 3.5,
-            MinConfidence = 0.55,
-            MinConfluences = 2,
+            MinConfidence = 0.50,
+            MinConfluences = 1,
             MinRiskReward = 1.0,
             MaxOpenTrades = 1,
             MinBarsBeforeSignal = 30,
@@ -58,7 +60,9 @@ namespace ICTSMC
             PartialCloseAtRR = 1.0,
             PartialClosePct = 0.5,
             TrailingStopEnabled = false,
-            TrailingStopATRMultiplier = 1.0
+            TrailingStopATRMultiplier = 1.0,
+            RegimeFilterEnabled = true,
+            NewsVolatilityFilterEnabled = true
         };
 
         public static BacktestConfig Aggressive => new BacktestConfig
@@ -78,7 +82,9 @@ namespace ICTSMC
             PartialCloseAtRR = 1.0,
             PartialClosePct = 0.5,
             TrailingStopEnabled = true,
-            TrailingStopATRMultiplier = 1.0
+            TrailingStopATRMultiplier = 1.0,
+            RegimeFilterEnabled = false,
+            NewsVolatilityFilterEnabled = true
         };
 
         public static BacktestConfig Conservative => new BacktestConfig
@@ -98,7 +104,9 @@ namespace ICTSMC
             PartialCloseAtRR = 1.0,
             PartialClosePct = 0.5,
             TrailingStopEnabled = false,
-            TrailingStopATRMultiplier = 1.0
+            TrailingStopATRMultiplier = 1.0,
+            RegimeFilterEnabled = true,
+            NewsVolatilityFilterEnabled = true
         };
     }
 
