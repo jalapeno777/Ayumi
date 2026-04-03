@@ -215,9 +215,9 @@ namespace ICTSMC
 
         private static void Test_BacktestAggressiveConfig()
         {
-            Console.WriteLine("\nTest: Aggressive config uses 2% risk");
+            Console.WriteLine("\nTest: Aggressive config uses 1% risk");
             var config = BacktestConfig.Aggressive;
-            Assert(config.RiskPerTradePct == 0.02, $"Risk per trade is 2% (got {config.RiskPerTradePct * 100}%)");
+            Assert(config.RiskPerTradePct == 0.01, $"Risk per trade is 1% (got {config.RiskPerTradePct * 100}%)");
 
             var bars = MockDataGenerator.GenerateBullishTrend(100);
             var engine = new BacktestEngine(config);

@@ -33,7 +33,7 @@ namespace ICTSMC
             double sweepWeight = 0.15,
             double pdWeight = 0.10,
             double sessionWeight = 0.05,
-            double defaultSLMultiplier = 2.5,
+            double defaultSLMultiplier = 3.0,
             double tp1RR = 1.0,
             double tp2RR = 2.0,
             double tp3RR = 3.0)
@@ -265,20 +265,9 @@ namespace ICTSMC
             double sl;
             double atr = state.ATR;
 
-            var relevantOB = _obDetector.GetMostRelevant(state, direction);
-            if (relevantOB.HasValue)
-            {
-                var ob = relevantOB.Value;
-                sl = direction == TradeDirection.Long
-                    ? ob.Bottom - atr * 0.2
-                    : ob.Top + atr * 0.2;
-            }
-            else
-            {
-                sl = direction == TradeDirection.Long
-                    ? entry - atr * _defaultSLMultiplier
-                    : entry + atr * _defaultSLMultiplier;
-            }
+            sl = direction == TradeDirection.Long
+                ? entry - atr * _defaultSLMultiplier
+                : entry + atr * _defaultSLMultiplier;
 
             double risk = Math.Abs(entry - sl);
             double tp1 = direction == TradeDirection.Long
@@ -290,22 +279,6 @@ namespace ICTSMC
             double tp3 = direction == TradeDirection.Long
                 ? entry + risk * _tp3RR
                 : entry - risk * _tp3RR;
-
-            var nextSwing = direction == TradeDirection.Long
-                ? state.SwingHighs.OrderByDescending(s => s.Price).FirstOrDefault()
-                : state.SwingLows.OrderBy(s => s.Price).FirstOrDefault();
-
-            if (nextSwing.Price != 0)
-            {
-                double swingTP = direction == TradeDirection.Long
-                    ? nextSwing.Price - atr * 0.1
-                    : nextSwing.Price + atr * 0.1;
-
-                if (direction == TradeDirection.Long && swingTP > tp1)
-                    tp2 = swingTP;
-                else if (direction == TradeDirection.Short && swingTP < tp1)
-                    tp2 = swingTP;
-            }
 
             return (sl, tp1, tp2, tp3);
         }

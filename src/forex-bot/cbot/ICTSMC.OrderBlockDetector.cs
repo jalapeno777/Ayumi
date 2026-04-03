@@ -10,17 +10,20 @@ namespace ICTSMC
         private readonly double _minBodyRatio;
         private readonly double _overlapThreshold;
         private readonly int _lookback;
+        private readonly TimeFrame _timeFrame;
 
         public OrderBlockDetector(
             int freshnessWindow = 5,
             double minBodyRatio = 0.5,
             double overlapThreshold = 0.7,
-            int lookback = 50)
+            int lookback = 50,
+            TimeFrame timeFrame = default)
         {
             _freshnessWindow = freshnessWindow;
             _minBodyRatio = minBodyRatio;
             _overlapThreshold = overlapThreshold;
             _lookback = lookback;
+            _timeFrame = timeFrame.Minutes == 0 ? TimeFrame.M15 : timeFrame;
         }
 
         public void Detect(MarketState state)
@@ -96,7 +99,7 @@ namespace ICTSMC
                         IsMitigated = false,
                         Age = age,
                         CreatedTime = bar.Time,
-                        TimeFrame = TimeFrame.M15,
+                        TimeFrame = _timeFrame,
                         BodySize = bar.Body
                     });
                 }

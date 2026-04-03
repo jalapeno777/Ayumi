@@ -207,23 +207,22 @@ namespace ICTSMC
         public bool IsStrongTrend(MarketState state)
         {
             if (state.StructureBias == TradeDirection.Neutral) return false;
-            if (state.StructureBreaks.Count < 2) return false;
+            if (state.StructureBreaks.Count < 1) return false;
 
             var recentBreaks = state.StructureBreaks
                 .OrderByDescending(sb => sb.Time)
                 .Take(5)
                 .ToList();
 
-            int alignedCount = recentBreaks.Count(sb => sb.Direction == state.StructureBias);
-            double alignedRatio = alignedCount / (double)recentBreaks.Count;
-
-            if (alignedRatio < 0.6) return false;
-
             var lastBreak = recentBreaks.First();
             if (lastBreak.Direction != state.StructureBias) return false;
 
             double lastBreakAge = (state.LatestBar.Time - lastBreak.Time).TotalMinutes;
-            if (lastBreakAge > 240) return false;
+            if (lastBreakAge > 960) return false;
+
+            int alignedCount = recentBreaks.Count(sb => sb.Direction == state.StructureBias);
+            double alignedRatio = alignedCount / (double)recentBreaks.Count;
+            if (alignedRatio < 0.4) return false;
 
             return true;
         }
