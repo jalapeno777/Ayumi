@@ -100,6 +100,7 @@ drafts/                 # Work-in-progress (pre-review)
 5. **One feature per branch** — keep branches focused and small.
 6. **Document decisions** — significant technical decisions go in `docs/decisions/` as ADRs.
 7. **Review before merge** — nothing goes to `main` without QA + Critic sign-off.
+8. **Produce artifacts** — completed work (plans, specs, research, decisions) MUST be written as markdown files in `docs/`. Do not leave final outputs only in Paperclip issue descriptions or comments.
 
 ## Secret Management
 
