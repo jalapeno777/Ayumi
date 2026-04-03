@@ -1,3 +1,5 @@
+import os
+import json
 import numpy as np
 import pandas as pd
 
@@ -8,6 +10,15 @@ class SignalFilter:
     def __init__(self, model_dir: str):
         self.model, self.feature_names = load_model(model_dir)
         self._feature_index = {name: i for i, name in enumerate(self.feature_names)}
+        meta_path = os.path.join(model_dir, "signal_filter_meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+            self.model_type = meta.get("model_type", "gradient_boosting")
+            self.display_name = meta.get("display_name", self.model_type)
+        else:
+            self.model_type = "gradient_boosting"
+            self.display_name = "Gradient Boosting"
 
     def predict(self, feature_row: pd.Series) -> dict:
         values = np.full(len(self.feature_names), np.nan)

@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import tempfile
 import numpy as np
 import pandas as pd
@@ -18,6 +19,12 @@ from ml.signal_simulator import (
     momentum_signals, label_trades, generate_all_signals, build_labeled_dataset,
 )
 from ml.predict import SignalFilter, create_filter_integration_stub
+from ml.train_model import (
+    train_single_model, get_available_model_types,
+    _create_model, PARAM_GRIDS, MODEL_DISPLAY_NAMES,
+    _build_comparison_table, walk_forward_train,
+    save_model, load_model,
+)
 
 
 def make_test_df(n=200, seed=42):
@@ -257,3 +264,172 @@ class TestPredict:
             result = sf.predict(pd.Series({"a": 1}))
             assert result["approve"] is False
             assert "missing features" in result["reason"]
+
+
+class TestMultiModelSupport:
+    def test_param_grids_exist_for_all_types(self):
+        assert "gradient_boosting" in PARAM_GRIDS
+        assert "random_forest" in PARAM_GRIDS
+        assert "xgboost" in PARAM_GRIDS
+        for mt, grid in PARAM_GRIDS.items():
+            assert len(grid) >= 3, f"{mt} has too few param configs"
+
+    def test_display_names(self):
+        assert MODEL_DISPLAY_NAMES["gradient_boosting"] == "Gradient Boosting"
+        assert MODEL_DISPLAY_NAMES["random_forest"] == "Random Forest"
+        assert MODEL_DISPLAY_NAMES["xgboost"] == "XGBoost"
+
+    def test_get_available_model_types(self):
+        types = get_available_model_types()
+        assert "gradient_boosting" in types
+        assert "random_forest" in types
+
+    def test_create_model_gradient_boosting(self):
+        model = _create_model("gradient_boosting",
+                              {"n_estimators": 10, "max_depth": 2,
+                               "learning_rate": 0.1, "min_samples_leaf": 5},
+                              random_state=42)
+        assert model is not None
+        assert hasattr(model, "fit")
+
+    def test_create_model_random_forest(self):
+        model = _create_model("random_forest",
+                              {"n_estimators": 10, "max_depth": 2, "min_samples_leaf": 5},
+                              random_state=42)
+        assert model is not None
+        assert hasattr(model, "fit")
+
+    def test_create_model_unknown_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="Unknown model type"):
+            _create_model("nonexistent", {}, random_state=42)
+
+    def test_train_single_model_gradient_boosting(self):
+        X = np.random.randn(100, 5)
+        y = np.random.randint(0, 2, 100)
+        X_tr, X_val, y_tr, y_val = X[:80], X[80:], y[:80], y[80:]
+        result = train_single_model(X_tr, y_tr, X_val, y_val,
+                                    model_type="gradient_boosting")
+        assert "model" in result
+        assert "model_type" in result
+        assert result["model_type"] == "gradient_boosting"
+
+    def test_train_single_model_random_forest(self):
+        X = np.random.randn(100, 5)
+        y = np.random.randint(0, 2, 100)
+        X_tr, X_val, y_tr, y_val = X[:80], X[80:], y[:80], y[80:]
+        result = train_single_model(X_tr, y_tr, X_val, y_val,
+                                    model_type="random_forest")
+        assert result["model_type"] == "random_forest"
+
+    def test_train_single_model_unknown_raises(self):
+        import pytest
+        X = np.random.randn(50, 3)
+        y = np.random.randint(0, 2, 50)
+        with pytest.raises(ValueError, match="Unknown model type"):
+            train_single_model(X[:40], y[:40], X[40:], y[40:],
+                               model_type="nonexistent")
+
+    def test_walk_forward_single_model_backward_compat(self):
+        df = make_test_df(200)
+        features = build_feature_matrix(df)
+        dataset = build_labeled_dataset(df, features, max_holding_bars=50)
+        if len(dataset) < 80:
+            return
+        results = walk_forward_train(dataset, n_folds=2,
+                                     model_types=["gradient_boosting"])
+        assert "folds" in results
+        assert "feature_names" in results
+
+    def test_walk_forward_multi_model(self):
+        df = make_test_df(300)
+        features = build_feature_matrix(df)
+        dataset = build_labeled_dataset(df, features, max_holding_bars=50)
+        if len(dataset) < 80:
+            return
+        model_types = ["gradient_boosting", "random_forest"]
+        results = walk_forward_train(dataset, n_folds=2,
+                                     model_types=model_types)
+        for mt in model_types:
+            assert mt in results
+        assert "comparison" in results
+        assert isinstance(results["comparison"], pd.DataFrame)
+        assert "avg_f1" in results["comparison"].columns
+
+    def test_build_comparison_table(self):
+        all_results = {
+            "gradient_boosting": {
+                "summary": {"avg_f1": 0.55, "avg_accuracy": 0.6, "avg_precision": 0.5,
+                            "avg_recall": 0.4, "avg_filtered_win_rate": 55.0,
+                            "avg_filtered_profit_factor": 1.2, "avg_opt_profit_factor": 1.3,
+                            "n_folds_completed": 3},
+            },
+            "random_forest": {
+                "summary": {"avg_f1": 0.60, "avg_accuracy": 0.65, "avg_precision": 0.55,
+                            "avg_recall": 0.5, "avg_filtered_win_rate": 60.0,
+                            "avg_filtered_profit_factor": 1.5, "avg_opt_profit_factor": 1.6,
+                            "n_folds_completed": 3},
+            },
+        }
+        table = _build_comparison_table(all_results, ["gradient_boosting", "random_forest"])
+        assert len(table) == 2
+        assert table.iloc[0]["model_type"] == "random_forest"
+        assert table.iloc[0]["avg_f1"] == 0.60
+
+    def test_save_and_load_model_with_type(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import pickle
+            from sklearn.ensemble import RandomForestClassifier
+
+            model = RandomForestClassifier(n_estimators=10, max_depth=2, random_state=42)
+            X = np.random.randn(50, 3)
+            y = np.random.randint(0, 2, 50)
+            model.fit(X, y)
+
+            save_model(model, ["a", "b", "c"], {}, tmpdir,
+                       model_type="random_forest")
+
+            meta_path = os.path.join(tmpdir, "signal_filter_meta.json")
+            with open(meta_path) as f:
+                meta = json.load(f)
+            assert meta["model_type"] == "random_forest"
+            assert meta["display_name"] == "Random Forest"
+
+            loaded_model, feat_names = load_model(tmpdir)
+            assert feat_names == ["a", "b", "c"]
+            assert loaded_model is not None
+
+    def test_signal_filter_exposes_model_type(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import pickle
+            from sklearn.ensemble import RandomForestClassifier
+
+            model = RandomForestClassifier(n_estimators=10, max_depth=2, random_state=42)
+            X = np.random.randn(50, 3)
+            y = np.random.randint(0, 2, 50)
+            model.fit(X, y)
+
+            save_model(model, ["a", "b", "c"], {}, tmpdir,
+                       model_type="random_forest")
+
+            sf = SignalFilter(tmpdir)
+            assert sf.model_type == "random_forest"
+            assert sf.display_name == "Random Forest"
+
+    def test_xgboost_model_type_when_available(self):
+        try:
+            from xgboost import XGBClassifier
+        except ImportError:
+            return
+        X = np.random.randn(100, 5)
+        y = np.random.randint(0, 2, 100)
+        X_tr, X_val, y_tr, y_val = X[:80], X[80:], y[:80], y[80:]
+        result = train_single_model(X_tr, y_tr, X_val, y_val,
+                                    model_type="xgboost")
+        assert result["model_type"] == "xgboost"
+        assert result["model"] is not None
+
+    def test_xgboost_in_available_types(self):
+        types = get_available_model_types()
+        if "xgboost" in types:
+            assert "xgboost" in PARAM_GRIDS
