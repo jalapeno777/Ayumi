@@ -8,6 +8,7 @@ namespace ICTSMC
     {
         private readonly BacktestConfig _config;
         private readonly SignalConfluenceEngine _signalEngine;
+        private readonly MarketStructureAnalyzer _structureAnalyzer;
         private List<Bar> _bars;
         private double _balance;
         private double _peakBalance;
@@ -16,13 +17,16 @@ namespace ICTSMC
         private DateTime _currentDay;
         private double _maxDailyLoss;
         private int _rejectedSignals;
+        private ConfluenceSignal? _pendingSignal;
+        private int _pendingSignalBarIndex;
 
         public BacktestEngine(BacktestConfig config)
         {
             _config = config;
+            _structureAnalyzer = new MarketStructureAnalyzer();
             _signalEngine = new SignalConfluenceEngine(
                 minConfidence: config.MinConfidence,
-                defaultSLMultiplier: 1.5,
+                defaultSLMultiplier: 2.5,
                 tp1RR: 1.0,
                 tp2RR: 2.0,
                 tp3RR: 3.0);
@@ -55,14 +59,38 @@ namespace ICTSMC
 
                 if (openTrades.Count < _config.MaxOpenTrades && i >= _config.MinBarsBeforeSignal)
                 {
+                    if (_pendingSignal.HasValue)
+                    {
+                        bool stillValid = _pendingSignalBarIndex == i - 1;
+
+                        if (stillValid)
+                        {
+                            var confirmSignal = EvaluateSignal(i);
+                            if (confirmSignal.HasValue &&
+                                confirmSignal.Value.Direction == _pendingSignal.Value.Direction &&
+                                PassesFilters(confirmSignal.Value))
+                            {
+                                var trade = OpenTrade(_pendingSignal.Value, bar, i);
+                                if (trade.HasValue)
+                                    openTrades.Add(trade.Value);
+                                else
+                                    _rejectedSignals++;
+                            }
+                            else
+                            {
+                                _rejectedSignals++;
+                            }
+                        }
+
+                        _pendingSignal = null;
+                        _pendingSignalBarIndex = -1;
+                    }
+
                     var signal = EvaluateSignal(i);
                     if (signal.HasValue && PassesFilters(signal.Value))
                     {
-                        var trade = OpenTrade(signal.Value, bar, i);
-                        if (trade.HasValue)
-                            openTrades.Add(trade.Value);
-                        else
-                            _rejectedSignals++;
+                        _pendingSignal = signal.Value;
+                        _pendingSignalBarIndex = i;
                     }
                     else if (signal.HasValue)
                     {
@@ -87,6 +115,8 @@ namespace ICTSMC
             _currentDay = DateTime.MinValue;
             _dailyStartBalance = _config.StartingBalance;
             _rejectedSignals = 0;
+            _pendingSignal = null;
+            _pendingSignalBarIndex = -1;
         }
 
         private void UpdateDailyTracking(DateTime barTime)
@@ -269,7 +299,72 @@ namespace ICTSMC
             if (signal.ConfidenceScore < _config.MinConfidence) return false;
             if (signal.ConfluenceCount < _config.MinConfluences) return false;
             if (signal.RiskRewardRatio < _config.MinRiskReward) return false;
+
+            if (_config.RegimeFilterEnabled)
+            {
+                var state = new MarketState
+                {
+                    Bars = _bars
+                };
+                _structureAnalyzer.Analyze(state);
+
+                if (!_structureAnalyzer.IsStrongTrend(state))
+                    return false;
+            }
+
+            if (_config.NewsVolatilityFilterEnabled)
+            {
+                if (IsATRSpikeDetected())
+                    return false;
+            }
+
             return true;
+        }
+
+        private bool IsATRSpikeDetected()
+        {
+            if (_bars.Count < 30) return false;
+
+            double currentATR = 0;
+            double trSum = 0;
+            int period = 14;
+            for (int i = _bars.Count - period; i < _bars.Count; i++)
+            {
+                if (i > 0)
+                {
+                    double tr = Math.Max(
+                        _bars[i].High - _bars[i].Low,
+                        Math.Max(
+                            Math.Abs(_bars[i].High - _bars[i - 1].Close),
+                            Math.Abs(_bars[i].Low - _bars[i - 1].Close)
+                        )
+                    );
+                    trSum += tr;
+                }
+            }
+            currentATR = trSum / period;
+
+            double longerATRSum = 0;
+            int longerPeriod = Math.Min(50, _bars.Count - 1);
+            for (int i = _bars.Count - longerPeriod; i < _bars.Count; i++)
+            {
+                if (i > 0)
+                {
+                    double tr = Math.Max(
+                        _bars[i].High - _bars[i].Low,
+                        Math.Max(
+                            Math.Abs(_bars[i].High - _bars[i - 1].Close),
+                            Math.Abs(_bars[i].Low - _bars[i - 1].Close)
+                        )
+                    );
+                    longerATRSum += tr;
+                }
+            }
+            double longerATR = longerATRSum / longerPeriod;
+
+            if (longerATR == 0) return false;
+
+            return currentATR / longerATR > 2.0;
         }
 
         private SimulatedTrade? OpenTrade(ConfluenceSignal signal, Bar bar, int barIndex)

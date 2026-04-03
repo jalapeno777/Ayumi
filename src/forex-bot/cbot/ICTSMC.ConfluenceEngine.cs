@@ -33,7 +33,7 @@ namespace ICTSMC
             double sweepWeight = 0.15,
             double pdWeight = 0.10,
             double sessionWeight = 0.05,
-            double defaultSLMultiplier = 1.5,
+            double defaultSLMultiplier = 2.5,
             double tp1RR = 1.0,
             double tp2RR = 2.0,
             double tp3RR = 3.0)
