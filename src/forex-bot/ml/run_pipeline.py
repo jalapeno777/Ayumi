@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import argparse
 
 ml_dir = os.path.dirname(os.path.abspath(__file__))
 forex_bot_dir = os.path.dirname(ml_dir)
@@ -9,18 +10,38 @@ sys.path.insert(0, forex_bot_dir)
 from ml.train_model import run_full_pipeline
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="ML Signal Filter — Training Pipeline")
+    parser.add_argument("--source", choices=["csv", "db"], default="csv",
+                        help="Data source: csv (default) or db (SQLite)")
+    parser.add_argument("--db-path", default=None,
+                        help="Path to forex.db (default: data/forex/forex.db or FOREX_DB_PATH env var)")
+    parser.add_argument("--symbols", nargs="+", default=["EURUSD", "GBPUSD"],
+                        help="Symbols to train on")
+    parser.add_argument("--timeframe", default="H1", help="Primary timeframe")
+    parser.add_argument("--max-holding-bars", type=int, default=50,
+                        help="Max bars a trade can be held")
+    parser.add_argument("--n-folds", type=int, default=5,
+                        help="Number of walk-forward folds")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     project_root = os.path.dirname(os.path.dirname(forex_bot_dir))
     data_dir = os.path.join(project_root, "data", "forex")
     model_dir = os.path.join(data_dir, "models")
 
-    symbols = ["EURUSD", "GBPUSD"]
+    symbols = args.symbols
 
     print("=" * 60)
     print("ML Signal Filter — Training Pipeline")
     print("=" * 60)
     print(f"\nData dir:  {data_dir}")
     print(f"Model dir: {model_dir}")
+    print(f"Source:    {args.source}")
+    if args.source == "db":
+        print(f"DB path:   {args.db_path or 'default'}")
     print(f"Symbols:   {symbols}")
     print()
 
@@ -28,9 +49,11 @@ def main():
         symbols=symbols,
         data_dir=data_dir,
         output_dir=model_dir,
-        timeframe="H1",
-        max_holding_bars=50,
-        n_folds=5,
+        timeframe=args.timeframe,
+        max_holding_bars=args.max_holding_bars,
+        n_folds=args.n_folds,
+        source=args.source,
+        db_path=args.db_path,
     )
 
     if "error" in results and "folds" not in results:

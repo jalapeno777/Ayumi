@@ -15,6 +15,7 @@ from sklearn.inspection import permutation_importance
 
 from .features import build_feature_matrix, add_multi_timeframe_features, load_csv
 from .signal_simulator import build_labeled_dataset
+from .data_source import ForexDBDataSource
 
 try:
     from xgboost import XGBClassifier
@@ -110,20 +111,30 @@ def get_available_model_types() -> list[str]:
 
 
 def prepare_dataset(symbol: str, data_dir: str, timeframe: str = "H1",
-                    max_holding_bars: int = 50) -> pd.DataFrame:
-    tf_map = {"M15": "M15", "H1": "H1", "H4": "H4", "D1": "D1"}
-    tf_file = tf_map.get(timeframe, timeframe)
+                    max_holding_bars: int = 50, source: str = "csv",
+                    db_path: str | None = None) -> pd.DataFrame:
+    if source == "db":
+        ds = ForexDBDataSource(db_path)
+        df = ds.load_candles(symbol, timeframe)
+    else:
+        tf_map = {"M15": "M15", "H1": "H1", "H4": "H4", "D1": "D1"}
+        tf_file = tf_map.get(timeframe, timeframe)
 
-    csv_path = os.path.join(data_dir, "historical", f"{symbol}_{tf_file}.csv")
-    df = load_csv(csv_path)
+        csv_path = os.path.join(data_dir, "historical", f"{symbol}_{tf_file}.csv")
+        df = load_csv(csv_path)
 
     features = build_feature_matrix(df)
 
     h4_path = os.path.join(data_dir, "historical", f"{symbol}_H4.csv")
     d1_path = os.path.join(data_dir, "historical", f"{symbol}_D1.csv")
 
-    h4_df = load_csv(h4_path) if os.path.exists(h4_path) else None
-    d1_df = load_csv(d1_path) if os.path.exists(d1_path) else None
+    if source == "db":
+        ds = ForexDBDataSource(db_path)
+        h4_df = ds.load_candles(symbol, "H4")
+        d1_df = ds.load_candles(symbol, "D1")
+    else:
+        h4_df = load_csv(h4_path) if os.path.exists(h4_path) else None
+        d1_df = load_csv(d1_path) if os.path.exists(d1_path) else None
 
     if h4_df is not None and d1_df is not None:
         features = add_multi_timeframe_features(features, h4_df, d1_df)
@@ -474,14 +485,19 @@ def load_model(model_dir: str) -> tuple:
 def run_full_pipeline(symbols: list[str], data_dir: str, output_dir: str,
                       timeframe: str = "H1", max_holding_bars: int = 50,
                       n_folds: int = 5,
-                      model_types: list[str] | None = None) -> dict:
+                      model_types: list[str] | None = None,
+                      source: str = "csv",
+                      db_path: str | None = None) -> dict:
     if model_types is None:
         model_types = ["gradient_boosting"]
 
     all_datasets = []
 
     for symbol in symbols:
-        dataset = prepare_dataset(symbol, data_dir, timeframe, max_holding_bars)
+        dataset = prepare_dataset(
+            symbol, data_dir, timeframe, max_holding_bars,
+            source=source, db_path=db_path,
+        )
         if not dataset.empty:
             all_datasets.append(dataset)
             print(f"  {symbol}: {len(dataset)} labeled trades")
