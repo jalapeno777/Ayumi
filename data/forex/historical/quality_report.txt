@@ -1,0 +1,45 @@
+FOREX DATA QUALITY REPORT
+Generated: 2026-04-03 01:23:43
+Source: HistData.com (MetaTrader M1 bid data)
+Date Range: 2023-01 to 2025-12
+Instruments: EURUSD, GBPUSD
+Method: M1 yearly downloads, resampled to M15/H1/H4/D1
+
+FILE INVENTORY
+------------------------------------------------------------
+  EURUSD_M15.csv  (71498 bars)
+  EURUSD_H1.csv  (17877 bars)
+  EURUSD_H4.csv  (4807 bars)
+  EURUSD_D1.csv  (938 bars)
+  GBPUSD_M15.csv  (71436 bars)
+  GBPUSD_H1.csv  (17862 bars)
+  GBPUSD_H4.csv  (4804 bars)
+  GBPUSD_D1.csv  (938 bars)
+
+GAP ANALYSIS
+------------------------------------------------------------
+  EURUSD   M15   bars=  71498  gaps= 851  (weekend=157, intraday=694)
+           range: 2023-01-01 17:00:00 to 2025-12-31 16:45:00
+  EURUSD   H1    bars=  17877  gaps= 843  (weekend=157, intraday=686)
+           range: 2023-01-01 17:00:00 to 2025-12-31 16:00:00
+  EURUSD   H4    bars=   4807  gaps= 160  (weekend=157, intraday=3)
+           range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
+  EURUSD   D1    bars=    938  gaps= 156  (weekend=156, intraday=0)
+           range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
+  GBPUSD   M15   bars=  71436  gaps= 845  (weekend=157, intraday=688)
+           range: 2023-01-01 18:00:00 to 2025-12-31 16:45:00
+  GBPUSD   H1    bars=  17862  gaps= 839  (weekend=157, intraday=682)
+           range: 2023-01-01 18:00:00 to 2025-12-31 16:00:00
+  GBPUSD   H4    bars=   4804  gaps= 160  (weekend=157, intraday=3)
+           range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
+  GBPUSD   D1    bars=    938  gaps= 156  (weekend=156, intraday=0)
+           range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
+
+NOTES
+------------------------------------------------------------
+- Data source: HistData.com MetaTrader bid prices
+- Weekend gaps (Fri close to Sun/Mon open) are expected
+- Intraday gaps may occur during low-liquidity sessions
+- Volume field is tick volume (often 0 in HistData)
+- CSV format: Date,Open,High,Low,Close,Volume (yyyy-MM-dd HH:mm)
+- Compatible with ICTSMC.CsvDataLoader
