@@ -43,7 +43,6 @@ def _make_signal(
 
 
 class TestAcceptancePaths(unittest.TestCase):
-
     def test_london_session_long_passes(self):
         v = SignalValidator()
         s = _make_signal(session=Session.LONDON, direction=Direction.LONG)
@@ -64,14 +63,17 @@ class TestAcceptancePaths(unittest.TestCase):
 
     def test_sell_direction_passes(self):
         v = SignalValidator()
-        s = _make_signal(direction=Direction.SHORT, entry_price=1.1000,
-                         stop_loss=1.1050, take_profit=1.0900)
+        s = _make_signal(
+            direction=Direction.SHORT,
+            entry_price=1.1000,
+            stop_loss=1.1050,
+            take_profit=1.0900,
+        )
         r = v.validate(s)
         self.assertTrue(r.passed, r.reason)
 
 
 class TestStrengthGate(unittest.TestCase):
-
     def test_weak_signal_rejected_when_min_moderate(self):
         v = SignalValidator()
         s = _make_signal(strength=Strength.WEAK)
@@ -99,7 +101,6 @@ class TestStrengthGate(unittest.TestCase):
 
 
 class TestFreshnessGate(unittest.TestCase):
-
     def test_fresh_signal_passes(self):
         v = SignalValidator()
         s = _make_signal(candle_age_seconds=0)
@@ -121,7 +122,6 @@ class TestFreshnessGate(unittest.TestCase):
 
 
 class TestConfluenceGate(unittest.TestCase):
-
     def test_confluence_at_min_passes(self):
         v = SignalValidator()
         s = _make_signal(confluence_count=2)
@@ -143,7 +143,6 @@ class TestConfluenceGate(unittest.TestCase):
 
 
 class TestSessionGate(unittest.TestCase):
-
     def test_outside_session_rejected_when_killzone_required(self):
         v = SignalValidator()
         s = _make_signal(session=Session.OUTSIDE)
@@ -160,7 +159,6 @@ class TestSessionGate(unittest.TestCase):
 
 
 class TestRiskRewardGate(unittest.TestCase):
-
     def test_good_rr_passes(self):
         v = SignalValidator()
         s = _make_signal(stop_loss=1.0950, take_profit=1.1100)
@@ -198,7 +196,6 @@ class TestRiskRewardGate(unittest.TestCase):
 
 
 class TestConfluenceScoring(unittest.TestCase):
-
     def test_freshness_penalty_applied(self):
         v = SignalValidator()
         s = _make_signal(candle_age_seconds=400, confluence_count=3)
@@ -213,7 +210,9 @@ class TestConfluenceScoring(unittest.TestCase):
 
     def test_combined_penalty_and_bonus(self):
         v = SignalValidator()
-        s = _make_signal(candle_age_seconds=400, session=Session.NY_AM, confluence_count=3)
+        s = _make_signal(
+            candle_age_seconds=400, session=Session.NY_AM, confluence_count=3
+        )
         score = v.confluence_score(s, freshness_penalty=0.5, killzone_bonus=1.0)
         self.assertAlmostEqual(score, 3.5, places=2)
 
@@ -225,7 +224,6 @@ class TestConfluenceScoring(unittest.TestCase):
 
 
 class TestBatchValidation(unittest.TestCase):
-
     def test_batch_returns_all_results(self):
         v = SignalValidator()
         good = _make_signal()
@@ -237,7 +235,6 @@ class TestBatchValidation(unittest.TestCase):
 
 
 class TestFiltering(unittest.TestCase):
-
     def test_filter_keeps_only_passing_signals(self):
         v = SignalValidator()
         signals = [
@@ -250,7 +247,6 @@ class TestFiltering(unittest.TestCase):
 
 
 class TestCustomConfig(unittest.TestCase):
-
     def test_custom_min_strength(self):
         cfg = ValidatorConfig(min_strength=Strength.STRONG)
         v = SignalValidator(config=cfg)
@@ -274,11 +270,14 @@ class TestCustomConfig(unittest.TestCase):
 
 
 class TestConfluenceCounting(unittest.TestCase):
-
     def test_count_with_boolean_flags(self):
         v = SignalValidator()
-        s = _make_signal(confluence_count=1, has_liquidity_sweep=True,
-                         has_order_block=True, has_fvg=True)
+        s = _make_signal(
+            confluence_count=1,
+            has_liquidity_sweep=True,
+            has_order_block=True,
+            has_fvg=True,
+        )
         count = v.count_confluences(s)
         self.assertEqual(count, 4)
 
@@ -296,7 +295,6 @@ class TestConfluenceCounting(unittest.TestCase):
 
 
 class TestEdgeCases(unittest.TestCase):
-
     def test_just_over_max_candle_age_rejected(self):
         v = SignalValidator()
         s = _make_signal(candle_age_seconds=300.001)
@@ -306,8 +304,12 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_short_direction_risk_reward(self):
         v = SignalValidator()
-        s = _make_signal(direction=Direction.SHORT, entry_price=1.1000,
-                         stop_loss=1.1050, take_profit=1.0800)
+        s = _make_signal(
+            direction=Direction.SHORT,
+            entry_price=1.1000,
+            stop_loss=1.1050,
+            take_profit=1.0800,
+        )
         r = v.validate(s)
         self.assertTrue(r.passed, r.reason)
 
@@ -332,14 +334,20 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_confluence_score_no_penalty_no_bonus(self):
         v = SignalValidator()
-        s = _make_signal(candle_age_seconds=10, session=Session.OUTSIDE, confluence_count=5)
+        s = _make_signal(
+            candle_age_seconds=10, session=Session.OUTSIDE, confluence_count=5
+        )
         score = v.confluence_score(s, freshness_penalty=0.1, killzone_bonus=0.2)
         self.assertEqual(score, 5.0)
 
     def test_first_failing_gate_short_circuits(self):
         v = SignalValidator()
-        s = _make_signal(strength=Strength.WEAK, candle_age_seconds=9999, confluence_count=0,
-                         session=Session.OUTSIDE)
+        s = _make_signal(
+            strength=Strength.WEAK,
+            candle_age_seconds=9999,
+            confluence_count=0,
+            session=Session.OUTSIDE,
+        )
         r = v.validate(s)
         self.assertFalse(r.passed)
         self.assertIn("Strength", r.reason)
