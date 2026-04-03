@@ -21,6 +21,24 @@ class ConfidenceMethod(Enum):
     CONFLUENCE = "confluence"
 
 
+ICT_SMC_COMPONENT_TYPES = [
+    "order_block",
+    "fair_value_gap",
+    "liquidity_sweep",
+    "market_structure",
+    "premium_discount",
+    "h4_context",
+]
+
+INDICATOR_STRATEGY_PATTERNS = [
+    "MA Crossover",
+    "RSI Divergence",
+    "Momentum ROC",
+    "Bollinger Band",
+    "S/R Breakout",
+]
+
+
 @dataclass
 class AmalgamationConfig:
     voting_method: VotingMethod = VotingMethod.WEIGHTED
@@ -34,9 +52,16 @@ class AmalgamationConfig:
     allowed_sessions: List[SessionType] = field(default_factory=lambda: [
         SessionType.LONDON, SessionType.NY_AM, SessionType.NY_PM
     ])
+    ict_smc_only: bool = True
 
     def get_weight(self, strategy_name: str) -> float:
         return self.strategy_weights.get(strategy_name, 1.0)
+
+    def is_indicator_strategy(self, strategy_name: str) -> bool:
+        for pattern in INDICATOR_STRATEGY_PATTERNS:
+            if pattern.lower() in strategy_name.lower():
+                return True
+        return False
 
 
 @dataclass
@@ -82,35 +107,11 @@ class ComponentExtractor:
 
     def profile_strategy(self, strategy: ISignalStrategy) -> ComponentProfile:
         name = strategy.name
-        if "MA" in name or "Crossover" in name:
+        if "ICT" in name or "SMC" in name or "Confluence" in name:
             return ComponentProfile(
                 name=name,
-                component_type="signal_generator",
-                sub_components=["ma_fast", "ma_slow", "trend_strength_filter", "atr_stop"]
-            )
-        elif "BB" in name or "Bollinger" in name:
-            return ComponentProfile(
-                name=name,
-                component_type="signal_generator",
-                sub_components=["sma_band", "std_dev_channel", "band_touch_signal", "band_width_filter", "atr_stop"]
-            )
-        elif "RSI" in name:
-            return ComponentProfile(
-                name=name,
-                component_type="signal_generator",
-                sub_components=["rsi_oscillator", "overbought_oversold_zones", "atr_stop"]
-            )
-        elif "S/R" in name or "Breakout" in name:
-            return ComponentProfile(
-                name=name,
-                component_type="signal_generator",
-                sub_components=["sr_level_detection", "breakout_threshold", "confirmation_bars", "atr_stop"]
-            )
-        elif "ROC" in name or "Momentum" in name:
-            return ComponentProfile(
-                name=name,
-                component_type="signal_generator",
-                sub_components=["roc_calculation", "momentum_threshold", "atr_stop"]
+                component_type="ict_smc_confluence",
+                sub_components=ICT_SMC_COMPONENT_TYPES
             )
         return ComponentProfile(name=name, component_type="unknown")
 
@@ -243,9 +244,19 @@ class AmalgamatedBacktestEngine:
     def __init__(self, config: BacktestConfig, strategies: List[ISignalStrategy],
                  amalgamation_config: Optional[AmalgamationConfig] = None):
         self.config = config
-        self.strategies = strategies
-        self.amalgamation = amalgamation_config or AmalgamationConfig()
+        self.amalgamation = amalgamation_config if amalgamation_config else AmalgamationConfig()
         self.extractor = ComponentExtractor()
+        if self.amalgamation.ict_smc_only:
+            filtered = [s for s in strategies if not self.amalgamation.is_indicator_strategy(s.name)]
+            if filtered:
+                self.strategies = filtered
+            else:
+                from .ict_smc.strategy_adapter import ICTSMCStrategy
+                self.strategies = [ICTSMCStrategy()]
+                if self.amalgamation.min_confluence > 1:
+                    self.amalgamation.min_confluence = 1
+        else:
+            self.strategies = strategies
 
     def run(self, bars: List[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
