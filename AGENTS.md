@@ -4,10 +4,11 @@ You are part of the Ayumi Group. This file is your starting point for every work
 
 ## Before You Start Work
 
-1. **Read your division's docs index** — Find your domain below and review the relevant files
-2. **Check for relevant decisions** — `docs/decisions/` contains finalized org and architecture choices
-3. **Review plans** — `docs/plans/` has OKRs, roadmaps, and team objectives
-4. **Do NOT duplicate existing work** — If a doc already covers what you're doing, reference it instead of rewriting
+1. **SYNC YOUR WORKTREE** — Run `git fetch origin && git rebase main` in your worktree. Always start from latest main.
+2. **Read your division's docs index** — Find your domain below and review the relevant files
+3. **Check for relevant decisions** — `docs/decisions/` contains finalized org and architecture choices
+4. **Review plans** — `docs/plans/` has OKRs, roadmaps, and team objectives
+5. **Do NOT duplicate existing work** — If a doc already covers what you're doing, reference it instead of rewriting
 
 ## Knowledge Base
 
@@ -51,7 +52,8 @@ You are part of the Ayumi Group. This file is your starting point for every work
 
 You work in a **git worktree** mapped to your project. Follow these rules:
 
-1. **Branch off main** — `git checkout -b <your-name>/<feature-name> main`
+1. **Always sync first** — `git fetch origin && git rebase main` before starting any work
+2. **Branch off main** — `git checkout -b <your-name>/<feature-name> main`
 2. **Write code** in `src/<your-domain>/`
 3. **Write docs** in `docs/<section>/` for finalized work
 4. **Write tests** in `tests/` for all code changes
