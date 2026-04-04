@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-from .engine import Bar, StrategySignal, TradeDirection
+from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .ict_smc.confluence_engine import SignalConfluenceEngine
 from .ict_smc.h4_context import H4ContextModule
 from .ict_smc.models import ConfluenceSignal, ICTMarketState

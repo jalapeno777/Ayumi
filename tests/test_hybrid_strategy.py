@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from backtest.engine import Bar, TradeDirection
 from backtest.ict_smc.models import ConfluenceSignal, ICTMarketState, SignalStrength
@@ -70,7 +70,9 @@ class TestHybridConfig(unittest.TestCase):
         self.assertEqual(len(config.enabled_filters), 3)
 
     def test_custom_filters(self):
-        config = HybridConfig(enabled_filters=(QuantFilterName.VOLATILITY,))
+        config = HybridConfig(
+            enabled_filters=(QuantFilterName.VOLATILITY,)
+        )
         self.assertEqual(len(config.enabled_filters), 1)
         self.assertIn(QuantFilterName.VOLATILITY, config.enabled_filters)
 
@@ -116,7 +118,9 @@ class TestHybridStrategy(unittest.TestCase):
         mock_engine.evaluate.return_value = signal
 
         mock_h4 = MagicMock()
-        mock_h4.analyze.return_value = MagicMock(bullish_score=0.8, bearish_score=0.1)
+        mock_h4.analyze.return_value = MagicMock(
+            bullish_score=0.8, bearish_score=0.1
+        )
 
         strategy = self._make_strategy(ict_engine=mock_engine)
         strategy._h4_module = mock_h4
@@ -204,7 +208,9 @@ class TestHybridStrategy(unittest.TestCase):
         mock_engine.evaluate.return_value = signal
 
         mock_h4 = MagicMock()
-        mock_h4.analyze.return_value = MagicMock(bullish_score=0.1, bearish_score=0.8)
+        mock_h4.analyze.return_value = MagicMock(
+            bullish_score=0.1, bearish_score=0.8
+        )
 
         config = HybridConfig(
             enabled_filters=(QuantFilterName.H4_ALIGNMENT,),
@@ -216,8 +222,7 @@ class TestHybridStrategy(unittest.TestCase):
         h4_bars = _make_h4_bars()
 
         result = strategy.evaluate(
-            ict_state,
-            h4_bars=h4_bars,
+            ict_state, h4_bars=h4_bars,
         )
 
         self.assertIsNone(result)
@@ -273,9 +278,7 @@ class TestHybridStrategy(unittest.TestCase):
     def test_metrics_tracked_across_multiple_evaluations(self):
         mock_engine = MagicMock()
 
-        high_signal = _make_confluence_signal(
-            direction=TradeDirection.LONG, confidence=0.7
-        )
+        high_signal = _make_confluence_signal(direction=TradeDirection.LONG, confidence=0.7)
         low_conf_signal = _make_confluence_signal(confidence=0.3)
         mock_engine.evaluate.side_effect = [
             high_signal,
@@ -284,7 +287,9 @@ class TestHybridStrategy(unittest.TestCase):
         ]
 
         mock_h4 = MagicMock()
-        mock_h4.analyze.return_value = MagicMock(bullish_score=0.8, bearish_score=0.1)
+        mock_h4.analyze.return_value = MagicMock(
+            bullish_score=0.8, bearish_score=0.1
+        )
 
         config = HybridConfig(min_confidence=0.5)
         strategy = self._make_strategy(config=config, ict_engine=mock_engine)
@@ -294,9 +299,7 @@ class TestHybridStrategy(unittest.TestCase):
         atr_series = [0.001 + i * 0.00001 for i in range(60)]
 
         strategy.evaluate(
-            ict_state,
-            h4_bars=h4_bars,
-            atr_series=atr_series,
+            ict_state, h4_bars=h4_bars, atr_series=atr_series,
             high_series=[b.high for b in ict_state.bars],
             low_series=[b.low for b in ict_state.bars],
             close_series=[b.close for b in ict_state.bars],
@@ -304,9 +307,7 @@ class TestHybridStrategy(unittest.TestCase):
         )
         strategy.evaluate(ict_state)
         strategy.evaluate(
-            ict_state,
-            h4_bars=h4_bars,
-            atr_series=atr_series,
+            ict_state, h4_bars=h4_bars, atr_series=atr_series,
             high_series=[b.high for b in ict_state.bars],
             low_series=[b.low for b in ict_state.bars],
             close_series=[b.close for b in ict_state.bars],
@@ -360,7 +361,9 @@ class TestHybridStrategy(unittest.TestCase):
         mock_engine.evaluate.return_value = signal
 
         mock_h4 = MagicMock()
-        mock_h4.analyze.return_value = MagicMock(bullish_score=0.1, bearish_score=0.8)
+        mock_h4.analyze.return_value = MagicMock(
+            bullish_score=0.1, bearish_score=0.8
+        )
 
         config = HybridConfig(
             enabled_filters=(QuantFilterName.H4_ALIGNMENT,),
