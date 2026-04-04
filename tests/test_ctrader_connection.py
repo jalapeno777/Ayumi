@@ -116,7 +116,7 @@ class TestLoadCredentials(unittest.TestCase):
     def test_missing_required_vars_raises(self):
         with self.assertRaises(MissingCredentialError) as ctx:
             _load_credentials()
-        self.assertIn("CTRADER_HOST", str(ctx.exception))
+        self.assertIn("CTRADER_ACCOUNT", str(ctx.exception))
 
     def test_all_required_vars_loaded(self):
         _set_env(SAMPLE_CREDS)
