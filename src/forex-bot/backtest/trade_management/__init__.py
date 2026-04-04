@@ -1,4 +1,10 @@
-from .config import TradeManagementConfig, PartialExitConfig, TrailingStopConfig, SessionFilterConfig, ExitRefinementConfig
+from .config import (
+    TradeManagementConfig,
+    PartialExitConfig,
+    TrailingStopConfig,
+    SessionFilterConfig,
+    ExitRefinementConfig,
+)
 from .partial_exit import PartialExitManager, ExitTier, PartialExitAction
 from .trailing_stop import TrailingStopManager, TrailingStopMethod
 from .session_filter import SessionFilter, SessionKillZone, NewsEventSimulator

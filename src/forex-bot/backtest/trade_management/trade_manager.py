@@ -89,9 +89,14 @@ class TradeManager:
             max_spread_atr_pct=self.config.exit_refinement.max_spread_atr_pct,
         )
 
-    def check_entry_allowed(self, bar: Bar, signal: StrategySignal,
-                            atr: float, spread_pips: float = 0.5,
-                            pair: str = "EURUSD") -> SessionFilterResult:
+    def check_entry_allowed(
+        self,
+        bar: Bar,
+        signal: StrategySignal,
+        atr: float,
+        spread_pips: float = 0.5,
+        pair: str = "EURUSD",
+    ) -> SessionFilterResult:
         session_result = self._session_filter.check_entry(bar, pair)
         if not session_result.allow_entry:
             return session_result
@@ -104,8 +109,9 @@ class TradeManager:
 
         return SessionFilterResult(allow_entry=True)
 
-    def open_trade(self, bar_index: int, bar: Bar, signal: StrategySignal,
-                   lot_size: float) -> ManagedTrade:
+    def open_trade(
+        self, bar_index: int, bar: Bar, signal: StrategySignal, lot_size: float
+    ) -> ManagedTrade:
         trade = ManagedTrade(
             entry_bar_index=bar_index,
             direction=signal.direction,
@@ -127,14 +133,22 @@ class TradeManager:
         )
         return trade
 
-    def on_bar(self, trade: ManagedTrade, bar: Bar, bar_index: int,
-               atr: float, recent_bars: Optional[List[Bar]] = None) -> ManagementResult:
+    def on_bar(
+        self,
+        trade: ManagedTrade,
+        bar: Bar,
+        bar_index: int,
+        atr: float,
+        recent_bars: Optional[List[Bar]] = None,
+    ) -> ManagementResult:
         if trade.is_closed:
             return ManagementResult(action=TradeAction.NO_ACTION)
 
         trade.bars_held = bar_index - trade.entry_bar_index
 
-        session_hold = self._session_filter.check_hold(bar, trade.entry_time, trade.direction)
+        session_hold = self._session_filter.check_hold(
+            bar, trade.entry_time, trade.direction
+        )
         if session_hold.force_close:
             trade.is_closed = True
             trade.exit_price = bar.close
@@ -158,9 +172,14 @@ class TradeManager:
             )
 
         partial_result = self._partial_exit.evaluate(
-            bar, trade.tier_state, trade.direction,
-            trade.entry_price, trade.stop_loss,
-            trade.take_profit_1, trade.take_profit_2, trade.take_profit_3,
+            bar,
+            trade.tier_state,
+            trade.direction,
+            trade.entry_price,
+            trade.stop_loss,
+            trade.take_profit_1,
+            trade.take_profit_2,
+            trade.take_profit_3,
             trade.current_sl,
         )
 
@@ -178,12 +197,14 @@ class TradeManager:
             )
 
         if partial_result.action == PartialExitAction.PARTIAL_CLOSE:
-            trade.partial_closes.append({
-                "bar_index": bar_index,
-                "price": partial_result.exit_price,
-                "pct": partial_result.close_pct,
-                "reason": partial_result.reason.value,
-            })
+            trade.partial_closes.append(
+                {
+                    "bar_index": bar_index,
+                    "price": partial_result.exit_price,
+                    "pct": partial_result.close_pct,
+                    "reason": partial_result.reason.value,
+                }
+            )
             trade.remaining_pct = trade.tier_state.remaining_pct
 
             if partial_result.tier_reached.value >= 1:
@@ -207,8 +228,11 @@ class TradeManager:
         if partial_result.action == PartialExitAction.ENABLE_TRAIL:
             trade.trailing_state.is_active = True
 
-        if (trade.trailing_state.is_active and
-                partial_result.tier_reached.value >= self.config.trailing_stop.only_after_tier):
+        if (
+            trade.trailing_state.is_active
+            and partial_result.tier_reached.value
+            >= self.config.trailing_stop.only_after_tier
+        ):
             trail_result = self._trailing_stop.evaluate(
                 bar, trade.trailing_state, trade.direction, atr, trade.entry_price
             )

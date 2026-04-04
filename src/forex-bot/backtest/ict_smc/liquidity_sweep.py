@@ -33,20 +33,26 @@ class LiquiditySweepDetector:
         start_idx = max(0, len(bars) - self._pool_lookback)
         for i in range(start_idx, len(bars)):
             if 0 < i < len(bars) - 1:
-                if bars[i].high >= bars[i - 1].high and bars[i].high >= bars[i + 1].high:
+                if (
+                    bars[i].high >= bars[i - 1].high
+                    and bars[i].high >= bars[i + 1].high
+                ):
                     touches = 1
                     for j in range(i + 1, len(bars)):
                         if bars[j].high >= bars[i].high - (bars[i].high * 0.0001):
                             touches += 1
                         else:
                             break
-                    state.liquidity_pools.append(LiquidityPool(
-                        level=bars[i].high,
-                        touches=touches,
-                        is_high=True,
-                        is_day_high=abs(bars[i].high - state.day_high) < bars[i].high * 0.0001,
-                        bar_index=i,
-                    ))
+                    state.liquidity_pools.append(
+                        LiquidityPool(
+                            level=bars[i].high,
+                            touches=touches,
+                            is_high=True,
+                            is_day_high=abs(bars[i].high - state.day_high)
+                            < bars[i].high * 0.0001,
+                            bar_index=i,
+                        )
+                    )
 
                 if bars[i].low <= bars[i - 1].low and bars[i].low <= bars[i + 1].low:
                     touches = 1
@@ -55,13 +61,16 @@ class LiquiditySweepDetector:
                             touches += 1
                         else:
                             break
-                    state.liquidity_pools.append(LiquidityPool(
-                        level=bars[i].low,
-                        touches=touches,
-                        is_high=False,
-                        is_day_low=abs(bars[i].low - state.day_low) < bars[i].low * 0.0001,
-                        bar_index=i,
-                    ))
+                    state.liquidity_pools.append(
+                        LiquidityPool(
+                            level=bars[i].low,
+                            touches=touches,
+                            is_high=False,
+                            is_day_low=abs(bars[i].low - state.day_low)
+                            < bars[i].low * 0.0001,
+                            bar_index=i,
+                        )
+                    )
 
     def detect_sweeps(self, state: ICTMarketState):
         bars = state.bars
@@ -79,42 +88,66 @@ class LiquiditySweepDetector:
                 if current.high > pool.level and previous.high <= pool.level:
                     wick_length = current.high - max(current.open, current.close)
                     total_range = current.high - current.low
-                    if total_range > 0 and wick_length / total_range > self._sweep_wick_ratio:
+                    if (
+                        total_range > 0
+                        and wick_length / total_range > self._sweep_wick_ratio
+                    ):
                         sweep_distance = current.high - pool.level
-                        if state.atr * 0.5 < sweep_distance < state.atr * self._sweep_atr_multiplier:
-                            state.recent_sweeps.append(LiquiditySweep(
-                                time=current.time,
-                                sweep_level=pool.level,
-                                sweep_high=current.high,
-                                sweep_low=current.low,
-                                rejection_body=abs(current.close - current.open),
-                                swept_high=True,
-                                session=state.current_session,
-                                strength=self._calculate_sweep_strength(sweep_distance, state.atr, pool.touches),
-                                implied_direction=TradeDirection.SHORT,
-                            ))
+                        if (
+                            state.atr * 0.5
+                            < sweep_distance
+                            < state.atr * self._sweep_atr_multiplier
+                        ):
+                            state.recent_sweeps.append(
+                                LiquiditySweep(
+                                    time=current.time,
+                                    sweep_level=pool.level,
+                                    sweep_high=current.high,
+                                    sweep_low=current.low,
+                                    rejection_body=abs(current.close - current.open),
+                                    swept_high=True,
+                                    session=state.current_session,
+                                    strength=self._calculate_sweep_strength(
+                                        sweep_distance, state.atr, pool.touches
+                                    ),
+                                    implied_direction=TradeDirection.SHORT,
+                                )
+                            )
             else:
                 if current.low < pool.level and previous.low >= pool.level:
                     wick_length = min(current.open, current.close) - current.low
                     total_range = current.high - current.low
-                    if total_range > 0 and wick_length / total_range > self._sweep_wick_ratio:
+                    if (
+                        total_range > 0
+                        and wick_length / total_range > self._sweep_wick_ratio
+                    ):
                         sweep_distance = pool.level - current.low
-                        if state.atr * 0.5 < sweep_distance < state.atr * self._sweep_atr_multiplier:
-                            state.recent_sweeps.append(LiquiditySweep(
-                                time=current.time,
-                                sweep_level=pool.level,
-                                sweep_high=current.high,
-                                sweep_low=current.low,
-                                rejection_body=abs(current.close - current.open),
-                                swept_high=False,
-                                session=state.current_session,
-                                strength=self._calculate_sweep_strength(sweep_distance, state.atr, pool.touches),
-                                implied_direction=TradeDirection.LONG,
-                            ))
+                        if (
+                            state.atr * 0.5
+                            < sweep_distance
+                            < state.atr * self._sweep_atr_multiplier
+                        ):
+                            state.recent_sweeps.append(
+                                LiquiditySweep(
+                                    time=current.time,
+                                    sweep_level=pool.level,
+                                    sweep_high=current.high,
+                                    sweep_low=current.low,
+                                    rejection_body=abs(current.close - current.open),
+                                    swept_high=False,
+                                    session=state.current_session,
+                                    strength=self._calculate_sweep_strength(
+                                        sweep_distance, state.atr, pool.touches
+                                    ),
+                                    implied_direction=TradeDirection.LONG,
+                                )
+                            )
 
         self._cleanup_old(state)
 
-    def _calculate_sweep_strength(self, sweep_distance: float, atr: float, touches: float) -> float:
+    def _calculate_sweep_strength(
+        self, sweep_distance: float, atr: float, touches: float
+    ) -> float:
         distance_score = min(1.0, sweep_distance / atr)
         touch_score = min(1.0, touches / 3.0)
         return distance_score * 0.6 + touch_score * 0.4
