@@ -12,7 +12,9 @@ class Position(TypedDict):
 
 
 def _log_returns(price_series: pd.Series) -> pd.Series:
-    return pd.Series(np.log(price_series / price_series.shift(1)), index=price_series.index)
+    return pd.Series(
+        np.log(price_series / price_series.shift(1)), index=price_series.index
+    )
 
 
 def rolling_correlation(
@@ -42,7 +44,9 @@ def correlation_matrix(
                 corr_matrix.loc[sym_a, sym_b] = 1.0
             else:
                 corr = rolling_correlation(price_dict[sym_a], price_dict[sym_b], window)
-                corr_matrix.loc[sym_a, sym_b] = corr.iloc[-1] if not corr.empty else np.nan
+                corr_matrix.loc[sym_a, sym_b] = (
+                    corr.iloc[-1] if not corr.empty else np.nan
+                )
     return corr_matrix
 
 
@@ -78,7 +82,7 @@ class CorrelationTracker:
 
         if min_len > self.window:
             for pair in self.pairs:
-                self.price_history[pair] = self.price_history[pair].iloc[-self.window:]
+                self.price_history[pair] = self.price_history[pair].iloc[-self.window :]
 
         return self._corr_matrix if self._corr_matrix is not None else pd.DataFrame()
 
@@ -107,7 +111,6 @@ def check_correlated_exposure(
     threshold: float = 0.7,
 ) -> list[str]:
     warnings: list[str] = []
-    symbols = [p["symbol"] for p in current_positions]
     for i, pos_a in enumerate(current_positions):
         for j, pos_b in enumerate(current_positions):
             if i >= j:
@@ -142,6 +145,8 @@ def portfolio_exposure(
                 continue
             corr_value = corr_matrix.loc[sym_a, sym_b]
             if pd.notna(corr_value):
-                overlap = abs(corr_value) * (pos_a["exposure"] + pos_b["exposure"]) / 2.0
+                overlap = (
+                    abs(corr_value) * (pos_a["exposure"] + pos_b["exposure"]) / 2.0
+                )
                 total_exposure -= overlap
     return max(0.0, total_exposure)

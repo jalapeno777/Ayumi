@@ -11,13 +11,11 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .engine import (
-    BacktestConfig,
     BacktestMetrics,
     Bar,
-    SessionType,
     SimulatedTrade,
     TradeDirection,
     TradeOutcome,
@@ -151,7 +149,9 @@ class SelectivePairingHarness:
             "order_block": 0.25 if "order_block" in active_components else 0.0,
             "fvg": 0.15 if "fvg" in active_components else 0.0,
             "liquidity_sweep": 0.15 if "liquidity_sweep" in active_components else 0.0,
-            "premium_discount": 0.10 if "premium_discount" in active_components else 0.0,
+            "premium_discount": 0.10
+            if "premium_discount" in active_components
+            else 0.0,
             "session": 0.05,
         }
 
@@ -171,7 +171,10 @@ class SelectivePairingHarness:
         )
 
     def _generate_signals(
-        self, bars: List[Bar], active_components: Set[str], h4_bars: Optional[List[Bar]] = None
+        self,
+        bars: List[Bar],
+        active_components: Set[str],
+        h4_bars: Optional[List[Bar]] = None,
     ) -> List[ConfluenceSignal]:
         engine = self._build_confluence_engine(active_components)
         signals: List[ConfluenceSignal] = []
@@ -196,7 +199,10 @@ class SelectivePairingHarness:
 
             signal = engine.evaluate(state, h4_slice)
             if signal is not None:
-                if self.config.min_confluence > 0 and signal.confluence_count < self.config.min_confluence:
+                if (
+                    self.config.min_confluence > 0
+                    and signal.confluence_count < self.config.min_confluence
+                ):
                     continue
                 signals.append(signal)
 
@@ -206,7 +212,9 @@ class SelectivePairingHarness:
     # Backtest execution
     # ------------------------------------------------------------------
 
-    def _run_backtest(self, bars: List[Bar], signals: List[ConfluenceSignal]) -> BacktestMetrics:
+    def _run_backtest(
+        self, bars: List[Bar], signals: List[ConfluenceSignal]
+    ) -> BacktestMetrics:
         cfg = self.config
         balance = cfg.starting_balance
         peak_balance = balance
@@ -259,7 +267,11 @@ class SelectivePairingHarness:
                     balance += trade.profit_loss
                     if balance > peak_balance:
                         peak_balance = balance
-                    dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
+                    dd = (
+                        (peak_balance - balance) / peak_balance
+                        if peak_balance > 0
+                        else 0
+                    )
                     if dd > max_drawdown:
                         max_drawdown = dd
                     trades.append(trade)
@@ -321,13 +333,28 @@ class SelectivePairingHarness:
 
         for trade in open_trades:
             last_price = trades[-1].exit_price if trades else trade.entry_price
-            _close_trade(trade, len(bars) - 1, bars[-1].time, last_price, ExitReason.END_OF_DATA, cfg)
+            _close_trade(
+                trade,
+                len(bars) - 1,
+                bars[-1].time,
+                last_price,
+                ExitReason.END_OF_DATA,
+                cfg,
+            )
             balance += trade.profit_loss
             if balance > peak_balance:
                 peak_balance = balance
             trades.append(trade)
 
-        return _calculate_metrics(trades, equity_curve, 0, cfg.starting_balance, max_drawdown, max_daily_loss, peak_balance)
+        return _calculate_metrics(
+            trades,
+            equity_curve,
+            0,
+            cfg.starting_balance,
+            max_drawdown,
+            max_daily_loss,
+            peak_balance,
+        )
 
     # ------------------------------------------------------------------
     # Individual component testing
@@ -412,7 +439,9 @@ class SelectivePairingHarness:
                     signals = self._generate_signals(test_bars, {comp}, h4_bars)
                     metrics = self._run_backtest(test_bars, signals)
                     test_key = f"{comp}_test"
-                    wm.components[test_key] = ComponentResult.from_metrics(test_key, metrics)
+                    wm.components[test_key] = ComponentResult.from_metrics(
+                        test_key, metrics
+                    )
 
             for comp_a, comp_b in combinations(COMPONENT_NAMES, 2):
                 pair_key = f"{comp_a}+{comp_b}"
@@ -423,7 +452,9 @@ class SelectivePairingHarness:
             if test_bars:
                 for comp_a, comp_b in combinations(COMPONENT_NAMES, 2):
                     pair_key = f"{comp_a}+{comp_b}_test"
-                    signals = self._generate_signals(test_bars, {comp_a, comp_b}, h4_bars)
+                    signals = self._generate_signals(
+                        test_bars, {comp_a, comp_b}, h4_bars
+                    )
                     metrics = self._run_backtest(test_bars, signals)
                     wm.pairs[pair_key] = ComponentResult.from_metrics(pair_key, metrics)
 
@@ -446,7 +477,9 @@ class SelectivePairingHarness:
     ) -> PairingReport:
         individual = self.run_individual(bars, h4_bars)
         pairs = self.run_pairs(bars, h4_bars)
-        windows = self.run_walk_forward(bars, n_windows, train_ratio, test_ratio, h4_bars)
+        windows = self.run_walk_forward(
+            bars, n_windows, train_ratio, test_ratio, h4_bars
+        )
 
         agg_components: Dict[str, dict] = {}
         for comp, cr in individual.items():
@@ -489,7 +522,9 @@ class SelectivePairingHarness:
 # ------------------------------------------------------------------
 
 
-def _check_trade_exit(trade: SimulatedTrade, bar: Bar) -> Tuple[bool, float, ExitReason]:
+def _check_trade_exit(
+    trade: SimulatedTrade, bar: Bar
+) -> Tuple[bool, float, ExitReason]:
     if trade.direction == TradeDirection.LONG:
         if bar.low <= trade.stop_loss:
             return True, trade.stop_loss, ExitReason.STOP_LOSS
@@ -537,7 +572,9 @@ def _close_trade(
     trade.outcome = (
         TradeOutcome.WIN
         if trade.profit_loss > 0.01
-        else (TradeOutcome.LOSS if trade.profit_loss < -0.01 else TradeOutcome.BREAKEVEN)
+        else (
+            TradeOutcome.LOSS if trade.profit_loss < -0.01 else TradeOutcome.BREAKEVEN
+        )
     )
 
 
@@ -593,7 +630,9 @@ def _calculate_metrics(
         returns = []
         for j in range(1, len(equity_curve)):
             if equity_curve[j - 1] != 0:
-                returns.append((equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1])
+                returns.append(
+                    (equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1]
+                )
         if returns:
             mean_r = sum(returns) / len(returns)
             std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
@@ -606,7 +645,9 @@ def _calculate_metrics(
         starting_balance=starting_balance,
         ending_balance=ending,
         total_pnl=ending - starting_balance,
-        total_pnl_pct=(ending - starting_balance) / starting_balance if starting_balance else 0.0,
+        total_pnl_pct=(ending - starting_balance) / starting_balance
+        if starting_balance
+        else 0.0,
         win_rate=win_rate,
         total_trades=total_trades,
         winning_trades=len(wins),

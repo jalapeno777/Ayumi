@@ -71,8 +71,12 @@ class SignalConfluenceEngine:
         if state.atr == 0:
             return None
 
-        bullish_score = self._calculate_directional_score(state, TradeDirection.LONG, h4_context)
-        bearish_score = self._calculate_directional_score(state, TradeDirection.SHORT, h4_context)
+        bullish_score = self._calculate_directional_score(
+            state, TradeDirection.LONG, h4_context
+        )
+        bearish_score = self._calculate_directional_score(
+            state, TradeDirection.SHORT, h4_context
+        )
 
         if bullish_score > bearish_score and bullish_score >= self._min_confidence:
             direction = TradeDirection.LONG
@@ -84,7 +88,11 @@ class SignalConfluenceEngine:
             return None
 
         spread = (state.latest_bar.high - state.latest_bar.low) * 0.1
-        entry = state.latest_bar.close + spread if direction == TradeDirection.LONG else state.latest_bar.close - spread
+        entry = (
+            state.latest_bar.close + spread
+            if direction == TradeDirection.LONG
+            else state.latest_bar.close - spread
+        )
 
         sl, tp1, tp2, tp3 = self._calculate_levels(state, direction, entry)
 
@@ -148,14 +156,18 @@ class SignalConfluenceEngine:
 
         return min(1.0, total)
 
-    def _score_structure(self, state: ICTMarketState, direction: TradeDirection) -> float:
+    def _score_structure(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
         if state.structure_bias != direction:
             return 0.1
 
         strength = self._structure_analyzer.get_structure_strength(state)
         bonus = 0.0
 
-        recent_breaks = [sb for sb in state.structure_breaks if sb.direction == direction]
+        recent_breaks = [
+            sb for sb in state.structure_breaks if sb.direction == direction
+        ]
         if recent_breaks:
             last_break = max(recent_breaks, key=lambda sb: sb.time)
             if last_break.is_choch:
@@ -164,7 +176,9 @@ class SignalConfluenceEngine:
 
         return min(1.0, strength + bonus)
 
-    def _score_order_blocks(self, state: ICTMarketState, direction: TradeDirection) -> float:
+    def _score_order_blocks(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
         ob = self._ob_detector.get_most_relevant(state, direction)
         if ob is None:
             return 0.0
@@ -187,7 +201,9 @@ class SignalConfluenceEngine:
         return min(1.0, score)
 
     def _score_fvg(self, state: ICTMarketState, direction: TradeDirection) -> float:
-        fvg = self._fvg_detector.get_nearest_unfilled(state, direction, state.latest_bar.close)
+        fvg = self._fvg_detector.get_nearest_unfilled(
+            state, direction, state.latest_bar.close
+        )
         if fvg is None:
             return 0.0
 
@@ -209,7 +225,9 @@ class SignalConfluenceEngine:
         return min(1.0, score)
 
     def _score_sweeps(self, state: ICTMarketState, direction: TradeDirection) -> float:
-        recent_sweeps = [s for s in state.recent_sweeps if s.implied_direction == direction]
+        recent_sweeps = [
+            s for s in state.recent_sweeps if s.implied_direction == direction
+        ]
         if not recent_sweeps:
             return 0.0
 
@@ -227,7 +245,9 @@ class SignalConfluenceEngine:
 
         return min(1.0, score)
 
-    def _score_premium_discount(self, state: ICTMarketState, direction: TradeDirection) -> float:
+    def _score_premium_discount(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
         if state.pd_zone is None:
             return 0.3
 
@@ -284,7 +304,9 @@ class SignalConfluenceEngine:
         if state.structure_bias == direction:
             lines.append("- Structure aligned")
 
-        recent_breaks = [sb for sb in state.structure_breaks if sb.direction == direction]
+        recent_breaks = [
+            sb for sb in state.structure_breaks if sb.direction == direction
+        ]
         if recent_breaks:
             last_break = max(recent_breaks, key=lambda sb: sb.time)
             if last_break.is_choch:
@@ -310,25 +332,42 @@ class SignalConfluenceEngine:
                 else h4_context.confluence_count_bearish
             )
             if h4_confluences > 0:
-                lines.append(f"- H4 context confirmation ({h4_confluences} zone{'s' if h4_confluences > 1 else ''})")
+                lines.append(
+                    f"- H4 context confirmation ({h4_confluences} zone{'s' if h4_confluences > 1 else ''})"
+                )
 
-        lines.append(f"- Confluence count: {self._count_confluences(state, direction, h4_context)}")
+        lines.append(
+            f"- Confluence count: {self._count_confluences(state, direction, h4_context)}"
+        )
         return "\n".join(lines)
 
-    def _has_ob_confluence(self, state: ICTMarketState, direction: TradeDirection) -> bool:
+    def _has_ob_confluence(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
         return self._ob_detector.get_most_relevant(state, direction) is not None
 
-    def _has_fvg_confluence(self, state: ICTMarketState, direction: TradeDirection) -> bool:
-        return self._fvg_detector.get_nearest_unfilled(state, direction, state.latest_bar.close) is not None
+    def _has_fvg_confluence(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
+        return (
+            self._fvg_detector.get_nearest_unfilled(
+                state, direction, state.latest_bar.close
+            )
+            is not None
+        )
 
-    def _has_sweep_confluence(self, state: ICTMarketState, direction: TradeDirection) -> bool:
+    def _has_sweep_confluence(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
         return any(
             s.implied_direction == direction
             and (state.latest_bar.time - s.time).total_seconds() / 60 <= 120
             for s in state.recent_sweeps
         )
 
-    def _has_pd_confluence(self, state: ICTMarketState, direction: TradeDirection) -> bool:
+    def _has_pd_confluence(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
         if state.pd_zone is None:
             return False
         if direction == TradeDirection.LONG:

@@ -32,7 +32,9 @@ def _bar(time=None, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
     return Bar(time=time, open=o, high=h, low=low, close=c, volume=v)
 
 
-def _signal(direction=TradeDirection.LONG, entry=1.0, sl=0.99, tp1=1.01, tp2=1.02, tp3=1.03):
+def _signal(
+    direction=TradeDirection.LONG, entry=1.0, sl=0.99, tp1=1.01, tp2=1.02, tp3=1.03
+):
     return StrategySignal(
         direction=direction,
         confidence=0.8,
@@ -46,7 +48,6 @@ def _signal(direction=TradeDirection.LONG, entry=1.0, sl=0.99, tp1=1.01, tp2=1.0
 
 
 class TestPartialExitManager(unittest.TestCase):
-
     def setUp(self):
         self.mgr = PartialExitManager(
             enabled=True,
@@ -60,16 +61,30 @@ class TestPartialExitManager(unittest.TestCase):
     def test_no_action_when_price_below_tp1(self):
         bar = _bar(o=1.0, h=1.005, low=0.995, c=1.002)
         result = self.mgr.evaluate(
-            bar, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         self.assertEqual(result.action, PartialExitAction.NO_ACTION)
 
     def test_partial_close_at_tp1(self):
         bar = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         result = self.mgr.evaluate(
-            bar, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         self.assertEqual(result.action, PartialExitAction.PARTIAL_CLOSE)
         self.assertAlmostEqual(result.close_pct, 0.5)
@@ -80,15 +95,29 @@ class TestPartialExitManager(unittest.TestCase):
     def test_sl_moved_to_breakeven_only_once(self):
         bar1 = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         r1 = self.mgr.evaluate(
-            bar1, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar1,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         self.assertIsNotNone(r1.new_sl)
 
         bar2 = _bar(o=1.01, h=1.025, low=1.005, c=1.02)
         r2 = self.mgr.evaluate(
-            bar2, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.entry,
+            bar2,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.entry,
         )
         self.assertEqual(r2.action, PartialExitAction.PARTIAL_CLOSE)
         self.assertIsNone(r2.new_sl)
@@ -96,14 +125,28 @@ class TestPartialExitManager(unittest.TestCase):
     def test_second_tier_partial_close(self):
         bar1 = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         self.mgr.evaluate(
-            bar1, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar1,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
 
         bar2 = _bar(o=1.01, h=1.025, low=1.005, c=1.02)
         result = self.mgr.evaluate(
-            bar2, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.entry,
+            bar2,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.entry,
         )
         self.assertEqual(result.action, PartialExitAction.PARTIAL_CLOSE)
         self.assertAlmostEqual(result.close_pct, 0.25)
@@ -112,19 +155,40 @@ class TestPartialExitManager(unittest.TestCase):
     def test_trail_enabled_after_last_tier(self):
         bar1 = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         self.mgr.evaluate(
-            bar1, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar1,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         bar2 = _bar(o=1.01, h=1.025, low=1.005, c=1.02)
         self.mgr.evaluate(
-            bar2, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.entry,
+            bar2,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.entry,
         )
 
         bar3 = _bar(o=1.02, h=1.03, low=1.015, c=1.025)
         result = self.mgr.evaluate(
-            bar3, self.state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.entry,
+            bar3,
+            self.state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.entry,
         )
         self.assertEqual(result.action, PartialExitAction.ENABLE_TRAIL)
 
@@ -133,16 +197,30 @@ class TestPartialExitManager(unittest.TestCase):
         state = mgr.create_state()
         bar = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         result = mgr.evaluate(
-            bar, state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar,
+            state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         self.assertEqual(result.action, PartialExitAction.NO_ACTION)
 
     def test_short_tp1_hit(self):
         bar = _bar(o=1.0, h=0.995, low=0.985, c=0.99)
         result = self.mgr.evaluate(
-            bar, self.state, TradeDirection.SHORT,
-            self.entry, 1.01, 0.99, 0.98, 0.97, 1.01,
+            bar,
+            self.state,
+            TradeDirection.SHORT,
+            self.entry,
+            1.01,
+            0.99,
+            0.98,
+            0.97,
+            1.01,
         )
         self.assertEqual(result.action, PartialExitAction.PARTIAL_CLOSE)
         self.assertEqual(result.reason, ExitReason.TAKE_PROFIT_1)
@@ -156,20 +234,33 @@ class TestPartialExitManager(unittest.TestCase):
         state = mgr.create_state()
         bar1 = _bar(o=1.0, h=1.015, low=0.995, c=1.01)
         mgr.evaluate(
-            bar1, state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.sl,
+            bar1,
+            state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.sl,
         )
         bar2 = _bar(o=1.01, h=1.025, low=1.005, c=1.02)
         result = mgr.evaluate(
-            bar2, state, TradeDirection.LONG,
-            self.entry, self.sl, 1.01, 1.02, 1.03, self.entry,
+            bar2,
+            state,
+            TradeDirection.LONG,
+            self.entry,
+            self.sl,
+            1.01,
+            1.02,
+            1.03,
+            self.entry,
         )
         self.assertEqual(result.action, PartialExitAction.FULL_CLOSE)
         self.assertAlmostEqual(result.close_pct, 1.0)
 
 
 class TestTrailingStopManager(unittest.TestCase):
-
     def setUp(self):
         self.config = TrailingStopConfig(
             enabled=True,
@@ -189,14 +280,18 @@ class TestTrailingStopManager(unittest.TestCase):
     def test_inactive_returns_no_trigger(self):
         state = self.mgr.create_state(TradeDirection.LONG, self.entry, self.sl)
         bar = _bar(h=1.02, low=0.98)
-        result = self.mgr.evaluate(bar, state, TradeDirection.LONG, self.atr, self.entry)
+        result = self.mgr.evaluate(
+            bar, state, TradeDirection.LONG, self.atr, self.entry
+        )
         self.assertFalse(result.triggered)
 
     def test_atr_trail_updates_sl(self):
         state = self.mgr.create_state(TradeDirection.LONG, self.entry, self.sl)
         state.is_active = True
         bar = _bar(h=1.02, low=1.0, c=1.015)
-        result = self.mgr.evaluate(bar, state, TradeDirection.LONG, self.atr, self.entry)
+        result = self.mgr.evaluate(
+            bar, state, TradeDirection.LONG, self.atr, self.entry
+        )
         expected_sl = 1.02 - (self.atr * 1.5)
         self.assertTrue(result.sl_updated)
         self.assertAlmostEqual(result.new_sl, expected_sl, places=4)
@@ -206,7 +301,9 @@ class TestTrailingStopManager(unittest.TestCase):
         state.is_active = True
         state.current_sl = 1.005
         bar = _bar(h=1.01, low=1.004, c=1.005)
-        result = self.mgr.evaluate(bar, state, TradeDirection.LONG, self.atr, self.entry)
+        result = self.mgr.evaluate(
+            bar, state, TradeDirection.LONG, self.atr, self.entry
+        )
         self.assertTrue(result.triggered)
         self.assertAlmostEqual(result.exit_price, 1.005, places=4)
 
@@ -214,7 +311,9 @@ class TestTrailingStopManager(unittest.TestCase):
         state = self.mgr.create_state(TradeDirection.SHORT, self.entry, 1.01)
         state.is_active = True
         bar = _bar(h=1.0, low=0.98, c=0.985)
-        result = self.mgr.evaluate(bar, state, TradeDirection.SHORT, self.atr, self.entry)
+        result = self.mgr.evaluate(
+            bar, state, TradeDirection.SHORT, self.atr, self.entry
+        )
         expected_sl = 0.98 + (self.atr * 1.5)
         self.assertTrue(result.sl_updated)
         self.assertAlmostEqual(result.new_sl, expected_sl, places=4)
@@ -259,13 +358,14 @@ class TestTrailingStopManager(unittest.TestCase):
         state.is_active = True
 
         bar_down = _bar(h=1.001, low=0.99, c=0.995)
-        result = self.mgr.evaluate(bar_down, state, TradeDirection.LONG, self.atr, self.entry)
+        result = self.mgr.evaluate(
+            bar_down, state, TradeDirection.LONG, self.atr, self.entry
+        )
         self.assertFalse(result.sl_updated)
         self.assertEqual(state.current_sl, self.sl)
 
 
 class TestSessionFilter(unittest.TestCase):
-
     def setUp(self):
         self.filter = SessionFilter(
             enabled=True,
@@ -326,31 +426,44 @@ class TestSessionFilter(unittest.TestCase):
         self.assertTrue(f.check_entry(bar).allow_entry)
 
     def test_news_filter_blocks_entry(self):
-        news_sim = NewsEventSimulator([
-            NewsEvent(time=datetime(2024, 1, 1, 13, 30), currency="USD",
-                      impact="high", description="NFP"),
-        ])
-        f = SessionFilter(enabled=True, news_buffer_on_entry=True,
-                          news_simulator=news_sim)
+        news_sim = NewsEventSimulator(
+            [
+                NewsEvent(
+                    time=datetime(2024, 1, 1, 13, 30),
+                    currency="USD",
+                    impact="high",
+                    description="NFP",
+                ),
+            ]
+        )
+        f = SessionFilter(
+            enabled=True, news_buffer_on_entry=True, news_simulator=news_sim
+        )
         bar = _bar(time=datetime(2024, 1, 1, 13, 15))
         result = f.check_entry(bar)
         self.assertFalse(result.allow_entry)
         self.assertIn("news", result.reason.lower())
 
     def test_news_filter_allows_far_from_event(self):
-        news_sim = NewsEventSimulator([
-            NewsEvent(time=datetime(2024, 1, 1, 13, 30), currency="USD",
-                      impact="high", description="NFP"),
-        ])
-        f = SessionFilter(enabled=True, news_buffer_on_entry=True,
-                          news_simulator=news_sim)
+        news_sim = NewsEventSimulator(
+            [
+                NewsEvent(
+                    time=datetime(2024, 1, 1, 13, 30),
+                    currency="USD",
+                    impact="high",
+                    description="NFP",
+                ),
+            ]
+        )
+        f = SessionFilter(
+            enabled=True, news_buffer_on_entry=True, news_simulator=news_sim
+        )
         bar = _bar(time=datetime(2024, 1, 1, 10, 0))
         result = f.check_entry(bar)
         self.assertTrue(result.allow_entry)
 
 
 class TestExitRefiner(unittest.TestCase):
-
     def setUp(self):
         self.refiner = ExitRefiner(
             enabled=True,
@@ -430,7 +543,6 @@ class TestExitRefiner(unittest.TestCase):
 
 
 class TestTradeManager(unittest.TestCase):
-
     def setUp(self):
         self.config = TradeManagementConfig()
         self.tm = TradeManager(self.config)
@@ -504,7 +616,6 @@ class TestTradeManager(unittest.TestCase):
 
 
 class TestTradeManagementConfig(unittest.TestCase):
-
     def test_default_config(self):
         config = TradeManagementConfig()
         self.assertTrue(config.partial_exit.enabled)
@@ -532,20 +643,25 @@ class TestTradeManagementConfig(unittest.TestCase):
 
 
 class TestNewsEventSimulator(unittest.TestCase):
-
     def test_has_high_impact_near(self):
-        sim = NewsEventSimulator([
-            NewsEvent(time=datetime(2024, 1, 1, 13, 30), currency="USD",
-                      impact="high"),
-        ])
+        sim = NewsEventSimulator(
+            [
+                NewsEvent(
+                    time=datetime(2024, 1, 1, 13, 30), currency="USD", impact="high"
+                ),
+            ]
+        )
         self.assertTrue(sim.has_high_impact_near(datetime(2024, 1, 1, 13, 0)))
         self.assertFalse(sim.has_high_impact_near(datetime(2024, 1, 1, 10, 0)))
 
     def test_low_impact_ignored(self):
-        sim = NewsEventSimulator([
-            NewsEvent(time=datetime(2024, 1, 1, 13, 30), currency="USD",
-                      impact="low"),
-        ])
+        sim = NewsEventSimulator(
+            [
+                NewsEvent(
+                    time=datetime(2024, 1, 1, 13, 30), currency="USD", impact="low"
+                ),
+            ]
+        )
         self.assertFalse(sim.has_high_impact_near(datetime(2024, 1, 1, 13, 0)))
 
     def test_empty_simulator(self):

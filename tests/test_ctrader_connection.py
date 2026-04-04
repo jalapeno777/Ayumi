@@ -1,6 +1,6 @@
 import os
 import unittest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from ctrader.connection import (
     CTraderConnection,
@@ -137,9 +137,11 @@ class TestLoadCredentials(unittest.TestCase):
         self.assertIn("CTRADER_QUOTE_SENDER_SUB_ID", creds)
 
     def test_optional_vars_omitted_when_not_set(self):
-        required_only = {k: v for k, v in SAMPLE_CREDS.items() if k not in [
-            "CTRADER_PLAIN_PORT", "CTRADER_QUOTE_SENDER_SUB_ID"
-        ]}
+        required_only = {
+            k: v
+            for k, v in SAMPLE_CREDS.items()
+            if k not in ["CTRADER_PLAIN_PORT", "CTRADER_QUOTE_SENDER_SUB_ID"]
+        }
         _set_env(required_only)
         creds = _load_credentials()
         self.assertNotIn("CTRADER_PLAIN_PORT", creds)
@@ -218,15 +220,18 @@ class TestCTraderConnection(unittest.TestCase):
         mock_socket = MagicMock()
 
         logon_response = (
-            f"8=FIX.4.4{SOH}9=5{SOH}35=A{SOH}"
-            f"49=CSERVER{SOH}56=sender{SOH}10=123{SOH}"
+            f"8=FIX.4.4{SOH}9=5{SOH}35=A{SOH}49=CSERVER{SOH}56=sender{SOH}10=123{SOH}"
         )
 
         mock_socket.recv.return_value = logon_response.encode("ascii")
 
-        with patch("ctrader.connection.socket.create_connection", return_value=MagicMock()), \
-             patch("ctrader.connection.ssl.create_default_context") as mock_ctx, \
-             patch.object(conn, "_recv_message", return_value=logon_response):
+        with (
+            patch(
+                "ctrader.connection.socket.create_connection", return_value=MagicMock()
+            ),
+            patch("ctrader.connection.ssl.create_default_context") as mock_ctx,
+            patch.object(conn, "_recv_message", return_value=logon_response),
+        ):
             mock_ssl_socket = MagicMock()
             mock_ctx.return_value.wrap_socket.return_value = mock_ssl_socket
 
@@ -240,15 +245,18 @@ class TestCTraderConnection(unittest.TestCase):
     def test_connect_rejects_non_logon_response(self):
         conn = CTraderConnection(credentials=SAMPLE_CREDS)
         bad_response = (
-            f"8=FIX.4.4{SOH}9=5{SOH}35=3{SOH}"
-            f"49=CSERVER{SOH}56=sender{SOH}10=123{SOH}"
+            f"8=FIX.4.4{SOH}9=5{SOH}35=3{SOH}49=CSERVER{SOH}56=sender{SOH}10=123{SOH}"
         )
 
         mock_ssl_socket = MagicMock()
 
-        with patch("ctrader.connection.socket.create_connection", return_value=MagicMock()), \
-             patch("ctrader.connection.ssl.create_default_context") as mock_ctx, \
-             patch.object(conn, "_recv_message", return_value=bad_response):
+        with (
+            patch(
+                "ctrader.connection.socket.create_connection", return_value=MagicMock()
+            ),
+            patch("ctrader.connection.ssl.create_default_context") as mock_ctx,
+            patch.object(conn, "_recv_message", return_value=bad_response),
+        ):
             mock_ctx.return_value.wrap_socket.return_value = mock_ssl_socket
 
             with self.assertRaises(FIXConnectionError) as ctx:
@@ -321,7 +329,7 @@ class TestCredentialSecurity(unittest.TestCase):
     def test_password_never_in_message_repr(self):
         _set_env(SAMPLE_CREDS)
         conn = CTraderConnection()
-        msg = conn._build_logon_message()
+        conn._build_logon_message()
         repr_str = repr(conn)
         self.assertNotIn("secret123", repr_str)
         _clear_env()

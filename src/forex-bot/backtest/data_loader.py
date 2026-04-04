@@ -6,26 +6,33 @@ from .engine import Bar, BarPeriod
 class CsvDataLoader:
     def load(self, filepath: str) -> List[Bar]:
         bars = []
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             lines = f.readlines()
 
         for line in lines[1:]:
             line = line.strip()
             if not line:
                 continue
-            parts = line.split(',')
+            parts = line.split(",")
             if len(parts) < 5:
                 continue
 
             try:
-                dt = datetime.strptime(parts[0], '%Y-%m-%d %H:%M')
+                dt = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
                 close = float(parts[4])
                 volume = float(parts[5]) if len(parts) > 5 else 0.0
 
-                bar = Bar(time=dt, open=open_price, high=high, low=low, close=close, volume=volume)
+                bar = Bar(
+                    time=dt,
+                    open=open_price,
+                    high=high,
+                    low=low,
+                    close=close,
+                    volume=volume,
+                )
                 bars.append(bar)
             except (ValueError, IndexError):
                 continue
@@ -34,25 +41,32 @@ class CsvDataLoader:
 
     def load_from_string(self, csv_content: str) -> List[Bar]:
         bars = []
-        lines = csv_content.strip().split('\n')
+        lines = csv_content.strip().split("\n")
 
         for line in lines[1:]:
             line = line.strip()
             if not line:
                 continue
-            parts = line.split(',')
+            parts = line.split(",")
             if len(parts) < 5:
                 continue
 
             try:
-                dt = datetime.strptime(parts[0], '%Y-%m-%d %H:%M')
+                dt = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
                 close = float(parts[4])
                 volume = float(parts[5]) if len(parts) > 5 else 0.0
 
-                bar = Bar(time=dt, open=open_price, high=high, low=low, close=close, volume=volume)
+                bar = Bar(
+                    time=dt,
+                    open=open_price,
+                    high=high,
+                    low=low,
+                    close=close,
+                    volume=volume,
+                )
                 bars.append(bar)
             except (ValueError, IndexError):
                 continue

@@ -2,7 +2,6 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import pytest
 
 from backtest.engine import (
     BacktestConfig,
@@ -26,7 +25,7 @@ from backtest.selective_pairing import (
     _get_pip_value,
 )
 from backtest.runner import analyze_rolling_walk_forward
-from backtest.strategies import ISignalStrategy, MACrossStrategy, BBStrategy
+from backtest.strategies import MACrossStrategy, BBStrategy
 
 
 def _make_trending_bars(n: int = 200, trend: float = 0.00005) -> list:
@@ -64,15 +63,33 @@ class TestGetPipValue:
 
 class TestCheckTradeExit:
     def test_long_stop_loss_hit(self):
-        bar = Bar(time=datetime(2024, 1, 1, 10, 0), open=1.09, high=1.095, low=1.085, close=1.09)
+        bar = Bar(
+            time=datetime(2024, 1, 1, 10, 0),
+            open=1.09,
+            high=1.095,
+            low=1.085,
+            close=1.09,
+        )
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.LONG,
-            entry_price=1.10, stop_loss=1.088,
-            take_profit_1=1.11, take_profit_2=1.12, take_profit_3=1.13,
-            exit_price=0, lot_size=0.1, risk_amount=10, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
-            entry_time=bar.time, exit_time=bar.time, confidence_score=0.8, confluence_count=1,
+            entry_price=1.10,
+            stop_loss=1.088,
+            take_profit_1=1.11,
+            take_profit_2=1.12,
+            take_profit_3=1.13,
+            exit_price=0,
+            lot_size=0.1,
+            risk_amount=10,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
+            entry_time=bar.time,
+            exit_time=bar.time,
+            confidence_score=0.8,
+            confluence_count=1,
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
@@ -81,15 +98,33 @@ class TestCheckTradeExit:
         assert reason == ExitReason.STOP_LOSS
 
     def test_long_tp3_hit(self):
-        bar = Bar(time=datetime(2024, 1, 1, 10, 0), open=1.12, high=1.135, low=1.115, close=1.13)
+        bar = Bar(
+            time=datetime(2024, 1, 1, 10, 0),
+            open=1.12,
+            high=1.135,
+            low=1.115,
+            close=1.13,
+        )
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.LONG,
-            entry_price=1.10, stop_loss=1.088,
-            take_profit_1=1.11, take_profit_2=1.12, take_profit_3=1.13,
-            exit_price=0, lot_size=0.1, risk_amount=10, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
-            entry_time=bar.time, exit_time=bar.time, confidence_score=0.8, confluence_count=1,
+            entry_price=1.10,
+            stop_loss=1.088,
+            take_profit_1=1.11,
+            take_profit_2=1.12,
+            take_profit_3=1.13,
+            exit_price=0,
+            lot_size=0.1,
+            risk_amount=10,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
+            entry_time=bar.time,
+            exit_time=bar.time,
+            confidence_score=0.8,
+            confluence_count=1,
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
@@ -98,15 +133,33 @@ class TestCheckTradeExit:
         assert reason == ExitReason.TAKE_PROFIT_3
 
     def test_short_stop_loss_hit(self):
-        bar = Bar(time=datetime(2024, 1, 1, 10, 0), open=1.115, high=1.12, low=1.11, close=1.115)
+        bar = Bar(
+            time=datetime(2024, 1, 1, 10, 0),
+            open=1.115,
+            high=1.12,
+            low=1.11,
+            close=1.115,
+        )
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.SHORT,
-            entry_price=1.10, stop_loss=1.115,
-            take_profit_1=1.09, take_profit_2=1.08, take_profit_3=1.07,
-            exit_price=0, lot_size=0.1, risk_amount=10, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
-            entry_time=bar.time, exit_time=bar.time, confidence_score=0.8, confluence_count=1,
+            entry_price=1.10,
+            stop_loss=1.115,
+            take_profit_1=1.09,
+            take_profit_2=1.08,
+            take_profit_3=1.07,
+            exit_price=0,
+            lot_size=0.1,
+            risk_amount=10,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
+            entry_time=bar.time,
+            exit_time=bar.time,
+            confidence_score=0.8,
+            confluence_count=1,
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
@@ -115,15 +168,33 @@ class TestCheckTradeExit:
         assert reason == ExitReason.STOP_LOSS
 
     def test_no_exit(self):
-        bar = Bar(time=datetime(2024, 1, 1, 10, 0), open=1.095, high=1.105, low=1.092, close=1.10)
+        bar = Bar(
+            time=datetime(2024, 1, 1, 10, 0),
+            open=1.095,
+            high=1.105,
+            low=1.092,
+            close=1.10,
+        )
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.LONG,
-            entry_price=1.10, stop_loss=1.088,
-            take_profit_1=1.11, take_profit_2=1.12, take_profit_3=1.13,
-            exit_price=0, lot_size=0.1, risk_amount=10, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
-            entry_time=bar.time, exit_time=bar.time, confidence_score=0.8, confluence_count=1,
+            entry_price=1.10,
+            stop_loss=1.088,
+            take_profit_1=1.11,
+            take_profit_2=1.12,
+            take_profit_3=1.13,
+            exit_price=0,
+            lot_size=0.1,
+            risk_amount=10,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
+            entry_time=bar.time,
+            exit_time=bar.time,
+            confidence_score=0.8,
+            confluence_count=1,
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
@@ -133,36 +204,62 @@ class TestCheckTradeExit:
 class TestCloseTrade:
     def test_long_win(self):
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.LONG,
-            entry_price=1.10, stop_loss=1.09,
-            take_profit_1=1.11, take_profit_2=1.12, take_profit_3=1.13,
-            exit_price=0, lot_size=100000, risk_amount=50, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
+            entry_price=1.10,
+            stop_loss=1.09,
+            take_profit_1=1.11,
+            take_profit_2=1.12,
+            take_profit_3=1.13,
+            exit_price=0,
+            lot_size=100000,
+            risk_amount=50,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
             entry_time=datetime(2024, 1, 1, 10, 0),
             exit_time=datetime(2024, 1, 1, 10, 0),
-            confidence_score=0.8, confluence_count=1, rationale="",
+            confidence_score=0.8,
+            confluence_count=1,
+            rationale="",
         )
         cfg = PairingConfig()
-        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg)
+        _close_trade(
+            trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg
+        )
         assert trade.exit_price == 1.12
         assert trade.outcome == TradeOutcome.WIN
         assert trade.profit_loss > 0
 
     def test_short_loss(self):
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=-1,
+            entry_bar_index=0,
+            exit_bar_index=-1,
             direction=TradeDirection.SHORT,
-            entry_price=1.10, stop_loss=1.11,
-            take_profit_1=1.09, take_profit_2=1.08, take_profit_3=1.07,
-            exit_price=0, lot_size=100000, risk_amount=50, pips=0,
-            profit_loss=0, outcome=TradeOutcome.OPEN, exit_reason=ExitReason.STOP_LOSS,
+            entry_price=1.10,
+            stop_loss=1.11,
+            take_profit_1=1.09,
+            take_profit_2=1.08,
+            take_profit_3=1.07,
+            exit_price=0,
+            lot_size=100000,
+            risk_amount=50,
+            pips=0,
+            profit_loss=0,
+            outcome=TradeOutcome.OPEN,
+            exit_reason=ExitReason.STOP_LOSS,
             entry_time=datetime(2024, 1, 1, 10, 0),
             exit_time=datetime(2024, 1, 1, 10, 0),
-            confidence_score=0.8, confluence_count=1, rationale="",
+            confidence_score=0.8,
+            confluence_count=1,
+            rationale="",
         )
         cfg = PairingConfig()
-        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg)
+        _close_trade(
+            trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg
+        )
         assert trade.exit_price == 1.11
         assert trade.outcome == TradeOutcome.LOSS
         assert trade.profit_loss < 0
@@ -177,16 +274,26 @@ class TestCalculateMetrics:
 
     def test_with_winning_trade(self):
         trade = SimulatedTrade(
-            entry_bar_index=0, exit_bar_index=10,
+            entry_bar_index=0,
+            exit_bar_index=10,
             direction=TradeDirection.LONG,
-            entry_price=1.10, stop_loss=1.09,
-            take_profit_1=1.11, take_profit_2=1.12, take_profit_3=1.13,
-            exit_price=1.12, lot_size=100000, risk_amount=50,
-            pips=200, profit_loss=190,
-            outcome=TradeOutcome.WIN, exit_reason=ExitReason.TAKE_PROFIT_2,
+            entry_price=1.10,
+            stop_loss=1.09,
+            take_profit_1=1.11,
+            take_profit_2=1.12,
+            take_profit_3=1.13,
+            exit_price=1.12,
+            lot_size=100000,
+            risk_amount=50,
+            pips=200,
+            profit_loss=190,
+            outcome=TradeOutcome.WIN,
+            exit_reason=ExitReason.TAKE_PROFIT_2,
             entry_time=datetime(2024, 1, 1, 10, 0),
             exit_time=datetime(2024, 1, 1, 12, 0),
-            confidence_score=0.8, confluence_count=1, rationale="",
+            confidence_score=0.8,
+            confluence_count=1,
+            rationale="",
         )
         metrics = _calculate_metrics(
             [trade], [10000.0, 10190.0], 0, 10000.0, 0.0, 0.0, 10190.0
@@ -218,16 +325,32 @@ class TestPairingConfig:
 class TestComponentResult:
     def test_from_metrics(self):
         m = BacktestMetrics(
-            starting_balance=10000.0, ending_balance=10500.0,
-            total_pnl=500.0, total_pnl_pct=0.05,
-            win_rate=60.0, total_trades=50, winning_trades=30,
-            losing_trades=18, breakeven_trades=2,
-            avg_win=25.0, avg_loss=15.0, largest_win=100.0, largest_loss=50.0,
-            profit_factor=2.5, max_drawdown_pct=3.0, max_drawdown_dollar=300.0,
-            max_daily_loss_dollar=100.0, sharpe_ratio=1.5, avg_risk_reward=1.67,
-            expectancy=12.0, avg_holding_bars=20.0,
-            equity_curve=[10000.0, 10500.0], trades=[],
-            total_spread_cost=0.0, total_commission_cost=0.0, rejected_signals=0,
+            starting_balance=10000.0,
+            ending_balance=10500.0,
+            total_pnl=500.0,
+            total_pnl_pct=0.05,
+            win_rate=60.0,
+            total_trades=50,
+            winning_trades=30,
+            losing_trades=18,
+            breakeven_trades=2,
+            avg_win=25.0,
+            avg_loss=15.0,
+            largest_win=100.0,
+            largest_loss=50.0,
+            profit_factor=2.5,
+            max_drawdown_pct=3.0,
+            max_drawdown_dollar=300.0,
+            max_daily_loss_dollar=100.0,
+            sharpe_ratio=1.5,
+            avg_risk_reward=1.67,
+            expectancy=12.0,
+            avg_holding_bars=20.0,
+            equity_curve=[10000.0, 10500.0],
+            trades=[],
+            total_spread_cost=0.0,
+            total_commission_cost=0.0,
+            rejected_signals=0,
         )
         cr = ComponentResult.from_metrics("test_comp", m)
         assert cr.component == "test_comp"
@@ -238,11 +361,19 @@ class TestComponentResult:
 
 class TestComponentNames:
     def test_has_all_components(self):
-        expected = {"structure", "order_block", "fvg", "liquidity_sweep", "premium_discount", "h4_context"}
+        expected = {
+            "structure",
+            "order_block",
+            "fvg",
+            "liquidity_sweep",
+            "premium_discount",
+            "h4_context",
+        }
         assert set(COMPONENT_NAMES) == expected
 
     def test_pair_count(self):
         from itertools import combinations
+
         pairs = list(combinations(COMPONENT_NAMES, 2))
         assert len(pairs) == 15
 
@@ -269,6 +400,7 @@ class TestSelectivePairingHarness:
 
     def test_run_pairs_returns_all_pairs(self):
         from itertools import combinations
+
         bars = _make_trending_bars(200)
         harness = SelectivePairingHarness()
         results = harness.run_pairs(bars)
@@ -306,15 +438,19 @@ class TestSelectivePairingHarness:
             asian_only_bars.append(
                 Bar(
                     time=datetime(2024, 1, 1, 2, 0) + timedelta(hours=i),
-                    open=price - 0.0002, high=price + 0.0003,
-                    low=price - 0.0003, close=price,
+                    open=price - 0.0002,
+                    high=price + 0.0003,
+                    low=price - 0.0003,
+                    close=price,
                     volume=100,
                 )
             )
         harness = SelectivePairingHarness()
         results = harness.run_individual(asian_only_bars)
         for comp, cr in results.items():
-            assert cr.total_trades == 0, f"{comp} should have no trades in Asian-only bars"
+            assert cr.total_trades == 0, (
+                f"{comp} should have no trades in Asian-only bars"
+            )
 
     def test_full_report_structure(self):
         bars = _make_trending_bars(300)
@@ -330,7 +466,7 @@ class TestSelectivePairingHarness:
         bars = _make_trending_bars(200)
         harness = SelectivePairingHarness()
         output = str(tmp_path / "report.json")
-        report = harness.run_full_report(bars, n_windows=1, output_path=output)
+        harness.run_full_report(bars, n_windows=1, output_path=output)
         assert Path(output).exists()
         data = json.loads(Path(output).read_text())
         assert "config" in data
@@ -371,18 +507,36 @@ class TestAnalyzeRollingWalkForward:
         def mock_run(bars_subset, cfg, strats):
             nonlocal call_count
             call_count += 1
-            return {"mock": BacktestMetrics(
-                starting_balance=10000, ending_balance=10000,
-                total_pnl=0, total_pnl_pct=0, win_rate=0,
-                total_trades=0, winning_trades=0, losing_trades=0,
-                breakeven_trades=0, avg_win=0, avg_loss=0,
-                largest_win=0, largest_loss=0, profit_factor=0,
-                max_drawdown_pct=0, max_drawdown_dollar=0,
-                max_daily_loss_dollar=0, sharpe_ratio=0,
-                avg_risk_reward=0, expectancy=0, avg_holding_bars=0,
-                equity_curve=[10000], trades=[],
-                total_spread_cost=0, total_commission_cost=0, rejected_signals=0,
-            )}
+            return {
+                "mock": BacktestMetrics(
+                    starting_balance=10000,
+                    ending_balance=10000,
+                    total_pnl=0,
+                    total_pnl_pct=0,
+                    win_rate=0,
+                    total_trades=0,
+                    winning_trades=0,
+                    losing_trades=0,
+                    breakeven_trades=0,
+                    avg_win=0,
+                    avg_loss=0,
+                    largest_win=0,
+                    largest_loss=0,
+                    profit_factor=0,
+                    max_drawdown_pct=0,
+                    max_drawdown_dollar=0,
+                    max_daily_loss_dollar=0,
+                    sharpe_ratio=0,
+                    avg_risk_reward=0,
+                    expectancy=0,
+                    avg_holding_bars=0,
+                    equity_curve=[10000],
+                    trades=[],
+                    total_spread_cost=0,
+                    total_commission_cost=0,
+                    rejected_signals=0,
+                )
+            }
 
         results = analyze_rolling_walk_forward(
             bars, config, [], n_windows=2, run_fn=mock_run

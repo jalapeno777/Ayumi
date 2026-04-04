@@ -126,7 +126,6 @@ class CTraderConnection:
             264: "0",
             265: "0",
             267: 1,
-            269: "0",
             269: "1",
             146: symbol,
         }

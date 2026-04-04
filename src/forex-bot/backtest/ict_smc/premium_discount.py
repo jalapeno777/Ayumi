@@ -15,7 +15,7 @@ class PremiumDiscountClassifier:
         if len(bars) < self._lookback_period:
             return
 
-        recent_bars = bars[-self._lookback_period:]
+        recent_bars = bars[-self._lookback_period :]
         range_high = max(b.high for b in recent_bars)
         range_low = min(b.low for b in recent_bars)
         range_size = range_high - range_low
@@ -48,10 +48,18 @@ class PremiumDiscountClassifier:
         zone_strength = 0.5
         if is_premium:
             denom = range_high - premium_boundary
-            zone_strength = min(1.0, 0.5 + (current_price - premium_boundary) / denom * 0.5) if denom > 0 else 0.5
+            zone_strength = (
+                min(1.0, 0.5 + (current_price - premium_boundary) / denom * 0.5)
+                if denom > 0
+                else 0.5
+            )
         elif is_discount:
             denom = discount_boundary - range_low
-            zone_strength = min(1.0, 0.5 + (discount_boundary - current_price) / denom * 0.5) if denom > 0 else 0.5
+            zone_strength = (
+                min(1.0, 0.5 + (discount_boundary - current_price) / denom * 0.5)
+                if denom > 0
+                else 0.5
+            )
 
         if near_equilibrium:
             zone_strength = max(zone_strength, 0.7)
@@ -69,12 +77,16 @@ class PremiumDiscountClassifier:
             is_in_equilibrium=is_equilibrium,
         )
 
-    def is_discount_entry(self, state: ICTMarketState, trade_direction: TradeDirection) -> bool:
+    def is_discount_entry(
+        self, state: ICTMarketState, trade_direction: TradeDirection
+    ) -> bool:
         if state.pd_zone is None:
             return False
         return trade_direction == TradeDirection.LONG and state.pd_zone.is_in_discount
 
-    def is_premium_entry(self, state: ICTMarketState, trade_direction: TradeDirection) -> bool:
+    def is_premium_entry(
+        self, state: ICTMarketState, trade_direction: TradeDirection
+    ) -> bool:
         if state.pd_zone is None:
             return False
         return trade_direction == TradeDirection.SHORT and state.pd_zone.is_in_premium

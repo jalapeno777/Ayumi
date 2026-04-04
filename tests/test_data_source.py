@@ -78,6 +78,7 @@ class TestSQLiteCandleLoaderLoadCandles(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_load_returns_expected_columns(self):
@@ -105,7 +106,9 @@ class TestSQLiteCandleLoaderLoadCandles(unittest.TestCase):
         self.assertTrue((df["timestamp"] <= 1704068100).all())
 
     def test_load_with_both_ts_filters(self):
-        df = self.loader.load_candles("EURUSD", "M15", start_ts=1704068100, end_ts=1704068100)
+        df = self.loader.load_candles(
+            "EURUSD", "M15", start_ts=1704068100, end_ts=1704068100
+        )
         self.assertEqual(len(df), 1)
         self.assertEqual(df.iloc[0]["timestamp"], 1704068100)
 
@@ -134,6 +137,7 @@ class TestSQLiteCandleLoaderListSymbols(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_returns_sorted_unique_symbols(self):
@@ -150,6 +154,7 @@ class TestSQLiteCandleLoaderListTimeframes(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_all_timeframes_without_symbol_filter(self):
@@ -171,6 +176,7 @@ class TestToOhlcv(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def test_output_has_ohlcv_columns(self):

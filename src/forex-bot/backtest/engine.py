@@ -65,6 +65,7 @@ class BarPeriod:
         cls.H4 = cls(240)
         cls.D1 = cls(1440)
 
+
 BarPeriod._init()
 
 
@@ -88,8 +89,8 @@ class MarketState:
                     self.bars[i].high - self.bars[i].low,
                     max(
                         abs(self.bars[i].high - self.bars[i - 1].close),
-                        abs(self.bars[i].low - self.bars[i - 1].close)
-                    )
+                        abs(self.bars[i].low - self.bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14
@@ -196,7 +197,9 @@ class BacktestMetrics:
         print("=" * 50)
         print(f"\n  Starting Balance:    ${self.starting_balance:.2f}")
         print(f"  Ending Balance:      ${self.ending_balance:.2f}")
-        print(f"  Total P&L:           ${self.total_pnl:.2f} ({self.total_pnl_pct:.2f}%)")
+        print(
+            f"  Total P&L:           ${self.total_pnl:.2f} ({self.total_pnl_pct:.2f}%)"
+        )
         print(f"\n  Total Trades:        {self.total_trades}")
         print(f"  Winning:             {self.winning_trades}")
         print(f"  Losing:              {self.losing_trades}")
@@ -210,7 +213,9 @@ class BacktestMetrics:
         print(f"  Profit Factor:       {self.profit_factor:.2f}")
         print(f"  Expectancy:          ${self.expectancy:.2f}")
         print(f"  Avg R:R:             {self.avg_risk_reward:.2f}")
-        print(f"\n  Max Drawdown:        {self.max_drawdown_pct:.2f}% (${self.max_drawdown_dollar:.2f})")
+        print(
+            f"\n  Max Drawdown:        {self.max_drawdown_pct:.2f}% (${self.max_drawdown_dollar:.2f})"
+        )
         print(f"  Max Daily Loss:      ${self.max_daily_loss_dollar:.2f}")
         print(f"  Sharpe Ratio:        {self.sharpe_ratio:.2f}")
         print(f"  Avg Holding Bars:    {self.avg_holding_bars:.0f}")
@@ -259,7 +264,10 @@ class BacktestEngine:
 
             self._check_open_trades(open_trades, bar, i, trades, equity_curve)
 
-            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
+            if (
+                len(open_trades) < self.config.max_open_trades
+                and i >= self.config.min_bars_before_signal
+            ):
                 pass
 
             equity_curve.append(self.balance)
@@ -292,12 +300,19 @@ class BacktestEngine:
         return drawdown_pct >= self.config.max_total_drawdown_pct
 
     def _is_max_daily_loss_breached(self) -> bool:
-        daily_loss_pct = (self.daily_start_balance - self.balance) / self.daily_start_balance
+        daily_loss_pct = (
+            self.daily_start_balance - self.balance
+        ) / self.daily_start_balance
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
-    def _check_open_trades(self, open_trades: List[SimulatedTrade], bar: Bar,
-                           bar_index: int, closed_trades: List[SimulatedTrade],
-                           equity_curve: List[float]):
+    def _check_open_trades(
+        self,
+        open_trades: List[SimulatedTrade],
+        bar: Bar,
+        bar_index: int,
+        closed_trades: List[SimulatedTrade],
+        equity_curve: List[float],
+    ):
         to_close = []
 
         for trade in open_trades:
@@ -328,8 +343,14 @@ class BacktestEngine:
                 return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
         return (False, 0, ExitReason.STOP_LOSS)
 
-    def _close_trade(self, trade: SimulatedTrade, bar_index: int, exit_time: datetime,
-                     exit_price: float, reason: ExitReason):
+    def _close_trade(
+        self,
+        trade: SimulatedTrade,
+        bar_index: int,
+        exit_time: datetime,
+        exit_price: float,
+        reason: ExitReason,
+    ):
         trade.exit_bar_index = bar_index
         trade.exit_price = exit_price
         trade.exit_time = exit_time
@@ -344,11 +365,19 @@ class BacktestEngine:
         else:
             trade.pips = (trade.entry_price - exit_price) / pip_value
 
-        trade.profit_loss = trade.pips * standard_lots * pip_value * self.config.units_per_lot - commission_cost
+        trade.profit_loss = (
+            trade.pips * standard_lots * pip_value * self.config.units_per_lot
+            - commission_cost
+        )
         self.balance += trade.profit_loss
 
-        trade.outcome = TradeOutcome.WIN if trade.profit_loss > 0.01 else \
-            TradeOutcome.LOSS if trade.profit_loss < -0.01 else TradeOutcome.BREAKEVEN
+        trade.outcome = (
+            TradeOutcome.WIN
+            if trade.profit_loss > 0.01
+            else TradeOutcome.LOSS
+            if trade.profit_loss < -0.01
+            else TradeOutcome.BREAKEVEN
+        )
 
         if self.balance > self.peak_balance:
             self.peak_balance = self.balance
@@ -356,29 +385,43 @@ class BacktestEngine:
         if drawdown > self.max_drawdown:
             self.max_drawdown = drawdown
 
-    def _close_all_open_trades(self, open_trades: List[SimulatedTrade],
-                               bar_index: int, exit_time: datetime,
-                               closed_trades: List[SimulatedTrade]):
+    def _close_all_open_trades(
+        self,
+        open_trades: List[SimulatedTrade],
+        bar_index: int,
+        exit_time: datetime,
+        closed_trades: List[SimulatedTrade],
+    ):
         for trade in open_trades:
-            self._close_trade(trade, bar_index, exit_time,
-                              closed_trades[-1].exit_price if closed_trades else trade.entry_price,
-                              ExitReason.END_OF_DATA)
+            self._close_trade(
+                trade,
+                bar_index,
+                exit_time,
+                closed_trades[-1].exit_price if closed_trades else trade.entry_price,
+                ExitReason.END_OF_DATA,
+            )
             closed_trades.append(trade)
         open_trades.clear()
 
-    def _calculate_metrics(self, trades: List[SimulatedTrade],
-                          equity_curve: List[float],
-                          rejected_signals: int) -> BacktestMetrics:
+    def _calculate_metrics(
+        self,
+        trades: List[SimulatedTrade],
+        equity_curve: List[float],
+        rejected_signals: int,
+    ) -> BacktestMetrics:
         metrics = BacktestMetrics(
             starting_balance=self.config.starting_balance,
             ending_balance=self.balance,
             total_pnl=self.balance - self.config.starting_balance,
-            total_pnl_pct=(self.balance - self.config.starting_balance) / self.config.starting_balance,
+            total_pnl_pct=(self.balance - self.config.starting_balance)
+            / self.config.starting_balance,
             win_rate=0.0,
             total_trades=len(trades),
             winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
             losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN),
+            breakeven_trades=sum(
+                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
+            ),
             avg_win=0.0,
             avg_loss=0.0,
             largest_win=0.0,
@@ -395,7 +438,7 @@ class BacktestEngine:
             trades=trades,
             total_spread_cost=0.0,
             total_commission_cost=0.0,
-            rejected_signals=rejected_signals
+            rejected_signals=rejected_signals,
         )
 
         if len(trades) > 0:
@@ -403,20 +446,34 @@ class BacktestEngine:
             losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
 
             metrics.win_rate = metrics.winning_trades / len(trades) * 100
-            metrics.avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0
-            metrics.avg_loss = sum(t.profit_loss for t in losses) / len(losses) if losses else 0
+            metrics.avg_win = (
+                sum(t.profit_loss for t in wins) / len(wins) if wins else 0
+            )
+            metrics.avg_loss = (
+                sum(t.profit_loss for t in losses) / len(losses) if losses else 0
+            )
             metrics.largest_win = max(t.profit_loss for t in wins) if wins else 0
             metrics.largest_loss = min(t.profit_loss for t in losses) if losses else 0
 
             total_wins = sum(t.profit_loss for t in wins)
             total_losses = abs(sum(t.profit_loss for t in losses))
-            metrics.profit_factor = total_wins / total_losses if total_losses > 0 else \
-                total_wins if total_wins > 0 else 0
+            metrics.profit_factor = (
+                total_wins / total_losses
+                if total_losses > 0
+                else total_wins
+                if total_wins > 0
+                else 0
+            )
 
-            metrics.avg_risk_reward = abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
-            metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - \
-                ((1 - metrics.win_rate / 100) * abs(metrics.avg_loss))
-            metrics.avg_holding_bars = sum(t.exit_bar_index - t.entry_bar_index for t in trades) / len(trades)
+            metrics.avg_risk_reward = (
+                abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
+            )
+            metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
+                (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
+            )
+            metrics.avg_holding_bars = sum(
+                t.exit_bar_index - t.entry_bar_index for t in trades
+            ) / len(trades)
 
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
@@ -427,7 +484,9 @@ class BacktestEngine:
         returns = []
         for i in range(1, len(equity_curve)):
             if equity_curve[i - 1] != 0:
-                returns.append((equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1])
+                returns.append(
+                    (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
+                )
         if not returns:
             return 0.0
         mean_return = sum(returns) / len(returns)

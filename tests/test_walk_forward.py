@@ -204,7 +204,11 @@ class TestRunStrategy(unittest.TestCase):
         self.assertGreaterEqual(agg.windows_passed, 0)
 
     def test_go_nogo_consistent_with_criteria(self):
-        results = run_strategy(lambda t, v, te, **kw: _make_trades([10, -5, 15, -3, 8]), list(range(300)), n_windows=3)
+        results = run_strategy(
+            lambda t, v, te, **kw: _make_trades([10, -5, 15, -3, 8]),
+            list(range(300)),
+            n_windows=3,
+        )
         self.assertEqual(results.go_nogo, go_nogo_criteria(results))
 
     def test_per_window_indices(self):

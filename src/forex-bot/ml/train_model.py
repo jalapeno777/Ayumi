@@ -3,16 +3,18 @@ from __future__ import annotations
 import os
 import json
 import pickle
-from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    classification_report, confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
 )
 from sklearn.inspection import permutation_importance
 
@@ -21,23 +23,46 @@ from .signal_simulator import build_labeled_dataset
 
 try:
     from xgboost import XGBClassifier
+
     _HAS_XGBOOST = True
 except ImportError:
     _HAS_XGBOOST = False
 
 FEATURE_COLUMNS = [
-    "atr_14", "atr_50", "atr_ratio", "vol_pct",
-    "rsi", "roc", "stoch_k", "stoch_d",
-    "macd", "macd_signal", "macd_hist",
-    "bb_pct_b", "bb_width",
-    "price_vs_sma9", "price_vs_sma21", "price_vs_sma50", "price_vs_ema200",
-    "trend_direction", "higher_highs", "lower_lows",
-    "engulfing_bullish", "engulfing_bearish",
-    "pin_bullish", "pin_bearish",
-    "hour", "day_of_week",
-    "killzone_london", "killzone_ny", "killzone_asia", "outside_session",
-    "h4_trend", "h4_sma21_dist",
-    "d1_trend", "d1_ema200_dist",
+    "atr_14",
+    "atr_50",
+    "atr_ratio",
+    "vol_pct",
+    "rsi",
+    "roc",
+    "stoch_k",
+    "stoch_d",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "bb_pct_b",
+    "bb_width",
+    "price_vs_sma9",
+    "price_vs_sma21",
+    "price_vs_sma50",
+    "price_vs_ema200",
+    "trend_direction",
+    "higher_highs",
+    "lower_lows",
+    "engulfing_bullish",
+    "engulfing_bearish",
+    "pin_bullish",
+    "pin_bearish",
+    "hour",
+    "day_of_week",
+    "killzone_london",
+    "killzone_ny",
+    "killzone_asia",
+    "outside_session",
+    "h4_trend",
+    "h4_sma21_dist",
+    "d1_trend",
+    "d1_ema200_dist",
     "tf_alignment",
 ]
 
@@ -55,11 +80,36 @@ MODEL_REGISTRY: dict[str, dict[str, Any]] = {
             random_state=rs,
         ),
         "param_grid": [
-            {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.05, "min_samples_leaf": 20},
-            {"n_estimators": 200, "max_depth": 4, "learning_rate": 0.05, "min_samples_leaf": 15},
-            {"n_estimators": 150, "max_depth": 3, "learning_rate": 0.1, "min_samples_leaf": 20},
-            {"n_estimators": 200, "max_depth": 5, "learning_rate": 0.05, "min_samples_leaf": 10},
-            {"n_estimators": 100, "max_depth": 4, "learning_rate": 0.1, "min_samples_leaf": 15},
+            {
+                "n_estimators": 100,
+                "max_depth": 3,
+                "learning_rate": 0.05,
+                "min_samples_leaf": 20,
+            },
+            {
+                "n_estimators": 200,
+                "max_depth": 4,
+                "learning_rate": 0.05,
+                "min_samples_leaf": 15,
+            },
+            {
+                "n_estimators": 150,
+                "max_depth": 3,
+                "learning_rate": 0.1,
+                "min_samples_leaf": 20,
+            },
+            {
+                "n_estimators": 200,
+                "max_depth": 5,
+                "learning_rate": 0.05,
+                "min_samples_leaf": 10,
+            },
+            {
+                "n_estimators": 100,
+                "max_depth": 4,
+                "learning_rate": 0.1,
+                "min_samples_leaf": 15,
+            },
         ],
     },
     "random_forest": {
@@ -73,11 +123,36 @@ MODEL_REGISTRY: dict[str, dict[str, Any]] = {
             n_jobs=-1,
         ),
         "param_grid": [
-            {"n_estimators": 100, "max_depth": 5, "min_samples_leaf": 20, "max_features": "sqrt"},
-            {"n_estimators": 200, "max_depth": 8, "min_samples_leaf": 10, "max_features": "sqrt"},
-            {"n_estimators": 150, "max_depth": 6, "min_samples_leaf": 15, "max_features": 0.5},
-            {"n_estimators": 300, "max_depth": 10, "min_samples_leaf": 5, "max_features": "sqrt"},
-            {"n_estimators": 100, "max_depth": 4, "min_samples_leaf": 25, "max_features": 0.3},
+            {
+                "n_estimators": 100,
+                "max_depth": 5,
+                "min_samples_leaf": 20,
+                "max_features": "sqrt",
+            },
+            {
+                "n_estimators": 200,
+                "max_depth": 8,
+                "min_samples_leaf": 10,
+                "max_features": "sqrt",
+            },
+            {
+                "n_estimators": 150,
+                "max_depth": 6,
+                "min_samples_leaf": 15,
+                "max_features": 0.5,
+            },
+            {
+                "n_estimators": 300,
+                "max_depth": 10,
+                "min_samples_leaf": 5,
+                "max_features": "sqrt",
+            },
+            {
+                "n_estimators": 100,
+                "max_depth": 4,
+                "min_samples_leaf": 25,
+                "max_features": 0.3,
+            },
         ],
     },
 }
@@ -98,11 +173,46 @@ if _HAS_XGBOOST:
             tree_method="hist",
         ),
         "param_grid": [
-            {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10},
-            {"n_estimators": 200, "max_depth": 4, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 1.0, "min_child_weight": 5},
-            {"n_estimators": 150, "max_depth": 3, "learning_rate": 0.1, "subsample": 0.9, "colsample_bytree": 0.8, "min_child_weight": 10},
-            {"n_estimators": 200, "max_depth": 5, "learning_rate": 0.05, "subsample": 0.7, "colsample_bytree": 0.7, "min_child_weight": 5},
-            {"n_estimators": 100, "max_depth": 4, "learning_rate": 0.1, "subsample": 0.8, "colsample_bytree": 0.9, "min_child_weight": 15},
+            {
+                "n_estimators": 100,
+                "max_depth": 3,
+                "learning_rate": 0.05,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "min_child_weight": 10,
+            },
+            {
+                "n_estimators": 200,
+                "max_depth": 4,
+                "learning_rate": 0.05,
+                "subsample": 0.8,
+                "colsample_bytree": 1.0,
+                "min_child_weight": 5,
+            },
+            {
+                "n_estimators": 150,
+                "max_depth": 3,
+                "learning_rate": 0.1,
+                "subsample": 0.9,
+                "colsample_bytree": 0.8,
+                "min_child_weight": 10,
+            },
+            {
+                "n_estimators": 200,
+                "max_depth": 5,
+                "learning_rate": 0.05,
+                "subsample": 0.7,
+                "colsample_bytree": 0.7,
+                "min_child_weight": 5,
+            },
+            {
+                "n_estimators": 100,
+                "max_depth": 4,
+                "learning_rate": 0.1,
+                "subsample": 0.8,
+                "colsample_bytree": 0.9,
+                "min_child_weight": 15,
+            },
         ],
     }
 
@@ -111,8 +221,9 @@ def available_model_types() -> list[str]:
     return list(MODEL_REGISTRY.keys())
 
 
-def prepare_dataset(symbol: str, data_dir: str, timeframe: str = "H1",
-                    max_holding_bars: int = 50) -> pd.DataFrame:
+def prepare_dataset(
+    symbol: str, data_dir: str, timeframe: str = "H1", max_holding_bars: int = 50
+) -> pd.DataFrame:
     tf_map = {"M15": "M15", "H1": "H1", "H4": "H4", "D1": "D1"}
     tf_file = tf_map.get(timeframe, timeframe)
 
@@ -130,7 +241,7 @@ def prepare_dataset(symbol: str, data_dir: str, timeframe: str = "H1",
     if h4_df is not None and d1_df is not None:
         features = add_multi_timeframe_features(features, h4_df, d1_df)
 
-    available_features = [f for f in FEATURE_COLUMNS if f in features.columns]
+    [f for f in FEATURE_COLUMNS if f in features.columns]
 
     dataset = build_labeled_dataset(df, features, max_holding_bars)
     if dataset.empty:
@@ -139,12 +250,18 @@ def prepare_dataset(symbol: str, data_dir: str, timeframe: str = "H1",
     return dataset
 
 
-def train_single_model(X_train: np.ndarray, y_train: np.ndarray,
-                        X_val: np.ndarray, y_val: np.ndarray,
-                        random_state: int = 42,
-                        model_type: str = MODEL_TYPE_DEFAULT) -> dict:
+def train_single_model(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    random_state: int = 42,
+    model_type: str = MODEL_TYPE_DEFAULT,
+) -> dict:
     if model_type not in MODEL_REGISTRY:
-        raise ValueError(f"Unknown model type '{model_type}'. Available: {available_model_types()}")
+        raise ValueError(
+            f"Unknown model type '{model_type}'. Available: {available_model_types()}"
+        )
 
     registry = MODEL_REGISTRY[model_type]
     best_model = None
@@ -171,8 +288,9 @@ def train_single_model(X_train: np.ndarray, y_train: np.ndarray,
     }
 
 
-def optimize_threshold(y_prob: np.ndarray, test_trades: pd.DataFrame,
-                       risk: np.ndarray) -> tuple[float, dict]:
+def optimize_threshold(
+    y_prob: np.ndarray, test_trades: pd.DataFrame, risk: np.ndarray
+) -> tuple[float, dict]:
     best_threshold = 0.5
     best_score = -999
     best_metrics = {}
@@ -217,8 +335,13 @@ def optimize_threshold(y_prob: np.ndarray, test_trades: pd.DataFrame,
     return best_threshold, best_metrics
 
 
-def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray,
-                   test_trades: pd.DataFrame, feature_names: list) -> dict:
+def evaluate_model(
+    model,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    test_trades: pd.DataFrame,
+    feature_names: list,
+) -> dict:
     y_prob = model.predict_proba(X_test)[:, 1]
 
     opt_threshold, opt_metrics = optimize_threshold(y_prob, test_trades, np.array([]))
@@ -233,7 +356,11 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray,
 
     baseline_wr = test_trades["outcome"].mean() * 100
     filtered_mask = y_pred == 1
-    filtered_wr = test_trades.loc[filtered_mask, "outcome"].mean() * 100 if filtered_mask.sum() > 0 else 0
+    filtered_wr = (
+        test_trades.loc[filtered_mask, "outcome"].mean() * 100
+        if filtered_mask.sum() > 0
+        else 0
+    )
     filter_rate = 1 - filtered_mask.sum() / len(y_pred) if len(y_pred) > 0 else 0
 
     filtered_trades = test_trades[filtered_mask]
@@ -254,7 +381,11 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray,
     all_losses = test_trades[test_trades["outcome"] == 0]
     baseline_pf = 0
     if len(all_wins) > 0 and len(all_losses) > 0:
-        baseline_pf = all_wins["pnl"].sum() / abs(all_losses["pnl"].sum()) if abs(all_losses["pnl"].sum()) > 0 else 999
+        baseline_pf = (
+            all_wins["pnl"].sum() / abs(all_losses["pnl"].sum())
+            if abs(all_losses["pnl"].sum()) > 0
+            else 999
+        )
 
     try:
         perm_result = permutation_importance(
@@ -269,13 +400,19 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray,
 
     filtered_mask_opt = y_pred_opt == 1
     opt_mask_indices = np.where(filtered_mask_opt)[0]
-    filtered_trades_opt = test_trades.iloc[opt_mask_indices] if len(opt_mask_indices) > 0 else test_trades.iloc[:0]
+    filtered_trades_opt = (
+        test_trades.iloc[opt_mask_indices]
+        if len(opt_mask_indices) > 0
+        else test_trades.iloc[:0]
+    )
     if len(filtered_trades_opt) > 0:
         wins_opt = filtered_trades_opt[filtered_trades_opt["outcome"] == 1]
         losses_opt = filtered_trades_opt[filtered_trades_opt["outcome"] == 0]
         total_win_pnl_opt = wins_opt["pnl"].sum() if len(wins_opt) > 0 else 0
         total_loss_pnl_opt = abs(losses_opt["pnl"].sum()) if len(losses_opt) > 0 else 0
-        pf_opt = total_win_pnl_opt / total_loss_pnl_opt if total_loss_pnl_opt > 0 else 999
+        pf_opt = (
+            total_win_pnl_opt / total_loss_pnl_opt if total_loss_pnl_opt > 0 else 999
+        )
         wr_opt = len(wins_opt) / len(filtered_trades_opt) * 100
         pnl_opt = filtered_trades_opt["pnl"].sum()
     else:
@@ -297,27 +434,37 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray,
         "filtered_total_pnl": round(total_pnl, 2),
         "n_total_trades": len(test_trades),
         "n_filtered_trades": int(filtered_mask.sum()),
-        "n_wins_filtered": int((filtered_trades["outcome"] == 1).sum()) if len(filtered_trades) > 0 else 0,
+        "n_wins_filtered": int((filtered_trades["outcome"] == 1).sum())
+        if len(filtered_trades) > 0
+        else 0,
         "confusion_matrix": cm.tolist(),
         "feature_importance": importance,
         "opt_threshold": opt_threshold,
         "opt_win_rate": round(wr_opt, 2),
         "opt_profit_factor": round(pf_opt, 2),
         "opt_total_pnl": round(float(pnl_opt), 4),
-        "opt_filter_rate": round(1 - filtered_mask_opt.sum() / len(y_pred), 4) if len(y_pred) > 0 else 0,
+        "opt_filter_rate": round(1 - filtered_mask_opt.sum() / len(y_pred), 4)
+        if len(y_pred) > 0
+        else 0,
         "opt_trade_count": len(filtered_trades_opt),
     }
 
 
-def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
-                        test_ratio: float = 0.2, random_state: int = 42,
-                        model_types: list[str] | None = None) -> dict:
+def walk_forward_train(
+    dataset: pd.DataFrame,
+    n_folds: int = 5,
+    test_ratio: float = 0.2,
+    random_state: int = 42,
+    model_types: list[str] | None = None,
+) -> dict:
     if model_types is None:
         model_types = [MODEL_TYPE_DEFAULT]
 
     for mt in model_types:
         if mt not in MODEL_REGISTRY:
-            raise ValueError(f"Unknown model type '{mt}'. Available: {available_model_types()}")
+            raise ValueError(
+                f"Unknown model type '{mt}'. Available: {available_model_types()}"
+            )
 
     feature_names = [f for f in FEATURE_COLUMNS if f in dataset.columns]
     X = dataset[feature_names].values
@@ -339,7 +486,10 @@ def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
         for fold in range(n_folds):
             train_end = (fold + 1) * fold_size
             test_start = train_end
-            test_end = min(train_end + int(fold_size * (test_ratio / (1 - test_ratio / n_folds))), n)
+            test_end = min(
+                train_end + int(fold_size * (test_ratio / (1 - test_ratio / n_folds))),
+                n,
+            )
 
             if test_end <= test_start:
                 continue
@@ -354,11 +504,16 @@ def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
                 continue
 
             X_tr, X_val, y_tr, y_val = train_test_split(
-                X_train, y_train, test_size=0.2, random_state=random_state + fold,
+                X_train,
+                y_train,
+                test_size=0.2,
+                random_state=random_state + fold,
                 stratify=y_train if len(np.unique(y_train)) >= 2 else None,
             )
 
-            result = train_single_model(X_tr, y_tr, X_val, y_val, random_state + fold, model_type=mt)
+            result = train_single_model(
+                X_tr, y_tr, X_val, y_val, random_state + fold, model_type=mt
+            )
             model = result["model"]
             test_trades = dataset_clean.iloc[test_start:test_end]
 
@@ -370,11 +525,18 @@ def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
             fold_metrics.append(metrics)
 
         if not fold_metrics:
-            model_results[mt] = {"folds": [], "error": "Insufficient data for walk-forward validation"}
+            model_results[mt] = {
+                "folds": [],
+                "error": "Insufficient data for walk-forward validation",
+            }
             continue
 
         avg_metrics = {}
-        numeric_keys = [k for k in fold_metrics[0] if isinstance(fold_metrics[0][k], (int, float)) and k not in ("fold",)]
+        numeric_keys = [
+            k
+            for k in fold_metrics[0]
+            if isinstance(fold_metrics[0][k], (int, float)) and k not in ("fold",)
+        ]
         for key in numeric_keys:
             values = [m[key] for m in fold_metrics if key in m]
             if values:
@@ -382,13 +544,16 @@ def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
 
         avg_metrics["n_folds_completed"] = len(fold_metrics)
 
-        X_all_train = X[:n - fold_size]
-        y_all_train = y[:n - fold_size]
+        X_all_train = X[: n - fold_size]
+        y_all_train = y[: n - fold_size]
         if len(X_all_train) >= 50 and len(np.unique(y_all_train)) >= 2:
             final_result = train_single_model(
-                X_all_train, y_all_train,
-                X[n - fold_size:], y[n - fold_size:],
-                random_state, model_type=mt,
+                X_all_train,
+                y_all_train,
+                X[n - fold_size :],
+                y[n - fold_size :],
+                random_state,
+                model_type=mt,
             )
             model_results[mt] = {
                 "folds": fold_metrics,
@@ -399,7 +564,11 @@ def walk_forward_train(dataset: pd.DataFrame, n_folds: int = 5,
                 "model_type": mt,
             }
         else:
-            model_results[mt] = {"folds": fold_metrics, "summary": avg_metrics, "model_type": mt}
+            model_results[mt] = {
+                "folds": fold_metrics,
+                "summary": avg_metrics,
+                "model_type": mt,
+            }
 
     comparison = build_comparison_table(model_results) if len(model_types) > 1 else None
 
@@ -429,22 +598,31 @@ def build_comparison_table(model_results: dict[str, dict]) -> pd.DataFrame:
     for mt, results in model_results.items():
         summary = results.get("summary", {})
         display = MODEL_REGISTRY[mt]["display_name"]
-        rows.append({
-            "model": display,
-            "model_type": mt,
-            "avg_f1": summary.get("avg_f1", 0),
-            "avg_filtered_win_rate": summary.get("avg_filtered_win_rate", 0),
-            "avg_filtered_profit_factor": summary.get("avg_filtered_profit_factor", 0),
-            "avg_filtered_total_pnl": summary.get("avg_filtered_total_pnl", 0),
-            "avg_opt_profit_factor": summary.get("avg_opt_profit_factor", 0),
-            "avg_opt_win_rate": summary.get("avg_opt_win_rate", 0),
-            "n_folds": summary.get("n_folds_completed", 0),
-        })
+        rows.append(
+            {
+                "model": display,
+                "model_type": mt,
+                "avg_f1": summary.get("avg_f1", 0),
+                "avg_filtered_win_rate": summary.get("avg_filtered_win_rate", 0),
+                "avg_filtered_profit_factor": summary.get(
+                    "avg_filtered_profit_factor", 0
+                ),
+                "avg_filtered_total_pnl": summary.get("avg_filtered_total_pnl", 0),
+                "avg_opt_profit_factor": summary.get("avg_opt_profit_factor", 0),
+                "avg_opt_win_rate": summary.get("avg_opt_win_rate", 0),
+                "n_folds": summary.get("n_folds_completed", 0),
+            }
+        )
     return pd.DataFrame(rows)
 
 
-def save_model(model, feature_names: list, metrics: dict, output_dir: str,
-                model_type: str = MODEL_TYPE_DEFAULT) -> str:
+def save_model(
+    model,
+    feature_names: list,
+    metrics: dict,
+    output_dir: str,
+    model_type: str = MODEL_TYPE_DEFAULT,
+) -> str:
     os.makedirs(output_dir, exist_ok=True)
 
     model_path = os.path.join(output_dir, "signal_filter.pkl")
@@ -456,7 +634,9 @@ def save_model(model, feature_names: list, metrics: dict, output_dir: str,
         "metrics_summary": {k: v for k, v in metrics.get("summary", {}).items()},
         "n_features": len(feature_names),
         "model_type": model_type,
-        "display_name": MODEL_REGISTRY.get(model_type, {}).get("display_name", model_type),
+        "display_name": MODEL_REGISTRY.get(model_type, {}).get(
+            "display_name", model_type
+        ),
     }
 
     meta_path = os.path.join(output_dir, "signal_filter_meta.json")
@@ -479,10 +659,15 @@ def load_model(model_dir: str) -> tuple:
     return model, meta["feature_names"]
 
 
-def run_full_pipeline(symbols: list[str], data_dir: str, output_dir: str,
-                      timeframe: str = "H1", max_holding_bars: int = 50,
-                      n_folds: int = 5,
-                      model_types: list[str] | None = None) -> dict:
+def run_full_pipeline(
+    symbols: list[str],
+    data_dir: str,
+    output_dir: str,
+    timeframe: str = "H1",
+    max_holding_bars: int = 50,
+    n_folds: int = 5,
+    model_types: list[str] | None = None,
+) -> dict:
     all_datasets = []
 
     for symbol in symbols:

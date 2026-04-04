@@ -74,25 +74,39 @@ class FVGDetector:
             if bottom > top:
                 top, bottom = bottom, top
 
-            state.active_fvgs.append(FairValueGap(
-                start_index=i,
-                top=top,
-                bottom=bottom,
-                direction=direction,
-                size=gap,
-                age=age,
-                is_filled=filled,
-                is_mitigated=False,
-                created_time=candle1.time,
-            ))
+            state.active_fvgs.append(
+                FairValueGap(
+                    start_index=i,
+                    top=top,
+                    bottom=bottom,
+                    direction=direction,
+                    size=gap,
+                    age=age,
+                    is_filled=filled,
+                    is_mitigated=False,
+                    created_time=candle1.time,
+                )
+            )
 
         self._cleanup_stale(state)
 
     def _cleanup_stale(self, state: ICTMarketState):
-        state.active_fvgs = [fvg for fvg in state.active_fvgs if not fvg.is_mitigated and fvg.age <= self._max_age]
+        state.active_fvgs = [
+            fvg
+            for fvg in state.active_fvgs
+            if not fvg.is_mitigated and fvg.age <= self._max_age
+        ]
 
-    def get_nearest_unfilled(self, state: ICTMarketState, direction: TradeDirection, current_price: float) -> Optional[FairValueGap]:
-        candidates = [fvg for fvg in state.active_fvgs if fvg.direction == direction and not fvg.is_mitigated]
+    def get_nearest_unfilled(
+        self, state: ICTMarketState, direction: TradeDirection, current_price: float
+    ) -> Optional[FairValueGap]:
+        candidates = [
+            fvg
+            for fvg in state.active_fvgs
+            if fvg.direction == direction and not fvg.is_mitigated
+        ]
         if not candidates:
             return None
-        return min(candidates, key=lambda fvg: abs(current_price - (fvg.top + fvg.bottom) / 2))
+        return min(
+            candidates, key=lambda fvg: abs(current_price - (fvg.top + fvg.bottom) / 2)
+        )

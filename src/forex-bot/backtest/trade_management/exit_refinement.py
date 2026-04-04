@@ -24,13 +24,16 @@ class ExitRefinerResult:
 
 
 class ExitRefiner:
-    def __init__(self, enabled: bool = True,
-                 max_bars_to_tp1: int = 48,
-                 momentum_exit_enabled: bool = True,
-                 momentum_lookback: int = 5,
-                 momentum_reversal_threshold: float = 0.6,
-                 spread_filter_enabled: bool = True,
-                 max_spread_atr_pct: float = 0.15):
+    def __init__(
+        self,
+        enabled: bool = True,
+        max_bars_to_tp1: int = 48,
+        momentum_exit_enabled: bool = True,
+        momentum_lookback: int = 5,
+        momentum_reversal_threshold: float = 0.6,
+        spread_filter_enabled: bool = True,
+        max_spread_atr_pct: float = 0.15,
+    ):
         self.enabled = enabled
         self.max_bars_to_tp1 = max_bars_to_tp1
         self.momentum_exit_enabled = momentum_exit_enabled
@@ -42,9 +45,14 @@ class ExitRefiner:
     def create_state(self) -> ExitRefinerState:
         return ExitRefinerState()
 
-    def on_bar(self, bar: Bar, state: ExitRefinerState,
-               direction: TradeDirection, atr: float,
-               recent_bars: Optional[List[Bar]] = None) -> ExitRefinerResult:
+    def on_bar(
+        self,
+        bar: Bar,
+        state: ExitRefinerState,
+        direction: TradeDirection,
+        atr: float,
+        recent_bars: Optional[List[Bar]] = None,
+    ) -> ExitRefinerResult:
         if not self.enabled:
             return ExitRefinerResult()
 
@@ -53,9 +61,7 @@ class ExitRefiner:
         state.momentum_history.append(momentum)
 
         if self.momentum_exit_enabled and not state.tp1_hit:
-            result = self._check_momentum_reversal(
-                state, direction, bar, momentum
-            )
+            result = self._check_momentum_reversal(state, direction, bar, momentum)
             if result.should_exit:
                 return result
 
@@ -73,8 +79,9 @@ class ExitRefiner:
 
         return ExitRefinerResult()
 
-    def check_entry_spread(self, bar: Bar, atr: float,
-                           spread_pips: float = 0.5) -> bool:
+    def check_entry_spread(
+        self, bar: Bar, atr: float, spread_pips: float = 0.5
+    ) -> bool:
         if not self.enabled or not self.spread_filter_enabled:
             return True
 
@@ -87,19 +94,29 @@ class ExitRefiner:
 
         return spread_atr_ratio <= self.max_spread_atr_pct
 
-    def _check_momentum_reversal(self, state: ExitRefinerState,
-                                 direction: TradeDirection, bar: Bar,
-                                 current_momentum: float) -> ExitRefinerResult:
+    def _check_momentum_reversal(
+        self,
+        state: ExitRefinerState,
+        direction: TradeDirection,
+        bar: Bar,
+        current_momentum: float,
+    ) -> ExitRefinerResult:
         if len(state.momentum_history) < self.momentum_lookback:
             return ExitRefinerResult()
 
-        recent = state.momentum_history[-self.momentum_lookback:]
+        recent = state.momentum_history[-self.momentum_lookback :]
         avg_momentum = sum(recent) / len(recent)
 
         is_reversing = False
-        if direction == TradeDirection.LONG and avg_momentum < -self.momentum_reversal_threshold:
+        if (
+            direction == TradeDirection.LONG
+            and avg_momentum < -self.momentum_reversal_threshold
+        ):
             is_reversing = True
-        elif direction == TradeDirection.SHORT and avg_momentum > self.momentum_reversal_threshold:
+        elif (
+            direction == TradeDirection.SHORT
+            and avg_momentum > self.momentum_reversal_threshold
+        ):
             is_reversing = True
 
         if is_reversing:
@@ -112,8 +129,9 @@ class ExitRefiner:
 
         return ExitRefinerResult()
 
-    def _calculate_momentum(self, bar: Bar,
-                            recent_bars: Optional[List[Bar]] = None) -> float:
+    def _calculate_momentum(
+        self, bar: Bar, recent_bars: Optional[List[Bar]] = None
+    ) -> float:
         if recent_bars and len(recent_bars) >= 2:
             return bar.close - recent_bars[-1].close
         return bar.close - bar.open

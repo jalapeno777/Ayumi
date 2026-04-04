@@ -12,7 +12,9 @@ class ISignalStrategy:
 
 
 class MACrossStrategy(ISignalStrategy):
-    def __init__(self, fast_period: int = 5, slow_period: int = 13, atr_multiplier: float = 2.0):
+    def __init__(
+        self, fast_period: int = 5, slow_period: int = 13, atr_multiplier: float = 2.0
+    ):
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.atr_multiplier = atr_multiplier
@@ -42,18 +44,36 @@ class MACrossStrategy(ISignalStrategy):
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
-        sl = entry - atr * self.atr_multiplier if direction == TradeDirection.LONG \
+        sl = (
+            entry - atr * self.atr_multiplier
+            if direction == TradeDirection.LONG
             else entry + atr * self.atr_multiplier
+        )
         risk = abs(entry - sl)
-        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
-        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
-        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
+        tp1 = (
+            entry + risk * 1.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 1.0
+        )
+        tp2 = (
+            entry + risk * 2.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 2.0
+        )
+        tp3 = (
+            entry + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
 
         trend_strength = self._calculate_trend_strength(fast_ma, slow_ma)
         confidence = min(0.95, 0.50 + trend_strength * 0.45)
 
-        rationale = f"Bullish MA cross: fast={fast_ma:.5f} > slow={slow_ma:.5f}" if bullish_cross \
+        rationale = (
+            f"Bullish MA cross: fast={fast_ma:.5f} > slow={slow_ma:.5f}"
+            if bullish_cross
             else f"Bearish MA cross: fast={fast_ma:.5f} < slow={slow_ma:.5f}"
+        )
 
         return StrategySignal(
             direction=direction,
@@ -63,7 +83,7 @@ class MACrossStrategy(ISignalStrategy):
             take_profit_1=tp1,
             take_profit_2=tp2,
             take_profit_3=tp3,
-            rationale=rationale
+            rationale=rationale,
         )
 
     def _calculate_sma(self, bars: List[Bar], period: int) -> float:
@@ -86,15 +106,17 @@ class MACrossStrategy(ISignalStrategy):
                     bars[i].high - bars[i].low,
                     max(
                         abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close)
-                    )
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14
 
 
 class BBStrategy(ISignalStrategy):
-    def __init__(self, period: int = 20, std_dev: float = 2.0, atr_multiplier: float = 2.0):
+    def __init__(
+        self, period: int = 20, std_dev: float = 2.0, atr_multiplier: float = 2.0
+    ):
         self.period = period
         self.std_dev = std_dev
         self.atr_multiplier = atr_multiplier
@@ -125,8 +147,12 @@ class BBStrategy(ISignalStrategy):
             tp1 = entry + risk * 1.0
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
-            confidence = min(0.90, 0.60 + (lower_band - latest.close) / lower_band * 0.30)
-            rationale = f"BB oversold: close={latest.close:.5f} < lower={lower_band:.5f}"
+            confidence = min(
+                0.90, 0.60 + (lower_band - latest.close) / lower_band * 0.30
+            )
+            rationale = (
+                f"BB oversold: close={latest.close:.5f} < lower={lower_band:.5f}"
+            )
         elif latest.close > upper_band:
             direction = TradeDirection.SHORT
             entry = latest.close
@@ -136,8 +162,12 @@ class BBStrategy(ISignalStrategy):
             tp1 = entry - risk * 1.0
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
-            confidence = min(0.90, 0.60 + (latest.close - upper_band) / upper_band * 0.30)
-            rationale = f"BB overbought: close={latest.close:.5f} > upper={upper_band:.5f}"
+            confidence = min(
+                0.90, 0.60 + (latest.close - upper_band) / upper_band * 0.30
+            )
+            rationale = (
+                f"BB overbought: close={latest.close:.5f} > upper={upper_band:.5f}"
+            )
         else:
             return None
 
@@ -149,19 +179,19 @@ class BBStrategy(ISignalStrategy):
             take_profit_1=tp1,
             take_profit_2=tp2,
             take_profit_3=tp3,
-            rationale=rationale
+            rationale=rationale,
         )
 
     def _calculate_sma(self, bars: List[Bar]) -> float:
         if len(bars) < self.period:
             return 0.0
-        return sum(b.close for b in bars[-self.period:]) / self.period
+        return sum(b.close for b in bars[-self.period :]) / self.period
 
     def _calculate_std(self, bars: List[Bar], sma: float) -> float:
         if len(bars) < self.period:
             return 0.0
-        variance = sum((b.close - sma) ** 2 for b in bars[-self.period:]) / self.period
-        return variance ** 0.5
+        variance = sum((b.close - sma) ** 2 for b in bars[-self.period :]) / self.period
+        return variance**0.5
 
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
@@ -173,17 +203,22 @@ class BBStrategy(ISignalStrategy):
                     bars[i].high - bars[i].low,
                     max(
                         abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close)
-                    )
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14
 
 
 class RSIStrategy(ISignalStrategy):
-    def __init__(self, period: int = 14, oversold: float = 35.0,
-                 overbought: float = 65.0, mid: float = 50.0,
-                 atr_multiplier: float = 2.0):
+    def __init__(
+        self,
+        period: int = 14,
+        oversold: float = 35.0,
+        overbought: float = 65.0,
+        mid: float = 50.0,
+        atr_multiplier: float = 2.0,
+    ):
         self.period = period
         self.oversold = oversold
         self.overbought = overbought
@@ -224,7 +259,9 @@ class RSIStrategy(ISignalStrategy):
             tp1 = entry - risk * 1.0
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
-            confidence = min(0.85, 0.55 + (rsi - self.overbought) / (100 - self.overbought) * 0.30)
+            confidence = min(
+                0.85, 0.55 + (rsi - self.overbought) / (100 - self.overbought) * 0.30
+            )
             rationale = f"RSI overbought: rsi={rsi:.1f} > {self.overbought}"
         else:
             return None
@@ -237,7 +274,7 @@ class RSIStrategy(ISignalStrategy):
             take_profit_1=tp1,
             take_profit_2=tp2,
             take_profit_3=tp3,
-            rationale=rationale
+            rationale=rationale,
         )
 
     def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
@@ -274,16 +311,21 @@ class RSIStrategy(ISignalStrategy):
                     bars[i].high - bars[i].low,
                     max(
                         abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close)
-                    )
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14
 
 
 class SRBreakoutStrategy(ISignalStrategy):
-    def __init__(self, lookback: int = 50, confirmation_bars: int = 1,
-                 breakout_threshold: float = 0.0001, atr_multiplier: float = 2.0):
+    def __init__(
+        self,
+        lookback: int = 50,
+        confirmation_bars: int = 1,
+        breakout_threshold: float = 0.0001,
+        atr_multiplier: float = 2.0,
+    ):
         self.lookback = lookback
         self.confirmation_bars = confirmation_bars
         self.breakout_threshold = breakout_threshold
@@ -297,11 +339,10 @@ class SRBreakoutStrategy(ISignalStrategy):
         if len(state.bars) < self.lookback + self.confirmation_bars:
             return None
 
-        lookback_bars = state.bars[-self.lookback - 1:-1]
+        lookback_bars = state.bars[-self.lookback - 1 : -1]
         resistance = max(b.high for b in lookback_bars)
         support = min(b.low for b in lookback_bars)
         latest = state.latest_bar
-        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
 
         bullish_breakout = False
         bearish_breakout = False
@@ -333,7 +374,9 @@ class SRBreakoutStrategy(ISignalStrategy):
             tp1 = entry + risk * 1.0
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
-            confidence = min(0.85, 0.50 + (latest.close - resistance) / resistance * 0.35)
+            confidence = min(
+                0.85, 0.50 + (latest.close - resistance) / resistance * 0.35
+            )
             rationale = f"Bullish S/R breakout: close={latest.close:.5f} > resistance={resistance:.5f}"
         else:
             direction = TradeDirection.SHORT
@@ -354,7 +397,7 @@ class SRBreakoutStrategy(ISignalStrategy):
             take_profit_1=tp1,
             take_profit_2=tp2,
             take_profit_3=tp3,
-            rationale=rationale
+            rationale=rationale,
         )
 
     def _calculate_atr(self, bars: List[Bar]) -> float:
@@ -367,16 +410,17 @@ class SRBreakoutStrategy(ISignalStrategy):
                     bars[i].high - bars[i].low,
                     max(
                         abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close)
-                    )
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14
 
 
 class ROCMStrategy(ISignalStrategy):
-    def __init__(self, period: int = 12, roc_threshold: float = 0.3,
-                 atr_multiplier: float = 2.0):
+    def __init__(
+        self, period: int = 12, roc_threshold: float = 0.3, atr_multiplier: float = 2.0
+    ):
         self.period = period
         self.roc_threshold = roc_threshold
         self.atr_multiplier = atr_multiplier
@@ -415,7 +459,9 @@ class ROCMStrategy(ISignalStrategy):
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
             confidence = min(0.85, 0.50 + min(abs(roc), 2.0) / 2.0 * 0.35)
-            rationale = f"Negative momentum ROC: roc={roc:.3f}% < -{self.roc_threshold}%"
+            rationale = (
+                f"Negative momentum ROC: roc={roc:.3f}% < -{self.roc_threshold}%"
+            )
         else:
             return None
 
@@ -427,7 +473,7 @@ class ROCMStrategy(ISignalStrategy):
             take_profit_1=tp1,
             take_profit_2=tp2,
             take_profit_3=tp3,
-            rationale=rationale
+            rationale=rationale,
         )
 
     def _calculate_roc(self, bars: List[Bar]) -> Optional[float]:
@@ -449,8 +495,8 @@ class ROCMStrategy(ISignalStrategy):
                     bars[i].high - bars[i].low,
                     max(
                         abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close)
-                    )
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
                 )
                 tr_sum += tr
         return tr_sum / 14

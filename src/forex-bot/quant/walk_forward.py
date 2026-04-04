@@ -60,9 +60,13 @@ class WalkForwardValidator:
         if self.train_ratio + self.val_ratio >= 1:
             raise ValueError("train_ratio + val_ratio must be < 1")
         if self.overlap_ratio < 0 or self.overlap_ratio >= 1:
-            raise ValueError(f"overlap_ratio must be in [0, 1), got {self.overlap_ratio}")
+            raise ValueError(
+                f"overlap_ratio must be in [0, 1), got {self.overlap_ratio}"
+            )
 
-    def split(self, data: Optional[list[Any]] = None) -> Generator[tuple[list[Any], list[Any], list[Any]], None, None]:
+    def split(
+        self, data: Optional[list[Any]] = None
+    ) -> Generator[tuple[list[Any], list[Any], list[Any]], None, None]:
         source = data if data is not None else self.data
         n = len(source)
         if n == 0:
@@ -160,12 +164,7 @@ def _compute_metrics(
         std_pnl = math.sqrt(variance) if variance > 0 else 0.0
         sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
 
-    passed = (
-        win_rate > 0.55
-        and profit_factor > 1.0
-        and total_pnl > 0
-        and max_dd < 0.10
-    )
+    passed = win_rate > 0.55 and profit_factor > 1.0 and total_pnl > 0 and max_dd < 0.10
 
     return WindowMetrics(
         window_index=window_index,
@@ -318,14 +317,20 @@ def comparison_report(
     total_a = len(results_a.per_window)
     total_b = len(results_b.per_window)
 
-    lines.append(f"Strategy A: {passed_a}/{total_a} windows passed GO/NO-GO  -> {'GO' if results_a.go_nogo else 'NO-GO'}")
-    lines.append(f"Strategy B: {passed_b}/{total_b} windows passed GO/NO-GO  -> {'GO' if results_b.go_nogo else 'NO-GO'}")
+    lines.append(
+        f"Strategy A: {passed_a}/{total_a} windows passed GO/NO-GO  -> {'GO' if results_a.go_nogo else 'NO-GO'}"
+    )
+    lines.append(
+        f"Strategy B: {passed_b}/{total_b} windows passed GO/NO-GO  -> {'GO' if results_b.go_nogo else 'NO-GO'}"
+    )
     lines.append("")
 
     if agg_a:
         lines.append("Strategy A Per-Window Details:")
         lines.append("-" * 80)
-        lines.append(f"{'Window':<8} {'WR':>8} {'PF':>8} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>6}")
+        lines.append(
+            f"{'Window':<8} {'WR':>8} {'PF':>8} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>6}"
+        )
         for m in results_a.per_window:
             lines.append(
                 f"{m.window_index:<8} {pct(m.win_rate):>8} {fmt(m.profit_factor):>8} "
@@ -337,7 +342,9 @@ def comparison_report(
     if agg_b:
         lines.append("Strategy B Per-Window Details:")
         lines.append("-" * 80)
-        lines.append(f"{'Window':<8} {'WR':>8} {'PF':>8} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>6}")
+        lines.append(
+            f"{'Window':<8} {'WR':>8} {'PF':>8} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>6}"
+        )
         for m in results_b.per_window:
             lines.append(
                 f"{m.window_index:<8} {pct(m.win_rate):>8} {fmt(m.profit_factor):>8} "

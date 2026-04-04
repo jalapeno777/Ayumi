@@ -63,7 +63,6 @@ def _make_h4_bars_with_bullish_fvg(n=50):
 
 
 class TestH4ContextModule(unittest.TestCase):
-
     def test_empty_bars_returns_empty_result(self):
         module = H4ContextModule()
         result = module.analyze([], 1.0, 0.0001)
@@ -135,7 +134,8 @@ class TestH4ContextModule(unittest.TestCase):
 
     def test_zone_mapping_structure(self):
         zone = H4ZoneMapping(
-            top=1.0100, bottom=1.0050,
+            top=1.0100,
+            bottom=1.0050,
             direction=TradeDirection.LONG,
             zone_type="order_block",
             strength=0.8,
@@ -156,7 +156,6 @@ class TestH4ContextModule(unittest.TestCase):
 
 
 class TestH4ContextIntegration(unittest.TestCase):
-
     def _make_h1_state(self, n=100):
         bars = []
         price = 1.0000
@@ -219,31 +218,52 @@ class TestH4ContextIntegration(unittest.TestCase):
         h4_bars = _make_h4_bars_with_bullish_ob(50)
         signal = engine.evaluate(state, h4_bars=h4_bars)
         if signal is not None:
-            has_h4_in_rationale = "H4 context" in signal.rationale or signal.confluence_count >= 0
+            has_h4_in_rationale = (
+                "H4 context" in signal.rationale or signal.confluence_count >= 0
+            )
             self.assertTrue(has_h4_in_rationale)
 
 
 class TestH4ZoneMapping(unittest.TestCase):
-
     def test_price_in_zone_true(self):
         module = H4ContextModule()
-        zone = H4ZoneMapping(top=1.0100, bottom=1.0050, direction=TradeDirection.LONG, zone_type="order_block")
+        zone = H4ZoneMapping(
+            top=1.0100,
+            bottom=1.0050,
+            direction=TradeDirection.LONG,
+            zone_type="order_block",
+        )
         self.assertTrue(module._price_in_zone(1.0075, zone))
 
     def test_price_in_zone_false(self):
         module = H4ContextModule()
-        zone = H4ZoneMapping(top=1.0100, bottom=1.0050, direction=TradeDirection.LONG, zone_type="order_block")
+        zone = H4ZoneMapping(
+            top=1.0100,
+            bottom=1.0050,
+            direction=TradeDirection.LONG,
+            zone_type="order_block",
+        )
         self.assertFalse(module._price_in_zone(1.0200, zone))
 
     def test_price_near_zone(self):
         module = H4ContextModule()
-        zone = H4ZoneMapping(top=1.0100, bottom=1.0050, direction=TradeDirection.LONG, zone_type="order_block")
+        zone = H4ZoneMapping(
+            top=1.0100,
+            bottom=1.0050,
+            direction=TradeDirection.LONG,
+            zone_type="order_block",
+        )
         self.assertTrue(module._price_near_zone(1.0150, zone, 0.01))
         self.assertFalse(module._price_near_zone(1.0500, zone, 0.01))
 
     def test_proximity_score_closes(self):
         module = H4ContextModule()
-        zone = H4ZoneMapping(top=1.0100, bottom=1.0050, direction=TradeDirection.LONG, zone_type="order_block")
+        zone = H4ZoneMapping(
+            top=1.0100,
+            bottom=1.0050,
+            direction=TradeDirection.LONG,
+            zone_type="order_block",
+        )
         close_score = module._zone_proximity_score(1.0075, zone, 0.001)
         far_score = module._zone_proximity_score(1.0500, zone, 0.001)
         self.assertGreater(close_score, far_score)

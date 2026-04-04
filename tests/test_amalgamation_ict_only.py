@@ -19,6 +19,7 @@ from backtest.amalgamation import (
 def make_test_bars(n=100, seed=42):
     import numpy as np
     import pandas as pd
+
     np.random.seed(seed)
     dates = pd.date_range("2023-01-01", periods=n, freq="1h")
     price = 1.1000

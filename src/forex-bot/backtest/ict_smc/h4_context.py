@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from ..engine import Bar, TradeDirection
 from .fvg import FVGDetector
@@ -90,13 +89,15 @@ class H4ContextModule:
         for ob in order_blocks:
             if ob.is_mitigated:
                 continue
-            zones.append(H4ZoneMapping(
-                top=ob.top,
-                bottom=ob.bottom,
-                direction=ob.direction,
-                zone_type="order_block",
-                strength=ob.strength,
-            ))
+            zones.append(
+                H4ZoneMapping(
+                    top=ob.top,
+                    bottom=ob.bottom,
+                    direction=ob.direction,
+                    zone_type="order_block",
+                    strength=ob.strength,
+                )
+            )
         return zones
 
     def _map_fvg_zones(self, fvgs: List) -> List[H4ZoneMapping]:
@@ -104,14 +105,16 @@ class H4ContextModule:
         for fvg in fvgs:
             if fvg.is_mitigated:
                 continue
-            zones.append(H4ZoneMapping(
-                top=fvg.top,
-                bottom=fvg.bottom,
-                direction=fvg.direction,
-                zone_type="fvg",
-                strength=0.5 if not fvg.is_filled else 0.25,
-                is_filled=fvg.is_filled,
-            ))
+            zones.append(
+                H4ZoneMapping(
+                    top=fvg.top,
+                    bottom=fvg.bottom,
+                    direction=fvg.direction,
+                    zone_type="fvg",
+                    strength=0.5 if not fvg.is_filled else 0.25,
+                    is_filled=fvg.is_filled,
+                )
+            )
         return zones
 
     def _calculate_scores(

@@ -2,13 +2,23 @@ import numpy as np
 import pandas as pd
 
 from .features import (
-    sma, ema, atr, rsi, bollinger_bands, roc,
-    stochastic, macd, engulfing_bullish, engulfing_bearish,
+    sma,
+    atr,
+    rsi,
+    bollinger_bands,
+    roc,
+    engulfing_bullish,
+    engulfing_bearish,
 )
 
 
-def ma_crossover_signals(df: pd.DataFrame, fast: int = 9, slow: int = 21,
-                         atr_mult: float = 2.0, rr: float = 1.5) -> pd.DataFrame:
+def ma_crossover_signals(
+    df: pd.DataFrame,
+    fast: int = 9,
+    slow: int = 21,
+    atr_mult: float = 2.0,
+    rr: float = 1.5,
+) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -45,9 +55,14 @@ def ma_crossover_signals(df: pd.DataFrame, fast: int = 9, slow: int = 21,
     return entries[entries["direction"] != 0].copy()
 
 
-def rsi_divergence_signals(df: pd.DataFrame, period: int = 14,
-                           oversold: float = 30, overbought: float = 70,
-                           atr_mult: float = 2.0, rr: float = 1.5) -> pd.DataFrame:
+def rsi_divergence_signals(
+    df: pd.DataFrame,
+    period: int = 14,
+    oversold: float = 30,
+    overbought: float = 70,
+    atr_mult: float = 2.0,
+    rr: float = 1.5,
+) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -58,10 +73,16 @@ def rsi_divergence_signals(df: pd.DataFrame, period: int = 14,
     rsi_low = rsi_val.rolling(window=20, min_periods=20).min()
     rsi_high = rsi_val.rolling(window=20, min_periods=20).max()
 
-    bullish_div = (close.rolling(20).min().shift(1) > close.rolling(20).min()) & \
-                  (rsi_low.shift(1) > rsi_low) & (rsi_val < oversold)
-    bearish_div = (close.rolling(20).max().shift(1) < close.rolling(20).max()) & \
-                  (rsi_high.shift(1) < rsi_high) & (rsi_val > overbought)
+    bullish_div = (
+        (close.rolling(20).min().shift(1) > close.rolling(20).min())
+        & (rsi_low.shift(1) > rsi_low)
+        & (rsi_val < oversold)
+    )
+    bearish_div = (
+        (close.rolling(20).max().shift(1) < close.rolling(20).max())
+        & (rsi_high.shift(1) < rsi_high)
+        & (rsi_val > overbought)
+    )
 
     entries = pd.DataFrame(index=df.index)
     entries["direction"] = 0.0
@@ -85,8 +106,13 @@ def rsi_divergence_signals(df: pd.DataFrame, period: int = 14,
     return entries[entries["direction"] != 0].copy()
 
 
-def bb_mean_reversion_signals(df: pd.DataFrame, period: int = 20, num_std: float = 2.0,
-                              atr_mult: float = 2.0, rr: float = 1.5) -> pd.DataFrame:
+def bb_mean_reversion_signals(
+    df: pd.DataFrame,
+    period: int = 20,
+    num_std: float = 2.0,
+    atr_mult: float = 2.0,
+    rr: float = 1.5,
+) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -98,8 +124,12 @@ def bb_mean_reversion_signals(df: pd.DataFrame, period: int = 20, num_std: float
     prev_close = close.shift(1)
     prev_open = open_.shift(1)
 
-    long_signal = (close < bb_lower) & engulfing_bullish(open_, close, prev_open, prev_close).astype(bool)
-    short_signal = (close > bb_upper) & engulfing_bearish(open_, close, prev_open, prev_close).astype(bool)
+    long_signal = (close < bb_lower) & engulfing_bullish(
+        open_, close, prev_open, prev_close
+    ).astype(bool)
+    short_signal = (close > bb_upper) & engulfing_bearish(
+        open_, close, prev_open, prev_close
+    ).astype(bool)
 
     entries = pd.DataFrame(index=df.index)
     entries["direction"] = 0.0
@@ -123,8 +153,9 @@ def bb_mean_reversion_signals(df: pd.DataFrame, period: int = 20, num_std: float
     return entries[entries["direction"] != 0].copy()
 
 
-def momentum_signals(df: pd.DataFrame, period: int = 12,
-                     atr_mult: float = 2.0, rr: float = 1.5) -> pd.DataFrame:
+def momentum_signals(
+    df: pd.DataFrame, period: int = 12, atr_mult: float = 2.0, rr: float = 1.5
+) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -159,8 +190,9 @@ def momentum_signals(df: pd.DataFrame, period: int = 12,
     return entries[entries["direction"] != 0].copy()
 
 
-def label_trades(signals: pd.DataFrame, df: pd.DataFrame,
-                 max_holding_bars: int = 50) -> pd.DataFrame:
+def label_trades(
+    signals: pd.DataFrame, df: pd.DataFrame, max_holding_bars: int = 50
+) -> pd.DataFrame:
     high = df["high"].values
     low = df["low"].values
     close = df["close"].values
@@ -226,21 +258,23 @@ def label_trades(signals: pd.DataFrame, df: pd.DataFrame,
         pnl = (exit_price - entry_price) * direction
         rr_actual = pnl / risk if risk > 0 else 0
 
-        results.append({
-            "entry_idx": entry_idx,
-            "entry_time": idx,
-            "direction": direction,
-            "entry_price": entry_price,
-            "stop_loss": sl,
-            "take_profit": tp,
-            "exit_price": exit_price,
-            "outcome": outcome,
-            "pnl": pnl,
-            "rr_actual": rr_actual,
-            "holding_bars": holding_bars,
-            "exit_reason": exit_reason,
-            "strategy": row["strategy"],
-        })
+        results.append(
+            {
+                "entry_idx": entry_idx,
+                "entry_time": idx,
+                "direction": direction,
+                "entry_price": entry_price,
+                "stop_loss": sl,
+                "take_profit": tp,
+                "exit_price": exit_price,
+                "outcome": outcome,
+                "pnl": pnl,
+                "rr_actual": rr_actual,
+                "holding_bars": holding_bars,
+                "exit_reason": exit_reason,
+                "strategy": row["strategy"],
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -268,15 +302,14 @@ def generate_all_signals(df: pd.DataFrame) -> pd.DataFrame:
     combined = pd.concat(all_signals)
     combined = combined.sort_index()
 
-    combined = combined[
-        ~combined.index.duplicated(keep="first")
-    ]
+    combined = combined[~combined.index.duplicated(keep="first")]
 
     return combined
 
 
-def build_labeled_dataset(df: pd.DataFrame, features: pd.DataFrame,
-                          max_holding_bars: int = 50) -> pd.DataFrame:
+def build_labeled_dataset(
+    df: pd.DataFrame, features: pd.DataFrame, max_holding_bars: int = 50
+) -> pd.DataFrame:
     signals = generate_all_signals(df)
     if signals.empty:
         return pd.DataFrame()
@@ -290,11 +323,27 @@ def build_labeled_dataset(df: pd.DataFrame, features: pd.DataFrame,
     feat_subset = feat_subset.reset_index(drop=True)
     labeled = labeled.reset_index(drop=True)
 
-    dataset = pd.concat([feat_subset, labeled[[
-        "direction", "entry_price", "stop_loss", "take_profit",
-        "exit_price", "outcome", "pnl", "rr_actual",
-        "holding_bars", "exit_reason", "strategy",
-    ]]], axis=1)
+    dataset = pd.concat(
+        [
+            feat_subset,
+            labeled[
+                [
+                    "direction",
+                    "entry_price",
+                    "stop_loss",
+                    "take_profit",
+                    "exit_price",
+                    "outcome",
+                    "pnl",
+                    "rr_actual",
+                    "holding_bars",
+                    "exit_reason",
+                    "strategy",
+                ]
+            ],
+        ],
+        axis=1,
+    )
 
     dataset = dataset.dropna(subset=["outcome"])
     return dataset

@@ -15,8 +15,14 @@ DEFAULT_DB_PATH = Path("data/forex/forex.db")
 DB_PATH_ENV_VAR = "FOREX_DB_PATH"
 
 CANDLE_COLUMNS = [
-    "symbol", "timeframe", "timestamp",
-    "open", "high", "low", "close", "volume",
+    "symbol",
+    "timeframe",
+    "timestamp",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
 ]
 
 OHLCV_COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
@@ -151,7 +157,12 @@ class CSVCandleLoader:
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV not found: {csv_path}")
 
-        df = pd.read_csv(csv_path, parse_dates=["Date"] if "Date" in pd.read_csv(csv_path, nrows=0).columns else False)
+        df = pd.read_csv(
+            csv_path,
+            parse_dates=["Date"]
+            if "Date" in pd.read_csv(csv_path, nrows=0).columns
+            else False,
+        )
 
         if "Date" in df.columns:
             df.rename(columns={"Date": "timestamp"}, inplace=True)

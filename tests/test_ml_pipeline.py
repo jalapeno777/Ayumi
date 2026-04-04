@@ -7,20 +7,37 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from ml.features import (
-    sma, ema, atr, rsi, bollinger_bands, roc,
-    stochastic, macd, volatility_percentile, trend_alignment,
-    higher_highs, lower_lows, engulfing_bullish, engulfing_bearish,
-    pin_bar_bullish, pin_bar_bearish, session_features,
-    build_feature_matrix, load_csv,
+    sma,
+    ema,
+    atr,
+    rsi,
+    bollinger_bands,
+    roc,
+    stochastic,
+    macd,
+    volatility_percentile,
+    trend_alignment,
+    session_features,
+    build_feature_matrix,
 )
 from ml.signal_simulator import (
-    ma_crossover_signals, rsi_divergence_signals, bb_mean_reversion_signals,
-    momentum_signals, label_trades, generate_all_signals, build_labeled_dataset,
+    ma_crossover_signals,
+    rsi_divergence_signals,
+    bb_mean_reversion_signals,
+    momentum_signals,
+    label_trades,
+    generate_all_signals,
+    build_labeled_dataset,
 )
 from ml.predict import SignalFilter, create_filter_integration_stub
 from ml.train_model import (
-    train_single_model, MODEL_REGISTRY, MODEL_TYPE_DEFAULT,
-    available_model_types, build_comparison_table, save_model, load_model,
+    train_single_model,
+    MODEL_REGISTRY,
+    MODEL_TYPE_DEFAULT,
+    available_model_types,
+    build_comparison_table,
+    save_model,
+    load_model,
 )
 from sklearn.ensemble import GradientBoostingClassifier
 
@@ -35,14 +52,16 @@ def make_test_df(n=200, seed=42):
         prices.append(price)
     prices = np.array(prices)
     spread = 0.0002
-    return pd.DataFrame({
-        "date": dates,
-        "open": prices - spread * np.random.uniform(0, 1, n),
-        "high": prices + spread * np.random.uniform(1, 3, n),
-        "low": prices - spread * np.random.uniform(1, 3, n),
-        "close": prices,
-        "volume": np.random.randint(100, 10000, n),
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": prices - spread * np.random.uniform(0, 1, n),
+            "high": prices + spread * np.random.uniform(1, 3, n),
+            "low": prices - spread * np.random.uniform(1, 3, n),
+            "close": prices,
+            "volume": np.random.randint(100, 10000, n),
+        }
+    )
 
 
 class TestIndicators:
@@ -202,7 +221,9 @@ class TestPredict:
             import json
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
+            model = GradientBoostingClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 5)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -223,7 +244,9 @@ class TestPredict:
             import json
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
+            model = GradientBoostingClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -234,9 +257,7 @@ class TestPredict:
                 json.dump({"feature_names": ["a", "b", "c"]}, f)
 
             sf = SignalFilter(tmpdir)
-            features_df = pd.DataFrame(
-                np.random.randn(10, 3), columns=["a", "b", "c"]
-            )
+            features_df = pd.DataFrame(np.random.randn(10, 3), columns=["a", "b", "c"])
             results = sf.predict_batch(features_df)
             assert len(results) == 10
             assert "approve" in results.columns
@@ -248,7 +269,9 @@ class TestPredict:
             import json
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
+            model = GradientBoostingClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -273,7 +296,8 @@ class TestModelRegistry:
 
     def test_xgboost_conditionally_in_registry(self):
         try:
-            import xgboost
+            import xgboost  # noqa: F401
+
             assert "xgboost" in MODEL_REGISTRY
         except ImportError:
             assert "xgboost" not in MODEL_REGISTRY
@@ -301,7 +325,12 @@ class TestTrainSingleModelMultiModel:
         X = np.random.randn(n, n_features)
         y = np.random.randint(0, 2, n)
         split = int(n * 0.6)
-        return X[:split], y[:split], X[split:split+int(n*0.2)], y[split:split+int(n*0.2)]
+        return (
+            X[:split],
+            y[:split],
+            X[split : split + int(n * 0.2)],
+            y[split : split + int(n * 0.2)],
+        )
 
     def test_gradient_boosting_default(self):
         X_tr, y_tr, X_val, y_val = self._make_data()
@@ -312,7 +341,9 @@ class TestTrainSingleModelMultiModel:
 
     def test_random_forest(self):
         X_tr, y_tr, X_val, y_val = self._make_data()
-        result = train_single_model(X_tr, y_tr, X_val, y_val, model_type="random_forest")
+        result = train_single_model(
+            X_tr, y_tr, X_val, y_val, model_type="random_forest"
+        )
         assert result["model_type"] == "random_forest"
         assert result["model"] is not None
 
@@ -326,7 +357,7 @@ class TestTrainSingleModelMultiModel:
 
     def test_xgboost_when_available(self):
         try:
-            import xgboost
+            import xgboost  # noqa: F401
         except ImportError:
             return
         X_tr, y_tr, X_val, y_val = self._make_data()
@@ -339,7 +370,11 @@ class TestBuildComparisonTable:
     def test_single_model(self):
         results = {
             "gradient_boosting": {
-                "summary": {"avg_f1": 0.5, "avg_filtered_win_rate": 55.0, "n_folds_completed": 3},
+                "summary": {
+                    "avg_f1": 0.5,
+                    "avg_filtered_win_rate": 55.0,
+                    "n_folds_completed": 3,
+                },
             }
         }
         df = build_comparison_table(results)
@@ -350,10 +385,18 @@ class TestBuildComparisonTable:
     def test_multiple_models(self):
         results = {
             "gradient_boosting": {
-                "summary": {"avg_f1": 0.5, "avg_filtered_win_rate": 55.0, "n_folds_completed": 3},
+                "summary": {
+                    "avg_f1": 0.5,
+                    "avg_filtered_win_rate": 55.0,
+                    "n_folds_completed": 3,
+                },
             },
             "random_forest": {
-                "summary": {"avg_f1": 0.45, "avg_filtered_win_rate": 52.0, "n_folds_completed": 3},
+                "summary": {
+                    "avg_f1": 0.45,
+                    "avg_filtered_win_rate": 52.0,
+                    "n_folds_completed": 3,
+                },
             },
         }
         df = build_comparison_table(results)
@@ -364,12 +407,17 @@ class TestBuildComparisonTable:
 class TestSaveModelMetadata:
     def test_saves_model_type_gradient_boosting(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
+            model = GradientBoostingClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
-            save_model(model, ["a", "b", "c"], {}, tmpdir, model_type="gradient_boosting")
+            save_model(
+                model, ["a", "b", "c"], {}, tmpdir, model_type="gradient_boosting"
+            )
             import json
+
             with open(os.path.join(tmpdir, "signal_filter_meta.json")) as f:
                 meta = json.load(f)
             assert meta["model_type"] == "gradient_boosting"
@@ -378,12 +426,16 @@ class TestSaveModelMetadata:
     def test_saves_model_type_random_forest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             from sklearn.ensemble import RandomForestClassifier
-            model = RandomForestClassifier(n_estimators=10, max_depth=2, random_state=42)
+
+            model = RandomForestClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
             save_model(model, ["a", "b", "c"], {}, tmpdir, model_type="random_forest")
             import json
+
             with open(os.path.join(tmpdir, "signal_filter_meta.json")) as f:
                 meta = json.load(f)
             assert meta["model_type"] == "random_forest"
@@ -391,7 +443,9 @@ class TestSaveModelMetadata:
 
     def test_load_model_returns_model_and_features(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
+            model = GradientBoostingClassifier(
+                n_estimators=10, max_depth=2, random_state=42
+            )
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)

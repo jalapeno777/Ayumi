@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .data_loader import CsvDataLoader
-from .engine import Bar, SessionType, determine_session
+from .engine import Bar, determine_session
 from .ict_smc.confluence_engine import SignalConfluenceEngine
 from .ict_smc.models import ConfluenceSignal, ICTMarketState
 from .selective_pairing import PairingConfig, SelectivePairingHarness
@@ -129,7 +129,10 @@ def compute_all_signals(
         if signal is None:
             continue
 
-        if config.min_confluence > 0 and signal.confluence_count < config.min_confluence:
+        if (
+            config.min_confluence > 0
+            and signal.confluence_count < config.min_confluence
+        ):
             continue
 
         results.append((i, signal))
@@ -198,7 +201,10 @@ def compute_window_signals(
         if signal is None:
             continue
 
-        if config.min_confluence > 0 and signal.confluence_count < config.min_confluence:
+        if (
+            config.min_confluence > 0
+            and signal.confluence_count < config.min_confluence
+        ):
             continue
 
         results.append((i, signal))
@@ -276,9 +282,15 @@ def run_phase2d_eval(
     )
 
     for w_idx, (train_start, train_end, test_start, test_end) in enumerate(splits):
-        print(f"  Window {w_idx}: computing signals for bars 0..{test_end}...", end=" ", flush=True)
+        print(
+            f"  Window {w_idx}: computing signals for bars 0..{test_end}...",
+            end=" ",
+            flush=True,
+        )
         t0 = time.time()
-        test_signals = compute_window_signals(bars, train_end, test_end, config, h4_bars)
+        test_signals = compute_window_signals(
+            bars, train_end, test_end, config, h4_bars
+        )
         t1 = time.time()
         print(f"{len(test_signals)} test signals in {t1 - t0:.1f}s")
 
@@ -300,23 +312,25 @@ def run_phase2d_eval(
             and metrics.total_pnl > 0
         )
 
-        result.windows.append(WindowResult(
-            window_id=w_idx,
-            train_start=str(bars[train_start].time),
-            train_end=str(bars[train_end - 1].time),
-            test_start=str(test_bars[0].time),
-            test_end=str(test_bars[-1].time),
-            train_bars=train_end - train_start,
-            test_bars=len(test_bars),
-            test_trades=metrics.total_trades,
-            test_win_rate=metrics.win_rate,
-            test_profit_factor=metrics.profit_factor,
-            test_max_drawdown=metrics.max_drawdown_pct,
-            test_sharpe_ratio=metrics.sharpe_ratio,
-            test_total_pnl=metrics.total_pnl,
-            test_expectancy=metrics.expectancy,
-            passed=window_passed,
-        ))
+        result.windows.append(
+            WindowResult(
+                window_id=w_idx,
+                train_start=str(bars[train_start].time),
+                train_end=str(bars[train_end - 1].time),
+                test_start=str(test_bars[0].time),
+                test_end=str(test_bars[-1].time),
+                train_bars=train_end - train_start,
+                test_bars=len(test_bars),
+                test_trades=metrics.total_trades,
+                test_win_rate=metrics.win_rate,
+                test_profit_factor=metrics.profit_factor,
+                test_max_drawdown=metrics.max_drawdown_pct,
+                test_sharpe_ratio=metrics.sharpe_ratio,
+                test_total_pnl=metrics.total_pnl,
+                test_expectancy=metrics.expectancy,
+                passed=window_passed,
+            )
+        )
 
     if not result.windows:
         return result
@@ -341,7 +355,8 @@ def run_phase2d_eval(
         "max_drawdown": result.mean_max_drawdown <= ac["max_drawdown"],
         "sharpe_ratio": result.mean_sharpe_ratio >= ac["sharpe_ratio"],
         "min_oos_trades": total_trades >= ac["min_oos_trades"],
-        "min_profitable_windows": result.profitable_windows >= ac["min_profitable_windows"],
+        "min_profitable_windows": result.profitable_windows
+        >= ac["min_profitable_windows"],
     }
 
     result.go_nogo = all(result.passed_criteria.values())
@@ -372,17 +387,19 @@ def format_result(result: EvalResult) -> str:
             f"{w.test_total_pnl:>9.2f} {'YES' if w.passed else 'NO':>5}"
         )
 
-    lines.extend([
-        "",
-        f"Total OOS Trades: {result.total_oos_trades}",
-        f"Mean Win Rate: {result.mean_win_rate:.1f}%",
-        f"Mean Profit Factor: {result.mean_profit_factor:.2f}",
-        f"Mean Max Drawdown: {result.mean_max_drawdown:.2f}%",
-        f"Mean Sharpe Ratio: {result.mean_sharpe_ratio:.2f}",
-        f"Profitable Windows: {result.profitable_windows}/{len(result.windows)}",
-        "",
-        "Acceptance Criteria:",
-    ])
+    lines.extend(
+        [
+            "",
+            f"Total OOS Trades: {result.total_oos_trades}",
+            f"Mean Win Rate: {result.mean_win_rate:.1f}%",
+            f"Mean Profit Factor: {result.mean_profit_factor:.2f}",
+            f"Mean Max Drawdown: {result.mean_max_drawdown:.2f}%",
+            f"Mean Sharpe Ratio: {result.mean_sharpe_ratio:.2f}",
+            f"Profitable Windows: {result.profitable_windows}/{len(result.windows)}",
+            "",
+            "Acceptance Criteria:",
+        ]
+    )
 
     for criterion, passed in result.passed_criteria.items():
         status = "PASS" if passed else "FAIL"
@@ -402,8 +419,12 @@ def main():
     gbpusd_h1 = loader.load(str(DATA_DIR / "GBPUSD_H1.csv"))
     gbpusd_h4 = loader.load(str(DATA_DIR / "GBPUSD_H4.csv"))
 
-    print(f"EURUSD H1: {len(eurusd_h1)} bars ({eurusd_h1[0].time} to {eurusd_h1[-1].time})")
-    print(f"GBPUSD H1: {len(gbpusd_h1)} bars ({gbpusd_h1[0].time} to {gbpusd_h1[-1].time})")
+    print(
+        f"EURUSD H1: {len(eurusd_h1)} bars ({eurusd_h1[0].time} to {eurusd_h1[-1].time})"
+    )
+    print(
+        f"GBPUSD H1: {len(gbpusd_h1)} bars ({gbpusd_h1[0].time} to {gbpusd_h1[-1].time})"
+    )
 
     config = PairingConfig(
         min_confidence=0.40,
@@ -461,7 +482,9 @@ def main():
     summary_lines.append("-" * 100)
 
     if go_combos:
-        summary_lines.append(f"\n{len(go_combos)} combination(s) PASS all acceptance criteria!")
+        summary_lines.append(
+            f"\n{len(go_combos)} combination(s) PASS all acceptance criteria!"
+        )
         for gc in go_combos:
             summary_lines.append(f"  - {gc.pair_name}")
     else:
@@ -470,7 +493,9 @@ def main():
     summary_text = "\n".join(summary_lines)
     print(summary_text)
 
-    output_path = Path(__file__).resolve().parents[3] / "data" / "forex" / "phase2d_results.json"
+    output_path = (
+        Path(__file__).resolve().parents[3] / "data" / "forex" / "phase2d_results.json"
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_data = {
         "config": {

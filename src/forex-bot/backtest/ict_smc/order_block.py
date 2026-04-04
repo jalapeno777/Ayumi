@@ -40,14 +40,18 @@ class OrderBlockDetector:
             if age > self._freshness_window:
                 continue
 
-            direction = TradeDirection.LONG if ICTMarketState.bar_is_bullish(bar) else TradeDirection.SHORT
+            direction = (
+                TradeDirection.LONG
+                if ICTMarketState.bar_is_bullish(bar)
+                else TradeDirection.SHORT
+            )
             top = max(bar.open, bar.close)
             bottom = min(bar.open, bar.close)
 
             avg_body_start = max(0, len(bars) - 21)
             recent_bodies = [
                 ICTMarketState.bar_body(b)
-                for b in bars[avg_body_start:avg_body_start + 20]
+                for b in bars[avg_body_start : avg_body_start + 20]
                 if ICTMarketState.bar_range(b) > 0
             ]
             avg_body = sum(recent_bodies) / len(recent_bodies) if recent_bodies else 0
@@ -57,7 +61,9 @@ class OrderBlockDetector:
             if avg_body > 0:
                 strength = min(1.0, 0.5 + (body_size / avg_body - 1.0) * 0.25)
 
-            min_wick = min(ICTMarketState.bar_upper_wick(bar), ICTMarketState.bar_lower_wick(bar))
+            min_wick = min(
+                ICTMarketState.bar_upper_wick(bar), ICTMarketState.bar_lower_wick(bar)
+            )
             wick_ratio = min_wick / bar_range
             if wick_ratio < 0.2:
                 strength += 0.1
@@ -91,18 +97,20 @@ class OrderBlockDetector:
                     break
 
             if not mitigated:
-                state.active_order_blocks.append(OrderBlock(
-                    start_index=i,
-                    end_index=i,
-                    top=top,
-                    bottom=bottom,
-                    direction=direction,
-                    strength=strength,
-                    is_mitigated=False,
-                    age=age,
-                    created_time=bar.time,
-                    body_size=body_size,
-                ))
+                state.active_order_blocks.append(
+                    OrderBlock(
+                        start_index=i,
+                        end_index=i,
+                        top=top,
+                        bottom=bottom,
+                        direction=direction,
+                        strength=strength,
+                        is_mitigated=False,
+                        age=age,
+                        created_time=bar.time,
+                        body_size=body_size,
+                    )
+                )
 
         self._cleanup_mitigated(state)
 
@@ -123,8 +131,14 @@ class OrderBlockDetector:
         for ob in to_remove:
             state.active_order_blocks.remove(ob)
 
-    def get_most_relevant(self, state: ICTMarketState, direction: TradeDirection) -> Optional[OrderBlock]:
-        candidates = [ob for ob in state.active_order_blocks if ob.direction == direction and not ob.is_mitigated]
+    def get_most_relevant(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> Optional[OrderBlock]:
+        candidates = [
+            ob
+            for ob in state.active_order_blocks
+            if ob.direction == direction and not ob.is_mitigated
+        ]
         if not candidates:
             return None
         return max(candidates, key=lambda ob: (ob.strength, -ob.age))
