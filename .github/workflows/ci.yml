@@ -19,10 +19,12 @@ jobs:
       - name: Install tools
         run: pip install ruff bandit
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar -xf gitleaks_8.21.2_linux_x64.tar.gz
+          ./gitleaks detect --source . --config .gitleaks.toml --verbose --report-format json --report-path gitleaks-report.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
       - name: Ruff lint + format
         run: ruff check src/ tests/ --ignore E501 && ruff format --check src/ tests/
       - name: Bandit security scan
