@@ -79,6 +79,24 @@ class PaperTrader:
                 signal.symbol,
             )
 
+            trade_check = self._risk_guard.check_trade_allowed(
+                direction=signal.direction,
+                volume=volume,
+                entry_price=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                take_profit=signal.take_profit_1,
+                account_balance=self._current_balance,
+            )
+            if not trade_check.allowed:
+                self._stats.signals_blocked_by_risk += 1
+                logger.warning(f"Trade blocked by risk: {trade_check.message}")
+                return PaperTradeResult(
+                    success=False,
+                    signal=signal,
+                    rejection_reason=trade_check.message,
+                    risk_guard_result=trade_check,
+                )
+
             trade_result = self._order_manager.execute_paper_order(
                 symbol=signal.symbol,
                 direction=signal.direction,
