@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 
 class TradeRepository:
@@ -133,7 +131,9 @@ class TradeRepository:
             )
             return cursor.lastrowid or 0
 
-    def close_trade(self, trade_id: int, close_price: float, profit_loss: float) -> None:
+    def close_trade(
+        self, trade_id: int, close_price: float, profit_loss: float
+    ) -> None:
         now = datetime.now(timezone.utc).isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -215,17 +215,19 @@ class TradeRepository:
             for row in rows:
                 total = row["total_trades"]
                 wins = row["wins"]
-                results.append({
-                    "provider_id": row["provider_id"],
-                    "provider_name": row["provider_name"],
-                    "strategy": row["strategy"],
-                    "total_trades": total,
-                    "wins": wins,
-                    "losses": total - wins,
-                    "total_profit": round(row["total_profit"], 2),
-                    "win_rate": round(wins / total * 100, 1) if total > 0 else 0.0,
-                    "followers_count": row["followers_count"],
-                })
+                results.append(
+                    {
+                        "provider_id": row["provider_id"],
+                        "provider_name": row["provider_name"],
+                        "strategy": row["strategy"],
+                        "total_trades": total,
+                        "wins": wins,
+                        "losses": total - wins,
+                        "total_profit": round(row["total_profit"], 2),
+                        "win_rate": round(wins / total * 100, 1) if total > 0 else 0.0,
+                        "followers_count": row["followers_count"],
+                    }
+                )
             return results
 
     def get_recent_signals(self, limit: int = 20) -> list[dict]:

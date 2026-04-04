@@ -61,9 +61,13 @@ class CopyTrade:
         self.close_price = price
         self.closed_at = datetime.now(timezone.utc)
         if self.signal.direction == TradeDirection.LONG:
-            self.profit_loss = (price - self.signal.entry_price) * self.signal.lot_size * 100000
+            self.profit_loss = (
+                (price - self.signal.entry_price) * self.signal.lot_size * 100000
+            )
         else:
-            self.profit_loss = (self.signal.entry_price - price) * self.signal.lot_size * 100000
+            self.profit_loss = (
+                (self.signal.entry_price - price) * self.signal.lot_size * 100000
+            )
 
 
 @dataclass
@@ -87,10 +91,11 @@ class ProviderStats:
         else:
             self.losses += 1
         self.avg_risk_reward = (
-            (self.avg_risk_reward * (self.total_trades - 1) + risk_reward)
-            / self.total_trades
+            self.avg_risk_reward * (self.total_trades - 1) + risk_reward
+        ) / self.total_trades
+        self.win_rate = (
+            self.wins / self.total_trades * 100 if self.total_trades > 0 else 0.0
         )
-        self.win_rate = self.wins / self.total_trades * 100 if self.total_trades > 0 else 0.0
 
     def to_dict(self) -> dict:
         return {

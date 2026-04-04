@@ -57,19 +57,21 @@ def create_app(repo: TradeRepository | None = None) -> FastAPI:
                 status_code=403,
             )
 
-        signal_id = repo.save_signal({
-            "provider_id": provider_id,
-            "symbol": payload["symbol"],
-            "direction": payload["direction"].lower(),
-            "entry_price": float(payload["entry_price"]),
-            "stop_loss": float(payload["stop_loss"]),
-            "take_profit": float(payload["take_profit"]),
-            "lot_size": float(payload.get("lot_size", 0)),
-            "signal_time": payload.get("signal_time", ""),
-            "strategy_name": payload.get("strategy_name", ""),
-            "confluence_count": int(payload.get("confluence_count", 0)),
-            "strength": payload.get("strength", "moderate"),
-        })
+        signal_id = repo.save_signal(
+            {
+                "provider_id": provider_id,
+                "symbol": payload["symbol"],
+                "direction": payload["direction"].lower(),
+                "entry_price": float(payload["entry_price"]),
+                "stop_loss": float(payload["stop_loss"]),
+                "take_profit": float(payload["take_profit"]),
+                "lot_size": float(payload.get("lot_size", 0)),
+                "signal_time": payload.get("signal_time", ""),
+                "strategy_name": payload.get("strategy_name", ""),
+                "confluence_count": int(payload.get("confluence_count", 0)),
+                "strength": payload.get("strength", "moderate"),
+            }
+        )
 
         return {"status": "ok", "signal_id": signal_id}
 

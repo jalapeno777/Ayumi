@@ -55,11 +55,13 @@ class TestTradeRepository(unittest.TestCase):
 
     def test_save_and_close_trade(self):
         sid = self._insert_signal()
-        tid = self.repo.save_trade({
-            "signal_id": sid,
-            "follower_account_id": "f1",
-            "allocation_usd": 100,
-        })
+        tid = self.repo.save_trade(
+            {
+                "signal_id": sid,
+                "follower_account_id": "f1",
+                "allocation_usd": 100,
+            }
+        )
         self.repo.close_trade(tid, 1.1120, 120.0)
         signals = self.repo.get_recent_signals()
         self.assertEqual(len(signals), 1)
@@ -181,26 +183,30 @@ class TestCopyTradingBot(unittest.TestCase):
 
     def test_receive_signal(self):
         self.bot.register_provider("p1", "Alpha")
-        signal = self.bot.receive_signal({
-            "provider_id": "p1",
-            "symbol": "EURUSD",
-            "direction": "long",
-            "entry_price": 1.1000,
-            "stop_loss": 1.0950,
-            "take_profit": 1.1150,
-        })
+        signal = self.bot.receive_signal(
+            {
+                "provider_id": "p1",
+                "symbol": "EURUSD",
+                "direction": "long",
+                "entry_price": 1.1000,
+                "stop_loss": 1.0950,
+                "take_profit": 1.1150,
+            }
+        )
         self.assertIsNotNone(signal)
         self.assertIn("signal_db_id", signal)
 
     def test_receive_signal_unknown_provider(self):
-        signal = self.bot.receive_signal({
-            "provider_id": "unknown",
-            "symbol": "EURUSD",
-            "direction": "long",
-            "entry_price": 1.1000,
-            "stop_loss": 1.0950,
-            "take_profit": 1.1150,
-        })
+        signal = self.bot.receive_signal(
+            {
+                "provider_id": "unknown",
+                "symbol": "EURUSD",
+                "direction": "long",
+                "entry_price": 1.1000,
+                "stop_loss": 1.0950,
+                "take_profit": 1.1150,
+            }
+        )
         self.assertIsNone(signal)
 
     def test_broadcast_signal(self):

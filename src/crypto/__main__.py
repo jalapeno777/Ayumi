@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
-from crypto.bot.copy_trading_bot import CopyTradingBot
 from crypto.bot.dashboard import DashboardServer
 from crypto.services.repository import TradeRepository
 
@@ -75,14 +73,17 @@ def main() -> None:
         help="Path to SQLite database (default: data/crypto/copy_trading.db)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    dashboard_p = sub.add_parser("serve", help="Start the API server (FastAPI + dashboard)")
+    dashboard_p = sub.add_parser(
+        "serve", help="Start the API server (FastAPI + dashboard)"
+    )
     dashboard_p.add_argument("--host", default="0.0.0.0")
     dashboard_p.add_argument("--port", type=int, default=8080)
 

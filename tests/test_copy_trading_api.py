@@ -56,29 +56,35 @@ class TestAPI(unittest.TestCase):
         self.assertIn("Missing fields", r.json()["error"])
 
     def test_webhook_signal_unknown_provider(self):
-        r = self.client.post("/api/webhook/signal", json={
-            "provider_id": "unknown",
-            "symbol": "EURUSD",
-            "direction": "long",
-            "entry_price": 1.1000,
-            "stop_loss": 1.0950,
-            "take_profit": 1.1150,
-        })
+        r = self.client.post(
+            "/api/webhook/signal",
+            json={
+                "provider_id": "unknown",
+                "symbol": "EURUSD",
+                "direction": "long",
+                "entry_price": 1.1000,
+                "stop_loss": 1.0950,
+                "take_profit": 1.1150,
+            },
+        )
         self.assertEqual(r.status_code, 403)
 
     def test_webhook_signal_success(self):
-        r = self.client.post("/api/webhook/signal", json={
-            "provider_id": "p1",
-            "symbol": "EURUSD",
-            "direction": "long",
-            "entry_price": 1.1000,
-            "stop_loss": 1.0950,
-            "take_profit": 1.1150,
-            "lot_size": 0.1,
-            "strategy_name": "ICT OB",
-            "confluence_count": 3,
-            "strength": "strong",
-        })
+        r = self.client.post(
+            "/api/webhook/signal",
+            json={
+                "provider_id": "p1",
+                "symbol": "EURUSD",
+                "direction": "long",
+                "entry_price": 1.1000,
+                "stop_loss": 1.0950,
+                "take_profit": 1.1150,
+                "lot_size": 0.1,
+                "strategy_name": "ICT OB",
+                "confluence_count": 3,
+                "strength": "strong",
+            },
+        )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["status"], "ok")
         self.assertGreater(r.json()["signal_id"], 0)

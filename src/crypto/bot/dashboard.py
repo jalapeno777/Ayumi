@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from typing import Any, Optional
+from typing import Any
 
 from ..services.repository import TradeRepository
 
