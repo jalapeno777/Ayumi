@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, List, Callable, Any
-from threading import Lock
+from threading import RLock
 
 from .models import TradeSignal, Position, Order
 from .order_manager import OrderManager, PositionSizeConfig
@@ -48,7 +48,7 @@ class PaperTrader:
         self._risk_guard = RiskGuard(self._ftmo_config, starting_balance)
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
-        self._lock = Lock()
+        self._lock = RLock()
         self._stats = PaperTradingStats(
             starting_balance=starting_balance, current_balance=starting_balance
         )

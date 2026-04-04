@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Optional, List, Callable
 from threading import Lock
 from enum import Enum
@@ -268,7 +268,7 @@ class RiskGuard:
         self, limit_type: RiskLimitType, current: float, limit: float
     ):
         self._circuit_breaker_triggered = True
-        self._blocked_until = datetime.utcnow()
+        self._blocked_until = datetime.utcnow() + timedelta(minutes=5)
         logger.critical(
             f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current * 100:.2f}% >= {limit * 100:.2f}%"
         )
