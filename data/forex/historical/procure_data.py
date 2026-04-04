@@ -18,10 +18,10 @@ import pandas as pd
 import urllib.request
 import urllib.parse
 
-OUTPUT_DIR = Path("/tmp/forex-data")
+OUTPUT_DIR = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
 BASE_URL = "https://www.histdata.com"
 
-PAIRS = ["EURUSD", "GBPUSD"]
+PAIRS = ["EURUSD", "GBPUSD", "GBPJPY", "USDJPY", "XAUUSD"]
 YEARS = [2023, 2024, 2025]
 
 OUTPUT_TIMEFRAMES = ["M15", "H1", "H4", "D1"]
