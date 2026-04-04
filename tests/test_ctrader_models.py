@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime
 
 from adapters.ctrader.models import (
     TradeDirection,

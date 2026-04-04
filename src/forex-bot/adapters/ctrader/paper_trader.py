@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Callable, Any
 from threading import Lock
 
-from .models import TradeSignal, TradeDirection, Position, Order
+from .models import TradeSignal, Position, Order
 from .order_manager import OrderManager, PositionSizeConfig
 from .risk_guard import RiskGuard, FTMOConfig
 
@@ -49,7 +49,9 @@ class PaperTrader:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
         self._lock = Lock()
-        self._stats = PaperTradingStats(starting_balance=starting_balance, current_balance=starting_balance)
+        self._stats = PaperTradingStats(
+            starting_balance=starting_balance, current_balance=starting_balance
+        )
         self._trade_history: List[PaperTradeResult] = []
         self._callbacks: List[tuple[str, Callable]] = []
         self._running = False
@@ -133,14 +135,20 @@ class PaperTrader:
                         total_unrealized += updated_pos.unrealized_pnl
 
             self._stats.unrealized_pnl = total_unrealized
-            self._current_balance = self._starting_balance + self._stats.realized_pnl + total_unrealized
+            self._current_balance = (
+                self._starting_balance + self._stats.realized_pnl + total_unrealized
+            )
             self._stats.current_balance = self._current_balance
             self._risk_guard.update_balance(self._current_balance)
             self._last_update = datetime.utcnow()
 
-    def close_position(self, position_id: str, exit_price: float, reason: str = "manual") -> bool:
+    def close_position(
+        self, position_id: str, exit_price: float, reason: str = "manual"
+    ) -> bool:
         with self._lock:
-            position = self._order_manager.close_position(position_id, exit_price, reason)
+            position = self._order_manager.close_position(
+                position_id, exit_price, reason
+            )
             if position:
                 self._stats.realized_pnl += position.closed_pnl
                 self._current_balance += position.closed_pnl

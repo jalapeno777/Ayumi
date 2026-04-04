@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Optional, Callable
 from threading import Lock
@@ -7,12 +7,10 @@ from threading import Lock
 from .models import (
     Order,
     Position,
-    TradeSignal,
     TradeDirection,
     OrderType,
     OrderStatus,
     PositionStatus,
-    MarketDataSnapshot,
 )
 
 
@@ -206,12 +204,12 @@ class OrderManager:
 
             if position.direction == TradeDirection.LONG:
                 position.unrealized_pnl = (
-                    current_price - position.entry_price
-                ) * position.volume * 100000
+                    (current_price - position.entry_price) * position.volume * 100000
+                )
             else:
                 position.unrealized_pnl = (
-                    position.entry_price - current_price
-                ) * position.volume * 100000
+                    (position.entry_price - current_price) * position.volume * 100000
+                )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
                 self._close_position(position, position.stop_loss or current_price)
@@ -297,7 +295,9 @@ class OrderManager:
     def get_total_realized_pnl(self) -> float:
         with self._lock:
             return sum(
-                p.closed_pnl for p in self._positions.values() if p.status == PositionStatus.CLOSED
+                p.closed_pnl
+                for p in self._positions.values()
+                if p.status == PositionStatus.CLOSED
             )
 
     def register_callback(self, event: str, callback: Callable):

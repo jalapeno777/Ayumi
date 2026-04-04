@@ -2,10 +2,10 @@ import logging
 from datetime import datetime
 from typing import Optional, List, Callable
 
-from ...backtest.engine import MarketState, StrategySignal, Bar
+from ...backtest.engine import MarketState
 from ...backtest.strategies import ISignalStrategy
 from .models import TradeSignal, TradeDirection
-from .paper_trader import PaperTrader, FTMOConfig
+from .paper_trader import PaperTrader
 
 
 logger = logging.getLogger(__name__)
@@ -64,9 +64,7 @@ class cTraderSignalAdapter:
             )
             self._trigger_callback("on_signal_traded", result)
         else:
-            logger.warning(
-                f"Signal rejected: {result.rejection_reason}"
-            )
+            logger.warning(f"Signal rejected: {result.rejection_reason}")
             self._trigger_callback("on_signal_rejected", result)
 
         return trade_signal
@@ -139,7 +137,9 @@ class cTraderLiveAdapter:
                         results.append(result)
         return results
 
-    def get_adapter(self, strategy_name: str, symbol: str) -> Optional[cTraderSignalAdapter]:
+    def get_adapter(
+        self, strategy_name: str, symbol: str
+    ) -> Optional[cTraderSignalAdapter]:
         return self._adapters.get(f"{strategy_name}_{symbol}")
 
     @property
