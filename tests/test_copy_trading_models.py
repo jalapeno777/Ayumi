@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from crypto.models.trade import (
     CopyTrade,
@@ -70,7 +70,9 @@ class TestTradeSignal(unittest.TestCase):
 class TestCopyTrade(unittest.TestCase):
     def test_close_long_winner(self):
         sig = _make_signal(entry_price=1.1000, stop_loss=1.0950, take_profit=1.1150)
-        trade = CopyTrade(signal=sig, follower_account_id="follower-1", allocation_usd=100)
+        trade = CopyTrade(
+            signal=sig, follower_account_id="follower-1", allocation_usd=100
+        )
         trade.close(1.1120)
         self.assertEqual(trade.status, TradeStatus.CLOSED)
         self.assertTrue(trade.profit_loss > 0)

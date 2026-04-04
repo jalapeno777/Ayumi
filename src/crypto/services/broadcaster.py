@@ -4,9 +4,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
-from ..models.trade import TradeDirection, TradeSignal
+from ..models.trade import TradeSignal
 
 
 class SignalFormat(Enum):
@@ -93,7 +93,7 @@ class WebhookHandler:
                 "take_profit": float(payload.get("take_profit", 0)),
                 "lot_size": float(payload.get("lot_size", 0)),
                 "signal_time": payload.get(
-                "signal_time", datetime.now(timezone.utc).isoformat()
+                    "signal_time", datetime.now(timezone.utc).isoformat()
                 ),
                 "strategy_name": payload.get("strategy_name", ""),
                 "confluence_count": int(payload.get("confluence_count", 0)),

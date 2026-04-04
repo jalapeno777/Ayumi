@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from ..models.trade import TradeSignal
 from ..services.broadcaster import SignalBroadcaster, WebhookHandler
@@ -38,17 +38,19 @@ class CopyTradingBot:
         if not signal:
             return None
         if signal["provider_id"] not in self.webhook_handler.providers:
-            logger.warning("Rejected signal from unregistered provider: %s", signal["provider_id"])
+            logger.warning(
+                "Rejected signal from unregistered provider: %s", signal["provider_id"]
+            )
             return None
         signal_id = self.repo.save_signal(signal)
         signal["signal_db_id"] = signal_id
         logger.info(
-                "Signal saved: %s %s from %s (id=%s)",
-                signal["direction"].upper(),
-                signal["symbol"],
-                signal["provider_id"],
-                signal_id,
-            )
+            "Signal saved: %s %s from %s (id=%s)",
+            signal["direction"].upper(),
+            signal["symbol"],
+            signal["provider_id"],
+            signal_id,
+        )
         return signal
 
     def get_leaderboard(self, limit: int = 10) -> list[dict]:
@@ -62,18 +64,37 @@ class CopyTradingBot:
 
     def broadcast_signal(self, signal: TradeSignal | dict) -> dict:
         formatted = self.broadcaster.broadcast(signal)
-        self._broadcast_log.append({
-            "signal": formatted,
-            "broadcasted_at": formatted.get("signal_time", ""),
-        })
-        sym = signal.symbol if isinstance(signal, TradeSignal) else signal.get("symbol", "?")
-        d = signal.direction.value if isinstance(signal, TradeSignal) else signal.get("direction", "?")
+        self._broadcast_log.append(
+            {
+                "signal": formatted,
+                "broadcasted_at": formatted.get("signal_time", ""),
+            }
+        )
+        sym = (
+            signal.symbol
+            if isinstance(signal, TradeSignal)
+            else signal.get("symbol", "?")
+        )
+        d = (
+            signal.direction.value
+            if isinstance(signal, TradeSignal)
+            else signal.get("direction", "?")
+        )
         logger.info("Signal broadcast: %s %s", sym, d)
         return formatted
 
-    def close_trade(self, trade_id: int, close_price: float, profit_loss: float) -> None:
+    def close_trade(
+        self, trade_id: int, close_price: float, profit_loss: float
+    ) -> None:
         self.repo.close_trade(trade_id, close_price, profit_loss)
-        logger.info("Trade %d closed at %.5f (P&L: %.2f)", trade_id, close_price, profit_loss)
+        logger.info(
+            "Trade %d closed at %.5f (P&L: %.2f)", trade_id, close_price, profit_loss
+        )
 
     def _on_signal(self, signal: dict) -> None:
-        logger.info("Webhook signal received: %s %s from %s", signal["symbol"], signal["direction"], signal["provider_id"])
+        logger.info(
+            "Webhook signal received: %s %s from %s",
+            signal["symbol"],
+            signal["direction"],
+            signal["provider_id"],
+        )
