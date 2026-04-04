@@ -13,10 +13,12 @@ class TrailingStopMethod(Enum):
 @dataclass
 class PartialExitConfig:
     enabled: bool = True
-    tiers: List[tuple] = field(default_factory=lambda: [
-        (0.5, 1.0, True),
-        (0.75, 2.0, False),
-    ])
+    tiers: List[tuple] = field(
+        default_factory=lambda: [
+            (0.5, 1.0, True),
+            (0.75, 2.0, False),
+        ]
+    )
     final_trail: bool = True
 
 
@@ -37,9 +39,9 @@ class TrailingStopConfig:
 @dataclass
 class SessionFilterConfig:
     enabled: bool = True
-    allow_entry_sessions: List[str] = field(default_factory=lambda: [
-        "london", "ny_am", "ny_pm"
-    ])
+    allow_entry_sessions: List[str] = field(
+        default_factory=lambda: ["london", "ny_am", "ny_pm"]
+    )
     hold_through_sessions: bool = True
     weekend_close_hour_utc: int = 21
     weekend_close_minute_utc: int = 55
@@ -68,7 +70,9 @@ class TradeManagementConfig:
     timeframe_minutes: int = 60
 
     @classmethod
-    def conservative(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
+    def conservative(
+        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
+    ) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,
@@ -98,7 +102,9 @@ class TradeManagementConfig:
         )
 
     @classmethod
-    def aggressive(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
+    def aggressive(
+        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
+    ) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,
@@ -128,7 +134,9 @@ class TradeManagementConfig:
         )
 
     @classmethod
-    def ftmo(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
+    def ftmo(
+        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
+    ) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,

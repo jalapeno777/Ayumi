@@ -35,14 +35,18 @@ class MarketStructureAnalyzer:
                     is_swing_low = False
 
             if is_swing_high:
-                state.swing_highs.append(SwingPoint(
-                    index=i, price=bars[i].high, is_high=True, time=bars[i].time
-                ))
+                state.swing_highs.append(
+                    SwingPoint(
+                        index=i, price=bars[i].high, is_high=True, time=bars[i].time
+                    )
+                )
 
             if is_swing_low:
-                state.swing_lows.append(SwingPoint(
-                    index=i, price=bars[i].low, is_high=False, time=bars[i].time
-                ))
+                state.swing_lows.append(
+                    SwingPoint(
+                        index=i, price=bars[i].low, is_high=False, time=bars[i].time
+                    )
+                )
 
     def _detect_structure_breaks(self, state: ICTMarketState):
         state.structure_breaks.clear()
@@ -52,47 +56,75 @@ class MarketStructureAnalyzer:
 
         for i in range(1, len(state.swing_highs)):
             if state.swing_highs[i].price > state.swing_highs[i - 1].price:
-                threshold = state.swing_highs[i - 1].price * (1 - self._bos_threshold / 100)
+                threshold = state.swing_highs[i - 1].price * (
+                    1 - self._bos_threshold / 100
+                )
                 if state.swing_highs[i].price > threshold:
                     is_choch = state.structure_bias == TradeDirection.SHORT
-                    state.structure_breaks.append(StructureBreak(
-                        time=state.swing_highs[i].time,
-                        direction=TradeDirection.LONG,
-                        break_level=state.swing_highs[i - 1].price,
-                        is_choch=is_choch,
-                        break_strength=min(
-                            1.0,
-                            (state.swing_highs[i].price - state.swing_highs[i - 1].price)
-                            / state.swing_highs[i - 1].price * 100 / self._bos_threshold,
-                        ),
-                    ))
+                    state.structure_breaks.append(
+                        StructureBreak(
+                            time=state.swing_highs[i].time,
+                            direction=TradeDirection.LONG,
+                            break_level=state.swing_highs[i - 1].price,
+                            is_choch=is_choch,
+                            break_strength=min(
+                                1.0,
+                                (
+                                    state.swing_highs[i].price
+                                    - state.swing_highs[i - 1].price
+                                )
+                                / state.swing_highs[i - 1].price
+                                * 100
+                                / self._bos_threshold,
+                            ),
+                        )
+                    )
 
         for i in range(1, len(state.swing_lows)):
             if state.swing_lows[i].price < state.swing_lows[i - 1].price:
-                threshold = state.swing_lows[i - 1].price * (1 + self._bos_threshold / 100)
+                threshold = state.swing_lows[i - 1].price * (
+                    1 + self._bos_threshold / 100
+                )
                 if state.swing_lows[i].price < threshold:
                     is_choch = state.structure_bias == TradeDirection.LONG
-                    state.structure_breaks.append(StructureBreak(
-                        time=state.swing_lows[i].time,
-                        direction=TradeDirection.SHORT,
-                        break_level=state.swing_lows[i - 1].price,
-                        is_choch=is_choch,
-                        break_strength=min(
-                            1.0,
-                            (state.swing_lows[i - 1].price - state.swing_lows[i].price)
-                            / state.swing_lows[i - 1].price * 100 / self._bos_threshold,
-                        ),
-                    ))
+                    state.structure_breaks.append(
+                        StructureBreak(
+                            time=state.swing_lows[i].time,
+                            direction=TradeDirection.SHORT,
+                            break_level=state.swing_lows[i - 1].price,
+                            is_choch=is_choch,
+                            break_strength=min(
+                                1.0,
+                                (
+                                    state.swing_lows[i - 1].price
+                                    - state.swing_lows[i].price
+                                )
+                                / state.swing_lows[i - 1].price
+                                * 100
+                                / self._bos_threshold,
+                            ),
+                        )
+                    )
 
     def _determine_bias(self, state: ICTMarketState):
         if not state.structure_breaks:
             state.structure_bias = TradeDirection.NEUTRAL
             return
 
-        recent_breaks = sorted(state.structure_breaks, key=lambda sb: sb.time, reverse=True)[:5]
+        recent_breaks = sorted(
+            state.structure_breaks, key=lambda sb: sb.time, reverse=True
+        )[:5]
 
-        bullish_strength = sum(sb.break_strength for sb in recent_breaks if sb.direction == TradeDirection.LONG)
-        bearish_strength = sum(sb.break_strength for sb in recent_breaks if sb.direction == TradeDirection.SHORT)
+        bullish_strength = sum(
+            sb.break_strength
+            for sb in recent_breaks
+            if sb.direction == TradeDirection.LONG
+        )
+        bearish_strength = sum(
+            sb.break_strength
+            for sb in recent_breaks
+            if sb.direction == TradeDirection.SHORT
+        )
 
         last_break = recent_breaks[0]
         last_break_weight = 2.0
@@ -135,8 +167,12 @@ class MarketStructureAnalyzer:
     def get_structure_strength(self, state: ICTMarketState) -> float:
         if not state.structure_breaks:
             return 0.0
-        recent = sorted(state.structure_breaks, key=lambda sb: sb.time, reverse=True)[:3]
-        return sum(1 for sb in recent if sb.direction == state.structure_bias) / len(recent)
+        recent = sorted(state.structure_breaks, key=lambda sb: sb.time, reverse=True)[
+            :3
+        ]
+        return sum(1 for sb in recent if sb.direction == state.structure_bias) / len(
+            recent
+        )
 
     def is_strong_trend(self, state: ICTMarketState) -> bool:
         if state.structure_bias == TradeDirection.NEUTRAL:
@@ -144,7 +180,9 @@ class MarketStructureAnalyzer:
         if not state.structure_breaks:
             return False
 
-        recent_breaks = sorted(state.structure_breaks, key=lambda sb: sb.time, reverse=True)[:5]
+        recent_breaks = sorted(
+            state.structure_breaks, key=lambda sb: sb.time, reverse=True
+        )[:5]
         last_break = recent_breaks[0]
         if last_break.direction != state.structure_bias:
             return False
@@ -153,6 +191,8 @@ class MarketStructureAnalyzer:
         if last_break_age > 960:
             return False
 
-        aligned_count = sum(1 for sb in recent_breaks if sb.direction == state.structure_bias)
+        aligned_count = sum(
+            1 for sb in recent_breaks if sb.direction == state.structure_bias
+        )
         aligned_ratio = aligned_count / len(recent_breaks)
         return aligned_ratio >= 0.4

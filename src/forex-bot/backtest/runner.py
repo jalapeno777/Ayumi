@@ -37,7 +37,6 @@ from backtest import (
     AmalgamatedBacktestEngine,
     VotingMethod,
     ConfidenceMethod,
-    SessionType,
     EnhancedBacktestEngine,
     TradeManagementConfig,
 )
@@ -77,15 +76,9 @@ def run_individual_backtests(bars, config):
 
 
 def run_combined_backtest(bars, config):
-    strategies = [
-        MACrossStrategy(),
-        BBStrategy(),
-        ROCMStrategy()
-    ]
+    strategies = [MACrossStrategy(), BBStrategy(), ROCMStrategy()]
 
-    multi_config = MultiStrategyConfig(
-        min_combined_confidence=0.50
-    )
+    multi_config = MultiStrategyConfig(min_combined_confidence=0.50)
 
     engine = MultiStrategyBacktestEngine(config, strategies, multi_config)
     individual, combined = engine.run_combined_strategies(strategies, bars)
@@ -95,7 +88,7 @@ def run_combined_backtest(bars, config):
     print("=" * 70)
 
     m = combined
-    print(f"\n### Combined (MA Crossover + Bollinger Band + ROC Momentum)")
+    print("\n### Combined (MA Crossover + Bollinger Band + ROC Momentum)")
     print(f"   Trades:        {m.total_trades}")
     print(f"   Win Rate:      {m.win_rate:.1f}%")
     print(f"   P&L:          ${m.total_pnl:.2f} ({m.total_pnl_pct:.2f}%)")
@@ -134,15 +127,118 @@ def analyze_walk_forward(bars, config, train_ratio=0.7):
     train_results = engine.run_all_strategies(train_bars)
     for name, result in train_results.items():
         m = result.metrics
-        print(f"   {name}: Trades={m.total_trades}, WinRate={m.win_rate:.1f}%, PF={m.profit_factor:.2f}, P&L=${m.total_pnl:.2f}")
+        print(
+            f"   {name}: Trades={m.total_trades}, WinRate={m.win_rate:.1f}%, PF={m.profit_factor:.2f}, P&L=${m.total_pnl:.2f}"
+        )
 
     print("\n### Testing Period Results")
     test_results = engine.run_all_strategies(test_bars)
     for name, result in test_results.items():
         m = result.metrics
-        print(f"   {name}: Trades={m.total_trades}, WinRate={m.win_rate:.1f}%, PF={m.profit_factor:.2f}, P&L=${m.total_pnl:.2f}")
+        print(
+            f"   {name}: Trades={m.total_trades}, WinRate={m.win_rate:.1f}%, PF={m.profit_factor:.2f}, P&L=${m.total_pnl:.2f}"
+        )
 
     return train_results, test_results
+
+
+def analyze_rolling_walk_forward(
+    bars,
+    config,
+    strategies,
+    n_windows: int = 3,
+    train_ratio: float = 0.6,
+    test_ratio: float = 0.2,
+    run_fn=None,
+):
+    """Run walk-forward validation across N rolling windows.
+
+    Each window splits a contiguous slice of bars into train and test
+    segments.  The windows are anchored (non-overlapping train periods)
+    so that every bar belongs to exactly one train or one test segment.
+
+    Args:
+        bars: Full bar list.
+        config: BacktestConfig instance.
+        strategies: List of ISignalStrategy instances.
+        n_windows: Minimum number of rolling windows (default 3).
+        train_ratio: Fraction of each window used for training (default 0.6).
+        test_ratio: Fraction of each window used for testing (default 0.2).
+            The remaining ``1 - train_ratio - test_ratio`` is a gap between
+            train and test (purge period).
+        run_fn: Callable ``(bars, config, strategies) -> dict``
+            that returns ``{strategy_name: BacktestMetrics}``.  When ``None``,
+            uses ``MultiStrategyBacktestEngine.run_all_strategies``.
+
+    Returns:
+        List of dicts, one per window, each containing:
+            - ``window_id``: int
+            - ``train_start``, ``train_end``, ``test_start``, ``test_end``: datetime
+            - ``train_bars``, ``test_bars``: int
+            - ``train_results``, ``test_results``: dict of strategy metrics
+    """
+    total = len(bars)
+    window_size = total // n_windows
+    results = []
+
+    for w in range(n_windows):
+        start = w * window_size
+        end = (w + 1) * window_size if w < n_windows - 1 else total
+        window_bars = bars[start:end]
+        wlen = len(window_bars)
+
+        if wlen < 100:
+            results.append(
+                {
+                    "window_id": w,
+                    "train_start": bars[start].time,
+                    "train_end": bars[start].time,
+                    "test_start": bars[start].time,
+                    "test_end": bars[start].time,
+                    "train_bars": 0,
+                    "test_bars": 0,
+                    "train_results": {},
+                    "test_results": {},
+                    "error": "Insufficient bars for window",
+                }
+            )
+            continue
+
+        train_end_idx = int(wlen * train_ratio)
+        gap_end_idx = int(wlen * (train_ratio + test_ratio))
+
+        train_bars = window_bars[:train_end_idx]
+        test_bars = window_bars[gap_end_idx:]
+
+        if run_fn is None:
+            engine = MultiStrategyBacktestEngine(config, strategies)
+            train_metrics = {
+                name: r.metrics
+                for name, r in engine.run_all_strategies(train_bars).items()
+            }
+            test_metrics = {
+                name: r.metrics
+                for name, r in engine.run_all_strategies(test_bars).items()
+            }
+        else:
+            train_metrics = run_fn(train_bars, config, strategies)
+            test_metrics = run_fn(test_bars, config, strategies)
+
+        results.append(
+            {
+                "window_id": w,
+                "train_start": train_bars[0].time,
+                "train_end": train_bars[-1].time,
+                "test_start": test_bars[0].time if test_bars else bars[start].time,
+                "test_end": test_bars[-1].time if test_bars else bars[start].time,
+                "train_bars": len(train_bars),
+                "test_bars": len(test_bars),
+                "train_results": train_metrics,
+                "test_results": test_metrics,
+            }
+        )
+
+    return results
 
 
 def run_amalgamation_backtest(bars, config):
@@ -155,37 +251,49 @@ def run_amalgamation_backtest(bars, config):
     ]
 
     configs = [
-        ("Weighted+Confluence", AmalgamationConfig(
-            voting_method=VotingMethod.WEIGHTED,
-            confidence_method=ConfidenceMethod.CONFLUENCE,
-            min_combined_confidence=0.45,
-            min_confluence=2,
-            confluence_bonus=0.10,
-            session_filter_enabled=True,
-        )),
-        ("Weighted+Mean", AmalgamationConfig(
-            voting_method=VotingMethod.WEIGHTED,
-            confidence_method=ConfidenceMethod.MEAN,
-            min_combined_confidence=0.45,
-            min_confluence=2,
-            session_filter_enabled=True,
-        )),
-        ("Confluence+Confluence", AmalgamationConfig(
-            voting_method=VotingMethod.CONFLUENCE,
-            confidence_method=ConfidenceMethod.CONFLUENCE,
-            min_combined_confidence=0.45,
-            min_confluence=3,
-            confluence_bonus=0.15,
-            session_filter_enabled=True,
-        )),
-        ("NoSessionFilter", AmalgamationConfig(
-            voting_method=VotingMethod.WEIGHTED,
-            confidence_method=ConfidenceMethod.CONFLUENCE,
-            min_combined_confidence=0.40,
-            min_confluence=2,
-            confluence_bonus=0.10,
-            session_filter_enabled=False,
-        )),
+        (
+            "Weighted+Confluence",
+            AmalgamationConfig(
+                voting_method=VotingMethod.WEIGHTED,
+                confidence_method=ConfidenceMethod.CONFLUENCE,
+                min_combined_confidence=0.45,
+                min_confluence=2,
+                confluence_bonus=0.10,
+                session_filter_enabled=True,
+            ),
+        ),
+        (
+            "Weighted+Mean",
+            AmalgamationConfig(
+                voting_method=VotingMethod.WEIGHTED,
+                confidence_method=ConfidenceMethod.MEAN,
+                min_combined_confidence=0.45,
+                min_confluence=2,
+                session_filter_enabled=True,
+            ),
+        ),
+        (
+            "Confluence+Confluence",
+            AmalgamationConfig(
+                voting_method=VotingMethod.CONFLUENCE,
+                confidence_method=ConfidenceMethod.CONFLUENCE,
+                min_combined_confidence=0.45,
+                min_confluence=3,
+                confluence_bonus=0.15,
+                session_filter_enabled=True,
+            ),
+        ),
+        (
+            "NoSessionFilter",
+            AmalgamationConfig(
+                voting_method=VotingMethod.WEIGHTED,
+                confidence_method=ConfidenceMethod.CONFLUENCE,
+                min_combined_confidence=0.40,
+                min_confluence=2,
+                confluence_bonus=0.10,
+                session_filter_enabled=False,
+            ),
+        ),
     ]
 
     print("\n" + "=" * 70)
@@ -198,7 +306,9 @@ def run_amalgamation_backtest(bars, config):
         print(f"\n### Config: {label}")
         print(f"   Trades:        {metrics.total_trades}")
         print(f"   Win Rate:      {metrics.win_rate:.1f}%")
-        print(f"   P&L:          ${metrics.total_pnl:.2f} ({metrics.total_pnl_pct:.2f}%)")
+        print(
+            f"   P&L:          ${metrics.total_pnl:.2f} ({metrics.total_pnl_pct:.2f}%)"
+        )
         print(f"   Profit Factor: {metrics.profit_factor:.2f}")
         print(f"   Sharpe:        {metrics.sharpe_ratio:.2f}")
         print(f"   Max DD:        {metrics.max_drawdown_pct:.2f}%")
@@ -238,7 +348,9 @@ def run_enhanced_ab_comparison(bars, config):
         enhanced_engine = EnhancedBacktestEngine(config, strategies, tm_config)
         enhanced_results = enhanced_engine.run_all_strategies(bars)
 
-        print(f"\n  {'Strategy':<30} {'Metric':<18} {'Baseline':>10} {'Enhanced':>10} {'Delta':>10}")
+        print(
+            f"\n  {'Strategy':<30} {'Metric':<18} {'Baseline':>10} {'Enhanced':>10} {'Delta':>10}"
+        )
         print(f"  {'─' * 78}")
 
         for strategy in strategies:
@@ -250,33 +362,67 @@ def run_enhanced_ab_comparison(bars, config):
             em = enhanced_results[name].metrics
 
             comparisons = [
-                ("Trades", f"{bm.total_trades}", f"{em.total_trades}",
-                 f"{em.total_trades - bm.total_trades:+d}"),
-                ("Win Rate %", f"{bm.win_rate:.1f}", f"{em.win_rate:.1f}",
-                 f"{em.win_rate - bm.win_rate:+.1f}"),
-                ("Profit Factor", f"{bm.profit_factor:.2f}", f"{em.profit_factor:.2f}",
-                 f"{em.profit_factor - bm.profit_factor:+.2f}"),
-                ("P&L $", f"{bm.total_pnl:.2f}", f"{em.total_pnl:.2f}",
-                 f"{em.total_pnl - bm.total_pnl:+.2f}"),
-                ("Sharpe", f"{bm.sharpe_ratio:.2f}", f"{em.sharpe_ratio:.2f}",
-                 f"{em.sharpe_ratio - bm.sharpe_ratio:+.2f}"),
-                ("Max DD %", f"{bm.max_drawdown_pct:.2f}", f"{em.max_drawdown_pct:.2f}",
-                 f"{em.max_drawdown_pct - bm.max_drawdown_pct:+.2f}"),
-                ("Expectancy $", f"{bm.expectancy:.2f}", f"{em.expectancy:.2f}",
-                 f"{em.expectancy - bm.expectancy:+.2f}"),
-                ("Avg R:R", f"{bm.avg_risk_reward:.2f}", f"{em.avg_risk_reward:.2f}",
-                 f"{em.avg_risk_reward - bm.avg_risk_reward:+.2f}"),
+                (
+                    "Trades",
+                    f"{bm.total_trades}",
+                    f"{em.total_trades}",
+                    f"{em.total_trades - bm.total_trades:+d}",
+                ),
+                (
+                    "Win Rate %",
+                    f"{bm.win_rate:.1f}",
+                    f"{em.win_rate:.1f}",
+                    f"{em.win_rate - bm.win_rate:+.1f}",
+                ),
+                (
+                    "Profit Factor",
+                    f"{bm.profit_factor:.2f}",
+                    f"{em.profit_factor:.2f}",
+                    f"{em.profit_factor - bm.profit_factor:+.2f}",
+                ),
+                (
+                    "P&L $",
+                    f"{bm.total_pnl:.2f}",
+                    f"{em.total_pnl:.2f}",
+                    f"{em.total_pnl - bm.total_pnl:+.2f}",
+                ),
+                (
+                    "Sharpe",
+                    f"{bm.sharpe_ratio:.2f}",
+                    f"{em.sharpe_ratio:.2f}",
+                    f"{em.sharpe_ratio - bm.sharpe_ratio:+.2f}",
+                ),
+                (
+                    "Max DD %",
+                    f"{bm.max_drawdown_pct:.2f}",
+                    f"{em.max_drawdown_pct:.2f}",
+                    f"{em.max_drawdown_pct - bm.max_drawdown_pct:+.2f}",
+                ),
+                (
+                    "Expectancy $",
+                    f"{bm.expectancy:.2f}",
+                    f"{em.expectancy:.2f}",
+                    f"{em.expectancy - bm.expectancy:+.2f}",
+                ),
+                (
+                    "Avg R:R",
+                    f"{bm.avg_risk_reward:.2f}",
+                    f"{em.avg_risk_reward:.2f}",
+                    f"{em.avg_risk_reward - bm.avg_risk_reward:+.2f}",
+                ),
             ]
 
             for metric_name, b_val, e_val, delta in comparisons:
-                print(f"  {name:<30} {metric_name:<18} {b_val:>10} {e_val:>10} {delta:>10}")
+                print(
+                    f"  {name:<30} {metric_name:<18} {b_val:>10} {e_val:>10} {delta:>10}"
+                )
 
     return tm_configs
 
 
 def main():
     data_file = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DATA_FILE
-    timeframe = sys.argv[2] if len(sys.argv) > 2 else "H1"
+    sys.argv[2] if len(sys.argv) > 2 else "H1"
 
     if not os.path.exists(data_file):
         print(f"Error: Data file not found: {data_file}")
@@ -301,7 +447,7 @@ def main():
         leverage=100,
         min_confidence=0.45,
         min_bars_before_signal=30,
-        max_open_trades=1
+        max_open_trades=1,
     )
 
     run_individual_backtests(bars, config)

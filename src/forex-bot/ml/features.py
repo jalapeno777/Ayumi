@@ -17,13 +17,18 @@ def ema(series: pd.Series, period: int) -> pd.Series:
     return series.ewm(span=period, adjust=False).mean()
 
 
-def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+def atr(
+    high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
+) -> pd.Series:
     prev_close = close.shift(1)
-    tr = pd.concat([
-        high - low,
-        (high - prev_close).abs(),
-        (low - prev_close).abs(),
-    ], axis=1).max(axis=1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
     return tr.rolling(window=period, min_periods=period).mean()
 
 
@@ -49,8 +54,13 @@ def roc(close: pd.Series, period: int = 12) -> pd.Series:
     return (close - close.shift(period)) / close.shift(period) * 100
 
 
-def stochastic(high: pd.Series, low: pd.Series, close: pd.Series,
-               k_period: int = 14, d_period: int = 3) -> tuple[pd.Series, pd.Series]:
+def stochastic(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    k_period: int = 14,
+    d_period: int = 3,
+) -> tuple[pd.Series, pd.Series]:
     lowest_low = low.rolling(window=k_period, min_periods=k_period).min()
     highest_high = high.rolling(window=k_period, min_periods=k_period).max()
     pct_k = 100 * (close - lowest_low) / (highest_high - lowest_low).replace(0, np.nan)
@@ -76,14 +86,16 @@ def session_features(dates: pd.Series) -> pd.DataFrame:
     killzone_asia = ((hours >= 0) & (hours < 4)).astype(int)
     outside_session = ((hours >= 20) | (hours < 0)).astype(int)
 
-    return pd.DataFrame({
-        "hour": hours,
-        "day_of_week": day_of_week,
-        "killzone_london": killzone_london,
-        "killzone_ny": killzone_ny,
-        "killzone_asia": killzone_asia,
-        "outside_session": outside_session,
-    })
+    return pd.DataFrame(
+        {
+            "hour": hours,
+            "day_of_week": day_of_week,
+            "killzone_london": killzone_london,
+            "killzone_ny": killzone_ny,
+            "killzone_asia": killzone_asia,
+            "outside_session": outside_session,
+        }
+    )
 
 
 def volatility_percentile(atr_series: pd.Series, lookback: int = 50) -> pd.Series:
@@ -93,10 +105,11 @@ def volatility_percentile(atr_series: pd.Series, lookback: int = 50) -> pd.Serie
     return (atr_series - rolling_min) / rng.replace(0, np.nan)
 
 
-def trend_alignment(close: pd.Series, fast_period: int = 9, slow_period: int = 21) -> pd.Series:
+def trend_alignment(
+    close: pd.Series, fast_period: int = 9, slow_period: int = 21
+) -> pd.Series:
     fast_sma = sma(close, fast_period)
     slow_sma = sma(close, slow_period)
-    alignment = (close - fast_sma).abs() / close + (close - slow_sma).abs() / close
     direction = np.where(close > fast_sma, 1, -1) * np.where(fast_sma > slow_sma, 1, -1)
     return pd.Series(direction, index=close.index)
 
@@ -113,23 +126,27 @@ def lower_lows(low: pd.Series, lookback: int = 5) -> pd.Series:
     return (rolling_min < prev_min).astype(int)
 
 
-def engulfing_bullish(open_: pd.Series, close: pd.Series,
-                     prev_open: pd.Series, prev_close: pd.Series) -> pd.Series:
+def engulfing_bullish(
+    open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series
+) -> pd.Series:
     prev_bearish = prev_close < prev_open
     current_bullish = close > open_
     body_engulfs = (close > prev_open) & (open_ < prev_close)
     return (prev_bearish & current_bullish & body_engulfs).astype(int)
 
 
-def engulfing_bearish(open_: pd.Series, close: pd.Series,
-                     prev_open: pd.Series, prev_close: pd.Series) -> pd.Series:
+def engulfing_bearish(
+    open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series
+) -> pd.Series:
     prev_bullish = prev_close > prev_open
     current_bearish = close < open_
     body_engulfs = (close < prev_open) & (open_ > prev_close)
     return (prev_bullish & current_bearish & body_engulfs).astype(int)
 
 
-def pin_bar_bullish(high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series) -> pd.Series:
+def pin_bar_bullish(
+    high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series
+) -> pd.Series:
     total_range = high - low
     bullish = close > open_
     lower_wick = np.where(bullish, close - low, open_ - low)
@@ -141,7 +158,9 @@ def pin_bar_bullish(high: pd.Series, low: pd.Series, close: pd.Series, open_: pd
     return (long_lower & small_upper & small_body).astype(int)
 
 
-def pin_bar_bearish(high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series) -> pd.Series:
+def pin_bar_bearish(
+    high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series
+) -> pd.Series:
     total_range = high - low
     bullish = close > open_
     upper_wick = np.where(bullish, high - close, high - open_)
@@ -188,32 +207,35 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     prev_open = open_.shift(1)
     prev_close = close.shift(1)
 
-    features = pd.DataFrame({
-        "atr_14": atr_14,
-        "atr_50": atr_50,
-        "atr_ratio": atr_ratio,
-        "vol_pct": vol_pct,
-        "rsi": rsi_14,
-        "roc": roc_12,
-        "stoch_k": stoch_k,
-        "stoch_d": stoch_d,
-        "macd": macd_line,
-        "macd_signal": macd_signal,
-        "macd_hist": macd_hist,
-        "bb_pct_b": bb_pct_b,
-        "bb_width": bb_width,
-        "price_vs_sma9": price_vs_sma9,
-        "price_vs_sma21": price_vs_sma21,
-        "price_vs_sma50": price_vs_sma50,
-        "price_vs_ema200": price_vs_ema200,
-        "trend_direction": trend_dir,
-        "higher_highs": hh,
-        "lower_lows": ll,
-        "engulfing_bullish": engulfing_bullish(open_, close, prev_open, prev_close),
-        "engulfing_bearish": engulfing_bearish(open_, close, prev_open, prev_close),
-        "pin_bullish": pin_bar_bullish(high, low, close, open_),
-        "pin_bearish": pin_bar_bearish(high, low, close, open_),
-    }, index=df.index)
+    features = pd.DataFrame(
+        {
+            "atr_14": atr_14,
+            "atr_50": atr_50,
+            "atr_ratio": atr_ratio,
+            "vol_pct": vol_pct,
+            "rsi": rsi_14,
+            "roc": roc_12,
+            "stoch_k": stoch_k,
+            "stoch_d": stoch_d,
+            "macd": macd_line,
+            "macd_signal": macd_signal,
+            "macd_hist": macd_hist,
+            "bb_pct_b": bb_pct_b,
+            "bb_width": bb_width,
+            "price_vs_sma9": price_vs_sma9,
+            "price_vs_sma21": price_vs_sma21,
+            "price_vs_sma50": price_vs_sma50,
+            "price_vs_ema200": price_vs_ema200,
+            "trend_direction": trend_dir,
+            "higher_highs": hh,
+            "lower_lows": ll,
+            "engulfing_bullish": engulfing_bullish(open_, close, prev_open, prev_close),
+            "engulfing_bearish": engulfing_bearish(open_, close, prev_open, prev_close),
+            "pin_bullish": pin_bar_bullish(high, low, close, open_),
+            "pin_bearish": pin_bar_bearish(high, low, close, open_),
+        },
+        index=df.index,
+    )
 
     sess = session_features(df["date"])
     features = pd.concat([features, sess], axis=1)
@@ -221,23 +243,30 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     return features
 
 
-def add_multi_timeframe_features(features: pd.DataFrame, h4_df: pd.DataFrame,
-                                  d1_df: pd.DataFrame) -> pd.DataFrame:
+def add_multi_timeframe_features(
+    features: pd.DataFrame, h4_df: pd.DataFrame, d1_df: pd.DataFrame
+) -> pd.DataFrame:
     h4_close = h4_df["close"]
     d1_close = d1_df["close"]
 
     h4_sma = sma(h4_close, 21)
-    h4_features = pd.DataFrame({
-        "h4_trend": np.where(h4_close > h4_sma, 1, -1),
-        "h4_sma21_dist": (h4_close - h4_sma) / h4_sma.replace(0, np.nan),
-    }, index=h4_df.index)
+    h4_features = pd.DataFrame(
+        {
+            "h4_trend": np.where(h4_close > h4_sma, 1, -1),
+            "h4_sma21_dist": (h4_close - h4_sma) / h4_sma.replace(0, np.nan),
+        },
+        index=h4_df.index,
+    )
 
     d1_sma = sma(d1_close, 50)
     d1_ema = ema(d1_close, 200)
-    d1_features = pd.DataFrame({
-        "d1_trend": np.where(d1_close > d1_sma, 1, -1),
-        "d1_ema200_dist": (d1_close - d1_ema) / d1_ema.replace(0, np.nan),
-    }, index=d1_df.index)
+    d1_features = pd.DataFrame(
+        {
+            "d1_trend": np.where(d1_close > d1_sma, 1, -1),
+            "d1_ema200_dist": (d1_close - d1_ema) / d1_ema.replace(0, np.nan),
+        },
+        index=d1_df.index,
+    )
 
     h4_aligned = h4_features.reindex(features.index, method="ffill")
     d1_aligned = d1_features.reindex(features.index, method="ffill")
@@ -245,8 +274,7 @@ def add_multi_timeframe_features(features: pd.DataFrame, h4_df: pd.DataFrame,
     features = pd.concat([features, h4_aligned, d1_aligned], axis=1)
 
     features["tf_alignment"] = (
-        (features["trend_direction"] == features["h4_trend"]).astype(int) +
-        (features["trend_direction"] == features["d1_trend"]).astype(int)
-    )
+        features["trend_direction"] == features["h4_trend"]
+    ).astype(int) + (features["trend_direction"] == features["d1_trend"]).astype(int)
 
     return features

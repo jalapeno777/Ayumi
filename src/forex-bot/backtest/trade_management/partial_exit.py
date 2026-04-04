@@ -40,8 +40,12 @@ class PartialExitResult:
 
 
 class PartialExitManager:
-    def __init__(self, enabled: bool = True, tiers: Optional[List[Tuple[float, float, bool]]] = None,
-                 final_trail: bool = True):
+    def __init__(
+        self,
+        enabled: bool = True,
+        tiers: Optional[List[Tuple[float, float, bool]]] = None,
+        final_trail: bool = True,
+    ):
         self.enabled = enabled
         self.tiers = tiers or [
             (0.5, 1.0, True),
@@ -52,10 +56,18 @@ class PartialExitManager:
     def create_state(self) -> TierState:
         return TierState(remaining_pct=1.0)
 
-    def evaluate(self, bar: Bar, state: TierState, direction: TradeDirection,
-                 entry_price: float, stop_loss: float,
-                 tp1: float, tp2: float, tp3: float,
-                 current_sl: float) -> PartialExitResult:
+    def evaluate(
+        self,
+        bar: Bar,
+        state: TierState,
+        direction: TradeDirection,
+        entry_price: float,
+        stop_loss: float,
+        tp1: float,
+        tp2: float,
+        tp3: float,
+        current_sl: float,
+    ) -> PartialExitResult:
         if not self.enabled:
             return PartialExitResult(action=PartialExitAction.NO_ACTION)
 
@@ -75,11 +87,23 @@ class PartialExitManager:
                 continue
 
             return self._process_tier_hit(
-                bar, state, direction, tier, close_pct, move_sl,
-                entry_price, stop_loss, tp1, tp2, tp3,
+                bar,
+                state,
+                direction,
+                tier,
+                close_pct,
+                move_sl,
+                entry_price,
+                stop_loss,
+                tp1,
+                tp2,
+                tp3,
             )
 
-        if state.highest_tier_reached.value >= ExitTier.TIER_2.value and self.final_trail:
+        if (
+            state.highest_tier_reached.value >= ExitTier.TIER_2.value
+            and self.final_trail
+        ):
             if not state.trail_enabled:
                 state.trail_enabled = True
                 return PartialExitResult(
@@ -89,9 +113,15 @@ class PartialExitManager:
 
         return PartialExitResult(action=PartialExitAction.NO_ACTION)
 
-    def _check_tp_hit(self, bar: Bar, direction: TradeDirection,
-                      tp1: float, tp2: float, tp3: float,
-                      tier: ExitTier) -> bool:
+    def _check_tp_hit(
+        self,
+        bar: Bar,
+        direction: TradeDirection,
+        tp1: float,
+        tp2: float,
+        tp3: float,
+        tier: ExitTier,
+    ) -> bool:
         if direction == TradeDirection.LONG:
             if tier == ExitTier.TIER_1:
                 return bar.high >= tp1
@@ -107,10 +137,20 @@ class PartialExitManager:
             else:
                 return bar.low <= tp3
 
-    def _process_tier_hit(self, bar: Bar, state: TierState, direction: TradeDirection,
-                          tier: ExitTier, close_pct: bool, move_sl: bool,
-                          entry_price: float, stop_loss: float,
-                          tp1: float, tp2: float, tp3: float) -> PartialExitResult:
+    def _process_tier_hit(
+        self,
+        bar: Bar,
+        state: TierState,
+        direction: TradeDirection,
+        tier: ExitTier,
+        close_pct: bool,
+        move_sl: bool,
+        entry_price: float,
+        stop_loss: float,
+        tp1: float,
+        tp2: float,
+        tp3: float,
+    ) -> PartialExitResult:
         tp_price = self._get_tp_price(direction, tp1, tp2, tp3, tier)
         actual_close_pct = close_pct - state.cumulative_closed_pct
         is_last_tier = tier.value == len(self.tiers)
@@ -160,8 +200,14 @@ class PartialExitManager:
         )
         return result
 
-    def _get_tp_price(self, direction: TradeDirection, tp1: float,
-                      tp2: float, tp3: float, tier: ExitTier) -> float:
+    def _get_tp_price(
+        self,
+        direction: TradeDirection,
+        tp1: float,
+        tp2: float,
+        tp3: float,
+        tier: ExitTier,
+    ) -> float:
         if tier == ExitTier.TIER_1:
             return tp1
         elif tier == ExitTier.TIER_2:
@@ -178,8 +224,9 @@ class PartialExitManager:
         return mapping.get(tier, ExitReason.TAKE_PROFIT_1)
 
     @staticmethod
-    def _calculate_rr(bar: Bar, direction: TradeDirection,
-                      entry_price: float, stop_loss: float) -> float:
+    def _calculate_rr(
+        bar: Bar, direction: TradeDirection, entry_price: float, stop_loss: float
+    ) -> float:
         risk = abs(entry_price - stop_loss)
         if risk == 0:
             return 0.0

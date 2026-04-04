@@ -15,7 +15,9 @@ from quant.correlation import (
 
 def _price_series(values: list[float], start: float = 1.0) -> pd.Series:
     prices = start * np.cumprod(np.array([1.0] + values))
-    return pd.Series(prices, index=pd.date_range("2024-01-01", periods=len(prices), freq="D"))
+    return pd.Series(
+        prices, index=pd.date_range("2024-01-01", periods=len(prices), freq="D")
+    )
 
 
 class TestRollingCorrelation(unittest.TestCase):
@@ -61,7 +63,9 @@ class TestCorrelationMatrix(unittest.TestCase):
             "GBPUSD": _price_series(list(1 + np.random.randn(60) * 0.001)),
         }
         mat = correlation_matrix(prices, window=20)
-        self.assertAlmostEqual(mat.loc["EURUSD", "GBPUSD"], mat.loc["GBPUSD", "EURUSD"], places=5)
+        self.assertAlmostEqual(
+            mat.loc["EURUSD", "GBPUSD"], mat.loc["GBPUSD", "EURUSD"], places=5
+        )
 
 
 class TestCheckCorrelatedExposure(unittest.TestCase):
@@ -132,17 +136,21 @@ class TestCorrelationTracker(unittest.TestCase):
 
         self.assertTrue(tracker.is_initialized)
         self.assertIsNotNone(tracker.correlation_matrix)
-        self.assertAlmostEqual(tracker.correlation_matrix.loc["EURUSD", "EURUSD"], 1.0, places=5)
+        self.assertAlmostEqual(
+            tracker.correlation_matrix.loc["EURUSD", "EURUSD"], 1.0, places=5
+        )
 
     def test_incremental_update_multiple_pairs(self):
         np.random.seed(42)
         tracker = CorrelationTracker(pairs=["EURUSD", "GBPUSD"], window=20)
 
         for i in range(25):
-            tracker.update({
-                "EURUSD": 1.0 + i * 0.001,
-                "GBPUSD": 1.0 + i * 0.001,
-            })
+            tracker.update(
+                {
+                    "EURUSD": 1.0 + i * 0.001,
+                    "GBPUSD": 1.0 + i * 0.001,
+                }
+            )
 
         self.assertTrue(tracker.is_initialized)
         mat = tracker.correlation_matrix
@@ -150,13 +158,17 @@ class TestCorrelationTracker(unittest.TestCase):
 
     def test_tracker_check_exposure(self):
         np.random.seed(42)
-        tracker = CorrelationTracker(pairs=["EURUSD", "GBPUSD"], window=20, threshold=0.7)
+        tracker = CorrelationTracker(
+            pairs=["EURUSD", "GBPUSD"], window=20, threshold=0.7
+        )
 
         for i in range(25):
-            tracker.update({
-                "EURUSD": 1.0 + i * 0.001,
-                "GBPUSD": 1.0 + i * 0.001,
-            })
+            tracker.update(
+                {
+                    "EURUSD": 1.0 + i * 0.001,
+                    "GBPUSD": 1.0 + i * 0.001,
+                }
+            )
 
         positions: list[Position] = [
             {"symbol": "EURUSD", "exposure": 0.5},

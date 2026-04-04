@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from .train_model import load_model, FEATURE_COLUMNS
+from .train_model import load_model
 
 
 class SignalFilter:
@@ -42,22 +42,29 @@ class SignalFilter:
         predictions = self.model.predict(X)
         probabilities = self.model.predict_proba(X)
 
-        results = pd.DataFrame({
-            "approve": predictions == 1,
-            "confidence": probabilities[:, 1],
-            "reject_probability": probabilities[:, 0],
-        }, index=features_df.index)
+        results = pd.DataFrame(
+            {
+                "approve": predictions == 1,
+                "confidence": probabilities[:, 1],
+                "reject_probability": probabilities[:, 0],
+            },
+            index=features_df.index,
+        )
 
         return results
 
-    def filter_signals(self, signals_df: pd.DataFrame, features_df: pd.DataFrame) -> pd.DataFrame:
+    def filter_signals(
+        self, signals_df: pd.DataFrame, features_df: pd.DataFrame
+    ) -> pd.DataFrame:
         merged = signals_df.join(features_df, how="inner")
         if merged.empty:
             return pd.DataFrame()
 
         predictions = self.predict_batch(merged[self.feature_names])
         approved = merged[predictions["approve"]].copy()
-        approved["ml_confidence"] = predictions.loc[predictions["approve"], "confidence"]
+        approved["ml_confidence"] = predictions.loc[
+            predictions["approve"], "confidence"
+        ]
 
         return approved
 

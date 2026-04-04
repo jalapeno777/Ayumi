@@ -54,7 +54,9 @@ class NewsEventSimulator:
             self.events[dt] = []
         self.events[dt].append(event)
 
-    def has_high_impact_near(self, bar_time: datetime, buffer_hours: float = 1.0) -> bool:
+    def has_high_impact_near(
+        self, bar_time: datetime, buffer_hours: float = 1.0
+    ) -> bool:
         window_start = bar_time - timedelta(hours=buffer_hours)
         window_end = bar_time + timedelta(hours=buffer_hours)
         for event_time, events in self.events.items():
@@ -64,7 +66,9 @@ class NewsEventSimulator:
                         return True
         return False
 
-    def get_impact_near(self, bar_time: datetime, buffer_hours: float = 1.0) -> List[NewsEvent]:
+    def get_impact_near(
+        self, bar_time: datetime, buffer_hours: float = 1.0
+    ) -> List[NewsEvent]:
         window_start = bar_time - timedelta(hours=buffer_hours)
         window_end = bar_time + timedelta(hours=buffer_hours)
         result = []
@@ -75,17 +79,22 @@ class NewsEventSimulator:
 
 
 class SessionFilter:
-    def __init__(self, enabled: bool = True,
-                 allow_entry_sessions: Optional[List[str]] = None,
-                 hold_through_sessions: bool = True,
-                 weekend_close_hour_utc: int = 21,
-                 weekend_close_minute_utc: int = 55,
-                 news_buffer_bars: int = 4,
-                 news_buffer_on_entry: bool = True,
-                 news_simulator: Optional[NewsEventSimulator] = None,
-                 kill_zones: Optional[List[SessionKillZone]] = None):
+    def __init__(
+        self,
+        enabled: bool = True,
+        allow_entry_sessions: Optional[List[str]] = None,
+        hold_through_sessions: bool = True,
+        weekend_close_hour_utc: int = 21,
+        weekend_close_minute_utc: int = 55,
+        news_buffer_bars: int = 4,
+        news_buffer_on_entry: bool = True,
+        news_simulator: Optional[NewsEventSimulator] = None,
+        kill_zones: Optional[List[SessionKillZone]] = None,
+    ):
         self.enabled = enabled
-        self.allow_entry_sessions = set(allow_entry_sessions or ["london", "ny_am", "ny_pm"])
+        self.allow_entry_sessions = set(
+            allow_entry_sessions or ["london", "ny_am", "ny_pm"]
+        )
         self.hold_through_sessions = hold_through_sessions
         self.weekend_close_hour = weekend_close_hour_utc
         self.weekend_close_minute = weekend_close_minute_utc
@@ -126,8 +135,9 @@ class SessionFilter:
 
         return SessionFilterResult(allow_entry=True)
 
-    def check_hold(self, bar: Bar, entry_time: datetime,
-                   direction: TradeDirection) -> SessionFilterResult:
+    def check_hold(
+        self, bar: Bar, entry_time: datetime, direction: TradeDirection
+    ) -> SessionFilterResult:
         if not self.enabled:
             return SessionFilterResult(force_close=False)
 
@@ -143,7 +153,10 @@ class SessionFilter:
         current_session = self._get_session_name(bar.time)
         entry_session = self._get_session_name(entry_time)
 
-        if current_session not in self.allow_entry_sessions and entry_session != current_session:
+        if (
+            current_session not in self.allow_entry_sessions
+            and entry_session != current_session
+        ):
             return SessionFilterResult(
                 force_close=True,
                 reason=f"Current session '{current_session}' outside allowed hold sessions",
@@ -167,8 +180,10 @@ class SessionFilter:
         if time.weekday() == 4:
             if time.hour > self.weekend_close_hour:
                 return True
-            if (time.hour == self.weekend_close_hour and
-                    time.minute >= self.weekend_close_minute):
+            if (
+                time.hour == self.weekend_close_hour
+                and time.minute >= self.weekend_close_minute
+            ):
                 return True
         if time.weekday() >= 5:
             return True
