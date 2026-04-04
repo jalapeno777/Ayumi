@@ -19,6 +19,7 @@
 | [sprint-3-backtesting-harness-no-api.md](sprint-3-backtesting-harness-no-api.md) | AYUAA-43 | **Status:** done | **Source:** Paperclip | Sprint 3: Backtesting Harness (No-API) |
 | [sprint-3-signal-confluence-engine.md](sprint-3-signal-confluence-engine.md) | AYUAA-42 | **Status:** done | **Source:** Paperclip | Sprint 3: Signal Confluence Engine |
 | [strategy-development-ict-smc-automated-logic.md](strategy-development-ict-smc-automated-logic.md) | AYUAA-27 | **Status:** done | **Source:** Paperclip | Strategy Development — ICT/SMC Automated Logic |
-| [baseline-strategy-backtest-report.md](baseline-strategy-backtest-report.md) | AYUAA-121 | **Status:** in_progress | **Source:** Paperclip | Baseline Strategy Backtest Comparison Report |
+| [baseline-strategy-backtest-report.md](baseline-strategy-backtest-report.md) | AYUAA-121 | **Status:** done | **Source:** Paperclip | Baseline Strategy Backtest Comparison Report |
+| [hybrid-strategy-walk-forward-evaluation.md](hybrid-strategy-walk-forward-evaluation.md) | AYUAA-221 | **Status:** done | **Source:** Paperclip | Hybrid ICT/SMC + Quant Overlay Walk-Forward Evaluation — NO-GO |
 
 > ⚠️ **Read before starting work in this domain.** These docs contain finalized decisions, specs, and research that inform all future work.
