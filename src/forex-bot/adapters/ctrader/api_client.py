@@ -1,23 +1,19 @@
 import socket
 import ssl
-import struct
 import threading
 import time
 from datetime import datetime
-from typing import Optional, Callable, Dict, Any
-from collections import defaultdict
+from typing import Optional, Callable, Dict
 import logging
 
 from .models import (
     cTraderCredentials,
     AccountInfo,
-    MarketDataSnapshot,
     Order,
     Position,
     TradeDirection,
     OrderType,
     OrderStatus,
-    PositionStatus,
 )
 
 
@@ -137,13 +133,19 @@ class FIXClient:
             if self.credentials.use_ssl:
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 context = ssl.create_default_context()
-                self._ssl_socket = context.wrap_socket(self._socket, server_hostname=host)
+                self._ssl_socket = context.wrap_socket(
+                    self._socket, server_hostname=host
+                )
                 self._ssl_socket.connect((host, port))
-                self._recv_thread = threading.Thread(target=self._recv_loop_ssl, daemon=True)
+                self._recv_thread = threading.Thread(
+                    target=self._recv_loop_ssl, daemon=True
+                )
             else:
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self._socket.connect((host, port))
-                self._recv_thread = threading.Thread(target=self._recv_loop, daemon=True)
+                self._recv_thread = threading.Thread(
+                    target=self._recv_loop, daemon=True
+                )
 
             self._running = True
             self._recv_thread.start()
@@ -253,9 +255,6 @@ class FIXClient:
     def _handle_execution_report(self, msg: FIXMessage):
         order_id = msg.get_field(self.TAG_CLORD_ID) or msg.get_field(self.TAG_ORDER_ID)
         exec_type = msg.get_field(self.TAG_EXEC_TYPE)
-        status = msg.get_field(self.TAG_ORD_STATUS)
-        symbol = msg.get_field(self.TAG_SYMBOL)
-        side = msg.get_field(self.TAG_SIDE)
 
         with self._lock:
             if order_id in self._pending_orders:
@@ -286,7 +285,6 @@ class FIXClient:
                 self._trigger_callback("on_order_rejected", order)
 
     def _handle_position_report(self, msg: FIXMessage):
-        positions = []
         logger.debug(f"Position report: {msg.fields}")
 
     def _handle_account_info(self, msg: FIXMessage):

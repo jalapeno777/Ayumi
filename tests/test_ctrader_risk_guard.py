@@ -1,5 +1,4 @@
-import pytest
-from datetime import datetime, date, timedelta
+from datetime import date
 
 from adapters.ctrader.models import TradeSignal, TradeDirection
 from adapters.ctrader.risk_guard import (

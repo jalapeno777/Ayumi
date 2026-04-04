@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, date
 from typing import Optional, List, Callable
 from threading import Lock
@@ -102,7 +102,11 @@ class RiskGuard:
                 limit_value=self._config.min_risk_reward,
             )
 
-        return RiskLimitResult(allowed=True, limit_type=RiskLimitType.MIN_RISK_REWARD, message="Signal approved")
+        return RiskLimitResult(
+            allowed=True,
+            limit_type=RiskLimitType.MIN_RISK_REWARD,
+            message="Signal approved",
+        )
 
     def check_trade_allowed(
         self,
@@ -146,24 +150,34 @@ class RiskGuard:
 
         self._update_daily_tracking()
 
-        daily_loss_pct = (self._daily_start_balance - self._current_balance) / self._daily_start_balance
+        daily_loss_pct = (
+            self._daily_start_balance - self._current_balance
+        ) / self._daily_start_balance
         if daily_loss_pct >= self._config.daily_loss_limit_pct:
-            self._trigger_circuit_breaker(RiskLimitType.DAILY_LOSS, daily_loss_pct, self._config.daily_loss_limit_pct)
+            self._trigger_circuit_breaker(
+                RiskLimitType.DAILY_LOSS,
+                daily_loss_pct,
+                self._config.daily_loss_limit_pct,
+            )
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.DAILY_LOSS,
-                message=f"Daily loss limit {daily_loss_pct*100:.2f}% >= {self._config.daily_loss_limit_pct*100}%",
+                message=f"Daily loss limit {daily_loss_pct * 100:.2f}% >= {self._config.daily_loss_limit_pct * 100}%",
                 current_value=daily_loss_pct,
                 limit_value=self._config.daily_loss_limit_pct,
             )
 
         drawdown_pct = (self._peak_balance - self._current_balance) / self._peak_balance
         if drawdown_pct >= self._config.total_drawdown_limit_pct:
-            self._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, drawdown_pct, self._config.total_drawdown_limit_pct)
+            self._trigger_circuit_breaker(
+                RiskLimitType.TOTAL_DRAWDOWN,
+                drawdown_pct,
+                self._config.total_drawdown_limit_pct,
+            )
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.TOTAL_DRAWDOWN,
-                message=f"Total drawdown {drawdown_pct*100:.2f}% >= {self._config.total_drawdown_limit_pct*100}%",
+                message=f"Total drawdown {drawdown_pct * 100:.2f}% >= {self._config.total_drawdown_limit_pct * 100}%",
                 current_value=drawdown_pct,
                 limit_value=self._config.total_drawdown_limit_pct,
             )
@@ -182,7 +196,7 @@ class RiskGuard:
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.POSITION_SIZE,
-                message=f"Position size {position_size_pct*100:.2f}% > max {self._config.max_position_size_pct*100}%",
+                message=f"Position size {position_size_pct * 100:.2f}% > max {self._config.max_position_size_pct * 100}%",
                 current_value=position_size_pct,
                 limit_value=self._config.max_position_size_pct,
             )
@@ -196,7 +210,11 @@ class RiskGuard:
                 message=f"Risk:Reward below minimum {self._config.min_risk_reward}",
             )
 
-        return RiskLimitResult(allowed=True, limit_type=RiskLimitType.POSITION_SIZE, message="Trade allowed")
+        return RiskLimitResult(
+            allowed=True,
+            limit_type=RiskLimitType.POSITION_SIZE,
+            message="Trade allowed",
+        )
 
     def _calculate_risk_reward(self, signal: TradeSignal) -> float:
         risk = abs(signal.entry_price - signal.stop_loss)
@@ -243,14 +261,16 @@ class RiskGuard:
 
         if best_day_pct > self._config.best_day_rule_max_pct:
             logger.warning(
-                f"Best day rule warning: Best day {best_day_pct*100:.1f}% > {self._config.best_day_rule_max_pct*100}% limit"
+                f"Best day rule warning: Best day {best_day_pct * 100:.1f}% > {self._config.best_day_rule_max_pct * 100}% limit"
             )
 
-    def _trigger_circuit_breaker(self, limit_type: RiskLimitType, current: float, limit: float):
+    def _trigger_circuit_breaker(
+        self, limit_type: RiskLimitType, current: float, limit: float
+    ):
         self._circuit_breaker_triggered = True
         self._blocked_until = datetime.utcnow()
         logger.critical(
-            f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current*100:.2f}% >= {limit*100:.2f}%"
+            f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current * 100:.2f}% >= {limit * 100:.2f}%"
         )
         for callback in self._callbacks:
             try:
@@ -308,7 +328,9 @@ class RiskGuard:
 
     @property
     def current_daily_loss_pct(self) -> float:
-        return (self._daily_start_balance - self._current_balance) / self._daily_start_balance
+        return (
+            self._daily_start_balance - self._current_balance
+        ) / self._daily_start_balance
 
     @property
     def is_blocked(self) -> bool:
