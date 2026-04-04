@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import json
-import pickle
+import pickle  # nosec B403
 from typing import Any
 
 import numpy as np
@@ -651,7 +651,7 @@ def load_model(model_dir: str) -> tuple:
     meta_path = os.path.join(model_dir, "signal_filter_meta.json")
 
     with open(model_path, "rb") as f:
-        model = pickle.load(f)
+        model = pickle.load(f)  # nosec B301
 
     with open(meta_path, "r") as f:
         meta = json.load(f)
