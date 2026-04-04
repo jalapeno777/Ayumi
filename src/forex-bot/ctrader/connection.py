@@ -39,9 +39,27 @@ class FIXConnectionError(RuntimeError):
     pass
 
 
+def _find_dotenv() -> Path | None:
+    explicit = os.environ.get("DOTENV_PATH")
+    if explicit:
+        p = Path(explicit)
+        return p if p.exists() else None
+
+    project_root = Path(__file__).parents[3]
+    candidates = [
+        project_root / ".env",
+        project_root.parent / ".env",
+        Path.cwd() / ".env",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def _load_credentials() -> dict[str, str]:
-    env_path = Path(__file__).parents[3] / ".env"
-    if env_path.exists():
+    env_path = _find_dotenv()
+    if env_path is not None:
         load_dotenv(env_path)
 
     missing = [v for v in _REQUIRED_ENV_VARS if not os.environ.get(v)]
