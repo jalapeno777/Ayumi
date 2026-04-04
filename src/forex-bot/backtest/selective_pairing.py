@@ -52,6 +52,7 @@ class PairingConfig:
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
     min_confidence: float = 0.55
+    min_confluence: int = 0
     spread_pips: float = 0.5
     commission_per_lot: float = 3.5
     leverage: int = 100
@@ -195,6 +196,8 @@ class SelectivePairingHarness:
 
             signal = engine.evaluate(state, h4_slice)
             if signal is not None:
+                if self.config.min_confluence > 0 and signal.confluence_count < self.config.min_confluence:
+                    continue
                 signals.append(signal)
 
         return signals
