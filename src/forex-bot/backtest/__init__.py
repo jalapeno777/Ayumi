@@ -40,6 +40,7 @@ from .ict_smc import (
     ICTMarketState,
 )
 from .enhanced_engine import EnhancedBacktestEngine
+from .hybrid_strategy import HybridStrategy, HybridConfig
 from .trade_management import (
     TradeManagementConfig,
     TradeManager,
@@ -87,4 +88,6 @@ __all__ = [
     "TradeManager",
     "ManagedTrade",
     "TradeAction",
+    "HybridStrategy",
+    "HybridConfig",
 ]
