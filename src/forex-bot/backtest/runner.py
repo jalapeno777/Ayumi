@@ -19,12 +19,15 @@ Examples:
 
 import sys
 import os
+import json
+import math
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backtest import (
     BacktestConfig,
+    BacktestMetrics,
     CsvDataLoader,
     MACrossStrategy,
     BBStrategy,
@@ -38,8 +41,10 @@ from backtest import (
     VotingMethod,
     ConfidenceMethod,
     EnhancedBacktestEngine,
+    HybridStrategy,
     TradeManagementConfig,
 )
+from backtest.hybrid_strategy import HybridConfig
 
 
 DEFAULT_DATA_FILE = "/home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv"
@@ -418,6 +423,501 @@ def run_enhanced_ab_comparison(bars, config):
                 )
 
     return tm_configs
+
+
+
+def _metrics_to_dict(m) -> dict:
+    return {
+        "trades": m.total_trades,
+        "win_rate": round(m.win_rate, 2),
+        "profit_factor": round(m.profit_factor, 4),
+        "sharpe": round(m.sharpe_ratio, 4),
+        "max_dd": round(m.max_drawdown_pct, 2),
+        "total_pnl": round(m.total_pnl, 2),
+        "avg_rr": round(m.avg_risk_reward, 4),
+        "expectancy": round(m.expectancy, 2),
+        "rejected": m.rejected_signals,
+    }
+
+
+def _aggregate_metrics(window_results: list) -> dict:
+    valid = [w for w in window_results if "error" not in w]
+    if not valid:
+        return {}
+
+    def _mean(key: str) -> float:
+        vals = [w["test_metrics"][key] for w in valid]
+        return sum(vals) / len(vals) if vals else 0.0
+
+    def _std(key: str) -> float:
+        vals = [w["test_metrics"][key] for w in valid]
+        if len(vals) < 2:
+            return 0.0
+        m = sum(vals) / len(vals)
+        return math.sqrt(sum((v - m) ** 2 for v in vals) / (len(vals) - 1))
+
+    keys = ["win_rate", "profit_factor", "sharpe", "max_dd", "total_pnl", "trades"]
+    agg = {}
+    for k in keys:
+        agg[f"mean_{k}"] = round(_mean(k), 4)
+        agg[f"std_{k}"] = round(_std(k), 4)
+
+    passed = sum(1 for w in valid if w.get("passed_go_nogo", False))
+    agg["windows_passed"] = passed
+    agg["total_windows"] = len(valid)
+    agg["go_nogo"] = len(valid) >= 3 and passed >= 2
+    return agg
+
+
+def _print_summary_table(window_results: list, agg: dict, pair: str) -> None:
+    valid = [w for w in window_results if "error" not in w]
+
+    print("\n" + "─" * 80)
+    print(f"  PER-WINDOW RESULTS — {pair}")
+    print(f"  {'Window':<8} {'Trades':>8} {'WR%':>8} {'PF':>8} "
+          f"{'MaxDD%':>8} {'Sharpe':>8} {'PnL':>10} {'GO?':>6}")
+    print("  " + "─" * 76)
+
+    for w in valid:
+        tm = w["test_metrics"]
+        go = "YES" if w.get("passed_go_nogo", False) else "NO"
+        print(f"  {w['window_id']:<8} {tm['trades']:>8} {tm['win_rate']:>8.1f} "
+              f"{tm['profit_factor']:>8.2f} {tm['max_dd']:>8.2f} "
+              f"{tm['sharpe']:>8.2f} {tm['total_pnl']:>10.2f} {go:>6}")
+
+    for w in window_results:
+        if "error" in w:
+            print(f"  {w['window_id']:<8} {'ERROR: ' + w['error']}")
+
+    if agg:
+        print("\n" + "─" * 80)
+        print("  AGGREGATE METRICS")
+        print("  " + "─" * 76)
+        go_str = "GO" if agg["go_nogo"] else "NO-GO"
+        print(f"  Windows Passed: {agg['windows_passed']}/{agg['total_windows']}  →  {go_str}")
+        print(f"  {'Metric':<20} {'Mean':>12} {'Std':>12}")
+        print("  " + "─" * 44)
+        labels = [
+            ("Win Rate %", "win_rate"),
+            ("Profit Factor", "profit_factor"),
+            ("Sharpe Ratio", "sharpe"),
+            ("Max Drawdown %", "max_dd"),
+            ("Total PnL $", "total_pnl"),
+            ("Trade Count", "trades"),
+        ]
+        for label, key in labels:
+            print(f"  {label:<20} {agg[f'mean_{key}']:>12.4f} {agg[f'std_{key}']:>12.4f}")
+    print("─" * 80)
+
+
+def _run_window_backtest(
+    bars: list,
+    strategy: HybridStrategy,
+    starting_balance: float = 10000.0,
+    risk_per_trade_pct: float = 0.005,
+    max_daily_drawdown_pct: float = 0.03,
+    max_total_drawdown_pct: float = 0.05,
+    spread_pips: float = 0.5,
+    commission_per_lot: float = 3.5,
+    leverage: int = 100,
+    max_open_trades: int = 3,
+) -> BacktestMetrics:
+    from backtest.ict_smc.models import ICTMarketState
+
+    if len(bars) < 30:
+        return BacktestMetrics(
+            starting_balance=starting_balance,
+            ending_balance=starting_balance,
+            total_pnl=0,
+            total_pnl_pct=0,
+            win_rate=0,
+            total_trades=0,
+            winning_trades=0,
+            losing_trades=0,
+            breakeven_trades=0,
+            avg_win=0,
+            avg_loss=0,
+            largest_win=0,
+            largest_loss=0,
+            profit_factor=0,
+            max_drawdown_pct=0,
+            max_drawdown_dollar=0,
+            max_daily_loss_dollar=0,
+            sharpe_ratio=0,
+            avg_risk_reward=0,
+            expectancy=0,
+            avg_holding_bars=0,
+            equity_curve=[],
+            trades=[],
+            total_spread_cost=0,
+            total_commission_cost=0,
+            rejected_signals=0,
+        )
+
+    balance = starting_balance
+    peak_balance = starting_balance
+    max_dd = 0.0
+    current_day = None
+    daily_start = starting_balance
+    open_trades: list = []
+    trade_records: list = []
+    equity_curve = [balance]
+
+    for i in range(30, len(bars)):
+        bar = bars[i]
+        day = bar.time.date()
+        if current_day is not None and day != current_day:
+            daily_loss_pct = (daily_start - balance) / daily_start if daily_start > 0 else 0
+            if daily_loss_pct >= max_daily_drawdown_pct:
+                current_day = day
+                daily_start = balance
+                equity_curve.append(balance)
+                continue
+            current_day = day
+            daily_start = balance
+        elif current_day is None:
+            current_day = day
+            daily_start = balance
+
+        dd_pct = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
+        if dd_pct >= max_total_drawdown_pct:
+            break
+
+        closes = [b.close for b in bars]
+        high_series = [b.high for b in bars]
+        low_series = [b.low for b in bars]
+        atr_values = []
+        for j in range(len(bars)):
+            lookback = min(15, j + 1)
+            if lookback < 2:
+                atr_values.append(0.0001)
+                continue
+            tr_sum = 0.0
+            count = 0
+            for k in range(j - lookback + 1, j + 1):
+                if k > 0:
+                    tr = max(
+                        bars[k].high - bars[k].low,
+                        abs(bars[k].high - bars[k - 1].close),
+                        abs(bars[k].low - bars[k - 1].close),
+                    )
+                    tr_sum += tr
+                    count += 1
+            atr_values.append(tr_sum / count if count > 0 else 0.0001)
+
+        ict_state = ICTMarketState(bars=bars[:i + 1])
+        signal = strategy.evaluate(
+            ict_state,
+            h4_bars=bars[:i + 1],
+            atr_series=atr_values[:i + 1],
+            high_series=high_series[:i + 1],
+            low_series=low_series[:i + 1],
+            close_series=closes[:i + 1],
+            bar_time=bar.time,
+        )
+
+        if signal is None:
+            equity_curve.append(balance)
+            continue
+
+        for trade in list(open_trades):
+            hit_sl = False
+            if trade["direction"] == "long" and bar.low <= trade["sl"]:
+                hit_sl = True
+            elif trade["direction"] == "short" and bar.high >= trade["sl"]:
+                hit_sl = True
+
+            hit_tp = False
+            if trade["direction"] == "long" and bar.high >= trade["tp1"]:
+                hit_tp = True
+            elif trade["direction"] == "short" and bar.low <= trade["tp1"]:
+                hit_tp = True
+
+            if hit_sl:
+                pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                if trade["direction"] == "long":
+                    pips = (trade["sl"] - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - trade["sl"]) / pip_val
+                pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+                balance += pnl
+                if balance > peak_balance:
+                    peak_balance = balance
+                dd = (peak_balance - balance) / peak_balance
+                if dd > max_dd:
+                    max_dd = dd
+                trade_records.append({
+                    "pnl": pnl,
+                    "outcome": "loss" if pnl < -0.01 else "breakeven",
+                })
+                open_trades.remove(trade)
+                equity_curve.append(balance)
+            elif hit_tp:
+                pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                if trade["direction"] == "long":
+                    pips = (trade["tp1"] - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - trade["tp1"]) / pip_val
+                pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+                balance += pnl
+                if balance > peak_balance:
+                    peak_balance = balance
+                dd = (peak_balance - balance) / peak_balance
+                if dd > max_dd:
+                    max_dd = dd
+                trade_records.append({
+                    "pnl": pnl,
+                    "outcome": "win" if pnl > 0.01 else "breakeven",
+                })
+                open_trades.remove(trade)
+                equity_curve.append(balance)
+
+        if len(open_trades) >= max_open_trades:
+            equity_curve.append(balance)
+            continue
+
+        entry = signal.entry_price
+        sl = signal.stop_loss
+        tp1 = signal.take_profit_1 if signal.take_profit_1 else entry
+        risk_dist = abs(entry - sl)
+        if risk_dist == 0:
+            equity_curve.append(balance)
+            continue
+
+        pip_val = 0.0001 if entry < 50 else 0.01
+        risk_amount = balance * risk_per_trade_pct
+        lots = risk_amount / (risk_dist * pip_val * 100000)
+        lots = min(lots, balance * leverage / entry)
+        if lots <= 0:
+            equity_curve.append(balance)
+            continue
+
+        direction = "long" if signal.direction.value == "long" else "short"
+        open_trades.append({
+            "direction": direction,
+            "entry": entry,
+            "sl": sl,
+            "tp1": tp1,
+            "lots": lots,
+        })
+        equity_curve.append(balance)
+
+    for trade in open_trades:
+        pip_val = 0.0001 if trade["entry"] < 50 else 0.01
+        pips = 0.0
+        pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+        balance += pnl
+        trade_records.append({"pnl": pnl, "outcome": "breakeven"})
+
+    pnls = [t["pnl"] for t in trade_records]
+    wins = [p for p in pnls if p > 0.01]
+    losses = [p for p in pnls if p < -0.01]
+    total_wins = sum(wins)
+    total_losses = abs(sum(losses))
+
+    win_rate = (len(wins) / len(pnls) * 100) if pnls else 0.0
+    pf = total_wins / total_losses if total_losses > 0 else (total_wins if total_wins > 0 else 0.0)
+
+    returns = []
+    for j in range(1, len(equity_curve)):
+        if equity_curve[j - 1] != 0:
+            returns.append((equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1])
+    if returns:
+        mean_r = sum(returns) / len(returns)
+        std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
+        sharpe = (mean_r / std_r * math.sqrt(252)) if std_r > 0 else (999.0 if mean_r > 0 else 0.0)
+    else:
+        sharpe = 0.0
+
+    return BacktestMetrics(
+        starting_balance=starting_balance,
+        ending_balance=balance,
+        total_pnl=balance - starting_balance,
+        total_pnl_pct=(balance - starting_balance) / starting_balance,
+        win_rate=win_rate,
+        total_trades=len(trade_records),
+        winning_trades=len(wins),
+        losing_trades=len(losses),
+        breakeven_trades=len(trade_records) - len(wins) - len(losses),
+        avg_win=sum(wins) / len(wins) if wins else 0.0,
+        avg_loss=sum(losses) / len(losses) if losses else 0.0,
+        largest_win=max(wins) if wins else 0.0,
+        largest_loss=min(losses) if losses else 0.0,
+        profit_factor=pf,
+        max_drawdown_pct=max_dd * 100,
+        max_drawdown_dollar=max_dd * peak_balance,
+        max_daily_loss_dollar=0.0,
+        sharpe_ratio=sharpe,
+        avg_risk_reward=abs(sum(wins) / len(wins) / (sum(losses) / len(losses))) if wins and losses else 0.0,
+        expectancy=(win_rate / 100 * (sum(wins) / len(wins) if wins else 0)) - ((1 - win_rate / 100) * abs(sum(losses) / len(losses) if losses else 0)),
+        avg_holding_bars=0.0,
+        equity_curve=equity_curve,
+        trades=[],
+        total_spread_cost=0.0,
+        total_commission_cost=0.0,
+        rejected_signals=0,
+    )
+
+
+def run_hybrid_backtest(
+    bars: list,
+    pair: str = "EURUSD",
+    n_windows: int = 5,
+    train_ratio: float = 0.60,
+    val_ratio: float = 0.15,
+    test_ratio: float = 0.15,
+    report_path: str | None = None,
+) -> dict:
+    """Run hybrid ICT/SMC + quantitative filter strategy with FTMO-compliant config.
+
+    Uses 5 walk-forward windows with 60/15/15/10 split
+    (train/validation/test/buffer).  Per-window and aggregate metrics
+    are computed, a summary table is printed, and a JSON report is saved.
+
+    Args:
+        bars: OHLC bar list from CsvDataLoader.
+        pair: Currency pair label (default "EURUSD").
+        n_windows: Number of rolling windows (default 5).
+        train_ratio: Fraction of each window for training (default 0.60).
+        val_ratio: Fraction of each window for validation (default 0.15).
+        test_ratio: Fraction of each window for testing (default 0.15).
+            Remaining (1 - train - val - test) is the purge buffer.
+        report_path: If provided, JSON report is written here.
+
+    Returns:
+        Dict with "config", "per_window", "aggregated", "go_nogo" keys.
+    """
+    hybrid_config = HybridConfig(min_confidence=0.5)
+    strategy = HybridStrategy(config=hybrid_config)
+
+    total = len(bars)
+    window_size = total // n_windows
+    if window_size < 100:
+        print(f"ERROR: Not enough bars ({total}) for {n_windows} windows")
+        return {"per_window": [], "aggregated": {}, "go_nogo": False, "config": {}}
+
+    buffer_ratio = 1.0 - train_ratio - val_ratio - test_ratio
+    if buffer_ratio < 0:
+        buffer_ratio = 0.0
+
+    results = []
+    print("\n" + "=" * 70)
+    print("   HYBRID ICT/SMC + QUANT OVERLAY — WALK-FORWARD BACKTEST")
+    print("=" * 70)
+    print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
+    print(f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} "
+          f"test={test_ratio:.0%} buffer={buffer_ratio:.0%}")
+    print("   Config: FTMO (0.5% risk, 3% daily DD, 5% total DD, max 3 trades)")
+    print("   Sessions: London (8-12), NY AM (12-16), NY PM (16-20) UTC")
+    print("   SL: 2.0x ATR(14) | Min confidence: 0.5 | Min confluences: 2")
+
+    for w in range(n_windows):
+        start = w * window_size
+        end = (w + 1) * window_size if w < n_windows - 1 else total
+        window_bars = bars[start:end]
+        wlen = len(window_bars)
+
+        train_end = int(wlen * train_ratio)
+        val_end = int(wlen * (train_ratio + val_ratio))
+        buffer_end = int(wlen * (train_ratio + val_ratio + buffer_ratio))
+
+        train_bars = window_bars[:train_end]
+        val_bars = window_bars[train_end:val_end]
+        test_bars = window_bars[buffer_end:]
+
+        if len(test_bars) < 30:
+            results.append({
+                "window_id": w,
+                "train_bars": len(train_bars),
+                "val_bars": len(val_bars),
+                "test_bars": len(test_bars),
+                "error": "Insufficient test bars",
+            })
+            print(f"\n   Window {w}: SKIP — insufficient test bars "
+                  f"(train={len(train_bars)}, val={len(val_bars)}, test={len(test_bars)})")
+            continue
+
+        strategy.reset_metrics()
+        train_metrics = _run_window_backtest(train_bars, strategy)
+        strategy.reset_metrics()
+        val_metrics = _run_window_backtest(val_bars, strategy)
+        strategy.reset_metrics()
+        test_metrics = _run_window_backtest(test_bars, strategy)
+
+        passed = (
+            test_metrics.win_rate > 55
+            and test_metrics.profit_factor > 1.5
+            and test_metrics.max_drawdown_pct < 5.0
+            and test_metrics.sharpe_ratio > 0.5
+        )
+
+        results.append({
+            "window_id": w,
+            "train_start": str(train_bars[0].time) if train_bars else None,
+            "train_end": str(train_bars[-1].time) if train_bars else None,
+            "val_start": str(val_bars[0].time) if val_bars else None,
+            "val_end": str(val_bars[-1].time) if val_bars else None,
+            "test_start": str(test_bars[0].time) if test_bars else None,
+            "test_end": str(test_bars[-1].time) if test_bars else None,
+            "train_bars": len(train_bars),
+            "val_bars": len(val_bars),
+            "test_bars": len(test_bars),
+            "train_metrics": _metrics_to_dict(train_metrics),
+            "val_metrics": _metrics_to_dict(val_metrics),
+            "test_metrics": _metrics_to_dict(test_metrics),
+            "passed_go_nogo": passed,
+        })
+
+        status = "PASS" if passed else "FAIL"
+        print(f"\n   Window {w}: {status}")
+        print(f"     Train: {train_metrics.total_trades} trades, "
+              f"WR={train_metrics.win_rate:.1f}%, PF={train_metrics.profit_factor:.2f}, "
+              f"DD={train_metrics.max_drawdown_pct:.2f}%")
+        print(f"     Val:   {val_metrics.total_trades} trades, "
+              f"WR={val_metrics.win_rate:.1f}%, PF={val_metrics.profit_factor:.2f}, "
+              f"DD={val_metrics.max_drawdown_pct:.2f}%")
+        print(f"     Test:  {test_metrics.total_trades} trades, "
+              f"WR={test_metrics.win_rate:.1f}%, PF={test_metrics.profit_factor:.2f}, "
+              f"DD={test_metrics.max_drawdown_pct:.2f}%, Sharpe={test_metrics.sharpe_ratio:.2f}")
+
+    agg = _aggregate_metrics(results)
+
+    _print_summary_table(results, agg, pair)
+
+    report = {
+        "config": {
+            "pair": pair,
+            "n_windows": n_windows,
+            "train_ratio": train_ratio,
+            "val_ratio": val_ratio,
+            "test_ratio": test_ratio,
+            "buffer_ratio": buffer_ratio,
+            "total_bars": total,
+            "risk_per_trade_pct": 0.005,
+            "max_daily_drawdown_pct": 0.03,
+            "max_total_drawdown_pct": 0.05,
+            "max_open_trades": 3,
+            "spread_pips": 0.5,
+            "commission_per_lot": 3.5,
+            "sl_atr_multiplier": 2.0,
+            "min_confidence": 0.5,
+            "min_confluences": 2,
+            "sessions": ["london", "ny_am", "ny_pm"],
+        },
+        "per_window": results,
+        "aggregated": agg,
+        "go_nogo": agg.get("go_nogo", False),
+    }
+
+    if report_path:
+        path = Path(report_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(report, f, indent=2, default=str)
+        print(f"\n   JSON report saved: {report_path}")
+
+    return report
+
 
 
 def main():
