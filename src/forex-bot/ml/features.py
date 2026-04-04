@@ -1,5 +1,29 @@
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 import numpy as np
 import pandas as pd
+
+
+class BiasDirection(Enum):
+    BULLISH = 1
+    BEARISH = -1
+    NEUTRAL = 0
+
+
+@dataclass
+class ICTSignal:
+    timestamp: datetime
+    bias: BiasDirection
+    confidence_score: float
+    structure_alignment: bool
+    order_block: bool
+    fvg: bool
+    liquidity_sweep: bool
+    premium_discount: bool
+    session_quality: float
+    confluence_count: int
+    risk_reward_ratio: float
 
 
 def load_csv(path: str) -> pd.DataFrame:
@@ -96,7 +120,6 @@ def volatility_percentile(atr_series: pd.Series, lookback: int = 50) -> pd.Serie
 def trend_alignment(close: pd.Series, fast_period: int = 9, slow_period: int = 21) -> pd.Series:
     fast_sma = sma(close, fast_period)
     slow_sma = sma(close, slow_period)
-    alignment = (close - fast_sma).abs() / close + (close - slow_sma).abs() / close
     direction = np.where(close > fast_sma, 1, -1) * np.where(fast_sma > slow_sma, 1, -1)
     return pd.Series(direction, index=close.index)
 
@@ -250,3 +273,65 @@ def add_multi_timeframe_features(features: pd.DataFrame, h4_df: pd.DataFrame,
     )
 
     return features
+
+
+ICT_FEATURE_NAMES = [
+    "confluence_score",
+    "structure_score",
+    "ob_score",
+    "fvg_score",
+    "liq_sweep_score",
+    "pd_zone_score",
+    "session_score",
+    "bias_encoded",
+    "confluence_count",
+    "risk_reward",
+]
+
+
+def build_ict_features(signals: list[ICTSignal], target_index: pd.Index) -> pd.DataFrame:
+    if not signals:
+        return pd.DataFrame(columns=ICT_FEATURE_NAMES)
+
+    records = []
+    for sig in signals:
+        records.append({
+            "timestamp": sig.timestamp,
+            "confluence_score": sig.confidence_score,
+            "structure_score": float(sig.structure_alignment),
+            "ob_score": float(sig.order_block),
+            "fvg_score": float(sig.fvg),
+            "liq_sweep_score": float(sig.liquidity_sweep),
+            "pd_zone_score": float(sig.premium_discount),
+            "session_score": sig.session_quality,
+            "bias_encoded": sig.bias.value,
+            "confluence_count": sig.confluence_count,
+            "risk_reward": sig.risk_reward_ratio,
+        })
+
+    signals_df = pd.DataFrame(records)
+    if signals_df.empty:
+        return pd.DataFrame(columns=ICT_FEATURE_NAMES)
+    
+    signals_df = signals_df.set_index("timestamp")
+    aligned = signals_df.reindex(target_index, method="ffill")
+    return aligned.fillna({
+        "confluence_score": 0.0,
+        "structure_score": 0.0,
+        "ob_score": 0.0,
+        "fvg_score": 0.0,
+        "liq_sweep_score": 0.0,
+        "pd_zone_score": 0.0,
+        "session_score": 0.1,
+        "bias_encoded": 0,
+        "confluence_count": 0,
+        "risk_reward": 0.0,
+    })
+
+
+def add_ict_features(features: pd.DataFrame, ict_features: pd.DataFrame) -> pd.DataFrame:
+    if ict_features.empty:
+        return features
+
+    aligned = ict_features.reindex(features.index, method="ffill")
+    return pd.concat([features, aligned], axis=1)
