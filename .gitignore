@@ -44,5 +44,9 @@ Thumbs.db
 
 # Worktrees (they're linked, not nested)
 worktrees/
+
+# Agent instruction files (managed outside git)
+agents/
+
 data/forex/forex.db
 data/forex/models/
