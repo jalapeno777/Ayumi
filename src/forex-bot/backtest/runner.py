@@ -559,9 +559,32 @@ def _run_window_backtest(
     max_dd = 0.0
     current_day = None
     daily_start = starting_balance
+    daily_dd_halted = False
     open_trades: list = []
     trade_records: list = []
     equity_curve = [balance]
+
+    closes = [b.close for b in bars]
+    high_series = [b.high for b in bars]
+    low_series = [b.low for b in bars]
+    atr_values = []
+    for j in range(len(bars)):
+        lookback = min(15, j + 1)
+        if lookback < 2:
+            atr_values.append(0.0001)
+            continue
+        tr_sum = 0.0
+        count = 0
+        for k in range(j - lookback + 1, j + 1):
+            if k > 0:
+                tr = max(
+                    bars[k].high - bars[k].low,
+                    abs(bars[k].high - bars[k - 1].close),
+                    abs(bars[k].low - bars[k - 1].close),
+                )
+                tr_sum += tr
+                count += 1
+        atr_values.append(tr_sum / count if count > 0 else 0.0001)
 
     for i in range(30, len(bars)):
         bar = bars[i]
@@ -569,41 +592,26 @@ def _run_window_backtest(
         if current_day is not None and day != current_day:
             daily_loss_pct = (daily_start - balance) / daily_start if daily_start > 0 else 0
             if daily_loss_pct >= max_daily_drawdown_pct:
-                current_day = day
-                daily_start = balance
-                equity_curve.append(balance)
-                continue
+                daily_dd_halted = True
+            else:
+                daily_dd_halted = False
             current_day = day
             daily_start = balance
         elif current_day is None:
             current_day = day
             daily_start = balance
 
+        if daily_dd_halted:
+            equity_curve.append(balance)
+            continue
+
+        if balance > peak_balance:
+            peak_balance = balance
         dd_pct = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
+        if dd_pct > max_dd:
+            max_dd = dd_pct
         if dd_pct >= max_total_drawdown_pct:
             break
-
-        closes = [b.close for b in bars]
-        high_series = [b.high for b in bars]
-        low_series = [b.low for b in bars]
-        atr_values = []
-        for j in range(len(bars)):
-            lookback = min(15, j + 1)
-            if lookback < 2:
-                atr_values.append(0.0001)
-                continue
-            tr_sum = 0.0
-            count = 0
-            for k in range(j - lookback + 1, j + 1):
-                if k > 0:
-                    tr = max(
-                        bars[k].high - bars[k].low,
-                        abs(bars[k].high - bars[k - 1].close),
-                        abs(bars[k].low - bars[k - 1].close),
-                    )
-                    tr_sum += tr
-                    count += 1
-            atr_values.append(tr_sum / count if count > 0 else 0.0001)
 
         ict_state = ICTMarketState(bars=bars[:i + 1])
         signal = strategy.evaluate(
@@ -679,15 +687,22 @@ def _run_window_backtest(
         entry = signal.entry_price
         sl = signal.stop_loss
         tp1 = signal.take_profit_1 if signal.take_profit_1 else entry
+
+        pip_val = 0.0001 if entry < 50 else 0.01
+        spread_cost = spread_pips * pip_val
+        if signal.direction.value == "long":
+            entry += spread_cost
+        else:
+            entry -= spread_cost
+
         risk_dist = abs(entry - sl)
         if risk_dist == 0:
             equity_curve.append(balance)
             continue
 
-        pip_val = 0.0001 if entry < 50 else 0.01
         risk_amount = balance * risk_per_trade_pct
-        lots = risk_amount / (risk_dist * pip_val * 100000)
-        lots = min(lots, balance * leverage / entry)
+        lots = risk_amount / (risk_dist * 100000)
+        lots = min(lots, (balance * leverage) / (entry * 100000))
         if lots <= 0:
             equity_curve.append(balance)
             continue
@@ -725,7 +740,7 @@ def _run_window_backtest(
     if returns:
         mean_r = sum(returns) / len(returns)
         std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
-        sharpe = (mean_r / std_r * math.sqrt(252)) if std_r > 0 else (999.0 if mean_r > 0 else 0.0)
+        sharpe = (mean_r / std_r * math.sqrt(6048)) if std_r > 0 else (999.0 if mean_r > 0 else 0.0)
     else:
         sharpe = 0.0
 
@@ -755,7 +770,7 @@ def _run_window_backtest(
         trades=[],
         total_spread_cost=0.0,
         total_commission_cost=0.0,
-        rejected_signals=0,
+        rejected_signals=strategy.metrics.total_evaluated - strategy.metrics.passed,
     )
 
 
