@@ -122,6 +122,12 @@ class ConfluenceSignal:
     has_structure_alignment: bool = False
     confluence_count: int = 0
     risk_reward_ratio: float = 0.0
+    structure_score: float = 0.0
+    ob_score: float = 0.0
+    fvg_score: float = 0.0
+    liq_sweep_score: float = 0.0
+    pd_zone_score: float = 0.0
+    session_score: float = 0.0
 
 
 class ICTMarketState:

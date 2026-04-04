@@ -1,6 +1,61 @@
 import numpy as np
 import pandas as pd
 
+from typing import List, Optional
+
+from backtest.ict_smc.models import ConfluenceSignal
+from backtest.engine import TradeDirection
+
+
+BIAS_ENCODING = {
+    TradeDirection.LONG: 1,
+    TradeDirection.NEUTRAL: 0,
+    TradeDirection.SHORT: -1,
+}
+
+ICT_FEATURE_NAMES = [
+    "ict_confluence_score",
+    "ict_structure_score",
+    "ict_ob_score",
+    "ict_fvg_score",
+    "ict_liq_sweep_score",
+    "ict_pd_zone_score",
+    "ict_session_score",
+    "ict_bias_encoded",
+    "ict_confluence_count",
+    "ict_risk_reward",
+]
+
+
+def build_ict_features(signals: List[ConfluenceSignal], target_index: pd.DatetimeIndex) -> pd.DataFrame:
+    if not signals:
+        return pd.DataFrame(
+            {name: np.nan for name in ICT_FEATURE_NAMES},
+            index=target_index,
+        )
+
+    signal_map = {s.signal_time: s for s in signals}
+    rows = []
+    for ts in target_index:
+        signal = signal_map.get(ts)
+        if signal is not None:
+            rows.append({
+                "ict_confluence_score": signal.confidence_score,
+                "ict_structure_score": signal.structure_score,
+                "ict_ob_score": signal.ob_score,
+                "ict_fvg_score": signal.fvg_score,
+                "ict_liq_sweep_score": signal.liq_sweep_score,
+                "ict_pd_zone_score": signal.pd_zone_score,
+                "ict_session_score": signal.session_score,
+                "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
+                "ict_confluence_count": signal.confluence_count,
+                "ict_risk_reward": signal.risk_reward_ratio,
+            })
+        else:
+            rows.append({name: np.nan for name in ICT_FEATURE_NAMES})
+
+    return pd.DataFrame(rows, index=target_index)
+
 
 def load_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path, parse_dates=["Date"])
@@ -172,7 +227,7 @@ def pin_bar_bearish(
     return (long_upper & small_lower & small_body).astype(int)
 
 
-def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
+def build_feature_matrix(df: pd.DataFrame, signals: Optional[List[ConfluenceSignal]] = None) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -239,6 +294,30 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
 
     sess = session_features(df["date"])
     features = pd.concat([features, sess], axis=1)
+
+    if signals is not None and len(signals) > 0:
+        date_series = df["date"]
+        signal_map = {s.signal_time: s for s in signals}
+        rows = []
+        for i, ts in enumerate(date_series):
+            signal = signal_map.get(ts)
+            if signal is not None:
+                rows.append({
+                    "ict_confluence_score": signal.confidence_score,
+                    "ict_structure_score": signal.structure_score,
+                    "ict_ob_score": signal.ob_score,
+                    "ict_fvg_score": signal.fvg_score,
+                    "ict_liq_sweep_score": signal.liq_sweep_score,
+                    "ict_pd_zone_score": signal.pd_zone_score,
+                    "ict_session_score": signal.session_score,
+                    "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
+                    "ict_confluence_count": signal.confluence_count,
+                    "ict_risk_reward": signal.risk_reward_ratio,
+                })
+            else:
+                rows.append({name: np.nan for name in ICT_FEATURE_NAMES})
+        ict_features = pd.DataFrame(rows, index=df.index)
+        features = pd.concat([features, ict_features], axis=1)
 
     return features
 
