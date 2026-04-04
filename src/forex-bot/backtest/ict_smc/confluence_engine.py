@@ -71,19 +71,20 @@ class SignalConfluenceEngine:
         if state.atr == 0:
             return None
 
-        bullish_score = self._calculate_directional_score(
-            state, TradeDirection.LONG, h4_context
-        )
-        bearish_score = self._calculate_directional_score(
-            state, TradeDirection.SHORT, h4_context
-        )
+        bullish_scores = self._component_scores(state, TradeDirection.LONG, h4_context)
+        bearish_scores = self._component_scores(state, TradeDirection.SHORT, h4_context)
 
-        if bullish_score > bearish_score and bullish_score >= self._min_confidence:
+        bullish_total = bullish_scores["total"]
+        bearish_total = bearish_scores["total"]
+
+        if bullish_total > bearish_total and bullish_total >= self._min_confidence:
             direction = TradeDirection.LONG
-            confidence = bullish_score
-        elif bearish_score > bullish_score and bearish_score >= self._min_confidence:
+            confidence = bullish_total
+            component_scores = bullish_scores
+        elif bearish_total > bullish_total and bearish_total >= self._min_confidence:
             direction = TradeDirection.SHORT
-            confidence = bearish_score
+            confidence = bearish_total
+            component_scores = bearish_scores
         else:
             return None
 
@@ -122,14 +123,20 @@ class SignalConfluenceEngine:
             has_structure_alignment=state.structure_bias == direction,
             confluence_count=self._count_confluences(state, direction, h4_context),
             risk_reward_ratio=rr,
+            structure_score=component_scores["structure"],
+            ob_score=component_scores["ob"],
+            fvg_score=component_scores["fvg"],
+            liq_sweep_score=component_scores["sweep"],
+            pd_zone_score=component_scores["pd"],
+            session_score=component_scores["session"],
         )
 
-    def _calculate_directional_score(
+    def _component_scores(
         self,
         state: ICTMarketState,
         direction: TradeDirection,
         h4_context=None,
-    ) -> float:
+    ) -> dict:
         structure_score = self._score_structure(state, direction)
         ob_score = self._score_order_blocks(state, direction)
         fvg_score = self._score_fvg(state, direction)
@@ -154,7 +161,23 @@ class SignalConfluenceEngine:
             )
             total += h4_score * self._h4_weight
 
-        return min(1.0, total)
+        return {
+            "structure": structure_score,
+            "ob": ob_score,
+            "fvg": fvg_score,
+            "sweep": sweep_score,
+            "pd": pd_score,
+            "session": session_score,
+            "total": min(1.0, total),
+        }
+
+    def _calculate_directional_score(
+        self,
+        state: ICTMarketState,
+        direction: TradeDirection,
+        h4_context=None,
+    ) -> float:
+        return self._component_scores(state, direction, h4_context)["total"]
 
     def _score_structure(
         self, state: ICTMarketState, direction: TradeDirection

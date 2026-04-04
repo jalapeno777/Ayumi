@@ -18,7 +18,10 @@ from sklearn.metrics import (
 )
 from sklearn.inspection import permutation_importance
 
-from .features import build_feature_matrix, add_multi_timeframe_features, load_csv
+from .features import (
+    build_feature_matrix, add_multi_timeframe_features, load_csv,
+    ICT_FEATURE_NAMES,
+)
 from .signal_simulator import build_labeled_dataset
 
 try:
@@ -64,7 +67,7 @@ FEATURE_COLUMNS = [
     "d1_trend",
     "d1_ema200_dist",
     "tf_alignment",
-]
+] + ICT_FEATURE_NAMES
 
 MODEL_TYPE_DEFAULT = "gradient_boosting"
 
