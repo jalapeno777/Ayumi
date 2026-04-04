@@ -640,10 +640,10 @@ def _run_window_backtest(
                 else:
                     pips = (trade["entry"] - trade["sl"]) / pip_val
                 pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
-                balance += pnl
+                balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
-                dd = (peak_balance - balance) / peak_balance
+                dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
                 if dd > max_dd:
                     max_dd = dd
                 trade_records.append({
@@ -659,10 +659,10 @@ def _run_window_backtest(
                 else:
                     pips = (trade["entry"] - trade["tp1"]) / pip_val
                 pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
-                balance += pnl
+                balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
-                dd = (peak_balance - balance) / peak_balance
+                dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
                 if dd > max_dd:
                     max_dd = dd
                 trade_records.append({
@@ -706,7 +706,7 @@ def _run_window_backtest(
         pip_val = 0.0001 if trade["entry"] < 50 else 0.01
         pips = 0.0
         pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
-        balance += pnl
+        balance = max(0.0, balance + pnl)
         trade_records.append({"pnl": pnl, "outcome": "breakeven"})
 
     pnls = [t["pnl"] for t in trade_records]
@@ -716,7 +716,7 @@ def _run_window_backtest(
     total_losses = abs(sum(losses))
 
     win_rate = (len(wins) / len(pnls) * 100) if pnls else 0.0
-    pf = total_wins / total_losses if total_losses > 0 else (total_wins if total_wins > 0 else 0.0)
+    pf = total_wins / total_losses if total_losses > 0 else (999.0 if total_wins > 0 else 0.0)
 
     returns = []
     for j in range(1, len(equity_curve)):
@@ -748,7 +748,7 @@ def _run_window_backtest(
         max_drawdown_dollar=max_dd * peak_balance,
         max_daily_loss_dollar=0.0,
         sharpe_ratio=sharpe,
-        avg_risk_reward=abs(sum(wins) / len(wins) / (sum(losses) / len(losses))) if wins and losses else 0.0,
+        avg_risk_reward=abs(sum(wins) / len(wins) / abs(sum(losses) / len(losses))) if wins and losses and abs(sum(losses)) > 0.01 else 0.0,
         expectancy=(win_rate / 100 * (sum(wins) / len(wins) if wins else 0)) - ((1 - win_rate / 100) * abs(sum(losses) / len(losses) if losses else 0)),
         avg_holding_bars=0.0,
         equity_curve=equity_curve,
