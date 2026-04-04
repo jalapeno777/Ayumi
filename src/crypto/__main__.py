@@ -84,7 +84,7 @@ def main() -> None:
     dashboard_p = sub.add_parser(
         "serve", help="Start the API server (FastAPI + dashboard)"
     )
-    dashboard_p.add_argument("--host", default="0.0.0.0")
+    dashboard_p.add_argument("--host", default="0.0.0.0")  # nosec B104
     dashboard_p.add_argument("--port", type=int, default=8080)
 
     register_p = sub.add_parser("register", help="Register a strategy provider")

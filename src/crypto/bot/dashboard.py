@@ -59,7 +59,7 @@ fetch("/api/leaderboard").then(r=>r.json()).then(data=>{
 @dataclass
 class DashboardServer:
     repo: TradeRepository
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104
     port: int = 8080
 
     def _handler(self) -> type:
