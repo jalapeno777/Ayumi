@@ -171,9 +171,16 @@ class TradeManager:
                 message="Stop loss hit",
             )
 
+        if trade.tier_state is None or trade.trailing_state is None or trade.exit_refiner_state is None:
+            return ManagementResult(action=TradeAction.NO_ACTION)
+
+        tier_state = trade.tier_state
+        trailing_state = trade.trailing_state
+        exit_refiner_state = trade.exit_refiner_state
+
         partial_result = self._partial_exit.evaluate(
             bar,
-            trade.tier_state,
+            tier_state,
             trade.direction,
             trade.entry_price,
             trade.stop_loss,
@@ -205,10 +212,10 @@ class TradeManager:
                     "reason": partial_result.reason.value,
                 }
             )
-            trade.remaining_pct = trade.tier_state.remaining_pct
+            trade.remaining_pct = tier_state.remaining_pct
 
             if partial_result.tier_reached.value >= 1:
-                trade.exit_refiner_state.tp1_hit = True
+                exit_refiner_state.tp1_hit = True
 
             result = ManagementResult(
                 action=TradeAction.CLOSE_PARTIAL,
@@ -226,15 +233,15 @@ class TradeManager:
             return result
 
         if partial_result.action == PartialExitAction.ENABLE_TRAIL:
-            trade.trailing_state.is_active = True
+            trailing_state.is_active = True
 
         if (
-            trade.trailing_state.is_active
+            trailing_state.is_active
             and partial_result.tier_reached.value
             >= self.config.trailing_stop.only_after_tier
         ):
             trail_result = self._trailing_stop.evaluate(
-                bar, trade.trailing_state, trade.direction, atr, trade.entry_price
+                bar, trailing_state, trade.direction, atr, trade.entry_price
             )
             if trail_result.triggered:
                 trade.is_closed = True
@@ -255,7 +262,7 @@ class TradeManager:
                 )
 
         refiner_result = self._exit_refiner.on_bar(
-            bar, trade.exit_refiner_state, trade.direction, atr, recent_bars
+            bar, exit_refiner_state, trade.direction, atr, recent_bars
         )
         if refiner_result.should_exit:
             trade.is_closed = True

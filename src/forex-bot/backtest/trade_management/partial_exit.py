@@ -143,7 +143,7 @@ class PartialExitManager:
         state: TierState,
         direction: TradeDirection,
         tier: ExitTier,
-        close_pct: bool,
+        close_pct: float,
         move_sl: bool,
         entry_price: float,
         stop_loss: float,

@@ -122,7 +122,7 @@ class TrainingResult:
     feature_names: List[str]
     threshold: float
     metrics: Dict[str, float]
-    fold_metrics: List[Dict[str, float]] = field(default_factory=list)
+    fold_metrics: List[Dict[str, float | str]] = field(default_factory=list)
 
 
 def _load_csv_to_df(csv_path: str) -> pd.DataFrame:
@@ -337,7 +337,7 @@ def walk_forward_validate(
     rr: float = 1.5,
     max_holding_bars: int = 50,
     seed: int = 42,
-) -> Tuple[TrainingResult, List[Dict[str, float]]]:
+) -> Tuple[TrainingResult, List[Dict[str, float | str]]]:
     """Train with walk-forward validation on EURUSD M15 data.
 
     Uses true temporal walk-forward: for each fold *i*, the model is
@@ -381,7 +381,7 @@ def walk_forward_validate(
         fold_df = df.iloc[start:end].copy()
         fold_data.append(_build_dataset_for_range(fold_df))
 
-    fold_metrics: List[Dict[str, float]] = []
+    fold_metrics: List[Dict[str, float | str]] = []
     last_result: Optional[TrainingResult] = None
 
     for fold_idx in range(1, n_folds):

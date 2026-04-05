@@ -121,7 +121,7 @@ class MACrossStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -218,7 +218,7 @@ class BBStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -303,15 +303,15 @@ class RSIStrategy(ISignalStrategy):
         if len(bars) < self.period + 1:
             return None
 
-        gains = []
-        losses = []
+        gains: List[float] = []
+        losses: List[float] = []
         for i in range(len(bars) - self.period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0)
+                losses.append(0.0)
             else:
-                gains.append(0)
+                gains.append(0.0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.period
@@ -326,7 +326,7 @@ class RSIStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -425,7 +425,7 @@ class SRBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -510,7 +510,7 @@ class ROCMStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -722,7 +722,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -776,6 +776,22 @@ class CommodityTrendStrategy(ISignalStrategy):
         self.adx_threshold = adx_threshold
         self.atr_multiplier = atr_multiplier
         self.risk_reward_ratio = risk_reward_ratio
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0.0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
 
     @property
     def name(self) -> str:
@@ -950,6 +966,22 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         self.rsi_overbought = rsi_overbought
         self.atr_multiplier = atr_multiplier
 
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0.0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
+
     @property
     def name(self) -> str:
         """Return strategy display name."""
@@ -1049,15 +1081,15 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         if len(bars) < self.rsi_period + 1:
             return None
 
-        gains = []
-        losses = []
+        gains: List[float] = []
+        losses: List[float] = []
         for i in range(len(bars) - self.rsi_period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0)
+                losses.append(0.0)
             else:
-                gains.append(0)
+                gains.append(0.0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.rsi_period

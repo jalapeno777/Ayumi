@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 import math
@@ -82,7 +82,7 @@ class MarketState:
     def atr(self) -> float:
         if len(self.bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(self.bars) - 14, len(self.bars)):
             if i > 0:
                 tr = max(
@@ -237,7 +237,7 @@ class BacktestEngine:
         self.balance = config.starting_balance
         self.peak_balance = config.starting_balance
         self.max_drawdown = 0.0
-        self.current_day = None
+        self.current_day: Optional[date] = None
         self.daily_start_balance = config.starting_balance
         self.max_daily_loss = 0.0
 

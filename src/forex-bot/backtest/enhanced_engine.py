@@ -523,7 +523,7 @@ class EnhancedBacktestEngine:
         lookback = min(15, current_index + 1)
         if lookback < 2:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         count = 0
         for i in range(current_index - lookback + 1, current_index + 1):
             if i > 0:
