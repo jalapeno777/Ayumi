@@ -2,6 +2,28 @@ from typing import List, Optional
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 
 
+def _calculate_atr(bars: List[Bar]) -> float:
+    """Calculate Average True Range over 14 periods.
+
+    Uses Wilder's smoothing method. Falls back to price-relative estimate
+    if insufficient bars for full ATR calculation.
+    """
+    if len(bars) < 15:
+        return bars[-1].close * 0.0005
+    tr_sum = 0
+    for i in range(len(bars) - 14, len(bars)):
+        if i > 0:
+            tr = max(
+                bars[i].high - bars[i].low,
+                max(
+                    abs(bars[i].high - bars[i - 1].close),
+                    abs(bars[i].low - bars[i - 1].close),
+                ),
+            )
+            tr_sum += tr
+    return tr_sum / 14
+
+
 class ISignalStrategy:
     @property
     def name(self) -> str:
@@ -580,7 +602,7 @@ class CommodityTrendStrategy(ISignalStrategy):
             return None
 
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
-        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
             entry - atr * self.atr_multiplier
@@ -724,23 +746,6 @@ class CommodityTrendStrategy(ISignalStrategy):
 
         return adx
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        """Calculate Average True Range over 14 periods."""
-        if len(bars) < 15:
-            return bars[-1].close * 0.0005
-        tr_sum = 0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14
-
 
 class CommodityMeanReversionStrategy(ISignalStrategy):
     """Mean reversion strategy for commodities using Bollinger Bands and RSI.
@@ -821,7 +826,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         if rsi is None:
             return None
 
-        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
 
         if latest.close < lower_band and rsi < self.rsi_oversold:
             if not self._is_bullish_reversal(latest):
@@ -908,23 +913,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
 
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
-
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        """Calculate Average True Range over 14 periods."""
-        if len(bars) < 15:
-            return bars[-1].close * 0.0005
-        tr_sum = 0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14
 
     def _is_bullish_reversal(self, bar: Bar) -> bool:
         """Detect bullish reversal candle for mean reversion entry confirmation.
