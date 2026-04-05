@@ -589,19 +589,19 @@ class CommodityTrendStrategy(ISignalStrategy):
         )
         risk = abs(entry - sl)
         tp1 = (
-            entry + risk * 1.0
+            entry + risk * self.risk_reward_ratio
             if direction == TradeDirection.LONG
-            else entry - risk * 1.0
+            else entry - risk * self.risk_reward_ratio
         )
         tp2 = (
-            entry + risk * 2.0
+            entry + risk * self.risk_reward_ratio * 2.0
             if direction == TradeDirection.LONG
-            else entry - risk * 2.0
+            else entry - risk * self.risk_reward_ratio * 2.0
         )
         tp3 = (
-            entry + risk * 3.0
+            entry + risk * self.risk_reward_ratio * 3.0
             if direction == TradeDirection.LONG
-            else entry - risk * 3.0
+            else entry - risk * self.risk_reward_ratio * 3.0
         )
 
         confidence = min(0.90, 0.50 + (adx - self.adx_threshold) / 100 * 0.40)
@@ -641,7 +641,7 @@ class CommodityTrendStrategy(ISignalStrategy):
         ADX_today = (ADX_yesterday * (period - 1) + DX_today) / period
 
         Requires at least 2 * adx_period bars for meaningful values.
-        Returns None if insufficient data.
+        Returns smoothed ADX value, or None if insufficient data.
         """
         period = self.adx_period
         min_bars = 2 * period + 1
@@ -746,13 +746,19 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     """Mean reversion strategy for commodities using Bollinger Bands and RSI.
 
     Entry rules:
-        - Long: Price below lower Bollinger Band + RSI < 30 (oversold)
-        - Short: Price above upper Bollinger Band + RSI > 70 (overbought)
+        - Long: Price below lower Bollinger Band + RSI < 30 (oversold) + bullish reversal candle
+        - Short: Price above upper Bollinger Band + RSI > 70 (overbought) + bearish reversal candle
 
     Exit rules:
         - Stop loss: Beyond outer Bollinger Band by 0.5x ATR
-        - Take profit: Middle Band (20-period SMA)
+        - Take profit: tp1 = Middle Band (mean reversion target), tp2/tp3 = 2x/3x risk for scaling
         - Confidence based on RSI deviation from thresholds
+
+    Note on TP ordering: tp1 targets the middle band (SMA) as the primary mean reversion objective.
+    The middle band represents fair value where price is expected to revert. tp2 and tp3 at 2x/3x
+    risk are secondary targets for scaling out if the move extends beyond initial entry. This
+    ordering differs from trend-following strategies but reflects the mean reversion thesis where
+    the primary target is always the moving average.
 
     Designed for XAUUSD H1 with gold's higher ATR characteristics.
     """
