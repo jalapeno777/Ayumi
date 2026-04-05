@@ -22,6 +22,7 @@ from .strategies import (
     RSIStrategy,
     SRBreakoutStrategy,
     ROCMStrategy,
+    MomentumBreakoutStrategy,
 )
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
@@ -47,7 +48,6 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
-from .parameter_sweep import ParameterGrid, SweepResult, SweepRow, SweepRunner, to_csv, to_json
 
 __all__ = [
     "Bar",
@@ -71,6 +71,7 @@ __all__ = [
     "RSIStrategy",
     "SRBreakoutStrategy",
     "ROCMStrategy",
+    "MomentumBreakoutStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",
@@ -91,10 +92,4 @@ __all__ = [
     "TradeAction",
     "HybridStrategy",
     "HybridConfig",
-    "ParameterGrid",
-    "SweepResult",
-    "SweepRow",
-    "SweepRunner",
-    "to_csv",
-    "to_json",
 ]
