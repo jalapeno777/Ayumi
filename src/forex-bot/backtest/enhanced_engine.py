@@ -25,8 +25,8 @@ from .trade_management import (
 )
 
 if TYPE_CHECKING:
-    from ..quant.config import QuantConfig
-    from ..quant.pipeline import QuantPipeline
+    from quant.config import QuantConfig
+    from quant.pipeline import QuantPipeline
 
 
 @dataclass
@@ -92,8 +92,8 @@ class EnhancedBacktestEngine:
         self.trade_manager = TradeManager(self.tm_config)
         self._quant_pipeline: Optional["QuantPipeline"] = None
         if quant_config is not None:
-            from ..quant.config import QuantConfig as QC
-            from ..quant.pipeline import QuantPipeline
+            from quant.config import QuantConfig as QC
+            from quant.pipeline import QuantPipeline
 
             if not isinstance(quant_config, QC):
                 raise TypeError(
@@ -152,7 +152,7 @@ class EnhancedBacktestEngine:
                             stop_loss=signal.stop_loss,
                             bar_time=bar.time,
                         )
-                        from ..quant.pipeline import TradeAction as QuantTradeAction
+                        from quant.pipeline import TradeAction as QuantTradeAction
 
                         if quant_decision.action == QuantTradeAction.REJECT:
                             rejected_signals += 1
