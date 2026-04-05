@@ -31,7 +31,13 @@ class CorrelationConfig:
     window: int = 50
     threshold: float = 0.7
     pairs: tuple[str, ...] = (
-        "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "NZDUSD", "USDCAD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "USDCHF",
+        "AUDUSD",
+        "NZDUSD",
+        "USDCAD",
     )
 
 

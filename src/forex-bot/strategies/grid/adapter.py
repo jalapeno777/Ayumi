@@ -50,13 +50,17 @@ class GridStrategyAdapter(ISignalStrategy):
         if not self._initialized:
             self._manager.initialize(close, self._balance, bars[-1].time)
             self._initialized = True
-            self._grid_active = self._manager.state is not None and self._manager.state.is_active
+            self._grid_active = (
+                self._manager.state is not None and self._manager.state.is_active
+            )
             return None
 
         grid_state = self._manager.state
         if grid_state is not None and not grid_state.is_active:
             self._manager.reset(close, self._balance)
-            self._grid_active = self._manager.state is not None and self._manager.state.is_active
+            self._grid_active = (
+                self._manager.state is not None and self._manager.state.is_active
+            )
             return None
 
         new_trades = self._manager.on_bar(
@@ -86,9 +90,7 @@ class GridStrategyAdapter(ISignalStrategy):
     def update_balance(self, balance: float) -> None:
         self._balance = balance
 
-    def _trade_to_signal(
-        self, trade: GridTrade, state: MarketState
-    ) -> StrategySignal:
+    def _trade_to_signal(self, trade: GridTrade, state: MarketState) -> StrategySignal:
         if trade.side == GridSide.BUY:
             direction = TradeDirection.LONG
         else:

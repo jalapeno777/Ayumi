@@ -70,14 +70,16 @@ def _make_df(n=50, seed=42):
         prices.append(price)
     prices = np.array(prices)
     spread = 0.0002
-    return pd.DataFrame({
-        "date": dates,
-        "open": prices - spread * np.random.uniform(0, 1, n),
-        "high": prices + spread * np.random.uniform(1, 3, n),
-        "low": prices - spread * np.random.uniform(1, 3, n),
-        "close": prices,
-        "volume": np.random.randint(100, 10000, n),
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": prices - spread * np.random.uniform(0, 1, n),
+            "high": prices + spread * np.random.uniform(1, 3, n),
+            "low": prices - spread * np.random.uniform(1, 3, n),
+            "close": prices,
+            "volume": np.random.randint(100, 10000, n),
+        }
+    )
 
 
 class TestBuildICTFeatures:

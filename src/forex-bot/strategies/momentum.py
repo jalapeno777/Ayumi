@@ -158,9 +158,7 @@ def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
 
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
         smoothed_minus_dm = (
             smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
         )
@@ -265,8 +263,10 @@ class DonchianBreakoutStrategy:
         if self.momentum.session_filter and not _passes_session_filter(state):
             return None
 
-        atr = state.atr if state.atr > 0 else _calculate_atr(
-            state.bars, self.momentum.atr_period
+        atr = (
+            state.atr
+            if state.atr > 0
+            else _calculate_atr(state.bars, self.momentum.atr_period)
         )
 
         lookback = state.bars[-(self.channel_period + 1) : -1]
@@ -282,9 +282,7 @@ class DonchianBreakoutStrategy:
 
         if bullish_breakout:
             direction = TradeDirection.LONG
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = latest.close
             penetration = (latest.close - channel_high) / atr if atr > 0 else 0
@@ -295,9 +293,7 @@ class DonchianBreakoutStrategy:
             )
         else:
             direction = TradeDirection.SHORT
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = latest.close
             penetration = (channel_low - latest.close) / atr if atr > 0 else 0
@@ -307,7 +303,9 @@ class DonchianBreakoutStrategy:
                 f"channel_low={channel_low:.5f} ({self.channel_period}-bar)"
             )
 
-        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)
+        return _build_signal(
+            direction, entry, atr, self.momentum, confidence, rationale
+        )
 
 
 class ATRVolatilityBreakoutStrategy:
@@ -359,18 +357,13 @@ class ATRVolatilityBreakoutStrategy:
             if not confirm:
                 return None
             direction = TradeDirection.LONG
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = latest.close
             confidence = min(
                 0.85,
                 0.50
-                + min(
-                    (latest.close - ref_high - breakout_level) / atr, 1.0
-                )
-                * 0.35,
+                + min((latest.close - ref_high - breakout_level) / atr, 1.0) * 0.35,
             )
             rationale = (
                 f"ATR bullish breakout: close={latest.close:.5f} > "
@@ -383,29 +376,23 @@ class ATRVolatilityBreakoutStrategy:
             if not confirm:
                 return None
             direction = TradeDirection.SHORT
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = latest.close
             confidence = min(
                 0.85,
-                0.50
-                + min(
-                    (ref_low - breakout_level - latest.close) / atr, 1.0
-                )
-                * 0.35,
+                0.50 + min((ref_low - breakout_level - latest.close) / atr, 1.0) * 0.35,
             )
             rationale = (
                 f"ATR bearish breakout: close={latest.close:.5f} < "
                 f"ref_low-ATR*{self.breakout_multiplier}={ref_low - breakout_level:.5f}"
             )
 
-        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)
+        return _build_signal(
+            direction, entry, atr, self.momentum, confidence, rationale
+        )
 
-    def _confirm_breakout(
-        self, bars: List[Bar], level: float, bullish: bool
-    ) -> bool:
+    def _confirm_breakout(self, bars: List[Bar], level: float, bullish: bool) -> bool:
         check_count = min(self.confirmation_bars, len(bars))
         if check_count == 0:
             return True
@@ -443,8 +430,10 @@ class MATrendFollowingStrategy:
         if self.momentum.session_filter and not _passes_session_filter(state):
             return None
 
-        atr = state.atr if state.atr > 0 else _calculate_atr(
-            state.bars, self.momentum.atr_period
+        atr = (
+            state.atr
+            if state.atr > 0
+            else _calculate_atr(state.bars, self.momentum.atr_period)
         )
 
         closes = [b.close for b in state.bars]
@@ -469,9 +458,7 @@ class MATrendFollowingStrategy:
             if closes[-1] <= trend_ma:
                 return None
             direction = TradeDirection.LONG
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = state.latest_bar.close
             trend_strength = min(1.0, abs(fast_ma - slow_ma) / slow_ma * 100)
@@ -484,9 +471,7 @@ class MATrendFollowingStrategy:
             if closes[-1] >= trend_ma:
                 return None
             direction = TradeDirection.SHORT
-            if not _passes_momentum_filters(
-                state.bars, self.momentum, direction
-            ):
+            if not _passes_momentum_filters(state.bars, self.momentum, direction):
                 return None
             entry = state.latest_bar.close
             trend_strength = min(1.0, abs(fast_ma - slow_ma) / slow_ma * 100)
@@ -496,4 +481,6 @@ class MATrendFollowingStrategy:
                 f"slow={slow_ma:.5f}, price < trend_ma={trend_ma:.5f}"
             )
 
-        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)
+        return _build_signal(
+            direction, entry, atr, self.momentum, confidence, rationale
+        )

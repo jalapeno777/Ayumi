@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.engine import BacktestConfig, Bar, MarketState, TradeDirection
+from backtest.engine import Bar, MarketState, TradeDirection
 from backtest.strategies import MomentumBreakoutStrategy
 
 

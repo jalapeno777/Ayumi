@@ -11,7 +11,9 @@ from backtest.runner import _run_window_backtest  # noqa: F401
 
 def _make_bar(hour, price=1.1, day=1):
     t = datetime(2024, 1, day, hour, 0)
-    return Bar(time=t, open=price, high=price + 0.001, low=price - 0.001, close=price + 0.0002)
+    return Bar(
+        time=t, open=price, high=price + 0.001, low=price - 0.001, close=price + 0.0002
+    )
 
 
 def _make_signal(
@@ -110,7 +112,9 @@ class TestPositionSizingFormula(unittest.TestCase):
         entry = 1.1000
 
         max_lots = (balance * leverage) / (entry * 100000)
-        self.assertLess(max_lots, 100, msg="Margin cap should be reasonable for $10k account")
+        self.assertLess(
+            max_lots, 100, msg="Margin cap should be reasonable for $10k account"
+        )
         self.assertGreater(max_lots, 0)
 
 
@@ -149,7 +153,9 @@ class TestSpreadApplication(unittest.TestCase):
         """Long entries should have spread added to entry price."""
         bars = _make_bars(60)
         strategy = MagicMock(spec=HybridStrategy)
-        signal = _make_signal(direction=TradeDirection.LONG, entry=1.1000, sl=1.0980, tp=1.1040)
+        signal = _make_signal(
+            direction=TradeDirection.LONG, entry=1.1000, sl=1.0980, tp=1.1040
+        )
         strategy.evaluate.return_value = signal
         strategy.metrics = RejectionMetrics(total_evaluated=1, passed=1)
 
@@ -164,7 +170,9 @@ class TestSpreadApplication(unittest.TestCase):
         """Short entries should have spread subtracted from entry price."""
         bars = _make_bars(60)
         strategy = MagicMock(spec=HybridStrategy)
-        signal = _make_signal(direction=TradeDirection.SHORT, entry=1.1000, sl=1.1020, tp=1.0960)
+        signal = _make_signal(
+            direction=TradeDirection.SHORT, entry=1.1000, sl=1.1020, tp=1.0960
+        )
         strategy.evaluate.return_value = signal
         strategy.metrics = RejectionMetrics(total_evaluated=1, passed=1)
 
@@ -326,7 +334,9 @@ class TestATRPrecomputation(unittest.TestCase):
 
         self.assertGreater(strategy.evaluate.call_count, 0)
         for idx, call_args in enumerate(strategy.evaluate.call_args_list):
-            atr_arg = call_args.kwargs.get("atr_series") or call_args[1].get("atr_series")
+            atr_arg = call_args.kwargs.get("atr_series") or call_args[1].get(
+                "atr_series"
+            )
             if atr_arg is not None:
                 self.assertGreater(len(atr_arg), 0)
                 self.assertLessEqual(len(atr_arg), len(bars))

@@ -30,13 +30,15 @@ def _make_bars(
     for i in range(n):
         change = (i % 7 - 3) * volatility * 0.1
         price += change
-        bars.append({
-            "time": datetime(2025, 1, 1, 10, 0) + timedelta(hours=i),
-            "open": price - volatility * 0.5,
-            "high": price + volatility,
-            "low": price - volatility,
-            "close": price,
-        })
+        bars.append(
+            {
+                "time": datetime(2025, 1, 1, 10, 0) + timedelta(hours=i),
+                "open": price - volatility * 0.5,
+                "high": price + volatility,
+                "low": price - volatility,
+                "close": price,
+            }
+        )
     return bars
 
 
@@ -93,9 +95,33 @@ class TestGridState(unittest.TestCase):
 
     def test_win_rate_with_trades(self):
         state = GridState(center_price=1.1)
-        t1 = GridTrade(level=None, entry_price=1.1, lot_size=0.1, side=GridSide.BUY, entry_time=datetime.now(), is_open=False, pnl=10.0)
-        t2 = GridTrade(level=None, entry_price=1.1, lot_size=0.1, side=GridSide.BUY, entry_time=datetime.now(), is_open=False, pnl=-5.0)
-        t3 = GridTrade(level=None, entry_price=1.1, lot_size=0.1, side=GridSide.BUY, entry_time=datetime.now(), is_open=False, pnl=8.0)
+        t1 = GridTrade(
+            level=None,
+            entry_price=1.1,
+            lot_size=0.1,
+            side=GridSide.BUY,
+            entry_time=datetime.now(),
+            is_open=False,
+            pnl=10.0,
+        )
+        t2 = GridTrade(
+            level=None,
+            entry_price=1.1,
+            lot_size=0.1,
+            side=GridSide.BUY,
+            entry_time=datetime.now(),
+            is_open=False,
+            pnl=-5.0,
+        )
+        t3 = GridTrade(
+            level=None,
+            entry_price=1.1,
+            lot_size=0.1,
+            side=GridSide.BUY,
+            entry_time=datetime.now(),
+            is_open=False,
+            pnl=8.0,
+        )
         state.closed_trades = [t1, t2, t3]
         self.assertAlmostEqual(state.win_rate, 2 / 3)
 
@@ -103,12 +129,36 @@ class TestGridState(unittest.TestCase):
         state = GridState(
             center_price=1.1,
             buy_levels=[
-                GridLevel(index=1, side=GridSide.BUY, price=1.0985, lot_size=0.1, status=GridLevelStatus.ACTIVE),
-                GridLevel(index=2, side=GridSide.BUY, price=1.0970, lot_size=0.08, status=GridLevelStatus.FILLED),
+                GridLevel(
+                    index=1,
+                    side=GridSide.BUY,
+                    price=1.0985,
+                    lot_size=0.1,
+                    status=GridLevelStatus.ACTIVE,
+                ),
+                GridLevel(
+                    index=2,
+                    side=GridSide.BUY,
+                    price=1.0970,
+                    lot_size=0.08,
+                    status=GridLevelStatus.FILLED,
+                ),
             ],
             sell_levels=[
-                GridLevel(index=1, side=GridSide.SELL, price=1.1015, lot_size=0.1, status=GridLevelStatus.ACTIVE),
-                GridLevel(index=2, side=GridSide.SELL, price=1.1030, lot_size=0.08, status=GridLevelStatus.CANCELLED),
+                GridLevel(
+                    index=1,
+                    side=GridSide.SELL,
+                    price=1.1015,
+                    lot_size=0.1,
+                    status=GridLevelStatus.ACTIVE,
+                ),
+                GridLevel(
+                    index=2,
+                    side=GridSide.SELL,
+                    price=1.1030,
+                    lot_size=0.08,
+                    status=GridLevelStatus.CANCELLED,
+                ),
             ],
         )
         self.assertEqual(len(state.active_buy_levels), 1)
@@ -182,7 +232,9 @@ class TestGridManager(unittest.TestCase):
         mgr.initialize(1.1000, 10000.0)
         bars = _make_bars(100, 1.1000, 0.0001)
         trades = mgr.on_bar(
-            high=1.1005, low=1.0995, close=1.1000,
+            high=1.1005,
+            low=1.0995,
+            close=1.1000,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -195,7 +247,9 @@ class TestGridManager(unittest.TestCase):
         first_buy = state.buy_levels[0]
         bars = _make_bars(100, 1.1000, 0.0001)
         trades = mgr.on_bar(
-            high=1.1005, low=first_buy.price - 0.0001, close=1.0990,
+            high=1.1005,
+            low=first_buy.price - 0.0001,
+            close=1.0990,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -208,7 +262,9 @@ class TestGridManager(unittest.TestCase):
         first_sell = state.sell_levels[0]
         bars = _make_bars(100, 1.1000, 0.0001)
         trades = mgr.on_bar(
-            high=first_sell.price + 0.0001, low=1.0995, close=1.1020,
+            high=first_sell.price + 0.0001,
+            low=1.0995,
+            close=1.1020,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -225,8 +281,12 @@ class TestGridManager(unittest.TestCase):
         mgr = GridManager(cfg)
         mgr.initialize(1.1000, 10000.0)
         mgr.on_bar(
-            high=1.1005, low=1.0995, close=1.1000,
-            bars_high=[1.0] * 20, bars_low=[0.99] * 20, bars_close=[0.995] * 20,
+            high=1.1005,
+            low=1.0995,
+            close=1.1000,
+            bars_high=[1.0] * 20,
+            bars_low=[0.99] * 20,
+            bars_close=[0.995] * 20,
             equity=9400.0,
         )
         self.assertFalse(mgr.state.is_active)
@@ -243,7 +303,9 @@ class TestGridManager(unittest.TestCase):
         last_buy = state.buy_levels[-1]
         bars = _make_bars(100, 1.1000, 0.0001)
         mgr.on_bar(
-            high=1.1005, low=last_buy.price - 0.001, close=last_buy.price - 0.0005,
+            high=1.1005,
+            low=last_buy.price - 0.001,
+            close=last_buy.price - 0.0005,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -262,10 +324,20 @@ class TestGridManager(unittest.TestCase):
     def test_on_trade_close_updates_pnl(self):
         mgr = GridManager(self._default_config())
         mgr.initialize(1.1000, 10000.0)
-        level = GridLevel(index=1, side=GridSide.BUY, price=1.0985, lot_size=0.1, status=GridLevelStatus.FILLED)
+        level = GridLevel(
+            index=1,
+            side=GridSide.BUY,
+            price=1.0985,
+            lot_size=0.1,
+            status=GridLevelStatus.FILLED,
+        )
         trade = GridTrade(
-            level=level, entry_price=1.0985, lot_size=0.1,
-            side=GridSide.BUY, entry_time=datetime.now(), is_open=True,
+            level=level,
+            entry_price=1.0985,
+            lot_size=0.1,
+            side=GridSide.BUY,
+            entry_time=datetime.now(),
+            is_open=True,
         )
         mgr._state.open_trades.append(trade)
         mgr.on_trade_close(trade, 1.0995)
@@ -292,7 +364,9 @@ class TestGridManager(unittest.TestCase):
         first_buy = state.buy_levels[0]
         bars = _make_bars(100, 1.1000, 0.0001)
         trades = mgr.on_bar(
-            high=1.1005, low=first_buy.price - 0.0001, close=first_buy.price - 0.0005,
+            high=1.1005,
+            low=first_buy.price - 0.0001,
+            close=first_buy.price - 0.0005,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -304,16 +378,22 @@ class TestGridManager(unittest.TestCase):
         self.assertTrue(mgr.state.is_active)
         second_buy = state.buy_levels[1]
         trades2 = mgr.on_bar(
-            high=1.1005, low=second_buy.price - 0.0001, close=second_buy.price - 0.0005,
+            high=1.1005,
+            low=second_buy.price - 0.0001,
+            close=second_buy.price - 0.0005,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
             current_time=datetime(2025, 1, 1, 10, 0),
             equity=10000.0,
         )
-        mgr.on_trade_close(trades2[0], second_buy.price - 0.020, datetime(2025, 1, 1, 10, 0))
+        mgr.on_trade_close(
+            trades2[0], second_buy.price - 0.020, datetime(2025, 1, 1, 10, 0)
+        )
         mgr.on_bar(
-            high=1.1005, low=1.0995, close=1.1000,
+            high=1.1005,
+            low=1.0995,
+            close=1.1000,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -335,7 +415,9 @@ class TestGridManager(unittest.TestCase):
         first_buy = state.buy_levels[0]
         bars = _make_bars(100, 1.1000, 0.0001)
         trades = mgr.on_bar(
-            high=1.1005, low=first_buy.price - 0.0001, close=first_buy.price - 0.0005,
+            high=1.1005,
+            low=first_buy.price - 0.0001,
+            close=first_buy.price - 0.0005,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -346,7 +428,9 @@ class TestGridManager(unittest.TestCase):
         self.assertTrue(mgr.state.is_active)
         self.assertGreater(mgr.state.daily_pnl, 0)
         mgr.on_bar(
-            high=1.1005, low=1.0995, close=1.1000,
+            high=1.1005,
+            low=1.0995,
+            close=1.1000,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -365,10 +449,20 @@ class TestGridManager(unittest.TestCase):
         )
         mgr = GridManager(cfg)
         mgr.initialize(2000.0, 10000.0)
-        level = GridLevel(index=1, side=GridSide.BUY, price=1988.0, lot_size=0.01, status=GridLevelStatus.FILLED)
+        level = GridLevel(
+            index=1,
+            side=GridSide.BUY,
+            price=1988.0,
+            lot_size=0.01,
+            status=GridLevelStatus.FILLED,
+        )
         trade = GridTrade(
-            level=level, entry_price=1988.0, lot_size=0.01,
-            side=GridSide.BUY, entry_time=datetime.now(), is_open=True,
+            level=level,
+            entry_price=1988.0,
+            lot_size=0.01,
+            side=GridSide.BUY,
+            entry_time=datetime.now(),
+            is_open=True,
         )
         mgr._state.open_trades.append(trade)
         mgr.on_trade_close(trade, 2000.0)
@@ -390,7 +484,9 @@ class TestGridManager(unittest.TestCase):
         bars = _make_bars(100, 1.1000, 0.0001)
         last_buy = state.buy_levels[-1]
         trades = mgr.on_bar(
-            high=1.1005, low=last_buy.price - 0.0001, close=last_buy.price - 0.0005,
+            high=1.1005,
+            low=last_buy.price - 0.0001,
+            close=last_buy.price - 0.0005,
             bars_high=[b["high"] for b in bars],
             bars_low=[b["low"] for b in bars],
             bars_close=[b["close"] for b in bars],
@@ -420,19 +516,28 @@ class TestGridStrategyAdapter(unittest.TestCase):
 
     def test_adapter_implements_interface(self):
         from backtest.strategies import ISignalStrategy
+
         adapter = GridStrategyAdapter()
         self.assertIsInstance(adapter, ISignalStrategy)
 
     def test_evaluate_returns_none_for_empty_bars(self):
         from backtest.engine import MarketState
+
         adapter = GridStrategyAdapter()
         state = MarketState(bars=[])
         self.assertIsNone(adapter.evaluate(state))
 
     def test_evaluate_initializes_on_first_bar(self):
         from backtest.engine import Bar, MarketState
+
         adapter = GridStrategyAdapter()
-        bar = Bar(time=datetime(2025, 1, 1, 10, 0), open=1.1, high=1.1005, low=1.0995, close=1.1)
+        bar = Bar(
+            time=datetime(2025, 1, 1, 10, 0),
+            open=1.1,
+            high=1.1005,
+            low=1.0995,
+            close=1.1,
+        )
         state = MarketState(bars=[bar])
         result = adapter.evaluate(state)
         self.assertIsNone(result)
@@ -445,7 +550,9 @@ class TestGridDirectionalBias(unittest.TestCase):
             symbol="EURUSD",
             grid_spacing=0.0015,
             levels_per_side=5,
-            trend_filter=TrendFilterConfig(directional_threshold=15.0, full_grid_threshold=10.0),
+            trend_filter=TrendFilterConfig(
+                directional_threshold=15.0, full_grid_threshold=10.0
+            ),
         )
         mgr = GridManager(cfg)
         state = mgr.initialize(1.1000, 10000.0)
@@ -455,6 +562,7 @@ class TestGridDirectionalBias(unittest.TestCase):
 def _make_ranging_bars(n=500, center=1.1000, half_range=0.0030):
     bars = []
     import random
+
     rng = random.Random(42)
     price = center
     for i in range(n):
@@ -465,10 +573,15 @@ def _make_ranging_bars(n=500, center=1.1000, half_range=0.0030):
         c = price + noise
         h = max(o, c) + rng.uniform(0, 0.0003)
         low = min(o, c) - rng.uniform(0, 0.0003)
-        bars.append({
-            "time": datetime(2024, 1, 1, 10, 0) + timedelta(hours=i),
-            "open": o, "high": h, "low": low, "close": c,
-        })
+        bars.append(
+            {
+                "time": datetime(2024, 1, 1, 10, 0) + timedelta(hours=i),
+                "open": o,
+                "high": h,
+                "low": low,
+                "close": c,
+            }
+        )
     return bars
 
 
@@ -478,8 +591,17 @@ class TestGridBacktestIntegration(unittest.TestCase):
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(500, 1.1000, 0.0030)
-        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
-                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw
+        ]
 
         config = BacktestConfig(
             starting_balance=10000.0,
@@ -505,8 +627,17 @@ class TestGridBacktestIntegration(unittest.TestCase):
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(200, 1.1000, 0.0030)
-        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
-                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw
+        ]
 
         config = BacktestConfig(
             starting_balance=10000.0,
@@ -527,8 +658,17 @@ class TestGridBacktestIntegration(unittest.TestCase):
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(200, 2000.0, 15.0)
-        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
-                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw
+        ]
 
         config = BacktestConfig(
             starting_balance=10000.0,
@@ -551,8 +691,17 @@ class TestGridWalkForward(unittest.TestCase):
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(900, 1.1000, 0.0030)
-        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
-                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw
+        ]
 
         config = BacktestConfig(
             starting_balance=10000.0,
@@ -576,7 +725,7 @@ class TestGridWalkForward(unittest.TestCase):
             wlen = len(window_bars)
 
             train_end = int(wlen * 0.6)
-            test_bars = window_bars[int(wlen * 0.75):]
+            test_bars = window_bars[int(wlen * 0.75) :]
 
             if len(test_bars) < 30:
                 continue
@@ -590,12 +739,14 @@ class TestGridWalkForward(unittest.TestCase):
             train_results[adapter.name].metrics
             test_m = test_results[adapter.name].metrics
 
-            self.assertGreater(test_m.total_trades, 0,
-                               f"Window {w}: no trades in test period")
+            self.assertGreater(
+                test_m.total_trades, 0, f"Window {w}: no trades in test period"
+            )
             windows_passed += 1
 
-        self.assertGreaterEqual(windows_passed, 2,
-                                "Need at least 2 valid walk-forward windows")
+        self.assertGreaterEqual(
+            windows_passed, 2, "Need at least 2 valid walk-forward windows"
+        )
 
     def test_walk_forward_reproducible_with_fixed_seed(self):
         from backtest.engine import Bar, BacktestConfig
@@ -607,8 +758,17 @@ class TestGridWalkForward(unittest.TestCase):
         for i in range(len(raw1)):
             self.assertAlmostEqual(raw1[i]["close"], raw2[i]["close"], places=6)
 
-        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
-                     low=b["low"], close=b["close"], volume=1000) for b in raw1]
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw1
+        ]
 
         config = BacktestConfig(
             starting_balance=10000.0,

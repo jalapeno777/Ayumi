@@ -135,7 +135,9 @@ class QuantPipeline:
             lot_size = self._apply_sizing_mode(base_lot)
             sizing_mode = self._config.position_sizing.mode.value
 
-        if lot_size is not None and lot_size != self._calculate_base_lot(entry_price, stop_loss):
+        if lot_size is not None and lot_size != self._calculate_base_lot(
+            entry_price, stop_loss
+        ):
             action = TradeAction.RESIZE
         else:
             action = TradeAction.ACCEPT
@@ -186,17 +188,15 @@ class QuantPipeline:
             self._portfolio.loss_streak = 0
             self._portfolio.total_wins += 1
             self._portfolio.avg_win = (
-                (self._portfolio.avg_win * (self._portfolio.total_wins - 1) + pnl)
-                / self._portfolio.total_wins
-            )
+                self._portfolio.avg_win * (self._portfolio.total_wins - 1) + pnl
+            ) / self._portfolio.total_wins
         elif pnl < 0:
             self._portfolio.loss_streak += 1
             self._portfolio.win_streak = 0
             self._portfolio.total_losses += 1
             self._portfolio.avg_loss = (
-                (self._portfolio.avg_loss * (self._portfolio.total_losses - 1) + abs(pnl))
-                / self._portfolio.total_losses
-            )
+                self._portfolio.avg_loss * (self._portfolio.total_losses - 1) + abs(pnl)
+            ) / self._portfolio.total_losses
 
         self._portfolio.recent_pnl = pnl
 
@@ -247,7 +247,10 @@ class QuantPipeline:
 
     def _calculate_base_lot(self, entry_price: float, stop_loss: float) -> float:
         sizing_cfg = self._config.position_sizing
-        if sizing_cfg.mode == SizingMode.KELLY and self._portfolio.total_wins + self._portfolio.total_losses > 0:
+        if (
+            sizing_cfg.mode == SizingMode.KELLY
+            and self._portfolio.total_wins + self._portfolio.total_losses > 0
+        ):
             total_trades = self._portfolio.total_wins + self._portfolio.total_losses
             win_rate = self._portfolio.total_wins / total_trades
             avg_win = self._portfolio.avg_win if self._portfolio.avg_win > 0 else 1.0
