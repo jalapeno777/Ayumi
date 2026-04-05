@@ -69,7 +69,7 @@ class StatArbStrategy(ISignalStrategy):
         should_recompute = (
             self._bar_count == 1
             or self._bar_count % self._recompute_interval == 0
-            or self._signal_generator._hedge_ratio is None
+            or self._signal_generator.hedge_ratio is None
         )
 
         if should_recompute:
@@ -204,7 +204,7 @@ class StatArbStrategy(ISignalStrategy):
         prices_a = np.array([b.close for b in state.bars])
         prices_b = np.array([b.close for b in self._pair_b_bars[: len(state.bars)]])
 
-        if self._signal_generator._hedge_ratio is None:
+        if self._signal_generator.hedge_ratio is None:
             if not self._signal_generator.update_cointegration(prices_a, prices_b):
                 return None
 

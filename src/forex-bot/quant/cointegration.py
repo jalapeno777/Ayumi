@@ -87,10 +87,12 @@ class CointegrationEngine:
         hedge_ratio, constant = self.compute_hedge_ratio(pa, pb)
         spread = self.compute_spread(pa, pb, hedge_ratio, constant)
 
-        adf_stat, adf_p, _, _, _, _ = adfuller(spread, maxlag=1)
+        adf_result = adfuller(spread, maxlag=1)
+        adf_stat = float(adf_result[0])
+        adf_p = float(adf_result[1])
 
         return CointegrationResult(
-            is_cointegrated=adf_p < significance,
+            is_cointegrated=bool(adf_p < significance),
             p_value=adf_p,
             hedge_ratio=hedge_ratio,
             constant=constant,
@@ -204,6 +206,18 @@ class PairsSignalGenerator:
         self._in_position = False
         self._position_side = None
 
+    @property
+    def hedge_ratio(self) -> Optional[float]:
+        return self._hedge_ratio
+
+    @property
+    def constant(self) -> Optional[float]:
+        return self._constant
+
+    @property
+    def in_position(self) -> bool:
+        return self._in_position
+
     def update_cointegration(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> bool:
@@ -309,7 +323,7 @@ def parameter_sweep(
     if len(prices_a) < min_len or len(prices_b) < min_len:
         return []
 
-    coint_cache: Dict[int, Optional[Tuple[float, float]]] = {}
+    coint_cache: Dict[Tuple[int, int], Optional[Tuple[float, float]]] = {}
     engines: Dict[int, CointegrationEngine] = {
         lb: CointegrationEngine(lookback=lb) for lb in lookbacks
     }

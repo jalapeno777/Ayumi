@@ -35,6 +35,7 @@ from backtest import (
     SRBreakoutStrategy,
     ROCMStrategy,
     MomentumBreakoutStrategy,
+    StatArbStrategy,
     MultiStrategyConfig,
     MultiStrategyBacktestEngine,
     AmalgamationConfig,
