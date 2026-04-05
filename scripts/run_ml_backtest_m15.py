@@ -20,15 +20,13 @@ sys.path.insert(0, str(project_root / "src"))
 
 os.environ["FOREX_DB_PATH"] = str(project_root / "data" / "forex" / "forex.db")
 
-from ml.train_model import (
+from ml.train_model import (  # noqa: E402
     walk_forward_train,
-    prepare_dataset,
     FEATURE_COLUMNS,
     MODEL_TYPE_DEFAULT,
-    MODEL_REGISTRY,
 )
-from ml.features import build_feature_matrix, add_multi_timeframe_features, load_csv
-from ml.signal_simulator import generate_all_signals, label_trades
+from ml.features import build_feature_matrix, add_multi_timeframe_features, load_csv  # noqa: E402
+from ml.signal_simulator import build_labeled_dataset
 
 
 SEED = 42
@@ -92,9 +90,8 @@ def run_full_backtest():
         h4_df = load_csv(h4_path)
         d1_df = load_csv(d1_path)
         features = add_multi_timeframe_features(features, h4_df, d1_df)
-        print(f"Added multi-timeframe features (H4 + D1)")
+        print("Added multi-timeframe features (H4 + D1)")
 
-    from ml.signal_simulator import build_labeled_dataset
     dataset = build_labeled_dataset(df, features, MAX_HOLDING_BARS)
     if dataset.empty:
         print("ERROR: No labeled trades generated")
@@ -170,8 +167,8 @@ def run_full_backtest():
 
     avg_wr = summary.get("avg_opt_win_rate", 0)
     avg_pf = summary.get("avg_opt_profit_factor", 0)
-    avg_pnl = summary.get("avg_opt_total_pnl", 0)
-    avg_tc = summary.get("avg_opt_trade_count", 0)
+    _avg_pnl = summary.get("avg_opt_total_pnl", 0)
+    _avg_tc = summary.get("avg_opt_trade_count", 0)
     avg_threshold = summary.get("avg_opt_threshold", 0)
     avg_baseline_wr = summary.get("avg_baseline_win_rate", 0)
     avg_filtered_wr = summary.get("avg_filtered_win_rate", 0)
@@ -179,8 +176,8 @@ def run_full_backtest():
     avg_filtered_pf = summary.get("avg_filtered_profit_factor", 0)
 
     all_opt_pnls = [f["opt_total_pnl"] for f in window_results]
-    all_opt_wrs = [f["opt_win_rate"] for f in window_results]
-    all_opt_pfs = [f["opt_profit_factor"] for f in window_results]
+    _all_opt_wrs = [f["opt_win_rate"] for f in window_results]
+    _all_opt_pfs = [f["opt_profit_factor"] for f in window_results]
     all_opt_tcs = [f["opt_trade_count"] for f in window_results]
 
     total_trades = sum(all_opt_tcs)
@@ -207,7 +204,7 @@ def run_full_backtest():
     print("=" * 70)
     print(f"\nWalk-Forward Windows: {len(window_results)}")
     print(f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ACCEPTANCE['min_passing_windows']})")
-    print(f"\n--- Average Optimized Metrics ---")
+    print("\n--- Average Optimized Metrics ---")
     print(f"  Win Rate:       {avg_wr:.2f}% (target: >= {ACCEPTANCE['min_win_rate']}%) [{'PASS' if meets_wr else 'FAIL'}]")
     print(f"  Profit Factor:  {avg_pf:.2f} (target: >= {ACCEPTANCE['min_profit_factor']}) [{'PASS' if meets_pf else 'FAIL'}]")
     print(f"  Sharpe Ratio:   {sharpe:.4f}")
@@ -215,7 +212,7 @@ def run_full_backtest():
     print(f"  Total Trades:   {total_trades}")
     print(f"  Total PnL:      {total_pnl:.2f}")
     print(f"  Avg Threshold:  {avg_threshold:.2f}")
-    print(f"\n--- Improvement over Baseline ---")
+    print("\n--- Improvement over Baseline ---")
     print(f"  Win Rate:  {avg_baseline_wr:.1f}% -> {avg_wr:.1f}% (filtered: {avg_filtered_wr:.1f}%)")
     print(f"  PF:        {avg_baseline_pf:.2f} -> {avg_pf:.2f} (filtered: {avg_filtered_pf:.2f})")
     print(f"\n{'=' * 70}")
