@@ -1,0 +1,117 @@
+{
+  "per_window": [
+    {
+      "window_id": 0,
+      "train_start": "2023-01-02 18:00:00",
+      "train_end": "2023-06-07 00:00:00",
+      "test_start": "2023-08-02 11:00:00",
+      "test_end": "2023-09-13 02:00:00",
+      "train_bars": 2038,
+      "test_bars": 680,
+      "test_metrics": {
+        "trades": 48,
+        "win_rate": 77.08,
+        "profit_factor": 0.1721,
+        "sharpe": -2.8163,
+        "max_dd": 10.71,
+        "total_pnl": -906.12,
+        "expectancy": -18.88
+      },
+      "passed_go_nogo": false
+    },
+    {
+      "window_id": 1,
+      "train_start": "2023-09-13 03:00:00",
+      "train_end": "2024-01-18 06:00:00",
+      "test_start": "2024-02-28 23:00:00",
+      "test_end": "2024-04-11 12:00:00",
+      "train_bars": 2038,
+      "test_bars": 680,
+      "test_metrics": {
+        "trades": 8,
+        "win_rate": 25.0,
+        "profit_factor": 0.0107,
+        "sharpe": -3.0687,
+        "max_dd": 5.86,
+        "total_pnl": -582.11,
+        "expectancy": -72.76
+      },
+      "passed_go_nogo": false
+    },
+    {
+      "window_id": 2,
+      "train_start": "2024-04-11 13:00:00",
+      "train_end": "2024-08-14 09:00:00",
+      "test_start": "2024-09-25 02:00:00",
+      "test_end": "2024-11-05 14:00:00",
+      "train_bars": 2038,
+      "test_bars": 680,
+      "test_metrics": {
+        "trades": 263,
+        "win_rate": 96.58,
+        "profit_factor": 0.6873,
+        "sharpe": -0.5815,
+        "max_dd": 5.46,
+        "total_pnl": -284.87,
+        "expectancy": -1.08
+      },
+      "passed_go_nogo": false
+    },
+    {
+      "window_id": 3,
+      "train_start": "2024-11-05 15:00:00",
+      "train_end": "2025-03-12 15:00:00",
+      "test_start": "2025-04-24 08:00:00",
+      "test_end": "2025-06-04 23:00:00",
+      "train_bars": 2038,
+      "test_bars": 680,
+      "test_metrics": {
+        "trades": 7,
+        "win_rate": 14.29,
+        "profit_factor": 0.0015,
+        "sharpe": -3.6522,
+        "max_dd": 5.85,
+        "total_pnl": -584.35,
+        "expectancy": -83.48
+      },
+      "passed_go_nogo": false
+    },
+    {
+      "window_id": 4,
+      "train_start": "2025-06-05 00:00:00",
+      "train_end": "2025-10-07 23:00:00",
+      "test_start": "2025-11-18 14:00:00",
+      "test_end": "2025-12-31 16:00:00",
+      "train_bars": 2039,
+      "test_bars": 680,
+      "test_metrics": {
+        "trades": 79,
+        "win_rate": 92.41,
+        "profit_factor": 0.2004,
+        "sharpe": -2.0591,
+        "max_dd": 5.7,
+        "total_pnl": -474.18,
+        "expectancy": -6.0
+      },
+      "passed_go_nogo": false
+    }
+  ],
+  "aggregated": {
+    "mean_win_rate": 61.072,
+    "std_win_rate": 38.694,
+    "mean_profit_factor": 0.2144,
+    "std_profit_factor": 0.2795,
+    "mean_sharpe": -2.4356,
+    "std_sharpe": 1.1838,
+    "mean_max_dd": 6.716,
+    "std_max_dd": 2.2386,
+    "mean_total_pnl": -566.326,
+    "std_total_pnl": 225.6891,
+    "mean_trades": 81.0,
+    "std_trades": 106.0919,
+    "windows_passed": 0,
+    "total_windows": 5,
+    "go_nogo": false
+  },
+  "go_nogo": false
+}

@@ -26,9 +26,12 @@ from .strategies import (
     SRBreakoutStrategy,
     ROCMStrategy,
     MomentumBreakoutStrategy,
+    CommodityTrendStrategy,
+    CommodityMeanReversionStrategy,
 )
 from .grid_strategy import GridStrategy
 from .stat_arb import StatArbStrategy, StatArbBacktestResult
+from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
     AmalgamationConfig,
@@ -62,6 +65,10 @@ except ImportError:
     SweepRunner = None
     to_csv = None
     to_json = None
+try:
+    from ml.mean_reversion import MLMeanReversionStrategy
+except ImportError:
+    MLMeanReversionStrategy = None
 __all__ = [
     "Bar",
     "BarPeriod",
@@ -88,9 +95,12 @@ __all__ = [
     "SRBreakoutStrategy",
     "ROCMStrategy",
     "MomentumBreakoutStrategy",
+    "CommodityTrendStrategy",
+    "CommodityMeanReversionStrategy",
     "GridStrategy",
     "StatArbStrategy",
     "StatArbBacktestResult",
+    "VolatilitySqueezeStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",
@@ -111,4 +121,5 @@ __all__ = [
     "TradeAction",
     "HybridStrategy",
     "HybridConfig",
+    "MLMeanReversionStrategy",
 ]
