@@ -37,12 +37,16 @@ def run_strategy_walk_forward(
 ) -> WalkForwardResults:
     factory_params = len(inspect.signature(strategy_factory).parameters)
 
-    effective_spread = spread_pips if spread_pips is not None else get_spread_for_pair(pair)
+    effective_spread = (
+        spread_pips if spread_pips is not None else get_spread_for_pair(pair)
+    )
 
     config = BacktestConfig(
         starting_balance=initial_balance,
         spread_pips=effective_spread,
-        commission_per_lot=commission_per_lot if commission_per_lot is not None else 3.5,
+        commission_per_lot=commission_per_lot
+        if commission_per_lot is not None
+        else 3.5,
         pair=pair,
     )
 
@@ -161,9 +165,7 @@ def run_named_strategy_walk_forward(
 ) -> WalkForwardResults:
     if strategy_name not in STRATEGY_REGISTRY:
         available = ", ".join(get_registered_strategies())
-        raise ValueError(
-            f"Unknown strategy '{strategy_name}'. Available: {available}"
-        )
+        raise ValueError(f"Unknown strategy '{strategy_name}'. Available: {available}")
     return run_strategy_walk_forward(
         bars=bars,
         strategy_factory=STRATEGY_REGISTRY[strategy_name],
