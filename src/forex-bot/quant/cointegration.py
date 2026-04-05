@@ -218,9 +218,7 @@ class PairsSignalGenerator:
     def in_position(self) -> bool:
         return self._in_position
 
-    def update_cointegration(
-        self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> bool:
+    def update_cointegration(self, prices_a: np.ndarray, prices_b: np.ndarray) -> bool:
         """Run cointegration test and update hedge ratio if cointegrated."""
         result = self.cointegration_engine.engle_granger_test(prices_a, prices_b)
         if result.is_cointegrated:

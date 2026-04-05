@@ -157,9 +157,7 @@ class TestCostTracking(unittest.TestCase):
         m_low = engine_low.run(bars)
         m_high = engine_high.run(bars)
         if m_high.total_trades > 0 and m_low.total_trades > 0:
-            self.assertGreaterEqual(
-                m_high.total_spread_cost, m_low.total_spread_cost
-            )
+            self.assertGreaterEqual(m_high.total_spread_cost, m_low.total_spread_cost)
 
 
 class TestMultiDaySwapCost(unittest.TestCase):

@@ -278,7 +278,9 @@ class SelectivePairingHarness:
             for trade in open_trades:
                 hit, exit_price, reason = _check_trade_exit(trade, bar)
                 if hit:
-                    _close_trade(trade, i, bar.time, exit_price, reason, cfg, cost_tracker)
+                    _close_trade(
+                        trade, i, bar.time, exit_price, reason, cfg, cost_tracker
+                    )
                     balance += trade.profit_loss
                     if balance > peak_balance:
                         peak_balance = balance
@@ -613,7 +615,9 @@ def _close_trade(
     else:
         trade.pips = (trade.entry_price - exit_price) / pip_value
 
-    trade.profit_loss = trade.pips * standard_lots * pip_value * 100000.0 - commission + swap_cost
+    trade.profit_loss = (
+        trade.pips * standard_lots * pip_value * 100000.0 - commission + swap_cost
+    )
     trade.outcome = (
         TradeOutcome.WIN
         if trade.profit_loss > 0.01

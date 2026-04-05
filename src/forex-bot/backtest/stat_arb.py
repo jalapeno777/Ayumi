@@ -92,13 +92,17 @@ class StatArbStrategy(ISignalStrategy):
             position_side = self._last_signal
             self._last_signal = None
             self._position_open = False
-            return self._create_close_signal(state, position_side, safe_reason, is_stop=False)
+            return self._create_close_signal(
+                state, position_side, safe_reason, is_stop=False
+            )
 
         if signal == "stop_loss":
             position_side = self._last_signal
             self._last_signal = None
             self._position_open = False
-            return self._create_close_signal(state, position_side, safe_reason, is_stop=True)
+            return self._create_close_signal(
+                state, position_side, safe_reason, is_stop=True
+            )
 
         if signal.startswith("hold"):
             if not self._position_open or self._last_signal is None:
@@ -153,7 +157,11 @@ class StatArbStrategy(ISignalStrategy):
         )
 
     def _create_close_signal(
-        self, state: MarketState, position_side: Optional[str], reason: str, is_stop: bool
+        self,
+        state: MarketState,
+        position_side: Optional[str],
+        reason: str,
+        is_stop: bool,
     ) -> StrategySignal:
         latest = state.latest_bar
         z_score = self._signal_generator.compute_z_score(
@@ -166,7 +174,9 @@ class StatArbStrategy(ISignalStrategy):
         side_label = "long" if is_long_position else "short"
         rationale = f"StatArb {signal_label} {side_label}: z={z_score:.2f}, {reason}"
 
-        close_direction = TradeDirection.SHORT if is_long_position else TradeDirection.LONG
+        close_direction = (
+            TradeDirection.SHORT if is_long_position else TradeDirection.LONG
+        )
 
         return StrategySignal(
             direction=close_direction,

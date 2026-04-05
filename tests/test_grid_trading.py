@@ -752,7 +752,9 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         bars = self._make_xauusd_bars(500, 2350.0, 25.0)
         grid_cfg = GridConfig.ftmo("XAUUSD")
         try:
-            m = self._run_grid_backtest(bars, grid_cfg, spread_pips=35.0, slippage_pips=10.0)
+            m = self._run_grid_backtest(
+                bars, grid_cfg, spread_pips=35.0, slippage_pips=10.0
+            )
             self.assertIsNotNone(m)
         except Exception as e:
             self.fail(f"Backtest raised {e}")
@@ -817,10 +819,16 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         adapter_with_slip = GridStrategyAdapter(GridConfig.eurusd())
 
         engine_no_slip = MultiStrategyBacktestEngine(cfg_no_slip, [adapter_no_slip])
-        engine_with_slip = MultiStrategyBacktestEngine(cfg_with_slip, [adapter_with_slip])
+        engine_with_slip = MultiStrategyBacktestEngine(
+            cfg_with_slip, [adapter_with_slip]
+        )
 
-        m_no_slip = engine_no_slip.run_all_strategies(bars)[adapter_no_slip.name].metrics
-        m_with_slip = engine_with_slip.run_all_strategies(bars)[adapter_with_slip.name].metrics
+        m_no_slip = engine_no_slip.run_all_strategies(bars)[
+            adapter_no_slip.name
+        ].metrics
+        m_with_slip = engine_with_slip.run_all_strategies(bars)[
+            adapter_with_slip.name
+        ].metrics
 
         if m_no_slip.total_trades > 0 and m_with_slip.total_trades > 0:
             self.assertLessEqual(

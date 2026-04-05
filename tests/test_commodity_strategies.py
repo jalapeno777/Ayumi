@@ -125,8 +125,8 @@ class TestCommodityTrendStrategy(unittest.TestCase):
             t = datetime(2024, 1, 1) + timedelta(days=i)
             c = 100.0 + i * 0.8
             h = c + 0.5
-            l = c - 0.3
-            bars.append(Bar(time=t, open=c, high=h, low=l, close=c))
+            low = c - 0.3
+            bars.append(Bar(time=t, open=c, high=h, low=low, close=c))
         adx = self.strategy._calculate_adx(bars)
         self.assertIsNotNone(adx, "ADX should be computed with sufficient bars")
         self.assertGreater(adx, 0.0, "ADX should be positive for trending data")

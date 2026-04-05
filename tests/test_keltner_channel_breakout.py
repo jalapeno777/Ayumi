@@ -4,7 +4,9 @@ from backtest.engine import Bar, MarketState, TradeDirection
 from backtest.strategies import KeltnerChannelBreakoutStrategy
 
 
-def _make_bars(n=100, seed=42, base_price=1.1000, trend="flat", vol=0.0005, volume=1000):
+def _make_bars(
+    n=100, seed=42, base_price=1.1000, trend="flat", vol=0.0005, volume=1000
+):
     import numpy as np
     import pandas as pd
 
@@ -63,7 +65,6 @@ def _make_breakout_bars(direction="long", n=100, seed=42):
 
 
 class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
-
     def test_strategy_name(self):
         s = KeltnerChannelBreakoutStrategy()
         self.assertEqual(s.name, "Keltner Channel Breakout")
@@ -149,7 +150,9 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
     def test_pip_value_calculation(self):
         self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(150.0), 0.01)
         self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(1.1000), 0.0001)
-        self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(0.00001), 0.00000001)
+        self.assertEqual(
+            KeltnerChannelBreakoutStrategy._get_pip_value(0.00001), 0.00000001
+        )
 
     def test_signal_structure_on_strong_trend(self):
         s = KeltnerChannelBreakoutStrategy(

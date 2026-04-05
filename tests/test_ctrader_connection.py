@@ -229,7 +229,8 @@ class TestCTraderConnection(unittest.TestCase):
 
         with (
             patch(
-                "ctrader_fix.connection.socket.create_connection", return_value=MagicMock()
+                "ctrader_fix.connection.socket.create_connection",
+                return_value=MagicMock(),
             ),
             patch("ctrader_fix.connection.ssl.create_default_context") as mock_ctx,
             patch.object(conn, "_recv_message", return_value=logon_response),
@@ -254,7 +255,8 @@ class TestCTraderConnection(unittest.TestCase):
 
         with (
             patch(
-                "ctrader_fix.connection.socket.create_connection", return_value=MagicMock()
+                "ctrader_fix.connection.socket.create_connection",
+                return_value=MagicMock(),
             ),
             patch("ctrader_fix.connection.ssl.create_default_context") as mock_ctx,
             patch.object(conn, "_recv_message", return_value=bad_response),
