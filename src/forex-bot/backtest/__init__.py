@@ -22,7 +22,9 @@ from .strategies import (
     RSIStrategy,
     SRBreakoutStrategy,
     ROCMStrategy,
+    MomentumBreakoutStrategy,
 )
+from .grid_strategy import GridStrategy
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
     AmalgamationConfig,
@@ -69,6 +71,8 @@ __all__ = [
     "RSIStrategy",
     "SRBreakoutStrategy",
     "ROCMStrategy",
+    "MomentumBreakoutStrategy",
+    "GridStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",
