@@ -191,11 +191,11 @@ def detect_regime(
     adx, plus_di, minus_di = compute_adx(highs, lows, closes, config.adx_period)
 
     if adx > config.adx_trending_threshold:
-        trend = TrendDirection.TRENDING
+        trend = MarketRegime.TRENDING
     elif adx < config.adx_ranging_threshold:
-        trend = TrendDirection.RANGING
+        trend = MarketRegime.RANGING
     else:
-        trend = TrendDirection.NEUTRAL
+        trend = MarketRegime.RANGING
 
     if plus_di > minus_di:
         direction = TrendDirection.BULLISH
@@ -206,7 +206,7 @@ def detect_regime(
 
     if vol_regime == VolatilityRegime.EXTREME:
         market_regime = MarketRegime.VOLATILE
-    elif trend == TrendDirection.TRENDING:
+    elif trend == MarketRegime.TRENDING:
         market_regime = MarketRegime.TRENDING
     else:
         market_regime = MarketRegime.RANGING
