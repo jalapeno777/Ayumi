@@ -35,6 +35,11 @@ from backtest import (
     SRBreakoutStrategy,
     ROCMStrategy,
     MomentumBreakoutStrategy,
+    CommodityTrendStrategy,
+    CommodityMeanReversionStrategy,
+    GridStrategy,
+    StatArbStrategy,
+    VolatilitySqueezeStrategy,
     MultiStrategyConfig,
     MultiStrategyBacktestEngine,
     AmalgamationConfig,
@@ -46,7 +51,6 @@ from backtest import (
     TradeManagementConfig,
 )
 from backtest.hybrid_strategy import HybridConfig
-from strategies.grid import GridConfig, GridStrategyAdapter
 
 
 DEFAULT_DATA_FILE = "/home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv"
@@ -60,7 +64,7 @@ def run_individual_backtests(bars, config):
         SRBreakoutStrategy(lookback=50, confirmation_bars=1, breakout_threshold=0.0001),
         ROCMStrategy(period=12, roc_threshold=0.3),
         MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0),
-        GridStrategyAdapter(GridConfig.eurusd()),
+        VolatilitySqueezeStrategy(),
     ]
 
     engine = MultiStrategyBacktestEngine(config, strategies)
@@ -129,6 +133,11 @@ def analyze_walk_forward(bars, config, train_ratio=0.7):
         SRBreakoutStrategy(),
         ROCMStrategy(),
         MomentumBreakoutStrategy(),
+        CommodityTrendStrategy(),
+        CommodityMeanReversionStrategy(),
+        GridStrategy(),
+        StatArbStrategy(),
+        VolatilitySqueezeStrategy(),
     ]
 
     engine = MultiStrategyBacktestEngine(config, strategies)
@@ -991,152 +1000,6 @@ def run_hybrid_backtest(
     return report
 
 
-def run_grid_walk_forward(
-    bars: list,
-    pair: str = "EURUSD",
-    n_windows: int = 5,
-    train_ratio: float = 0.6,
-    test_ratio: float = 0.2,
-) -> dict:
-    """Run walk-forward validation for the grid strategy.
-
-    Uses rolling windows with train/test splits and FTMO-compliant risk
-    parameters.  Per-window metrics are computed and an aggregate GO/NO-GO
-    assessment is produced.
-
-    Args:
-        bars: OHLC bar list from CsvDataLoader.
-        pair: Currency pair label (default "EURUSD").
-        n_windows: Number of rolling windows (default 5).
-        train_ratio: Fraction of each window for training (default 0.6).
-        test_ratio: Fraction of each window for testing (default 0.2).
-            Remaining fraction is the purge buffer.
-
-    Returns:
-        Dict with "per_window", "aggregated", "go_nogo" keys.
-    """
-    grid_cfg = GridConfig.ftmo(pair)
-
-    total = len(bars)
-    window_size = total // n_windows
-    if window_size < 100:
-        print(f"ERROR: Not enough bars ({total}) for {n_windows} windows")
-        return {"per_window": [], "aggregated": {}, "go_nogo": False}
-
-    buffer_ratio = 1.0 - train_ratio - test_ratio
-    if buffer_ratio < 0:
-        buffer_ratio = 0.0
-
-    config = BacktestConfig(
-        starting_balance=10000.0,
-        risk_per_trade_pct=0.01,
-        max_daily_drawdown_pct=0.05,
-        max_total_drawdown_pct=0.05,
-        spread_pips=0.5,
-        commission_per_lot=3.5,
-        leverage=100,
-        min_confidence=0.50,
-        min_bars_before_signal=30,
-        max_open_trades=10,
-    )
-
-    results = []
-    print("\n" + "=" * 70)
-    print("   GRID TRADING STRATEGY — WALK-FORWARD BACKTEST")
-    print("=" * 70)
-    print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
-    print(
-        f"   Split: train={train_ratio:.0%} test={test_ratio:.0%} "
-        f"buffer={buffer_ratio:.0%}"
-    )
-    print(f"   Grid spacing: {grid_cfg.spacing_in_pips():.1f} pips")
-    print(f"   Levels per side: {grid_cfg.levels_per_side}")
-    print(
-        f"   Lot sizes: {grid_cfg.lot_sizes}"
-    )
-    print(f"   FTMO risk: 5% equity stop, 3% daily loss, max {grid_cfg.risk.max_open_positions} positions")
-
-    for w in range(n_windows):
-        start = w * window_size
-        end = (w + 1) * window_size if w < n_windows - 1 else total
-        window_bars = bars[start:end]
-        wlen = len(window_bars)
-
-        train_end_idx = int(wlen * train_ratio)
-        buffer_end_idx = int(wlen * (train_ratio + buffer_ratio))
-
-        train_bars = window_bars[:train_end_idx]
-        test_bars = window_bars[buffer_end_idx:]
-
-        if len(test_bars) < 30:
-            results.append(
-                {
-                    "window_id": w,
-                    "train_bars": len(train_bars),
-                    "test_bars": len(test_bars),
-                    "error": "Insufficient test bars",
-                }
-            )
-            print(
-                f"\n   Window {w}: SKIP — insufficient test bars "
-                f"(train={len(train_bars)}, test={len(test_bars)})"
-            )
-            continue
-
-        adapter = GridStrategyAdapter(GridConfig.ftmo(pair))
-        engine = MultiStrategyBacktestEngine(config, [adapter])
-
-        train_results = engine.run_all_strategies(train_bars)
-        test_results = engine.run_all_strategies(test_bars)
-
-        train_m = train_results[adapter.name].metrics
-        test_m = test_results[adapter.name].metrics
-
-        passed = (
-            test_m.win_rate > 55
-            and test_m.profit_factor > 1.5
-            and test_m.max_drawdown_pct < 5.0
-            and test_m.sharpe_ratio > 0.5
-        )
-
-        results.append(
-            {
-                "window_id": w,
-                "train_start": str(train_bars[0].time) if train_bars else None,
-                "train_end": str(train_bars[-1].time) if train_bars else None,
-                "test_start": str(test_bars[0].time) if test_bars else None,
-                "test_end": str(test_bars[-1].time) if test_bars else None,
-                "train_bars": len(train_bars),
-                "test_bars": len(test_bars),
-                "train_metrics": _metrics_to_dict(train_m),
-                "test_metrics": _metrics_to_dict(test_m),
-                "passed_go_nogo": passed,
-            }
-        )
-
-        status = "PASS" if passed else "FAIL"
-        print(f"\n   Window {w}: {status}")
-        print(
-            f"     Train: {train_m.total_trades} trades, "
-            f"WR={train_m.win_rate:.1f}%, PF={train_m.profit_factor:.2f}, "
-            f"DD={train_m.max_drawdown_pct:.2f}%"
-        )
-        print(
-            f"     Test:  {test_m.total_trades} trades, "
-            f"WR={test_m.win_rate:.1f}%, PF={test_m.profit_factor:.2f}, "
-            f"DD={test_m.max_drawdown_pct:.2f}%, Sharpe={test_m.sharpe_ratio:.2f}"
-        )
-
-    agg = _aggregate_metrics(results)
-    _print_summary_table(results, agg, pair)
-
-    return {
-        "per_window": results,
-        "aggregated": agg,
-        "go_nogo": agg.get("go_nogo", False),
-    }
-
-
 def main():
     data_file = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DATA_FILE
     sys.argv[2] if len(sys.argv) > 2 else "H1"
@@ -1176,8 +1039,6 @@ def main():
     run_enhanced_ab_comparison(bars, config)
 
     analyze_walk_forward(bars, config)
-
-    run_grid_walk_forward(bars, "EURUSD")
 
     print("\n" + "=" * 70)
     print("                    BACKTEST COMPLETE")
