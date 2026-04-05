@@ -96,7 +96,9 @@ class EnhancedBacktestEngine:
             from ..quant.pipeline import QuantPipeline
 
             if not isinstance(quant_config, QC):
-                raise TypeError(f"Expected QuantConfig, got {type(quant_config).__name__}")
+                raise TypeError(
+                    f"Expected QuantConfig, got {type(quant_config).__name__}"
+                )
             self._quant_pipeline = QuantPipeline(quant_config)
 
     def run_strategy(
@@ -170,11 +172,14 @@ class EnhancedBacktestEngine:
                     if entry_allowed.allow_entry:
                         lot_override = (
                             quant_decision.lot_size
-                            if quant_decision is not None and quant_decision.lot_size is not None
+                            if quant_decision is not None
+                            and quant_decision.lot_size is not None
                             else None
                         )
 
-                        trade = self._open_trade(signal, bar, i, lot_size_override=lot_override)
+                        trade = self._open_trade(
+                            signal, bar, i, lot_size_override=lot_override
+                        )
                         if trade is not None:
                             open_trades.append(trade)
                     else:
@@ -240,7 +245,11 @@ class EnhancedBacktestEngine:
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
     def _open_trade(
-        self, signal: StrategySignal, bar: Bar, bar_index: int, lot_size_override: Optional[float] = None
+        self,
+        signal: StrategySignal,
+        bar: Bar,
+        bar_index: int,
+        lot_size_override: Optional[float] = None,
     ) -> Optional[ManagedTrade]:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)

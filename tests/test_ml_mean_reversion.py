@@ -36,14 +36,16 @@ def _make_price_df(n=500, seed=42):
     high = close + rng.uniform(0.00005, 0.0003, n)
     low = close - rng.uniform(0.00005, 0.0003, n)
     open_ = close + rng.normal(0, 0.0001, n)
-    return pd.DataFrame({
-        "Date": dates,
-        "open": open_,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": rng.randint(100, 1000, n),
-    })
+    return pd.DataFrame(
+        {
+            "Date": dates,
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": rng.randint(100, 1000, n),
+        }
+    )
 
 
 def _write_temp_csv(df):
@@ -63,14 +65,16 @@ def _make_bars(n=300, seed=42):
         price += change
         h = price + abs(rng.normal(0, 0.0002))
         low = price - abs(rng.normal(0, 0.0002))
-        bars.append(Bar(
-            time=base + timedelta(minutes=15 * i),
-            open=price - change * 0.5,
-            high=h,
-            low=low,
-            close=price,
-            volume=rng.randint(100, 1000),
-        ))
+        bars.append(
+            Bar(
+                time=base + timedelta(minutes=15 * i),
+                open=price - change * 0.5,
+                high=h,
+                low=low,
+                close=price,
+                volume=rng.randint(100, 1000),
+            )
+        )
     return bars
 
 
@@ -115,11 +119,16 @@ class TestPrepareData(unittest.TestCase):
         for _ in range(n - 1):
             price += rng.normal(0, 0.00001)
             prices.append(price)
-        df = pd.DataFrame({
-            "Date": dates,
-            "open": prices, "high": prices, "low": prices,
-            "close": prices, "volume": [100] * n,
-        })
+        df = pd.DataFrame(
+            {
+                "Date": dates,
+                "open": prices,
+                "high": prices,
+                "low": prices,
+                "close": prices,
+                "volume": [100] * n,
+            }
+        )
         csv_path = _write_temp_csv(df)
         try:
             dataset = prepare_data(csv_path)
@@ -128,7 +137,15 @@ class TestPrepareData(unittest.TestCase):
             os.unlink(csv_path)
 
     def test_missing_date_column_raises(self):
-        df = pd.DataFrame({"open": [1.0], "high": [1.01], "low": [0.99], "close": [1.005], "volume": [100]})
+        df = pd.DataFrame(
+            {
+                "open": [1.0],
+                "high": [1.01],
+                "low": [0.99],
+                "close": [1.005],
+                "volume": [100],
+            }
+        )
         csv_path = _write_temp_csv(df)
         try:
             with self.assertRaises(ValueError):
@@ -188,7 +205,9 @@ class TestOptimizeThreshold(unittest.TestCase):
         rng = np.random.RandomState(42)
         y_prob = rng.uniform(0, 1, 200)
         y_true = (y_prob > 0.5).astype(int)
-        pnl = np.where(y_true == 1, rng.uniform(0.1, 10, 200), -rng.uniform(0.1, 3, 200))
+        pnl = np.where(
+            y_true == 1, rng.uniform(0.1, 10, 200), -rng.uniform(0.1, 3, 200)
+        )
         t_pf = _optimize_threshold(y_prob, y_true, pnl=pnl)
         self.assertIsInstance(t_pf, float)
 
@@ -268,14 +287,16 @@ class TestMLMeanReversionStrategy(unittest.TestCase):
                 price += rng.normal(0, 0.00008)
             h = price + abs(rng.normal(0, 0.00005))
             low = price - abs(rng.normal(0, 0.00005))
-            bars.append(Bar(
-                time=base + timedelta(minutes=15 * i),
-                open=price,
-                high=h,
-                low=low,
-                close=price,
-                volume=500,
-            ))
+            bars.append(
+                Bar(
+                    time=base + timedelta(minutes=15 * i),
+                    open=price,
+                    high=h,
+                    low=low,
+                    close=price,
+                    volume=500,
+                )
+            )
 
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -307,10 +328,16 @@ class TestMLMeanReversionStrategy(unittest.TestCase):
                 price += rng.normal(0, 0.00008)
             h = price + abs(rng.normal(0, 0.00005))
             low = price - abs(rng.normal(0, 0.00005))
-            bars.append(Bar(
-                time=base + timedelta(minutes=15 * i),
-                open=price, high=h, low=low, close=price, volume=500,
-            ))
+            bars.append(
+                Bar(
+                    time=base + timedelta(minutes=15 * i),
+                    open=price,
+                    high=h,
+                    low=low,
+                    close=price,
+                    volume=500,
+                )
+            )
 
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -339,7 +366,9 @@ class TestBarsToDataFrame(unittest.TestCase):
         dataset = _make_labeled_dataset(100, seed=42)
         result = train_model(dataset, model_types=["gradient_boosting"], seed=42)
         strategy = MLMeanReversionStrategy(
-            model=result.model, feature_names=result.feature_names, min_lookback=50,
+            model=result.model,
+            feature_names=result.feature_names,
+            min_lookback=50,
         )
         bars = _make_bars(60, seed=42)
         df = strategy._bars_to_dataframe(bars)

@@ -49,6 +49,7 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
+
 __all__ = [
     "Bar",
     "BarPeriod",

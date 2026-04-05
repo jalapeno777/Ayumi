@@ -2,28 +2,6 @@ from typing import List, Optional
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 
 
-def _calculate_atr(bars: List[Bar]) -> float:
-    """Calculate Average True Range over 14 periods.
-
-    Uses Wilder's smoothing method. Falls back to price-relative estimate
-    if insufficient bars for full ATR calculation.
-    """
-    if len(bars) < 15:
-        return bars[-1].close * 0.0005
-    tr_sum = 0
-    for i in range(len(bars) - 14, len(bars)):
-        if i > 0:
-            tr = max(
-                bars[i].high - bars[i].low,
-                max(
-                    abs(bars[i].high - bars[i - 1].close),
-                    abs(bars[i].low - bars[i - 1].close),
-                ),
-            )
-            tr_sum += tr
-    return tr_sum / 14
-
-
 class ISignalStrategy:
     @property
     def name(self) -> str:
@@ -121,7 +99,7 @@ class MACrossStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -218,7 +196,7 @@ class BBStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -303,15 +281,15 @@ class RSIStrategy(ISignalStrategy):
         if len(bars) < self.period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains = []
+        losses = []
         for i in range(len(bars) - self.period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0.0)
+                losses.append(0)
             else:
-                gains.append(0.0)
+                gains.append(0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.period
@@ -326,7 +304,7 @@ class RSIStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -425,7 +403,7 @@ class SRBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -510,7 +488,7 @@ class ROCMStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -722,7 +700,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0.0
+        tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -777,22 +755,6 @@ class CommodityTrendStrategy(ISignalStrategy):
         self.atr_multiplier = atr_multiplier
         self.risk_reward_ratio = risk_reward_ratio
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
-            return 0.0001
-        tr_sum = 0.0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14
-
     @property
     def name(self) -> str:
         """Return strategy display name."""
@@ -830,7 +792,7 @@ class CommodityTrendStrategy(ISignalStrategy):
             return None
 
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
-        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
             entry - atr * self.atr_multiplier
@@ -884,39 +846,99 @@ class CommodityTrendStrategy(ISignalStrategy):
         return ema
 
     def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Average Directional Index for trend strength."""
-        if len(bars) < self.adx_period + 1:
+        """Calculate Average Directional Index (ADX) using Wilder smoothing.
+
+        ADX measures trend strength by smoothing DX (Directional Index) over
+        the lookback period using Wilder's method:
+        ADX_today = (ADX_yesterday * (period - 1) + DX_today) / period
+
+        Requires at least 2 * adx_period bars for meaningful values.
+        Returns smoothed ADX value, or None if insufficient data.
+        """
+        period = self.adx_period
+        min_bars = 2 * period + 1
+        if len(bars) < min_bars:
             return None
 
-        plus_dm = 0.0
-        minus_dm = 0.0
-        for i in range(len(bars) - self.adx_period, len(bars)):
-            high_diff = bars[i].high - bars[i - 1].high
-            low_diff = bars[i - 1].low - bars[i].low
-            if high_diff > low_diff and high_diff > 0:
-                plus_dm += high_diff
-            if low_diff > high_diff and low_diff > 0:
-                minus_dm += low_diff
+        tr_list: list[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
 
-        if plus_dm + minus_dm == 0:
-            return 0.0
-        return 100 * (plus_dm / (plus_dm + minus_dm))
+        for i in range(1, len(bars)):
+            high = bars[i].high
+            low = bars[i].low
+            prev_high = bars[i - 1].high
+            prev_low = bars[i - 1].low
+            prev_close = bars[i - 1].close
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
-            return 0.0001
-        tr_sum = 0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close),
+            )
+            tr_list.append(tr)
+
+            plus_dm = max(high - prev_high, 0) - max(prev_low - low, 0)
+            minus_dm = max(prev_low - low, 0) - max(high - prev_high, 0)
+
+            if plus_dm < 0:
+                plus_dm = 0.0
+            if minus_dm < 0:
+                minus_dm = 0.0
+
+            if plus_dm > minus_dm:
+                minus_dm = 0.0
+            elif minus_dm > plus_dm:
+                plus_dm = 0.0
+            else:
+                plus_dm = 0.0
+                minus_dm = 0.0
+
+            plus_dm_list.append(plus_dm)
+            minus_dm_list.append(minus_dm)
+
+        smoothed_tr = sum(tr_list[:period])
+        smoothed_plus_dm = sum(plus_dm_list[:period])
+        smoothed_minus_dm = sum(minus_dm_list[:period])
+
+        dx_list: list[float] = []
+        for i in range(period, len(tr_list)):
+            if i == period:
+                if smoothed_tr == 0:
+                    plus_di = 0.0
+                    minus_di = 0.0
+                else:
+                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+            else:
+                smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
+                smoothed_plus_dm = (
+                    smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
                 )
-                tr_sum += tr
-        return tr_sum / 14
+                smoothed_minus_dm = (
+                    smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
+                )
+                if smoothed_tr == 0:
+                    plus_di = 0.0
+                    minus_di = 0.0
+                else:
+                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+            if plus_di + minus_di == 0:
+                dx_list.append(0.0)
+            else:
+                dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100
+                dx_list.append(dx)
+
+        if len(dx_list) < period:
+            return None
+
+        adx = sum(dx_list[:period]) / period
+        for i in range(period, len(dx_list)):
+            adx = adx * (period - 1) / period + dx_list[i] / period
+
+        return adx
 
 
 class CommodityMeanReversionStrategy(ISignalStrategy):
@@ -966,22 +988,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         self.rsi_overbought = rsi_overbought
         self.atr_multiplier = atr_multiplier
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
-            return 0.0001
-        tr_sum = 0.0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14
-
     @property
     def name(self) -> str:
         """Return strategy display name."""
@@ -1014,7 +1020,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         if rsi is None:
             return None
 
-        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
 
         if latest.close < lower_band and rsi < self.rsi_oversold:
             if not self._is_bullish_reversal(latest):
@@ -1081,15 +1087,15 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         if len(bars) < self.rsi_period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains = []
+        losses = []
         for i in range(len(bars) - self.rsi_period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0.0)
+                losses.append(0)
             else:
-                gains.append(0.0)
+                gains.append(0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.rsi_period
@@ -1124,19 +1130,3 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             return False
         midpoint = bar.low + candle_range * 0.5
         return bar.close < midpoint
-
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
-            return 0.0001
-        tr_sum = 0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14

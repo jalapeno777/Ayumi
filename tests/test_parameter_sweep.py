@@ -136,48 +136,58 @@ class TestSweepResult(unittest.TestCase):
         self.assertEqual(len(items), 2)
 
     def test_sort_by_metric(self):
-        result = self._make_result([
-            {"params": {"a": 1}, "sharpe_ratio": 1.0},
-            {"params": {"a": 2}, "sharpe_ratio": 2.0},
-            {"params": {"a": 3}, "sharpe_ratio": 0.5},
-        ])
+        result = self._make_result(
+            [
+                {"params": {"a": 1}, "sharpe_ratio": 1.0},
+                {"params": {"a": 2}, "sharpe_ratio": 2.0},
+                {"params": {"a": 3}, "sharpe_ratio": 0.5},
+            ]
+        )
         sorted_rows = result.sort_by("sharpe_ratio")
         self.assertEqual(sorted_rows[0].sharpe_ratio, 2.0)
         self.assertEqual(sorted_rows[-1].sharpe_ratio, 0.5)
 
     def test_sort_by_ascending(self):
-        result = self._make_result([
-            {"params": {}, "max_dd": 0.1},
-            {"params": {}, "max_dd": 0.3},
-        ])
+        result = self._make_result(
+            [
+                {"params": {}, "max_dd": 0.1},
+                {"params": {}, "max_dd": 0.3},
+            ]
+        )
         sorted_rows = result.sort_by("max_dd", ascending=True)
         self.assertEqual(sorted_rows[0].max_dd, 0.1)
 
     def test_top_n(self):
-        result = self._make_result([
-            {"params": {"a": 1}, "sharpe_ratio": 3.0},
-            {"params": {"a": 2}, "sharpe_ratio": 1.0},
-            {"params": {"a": 3}, "sharpe_ratio": 2.0},
-        ])
+        result = self._make_result(
+            [
+                {"params": {"a": 1}, "sharpe_ratio": 3.0},
+                {"params": {"a": 2}, "sharpe_ratio": 1.0},
+                {"params": {"a": 3}, "sharpe_ratio": 2.0},
+            ]
+        )
         top = result.top_n(2, metric="sharpe_ratio")
         self.assertEqual(len(top), 2)
         self.assertEqual(top[0].sharpe_ratio, 3.0)
         self.assertEqual(top[1].sharpe_ratio, 2.0)
 
     def test_filter(self):
-        result = self._make_result([
-            {"params": {"a": 1}, "win_rate": 0.6},
-            {"params": {"a": 2}, "win_rate": 0.3},
-            {"params": {"a": 3}, "win_rate": 0.8},
-        ])
+        result = self._make_result(
+            [
+                {"params": {"a": 1}, "win_rate": 0.6},
+                {"params": {"a": 2}, "win_rate": 0.3},
+                {"params": {"a": 3}, "win_rate": 0.8},
+            ]
+        )
         filtered = result.filter(lambda r: r.win_rate > 0.5)
         self.assertEqual(len(filtered), 2)
 
     def test_best_returns_best(self):
-        result = self._make_result([
-            {"params": {"a": 1}, "sharpe_ratio": 1.0},
-            {"params": {"a": 2}, "sharpe_ratio": 5.0},
-        ])
+        result = self._make_result(
+            [
+                {"params": {"a": 1}, "sharpe_ratio": 1.0},
+                {"params": {"a": 2}, "sharpe_ratio": 5.0},
+            ]
+        )
         self.assertEqual(result.best("sharpe_ratio").sharpe_ratio, 5.0)
 
     def test_best_empty_returns_none(self):
@@ -230,7 +240,9 @@ class TestSweepRunner(unittest.TestCase):
         runner = SweepRunner(
             config=self.config,
             bars=self.bars,
-            strategy_factory=lambda p: MACrossStrategy(fast_period=p.params["fast_period"]),
+            strategy_factory=lambda p: MACrossStrategy(
+                fast_period=p.params["fast_period"]
+            ),
         )
         self.assertIsNotNone(runner._max_workers)
 
@@ -240,11 +252,22 @@ class TestSweepRunner(unittest.TestCase):
 
         config_dict = asdict(self.config)
         bars_data = _serialize_bars(self.bars)
-        strategy_config = {"__class__": "MACrossStrategy", "fast_period": 5, "slow_period": 13}
+        strategy_config = {
+            "__class__": "MACrossStrategy",
+            "fast_period": 5,
+            "slow_period": 13,
+        }
 
         result = _worker_entry((config_dict, bars_data, strategy_config))
         self.assertIsNotNone(result)
-        for key in ("win_rate", "max_dd", "total_return", "sharpe_ratio", "trade_count", "profit_factor"):
+        for key in (
+            "win_rate",
+            "max_dd",
+            "total_return",
+            "sharpe_ratio",
+            "trade_count",
+            "profit_factor",
+        ):
             self.assertIn(key, result)
 
     def test_empty_grid_returns_empty_result(self):
@@ -261,10 +284,28 @@ class TestSweepRunner(unittest.TestCase):
 
 class TestOutput(unittest.TestCase):
     def setUp(self):
-        self.result = SweepResult(rows=[
-            SweepRow(params={"fast": 5, "slow": 13}, win_rate=0.6, max_dd=0.05, total_return=0.12, sharpe_ratio=1.5, trade_count=50, profit_factor=1.8),
-            SweepRow(params={"fast": 10, "slow": 20}, win_rate=0.4, max_dd=0.08, total_return=0.05, sharpe_ratio=0.8, trade_count=30, profit_factor=1.2),
-        ])
+        self.result = SweepResult(
+            rows=[
+                SweepRow(
+                    params={"fast": 5, "slow": 13},
+                    win_rate=0.6,
+                    max_dd=0.05,
+                    total_return=0.12,
+                    sharpe_ratio=1.5,
+                    trade_count=50,
+                    profit_factor=1.8,
+                ),
+                SweepRow(
+                    params={"fast": 10, "slow": 20},
+                    win_rate=0.4,
+                    max_dd=0.08,
+                    total_return=0.05,
+                    sharpe_ratio=0.8,
+                    trade_count=30,
+                    profit_factor=1.2,
+                ),
+            ]
+        )
 
     def test_to_csv(self):
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="w") as f:

@@ -27,7 +27,9 @@ ICT_FEATURE_NAMES = [
 ]
 
 
-def build_ict_features(signals: List[ConfluenceSignal], target_index: pd.DatetimeIndex) -> pd.DataFrame:
+def build_ict_features(
+    signals: List[ConfluenceSignal], target_index: pd.DatetimeIndex
+) -> pd.DataFrame:
     if not signals:
         return pd.DataFrame(
             {name: np.nan for name in ICT_FEATURE_NAMES},
@@ -39,18 +41,20 @@ def build_ict_features(signals: List[ConfluenceSignal], target_index: pd.Datetim
     for ts in target_index:
         signal = signal_map.get(ts)
         if signal is not None:
-            rows.append({
-                "ict_confluence_score": signal.confidence_score,
-                "ict_structure_score": signal.structure_score,
-                "ict_ob_score": signal.ob_score,
-                "ict_fvg_score": signal.fvg_score,
-                "ict_liq_sweep_score": signal.liq_sweep_score,
-                "ict_pd_zone_score": signal.pd_zone_score,
-                "ict_session_score": signal.session_score,
-                "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
-                "ict_confluence_count": signal.confluence_count,
-                "ict_risk_reward": signal.risk_reward_ratio,
-            })
+            rows.append(
+                {
+                    "ict_confluence_score": signal.confidence_score,
+                    "ict_structure_score": signal.structure_score,
+                    "ict_ob_score": signal.ob_score,
+                    "ict_fvg_score": signal.fvg_score,
+                    "ict_liq_sweep_score": signal.liq_sweep_score,
+                    "ict_pd_zone_score": signal.pd_zone_score,
+                    "ict_session_score": signal.session_score,
+                    "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
+                    "ict_confluence_count": signal.confluence_count,
+                    "ict_risk_reward": signal.risk_reward_ratio,
+                }
+            )
         else:
             rows.append({name: np.nan for name in ICT_FEATURE_NAMES})
 
@@ -227,7 +231,9 @@ def pin_bar_bearish(
     return (long_upper & small_lower & small_body).astype(int)
 
 
-def build_feature_matrix(df: pd.DataFrame, signals: Optional[List[ConfluenceSignal]] = None) -> pd.DataFrame:
+def build_feature_matrix(
+    df: pd.DataFrame, signals: Optional[List[ConfluenceSignal]] = None
+) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -302,18 +308,20 @@ def build_feature_matrix(df: pd.DataFrame, signals: Optional[List[ConfluenceSign
         for i, ts in enumerate(date_series):
             signal = signal_map.get(ts)
             if signal is not None:
-                rows.append({
-                    "ict_confluence_score": signal.confidence_score,
-                    "ict_structure_score": signal.structure_score,
-                    "ict_ob_score": signal.ob_score,
-                    "ict_fvg_score": signal.fvg_score,
-                    "ict_liq_sweep_score": signal.liq_sweep_score,
-                    "ict_pd_zone_score": signal.pd_zone_score,
-                    "ict_session_score": signal.session_score,
-                    "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
-                    "ict_confluence_count": signal.confluence_count,
-                    "ict_risk_reward": signal.risk_reward_ratio,
-                })
+                rows.append(
+                    {
+                        "ict_confluence_score": signal.confidence_score,
+                        "ict_structure_score": signal.structure_score,
+                        "ict_ob_score": signal.ob_score,
+                        "ict_fvg_score": signal.fvg_score,
+                        "ict_liq_sweep_score": signal.liq_sweep_score,
+                        "ict_pd_zone_score": signal.pd_zone_score,
+                        "ict_session_score": signal.session_score,
+                        "ict_bias_encoded": BIAS_ENCODING.get(signal.direction, 0),
+                        "ict_confluence_count": signal.confluence_count,
+                        "ict_risk_reward": signal.risk_reward_ratio,
+                    }
+                )
             else:
                 rows.append({name: np.nan for name in ICT_FEATURE_NAMES})
         ict_features = pd.DataFrame(rows, index=df.index)

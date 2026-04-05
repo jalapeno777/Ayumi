@@ -430,7 +430,6 @@ def run_enhanced_ab_comparison(bars, config):
     return tm_configs
 
 
-
 def _metrics_to_dict(m) -> dict:
     return {
         "trades": m.total_trades,
@@ -479,16 +478,20 @@ def _print_summary_table(window_results: list, agg: dict, pair: str) -> None:
 
     print("\n" + "─" * 80)
     print(f"  PER-WINDOW RESULTS — {pair}")
-    print(f"  {'Window':<8} {'Trades':>8} {'WR%':>8} {'PF':>8} "
-          f"{'MaxDD%':>8} {'Sharpe':>8} {'PnL':>10} {'GO?':>6}")
+    print(
+        f"  {'Window':<8} {'Trades':>8} {'WR%':>8} {'PF':>8} "
+        f"{'MaxDD%':>8} {'Sharpe':>8} {'PnL':>10} {'GO?':>6}"
+    )
     print("  " + "─" * 76)
 
     for w in valid:
         tm = w["test_metrics"]
         go = "YES" if w.get("passed_go_nogo", False) else "NO"
-        print(f"  {w['window_id']:<8} {tm['trades']:>8} {tm['win_rate']:>8.1f} "
-              f"{tm['profit_factor']:>8.2f} {tm['max_dd']:>8.2f} "
-              f"{tm['sharpe']:>8.2f} {tm['total_pnl']:>10.2f} {go:>6}")
+        print(
+            f"  {w['window_id']:<8} {tm['trades']:>8} {tm['win_rate']:>8.1f} "
+            f"{tm['profit_factor']:>8.2f} {tm['max_dd']:>8.2f} "
+            f"{tm['sharpe']:>8.2f} {tm['total_pnl']:>10.2f} {go:>6}"
+        )
 
     for w in window_results:
         if "error" in w:
@@ -499,7 +502,9 @@ def _print_summary_table(window_results: list, agg: dict, pair: str) -> None:
         print("  AGGREGATE METRICS")
         print("  " + "─" * 76)
         go_str = "GO" if agg["go_nogo"] else "NO-GO"
-        print(f"  Windows Passed: {agg['windows_passed']}/{agg['total_windows']}  →  {go_str}")
+        print(
+            f"  Windows Passed: {agg['windows_passed']}/{agg['total_windows']}  →  {go_str}"
+        )
         print(f"  {'Metric':<20} {'Mean':>12} {'Std':>12}")
         print("  " + "─" * 44)
         labels = [
@@ -511,7 +516,9 @@ def _print_summary_table(window_results: list, agg: dict, pair: str) -> None:
             ("Trade Count", "trades"),
         ]
         for label, key in labels:
-            print(f"  {label:<20} {agg[f'mean_{key}']:>12.4f} {agg[f'std_{key}']:>12.4f}")
+            print(
+                f"  {label:<20} {agg[f'mean_{key}']:>12.4f} {agg[f'std_{key}']:>12.4f}"
+            )
     print("─" * 80)
 
 
@@ -595,7 +602,9 @@ def _run_window_backtest(
         bar = bars[i]
         day = bar.time.date()
         if current_day is not None and day != current_day:
-            daily_loss_pct = (daily_start - balance) / daily_start if daily_start > 0 else 0
+            daily_loss_pct = (
+                (daily_start - balance) / daily_start if daily_start > 0 else 0
+            )
             if daily_loss_pct >= max_daily_drawdown_pct:
                 daily_dd_halted = True
             else:
@@ -618,14 +627,14 @@ def _run_window_backtest(
         if dd_pct >= max_total_drawdown_pct:
             break
 
-        ict_state = ICTMarketState(bars=bars[:i + 1])
+        ict_state = ICTMarketState(bars=bars[: i + 1])
         signal = strategy.evaluate(
             ict_state,
-            h4_bars=bars[:i + 1],
-            atr_series=atr_values[:i + 1],
-            high_series=high_series[:i + 1],
-            low_series=low_series[:i + 1],
-            close_series=closes[:i + 1],
+            h4_bars=bars[: i + 1],
+            atr_series=atr_values[: i + 1],
+            high_series=high_series[: i + 1],
+            low_series=low_series[: i + 1],
+            close_series=closes[: i + 1],
             bar_time=bar.time,
         )
 
@@ -652,17 +661,22 @@ def _run_window_backtest(
                     pips = (trade["sl"] - trade["entry"]) / pip_val
                 else:
                     pips = (trade["entry"] - trade["sl"]) / pip_val
-                pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+                pnl = (
+                    pips * trade["lots"] * pip_val * 100000
+                    - commission_per_lot * trade["lots"]
+                )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
                 dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
                 if dd > max_dd:
                     max_dd = dd
-                trade_records.append({
-                    "pnl": pnl,
-                    "outcome": "loss" if pnl < -0.01 else "breakeven",
-                })
+                trade_records.append(
+                    {
+                        "pnl": pnl,
+                        "outcome": "loss" if pnl < -0.01 else "breakeven",
+                    }
+                )
                 open_trades.remove(trade)
                 equity_curve.append(balance)
             elif hit_tp:
@@ -671,17 +685,22 @@ def _run_window_backtest(
                     pips = (trade["tp1"] - trade["entry"]) / pip_val
                 else:
                     pips = (trade["entry"] - trade["tp1"]) / pip_val
-                pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+                pnl = (
+                    pips * trade["lots"] * pip_val * 100000
+                    - commission_per_lot * trade["lots"]
+                )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
                 dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
                 if dd > max_dd:
                     max_dd = dd
-                trade_records.append({
-                    "pnl": pnl,
-                    "outcome": "win" if pnl > 0.01 else "breakeven",
-                })
+                trade_records.append(
+                    {
+                        "pnl": pnl,
+                        "outcome": "win" if pnl > 0.01 else "breakeven",
+                    }
+                )
                 open_trades.remove(trade)
                 equity_curve.append(balance)
 
@@ -713,19 +732,23 @@ def _run_window_backtest(
             continue
 
         direction = "long" if signal.direction.value == "long" else "short"
-        open_trades.append({
-            "direction": direction,
-            "entry": entry,
-            "sl": sl,
-            "tp1": tp1,
-            "lots": lots,
-        })
+        open_trades.append(
+            {
+                "direction": direction,
+                "entry": entry,
+                "sl": sl,
+                "tp1": tp1,
+                "lots": lots,
+            }
+        )
         equity_curve.append(balance)
 
     for trade in open_trades:
         pip_val = 0.0001 if trade["entry"] < 50 else 0.01
         pips = 0.0
-        pnl = pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+        pnl = (
+            pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
+        )
         balance = max(0.0, balance + pnl)
         trade_records.append({"pnl": pnl, "outcome": "breakeven"})
 
@@ -736,16 +759,26 @@ def _run_window_backtest(
     total_losses = abs(sum(losses))
 
     win_rate = (len(wins) / len(pnls) * 100) if pnls else 0.0
-    pf = total_wins / total_losses if total_losses > 0 else (999.0 if total_wins > 0 else 0.0)
+    pf = (
+        total_wins / total_losses
+        if total_losses > 0
+        else (999.0 if total_wins > 0 else 0.0)
+    )
 
     returns = []
     for j in range(1, len(equity_curve)):
         if equity_curve[j - 1] != 0:
-            returns.append((equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1])
+            returns.append(
+                (equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1]
+            )
     if returns:
         mean_r = sum(returns) / len(returns)
         std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
-        sharpe = (mean_r / std_r * math.sqrt(6048)) if std_r > 0 else (999.0 if mean_r > 0 else 0.0)
+        sharpe = (
+            (mean_r / std_r * math.sqrt(6048))
+            if std_r > 0
+            else (999.0 if mean_r > 0 else 0.0)
+        )
     else:
         sharpe = 0.0
 
@@ -768,8 +801,11 @@ def _run_window_backtest(
         max_drawdown_dollar=max_dd * peak_balance,
         max_daily_loss_dollar=0.0,
         sharpe_ratio=sharpe,
-        avg_risk_reward=abs(sum(wins) / len(wins) / abs(sum(losses) / len(losses))) if wins and losses and abs(sum(losses)) > 0.01 else 0.0,
-        expectancy=(win_rate / 100 * (sum(wins) / len(wins) if wins else 0)) - ((1 - win_rate / 100) * abs(sum(losses) / len(losses) if losses else 0)),
+        avg_risk_reward=abs(sum(wins) / len(wins) / abs(sum(losses) / len(losses)))
+        if wins and losses and abs(sum(losses)) > 0.01
+        else 0.0,
+        expectancy=(win_rate / 100 * (sum(wins) / len(wins) if wins else 0))
+        - ((1 - win_rate / 100) * abs(sum(losses) / len(losses) if losses else 0)),
         avg_holding_bars=0.0,
         equity_curve=equity_curve,
         trades=[],
@@ -825,8 +861,10 @@ def run_hybrid_backtest(
     print("   HYBRID ICT/SMC + QUANT OVERLAY — WALK-FORWARD BACKTEST")
     print("=" * 70)
     print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
-    print(f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} "
-          f"test={test_ratio:.0%} buffer={buffer_ratio:.0%}")
+    print(
+        f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} "
+        f"test={test_ratio:.0%} buffer={buffer_ratio:.0%}"
+    )
     print("   Config: FTMO (0.5% risk, 3% daily DD, 5% total DD, max 3 trades)")
     print("   Sessions: London (8-12), NY AM (12-16), NY PM (16-20) UTC")
     print("   SL: 2.0x ATR(14) | Min confidence: 0.5 | Min confluences: 2")
@@ -846,15 +884,19 @@ def run_hybrid_backtest(
         test_bars = window_bars[buffer_end:]
 
         if len(test_bars) < 30:
-            results.append({
-                "window_id": w,
-                "train_bars": len(train_bars),
-                "val_bars": len(val_bars),
-                "test_bars": len(test_bars),
-                "error": "Insufficient test bars",
-            })
-            print(f"\n   Window {w}: SKIP — insufficient test bars "
-                  f"(train={len(train_bars)}, val={len(val_bars)}, test={len(test_bars)})")
+            results.append(
+                {
+                    "window_id": w,
+                    "train_bars": len(train_bars),
+                    "val_bars": len(val_bars),
+                    "test_bars": len(test_bars),
+                    "error": "Insufficient test bars",
+                }
+            )
+            print(
+                f"\n   Window {w}: SKIP — insufficient test bars "
+                f"(train={len(train_bars)}, val={len(val_bars)}, test={len(test_bars)})"
+            )
             continue
 
         strategy.reset_metrics()
@@ -871,34 +913,42 @@ def run_hybrid_backtest(
             and test_metrics.sharpe_ratio > 0.5
         )
 
-        results.append({
-            "window_id": w,
-            "train_start": str(train_bars[0].time) if train_bars else None,
-            "train_end": str(train_bars[-1].time) if train_bars else None,
-            "val_start": str(val_bars[0].time) if val_bars else None,
-            "val_end": str(val_bars[-1].time) if val_bars else None,
-            "test_start": str(test_bars[0].time) if test_bars else None,
-            "test_end": str(test_bars[-1].time) if test_bars else None,
-            "train_bars": len(train_bars),
-            "val_bars": len(val_bars),
-            "test_bars": len(test_bars),
-            "train_metrics": _metrics_to_dict(train_metrics),
-            "val_metrics": _metrics_to_dict(val_metrics),
-            "test_metrics": _metrics_to_dict(test_metrics),
-            "passed_go_nogo": passed,
-        })
+        results.append(
+            {
+                "window_id": w,
+                "train_start": str(train_bars[0].time) if train_bars else None,
+                "train_end": str(train_bars[-1].time) if train_bars else None,
+                "val_start": str(val_bars[0].time) if val_bars else None,
+                "val_end": str(val_bars[-1].time) if val_bars else None,
+                "test_start": str(test_bars[0].time) if test_bars else None,
+                "test_end": str(test_bars[-1].time) if test_bars else None,
+                "train_bars": len(train_bars),
+                "val_bars": len(val_bars),
+                "test_bars": len(test_bars),
+                "train_metrics": _metrics_to_dict(train_metrics),
+                "val_metrics": _metrics_to_dict(val_metrics),
+                "test_metrics": _metrics_to_dict(test_metrics),
+                "passed_go_nogo": passed,
+            }
+        )
 
         status = "PASS" if passed else "FAIL"
         print(f"\n   Window {w}: {status}")
-        print(f"     Train: {train_metrics.total_trades} trades, "
-              f"WR={train_metrics.win_rate:.1f}%, PF={train_metrics.profit_factor:.2f}, "
-              f"DD={train_metrics.max_drawdown_pct:.2f}%")
-        print(f"     Val:   {val_metrics.total_trades} trades, "
-              f"WR={val_metrics.win_rate:.1f}%, PF={val_metrics.profit_factor:.2f}, "
-              f"DD={val_metrics.max_drawdown_pct:.2f}%")
-        print(f"     Test:  {test_metrics.total_trades} trades, "
-              f"WR={test_metrics.win_rate:.1f}%, PF={test_metrics.profit_factor:.2f}, "
-              f"DD={test_metrics.max_drawdown_pct:.2f}%, Sharpe={test_metrics.sharpe_ratio:.2f}")
+        print(
+            f"     Train: {train_metrics.total_trades} trades, "
+            f"WR={train_metrics.win_rate:.1f}%, PF={train_metrics.profit_factor:.2f}, "
+            f"DD={train_metrics.max_drawdown_pct:.2f}%"
+        )
+        print(
+            f"     Val:   {val_metrics.total_trades} trades, "
+            f"WR={val_metrics.win_rate:.1f}%, PF={val_metrics.profit_factor:.2f}, "
+            f"DD={val_metrics.max_drawdown_pct:.2f}%"
+        )
+        print(
+            f"     Test:  {test_metrics.total_trades} trades, "
+            f"WR={test_metrics.win_rate:.1f}%, PF={test_metrics.profit_factor:.2f}, "
+            f"DD={test_metrics.max_drawdown_pct:.2f}%, Sharpe={test_metrics.sharpe_ratio:.2f}"
+        )
 
     agg = _aggregate_metrics(results)
 
@@ -937,7 +987,6 @@ def run_hybrid_backtest(
         print(f"\n   JSON report saved: {report_path}")
 
     return report
-
 
 
 def main():

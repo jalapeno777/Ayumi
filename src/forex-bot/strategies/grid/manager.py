@@ -45,12 +45,8 @@ class GridManager:
             )
             return self._state
 
-        buy_levels = self._build_levels(
-            GridSide.BUY, center_price, tf
-        )
-        sell_levels = self._build_levels(
-            GridSide.SELL, center_price, tf
-        )
+        buy_levels = self._build_levels(GridSide.BUY, center_price, tf)
+        sell_levels = self._build_levels(GridSide.SELL, center_price, tf)
 
         self._state = GridState(
             center_price=center_price,
@@ -121,7 +117,9 @@ class GridManager:
             pips = (trade.entry_price - exit_price) / self._config.pip_value
 
         trade.pips = pips
-        pnl = pips * trade.lot_size * self._config.pip_value * self._config.contract_size
+        pnl = (
+            pips * trade.lot_size * self._config.pip_value * self._config.contract_size
+        )
         trade.pnl = pnl
 
         self._state.total_pnl += pnl
@@ -251,7 +249,11 @@ class GridManager:
         if self._config.risk.max_daily_loss_pct <= 0:
             return False
         daily_loss = min(0.0, self._state.daily_pnl)
-        current_equity = equity if equity is not None else (self._state.equity_at_start + self._state.total_pnl)
+        current_equity = (
+            equity
+            if equity is not None
+            else (self._state.equity_at_start + self._state.total_pnl)
+        )
         daily_loss_pct = abs(daily_loss) / current_equity if current_equity > 0 else 0.0
         if daily_loss_pct >= self._config.risk.max_daily_loss_pct:
             self._cancel_all_levels()
@@ -266,7 +268,10 @@ class GridManager:
     ) -> None:
         if self._state is None or current_time is None:
             return
-        if self._state.last_reset_day is not None and current_time.day != self._state.last_reset_day:
+        if (
+            self._state.last_reset_day is not None
+            and current_time.day != self._state.last_reset_day
+        ):
             self._state.daily_pnl = 0.0
             self._state.last_reset_day = current_time.day
             if equity is not None:
@@ -282,7 +287,9 @@ class GridManager:
             if level.status == GridLevelStatus.ACTIVE:
                 level.status = GridLevelStatus.CANCELLED
 
-    def _close_all_trades(self, close_price: float, close_time: Optional[datetime] = None) -> None:
+    def _close_all_trades(
+        self, close_price: float, close_time: Optional[datetime] = None
+    ) -> None:
         if self._state is None:
             return
         now = close_time or datetime.now()

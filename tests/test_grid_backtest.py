@@ -1,6 +1,8 @@
 """Quick backtest test for grid strategy."""
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from backtest.data_loader import CsvDataLoader
@@ -19,7 +21,7 @@ def test_grid_backtest_eurusd():
         num_levels=10,
         grid_spacing_pips=15.0,
         max_concurrent_positions=5,
-        direction=GridDirection.BOTH
+        direction=GridDirection.BOTH,
     )
 
     config = BacktestConfig(starting_balance=10000, risk_per_trade_pct=0.01)
@@ -46,7 +48,7 @@ def test_grid_backtest_gbpjpy():
         num_levels=10,
         grid_spacing_pips=20.0,
         max_concurrent_positions=5,
-        direction=GridDirection.BOTH
+        direction=GridDirection.BOTH,
     )
 
     config = BacktestConfig(starting_balance=10000, risk_per_trade_pct=0.01)

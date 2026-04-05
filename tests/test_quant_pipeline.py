@@ -21,7 +21,6 @@ from quant.pipeline import (
 
 
 class TestQuantConfig:
-
     def test_default_config_has_all_modules_enabled(self):
         config = QuantConfig()
         assert config.regime.enabled is True
@@ -83,7 +82,6 @@ class TestQuantConfig:
 
 
 class TestQuantPipeline:
-
     def _make_pipeline(self, config: QuantConfig | None = None) -> QuantPipeline:
         return QuantPipeline(config or QuantConfig())
 
@@ -254,7 +252,6 @@ class TestQuantPipeline:
 
 
 class TestTradeDecision:
-
     def test_frozen(self):
         decision = TradeDecision(
             action=TradeAction.ACCEPT,
@@ -273,7 +270,6 @@ class TestTradeDecision:
 
 
 class TestValidationResult:
-
     def test_frozen(self):
         result = ValidationResult(go_nogo=True, walk_forward_passed=True)
         with pytest.raises(AttributeError):

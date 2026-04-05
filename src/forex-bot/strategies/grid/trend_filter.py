@@ -41,9 +41,7 @@ def _calculate_adx(
 
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
         smoothed_minus_dm = (
             smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
         )

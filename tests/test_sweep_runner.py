@@ -37,18 +37,22 @@ def _trending_bars(n=200, trend="up"):
 
 class TestParameterGrid(unittest.TestCase):
     def test_param_space_stored(self):
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
         self.assertEqual(len(grid.param_space), 2)
         self.assertEqual(len(grid.param_space["period"]), 3)
 
     def test_combinations_produces_9_points(self):
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
         combos = grid.combinations()
         self.assertEqual(len(combos), 9)
         for combo in combos:
@@ -89,10 +93,12 @@ class TestSweepRunner(unittest.TestCase):
     def test_sequential_run_produces_9_results(self):
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner = SweepRunner(
             engine=config,
@@ -114,10 +120,12 @@ class TestSweepRunner(unittest.TestCase):
     def test_parallel_run_produces_9_results(self):
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner = SweepRunner(
             engine=config,
@@ -132,10 +140,12 @@ class TestSweepRunner(unittest.TestCase):
     def test_sequential_and_parallel_produce_identical_results(self):
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner_seq = SweepRunner(
             engine=config,
@@ -155,8 +165,12 @@ class TestSweepRunner(unittest.TestCase):
 
         self.assertEqual(len(seq_results), len(par_results))
 
-        seq_sorted = sorted(seq_results, key=lambda r: (r.params["period"], r.params["std_dev"]))
-        par_sorted = sorted(par_results, key=lambda r: (r.params["period"], r.params["std_dev"]))
+        seq_sorted = sorted(
+            seq_results, key=lambda r: (r.params["period"], r.params["std_dev"])
+        )
+        par_sorted = sorted(
+            par_results, key=lambda r: (r.params["period"], r.params["std_dev"])
+        )
 
         for seq_r, par_r in zip(seq_sorted, par_sorted):
             self.assertEqual(seq_r.params, par_r.params)
@@ -170,10 +184,12 @@ class TestSweepRunner(unittest.TestCase):
 
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner = SweepRunner(
             engine=config,
@@ -208,10 +224,12 @@ class TestSweepRunner(unittest.TestCase):
     def test_to_json_produces_parseable_file(self):
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner = SweepRunner(
             engine=config,
@@ -232,7 +250,14 @@ class TestSweepRunner(unittest.TestCase):
             self.assertIsInstance(data, list)
             self.assertEqual(len(data), 9)
 
-            required_fields = ["params", "win_rate", "max_drawdown", "total_return", "sharpe_ratio", "trade_count"]
+            required_fields = [
+                "params",
+                "win_rate",
+                "max_drawdown",
+                "total_return",
+                "sharpe_ratio",
+                "trade_count",
+            ]
             for item in data:
                 for field in required_fields:
                     self.assertIn(field, item)
@@ -245,10 +270,12 @@ class TestSweepRunner(unittest.TestCase):
     def test_all_grid_points_produce_results(self):
         _bars = _trending_bars(500, "up")
         config = self._default_config()
-        grid = ParameterGrid({
-            "period": [15, 20, 25],
-            "std_dev": [1.5, 2.0, 2.5],
-        })
+        grid = ParameterGrid(
+            {
+                "period": [15, 20, 25],
+                "std_dev": [1.5, 2.0, 2.5],
+            }
+        )
 
         runner = SweepRunner(
             engine=config,
@@ -260,9 +287,15 @@ class TestSweepRunner(unittest.TestCase):
 
         param_combos = {(r.params["period"], r.params["std_dev"]) for r in results}
         expected_combos = {
-            (15, 1.5), (15, 2.0), (15, 2.5),
-            (20, 1.5), (20, 2.0), (20, 2.5),
-            (25, 1.5), (25, 2.0), (25, 2.5),
+            (15, 1.5),
+            (15, 2.0),
+            (15, 2.5),
+            (20, 1.5),
+            (20, 2.0),
+            (20, 2.5),
+            (25, 1.5),
+            (25, 2.0),
+            (25, 2.5),
         }
         self.assertEqual(param_combos, expected_combos)
 

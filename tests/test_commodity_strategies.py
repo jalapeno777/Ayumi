@@ -29,8 +29,24 @@ def _make_oversold_bb_reversion_bars() -> list:
         c = 100.0 - i * 1.5
         bars.append(Bar(time=t, open=c, high=c + 1, low=c - 1, close=c))
     sharp_drop = bars[-1].close - 50
-    bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=25), open=bars[-1].close, high=bars[-1].close + 1, low=sharp_drop, close=sharp_drop + 2))
-    bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=26), open=sharp_drop + 2, high=sharp_drop + 8, low=sharp_drop, close=sharp_drop + 6))
+    bars.append(
+        Bar(
+            time=datetime(2024, 1, 1) + timedelta(days=25),
+            open=bars[-1].close,
+            high=bars[-1].close + 1,
+            low=sharp_drop,
+            close=sharp_drop + 2,
+        )
+    )
+    bars.append(
+        Bar(
+            time=datetime(2024, 1, 1) + timedelta(days=26),
+            open=sharp_drop + 2,
+            high=sharp_drop + 8,
+            low=sharp_drop,
+            close=sharp_drop + 6,
+        )
+    )
     return bars
 
 
@@ -82,7 +98,9 @@ class TestCommodityTrendStrategy(unittest.TestCase):
             bars.append(Bar(time=t, open=c, high=c + 0.3, low=c - 0.3, close=c))
         ema_fast = self.strategy._calculate_ema(bars, 20)
         ema_slow = self.strategy._calculate_ema(bars, 50)
-        self.assertGreater(ema_fast, ema_slow, "Fast EMA should be above slow EMA for rising prices")
+        self.assertGreater(
+            ema_fast, ema_slow, "Fast EMA should be above slow EMA for rising prices"
+        )
 
     def test_ema_calculation_falling(self):
         bars = []
@@ -92,7 +110,9 @@ class TestCommodityTrendStrategy(unittest.TestCase):
             bars.append(Bar(time=t, open=c, high=c + 0.3, low=c - 0.3, close=c))
         ema_fast = self.strategy._calculate_ema(bars, 20)
         ema_slow = self.strategy._calculate_ema(bars, 50)
-        self.assertLess(ema_fast, ema_slow, "Fast EMA should be below slow EMA for falling prices")
+        self.assertLess(
+            ema_fast, ema_slow, "Fast EMA should be below slow EMA for falling prices"
+        )
 
     def test_adx_calculation_requires_minimum_bars(self):
         bars = [_make_bar(i, 100, 101, 99, 100) for i in range(5)]
@@ -116,7 +136,9 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         bars = _make_trending_bars_with_crossover()
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
-        self.assertIsNotNone(result, "Signal should be generated on EMA crossover with high ADX")
+        self.assertIsNotNone(
+            result, "Signal should be generated on EMA crossover with high ADX"
+        )
         self.assertEqual(result.direction, TradeDirection.LONG)
         self.assertGreater(result.confidence, 0.0)
         self.assertLess(result.confidence, 1.0)
@@ -125,8 +147,14 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         self.assertIsNotNone(result.take_profit_1)
         self.assertIsNotNone(result.take_profit_2)
         self.assertIsNotNone(result.take_profit_3)
-        self.assertLess(result.stop_loss, result.entry_price, "SL for LONG should be below entry")
-        self.assertGreater(result.take_profit_1, result.entry_price, "TP1 for LONG should be above entry")
+        self.assertLess(
+            result.stop_loss, result.entry_price, "SL for LONG should be below entry"
+        )
+        self.assertGreater(
+            result.take_profit_1,
+            result.entry_price,
+            "TP1 for LONG should be above entry",
+        )
         self.assertLess(result.stop_loss, result.take_profit_1)
 
 
@@ -178,10 +206,20 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
                 c = 100.0 - (i + 1) * 1.5
             else:
                 c = 79.0 - (i - 14) * 0.3
-            bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=i), open=c, high=c+0.3, low=c-0.3, close=c))
+            bars.append(
+                Bar(
+                    time=datetime(2024, 1, 1) + timedelta(days=i),
+                    open=c,
+                    high=c + 0.3,
+                    low=c - 0.3,
+                    close=c,
+                )
+            )
         rsi = self.strategy._calculate_rsi(bars)
         self.assertIsNotNone(rsi)
-        self.assertLess(rsi, 50.0, "RSI should be low after sustained decline with stabilization")
+        self.assertLess(
+            rsi, 50.0, "RSI should be low after sustained decline with stabilization"
+        )
 
     def test_rsi_calculation_overbought(self):
         bars = []
@@ -190,16 +228,34 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
                 c = 100.0 + (i + 1) * 1.5
             else:
                 c = 121.0 + (i - 14) * 0.3
-            bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=i), open=c, high=c+0.3, low=c-0.3, close=c))
+            bars.append(
+                Bar(
+                    time=datetime(2024, 1, 1) + timedelta(days=i),
+                    open=c,
+                    high=c + 0.3,
+                    low=c - 0.3,
+                    close=c,
+                )
+            )
         rsi = self.strategy._calculate_rsi(bars)
         self.assertIsNotNone(rsi)
-        self.assertGreater(rsi, 50.0, "RSI should be high after sustained advance with stabilization")
+        self.assertGreater(
+            rsi, 50.0, "RSI should be high after sustained advance with stabilization"
+        )
 
     def test_rsi_calculation_neutral(self):
         bars = []
         for i in range(30):
             c = 100.0 + (i % 2) * 2.0 - 1.0
-            bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=i), open=c, high=c+0.3, low=c-0.3, close=c))
+            bars.append(
+                Bar(
+                    time=datetime(2024, 1, 1) + timedelta(days=i),
+                    open=c,
+                    high=c + 0.3,
+                    low=c - 0.3,
+                    close=c,
+                )
+            )
         rsi = self.strategy._calculate_rsi(bars)
         self.assertIsNotNone(rsi)
         self.assertGreater(rsi, 30.0)
@@ -209,7 +265,15 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
         bars = []
         for i in range(30):
             c = 100.0 + (i % 5) * 0.5
-            bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=i), open=c, high=c+0.3, low=c-0.3, close=c))
+            bars.append(
+                Bar(
+                    time=datetime(2024, 1, 1) + timedelta(days=i),
+                    open=c,
+                    high=c + 0.3,
+                    low=c - 0.3,
+                    close=c,
+                )
+            )
         sma = self.strategy._calculate_sma(bars)
         std = self.strategy._calculate_std(bars, sma)
         upper = sma + std * 2.0
@@ -231,7 +295,9 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
         bars = _make_oversold_bb_reversion_bars()
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
-        self.assertIsNotNone(result, "Signal should be generated on BB oversold + RSI + reversal candle")
+        self.assertIsNotNone(
+            result, "Signal should be generated on BB oversold + RSI + reversal candle"
+        )
         self.assertEqual(result.direction, TradeDirection.LONG)
         self.assertGreater(result.confidence, 0.0)
         self.assertLess(result.confidence, 1.0)

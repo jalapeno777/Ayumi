@@ -50,7 +50,9 @@ class TestGridConfig(unittest.TestCase):
         config = GridConfig(pair="EURUSD")
         eurusd_config = config.to_preset("EURUSD")
         self.assertEqual(eurusd_config.pair, "EURUSD")
-        self.assertEqual(eurusd_config.grid_spacing_pips, GRID_PRESETS["EURUSD"]["grid_spacing_pips"])
+        self.assertEqual(
+            eurusd_config.grid_spacing_pips, GRID_PRESETS["EURUSD"]["grid_spacing_pips"]
+        )
 
 
 class TestGridState(unittest.TestCase):
@@ -232,7 +234,8 @@ class TestGridStrategy(unittest.TestCase):
         strategy = create_grid_strategy_from_preset("GBPJPY")
         self.assertEqual(strategy.config.pair, "GBPJPY")
         self.assertEqual(
-            strategy.config.grid_spacing_pips, GRID_PRESETS["GBPJPY"]["grid_spacing_pips"]
+            strategy.config.grid_spacing_pips,
+            GRID_PRESETS["GBPJPY"]["grid_spacing_pips"],
         )
 
     def test_create_from_preset_with_overrides(self):

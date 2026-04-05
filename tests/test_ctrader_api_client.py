@@ -1,4 +1,3 @@
-
 from adapters.ctrader.api_client import FIXMessage, FIXClient
 
 

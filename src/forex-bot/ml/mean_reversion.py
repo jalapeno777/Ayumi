@@ -72,14 +72,44 @@ FEATURE_COLS = [
 
 MODEL_HYPERPARAMS: Dict[str, List[Dict[str, Any]]] = {
     "gradient_boosting": [
-        {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.1, "min_samples_leaf": 5},
-        {"n_estimators": 200, "max_depth": 4, "learning_rate": 0.05, "min_samples_leaf": 10},
-        {"n_estimators": 150, "max_depth": 3, "learning_rate": 0.08, "min_samples_leaf": 8},
+        {
+            "n_estimators": 100,
+            "max_depth": 3,
+            "learning_rate": 0.1,
+            "min_samples_leaf": 5,
+        },
+        {
+            "n_estimators": 200,
+            "max_depth": 4,
+            "learning_rate": 0.05,
+            "min_samples_leaf": 10,
+        },
+        {
+            "n_estimators": 150,
+            "max_depth": 3,
+            "learning_rate": 0.08,
+            "min_samples_leaf": 8,
+        },
     ],
     "random_forest": [
-        {"n_estimators": 100, "max_depth": 4, "min_samples_leaf": 5, "max_features": "sqrt"},
-        {"n_estimators": 200, "max_depth": 5, "min_samples_leaf": 10, "max_features": "sqrt"},
-        {"n_estimators": 150, "max_depth": 4, "min_samples_leaf": 8, "max_features": "log2"},
+        {
+            "n_estimators": 100,
+            "max_depth": 4,
+            "min_samples_leaf": 5,
+            "max_features": "sqrt",
+        },
+        {
+            "n_estimators": 200,
+            "max_depth": 5,
+            "min_samples_leaf": 10,
+            "max_features": "sqrt",
+        },
+        {
+            "n_estimators": 150,
+            "max_depth": 4,
+            "min_samples_leaf": 8,
+            "max_features": "log2",
+        },
     ],
 }
 
@@ -87,8 +117,22 @@ try:
     from xgboost import XGBClassifier
 
     MODEL_HYPERPARAMS["xgboost"] = [
-        {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.1, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 5},
-        {"n_estimators": 200, "max_depth": 4, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10},
+        {
+            "n_estimators": 100,
+            "max_depth": 3,
+            "learning_rate": 0.1,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "min_child_weight": 5,
+        },
+        {
+            "n_estimators": 200,
+            "max_depth": 4,
+            "learning_rate": 0.05,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "min_child_weight": 10,
+        },
     ]
 
     def _make_xgboost(params: Dict[str, Any]):
@@ -183,7 +227,16 @@ def prepare_data(
     dataset = pd.concat(
         [
             feat_subset,
-            labeled[["direction", "entry_price", "stop_loss", "take_profit", "outcome", "pnl"]],
+            labeled[
+                [
+                    "direction",
+                    "entry_price",
+                    "stop_loss",
+                    "take_profit",
+                    "outcome",
+                    "pnl",
+                ]
+            ],
         ],
         axis=1,
     )
@@ -213,7 +266,13 @@ def _optimize_threshold(
             taken_pnl = pnl[taken_mask]
             gross_profit = taken_pnl[taken_pnl > 0].sum()
             gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
-            score = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+            score = (
+                gross_profit / gross_loss
+                if gross_loss > 0
+                else float("inf")
+                if gross_profit > 0
+                else 0.0
+            )
         else:
             score = f1_score(y_true, y_pred, zero_division=0)
 
@@ -246,8 +305,27 @@ def train_model(
 
     available = [c for c in FEATURE_COLS if c in dataset.columns]
     if not available:
-        non_feature_cols = {"direction", "entry_price", "stop_loss", "take_profit", "outcome", "pnl", "exit_price", "exit_reason", "holding_bars", "rr_actual", "strategy", "entry_idx", "entry_time"}
-        available = [c for c in dataset.columns if c not in non_feature_cols and dataset[c].dtype in (np.float64, np.int64, np.float32, np.int32)]
+        non_feature_cols = {
+            "direction",
+            "entry_price",
+            "stop_loss",
+            "take_profit",
+            "outcome",
+            "pnl",
+            "exit_price",
+            "exit_reason",
+            "holding_bars",
+            "rr_actual",
+            "strategy",
+            "entry_idx",
+            "entry_time",
+        }
+        available = [
+            c
+            for c in dataset.columns
+            if c not in non_feature_cols
+            and dataset[c].dtype in (np.float64, np.int64, np.float32, np.int32)
+        ]
 
     X = dataset[available].values
     y = dataset["outcome"].values.astype(int)
@@ -284,7 +362,13 @@ def train_model(
                     taken_pnl = pnl_test[taken_mask]
                     gross_profit = taken_pnl[taken_pnl > 0].sum()
                     gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
-                    pf = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+                    pf = (
+                        gross_profit / gross_loss
+                        if gross_loss > 0
+                        else float("inf")
+                        if gross_profit > 0
+                        else 0.0
+                    )
                 else:
                     pf = -1.0
 
@@ -294,7 +378,9 @@ def train_model(
                     best_type = model_type
                     best_threshold = threshold
             except Exception as exc:
-                logger.debug("Model %s with params %s failed: %s", model_type, params, exc)
+                logger.debug(
+                    "Model %s with params %s failed: %s", model_type, params, exc
+                )
 
     if best_model is None:
         raise RuntimeError("No model could be trained successfully")
@@ -368,7 +454,19 @@ def walk_forward_validate(
         feat_subset = features.loc[entry_indices, avail].copy().reset_index(drop=True)
         labeled = labeled.reset_index(drop=True)
         ds = pd.concat(
-            [feat_subset, labeled[["direction", "entry_price", "stop_loss", "take_profit", "outcome", "pnl"]]],
+            [
+                feat_subset,
+                labeled[
+                    [
+                        "direction",
+                        "entry_price",
+                        "stop_loss",
+                        "take_profit",
+                        "outcome",
+                        "pnl",
+                    ]
+                ],
+            ],
             axis=1,
         )
         ds = ds.dropna(subset=["outcome"])
@@ -396,7 +494,9 @@ def walk_forward_validate(
         test_ds = test_part
 
         if len(np.unique(train_ds["outcome"].values)) < 2:
-            fold_metrics.append({"fold": fold_idx, "status": "insufficient_labels_train"})
+            fold_metrics.append(
+                {"fold": fold_idx, "status": "insufficient_labels_train"}
+            )
             continue
 
         try:
@@ -405,7 +505,11 @@ def walk_forward_validate(
 
             available = result.feature_names
             X_test = test_ds[available].values
-            pnl_test = test_ds["pnl"].values.astype(float) if "pnl" in test_ds.columns else None
+            pnl_test = (
+                test_ds["pnl"].values.astype(float)
+                if "pnl" in test_ds.columns
+                else None
+            )
 
             y_prob = result.model.predict_proba(X_test)[:, 1]
             y_pred = (y_prob >= result.threshold).astype(int)
@@ -423,17 +527,19 @@ def walk_forward_validate(
                 total_trades = int(len(taken_pnl))
                 win_rate = float((taken_pnl > 0).sum() / len(taken_pnl) * 100)
 
-            fold_metrics.append({
-                "fold": fold_idx,
-                "status": "ok",
-                "model_type": result.model_type,
-                "f1": result.metrics["f1"],
-                "accuracy": result.metrics["accuracy"],
-                "threshold": result.metrics["threshold"],
-                "win_rate": win_rate,
-                "profit_factor": pf,
-                "total_trades": total_trades,
-            })
+            fold_metrics.append(
+                {
+                    "fold": fold_idx,
+                    "status": "ok",
+                    "model_type": result.model_type,
+                    "f1": result.metrics["f1"],
+                    "accuracy": result.metrics["accuracy"],
+                    "threshold": result.metrics["threshold"],
+                    "win_rate": win_rate,
+                    "profit_factor": pf,
+                    "total_trades": total_trades,
+                }
+            )
         except Exception as exc:
             logger.debug("Fold %d failed: %s", fold_idx, exc)
             fold_metrics.append({"fold": fold_idx, "status": f"error: {exc}"})
@@ -543,14 +649,16 @@ class MLMeanReversionStrategy(ISignalStrategy):
     def _bars_to_dataframe(self, bars: List[Bar]) -> pd.DataFrame:
         rows = []
         for bar in bars:
-            rows.append({
-                "date": bar.time,
-                "open": bar.open,
-                "high": bar.high,
-                "low": bar.low,
-                "close": bar.close,
-                "volume": bar.volume,
-            })
+            rows.append(
+                {
+                    "date": bar.time,
+                    "open": bar.open,
+                    "high": bar.high,
+                    "low": bar.low,
+                    "close": bar.close,
+                    "volume": bar.volume,
+                }
+            )
         return pd.DataFrame(rows)
 
     def _compute_signal_levels(
@@ -569,7 +677,9 @@ class MLMeanReversionStrategy(ISignalStrategy):
         high = df["high"]
         low = df["low"]
 
-        bb_upper, bb_mid, bb_lower = bollinger_bands(close, self._bb_period, self._bb_std)
+        bb_upper, bb_mid, bb_lower = bollinger_bands(
+            close, self._bb_period, self._bb_std
+        )
         atr_val = atr(high, low, close, 14)
 
         last = len(df) - 1

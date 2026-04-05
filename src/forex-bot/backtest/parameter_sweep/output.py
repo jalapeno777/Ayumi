@@ -30,4 +30,3 @@ def to_csv(result: SweepResult, path: str) -> None:
 def to_json(result: SweepResult, path: str) -> None:
     df = _to_dataframe(result)
     df.to_json(path, orient="records", indent=2)
-

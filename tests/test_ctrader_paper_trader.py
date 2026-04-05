@@ -1,7 +1,11 @@
 import pytest
 
 from adapters.ctrader.models import TradeSignal, TradeDirection
-from adapters.ctrader.paper_trader import PaperTrader, PaperTradeResult, PaperTradingStats
+from adapters.ctrader.paper_trader import (
+    PaperTrader,
+    PaperTradeResult,
+    PaperTradingStats,
+)
 from adapters.ctrader.risk_guard import FTMOConfig
 
 
@@ -79,7 +83,10 @@ class TestPaperTrader:
         )
         result = trader.process_signal(signal)
         assert result.success is False
-        assert "Risk:Reward" in result.rejection_reason or "below minimum" in result.rejection_reason
+        assert (
+            "Risk:Reward" in result.rejection_reason
+            or "below minimum" in result.rejection_reason
+        )
 
     def test_process_signal_accepts_good_risk_reward(self):
         config = FTMOConfig(
@@ -212,8 +219,10 @@ class TestPaperTrader:
         config = FTMOConfig(max_position_size_pct=2.0)
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
         callback_called = []
+
         def on_trade(result):
             callback_called.append(result)
+
         trader.register_callback("on_trade_executed", on_trade)
         signal = TradeSignal(
             symbol="EURUSD",

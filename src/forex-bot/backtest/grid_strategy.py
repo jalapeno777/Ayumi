@@ -150,7 +150,9 @@ class GridState:
         elif self.config.position_sizing_type == "increasing":
             return self.config.base_lot_size * (1 + 0.1 * level_index)
         elif self.config.position_sizing_type == "decreasing":
-            return self.config.base_lot_size * (1 + 0.1 * (self.config.num_levels - level_index))
+            return self.config.base_lot_size * (
+                1 + 0.1 * (self.config.num_levels - level_index)
+            )
         return self.config.base_lot_size
 
     def check_level_triggered(self, bar: Bar) -> Optional[Tuple[GridLevel, float]]:
@@ -251,8 +253,14 @@ class GridStrategy(ISignalStrategy):
         if not self.state.grid_active:
             if self.config.initial_spacing_type != "fixed":
                 atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
-                self.config.grid_spacing_pips = atr / self._get_pip_size(self.config.pair) * self.config.atr_multiplier
-                self.config.grid_spacing_pips = max(5.0, min(self.config.grid_spacing_pips, 100.0))
+                self.config.grid_spacing_pips = (
+                    atr
+                    / self._get_pip_size(self.config.pair)
+                    * self.config.atr_multiplier
+                )
+                self.config.grid_spacing_pips = max(
+                    5.0, min(self.config.grid_spacing_pips, 100.0)
+                )
 
             self.state.initialize_grid(latest.close)
             self.state.grid_start_bar = self._bar_index
@@ -273,16 +281,33 @@ class GridStrategy(ISignalStrategy):
         direction = TradeDirection.LONG if level.is_buy else TradeDirection.SHORT
         sl = self.state.get_sl_for_level(level, entry_price)
         risk = abs(entry_price - sl)
-        tp1 = entry_price + risk * 1.0 if direction == TradeDirection.LONG else entry_price - risk * 1.0
-        tp2 = entry_price + risk * 2.0 if direction == TradeDirection.LONG else entry_price - risk * 2.0
-        tp3 = entry_price + risk * 3.0 if direction == TradeDirection.LONG else entry_price - risk * 3.0
+        tp1 = (
+            entry_price + risk * 1.0
+            if direction == TradeDirection.LONG
+            else entry_price - risk * 1.0
+        )
+        tp2 = (
+            entry_price + risk * 2.0
+            if direction == TradeDirection.LONG
+            else entry_price - risk * 2.0
+        )
+        tp3 = (
+            entry_price + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry_price - risk * 3.0
+        )
 
         if self.config.direction == GridDirection.LONG and not level.is_buy:
             return None
         if self.config.direction == GridDirection.SHORT and level.is_buy:
             return None
 
-        confidence = min(0.85, 0.60 + (1.0 - self.state.filled_count / self.config.max_concurrent_positions) * 0.25)
+        confidence = min(
+            0.85,
+            0.60
+            + (1.0 - self.state.filled_count / self.config.max_concurrent_positions)
+            * 0.25,
+        )
         rationale = (
             f"Grid {'long' if level.is_buy else 'short'} triggered: level={level.level_index}, "
             f"entry={entry_price:.5f}, tp1={tp1:.5f}, sl={sl:.5f}"

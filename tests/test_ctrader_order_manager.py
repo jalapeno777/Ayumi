@@ -1,6 +1,9 @@
-
 from adapters.ctrader.models import TradeDirection, PositionStatus
-from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig, OrderExecutionResult
+from adapters.ctrader.order_manager import (
+    OrderManager,
+    PositionSizeConfig,
+    OrderExecutionResult,
+)
 
 
 class TestPositionSizeConfig:
