@@ -225,7 +225,7 @@ class TestCloseTrade:
             confluence_count=1,
             rationale="",
         )
-        cfg = PairingConfig()
+        cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
         _close_trade(
             trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg
         )
@@ -256,7 +256,7 @@ class TestCloseTrade:
             confluence_count=1,
             rationale="",
         )
-        cfg = PairingConfig()
+        cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
         _close_trade(
             trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg
         )
