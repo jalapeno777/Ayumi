@@ -21,6 +21,8 @@ from .engine import (
     TradeOutcome,
     ExitReason,
     determine_session,
+    get_spread_for_pair,
+    DEFAULT_SPREAD_PIPS,
 )
 from .ict_smc.confluence_engine import SignalConfluenceEngine
 from .ict_smc.models import (
@@ -51,16 +53,28 @@ class PairingConfig:
     tp3_rr: float = 3.0
     min_confidence: float = 0.55
     min_confluence: int = 0
-    spread_pips: float = 0.5
+    spread_pips: float = 0.0
     commission_per_lot: float = 3.5
     leverage: int = 100
     max_total_drawdown_pct: float = 0.05
     max_daily_drawdown_pct: float = 0.02
     min_bars_before_signal: int = 30
     starting_balance: float = 10000.0
+    round_trip_spread: bool = True
+    slippage_pips: float = 0.2
+    swap_per_lot_per_day: float = -2.0
+    pair: str = ""
     allow_entry_sessions: List[str] = field(
         default_factory=lambda: ["london", "ny_am", "ny_pm"]
     )
+
+    @property
+    def effective_spread_pips(self) -> float:
+        if self.spread_pips > 0:
+            return self.spread_pips
+        if self.pair:
+            return get_spread_for_pair(self.pair)
+        return DEFAULT_SPREAD_PIPS
 
 
 @dataclass
@@ -225,6 +239,7 @@ class SelectivePairingHarness:
         trades: List[SimulatedTrade] = []
         equity_curve: List[float] = [balance]
         open_trades: List[SimulatedTrade] = []
+        cost_tracker = {"spread": 0.0, "commission": 0.0}
 
         signal_map: Dict[datetime, List[ConfluenceSignal]] = {}
         for sig in signals:
@@ -263,7 +278,7 @@ class SelectivePairingHarness:
             for trade in open_trades:
                 hit, exit_price, reason = _check_trade_exit(trade, bar)
                 if hit:
-                    _close_trade(trade, i, bar.time, exit_price, reason, cfg)
+                    _close_trade(trade, i, bar.time, exit_price, reason, cfg, cost_tracker)
                     balance += trade.profit_loss
                     if balance > peak_balance:
                         peak_balance = balance
@@ -291,7 +306,7 @@ class SelectivePairingHarness:
                         continue
 
                     pip_value = _get_pip_value(sig.entry_price)
-                    spread_cost = cfg.spread_pips * pip_value
+                    spread_cost = cfg.effective_spread_pips * pip_value
                     if sig.direction == TradeDirection.LONG:
                         effective_entry = sig.entry_price + spread_cost
                     else:
@@ -340,6 +355,7 @@ class SelectivePairingHarness:
                 last_price,
                 ExitReason.END_OF_DATA,
                 cfg,
+                cost_tracker,
             )
             balance += trade.profit_loss
             if balance > peak_balance:
@@ -354,6 +370,7 @@ class SelectivePairingHarness:
             max_drawdown,
             max_daily_loss,
             peak_balance,
+            cost_tracker,
         )
 
     # ------------------------------------------------------------------
@@ -553,22 +570,50 @@ def _close_trade(
     exit_price: float,
     reason: ExitReason,
     config: PairingConfig,
+    cost_tracker: Optional[dict] = None,
 ) -> None:
     trade.exit_bar_index = bar_index
-    trade.exit_price = exit_price
     trade.exit_time = exit_time
     trade.exit_reason = reason
 
     pip_value = _get_pip_value(trade.entry_price)
     standard_lots = trade.lot_size / 100000.0
+    spread_pips = config.effective_spread_pips
     commission = standard_lots * config.commission_per_lot
+
+    if cost_tracker is not None:
+        cost_tracker["commission"] += commission
+
+    if config.round_trip_spread:
+        spread_price = spread_pips * pip_value
+        if trade.direction == TradeDirection.LONG:
+            exit_price -= spread_price
+        else:
+            exit_price += spread_price
+        spread_dollars = spread_pips * pip_value * trade.lot_size
+        if cost_tracker is not None:
+            cost_tracker["spread"] += spread_dollars
+
+    slippage_price = config.slippage_pips * pip_value
+    if trade.direction == TradeDirection.LONG:
+        exit_price -= slippage_price
+    else:
+        exit_price += slippage_price
+
+    trade.exit_price = exit_price
+
+    holding_days = (exit_time.date() - trade.entry_time.date()).days
+    if holding_days > 0 and config.swap_per_lot_per_day != 0.0:
+        swap_cost = standard_lots * config.swap_per_lot_per_day * holding_days
+    else:
+        swap_cost = 0.0
 
     if trade.direction == TradeDirection.LONG:
         trade.pips = (exit_price - trade.entry_price) / pip_value
     else:
         trade.pips = (trade.entry_price - exit_price) / pip_value
 
-    trade.profit_loss = trade.pips * standard_lots * pip_value * 100000.0 - commission
+    trade.profit_loss = trade.pips * standard_lots * pip_value * 100000.0 - commission + swap_cost
     trade.outcome = (
         TradeOutcome.WIN
         if trade.profit_loss > 0.01
@@ -594,6 +639,7 @@ def _calculate_metrics(
     max_drawdown: float,
     max_daily_loss: float,
     peak_balance: float,
+    cost_tracker: Optional[dict] = None,
 ) -> BacktestMetrics:
     import math
 
@@ -667,7 +713,7 @@ def _calculate_metrics(
         avg_holding_bars=avg_hold,
         equity_curve=equity_curve,
         trades=trades,
-        total_spread_cost=0.0,
-        total_commission_cost=0.0,
+        total_spread_cost=cost_tracker["spread"] if cost_tracker else 0.0,
+        total_commission_cost=cost_tracker["commission"] if cost_tracker else 0.0,
         rejected_signals=rejected,
     )

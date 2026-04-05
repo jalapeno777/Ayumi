@@ -775,7 +775,7 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         from backtest.engine import BacktestConfig
 
         cfg = BacktestConfig()
-        self.assertEqual(cfg.slippage_pips, 0.0)
+        self.assertEqual(cfg.slippage_pips, 0.2)
 
     def test_slippage_increases_effective_entry_cost(self):
         from backtest.engine import Bar, BacktestConfig
