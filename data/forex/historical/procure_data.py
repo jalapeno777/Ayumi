@@ -8,7 +8,6 @@ Output:  CsvDataLoader-compatible CSV (Date,Open,High,Low,Close,Volume)
 
 import io
 import re
-import sys
 import time
 import zipfile
 from datetime import datetime
@@ -18,10 +17,10 @@ import pandas as pd
 import urllib.request
 import urllib.parse
 
-OUTPUT_DIR = Path("/tmp/forex-data")
+OUTPUT_DIR = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
 BASE_URL = "https://www.histdata.com"
 
-PAIRS = ["EURUSD", "GBPUSD"]
+PAIRS = ["EURUSD", "GBPUSD", "GBPJPY", "USDJPY", "XAUUSD"]
 YEARS = [2023, 2024, 2025]
 
 OUTPUT_TIMEFRAMES = ["M15", "H1", "H4", "D1"]
@@ -207,10 +206,10 @@ def main():
     with open(report_path, "w") as f:
         f.write("FOREX DATA QUALITY REPORT\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"Source: HistData.com (MetaTrader M1 bid data)\n")
-        f.write(f"Date Range: 2023-01 to 2025-12\n")
-        f.write(f"Instruments: EURUSD, GBPUSD\n")
-        f.write(f"Method: M1 yearly downloads, resampled to M15/H1/H4/D1\n\n")
+        f.write("Source: HistData.com (MetaTrader M1 bid data)\n")
+        f.write("Date Range: 2023-01 to 2025-12\n")
+        f.write("Instruments: EURUSD, GBPUSD\n")
+        f.write("Method: M1 yearly downloads, resampled to M15/H1/H4/D1\n\n")
 
         f.write("FILE INVENTORY\n")
         f.write("-" * 60 + "\n")

@@ -80,7 +80,7 @@ class FIXClient:
     TAG_TARGET_COMP_ID = 56
     TAG_SENDER_SUB_ID = 50
     TAG_TARGET_SUB_ID = 57
-    TAG_CLORD_ID = 37
+    TAG_CLORD_ID = 11
     TAG_ORDER_ID = 37
     TAG_SYMBOL = 55
     TAG_SIDE = 54
@@ -90,7 +90,7 @@ class FIXClient:
     TAG_STOP_PX = 99
     TAG_EXEC_TYPE = 150
     TAG_ORD_STATUS = 39
-    TAG_EXEC_ID = 32
+    TAG_EXEC_ID = 17
     TAG_LAST_PX = 31
     TAG_LAST_QTY = 32
     TAG_AVG_PX = 6
@@ -104,7 +104,7 @@ class FIXClient:
     TAG_BID = 188
     TAG_ASK = 190
     TAG_LAST = 799
-    TAG_TIMESTAMP = 60
+    TAG_TIMESTAMP = 52
 
     def __init__(self, credentials: cTraderCredentials):
         self.credentials = credentials
@@ -180,7 +180,7 @@ class FIXClient:
                 if not data:
                     break
                 buffer += data
-                self._process_buffer(buffer)
+                buffer = self._process_buffer(buffer)
             except Exception as e:
                 if self._running:
                     logger.error(f"Receive error: {e}")
@@ -196,13 +196,13 @@ class FIXClient:
                 if not data:
                     break
                 buffer += data
-                self._process_buffer(buffer)
+                buffer = self._process_buffer(buffer)
             except Exception as e:
                 if self._running:
                     logger.error(f"Receive error: {e}")
                 break
 
-    def _process_buffer(self, buffer: bytes):
+    def _process_buffer(self, buffer: bytes) -> bytes:
         try:
             soh_char = FIXMessage.SOH
             while soh_char in buffer.decode("latin-1", errors="replace"):
@@ -215,6 +215,7 @@ class FIXClient:
 
         except Exception as e:
             logger.error(f"Error processing buffer: {e}")
+        return buffer
 
     def _handle_message(self, msg: FIXMessage):
         msg_type = msg.msg_type

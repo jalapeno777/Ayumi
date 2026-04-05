@@ -1,16 +1,12 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Callable, Any, TYPE_CHECKING
-from threading import Lock
+from typing import Optional, List, Callable, Any
+from threading import RLock
 
 from .models import TradeSignal, Position, Order
 from .order_manager import OrderManager, PositionSizeConfig
 from .risk_guard import RiskGuard, FTMOConfig
-
-if TYPE_CHECKING:
-    from ...quant.config import QuantConfig
-    from ...quant.pipeline import QuantPipeline as QPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +41,6 @@ class PaperTrader:
         ftmo_config: Optional[FTMOConfig] = None,
         position_config: Optional[PositionSizeConfig] = None,
         starting_balance: float = 100000.0,
-        quant_config: Optional["QuantConfig"] = None,
     ):
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
@@ -53,7 +48,7 @@ class PaperTrader:
         self._risk_guard = RiskGuard(self._ftmo_config, starting_balance)
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
-        self._lock = Lock()
+        self._lock = RLock()
         self._stats = PaperTradingStats(
             starting_balance=starting_balance, current_balance=starting_balance
         )
@@ -62,36 +57,9 @@ class PaperTrader:
         self._running = False
         self._last_update: Optional[datetime] = None
 
-        self._quant_pipeline: Optional[QPipeline] = None
-        if quant_config is not None:
-            from ...quant.config import QuantConfig as QC
-            from ...quant.pipeline import QuantPipeline
-
-            if not isinstance(quant_config, QC):
-                raise TypeError(f"Expected QuantConfig, got {type(quant_config).__name__}")
-            self._quant_pipeline = QuantPipeline(quant_config)
-            self._quant_pipeline.portfolio.balance = starting_balance
-
     def process_signal(self, signal: TradeSignal) -> PaperTradeResult:
         with self._lock:
             self._stats.total_signals_processed += 1
-
-            if self._quant_pipeline is not None:
-                from ...quant.pipeline import TradeAction as QuantTradeAction
-
-                decision = self._quant_pipeline.pre_trade_check(
-                    signal_symbol=signal.symbol,
-                    entry_price=signal.entry_price,
-                    stop_loss=signal.stop_loss,
-                )
-                if decision.action == QuantTradeAction.REJECT:
-                    self._stats.signals_blocked_by_risk += 1
-                    logger.warning(f"Signal blocked by quant pipeline: {decision.reject_reason}")
-                    return PaperTradeResult(
-                        success=False,
-                        signal=signal,
-                        rejection_reason=decision.reject_reason or "Quant pipeline rejected",
-                    )
 
             risk_result = self._risk_guard.check_signal(signal)
             if not risk_result.allowed:
@@ -111,16 +79,23 @@ class PaperTrader:
                 signal.symbol,
             )
 
-            if self._quant_pipeline is not None:
-                from ...quant.pipeline import TradeAction as QuantTradeAction
-
-                decision = self._quant_pipeline.pre_trade_check(
-                    signal_symbol=signal.symbol,
-                    entry_price=signal.entry_price,
-                    stop_loss=signal.stop_loss,
+            trade_check = self._risk_guard.check_trade_allowed(
+                direction=signal.direction,
+                volume=volume,
+                entry_price=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                take_profit=signal.take_profit_1,
+                account_balance=self._current_balance,
+            )
+            if not trade_check.allowed:
+                self._stats.signals_blocked_by_risk += 1
+                logger.warning(f"Trade blocked by risk: {trade_check.message}")
+                return PaperTradeResult(
+                    success=False,
+                    signal=signal,
+                    rejection_reason=trade_check.message,
+                    risk_guard_result=trade_check,
                 )
-                if decision.lot_size is not None and decision.action != QuantTradeAction.REJECT:
-                    volume = decision.lot_size
 
             trade_result = self._order_manager.execute_paper_order(
                 symbol=signal.symbol,
@@ -196,10 +171,6 @@ class PaperTrader:
                 self._stats.realized_pnl += position.closed_pnl
                 self._current_balance += position.closed_pnl
                 self._stats.current_balance = self._current_balance
-
-                if self._quant_pipeline is not None:
-                    self._quant_pipeline.on_trade_closed(position.closed_pnl)
-                    self._quant_pipeline.portfolio.balance = self._current_balance
 
                 is_win = position.closed_pnl > 0
                 self._risk_guard.record_trade(position.closed_pnl, is_win)

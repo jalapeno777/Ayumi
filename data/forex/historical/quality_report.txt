@@ -1,42 +1,101 @@
 FOREX DATA QUALITY REPORT
-Generated: 2026-04-03 01:23:43
+Generated: 2026-04-04 22:10:00
 Source: HistData.com (MetaTrader M1 bid data)
 Date Range: 2023-01 to 2025-12
-Instruments: EURUSD, GBPUSD
+Instruments: EURUSD, GBPUSD, GBPJPY, USDJPY, XAUUSD
 Method: M1 yearly downloads, resampled to M15/H1/H4/D1
 
 FILE INVENTORY
-------------------------------------------------------------
-  EURUSD_M15.csv  (71498 bars)
-  EURUSD_H1.csv  (17877 bars)
-  EURUSD_H4.csv  (4807 bars)
+----------------------------------------------------------------------
+  EURUSD_M15.csv  (71,498 bars)
+  EURUSD_H1.csv  (17,877 bars)
+  EURUSD_H4.csv  (4,807 bars)
   EURUSD_D1.csv  (938 bars)
-  GBPUSD_M15.csv  (71436 bars)
-  GBPUSD_H1.csv  (17862 bars)
-  GBPUSD_H4.csv  (4804 bars)
+  GBPUSD_M15.csv  (71,436 bars)
+  GBPUSD_H1.csv  (17,862 bars)
+  GBPUSD_H4.csv  (4,804 bars)
   GBPUSD_D1.csv  (938 bars)
+  GBPJPY_M15.csv  (71,359 bars)
+  GBPJPY_H1.csv  (17,847 bars)
+  GBPJPY_H4.csv  (4,806 bars)
+  GBPJPY_D1.csv  (938 bars)
+  USDJPY_M15.csv  (71,405 bars)
+  USDJPY_H1.csv  (17,853 bars)
+  USDJPY_H4.csv  (4,802 bars)
+  USDJPY_D1.csv  (938 bars)
+  XAUUSD_M15.csv  (67,919 bars)
+  XAUUSD_H1.csv  (16,991 bars)
+  XAUUSD_H4.csv  (4,772 bars)
+  XAUUSD_D1.csv  (934 bars)
 
 GAP ANALYSIS
-------------------------------------------------------------
-  EURUSD   M15   bars=  71498  gaps= 851  (weekend=157, intraday=694)
+----------------------------------------------------------------------
+  EURUSD   M15   bars= 71,498  gaps= 851  (weekend=157, intraday=694)
            range: 2023-01-01 17:00:00 to 2025-12-31 16:45:00
-  EURUSD   H1    bars=  17877  gaps= 843  (weekend=157, intraday=686)
+  EURUSD   H1    bars= 17,877  gaps= 843  (weekend=157, intraday=686)
            range: 2023-01-01 17:00:00 to 2025-12-31 16:00:00
-  EURUSD   H4    bars=   4807  gaps= 160  (weekend=157, intraday=3)
+  EURUSD   H4    bars=  4,807  gaps= 160  (weekend=157, intraday=3)
            range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
-  EURUSD   D1    bars=    938  gaps= 156  (weekend=156, intraday=0)
+  EURUSD   D1    bars=    938  gaps= 156  (weekend=937, intraday=-781)
            range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
-  GBPUSD   M15   bars=  71436  gaps= 845  (weekend=157, intraday=688)
+  GBPUSD   M15   bars= 71,436  gaps= 845  (weekend=157, intraday=688)
            range: 2023-01-01 18:00:00 to 2025-12-31 16:45:00
-  GBPUSD   H1    bars=  17862  gaps= 839  (weekend=157, intraday=682)
+  GBPUSD   H1    bars= 17,862  gaps= 839  (weekend=157, intraday=682)
            range: 2023-01-01 18:00:00 to 2025-12-31 16:00:00
-  GBPUSD   H4    bars=   4804  gaps= 160  (weekend=157, intraday=3)
+  GBPUSD   H4    bars=  4,804  gaps= 160  (weekend=157, intraday=3)
            range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
-  GBPUSD   D1    bars=    938  gaps= 156  (weekend=156, intraday=0)
+  GBPUSD   D1    bars=    938  gaps= 156  (weekend=937, intraday=-781)
            range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
+  GBPJPY   M15   bars= 71,359  gaps= 846  (weekend=157, intraday=689)
+           range: 2023-01-01 18:30:00 to 2025-12-31 16:45:00
+  GBPJPY   H1    bars= 17,847  gaps= 836  (weekend=157, intraday=679)
+           range: 2023-01-01 18:00:00 to 2025-12-31 16:00:00
+  GBPJPY   H4    bars=  4,806  gaps= 161  (weekend=157, intraday=4)
+           range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
+  GBPJPY   D1    bars=    938  gaps= 156  (weekend=937, intraday=-781)
+           range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
+  USDJPY   M15   bars= 71,405  gaps= 855  (weekend=157, intraday=698)
+           range: 2023-01-01 17:00:00 to 2025-12-31 16:45:00
+  USDJPY   H1    bars= 17,853  gaps= 852  (weekend=157, intraday=695)
+           range: 2023-01-01 17:00:00 to 2025-12-31 16:00:00
+  USDJPY   H4    bars=  4,802  gaps= 163  (weekend=157, intraday=6)
+           range: 2023-01-01 16:00:00 to 2025-12-31 16:00:00
+  USDJPY   D1    bars=    938  gaps= 156  (weekend=937, intraday=-781)
+           range: 2023-01-01 00:00:00 to 2025-12-31 00:00:00
+  XAUUSD   M15   bars= 67,919  gaps=1,322  (weekend=159, intraday=1163)
+           range: 2023-01-02 18:00:00 to 2025-12-31 16:45:00
+  XAUUSD   H1    bars= 16,991  gaps=1,320  (weekend=159, intraday=1161)
+           range: 2023-01-02 18:00:00 to 2025-12-31 16:00:00
+  XAUUSD   H4    bars=  4,772  gaps= 160  (weekend=159, intraday=1)
+           range: 2023-01-02 16:00:00 to 2025-12-31 16:00:00
+  XAUUSD   D1    bars=    934  gaps= 156  (weekend=933, intraday=-777)
+           range: 2023-01-02 00:00:00 to 2025-12-31 00:00:00
+
+VALIDATION RESULTS
+----------------------------------------------------------------------
+  EURUSD   M15   PASS
+  EURUSD   H1    PASS
+  EURUSD   H4    PASS
+  EURUSD   D1    PASS
+  GBPUSD   M15   PASS
+  GBPUSD   H1    PASS
+  GBPUSD   H4    PASS
+  GBPUSD   D1    PASS
+  GBPJPY   M15   PASS
+  GBPJPY   H1    PASS
+  GBPJPY   H4    PASS
+  GBPJPY   D1    PASS
+  USDJPY   M15   PASS
+  USDJPY   H1    PASS
+  USDJPY   H4    PASS
+  USDJPY   D1    PASS
+  XAUUSD   M15   PASS
+  XAUUSD   H1    PASS
+  XAUUSD   H4    PASS
+  XAUUSD   D1    PASS
 
 NOTES
-------------------------------------------------------------
+----------------------------------------------------------------------
 - Data source: HistData.com MetaTrader bid prices
 - Weekend gaps (Fri close to Sun/Mon open) are expected
 - Intraday gaps may occur during low-liquidity sessions
