@@ -589,7 +589,7 @@ def load_model(model_dir: str) -> Tuple[Any, List[str], float]:
     path = Path(model_dir)
 
     with open(path / "mean_reversion_model.pkl", "rb") as f:
-        model = pickle.load(f)
+        model = pickle.load(f)  # nosec B301
 
     with open(path / "mean_reversion_meta.json") as f:
         meta = json.load(f)
