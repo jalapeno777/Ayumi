@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import inspect
+from typing import Any, Callable, List, Optional, Protocol, Union
+
+from .engine import BacktestConfig, Bar
+from .multi_strategy_engine import MultiStrategyBacktestEngine
+from .strategies import ISignalStrategy
+from quant.walk_forward import (
+    WalkForwardResults,
+    WalkForwardValidator,
+    _compute_metrics,
+)
+
+
+class SupportsTrain(Protocol):
+    def train(self, data: Any) -> None: ...
+
+
+def run_strategy_walk_forward(
+    bars: List[Bar],
+    strategy_factory: Union[
+        Callable[[], ISignalStrategy],
+        Callable[[List[Bar]], ISignalStrategy],
+    ],
+    pair: str,
+    n_windows: int = 5,
+    train_ratio: float = 0.7,
+    val_ratio: float = 0.15,
+    overlap_ratio: float = 0.2,
+    initial_balance: float = 10000,
+    spread_pips: Optional[float] = None,
+    commission_per_lot: Optional[float] = None,
+) -> WalkForwardResults:
+    factory_params = len(inspect.signature(strategy_factory).parameters)
+
+    config = BacktestConfig(
+        starting_balance=initial_balance,
+        spread_pips=spread_pips if spread_pips is not None else 0.0,
+        commission_per_lot=commission_per_lot if commission_per_lot is not None else 3.5,
+    )
+
+    validator = WalkForwardValidator(
+        data=bars,
+        n_windows=n_windows,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        overlap_ratio=overlap_ratio,
+    )
+
+    per_window = []
+    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+        if len(test_bars) < config.min_bars_before_signal:
+            window_metrics = _compute_metrics(idx, [])
+            per_window.append(window_metrics)
+            continue
+
+        if factory_params == 0:
+            strategy = strategy_factory()
+        else:
+            strategy = strategy_factory(train_bars)
+
+        if (
+            hasattr(strategy, "train")
+            and callable(strategy.train)
+            and factory_params > 0
+        ):
+            strategy.train(train_bars)
+
+        try:
+            engine = MultiStrategyBacktestEngine(config, [strategy])
+            result = engine.run_all_strategies(test_bars)
+            metrics_obj = result[strategy.name].metrics
+
+            trades = [
+                {"pnl": t.profit_loss}
+                for t in metrics_obj.trades
+                if hasattr(t, "profit_loss")
+            ]
+            if not trades and metrics_obj.total_trades > 0:
+                trades = [{"pnl": metrics_obj.total_pnl / metrics_obj.total_trades} for _ in range(metrics_obj.total_trades)]
+        except ValueError:
+            trades = []
+
+        window_metrics = _compute_metrics(idx, trades)
+        per_window.append(window_metrics)
+
+    from quant.walk_forward import _mean, _std
+
+    aggregated = None
+    if per_window:
+        wr_values = [m.win_rate for m in per_window]
+        pf_values = [m.profit_factor for m in per_window]
+        dd_values = [m.max_drawdown for m in per_window]
+        sr_values = [m.sharpe_ratio for m in per_window]
+        tc_values = [float(m.trade_count) for m in per_window]
+        pnl_values = [m.total_pnl for m in per_window]
+
+        mean_wr = _mean(wr_values)
+        mean_pf = _mean(pf_values)
+        mean_dd = _mean(dd_values)
+        mean_sr = _mean(sr_values)
+        mean_tc = _mean(tc_values)
+        mean_pnl = _mean(pnl_values)
+
+        from quant.walk_forward import AggregatedMetrics
+
+        aggregated = AggregatedMetrics(
+            mean_win_rate=mean_wr,
+            std_win_rate=_std(wr_values, mean_wr),
+            mean_profit_factor=mean_pf,
+            std_profit_factor=_std(pf_values, mean_pf),
+            mean_max_drawdown=mean_dd,
+            std_max_drawdown=_std(dd_values, mean_dd),
+            mean_sharpe_ratio=mean_sr,
+            std_sharpe_ratio=_std(sr_values, mean_sr),
+            mean_trade_count=mean_tc,
+            std_trade_count=_std(tc_values, mean_tc),
+            mean_total_pnl=mean_pnl,
+            std_total_pnl=_std(pnl_values, mean_pnl),
+            windows_passed=sum(1 for m in per_window if m.passed_go_nogo),
+            total_windows=len(per_window),
+        )
+
+    windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
+    total = len(per_window)
+    go_nogo = total >= 3 and windows_passed >= 2
+
+    return WalkForwardResults(
+        per_window=per_window,
+        aggregated=aggregated,
+        go_nogo=go_nogo,
+    )
+
+
+STRATEGY_REGISTRY: dict[str, Callable[..., ISignalStrategy]] = {}
+
+
+def register_strategy(name: str, factory: Callable[..., ISignalStrategy]) -> None:
+    STRATEGY_REGISTRY[name] = factory
+
+
+def get_registered_strategies() -> list[str]:
+    return sorted(STRATEGY_REGISTRY.keys())
+
+
+def run_named_strategy_walk_forward(
+    strategy_name: str,
+    bars: List[Bar],
+    pair: str,
+    n_windows: int = 5,
+    train_ratio: float = 0.7,
+    initial_balance: float = 10000,
+    spread_pips: Optional[float] = None,
+    commission_per_lot: Optional[float] = None,
+) -> WalkForwardResults:
+    if strategy_name not in STRATEGY_REGISTRY:
+        available = ", ".join(get_registered_strategies())
+        raise ValueError(
+            f"Unknown strategy '{strategy_name}'. Available: {available}"
+        )
+    return run_strategy_walk_forward(
+        bars=bars,
+        strategy_factory=STRATEGY_REGISTRY[strategy_name],
+        pair=pair,
+        n_windows=n_windows,
+        train_ratio=train_ratio,
+        initial_balance=initial_balance,
+        spread_pips=spread_pips,
+        commission_per_lot=commission_per_lot,
+    )
