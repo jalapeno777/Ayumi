@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from typing import Callable
 
 from .features import (
     sma,
@@ -10,6 +11,8 @@ from .features import (
     engulfing_bullish,
     engulfing_bearish,
 )
+
+_SignalFn = Callable[[pd.DataFrame], pd.DataFrame]
 
 
 def ma_crossover_signals(
@@ -280,7 +283,7 @@ def label_trades(
 
 
 def generate_all_signals(df: pd.DataFrame) -> pd.DataFrame:
-    signal_fns = [
+    signal_fns: list[_SignalFn] = [
         ma_crossover_signals,
         rsi_divergence_signals,
         bb_mean_reversion_signals,

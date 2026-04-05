@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-from ctrader.connection import (
+from ctrader_fix.connection import (
     CTraderConnection,
     MissingCredentialError,
     FIXConnectionError,
@@ -227,9 +227,9 @@ class TestCTraderConnection(unittest.TestCase):
 
         with (
             patch(
-                "ctrader.connection.socket.create_connection", return_value=MagicMock()
+                "ctrader_fix.connection.socket.create_connection", return_value=MagicMock()
             ),
-            patch("ctrader.connection.ssl.create_default_context") as mock_ctx,
+            patch("ctrader_fix.connection.ssl.create_default_context") as mock_ctx,
             patch.object(conn, "_recv_message", return_value=logon_response),
         ):
             mock_ssl_socket = MagicMock()
@@ -252,9 +252,9 @@ class TestCTraderConnection(unittest.TestCase):
 
         with (
             patch(
-                "ctrader.connection.socket.create_connection", return_value=MagicMock()
+                "ctrader_fix.connection.socket.create_connection", return_value=MagicMock()
             ),
-            patch("ctrader.connection.ssl.create_default_context") as mock_ctx,
+            patch("ctrader_fix.connection.ssl.create_default_context") as mock_ctx,
             patch.object(conn, "_recv_message", return_value=bad_response),
         ):
             mock_ctx.return_value.wrap_socket.return_value = mock_ssl_socket

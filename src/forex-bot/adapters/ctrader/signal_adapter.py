@@ -2,8 +2,8 @@ import logging
 from datetime import datetime
 from typing import Optional, List, Callable
 
-from ...backtest.engine import MarketState
-from ...backtest.strategies import ISignalStrategy
+from backtest.engine import MarketState, TradeDirection as BacktestTradeDirection
+from backtest.strategies import ISignalStrategy
 from .models import TradeSignal, TradeDirection
 from .paper_trader import PaperTrader
 
@@ -70,8 +70,6 @@ class cTraderSignalAdapter:
         return trade_signal
 
     def _convert_direction(self, direction) -> TradeDirection:
-        from ...backtest.engine import TradeDirection as BacktestTradeDirection
-
         if isinstance(direction, BacktestTradeDirection):
             if direction == BacktestTradeDirection.LONG:
                 return TradeDirection.LONG
