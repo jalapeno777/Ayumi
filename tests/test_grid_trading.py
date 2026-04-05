@@ -320,5 +320,185 @@ class TestGridDirectionalBias(unittest.TestCase):
         self.assertTrue(state.is_active)
 
 
+def _make_ranging_bars(n=500, center=1.1000, half_range=0.0030):
+    bars = []
+    import random
+    rng = random.Random(42)
+    price = center
+    for i in range(n):
+        change = rng.uniform(-half_range, half_range) * 0.1
+        price = max(center - half_range, min(center + half_range, price + change))
+        noise = rng.uniform(-0.0002, 0.0002)
+        o = price
+        c = price + noise
+        h = max(o, c) + rng.uniform(0, 0.0003)
+        low = min(o, c) - rng.uniform(0, 0.0003)
+        bars.append({
+            "time": datetime(2024, 1, 1, 10, 0) + timedelta(hours=i),
+            "open": o, "high": h, "low": low, "close": c,
+        })
+    return bars
+
+
+class TestGridBacktestIntegration(unittest.TestCase):
+    def test_grid_produces_trades_in_ranging_market(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw = _make_ranging_bars(500, 1.1000, 0.0030)
+        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
+                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            max_daily_drawdown_pct=0.05,
+            max_total_drawdown_pct=0.05,
+            spread_pips=0.5,
+            max_open_trades=10,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter = GridStrategyAdapter(GridConfig.eurusd())
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+        results = engine.run_all_strategies(bars)
+
+        self.assertIn(adapter.name, results)
+        m = results[adapter.name].metrics
+        self.assertGreater(m.total_trades, 0)
+
+    def test_grid_respects_max_open_trades(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw = _make_ranging_bars(200, 1.1000, 0.0030)
+        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
+                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            max_open_trades=3,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter = GridStrategyAdapter(GridConfig.eurusd())
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+        results = engine.run_all_strategies(bars)
+        m = results[adapter.name].metrics
+        self.assertGreater(m.total_trades, 0)
+
+    def test_grid_xauusd_config(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw = _make_ranging_bars(200, 2000.0, 15.0)
+        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
+                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            max_open_trades=10,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter = GridStrategyAdapter(GridConfig.xauusd())
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+        results = engine.run_all_strategies(bars)
+
+        self.assertIn(adapter.name, results)
+
+
+class TestGridWalkForward(unittest.TestCase):
+    def test_walk_forward_three_windows(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw = _make_ranging_bars(900, 1.1000, 0.0030)
+        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
+                     low=b["low"], close=b["close"], volume=1000) for b in raw]
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            max_daily_drawdown_pct=0.05,
+            max_total_drawdown_pct=0.05,
+            spread_pips=0.5,
+            max_open_trades=10,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        n_windows = 3
+        window_size = len(bars) // n_windows
+        windows_passed = 0
+
+        for w in range(n_windows):
+            start = w * window_size
+            end = (w + 1) * window_size if w < n_windows - 1 else len(bars)
+            window_bars = bars[start:end]
+            wlen = len(window_bars)
+
+            train_end = int(wlen * 0.6)
+            test_bars = window_bars[int(wlen * 0.75):]
+
+            if len(test_bars) < 30:
+                continue
+
+            adapter = GridStrategyAdapter(GridConfig.eurusd())
+            engine = MultiStrategyBacktestEngine(config, [adapter])
+
+            train_results = engine.run_all_strategies(window_bars[:train_end])
+            test_results = engine.run_all_strategies(test_bars)
+
+            train_results[adapter.name].metrics
+            test_m = test_results[adapter.name].metrics
+
+            self.assertGreater(test_m.total_trades, 0,
+                               f"Window {w}: no trades in test period")
+            windows_passed += 1
+
+        self.assertGreaterEqual(windows_passed, 2,
+                                "Need at least 2 valid walk-forward windows")
+
+    def test_walk_forward_reproducible_with_fixed_seed(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw1 = _make_ranging_bars(600, 1.1000, 0.0030)
+        raw2 = _make_ranging_bars(600, 1.1000, 0.0030)
+        self.assertEqual(len(raw1), len(raw2))
+        for i in range(len(raw1)):
+            self.assertAlmostEqual(raw1[i]["close"], raw2[i]["close"], places=6)
+
+        bars = [Bar(time=b["time"], open=b["open"], high=b["high"],
+                     low=b["low"], close=b["close"], volume=1000) for b in raw1]
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            max_open_trades=10,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter = GridStrategyAdapter(GridConfig.eurusd())
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+        results = engine.run_all_strategies(bars)
+        m = results[adapter.name].metrics
+
+        adapter2 = GridStrategyAdapter(GridConfig.eurusd())
+        engine2 = MultiStrategyBacktestEngine(config, [adapter2])
+        results2 = engine2.run_all_strategies(bars)
+        m2 = results2[adapter.name].metrics
+
+        self.assertEqual(m.total_trades, m2.total_trades)
+        self.assertAlmostEqual(m.total_pnl, m2.total_pnl, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()
