@@ -957,6 +957,23 @@ class CommodityTrendStrategy(ISignalStrategy):
         return adx
 
 
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
+
+
 class CommodityMeanReversionStrategy(ISignalStrategy):
     """Mean reversion strategy for commodities using Bollinger Bands and RSI.
 
@@ -1162,3 +1179,19 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             return False
         midpoint = bar.low + candle_range * 0.5
         return bar.close < midpoint
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
