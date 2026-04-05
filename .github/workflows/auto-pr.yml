@@ -1,0 +1,152 @@
+name: Auto PR & Merge
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract issue number from branch name
+        id: issue
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          # Match patterns like AYUAA-123, ayuaa-123, AYUAA_123
+          ISSUE=$(echo "$BRANCH" | grep -oiP '(?:AYUAA|ayuaa|AYUAA)[-_]\d+' | head -1 | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+          if [ -z "$ISSUE" ]; then
+            # Try just a number pattern
+            NUM=$(echo "$BRANCH" | grep -oP '\d{3,}' | head -1)
+            if [ -n "$NUM" ]; then
+              ISSUE="AYUAA-${NUM}"
+            fi
+          fi
+          echo "issue=${ISSUE}" >> "$GITHUB_OUTPUT"
+          echo "Branch: $BRANCH → Issue: ${ISSUE:-none}"
+
+      - name: Check if PR already exists
+        id: check-pr
+        run: |
+          EXISTING=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          echo "existing=${EXISTING}" >> "$GITHUB_OUTPUT"
+
+      - name: Create PR
+        if: steps.check-pr.outputs.existing == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          ISSUE="${{ steps.issue.outputs.issue }}"
+          
+          # Build PR body
+          BODY="## Auto-generated PR\n\n"
+          BODY+="**Branch:** \`${BRANCH}\`\n"
+          if [ -n "$ISSUE" ]; then
+            BODY+="**Related:** ${ISSUE}\n"
+          fi
+          BODY+="\n---\n\n### Commits\n\n"
+          
+          # Get commit messages since diverging from main
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"- %s" 2>/dev/null)
+          if [ -n "$COMMITS" ]; then
+            BODY+="${COMMITS}\n"
+          fi
+          
+          BODY+="\n---\n\n🤖 *This PR was auto-created. It will auto-merge once CI passes.*\n"
+          
+          # Generate title
+          FIRST_COMMIT=$(git log origin/main..HEAD --pretty=format:"%s" 2>/dev/null | head -1)
+          TITLE="${FIRST_COMMIT:-PR from ${BRANCH}}"
+          if [ -n "$ISSUE" ]; then
+            TITLE="${ISSUE}: ${TITLE}"
+          fi
+          
+          gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --title "${TITLE}" \
+            --body "${BODY}" \
+            --label "auto-pr" 2>&1
+
+  auto-merge:
+    needs: []
+    runs-on: ubuntu-latest
+    # Give CI time to start — check 3 minutes after push
+    if: github.event.push
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for CI and auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          PR_NUMBER=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null)
+          
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR found for branch ${BRANCH}, skipping auto-merge"
+            exit 0
+          fi
+          
+          echo "Found PR #${PR_NUMBER}. Waiting for CI checks..."
+          
+          # Wait up to 10 minutes for CI
+          TIMEOUT=600
+          ELAPSED=0
+          INTERVAL=30
+          
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+            
+            # Check PR mergeability
+            STATUS=$(gh pr view "${PR_NUMBER}" --json mergeable,mergeStateStatus,reviewDecision,statusCheckRollup --jq '{
+              mergeable: .mergeable,
+              state: .mergeStateStatus,
+              review: .reviewDecision,
+              checks: [.statusCheckRollup[] | {name: .name, status: .status, conclusion: .conclusion}]
+            }' 2>/dev/null)
+            
+            echo "[$ELAPSED s] Status: ${STATUS}"
+            
+            MERGEABLE=$(echo "$STATUS" | jq -r '.mergeable')
+            STATE=$(echo "$STATUS" | jq -r '.state')
+            
+            # Check for conflicts
+            if [ "$MERGEABLE" = "false" ] || [ "$STATE" = "DIRTY" ]; then
+              echo "❌ Merge conflict detected. Labeling for fix."
+              gh pr edit "${PR_NUMBER}" --add-label "conflict" --remove-label "auto-pr" 2>/dev/null
+              gh pr comment "${PR_NUMBER}" --body "⚠️ **Auto-merge blocked:** merge conflict detected. Kai — please rebase this branch onto main and resolve conflicts." 2>/dev/null
+              exit 1
+            fi
+            
+            # Check if all checks passed
+            if [ "$MERGEABLE" = "true" ] && [ "$STATE" = "CLEAN" ]; then
+              echo "✅ CI passed and mergeable. Auto-merging..."
+              gh pr merge "${PR_NUMBER}" --merge --delete-branch 2>/dev/null
+              echo "Merged PR #${PR_NUMBER}"
+              exit 0
+            fi
+            
+            # Check for failed checks
+            FAILED=$(echo "$STATUS" | jq -r '[.checks[] | select(.conclusion == "failure")] | length')
+            if [ "$FAILED" -gt 0 ]; then
+              echo "❌ CI failures detected. Labeling for fix."
+              gh pr edit "${PR_NUMBER}" --add-label "ci-failed" --remove-label "auto-pr" 2>/dev/null
+              gh pr comment "${PR_NUMBER}" --body "⚠️ **Auto-merge blocked:** CI failures detected. Kai — please fix the failing checks and push to this branch." 2>/dev/null
+              exit 1
+            fi
+          done
+          
+          echo "⏰ Timeout waiting for CI. PR #${PR_NUMBER} left open for manual review."
+          gh pr edit "${PR_NUMBER}" --add-label "ci-timeout" --remove-label "auto-pr" 2>/dev/null
