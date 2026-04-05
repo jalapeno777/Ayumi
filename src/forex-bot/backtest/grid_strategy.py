@@ -249,7 +249,7 @@ class GridStrategy(ISignalStrategy):
         latest = state.latest_bar
 
         if not self.state.grid_active:
-            if self.config.initial_spacing_type == "atr":
+            if self.config.initial_spacing_type != "fixed":
                 atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
                 self.config.grid_spacing_pips = atr / self._get_pip_size(self.config.pair) * self.config.atr_multiplier
                 self.config.grid_spacing_pips = max(5.0, min(self.config.grid_spacing_pips, 100.0))
@@ -271,10 +271,9 @@ class GridStrategy(ISignalStrategy):
 
         level, entry_price = triggered
         direction = TradeDirection.LONG if level.is_buy else TradeDirection.SHORT
-        tp = self.state.get_tp_for_level(level, entry_price)
         sl = self.state.get_sl_for_level(level, entry_price)
         risk = abs(entry_price - sl)
-        tp1 = tp
+        tp1 = entry_price + risk * 1.0 if direction == TradeDirection.LONG else entry_price - risk * 1.0
         tp2 = entry_price + risk * 2.0 if direction == TradeDirection.LONG else entry_price - risk * 2.0
         tp3 = entry_price + risk * 3.0 if direction == TradeDirection.LONG else entry_price - risk * 3.0
 
@@ -286,7 +285,7 @@ class GridStrategy(ISignalStrategy):
         confidence = min(0.85, 0.60 + (1.0 - self.state.filled_count / self.config.max_concurrent_positions) * 0.25)
         rationale = (
             f"Grid {'long' if level.is_buy else 'short'} triggered: level={level.level_index}, "
-            f"entry={entry_price:.5f}, tp={tp:.5f}, sl={sl:.5f}"
+            f"entry={entry_price:.5f}, tp1={tp1:.5f}, sl={sl:.5f}"
         )
 
         return StrategySignal(
@@ -317,7 +316,7 @@ class GridStrategy(ISignalStrategy):
         return tr_sum / self.config.atr_period
 
     def _get_pip_size(self, pair: str) -> float:
-        if pair == "USDJPY":
+        if pair.endswith("JPY"):
             return 0.01
         return 0.0001
 
