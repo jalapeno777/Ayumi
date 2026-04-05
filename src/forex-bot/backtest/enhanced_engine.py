@@ -21,8 +21,9 @@ from .trade_management import (
     TradeManager,
     TradeManagementConfig,
     ManagedTrade,
-    TradeAction,
+    TradeAction as TMTradeAction,
 )
+from quant import QuantConfig, QuantPipeline, PortfolioState, TradeResult
 
 
 @dataclass
@@ -80,11 +81,15 @@ class EnhancedBacktestEngine:
         config: BacktestConfig,
         strategies: List[ISignalStrategy],
         tm_config: Optional[TradeManagementConfig] = None,
+        quant_config: Optional[QuantConfig] = None,
     ):
         self.config = config
         self.strategies = strategies
         self.tm_config = tm_config or TradeManagementConfig()
         self.trade_manager = TradeManager(self.tm_config)
+        self._quant_pipeline: Optional[QuantPipeline] = (
+            QuantPipeline(quant_config) if quant_config else None
+        )
 
     def run_strategy(
         self, strategy: ISignalStrategy, bars: List[Bar]
@@ -126,6 +131,36 @@ class EnhancedBacktestEngine:
                     signal is not None
                     and signal.confidence >= self.config.min_confidence
                 ):
+                    if self._quant_pipeline is not None:
+                        portfolio = PortfolioState(
+                            balance=self.balance,
+                            open_positions=[
+                                {
+                                    "symbol": getattr(t, "symbol", self.tm_config.pair),
+                                    "exposure": t.lot_size,
+                                }
+                                for t in open_trades
+                            ],
+                        )
+                        decision = self._quant_pipeline.pre_trade_check(
+                            signal, bars[: i + 1], portfolio
+                        )
+                        if decision.action.value == "reject":
+                            rejected_signals += 1
+                            continue
+                        if (
+                            decision.adjusted_lot_size is not None
+                            and decision.action.value == "resize"
+                        ):
+                            trade = self._open_trade(
+                                signal, bar, i, lot_size_override=decision.adjusted_lot_size
+                            )
+                            if trade is not None:
+                                open_trades.append(trade)
+                            else:
+                                rejected_signals += 1
+                            continue
+
                     atr = state.atr
                     entry_allowed = self.trade_manager.check_entry_allowed(
                         bar,
@@ -201,7 +236,8 @@ class EnhancedBacktestEngine:
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
     def _open_trade(
-        self, signal: StrategySignal, bar: Bar, bar_index: int
+        self, signal: StrategySignal, bar: Bar, bar_index: int,
+        lot_size_override: Optional[float] = None,
     ) -> Optional[ManagedTrade]:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
@@ -219,7 +255,7 @@ class EnhancedBacktestEngine:
         if adjusted_risk == 0:
             return None
 
-        lot_size = risk_amount / adjusted_risk
+        lot_size = lot_size_override if lot_size_override is not None else risk_amount / adjusted_risk
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:
             return None
@@ -255,7 +291,7 @@ class EnhancedBacktestEngine:
             recent_bars = all_bars[max(0, bar_index - 20) : bar_index + 1]
             result = self.trade_manager.on_bar(trade, bar, bar_index, atr, recent_bars)
 
-            if result.action == TradeAction.CLOSE_FULL:
+            if result.action == TMTradeAction.CLOSE_FULL:
                 pnl = self._calculate_pnl(trade, result.exit_price, trade.remaining_pct)
                 pnl += trade.partial_realized_pnl
                 self.balance += pnl
@@ -283,7 +319,16 @@ class EnhancedBacktestEngine:
                 self._update_peak_and_drawdown()
                 equity_curve.append(self.balance)
 
-            elif result.action == TradeAction.CLOSE_PARTIAL:
+                if self._quant_pipeline is not None:
+                    self._quant_pipeline.on_trade_closed(
+                        TradeResult(
+                            pnl=pnl,
+                            is_win=(pnl > 0.01),
+                            pair=self.tm_config.pair,
+                        )
+                    )
+
+            elif result.action == TMTradeAction.CLOSE_PARTIAL:
                 partial_pnl = self._calculate_pnl(
                     trade, result.exit_price, result.close_pct
                 )
@@ -292,7 +337,7 @@ class EnhancedBacktestEngine:
                 self._update_peak_and_drawdown()
                 equity_curve.append(self.balance)
 
-            elif result.action == TradeAction.MODIFY_SL:
+            elif result.action == TMTradeAction.MODIFY_SL:
                 pass
 
         for t in to_close:

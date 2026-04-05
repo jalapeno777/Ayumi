@@ -7,6 +7,7 @@ from threading import Lock
 from .models import TradeSignal, Position, Order
 from .order_manager import OrderManager, PositionSizeConfig
 from .risk_guard import RiskGuard, FTMOConfig
+from quant import QuantConfig, QuantPipeline, PortfolioState, TradeResult
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class PaperTrader:
         ftmo_config: Optional[FTMOConfig] = None,
         position_config: Optional[PositionSizeConfig] = None,
         starting_balance: float = 100000.0,
+        quant_config: Optional[QuantConfig] = None,
     ):
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
@@ -56,6 +58,9 @@ class PaperTrader:
         self._callbacks: List[tuple[str, Callable]] = []
         self._running = False
         self._last_update: Optional[datetime] = None
+        self._quant_pipeline: Optional[QuantPipeline] = (
+            QuantPipeline(quant_config) if quant_config else None
+        )
 
     def process_signal(self, signal: TradeSignal) -> PaperTradeResult:
         with self._lock:
@@ -71,6 +76,26 @@ class PaperTrader:
                     rejection_reason=risk_result.message,
                     risk_guard_result=risk_result,
                 )
+
+            if self._quant_pipeline is not None:
+                open_positions = [
+                    {"symbol": p.symbol, "exposure": p.volume}
+                    for p in self._order_manager.get_open_positions()
+                ]
+                portfolio = PortfolioState(
+                    balance=self._current_balance,
+                    open_positions=open_positions,
+                )
+                decision = self._quant_pipeline.pre_trade_check(signal, [], portfolio)
+                if decision.action.value == "reject":
+                    self._stats.signals_blocked_by_risk += 1
+                    logger.warning(f"Signal blocked by quant pipeline: {decision.reason}")
+                    return PaperTradeResult(
+                        success=False,
+                        signal=signal,
+                        rejection_reason=decision.reason,
+                        risk_guard_result=risk_result,
+                    )
 
             volume = self._order_manager.calculate_position_size(
                 self._current_balance,
@@ -156,6 +181,15 @@ class PaperTrader:
 
                 is_win = position.closed_pnl > 0
                 self._risk_guard.record_trade(position.closed_pnl, is_win)
+
+                if self._quant_pipeline is not None:
+                    self._quant_pipeline.on_trade_closed(
+                        TradeResult(
+                            pnl=position.closed_pnl,
+                            is_win=is_win,
+                            pair=position.symbol,
+                        )
+                    )
 
                 self._trigger_callback("on_position_closed", position)
                 logger.info(
