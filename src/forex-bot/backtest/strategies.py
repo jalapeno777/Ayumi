@@ -960,7 +960,7 @@ class CommodityTrendStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -1183,7 +1183,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
