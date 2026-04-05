@@ -53,7 +53,7 @@ class TestParameterGrid(unittest.TestCase):
                 "std_dev": [1.5, 2.0, 2.5],
             }
         )
-        combos = grid.combinations()
+        combos = grid.to_list()
         self.assertEqual(len(combos), 9)
         for combo in combos:
             self.assertIn("period", combo)
