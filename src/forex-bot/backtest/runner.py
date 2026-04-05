@@ -50,6 +50,7 @@ from backtest import (
     HybridStrategy,
     TradeManagementConfig,
 )
+from backtest.engine import get_spread_for_pair
 from backtest.hybrid_strategy import HybridConfig
 
 
@@ -540,10 +541,14 @@ def _run_window_backtest(
     risk_per_trade_pct: float = 0.005,
     max_daily_drawdown_pct: float = 0.03,
     max_total_drawdown_pct: float = 0.05,
-    spread_pips: float = 0.5,
+    spread_pips: float = 0.0,
     commission_per_lot: float = 3.5,
     leverage: int = 100,
     max_open_trades: int = 3,
+    round_trip_spread: bool = True,
+    slippage_pips: float = 0.2,
+    swap_per_lot_per_day: float = -2.0,
+    pair: str = "",
 ) -> BacktestMetrics:
     from backtest.ict_smc.models import ICTMarketState
 
@@ -586,6 +591,10 @@ def _run_window_backtest(
     open_trades: list = []
     trade_records: list = []
     equity_curve = [balance]
+    total_spread_cost = 0.0
+    total_commission_cost = 0.0
+
+    effective_spread = spread_pips if spread_pips > 0 else get_spread_for_pair(pair)
 
     closes = [b.close for b in bars]
     high_series = [b.high for b in bars]
@@ -668,13 +677,30 @@ def _run_window_backtest(
 
             if hit_sl:
                 pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                exit_price = trade["sl"]
+                if round_trip_spread:
+                    spread_exit = effective_spread * pip_val
+                    if trade["direction"] == "long":
+                        exit_price -= spread_exit
+                    else:
+                        exit_price += spread_exit
+                slippage_exit = slippage_pips * pip_val
                 if trade["direction"] == "long":
-                    pips = (trade["sl"] - trade["entry"]) / pip_val
+                    exit_price -= slippage_exit
                 else:
-                    pips = (trade["entry"] - trade["sl"]) / pip_val
+                    exit_price += slippage_exit
+                if trade["direction"] == "long":
+                    pips = (exit_price - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - exit_price) / pip_val
+                commission_cost = commission_per_lot * trade["lots"]
+                total_commission_cost += commission_cost
+                entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
+                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
+                total_spread_cost += entry_spread_cost + exit_spread_cost
                 pnl = (
                     pips * trade["lots"] * pip_val * 100000
-                    - commission_per_lot * trade["lots"]
+                    - commission_cost
                 )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
@@ -692,13 +718,30 @@ def _run_window_backtest(
                 equity_curve.append(balance)
             elif hit_tp:
                 pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                exit_price = trade["tp1"]
+                if round_trip_spread:
+                    spread_exit = effective_spread * pip_val
+                    if trade["direction"] == "long":
+                        exit_price -= spread_exit
+                    else:
+                        exit_price += spread_exit
+                slippage_exit = slippage_pips * pip_val
                 if trade["direction"] == "long":
-                    pips = (trade["tp1"] - trade["entry"]) / pip_val
+                    exit_price -= slippage_exit
                 else:
-                    pips = (trade["entry"] - trade["tp1"]) / pip_val
+                    exit_price += slippage_exit
+                if trade["direction"] == "long":
+                    pips = (exit_price - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - exit_price) / pip_val
+                commission_cost = commission_per_lot * trade["lots"]
+                total_commission_cost += commission_cost
+                entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
+                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
+                total_spread_cost += entry_spread_cost + exit_spread_cost
                 pnl = (
                     pips * trade["lots"] * pip_val * 100000
-                    - commission_per_lot * trade["lots"]
+                    - commission_cost
                 )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
@@ -724,11 +767,17 @@ def _run_window_backtest(
         tp1 = signal.take_profit_1 if signal.take_profit_1 else entry
 
         pip_val = 0.0001 if entry < 50 else 0.01
-        spread_cost = spread_pips * pip_val
+        spread_cost = effective_spread * pip_val
         if signal.direction.value == "long":
             entry += spread_cost
         else:
             entry -= spread_cost
+
+        slippage_cost = slippage_pips * pip_val
+        if signal.direction.value == "long":
+            entry += slippage_cost
+        else:
+            entry -= slippage_cost
 
         risk_dist = abs(entry - sl)
         if risk_dist == 0:
@@ -757,9 +806,9 @@ def _run_window_backtest(
     for trade in open_trades:
         pip_val = 0.0001 if trade["entry"] < 50 else 0.01
         pips = 0.0
-        pnl = (
-            pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
-        )
+        commission_cost = commission_per_lot * trade["lots"]
+        total_commission_cost += commission_cost
+        pnl = -commission_cost
         balance = max(0.0, balance + pnl)
         trade_records.append({"pnl": pnl, "outcome": "breakeven"})
 
@@ -820,8 +869,8 @@ def _run_window_backtest(
         avg_holding_bars=0.0,
         equity_curve=equity_curve,
         trades=[],
-        total_spread_cost=0.0,
-        total_commission_cost=0.0,
+        total_spread_cost=total_spread_cost,
+        total_commission_cost=total_commission_cost,
         rejected_signals=strategy.metrics.total_evaluated - strategy.metrics.passed,
     )
 
@@ -911,11 +960,11 @@ def run_hybrid_backtest(
             continue
 
         strategy.reset_metrics()
-        train_metrics = _run_window_backtest(train_bars, strategy)
+        train_metrics = _run_window_backtest(train_bars, strategy, pair=pair)
         strategy.reset_metrics()
-        val_metrics = _run_window_backtest(val_bars, strategy)
+        val_metrics = _run_window_backtest(val_bars, strategy, pair=pair)
         strategy.reset_metrics()
-        test_metrics = _run_window_backtest(test_bars, strategy)
+        test_metrics = _run_window_backtest(test_bars, strategy, pair=pair)
 
         passed = (
             test_metrics.win_rate > 55
@@ -978,8 +1027,11 @@ def run_hybrid_backtest(
             "max_daily_drawdown_pct": 0.03,
             "max_total_drawdown_pct": 0.05,
             "max_open_trades": 3,
-            "spread_pips": 0.5,
+            "spread_pips": get_spread_for_pair(pair),
             "commission_per_lot": 3.5,
+            "round_trip_spread": True,
+            "slippage_pips": 0.2,
+            "swap_per_lot_per_day": -2.0,
             "sl_atr_multiplier": 2.0,
             "min_confidence": 0.5,
             "min_confluences": 2,
@@ -998,6 +1050,152 @@ def run_hybrid_backtest(
         print(f"\n   JSON report saved: {report_path}")
 
     return report
+
+
+def run_grid_walk_forward(
+    bars: list,
+    pair: str = "EURUSD",
+    n_windows: int = 5,
+    train_ratio: float = 0.6,
+    test_ratio: float = 0.2,
+) -> dict:
+    """Run walk-forward validation for the grid strategy.
+
+    Uses rolling windows with train/test splits and FTMO-compliant risk
+    parameters.  Per-window metrics are computed and an aggregate GO/NO-GO
+    assessment is produced.
+
+    Args:
+        bars: OHLC bar list from CsvDataLoader.
+        pair: Currency pair label (default "EURUSD").
+        n_windows: Number of rolling windows (default 5).
+        train_ratio: Fraction of each window for training (default 0.6).
+        test_ratio: Fraction of each window for testing (default 0.2).
+            Remaining fraction is the purge buffer.
+
+    Returns:
+        Dict with "per_window", "aggregated", "go_nogo" keys.
+    """
+    grid_cfg = GridConfig.ftmo(pair)
+
+    total = len(bars)
+    window_size = total // n_windows
+    if window_size < 100:
+        print(f"ERROR: Not enough bars ({total}) for {n_windows} windows")
+        return {"per_window": [], "aggregated": {}, "go_nogo": False}
+
+    buffer_ratio = 1.0 - train_ratio - test_ratio
+    if buffer_ratio < 0:
+        buffer_ratio = 0.0
+
+    config = BacktestConfig(
+        starting_balance=10000.0,
+        risk_per_trade_pct=0.01,
+        max_daily_drawdown_pct=0.05,
+        max_total_drawdown_pct=0.05,
+        commission_per_lot=3.5,
+        leverage=100,
+        min_confidence=0.50,
+        min_bars_before_signal=30,
+        max_open_trades=10,
+        pair=pair,
+    )
+
+    results = []
+    print("\n" + "=" * 70)
+    print("   GRID TRADING STRATEGY — WALK-FORWARD BACKTEST")
+    print("=" * 70)
+    print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
+    print(
+        f"   Split: train={train_ratio:.0%} test={test_ratio:.0%} "
+        f"buffer={buffer_ratio:.0%}"
+    )
+    print(f"   Grid spacing: {grid_cfg.spacing_in_pips():.1f} pips")
+    print(f"   Levels per side: {grid_cfg.levels_per_side}")
+    print(
+        f"   Lot sizes: {grid_cfg.lot_sizes}"
+    )
+    print(f"   FTMO risk: 5% equity stop, 3% daily loss, max {grid_cfg.risk.max_open_positions} positions")
+
+    for w in range(n_windows):
+        start = w * window_size
+        end = (w + 1) * window_size if w < n_windows - 1 else total
+        window_bars = bars[start:end]
+        wlen = len(window_bars)
+
+        train_end_idx = int(wlen * train_ratio)
+        buffer_end_idx = int(wlen * (train_ratio + buffer_ratio))
+
+        train_bars = window_bars[:train_end_idx]
+        test_bars = window_bars[buffer_end_idx:]
+
+        if len(test_bars) < 30:
+            results.append(
+                {
+                    "window_id": w,
+                    "train_bars": len(train_bars),
+                    "test_bars": len(test_bars),
+                    "error": "Insufficient test bars",
+                }
+            )
+            print(
+                f"\n   Window {w}: SKIP — insufficient test bars "
+                f"(train={len(train_bars)}, test={len(test_bars)})"
+            )
+            continue
+
+        adapter = GridStrategyAdapter(GridConfig.ftmo(pair))
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+
+        train_results = engine.run_all_strategies(train_bars)
+        test_results = engine.run_all_strategies(test_bars)
+
+        train_m = train_results[adapter.name].metrics
+        test_m = test_results[adapter.name].metrics
+
+        passed = (
+            test_m.win_rate > 55
+            and test_m.profit_factor > 1.5
+            and test_m.max_drawdown_pct < 5.0
+            and test_m.sharpe_ratio > 0.5
+        )
+
+        results.append(
+            {
+                "window_id": w,
+                "train_start": str(train_bars[0].time) if train_bars else None,
+                "train_end": str(train_bars[-1].time) if train_bars else None,
+                "test_start": str(test_bars[0].time) if test_bars else None,
+                "test_end": str(test_bars[-1].time) if test_bars else None,
+                "train_bars": len(train_bars),
+                "test_bars": len(test_bars),
+                "train_metrics": _metrics_to_dict(train_m),
+                "test_metrics": _metrics_to_dict(test_m),
+                "passed_go_nogo": passed,
+            }
+        )
+
+        status = "PASS" if passed else "FAIL"
+        print(f"\n   Window {w}: {status}")
+        print(
+            f"     Train: {train_m.total_trades} trades, "
+            f"WR={train_m.win_rate:.1f}%, PF={train_m.profit_factor:.2f}, "
+            f"DD={train_m.max_drawdown_pct:.2f}%"
+        )
+        print(
+            f"     Test:  {test_m.total_trades} trades, "
+            f"WR={test_m.win_rate:.1f}%, PF={test_m.profit_factor:.2f}, "
+            f"DD={test_m.max_drawdown_pct:.2f}%, Sharpe={test_m.sharpe_ratio:.2f}"
+        )
+
+    agg = _aggregate_metrics(results)
+    _print_summary_table(results, agg, pair)
+
+    return {
+        "per_window": results,
+        "aggregated": agg,
+        "go_nogo": agg.get("go_nogo", False),
+    }
 
 
 def main():
@@ -1022,7 +1220,6 @@ def main():
         risk_per_trade_pct=0.01,
         max_daily_drawdown_pct=0.02,
         max_total_drawdown_pct=0.05,
-        spread_pips=0.5,
         commission_per_lot=3.5,
         leverage=100,
         min_confidence=0.45,
