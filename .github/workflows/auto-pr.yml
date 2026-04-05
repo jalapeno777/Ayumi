@@ -14,10 +14,17 @@ permissions:
 jobs:
   auto-pr:
     runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.branch.outputs.name }}
+      pr_number: ${{ steps.pr.outputs.number }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Capture branch name
+        id: branch
+        run: echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Extract issue number from branch name
         id: issue
@@ -34,6 +41,8 @@ jobs:
 
       - name: Check if PR already exists
         id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           EXISTING=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
           echo "existing=${EXISTING}" >> "$GITHUB_OUTPUT"
@@ -84,12 +93,11 @@ jobs:
   ci-check:
     needs: auto-pr
     runs-on: ubuntu-latest
-    if: needs.auto-pr.outputs.pr != '' || true
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.auto-pr.outputs.branch }}
           fetch-depth: 0
-          ref: ${{ github.ref_name }}
 
       - name: Install tools
         run: pip install ruff bandit
@@ -115,28 +123,22 @@ jobs:
   label-result:
     needs: [auto-pr, ci-check]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && needs.auto-pr.outputs.pr_number != ''
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Label PR based on CI result
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          PR_NUMBER=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
-          
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR found, skipping"
-            exit 0
-          fi
+          PR_NUMBER="${{ needs.auto-pr.outputs.pr_number }}"
           
           if [ "${{ needs.ci-check.result }}" = "success" ]; then
-            echo "CI passed, labeling ready-to-merge"
-            gh pr edit "${PR_NUMBER}" --add-label "ready-to-merge" --remove-label "auto-pr" 2>/dev/null
+            echo "✅ CI passed, labeling ready-to-merge"
+            gh pr edit "${PR_NUMBER}" --add-label "ready-to-merge" --remove-label "auto-pr"
           elif [ "${{ needs.ci-check.result }}" = "failure" ]; then
-            echo "CI failed, labeling ci-failed"
-            gh pr edit "${PR_NUMBER}" --add-label "ci-failed" --remove-label "auto-pr" 2>/dev/null
-            gh pr comment "${PR_NUMBER}" --body "⚠️ **CI failed.** Fix the errors and push to this branch." 2>/dev/null
+            echo "❌ CI failed, labeling ci-failed"
+            gh pr edit "${PR_NUMBER}" --add-label "ci-failed" --remove-label "auto-pr"
+            gh pr comment "${PR_NUMBER}" --body "⚠️ **CI failed.** Fix the errors and push to this branch."
           else
-            echo "CI cancelled/skipped, labeling ci-timeout"
-            gh pr edit "${PR_NUMBER}" --add-label "ci-timeout" --remove-label "auto-pr" 2>/dev/null
+            echo "⏰ CI cancelled/skipped, labeling ci-timeout"
+            gh pr edit "${PR_NUMBER}" --add-label "ci-timeout" --remove-label "auto-pr"
           fi
