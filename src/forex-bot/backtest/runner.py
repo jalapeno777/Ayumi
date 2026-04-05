@@ -34,6 +34,7 @@ from backtest import (
     RSIStrategy,
     SRBreakoutStrategy,
     ROCMStrategy,
+    MomentumBreakoutStrategy,
     MultiStrategyConfig,
     MultiStrategyBacktestEngine,
     AmalgamationConfig,
@@ -57,6 +58,7 @@ def run_individual_backtests(bars, config):
         RSIStrategy(period=14, oversold=35, overbought=65),
         SRBreakoutStrategy(lookback=50, confirmation_bars=1, breakout_threshold=0.0001),
         ROCMStrategy(period=12, roc_threshold=0.3),
+        MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0),
     ]
 
     engine = MultiStrategyBacktestEngine(config, strategies)
@@ -124,6 +126,7 @@ def analyze_walk_forward(bars, config, train_ratio=0.7):
         RSIStrategy(),
         SRBreakoutStrategy(),
         ROCMStrategy(),
+        MomentumBreakoutStrategy(),
     ]
 
     engine = MultiStrategyBacktestEngine(config, strategies)
@@ -253,6 +256,7 @@ def run_amalgamation_backtest(bars, config):
         RSIStrategy(period=14, oversold=35, overbought=65),
         SRBreakoutStrategy(lookback=50, confirmation_bars=1, breakout_threshold=0.0001),
         ROCMStrategy(period=12, roc_threshold=0.3),
+        MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0),
     ]
 
     configs = [
@@ -330,6 +334,7 @@ def run_enhanced_ab_comparison(bars, config):
         RSIStrategy(period=14, oversold=35, overbought=65),
         SRBreakoutStrategy(lookback=50, confirmation_bars=1, breakout_threshold=0.0001),
         ROCMStrategy(period=12, roc_threshold=0.3),
+        MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0),
     ]
 
     tm_configs = [
