@@ -56,6 +56,11 @@ except ImportError:
     SweepRunner = None
     to_csv = None
     to_json = None
+try:
+    from strategies.grid import GridStrategyAdapter, GridConfig as GridTradingConfig
+except ImportError:
+    GridStrategyAdapter = None
+    GridTradingConfig = None
 
 __all__ = [
     "Bar",
@@ -105,4 +110,6 @@ __all__ = [
     "SweepRunner",
     "to_csv",
     "to_json",
+    "GridStrategyAdapter",
+    "GridTradingConfig",
 ]
