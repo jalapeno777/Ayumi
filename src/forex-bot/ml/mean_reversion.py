@@ -192,7 +192,11 @@ def prepare_data(
 
 
 def _optimize_threshold(
-    y_prob: np.ndarray, y_true: np.ndarray, min_prob: float = 0.40, max_prob: float = 0.80
+    y_prob: np.ndarray,
+    y_true: np.ndarray,
+    pnl: Optional[np.ndarray] = None,
+    min_prob: float = 0.40,
+    max_prob: float = 0.80,
 ) -> float:
     best_threshold = 0.50
     best_score = -1.0
@@ -201,7 +205,18 @@ def _optimize_threshold(
         y_pred = (y_prob >= t).astype(int)
         if y_pred.sum() == 0:
             continue
-        score = f1_score(y_true, y_pred, zero_division=0)
+
+        if pnl is not None and len(pnl) == len(y_prob):
+            taken_mask = y_prob >= t
+            if taken_mask.sum() == 0:
+                continue
+            taken_pnl = pnl[taken_mask]
+            gross_profit = taken_pnl[taken_pnl > 0].sum()
+            gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
+            score = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+        else:
+            score = f1_score(y_true, y_pred, zero_division=0)
+
         if score > best_score:
             best_score = score
             best_threshold = t
@@ -236,6 +251,8 @@ def train_model(
 
     X = dataset[available].values
     y = dataset["outcome"].values.astype(int)
+    has_pnl = "pnl" in dataset.columns
+    pnl = dataset["pnl"].values.astype(float) if has_pnl else None
 
     if len(np.unique(y)) < 2:
         raise ValueError("Dataset must contain both positive and negative outcomes")
@@ -243,9 +260,10 @@ def train_model(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_ratio, random_state=seed, stratify=y
     )
+    pnl_test = pnl[len(X_train) :] if pnl is not None else None
 
     best_model = None
-    best_f1 = -1.0
+    best_pf = -1.0
     best_type = ""
     best_threshold = 0.50
 
@@ -258,13 +276,20 @@ def train_model(
                 model.fit(X_train, y_train)
                 y_prob = model.predict_proba(X_test)[:, 1]
 
-                threshold = _optimize_threshold(y_prob, y_test)
+                threshold = _optimize_threshold(y_prob, y_test, pnl=pnl_test)
                 y_pred = (y_prob >= threshold).astype(int)
 
-                f1 = f1_score(y_test, y_pred, zero_division=0)
+                taken_mask = y_prob >= threshold
+                if taken_mask.sum() > 0 and pnl_test is not None:
+                    taken_pnl = pnl_test[taken_mask]
+                    gross_profit = taken_pnl[taken_pnl > 0].sum()
+                    gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
+                    pf = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+                else:
+                    pf = -1.0
 
-                if f1 > best_f1:
-                    best_f1 = f1
+                if pf > best_pf:
+                    best_pf = pf
                     best_model = model
                     best_type = model_type
                     best_threshold = threshold
@@ -277,6 +302,7 @@ def train_model(
     y_prob = best_model.predict_proba(X_test)[:, 1]
     y_pred = (y_prob >= best_threshold).astype(int)
 
+    taken_mask = y_prob >= best_threshold
     metrics = {
         "accuracy": float(accuracy_score(y_test, y_pred)),
         "f1": float(f1_score(y_test, y_pred, zero_division=0)),
@@ -284,6 +310,13 @@ def train_model(
         "test_samples": len(y_test),
         "positive_rate": float(y_pred.mean()),
     }
+    if pnl_test is not None and taken_mask.sum() > 0:
+        taken_pnl = pnl_test[taken_mask]
+        gp = taken_pnl[taken_pnl > 0].sum()
+        gl = abs(taken_pnl[taken_pnl < 0].sum())
+        metrics["profit_factor"] = gp / gl if gl > 0 else float("inf")
+        metrics["win_rate"] = float((taken_pnl > 0).sum() / len(taken_pnl) * 100)
+        metrics["total_trades"] = int(len(taken_pnl))
 
     return TrainingResult(
         model=best_model,
@@ -307,61 +340,88 @@ def walk_forward_validate(
 ) -> Tuple[TrainingResult, List[Dict[str, float]]]:
     """Train with walk-forward validation on EURUSD M15 data.
 
-    Splits the data into ``n_folds`` sequential windows, trains on each
-    window's first ``1 - test_ratio`` portion, and evaluates on the remainder.
+    Uses true temporal walk-forward: for each fold *i*, the model is
+    trained on cumulative past data (folds 0..i-1) and evaluated on
+    fold *i*.  Fold 0 is used as the initial training-only window.
 
     Returns
     -------
     tuple[TrainingResult, list[dict]]
-        The final model (trained on the *last* fold's training data) and
+        The final model (trained on all data except the last fold) and
         per-fold metrics.
     """
     df = _load_csv_to_df(csv_path)
     fold_size = len(df) // n_folds
 
-    fold_metrics: List[Dict[str, float]] = []
-    last_result: Optional[TrainingResult] = None
+    def _build_dataset_for_range(df_subset: pd.DataFrame) -> Optional[pd.DataFrame]:
+        signals = bb_mean_reversion_signals(
+            df_subset, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr
+        )
+        if signals.empty:
+            return None
+        labeled = label_trades(signals, df_subset, max_holding_bars)
+        if labeled.empty or len(np.unique(labeled["outcome"].values)) < 2:
+            return None
+        features = build_feature_matrix(df_subset)
+        avail = [c for c in FEATURE_COLS if c in features.columns]
+        entry_indices = features.index[labeled["entry_idx"].values]
+        feat_subset = features.loc[entry_indices, avail].copy().reset_index(drop=True)
+        labeled = labeled.reset_index(drop=True)
+        ds = pd.concat(
+            [feat_subset, labeled[["direction", "entry_price", "stop_loss", "take_profit", "outcome", "pnl"]]],
+            axis=1,
+        )
+        ds = ds.dropna(subset=["outcome"])
+        return ds
 
+    fold_data: List[Optional[pd.DataFrame]] = []
     for fold_idx in range(n_folds):
         start = fold_idx * fold_size
         end = start + fold_size if fold_idx < n_folds - 1 else len(df)
         fold_df = df.iloc[start:end].copy()
+        fold_data.append(_build_dataset_for_range(fold_df))
 
-        signals = bb_mean_reversion_signals(
-            fold_df, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr
-        )
-        if signals.empty:
-            fold_metrics.append({"fold": fold_idx, "status": "no_signals"})
+    fold_metrics: List[Dict[str, float]] = []
+    last_result: Optional[TrainingResult] = None
+
+    for fold_idx in range(1, n_folds):
+        train_parts = [fd for fd in fold_data[:fold_idx] if fd is not None]
+        test_part = fold_data[fold_idx]
+
+        if not train_parts or test_part is None:
+            fold_metrics.append({"fold": fold_idx, "status": "insufficient_data"})
             continue
 
-        labeled = label_trades(signals, fold_df, max_holding_bars)
-        if labeled.empty or len(np.unique(labeled["outcome"].values)) < 2:
-            fold_metrics.append({"fold": fold_idx, "status": "insufficient_labels"})
+        train_ds = pd.concat(train_parts, ignore_index=True)
+        test_ds = test_part
+
+        if len(np.unique(train_ds["outcome"].values)) < 2:
+            fold_metrics.append({"fold": fold_idx, "status": "insufficient_labels_train"})
             continue
-
-        features = build_feature_matrix(fold_df)
-        available = [c for c in FEATURE_COLS if c in features.columns]
-
-        entry_indices = features.index[labeled["entry_idx"].values]
-        feat_subset = features.loc[entry_indices, available].copy().reset_index(drop=True)
-        labeled = labeled.reset_index(drop=True)
-
-        dataset = pd.concat(
-            [feat_subset, labeled[["direction", "entry_price", "stop_loss", "take_profit", "outcome", "pnl"]]],
-            axis=1,
-        )
-        dataset = dataset.dropna(subset=["outcome"])
 
         try:
-            result = train_model(dataset, test_ratio=test_ratio, seed=seed)
-            result.fold_metrics = fold_metrics
+            result = train_model(train_ds, test_ratio=test_ratio, seed=seed)
             last_result = result
 
-            win_rate = float(dataset["outcome"].mean()) * 100
-            total_trades = len(dataset)
-            wins = dataset[dataset["outcome"] == 1]
-            losses = dataset[dataset["outcome"] == 0]
-            pf = float(wins["pnl"].sum() / abs(losses["pnl"].sum())) if len(losses) > 0 and losses["pnl"].sum() != 0 else 0.0
+            available = result.feature_names
+            X_test = test_ds[available].values
+            pnl_test = test_ds["pnl"].values.astype(float) if "pnl" in test_ds.columns else None
+
+            y_prob = result.model.predict_proba(X_test)[:, 1]
+            y_pred = (y_prob >= result.threshold).astype(int)
+
+            taken_mask = y_prob >= result.threshold
+            win_rate = float(y_pred.mean()) * 100
+
+            pf = 0.0
+            total_trades = int(y_pred.sum())
+            if pnl_test is not None and taken_mask.sum() > 0:
+                taken_pnl = pnl_test[taken_mask]
+                gp = taken_pnl[taken_pnl > 0].sum()
+                gl = abs(taken_pnl[taken_pnl < 0].sum())
+                pf = gp / gl if gl > 0 else float("inf") if gp > 0 else 0.0
+                total_trades = int(len(taken_pnl))
+                win_rate = float((taken_pnl > 0).sum() / len(taken_pnl) * 100)
 
             fold_metrics.append({
                 "fold": fold_idx,
@@ -380,6 +440,16 @@ def walk_forward_validate(
 
     if last_result is None:
         raise RuntimeError("All walk-forward folds failed")
+
+    all_train = [fd for fd in fold_data[:-1] if fd is not None]
+    if all_train:
+        final_ds = pd.concat(all_train, ignore_index=True)
+        try:
+            final_result = train_model(final_ds, test_ratio=test_ratio, seed=seed)
+            final_result.fold_metrics = fold_metrics
+            return final_result, fold_metrics
+        except Exception:
+            pass
 
     last_result.fold_metrics = fold_metrics
     return last_result, fold_metrics
