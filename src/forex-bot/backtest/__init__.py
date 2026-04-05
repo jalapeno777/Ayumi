@@ -23,6 +23,7 @@ from .strategies import (
     SRBreakoutStrategy,
     ROCMStrategy,
 )
+from .stat_arb import StatArbStrategy, StatArbBacktestResult
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
     AmalgamationConfig,
@@ -71,6 +72,8 @@ __all__ = [
     "RSIStrategy",
     "SRBreakoutStrategy",
     "ROCMStrategy",
+    "StatArbStrategy",
+    "StatArbBacktestResult",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",
