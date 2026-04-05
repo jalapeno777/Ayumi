@@ -78,15 +78,12 @@ jobs:
             --body "${BODY}" \
             --label "auto-pr" 2>&1
 
-  auto-merge:
-    needs: []
+  ci-label:
+    needs: auto-pr
     runs-on: ubuntu-latest
-    # Give CI time to start — check 3 minutes after push
     if: github.event.push
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Wait for CI and auto-merge
+      - name: Wait for CI and label result
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -94,13 +91,12 @@ jobs:
           PR_NUMBER=$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' 2>/dev/null)
           
           if [ -z "$PR_NUMBER" ]; then
-            echo "No PR found for branch ${BRANCH}, skipping auto-merge"
+            echo "No PR found, skipping"
             exit 0
           fi
           
-          echo "Found PR #${PR_NUMBER}. Waiting for CI checks..."
+          echo "Found PR #${PR_NUMBER}. Waiting for CI..."
           
-          # Wait up to 10 minutes for CI
           TIMEOUT=600
           ELAPSED=0
           INTERVAL=30
@@ -109,44 +105,38 @@ jobs:
             sleep $INTERVAL
             ELAPSED=$((ELAPSED + INTERVAL))
             
-            # Check PR mergeability
-            STATUS=$(gh pr view "${PR_NUMBER}" --json mergeable,mergeStateStatus,reviewDecision,statusCheckRollup --jq '{
+            STATUS=$(gh pr view "${PR_NUMBER}" --json mergeable,mergeStateStatus,statusCheckRollup --jq '{
               mergeable: .mergeable,
               state: .mergeStateStatus,
-              review: .reviewDecision,
-              checks: [.statusCheckRollup[] | {name: .name, status: .status, conclusion: .conclusion}]
+              checks: [.statusCheckRollup[] | select(.name != "Auto PR") | {name: .name, status: .status, conclusion: .conclusion}]
             }' 2>/dev/null)
             
-            echo "[$ELAPSED s] Status: ${STATUS}"
+            echo "[$ELAPSED s] ${STATUS}"
             
             MERGEABLE=$(echo "$STATUS" | jq -r '.mergeable')
             STATE=$(echo "$STATUS" | jq -r '.state')
             
-            # Check for conflicts
             if [ "$MERGEABLE" = "false" ] || [ "$STATE" = "DIRTY" ]; then
-              echo "❌ Merge conflict detected. Labeling for fix."
+              echo "Merge conflict"
               gh pr edit "${PR_NUMBER}" --add-label "conflict" --remove-label "auto-pr" 2>/dev/null
-              gh pr comment "${PR_NUMBER}" --body "⚠️ **Auto-merge blocked:** merge conflict detected. Kai — please rebase this branch onto main and resolve conflicts." 2>/dev/null
+              gh pr comment "${PR_NUMBER}" --body "⚠️ **Merge conflict.** Kai — rebase onto main and resolve." 2>/dev/null
               exit 1
             fi
             
-            # Check if all checks passed
             if [ "$MERGEABLE" = "true" ] && [ "$STATE" = "CLEAN" ]; then
-              echo "✅ CI passed and mergeable. Auto-merging..."
-              gh pr merge "${PR_NUMBER}" --merge --delete-branch 2>/dev/null
-              echo "Merged PR #${PR_NUMBER}"
+              echo "CI passed, labeling ready-to-merge"
+              gh pr edit "${PR_NUMBER}" --add-label "ready-to-merge" --remove-label "auto-pr" 2>/dev/null
               exit 0
             fi
             
-            # Check for failed checks
             FAILED=$(echo "$STATUS" | jq -r '[.checks[] | select(.conclusion == "failure")] | length')
             if [ "$FAILED" -gt 0 ]; then
-              echo "❌ CI failures detected. Labeling for fix."
+              echo "CI failures"
               gh pr edit "${PR_NUMBER}" --add-label "ci-failed" --remove-label "auto-pr" 2>/dev/null
-              gh pr comment "${PR_NUMBER}" --body "⚠️ **Auto-merge blocked:** CI failures detected. Kai — please fix the failing checks and push to this branch." 2>/dev/null
+              gh pr comment "${PR_NUMBER}" --body "⚠️ **CI failed.** Kai — fix and push." 2>/dev/null
               exit 1
             fi
           done
           
-          echo "⏰ Timeout waiting for CI. PR #${PR_NUMBER} left open for manual review."
+          echo "CI timeout"
           gh pr edit "${PR_NUMBER}" --add-label "ci-timeout" --remove-label "auto-pr" 2>/dev/null
