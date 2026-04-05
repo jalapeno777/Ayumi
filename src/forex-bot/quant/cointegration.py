@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import numpy as np
-from typing import Tuple, Optional
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+from statsmodels.tsa.stattools import adfuller
 
 
 @dataclass
@@ -22,25 +26,25 @@ class SpreadStats:
 
 
 class CointegrationEngine:
+    """Engine for cointegration analysis between two price series.
+
+    Uses OLS for hedge ratio estimation and statsmodels adfuller for
+    proper Augmented Dickey-Fuller testing with MacKinnon critical values.
+    """
+
     def __init__(self, lookback: int = 60):
         self.lookback = lookback
 
     def compute_hedge_ratio(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> Tuple[float, float]:
+        """Compute hedge ratio via OLS: prices_a = constant + hedge_ratio * prices_b."""
         if len(prices_a) < 2 or len(prices_b) < 2:
             return 1.0, 0.0
 
         x = np.column_stack([np.ones(len(prices_b)), prices_b])
-        try:
-            coeffs = np.linalg.lstsq(x, prices_a, rcond=None)[0]
-            hedge_ratio = coeffs[1]
-            constant = coeffs[0]
-        except np.linalg.LinAlgError:
-            hedge_ratio = 1.0
-            constant = 0.0
-
-        return hedge_ratio, constant
+        coeffs, _, _, _ = np.linalg.lstsq(x, prices_a, rcond=None)
+        return float(coeffs[1]), float(coeffs[0])
 
     def compute_spread(
         self,
@@ -49,17 +53,23 @@ class CointegrationEngine:
         hedge_ratio: Optional[float] = None,
         constant: Optional[float] = None,
     ) -> np.ndarray:
+        """Compute spread: spread = prices_a - hedge_ratio * prices_b - constant."""
         if hedge_ratio is None or constant is None:
             hr, const = self.compute_hedge_ratio(prices_a, prices_b)
-            hedge_ratio = float(hr)
-            constant = float(const)
+            hedge_ratio = hr
+            constant = const
 
-        spread = prices_a - hedge_ratio * prices_b - constant
-        return spread
+        return prices_a - hedge_ratio * prices_b - constant
 
     def engle_granger_test(
         self, prices_a: np.ndarray, prices_b: np.ndarray, significance: float = 0.05
     ) -> CointegrationResult:
+        """Run Engle-Granger two-step cointegration test.
+
+        1. OLS regression to get hedge ratio
+        2. Compute spread
+        3. ADF test on spread (null: unit root = not cointegrated)
+        """
         if len(prices_a) < self.lookback or len(prices_b) < self.lookback:
             return CointegrationResult(
                 is_cointegrated=False,
@@ -77,105 +87,62 @@ class CointegrationEngine:
         hedge_ratio, constant = self.compute_hedge_ratio(pa, pb)
         spread = self.compute_spread(pa, pb, hedge_ratio, constant)
 
-        adf_stat, adf_p = self._adf_test(spread)
-
-        is_cointegrated = adf_p < significance
+        adf_stat, adf_p, _, _, _, _ = adfuller(spread, maxlag=1)
 
         return CointegrationResult(
-            is_cointegrated=is_cointegrated,
+            is_cointegrated=adf_p < significance,
             p_value=adf_p,
             hedge_ratio=hedge_ratio,
             constant=constant,
-            adf_statistic=adf_stat,
-            adf_p_value=adf_p,
+            adf_statistic=float(adf_stat),
+            adf_p_value=float(adf_p),
         )
-
-    def _adf_test(self, series: np.ndarray) -> Tuple[float, float]:
-        if len(series) < 10:
-            return 0.0, 1.0
-
-        y = series[1:]
-        x = series[:-1]
-
-        if len(y) < 2 or len(x) < 2:
-            return 0.0, 1.0
-
-        x_with_const = np.column_stack([np.ones(len(x)), x])
-
-        try:
-            coeffs = np.linalg.lstsq(x_with_const, y, rcond=None)[0]
-            residuals = y - x_with_const @ coeffs
-        except np.linalg.LinAlgError:
-            return 0.0, 1.0
-
-        if len(residuals) < 2:
-            return 0.0, 1.0
-
-        resid_std = np.std(residuals, ddof=1)
-        if resid_std < 1e-10:
-            return 0.0, 1.0
-
-        x_sum = np.sum(x)
-        x_sq_sum = np.sum(x ** 2)
-        if x_sq_sum - x_sum ** 2 / len(x) < 1e-10:
-            return 0.0, 1.0
-
-        theta = coeffs[1]
-
-        try:
-            s = np.sqrt(np.sum(residuals ** 2) / (len(residuals) - 2))
-            se_theta = s / np.sqrt(x_sq_sum - x_sum ** 2 / len(x))
-            t_stat = theta / se_theta
-        except (ZeroDivisionError, FloatingPointError):
-            return 0.0, 1.0
-
-        n = len(series)
-        approx_p = self._p_value_from_t(t_stat, n)
-
-        return t_stat, approx_p
-
-    def _p_value_from_t(self, t_stat: float, n: int) -> float:
-        t_abs = abs(t_stat)
-        if t_abs < 1.0:
-            return 0.5
-        if t_abs < 2.0:
-            return 0.10
-        if t_abs < 2.5:
-            return 0.05
-        if t_abs < 3.0:
-            return 0.02
-        if t_abs < 3.5:
-            return 0.01
-        return 0.001
 
     def compute_z_score(
         self,
         prices_a: np.ndarray,
         prices_b: np.ndarray,
+        hedge_ratio: Optional[float] = None,
+        constant: Optional[float] = None,
         lookback: Optional[int] = None,
     ) -> SpreadStats:
+        """Compute z-score of the spread with no look-ahead bias.
+
+        Statistics (mean, std) are computed over [0:-1] and the z-score
+        is computed for the last element [-1] only.
+        """
         lb = lookback if lookback is not None else self.lookback
-        n = min(len(prices_a), len(prices_b), lb)
+        n = min(len(prices_a), len(prices_b), lb + 1)
+
+        if n < 3:
+            return SpreadStats(mean=0.0, std=1.0, z_score=0.0, spread=0.0)
 
         pa = prices_a[-n:]
         pb = prices_b[-n:]
 
-        hedge_ratio, constant = self.compute_hedge_ratio(pa, pb)
+        if hedge_ratio is None or constant is None:
+            hr, const = self.compute_hedge_ratio(pa[:-1], pb[:-1])
+            hedge_ratio = hr
+            constant = const
+
         spread = self.compute_spread(pa, pb, hedge_ratio, constant)
 
-        spread_mean = float(np.mean(spread))
-        spread_std = float(np.std(spread, ddof=1))
+        hist_spread = spread[:-1]
+        current_spread = spread[-1]
+
+        spread_mean = float(np.mean(hist_spread))
+        spread_std = float(np.std(hist_spread, ddof=1))
 
         if spread_std < 1e-10:
             z_score = 0.0
         else:
-            z_score = (spread[-1] - spread_mean) / spread_std
+            z_score = (current_spread - spread_mean) / spread_std
 
         return SpreadStats(
             mean=spread_mean,
             std=spread_std,
             z_score=z_score,
-            spread=spread[-1],
+            spread=current_spread,
         )
 
     def rolling_cointegration(
@@ -184,13 +151,16 @@ class CointegrationEngine:
         prices_b: np.ndarray,
         window: int,
         step: int = 1,
-    ) -> list:
+    ) -> List[Dict]:
+        """Sliding-window Engle-Granger cointegration analysis."""
         results = []
         for i in range(0, len(prices_a) - window, step):
             pa_window = prices_a[i : i + window]
             pb_window = prices_b[i : i + window]
             result = self.engle_granger_test(pa_window, pb_window)
-            spread_stats = self.compute_z_score(pa_window, pb_window, window)
+            spread_stats = self.compute_z_score(
+                pa_window, pb_window, result.hedge_ratio, result.constant, window
+            )
             results.append(
                 {
                     "index": i,
@@ -208,6 +178,8 @@ class CointegrationEngine:
 
 
 class PairsSignalGenerator:
+    """Generates entry/exit/stop signals for pairs trading based on z-score."""
+
     def __init__(
         self,
         entry_threshold: float = 2.0,
@@ -226,6 +198,7 @@ class PairsSignalGenerator:
         self._position_side: Optional[str] = None
 
     def reset(self):
+        """Clear all internal state."""
         self._hedge_ratio = None
         self._constant = None
         self._in_position = False
@@ -234,6 +207,7 @@ class PairsSignalGenerator:
     def update_cointegration(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> bool:
+        """Run cointegration test and update hedge ratio if cointegrated."""
         result = self.cointegration_engine.engle_granger_test(prices_a, prices_b)
         if result.is_cointegrated:
             self._hedge_ratio = result.hedge_ratio
@@ -244,24 +218,36 @@ class PairsSignalGenerator:
     def compute_spread(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> Optional[float]:
+        """Compute current spread using stored hedge ratio."""
         if self._hedge_ratio is None:
             return None
-        return prices_a[-1] - self._hedge_ratio * prices_b[-1] - self._constant
+        return float(prices_a[-1] - self._hedge_ratio * prices_b[-1] - self._constant)
 
     def compute_z_score(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> Optional[float]:
+        """Compute z-score using stored hedge ratio (no look-ahead bias)."""
         if self._hedge_ratio is None:
             return None
 
         spread_stats = self.cointegration_engine.compute_z_score(
-            prices_a, prices_b, self.lookback
+            prices_a,
+            prices_b,
+            hedge_ratio=self._hedge_ratio,
+            constant=self._constant,
+            lookback=self.lookback,
         )
         return spread_stats.z_score
 
     def generate_signal(
         self, prices_a: np.ndarray, prices_b: np.ndarray
     ) -> Tuple[Optional[str], Optional[str]]:
+        """Generate trading signal based on z-score thresholds.
+
+        Returns:
+            (signal_type, reason) where signal_type is one of:
+            entry_long, entry_short, exit, stop_loss, hold_long, hold_short, or None
+        """
         z_score = self.compute_z_score(prices_a, prices_b)
 
         if z_score is None:
@@ -306,11 +292,34 @@ class PairsSignalGenerator:
 def parameter_sweep(
     prices_a: np.ndarray,
     prices_b: np.ndarray,
-    lookbacks: list,
-    entry_thresholds: list,
-    exit_thresholds: list,
-    stop_thresholds: list,
-) -> list:
+    lookbacks: List[int],
+    entry_thresholds: List[float],
+    exit_thresholds: List[float],
+    stop_thresholds: List[float],
+) -> List[Dict]:
+    """Grid search over cointegration parameters.
+
+    Returns list of dicts with parameter combos and signal counts.
+    Precomputes cointegration per bar to avoid O(n^2 * |params|) redundancy.
+    """
+    max_lb = max(lookbacks) if lookbacks else 60
+    min_len = max_lb + 1
+
+    if len(prices_a) < min_len or len(prices_b) < min_len:
+        return []
+
+    engine = CointegrationEngine(lookback=max_lb)
+    coint_cache: Dict[int, Optional[Tuple[float, float]]] = {}
+
+    for i in range(max_lb, len(prices_a)):
+        pa = prices_a[: i + 1]
+        pb = prices_b[: i + 1]
+        result = engine.engle_granger_test(pa, pb)
+        if result.is_cointegrated:
+            coint_cache[i] = (result.hedge_ratio, result.constant)
+        else:
+            coint_cache[i] = None
+
     results = []
 
     for lb in lookbacks:
@@ -327,15 +336,20 @@ def parameter_sweep(
                         lookback=lb,
                     )
 
-                    signals = []
+                    signal_count = 0
                     for i in range(lb, len(prices_a)):
+                        if coint_cache.get(i) is None:
+                            continue
+
+                        hr, const = coint_cache[i]
+                        generator._hedge_ratio = hr
+                        generator._constant = const
+
                         pa = prices_a[: i + 1]
                         pb = prices_b[: i + 1]
-                        if not generator.update_cointegration(pa, pb):
-                            continue
                         signal, reason = generator.generate_signal(pa, pb)
                         if signal and signal.startswith("entry"):
-                            signals.append(signal)
+                            signal_count += 1
 
                     results.append(
                         {
@@ -343,7 +357,7 @@ def parameter_sweep(
                             "entry_threshold": entry,
                             "exit_threshold": exit_t,
                             "stop_loss_threshold": stop,
-                            "num_signals": len(signals),
+                            "num_signals": signal_count,
                         }
                     )
 
