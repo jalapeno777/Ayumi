@@ -123,14 +123,15 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         bars = []
         for i in range(60):
             t = datetime(2024, 1, 1) + timedelta(days=i)
-            if i < 30:
-                c = 100.0
-            else:
-                c = 100.0 + (i - 30) * 0.8
-            bars.append(Bar(time=t, open=c, high=c + 0.5, low=c - 0.5, close=c))
+            # Strong uptrend throughout so ADX has directional movement
+            c = 100.0 + i * 0.8
+            h = c + 0.5
+            l = c - 0.3
+            bars.append(Bar(time=t, open=c, high=h, low=l, close=c))
         adx = self.strategy._calculate_adx(bars)
         self.assertIsNotNone(adx, "ADX should be computed with sufficient bars")
         self.assertGreater(adx, 0.0, "ADX should be positive for trending data")
+
 
     def test_signal_generation_bullish_ema_cross_high_adx(self):
         bars = _make_trending_bars_with_crossover()
@@ -286,7 +287,7 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
         for i in range(30):
             t = datetime(2024, 1, 1) + timedelta(days=i)
             c = 100.0 - (30 - i) * 2.0
-            bars.append(Bar(time=t, open=c, high=c + 0.5, low=c - 0.5, close=c))
+            bars.append(Bar(time=t, open=c - 0.1, high=c + 0.5 + (i - 30) * 0.2 if i >= 30 else c + 0.5, low=c - 0.5, close=c))
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
         self.assertIsNone(result)
