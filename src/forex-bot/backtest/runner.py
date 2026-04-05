@@ -834,6 +834,7 @@ def run_hybrid_backtest(
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     report_path: str | None = None,
+    window_mode: str = "rolling",
 ) -> dict:
     """Run hybrid ICT/SMC + quantitative filter strategy with FTMO-compliant config.
 
@@ -841,15 +842,21 @@ def run_hybrid_backtest(
     (train/validation/test/buffer).  Per-window and aggregate metrics
     are computed, a summary table is printed, and a JSON report is saved.
 
+    Supports two window modes:
+    - "rolling": fixed-size, non-overlapping windows (default).
+    - "expanding": train data accumulates from bar 0 while test remains
+      fixed-size.  Val and purge buffer still separate train from test.
+
     Args:
         bars: OHLC bar list from CsvDataLoader.
         pair: Currency pair label (default "EURUSD").
-        n_windows: Number of rolling windows (default 5).
-        train_ratio: Fraction of each window for training (default 0.60).
-        val_ratio: Fraction of each window for validation (default 0.15).
-        test_ratio: Fraction of each window for testing (default 0.15).
+        n_windows: Number of windows (default 5).
+        train_ratio: Fraction for training (default 0.60).
+        val_ratio: Fraction for validation (default 0.15).
+        test_ratio: Fraction for testing (default 0.15).
             Remaining (1 - train - val - test) is the purge buffer.
         report_path: If provided, JSON report is written here.
+        window_mode: "rolling" or "expanding" (default "rolling").
 
     Returns:
         Dict with "config", "per_window", "aggregated", "go_nogo" keys.
@@ -858,6 +865,10 @@ def run_hybrid_backtest(
     strategy = HybridStrategy(config=hybrid_config)
 
     total = len(bars)
+    if window_mode not in ("rolling", "expanding"):
+        print(f"ERROR: Invalid window_mode '{window_mode}'. Use 'rolling' or 'expanding'.")
+        return {"per_window": [], "aggregated": {}, "go_nogo": False, "config": {}}
+
     window_size = total // n_windows
     if window_size < 100:
         print(f"ERROR: Not enough bars ({total}) for {n_windows} windows")
@@ -867,11 +878,16 @@ def run_hybrid_backtest(
     if buffer_ratio < 0:
         buffer_ratio = 0.0
 
+    test_size = int(window_size * test_ratio)
+    val_size = int(window_size * val_ratio)
+    buffer_size = int(window_size * buffer_ratio)
+
     results = []
     print("\n" + "=" * 70)
     print("   HYBRID ICT/SMC + QUANT OVERLAY — WALK-FORWARD BACKTEST")
     print("=" * 70)
     print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
+    print(f"   Mode: {window_mode}")
     print(
         f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} "
         f"test={test_ratio:.0%} buffer={buffer_ratio:.0%}"
@@ -881,18 +897,43 @@ def run_hybrid_backtest(
     print("   SL: 2.0x ATR(14) | Min confidence: 0.5 | Min confluences: 2")
 
     for w in range(n_windows):
-        start = w * window_size
-        end = (w + 1) * window_size if w < n_windows - 1 else total
-        window_bars = bars[start:end]
-        wlen = len(window_bars)
+        if window_mode == "rolling":
+            start = w * window_size
+            end = (w + 1) * window_size if w < n_windows - 1 else total
+            window_bars = bars[start:end]
+            wlen = len(window_bars)
 
-        train_end = int(wlen * train_ratio)
-        val_end = int(wlen * (train_ratio + val_ratio))
-        buffer_end = int(wlen * (train_ratio + val_ratio + buffer_ratio))
+            train_end = int(wlen * train_ratio)
+            val_end = int(wlen * (train_ratio + val_ratio))
+            buffer_end = int(wlen * (train_ratio + val_ratio + buffer_ratio))
 
-        train_bars = window_bars[:train_end]
-        val_bars = window_bars[train_end:val_end]
-        test_bars = window_bars[buffer_end:]
+            train_bars = window_bars[:train_end]
+            val_bars = window_bars[train_end:val_end]
+            test_bars = window_bars[buffer_end:]
+        else:
+            test_end = (w + 1) * window_size if w < n_windows - 1 else total
+            test_start = test_end - test_size
+            buffer_start = test_start - buffer_size
+            val_start = buffer_start - val_size
+
+            if test_start < 0 or val_start < 0:
+                results.append(
+                    {
+                        "window_id": w,
+                        "train_bars": max(val_start, 0),
+                        "val_bars": 0,
+                        "test_bars": 0,
+                        "error": "Insufficient data for expanding window",
+                    }
+                )
+                print(
+                    f"\n   Window {w}: SKIP — insufficient data for expanding window"
+                )
+                continue
+
+            train_bars = bars[:val_start]
+            val_bars = bars[val_start:buffer_start]
+            test_bars = bars[test_start:test_end]
 
         if len(test_bars) < 30:
             results.append(
@@ -969,6 +1010,7 @@ def run_hybrid_backtest(
         "config": {
             "pair": pair,
             "n_windows": n_windows,
+            "window_mode": window_mode,
             "train_ratio": train_ratio,
             "val_ratio": val_ratio,
             "test_ratio": test_ratio,
