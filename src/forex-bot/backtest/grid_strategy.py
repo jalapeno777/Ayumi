@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
+from .strategies import ISignalStrategy
 
 
 class GridDirection(Enum):
@@ -108,8 +109,8 @@ class GridState:
         self.bar_count: int = 0
 
     def _get_pip_size(self, pair: str) -> float:
-        if pair in ("EURUSD", "GBPUSD", "USDJPY"):
-            return 0.0001 if pair != "USDJPY" else 0.01
+        if pair.endswith("JPY"):
+            return 0.01
         return 0.0001
 
     def initialize_grid(self, mid_price: float) -> None:
@@ -203,7 +204,7 @@ class GridState:
         self.bar_count = 0
 
 
-class GridStrategy:
+class GridStrategy(ISignalStrategy):
     def __init__(
         self,
         grid_spacing_pips: float = 20.0,
@@ -248,9 +249,10 @@ class GridStrategy:
         latest = state.latest_bar
 
         if not self.state.grid_active:
-            atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
-            self.config.grid_spacing_pips = atr / self._get_pip_size(self.config.pair) * self.config.atr_multiplier
-            self.config.grid_spacing_pips = max(5.0, min(self.config.grid_spacing_pips, 100.0))
+            if self.config.initial_spacing_type == "atr":
+                atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+                self.config.grid_spacing_pips = atr / self._get_pip_size(self.config.pair) * self.config.atr_multiplier
+                self.config.grid_spacing_pips = max(5.0, min(self.config.grid_spacing_pips, 100.0))
 
             self.state.initialize_grid(latest.close)
             self.state.grid_start_bar = self._bar_index
@@ -271,6 +273,10 @@ class GridStrategy:
         direction = TradeDirection.LONG if level.is_buy else TradeDirection.SHORT
         tp = self.state.get_tp_for_level(level, entry_price)
         sl = self.state.get_sl_for_level(level, entry_price)
+        risk = abs(entry_price - sl)
+        tp1 = tp
+        tp2 = entry_price + risk * 2.0 if direction == TradeDirection.LONG else entry_price - risk * 2.0
+        tp3 = entry_price + risk * 3.0 if direction == TradeDirection.LONG else entry_price - risk * 3.0
 
         if self.config.direction == GridDirection.LONG and not level.is_buy:
             return None
@@ -288,9 +294,9 @@ class GridStrategy:
             confidence=confidence,
             entry_price=entry_price,
             stop_loss=sl,
-            take_profit_1=tp,
-            take_profit_2=tp * 1.01 if direction == TradeDirection.LONG else tp * 0.99,
-            take_profit_3=tp * 1.02 if direction == TradeDirection.LONG else tp * 0.98,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
             rationale=rationale,
         )
 
