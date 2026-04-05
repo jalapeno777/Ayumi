@@ -127,7 +127,13 @@ jobs:
     if: always() && needs.auto-pr.outputs.pr_number != ''
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
       - name: Label PR based on CI result
         run: |
           PR_NUMBER="${{ needs.auto-pr.outputs.pr_number }}"
