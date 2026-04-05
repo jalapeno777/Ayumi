@@ -166,7 +166,7 @@ class EnhancedBacktestEngine:
                         bar,
                         signal,
                         atr,
-                        self.config.spread_pips,
+                        self.config.effective_spread_pips,
                         self.tm_config.pair,
                     )
                     if entry_allowed.allow_entry:
@@ -221,6 +221,8 @@ class EnhancedBacktestEngine:
         self.max_daily_loss = 0.0
         self.current_day = None
         self.daily_start_balance = self.config.starting_balance
+        self.total_spread_cost = 0.0
+        self.total_commission_cost = 0.0
 
     def _update_daily_tracking(self, bar_time: datetime):
         day = bar_time.date()
@@ -308,7 +310,9 @@ class EnhancedBacktestEngine:
             result = self.trade_manager.on_bar(trade, bar, bar_index, atr, recent_bars)
 
             if result.action == TradeAction.CLOSE_FULL:
-                pnl = self._calculate_pnl(trade, result.exit_price, trade.remaining_pct)
+                pnl = self._calculate_pnl(
+                    trade, result.exit_price, trade.remaining_pct, bar.time
+                )
                 pnl += trade.partial_realized_pnl
                 self.balance += pnl
 
@@ -340,7 +344,7 @@ class EnhancedBacktestEngine:
 
             elif result.action == TradeAction.CLOSE_PARTIAL:
                 partial_pnl = self._calculate_pnl(
-                    trade, result.exit_price, result.close_pct
+                    trade, result.exit_price, result.close_pct, bar.time
                 )
                 trade.partial_realized_pnl += partial_pnl
                 self.balance += partial_pnl
@@ -361,7 +365,9 @@ class EnhancedBacktestEngine:
         trade_records: List[EnhancedTradeRecord],
     ):
         for trade in open_trades:
-            pnl = self._calculate_pnl(trade, trade.entry_price, trade.remaining_pct)
+            pnl = self._calculate_pnl(
+                trade, trade.entry_price, trade.remaining_pct, exit_time
+            )
             pnl += trade.partial_realized_pnl
             self.balance += pnl
 
@@ -388,11 +394,45 @@ class EnhancedBacktestEngine:
         open_trades.clear()
 
     def _calculate_pnl(
-        self, trade: ManagedTrade, exit_price: float, position_pct: float
+        self,
+        trade: ManagedTrade,
+        exit_price: float,
+        position_pct: float,
+        exit_time: Optional[datetime] = None,
     ) -> float:
         pip_value = self._get_pip_value(trade.entry_price)
         standard_lots = trade.lot_size / self.config.units_per_lot
-        commission_cost = standard_lots * self.config.commission_per_lot
+        spread_pips = self.config.effective_spread_pips
+        commission_cost = standard_lots * self.config.commission_per_lot * position_pct
+        self.total_commission_cost += commission_cost
+
+        if self.config.round_trip_spread:
+            spread_price = spread_pips * pip_value
+            if trade.direction == TradeDirection.LONG:
+                exit_price -= spread_price
+            else:
+                exit_price += spread_price
+            spread_dollars = spread_pips * pip_value * trade.lot_size * position_pct
+            self.total_spread_cost += spread_dollars
+
+        slippage_price = self.config.slippage_pips * pip_value
+        if trade.direction == TradeDirection.LONG:
+            exit_price -= slippage_price
+        else:
+            exit_price += slippage_price
+
+        holding_days = 0
+        if exit_time is not None and trade.entry_time is not None:
+            holding_days = (exit_time.date() - trade.entry_time.date()).days
+        if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
+            swap_cost = (
+                standard_lots
+                * self.config.swap_per_lot_per_day
+                * holding_days
+                * position_pct
+            )
+        else:
+            swap_cost = 0.0
 
         if trade.direction == TradeDirection.LONG:
             pips = (exit_price - trade.entry_price) / pip_value
@@ -402,7 +442,8 @@ class EnhancedBacktestEngine:
         pnl = (
             pips * standard_lots * pip_value * self.config.units_per_lot * position_pct
         )
-        pnl -= commission_cost * position_pct
+        pnl -= commission_cost
+        pnl += swap_cost
         return pnl
 
     def _calculate_pips(self, trade: ManagedTrade, exit_price: float) -> float:
@@ -461,8 +502,8 @@ class EnhancedBacktestEngine:
             avg_holding_bars=0.0,
             equity_curve=equity_curve,
             trades=trades,
-            total_spread_cost=0.0,
-            total_commission_cost=0.0,
+            total_spread_cost=self.total_spread_cost,
+            total_commission_cost=self.total_commission_cost,
             rejected_signals=rejected_signals,
         )
 

@@ -50,6 +50,8 @@ class MultiStrategyBacktestEngine:
         self.current_day = None
         self.daily_start_balance = config.starting_balance
         self.max_daily_loss = 0.0
+        self.total_spread_cost = 0.0
+        self.total_commission_cost = 0.0
 
     def run_all_strategies(self, bars: List[Bar]) -> Dict[str, StrategyBacktestResult]:
         results = {}
@@ -225,6 +227,8 @@ class MultiStrategyBacktestEngine:
         self.max_daily_loss = 0.0
         self.current_day = None
         self.daily_start_balance = self.config.starting_balance
+        self.total_spread_cost = 0.0
+        self.total_commission_cost = 0.0
 
     def _update_daily_tracking(self, bar_time):
         day = bar_time.date()
@@ -293,13 +297,40 @@ class MultiStrategyBacktestEngine:
         reason: ExitReason,
     ):
         trade.exit_bar_index = bar_index
-        trade.exit_price = exit_price
         trade.exit_time = exit_time
         trade.exit_reason = reason
 
         pip_value = self._get_pip_value(trade.entry_price)
         standard_lots = trade.lot_size / self.config.units_per_lot
+        spread_pips = self.config.effective_spread_pips
         commission_cost = standard_lots * self.config.commission_per_lot
+        self.total_commission_cost += commission_cost
+
+        if self.config.round_trip_spread:
+            spread_price = spread_pips * pip_value
+            if trade.direction == TradeDirection.LONG:
+                exit_price -= spread_price
+            else:
+                exit_price += spread_price
+            spread_dollars = spread_pips * pip_value * trade.lot_size
+            self.total_spread_cost += spread_dollars
+        else:
+            spread_dollars = spread_pips * pip_value * trade.lot_size
+            self.total_spread_cost += spread_dollars
+
+        slippage_price = self.config.slippage_pips * pip_value
+        if trade.direction == TradeDirection.LONG:
+            exit_price -= slippage_price
+        else:
+            exit_price += slippage_price
+
+        trade.exit_price = exit_price
+
+        holding_days = (exit_time.date() - trade.entry_time.date()).days
+        if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
+            swap_cost = standard_lots * self.config.swap_per_lot_per_day * holding_days
+        else:
+            swap_cost = 0.0
 
         if trade.direction == TradeDirection.LONG:
             trade.pips = (exit_price - trade.entry_price) / pip_value
@@ -309,6 +340,7 @@ class MultiStrategyBacktestEngine:
         trade.profit_loss = (
             trade.pips * standard_lots * pip_value * self.config.units_per_lot
             - commission_cost
+            + swap_cost
         )
         self.balance += trade.profit_loss
 
@@ -432,8 +464,8 @@ class MultiStrategyBacktestEngine:
             avg_holding_bars=0.0,
             equity_curve=equity_curve,
             trades=trades,
-            total_spread_cost=0.0,
-            total_commission_cost=0.0,
+            total_spread_cost=self.total_spread_cost,
+            total_commission_cost=self.total_commission_cost,
             rejected_signals=rejected_signals,
         )
 

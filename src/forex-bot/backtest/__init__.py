@@ -13,6 +13,9 @@ from .engine import (
     TradeOutcome,
     StrategyBacktestResult,
     determine_session,
+    get_spread_for_pair,
+    PAIR_SPREAD_PIPS,
+    DEFAULT_SPREAD_PIPS,
 )
 from .data_loader import CsvDataLoader
 from .strategies import (
@@ -81,6 +84,9 @@ __all__ = [
     "TradeOutcome",
     "StrategyBacktestResult",
     "determine_session",
+    "get_spread_for_pair",
+    "PAIR_SPREAD_PIPS",
+    "DEFAULT_SPREAD_PIPS",
     "CsvDataLoader",
     "ISignalStrategy",
     "MACrossStrategy",
