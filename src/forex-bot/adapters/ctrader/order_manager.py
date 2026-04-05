@@ -63,7 +63,8 @@ class OrderManager:
             logger.warning("Stop loss distance is zero, using default lot size")
             return self._position_config.default_lot_size
 
-        pip_value = 10.0 if entry_price < 1 else 10.0
+        is_jpy_pair = symbol.upper().endswith("JPY") or symbol.upper().startswith("JPY")
+        pip_value = 1000.0 if is_jpy_pair else 10000.0
         sl_pips = sl_distance * pip_value
 
         if sl_pips == 0:

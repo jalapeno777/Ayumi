@@ -22,7 +22,6 @@ from .strategies import (
     RSIStrategy,
     SRBreakoutStrategy,
     ROCMStrategy,
-    MomentumBreakoutStrategy,
 )
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
@@ -48,7 +47,6 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
-
 __all__ = [
     "Bar",
     "BarPeriod",
@@ -71,7 +69,6 @@ __all__ = [
     "RSIStrategy",
     "SRBreakoutStrategy",
     "ROCMStrategy",
-    "MomentumBreakoutStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",
