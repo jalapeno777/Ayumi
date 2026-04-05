@@ -22,6 +22,8 @@ from .strategies import (
     RSIStrategy,
     SRBreakoutStrategy,
     ROCMStrategy,
+    CommodityTrendStrategy,
+    CommodityMeanReversionStrategy,
 )
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
@@ -71,6 +73,8 @@ __all__ = [
     "RSIStrategy",
     "SRBreakoutStrategy",
     "ROCMStrategy",
+    "CommodityTrendStrategy",
+    "CommodityMeanReversionStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",

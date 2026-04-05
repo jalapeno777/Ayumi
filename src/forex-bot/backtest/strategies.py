@@ -500,3 +500,315 @@ class ROCMStrategy(ISignalStrategy):
                 )
                 tr_sum += tr
         return tr_sum / 14
+
+
+class CommodityTrendStrategy(ISignalStrategy):
+    def __init__(
+        self,
+        fast_ema_period: int = 20,
+        slow_ema_period: int = 50,
+        adx_period: int = 14,
+        adx_threshold: float = 25.0,
+        atr_multiplier: float = 1.75,
+        risk_reward_ratio: float = 2.0,
+    ):
+        self.fast_ema_period = fast_ema_period
+        self.slow_ema_period = slow_ema_period
+        self.adx_period = adx_period
+        self.adx_threshold = adx_threshold
+        self.atr_multiplier = atr_multiplier
+        self.risk_reward_ratio = risk_reward_ratio
+
+    @property
+    def name(self) -> str:
+        return "Commodity Trend Following"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        if len(state.bars) < self.slow_ema_period + self.adx_period + 1:
+            return None
+
+        fast_ema = self._calculate_ema(state.bars, self.fast_ema_period)
+        slow_ema = self._calculate_ema(state.bars, self.slow_ema_period)
+        prev_fast_ema = self._calculate_ema(state.bars[:-1], self.fast_ema_period)
+        prev_slow_ema = self._calculate_ema(state.bars[:-1], self.slow_ema_period)
+
+        if fast_ema == 0 or slow_ema == 0 or prev_fast_ema == 0 or prev_slow_ema == 0:
+            return None
+
+        adx = self._calculate_adx(state.bars)
+        if adx is None or adx < self.adx_threshold:
+            return None
+
+        bullish_cross = prev_fast_ema <= prev_slow_ema and fast_ema > slow_ema
+        bearish_cross = prev_fast_ema >= prev_slow_ema and fast_ema < slow_ema
+
+        if not bullish_cross and not bearish_cross:
+            return None
+
+        direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
+        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        entry = state.latest_bar.close
+        sl = (
+            entry - atr * self.atr_multiplier
+            if direction == TradeDirection.LONG
+            else entry + atr * self.atr_multiplier
+        )
+        risk = abs(entry - sl)
+        tp1 = (
+            entry + risk * 1.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 1.0
+        )
+        tp2 = (
+            entry + risk * 2.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 2.0
+        )
+        tp3 = (
+            entry + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
+
+        confidence = min(0.90, 0.50 + (adx - self.adx_threshold) / 100 * 0.40)
+        rationale = (
+            f"Bullish EMA cross + ADX confirmed: fast={fast_ema:.5f} > slow={slow_ema:.5f}, ADX={adx:.1f}"
+            if bullish_cross
+            else f"Bearish EMA cross + ADX confirmed: fast={fast_ema:.5f} < slow={slow_ema:.5f}, ADX={adx:.1f}"
+        )
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period:
+            return 0.0
+        multiplier = 2.0 / (period + 1)
+        sma = sum(b.close for b in bars[:period]) / period
+        ema = sma
+        for bar in bars[period:]:
+            ema = (bar.close - ema) * multiplier + ema
+        return ema
+
+    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.adx_period + 1:
+            return None
+
+        period = self.adx_period
+        bars_for_adx = bars[-(period + 1):]
+
+        plus_dm_list = []
+        minus_dm_list = []
+        tr_list = []
+
+        for i in range(1, len(bars_for_adx)):
+            high = bars_for_adx[i].high
+            low = bars_for_adx[i].low
+            prev_high = bars_for_adx[i - 1].high
+            prev_low = bars_for_adx[i - 1].low
+            prev_close = bars_for_adx[i - 1].close
+
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close),
+            )
+            tr_list.append(tr)
+
+            plus_dm = max(high - prev_high, 0) - max(prev_low - low, 0)
+            minus_dm = max(prev_low - low, 0) - max(high - prev_high, 0)
+
+            if plus_dm < 0:
+                plus_dm = 0.0
+            if minus_dm < 0:
+                minus_dm = 0.0
+
+            if plus_dm > minus_dm:
+                minus_dm = 0.0
+            elif minus_dm > plus_dm:
+                plus_dm = 0.0
+            else:
+                plus_dm = 0.0
+                minus_dm = 0.0
+
+            plus_dm_list.append(plus_dm)
+            minus_dm_list.append(minus_dm)
+
+        if len(tr_list) < period:
+            return None
+
+        tr_smooth = sum(tr_list[:period])
+        plus_dm_smooth = sum(plus_dm_list[:period])
+        minus_dm_smooth = sum(minus_dm_list[:period])
+
+        if tr_smooth == 0:
+            return None
+
+        plus_di = (plus_dm_smooth / tr_smooth) * 100
+        minus_di = (minus_dm_smooth / tr_smooth) * 100
+
+        if plus_di + minus_di == 0:
+            return None
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        return dx
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
+
+
+class CommodityMeanReversionStrategy(ISignalStrategy):
+    def __init__(
+        self,
+        bb_period: int = 20,
+        bb_std_dev: float = 2.0,
+        rsi_period: int = 14,
+        rsi_oversold: float = 30.0,
+        rsi_overbought: float = 70.0,
+        atr_multiplier: float = 2.0,
+    ):
+        self.bb_period = bb_period
+        self.bb_std_dev = bb_std_dev
+        self.rsi_period = rsi_period
+        self.rsi_oversold = rsi_oversold
+        self.rsi_overbought = rsi_overbought
+        self.atr_multiplier = atr_multiplier
+
+    @property
+    def name(self) -> str:
+        return "Commodity Mean Reversion"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        if len(state.bars) < self.bb_period + 1:
+            return None
+
+        sma = self._calculate_sma(state.bars)
+        std = self._calculate_std(state.bars, sma)
+        if std == 0:
+            return None
+
+        upper_band = sma + std * self.bb_std_dev
+        lower_band = sma - std * self.bb_std_dev
+        middle_band = sma
+        latest = state.latest_bar
+
+        rsi = self._calculate_rsi(state.bars)
+        if rsi is None:
+            return None
+
+        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+
+        if latest.close < lower_band and rsi < self.rsi_oversold:
+            direction = TradeDirection.LONG
+            entry = latest.close
+            sl = lower_band - atr * 0.5
+            risk = abs(entry - sl)
+            tp1 = middle_band
+            tp2 = entry + risk * 2.0
+            tp3 = entry + risk * 3.0
+            confidence = min(
+                0.90, 0.55 + (self.rsi_oversold - rsi) / self.rsi_oversold * 0.35
+            )
+            rationale = (
+                f"BB oversold + RSI oversold: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
+            )
+        elif latest.close > upper_band and rsi > self.rsi_overbought:
+            direction = TradeDirection.SHORT
+            entry = latest.close
+            sl = upper_band + atr * 0.5
+            risk = abs(entry - sl)
+            tp1 = middle_band
+            tp2 = entry - risk * 2.0
+            tp3 = entry - risk * 3.0
+            confidence = min(
+                0.90, 0.55 + (rsi - self.rsi_overbought) / (100 - self.rsi_overbought) * 0.35
+            )
+            rationale = (
+                f"BB overbought + RSI overbought: close={latest.close:.5f} > upper={upper_band:.5f}, RSI={rsi:.1f}"
+            )
+        else:
+            return None
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _calculate_sma(self, bars: List[Bar]) -> float:
+        if len(bars) < self.bb_period:
+            return 0.0
+        return sum(b.close for b in bars[-self.bb_period:]) / self.bb_period
+
+    def _calculate_std(self, bars: List[Bar], sma: float) -> float:
+        if len(bars) < self.bb_period:
+            return 0.0
+        variance = sum((b.close - sma) ** 2 for b in bars[-self.bb_period:]) / self.bb_period
+        return variance**0.5
+
+    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.rsi_period + 1:
+            return None
+
+        gains = []
+        losses = []
+        for i in range(len(bars) - self.rsi_period, len(bars)):
+            change = bars[i].close - bars[i - 1].close
+            if change > 0:
+                gains.append(change)
+                losses.append(0)
+            else:
+                gains.append(0)
+                losses.append(abs(change))
+
+        avg_gain = sum(gains) / self.rsi_period
+        avg_loss = sum(losses) / self.rsi_period
+
+        if avg_loss == 0:
+            return 100.0
+
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
