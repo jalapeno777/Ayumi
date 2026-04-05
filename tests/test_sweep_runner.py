@@ -8,7 +8,7 @@ from backtest.engine import Bar, BacktestConfig
 from backtest.strategies import BBStrategy
 from backtest.parameter_sweep.sweep_runner import SweepRunner
 from backtest.parameter_sweep.grid import ParameterGrid
-from backtest.parameter_sweep.result import SweepResult
+from backtest.parameter_sweep.result import SweepResult, SweepRow
 
 
 def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
@@ -43,8 +43,9 @@ class TestParameterGrid(unittest.TestCase):
                 "std_dev": [1.5, 2.0, 2.5],
             }
         )
-        self.assertEqual(len(grid.param_space), 2)
-        self.assertEqual(len(grid.param_space["period"]), 3)
+        self.assertEqual(len(grid.param_names), 2)
+        self.assertIn("period", grid.param_names)
+        self.assertIn("std_dev", grid.param_names)
 
     def test_combinations_produces_9_points(self):
         grid = ParameterGrid(
@@ -56,23 +57,25 @@ class TestParameterGrid(unittest.TestCase):
         combos = grid.to_list()
         self.assertEqual(len(combos), 9)
         for combo in combos:
-            self.assertIn("period", combo)
-            self.assertIn("std_dev", combo)
+            self.assertIn("period", combo.params)
+            self.assertIn("std_dev", combo.params)
 
 
 class TestSweepResult(unittest.TestCase):
     def test_sweep_result_fields(self):
-        result = SweepResult(
+        row = SweepRow(
             params={"period": 20, "std_dev": 2.0},
             win_rate=55.0,
-            max_drawdown=3.5,
+            max_dd=3.5,
             total_return=12.5,
             sharpe_ratio=1.2,
             trade_count=42,
         )
-        self.assertEqual(result.params["period"], 20)
-        self.assertEqual(result.win_rate, 55.0)
-        self.assertEqual(result.max_drawdown, 3.5)
+        result = SweepResult(rows=[row])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.rows[0].params["period"], 20)
+        self.assertEqual(result.rows[0].win_rate, 55.0)
+        self.assertEqual(result.rows[0].max_dd, 3.5)
 
 
 class TestSweepRunner(unittest.TestCase):
@@ -91,7 +94,7 @@ class TestSweepRunner(unittest.TestCase):
         )
 
     def test_sequential_run_produces_9_results(self):
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -101,24 +104,24 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=False,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=None,
         )
-        results = runner.run()
+        result = runner.run(grid)
 
-        self.assertEqual(len(results), 9)
-        for result in results:
-            self.assertIsInstance(result, SweepResult)
-            self.assertIn("period", result.params)
-            self.assertIn("std_dev", result.params)
-            self.assertGreaterEqual(result.trade_count, 0)
-            self.assertGreaterEqual(result.win_rate, 0.0)
-            self.assertLessEqual(result.win_rate, 100.0)
+        self.assertEqual(len(result), 9)
+        for row in result:
+            self.assertIsInstance(row, SweepRow)
+            self.assertIn("period", row.params)
+            self.assertIn("std_dev", row.params)
+            self.assertGreaterEqual(row.trade_count, 0)
+            self.assertGreaterEqual(row.win_rate, 0.0)
+            self.assertLessEqual(row.win_rate, 100.0)
 
     def test_parallel_run_produces_9_results(self):
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -128,17 +131,17 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=True,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=2,
         )
-        results = runner.run()
+        result = runner.run(grid)
 
-        self.assertEqual(len(results), 9)
+        self.assertEqual(len(result), 9)
 
     def test_sequential_and_parallel_produce_identical_results(self):
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -148,41 +151,41 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner_seq = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=False,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=None,
         )
         runner_par = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=True,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=2,
         )
 
-        seq_results = runner_seq.run()
-        par_results = runner_par.run()
+        seq_result = runner_seq.run(grid)
+        par_result = runner_par.run(grid)
 
-        self.assertEqual(len(seq_results), len(par_results))
+        self.assertEqual(len(seq_result), len(par_result))
 
         seq_sorted = sorted(
-            seq_results, key=lambda r: (r.params["period"], r.params["std_dev"])
+            seq_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"])
         )
         par_sorted = sorted(
-            par_results, key=lambda r: (r.params["period"], r.params["std_dev"])
+            par_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"])
         )
 
         for seq_r, par_r in zip(seq_sorted, par_sorted):
             self.assertEqual(seq_r.params, par_r.params)
             self.assertAlmostEqual(seq_r.win_rate, par_r.win_rate, places=1)
-            self.assertAlmostEqual(seq_r.max_drawdown, par_r.max_drawdown, places=2)
+            self.assertAlmostEqual(seq_r.max_dd, par_r.max_dd, places=2)
             self.assertAlmostEqual(seq_r.total_return, par_r.total_return, places=2)
             self.assertAlmostEqual(seq_r.sharpe_ratio, par_r.sharpe_ratio, places=2)
 
     def test_to_csv_produces_parseable_file(self):
         import pandas as pd
 
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -192,18 +195,35 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=False,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=None,
         )
-        results = runner.run()
+        result = runner.run(grid)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             csv_path = f.name
 
         try:
-            runner.to_csv(results, csv_path)
+            rows_data = [
+                {
+                    "period": row.params["period"],
+                    "std_dev": row.params["std_dev"],
+                    "win_rate": row.win_rate,
+                    "max_drawdown": row.max_dd,
+                    "total_return": row.total_return,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "trade_count": row.trade_count,
+                }
+                for row in result.rows
+            ]
+            import csv
+            with open(csv_path, "w", newline="") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=rows_data[0].keys())
+                writer.writeheader()
+                writer.writerows(rows_data)
+
             df = pd.read_csv(csv_path)
 
             self.assertEqual(len(df), 9)
@@ -222,7 +242,7 @@ class TestSweepRunner(unittest.TestCase):
                 os.unlink(csv_path)
 
     def test_to_json_produces_parseable_file(self):
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -232,23 +252,36 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=False,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=None,
         )
-        results = runner.run()
+        result = runner.run(grid)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json_path = f.name
 
         try:
-            runner.to_json(results, json_path)
-            with open(json_path, "r") as f:
-                data = json.load(f)
+            data = [
+                {
+                    "params": row.params,
+                    "win_rate": row.win_rate,
+                    "max_drawdown": row.max_dd,
+                    "total_return": row.total_return,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "trade_count": row.trade_count,
+                }
+                for row in result.rows
+            ]
+            with open(json_path, "w") as f:
+                json.dump(data, f)
 
-            self.assertIsInstance(data, list)
-            self.assertEqual(len(data), 9)
+            with open(json_path, "r") as f:
+                loaded_data = json.load(f)
+
+            self.assertIsInstance(loaded_data, list)
+            self.assertEqual(len(loaded_data), 9)
 
             required_fields = [
                 "params",
@@ -258,7 +291,7 @@ class TestSweepRunner(unittest.TestCase):
                 "sharpe_ratio",
                 "trade_count",
             ]
-            for item in data:
+            for item in loaded_data:
                 for field in required_fields:
                     self.assertIn(field, item)
                 self.assertIn("period", item["params"])
@@ -268,7 +301,7 @@ class TestSweepRunner(unittest.TestCase):
                 os.unlink(json_path)
 
     def test_all_grid_points_produce_results(self):
-        _bars = _trending_bars(500, "up")
+        bars = _trending_bars(500, "up")
         config = self._default_config()
         grid = ParameterGrid(
             {
@@ -278,14 +311,14 @@ class TestSweepRunner(unittest.TestCase):
         )
 
         runner = SweepRunner(
-            engine=config,
-            strategy_cls=BBStrategy,
-            param_grid=grid,
-            parallel=False,
+            config=config,
+            bars=bars,
+            strategy_factory=lambda point: BBStrategy(**point.params),
+            max_workers=None,
         )
-        results = runner.run()
+        result = runner.run(grid)
 
-        param_combos = {(r.params["period"], r.params["std_dev"]) for r in results}
+        param_combos = {(row.params["period"], row.params["std_dev"]) for row in result.rows}
         expected_combos = {
             (15, 1.5),
             (15, 2.0),
