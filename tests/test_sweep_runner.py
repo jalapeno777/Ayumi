@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 
 from backtest.engine import Bar, BacktestConfig
 from backtest.strategies import BBStrategy
-from backtest.sweep_runner import ParameterGrid, SweepRunner, SweepResult
+from backtest.parameter_sweep.sweep_runner import SweepRunner
+from backtest.parameter_sweep.grid import ParameterGrid
+from backtest.parameter_sweep.result import SweepResult
 
 
 def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
