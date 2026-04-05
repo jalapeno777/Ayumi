@@ -500,3 +500,213 @@ class ROCMStrategy(ISignalStrategy):
                 )
                 tr_sum += tr
         return tr_sum / 14
+
+
+class MomentumBreakoutStrategy(ISignalStrategy):
+    """Momentum/Breakout strategy using EMA crossover with ADX trend confirmation.
+
+    Entry signals are generated when the fast EMA crosses the slow EMA
+    AND the ADX indicator is above the threshold (indicating a strong trend).
+    Stop loss is calculated using ATR multiplier. Take profit levels are
+    set at 1R, 2R, and 3R risk multiples.
+
+    Args:
+        fast_period: Period for fast EMA (default 9).
+        slow_period: Period for slow EMA (default 21).
+        adx_period: Period for ADX calculation (default 14).
+        adx_threshold: Minimum ADX value to confirm trend (default 25.0).
+        atr_multiplier: ATR multiplier for stop loss (default 2.0).
+    """
+
+    def __init__(
+        self,
+        fast_period: int = 9,
+        slow_period: int = 21,
+        adx_period: int = 14,
+        adx_threshold: float = 25.0,
+        atr_multiplier: float = 2.0,
+    ):
+        self.fast_period = fast_period
+        self.slow_period = slow_period
+        self.adx_period = adx_period
+        self.adx_threshold = adx_threshold
+        self.atr_multiplier = atr_multiplier
+
+    @property
+    def name(self) -> str:
+        """Return strategy name."""
+        return "Momentum Breakout"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        """Evaluate market state and generate trading signal if conditions are met.
+
+        Args:
+            state: Current market state containing OHLC bars and session info.
+
+        Returns:
+            StrategySignal if entry conditions are met (EMA crossover + ADX > threshold),
+            None otherwise.
+        """
+        if len(state.bars) < self.slow_period + self.adx_period + 1:
+            return None
+
+        fast_ema = self._calculate_ema(state.bars, self.fast_period)
+        slow_ema = self._calculate_ema(state.bars, self.slow_period)
+        prev_fast_ema = self._calculate_ema(state.bars[:-1], self.fast_period)
+        prev_slow_ema = self._calculate_ema(state.bars[:-1], self.slow_period)
+
+        if fast_ema == 0 or slow_ema == 0 or prev_fast_ema == 0 or prev_slow_ema == 0:
+            return None
+
+        adx = self._calculate_adx(state.bars)
+        if adx is None or adx < self.adx_threshold:
+            return None
+
+        bullish_cross = prev_fast_ema <= prev_slow_ema and fast_ema > slow_ema
+        bearish_cross = prev_fast_ema >= prev_slow_ema and fast_ema < slow_ema
+
+        if not bullish_cross and not bearish_cross:
+            return None
+
+        direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
+        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
+        entry = state.latest_bar.close
+        sl = (
+            entry - atr * self.atr_multiplier
+            if direction == TradeDirection.LONG
+            else entry + atr * self.atr_multiplier
+        )
+        risk = abs(entry - sl)
+        tp1 = (
+            entry + risk * 1.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 1.0
+        )
+        tp2 = (
+            entry + risk * 2.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 2.0
+        )
+        tp3 = (
+            entry + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
+
+        if adx >= 40:
+            confidence = 0.8
+        else:
+            confidence = 0.6
+
+        rationale = (
+            f"Bullish EMA cross + ADX confirm: fast={fast_ema:.5f} > slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"
+            if bullish_cross
+            else f"Bearish EMA cross + ADX confirm: fast={fast_ema:.5f} < slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"
+        )
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period:
+            return 0.0
+        multiplier = 2.0 / (period + 1)
+        ema = sum(b.close for b in bars[:period]) / period
+        for bar in bars[period:]:
+            ema = (bar.close - ema) * multiplier + ema
+        return ema
+
+    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.adx_period + 1:
+            return None
+
+        highs = [b.high for b in bars]
+        lows = [b.low for b in bars]
+        closes = [b.close for b in bars]
+
+        plus_dm_list = []
+        minus_dm_list = []
+        tr_list = []
+
+        for i in range(1, len(bars)):
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+            tr_list.append(tr)
+
+            high_diff = highs[i] - highs[i - 1]
+            low_diff = lows[i - 1] - lows[i]
+
+            if high_diff > low_diff and high_diff > 0:
+                plus_dm_list.append(high_diff)
+            else:
+                plus_dm_list.append(0)
+            if low_diff > high_diff and low_diff > 0:
+                minus_dm_list.append(low_diff)
+            else:
+                minus_dm_list.append(0)
+
+        if len(tr_list) < self.adx_period:
+            return None
+
+        tr_sum = sum(tr_list[:self.adx_period])
+        plus_dm_sum = sum(plus_dm_list[:self.adx_period])
+        minus_dm_sum = sum(minus_dm_list[:self.adx_period])
+
+        if tr_sum == 0:
+            return None
+
+        plus_di = (plus_dm_sum / tr_sum) * 100
+        minus_di = (minus_dm_sum / tr_sum) * 100
+
+        if plus_di + minus_di == 0:
+            return 0.0
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        for i in range(self.adx_period, len(tr_list)):
+            tr_sum = tr_sum - tr_sum / self.adx_period + tr_list[i]
+            plus_dm_sum = plus_dm_sum - plus_dm_sum / self.adx_period + plus_dm_list[i]
+            minus_dm_sum = minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
+
+            if tr_sum == 0:
+                continue
+
+            plus_di = (plus_dm_sum / tr_sum) * 100
+            minus_di = (minus_dm_sum / tr_sum) * 100
+
+            if plus_di + minus_di == 0:
+                dx = 0
+            else:
+                dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+            adx = (adx * (self.adx_period - 1) + dx) / self.adx_period
+
+        return adx
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
