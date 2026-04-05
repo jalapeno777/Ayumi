@@ -160,9 +160,30 @@ class TestComputeConfluence(unittest.TestCase):
         from quant.mtf_regime import TrendDirection as TD
 
         regimes = [
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BULLISH, 30.0, MarketRegime.TRENDING, 0.001),
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BULLISH, 30.0, MarketRegime.TRENDING, 0.001),
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BULLISH, 30.0, MarketRegime.TRENDING, 0.001),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BULLISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BULLISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BULLISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
         ]
         conf, aligned = compute_confluence(regimes)
         self.assertEqual(conf, 1.0)
@@ -173,8 +194,22 @@ class TestComputeConfluence(unittest.TestCase):
         from quant.mtf_regime import TrendDirection as TD
 
         regimes = [
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BEARISH, 30.0, MarketRegime.TRENDING, 0.001),
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BEARISH, 30.0, MarketRegime.TRENDING, 0.001),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BEARISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BEARISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
         ]
         conf, aligned = compute_confluence(regimes)
         self.assertEqual(conf, 1.0)
@@ -185,8 +220,22 @@ class TestComputeConfluence(unittest.TestCase):
         from quant.mtf_regime import TrendDirection as TD
 
         regimes = [
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BULLISH, 30.0, MarketRegime.TRENDING, 0.001),
-            TR(VolatilityRegime.NORMAL, 50.0, TD.BEARISH, 30.0, MarketRegime.TRENDING, 0.001),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BULLISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
+            TR(
+                VolatilityRegime.NORMAL,
+                50.0,
+                TD.BEARISH,
+                30.0,
+                MarketRegime.TRENDING,
+                0.001,
+            ),
         ]
         conf, aligned = compute_confluence(regimes)
         self.assertGreaterEqual(conf, 0.0)
@@ -227,7 +276,10 @@ class TestDetectRegime(unittest.TestCase):
         bars = _make_bars(300, minutes=15, trend="up")
         regime = detect_regime(bars)
         self.assertIsInstance(regime, TimeframeRegime)
-        self.assertIn(regime.trend, [TrendDirection.BULLISH, TrendDirection.BEARISH, TrendDirection.NEUTRAL])
+        self.assertIn(
+            regime.trend,
+            [TrendDirection.BULLISH, TrendDirection.BEARISH, TrendDirection.NEUTRAL],
+        )
 
 
 class TestMTFFilteredMomentumStrategy(unittest.TestCase):
@@ -327,7 +379,9 @@ class TestMTFFilteredMomentumStrategy(unittest.TestCase):
                 self.assertIsInstance(result.confidence, float)
 
     def test_momentum_breakout_wrapper(self):
-        inner = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=20.0)
+        inner = MomentumBreakoutStrategy(
+            fast_period=5, slow_period=10, adx_threshold=20.0
+        )
         wrapper = MTFFilteredMomentumStrategy(
             inner,
             regime_config=MTFRegimeConfig(
