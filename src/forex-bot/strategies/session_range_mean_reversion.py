@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import date, datetime, time
 from typing import List, Optional
 
 from backtest.engine import (
@@ -18,7 +18,6 @@ class SessionRangeMRConfig:
     atr_period: int = 14
     atr_sl_multiplier: float = 1.5
     atr_tp_multiplier: float = 2.0
-    z_score_threshold: float = 1.5
     rsi_period: int = 14
     rsi_long_level: float = 40.0
     rsi_short_level: float = 60.0
@@ -26,7 +25,7 @@ class SessionRangeMRConfig:
     entry_near_extreme_pips: float = 20.0
     hard_cap_sl_pips: float = 30.0
     tp1_rr: float = 1.0
-    tp2_rr: float = 1.0
+    tp2_rr: float = 1.5
 
 
 _ASIAN_START = time(0, 0)
@@ -47,7 +46,7 @@ _PIP = 0.0001
 def _get_bar_session(bar_time: datetime) -> SessionType:
     utc_hour = bar_time.hour
     if _ASIAN_START.hour <= utc_hour < _ASIAN_END.hour:
-        return SessionType.LONDON
+        return SessionType.ASIAN
     if _LONDON_START.hour <= utc_hour < _LONDON_END.hour:
         return SessionType.LONDON
     if _NY_OPEN_START.hour <= utc_hour < _NY_OPEN_END.hour:
@@ -106,12 +105,29 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
+def _bars_same_day(bar_a: Bar, bar_b: Bar) -> bool:
+    return bar_a.time.date() == bar_b.time.date()
+
+
 def _calculate_session_range(
-    bars: List[Bar], session_type: SessionType
+    bars: List[Bar], session_type: SessionType, reference_day: Optional[date] = None
 ) -> tuple[float, float, float]:
-    session_bars = [b for b in bars if _get_bar_session(b.time) == session_type]
+    if not bars:
+        return 0.0, 0.0, 0.0
+
+    if reference_day is None:
+        reference_day = bars[-1].time.date()
+
+    session_bars: List[Bar] = []
+    for b in bars:
+        if b.time.date() != reference_day:
+            continue
+        if _get_bar_session(b.time) == session_type:
+            session_bars.append(b)
+
     if not session_bars:
         return 0.0, 0.0, 0.0
+
     high = max(b.high for b in session_bars)
     low = min(b.low for b in session_bars)
     mean = sum(b.close for b in session_bars) / len(session_bars)
@@ -180,19 +196,23 @@ class SessionRangeMeanReversionStrategy:
         if atr <= 0:
             return None
 
+        latest = state.latest_bar
+        current_day = latest.time.date()
+
+        prev_day = self._find_previous_trading_day(state.bars, current_day)
+
         session_high, session_low, session_mean = _calculate_session_range(
-            state.bars, SessionType.LONDON
+            state.bars, SessionType.LONDON, reference_day=prev_day
         )
         if session_high == 0:
             session_high, session_low, session_mean = _calculate_session_range(
-                state.bars, SessionType.NY_AM
+                state.bars, SessionType.NY_AM, reference_day=prev_day
             )
 
         session_range_width = (session_high - session_low) / _PIP
         if session_range_width < self.config.session_range_min_pips:
             return None
 
-        latest = state.latest_bar
         price = latest.close
 
         rsi = _calculate_rsi(state.bars, self.config.rsi_period)
@@ -224,3 +244,16 @@ class SessionRangeMeanReversionStrategy:
             return _build_signal(direction, price, atr, self.config, rationale)
 
         return None
+
+    @staticmethod
+    def _find_previous_trading_day(
+        bars: List[Bar], current_day: date
+    ) -> Optional[date]:
+        seen_days: set[date] = set()
+        for b in bars:
+            d = b.time.date()
+            if d < current_day:
+                seen_days.add(d)
+        if not seen_days:
+            return None
+        return max(seen_days)

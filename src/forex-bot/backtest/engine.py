@@ -12,6 +12,7 @@ class TradeDirection(Enum):
 
 
 class SessionType(Enum):
+    ASIAN = "asian"
     LONDON = "london"
     NY_AM = "ny_am"
     NY_PM = "ny_pm"
