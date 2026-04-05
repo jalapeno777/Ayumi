@@ -3,7 +3,6 @@
 
 import sqlite3
 import csv
-import os
 import sys
 from pathlib import Path
 
@@ -68,9 +67,6 @@ def parse_csv_file(csv_path: Path) -> list:
     """Parse a CSV file and return rows as dicts."""
     rows = []
     # Try to detect format
-    with open(csv_path, 'r') as f:
-        sample = f.read(500)
-    
     with open(csv_path, 'r') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -146,7 +142,7 @@ def migrate_csv(conn, csv_path: Path, batch_size=5000):
 
     rows = parse_csv_file(csv_path)
     if not rows:
-        print(f"    ⚠️  No rows found")
+        print("    ⚠️  No rows found")
         return 0
 
     inserted = 0
