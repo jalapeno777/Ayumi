@@ -196,7 +196,7 @@ class TestOrderManager:
     def test_register_callback(self):
         manager = OrderManager()
         called = []
-        manager.register_callback("on_order_placed", lambda o: called.append(o))
+        manager.register_callback("on_order_filled", lambda o: called.append(o))
         manager.execute_paper_order(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
