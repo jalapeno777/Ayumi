@@ -357,10 +357,12 @@ class MultiStrategyBacktestEngine:
 
         pip_value = self._get_pip_value(signal.entry_price)
         spread_cost = self.config.spread_pips * pip_value
+        slippage_cost = self.config.slippage_pips * pip_value
+        total_cost = spread_cost + slippage_cost
         effective_entry = (
-            signal.entry_price + spread_cost
+            signal.entry_price + total_cost
             if signal.direction == TradeDirection.LONG
-            else signal.entry_price - spread_cost
+            else signal.entry_price - total_cost
         )
         adjusted_risk = abs(effective_entry - signal.stop_loss)
         if adjusted_risk == 0:

@@ -78,8 +78,20 @@ class GridConfig:
     def ftmo(cls, symbol: str = "EURUSD") -> GridConfig:
         if symbol.upper() == "XAUUSD":
             base = cls.xauusd()
+            risk = RiskConfig(
+                equity_stop_pct=0.05,
+                max_open_positions=3,
+                max_daily_loss_pct=0.015,
+                max_correlated_positions=2,
+            )
         else:
             base = cls.eurusd()
+            risk = RiskConfig(
+                equity_stop_pct=0.05,
+                max_open_positions=3,
+                max_daily_loss_pct=0.015,
+                max_correlated_positions=2,
+            )
         return cls(
             symbol=base.symbol,
             grid_spacing=base.grid_spacing,
@@ -89,12 +101,7 @@ class GridConfig:
             pip_value=base.pip_value,
             contract_size=base.contract_size,
             spread=base.spread,
-            risk=RiskConfig(
-                equity_stop_pct=0.05,
-                max_open_positions=10,
-                max_daily_loss_pct=0.03,
-                max_correlated_positions=3,
-            ),
+            risk=risk,
             trend_filter=TrendFilterConfig(
                 adx_period=14,
                 full_grid_threshold=20.0,
