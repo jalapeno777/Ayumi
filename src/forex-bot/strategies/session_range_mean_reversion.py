@@ -246,7 +246,9 @@ class SessionRangeMeanReversionStrategy:
         return None
 
     @staticmethod
-    def _find_previous_trading_day(bars: List[Bar], current_day: date) -> Optional[date]:
+    def _find_previous_trading_day(
+        bars: List[Bar], current_day: date
+    ) -> Optional[date]:
         seen_days: set[date] = set()
         for b in bars:
             d = b.time.date()
