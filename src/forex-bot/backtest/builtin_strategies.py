@@ -42,9 +42,7 @@ def _make_roc() -> ISignalStrategy:
 
 
 def _make_momentum() -> ISignalStrategy:
-    return MomentumBreakoutStrategy(
-        fast_period=9, slow_period=21, adx_threshold=25.0
-    )
+    return MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0)
 
 
 def _make_commodity_trend() -> ISignalStrategy:
