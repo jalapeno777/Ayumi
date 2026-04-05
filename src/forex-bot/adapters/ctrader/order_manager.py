@@ -291,7 +291,11 @@ class OrderManager:
 
     def get_total_unrealized_pnl(self) -> float:
         with self._lock:
-            return sum(p.unrealized_pnl for p in self.get_open_positions())
+            return sum(
+                p.unrealized_pnl
+                for p in self._positions.values()
+                if p.status == PositionStatus.OPEN
+            )
 
     def get_total_realized_pnl(self) -> float:
         with self._lock:
