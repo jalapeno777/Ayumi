@@ -526,6 +526,16 @@ class CommodityTrendStrategy(ISignalStrategy):
         atr_multiplier: float = 1.75,
         risk_reward_ratio: float = 2.0,
     ):
+        """Initialize CommodityTrendStrategy.
+
+        Args:
+            fast_ema_period: Period for fast EMA (default 20).
+            slow_ema_period: Period for slow EMA (default 50).
+            adx_period: Period for ADX calculation (default 14).
+            adx_threshold: Minimum ADX value to confirm trend (default 25.0).
+            atr_multiplier: ATR multiplier for stop loss (default 1.75).
+            risk_reward_ratio: Risk/reward ratio for take profit (default 2.0).
+        """
         self.fast_ema_period = fast_ema_period
         self.slow_ema_period = slow_ema_period
         self.adx_period = adx_period
@@ -624,27 +634,30 @@ class CommodityTrendStrategy(ISignalStrategy):
         return ema
 
     def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Average Directional Index (ADX) to measure trend strength.
+        """Calculate Average Directional Index (ADX) using Wilder smoothing.
 
-        Returns DX (directional index) before smoothing. Higher values indicate
-        stronger trends. Returns None if insufficient data.
+        ADX measures trend strength by smoothing DX (Directional Index) over
+        the lookback period using Wilder's method:
+        ADX_today = (ADX_yesterday * (period - 1) + DX_today) / period
+
+        Requires at least 2 * adx_period bars for meaningful values.
+        Returns None if insufficient data.
         """
-        if len(bars) < self.adx_period + 1:
+        period = self.adx_period
+        min_bars = 2 * period + 1
+        if len(bars) < min_bars:
             return None
 
-        period = self.adx_period
-        bars_for_adx = bars[-(period + 1):]
+        tr_list: list[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
 
-        plus_dm_list = []
-        minus_dm_list = []
-        tr_list = []
-
-        for i in range(1, len(bars_for_adx)):
-            high = bars_for_adx[i].high
-            low = bars_for_adx[i].low
-            prev_high = bars_for_adx[i - 1].high
-            prev_low = bars_for_adx[i - 1].low
-            prev_close = bars_for_adx[i - 1].close
+        for i in range(1, len(bars)):
+            high = bars[i].high
+            low = bars[i].low
+            prev_high = bars[i - 1].high
+            prev_low = bars[i - 1].low
+            prev_close = bars[i - 1].close
 
             tr = max(
                 high - low,
@@ -672,30 +685,49 @@ class CommodityTrendStrategy(ISignalStrategy):
             plus_dm_list.append(plus_dm)
             minus_dm_list.append(minus_dm)
 
-        if len(tr_list) < period:
+        smoothed_tr = sum(tr_list[:period])
+        smoothed_plus_dm = sum(plus_dm_list[:period])
+        smoothed_minus_dm = sum(minus_dm_list[:period])
+
+        dx_list: list[float] = []
+        for i in range(period, len(tr_list)):
+            if i == period:
+                if smoothed_tr == 0:
+                    plus_di = 0.0
+                    minus_di = 0.0
+                else:
+                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+            else:
+                smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
+                smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
+                smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
+                if smoothed_tr == 0:
+                    plus_di = 0.0
+                    minus_di = 0.0
+                else:
+                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+            if plus_di + minus_di == 0:
+                dx_list.append(0.0)
+            else:
+                dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100
+                dx_list.append(dx)
+
+        if len(dx_list) < period:
             return None
 
-        tr_smooth = sum(tr_list[:period])
-        plus_dm_smooth = sum(plus_dm_list[:period])
-        minus_dm_smooth = sum(minus_dm_list[:period])
+        adx = sum(dx_list[:period]) / period
+        for i in range(period, len(dx_list)):
+            adx = adx * (period - 1) / period + dx_list[i] / period
 
-        if tr_smooth == 0:
-            return None
-
-        plus_di = (plus_dm_smooth / tr_smooth) * 100
-        minus_di = (minus_dm_smooth / tr_smooth) * 100
-
-        if plus_di + minus_di == 0:
-            return None
-
-        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
-
-        return dx
+        return adx
 
     def _calculate_atr(self, bars: List[Bar]) -> float:
         """Calculate Average True Range over 14 periods."""
         if len(bars) < 15:
-            return 0.0001
+            return bars[-1].close * 0.0005
         tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
@@ -734,6 +766,16 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         rsi_overbought: float = 70.0,
         atr_multiplier: float = 2.0,
     ):
+        """Initialize CommodityMeanReversionStrategy.
+
+        Args:
+            bb_period: Period for Bollinger Bands SMA (default 20).
+            bb_std_dev: Standard deviations for band width (default 2.0).
+            rsi_period: Period for RSI calculation (default 14).
+            rsi_oversold: RSI threshold for oversold long entries (default 30.0).
+            rsi_overbought: RSI threshold for overbought short entries (default 70.0).
+            atr_multiplier: ATR multiplier for stop loss (default 2.0).
+        """
         self.bb_period = bb_period
         self.bb_std_dev = bb_std_dev
         self.rsi_period = rsi_period
@@ -776,6 +818,8 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
 
         if latest.close < lower_band and rsi < self.rsi_oversold:
+            if not self._is_bullish_reversal(latest):
+                return None
             direction = TradeDirection.LONG
             entry = latest.close
             sl = lower_band - atr * 0.5
@@ -787,9 +831,11 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
                 0.90, 0.55 + (self.rsi_oversold - rsi) / self.rsi_oversold * 0.35
             )
             rationale = (
-                f"BB oversold + RSI oversold: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
+                f"BB oversold + RSI oversold + bullish reversal: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
             )
         elif latest.close > upper_band and rsi > self.rsi_overbought:
+            if not self._is_bearish_reversal(latest):
+                return None
             direction = TradeDirection.SHORT
             entry = latest.close
             sl = upper_band + atr * 0.5
@@ -858,7 +904,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         """Calculate Average True Range over 14 periods."""
         if len(bars) < 15:
-            return 0.0001
+            return bars[-1].close * 0.0005
         tr_sum = 0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
@@ -871,3 +917,27 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
                 )
                 tr_sum += tr
         return tr_sum / 14
+
+    def _is_bullish_reversal(self, bar: Bar) -> bool:
+        """Detect bullish reversal candle for mean reversion entry confirmation.
+
+        A bullish reversal candle has its close in the upper half of the
+        candle's range, indicating buying pressure and potential reversal.
+        """
+        candle_range = bar.high - bar.low
+        if candle_range == 0:
+            return False
+        midpoint = bar.low + candle_range * 0.5
+        return bar.close > midpoint
+
+    def _is_bearish_reversal(self, bar: Bar) -> bool:
+        """Detect bearish reversal candle for mean reversion entry confirmation.
+
+        A bearish reversal candle has its close in the lower half of the
+        candle's range, indicating selling pressure and potential reversal.
+        """
+        candle_range = bar.high - bar.low
+        if candle_range == 0:
+            return False
+        midpoint = bar.low + candle_range * 0.5
+        return bar.close < midpoint
