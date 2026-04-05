@@ -8,7 +8,7 @@ from ..engine import Bar, ExitReason, TradeDirection
 class ExitRefinerState:
     bars_since_entry: int = 0
     tp1_hit: bool = False
-    momentum_history: List[float] = None
+    momentum_history: List[float] = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.momentum_history is None:

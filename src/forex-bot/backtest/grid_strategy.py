@@ -302,7 +302,7 @@ class GridStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < self.config.atr_period + 1:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - self.config.atr_period, len(bars)):
             if i > 0:
                 tr = max(
