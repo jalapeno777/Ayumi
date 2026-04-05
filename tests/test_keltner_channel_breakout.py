@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timedelta
 
 from backtest.engine import Bar, MarketState, TradeDirection
 from backtest.strategies import KeltnerChannelBreakoutStrategy
@@ -36,32 +37,49 @@ def _make_bars(
     ]
 
 
-def _make_breakout_bars(direction="long", n=100, seed=42):
-    import numpy as np
-    import pandas as pd
+def _make_deterministic_breakout_bars(direction="long", n=50):
+    """Construct bars that deterministically produce a breakout signal.
 
-    np.random.seed(seed)
-    dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+    Phase 1 (bars 0 to n-2): Steady trend with small increments that build
+    ADX above threshold while keeping price within the Keltner Channel.
+    Phase 2 (last bar): Single strong breakout that exceeds channel band.
+    """
+    bars = []
+    dt = datetime(2023, 1, 1, 0, 0)
     base = 1.1000
-    prices = [base + np.random.normal(0, 0.0002) for _ in range(n - 5)]
+    price = base
+
+    for i in range(n - 1):
+        if direction == "long":
+            price += 0.0001
+        else:
+            price -= 0.0001
+
+        bars.append(Bar(
+            time=dt,
+            open=price - 0.00005,
+            high=price + 0.0004,
+            low=price - 0.0001,
+            close=price,
+            volume=1500.0,
+        ))
+        dt += timedelta(hours=1)
+
     if direction == "long":
-        for i in range(5):
-            prices.append(prices[-1] + 0.005 + np.random.normal(0, 0.0001))
+        price += 0.003
     else:
-        for i in range(5):
-            prices.append(prices[-1] - 0.005 + np.random.normal(0, 0.0001))
-    spread = 0.0002
-    return [
-        Bar(
-            time=dates[i].to_pydatetime(),
-            open=prices[i] - spread * np.random.uniform(0, 1),
-            high=prices[i] + spread * np.random.uniform(1, 3),
-            low=prices[i] - spread * np.random.uniform(1, 3),
-            close=prices[i],
-            volume=1500,
-        )
-        for i in range(n)
-    ]
+        price -= 0.003
+
+    bars.append(Bar(
+        time=dt,
+        open=price - 0.001,
+        high=price + 0.0005,
+        low=price - 0.0002,
+        close=price,
+        volume=2000.0,
+    ))
+
+    return bars
 
 
 class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
@@ -162,15 +180,15 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             atr_min_pips=1.0,
             volume_ma_period=10,
         )
-        bars = _make_breakout_bars("long", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None:
-            self.assertIn(result.direction, [TradeDirection.LONG, TradeDirection.SHORT])
-            self.assertGreater(result.entry_price, 0)
-            self.assertGreater(result.confidence, 0)
-            self.assertGreater(result.stop_loss, 0)
-            self.assertNotEqual(result.rationale, "")
+        self.assertIsNotNone(result)
+        self.assertIn(result.direction, [TradeDirection.LONG, TradeDirection.SHORT])
+        self.assertGreater(result.entry_price, 0)
+        self.assertGreater(result.confidence, 0)
+        self.assertGreater(result.stop_loss, 0)
+        self.assertNotEqual(result.rationale, "")
 
     def test_long_signal_tp_levels_correct(self):
         s = KeltnerChannelBreakoutStrategy(
@@ -183,14 +201,15 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             tp1_atr_multiplier=2.0,
             tp2_atr_multiplier=3.0,
         )
-        bars = _make_breakout_bars("long", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None and result.direction == TradeDirection.LONG:
-            self.assertGreater(result.take_profit_1, result.entry_price)
-            self.assertGreater(result.take_profit_2, result.take_profit_1)
-            self.assertGreater(result.take_profit_3, result.take_profit_2)
-            self.assertLess(result.stop_loss, result.entry_price)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.direction, TradeDirection.LONG)
+        self.assertGreater(result.take_profit_1, result.entry_price)
+        self.assertGreater(result.take_profit_2, result.take_profit_1)
+        self.assertGreater(result.take_profit_3, result.take_profit_2)
+        self.assertLess(result.stop_loss, result.entry_price)
 
     def test_short_signal_tp_levels_correct(self):
         s = KeltnerChannelBreakoutStrategy(
@@ -200,14 +219,15 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             atr_min_pips=1.0,
             volume_ma_period=10,
         )
-        bars = _make_breakout_bars("short", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("short", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None and result.direction == TradeDirection.SHORT:
-            self.assertLess(result.take_profit_1, result.entry_price)
-            self.assertLess(result.take_profit_2, result.take_profit_1)
-            self.assertLess(result.take_profit_3, result.take_profit_2)
-            self.assertGreater(result.stop_loss, result.entry_price)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.direction, TradeDirection.SHORT)
+        self.assertLess(result.take_profit_1, result.entry_price)
+        self.assertLess(result.take_profit_2, result.take_profit_1)
+        self.assertLess(result.take_profit_3, result.take_profit_2)
+        self.assertGreater(result.stop_loss, result.entry_price)
 
     def test_confidence_scaling(self):
         s = KeltnerChannelBreakoutStrategy(
@@ -217,12 +237,12 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             atr_min_pips=1.0,
             volume_ma_period=10,
         )
-        bars = _make_breakout_bars("long", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None:
-            self.assertGreaterEqual(result.confidence, 0.6)
-            self.assertLessEqual(result.confidence, 0.8)
+        self.assertIsNotNone(result)
+        self.assertGreaterEqual(result.confidence, 0.6)
+        self.assertLessEqual(result.confidence, 0.8)
 
     def test_rationale_contains_key_info(self):
         s = KeltnerChannelBreakoutStrategy(
@@ -232,12 +252,12 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             atr_min_pips=1.0,
             volume_ma_period=10,
         )
-        bars = _make_breakout_bars("long", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None:
-            self.assertIn("KC breakout", result.rationale)
-            self.assertIn("ADX", result.rationale)
+        self.assertIsNotNone(result)
+        self.assertIn("KC breakout", result.rationale)
+        self.assertIn("ADX", result.rationale)
 
     def test_gbpjpy_pip_value(self):
         price = 185.50
@@ -273,13 +293,13 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             sl_max_pips=5.0,
             sl_atr_multiplier=10.0,
         )
-        bars = _make_breakout_bars("long", n=100, seed=42)
+        bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
         result = s.evaluate(state)
-        if result is not None:
-            pip_value = s._get_pip_value(result.entry_price)
-            sl_pips = abs(result.entry_price - result.stop_loss) / pip_value
-            self.assertLessEqual(sl_pips, 5.0)
+        self.assertIsNotNone(result)
+        pip_value = s._get_pip_value(result.entry_price)
+        sl_pips = abs(result.entry_price - result.stop_loss) / pip_value
+        self.assertLessEqual(sl_pips, 5.0)
 
 
 if __name__ == "__main__":
