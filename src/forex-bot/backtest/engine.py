@@ -82,7 +82,7 @@ class MarketState:
     def atr(self) -> float:
         if len(self.bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(self.bars) - 14, len(self.bars)):
             if i > 0:
                 tr = max(

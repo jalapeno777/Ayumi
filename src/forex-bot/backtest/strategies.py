@@ -99,7 +99,7 @@ class MACrossStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -196,7 +196,7 @@ class BBStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -287,9 +287,9 @@ class RSIStrategy(ISignalStrategy):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0)
+                losses.append(0.0)
             else:
-                gains.append(0)
+                gains.append(0.0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.period
@@ -304,7 +304,7 @@ class RSIStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -403,7 +403,7 @@ class SRBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -488,7 +488,7 @@ class ROCMStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -698,7 +698,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -936,7 +936,7 @@ class CommodityTrendStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(
@@ -1103,9 +1103,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
                 gains.append(change)
-                losses.append(0)
+                losses.append(0.0)
             else:
-                gains.append(0)
+                gains.append(0.0)
                 losses.append(abs(change))
 
         avg_gain = sum(gains) / self.rsi_period
@@ -1144,7 +1144,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     def _calculate_atr(self, bars: List[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
-        tr_sum = 0
+        tr_sum = 0.0
         for i in range(len(bars) - 14, len(bars)):
             if i > 0:
                 tr = max(

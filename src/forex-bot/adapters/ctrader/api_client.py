@@ -116,8 +116,8 @@ class FIXClient:
         self._next_outgoing_seq = 1
         self._next_incoming_seq = 0
         self._heartbeat_interval = 30
-        self._last_heartbeat_sent = 0
-        self._last_heartbeat_received = 0
+        self._last_heartbeat_sent = 0.0
+        self._last_heartbeat_received = 0.0
         self._callbacks: Dict[str, Callable] = {}
         self._pending_orders: Dict[str, Order] = {}
         self._positions: Dict[str, Position] = {}
