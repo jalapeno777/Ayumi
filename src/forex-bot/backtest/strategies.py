@@ -829,8 +829,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             direction = TradeDirection.LONG
             entry = latest.close
             sl = lower_band - atr * 0.5
-            risk = abs(entry - sl)
-            tp1 = middle_band
+            band_distance = lower_band - entry
+            risk = max(abs(entry - sl), band_distance * 0.5)
+            tp1 = min(middle_band, entry + risk * 1.0)
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
             confidence = min(
@@ -845,8 +846,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             direction = TradeDirection.SHORT
             entry = latest.close
             sl = upper_band + atr * 0.5
-            risk = abs(entry - sl)
-            tp1 = middle_band
+            band_distance = entry - upper_band
+            risk = max(abs(entry - sl), band_distance * 0.5)
+            tp1 = max(middle_band, entry - risk * 1.0)
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
             confidence = min(
