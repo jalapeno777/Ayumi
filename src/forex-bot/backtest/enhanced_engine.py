@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
 import math
 
 from .engine import (
@@ -23,6 +23,10 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
+
+if TYPE_CHECKING:
+    from ..quant.config import QuantConfig
+    from ..quant.pipeline import QuantPipeline
 
 
 @dataclass
@@ -80,11 +84,20 @@ class EnhancedBacktestEngine:
         config: BacktestConfig,
         strategies: List[ISignalStrategy],
         tm_config: Optional[TradeManagementConfig] = None,
+        quant_config: Optional["QuantConfig"] = None,
     ):
         self.config = config
         self.strategies = strategies
         self.tm_config = tm_config or TradeManagementConfig()
         self.trade_manager = TradeManager(self.tm_config)
+        self._quant_pipeline: Optional["QuantPipeline"] = None
+        if quant_config is not None:
+            from ..quant.config import QuantConfig as QC
+            from ..quant.pipeline import QuantPipeline
+
+            if not isinstance(quant_config, QC):
+                raise TypeError(f"Expected QuantConfig, got {type(quant_config).__name__}")
+            self._quant_pipeline = QuantPipeline(quant_config)
 
     def run_strategy(
         self, strategy: ISignalStrategy, bars: List[Bar]
@@ -101,6 +114,10 @@ class EnhancedBacktestEngine:
         for i in range(len(bars)):
             bar = bars[i]
             self._update_daily_tracking(bar.time)
+
+            if self._quant_pipeline is not None:
+                atr = self._calculate_atr(bars, i)
+                self._quant_pipeline.update_bars(bar.high, bar.low, bar.close, atr)
 
             if self.balance <= 0:
                 break
@@ -126,6 +143,22 @@ class EnhancedBacktestEngine:
                     signal is not None
                     and signal.confidence >= self.config.min_confidence
                 ):
+                    if self._quant_pipeline is not None:
+                        quant_decision = self._quant_pipeline.pre_trade_check(
+                            signal_symbol=self.tm_config.pair,
+                            entry_price=signal.entry_price,
+                            stop_loss=signal.stop_loss,
+                            bar_time=bar.time,
+                        )
+                        from ..quant.pipeline import TradeAction as QuantTradeAction
+
+                        if quant_decision.action == QuantTradeAction.REJECT:
+                            rejected_signals += 1
+                            equity_curve.append(self.balance)
+                            continue
+                    else:
+                        quant_decision = None
+
                     atr = state.atr
                     entry_allowed = self.trade_manager.check_entry_allowed(
                         bar,
@@ -135,7 +168,13 @@ class EnhancedBacktestEngine:
                         self.tm_config.pair,
                     )
                     if entry_allowed.allow_entry:
-                        trade = self._open_trade(signal, bar, i)
+                        lot_override = (
+                            quant_decision.lot_size
+                            if quant_decision is not None and quant_decision.lot_size is not None
+                            else None
+                        )
+
+                        trade = self._open_trade(signal, bar, i, lot_size_override=lot_override)
                         if trade is not None:
                             open_trades.append(trade)
                     else:
@@ -201,7 +240,7 @@ class EnhancedBacktestEngine:
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
     def _open_trade(
-        self, signal: StrategySignal, bar: Bar, bar_index: int
+        self, signal: StrategySignal, bar: Bar, bar_index: int, lot_size_override: Optional[float] = None
     ) -> Optional[ManagedTrade]:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
@@ -220,6 +259,8 @@ class EnhancedBacktestEngine:
             return None
 
         lot_size = risk_amount / adjusted_risk
+        if lot_size_override is not None:
+            lot_size = lot_size_override
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:
             return None
@@ -259,6 +300,9 @@ class EnhancedBacktestEngine:
                 pnl = self._calculate_pnl(trade, result.exit_price, trade.remaining_pct)
                 pnl += trade.partial_realized_pnl
                 self.balance += pnl
+
+                if self._quant_pipeline is not None:
+                    self._quant_pipeline.on_trade_closed(pnl)
 
                 record = EnhancedTradeRecord(
                     entry_bar_index=trade.entry_bar_index,
