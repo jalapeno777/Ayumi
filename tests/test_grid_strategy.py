@@ -270,5 +270,220 @@ class TestGridPresets(unittest.TestCase):
         self.assertLess(preset["max_concurrent_positions"], 5)
 
 
+class TestGridPositionSizing(unittest.TestCase):
+    def test_equal_sizing_all_levels_same(self):
+        config = GridConfig(num_levels=5, position_sizing_type="equal", base_lot_size=0.01, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        for lvl in state.levels:
+            self.assertEqual(lvl.size_percent, 0.01)
+
+    def test_increasing_sizing_inner_levels_larger(self):
+        config = GridConfig(num_levels=5, position_sizing_type="increasing", base_lot_size=0.01, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        self.assertGreater(buy_levels[1].size_percent, buy_levels[0].size_percent)
+        self.assertGreater(buy_levels[2].size_percent, buy_levels[1].size_percent)
+        self.assertGreater(buy_levels[3].size_percent, buy_levels[2].size_percent)
+        self.assertGreater(buy_levels[4].size_percent, buy_levels[3].size_percent)
+
+    def test_decreasing_sizing_outer_levels_larger(self):
+        config = GridConfig(num_levels=5, position_sizing_type="decreasing", base_lot_size=0.01, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        self.assertGreater(buy_levels[0].size_percent, buy_levels[1].size_percent)
+        self.assertGreater(buy_levels[1].size_percent, buy_levels[2].size_percent)
+
+
+class TestGridLevelLifecycle(unittest.TestCase):
+    def test_level_starts_unfilled(self):
+        config = GridConfig(num_levels=5, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        for lvl in state.levels:
+            self.assertFalse(lvl.order_filled)
+            self.assertEqual(lvl.filled_price, 0.0)
+            self.assertIsNone(lvl.filled_time)
+
+    def test_level_becomes_filled_on_trigger(self):
+        config = GridConfig(num_levels=5, pair="EURUSD", grid_spacing_pips=10.0)
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_level = [lvl for lvl in state.levels if lvl.is_buy][0]
+        buy_level.price = 1.0990
+        bar = _bar(0, o=1.0995, h=1.1000, low=1.0989, c=1.0995)
+        result = state.check_level_triggered(bar)
+        self.assertIsNotNone(result)
+        self.assertTrue(buy_level.order_filled)
+        self.assertEqual(buy_level.filled_price, 1.0990)
+        self.assertIsNotNone(buy_level.filled_time)
+
+    def test_filled_level_not_retriggered(self):
+        config = GridConfig(num_levels=5, pair="EURUSD", grid_spacing_pips=10.0)
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_level = [lvl for lvl in state.levels if lvl.is_buy][0]
+        buy_level.price = 1.0990
+        bar = _bar(0, o=1.0995, h=1.1000, low=1.0989, c=1.0995)
+        state.check_level_triggered(bar)
+        second_result = state.check_level_triggered(bar)
+        self.assertIsNone(second_result)
+
+    def test_multiple_levels_filled_sequentially(self):
+        config = GridConfig(num_levels=5, pair="EURUSD", grid_spacing_pips=10.0)
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        bar1 = _bar(0, o=1.0995, h=1.1000, low=buy_levels[0].price - 0.0001, c=1.0990)
+        state.check_level_triggered(bar1)
+        bar2 = _bar(1, o=1.0990, h=1.1000, low=buy_levels[1].price - 0.0001, c=1.0985)
+        state.check_level_triggered(bar2)
+        self.assertEqual(state.filled_count, 2)
+        self.assertTrue(buy_levels[0].order_filled)
+        self.assertTrue(buy_levels[1].order_filled)
+
+
+class TestGridTPSLXTriggers(unittest.TestCase):
+    def test_tp_distance_for_buy_level(self):
+        config = GridConfig(num_levels=5, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_level = [lvl for lvl in state.levels if lvl.is_buy][0]
+        entry_price = buy_level.price
+        tp = state.get_tp_for_level(buy_level, entry_price)
+        self.assertGreater(tp, entry_price)
+
+    def test_tp_distance_for_sell_level(self):
+        config = GridConfig(num_levels=5, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        sell_level = [lvl for lvl in state.levels if not lvl.is_buy][0]
+        entry_price = sell_level.price
+        tp = state.get_tp_for_level(sell_level, entry_price)
+        self.assertLess(tp, entry_price)
+
+    def test_sl_for_buy_level_below_entry(self):
+        config = GridConfig(num_levels=5, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        buy_level = [lvl for lvl in state.levels if lvl.is_buy][0]
+        entry_price = buy_level.price
+        sl = state.get_sl_for_level(buy_level, entry_price)
+        self.assertLess(sl, entry_price)
+
+    def test_sl_for_sell_level_above_entry(self):
+        config = GridConfig(num_levels=5, pair="EURUSD")
+        state = GridState(config)
+        state.initialize_grid(1.1000)
+        sell_level = [lvl for lvl in state.levels if not lvl.is_buy][0]
+        entry_price = sell_level.price
+        sl = state.get_sl_for_level(sell_level, entry_price)
+        self.assertGreater(sl, entry_price)
+
+    def test_signal_includes_all_take_profit_levels(self):
+        strategy = GridStrategy(num_levels=5, pair="EURUSD", grid_spacing_pips=10.0)
+        state = _make_market_state(n=20)
+        strategy.evaluate(state)
+        level = strategy.state.levels[0]
+        level.price = 1.0990
+        level.is_buy = True
+        bar = _bar(0, o=1.0995, h=1.1000, low=1.0989, c=1.0995)
+        state.bars.append(bar)
+        result = strategy.evaluate(state)
+        self.assertIsNotNone(result)
+        self.assertIsNotNone(result.take_profit_1)
+        self.assertIsNotNone(result.take_profit_2)
+        self.assertIsNotNone(result.take_profit_3)
+
+
+class TestGridRecoveryAfterAdverseMoves(unittest.TestCase):
+    def test_grid_resets_after_max_positions(self):
+        strategy = GridStrategy(num_levels=5, pair="EURUSD", max_concurrent_positions=2)
+        state = _make_market_state(n=20)
+        strategy.evaluate(state)
+        strategy.state.filled_count = 2
+        self.assertTrue(strategy.state.is_max_positions_reached())
+        bar = _bar(0, o=1.1000, h=1.1005, low=1.0995, c=1.1000)
+        state.bars.append(bar)
+        strategy.evaluate(state)
+        self.assertFalse(strategy.state.grid_active)
+
+    def test_grid_resets_after_expiry(self):
+        strategy = GridStrategy(num_levels=5, pair="EURUSD", grid_expiry_bars=5)
+        state = _make_market_state(n=20)
+        strategy.evaluate(state)
+        strategy.state.grid_start_bar = 0
+        strategy.state.bar_count = 10
+        self.assertTrue(strategy.state.is_expired())
+        bar = _bar(0, o=1.1000, h=1.1005, low=1.0995, c=1.1000)
+        state.bars.append(bar)
+        strategy.evaluate(state)
+        self.assertFalse(strategy.state.grid_active)
+
+    def test_reset_allows_new_grid_initialization(self):
+        strategy = GridStrategy(num_levels=5, pair="EURUSD")
+        state = _make_market_state(n=20)
+        strategy.evaluate(state)
+        self.assertTrue(strategy.state.grid_active)
+        strategy.reset_grid()
+        self.assertFalse(strategy.state.grid_active)
+        state = _make_market_state(n=20)
+        strategy.evaluate(state)
+        self.assertTrue(strategy.state.grid_active)
+
+
+class TestGridMultiPairSupport(unittest.TestCase):
+    def test_eurusd_standard_pip_size(self):
+        strategy = GridStrategy(pair="EURUSD")
+        self.assertEqual(strategy._get_pip_size("EURUSD"), 0.0001)
+        self.assertEqual(strategy._get_pip_size("GBPUSD"), 0.0001)
+
+    def test_jpy_pair_pip_size(self):
+        strategy = GridStrategy(pair="USDJPY")
+        self.assertEqual(strategy._get_pip_size("USDJPY"), 0.01)
+        self.assertEqual(strategy._get_pip_size("GBPJPY"), 0.01)
+
+    def test_xauusd_pip_size(self):
+        strategy = GridStrategy(pair="XAUUSD")
+        self.assertEqual(strategy._get_pip_size("XAUUSD"), 0.0001)
+
+    def test_xauusd_preset_applied(self):
+        strategy = create_grid_strategy_from_preset("XAUUSD")
+        self.assertEqual(strategy.config.pair, "XAUUSD")
+        self.assertEqual(strategy.config.grid_spacing_pips, 150.0)
+        self.assertEqual(strategy.config.num_levels, 6)
+        self.assertEqual(strategy.config.max_concurrent_positions, 3)
+
+    def test_xauusd_grid_with_different_spacing(self):
+        strategy = GridStrategy(pair="XAUUSD", grid_spacing_pips=200.0, num_levels=8)
+        state = _make_market_state(n=20)
+        state.bars = [
+            Bar(time=datetime(2025, 1, 1, 10, 0) + timedelta(hours=i), open=2000 + i, high=2005 + i, low=1995 + i, close=2000 + i, volume=1000)
+            for i in range(20)
+        ]
+        strategy.evaluate(state)
+        self.assertTrue(strategy.state.grid_active)
+
+    def test_eurusd_preset_in_grid_config(self):
+        config = GridConfig().to_preset("EURUSD")
+        self.assertEqual(config.grid_spacing_pips, 15.0)
+        self.assertEqual(config.num_levels, 10)
+        self.assertEqual(config.pair, "EURUSD")
+
+    def test_gbpjpy_preset_in_grid_config(self):
+        config = GridConfig().to_preset("GBPJPY")
+        self.assertEqual(config.grid_spacing_pips, 25.0)
+        self.assertEqual(config.num_levels, 8)
+        self.assertEqual(config.pair, "GBPJPY")
+
+    def test_usdjpy_preset_in_grid_config(self):
+        config = GridConfig().to_preset("USDJPY")
+        self.assertEqual(config.grid_spacing_pips, 20.0)
+        self.assertEqual(config.num_levels, 10)
+        self.assertEqual(config.pair, "USDJPY")
+
+
 if __name__ == "__main__":
     unittest.main()
