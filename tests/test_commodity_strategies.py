@@ -1,12 +1,37 @@
 import unittest
 from datetime import datetime, timedelta
 from backtest.strategies import CommodityTrendStrategy, CommodityMeanReversionStrategy
-from backtest.engine import MarketState, Bar
+from backtest.engine import MarketState, Bar, TradeDirection
 
 
 def _make_bar(offset_days: int, o: float, h: float, lo: float, c: float) -> Bar:
     t = datetime(2024, 1, 1) + timedelta(days=offset_days)
     return Bar(time=t, open=o, high=h, low=lo, close=c)
+
+
+def _make_trending_bars_with_crossover() -> list:
+    bars = []
+    for i in range(60):
+        t = datetime(2024, 1, 1) + timedelta(days=i)
+        c = 150.0 - i * 2.0
+        bars.append(Bar(time=t, open=c, high=c + 0.5, low=max(c - 0.5, 1), close=c))
+    for i in range(60, 81):
+        t = datetime(2024, 1, 1) + timedelta(days=i)
+        c = 30.0 + (i - 60) * 4.0
+        bars.append(Bar(time=t, open=c, high=c + 0.5, low=max(c - 0.5, 1), close=c))
+    return bars
+
+
+def _make_oversold_bb_reversion_bars() -> list:
+    bars = []
+    for i in range(25):
+        t = datetime(2024, 1, 1) + timedelta(days=i)
+        c = 100.0 - i * 1.5
+        bars.append(Bar(time=t, open=c, high=c + 1, low=c - 1, close=c))
+    sharp_drop = bars[-1].close - 50
+    bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=25), open=bars[-1].close, high=bars[-1].close + 1, low=sharp_drop, close=sharp_drop + 2))
+    bars.append(Bar(time=datetime(2024, 1, 1) + timedelta(days=26), open=sharp_drop + 2, high=sharp_drop + 8, low=sharp_drop, close=sharp_drop + 6))
+    return bars
 
 
 class TestCommodityTrendStrategy(unittest.TestCase):
@@ -86,6 +111,23 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         adx = self.strategy._calculate_adx(bars)
         self.assertIsNotNone(adx, "ADX should be computed with sufficient bars")
         self.assertGreater(adx, 0.0, "ADX should be positive for trending data")
+
+    def test_signal_generation_bullish_ema_cross_high_adx(self):
+        bars = _make_trending_bars_with_crossover()
+        state = MarketState(bars=bars)
+        result = self.strategy.evaluate(state)
+        self.assertIsNotNone(result, "Signal should be generated on EMA crossover with high ADX")
+        self.assertEqual(result.direction, TradeDirection.LONG)
+        self.assertGreater(result.confidence, 0.0)
+        self.assertLess(result.confidence, 1.0)
+        self.assertGreater(result.entry_price, 0.0)
+        self.assertIsNotNone(result.stop_loss)
+        self.assertIsNotNone(result.take_profit_1)
+        self.assertIsNotNone(result.take_profit_2)
+        self.assertIsNotNone(result.take_profit_3)
+        self.assertLess(result.stop_loss, result.entry_price, "SL for LONG should be below entry")
+        self.assertGreater(result.take_profit_1, result.entry_price, "TP1 for LONG should be above entry")
+        self.assertLess(result.stop_loss, result.take_profit_1)
 
 
 class TestCommodityMeanReversionStrategy(unittest.TestCase):
@@ -184,6 +226,20 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
         self.assertIsNone(result)
+
+    def test_signal_generation_oversold_bb_rsi_reversal(self):
+        bars = _make_oversold_bb_reversion_bars()
+        state = MarketState(bars=bars)
+        result = self.strategy.evaluate(state)
+        self.assertIsNotNone(result, "Signal should be generated on BB oversold + RSI + reversal candle")
+        self.assertEqual(result.direction, TradeDirection.LONG)
+        self.assertGreater(result.confidence, 0.0)
+        self.assertLess(result.confidence, 1.0)
+        self.assertGreater(result.entry_price, 0.0)
+        self.assertIsNotNone(result.stop_loss)
+        self.assertIsNotNone(result.take_profit_1)
+        self.assertIsNotNone(result.take_profit_2)
+        self.assertIsNotNone(result.take_profit_3)
 
 
 class TestReversalCandleHelpers(unittest.TestCase):
