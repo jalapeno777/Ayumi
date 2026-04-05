@@ -25,6 +25,7 @@ from .strategies import (
     MomentumBreakoutStrategy,
 )
 from .grid_strategy import GridStrategy
+from .stat_arb import StatArbStrategy, StatArbBacktestResult
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
     AmalgamationConfig,
@@ -74,6 +75,8 @@ __all__ = [
     "ROCMStrategy",
     "MomentumBreakoutStrategy",
     "GridStrategy",
+    "StatArbStrategy",
+    "StatArbBacktestResult",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",

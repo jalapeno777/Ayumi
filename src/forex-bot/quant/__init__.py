@@ -6,6 +6,13 @@ from .pipeline import (
     ValidationResult,
     PortfolioState,
 )
+from .cointegration import (
+    CointegrationEngine,
+    CointegrationResult,
+    SpreadStats,
+    PairsSignalGenerator,
+    parameter_sweep,
+)
 
 __all__ = [
     "QuantConfig",
@@ -14,23 +21,9 @@ __all__ = [
     "TradeAction",
     "ValidationResult",
     "PortfolioState",
+    "CointegrationEngine",
+    "CointegrationResult",
+    "SpreadStats",
+    "PairsSignalGenerator",
+    "parameter_sweep",
 ]
-
-try:
-    from .cointegration import (
-        CointegrationEngine,
-        CointegrationResult,
-        SpreadStats,
-        PairsSignalGenerator,
-        parameter_sweep,
-    )
-
-    __all__ += [
-        "CointegrationEngine",
-        "CointegrationResult",
-        "SpreadStats",
-        "PairsSignalGenerator",
-        "parameter_sweep",
-    ]
-except ImportError:
-    pass
