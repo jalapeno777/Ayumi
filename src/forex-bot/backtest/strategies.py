@@ -2,28 +2,6 @@ from typing import List, Optional
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 
 
-def _calculate_atr(bars: List[Bar]) -> float:
-    """Calculate Average True Range over 14 periods.
-
-    Uses Wilder's smoothing method. Falls back to price-relative estimate
-    if insufficient bars for full ATR calculation.
-    """
-    if len(bars) < 15:
-        return bars[-1].close * 0.0005
-    tr_sum = 0
-    for i in range(len(bars) - 14, len(bars)):
-        if i > 0:
-            tr = max(
-                bars[i].high - bars[i].low,
-                max(
-                    abs(bars[i].high - bars[i - 1].close),
-                    abs(bars[i].low - bars[i - 1].close),
-                ),
-            )
-            tr_sum += tr
-    return tr_sum / 14
-
-
 class ISignalStrategy:
     @property
     def name(self) -> str:
@@ -525,20 +503,6 @@ class ROCMStrategy(ISignalStrategy):
 
 
 class CommodityTrendStrategy(ISignalStrategy):
-    """Trend following strategy for commodity markets using EMA crossover and ADX confirmation.
-
-    Entry rules:
-        - EMA 20/50 bullish crossover (fast EMA crosses above slow EMA)
-        - ADX > threshold (default 25) confirms trend strength
-
-    Exit rules:
-        - Stop loss: 1.75x ATR (gold ATR is higher than forex)
-        - Take profit: 2-3x risk
-        - Confidence scales with ADX value
-
-    Designed for XAUUSD H1 with gold's higher ATR characteristics.
-    """
-
     def __init__(
         self,
         fast_ema_period: int = 20,
@@ -548,16 +512,6 @@ class CommodityTrendStrategy(ISignalStrategy):
         atr_multiplier: float = 1.75,
         risk_reward_ratio: float = 2.0,
     ):
-        """Initialize CommodityTrendStrategy.
-
-        Args:
-            fast_ema_period: Period for fast EMA (default 20).
-            slow_ema_period: Period for slow EMA (default 50).
-            adx_period: Period for ADX calculation (default 14).
-            adx_threshold: Minimum ADX value to confirm trend (default 25.0).
-            atr_multiplier: ATR multiplier for stop loss (default 1.75).
-            risk_reward_ratio: Risk/reward ratio for take profit (default 2.0).
-        """
         self.fast_ema_period = fast_ema_period
         self.slow_ema_period = slow_ema_period
         self.adx_period = adx_period
@@ -567,19 +521,9 @@ class CommodityTrendStrategy(ISignalStrategy):
 
     @property
     def name(self) -> str:
-        """Return strategy display name."""
         return "Commodity Trend Following"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        """Evaluate market state and generate trading signal if conditions are met.
-
-        Args:
-            state: Current market state including bars and indicators.
-
-        Returns:
-            StrategySignal with direction, entry/exit prices, and confidence,
-            or None if entry criteria are not satisfied.
-        """
         if len(state.bars) < self.slow_ema_period + self.adx_period + 1:
             return None
 
@@ -602,7 +546,7 @@ class CommodityTrendStrategy(ISignalStrategy):
             return None
 
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
-        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
             entry - atr * self.atr_multiplier
@@ -611,19 +555,19 @@ class CommodityTrendStrategy(ISignalStrategy):
         )
         risk = abs(entry - sl)
         tp1 = (
-            entry + risk * self.risk_reward_ratio
+            entry + risk * 1.0
             if direction == TradeDirection.LONG
-            else entry - risk * self.risk_reward_ratio
+            else entry - risk * 1.0
         )
         tp2 = (
-            entry + risk * self.risk_reward_ratio * 2.0
+            entry + risk * 2.0
             if direction == TradeDirection.LONG
-            else entry - risk * self.risk_reward_ratio * 2.0
+            else entry - risk * 2.0
         )
         tp3 = (
-            entry + risk * self.risk_reward_ratio * 3.0
+            entry + risk * 3.0
             if direction == TradeDirection.LONG
-            else entry - risk * self.risk_reward_ratio * 3.0
+            else entry - risk * 3.0
         )
 
         confidence = min(0.90, 0.50 + (adx - self.adx_threshold) / 100 * 0.40)
@@ -645,7 +589,6 @@ class CommodityTrendStrategy(ISignalStrategy):
         )
 
     def _calculate_ema(self, bars: List[Bar], period: int) -> float:
-        """Calculate exponential moving average for given period."""
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -656,30 +599,22 @@ class CommodityTrendStrategy(ISignalStrategy):
         return ema
 
     def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Average Directional Index (ADX) using Wilder smoothing.
-
-        ADX measures trend strength by smoothing DX (Directional Index) over
-        the lookback period using Wilder's method:
-        ADX_today = (ADX_yesterday * (period - 1) + DX_today) / period
-
-        Requires at least 2 * adx_period bars for meaningful values.
-        Returns smoothed ADX value, or None if insufficient data.
-        """
-        period = self.adx_period
-        min_bars = 2 * period + 1
-        if len(bars) < min_bars:
+        if len(bars) < self.adx_period + 1:
             return None
 
-        tr_list: list[float] = []
-        plus_dm_list: list[float] = []
-        minus_dm_list: list[float] = []
+        period = self.adx_period
+        bars_for_adx = bars[-(period + 1):]
 
-        for i in range(1, len(bars)):
-            high = bars[i].high
-            low = bars[i].low
-            prev_high = bars[i - 1].high
-            prev_low = bars[i - 1].low
-            prev_close = bars[i - 1].close
+        plus_dm_list = []
+        minus_dm_list = []
+        tr_list = []
+
+        for i in range(1, len(bars_for_adx)):
+            high = bars_for_adx[i].high
+            low = bars_for_adx[i].low
+            prev_high = bars_for_adx[i - 1].high
+            prev_low = bars_for_adx[i - 1].low
+            prev_close = bars_for_adx[i - 1].close
 
             tr = max(
                 high - low,
@@ -707,67 +642,44 @@ class CommodityTrendStrategy(ISignalStrategy):
             plus_dm_list.append(plus_dm)
             minus_dm_list.append(minus_dm)
 
-        smoothed_tr = sum(tr_list[:period])
-        smoothed_plus_dm = sum(plus_dm_list[:period])
-        smoothed_minus_dm = sum(minus_dm_list[:period])
-
-        dx_list: list[float] = []
-        for i in range(period, len(tr_list)):
-            if i == period:
-                if smoothed_tr == 0:
-                    plus_di = 0.0
-                    minus_di = 0.0
-                else:
-                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
-                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
-            else:
-                smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
-                smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
-                smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
-                if smoothed_tr == 0:
-                    plus_di = 0.0
-                    minus_di = 0.0
-                else:
-                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
-                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
-
-            if plus_di + minus_di == 0:
-                dx_list.append(0.0)
-            else:
-                dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100
-                dx_list.append(dx)
-
-        if len(dx_list) < period:
+        if len(tr_list) < period:
             return None
 
-        adx = sum(dx_list[:period]) / period
-        for i in range(period, len(dx_list)):
-            adx = adx * (period - 1) / period + dx_list[i] / period
+        tr_smooth = sum(tr_list[:period])
+        plus_dm_smooth = sum(plus_dm_list[:period])
+        minus_dm_smooth = sum(minus_dm_list[:period])
 
-        return adx
+        if tr_smooth == 0:
+            return None
+
+        plus_di = (plus_dm_smooth / tr_smooth) * 100
+        minus_di = (minus_dm_smooth / tr_smooth) * 100
+
+        if plus_di + minus_di == 0:
+            return None
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        return dx
+
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
 
 
 class CommodityMeanReversionStrategy(ISignalStrategy):
-    """Mean reversion strategy for commodities using Bollinger Bands and RSI.
-
-    Entry rules:
-        - Long: Price below lower Bollinger Band + RSI < 30 (oversold) + bullish reversal candle
-        - Short: Price above upper Bollinger Band + RSI > 70 (overbought) + bearish reversal candle
-
-    Exit rules:
-        - Stop loss: Beyond outer Bollinger Band by 0.5x ATR
-        - Take profit: tp1 = Middle Band (mean reversion target), tp2/tp3 = 2x/3x risk for scaling
-        - Confidence based on RSI deviation from thresholds
-
-    Note on TP ordering: tp1 targets the middle band (SMA) as the primary mean reversion objective.
-    The middle band represents fair value where price is expected to revert. tp2 and tp3 at 2x/3x
-    risk are secondary targets for scaling out if the move extends beyond initial entry. This
-    ordering differs from trend-following strategies but reflects the mean reversion thesis where
-    the primary target is always the moving average.
-
-    Designed for XAUUSD H1 with gold's higher ATR characteristics.
-    """
-
     def __init__(
         self,
         bb_period: int = 20,
@@ -777,16 +689,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         rsi_overbought: float = 70.0,
         atr_multiplier: float = 2.0,
     ):
-        """Initialize CommodityMeanReversionStrategy.
-
-        Args:
-            bb_period: Period for Bollinger Bands SMA (default 20).
-            bb_std_dev: Standard deviations for band width (default 2.0).
-            rsi_period: Period for RSI calculation (default 14).
-            rsi_oversold: RSI threshold for oversold long entries (default 30.0).
-            rsi_overbought: RSI threshold for overbought short entries (default 70.0).
-            atr_multiplier: ATR multiplier for stop loss (default 2.0).
-        """
         self.bb_period = bb_period
         self.bb_std_dev = bb_std_dev
         self.rsi_period = rsi_period
@@ -796,19 +698,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
 
     @property
     def name(self) -> str:
-        """Return strategy display name."""
         return "Commodity Mean Reversion"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        """Evaluate market state and generate trading signal if conditions are met.
-
-        Args:
-            state: Current market state including bars and indicators.
-
-        Returns:
-            StrategySignal with direction, entry/exit prices, and confidence,
-            or None if entry criteria are not satisfied.
-        """
         if len(state.bars) < self.bb_period + 1:
             return None
 
@@ -826,34 +718,28 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         if rsi is None:
             return None
 
-        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars)
+        atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
 
         if latest.close < lower_band and rsi < self.rsi_oversold:
-            if not self._is_bullish_reversal(latest):
-                return None
             direction = TradeDirection.LONG
             entry = latest.close
             sl = lower_band - atr * 0.5
-            band_distance = lower_band - entry
-            risk = max(abs(entry - sl), band_distance * 0.5)
-            tp1 = min(middle_band, entry + risk * 1.0)
+            risk = abs(entry - sl)
+            tp1 = middle_band
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
             confidence = min(
                 0.90, 0.55 + (self.rsi_oversold - rsi) / self.rsi_oversold * 0.35
             )
             rationale = (
-                f"BB oversold + RSI oversold + bullish reversal: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
+                f"BB oversold + RSI oversold: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
             )
         elif latest.close > upper_band and rsi > self.rsi_overbought:
-            if not self._is_bearish_reversal(latest):
-                return None
             direction = TradeDirection.SHORT
             entry = latest.close
             sl = upper_band + atr * 0.5
-            band_distance = entry - upper_band
-            risk = max(abs(entry - sl), band_distance * 0.5)
-            tp1 = max(middle_band, entry - risk * 1.0)
+            risk = abs(entry - sl)
+            tp1 = middle_band
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
             confidence = min(
@@ -877,20 +763,17 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         )
 
     def _calculate_sma(self, bars: List[Bar]) -> float:
-        """Calculate simple moving average for Bollinger Bands middle line."""
         if len(bars) < self.bb_period:
             return 0.0
         return sum(b.close for b in bars[-self.bb_period:]) / self.bb_period
 
     def _calculate_std(self, bars: List[Bar], sma: float) -> float:
-        """Calculate standard deviation for Bollinger Bands band width."""
         if len(bars) < self.bb_period:
             return 0.0
         variance = sum((b.close - sma) ** 2 for b in bars[-self.bb_period:]) / self.bb_period
         return variance**0.5
 
     def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Relative Strength Index for momentum confirmation."""
         if len(bars) < self.rsi_period + 1:
             return None
 
@@ -914,26 +797,18 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
 
-    def _is_bullish_reversal(self, bar: Bar) -> bool:
-        """Detect bullish reversal candle for mean reversion entry confirmation.
-
-        A bullish reversal candle has its close in the upper half of the
-        candle's range, indicating buying pressure and potential reversal.
-        """
-        candle_range = bar.high - bar.low
-        if candle_range == 0:
-            return False
-        midpoint = bar.low + candle_range * 0.5
-        return bar.close > midpoint
-
-    def _is_bearish_reversal(self, bar: Bar) -> bool:
-        """Detect bearish reversal candle for mean reversion entry confirmation.
-
-        A bearish reversal candle has its close in the lower half of the
-        candle's range, indicating selling pressure and potential reversal.
-        """
-        candle_range = bar.high - bar.low
-        if candle_range == 0:
-            return False
-        midpoint = bar.low + candle_range * 0.5
-        return bar.close < midpoint
+    def _calculate_atr(self, bars: List[Bar]) -> float:
+        if len(bars) < 15:
+            return 0.0001
+        tr_sum = 0
+        for i in range(len(bars) - 14, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / 14
