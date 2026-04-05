@@ -1,5 +1,6 @@
 from typing import List, Optional
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
+from strategies.volatility_squeeze import VolatilitySqueezeStrategy as _VolatilitySqueezeStrategyImpl
 
 
 class ISignalStrategy:
