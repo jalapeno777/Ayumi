@@ -171,7 +171,11 @@ class TradeManager:
                 message="Stop loss hit",
             )
 
-        if trade.tier_state is None or trade.trailing_state is None or trade.exit_refiner_state is None:
+        if (
+            trade.tier_state is None
+            or trade.trailing_state is None
+            or trade.exit_refiner_state is None
+        ):
             return ManagementResult(action=TradeAction.NO_ACTION)
 
         tier_state = trade.tier_state

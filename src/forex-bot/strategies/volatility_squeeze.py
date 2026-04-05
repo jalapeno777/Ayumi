@@ -302,9 +302,11 @@ class VolatilitySqueezeStrategy:
         self._was_in_squeeze = False
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        min_required = max(
-            self.config.bb_period, self.config.kc_period, self.config.ema_period
-        ) + self.config.adx_period + 5
+        min_required = (
+            max(self.config.bb_period, self.config.kc_period, self.config.ema_period)
+            + self.config.adx_period
+            + 5
+        )
 
         if len(state.bars) < min_required:
             return None
@@ -339,9 +341,7 @@ class VolatilitySqueezeStrategy:
             return None
 
         atr = (
-            state.atr
-            if state.atr > 0
-            else _calculate_atr(bars, self.config.atr_period)
+            state.atr if state.atr > 0 else _calculate_atr(bars, self.config.atr_period)
         )
 
         adx = _calculate_adx(bars, self.config.adx_period)
@@ -350,10 +350,7 @@ class VolatilitySqueezeStrategy:
         signal_type = None
         squeeze_duration = self._squeeze_bar_count
 
-        if (
-            squeeze_just_released
-            and adx >= self.config.adx_min
-        ):
+        if squeeze_just_released and adx >= self.config.adx_min:
             if latest.close > kc_upper:
                 direction = TradeDirection.LONG
                 signal_type = "release"

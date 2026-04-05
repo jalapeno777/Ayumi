@@ -179,7 +179,9 @@ class TestStatArbStrategy(unittest.TestCase):
             result = strategy.evaluate(state)
             if result is not None:
                 found_entry = True
-                self.assertIn(result.direction, [TradeDirection.LONG, TradeDirection.SHORT])
+                self.assertIn(
+                    result.direction, [TradeDirection.LONG, TradeDirection.SHORT]
+                )
                 self.assertGreater(result.entry_price, 0)
                 self.assertGreater(result.confidence, 0)
                 self.assertGreater(result.stop_loss, 0)

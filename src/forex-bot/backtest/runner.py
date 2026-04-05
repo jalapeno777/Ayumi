@@ -50,6 +50,8 @@ from backtest import (
     HybridStrategy,
     TradeManagementConfig,
 )
+from backtest.grid_strategy import GridConfig
+from strategies.grid.adapter import GridStrategyAdapter
 from backtest.engine import get_spread_for_pair
 from backtest.hybrid_strategy import HybridConfig
 
@@ -696,12 +698,13 @@ def _run_window_backtest(
                 commission_cost = commission_per_lot * trade["lots"]
                 total_commission_cost += commission_cost
                 entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
-                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
-                total_spread_cost += entry_spread_cost + exit_spread_cost
-                pnl = (
-                    pips * trade["lots"] * pip_val * 100000
-                    - commission_cost
+                exit_spread_cost = (
+                    effective_spread * pip_val * trade["lots"] * 100000
+                    if round_trip_spread
+                    else 0
                 )
+                total_spread_cost += entry_spread_cost + exit_spread_cost
+                pnl = pips * trade["lots"] * pip_val * 100000 - commission_cost
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
@@ -737,12 +740,13 @@ def _run_window_backtest(
                 commission_cost = commission_per_lot * trade["lots"]
                 total_commission_cost += commission_cost
                 entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
-                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
-                total_spread_cost += entry_spread_cost + exit_spread_cost
-                pnl = (
-                    pips * trade["lots"] * pip_val * 100000
-                    - commission_cost
+                exit_spread_cost = (
+                    effective_spread * pip_val * trade["lots"] * 100000
+                    if round_trip_spread
+                    else 0
                 )
+                total_spread_cost += entry_spread_cost + exit_spread_cost
+                pnl = pips * trade["lots"] * pip_val * 100000 - commission_cost
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
                     peak_balance = balance
@@ -1112,10 +1116,10 @@ def run_grid_walk_forward(
     )
     print(f"   Grid spacing: {grid_cfg.spacing_in_pips():.1f} pips")
     print(f"   Levels per side: {grid_cfg.levels_per_side}")
+    print(f"   Lot sizes: {grid_cfg.lot_sizes}")
     print(
-        f"   Lot sizes: {grid_cfg.lot_sizes}"
+        f"   FTMO risk: 5% equity stop, 3% daily loss, max {grid_cfg.risk.max_open_positions} positions"
     )
-    print(f"   FTMO risk: 5% equity stop, 3% daily loss, max {grid_cfg.risk.max_open_positions} positions")
 
     for w in range(n_windows):
         start = w * window_size

@@ -59,8 +59,16 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
+
 try:
-    from .parameter_sweep import ParameterGrid, SweepResult, SweepRow, SweepRunner, to_csv, to_json
+    from .parameter_sweep import (
+        ParameterGrid,
+        SweepResult,
+        SweepRow,
+        SweepRunner,
+        to_csv,
+        to_json,
+    )
 except ImportError:
     ParameterGrid = None
     SweepResult = None

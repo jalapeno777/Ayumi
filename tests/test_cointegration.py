@@ -57,7 +57,9 @@ class TestCointegrationEngine(unittest.TestCase):
         engine = CointegrationEngine(lookback=60)
         prices_a = np.array([3.0, 5.0, 7.0], dtype=float)
         prices_b = np.array([1.0, 2.0, 3.0], dtype=float)
-        spread = engine.compute_spread(prices_a, prices_b, hedge_ratio=2.0, constant=1.0)
+        spread = engine.compute_spread(
+            prices_a, prices_b, hedge_ratio=2.0, constant=1.0
+        )
         expected = prices_a - 2.0 * prices_b - 1.0
         np.testing.assert_array_almost_equal(spread, expected)
 
@@ -169,7 +171,10 @@ class TestPairsSignalGenerator(unittest.TestCase):
 
     def test_initialization(self):
         gen = PairsSignalGenerator(
-            entry_threshold=2.0, exit_threshold=0.0, stop_loss_threshold=3.0, lookback=60
+            entry_threshold=2.0,
+            exit_threshold=0.0,
+            stop_loss_threshold=3.0,
+            lookback=60,
         )
         self.assertEqual(gen.entry_threshold, 2.0)
         self.assertEqual(gen.exit_threshold, 0.0)
@@ -226,7 +231,10 @@ class TestPairsSignalGenerator(unittest.TestCase):
 
     def test_signal_lifecycle_entry_then_exit(self):
         gen = PairsSignalGenerator(
-            entry_threshold=1.5, exit_threshold=0.0, stop_loss_threshold=5.0, lookback=60
+            entry_threshold=1.5,
+            exit_threshold=0.0,
+            stop_loss_threshold=5.0,
+            lookback=60,
         )
         entry_found = False
         for i in range(60, len(self.prices_a)):
@@ -244,7 +252,10 @@ class TestPairsSignalGenerator(unittest.TestCase):
 
     def test_hold_signal_while_in_position(self):
         gen = PairsSignalGenerator(
-            entry_threshold=1.5, exit_threshold=0.0, stop_loss_threshold=5.0, lookback=60
+            entry_threshold=1.5,
+            exit_threshold=0.0,
+            stop_loss_threshold=5.0,
+            lookback=60,
         )
         for i in range(60, len(self.prices_a)):
             pa = self.prices_a[: i + 1]
@@ -264,7 +275,10 @@ class TestPairsSignalGenerator(unittest.TestCase):
 
     def test_signal_types_are_valid(self):
         gen = PairsSignalGenerator(
-            entry_threshold=1.0, exit_threshold=0.0, stop_loss_threshold=5.0, lookback=60
+            entry_threshold=1.0,
+            exit_threshold=0.0,
+            stop_loss_threshold=5.0,
+            lookback=60,
         )
         valid_signals = {
             "entry_long",
@@ -299,8 +313,12 @@ class TestPairsSignalGenerator(unittest.TestCase):
         gen2 = PairsSignalGenerator(lookback=60)
         coint_signal_count = 0
         for i in range(60, len(cointegrated_a)):
-            if gen2.update_cointegration(cointegrated_a[: i + 1], cointegrated_b[: i + 1]):
-                signal, _ = gen2.generate_signal(cointegrated_a[: i + 1], cointegrated_b[: i + 1])
+            if gen2.update_cointegration(
+                cointegrated_a[: i + 1], cointegrated_b[: i + 1]
+            ):
+                signal, _ = gen2.generate_signal(
+                    cointegrated_a[: i + 1], cointegrated_b[: i + 1]
+                )
                 if signal and signal.startswith("entry"):
                     coint_signal_count += 1
         self.assertLessEqual(

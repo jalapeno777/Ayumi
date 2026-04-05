@@ -272,27 +272,46 @@ class TestGridPresets(unittest.TestCase):
 
 class TestGridPositionSizing(unittest.TestCase):
     def test_equal_sizing_all_levels_same(self):
-        config = GridConfig(num_levels=5, position_sizing_type="equal", base_lot_size=0.01, pair="EURUSD")
+        config = GridConfig(
+            num_levels=5,
+            position_sizing_type="equal",
+            base_lot_size=0.01,
+            pair="EURUSD",
+        )
         state = GridState(config)
         state.initialize_grid(1.1000)
         for lvl in state.levels:
             self.assertEqual(lvl.size_percent, 0.01)
 
     def test_increasing_sizing_inner_levels_larger(self):
-        config = GridConfig(num_levels=5, position_sizing_type="increasing", base_lot_size=0.01, pair="EURUSD")
+        config = GridConfig(
+            num_levels=5,
+            position_sizing_type="increasing",
+            base_lot_size=0.01,
+            pair="EURUSD",
+        )
         state = GridState(config)
         state.initialize_grid(1.1000)
-        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        buy_levels = sorted(
+            [lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index
+        )
         self.assertGreater(buy_levels[1].size_percent, buy_levels[0].size_percent)
         self.assertGreater(buy_levels[2].size_percent, buy_levels[1].size_percent)
         self.assertGreater(buy_levels[3].size_percent, buy_levels[2].size_percent)
         self.assertGreater(buy_levels[4].size_percent, buy_levels[3].size_percent)
 
     def test_decreasing_sizing_outer_levels_larger(self):
-        config = GridConfig(num_levels=5, position_sizing_type="decreasing", base_lot_size=0.01, pair="EURUSD")
+        config = GridConfig(
+            num_levels=5,
+            position_sizing_type="decreasing",
+            base_lot_size=0.01,
+            pair="EURUSD",
+        )
         state = GridState(config)
         state.initialize_grid(1.1000)
-        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        buy_levels = sorted(
+            [lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index
+        )
         self.assertGreater(buy_levels[0].size_percent, buy_levels[1].size_percent)
         self.assertGreater(buy_levels[1].size_percent, buy_levels[2].size_percent)
 
@@ -335,7 +354,9 @@ class TestGridLevelLifecycle(unittest.TestCase):
         config = GridConfig(num_levels=5, pair="EURUSD", grid_spacing_pips=10.0)
         state = GridState(config)
         state.initialize_grid(1.1000)
-        buy_levels = sorted([lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index)
+        buy_levels = sorted(
+            [lvl for lvl in state.levels if lvl.is_buy], key=lambda x: x.level_index
+        )
         bar1 = _bar(0, o=1.0995, h=1.1000, low=buy_levels[0].price - 0.0001, c=1.0990)
         state.check_level_triggered(bar1)
         bar2 = _bar(1, o=1.0990, h=1.1000, low=buy_levels[1].price - 0.0001, c=1.0985)
@@ -460,7 +481,14 @@ class TestGridMultiPairSupport(unittest.TestCase):
         strategy = GridStrategy(pair="XAUUSD", grid_spacing_pips=200.0, num_levels=8)
         state = _make_market_state(n=20)
         state.bars = [
-            Bar(time=datetime(2025, 1, 1, 10, 0) + timedelta(hours=i), open=2000 + i, high=2005 + i, low=1995 + i, close=2000 + i, volume=1000)
+            Bar(
+                time=datetime(2025, 1, 1, 10, 0) + timedelta(hours=i),
+                open=2000 + i,
+                high=2005 + i,
+                low=1995 + i,
+                close=2000 + i,
+                volume=1000,
+            )
             for i in range(20)
         ]
         strategy.evaluate(state)

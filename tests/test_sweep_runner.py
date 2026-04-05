@@ -219,6 +219,7 @@ class TestSweepRunner(unittest.TestCase):
                 for row in result.rows
             ]
             import csv
+
             with open(csv_path, "w", newline="") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=rows_data[0].keys())
                 writer.writeheader()
@@ -318,7 +319,9 @@ class TestSweepRunner(unittest.TestCase):
         )
         result = runner.run(grid)
 
-        param_combos = {(row.params["period"], row.params["std_dev"]) for row in result.rows}
+        param_combos = {
+            (row.params["period"], row.params["std_dev"]) for row in result.rows
+        }
         expected_combos = {
             (15, 1.5),
             (15, 2.0),

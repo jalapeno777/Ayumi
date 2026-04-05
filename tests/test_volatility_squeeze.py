@@ -98,7 +98,9 @@ def _make_squeeze_bars(
     return bars
 
 
-def _make_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
+def _make_state(
+    bars: list[Bar], session: SessionType = SessionType.LONDON
+) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -279,9 +281,7 @@ class TestSessionFilter(unittest.TestCase):
 class TestBuildSignal(unittest.TestCase):
     def test_long_signal(self):
         config = VolatilitySqueezeConfig()
-        signal = _build_signal(
-            TradeDirection.LONG, 1.1000, 0.001, config, 0.70, "test"
-        )
+        signal = _build_signal(TradeDirection.LONG, 1.1000, 0.001, config, 0.70, "test")
         self.assertIsNotNone(signal)
         self.assertEqual(signal.direction, TradeDirection.LONG)
         self.assertLess(signal.stop_loss, signal.entry_price)
@@ -299,23 +299,17 @@ class TestBuildSignal(unittest.TestCase):
 
     def test_low_confidence_rejected(self):
         config = VolatilitySqueezeConfig(min_confidence=0.70)
-        signal = _build_signal(
-            TradeDirection.LONG, 1.1000, 0.001, config, 0.50, "test"
-        )
+        signal = _build_signal(TradeDirection.LONG, 1.1000, 0.001, config, 0.50, "test")
         self.assertIsNone(signal)
 
     def test_zero_atr_rejected(self):
         config = VolatilitySqueezeConfig()
-        signal = _build_signal(
-            TradeDirection.LONG, 1.1000, 0.0, config, 0.70, "test"
-        )
+        signal = _build_signal(TradeDirection.LONG, 1.1000, 0.0, config, 0.70, "test")
         self.assertIsNone(signal)
 
     def test_tp_levels_scale(self):
         config = VolatilitySqueezeConfig(tp1_rr=1.0, tp2_rr=2.0, tp3_rr=3.0)
-        signal = _build_signal(
-            TradeDirection.LONG, 1.1000, 0.001, config, 0.70, "test"
-        )
+        signal = _build_signal(TradeDirection.LONG, 1.1000, 0.001, config, 0.70, "test")
         risk = 0.001 * config.atr_sl_multiplier
         self.assertAlmostEqual(signal.take_profit_1, 1.1000 + risk * 1.0, places=4)
         self.assertAlmostEqual(signal.take_profit_2, 1.1000 + risk * 2.0, places=4)
@@ -323,9 +317,7 @@ class TestBuildSignal(unittest.TestCase):
 
     def test_confidence_capped_at_095(self):
         config = VolatilitySqueezeConfig()
-        signal = _build_signal(
-            TradeDirection.LONG, 1.1000, 0.001, config, 0.99, "test"
-        )
+        signal = _build_signal(TradeDirection.LONG, 1.1000, 0.001, config, 0.99, "test")
         self.assertLessEqual(signal.confidence, 0.95)
 
 
@@ -409,9 +401,7 @@ class TestPresets(unittest.TestCase):
         import dataclasses
 
         self.assertTrue(dataclasses.is_dataclass(VolatilitySqueezeConfig))
-        self.assertTrue(
-            getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen
-        )
+        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)
 
 
 class TestVolatilitySqueezeConfig(unittest.TestCase):

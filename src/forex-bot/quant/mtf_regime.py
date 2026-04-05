@@ -49,7 +49,9 @@ class MultiTimeframeRegime:
 class MTFRegimeConfig:
     min_confluence: float = 0.6
     require_h4_alignment: bool = True
-    allowed_regimes: frozenset[MarketRegime] = frozenset({MarketRegime.TRENDING, MarketRegime.RANGING})
+    allowed_regimes: frozenset[MarketRegime] = frozenset(
+        {MarketRegime.TRENDING, MarketRegime.RANGING}
+    )
     atr_period: int = 14
     atr_lookback: int = 50
     adx_period: int = 14
@@ -60,7 +62,9 @@ class MTFRegimeConfig:
     vol_percentile_high: float = 90.0
 
 
-def compute_atr(high: list[float], low: list[float], close: list[float], period: int = 14) -> float:
+def compute_atr(
+    high: list[float], low: list[float], close: list[float], period: int = 14
+) -> float:
     if len(high) < period + 1 or len(low) < period + 1 or len(close) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -75,7 +79,9 @@ def compute_atr(high: list[float], low: list[float], close: list[float], period:
     return tr_sum / period
 
 
-def compute_adx(high: list[float], low: list[float], close: list[float], period: int = 14) -> tuple[float, float, float]:
+def compute_adx(
+    high: list[float], low: list[float], close: list[float], period: int = 14
+) -> tuple[float, float, float]:
     if len(high) < period + 1 or len(low) < period + 1 or len(close) < period + 1:
         return 0.0, 0.0, 0.0
 
@@ -108,7 +114,9 @@ def compute_adx(high: list[float], low: list[float], close: list[float], period:
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
+        smoothed_minus_dm = (
+            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
+        )
 
     if smoothed_tr == 0:
         return 0.0, 0.0, 0.0
@@ -184,10 +192,14 @@ def detect_regime(
         window_highs = highs[i - config.atr_period : i]
         window_lows = lows[i - config.atr_period : i]
         window_closes = closes[i - config.atr_period : i]
-        window_atr = compute_atr(window_highs, window_lows, window_closes, config.atr_period)
+        window_atr = compute_atr(
+            window_highs, window_lows, window_closes, config.atr_period
+        )
         atr_series.append(window_atr)
 
-    vol_regime, vol_pct, _ = volatility_regime_atr(atr_series, config.atr_lookback, config)
+    vol_regime, vol_pct, _ = volatility_regime_atr(
+        atr_series, config.atr_lookback, config
+    )
     adx, plus_di, minus_di = compute_adx(highs, lows, closes, config.adx_period)
 
     if adx > config.adx_trending_threshold:
@@ -221,7 +233,7 @@ def detect_regime(
     )
 
 
-def compute_confluence( regimes: list[TimeframeRegime]) -> tuple[float, TrendDirection]:
+def compute_confluence(regimes: list[TimeframeRegime]) -> tuple[float, TrendDirection]:
     if not regimes:
         return 0.0, TrendDirection.NEUTRAL
 
@@ -289,7 +301,9 @@ class MTFRegimeFilter:
         h1_bars: list[Bar],
         m15_bars: list[Bar],
     ) -> bool:
-        mtf_regime = detect_multi_timeframe_regime(h4_bars, h1_bars, m15_bars, self.config)
+        mtf_regime = detect_multi_timeframe_regime(
+            h4_bars, h1_bars, m15_bars, self.config
+        )
 
         if mtf_regime.confluence_score < self.config.min_confluence:
             return False
@@ -310,8 +324,12 @@ class MTFRegimeFilter:
         h1_bars: list[Bar],
         m15_bars: list[Bar],
     ) -> float:
-        mtf_regime = detect_multi_timeframe_regime(h4_bars, h1_bars, m15_bars, self.config)
+        mtf_regime = detect_multi_timeframe_regime(
+            h4_bars, h1_bars, m15_bars, self.config
+        )
         return mtf_regime.confluence_score
 
-    def get_regime(self, h4_bars: list[Bar], h1_bars: list[Bar], m15_bars: list[Bar]) -> MultiTimeframeRegime:
+    def get_regime(
+        self, h4_bars: list[Bar], h1_bars: list[Bar], m15_bars: list[Bar]
+    ) -> MultiTimeframeRegime:
         return detect_multi_timeframe_regime(h4_bars, h1_bars, m15_bars, self.config)

@@ -129,11 +129,21 @@ def _build_signal(
         return None
 
     sl_distance = min(atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP)
-    sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
+    sl = (
+        entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
+    )
 
     risk = sl_distance
-    tp1 = entry + risk * config.tp1_rr if direction == TradeDirection.LONG else entry - risk * config.tp1_rr
-    tp2 = entry + risk * config.tp2_rr if direction == TradeDirection.LONG else entry - risk * config.tp2_rr
+    tp1 = (
+        entry + risk * config.tp1_rr
+        if direction == TradeDirection.LONG
+        else entry - risk * config.tp1_rr
+    )
+    tp2 = (
+        entry + risk * config.tp2_rr
+        if direction == TradeDirection.LONG
+        else entry - risk * config.tp2_rr
+    )
 
     return StrategySignal(
         direction=direction,

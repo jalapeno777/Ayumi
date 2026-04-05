@@ -1,6 +1,5 @@
 from typing import List, Optional, Tuple
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
-from strategies.volatility_squeeze import VolatilitySqueezeStrategy as _VolatilitySqueezeStrategyImpl
 
 
 class ISignalStrategy:
@@ -893,8 +892,14 @@ class CommodityTrendStrategy(ISignalStrategy):
                 continue
 
             smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
-            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
-            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
+            smoothed_plus_dm = (
+                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            )
+            smoothed_minus_dm = (
+                smoothed_minus_dm
+                - smoothed_minus_dm / self.adx_period
+                + minus_dm_list[i]
+            )
 
             if smoothed_tr == 0:
                 continue
@@ -1184,23 +1189,35 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         if sl_distance_pips > self.hard_cap_pips:
             sl_distance = self.hard_cap_pips / 10000
 
-        sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
+        sl = (
+            entry - sl_distance
+            if direction == TradeDirection.LONG
+            else entry + sl_distance
+        )
         risk = abs(entry - sl)
 
-        tp1 = entry + risk * self.tp1_atr if direction == TradeDirection.LONG else entry - risk * self.tp1_atr
-        tp2 = entry + risk * self.tp2_atr if direction == TradeDirection.LONG else entry - risk * self.tp2_atr
-        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
+        tp1 = (
+            entry + risk * self.tp1_atr
+            if direction == TradeDirection.LONG
+            else entry - risk * self.tp1_atr
+        )
+        tp2 = (
+            entry + risk * self.tp2_atr
+            if direction == TradeDirection.LONG
+            else entry - risk * self.tp2_atr
+        )
+        tp3 = (
+            entry + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
 
         confidence = min(0.85, 0.55 + abs(rsi - self.rsi_threshold) / 50 * 0.30)
 
         if long_conditions:
-            rationale = (
-                f"Supertrend Long flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} > {self.rsi_threshold}"
-            )
+            rationale = f"Supertrend Long flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} > {self.rsi_threshold}"
         else:
-            rationale = (
-                f"Supertrend Short flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} < {self.rsi_threshold}"
-            )
+            rationale = f"Supertrend Short flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} < {self.rsi_threshold}"
 
         return StrategySignal(
             direction=direction,
@@ -1213,7 +1230,9 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_supertrend(self, bars: List[Bar]) -> Tuple[Optional[float], Optional[float]]:
+    def _calculate_supertrend(
+        self, bars: List[Bar]
+    ) -> Tuple[Optional[float], Optional[float]]:
         if len(bars) < self.supertrend_period + 1:
             return None, None
 
@@ -1391,8 +1410,14 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                 continue
 
             smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
-            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
-            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
+            smoothed_plus_dm = (
+                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            )
+            smoothed_minus_dm = (
+                smoothed_minus_dm
+                - smoothed_minus_dm / self.adx_period
+                + minus_dm_list[i]
+            )
 
             if smoothed_tr == 0:
                 continue
@@ -1483,12 +1508,15 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         return "Keltner Channel Breakout"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        min_bars = max(
-            self.ema_period,
-            self.atr_period,
-            self.adx_period * 2 + 1,
-            self.volume_ma_period,
-        ) + 2
+        min_bars = (
+            max(
+                self.ema_period,
+                self.atr_period,
+                self.adx_period * 2 + 1,
+                self.volume_ma_period,
+            )
+            + 2
+        )
         if len(state.bars) < min_bars:
             return None
 
@@ -1684,7 +1712,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
     def _calculate_volume_ma(self, bars: List[Bar]) -> float:
         if len(bars) < self.volume_ma_period:
             return 0.0
-        recent = bars[-self.volume_ma_period:]
+        recent = bars[-self.volume_ma_period :]
         return sum(b.volume for b in recent) / len(recent)
 
     @staticmethod
