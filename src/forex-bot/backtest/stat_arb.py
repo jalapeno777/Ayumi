@@ -39,6 +39,8 @@ class StatArbStrategy(ISignalStrategy):
         self._pair_b_bars: List[Bar] = pair_b_bars or []
         self._last_signal: Optional[str] = None
         self._position_open: bool = False
+        self._bar_count: int = 0
+        self._recompute_interval: int = lookback
 
     @property
     def name(self) -> str:
@@ -51,6 +53,7 @@ class StatArbStrategy(ISignalStrategy):
         self._signal_generator.reset()
         self._last_signal = None
         self._position_open = False
+        self._bar_count = 0
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
         if len(state.bars) < self.lookback + 1:
@@ -59,11 +62,19 @@ class StatArbStrategy(ISignalStrategy):
         if len(self._pair_b_bars) < len(state.bars):
             return None
 
+        self._bar_count += 1
         prices_a = np.array([b.close for b in state.bars])
         prices_b = np.array([b.close for b in self._pair_b_bars[: len(state.bars)]])
 
-        if not self._signal_generator.update_cointegration(prices_a, prices_b):
-            return None
+        should_recompute = (
+            self._bar_count == 1
+            or self._bar_count % self._recompute_interval == 0
+            or self._signal_generator._hedge_ratio is None
+        )
+
+        if should_recompute:
+            if not self._signal_generator.update_cointegration(prices_a, prices_b):
+                return None
 
         signal, reason = self._signal_generator.generate_signal(prices_a, prices_b)
 
@@ -78,14 +89,16 @@ class StatArbStrategy(ISignalStrategy):
             return self._create_signal(state, signal, safe_reason)
 
         if signal == "exit":
+            position_side = self._last_signal
             self._last_signal = None
             self._position_open = False
-            return self._create_exit_signal(state, safe_reason)
+            return self._create_close_signal(state, position_side, safe_reason, is_stop=False)
 
         if signal == "stop_loss":
+            position_side = self._last_signal
             self._last_signal = None
             self._position_open = False
-            return self._create_stop_loss_signal(state, safe_reason)
+            return self._create_close_signal(state, position_side, safe_reason, is_stop=True)
 
         if signal.startswith("hold"):
             if not self._position_open or self._last_signal is None:
@@ -139,8 +152,8 @@ class StatArbStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _create_exit_signal(
-        self, state: MarketState, reason: str
+    def _create_close_signal(
+        self, state: MarketState, position_side: Optional[str], reason: str, is_stop: bool
     ) -> StrategySignal:
         latest = state.latest_bar
         z_score = self._signal_generator.compute_z_score(
@@ -148,30 +161,15 @@ class StatArbStrategy(ISignalStrategy):
             np.array([b.close for b in self._pair_b_bars[: len(state.bars)]]),
         )
 
-        rationale = f"StatArb exit: z={z_score:.2f}, {reason}"
-        return StrategySignal(
-            direction=TradeDirection.LONG,
-            confidence=0.95,
-            entry_price=latest.close,
-            stop_loss=latest.close,
-            take_profit_1=latest.close,
-            take_profit_2=latest.close,
-            take_profit_3=latest.close,
-            rationale=rationale,
-        )
+        is_long_position = position_side in ("entry_long", "hold_long")
+        signal_label = "stop_loss" if is_stop else "exit"
+        side_label = "long" if is_long_position else "short"
+        rationale = f"StatArb {signal_label} {side_label}: z={z_score:.2f}, {reason}"
 
-    def _create_stop_loss_signal(
-        self, state: MarketState, reason: str
-    ) -> StrategySignal:
-        latest = state.latest_bar
-        z_score = self._signal_generator.compute_z_score(
-            np.array([b.close for b in state.bars]),
-            np.array([b.close for b in self._pair_b_bars[: len(state.bars)]]),
-        )
+        close_direction = TradeDirection.SHORT if is_long_position else TradeDirection.LONG
 
-        rationale = f"StatArb stop_loss: z={z_score:.2f}, {reason}"
         return StrategySignal(
-            direction=TradeDirection.SHORT,
+            direction=close_direction,
             confidence=0.95,
             entry_price=latest.close,
             stop_loss=latest.close,

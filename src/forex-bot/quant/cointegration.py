@@ -300,25 +300,31 @@ def parameter_sweep(
     """Grid search over cointegration parameters.
 
     Returns list of dicts with parameter combos and signal counts.
-    Precomputes cointegration per bar to avoid O(n^2 * |params|) redundancy.
+    Precomputes cointegration per lookback to avoid redundant ADF tests.
     """
-    max_lb = max(lookbacks) if lookbacks else 60
-    min_len = max_lb + 1
+    if not lookbacks:
+        return []
 
+    min_len = max(lookbacks) + 1
     if len(prices_a) < min_len or len(prices_b) < min_len:
         return []
 
-    engine = CointegrationEngine(lookback=max_lb)
     coint_cache: Dict[int, Optional[Tuple[float, float]]] = {}
+    engines: Dict[int, CointegrationEngine] = {
+        lb: CointegrationEngine(lookback=lb) for lb in lookbacks
+    }
 
-    for i in range(max_lb, len(prices_a)):
-        pa = prices_a[: i + 1]
-        pb = prices_b[: i + 1]
-        result = engine.engle_granger_test(pa, pb)
-        if result.is_cointegrated:
-            coint_cache[i] = (result.hedge_ratio, result.constant)
-        else:
-            coint_cache[i] = None
+    for lb in lookbacks:
+        engine = engines[lb]
+        for i in range(lb, len(prices_a)):
+            key = (lb, i)
+            pa = prices_a[: i + 1]
+            pb = prices_b[: i + 1]
+            result = engine.engle_granger_test(pa, pb)
+            if result.is_cointegrated:
+                coint_cache[key] = (result.hedge_ratio, result.constant)
+            else:
+                coint_cache[key] = None
 
     results = []
 
@@ -338,10 +344,11 @@ def parameter_sweep(
 
                     signal_count = 0
                     for i in range(lb, len(prices_a)):
-                        if coint_cache.get(i) is None:
+                        cached = coint_cache.get((lb, i))
+                        if cached is None:
                             continue
 
-                        hr, const = coint_cache[i]
+                        hr, const = cached
                         generator._hedge_ratio = hr
                         generator._constant = const
 
