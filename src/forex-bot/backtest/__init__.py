@@ -19,6 +19,9 @@ from .engine import (
 )
 from .data_loader import CsvDataLoader
 from .strategies import (
+    CommodityTrendStrategy,
+    CommodityMeanReversionStrategy,
+    SupertrendRSIBlendStrategy,
     ISignalStrategy,
     MACrossStrategy,
     BBStrategy,
@@ -26,12 +29,12 @@ from .strategies import (
     SRBreakoutStrategy,
     ROCMStrategy,
     MomentumBreakoutStrategy,
-    CommodityTrendStrategy,
-    CommodityMeanReversionStrategy,
+    KeltnerChannelBreakoutStrategy,
 )
 from .grid_strategy import GridStrategy
 from .stat_arb import StatArbStrategy, StatArbBacktestResult
 from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
 from .multi_strategy_engine import MultiStrategyConfig, MultiStrategyBacktestEngine
 from .amalgamation import (
     AmalgamationConfig,
@@ -97,6 +100,9 @@ __all__ = [
     "MomentumBreakoutStrategy",
     "CommodityTrendStrategy",
     "CommodityMeanReversionStrategy",
+    "SupertrendRSIBlendStrategy",
+    "KeltnerChannelBreakoutStrategy",
+    "SessionRangeMeanReversionStrategy",
     "GridStrategy",
     "StatArbStrategy",
     "StatArbBacktestResult",
