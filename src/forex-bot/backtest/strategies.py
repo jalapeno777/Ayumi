@@ -1448,7 +1448,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                     ),
                 )
                 tr_sum += tr
-        return tr_sum / 14
+        return tr_sum / self.atr_period
 
 
 class KeltnerChannelBreakoutStrategy(ISignalStrategy):
@@ -1460,8 +1460,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
     and volume confirmation.
 
     Stop loss is 1.5x ATR with a hard cap of 40 pips. Take profit levels
-    are set at 2.0x ATR (TP1, 33%), 3.0x ATR (TP2, 33%), with the remaining
-    34% trailing via channel re-entry.
+    are set at 2.0x ATR (TP1, 33%), 3.0x ATR (TP2, 33%), 3.0x risk (TP3, 34%).
 
     Args:
         ema_period: Period for EMA middle line (default 20).
