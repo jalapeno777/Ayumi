@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 import math
 
 
@@ -135,13 +135,41 @@ class SimulatedTrade:
     partial_close_pnl: float = 0.0
 
 
+PAIR_SPREAD_PIPS: Dict[str, float] = {
+    "EURUSD": 1.5,
+    "GBPUSD": 1.5,
+    "USDJPY": 1.5,
+    "AUDUSD": 1.5,
+    "NZDUSD": 1.5,
+    "USDCAD": 1.5,
+    "USDCHF": 1.5,
+    "GBPJPY": 3.0,
+    "EURJPY": 2.0,
+    "AUDJPY": 2.0,
+    "EURGBP": 1.5,
+    "EURAUD": 2.0,
+    "GBPAUD": 2.5,
+    "GBPCAD": 2.5,
+    "EURNZD": 2.5,
+    "GBPNZD": 3.0,
+    "XAUUSD": 2.5,
+    "XAGUSD": 3.0,
+}
+
+DEFAULT_SPREAD_PIPS = 1.5
+
+
+def get_spread_for_pair(pair: str) -> float:
+    return PAIR_SPREAD_PIPS.get(pair.upper(), DEFAULT_SPREAD_PIPS)
+
+
 @dataclass
 class BacktestConfig:
     starting_balance: float = 10000.0
     risk_per_trade_pct: float = 0.01
     max_daily_drawdown_pct: float = 0.02
     max_total_drawdown_pct: float = 0.05
-    spread_pips: float = 0.5
+    spread_pips: float = 0.0
     commission_per_lot: float = 3.5
     leverage: int = 100
     min_confidence: float = 0.50
@@ -156,10 +184,22 @@ class BacktestConfig:
     trailing_stop_atr_multiplier: float = 1.0
     regime_filter_enabled: bool = True
     news_volatility_filter_enabled: bool = True
+    round_trip_spread: bool = True
+    slippage_pips: float = 0.2
+    swap_per_lot_per_day: float = -2.0
+    pair: str = ""
 
     @property
     def units_per_lot(self) -> float:
         return 100000.0
+
+    @property
+    def effective_spread_pips(self) -> float:
+        if self.spread_pips > 0:
+            return self.spread_pips
+        if self.pair:
+            return get_spread_for_pair(self.pair)
+        return DEFAULT_SPREAD_PIPS
 
 
 @dataclass
@@ -240,6 +280,8 @@ class BacktestEngine:
         self.current_day: Optional[date] = None
         self.daily_start_balance = config.starting_balance
         self.max_daily_loss = 0.0
+        self.total_spread_cost = 0.0
+        self.total_commission_cost = 0.0
 
     def run(self, bars: List[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
@@ -279,7 +321,11 @@ class BacktestEngine:
         self.balance = self.config.starting_balance
         self.peak_balance = self.config.starting_balance
         self.max_drawdown = 0.0
+        self.current_day = None
+        self.daily_start_balance = self.config.starting_balance
         self.max_daily_loss = 0.0
+        self.total_spread_cost = 0.0
+        self.total_commission_cost = 0.0
         self.current_day = None
         self.daily_start_balance = self.config.starting_balance
 
@@ -352,13 +398,40 @@ class BacktestEngine:
         reason: ExitReason,
     ):
         trade.exit_bar_index = bar_index
-        trade.exit_price = exit_price
         trade.exit_time = exit_time
         trade.exit_reason = reason
 
         pip_value = self._get_pip_value(trade.entry_price)
         standard_lots = trade.lot_size / self.config.units_per_lot
+        spread_pips = self.config.effective_spread_pips
         commission_cost = standard_lots * self.config.commission_per_lot
+        self.total_commission_cost += commission_cost
+
+        if self.config.round_trip_spread:
+            spread_price = spread_pips * pip_value
+            if trade.direction == TradeDirection.LONG:
+                exit_price -= spread_price
+            else:
+                exit_price += spread_price
+            spread_dollars = spread_pips * pip_value * trade.lot_size
+            self.total_spread_cost += spread_dollars
+        else:
+            spread_dollars = spread_pips * pip_value * trade.lot_size
+            self.total_spread_cost += spread_dollars
+
+        slippage_price = self.config.slippage_pips * pip_value
+        if trade.direction == TradeDirection.LONG:
+            exit_price -= slippage_price
+        else:
+            exit_price += slippage_price
+
+        trade.exit_price = exit_price
+
+        holding_days = (exit_time.date() - trade.entry_time.date()).days
+        if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
+            swap_cost = standard_lots * self.config.swap_per_lot_per_day * holding_days
+        else:
+            swap_cost = 0.0
 
         if trade.direction == TradeDirection.LONG:
             trade.pips = (exit_price - trade.entry_price) / pip_value
@@ -368,6 +441,7 @@ class BacktestEngine:
         trade.profit_loss = (
             trade.pips * standard_lots * pip_value * self.config.units_per_lot
             - commission_cost
+            + swap_cost
         )
         self.balance += trade.profit_loss
 
@@ -436,8 +510,8 @@ class BacktestEngine:
             avg_holding_bars=0.0,
             equity_curve=equity_curve,
             trades=trades,
-            total_spread_cost=0.0,
-            total_commission_cost=0.0,
+            total_spread_cost=self.total_spread_cost,
+            total_commission_cost=self.total_commission_cost,
             rejected_signals=rejected_signals,
         )
 

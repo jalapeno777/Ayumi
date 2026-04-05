@@ -45,6 +45,7 @@ from backtest import (
     HybridStrategy,
     TradeManagementConfig,
 )
+from backtest.engine import get_spread_for_pair
 from backtest.hybrid_strategy import HybridConfig
 from strategies.grid import GridConfig, GridStrategyAdapter
 
@@ -531,10 +532,14 @@ def _run_window_backtest(
     risk_per_trade_pct: float = 0.005,
     max_daily_drawdown_pct: float = 0.03,
     max_total_drawdown_pct: float = 0.05,
-    spread_pips: float = 0.5,
+    spread_pips: float = 0.0,
     commission_per_lot: float = 3.5,
     leverage: int = 100,
     max_open_trades: int = 3,
+    round_trip_spread: bool = True,
+    slippage_pips: float = 0.2,
+    swap_per_lot_per_day: float = -2.0,
+    pair: str = "",
 ) -> BacktestMetrics:
     from backtest.ict_smc.models import ICTMarketState
 
@@ -577,6 +582,10 @@ def _run_window_backtest(
     open_trades: list = []
     trade_records: list = []
     equity_curve = [balance]
+    total_spread_cost = 0.0
+    total_commission_cost = 0.0
+
+    effective_spread = spread_pips if spread_pips > 0 else get_spread_for_pair(pair)
 
     closes = [b.close for b in bars]
     high_series = [b.high for b in bars]
@@ -659,13 +668,30 @@ def _run_window_backtest(
 
             if hit_sl:
                 pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                exit_price = trade["sl"]
+                if round_trip_spread:
+                    spread_exit = effective_spread * pip_val
+                    if trade["direction"] == "long":
+                        exit_price -= spread_exit
+                    else:
+                        exit_price += spread_exit
+                slippage_exit = slippage_pips * pip_val
                 if trade["direction"] == "long":
-                    pips = (trade["sl"] - trade["entry"]) / pip_val
+                    exit_price -= slippage_exit
                 else:
-                    pips = (trade["entry"] - trade["sl"]) / pip_val
+                    exit_price += slippage_exit
+                if trade["direction"] == "long":
+                    pips = (exit_price - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - exit_price) / pip_val
+                commission_cost = commission_per_lot * trade["lots"]
+                total_commission_cost += commission_cost
+                entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
+                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
+                total_spread_cost += entry_spread_cost + exit_spread_cost
                 pnl = (
                     pips * trade["lots"] * pip_val * 100000
-                    - commission_per_lot * trade["lots"]
+                    - commission_cost
                 )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
@@ -683,13 +709,30 @@ def _run_window_backtest(
                 equity_curve.append(balance)
             elif hit_tp:
                 pip_val = 0.0001 if signal.entry_price < 50 else 0.01
+                exit_price = trade["tp1"]
+                if round_trip_spread:
+                    spread_exit = effective_spread * pip_val
+                    if trade["direction"] == "long":
+                        exit_price -= spread_exit
+                    else:
+                        exit_price += spread_exit
+                slippage_exit = slippage_pips * pip_val
                 if trade["direction"] == "long":
-                    pips = (trade["tp1"] - trade["entry"]) / pip_val
+                    exit_price -= slippage_exit
                 else:
-                    pips = (trade["entry"] - trade["tp1"]) / pip_val
+                    exit_price += slippage_exit
+                if trade["direction"] == "long":
+                    pips = (exit_price - trade["entry"]) / pip_val
+                else:
+                    pips = (trade["entry"] - exit_price) / pip_val
+                commission_cost = commission_per_lot * trade["lots"]
+                total_commission_cost += commission_cost
+                entry_spread_cost = effective_spread * pip_val * trade["lots"] * 100000
+                exit_spread_cost = effective_spread * pip_val * trade["lots"] * 100000 if round_trip_spread else 0
+                total_spread_cost += entry_spread_cost + exit_spread_cost
                 pnl = (
                     pips * trade["lots"] * pip_val * 100000
-                    - commission_per_lot * trade["lots"]
+                    - commission_cost
                 )
                 balance = max(0.0, balance + pnl)
                 if balance > peak_balance:
@@ -715,11 +758,17 @@ def _run_window_backtest(
         tp1 = signal.take_profit_1 if signal.take_profit_1 else entry
 
         pip_val = 0.0001 if entry < 50 else 0.01
-        spread_cost = spread_pips * pip_val
+        spread_cost = effective_spread * pip_val
         if signal.direction.value == "long":
             entry += spread_cost
         else:
             entry -= spread_cost
+
+        slippage_cost = slippage_pips * pip_val
+        if signal.direction.value == "long":
+            entry += slippage_cost
+        else:
+            entry -= slippage_cost
 
         risk_dist = abs(entry - sl)
         if risk_dist == 0:
@@ -748,9 +797,9 @@ def _run_window_backtest(
     for trade in open_trades:
         pip_val = 0.0001 if trade["entry"] < 50 else 0.01
         pips = 0.0
-        pnl = (
-            pips * trade["lots"] * pip_val * 100000 - commission_per_lot * trade["lots"]
-        )
+        commission_cost = commission_per_lot * trade["lots"]
+        total_commission_cost += commission_cost
+        pnl = -commission_cost
         balance = max(0.0, balance + pnl)
         trade_records.append({"pnl": pnl, "outcome": "breakeven"})
 
@@ -811,8 +860,8 @@ def _run_window_backtest(
         avg_holding_bars=0.0,
         equity_curve=equity_curve,
         trades=[],
-        total_spread_cost=0.0,
-        total_commission_cost=0.0,
+        total_spread_cost=total_spread_cost,
+        total_commission_cost=total_commission_cost,
         rejected_signals=strategy.metrics.total_evaluated - strategy.metrics.passed,
     )
 
@@ -902,11 +951,11 @@ def run_hybrid_backtest(
             continue
 
         strategy.reset_metrics()
-        train_metrics = _run_window_backtest(train_bars, strategy)
+        train_metrics = _run_window_backtest(train_bars, strategy, pair=pair)
         strategy.reset_metrics()
-        val_metrics = _run_window_backtest(val_bars, strategy)
+        val_metrics = _run_window_backtest(val_bars, strategy, pair=pair)
         strategy.reset_metrics()
-        test_metrics = _run_window_backtest(test_bars, strategy)
+        test_metrics = _run_window_backtest(test_bars, strategy, pair=pair)
 
         passed = (
             test_metrics.win_rate > 55
@@ -969,8 +1018,11 @@ def run_hybrid_backtest(
             "max_daily_drawdown_pct": 0.03,
             "max_total_drawdown_pct": 0.05,
             "max_open_trades": 3,
-            "spread_pips": 0.5,
+            "spread_pips": get_spread_for_pair(pair),
             "commission_per_lot": 3.5,
+            "round_trip_spread": True,
+            "slippage_pips": 0.2,
+            "swap_per_lot_per_day": -2.0,
             "sl_atr_multiplier": 2.0,
             "min_confidence": 0.5,
             "min_confluences": 2,
@@ -1032,12 +1084,12 @@ def run_grid_walk_forward(
         risk_per_trade_pct=0.01,
         max_daily_drawdown_pct=0.05,
         max_total_drawdown_pct=0.05,
-        spread_pips=0.5,
         commission_per_lot=3.5,
         leverage=100,
         min_confidence=0.50,
         min_bars_before_signal=30,
         max_open_trades=10,
+        pair=pair,
     )
 
     results = []
@@ -1159,7 +1211,6 @@ def main():
         risk_per_trade_pct=0.01,
         max_daily_drawdown_pct=0.02,
         max_total_drawdown_pct=0.05,
-        spread_pips=0.5,
         commission_per_lot=3.5,
         leverage=100,
         min_confidence=0.45,
