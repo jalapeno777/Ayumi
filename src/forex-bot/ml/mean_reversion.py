@@ -135,7 +135,7 @@ try:
         },
     ]
 
-    def _make_xgboost(params: Dict[str, Any]):
+    def _make_xgb(params: Dict[str, Any]) -> Any:
         return XGBClassifier(
             **params,
             use_label_encoder=False,
@@ -155,7 +155,7 @@ def _make_model(model_type: str, params: Dict[str, Any]):
     if model_type == "random_forest":
         return RandomForestClassifier(**params, random_state=42)
     if model_type == "xgboost" and HAS_XGBOOST:
-        return _make_xgboost(params)
+        return _make_xgb(params)
     raise ValueError(f"Unknown model type: {model_type}")
 
 
@@ -393,7 +393,7 @@ def train_model(
         "accuracy": float(accuracy_score(y_test, y_pred)),
         "f1": float(f1_score(y_test, y_pred, zero_division=0)),
         "threshold": float(best_threshold),
-        "test_samples": len(y_test),
+        "test_samples": float(len(y_test)),
         "positive_rate": float(y_pred.mean()),
     }
     if pnl_test is not None and taken_mask.sum() > 0:
@@ -402,7 +402,7 @@ def train_model(
         gl = abs(taken_pnl[taken_pnl < 0].sum())
         metrics["profit_factor"] = gp / gl if gl > 0 else float("inf")
         metrics["win_rate"] = float((taken_pnl > 0).sum() / len(taken_pnl) * 100)
-        metrics["total_trades"] = int(len(taken_pnl))
+        metrics["total_trades"] = float(len(taken_pnl))
 
     return TrainingResult(
         model=best_model,
