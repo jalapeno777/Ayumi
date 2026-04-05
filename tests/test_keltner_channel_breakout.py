@@ -55,14 +55,16 @@ def _make_deterministic_breakout_bars(direction="long", n=50):
         else:
             price -= 0.0001
 
-        bars.append(Bar(
-            time=dt,
-            open=price - 0.00005,
-            high=price + 0.0004,
-            low=price - 0.0001,
-            close=price,
-            volume=1500.0,
-        ))
+        bars.append(
+            Bar(
+                time=dt,
+                open=price - 0.00005,
+                high=price + 0.0004,
+                low=price - 0.0001,
+                close=price,
+                volume=1500.0,
+            )
+        )
         dt += timedelta(hours=1)
 
     if direction == "long":
@@ -70,14 +72,16 @@ def _make_deterministic_breakout_bars(direction="long", n=50):
     else:
         price -= 0.003
 
-    bars.append(Bar(
-        time=dt,
-        open=price - 0.001,
-        high=price + 0.0005,
-        low=price - 0.0002,
-        close=price,
-        volume=2000.0,
-    ))
+    bars.append(
+        Bar(
+            time=dt,
+            open=price - 0.001,
+            high=price + 0.0005,
+            low=price - 0.0002,
+            close=price,
+            volume=2000.0,
+        )
+    )
 
     return bars
 
