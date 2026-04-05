@@ -17,7 +17,7 @@ import pandas as pd
 import urllib.request
 import urllib.parse
 
-OUTPUT_DIR = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
+OUTPUT_DIR = Path(__file__).resolve().parent
 BASE_URL = "https://www.histdata.com"
 
 PAIRS = ["EURUSD", "GBPUSD", "GBPJPY", "USDJPY", "XAUUSD"]
