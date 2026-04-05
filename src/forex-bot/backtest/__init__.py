@@ -48,7 +48,15 @@ from .trade_management import (
     ManagedTrade,
     TradeAction,
 )
-from .parameter_sweep import ParameterGrid, SweepResult, SweepRow, SweepRunner, to_csv, to_json
+try:
+    from .parameter_sweep import ParameterGrid, SweepResult, SweepRow, SweepRunner, to_csv, to_json
+except ImportError:
+    ParameterGrid = None
+    SweepResult = None
+    SweepRow = None
+    SweepRunner = None
+    to_csv = None
+    to_json = None
 
 __all__ = [
     "Bar",
