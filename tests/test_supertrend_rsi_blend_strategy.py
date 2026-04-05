@@ -1,0 +1,233 @@
+import sys
+import os
+import unittest
+from datetime import datetime
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
+
+from backtest.engine import Bar, MarketState, TradeDirection
+from backtest.strategies import SupertrendRSIBlendStrategy
+
+
+def make_test_bars(n=100, seed=42):
+    import numpy as np
+    import pandas as pd
+
+    np.random.seed(seed)
+    dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+    price = 1.1000
+    prices = [price]
+    for _ in range(n - 1):
+        price += np.random.normal(0, 0.0005)
+        prices.append(price)
+    prices = np.array(prices)
+    spread = 0.0002
+    return [
+        Bar(
+            time=dates[i].to_pydatetime(),
+            open=prices[i] - spread * np.random.uniform(0, 1),
+            high=prices[i] + spread * np.random.uniform(1, 3),
+            low=prices[i] - spread * np.random.uniform(1, 3),
+            close=prices[i],
+            volume=1000,
+        )
+        for i in range(n)
+    ]
+
+
+def make_trending_bars_with_supertrend_signal(n=100, seed=42, direction="long"):
+    import numpy as np
+    import pandas as pd
+
+    np.random.seed(seed)
+    dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+    price = 1.1000
+    prices = []
+
+    if direction == "long":
+        for i in range(n):
+            if i < 20:
+                price += np.random.normal(0, 0.0001)
+            else:
+                price += 0.0004 + np.random.normal(0, 0.0001)
+            prices.append(price)
+    else:
+        for i in range(n):
+            if i < 20:
+                price += np.random.normal(0, 0.0001)
+            else:
+                price -= 0.0004 + np.random.normal(0, 0.0001)
+            prices.append(price)
+
+    prices = np.array(prices)
+    spread = 0.0002
+    return [
+        Bar(
+            time=dates[i].to_pydatetime(),
+            open=prices[i] - spread * np.random.uniform(0, 1),
+            high=prices[i] + spread * np.random.uniform(1, 3),
+            low=prices[i] - spread * np.random.uniform(1, 3),
+            close=prices[i],
+            volume=1000,
+        )
+        for i in range(n)
+    ]
+
+
+class TestSupertrendRSIBlendStrategy(unittest.TestCase):
+    def test_strategy_name(self):
+        strategy = SupertrendRSIBlendStrategy()
+        self.assertEqual(strategy.name, "Supertrend RSI Blend")
+
+    def test_strategy_returns_none_with_insufficient_bars(self):
+        strategy = SupertrendRSIBlendStrategy()
+        bars = make_test_bars(10)
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_strategy_returns_none_in_choppy_market_with_low_atr(self):
+        strategy = SupertrendRSIBlendStrategy(atr_min_chop=50.0)
+        bars = make_test_bars(50)
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_strategy_returns_none_during_low_adx_regime(self):
+        strategy = SupertrendRSIBlendStrategy(adx_min=50.0)
+        bars = make_test_bars(50)
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_strategy_returns_none_first_30_min_of_session(self):
+        strategy = SupertrendRSIBlendStrategy()
+        bars = make_test_bars(50)
+        bars[-1].time = datetime(2023, 1, 1, 0, 15)
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_strategy_returns_signal_on_bullish_supertrend_flip(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+        )
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="long")
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertEqual(result.direction, TradeDirection.LONG)
+            self.assertGreater(result.entry_price, 0)
+            self.assertGreater(result.stop_loss, 0)
+            self.assertIn("Supertrend", result.rationale)
+
+    def test_strategy_returns_signal_on_bearish_supertrend_flip(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+        )
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="short")
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertEqual(result.direction, TradeDirection.SHORT)
+            self.assertGreater(result.entry_price, 0)
+            self.assertGreater(result.stop_loss, 0)
+            self.assertIn("Supertrend", result.rationale)
+
+    def test_confidence_within_valid_range(self):
+        strategy = SupertrendRSIBlendStrategy()
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="long")
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertGreaterEqual(result.confidence, 0.0)
+            self.assertLessEqual(result.confidence, 0.85)
+
+    def test_take_profit_levels_formatted_correctly(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+            tp1_atr=1.5,
+            tp2_atr=2.5,
+        )
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="long")
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        if result is not None:
+            risk = abs(result.entry_price - result.stop_loss)
+            expected_tp1 = result.entry_price + risk * 1.5
+            expected_tp2 = result.entry_price + risk * 2.5
+            expected_tp3 = result.entry_price + risk * 3.0
+            self.assertAlmostEqual(result.take_profit_1, expected_tp1, places=5)
+            self.assertAlmostEqual(result.take_profit_2, expected_tp2, places=5)
+            self.assertAlmostEqual(result.take_profit_3, expected_tp3, places=5)
+
+    def test_custom_parameters(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=10,
+            supertrend_multiplier=2.0,
+            rsi_period=10,
+            rsi_threshold=45.0,
+            atr_min_pips=8.0,
+            adx_period=14,
+            adx_min=20.0,
+            atr_min_chop=8.0,
+            sl_atr_multiplier=1.5,
+            hard_cap_pips=40.0,
+            tp1_atr=1.5,
+            tp2_atr=2.5,
+            time_exit_bars=20,
+        )
+        self.assertEqual(strategy.supertrend_period, 10)
+        self.assertEqual(strategy.supertrend_multiplier, 2.0)
+        self.assertEqual(strategy.rsi_period, 10)
+        self.assertEqual(strategy.rsi_threshold, 45.0)
+        self.assertEqual(strategy.atr_min_pips, 8.0)
+        self.assertEqual(strategy.adx_period, 14)
+        self.assertEqual(strategy.adx_min, 20.0)
+        self.assertEqual(strategy.atr_min_chop, 8.0)
+        self.assertEqual(strategy.sl_atr_multiplier, 1.5)
+        self.assertEqual(strategy.hard_cap_pips, 40.0)
+        self.assertEqual(strategy.tp1_atr, 1.5)
+        self.assertEqual(strategy.tp2_atr, 2.5)
+        self.assertEqual(strategy.time_exit_bars, 20)
+
+    def test_stop_loss_hard_cap(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+            hard_cap_pips=40.0,
+            sl_atr_multiplier=10.0,
+        )
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="long")
+        state = MarketState(bars=bars)
+        result = strategy.evaluate(state)
+        if result is not None:
+            sl_pips = abs(result.entry_price - result.stop_loss) * 10000
+            self.assertLessEqual(sl_pips, 40.0)
+
+
+if __name__ == "__main__":
+    unittest.main()
