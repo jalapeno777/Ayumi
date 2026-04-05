@@ -1423,4 +1423,275 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                     ),
                 )
                 tr_sum += tr
-        return tr_sum / self.atr_period
+        return tr_sum / 14
+
+
+class KeltnerChannelBreakoutStrategy(ISignalStrategy):
+    """Keltner Channel Breakout strategy using EMA-based channels with ATR bands.
+
+    Entry signals are generated when price closes outside the Keltner Channel
+    (above upper band for long, below lower band for short) with confirmation
+    from ADX trend strength, EMA slope direction, ATR volatility threshold,
+    and volume confirmation.
+
+    Stop loss is 1.5x ATR with a hard cap of 40 pips. Take profit levels
+    are set at 2.0x ATR (TP1, 33%), 3.0x ATR (TP2, 33%), with the remaining
+    34% trailing via channel re-entry.
+
+    Args:
+        ema_period: Period for EMA middle line (default 20).
+        atr_period: Period for ATR calculation (default 14).
+        atr_multiplier: ATR multiplier for channel bands (default 1.5).
+        atr_min_pips: Minimum ATR in pips for volatility filter (default 8).
+        adx_period: Period for ADX calculation (default 14).
+        adx_threshold: Minimum ADX value to confirm trend (default 25.0).
+        volume_ma_period: Period for volume moving average (default 20).
+        sl_atr_multiplier: ATR multiplier for stop loss (default 1.5).
+        sl_max_pips: Hard cap on stop loss in pips (default 40.0).
+        tp1_atr_multiplier: ATR multiplier for TP1 (default 2.0).
+        tp2_atr_multiplier: ATR multiplier for TP2 (default 3.0).
+    """
+
+    def __init__(
+        self,
+        ema_period: int = 20,
+        atr_period: int = 14,
+        atr_multiplier: float = 1.5,
+        atr_min_pips: float = 8.0,
+        adx_period: int = 14,
+        adx_threshold: float = 25.0,
+        volume_ma_period: int = 20,
+        sl_atr_multiplier: float = 1.5,
+        sl_max_pips: float = 40.0,
+        tp1_atr_multiplier: float = 2.0,
+        tp2_atr_multiplier: float = 3.0,
+    ):
+        self.ema_period = ema_period
+        self.atr_period = atr_period
+        self.atr_multiplier = atr_multiplier
+        self.atr_min_pips = atr_min_pips
+        self.adx_period = adx_period
+        self.adx_threshold = adx_threshold
+        self.volume_ma_period = volume_ma_period
+        self.sl_atr_multiplier = sl_atr_multiplier
+        self.sl_max_pips = sl_max_pips
+        self.tp1_atr_multiplier = tp1_atr_multiplier
+        self.tp2_atr_multiplier = tp2_atr_multiplier
+
+    @property
+    def name(self) -> str:
+        return "Keltner Channel Breakout"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        min_bars = max(
+            self.ema_period,
+            self.atr_period,
+            self.adx_period * 2 + 1,
+            self.volume_ma_period,
+        ) + 2
+        if len(state.bars) < min_bars:
+            return None
+
+        close = state.latest_bar.close
+        prev_close = state.bars[-2].close
+
+        middle = self._calculate_ema(state.bars, self.ema_period)
+        prev_middle = self._calculate_ema(state.bars[:-1], self.ema_period)
+        if middle == 0 or prev_middle == 0:
+            return None
+
+        atr = self._calculate_atr(state.bars, self.atr_period)
+        if atr <= 0:
+            return None
+
+        pip_value = self._get_pip_value(close)
+        atr_pips = atr / pip_value
+        if atr_pips < self.atr_min_pips:
+            return None
+
+        upper = middle + self.atr_multiplier * atr
+        lower = middle - self.atr_multiplier * atr
+        prev_atr = self._calculate_atr(state.bars[:-1], self.atr_period)
+        prev_upper = prev_middle + self.atr_multiplier * prev_atr
+        prev_lower = prev_middle - self.atr_multiplier * prev_atr
+
+        adx = self._calculate_adx(state.bars)
+        if adx is None or adx < self.adx_threshold:
+            return None
+
+        volume = state.latest_bar.volume
+        if volume <= 0:
+            return None
+        vol_ma = self._calculate_volume_ma(state.bars)
+        if vol_ma <= 0 or volume < vol_ma:
+            return None
+
+        ema_rising = middle > prev_middle
+        ema_falling = middle < prev_middle
+
+        long_breakout = prev_close <= prev_upper and close > upper and ema_rising
+        short_breakout = prev_close >= prev_lower and close < lower and ema_falling
+
+        if not long_breakout and not short_breakout:
+            return None
+
+        direction = TradeDirection.LONG if long_breakout else TradeDirection.SHORT
+
+        sl_distance = self.sl_atr_multiplier * atr
+        sl_pips = sl_distance / pip_value
+        if sl_pips > self.sl_max_pips:
+            sl_distance = self.sl_max_pips * pip_value
+
+        entry = close
+        if direction == TradeDirection.LONG:
+            sl = entry - sl_distance
+            tp1 = entry + self.tp1_atr_multiplier * atr
+            tp2 = entry + self.tp2_atr_multiplier * atr
+        else:
+            sl = entry + sl_distance
+            tp1 = entry - self.tp1_atr_multiplier * atr
+            tp2 = entry - self.tp2_atr_multiplier * atr
+
+        risk = abs(entry - sl)
+        if direction == TradeDirection.LONG:
+            tp3 = entry + risk * 3.0
+        else:
+            tp3 = entry - risk * 3.0
+
+        confidence = 0.6
+        if adx >= 40:
+            confidence = 0.8
+        elif adx >= 30:
+            confidence = 0.7
+
+        rationale = (
+            f"Long KC breakout: close={close:.5f} > upper={upper:.5f}, "
+            f"EMA={middle:.5f} rising, ADX={adx:.1f}, ATR(pips)={atr_pips:.1f}"
+            if long_breakout
+            else f"Short KC breakout: close={close:.5f} < lower={lower:.5f}, "
+            f"EMA={middle:.5f} falling, ADX={adx:.1f}, ATR(pips)={atr_pips:.1f}"
+        )
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period:
+            return 0.0
+        multiplier = 2.0 / (period + 1)
+        ema = sum(b.close for b in bars[:period]) / period
+        for bar in bars[period:]:
+            ema = (bar.close - ema) * multiplier + ema
+        return ema
+
+    def _calculate_atr(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period + 1:
+            return 0.0
+        tr_sum = 0.0
+        for i in range(len(bars) - period, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / period
+
+    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.adx_period * 2 + 1:
+            return None
+
+        highs = [b.high for b in bars]
+        lows = [b.low for b in bars]
+        closes = [b.close for b in bars]
+
+        plus_dm_list = []
+        minus_dm_list = []
+        tr_list = []
+
+        for i in range(1, len(bars)):
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+            tr_list.append(tr)
+
+            high_diff = highs[i] - highs[i - 1]
+            low_diff = lows[i - 1] - lows[i]
+
+            if high_diff > low_diff and high_diff > 0:
+                plus_dm_list.append(high_diff)
+            else:
+                plus_dm_list.append(0)
+            if low_diff > high_diff and low_diff > 0:
+                minus_dm_list.append(low_diff)
+            else:
+                minus_dm_list.append(0)
+
+        if len(tr_list) < self.adx_period:
+            return None
+
+        tr_sum = sum(tr_list[: self.adx_period])
+        plus_dm_sum = sum(plus_dm_list[: self.adx_period])
+        minus_dm_sum = sum(minus_dm_list[: self.adx_period])
+
+        if tr_sum == 0:
+            return None
+
+        plus_di = (plus_dm_sum / tr_sum) * 100
+        minus_di = (minus_dm_sum / tr_sum) * 100
+
+        if plus_di + minus_di == 0:
+            return 0.0
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        for i in range(self.adx_period, len(tr_list)):
+            tr_sum = tr_sum - tr_sum / self.adx_period + tr_list[i]
+            plus_dm_sum = plus_dm_sum - plus_dm_sum / self.adx_period + plus_dm_list[i]
+            minus_dm_sum = (
+                minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
+            )
+
+            if tr_sum == 0:
+                continue
+
+            plus_di = (plus_dm_sum / tr_sum) * 100
+            minus_di = (minus_dm_sum / tr_sum) * 100
+
+            if plus_di + minus_di == 0:
+                dx = 0
+            else:
+                dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+            adx = (adx * (self.adx_period - 1) + dx) / self.adx_period
+
+        return adx
+
+    def _calculate_volume_ma(self, bars: List[Bar]) -> float:
+        if len(bars) < self.volume_ma_period:
+            return 0.0
+        recent = bars[-self.volume_ma_period:]
+        return sum(b.volume for b in recent) / len(recent)
+
+    @staticmethod
+    def _get_pip_value(price: float) -> float:
+        if price >= 50:
+            return 0.01
+        elif price >= 1:
+            return 0.0001
+        else:
+            return 0.00000001
