@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 
 
@@ -738,16 +738,6 @@ class CommodityTrendStrategy(ISignalStrategy):
         atr_multiplier: float = 1.75,
         risk_reward_ratio: float = 2.0,
     ):
-        """Initialize CommodityTrendStrategy.
-
-        Args:
-            fast_ema_period: Period for fast EMA (default 20).
-            slow_ema_period: Period for slow EMA (default 50).
-            adx_period: Period for ADX calculation (default 14).
-            adx_threshold: Minimum ADX value to confirm trend (default 25.0).
-            atr_multiplier: ATR multiplier for stop loss (default 1.75).
-            risk_reward_ratio: Risk/reward ratio for take profit (default 2.0).
-        """
         self.fast_ema_period = fast_ema_period
         self.slow_ema_period = slow_ema_period
         self.adx_period = adx_period
@@ -773,19 +763,9 @@ class CommodityTrendStrategy(ISignalStrategy):
 
     @property
     def name(self) -> str:
-        """Return strategy display name."""
         return "Commodity Trend Following"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        """Evaluate market state and generate trading signal if conditions are met.
-
-        Args:
-            state: Current market state including bars and indicators.
-
-        Returns:
-            StrategySignal with direction, entry/exit prices, and confidence,
-            or None if entry criteria are not satisfied.
-        """
         if len(state.bars) < self.slow_ema_period + self.adx_period + 1:
             return None
 
@@ -851,7 +831,6 @@ class CommodityTrendStrategy(ISignalStrategy):
         )
 
     def _calculate_ema(self, bars: List[Bar], period: int) -> float:
-        """Calculate exponential moving average for given period."""
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -862,116 +841,74 @@ class CommodityTrendStrategy(ISignalStrategy):
         return ema
 
     def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Average Directional Index (ADX) using Wilder smoothing.
-
-        ADX measures trend strength by smoothing DX (Directional Index) over
-        the lookback period using Wilder's method:
-        ADX_today = (ADX_yesterday * (period - 1) + DX_today) / period
-
-        Requires at least 2 * adx_period bars for meaningful values.
-        Returns smoothed ADX value, or None if insufficient data.
-        """
-        period = self.adx_period
-        min_bars = 2 * period + 1
-        if len(bars) < min_bars:
+        if len(bars) < self.adx_period + 1:
             return None
 
-        tr_list: list[float] = []
-        plus_dm_list: list[float] = []
-        minus_dm_list: list[float] = []
+        tr_list: List[float] = []
+        plus_dm_list: List[float] = []
+        minus_dm_list: List[float] = []
 
         for i in range(1, len(bars)):
-            high = bars[i].high
-            low = bars[i].low
-            prev_high = bars[i - 1].high
-            prev_low = bars[i - 1].low
-            prev_close = bars[i - 1].close
-
             tr = max(
-                high - low,
-                abs(high - prev_close),
-                abs(low - prev_close),
+                bars[i].high - bars[i].low,
+                abs(bars[i].high - bars[i - 1].close),
+                abs(bars[i].low - bars[i - 1].close),
             )
             tr_list.append(tr)
 
-            plus_dm = max(high - prev_high, 0) - max(prev_low - low, 0)
-            minus_dm = max(prev_low - low, 0) - max(high - prev_high, 0)
+            high_diff = bars[i].high - bars[i - 1].high
+            low_diff = bars[i - 1].low - bars[i].low
 
-            if plus_dm < 0:
-                plus_dm = 0.0
-            if minus_dm < 0:
-                minus_dm = 0.0
-
-            if plus_dm > minus_dm:
-                minus_dm = 0.0
-            elif minus_dm > plus_dm:
-                plus_dm = 0.0
+            if high_diff > low_diff and high_diff > 0:
+                plus_dm_list.append(high_diff)
             else:
-                plus_dm = 0.0
-                minus_dm = 0.0
-
-            plus_dm_list.append(plus_dm)
-            minus_dm_list.append(minus_dm)
-
-        smoothed_tr = sum(tr_list[:period])
-        smoothed_plus_dm = sum(plus_dm_list[:period])
-        smoothed_minus_dm = sum(minus_dm_list[:period])
-
-        dx_list: list[float] = []
-        for i in range(period, len(tr_list)):
-            if i == period:
-                if smoothed_tr == 0:
-                    plus_di = 0.0
-                    minus_di = 0.0
-                else:
-                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
-                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+                plus_dm_list.append(0.0)
+            if low_diff > high_diff and low_diff > 0:
+                minus_dm_list.append(low_diff)
             else:
-                smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
-                smoothed_plus_dm = (
-                    smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
-                )
-                smoothed_minus_dm = (
-                    smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
-                )
-                if smoothed_tr == 0:
-                    plus_di = 0.0
-                    minus_di = 0.0
-                else:
-                    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
-                    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+                minus_dm_list.append(0.0)
 
-            if plus_di + minus_di == 0:
-                dx_list.append(0.0)
-            else:
-                dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100
-                dx_list.append(dx)
-
-        if len(dx_list) < period:
+        if len(tr_list) < self.adx_period:
             return None
 
-        adx = sum(dx_list[:period]) / period
-        for i in range(period, len(dx_list)):
-            adx = adx * (period - 1) / period + dx_list[i] / period
+        smoothed_tr = sum(tr_list[: self.adx_period])
+        smoothed_plus_dm = sum(plus_dm_list[: self.adx_period])
+        smoothed_minus_dm = sum(minus_dm_list[: self.adx_period])
+
+        if smoothed_tr == 0:
+            return 0.0
+
+        plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+        minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+        if plus_di + minus_di == 0:
+            return 0.0
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        for i in range(self.adx_period, len(tr_list)):
+            if smoothed_tr == 0:
+                continue
+
+            smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
+            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
+
+            if smoothed_tr == 0:
+                continue
+
+            plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+            minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+            if plus_di + minus_di == 0:
+                dx = 0.0
+            else:
+                dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+            adx = (adx * (self.adx_period - 1) + dx) / self.adx_period
 
         return adx
-
-
-    def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
-            return 0.0001
-        tr_sum = 0.0
-        for i in range(len(bars) - 14, len(bars)):
-            if i > 0:
-                tr = max(
-                    bars[i].high - bars[i].low,
-                    max(
-                        abs(bars[i].high - bars[i - 1].close),
-                        abs(bars[i].low - bars[i - 1].close),
-                    ),
-                )
-                tr_sum += tr
-        return tr_sum / 14
 
 
 class CommodityMeanReversionStrategy(ISignalStrategy):
@@ -986,12 +923,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         - Take profit: tp1 = Middle Band (mean reversion target), tp2/tp3 = 2x/3x risk for scaling
         - Confidence based on RSI deviation from thresholds
 
-    Note on TP ordering: tp1 targets the middle band (SMA) as the primary mean reversion objective.
-    The middle band represents fair value where price is expected to revert. tp2 and tp3 at 2x/3x
-    risk are secondary targets for scaling out if the move extends beyond initial entry. This
-    ordering differs from trend-following strategies but reflects the mean reversion thesis where
-    the primary target is always the moving average.
-
     Designed for XAUUSD H1 with gold's higher ATR characteristics.
     """
 
@@ -1004,16 +935,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         rsi_overbought: float = 70.0,
         atr_multiplier: float = 2.0,
     ):
-        """Initialize CommodityMeanReversionStrategy.
-
-        Args:
-            bb_period: Period for Bollinger Bands SMA (default 20).
-            bb_std_dev: Standard deviations for band width (default 2.0).
-            rsi_period: Period for RSI calculation (default 14).
-            rsi_oversold: RSI threshold for oversold long entries (default 30.0).
-            rsi_overbought: RSI threshold for overbought short entries (default 70.0).
-            atr_multiplier: ATR multiplier for stop loss (default 2.0).
-        """
         self.bb_period = bb_period
         self.bb_std_dev = bb_std_dev
         self.rsi_period = rsi_period
@@ -1039,19 +960,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
 
     @property
     def name(self) -> str:
-        """Return strategy display name."""
         return "Commodity Mean Reversion"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        """Evaluate market state and generate trading signal if conditions are met.
-
-        Args:
-            state: Current market state including bars and indicators.
-
-        Returns:
-            StrategySignal with direction, entry/exit prices, and confidence,
-            or None if entry criteria are not satisfied.
-        """
         if len(state.bars) < self.bb_period + 1:
             return None
 
@@ -1117,13 +1028,11 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         )
 
     def _calculate_sma(self, bars: List[Bar]) -> float:
-        """Calculate simple moving average for Bollinger Bands middle line."""
         if len(bars) < self.bb_period:
             return 0.0
         return sum(b.close for b in bars[-self.bb_period :]) / self.bb_period
 
     def _calculate_std(self, bars: List[Bar], sma: float) -> float:
-        """Calculate standard deviation for Bollinger Bands band width."""
         if len(bars) < self.bb_period:
             return 0.0
         variance = (
@@ -1132,7 +1041,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         return variance**0.5
 
     def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
-        """Calculate Relative Strength Index for momentum confirmation."""
         if len(bars) < self.rsi_period + 1:
             return None
 
@@ -1157,11 +1065,6 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         return 100 - (100 / (1 + rs))
 
     def _is_bullish_reversal(self, bar: Bar) -> bool:
-        """Detect bullish reversal candle for mean reversion entry confirmation.
-
-        A bullish reversal candle has its close in the upper half of the
-        candle's range, indicating buying pressure and potential reversal.
-        """
         candle_range = bar.high - bar.low
         if candle_range == 0:
             return False
@@ -1169,22 +1072,347 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         return bar.close > midpoint
 
     def _is_bearish_reversal(self, bar: Bar) -> bool:
-        """Detect bearish reversal candle for mean reversion entry confirmation.
-
-        A bearish reversal candle has its close in the lower half of the
-        candle's range, indicating selling pressure and potential reversal.
-        """
         candle_range = bar.high - bar.low
         if candle_range == 0:
             return False
         midpoint = bar.low + candle_range * 0.5
         return bar.close < midpoint
 
+
+class SupertrendRSIBlendStrategy(ISignalStrategy):
+    def __init__(
+        self,
+        supertrend_period: int = 14,
+        supertrend_multiplier: float = 2.5,
+        rsi_period: int = 14,
+        rsi_threshold: float = 50.0,
+        atr_min_pips: float = 10.0,
+        atr_period: int = 14,
+        adx_period: int = 14,
+        adx_min: float = 20.0,
+        atr_min_chop: float = 8.0,
+        sl_atr_multiplier: float = 1.5,
+        hard_cap_pips: float = 40.0,
+        tp1_atr: float = 1.5,
+        tp2_atr: float = 2.5,
+        time_exit_bars: int = 20,
+    ):
+        self.supertrend_period = supertrend_period
+        self.supertrend_multiplier = supertrend_multiplier
+        self.rsi_period = rsi_period
+        self.rsi_threshold = rsi_threshold
+        self.atr_min_pips = atr_min_pips
+        self.atr_period = atr_period
+        self.adx_period = adx_period
+        self.adx_min = adx_min
+        self.atr_min_chop = atr_min_chop
+        self.sl_atr_multiplier = sl_atr_multiplier
+        self.hard_cap_pips = hard_cap_pips
+        self.tp1_atr = tp1_atr
+        self.tp2_atr = tp2_atr
+        self.time_exit_bars = time_exit_bars
+
+    @property
+    def name(self) -> str:
+        return "Supertrend RSI Blend"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        min_bars = max(self.supertrend_period, self.rsi_period, self.adx_period) + 5
+        if len(state.bars) < min_bars:
+            return None
+
+        atr = self._calculate_atr(state.bars)
+        atr_pips = atr * 10000
+
+        if atr_pips < self.atr_min_chop:
+            return None
+
+        adx = self._calculate_adx(state.bars)
+        if adx is not None and adx < self.adx_min:
+            consecutive_low_adx = 0
+            for i in range(len(state.bars) - 3, len(state.bars)):
+                check_adx = self._calculate_adx(state.bars[: i + 1])
+                if check_adx is not None and check_adx < self.adx_min:
+                    consecutive_low_adx += 1
+            if consecutive_low_adx >= 3:
+                return None
+
+        bar_time = state.latest_bar.time
+        hour = bar_time.hour
+        minute = bar_time.minute
+        if hour == 0 and minute < 30:
+            return None
+
+        if atr_pips < self.atr_min_pips:
+            return None
+
+        supertrend_value, prev_supertrend_value = self._calculate_supertrend(state.bars)
+        if supertrend_value is None or prev_supertrend_value is None:
+            return None
+
+        rsi = self._calculate_rsi(state.bars)
+        if rsi is None:
+            return None
+
+        prev_rsi_values = self._get_prev_rsi_values(state.bars)
+
+        latest = state.latest_bar
+
+        long_conditions = (
+            prev_supertrend_value < 0
+            and supertrend_value > 0
+            and rsi > self.rsi_threshold
+            and any(r < self.rsi_threshold for r in prev_rsi_values)
+        )
+
+        short_conditions = (
+            prev_supertrend_value > 0
+            and supertrend_value < 0
+            and rsi < self.rsi_threshold
+            and any(r > self.rsi_threshold for r in prev_rsi_values)
+        )
+
+        if not long_conditions and not short_conditions:
+            return None
+
+        direction = TradeDirection.LONG if long_conditions else TradeDirection.SHORT
+        entry = latest.close
+
+        sl_distance = atr * self.sl_atr_multiplier
+        sl_distance_pips = sl_distance * 10000
+        if sl_distance_pips > self.hard_cap_pips:
+            sl_distance = self.hard_cap_pips / 10000
+
+        sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
+        risk = abs(entry - sl)
+
+        tp1 = entry + risk * self.tp1_atr if direction == TradeDirection.LONG else entry - risk * self.tp1_atr
+        tp2 = entry + risk * self.tp2_atr if direction == TradeDirection.LONG else entry - risk * self.tp2_atr
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
+
+        confidence = min(0.85, 0.55 + abs(rsi - self.rsi_threshold) / 50 * 0.30)
+
+        if long_conditions:
+            rationale = (
+                f"Supertrend Long flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} > {self.rsi_threshold}"
+            )
+        else:
+            rationale = (
+                f"Supertrend Short flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} < {self.rsi_threshold}"
+            )
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _calculate_supertrend(self, bars: List[Bar]) -> Tuple[Optional[float], Optional[float]]:
+        if len(bars) < self.supertrend_period + 1:
+            return None, None
+
+        atr = self._calculate_atr(bars)
+        if atr == 0:
+            return None, None
+
+        hl2_list = [(b.high + b.low) / 2 for b in bars]
+        upper_band_list = [0.0] * len(bars)
+        lower_band_list = [0.0] * len(bars)
+        supertrend_list = [0.0] * len(bars)
+
+        for i in range(len(bars)):
+            if i < self.supertrend_period:
+                upper_band_list[i] = hl2_list[i] + atr * self.supertrend_multiplier
+                lower_band_list[i] = hl2_list[i] - atr * self.supertrend_multiplier
+                supertrend_list[i] = 1.0
+                continue
+
+            hl2 = hl2_list[i]
+            upper_band_list[i] = hl2 + atr * self.supertrend_multiplier
+            lower_band_list[i] = hl2 - atr * self.supertrend_multiplier
+
+            prev_upper = upper_band_list[i - 1]
+            prev_lower = lower_band_list[i - 1]
+            prev_close = bars[i - 1].close
+
+            if upper_band_list[i] > prev_upper or prev_close > prev_upper:
+                upper_band_list[i] = upper_band_list[i]
+            else:
+                upper_band_list[i] = prev_upper
+
+            if lower_band_list[i] < prev_lower or prev_close < prev_lower:
+                lower_band_list[i] = lower_band_list[i]
+            else:
+                lower_band_list[i] = prev_lower
+
+            prev_supertrend = supertrend_list[i - 1]
+
+            if prev_supertrend == 1.0:
+                if bars[i].close < lower_band_list[i]:
+                    supertrend_list[i] = -1.0
+                else:
+                    supertrend_list[i] = 1.0
+            else:
+                if bars[i].close > upper_band_list[i]:
+                    supertrend_list[i] = 1.0
+                else:
+                    supertrend_list[i] = -1.0
+
+        if len(bars) < 2:
+            return supertrend_list[-1], None
+
+        atr_current = self._calculate_atr(bars)
+        atr_prev = self._calculate_atr(bars[:-1]) if len(bars) > 1 else atr_current
+
+        if abs(atr_current - atr_prev) < 0.0000001:
+            hl2_current = (bars[-1].high + bars[-1].low) / 2
+            hl2_prev = (bars[-2].high + bars[-2].low) / 2
+
+            upper_current = hl2_current + atr_current * self.supertrend_multiplier
+            upper_prev = hl2_prev + atr_prev * self.supertrend_multiplier
+            lower_current = hl2_current - atr_current * self.supertrend_multiplier
+            lower_prev = hl2_prev - atr_prev * self.supertrend_multiplier
+
+            if supertrend_list[-1] == 1.0:
+                if bars[-1].close < lower_current:
+                    current_st = -1.0
+                else:
+                    current_st = 1.0
+            else:
+                if bars[-1].close > upper_current:
+                    current_st = 1.0
+                else:
+                    current_st = -1.0
+
+            if supertrend_list[-2] == 1.0:
+                if bars[-2].close < lower_prev:
+                    prev_st = -1.0
+                else:
+                    prev_st = 1.0
+            else:
+                if bars[-2].close > upper_prev:
+                    prev_st = 1.0
+                else:
+                    prev_st = -1.0
+
+            return current_st, prev_st
+
+        return supertrend_list[-1], supertrend_list[-2]
+
+    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.rsi_period + 1:
+            return None
+
+        gains: List[float] = []
+        losses: List[float] = []
+        for i in range(len(bars) - self.rsi_period, len(bars)):
+            change = bars[i].close - bars[i - 1].close
+            if change > 0:
+                gains.append(change)
+                losses.append(0.0)
+            else:
+                gains.append(0.0)
+                losses.append(abs(change))
+
+        avg_gain = sum(gains) / self.rsi_period
+        avg_loss = sum(losses) / self.rsi_period
+
+        if avg_loss == 0:
+            return 100.0
+
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
+
+    def _get_prev_rsi_values(self, bars: List[Bar]) -> List[float]:
+        prev_rsi_values = []
+        for offset in range(1, min(4, len(bars))):
+            window_bars = bars[:-offset]
+            if len(window_bars) >= self.rsi_period + 1:
+                rsi = self._calculate_rsi(window_bars)
+                if rsi is not None:
+                    prev_rsi_values.append(rsi)
+        return prev_rsi_values
+
+    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.adx_period + 1:
+            return None
+
+        tr_list: List[float] = []
+        plus_dm_list: List[float] = []
+        minus_dm_list: List[float] = []
+
+        for i in range(1, len(bars)):
+            tr = max(
+                bars[i].high - bars[i].low,
+                abs(bars[i].high - bars[i - 1].close),
+                abs(bars[i].low - bars[i - 1].close),
+            )
+            tr_list.append(tr)
+
+            high_diff = bars[i].high - bars[i - 1].high
+            low_diff = bars[i - 1].low - bars[i].low
+
+            if high_diff > low_diff and high_diff > 0:
+                plus_dm_list.append(high_diff)
+            else:
+                plus_dm_list.append(0.0)
+            if low_diff > high_diff and low_diff > 0:
+                minus_dm_list.append(low_diff)
+            else:
+                minus_dm_list.append(0.0)
+
+        if len(tr_list) < self.adx_period:
+            return None
+
+        smoothed_tr = sum(tr_list[: self.adx_period])
+        smoothed_plus_dm = sum(plus_dm_list[: self.adx_period])
+        smoothed_minus_dm = sum(minus_dm_list[: self.adx_period])
+
+        if smoothed_tr == 0:
+            return 0.0
+
+        plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+        minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+        if plus_di + minus_di == 0:
+            return 0.0
+
+        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        for i in range(self.adx_period, len(tr_list)):
+            if smoothed_tr == 0:
+                continue
+
+            smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
+            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
+
+            if smoothed_tr == 0:
+                continue
+
+            plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+            minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+            if plus_di + minus_di == 0:
+                dx = 0.0
+            else:
+                dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+            adx = (adx * (self.adx_period - 1) + dx) / self.adx_period
+
+        return adx
+
     def _calculate_atr(self, bars: List[Bar]) -> float:
-        if len(bars) < 15:
+        if len(bars) < self.atr_period + 1:
             return 0.0001
         tr_sum = 0.0
-        for i in range(len(bars) - 14, len(bars)):
+        for i in range(len(bars) - self.atr_period, len(bars)):
             if i > 0:
                 tr = max(
                     bars[i].high - bars[i].low,
@@ -1194,4 +1422,4 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
                     ),
                 )
                 tr_sum += tr
-        return tr_sum / 14
+        return tr_sum / self.atr_period
