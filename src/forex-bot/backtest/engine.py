@@ -142,6 +142,7 @@ class BacktestConfig:
     max_daily_drawdown_pct: float = 0.02
     max_total_drawdown_pct: float = 0.05
     spread_pips: float = 0.5
+    slippage_pips: float = 0.0
     commission_per_lot: float = 3.5
     leverage: int = 100
     min_confidence: float = 0.50

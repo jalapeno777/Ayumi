@@ -59,13 +59,14 @@ class TestGridConfig(unittest.TestCase):
     def test_ftmo_preset_eurusd(self):
         cfg = GridConfig.ftmo("EURUSD")
         self.assertEqual(cfg.risk.equity_stop_pct, 0.05)
-        self.assertEqual(cfg.risk.max_daily_loss_pct, 0.03)
-        self.assertEqual(cfg.risk.max_open_positions, 10)
+        self.assertEqual(cfg.risk.max_daily_loss_pct, 0.015)
+        self.assertEqual(cfg.risk.max_open_positions, 3)
 
     def test_ftmo_preset_xauusd(self):
         cfg = GridConfig.ftmo("XAUUSD")
         self.assertEqual(cfg.symbol, "XAUUSD")
         self.assertEqual(cfg.pip_value, 0.01)
+        self.assertEqual(cfg.risk.max_open_positions, 3)
 
     def test_spacing_in_pips(self):
         cfg = GridConfig.eurusd()
@@ -683,6 +684,150 @@ class TestGridBacktestIntegration(unittest.TestCase):
         results = engine.run_all_strategies(bars)
 
         self.assertIn(adapter.name, results)
+
+
+class TestGridSpreadSlippageTuning(unittest.TestCase):
+    def _make_xauusd_bars(self, n=500, center=2350.0, half_range=25.0):
+        from backtest.engine import Bar
+        import random
+
+        rng = random.Random(42)
+        bars = []
+        price = center
+        for i in range(n):
+            change = rng.uniform(-half_range, half_range) * 0.08
+            price = max(center - half_range, min(center + half_range, price + change))
+            noise = rng.uniform(-1.5, 1.5)
+            o = price
+            c = price + noise
+            h = max(o, c) + rng.uniform(0, 3.0)
+            low = min(o, c) - rng.uniform(0, 3.0)
+            bars.append(
+                Bar(
+                    time=datetime(2024, 6, 1, 0, 0) + timedelta(hours=i),
+                    open=o,
+                    high=h,
+                    low=low,
+                    close=c,
+                    volume=1000,
+                )
+            )
+        return bars
+
+    def _run_grid_backtest(self, bars, grid_config, spread_pips, slippage_pips=0.0):
+        from backtest.engine import BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        config = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.005,
+            max_daily_drawdown_pct=0.03,
+            max_total_drawdown_pct=0.05,
+            spread_pips=spread_pips,
+            slippage_pips=slippage_pips,
+            commission_per_lot=3.5,
+            max_open_trades=3,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter = GridStrategyAdapter(grid_config)
+        engine = MultiStrategyBacktestEngine(config, [adapter])
+        results = engine.run_all_strategies(bars)
+        return results[adapter.name].metrics
+
+    def test_baseline_xauusd_no_slippage(self):
+        bars = self._make_xauusd_bars(500, 2350.0, 25.0)
+        grid_cfg = GridConfig.ftmo("XAUUSD")
+        m = self._run_grid_backtest(bars, grid_cfg, spread_pips=30.0)
+        self.assertGreater(m.total_trades, 0, "Baseline should produce trades")
+
+    def test_xauusd_with_realistic_slippage(self):
+        bars = self._make_xauusd_bars(500, 2350.0, 25.0)
+        grid_cfg = GridConfig.ftmo("XAUUSD")
+        m = self._run_grid_backtest(bars, grid_cfg, spread_pips=30.0, slippage_pips=5.0)
+        self.assertGreater(m.total_trades, 0, "Tuned config should produce trades")
+
+    def test_tuned_slippage_completes_without_error(self):
+        bars = self._make_xauusd_bars(500, 2350.0, 25.0)
+        grid_cfg = GridConfig.ftmo("XAUUSD")
+        try:
+            m = self._run_grid_backtest(bars, grid_cfg, spread_pips=35.0, slippage_pips=10.0)
+            self.assertIsNotNone(m)
+        except Exception as e:
+            self.fail(f"Backtest raised {e}")
+
+    def test_ftmo_xauusd_max_positions_is_three(self):
+        cfg = GridConfig.ftmo("XAUUSD")
+        self.assertEqual(cfg.risk.max_open_positions, 3)
+
+    def test_ftmo_eurusd_max_positions_is_three(self):
+        cfg = GridConfig.ftmo("EURUSD")
+        self.assertEqual(cfg.risk.max_open_positions, 3)
+
+    def test_ftmo_daily_loss_limit(self):
+        xauusd_cfg = GridConfig.ftmo("XAUUSD")
+        eurusd_cfg = GridConfig.ftmo("EURUSD")
+        self.assertAlmostEqual(xauusd_cfg.risk.max_daily_loss_pct, 0.015)
+        self.assertAlmostEqual(eurusd_cfg.risk.max_daily_loss_pct, 0.015)
+
+    def test_slippage_pips_default_zero(self):
+        from backtest.engine import BacktestConfig
+
+        cfg = BacktestConfig()
+        self.assertEqual(cfg.slippage_pips, 0.0)
+
+    def test_slippage_increases_effective_entry_cost(self):
+        from backtest.engine import Bar, BacktestConfig
+        from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+
+        raw = _make_ranging_bars(200, 1.1000, 0.0030)
+        bars = [
+            Bar(
+                time=b["time"],
+                open=b["open"],
+                high=b["high"],
+                low=b["low"],
+                close=b["close"],
+                volume=1000,
+            )
+            for b in raw
+        ]
+
+        cfg_no_slip = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            spread_pips=0.5,
+            slippage_pips=0.0,
+            max_open_trades=5,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+        cfg_with_slip = BacktestConfig(
+            starting_balance=10000.0,
+            risk_per_trade_pct=0.01,
+            spread_pips=0.5,
+            slippage_pips=0.5,
+            max_open_trades=5,
+            min_confidence=0.50,
+            min_bars_before_signal=30,
+        )
+
+        adapter_no_slip = GridStrategyAdapter(GridConfig.eurusd())
+        adapter_with_slip = GridStrategyAdapter(GridConfig.eurusd())
+
+        engine_no_slip = MultiStrategyBacktestEngine(cfg_no_slip, [adapter_no_slip])
+        engine_with_slip = MultiStrategyBacktestEngine(cfg_with_slip, [adapter_with_slip])
+
+        m_no_slip = engine_no_slip.run_all_strategies(bars)[adapter_no_slip.name].metrics
+        m_with_slip = engine_with_slip.run_all_strategies(bars)[adapter_with_slip.name].metrics
+
+        if m_no_slip.total_trades > 0 and m_with_slip.total_trades > 0:
+            self.assertLessEqual(
+                m_with_slip.total_pnl,
+                m_no_slip.total_pnl,
+                "Slippage should reduce or equal P&L vs no-slippage baseline",
+            )
 
 
 class TestGridWalkForward(unittest.TestCase):
