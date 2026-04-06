@@ -33,7 +33,7 @@ class FIXRejectCode(Enum):
     NOT_AUTHORIZED = 6
     DELIVERTO_FIRM_NOT_AVAILABLE = 7
     INCORRECT_DATA_FORMAT = 8
-    INCORRECT_TAG_VALUE = 99
+    INCORRECT_TAG_VALUE = 199
     INCORRECT_NUMINGROUP_COUNT = 99
     INVALID_MSGTYPE = 11
     TAG_NOT_DEFINED = 12
@@ -56,12 +56,12 @@ class FIXRejectCode(Enum):
     INCORRECT_ALLOCATED_QTY = 81
     ORDER_ALREADY_CANCELLED = 84
     PRICE_EXCEEDS_CURRENT_PRICE = 97
-    NOTAuthorized = 98
+    NOT_AUTHORIZED_CUSTOM = 98
     ORDER_NOT_FOUND = 100
     UNSUPPORTED_ORDER_TYPE = 101
     INSUFFICIENT_MARGIN = 102
     ORDER_SIZE_EXCEEDS_LIMIT = 103
-    NOT_AUTHORIZED_ACTION = 98
+    NOT_AUTHORIZED_ACTION = 198
 
 
 FIX_REJECT_MESSAGES: Dict[FIXRejectCode, str] = {
@@ -97,11 +97,13 @@ FIX_REJECT_MESSAGES: Dict[FIXRejectCode, str] = {
     FIXRejectCode.INCORRECT_ALLOCATED_QTY: "Incorrect allocated quantity",
     FIXRejectCode.ORDER_ALREADY_CANCELLED: "Order already cancelled",
     FIXRejectCode.PRICE_EXCEEDS_CURRENT_PRICE: "Price exceeds current market price",
-    FIXRejectCode.NOT_AUTHORIZED_ACTION: "Not authorized for this action",
+    FIXRejectCode.NOT_AUTHORIZED_CUSTOM: "Not authorized for this action",
     FIXRejectCode.ORDER_NOT_FOUND: "Order not found",
     FIXRejectCode.UNSUPPORTED_ORDER_TYPE: "Unsupported order type",
     FIXRejectCode.INSUFFICIENT_MARGIN: "Insufficient margin for this order",
     FIXRejectCode.ORDER_SIZE_EXCEEDS_LIMIT: "Order size exceeds allowed limit",
+    FIXRejectCode.NOT_AUTHORIZED_ACTION: "Not authorized for this action",
+    FIXRejectCode.INCORRECT_TAG_VALUE: "Incorrect tag value",
 }
 
 
@@ -270,7 +272,7 @@ class FIXClient:
         self._heartbeat_interval = 30
         self._last_heartbeat_sent = 0.0
         self._last_heartbeat_received = 0.0
-        self._callbacks: Dict[str, Callable] = {}
+        self._callbacks: Dict[str, list] = {}
         self._pending_orders: Dict[str, Order] = {}
         self._positions: Dict[str, Position] = {}
         self._lock = threading.Lock()
@@ -585,6 +587,18 @@ class FIXClient:
         take_profit: Optional[float] = None,
         comment: str = "",
     ) -> Optional[Order]:
+        if not symbol or not symbol.strip():
+            logger.error("send_order: symbol is required")
+            return None
+
+        if not volume or volume <= 0:
+            logger.error(f"send_order: volume must be positive, got {volume}")
+            return None
+
+        if order_type in (OrderType.LIMIT, OrderType.STOP) and not price:
+            logger.error(f"send_order: price is required for {order_type.value} orders")
+            return None
+
         order_id = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
         order = Order(
             order_id=order_id,
@@ -631,9 +645,9 @@ class FIXClient:
             return order
 
         with self._lock:
-            order.status = OrderStatus.REJECTED
-            order.comment = "Failed to send"
-        return order
+            self._pending_orders.pop(order_id, None)
+        logger.error(f"Failed to send order: {order_id} {direction.value} {volume} {symbol}")
+        return None
 
     def cancel_order(self, order_id: str) -> bool:
         msg = FIXMessage(msg_type=self.MSG_TYPE_ORDER_CANCEL_REQUEST)
@@ -650,14 +664,17 @@ class FIXClient:
         self._send_message(msg)
 
     def register_callback(self, event: str, callback: Callable):
-        self._callbacks[event] = callback
+        if event not in self._callbacks:
+            self._callbacks[event] = []
+        self._callbacks[event].append(callback)
 
     def _trigger_callback(self, event: str, *args, **kwargs):
         if event in self._callbacks:
-            try:
-                self._callbacks[event](*args, **kwargs)
-            except Exception as e:
-                logger.error(f"Callback error for {event}: {e}")
+            for callback in self._callbacks[event]:
+                try:
+                    callback(*args, **kwargs)
+                except Exception as e:
+                    logger.error(f"Callback error for {event}: {e}")
 
     @property
     def is_connected(self) -> bool:
@@ -669,7 +686,7 @@ class cTraderAPIClient:
         self._credentials = credentials
         self._client: Optional[FIXClient] = None
         self._paper_mode = True
-        self._callbacks: Dict[str, Callable] = {}
+        self._callbacks: Dict[str, list] = {}
 
     def connect(self, credentials: Optional[cTraderCredentials] = None) -> bool:
         if credentials:
@@ -698,14 +715,17 @@ class cTraderAPIClient:
         return self._client is not None and self._client.is_connected
 
     def register_callback(self, event: str, callback: Callable):
-        self._callbacks[event] = callback
+        if event not in self._callbacks:
+            self._callbacks[event] = []
+        self._callbacks[event].append(callback)
 
     def _trigger_callback(self, event: str, *args, **kwargs):
         if event in self._callbacks:
-            try:
-                self._callbacks[event](*args, **kwargs)
-            except Exception as e:
-                logger.error(f"Callback error for {event}: {e}")
+            for callback in self._callbacks[event]:
+                try:
+                    callback(*args, **kwargs)
+                except Exception as e:
+                    logger.error(f"Callback error for {event}: {e}")
 
     def send_order(self, **kwargs) -> Optional[Order]:
         if self._paper_mode:

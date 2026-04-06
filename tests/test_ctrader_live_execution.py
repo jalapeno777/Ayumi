@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 from datetime import datetime, timezone
 
 
@@ -444,22 +444,71 @@ class TestOrderManagerLiveExecution:
 
         mock_api = MagicMock()
         mock_api.is_paper_mode = False
-        mock_api._client = MagicMock()
+        mock_api.is_connected = True
         manager.set_api_client(mock_api)
         assert manager._api_client is mock_api
+        mock_api.register_callback.assert_called()
 
     def test_wire_live_callbacks_on_init(self):
         mock_api = MagicMock()
         mock_api.is_paper_mode = False
-        mock_api._client = MagicMock()
+        mock_api.is_connected = True
 
         OrderManager(api_client=mock_api)
-        fix_client = mock_api._client
 
-        registered_events = [call.args[0] for call in fix_client.register_callback.call_args_list]
+        registered_events = [call.args[0] for call in mock_api.register_callback.call_args_list]
         assert "on_order_filled" in registered_events
         assert "on_order_rejected" in registered_events
         assert "on_order_cancelled" in registered_events
+
+    def test_wire_live_callbacks_warns_when_not_connected(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = False
+
+        OrderManager(api_client=mock_api)
+
+        mock_api.register_callback.assert_not_called()
+
+    def test_no_duplicate_on_order_filled_for_local_sync_fill(self):
+        filled_order = Order(
+            order_id="FIX_DUP_001",
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
+            status=OrderStatus.FILLED,
+            filled_at=datetime.now(timezone.utc),
+            filled_price=1.1005,
+        )
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        mock_api.send_order.return_value = filled_order
+
+        fill_count = []
+        mock_api.register_callback = MagicMock(
+            side_effect=lambda event, cb: (
+                fill_count.append(cb) if event == "on_order_filled" else None
+            )
+        )
+
+        manager = OrderManager(api_client=mock_api)
+        result = manager.execute_live_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+        )
+
+        assert result.success is True
+        assert len(fill_count) == 1
+
+        async_callback = fill_count[0]
+        async_callback(filled_order, MagicMock())
+
+        callbacks_fired = []
+        manager.register_callback("on_order_filled", lambda o: callbacks_fired.append(o))
+        assert len(callbacks_fired) == 0
 
 
 class TestPaperTraderLiveMode:
@@ -543,13 +592,14 @@ class TestPaperTraderLiveMode:
     def test_set_api_client(self):
         trader = PaperTrader()
         mock_api = MagicMock()
-        type(mock_api).is_connected = PropertyMock(return_value=False)
         mock_api.is_paper_mode = False
-        mock_api._client = MagicMock()
         trader.set_api_client(mock_api)
-        assert trader.is_live_mode is False
-        type(mock_api).is_connected = PropertyMock(return_value=True)
         assert trader.is_live_mode is True
+
+        mock_api_paper = MagicMock()
+        mock_api_paper.is_paper_mode = True
+        trader.set_api_client(mock_api_paper)
+        assert trader.is_live_mode is False
 
     def test_live_position_tracked_after_fill(self):
         mock_api = self._make_live_api_mock()
@@ -626,3 +676,167 @@ class TestFIXRejectCodeIntegration:
 
         client._handle_reject(msg)
         assert len(client._pending_orders) == 0
+
+
+class TestFIXRejectCodeUniqueValues:
+    def test_no_duplicate_enum_values(self):
+        values = [code.value for code in FIXRejectCode]
+        assert len(values) == len(set(values)), (
+            f"Duplicate enum values found: {[v for v in values if values.count(v) > 1]}"
+        )
+
+    def test_incorrect_numingroup_count_is_99(self):
+        assert FIXRejectCode.INCORRECT_NUMINGROUP_COUNT.value == 99
+
+    def test_not_authorized_action_is_not_98(self):
+        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value != 98
+        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value == 198
+
+
+class TestFIXClientMultipleCallbacks:
+    def test_register_multiple_callbacks_same_event(self):
+        from adapters.ctrader.api_client import FIXClient
+        from adapters.ctrader.models import cTraderCredentials
+
+        creds = cTraderCredentials(
+            host="localhost", port=5202, use_ssl=False,
+            sender_comp_id="test", username="12345", password="pass",
+        )
+        client = FIXClient(creds)
+
+        calls = []
+        client.register_callback("on_order_filled", lambda o, m: calls.append("first"))
+        client.register_callback("on_order_filled", lambda o, m: calls.append("second"))
+
+        order = Order(
+            order_id="MULTI_001", symbol="EURUSD",
+            direction=TradeDirection.LONG, order_type=OrderType.MARKET, volume=0.1,
+        )
+        client._pending_orders["MULTI_001"] = order
+
+        msg = FIXMessage(msg_type="8")
+        msg.fields[11] = "MULTI_001"
+        msg.fields[150] = "F"
+        msg.fields[39] = "2"
+        msg.fields[31] = "1.1005"
+        msg.fields[32] = "10000"
+
+        client._handle_execution_report(msg)
+
+        assert len(calls) == 2
+        assert calls == ["first", "second"]
+
+
+class TestInputValidation:
+    def test_execute_live_order_rejects_empty_symbol(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        manager = OrderManager(api_client=mock_api)
+
+        result = manager.execute_live_order(
+            symbol="", direction=TradeDirection.LONG, volume=0.1,
+        )
+        assert result.success is False
+        assert "validation_error" in result.rejection_reason
+
+    def test_execute_live_order_rejects_zero_volume(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        manager = OrderManager(api_client=mock_api)
+
+        result = manager.execute_live_order(
+            symbol="EURUSD", direction=TradeDirection.LONG, volume=0,
+        )
+        assert result.success is False
+        assert "validation_error" in result.rejection_reason
+
+    def test_execute_live_order_rejects_negative_volume(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        manager = OrderManager(api_client=mock_api)
+
+        result = manager.execute_live_order(
+            symbol="EURUSD", direction=TradeDirection.LONG, volume=-0.1,
+        )
+        assert result.success is False
+        assert "validation_error" in result.rejection_reason
+
+    def test_execute_live_order_rejects_limit_without_price(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        manager = OrderManager(api_client=mock_api)
+
+        result = manager.execute_live_order(
+            symbol="EURUSD", direction=TradeDirection.LONG,
+            volume=0.1, order_type=OrderType.LIMIT,
+        )
+        assert result.success is False
+        assert "validation_error" in result.rejection_reason
+
+    def test_send_order_returns_none_on_empty_symbol(self):
+        from adapters.ctrader.api_client import FIXClient
+        from adapters.ctrader.models import cTraderCredentials
+
+        creds = cTraderCredentials(
+            host="localhost", port=5202, use_ssl=False,
+            sender_comp_id="test", username="12345", password="pass",
+        )
+        client = FIXClient(creds)
+        client._send_message = MagicMock(return_value=True)
+
+        result = client.send_order(
+            symbol="", direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET, volume=0.1,
+        )
+        assert result is None
+
+    def test_send_order_returns_none_on_zero_volume(self):
+        from adapters.ctrader.api_client import FIXClient
+        from adapters.ctrader.models import cTraderCredentials
+
+        creds = cTraderCredentials(
+            host="localhost", port=5202, use_ssl=False,
+            sender_comp_id="test", username="12345", password="pass",
+        )
+        client = FIXClient(creds)
+        client._send_message = MagicMock(return_value=True)
+
+        result = client.send_order(
+            symbol="EURUSD", direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET, volume=0,
+        )
+        assert result is None
+
+    def test_send_order_returns_none_on_send_failure(self):
+        from adapters.ctrader.api_client import FIXClient
+        from adapters.ctrader.models import cTraderCredentials
+
+        creds = cTraderCredentials(
+            host="localhost", port=5202, use_ssl=False,
+            sender_comp_id="test", username="12345", password="pass",
+        )
+        client = FIXClient(creds)
+        client._send_message = MagicMock(return_value=False)
+
+        result = client.send_order(
+            symbol="EURUSD", direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET, volume=0.1,
+        )
+        assert result is None
+        assert "EURUSD" not in client._pending_orders
+
+
+class TestLiveModePersistsOnDisconnect:
+    def test_live_mode_stays_true_after_disconnect(self):
+        mock_api = MagicMock()
+        mock_api.is_paper_mode = False
+        mock_api.is_connected = True
+        trader = PaperTrader(api_client=mock_api)
+        assert trader.is_live_mode is True
+
+        mock_api.is_connected = False
+        assert trader.is_live_mode is True

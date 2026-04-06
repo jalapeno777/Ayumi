@@ -49,6 +49,9 @@ class PaperTrader:
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
         self._api_client = api_client
+        self._live_mode_enabled = (
+            api_client is not None and not api_client.is_paper_mode
+        )
         self._order_manager = OrderManager(
             self._position_config, api_client=api_client
         )
@@ -66,11 +69,7 @@ class PaperTrader:
 
     @property
     def is_live_mode(self) -> bool:
-        return (
-            self._api_client is not None
-            and not self._api_client.is_paper_mode
-            and self._api_client.is_connected
-        )
+        return self._live_mode_enabled
 
     def process_signal(self, signal: TradeSignal) -> PaperTradeResult:
         with self._lock:
@@ -171,6 +170,9 @@ class PaperTrader:
 
     def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
         self._api_client = api_client
+        self._live_mode_enabled = (
+            api_client is not None and not api_client.is_paper_mode
+        )
         self._order_manager.set_api_client(api_client)
 
     def update_market_prices(self, prices: dict):
