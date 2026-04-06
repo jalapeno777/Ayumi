@@ -275,17 +275,21 @@ class MultiStrategyBacktestEngine:
         if trade.direction == TradeDirection.LONG:
             if bar.low <= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.high >= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
+            if bar.high >= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
             if bar.high >= trade.take_profit_2:
                 return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
+            if bar.high >= trade.take_profit_3:
+                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
         else:
             if bar.high >= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.low <= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
+            if bar.low <= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
             if bar.low <= trade.take_profit_2:
                 return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
+            if bar.low <= trade.take_profit_3:
+                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
         return (False, 0, ExitReason.STOP_LOSS)
 
     def _close_trade(
@@ -392,15 +396,21 @@ class MultiStrategyBacktestEngine:
             return None
 
         pip_value = self._get_pip_value(signal.entry_price)
-        spread_cost = self.config.spread_pips * pip_value
-        slippage_cost = self.config.slippage_pips * pip_value
-        total_cost = spread_cost + slippage_cost
-        effective_entry = (
-            signal.entry_price + total_cost
-            if signal.direction == TradeDirection.LONG
-            else signal.entry_price - total_cost
-        )
-        adjusted_risk = abs(effective_entry - signal.stop_loss)
+
+        if self.config.round_trip_spread:
+            effective_entry = signal.entry_price
+            adjusted_risk = risk
+        else:
+            spread_cost = self.config.spread_pips * pip_value
+            slippage_cost = self.config.slippage_pips * pip_value
+            total_cost = spread_cost + slippage_cost
+            effective_entry = (
+                signal.entry_price + total_cost
+                if signal.direction == TradeDirection.LONG
+                else signal.entry_price - total_cost
+            )
+            adjusted_risk = abs(effective_entry - signal.stop_loss)
+
         if adjusted_risk == 0:
             return None
 
