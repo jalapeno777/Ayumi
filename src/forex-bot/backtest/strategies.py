@@ -1735,9 +1735,16 @@ class HighConvictionStrategy(ISignalStrategy):
         return "High Conviction"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        min_bars = max(self.trend_lookback, self.swing_lookback,
-                       self.rsi_period, self.atr_period,
-                       self.atr_percentile_lookback) + 5
+        min_bars = (
+            max(
+                self.trend_lookback,
+                self.swing_lookback,
+                self.rsi_period,
+                self.atr_period,
+                self.atr_percentile_lookback,
+            )
+            + 5
+        )
         if len(state.bars) < min_bars:
             return None
 
@@ -1802,11 +1809,19 @@ class HighConvictionStrategy(ISignalStrategy):
     def _detect_trend(self, bars: List[Bar]) -> Optional[TradeDirection]:
         if len(bars) < self.trend_lookback:
             return None
-        recent = bars[-self.trend_lookback:]
+        recent = bars[-self.trend_lookback :]
         closes = [b.close for b in recent]
-        if closes[-1] > closes[0] and all(closes[i] <= closes[i + 1] for i in range(len(closes) - 1) if abs(closes[i + 1] - closes[i]) > 0):
+        if closes[-1] > closes[0] and all(
+            closes[i] <= closes[i + 1]
+            for i in range(len(closes) - 1)
+            if abs(closes[i + 1] - closes[i]) > 0
+        ):
             return TradeDirection.LONG
-        if closes[-1] < closes[0] and all(closes[i] >= closes[i + 1] for i in range(len(closes) - 1) if abs(closes[i + 1] - closes[i]) > 0):
+        if closes[-1] < closes[0] and all(
+            closes[i] >= closes[i + 1]
+            for i in range(len(closes) - 1)
+            if abs(closes[i + 1] - closes[i]) > 0
+        ):
             return TradeDirection.SHORT
         bullish = sum(1 for i in range(1, len(closes)) if closes[i] > closes[i - 1])
         bearish = len(closes) - 1 - bullish
@@ -1820,20 +1835,25 @@ class HighConvictionStrategy(ISignalStrategy):
     def _at_pullback_level(self, bars: List[Bar], trend_dir: TradeDirection) -> bool:
         if len(bars) < self.swing_lookback:
             return False
-        lookback = bars[-self.swing_lookback:]
+        lookback = bars[-self.swing_lookback :]
         recent = bars[-5:]
         if trend_dir == TradeDirection.LONG:
             swing_lows = sorted(set(b.low for b in lookback))
             if len(swing_lows) < 5:
                 return False
             support_level = swing_lows[len(swing_lows) // 4]
-            return any(abs(b.low - support_level) < support_level * 0.001 for b in recent)
+            return any(
+                abs(b.low - support_level) < support_level * 0.001 for b in recent
+            )
         else:
             swing_highs = sorted(set(b.high for b in lookback), reverse=True)
             if len(swing_highs) < 5:
                 return False
             resistance_level = swing_highs[len(swing_highs) // 4]
-            return any(abs(b.high - resistance_level) < resistance_level * 0.001 for b in recent)
+            return any(
+                abs(b.high - resistance_level) < resistance_level * 0.001
+                for b in recent
+            )
 
     def _detect_momentum_shift(self, bars: List[Bar]) -> Optional[TradeDirection]:
         if len(bars) < self.rsi_period + 2:
@@ -1896,7 +1916,7 @@ class HighConvictionStrategy(ISignalStrategy):
         if len(bars) < self.rsi_period + 1:
             return None
         deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
-        recent = deltas[-self.rsi_period:]
+        recent = deltas[-self.rsi_period :]
         gains = [d for d in recent if d > 0]
         losses = [-d for d in recent if d < 0]
         avg_gain = sum(gains) / self.rsi_period if gains else 0

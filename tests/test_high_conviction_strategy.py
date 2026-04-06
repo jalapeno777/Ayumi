@@ -231,7 +231,9 @@ class TestHighConvictionRiskManagement(unittest.TestCase):
         result = strategy.evaluate(state)
         if result is not None:
             risk = abs(result.entry_price - result.stop_loss)
-            self.assertGreaterEqual(result.take_profit_2, result.entry_price + risk * 2.0)
+            self.assertGreaterEqual(
+                result.take_profit_2, result.entry_price + risk * 2.0
+            )
 
     def test_confidence_is_high(self):
         strategy = HighConvictionStrategy(
@@ -307,13 +309,24 @@ class TestHighConvictionCustomParameters(unittest.TestCase):
         self.assertAlmostEqual(strategy.atr_percentile_threshold, 0.50)
         self.assertAlmostEqual(strategy.sl_atr_mult, 2.5)
         self.assertAlmostEqual(strategy.tp_atr_mult, 5.0)
-        self.assertEqual(strategy.allowed_sessions, {SessionType.LONDON, SessionType.NY_AM})
+        self.assertEqual(
+            strategy.allowed_sessions, {SessionType.LONDON, SessionType.NY_AM}
+        )
 
 
 class TestHighConvictionRSIHelper(unittest.TestCase):
     def test_rsi_returns_none_with_insufficient_bars(self):
         strategy = HighConvictionStrategy()
-        bars = [Bar(time=datetime(2023, 1, 1), open=1.1, high=1.1005, low=1.0995, close=1.1, volume=100)]
+        bars = [
+            Bar(
+                time=datetime(2023, 1, 1),
+                open=1.1,
+                high=1.1005,
+                low=1.0995,
+                close=1.1,
+                volume=100,
+            )
+        ]
         result = strategy._calculate_rsi(bars)
         self.assertIsNone(result)
 
