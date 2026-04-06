@@ -513,7 +513,8 @@ class TestHighConvictionMTFResample(unittest.TestCase):
         for i in range(12):
             bars.append(
                 Bar(
-                    time=datetime(2023, 1, 1, 0, 0) + __import__("datetime").timedelta(hours=4 * i),
+                    time=datetime(2023, 1, 1, 0, 0)
+                    + __import__("datetime").timedelta(hours=4 * i),
                     open=1.1,
                     high=1.1005,
                     low=1.0995,
@@ -533,9 +534,30 @@ class TestHighConvictionMTFResample(unittest.TestCase):
     def test_resample_to_daily_preserves_ohlc(self):
         strategy = HighConvictionStrategy()
         bars = [
-            Bar(time=datetime(2023, 1, 1, 0), open=1.0, high=1.005, low=0.995, close=1.002, volume=100),
-            Bar(time=datetime(2023, 1, 1, 4), open=1.002, high=1.008, low=1.001, close=1.006, volume=200),
-            Bar(time=datetime(2023, 1, 2, 0), open=1.006, high=1.010, low=1.004, close=1.008, volume=150),
+            Bar(
+                time=datetime(2023, 1, 1, 0),
+                open=1.0,
+                high=1.005,
+                low=0.995,
+                close=1.002,
+                volume=100,
+            ),
+            Bar(
+                time=datetime(2023, 1, 1, 4),
+                open=1.002,
+                high=1.008,
+                low=1.001,
+                close=1.006,
+                volume=200,
+            ),
+            Bar(
+                time=datetime(2023, 1, 2, 0),
+                open=1.006,
+                high=1.010,
+                low=1.004,
+                close=1.008,
+                volume=150,
+            ),
         ]
         d1 = strategy._resample_to_daily(bars)
         self.assertEqual(len(d1), 2)
@@ -605,7 +627,14 @@ class TestHighConvictionD1Trend(unittest.TestCase):
     def test_returns_none_with_insufficient_d1_bars(self):
         strategy = HighConvictionStrategy(trend_lookback=20)
         d1_bars = [
-            Bar(time=datetime(2023, 1, 1), open=1.1, high=1.11, low=1.09, close=1.105, volume=1000),
+            Bar(
+                time=datetime(2023, 1, 1),
+                open=1.1,
+                high=1.11,
+                low=1.09,
+                close=1.105,
+                volume=1000,
+            ),
         ]
         result = strategy._detect_d1_trend(d1_bars)
         self.assertIsNone(result)
