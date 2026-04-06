@@ -106,10 +106,21 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
+def _get_prior_session_bars(
+    bars: List[Bar], session_type: SessionType, latest_bar_time: datetime
+) -> List[Bar]:
+    latest_date = latest_bar_time.date()
+    return [
+        b for b in bars
+        if not (_get_bar_session(b.time) == session_type and b.time.date() == latest_date)
+    ]
+
+
 def _calculate_session_range(
-    bars: List[Bar], session_type: SessionType
+    bars: List[Bar], session_type: SessionType, latest_bar_time: datetime
 ) -> tuple[float, float, float]:
-    session_bars = [b for b in bars if _get_bar_session(b.time) == session_type]
+    prior_bars = _get_prior_session_bars(bars, session_type, latest_bar_time)
+    session_bars = [b for b in prior_bars if _get_bar_session(b.time) == session_type]
     if not session_bars:
         return 0.0, 0.0, 0.0
     high = max(b.high for b in session_bars)
@@ -170,12 +181,13 @@ class SessionRangeMeanReversionStrategy:
         if atr <= 0:
             return None
 
+        latest_bar_time = state.latest_bar.time
         session_high, session_low, session_mean = _calculate_session_range(
-            state.bars, SessionType.LONDON
+            state.bars, SessionType.LONDON, latest_bar_time
         )
         if session_high == 0:
             session_high, session_low, session_mean = _calculate_session_range(
-                state.bars, SessionType.NY_AM
+                state.bars, SessionType.NY_AM, latest_bar_time
             )
 
         session_range_width = (session_high - session_low) / _PIP

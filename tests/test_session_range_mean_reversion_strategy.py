@@ -231,10 +231,43 @@ class TestSessionHelpers(unittest.TestCase):
 
     def test_calculate_session_range(self):
         bars = make_session_range_bars(seed=42)
-        high, low, mean = _calculate_session_range(bars, SessionType.LONDON)
+        latest_bar_time = datetime(2023, 1, 5, 8, 0)
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, latest_bar_time)
         self.assertGreater(high, 0)
         self.assertLess(low, high)
         self.assertGreater(mean, 0)
+
+    def test_calculate_session_range_excludes_current_session(self):
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(42)
+        dates = pd.date_range("2023-01-01", periods=200, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(200):
+            if 48 <= i < 72:
+                price += np.random.normal(0, 0.0001)
+            else:
+                price += np.random.normal(0, 0.0005)
+            prices.append(price)
+        prices = np.array(prices)
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - 0.0001,
+                high=prices[i] + 0.0001,
+                low=prices[i] - 0.0001,
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(200)
+        ]
+        latest_bar_time = datetime(2023, 1, 3, 8, 0)
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, latest_bar_time)
+        bar_8am_day3 = next(b for b in bars if b.time == datetime(2023, 1, 3, 8, 0))
+        self.assertLess(bar_8am_day3.high, high)
+        self.assertGreater(bar_8am_day3.low, low)
 
 
 if __name__ == "__main__":
