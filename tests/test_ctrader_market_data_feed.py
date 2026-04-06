@@ -1,8 +1,6 @@
 """Tests for the cTrader FIX Market Data Feed."""
 
-import threading
-import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,7 +9,6 @@ from adapters.ctrader.market_data_feed import (
     DEFAULT_SYMBOLS,
     FOREX_PAIRS,
     LiveMarketDataFeed,
-    MarketDataClient,
     SymbolInfo,
     Tick,
 )
