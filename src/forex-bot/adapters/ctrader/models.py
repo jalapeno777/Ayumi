@@ -87,6 +87,7 @@ class cTraderCredentials:
     sender_comp_id: str = ""
     target_comp_id: str = "cServer"
     sender_sub_id: str = "TRADE"
+    username: str = ""  # Account number for FIX logon (tag 553)
     password: str = ""
 
 
