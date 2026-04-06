@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, List
+from typing import TYPE_CHECKING, Any, Optional, List
 
 from .config import (
     QuantConfig,
@@ -21,9 +21,9 @@ from .regime import (
     trend_regime as calc_trend_regime,
     combined_regime as calc_combined_regime,
 )
-from .walk_forward import run_strategy as run_walk_forward
-from backtest.engine import Bar
-from backtest.strategies import ISignalStrategy
+if TYPE_CHECKING:
+    from backtest.engine import Bar
+    from backtest.strategies import ISignalStrategy
 
 
 class TradeAction(Enum):
@@ -163,6 +163,8 @@ class QuantPipeline:
                 walk_forward_passed=True,
                 details="Walk-forward validation disabled in config",
             )
+
+        from .walk_forward import run_strategy as run_walk_forward
 
         results = run_walk_forward(
             strategy=strategy,
