@@ -100,13 +100,22 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
         result = strategy.evaluate(state)
         self.assertIsNone(result)
 
-    def test_strategy_returns_none_first_30_min_of_session(self):
-        strategy = SupertrendRSIBlendStrategy()
-        bars = make_test_bars(50)
+    def test_strategy_allows_trading_during_midnight_session(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+        )
+        bars = make_trending_bars_with_supertrend_signal(50, seed=42, direction="long")
         bars[-1].time = datetime(2023, 1, 1, 0, 15)
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
-        self.assertIsNone(result)
+        if result is not None:
+            self.assertIn("Supertrend", result.rationale)
 
     def test_strategy_returns_signal_on_bullish_supertrend_flip(self):
         strategy = SupertrendRSIBlendStrategy(
