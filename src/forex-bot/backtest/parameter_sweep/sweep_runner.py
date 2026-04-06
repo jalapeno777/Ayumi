@@ -42,6 +42,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     params = {k: v for k, v in config.items() if k != "__class__"}
     from ..strategies import (
         BBStrategy,
+        KeltnerChannelBreakoutStrategy,
         MACrossStrategy,
         ROCMStrategy,
         RSIStrategy,
@@ -51,6 +52,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     registry: Dict[str, type] = {
         "MACrossStrategy": MACrossStrategy,
         "BBStrategy": BBStrategy,
+        "KeltnerChannelBreakoutStrategy": KeltnerChannelBreakoutStrategy,
         "RSIStrategy": RSIStrategy,
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,

@@ -1470,6 +1470,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         sl_max_pips: float = 40.0,
         tp1_atr_multiplier: float = 2.0,
         tp2_atr_multiplier: float = 3.0,
+        use_volume_filter: bool = False,
     ):
         self.ema_period = ema_period
         self.atr_period = atr_period
@@ -1482,6 +1483,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         self.sl_max_pips = sl_max_pips
         self.tp1_atr_multiplier = tp1_atr_multiplier
         self.tp2_atr_multiplier = tp2_atr_multiplier
+        self.use_volume_filter = use_volume_filter
 
     @property
     def name(self) -> str:
@@ -1527,12 +1529,13 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         if adx is None or adx < self.adx_threshold:
             return None
 
-        volume = state.latest_bar.volume
-        if volume <= 0:
-            return None
-        vol_ma = self._calculate_volume_ma(state.bars)
-        if vol_ma <= 0 or volume < vol_ma:
-            return None
+        if self.use_volume_filter:
+            volume = state.latest_bar.volume
+            if volume <= 0:
+                return None
+            vol_ma = self._calculate_volume_ma(state.bars)
+            if vol_ma <= 0 or volume < vol_ma:
+                return None
 
         ema_rising = middle > prev_middle
         ema_falling = middle < prev_middle
