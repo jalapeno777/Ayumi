@@ -1446,9 +1446,9 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         ema_period: Period for EMA middle line (default 20).
         atr_period: Period for ATR calculation (default 14).
         atr_multiplier: ATR multiplier for channel bands (default 1.5).
-        atr_min_pips: Minimum ATR in pips for volatility filter (default 8).
+        atr_min_pips: Minimum ATR in pips for volatility filter (default 5).
         adx_period: Period for ADX calculation (default 14).
-        adx_threshold: Minimum ADX value to confirm trend (default 25.0).
+        adx_threshold: Minimum ADX value to confirm trend (default 20.0).
         volume_ma_period: Period for volume moving average (default 20).
         sl_atr_multiplier: ATR multiplier for stop loss (default 1.5).
         sl_max_pips: Hard cap on stop loss in pips (default 40.0).
