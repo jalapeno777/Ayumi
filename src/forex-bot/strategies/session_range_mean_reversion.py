@@ -173,7 +173,9 @@ def _build_signal(
             config.hard_cap_sl_pips * _PIP,
         )
     else:
-        sl_distance = min(atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP)
+        sl_distance = min(
+            atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP
+        )
 
     if sl_distance <= 0:
         return None
