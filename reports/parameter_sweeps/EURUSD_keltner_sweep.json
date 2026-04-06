@@ -1,0 +1,2314 @@
+{
+  "pair": "EURUSD",
+  "total_combinations": 72,
+  "sweep_bars_used": 5000,
+  "results_with_trades": 72,
+  "all_results": [
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.24346510279700018,
+      "max_dd": 7.637550224677122,
+      "sharpe_ratio": -1.404484000817279,
+      "trade_count": 13,
+      "total_return": -0.06698218331325989
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.3445228976872529,
+      "max_dd": 5.171244514026395,
+      "sharpe_ratio": -1.0026591581641182,
+      "trade_count": 9,
+      "total_return": -0.031487710712070294
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.2000584033421684,
+      "max_dd": 5.571876187213812,
+      "sharpe_ratio": -1.9412938294712476,
+      "trade_count": 8,
+      "total_return": -0.04611536259652057
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.30106846366690704,
+      "max_dd": 5.153107305165554,
+      "sharpe_ratio": -1.2110167748203828,
+      "trade_count": 11,
+      "total_return": -0.040998438098838234
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.5515842818513694,
+      "max_dd": 5.329535687009358,
+      "sharpe_ratio": -0.1950273178881165,
+      "trade_count": 11,
+      "total_return": -0.008535374297972522
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.32286742757673226,
+      "max_dd": 7.485828422169265,
+      "sharpe_ratio": -0.646225323162438,
+      "trade_count": 12,
+      "total_return": -0.042602859401496974
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 42.857142857142854,
+      "profit_factor": 0.5310377858944885,
+      "max_dd": 5.193576358173656,
+      "sharpe_ratio": -0.03827533314896424,
+      "trade_count": 14,
+      "total_return": -0.00255268630081282
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.29058354337198433,
+      "max_dd": 5.288580525539443,
+      "sharpe_ratio": -1.1567967535543282,
+      "trade_count": 11,
+      "total_return": -0.03922460864032437
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.4631511038284688,
+      "max_dd": 5.277567616022878,
+      "sharpe_ratio": -0.4003690567706416,
+      "trade_count": 9,
+      "total_return": -0.013988288232835657
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.2749000892780857,
+      "max_dd": 5.280041138496339,
+      "sharpe_ratio": -1.1971968595189935,
+      "trade_count": 11,
+      "total_return": -0.04028441858416099
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.7348309868189544,
+      "max_dd": 5.270657438278465,
+      "sharpe_ratio": 0.31270211414581744,
+      "trade_count": 11,
+      "total_return": 0.013389077329833162
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.3459972296009381,
+      "max_dd": 6.691503060636304,
+      "sharpe_ratio": -0.46161632005312814,
+      "trade_count": 10,
+      "total_return": -0.03121313748226512
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 41.17647058823529,
+      "profit_factor": 0.37370091784386217,
+      "max_dd": 5.450969608680139,
+      "sharpe_ratio": -0.5652681104110395,
+      "trade_count": 17,
+      "total_return": -0.04022943527344651
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.2743740239457269,
+      "max_dd": 5.565819974422756,
+      "sharpe_ratio": -1.0014337555934438,
+      "trade_count": 11,
+      "total_return": -0.04557891917056677
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.31658952641195065,
+      "max_dd": 5.252329820865034,
+      "sharpe_ratio": -1.0627503530736295,
+      "trade_count": 9,
+      "total_return": -0.038213035734081496
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.27160627592825215,
+      "max_dd": 5.15103900752373,
+      "sharpe_ratio": -1.2096669821126356,
+      "trade_count": 9,
+      "total_return": -0.04138683852108133
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 40.0,
+      "profit_factor": 0.31221159148911654,
+      "max_dd": 5.295631235615477,
+      "sharpe_ratio": -0.651348145443471,
+      "trade_count": 10,
+      "total_return": -0.027551104321246567
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.32891743529626366,
+      "max_dd": 5.857563536847277,
+      "sharpe_ratio": -0.7303026210711322,
+      "trade_count": 9,
+      "total_return": -0.03000058887683299
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5539970813031642,
+      "max_dd": 5.253977318520644,
+      "sharpe_ratio": -0.05785156389493115,
+      "trade_count": 8,
+      "total_return": -0.003085611180516753
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.28051645029891153,
+      "max_dd": 5.9263035895975325,
+      "sharpe_ratio": -0.8966503860697868,
+      "trade_count": 9,
+      "total_return": -0.035528713559689826
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.7155937698040687,
+      "max_dd": 5.2491907845774985,
+      "sharpe_ratio": 0.25695484522890033,
+      "trade_count": 8,
+      "total_return": 0.010588074465883801
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5074442286611428,
+      "max_dd": 5.146611483746891,
+      "sharpe_ratio": -0.21534427668356332,
+      "trade_count": 8,
+      "total_return": -0.009362785127809548
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.5660139359994819,
+      "max_dd": 5.253780746477413,
+      "sharpe_ratio": -0.026803078906863252,
+      "trade_count": 11,
+      "total_return": -0.0021048191521251284
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 0.511323985134781,
+      "max_dd": 5.147620542126699,
+      "sharpe_ratio": -0.1754694220628209,
+      "trade_count": 9,
+      "total_return": -0.007202056890254607
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.24081777421207845,
+      "max_dd": 5.128868714538293,
+      "sharpe_ratio": -0.5690531247155829,
+      "trade_count": 12,
+      "total_return": -0.051288687145382934
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.4945350019133965,
+      "max_dd": 5.378866595857686,
+      "sharpe_ratio": -0.2515213269849616,
+      "trade_count": 13,
+      "total_return": -0.023285888605818945
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 21.428571428571427,
+      "profit_factor": 0.3330276823192771,
+      "max_dd": 5.386253150245595,
+      "sharpe_ratio": -0.5188968331796441,
+      "trade_count": 14,
+      "total_return": -0.041343813781549214
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 12.5,
+      "profit_factor": 0.14637739081986728,
+      "max_dd": 5.156978153738604,
+      "sharpe_ratio": -1.1586577318238438,
+      "trade_count": 8,
+      "total_return": -0.047816557841075885
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 16.666666666666664,
+      "profit_factor": 0.09923155049596416,
+      "max_dd": 5.2908345713282445,
+      "sharpe_ratio": -1.183051407498127,
+      "trade_count": 6,
+      "total_return": -0.04251237805330838
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5025326572369755,
+      "max_dd": 5.257394413273497,
+      "sharpe_ratio": -0.31122050362407905,
+      "trade_count": 16,
+      "total_return": -0.02739674812507401
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.43357651855391555,
+      "max_dd": 5.64574782513772,
+      "sharpe_ratio": -0.18322822601803546,
+      "trade_count": 14,
+      "total_return": -0.018699031617951004
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.462990358488598,
+      "max_dd": 5.382275437680957,
+      "sharpe_ratio": -0.2561920228470266,
+      "trade_count": 14,
+      "total_return": -0.023490818631779802
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.095238095238095,
+      "profit_factor": 0.41277082993068187,
+      "max_dd": 5.481116090447884,
+      "sharpe_ratio": -0.3371158518670808,
+      "trade_count": 21,
+      "total_return": -0.03915632680089748
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 39.130434782608695,
+      "profit_factor": 0.5116916000192246,
+      "max_dd": 5.376000563688774,
+      "sharpe_ratio": -0.24237382093222523,
+      "trade_count": 23,
+      "total_return": -0.029636055182300152
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 22.22222222222222,
+      "profit_factor": 0.2904312178743757,
+      "max_dd": 5.3808638052513995,
+      "sharpe_ratio": -0.6835257466378688,
+      "trade_count": 9,
+      "total_return": -0.031135305146442988
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.4373967097980652,
+      "max_dd": 5.946740784341937,
+      "sharpe_ratio": -0.49665321144940333,
+      "trade_count": 22,
+      "total_return": -0.048020516832400606
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.28954595764010244,
+      "max_dd": 5.91476135766705,
+      "sharpe_ratio": -1.3141461157723038,
+      "trade_count": 12,
+      "total_return": -0.04957908593743195
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 27.27272727272727,
+      "profit_factor": 0.2481785339642951,
+      "max_dd": 5.558597126398526,
+      "sharpe_ratio": -1.3541758018540138,
+      "trade_count": 11,
+      "total_return": -0.05342421313253289
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.27566472203126113,
+      "max_dd": 5.489630556597983,
+      "sharpe_ratio": -1.1288146768900158,
+      "trade_count": 12,
+      "total_return": -0.045284541858267406
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 48.23529411764706,
+      "profit_factor": 0.6653438343319273,
+      "max_dd": 5.65145719086365,
+      "sharpe_ratio": 0.06413465139683067,
+      "trade_count": 85,
+      "total_return": 0.01587432208663813
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 31.57894736842105,
+      "profit_factor": 0.38121085975222646,
+      "max_dd": 5.006985254223213,
+      "sharpe_ratio": -0.4810809977459212,
+      "trade_count": 19,
+      "total_return": -0.04240655435455028
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 27.77777777777778,
+      "profit_factor": 0.32635222222658,
+      "max_dd": 5.906616144207815,
+      "sharpe_ratio": -0.6585877369607809,
+      "trade_count": 18,
+      "total_return": -0.05471724180036399
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 42.857142857142854,
+      "profit_factor": 0.4327789946248017,
+      "max_dd": 5.260137189201018,
+      "sharpe_ratio": -0.3096163453045154,
+      "trade_count": 14,
+      "total_return": -0.01533337168470389
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.23483787175030463,
+      "max_dd": 5.771170828187041,
+      "sharpe_ratio": -1.1722784635954158,
+      "trade_count": 13,
+      "total_return": -0.057711708281870416
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 16.666666666666664,
+      "profit_factor": 0.09812953294903803,
+      "max_dd": 5.285598734467492,
+      "sharpe_ratio": -1.8832991167616395,
+      "trade_count": 6,
+      "total_return": -0.042557009747449775
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.22233270599649987,
+      "max_dd": 5.8768884995269035,
+      "sharpe_ratio": -1.3407955552489743,
+      "trade_count": 13,
+      "total_return": -0.058768884995269034
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.40144574784918285,
+      "max_dd": 5.239257246159433,
+      "sharpe_ratio": -0.38655737884976227,
+      "trade_count": 21,
+      "total_return": -0.03681356759305345
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.23529411764706,
+      "profit_factor": 0.6440314800306348,
+      "max_dd": 5.107458671473497,
+      "sharpe_ratio": -0.028153677656364336,
+      "trade_count": 34,
+      "total_return": -0.00594345665214787
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.46153846153847,
+      "profit_factor": 0.35464126498609055,
+      "max_dd": 5.2909891384434635,
+      "sharpe_ratio": -0.6218629891091803,
+      "trade_count": 13,
+      "total_return": -0.03888083014154563
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.31208173956069496,
+      "max_dd": 5.182208266166753,
+      "sharpe_ratio": -0.8356143037221959,
+      "trade_count": 12,
+      "total_return": -0.04954821348401929
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.10355852324650676,
+      "max_dd": 5.693239583702434,
+      "sharpe_ratio": -1.9585975798974904,
+      "trade_count": 7,
+      "total_return": -0.05693239583702434
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 22.22222222222222,
+      "profit_factor": 0.1771196800115807,
+      "max_dd": 5.950758724687639,
+      "sharpe_ratio": -1.4367650061189172,
+      "trade_count": 9,
+      "total_return": -0.059507587246876395
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.19857662612007354,
+      "max_dd": 5.268238179804454,
+      "sharpe_ratio": -0.9792877562578688,
+      "trade_count": 10,
+      "total_return": -0.04809891023254604
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.30121170743467907,
+      "max_dd": 5.9247016436195805,
+      "sharpe_ratio": -0.7953559399874006,
+      "trade_count": 12,
+      "total_return": -0.0487151756678546
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.20793378217659061,
+      "max_dd": 7.582966895864965,
+      "sharpe_ratio": -0.636863106515629,
+      "trade_count": 8,
+      "total_return": -0.050347432197769014
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.2007199704597277,
+      "max_dd": 6.611439025528981,
+      "sharpe_ratio": -0.9066227304359855,
+      "trade_count": 8,
+      "total_return": -0.04934683210289532
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.560437182630028,
+      "max_dd": 5.256023273309343,
+      "sharpe_ratio": -0.03770097142899133,
+      "trade_count": 8,
+      "total_return": -0.002276774073895831
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.5183976965828041,
+      "max_dd": 5.26096323931017,
+      "sharpe_ratio": -0.28498594929805854,
+      "trade_count": 21,
+      "total_return": -0.02793231067814377
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.3845193049834837,
+      "max_dd": 5.2691025114922265,
+      "sharpe_ratio": -0.47678759599363624,
+      "trade_count": 10,
+      "total_return": -0.02561511923657199
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.3905991942095865,
+      "max_dd": 5.926311288601121,
+      "sharpe_ratio": -0.5402874830216905,
+      "trade_count": 12,
+      "total_return": -0.0325965828153845
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 18.181818181818183,
+      "profit_factor": 0.20256767797005393,
+      "max_dd": 5.446365559921232,
+      "sharpe_ratio": -0.6409508989497082,
+      "trade_count": 11,
+      "total_return": -0.054463655599212325
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.39073517166492505,
+      "max_dd": 5.379323065278844,
+      "sharpe_ratio": -0.34862385402980284,
+      "trade_count": 12,
+      "total_return": -0.029823327000388235
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.37972495318375615,
+      "max_dd": 5.244577002435226,
+      "sharpe_ratio": -0.3638287022924978,
+      "trade_count": 12,
+      "total_return": -0.02958714114542727
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.17589798264669929,
+      "max_dd": 5.156978153738581,
+      "sharpe_ratio": -0.981191323672596,
+      "trade_count": 7,
+      "total_return": -0.03767405780281024
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "max_dd": 5.250375857534345,
+      "sharpe_ratio": -2.042269972213805,
+      "trade_count": 5,
+      "total_return": -0.05250375857534345
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5005059658963136,
+      "max_dd": 5.591646895855349,
+      "sharpe_ratio": -0.2866912797813117,
+      "trade_count": 32,
+      "total_return": -0.0488427947752205
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 28.57142857142857,
+      "profit_factor": 0.372962766635298,
+      "max_dd": 5.743874483980753,
+      "sharpe_ratio": -0.28551916918216735,
+      "trade_count": 14,
+      "total_return": -0.0302387882571089
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.49453176276927324,
+      "max_dd": 5.442639996649773,
+      "sharpe_ratio": -0.1846270559786781,
+      "trade_count": 14,
+      "total_return": -0.018263418847134016
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.46153846153847,
+      "profit_factor": 0.4058607717113872,
+      "max_dd": 5.566573799790319,
+      "sharpe_ratio": -0.38148999320779087,
+      "trade_count": 13,
+      "total_return": -0.02962751924375425
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.095238095238095,
+      "profit_factor": 0.4330227668637486,
+      "max_dd": 5.983788509671691,
+      "sharpe_ratio": -0.36182952564500853,
+      "trade_count": 21,
+      "total_return": -0.04295763470006678
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 12.5,
+      "profit_factor": 0.07587806860697191,
+      "max_dd": 5.368231789690162,
+      "sharpe_ratio": -1.39493159170211,
+      "trade_count": 8,
+      "total_return": -0.05368231789690162
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.02531377236554522,
+      "max_dd": 5.068399215860335,
+      "sharpe_ratio": -1.5287263988439397,
+      "trade_count": 7,
+      "total_return": -0.05068399215860336
+    }
+  ],
+  "results_with_trades_list": [
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.24346510279700018,
+      "max_dd": 7.637550224677122,
+      "sharpe_ratio": -1.404484000817279,
+      "trade_count": 13,
+      "total_return": -0.06698218331325989
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.3445228976872529,
+      "max_dd": 5.171244514026395,
+      "sharpe_ratio": -1.0026591581641182,
+      "trade_count": 9,
+      "total_return": -0.031487710712070294
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.2000584033421684,
+      "max_dd": 5.571876187213812,
+      "sharpe_ratio": -1.9412938294712476,
+      "trade_count": 8,
+      "total_return": -0.04611536259652057
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.30106846366690704,
+      "max_dd": 5.153107305165554,
+      "sharpe_ratio": -1.2110167748203828,
+      "trade_count": 11,
+      "total_return": -0.040998438098838234
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.5515842818513694,
+      "max_dd": 5.329535687009358,
+      "sharpe_ratio": -0.1950273178881165,
+      "trade_count": 11,
+      "total_return": -0.008535374297972522
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.32286742757673226,
+      "max_dd": 7.485828422169265,
+      "sharpe_ratio": -0.646225323162438,
+      "trade_count": 12,
+      "total_return": -0.042602859401496974
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 42.857142857142854,
+      "profit_factor": 0.5310377858944885,
+      "max_dd": 5.193576358173656,
+      "sharpe_ratio": -0.03827533314896424,
+      "trade_count": 14,
+      "total_return": -0.00255268630081282
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.29058354337198433,
+      "max_dd": 5.288580525539443,
+      "sharpe_ratio": -1.1567967535543282,
+      "trade_count": 11,
+      "total_return": -0.03922460864032437
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.4631511038284688,
+      "max_dd": 5.277567616022878,
+      "sharpe_ratio": -0.4003690567706416,
+      "trade_count": 9,
+      "total_return": -0.013988288232835657
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.2749000892780857,
+      "max_dd": 5.280041138496339,
+      "sharpe_ratio": -1.1971968595189935,
+      "trade_count": 11,
+      "total_return": -0.04028441858416099
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.7348309868189544,
+      "max_dd": 5.270657438278465,
+      "sharpe_ratio": 0.31270211414581744,
+      "trade_count": 11,
+      "total_return": 0.013389077329833162
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.3459972296009381,
+      "max_dd": 6.691503060636304,
+      "sharpe_ratio": -0.46161632005312814,
+      "trade_count": 10,
+      "total_return": -0.03121313748226512
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 41.17647058823529,
+      "profit_factor": 0.37370091784386217,
+      "max_dd": 5.450969608680139,
+      "sharpe_ratio": -0.5652681104110395,
+      "trade_count": 17,
+      "total_return": -0.04022943527344651
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.2743740239457269,
+      "max_dd": 5.565819974422756,
+      "sharpe_ratio": -1.0014337555934438,
+      "trade_count": 11,
+      "total_return": -0.04557891917056677
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.31658952641195065,
+      "max_dd": 5.252329820865034,
+      "sharpe_ratio": -1.0627503530736295,
+      "trade_count": 9,
+      "total_return": -0.038213035734081496
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.27160627592825215,
+      "max_dd": 5.15103900752373,
+      "sharpe_ratio": -1.2096669821126356,
+      "trade_count": 9,
+      "total_return": -0.04138683852108133
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 40.0,
+      "profit_factor": 0.31221159148911654,
+      "max_dd": 5.295631235615477,
+      "sharpe_ratio": -0.651348145443471,
+      "trade_count": 10,
+      "total_return": -0.027551104321246567
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.32891743529626366,
+      "max_dd": 5.857563536847277,
+      "sharpe_ratio": -0.7303026210711322,
+      "trade_count": 9,
+      "total_return": -0.03000058887683299
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5539970813031642,
+      "max_dd": 5.253977318520644,
+      "sharpe_ratio": -0.05785156389493115,
+      "trade_count": 8,
+      "total_return": -0.003085611180516753
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.28051645029891153,
+      "max_dd": 5.9263035895975325,
+      "sharpe_ratio": -0.8966503860697868,
+      "trade_count": 9,
+      "total_return": -0.035528713559689826
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.7155937698040687,
+      "max_dd": 5.2491907845774985,
+      "sharpe_ratio": 0.25695484522890033,
+      "trade_count": 8,
+      "total_return": 0.010588074465883801
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5074442286611428,
+      "max_dd": 5.146611483746891,
+      "sharpe_ratio": -0.21534427668356332,
+      "trade_count": 8,
+      "total_return": -0.009362785127809548
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.5660139359994819,
+      "max_dd": 5.253780746477413,
+      "sharpe_ratio": -0.026803078906863252,
+      "trade_count": 11,
+      "total_return": -0.0021048191521251284
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 0.511323985134781,
+      "max_dd": 5.147620542126699,
+      "sharpe_ratio": -0.1754694220628209,
+      "trade_count": 9,
+      "total_return": -0.007202056890254607
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.24081777421207845,
+      "max_dd": 5.128868714538293,
+      "sharpe_ratio": -0.5690531247155829,
+      "trade_count": 12,
+      "total_return": -0.051288687145382934
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.4945350019133965,
+      "max_dd": 5.378866595857686,
+      "sharpe_ratio": -0.2515213269849616,
+      "trade_count": 13,
+      "total_return": -0.023285888605818945
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 21.428571428571427,
+      "profit_factor": 0.3330276823192771,
+      "max_dd": 5.386253150245595,
+      "sharpe_ratio": -0.5188968331796441,
+      "trade_count": 14,
+      "total_return": -0.041343813781549214
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 12.5,
+      "profit_factor": 0.14637739081986728,
+      "max_dd": 5.156978153738604,
+      "sharpe_ratio": -1.1586577318238438,
+      "trade_count": 8,
+      "total_return": -0.047816557841075885
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 16.666666666666664,
+      "profit_factor": 0.09923155049596416,
+      "max_dd": 5.2908345713282445,
+      "sharpe_ratio": -1.183051407498127,
+      "trade_count": 6,
+      "total_return": -0.04251237805330838
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5025326572369755,
+      "max_dd": 5.257394413273497,
+      "sharpe_ratio": -0.31122050362407905,
+      "trade_count": 16,
+      "total_return": -0.02739674812507401
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.43357651855391555,
+      "max_dd": 5.64574782513772,
+      "sharpe_ratio": -0.18322822601803546,
+      "trade_count": 14,
+      "total_return": -0.018699031617951004
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.462990358488598,
+      "max_dd": 5.382275437680957,
+      "sharpe_ratio": -0.2561920228470266,
+      "trade_count": 14,
+      "total_return": -0.023490818631779802
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.095238095238095,
+      "profit_factor": 0.41277082993068187,
+      "max_dd": 5.481116090447884,
+      "sharpe_ratio": -0.3371158518670808,
+      "trade_count": 21,
+      "total_return": -0.03915632680089748
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 39.130434782608695,
+      "profit_factor": 0.5116916000192246,
+      "max_dd": 5.376000563688774,
+      "sharpe_ratio": -0.24237382093222523,
+      "trade_count": 23,
+      "total_return": -0.029636055182300152
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 22.22222222222222,
+      "profit_factor": 0.2904312178743757,
+      "max_dd": 5.3808638052513995,
+      "sharpe_ratio": -0.6835257466378688,
+      "trade_count": 9,
+      "total_return": -0.031135305146442988
+    },
+    {
+      "params": {
+        "adx_threshold": 10.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 36.36363636363637,
+      "profit_factor": 0.4373967097980652,
+      "max_dd": 5.946740784341937,
+      "sharpe_ratio": -0.49665321144940333,
+      "trade_count": 22,
+      "total_return": -0.048020516832400606
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.28954595764010244,
+      "max_dd": 5.91476135766705,
+      "sharpe_ratio": -1.3141461157723038,
+      "trade_count": 12,
+      "total_return": -0.04957908593743195
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 27.27272727272727,
+      "profit_factor": 0.2481785339642951,
+      "max_dd": 5.558597126398526,
+      "sharpe_ratio": -1.3541758018540138,
+      "trade_count": 11,
+      "total_return": -0.05342421313253289
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.27566472203126113,
+      "max_dd": 5.489630556597983,
+      "sharpe_ratio": -1.1288146768900158,
+      "trade_count": 12,
+      "total_return": -0.045284541858267406
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 48.23529411764706,
+      "profit_factor": 0.6653438343319273,
+      "max_dd": 5.65145719086365,
+      "sharpe_ratio": 0.06413465139683067,
+      "trade_count": 85,
+      "total_return": 0.01587432208663813
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 31.57894736842105,
+      "profit_factor": 0.38121085975222646,
+      "max_dd": 5.006985254223213,
+      "sharpe_ratio": -0.4810809977459212,
+      "trade_count": 19,
+      "total_return": -0.04240655435455028
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 27.77777777777778,
+      "profit_factor": 0.32635222222658,
+      "max_dd": 5.906616144207815,
+      "sharpe_ratio": -0.6585877369607809,
+      "trade_count": 18,
+      "total_return": -0.05471724180036399
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 42.857142857142854,
+      "profit_factor": 0.4327789946248017,
+      "max_dd": 5.260137189201018,
+      "sharpe_ratio": -0.3096163453045154,
+      "trade_count": 14,
+      "total_return": -0.01533337168470389
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.23483787175030463,
+      "max_dd": 5.771170828187041,
+      "sharpe_ratio": -1.1722784635954158,
+      "trade_count": 13,
+      "total_return": -0.057711708281870416
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 16.666666666666664,
+      "profit_factor": 0.09812953294903803,
+      "max_dd": 5.285598734467492,
+      "sharpe_ratio": -1.8832991167616395,
+      "trade_count": 6,
+      "total_return": -0.042557009747449775
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.76923076923077,
+      "profit_factor": 0.22233270599649987,
+      "max_dd": 5.8768884995269035,
+      "sharpe_ratio": -1.3407955552489743,
+      "trade_count": 13,
+      "total_return": -0.058768884995269034
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.40144574784918285,
+      "max_dd": 5.239257246159433,
+      "sharpe_ratio": -0.38655737884976227,
+      "trade_count": 21,
+      "total_return": -0.03681356759305345
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.23529411764706,
+      "profit_factor": 0.6440314800306348,
+      "max_dd": 5.107458671473497,
+      "sharpe_ratio": -0.028153677656364336,
+      "trade_count": 34,
+      "total_return": -0.00594345665214787
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.46153846153847,
+      "profit_factor": 0.35464126498609055,
+      "max_dd": 5.2909891384434635,
+      "sharpe_ratio": -0.6218629891091803,
+      "trade_count": 13,
+      "total_return": -0.03888083014154563
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.31208173956069496,
+      "max_dd": 5.182208266166753,
+      "sharpe_ratio": -0.8356143037221959,
+      "trade_count": 12,
+      "total_return": -0.04954821348401929
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.10355852324650676,
+      "max_dd": 5.693239583702434,
+      "sharpe_ratio": -1.9585975798974904,
+      "trade_count": 7,
+      "total_return": -0.05693239583702434
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 22.22222222222222,
+      "profit_factor": 0.1771196800115807,
+      "max_dd": 5.950758724687639,
+      "sharpe_ratio": -1.4367650061189172,
+      "trade_count": 9,
+      "total_return": -0.059507587246876395
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.19857662612007354,
+      "max_dd": 5.268238179804454,
+      "sharpe_ratio": -0.9792877562578688,
+      "trade_count": 10,
+      "total_return": -0.04809891023254604
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.30121170743467907,
+      "max_dd": 5.9247016436195805,
+      "sharpe_ratio": -0.7953559399874006,
+      "trade_count": 12,
+      "total_return": -0.0487151756678546
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.20793378217659061,
+      "max_dd": 7.582966895864965,
+      "sharpe_ratio": -0.636863106515629,
+      "trade_count": 8,
+      "total_return": -0.050347432197769014
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.2007199704597277,
+      "max_dd": 6.611439025528981,
+      "sharpe_ratio": -0.9066227304359855,
+      "trade_count": 8,
+      "total_return": -0.04934683210289532
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.560437182630028,
+      "max_dd": 5.256023273309343,
+      "sharpe_ratio": -0.03770097142899133,
+      "trade_count": 8,
+      "total_return": -0.002276774073895831
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.5183976965828041,
+      "max_dd": 5.26096323931017,
+      "sharpe_ratio": -0.28498594929805854,
+      "trade_count": 21,
+      "total_return": -0.02793231067814377
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 30.0,
+      "profit_factor": 0.3845193049834837,
+      "max_dd": 5.2691025114922265,
+      "sharpe_ratio": -0.47678759599363624,
+      "trade_count": 10,
+      "total_return": -0.02561511923657199
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.3905991942095865,
+      "max_dd": 5.926311288601121,
+      "sharpe_ratio": -0.5402874830216905,
+      "trade_count": 12,
+      "total_return": -0.0325965828153845
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 18.181818181818183,
+      "profit_factor": 0.20256767797005393,
+      "max_dd": 5.446365559921232,
+      "sharpe_ratio": -0.6409508989497082,
+      "trade_count": 11,
+      "total_return": -0.054463655599212325
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.39073517166492505,
+      "max_dd": 5.379323065278844,
+      "sharpe_ratio": -0.34862385402980284,
+      "trade_count": 12,
+      "total_return": -0.029823327000388235
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.37972495318375615,
+      "max_dd": 5.244577002435226,
+      "sharpe_ratio": -0.3638287022924978,
+      "trade_count": 12,
+      "total_return": -0.02958714114542727
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.17589798264669929,
+      "max_dd": 5.156978153738581,
+      "sharpe_ratio": -0.981191323672596,
+      "trade_count": 7,
+      "total_return": -0.03767405780281024
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "max_dd": 5.250375857534345,
+      "sharpe_ratio": -2.042269972213805,
+      "trade_count": 5,
+      "total_return": -0.05250375857534345
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 14,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.5005059658963136,
+      "max_dd": 5.591646895855349,
+      "sharpe_ratio": -0.2866912797813117,
+      "trade_count": 32,
+      "total_return": -0.0488427947752205
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 28.57142857142857,
+      "profit_factor": 0.372962766635298,
+      "max_dd": 5.743874483980753,
+      "sharpe_ratio": -0.28551916918216735,
+      "trade_count": 14,
+      "total_return": -0.0302387882571089
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 10,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 35.714285714285715,
+      "profit_factor": 0.49453176276927324,
+      "max_dd": 5.442639996649773,
+      "sharpe_ratio": -0.1846270559786781,
+      "trade_count": 14,
+      "total_return": -0.018263418847134016
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.46153846153847,
+      "profit_factor": 0.4058607717113872,
+      "max_dd": 5.566573799790319,
+      "sharpe_ratio": -0.38148999320779087,
+      "trade_count": 13,
+      "total_return": -0.02962751924375425
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 20,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 38.095238095238095,
+      "profit_factor": 0.4330227668637486,
+      "max_dd": 5.983788509671691,
+      "sharpe_ratio": -0.36182952564500853,
+      "trade_count": 21,
+      "total_return": -0.04295763470006678
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 1.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 12.5,
+      "profit_factor": 0.07587806860697191,
+      "max_dd": 5.368231789690162,
+      "sharpe_ratio": -1.39493159170211,
+      "trade_count": 8,
+      "total_return": -0.05368231789690162
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 3.0,
+        "atr_period": 21,
+        "ema_period": 50,
+        "sl_atr_multiplier": 2.5,
+        "volume_ma_period": 20
+      },
+      "win_rate": 14.285714285714285,
+      "profit_factor": 0.02531377236554522,
+      "max_dd": 5.068399215860335,
+      "sharpe_ratio": -1.5287263988439397,
+      "trade_count": 7,
+      "total_return": -0.05068399215860336
+    }
+  ]
+}
