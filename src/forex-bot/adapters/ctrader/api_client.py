@@ -521,6 +521,7 @@ class FIXClient:
         msg.set_body_field(self.TAG_PASSWORD, self.credentials.password)
 
         wire = msg.to_wire()
+        self._next_outgoing_seq += 1
         logger.info(f"Sending logon ({len(wire)} bytes)")
         return self._send_raw(wire)
 
@@ -531,6 +532,7 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
         msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
+        self._next_outgoing_seq += 1
         self._send_raw(msg.to_wire())
 
     def _send_heartbeat(self):
