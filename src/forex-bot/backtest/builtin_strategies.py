@@ -11,6 +11,7 @@ from backtest.strategies import (
     CommodityTrendStrategy,
     CommodityMeanReversionStrategy,
     KeltnerChannelBreakoutStrategy,
+    HighConvictionStrategy,
     ISignalStrategy,
 )
 from strategies.grid import GridConfig, GridStrategyAdapter
@@ -73,6 +74,10 @@ def _make_session_range_mr() -> ISignalStrategy:
     return SessionRangeMeanReversionStrategy()
 
 
+def _make_high_conviction() -> ISignalStrategy:
+    return HighConvictionStrategy()
+
+
 def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("ma_crossover", _make_ma_crossover)
     register_strategy("bollinger", _make_bollinger)
@@ -87,3 +92,4 @@ def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("stat_arb", _make_stat_arb)
     register_strategy("volatility_squeeze", _make_volatility_squeeze)
     register_strategy("session_range_mr", _make_session_range_mr)
+    register_strategy("high_conviction", _make_high_conviction)
