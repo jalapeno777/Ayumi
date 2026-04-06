@@ -1459,7 +1459,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         adx_period: int = 14,
         adx_threshold: float = 15.0,
         volume_ma_period: int = 20,
-        use_volume_filter: bool = True,
+        use_volume_filter: bool = False,
         sl_atr_multiplier: float = 1.5,
         sl_max_pips: float = 40.0,
         tp1_atr_multiplier: float = 2.0,
