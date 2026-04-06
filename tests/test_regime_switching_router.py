@@ -90,8 +90,10 @@ class _NeverSignal(ISignalStrategy):
 class TestRegimeSwitchingRouterName(unittest.TestCase):
     def test_router_name(self):
         router = RegimeSwitchingRouter(
-            trending_strategies=[], ranging_strategies=[],
-            volatile_strategies=[], transition_strategies=[],
+            trending_strategies=[],
+            ranging_strategies=[],
+            volatile_strategies=[],
+            transition_strategies=[],
         )
         self.assertEqual(router.name, "Regime-Switching Router")
 
@@ -99,8 +101,10 @@ class TestRegimeSwitchingRouterName(unittest.TestCase):
 class TestRegimeSwitchingRouterInsufficientBars(unittest.TestCase):
     def test_returns_none_with_insufficient_bars(self):
         router = RegimeSwitchingRouter(
-            trending_strategies=[], ranging_strategies=[],
-            volatile_strategies=[], transition_strategies=[],
+            trending_strategies=[],
+            ranging_strategies=[],
+            volatile_strategies=[],
+            transition_strategies=[],
         )
         bars = make_test_bars(20)
         state = MarketState(bars=bars)
@@ -166,8 +170,10 @@ class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
             atr_volatility_percentile=90.0,
         )
         router = RegimeSwitchingRouter(
-            trending_strategies=[], ranging_strategies=[],
-            volatile_strategies=[], transition_strategies=[],
+            trending_strategies=[],
+            ranging_strategies=[],
+            volatile_strategies=[],
+            transition_strategies=[],
             config=config,
         )
         bars = make_test_bars(100, trend="flat")
@@ -215,8 +221,10 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
 
     def test_no_strategies_returns_none(self):
         router = RegimeSwitchingRouter(
-            trending_strategies=[], ranging_strategies=[],
-            volatile_strategies=[], transition_strategies=[],
+            trending_strategies=[],
+            ranging_strategies=[],
+            volatile_strategies=[],
+            transition_strategies=[],
         )
         bars = make_test_bars(100)
         state = MarketState(bars=bars)
@@ -332,8 +340,10 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
             atr_volatility_percentile=90.0,
         )
         router = RegimeSwitchingRouter(
-            trending_strategies=[], ranging_strategies=[],
-            volatile_strategies=[], transition_strategies=[],
+            trending_strategies=[],
+            ranging_strategies=[],
+            volatile_strategies=[],
+            transition_strategies=[],
             config=config,
         )
         bars = make_test_bars(100, trend="flat")
@@ -577,7 +587,9 @@ class TestRegimeSwitchingRouterDefaultStrategies(unittest.TestCase):
         self.assertIsInstance(router.trending_strategies[0], MomentumBreakoutStrategy)
 
     def test_default_ranging_has_session_range_mr(self):
-        from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+        from strategies.session_range_mean_reversion import (
+            SessionRangeMeanReversionStrategy,
+        )
 
         router = RegimeSwitchingRouter()
         self.assertTrue(len(router.ranging_strategies) > 0)
@@ -590,9 +602,7 @@ class TestRegimeSwitchingRouterDefaultStrategies(unittest.TestCase):
 
         router = RegimeSwitchingRouter()
         self.assertTrue(len(router.volatile_strategies) > 0)
-        self.assertIsInstance(
-            router.volatile_strategies[0], VolatilitySqueezeStrategy
-        )
+        self.assertIsInstance(router.volatile_strategies[0], VolatilitySqueezeStrategy)
 
     def test_default_transition_is_empty(self):
         router = RegimeSwitchingRouter()
@@ -682,7 +692,9 @@ class TestRegimeSwitchingRouterReset(unittest.TestCase):
     def test_reset_clears_regime(self):
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
-            config=RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0),
+            config=RegimeRouterConfig(
+                adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+            ),
         )
         bars = make_test_bars(100, trend="strong_up")
         state = MarketState(bars=bars)
@@ -732,9 +744,12 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
 
         windows_passed = results.aggregated.windows_passed if results.aggregated else 0
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
         self.assertGreaterEqual(
-            windows_passed, 3,
+            total_windows, 3, "Need at least 3 walk-forward windows"
+        )
+        self.assertGreaterEqual(
+            windows_passed,
+            3,
             f"Walk-forward spec requires 3/5 windows: {windows_passed}/{total_windows} passed",
         )
         if results.aggregated:
@@ -744,7 +759,9 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
         results = self._run_walk_forward("EURUSD", "EURUSD_H1.csv")
 
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
+        self.assertGreaterEqual(
+            total_windows, 3, "Need at least 3 walk-forward windows"
+        )
         if results.aggregated:
             self.assertGreater(results.aggregated.mean_win_rate, 0)
             for w in results.per_window:
@@ -755,7 +772,9 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
         results = self._run_walk_forward("GBPJPY", "GBPJPY_H1.csv")
 
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
+        self.assertGreaterEqual(
+            total_windows, 3, "Need at least 3 walk-forward windows"
+        )
         if results.aggregated:
             self.assertGreater(results.aggregated.mean_win_rate, 0)
 

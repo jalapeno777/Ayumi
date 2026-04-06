@@ -1730,7 +1730,9 @@ def _default_trending_strategies() -> List[ISignalStrategy]:
 
 
 def _default_ranging_strategies() -> List[ISignalStrategy]:
-    from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
 
     return [SessionRangeMeanReversionStrategy()]
 
