@@ -128,11 +128,16 @@ class TestSessionRangeMeanReversionStrategy(unittest.TestCase):
         self.assertEqual(strategy.config.rsi_short_level, 65.0)
         self.assertEqual(strategy.config.session_range_min_pips, 15.0)
 
-    def test_config_tp_levels_are_distinct(self):
+    def test_config_tp_levels(self):
         config = SessionRangeMRConfig()
-        self.assertEqual(config.tp1_rr, 1.0)
+        self.assertEqual(config.tp1_rr, 1.5)
         self.assertEqual(config.tp2_rr, 1.5)
-        self.assertNotEqual(config.tp1_rr, config.tp2_rr)
+
+    def test_config_session_range_sl(self):
+        config = SessionRangeMRConfig()
+        self.assertTrue(config.use_session_range_sl)
+        self.assertEqual(config.session_range_sl_fraction, 0.6)
+        self.assertEqual(config.session_range_min_pips, 35.0)
 
     def test_no_z_score_threshold_in_config(self):
         config = SessionRangeMRConfig()

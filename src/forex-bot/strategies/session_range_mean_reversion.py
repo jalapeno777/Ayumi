@@ -19,13 +19,16 @@ class SessionRangeMRConfig:
     atr_sl_multiplier: float = 1.5
     atr_tp_multiplier: float = 2.0
     rsi_period: int = 14
-    rsi_long_level: float = 40.0
-    rsi_short_level: float = 60.0
-    session_range_min_pips: float = 20.0
-    entry_near_extreme_pips: float = 20.0
-    hard_cap_sl_pips: float = 30.0
-    tp1_rr: float = 1.0
+    rsi_long_level: float = 35.0
+    rsi_short_level: float = 65.0
+    session_range_min_pips: float = 35.0
+    entry_near_extreme_pips: float = 12.0
+    hard_cap_sl_pips: float = 35.0
+    tp1_rr: float = 1.5
     tp2_rr: float = 1.5
+    ema_trend_period: int = 50
+    use_session_range_sl: bool = True
+    session_range_sl_fraction: float = 0.6
 
 
 _ASIAN_START = time(0, 0)
@@ -88,6 +91,29 @@ def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
+def _calculate_ema(values: List[float], period: int) -> Optional[float]:
+    if len(values) < period:
+        return None
+    multiplier = 2.0 / (period + 1)
+    ema = sum(values[:period]) / period
+    for v in values[period:]:
+        ema = (v - ema) * multiplier + ema
+    return ema
+
+
+def _get_trend_bias(bars: List[Bar], period: int = 50) -> Optional[str]:
+    if len(bars) < period + 1:
+        return None
+    closes = [b.close for b in bars]
+    ema = _calculate_ema(closes, period)
+    if ema is None:
+        return None
+    price = closes[-1]
+    if price > ema:
+        return "long"
+    return "short"
+
+
 def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
     if len(bars) < period + 1:
         return None
@@ -103,10 +129,6 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
         return 100.0
     rs = avg_gain / avg_loss
     return 100.0 - (100.0 / (1.0 + rs))
-
-
-def _bars_same_day(bar_a: Bar, bar_b: Bar) -> bool:
-    return bar_a.time.date() == bar_b.time.date()
 
 
 def _calculate_session_range(
@@ -139,12 +161,25 @@ def _build_signal(
     entry: float,
     atr: float,
     config: SessionRangeMRConfig,
+    session_range_price: float,
     rationale: str,
 ) -> Optional[StrategySignal]:
     if atr <= 0:
         return None
 
-    sl_distance = min(atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP)
+    if config.use_session_range_sl and session_range_price > 0:
+        sl_distance = min(
+            session_range_price * config.session_range_sl_fraction,
+            config.hard_cap_sl_pips * _PIP,
+        )
+    else:
+        sl_distance = min(
+            atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP
+        )
+
+    if sl_distance <= 0:
+        return None
+
     sl = (
         entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
     )
@@ -182,7 +217,10 @@ class SessionRangeMeanReversionStrategy:
         return "Session-Range Mean Reversion"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
-        min_required = self.config.atr_period + self.config.rsi_period + 2
+        min_required = max(
+            self.config.atr_period + self.config.rsi_period + 2,
+            self.config.ema_trend_period + 1,
+        )
         if len(state.bars) < min_required:
             return None
 
@@ -209,7 +247,8 @@ class SessionRangeMeanReversionStrategy:
                 state.bars, SessionType.NY_AM, reference_day=prev_day
             )
 
-        session_range_width = (session_high - session_low) / _PIP
+        session_range_price = session_high - session_low
+        session_range_width = session_range_price / _PIP
         if session_range_width < self.config.session_range_min_pips:
             return None
 
@@ -230,7 +269,9 @@ class SessionRangeMeanReversionStrategy:
                 f"Session range MR long: price={price:.5f} near session low={session_low:.5f}, "
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
-            return _build_signal(direction, price, atr, self.config, rationale)
+            return _build_signal(
+                direction, price, atr, self.config, session_range_price, rationale
+            )
 
         if (
             price >= session_high - entry_near_extreme_pips
@@ -241,7 +282,9 @@ class SessionRangeMeanReversionStrategy:
                 f"Session range MR short: price={price:.5f} near session high={session_high:.5f}, "
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
-            return _build_signal(direction, price, atr, self.config, rationale)
+            return _build_signal(
+                direction, price, atr, self.config, session_range_price, rationale
+            )
 
         return None
 
