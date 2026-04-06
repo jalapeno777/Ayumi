@@ -33,12 +33,12 @@ WALKFORWARD_REPORT_DIR = Path("reports/walk_forward")
 
 
 PARAM_GRID = {
-    "ema_period": [10, 20, 50],
-    "atr_period": [14, 21],
-    "atr_multiplier": [1.0, 2.0, 3.0],
-    "adx_threshold": [10.0, 20.0],
-    "sl_atr_multiplier": [1.5, 2.5],
-    "volume_ma_period": [20],
+    "ema_period": [10, 20, 30, 50],
+    "atr_period": [10, 14, 21],
+    "atr_multiplier": [1.0, 1.5, 2.0, 2.5, 3.0],
+    "adx_threshold": [15.0, 20.0, 25.0, 30.0],
+    "sl_atr_multiplier": [1.5, 2.0, 2.5, 3.0],
+    "volume_ma_period": [20, 50],
 }
 
 SWEEP_BARS_SUBSET = 5000
@@ -228,7 +228,7 @@ def main() -> None:
                   f"DD={row.max_dd:.1%}, Sharpe={row.sharpe_ratio:.2f}, Trades={row.trade_count}")
 
     print(f"\n{'='*70}")
-    print(f"  WALK-FORWARD VALIDATION: Top 5 params per pair")
+    print("  WALK-FORWARD VALIDATION: Top 5 params per pair")
     print(f"{'='*70}")
 
     walkforward_results = {}
@@ -263,7 +263,7 @@ def main() -> None:
                       f"DD={wf_result.aggregated.mean_max_drawdown:.1%}, "
                       f"Sharpe={wf_result.aggregated.mean_sharpe_ratio:.2f}")
             else:
-                print(f"       NO-GO (no aggregated metrics)")
+                print("       NO-GO (no aggregated metrics)")
 
             pair_wf_results.append({
                 "params": params,
@@ -286,7 +286,7 @@ def main() -> None:
     print(f"\n  Combined sweep report: {combined_sweep_path}")
 
     print(f"\n{'='*70}")
-    print(f"  FINAL SUMMARY: Keltner Channel Breakout Walk-Forward")
+    print("  FINAL SUMMARY: Keltner Channel Breakout Walk-Forward")
     print(f"{'='*70}")
 
     for pair, wf_result in walkforward_results.items():
