@@ -342,7 +342,7 @@ class MultiStrategyBacktestEngine:
             - commission_cost
             + swap_cost
         )
-        self.balance += trade.profit_loss
+        self.balance = max(0.0, self.balance + trade.profit_loss)
 
         trade.outcome = (
             TradeOutcome.WIN
@@ -354,7 +354,7 @@ class MultiStrategyBacktestEngine:
 
         if self.balance > self.peak_balance:
             self.peak_balance = self.balance
-        drawdown = (self.peak_balance - self.balance) / self.peak_balance
+        drawdown = (self.peak_balance - self.balance) / self.peak_balance if self.peak_balance > 0 else 0.0
         if drawdown > self.max_drawdown:
             self.max_drawdown = drawdown
 
