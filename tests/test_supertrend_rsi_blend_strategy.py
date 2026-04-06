@@ -278,8 +278,11 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
         window_bars = bars[:-1]
         prev_current, prev_prev = strategy._calculate_supertrend(window_bars)
         self.assertIsNotNone(prev_prev)
-        self.assertEqual(prev_current, prev_st,
-                         "Shifted-window current must match full-window previous")
+        self.assertEqual(
+            prev_current,
+            prev_st,
+            "Shifted-window current must match full-window previous",
+        )
 
     def test_supertrend_insufficient_bars_returns_none(self):
         strategy = SupertrendRSIBlendStrategy()
