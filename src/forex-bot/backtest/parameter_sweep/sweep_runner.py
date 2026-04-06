@@ -46,7 +46,11 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
+        MomentumBreakoutStrategy,
+        CommodityTrendStrategy,
     )
+    from strategies.grid import GridStrategyAdapter
+    from strategies.grid.config import GridConfig
 
     registry: Dict[str, type] = {
         "MACrossStrategy": MACrossStrategy,
@@ -54,16 +58,48 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         "RSIStrategy": RSIStrategy,
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,
+        "MomentumBreakoutStrategy": MomentumBreakoutStrategy,
+        "CommodityTrendStrategy": CommodityTrendStrategy,
+        "GridStrategyAdapter": GridStrategyAdapter,
     }
     cls = registry.get(cls_name)
     if cls is None:
         raise ValueError(f"Unknown strategy class: {cls_name}")
+
+    if cls_name == "GridStrategyAdapter":
+        grid_config = GridConfig(
+            symbol=params.get("symbol", "EURUSD"),
+            grid_spacing=params.get("grid_spacing", 0.0015),
+            levels_per_side=params.get("levels_per_side", 5),
+            base_lot=params.get("base_lot", 0.1),
+            lot_sizes=params.get("lot_sizes", [0.10, 0.08, 0.06, 0.05, 0.04]),
+            take_profit_pips=params.get("take_profit_pips", 10.0),
+            pip_value=params.get("pip_value", 0.0001),
+            contract_size=params.get("contract_size", 100000.0),
+            spread=params.get("spread", 0.00005),
+        )
+        return cls(grid_config)
     return cls(**params)
 
 
 def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
+    from strategies.grid import GridStrategyAdapter
+
     params = {k: v for k, v in strategy.__dict__.items() if not k.startswith("_")}
     params["__class__"] = type(strategy).__name__
+
+    if isinstance(strategy, GridStrategyAdapter):
+        config = strategy.grid_config
+        params["symbol"] = config.symbol
+        params["grid_spacing"] = config.grid_spacing
+        params["levels_per_side"] = config.levels_per_side
+        params["base_lot"] = config.base_lot
+        params["lot_sizes"] = config.lot_sizes
+        params["take_profit_pips"] = config.take_profit_pips
+        params["pip_value"] = config.pip_value
+        params["contract_size"] = config.contract_size
+        params["spread"] = config.spread
+
     return params
 
 
