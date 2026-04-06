@@ -301,6 +301,179 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
         self.assertIsNone(prev_st)
 
 
+    def test_upper_band_clamped_to_previous_when_new_is_lower(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            atr_period=5,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(88)
+        n = 80
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(n):
+            price += np.random.normal(0, 0.001)
+            prices.append(price)
+        prices = np.array(prices)
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - 0.0002,
+                high=prices[i] + abs(np.random.normal(0, 0.001)),
+                low=prices[i] - abs(np.random.normal(0, 0.001)),
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(n)
+        ]
+
+        st_period = strategy.supertrend_period
+        atr_period = strategy.atr_period
+        multiplier = strategy.supertrend_multiplier
+
+        atr_values = []
+        for i in range(len(bars)):
+            if i < atr_period:
+                atr_values.append(0.0001)
+            else:
+                tr_sum = 0.0
+                for j in range(i - atr_period + 1, i + 1):
+                    if j > 0:
+                        tr = max(
+                            bars[j].high - bars[j].low,
+                            max(
+                                abs(bars[j].high - bars[j - 1].close),
+                                abs(bars[j].low - bars[j - 1].close),
+                            ),
+                        )
+                        tr_sum += tr
+                atr_values.append(tr_sum / atr_period)
+
+        hl2_list = [(b.high + b.low) / 2 for b in bars]
+        upper_bands = []
+        for i in range(len(bars)):
+            if i < st_period:
+                upper_bands.append(hl2_list[i] + atr_values[i] * multiplier)
+            else:
+                raw = hl2_list[i] + atr_values[i] * multiplier
+                prev = upper_bands[i - 1]
+                if raw < prev:
+                    upper_bands.append(prev)
+                else:
+                    upper_bands.append(raw)
+
+        clamped_count = sum(
+            1
+            for i in range(st_period, len(upper_bands))
+            if (hl2_list[i] + atr_values[i] * multiplier) < upper_bands[i - 1]
+        )
+        self.assertGreater(
+            clamped_count,
+            0,
+            "Test data must contain at least one bar where raw upper < prev upper to verify clamping",
+        )
+
+        for i in range(st_period, len(upper_bands)):
+            raw = hl2_list[i] + atr_values[i] * multiplier
+            expected = max(raw, upper_bands[i - 1])
+            self.assertAlmostEqual(
+                upper_bands[i],
+                expected,
+                places=10,
+                msg=f"Upper band at bar {i} not correctly clamped",
+            )
+
+    def test_lower_band_clamped_to_previous_when_new_is_higher(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            atr_period=5,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(99)
+        n = 80
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(n):
+            price += np.random.normal(0, 0.001)
+            prices.append(price)
+        prices = np.array(prices)
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - 0.0002,
+                high=prices[i] + abs(np.random.normal(0, 0.001)),
+                low=prices[i] - abs(np.random.normal(0, 0.001)),
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(n)
+        ]
+
+        st_period = strategy.supertrend_period
+        atr_period = strategy.atr_period
+        multiplier = strategy.supertrend_multiplier
+
+        atr_values = []
+        for i in range(len(bars)):
+            if i < atr_period:
+                atr_values.append(0.0001)
+            else:
+                tr_sum = 0.0
+                for j in range(i - atr_period + 1, i + 1):
+                    if j > 0:
+                        tr = max(
+                            bars[j].high - bars[j].low,
+                            max(
+                                abs(bars[j].high - bars[j - 1].close),
+                                abs(bars[j].low - bars[j - 1].close),
+                            ),
+                        )
+                        tr_sum += tr
+                atr_values.append(tr_sum / atr_period)
+
+        hl2_list = [(b.high + b.low) / 2 for b in bars]
+        lower_bands = []
+        for i in range(len(bars)):
+            if i < st_period:
+                lower_bands.append(hl2_list[i] - atr_values[i] * multiplier)
+            else:
+                raw = hl2_list[i] - atr_values[i] * multiplier
+                prev = lower_bands[i - 1]
+                if raw > prev:
+                    lower_bands.append(prev)
+                else:
+                    lower_bands.append(raw)
+
+        clamped_count = sum(
+            1
+            for i in range(st_period, len(lower_bands))
+            if (hl2_list[i] - atr_values[i] * multiplier) > lower_bands[i - 1]
+        )
+        self.assertGreater(
+            clamped_count,
+            0,
+            "Test data must contain at least one bar where raw lower > prev lower to verify clamping",
+        )
+
+        for i in range(st_period, len(lower_bands)):
+            raw = hl2_list[i] - atr_values[i] * multiplier
+            expected = min(raw, lower_bands[i - 1])
+            self.assertAlmostEqual(
+                lower_bands[i],
+                expected,
+                places=10,
+                msg=f"Lower band at bar {i} not correctly clamped",
+            )
+
+
 class TestSupertrendATRConsistency(unittest.TestCase):
     def test_supertrend_consistent_with_increasing_volatility(self):
         strategy = SupertrendRSIBlendStrategy(
