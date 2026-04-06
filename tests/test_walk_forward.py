@@ -191,9 +191,35 @@ class TestComputeMetrics(unittest.TestCase):
         from quant.walk_forward import _compute_metrics
 
         trades = _make_trades([100.0, -200.0, 50.0, -50.0])
-        m = _compute_metrics(0, trades)
+        m = _compute_metrics(0, trades, initial_balance=10000.0)
         self.assertGreater(m.max_drawdown, 0.0)
-        self.assertAlmostEqual(m.max_drawdown, 200.0)
+        self.assertLess(m.max_drawdown, 1.0)
+        expected_dd = 200.0 / 10100.0
+        self.assertAlmostEqual(m.max_drawdown, expected_dd, places=5)
+
+    def test_max_drawdown_with_custom_balance(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([100.0, -200.0, 50.0, -50.0])
+        m = _compute_metrics(0, trades, initial_balance=1000.0)
+        expected_dd = 200.0 / 1100.0
+        self.assertAlmostEqual(m.max_drawdown, expected_dd, places=5)
+
+    def test_max_drawdown_never_exceeds_one(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([-5000.0, -5000.0, -5000.0])
+        m = _compute_metrics(0, trades, initial_balance=10000.0)
+        self.assertLessEqual(m.max_drawdown, 1.0)
+        self.assertGreater(m.max_drawdown, 0.0)
+
+    def test_balance_floor_prevents_negative(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([-15000.0, -5000.0])
+        m = _compute_metrics(0, trades, initial_balance=10000.0)
+        self.assertLessEqual(m.max_drawdown, 1.0)
+        self.assertAlmostEqual(m.max_drawdown, 1.0, places=5)
 
     def test_profit_factor_no_losses(self):
         from quant.walk_forward import _compute_metrics

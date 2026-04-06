@@ -124,6 +124,7 @@ class WalkForwardValidator:
 def _compute_metrics(
     window_index: int,
     trades: list[dict[str, Any]],
+    initial_balance: float = 10000.0,
 ) -> WindowMetrics:
     if not trades:
         return WindowMetrics(
@@ -148,16 +149,17 @@ def _compute_metrics(
     total_pnl = sum(pnls)
     trade_count = len(pnls)
 
-    running_max = 0.0
+    balance = initial_balance
+    peak_balance = initial_balance
     max_dd = 0.0
-    cumulative = 0.0
     for p in pnls:
-        cumulative += p
-        if cumulative > running_max:
-            running_max = cumulative
-        dd = running_max - cumulative
-        if dd > max_dd:
-            max_dd = dd
+        balance = max(0.0, balance + p)
+        if balance > peak_balance:
+            peak_balance = balance
+        if peak_balance > 0:
+            dd = (peak_balance - balance) / peak_balance
+            if dd > max_dd:
+                max_dd = dd
 
     if trade_count < 2:
         sharpe_ratio = 0.0
@@ -232,7 +234,7 @@ def run_strategy(
             initial_balance=initial_balance,
             risk_per_trade_pct=risk_per_trade_pct,
         )
-        metrics = _compute_metrics(idx, trades)
+        metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
         per_window.append(metrics)
 
     aggregated = None

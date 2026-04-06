@@ -61,7 +61,7 @@ def run_strategy_walk_forward(
     per_window = []
     for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
         if len(test_bars) < config.min_bars_before_signal:
-            window_metrics = _compute_metrics(idx, [])
+            window_metrics = _compute_metrics(idx, [], initial_balance=initial_balance)
             per_window.append(window_metrics)
             continue
 
@@ -95,7 +95,7 @@ def run_strategy_walk_forward(
         except ValueError:
             trades = []
 
-        window_metrics = _compute_metrics(idx, trades)
+        window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
         per_window.append(window_metrics)
 
     aggregated = None
