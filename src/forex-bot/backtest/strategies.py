@@ -1092,7 +1092,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         supertrend_multiplier: float = 2.5,
         rsi_period: int = 14,
         rsi_threshold: float = 50.0,
-        atr_min_pips: float = 6.0,
+        atr_min_pips: float = 3.0,
         atr_period: int = 14,
         adx_period: int = 14,
         adx_min: float = 18.0,
@@ -1283,6 +1283,13 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
             prev_supertrend = supertrend_list[i - 1]
 
             if prev_supertrend == 1.0:
+                upper_band_list[i] = prev_upper
+                lower_band_list[i] = max(lower_band_list[i], prev_lower)
+            else:
+                upper_band_list[i] = min(upper_band_list[i], prev_upper)
+                lower_band_list[i] = prev_lower
+
+            if prev_supertrend == 1.0:
                 if bars[i].close < lower_band_list[i]:
                     supertrend_list[i] = -1.0
                 else:
@@ -1455,9 +1462,9 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         ema_period: int = 20,
         atr_period: int = 14,
         atr_multiplier: float = 1.5,
-        atr_min_pips: float = 5.0,
+        atr_min_pips: float = 2.0,
         adx_period: int = 14,
-        adx_threshold: float = 15.0,
+        adx_threshold: float = 12.0,
         volume_ma_period: int = 20,
         use_volume_filter: bool = False,
         sl_atr_multiplier: float = 1.5,
