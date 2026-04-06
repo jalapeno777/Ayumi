@@ -1,5 +1,4 @@
 import socket
-import os
 import ssl
 import threading
 import time
@@ -33,7 +32,8 @@ class FIXMessage:
     def __init__(self, msg_type: Optional[str] = None):
         self.fields: Dict[int, str] = {}
         self._body_fields: Dict[int, str] = {}
-        self._body_field_list: list = []  # ordered (tag, value) for repeating groups
+        self._body_field_list: list = []
+        self._raw_fields: list = []
         if msg_type:
             self.fields[35] = msg_type
 
@@ -54,14 +54,11 @@ class FIXMessage:
         """Serialize to FIX wire format with proper header order and SOH separators."""
         now = datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S")
 
-        # Body string (all body fields terminated by SOH, preserving order for repeating groups)
         body_parts = []
         for tag, value in self._body_field_list:
             body_parts.append(f"{int(tag)}={value}{SOH}")
         body_str = "".join(body_parts)
 
-        # Message portion (header fields after tag-9, through body)
-        # Order per Spotware: 35, 49, 56, 57, 50, 34, 52
         message_parts = [
             f"35={self.fields.get(35, '')}{SOH}",
             f"49={self.fields.get(49, '')}{SOH}",
@@ -74,16 +71,12 @@ class FIXMessage:
         ]
         message_str = "".join(message_parts)
 
-        # BodyLength = byte count of message_str
         body_length = len(message_str.encode("ascii"))
 
-        # Header: BeginString + BodyLength
         header_str = f"8=FIX.4.4{SOH}9={body_length}{SOH}"
 
-        # Full message without checksum
         msg_without_checksum = header_str + message_str
 
-        # Checksum over all bytes before tag-10
         checksum = sum(msg_without_checksum.encode("ascii")) % 256
 
         return f"{msg_without_checksum}10={checksum:03d}{SOH}"
@@ -96,7 +89,6 @@ class FIXMessage:
         AND preserves raw field list in _raw_fields for repeating group parsing.
         """
         msg = cls()
-        msg._raw_fields = []  # list of (tag, value) tuples preserving order
         for field in data.split(SOH):
             if "=" in field:
                 tag_str, value = field.split("=", 1)
@@ -193,12 +185,17 @@ class FIXClient:
 
             if self.credentials.use_ssl:
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
+                if self.credentials.verify_ssl:
+                    ctx.check_hostname = True
+                    ctx.verify_mode = ssl.CERT_REQUIRED
+                else:
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    logger.warning("SSL verification disabled — verify_ssl=False")
                 self._socket = ctx.wrap_socket(self._socket, server_hostname=host)
 
             self._socket.connect((host, port))
-            self._socket.settimeout(None)  # blocking for recv loop
+            self._socket.settimeout(None)
 
             self._running = True
             self._recv_thread = threading.Thread(target=self._recv_loop, daemon=True)
@@ -252,11 +249,9 @@ class FIXClient:
         """
         text = buffer.decode("latin-1", errors="replace")
         while True:
-            # Find end of message: 10=XXX\x01
             idx = text.find("10=")
             if idx == -1:
                 break
-            # Find the SOH after checksum
             end = text.find(SOH, idx + 4)
             if end == -1:
                 break
@@ -369,7 +364,6 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
         msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
-        # Body fields
         msg.set_body_field(98, "0")  # EncryptMethod = NONE
         msg.set_body_field(108, str(self._heartbeat_interval))
         msg.set_body_field(141, "Y")  # ResetSeqNumFlag
@@ -378,7 +372,10 @@ class FIXClient:
 
         wire = msg.to_wire()
         logger.info(f"Sending logon ({len(wire)} bytes)")
-        return self._send_raw(wire)
+        sent = self._send_raw(wire)
+        if sent:
+            self._next_outgoing_seq += 1
+        return sent
 
     def _send_logout(self):
         msg = FIXMessage(msg_type=self.MSG_TYPE_LOGOUT)
@@ -426,7 +423,10 @@ class FIXClient:
         now = time.time()
         if now - self._last_heartbeat_sent > self._heartbeat_interval:
             self._send_heartbeat()
-        if self._last_heartbeat_received > 0 and now - self._last_heartbeat_received > self._heartbeat_interval * 3:
+        if (
+            self._last_heartbeat_received > 0
+            and now - self._last_heartbeat_received > self._heartbeat_interval * 3
+        ):
             logger.warning("Heartbeat timeout - connection may be lost")
 
     def send_order(

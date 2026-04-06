@@ -39,6 +39,9 @@ class Tick:
     def mid(self) -> float:
         return (self.bid + self.ask) / 2
 
+    def __repr__(self) -> str:
+        return f"Tick(symbol_id={self.symbol_id}, bid={self.bid}, ask={self.ask})"
+
 
 @dataclass
 class SymbolInfo:
@@ -281,9 +284,11 @@ class LiveMarketDataFeed:
         else:
             bid = None
             ask = None
-            # Group fields by their position in the repeating group
+            seen_symbol_ids = set()
             current_type = None
             for tag, value in raw_fields:
+                if tag == 55:
+                    seen_symbol_ids.add(int(value))
                 if tag == 269:
                     current_type = value
                 elif tag == 270 and current_type is not None:
@@ -293,6 +298,12 @@ class LiveMarketDataFeed:
                     elif current_type == "1":
                         ask = px
                     current_type = None  # reset for next entry
+
+            if len(seen_symbol_ids) > 1:
+                logger.warning(
+                    f"Multi-symbol snapshot received (symbols={seen_symbol_ids}), "
+                    f"only first symbol {symbol_id} will be used"
+                )
 
         if bid is None or ask is None:
             logger.debug(f"Incomplete tick for symbol {symbol_id}: bid={bid}, ask={ask}")
