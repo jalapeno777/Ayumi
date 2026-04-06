@@ -1095,7 +1095,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         atr_min_pips: float = 3.0,
         atr_period: int = 14,
         adx_period: int = 14,
-        adx_min: float = 18.0,
+        adx_min: float = 15.0,
         atr_min_chop: float = 2.0,
         sl_atr_multiplier: float = 1.5,
         hard_cap_pips: float = 40.0,
