@@ -12,7 +12,7 @@ from adapters.ctrader.risk_guard import (
 class TestFTMOConfig:
     def test_default_config(self):
         config = FTMOConfig()
-        assert config.daily_loss_limit_pct == 0.03
+        assert config.daily_loss_limit_pct == 0.05
         assert config.total_drawdown_limit_pct == 0.10
         assert config.max_trades_per_day == 10
         assert config.max_positions == 3

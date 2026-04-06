@@ -31,7 +31,7 @@ class RiskLimitResult:
 
 @dataclass
 class FTMOConfig:
-    daily_loss_limit_pct: float = 0.03
+    daily_loss_limit_pct: float = 0.05
     total_drawdown_limit_pct: float = 0.10
     max_trades_per_day: int = 10
     max_positions: int = 3
