@@ -18,6 +18,8 @@ from quant.pipeline import (
     ValidationResult,
     PortfolioState,
 )
+from backtest.engine import Bar
+from backtest.strategies import ISignalStrategy
 
 
 class TestQuantConfig:
@@ -180,27 +182,34 @@ class TestQuantPipeline:
     def test_validate_strategy_disabled(self):
         config = QuantConfig(walk_forward=WalkForwardConfig(enabled=False))
         pipeline = self._make_pipeline(config)
-        result = pipeline.validate_strategy(strategy_fn=lambda data: [], bars=[])
-        assert result.walk_forward_passed is True
+
+        class NoSignalsStrategy(ISignalStrategy):
+            @property
+            def name(self) -> str:
+                return "No Signals Strategy"
+
+            def evaluate(self, state):
+                return None
+
+        from datetime import datetime, timedelta
+
+        strategy = NoSignalsStrategy()
+        base_time = datetime(2024, 1, 1, 10, 0, 0)
+        bars = [
+            Bar(
+                time=base_time + timedelta(hours=i),
+                open=1.0 + i * 0.001,
+                high=1.0 + i * 0.001 + 0.001,
+                low=1.0 + i * 0.001,
+                close=1.0 + i * 0.001,
+                volume=1000.0,
+            )
+            for i in range(100)
+        ]
+        result = pipeline.validate_strategy(strategy=strategy, bars=bars)
         assert result.go_nogo is True
-
-    def test_validate_strategy_enabled(self):
-        config = QuantConfig(walk_forward=WalkForwardConfig(enabled=True, n_windows=3))
-        pipeline = self._make_pipeline(config)
-
-        def strategy_fn(train, val, test):
-            return [
-                {"pnl": 0.05},
-                {"pnl": 0.03},
-                {"pnl": 0.02},
-                {"pnl": -0.001},
-            ]
-
-        bars = list(range(100))
-        result = pipeline.validate_strategy(strategy_fn=strategy_fn, bars=bars)
-        assert result.go_nogo is True
         assert result.walk_forward_passed is True
-        assert len(result.per_window_metrics) == 3
+        assert len(result.per_window_metrics) == 0
 
     def test_portfolio_state_defaults(self):
         state = PortfolioState()

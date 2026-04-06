@@ -1,0 +1,30 @@
+Loading EURUSD data from /home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv
+Loaded 17877 bars: 2023-01-01 17:00:00 to 2025-12-31 16:00:00
+Strategy: keltner | Pair: EURUSD | Windows: 5
+Train ratio: 70% | Spread: 1.5 pips
+
+======================================================================
+  WALK-FORWARD RESULTS: keltner on EURUSD
+======================================================================
+  Windows: 5
+  GO/NO-GO: NO-GO
+
+  Aggregate Metrics:
+    Win Rate:       0.00% (std 0.00%)
+    Profit Factor:  0.00 (std 0.00)
+    Max Drawdown:   0.00% (std 0.00%)
+    Sharpe Ratio:   0.00 (std 0.00)
+    Trade Count:    0 (std 0)
+    Total PnL:      $0.00 (std $0.00)
+    Windows Passed: 0/5
+
+  Per-Window Details:
+  Win            PF    MaxDD   Sharpe   Trades          PnL    GO?
+  0.00%        0.00    0.00%     0.00        0 $      0.00     NO
+  0.00%        0.00    0.00%     0.00        0 $      0.00     NO
+  0.00%        0.00    0.00%     0.00        0 $      0.00     NO
+  0.00%        0.00    0.00%     0.00        0 $      0.00     NO
+  0.00%        0.00    0.00%     0.00        0 $      0.00     NO
+======================================================================
+
+  Report saved: keltner_e5window.json
