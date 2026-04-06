@@ -1270,16 +1270,11 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
 
             prev_upper = upper_band_list[i - 1]
             prev_lower = lower_band_list[i - 1]
-            prev_close = bars[i - 1].close
 
-            if upper_band_list[i] > prev_upper or prev_close > prev_upper:
-                upper_band_list[i] = upper_band_list[i]
-            else:
+            if upper_band_list[i] < prev_upper:
                 upper_band_list[i] = prev_upper
 
-            if lower_band_list[i] < prev_lower or prev_close < prev_lower:
-                lower_band_list[i] = lower_band_list[i]
-            else:
+            if lower_band_list[i] > prev_lower:
                 lower_band_list[i] = prev_lower
 
             prev_supertrend = supertrend_list[i - 1]
