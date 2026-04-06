@@ -1,0 +1,77 @@
+{
+  "strategy": "session_range_mr",
+  "pair": "EURUSD",
+  "n_windows": 5,
+  "train_ratio": 0.7,
+  "spread_pips": 1.5,
+  "initial_balance": 10000,
+  "go_nogo": true,
+  "per_window": [
+    {
+      "window_index": 0,
+      "win_rate": 0.75,
+      "profit_factor": 3.551472192102825,
+      "max_drawdown": 0.0109116693679093,
+      "sharpe_ratio": 10.243570718271839,
+      "trade_count": 12,
+      "total_pnl": 853.7190507622473,
+      "passed_go_nogo": true
+    },
+    {
+      "window_index": 1,
+      "win_rate": 1.0,
+      "profit_factor": Infinity,
+      "max_drawdown": 0.0,
+      "sharpe_ratio": 0.0,
+      "trade_count": 1,
+      "total_pnl": 127.34524569240523,
+      "passed_go_nogo": true
+    },
+    {
+      "window_index": 2,
+      "win_rate": 0.2222222222222222,
+      "profit_factor": 0.3290906967820949,
+      "max_drawdown": 0.051039759992399965,
+      "sharpe_ratio": -8.727692136230706,
+      "trade_count": 9,
+      "total_pnl": -498.93851201330193,
+      "passed_go_nogo": false
+    },
+    {
+      "window_index": 3,
+      "win_rate": 0.5714285714285714,
+      "profit_factor": 1.613736744342161,
+      "max_drawdown": 0.0211135235616864,
+      "sharpe_ratio": 3.5338435189920743,
+      "trade_count": 7,
+      "total_pnl": 199.36451659072867,
+      "passed_go_nogo": true
+    },
+    {
+      "window_index": 4,
+      "win_rate": 0.6666666666666666,
+      "profit_factor": 2.3478964165840015,
+      "max_drawdown": 0.021184199475864786,
+      "sharpe_ratio": 6.558125729624004,
+      "trade_count": 9,
+      "total_pnl": 442.2265287464339,
+      "passed_go_nogo": true
+    }
+  ],
+  "aggregated": {
+    "mean_win_rate": 0.6420634920634921,
+    "std_win_rate": 0.2835622213619506,
+    "mean_profit_factor": Infinity,
+    "std_profit_factor": NaN,
+    "mean_max_drawdown": 0.02084983047957209,
+    "std_max_drawdown": 0.01900720690925558,
+    "mean_sharpe_ratio": 2.321569566131442,
+    "std_sharpe_ratio": 7.239682105165246,
+    "mean_trade_count": 7.6,
+    "std_trade_count": 4.09878030638384,
+    "mean_total_pnl": 224.74336595570267,
+    "std_total_pnl": 494.1546515267211,
+    "windows_passed": 4,
+    "total_windows": 5
+  }
+}
