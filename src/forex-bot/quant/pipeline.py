@@ -21,6 +21,7 @@ from .regime import (
     trend_regime as calc_trend_regime,
     combined_regime as calc_combined_regime,
 )
+
 if TYPE_CHECKING:
     from backtest.engine import Bar
     from backtest.strategies import ISignalStrategy

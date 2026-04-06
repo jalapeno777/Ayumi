@@ -387,7 +387,9 @@ class TestSupertrendATRConsistency(unittest.TestCase):
 
         for step in range(1, 6):
             full_st, full_prev = strategy._calculate_supertrend(bars[: n - step])
-            shifted_st, shifted_prev = strategy._calculate_supertrend(bars[: n - step - 1])
+            shifted_st, shifted_prev = strategy._calculate_supertrend(
+                bars[: n - step - 1]
+            )
             self.assertEqual(
                 shifted_st,
                 full_prev,

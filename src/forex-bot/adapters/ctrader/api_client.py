@@ -425,7 +425,10 @@ class FIXClient:
         now = time.time()
         if now - self._last_heartbeat_sent > self._heartbeat_interval:
             self._send_heartbeat()
-        if self._last_heartbeat_received > 0 and now - self._last_heartbeat_received > self._heartbeat_interval * 3:
+        if (
+            self._last_heartbeat_received > 0
+            and now - self._last_heartbeat_received > self._heartbeat_interval * 3
+        ):
             logger.warning("Heartbeat timeout - connection may be lost")
 
     def send_order(
