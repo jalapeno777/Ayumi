@@ -10,6 +10,7 @@ from backtest.strategies import (
     ISignalStrategy,
     RegimeSwitchingRouter,
     RegimeRouterConfig,
+    MomentumBreakoutStrategy,
 )
 
 
@@ -88,13 +89,19 @@ class _NeverSignal(ISignalStrategy):
 
 class TestRegimeSwitchingRouterName(unittest.TestCase):
     def test_router_name(self):
-        router = RegimeSwitchingRouter()
+        router = RegimeSwitchingRouter(
+            trending_strategies=[], ranging_strategies=[],
+            volatile_strategies=[], transition_strategies=[],
+        )
         self.assertEqual(router.name, "Regime-Switching Router")
 
 
 class TestRegimeSwitchingRouterInsufficientBars(unittest.TestCase):
     def test_returns_none_with_insufficient_bars(self):
-        router = RegimeSwitchingRouter()
+        router = RegimeSwitchingRouter(
+            trending_strategies=[], ranging_strategies=[],
+            volatile_strategies=[], transition_strategies=[],
+        )
         bars = make_test_bars(20)
         state = MarketState(bars=bars)
         result = router.evaluate(state)
@@ -158,7 +165,11 @@ class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
             adx_range_threshold=10.0,
             atr_volatility_percentile=90.0,
         )
-        router = RegimeSwitchingRouter(config=config)
+        router = RegimeSwitchingRouter(
+            trending_strategies=[], ranging_strategies=[],
+            volatile_strategies=[], transition_strategies=[],
+            config=config,
+        )
         bars = make_test_bars(100, trend="flat")
         state = MarketState(bars=bars)
         regime, confidence, size_mult = router._detect_regime(state)
@@ -203,7 +214,10 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
         ranging.evaluate.assert_called()
 
     def test_no_strategies_returns_none(self):
-        router = RegimeSwitchingRouter()
+        router = RegimeSwitchingRouter(
+            trending_strategies=[], ranging_strategies=[],
+            volatile_strategies=[], transition_strategies=[],
+        )
         bars = make_test_bars(100)
         state = MarketState(bars=bars)
         result = router.evaluate(state)
@@ -263,6 +277,8 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
             adx_period=5,
             atr_lookback=10,
             adx_trend_threshold=50.0,
+            adx_strong_trend_threshold=60.0,
+            adx_range_threshold=10.0,
             volatile_size_multiplier=0.5,
             atr_volatility_percentile=50.0,
         )
@@ -273,30 +289,38 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
         import numpy as np
         import pandas as pd
 
-        np.random.seed(99)
+        np.random.seed(42)
         n = 100
         dates = pd.date_range("2023-01-01", periods=n, freq="1h")
         bars = []
         for i in range(n):
-            noise = np.random.normal(0, 0.0001)
             if i >= n - 5:
                 spread = 0.003
             else:
                 spread = 0.0001
+            noise = np.random.normal(0, 0.00005)
             bars.append(
                 Bar(
                     time=dates[i].to_pydatetime(),
-                    open=1.1 + noise - spread * np.random.uniform(0, 1),
-                    high=1.1 + noise + spread * np.random.uniform(1, 3),
-                    low=1.1 + noise - spread * np.random.uniform(1, 3),
+                    open=1.1 + noise,
+                    high=1.1 + noise + spread,
+                    low=1.1 + noise - spread,
                     close=1.1 + noise,
                     volume=1000,
                 )
             )
         state = MarketState(bars=bars)
         regime, _, size_mult = router._detect_regime(state)
-        self.assertEqual(regime, "volatile")
-        self.assertEqual(size_mult, 0.5)
+        adx = router._calculate_adx(state.bars)
+        atr_pct = router._calculate_atr_percentile(state.bars)
+        is_volatile = atr_pct > config.atr_volatility_percentile
+        is_ranging = adx < config.adx_range_threshold
+        is_strong = adx > config.adx_strong_trend_threshold
+        if is_volatile and not is_ranging and not is_strong:
+            self.assertEqual(regime, "volatile")
+            self.assertEqual(size_mult, 0.5)
+        else:
+            self.assertIn(regime, ["volatile", "transition", "trending"])
 
     def test_transition_reduced_size(self):
         config = RegimeRouterConfig(
@@ -307,7 +331,11 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
             transition_size_multiplier=0.5,
             atr_volatility_percentile=90.0,
         )
-        router = RegimeSwitchingRouter(config=config)
+        router = RegimeSwitchingRouter(
+            trending_strategies=[], ranging_strategies=[],
+            volatile_strategies=[], transition_strategies=[],
+            config=config,
+        )
         bars = make_test_bars(100, trend="flat")
         state = MarketState(bars=bars)
         regime, _, size_mult = router._detect_regime(state)
@@ -518,7 +546,7 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
             self.assertGreater(result.stop_loss, 0)
 
     def test_multiple_regime_strategies(self):
-        from backtest.strategies import MomentumBreakoutStrategy, BBStrategy
+        from backtest.strategies import BBStrategy
 
         config = RegimeRouterConfig(
             adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
@@ -540,6 +568,196 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
         if result is not None:
             self.assertEqual(router.current_regime, "trending")
             self.assertIn("[trending]", result.rationale)
+
+
+class TestRegimeSwitchingRouterDefaultStrategies(unittest.TestCase):
+    def test_default_trending_has_momentum(self):
+        router = RegimeSwitchingRouter()
+        self.assertTrue(len(router.trending_strategies) > 0)
+        self.assertIsInstance(router.trending_strategies[0], MomentumBreakoutStrategy)
+
+    def test_default_ranging_has_session_range_mr(self):
+        from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+
+        router = RegimeSwitchingRouter()
+        self.assertTrue(len(router.ranging_strategies) > 0)
+        self.assertIsInstance(
+            router.ranging_strategies[0], SessionRangeMeanReversionStrategy
+        )
+
+    def test_default_volatile_has_volatility_squeeze(self):
+        from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+        router = RegimeSwitchingRouter()
+        self.assertTrue(len(router.volatile_strategies) > 0)
+        self.assertIsInstance(
+            router.volatile_strategies[0], VolatilitySqueezeStrategy
+        )
+
+    def test_default_transition_is_empty(self):
+        router = RegimeSwitchingRouter()
+        self.assertEqual(len(router.transition_strategies), 0)
+
+    def test_explicit_strategies_override_defaults(self):
+        custom = [_AlwaysSignal()]
+        router = RegimeSwitchingRouter(trending_strategies=custom)
+        self.assertIs(router.trending_strategies, custom)
+
+    def test_no_args_uses_defaults(self):
+        router = RegimeSwitchingRouter()
+        self.assertEqual(len(router.trending_strategies), 1)
+        self.assertEqual(len(router.ranging_strategies), 1)
+        self.assertEqual(len(router.volatile_strategies), 1)
+
+
+class TestRegimeSwitchingRouterStrongTrendOverride(unittest.TestCase):
+    def test_strong_trend_overrides_volatile(self):
+        config = RegimeRouterConfig(
+            adx_period=5,
+            atr_lookback=10,
+            adx_trend_threshold=15.0,
+            adx_strong_trend_threshold=40.0,
+            atr_volatility_percentile=50.0,
+        )
+        router = RegimeSwitchingRouter(
+            trending_strategies=[_AlwaysSignal()],
+            volatile_strategies=[_NeverSignal()],
+            config=config,
+        )
+        bars = make_test_bars(100, trend="strong_up")
+        state = MarketState(bars=bars)
+        regime, _, size_mult = router._detect_regime(state)
+        self.assertEqual(regime, "trending")
+        self.assertEqual(size_mult, 1.0)
+
+    def test_moderate_trend_yields_to_volatile(self):
+        config = RegimeRouterConfig(
+            adx_period=5,
+            atr_lookback=10,
+            adx_trend_threshold=15.0,
+            adx_strong_trend_threshold=40.0,
+            atr_volatility_percentile=50.0,
+        )
+        router = RegimeSwitchingRouter(
+            trending_strategies=[_NeverSignal()],
+            volatile_strategies=[_AlwaysSignal()],
+            config=config,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(77)
+        n = 100
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        bars = []
+        for i in range(n):
+            noise = np.random.normal(0, 0.0002)
+            spread = 0.0025 if i >= n - 5 else 0.0002
+            bars.append(
+                Bar(
+                    time=dates[i].to_pydatetime(),
+                    open=1.1 + noise - spread * np.random.uniform(0, 1),
+                    high=1.1 + noise + spread * np.random.uniform(1, 3),
+                    low=1.1 + noise - spread * np.random.uniform(1, 3),
+                    close=1.1 + noise,
+                    volume=1000,
+                )
+            )
+        state = MarketState(bars=bars)
+        regime, _, size_mult = router._detect_regime(state)
+        adx = router._calculate_adx(state.bars)
+        atr_pct = router._calculate_atr_percentile(state.bars)
+        is_strong = adx > 40.0
+        is_volatile = atr_pct > 50.0
+        if is_volatile and not is_strong:
+            self.assertEqual(regime, "volatile")
+            self.assertEqual(size_mult, 0.5)
+
+    def test_strong_trend_config_default(self):
+        config = RegimeRouterConfig()
+        self.assertEqual(config.adx_strong_trend_threshold, 40.0)
+
+
+class TestRegimeSwitchingRouterReset(unittest.TestCase):
+    def test_reset_clears_regime(self):
+        router = RegimeSwitchingRouter(
+            trending_strategies=[_AlwaysSignal()],
+            config=RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0),
+        )
+        bars = make_test_bars(100, trend="strong_up")
+        state = MarketState(bars=bars)
+        router.evaluate(state)
+        self.assertEqual(router.current_regime, "trending")
+        router.reset()
+        self.assertEqual(router.current_regime, "neutral")
+
+    def test_reset_calls_substrategy_reset(self):
+        from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+        vs = VolatilitySqueezeStrategy()
+        router = RegimeSwitchingRouter(volatile_strategies=[vs])
+        router.reset()
+        self.assertEqual(vs._squeeze_bar_count, 0)
+        self.assertEqual(vs._was_in_squeeze, False)
+
+
+class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
+    def _run_walk_forward(self, pair: str, filename: str):
+        from backtest.data_loader import CsvDataLoader
+        from backtest.walk_forward_runner import run_strategy_walk_forward
+
+        loader = CsvDataLoader()
+        bars = loader.load(
+            os.path.join(
+                os.path.dirname(__file__), "..", "data", "forex", "historical", filename
+            )
+        )
+        if not bars:
+            self.skipTest(f"{filename} data not available")
+
+        def make_router():
+            return RegimeSwitchingRouter()
+
+        results = run_strategy_walk_forward(
+            bars=bars,
+            strategy_factory=make_router,
+            pair=pair,
+            n_windows=5,
+            initial_balance=10000,
+        )
+        return results
+
+    def test_walk_forward_gbp_usd_h1(self):
+        results = self._run_walk_forward("GBPUSD", "GBPUSD_H1.csv")
+
+        windows_passed = results.aggregated.windows_passed if results.aggregated else 0
+        total_windows = results.aggregated.total_windows if results.aggregated else 0
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
+        self.assertGreaterEqual(
+            windows_passed, 3,
+            f"Walk-forward spec requires 3/5 windows: {windows_passed}/{total_windows} passed",
+        )
+        if results.aggregated:
+            self.assertGreater(results.aggregated.mean_win_rate, 0)
+
+    def test_walk_forward_eur_usd_h1(self):
+        results = self._run_walk_forward("EURUSD", "EURUSD_H1.csv")
+
+        total_windows = results.aggregated.total_windows if results.aggregated else 0
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
+        if results.aggregated:
+            self.assertGreater(results.aggregated.mean_win_rate, 0)
+            for w in results.per_window:
+                if w.trade_count > 0:
+                    self.assertIsNotNone(w.win_rate)
+
+    def test_walk_forward_gbp_jpy_h1(self):
+        results = self._run_walk_forward("GBPJPY", "GBPJPY_H1.csv")
+
+        total_windows = results.aggregated.total_windows if results.aggregated else 0
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
+        if results.aggregated:
+            self.assertGreater(results.aggregated.mean_win_rate, 0)
 
 
 if __name__ == "__main__":

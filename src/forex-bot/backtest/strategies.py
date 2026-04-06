@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
+
+if TYPE_CHECKING:
+    pass
 
 
 class ISignalStrategy:
@@ -1708,6 +1713,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
 @dataclass(frozen=True)
 class RegimeRouterConfig:
     adx_trend_threshold: float = 25.0
+    adx_strong_trend_threshold: float = 40.0
     adx_range_threshold: float = 20.0
     atr_volatility_percentile: float = 75.0
     atr_lookback: int = 50
@@ -1719,6 +1725,22 @@ class RegimeRouterConfig:
     min_confidence: float = 0.55
 
 
+def _default_trending_strategies() -> List[ISignalStrategy]:
+    return [MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0)]
+
+
+def _default_ranging_strategies() -> List[ISignalStrategy]:
+    from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+
+    return [SessionRangeMeanReversionStrategy()]
+
+
+def _default_volatile_strategies() -> List[ISignalStrategy]:
+    from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+    return [VolatilitySqueezeStrategy()]
+
+
 class RegimeSwitchingRouter(ISignalStrategy):
     def __init__(
         self,
@@ -1728,11 +1750,11 @@ class RegimeSwitchingRouter(ISignalStrategy):
         transition_strategies: Optional[List[ISignalStrategy]] = None,
         config: Optional[RegimeRouterConfig] = None,
     ):
-        self.trending_strategies = trending_strategies or []
-        self.ranging_strategies = ranging_strategies or []
-        self.volatile_strategies = volatile_strategies or []
-        self.transition_strategies = transition_strategies or []
         self.config = config or RegimeRouterConfig()
+        self.trending_strategies = trending_strategies or _default_trending_strategies()
+        self.ranging_strategies = ranging_strategies or _default_ranging_strategies()
+        self.volatile_strategies = volatile_strategies or _default_volatile_strategies()
+        self.transition_strategies = transition_strategies or []
         self._current_regime: str = "neutral"
 
     @property
@@ -1742,6 +1764,17 @@ class RegimeSwitchingRouter(ISignalStrategy):
     @property
     def current_regime(self) -> str:
         return self._current_regime
+
+    def reset(self) -> None:
+        for strategy in (
+            self.trending_strategies
+            + self.ranging_strategies
+            + self.volatile_strategies
+            + self.transition_strategies
+        ):
+            if hasattr(strategy, "reset") and callable(strategy.reset):
+                strategy.reset()
+        self._current_regime = "neutral"
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
         if len(state.bars) < self.config.adx_period + self.config.atr_lookback + 1:
@@ -1784,10 +1817,14 @@ class RegimeSwitchingRouter(ISignalStrategy):
         atr_percentile = self._calculate_atr_percentile(state.bars)
 
         is_trending = adx > self.config.adx_trend_threshold
+        is_strong_trending = adx > self.config.adx_strong_trend_threshold
         is_ranging = adx < self.config.adx_range_threshold
         is_volatile = atr_percentile > self.config.atr_volatility_percentile
 
-        if is_volatile and not is_ranging:
+        if is_strong_trending:
+            regime = "trending"
+            size_mult = self.config.trending_size_multiplier
+        elif is_volatile and not is_ranging:
             regime = "volatile"
             size_mult = self.config.volatile_size_multiplier
         elif is_trending:
@@ -1801,7 +1838,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             size_mult = self.config.transition_size_multiplier
 
         raw_confidence = 0.0
-        if is_trending:
+        if is_strong_trending or is_trending:
             raw_confidence = min(adx / 50.0, 1.0)
         elif is_ranging:
             raw_confidence = min(
