@@ -1,4 +1,5 @@
 import socket
+import os
 import ssl
 import threading
 import time
@@ -60,8 +61,8 @@ class FIXMessage:
 
 class FIXClient:
     PROTOCOL_VERSION = "FIX.4.4"
-    DEFAULT_PORT = 5201
-    SSL_PORT = 5211
+    DEFAULT_PORT = int(os.environ.get("CTRADER_READONLY_PORT", "5201"))
+    SSL_PORT = int(os.environ.get("CTRADER_READONLY_SSL_PORT", "5211"))
 
     MSG_TYPE_LOGON = "A"
     MSG_TYPE_LOGOUT = "5"
