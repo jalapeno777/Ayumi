@@ -646,7 +646,9 @@ class FIXClient:
 
         with self._lock:
             self._pending_orders.pop(order_id, None)
-        logger.error(f"Failed to send order: {order_id} {direction.value} {volume} {symbol}")
+        logger.error(
+            f"Failed to send order: {order_id} {direction.value} {volume} {symbol}"
+        )
         return None
 
     def cancel_order(self, order_id: str) -> bool:

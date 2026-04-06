@@ -152,9 +152,7 @@ class TestFIXClientExecutionReport:
         msg.fields[58] = "User requested"
 
         cancelled = []
-        client.register_callback(
-            "on_order_cancelled", lambda o, m: cancelled.append(o)
-        )
+        client.register_callback("on_order_cancelled", lambda o, m: cancelled.append(o))
         client._handle_execution_report(msg)
 
         assert order.status == OrderStatus.CANCELLED
@@ -208,9 +206,7 @@ class TestFIXClientExecutionReport:
         msg.fields[39] = "6"
 
         cancelled = []
-        client.register_callback(
-            "on_order_cancelled", lambda o, m: cancelled.append(o)
-        )
+        client.register_callback("on_order_cancelled", lambda o, m: cancelled.append(o))
         client._handle_execution_report(msg)
 
         assert order.status == OrderStatus.CANCELLED
@@ -456,7 +452,9 @@ class TestOrderManagerLiveExecution:
 
         OrderManager(api_client=mock_api)
 
-        registered_events = [call.args[0] for call in mock_api.register_callback.call_args_list]
+        registered_events = [
+            call.args[0] for call in mock_api.register_callback.call_args_list
+        ]
         assert "on_order_filled" in registered_events
         assert "on_order_rejected" in registered_events
         assert "on_order_cancelled" in registered_events
@@ -507,7 +505,9 @@ class TestOrderManagerLiveExecution:
         async_callback(filled_order, MagicMock())
 
         callbacks_fired = []
-        manager.register_callback("on_order_filled", lambda o: callbacks_fired.append(o))
+        manager.register_callback(
+            "on_order_filled", lambda o: callbacks_fired.append(o)
+        )
         assert len(callbacks_fired) == 0
 
 
@@ -553,7 +553,9 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
+        trader = PaperTrader(
+            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
+        )
         signal = _make_signal()
         result = trader.process_signal(signal)
 
@@ -568,7 +570,9 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
+        trader = PaperTrader(
+            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
+        )
         signal = _make_signal()
         result = trader.process_signal(signal)
 
@@ -578,7 +582,9 @@ class TestPaperTraderLiveMode:
     def test_process_signal_risk_guard_blocks_live_order(self):
         mock_api = self._make_live_api_mock()
         config = FTMOConfig(min_risk_reward=5.0)
-        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
+        trader = PaperTrader(
+            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
+        )
         signal = _make_signal(
             entry_price=1.1000,
             stop_loss=1.0990,
@@ -607,7 +613,9 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
+        trader = PaperTrader(
+            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
+        )
         signal = _make_signal()
         trader.process_signal(signal)
 
@@ -699,8 +707,12 @@ class TestFIXClientMultipleCallbacks:
         from adapters.ctrader.models import cTraderCredentials
 
         creds = cTraderCredentials(
-            host="localhost", port=5202, use_ssl=False,
-            sender_comp_id="test", username="12345", password="pass",
+            host="localhost",
+            port=5202,
+            use_ssl=False,
+            sender_comp_id="test",
+            username="12345",
+            password="pass",
         )
         client = FIXClient(creds)
 
@@ -709,8 +721,11 @@ class TestFIXClientMultipleCallbacks:
         client.register_callback("on_order_filled", lambda o, m: calls.append("second"))
 
         order = Order(
-            order_id="MULTI_001", symbol="EURUSD",
-            direction=TradeDirection.LONG, order_type=OrderType.MARKET, volume=0.1,
+            order_id="MULTI_001",
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
         )
         client._pending_orders["MULTI_001"] = order
 
@@ -735,7 +750,9 @@ class TestInputValidation:
         manager = OrderManager(api_client=mock_api)
 
         result = manager.execute_live_order(
-            symbol="", direction=TradeDirection.LONG, volume=0.1,
+            symbol="",
+            direction=TradeDirection.LONG,
+            volume=0.1,
         )
         assert result.success is False
         assert "validation_error" in result.rejection_reason
@@ -747,7 +764,9 @@ class TestInputValidation:
         manager = OrderManager(api_client=mock_api)
 
         result = manager.execute_live_order(
-            symbol="EURUSD", direction=TradeDirection.LONG, volume=0,
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0,
         )
         assert result.success is False
         assert "validation_error" in result.rejection_reason
@@ -759,7 +778,9 @@ class TestInputValidation:
         manager = OrderManager(api_client=mock_api)
 
         result = manager.execute_live_order(
-            symbol="EURUSD", direction=TradeDirection.LONG, volume=-0.1,
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=-0.1,
         )
         assert result.success is False
         assert "validation_error" in result.rejection_reason
@@ -771,8 +792,10 @@ class TestInputValidation:
         manager = OrderManager(api_client=mock_api)
 
         result = manager.execute_live_order(
-            symbol="EURUSD", direction=TradeDirection.LONG,
-            volume=0.1, order_type=OrderType.LIMIT,
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            order_type=OrderType.LIMIT,
         )
         assert result.success is False
         assert "validation_error" in result.rejection_reason
@@ -782,15 +805,21 @@ class TestInputValidation:
         from adapters.ctrader.models import cTraderCredentials
 
         creds = cTraderCredentials(
-            host="localhost", port=5202, use_ssl=False,
-            sender_comp_id="test", username="12345", password="pass",
+            host="localhost",
+            port=5202,
+            use_ssl=False,
+            sender_comp_id="test",
+            username="12345",
+            password="pass",
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
 
         result = client.send_order(
-            symbol="", direction=TradeDirection.LONG,
-            order_type=OrderType.MARKET, volume=0.1,
+            symbol="",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
         )
         assert result is None
 
@@ -799,15 +828,21 @@ class TestInputValidation:
         from adapters.ctrader.models import cTraderCredentials
 
         creds = cTraderCredentials(
-            host="localhost", port=5202, use_ssl=False,
-            sender_comp_id="test", username="12345", password="pass",
+            host="localhost",
+            port=5202,
+            use_ssl=False,
+            sender_comp_id="test",
+            username="12345",
+            password="pass",
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
 
         result = client.send_order(
-            symbol="EURUSD", direction=TradeDirection.LONG,
-            order_type=OrderType.MARKET, volume=0,
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0,
         )
         assert result is None
 
@@ -816,15 +851,21 @@ class TestInputValidation:
         from adapters.ctrader.models import cTraderCredentials
 
         creds = cTraderCredentials(
-            host="localhost", port=5202, use_ssl=False,
-            sender_comp_id="test", username="12345", password="pass",
+            host="localhost",
+            port=5202,
+            use_ssl=False,
+            sender_comp_id="test",
+            username="12345",
+            password="pass",
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=False)
 
         result = client.send_order(
-            symbol="EURUSD", direction=TradeDirection.LONG,
-            order_type=OrderType.MARKET, volume=0.1,
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
         )
         assert result is None
         assert "EURUSD" not in client._pending_orders

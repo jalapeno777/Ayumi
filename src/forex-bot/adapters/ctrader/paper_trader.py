@@ -52,9 +52,7 @@ class PaperTrader:
         self._live_mode_enabled = (
             api_client is not None and not api_client.is_paper_mode
         )
-        self._order_manager = OrderManager(
-            self._position_config, api_client=api_client
-        )
+        self._order_manager = OrderManager(self._position_config, api_client=api_client)
         self._risk_guard = RiskGuard(self._ftmo_config, starting_balance)
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -148,7 +146,9 @@ class PaperTrader:
 
             return result
 
-    def _execute_order(self, signal: TradeSignal, volume: float) -> OrderExecutionResult:
+    def _execute_order(
+        self, signal: TradeSignal, volume: float
+    ) -> OrderExecutionResult:
         if self.is_live_mode:
             return self._order_manager.execute_live_order(
                 symbol=signal.symbol,
