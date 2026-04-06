@@ -354,7 +354,11 @@ class MultiStrategyBacktestEngine:
 
         if self.balance > self.peak_balance:
             self.peak_balance = self.balance
-        drawdown = (self.peak_balance - self.balance) / self.peak_balance if self.peak_balance > 0 else 0.0
+        drawdown = (
+            (self.peak_balance - self.balance) / self.peak_balance
+            if self.peak_balance > 0
+            else 0.0
+        )
         if drawdown > self.max_drawdown:
             self.max_drawdown = drawdown
 
