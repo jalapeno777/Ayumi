@@ -62,6 +62,12 @@ class TestTick:
         tick = Tick(symbol_id=1, bid=1.0, ask=1.0)
         assert tick.spread == 0.0
 
+    def test_tick_repr(self):
+        tick = Tick(symbol_id=1, bid=1.15250, ask=1.15252)
+        r = repr(tick)
+        assert "symbol_id=1" in r
+        assert "bid=" in r and "ask=" in r
+
 
 # ---------------------------------------------------------------------------
 # SymbolInfo tests
@@ -215,3 +221,25 @@ class TestFIXMessageRepeatingGroups:
         # Flat dict should have last value for repeated tags
         assert msg.get_field(269) == "1"
         assert msg.get_field(270) == "1.15252"
+
+    def test_raw_fields_initialized_on_construction(self):
+        msg = FIXMessage(msg_type="V")
+        assert hasattr(msg, "_raw_fields")
+        assert msg._raw_fields == []
+
+    def test_on_snapshot_multi_symbol_warning(self, mock_feed):
+        msg = FIXMessage()
+        msg.fields = {35: "W", 55: "1", 52: "20260406-02:30:00.000"}
+        msg._raw_fields = [
+            (55, "1"),
+            (268, "2"),
+            (269, "0"),
+            (270, "1.0"),
+            (55, "2"),
+            (269, "0"),
+            (270, "2.0"),
+            (269, "1"),
+            (270, "2.1"),
+        ]
+        mock_feed._on_snapshot(msg)
+        assert mock_feed.get_tick("EUR/USD") is not None

@@ -84,6 +84,7 @@ class cTraderCredentials:
     host: str
     port: int
     use_ssl: bool = True
+    verify_ssl: bool = True
     sender_comp_id: str = ""
     target_comp_id: str = "cServer"
     sender_sub_id: str = "TRADE"

@@ -39,7 +39,10 @@ if env_path.exists():
 # ---------------------------------------------------------------------------
 HOST = os.environ.get("CTRADER_FIX_HOST", "demo-uk-eqpx-01.p.c-trader.com")
 ACCOUNT = os.environ.get("CTRADER_ACCOUNT", "5795519")
-PASSWORD = os.environ.get("CTRADER_PASSWORD", "D92ooLbNvZ$2%%rF")
+try:
+    PASSWORD = os.environ["CTRADER_PASSWORD"]
+except KeyError:
+    raise SystemExit("CTRADER_PASSWORD env var is required")
 
 # SenderCompID format: <environment>.c-trader.<account_id>
 # Per Spotware sample: <BrokerUID>.<TraderLogin> where BrokerUID is from cTrader
@@ -241,7 +244,7 @@ def test_connection(
             return result
 
         # TCP + SSL
-        print(f"  Connecting TCP+SSL...")
+        print("  Connecting TCP+SSL...")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         sock.connect((host, port))
@@ -250,7 +253,7 @@ def test_connection(
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         ssl_sock = ctx.wrap_socket(sock, server_hostname=host)
-        print(f"  ✅ Connected (SSL)")
+        print("  ✅ Connected (SSL)")
 
         # Build and send logon
         logon_msg = build_logon(
@@ -295,7 +298,7 @@ def test_connection(
             decoded = response.decode("ascii", errors="replace")
             result["response_raw"] = decoded
             print(f"  ✅ Received {len(response)} bytes:")
-            print(f"\n  << RAW RESPONSE:")
+            print("\n  << RAW RESPONSE:")
             for line in format_fix_for_display(decoded).split("|"):
                 line = line.strip()
                 if line:
@@ -304,28 +307,28 @@ def test_connection(
             # Parse for status
             if "35=A" in decoded:
                 result["success"] = True
-                print(f"\n  ✅✅✅ LOGON ACKNOWLEDGED — Authentication successful!")
+                print("\n  ✅✅✅ LOGON ACKNOWLEDGED — Authentication successful!")
             elif "35=5" in decoded:
                 result["error"] = "Server sent Logout"
-                print(f"\n  ❌ Server sent Logout (35=5)")
+                print("\n  ❌ Server sent Logout (35=5)")
             elif "35=3" in decoded:
                 for field in decoded.split(SOH):
                     if field.startswith("58="):
                         result["error"] = f"Rejected: {field[3:]}"
                 print(f"\n  ❌ Rejected: {result['error']}")
             elif "35=0" in decoded:
-                print(f"\n  ℹ️  Heartbeat received (server alive but no logon ack)")
+                print("\n  ℹ️  Heartbeat received (server alive but no logon ack)")
                 result["error"] = "Only heartbeat received, no logon ack"
         else:
             result["error"] = "No response received"
-            print(f"  ❌ No response from server")
+            print("  ❌ No response from server")
 
         # Send logout
         try:
             logout_msg = build_logout(
                 SENDER_COMP_ID, sender_sub_id, TARGET_COMP_ID, target_sub_id, seq_num=2
             )
-            print(f"\n  >> SENDING LOGOUT:")
+            print("\n  >> SENDING LOGOUT:")
             print(f"     {format_fix_for_display(logout_msg)}")
             ssl_sock.send(logout_msg.encode("ascii"))
             time.sleep(0.5)
@@ -336,10 +339,10 @@ def test_connection(
 
     except ConnectionRefusedError:
         result["error"] = "Connection refused (port closed/firewall)"
-        print(f"  ❌ Connection refused")
+        print("  ❌ Connection refused")
     except socket.timeout:
         result["error"] = f"Timeout after {timeout}s"
-        print(f"  ❌ Timeout")
+        print("  ❌ Timeout")
     except ssl.SSLError as e:
         result["error"] = f"SSL error: {e}"
         print(f"  ❌ SSL error: {e}")
@@ -370,7 +373,7 @@ def main():
 
     # Summary
     print(f"\n{'='*64}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'='*64}")
     for r in results:
         status = "✅ PASS" if r["success"] else "❌ FAIL"
@@ -383,14 +386,14 @@ def main():
 
     # Key differences from v1 for debugging
     print(f"\n{'='*64}")
-    print(f"  CHANGES FROM v1 (why this should work):")
-    print(f"  1. Added Username (553) and Password (554) to logon")
-    print(f"  2. Added SenderSubID (50) = account number")
-    print(f"  3. Added TargetSubID (57) = QUOTE/TRADE")
-    print(f"  4. TargetCompID = 'CSERVER' (uppercase, per Spotware)")
-    print(f"  5. Correct host with '.p.' subdomain")
-    print(f"  6. SenderCompID = 'demo.c-trader.<account>' (with hyphen)")
-    print(f"  7. BodyLength = bytes from after tag-9 SOH to before tag-10")
+    print("  CHANGES FROM v1 (why this should work):")
+    print("  1. Added Username (553) and Password (554) to logon")
+    print("  2. Added SenderSubID (50) = account number")
+    print("  3. Added TargetSubID (57) = QUOTE/TRADE")
+    print("  4. TargetCompID = 'CSERVER' (uppercase, per Spotware)")
+    print("  5. Correct host with '.p.' subdomain")
+    print("  6. SenderCompID = 'demo.c-trader.<account>' (with hyphen)")
+    print("  7. BodyLength = bytes from after tag-9 SOH to before tag-10")
     print(f"{'='*64}")
 
     return 0 if all_pass else 1
