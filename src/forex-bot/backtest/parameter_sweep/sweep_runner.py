@@ -46,6 +46,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
+        SupertrendRSIBlendStrategy,
     )
 
     registry: Dict[str, type] = {
@@ -54,6 +55,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         "RSIStrategy": RSIStrategy,
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,
+        "SupertrendRSIBlendStrategy": SupertrendRSIBlendStrategy,
     }
     cls = registry.get(cls_name)
     if cls is None:
