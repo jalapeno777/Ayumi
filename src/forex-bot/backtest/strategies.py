@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Tuple
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
@@ -1985,3 +1986,253 @@ class HighConvictionStrategy(ISignalStrategy):
             return 100.0
         rs = avg_gain / avg_loss
         return 100.0 - (100.0 / (1.0 + rs))
+
+
+@dataclass(frozen=True)
+class RegimeRouterConfig:
+    adx_trend_threshold: float = 25.0
+    adx_strong_trend_threshold: float = 40.0
+    adx_range_threshold: float = 20.0
+    atr_volatility_percentile: float = 75.0
+    atr_lookback: int = 50
+    adx_period: int = 14
+    trending_size_multiplier: float = 1.0
+    ranging_size_multiplier: float = 1.0
+    volatile_size_multiplier: float = 0.5
+    transition_size_multiplier: float = 0.5
+    min_confidence: float = 0.55
+
+
+def _default_trending_strategies() -> List[ISignalStrategy]:
+    return [MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0)]
+
+
+def _default_ranging_strategies() -> List[ISignalStrategy]:
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
+
+    return [SessionRangeMeanReversionStrategy()]
+
+
+def _default_volatile_strategies() -> List[ISignalStrategy]:
+    from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+    return [VolatilitySqueezeStrategy()]
+
+
+class RegimeSwitchingRouter(ISignalStrategy):
+    def __init__(
+        self,
+        trending_strategies: Optional[List[ISignalStrategy]] = None,
+        ranging_strategies: Optional[List[ISignalStrategy]] = None,
+        volatile_strategies: Optional[List[ISignalStrategy]] = None,
+        transition_strategies: Optional[List[ISignalStrategy]] = None,
+        config: Optional[RegimeRouterConfig] = None,
+    ):
+        self.config = config or RegimeRouterConfig()
+        self.trending_strategies = trending_strategies or _default_trending_strategies()
+        self.ranging_strategies = ranging_strategies or _default_ranging_strategies()
+        self.volatile_strategies = volatile_strategies or _default_volatile_strategies()
+        self.transition_strategies = transition_strategies or []
+        self._current_regime: str = "neutral"
+
+    @property
+    def name(self) -> str:
+        return "Regime-Switching Router"
+
+    @property
+    def current_regime(self) -> str:
+        return self._current_regime
+
+    def reset(self) -> None:
+        for strategy in (
+            self.trending_strategies
+            + self.ranging_strategies
+            + self.volatile_strategies
+            + self.transition_strategies
+        ):
+            if hasattr(strategy, "reset") and callable(strategy.reset):
+                strategy.reset()
+        self._current_regime = "neutral"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        if len(state.bars) < self.config.adx_period + self.config.atr_lookback + 1:
+            return None
+
+        regime, confidence, size_mult = self._detect_regime(state)
+        self._current_regime = regime
+
+        strategies = self._get_strategies_for_regime(regime)
+        if not strategies:
+            return None
+
+        best_signal: Optional[StrategySignal] = None
+        for strategy in strategies:
+            signal = strategy.evaluate(state)
+            if signal is not None and signal.confidence >= self.config.min_confidence:
+                if best_signal is None or signal.confidence > best_signal.confidence:
+                    best_signal = signal
+
+        if best_signal is None:
+            return None
+
+        scaled_confidence = best_signal.confidence * size_mult
+        if scaled_confidence < self.config.min_confidence:
+            return None
+
+        return StrategySignal(
+            direction=best_signal.direction,
+            confidence=min(scaled_confidence, 0.95),
+            entry_price=best_signal.entry_price,
+            stop_loss=best_signal.stop_loss,
+            take_profit_1=best_signal.take_profit_1,
+            take_profit_2=best_signal.take_profit_2,
+            take_profit_3=best_signal.take_profit_3,
+            rationale=f"[{regime}] {best_signal.rationale}",
+        )
+
+    def _detect_regime(self, state: MarketState) -> Tuple[str, float, float]:
+        adx = self._calculate_adx(state.bars)
+        atr_percentile = self._calculate_atr_percentile(state.bars)
+
+        is_trending = adx > self.config.adx_trend_threshold
+        is_strong_trending = adx > self.config.adx_strong_trend_threshold
+        is_ranging = adx < self.config.adx_range_threshold
+        is_volatile = atr_percentile > self.config.atr_volatility_percentile
+
+        if is_strong_trending:
+            regime = "trending"
+            size_mult = self.config.trending_size_multiplier
+        elif is_volatile and not is_ranging:
+            regime = "volatile"
+            size_mult = self.config.volatile_size_multiplier
+        elif is_trending:
+            regime = "trending"
+            size_mult = self.config.trending_size_multiplier
+        elif is_ranging:
+            regime = "ranging"
+            size_mult = self.config.ranging_size_multiplier
+        else:
+            regime = "transition"
+            size_mult = self.config.transition_size_multiplier
+
+        raw_confidence = 0.0
+        if is_strong_trending or is_trending:
+            raw_confidence = min(adx / 50.0, 1.0)
+        elif is_ranging:
+            raw_confidence = min(
+                (self.config.adx_range_threshold - adx)
+                / self.config.adx_range_threshold,
+                1.0,
+            )
+        elif is_volatile:
+            raw_confidence = min(atr_percentile / 100.0, 1.0)
+        else:
+            raw_confidence = 0.5
+
+        return regime, raw_confidence, size_mult
+
+    def _get_strategies_for_regime(self, regime: str) -> List[ISignalStrategy]:
+        if regime == "trending":
+            return self.trending_strategies
+        elif regime == "ranging":
+            return self.ranging_strategies
+        elif regime == "volatile":
+            return self.volatile_strategies
+        else:
+            return self.transition_strategies
+
+    def _calculate_adx(self, bars: List[Bar]) -> float:
+        period = self.config.adx_period
+        if len(bars) < period * 2 + 1:
+            return 0.0
+
+        highs = [b.high for b in bars]
+        lows = [b.low for b in bars]
+        closes = [b.close for b in bars]
+
+        plus_dm_list: List[float] = []
+        minus_dm_list: List[float] = []
+        tr_list: List[float] = []
+
+        for i in range(1, len(bars)):
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+            tr_list.append(tr)
+
+            high_diff = highs[i] - highs[i - 1]
+            low_diff = lows[i - 1] - lows[i]
+
+            plus_dm = high_diff if (high_diff > low_diff and high_diff > 0) else 0.0
+            minus_dm = low_diff if (low_diff > high_diff and low_diff > 0) else 0.0
+            plus_dm_list.append(plus_dm)
+            minus_dm_list.append(minus_dm)
+
+        if len(tr_list) < period:
+            return 0.0
+
+        tr_sum = sum(tr_list[:period])
+        plus_dm_sum = sum(plus_dm_list[:period])
+        minus_dm_sum = sum(minus_dm_list[:period])
+
+        if tr_sum == 0:
+            return 0.0
+
+        plus_di = (plus_dm_sum / tr_sum) * 100
+        minus_di = (minus_dm_sum / tr_sum) * 100
+
+        if plus_di + minus_di == 0:
+            dx = 0.0
+        else:
+            dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        dx_list: List[float] = []
+        for i in range(period, len(tr_list)):
+            tr_sum = tr_sum - tr_sum / period + tr_list[i]
+            plus_dm_sum = plus_dm_sum - plus_dm_sum / period + plus_dm_list[i]
+            minus_dm_sum = minus_dm_sum - minus_dm_sum / period + minus_dm_list[i]
+
+            if tr_sum == 0:
+                dx_list.append(0.0)
+                continue
+
+            plus_di = (plus_dm_sum / tr_sum) * 100
+            minus_di = (minus_dm_sum / tr_sum) * 100
+            if plus_di + minus_di == 0:
+                dx_list.append(0.0)
+            else:
+                dx_list.append(100.0 * (abs(plus_di - minus_di) / (plus_di + minus_di)))
+
+        for d in dx_list:
+            adx = (adx * (period - 1) + d) / period
+
+        return adx
+
+    def _calculate_atr_percentile(self, bars: List[Bar]) -> float:
+        lookback = self.config.atr_lookback
+        if len(bars) < lookback + 1:
+            return 50.0
+
+        atr_values: List[float] = []
+        for i in range(1, len(bars)):
+            tr = max(
+                bars[i].high - bars[i].low,
+                abs(bars[i].high - bars[i - 1].close),
+                abs(bars[i].low - bars[i - 1].close),
+            )
+            atr_values.append(tr)
+
+        if len(atr_values) < lookback:
+            return 50.0
+
+        window = atr_values[-lookback:]
+        current = window[-1]
+        rank = sum(1 for v in window if v < current)
+        tied = sum(1 for v in window if v == current)
+        rank += tied // 2
+        return (rank / len(window)) * 100.0
