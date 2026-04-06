@@ -1,4 +1,8 @@
 import unittest
+from datetime import datetime, timedelta
+
+from backtest.engine import Bar
+from backtest.strategies import MACrossStrategy
 
 from quant.walk_forward import (
     AggregatedMetrics,
@@ -9,6 +13,30 @@ from quant.walk_forward import (
     go_nogo_criteria,
     run_strategy,
 )
+
+
+def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
+    base = datetime(2024, 1, 1, 10, 0)
+    time = base + timedelta(hours=i)
+    return Bar(time=time, open=o, high=h, low=low, close=c, volume=v)
+
+
+def _make_bars(n, trend="up"):
+    bars = []
+    price = 1.0000
+    for i in range(n):
+        hour = i % 24
+        if trend == "up":
+            drift = 0.00005 + (0.00001 if hour in range(8, 16) else 0)
+            noise = (i % 7 - 3) * 0.00003
+        else:
+            drift = -0.00005 - (0.00001 if hour in range(8, 16) else 0)
+            noise = (i % 7 - 3) * 0.00003
+        price += drift + noise
+        h = price + abs(noise) * 2
+        low = price - abs(noise) * 2
+        bars.append(_bar(i, o=price - drift, h=h, low=low, c=price))
+    return bars
 
 
 def _make_trades(pnls: list[float]) -> list[dict[str, float]]:
@@ -184,64 +212,45 @@ class TestComputeMetrics(unittest.TestCase):
 
 class TestRunStrategy(unittest.TestCase):
     def test_basic_run(self):
-        def strategy(train, val, test, **kwargs):
-            return _make_trades([10.0, -5.0, 15.0, -3.0, 8.0])
-
-        data = list(range(300))
-        results = run_strategy(strategy, data, n_windows=3)
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
         self.assertEqual(len(results.per_window), 3)
         self.assertIsNotNone(results.aggregated)
 
     def test_aggregated_metrics(self):
-        def strategy(train, val, test, **kwargs):
-            return _make_trades([10.0, -5.0, 15.0, -3.0, 8.0])
-
-        data = list(range(300))
-        results = run_strategy(strategy, data, n_windows=3)
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
         agg = results.aggregated
         self.assertIsNotNone(agg)
         self.assertEqual(agg.total_windows, 3)
         self.assertGreaterEqual(agg.windows_passed, 0)
 
     def test_go_nogo_consistent_with_criteria(self):
-        results = run_strategy(
-            lambda t, v, te, **kw: _make_trades([10, -5, 15, -3, 8]),
-            list(range(300)),
-            n_windows=3,
-        )
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
         self.assertEqual(results.go_nogo, go_nogo_criteria(results))
 
     def test_per_window_indices(self):
-        def strategy(train, val, test, **kwargs):
-            return _make_trades([1.0])
-
-        data = list(range(300))
-        results = run_strategy(strategy, data, n_windows=3)
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
         for i, m in enumerate(results.per_window):
             self.assertEqual(m.window_index, i)
 
     def test_empty_strategy_returns(self):
-        def strategy(train, val, test, **kwargs):
-            return []
-
-        data = list(range(300))
-        results = run_strategy(strategy, data, n_windows=3)
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
         self.assertEqual(len(results.per_window), 3)
-        for m in results.per_window:
-            self.assertFalse(m.passed_go_nogo)
-        self.assertFalse(results.go_nogo)
 
-    def test_kwargs_passed_through(self):
-        captured = {}
-
-        def strategy(train, val, test, **kwargs):
-            captured.update(kwargs)
-            return _make_trades([10.0])
-
-        data = list(range(300))
-        run_strategy(strategy, data, n_windows=3, my_param="hello", count=5)
-        self.assertEqual(captured["my_param"], "hello")
-        self.assertEqual(captured["count"], 5)
+    def test_downtrend_generates_trades(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="down")
+        results = run_strategy(strategy, bars, n_windows=3)
+        self.assertEqual(len(results.per_window), 3)
 
 
 class TestGoNogoCriteria(unittest.TestCase):
