@@ -1461,7 +1461,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         ema_period: int = 20,
         atr_period: int = 14,
         atr_multiplier: float = 1.5,
-        atr_min_pips: float = 10.0,
+        atr_min_pips: float = 5.0,
         adx_period: int = 14,
         adx_threshold: float = 15.0,
         volume_ma_period: int = 20,
