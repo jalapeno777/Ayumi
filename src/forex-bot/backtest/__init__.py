@@ -22,6 +22,7 @@ from .strategies import (
     CommodityTrendStrategy,
     CommodityMeanReversionStrategy,
     SupertrendRSIBlendStrategy,
+    HighConvictionStrategy,
     ISignalStrategy,
     MACrossStrategy,
     BBStrategy,
@@ -30,8 +31,6 @@ from .strategies import (
     ROCMStrategy,
     MomentumBreakoutStrategy,
     KeltnerChannelBreakoutStrategy,
-    RegimeSwitchingRouter,
-    RegimeRouterConfig,
 )
 from .grid_strategy import GridStrategy
 from .stat_arb import StatArbStrategy, StatArbBacktestResult
@@ -112,6 +111,7 @@ __all__ = [
     "CommodityMeanReversionStrategy",
     "SupertrendRSIBlendStrategy",
     "KeltnerChannelBreakoutStrategy",
+    "HighConvictionStrategy",
     "SessionRangeMeanReversionStrategy",
     "GridStrategy",
     "StatArbStrategy",
@@ -137,7 +137,5 @@ __all__ = [
     "TradeAction",
     "HybridStrategy",
     "HybridConfig",
-    "RegimeSwitchingRouter",
-    "RegimeRouterConfig",
     "MLMeanReversionStrategy",
 ]

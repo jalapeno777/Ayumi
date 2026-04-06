@@ -554,7 +554,7 @@ class TestTradeManager(unittest.TestCase):
         self.assertTrue(result.allow_entry)
 
     def test_check_entry_blocked_outside_session(self):
-        bar = _bar(time=datetime(2024, 1, 1, 3, 0))
+        bar = _bar(time=datetime(2024, 1, 1, 6, 30))
         signal = _signal()
         result = self.tm.check_entry_allowed(bar, signal, 0.005, 0.5)
         self.assertFalse(result.allow_entry)

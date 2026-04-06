@@ -1,11 +1,7 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Tuple
-from .engine import Bar, MarketState, StrategySignal, TradeDirection
-
-if TYPE_CHECKING:
-    pass
+from datetime import datetime
+from typing import List, Optional, Tuple
+from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 
 
 class ISignalStrategy:
@@ -1098,11 +1094,11 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         supertrend_multiplier: float = 2.5,
         rsi_period: int = 14,
         rsi_threshold: float = 50.0,
-        atr_min_pips: float = 6.0,
+        atr_min_pips: float = 3.0,
         atr_period: int = 14,
         adx_period: int = 14,
-        adx_min: float = 20.0,
-        atr_min_chop: float = 5.0,
+        adx_min: float = 18.0,
+        atr_min_chop: float = 2.0,
         sl_atr_multiplier: float = 1.5,
         hard_cap_pips: float = 40.0,
         tp1_atr: float = 1.5,
@@ -1148,12 +1144,6 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                     consecutive_low_adx += 1
             if consecutive_low_adx >= 3:
                 return None
-
-        bar_time = state.latest_bar.time
-        hour = bar_time.hour
-        minute = bar_time.minute
-        if hour == 0 and minute < 30:
-            return None
 
         if atr_pips < self.atr_min_pips:
             return None
@@ -1293,6 +1283,13 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                 lower_band_list[i] = prev_lower
 
             prev_supertrend = supertrend_list[i - 1]
+
+            if prev_supertrend == 1.0:
+                upper_band_list[i] = prev_upper
+                lower_band_list[i] = max(lower_band_list[i], prev_lower)
+            else:
+                upper_band_list[i] = min(upper_band_list[i], prev_upper)
+                lower_band_list[i] = prev_lower
 
             if prev_supertrend == 1.0:
                 if bars[i].close < lower_band_list[i]:
@@ -1467,10 +1464,11 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         ema_period: int = 20,
         atr_period: int = 14,
         atr_multiplier: float = 1.5,
-        atr_min_pips: float = 5.0,
+        atr_min_pips: float = 2.0,
         adx_period: int = 14,
-        adx_threshold: float = 15.0,
+        adx_threshold: float = 12.0,
         volume_ma_period: int = 20,
+        use_volume_filter: bool = False,
         sl_atr_multiplier: float = 1.5,
         sl_max_pips: float = 40.0,
         tp1_atr_multiplier: float = 2.0,
@@ -1483,6 +1481,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         self.adx_period = adx_period
         self.adx_threshold = adx_threshold
         self.volume_ma_period = volume_ma_period
+        self.use_volume_filter = use_volume_filter
         self.sl_atr_multiplier = sl_atr_multiplier
         self.sl_max_pips = sl_max_pips
         self.tp1_atr_multiplier = tp1_atr_multiplier
@@ -1532,12 +1531,13 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         if adx is None or adx < self.adx_threshold:
             return None
 
-        volume = state.latest_bar.volume
-        if volume <= 0:
-            return None
-        vol_ma = self._calculate_volume_ma(state.bars)
-        if vol_ma <= 0 or volume < vol_ma:
-            return None
+        if self.use_volume_filter:
+            volume = state.latest_bar.volume
+            if volume <= 0:
+                return None
+            vol_ma = self._calculate_volume_ma(state.bars)
+            if vol_ma <= 0 or volume < vol_ma:
+                return None
 
         ema_rising = middle > prev_middle
         ema_falling = middle < prev_middle
@@ -1708,6 +1708,284 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             return 0.0001
         else:
             return 0.00000001
+
+
+class HighConvictionStrategy(ISignalStrategy):
+    def __init__(
+        self,
+        trend_lookback: int = 20,
+        swing_lookback: int = 50,
+        rsi_period: int = 14,
+        atr_period: int = 14,
+        atr_percentile_lookback: int = 100,
+        atr_percentile_threshold: float = 0.60,
+        sl_atr_mult: float = 3.0,
+        tp_atr_mult: float = 6.0,
+        allowed_sessions: Optional[List[str]] = None,
+        min_confluences: int = 5,
+        source_timeframe_minutes: int = 240,
+        max_trades_per_week: int = 1,
+    ):
+        self.trend_lookback = trend_lookback
+        self.swing_lookback = swing_lookback
+        self.rsi_period = rsi_period
+        self.atr_period = atr_period
+        self.atr_percentile_lookback = atr_percentile_lookback
+        self.atr_percentile_threshold = atr_percentile_threshold
+        self.sl_atr_mult = sl_atr_mult
+        self.tp_atr_mult = tp_atr_mult
+        if allowed_sessions is None:
+            self.allowed_sessions = {SessionType.LONDON, SessionType.NY_AM}
+        else:
+            self.allowed_sessions = {SessionType(s) for s in allowed_sessions}
+        self.min_confluences = min_confluences
+        self.source_timeframe_minutes = source_timeframe_minutes
+        self.max_trades_per_week = max_trades_per_week
+        self._last_trade_time: Optional[datetime] = None
+
+    @property
+    def name(self) -> str:
+        return "High Conviction"
+
+    def reset(self) -> None:
+        self._last_trade_time = None
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        d1_bars = self._resample_to_daily(state.bars)
+        min_bars = (
+            max(
+                self.trend_lookback * 6,
+                self.swing_lookback,
+                self.rsi_period,
+                self.atr_period,
+                self.atr_percentile_lookback,
+            )
+            + 5
+        )
+        if len(state.bars) < min_bars:
+            return None
+        if len(d1_bars) < self.trend_lookback + 2:
+            return None
+
+        if self.max_trades_per_week > 0 and not self._can_trade_this_week(state):
+            return None
+
+        atr = self._calculate_atr(state.bars, self.atr_period)
+        if atr <= 0:
+            return None
+
+        trend_dir = self._detect_d1_trend(d1_bars)
+        if trend_dir is None:
+            return None
+
+        confluences = 0
+        labels = []
+
+        if state.current_session in self.allowed_sessions:
+            confluences += 1
+            labels.append(f"session={state.current_session.value}")
+
+        if self._atr_in_upper_percentile(state.bars, atr):
+            confluences += 1
+            labels.append(f"ATR={atr * 10000:.1f}p")
+
+        if self._at_pullback_level(state.bars, trend_dir):
+            confluences += 1
+            labels.append("pullback")
+
+        momentum_shift = self._detect_momentum_shift(state.bars)
+        if momentum_shift == trend_dir:
+            confluences += 1
+            labels.append("momentum shift")
+
+        if confluences < self.min_confluences:
+            return None
+
+        self._last_trade_time = state.latest_bar.time
+
+        entry = state.latest_bar.close
+        sl_distance = atr * self.sl_atr_mult
+        sl = (
+            entry - sl_distance
+            if trend_dir == TradeDirection.LONG
+            else entry + sl_distance
+        )
+        risk = abs(entry - sl)
+
+        rr_ratio = self.tp_atr_mult / self.sl_atr_mult
+        tp2 = (
+            entry + risk * rr_ratio
+            if trend_dir == TradeDirection.LONG
+            else entry - risk * rr_ratio
+        )
+
+        tp3 = (
+            entry + risk * 3.0
+            if trend_dir == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
+
+        confidence = 0.75
+        rationale = (
+            f"High Conviction {trend_dir.value}: "
+            f"D1 trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
+            + ", ".join(labels)
+        )
+
+        return StrategySignal(
+            direction=trend_dir,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp2 * 0.5 + sl * 0.5,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
+
+    def _can_trade_this_week(self, state: MarketState) -> bool:
+        if self._last_trade_time is None:
+            return True
+        now = state.latest_bar.time
+        days_since = (now.date() - self._last_trade_time.date()).days
+        if days_since >= 7:
+            return True
+        if now.weekday() < self._last_trade_time.weekday() or days_since >= 4:
+            return True
+        return False
+
+    def _resample_to_daily(self, bars: List[Bar]) -> List[Bar]:
+
+        if not bars:
+            return []
+        grouped: dict = {}
+        for bar in bars:
+            day_key = bar.time.date()
+            if day_key not in grouped:
+                grouped[day_key] = []
+            grouped[day_key].append(bar)
+        result = []
+        for day in sorted(grouped.keys()):
+            group = grouped[day]
+            result.append(
+                Bar(
+                    time=group[0].time,
+                    open=group[0].open,
+                    high=max(b.high for b in group),
+                    low=min(b.low for b in group),
+                    close=group[-1].close,
+                    volume=sum(b.volume for b in group),
+                )
+            )
+        return result
+
+    def _detect_d1_trend(self, d1_bars: List[Bar]) -> Optional[TradeDirection]:
+        if len(d1_bars) < self.trend_lookback:
+            return None
+        recent = d1_bars[-self.trend_lookback :]
+        closes = [b.close for b in recent]
+        bullish = sum(1 for i in range(1, len(closes)) if closes[i] > closes[i - 1])
+        bearish = len(closes) - 1 - bullish
+        net_move = closes[-1] - closes[0]
+        if net_move > 0 and bullish >= self.trend_lookback * 0.65:
+            return TradeDirection.LONG
+        if net_move < 0 and bearish >= self.trend_lookback * 0.65:
+            return TradeDirection.SHORT
+        return None
+
+    def _at_pullback_level(self, bars: List[Bar], trend_dir: TradeDirection) -> bool:
+        if len(bars) < self.swing_lookback:
+            return False
+        lookback = bars[-self.swing_lookback :]
+        recent = bars[-5:]
+        if trend_dir == TradeDirection.LONG:
+            swing_lows = sorted(set(b.low for b in lookback))
+            if len(swing_lows) < 5:
+                return False
+            support_level = swing_lows[len(swing_lows) // 4]
+            return any(
+                abs(b.low - support_level) < support_level * 0.001 for b in recent
+            )
+        else:
+            swing_highs = sorted(set(b.high for b in lookback), reverse=True)
+            if len(swing_highs) < 5:
+                return False
+            resistance_level = swing_highs[len(swing_highs) // 4]
+            return any(
+                abs(b.high - resistance_level) < resistance_level * 0.001
+                for b in recent
+            )
+
+    def _detect_momentum_shift(self, bars: List[Bar]) -> Optional[TradeDirection]:
+        if len(bars) < self.rsi_period + 2:
+            return None
+        rsi = self._calculate_rsi(bars)
+        prev_rsi = self._calculate_rsi(bars[:-1])
+        if rsi is None or prev_rsi is None:
+            return None
+        if prev_rsi < 50 and rsi > 50:
+            return TradeDirection.LONG
+        if prev_rsi > 50 and rsi < 50:
+            return TradeDirection.SHORT
+        closes = [b.close for b in bars[-5:]]
+        if len(closes) < 5:
+            return None
+        momentum = closes[-1] - closes[0]
+        prev_momentum = closes[-2] - closes[-5] if len(closes) >= 5 else 0
+        if prev_momentum < 0 and momentum > 0:
+            return TradeDirection.LONG
+        if prev_momentum > 0 and momentum < 0:
+            return TradeDirection.SHORT
+        return None
+
+    def _atr_in_upper_percentile(self, bars: List[Bar], current_atr: float) -> bool:
+        n = min(self.atr_percentile_lookback, len(bars) - self.atr_period)
+        if n < 10:
+            return True
+        atr_values = []
+        for i in range(n):
+            start = len(bars) - self.atr_period - 1 - i
+            if start < 0:
+                break
+            atr_val = self._calculate_atr(bars[: len(bars) - i], self.atr_period)
+            if atr_val > 0:
+                atr_values.append(atr_val)
+        if len(atr_values) < 10:
+            return True
+        atr_values.sort()
+        rank = sum(1 for v in atr_values if v <= current_atr)
+        percentile = rank / len(atr_values)
+        return percentile >= self.atr_percentile_threshold
+
+    def _calculate_atr(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period + 1:
+            return 0.0
+        tr_sum = 0.0
+        for i in range(len(bars) - period, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / period
+
+    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.rsi_period + 1:
+            return None
+        deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
+        recent = deltas[-self.rsi_period :]
+        gains = [d for d in recent if d > 0]
+        losses = [-d for d in recent if d < 0]
+        avg_gain = sum(gains) / self.rsi_period if gains else 0
+        avg_loss = sum(losses) / self.rsi_period if losses else 0
+        if avg_loss == 0:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return 100.0 - (100.0 / (1.0 + rs))
 
 
 @dataclass(frozen=True)

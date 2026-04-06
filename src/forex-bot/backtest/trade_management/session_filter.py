@@ -86,14 +86,15 @@ class SessionFilter:
         hold_through_sessions: bool = True,
         weekend_close_hour_utc: int = 21,
         weekend_close_minute_utc: int = 55,
-        news_buffer_bars: int = 4,
+        news_buffer_bars: int = 2,
         news_buffer_on_entry: bool = True,
         news_simulator: Optional[NewsEventSimulator] = None,
         kill_zones: Optional[List[SessionKillZone]] = None,
     ):
         self.enabled = enabled
         self.allow_entry_sessions = set(
-            allow_entry_sessions or ["london", "ny_am", "ny_pm"]
+            allow_entry_sessions
+            or ["london", "london_open", "ny_open", "ny_am", "ny_pm", "asian"]
         )
         self.hold_through_sessions = hold_through_sessions
         self.weekend_close_hour = weekend_close_hour_utc
