@@ -1,4 +1,5 @@
 from adapters.ctrader.api_client import FIXMessage, FIXClient
+from adapters.ctrader.models import cTraderCredentials
 
 
 class TestFIXMessage:
@@ -33,7 +34,7 @@ class TestFIXMessage:
         msg.set_field(54, "1")
         msg.set_field(35, "D")
         result = msg.to_string()
-        assert result == "35=D|54=1|55=EURUSD\x01"
+        assert result == "35=D\x0154=1\x0155=EURUSD\x01"
         assert result.endswith(msg.SOH)
 
     def test_from_string(self):
@@ -87,3 +88,108 @@ class TestFIXClientConstants:
         assert FIXClient.TAG_SYMBOL == 55
         assert FIXClient.TAG_SIDE == 54
         assert FIXClient.TAG_EXEC_ID == 17
+
+    def test_logon_includes_auth_tags_553_554(self):
+        creds = cTraderCredentials(
+            host="localhost",
+            port=5211,
+            sender_comp_id="12345",
+            password="secret",
+        )
+        client = FIXClient(creds)
+        msg = FIXMessage()
+        msg.set_field(client.TAG_MSG_TYPE, client.MSG_TYPE_LOGON)
+        msg.set_field(98, "0")
+        msg.set_field(108, str(client._heartbeat_interval))
+        msg.set_field(141, "Y")
+        msg.set_field(553, creds.sender_comp_id)
+        msg.set_field(554, creds.password)
+        result = msg.to_string()
+        assert "553=12345" in result
+        assert "554=secret" in result
+
+    def test_no_field_separator_pipe(self):
+        assert not hasattr(FIXMessage, "FIELD_SEPARATOR")
+
+    def test_process_buffer_extracts_complete_messages(self):
+        creds = cTraderCredentials(
+            host="localhost",
+            port=5211,
+            sender_comp_id="12345",
+            target_comp_id="cServer",
+            sender_sub_id="TRADE",
+        )
+        client = FIXClient(creds)
+        handled = []
+
+        def capture(msg):
+            handled.append(msg)
+
+        client._handle_message = capture
+
+        logon_body = "35=A\x0149=12345\x0156=cServer\x0134=1\x0152=20240101-00:00:00\x0150=TRADE\x0157=\x0198=0\x01108=30\x01141=Y\x01553=12345\x01554=secret\x01"
+        body_len = len(logon_body)
+        header = f"8=FIX.4.4\x019={body_len}\x01"
+        checksum_input = header + logon_body
+        chk = sum(ord(c) for c in checksum_input) % 256
+        full_msg = checksum_input + f"10={chk:03d}\x01"
+
+        remaining = client._process_buffer(full_msg.encode("latin-1"))
+        assert len(handled) == 1
+        assert handled[0].msg_type == "A"
+        assert len(remaining) == 0
+
+    def test_process_buffer_retains_partial_message(self):
+        creds = cTraderCredentials(
+            host="localhost",
+            port=5211,
+            sender_comp_id="12345",
+            target_comp_id="cServer",
+            sender_sub_id="TRADE",
+        )
+        client = FIXClient(creds)
+        handled = []
+
+        def capture(msg):
+            handled.append(msg)
+
+        client._handle_message = capture
+
+        partial = b"8=FIX.4.4\x019=5\x0135="
+        remaining = client._process_buffer(partial)
+        assert len(handled) == 0
+        assert len(remaining) == len(partial)
+
+    def test_process_buffer_multiple_messages(self):
+        creds = cTraderCredentials(
+            host="localhost",
+            port=5211,
+            sender_comp_id="12345",
+            target_comp_id="cServer",
+            sender_sub_id="TRADE",
+        )
+        client = FIXClient(creds)
+        handled = []
+
+        def capture(msg):
+            handled.append(msg)
+
+        client._handle_message = capture
+
+        hb_body = "35=0\x0149=12345\x0156=cServer\x0134=1\x0152=20240101-00:00:00\x0150=TRADE\x0157=\x01"
+        hb_header = f"8=FIX.4.4\x019={len(hb_body)}\x01"
+        hb_checksum_input = hb_header + hb_body
+        hb_chk = sum(ord(c) for c in hb_checksum_input) % 256
+        hb_msg = hb_checksum_input + f"10={hb_chk:03d}\x01"
+
+        test_body = "35=1\x0149=12345\x0156=cServer\x0134=2\x0152=20240101-00:00:00\x0150=TRADE\x0157=\x01"
+        test_header = f"8=FIX.4.4\x019={len(test_body)}\x01"
+        test_checksum_input = test_header + test_body
+        test_chk = sum(ord(c) for c in test_checksum_input) % 256
+        test_msg = test_checksum_input + f"10={test_chk:03d}\x01"
+
+        remaining = client._process_buffer((hb_msg + test_msg).encode("latin-1"))
+        assert len(handled) == 2
+        assert handled[0].msg_type == "0"
+        assert handled[1].msg_type == "1"
+        assert len(remaining) == 0

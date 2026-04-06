@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 class FIXMessage:
     SOH = "\x01"
-    FIELD_SEPARATOR = "|"
 
     def __init__(self):
         self.fields: Dict[int, str] = {}
@@ -39,7 +38,7 @@ class FIXMessage:
         parts = []
         for tag in sorted(self.fields.keys()):
             parts.append(f"{tag}={self.fields[tag]}")
-        return self.FIELD_SEPARATOR.join(parts) + self.SOH
+        return self.SOH.join(parts) + self.SOH
 
     @classmethod
     def from_string(cls, data: str) -> "FIXMessage":
@@ -205,15 +204,22 @@ class FIXClient:
 
     def _process_buffer(self, buffer: bytes) -> bytes:
         try:
-            soh_char = FIXMessage.SOH
-            while soh_char in buffer.decode("latin-1", errors="replace"):
-                msg_end = buffer.decode("latin-1", errors="replace").index(soh_char) + 1
+            soh = FIXMessage.SOH
+            while True:
+                text = buffer.decode("latin-1", errors="replace")
+                checksum_marker = f"{soh}10="
+                checksum_idx = text.find(checksum_marker)
+                if checksum_idx == -1:
+                    break
+                checksum_idx += 1
+                soh_after_checksum = text.find(soh, checksum_idx + 3)
+                if soh_after_checksum == -1:
+                    break
+                msg_end = soh_after_checksum + 1
                 msg_data = buffer[:msg_end].decode("latin-1", errors="replace")
                 buffer = buffer[msg_end:]
-
                 msg = FIXMessage.from_string(msg_data)
                 self._handle_message(msg)
-
         except Exception as e:
             logger.error(f"Error processing buffer: {e}")
         return buffer
@@ -316,6 +322,8 @@ class FIXClient:
         msg.set_field(98, "0")
         msg.set_field(108, str(self._heartbeat_interval))
         msg.set_field(141, "Y")
+        msg.set_field(553, self.credentials.sender_comp_id)
+        msg.set_field(554, self.credentials.password)
         return self._send_message(msg)
 
     def _send_logout(self):
@@ -347,21 +355,21 @@ class FIXClient:
             if self.TAG_TARGET_SUB_ID not in msg.fields:
                 msg.set_field(self.TAG_TARGET_SUB_ID, "")
 
-            data = msg.to_string().encode("latin-1")
+            body = msg.to_string()
 
-            body_length = len(data) - len(FIXMessage.SOH)
-            length_field = str(body_length)
+            soh = FIXMessage.SOH
+            header = f"8={self.PROTOCOL_VERSION}{soh}9={len(body)}{soh}"
+            wire = header + body
 
-            header = f"8={FIXClient.PROTOCOL_VERSION}{FIXMessage.FIELD_SEPARATOR}9={length_field}{FIXMessage.SOH}"
-            full_msg = header.encode("latin-1") + data
+            checksum = self._calculate_checksum(wire.encode("latin-1"))
+            wire += f"10={checksum}{soh}"
 
-            checksum = self._calculate_checksum(full_msg)
-            full_msg += f"10={checksum}{FIXMessage.SOH}".encode("latin-1")
+            data = wire.encode("latin-1")
 
             if self._ssl_socket:
-                self._ssl_socket.send(full_msg)
+                self._ssl_socket.send(data)
             elif self._socket:
-                self._socket.send(full_msg)
+                self._socket.send(data)
 
             return True
 
