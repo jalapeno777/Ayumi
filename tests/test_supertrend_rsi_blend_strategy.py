@@ -116,6 +116,7 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
         result = strategy.evaluate(state)
         if result is not None:
             self.assertIn("Supertrend", result.rationale)
+
     def test_strategy_returns_signal_on_bullish_supertrend_flip(self):
         strategy = SupertrendRSIBlendStrategy(
             supertrend_period=5,
