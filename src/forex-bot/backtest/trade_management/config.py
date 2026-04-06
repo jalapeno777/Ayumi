@@ -40,12 +40,19 @@ class TrailingStopConfig:
 class SessionFilterConfig:
     enabled: bool = True
     allow_entry_sessions: List[str] = field(
-        default_factory=lambda: ["london", "ny_am", "ny_pm"]
+        default_factory=lambda: [
+            "london",
+            "london_open",
+            "ny_open",
+            "ny_am",
+            "ny_pm",
+            "asian",
+        ]
     )
     hold_through_sessions: bool = True
     weekend_close_hour_utc: int = 21
     weekend_close_minute_utc: int = 55
-    news_buffer_bars: int = 4
+    news_buffer_bars: int = 2
     news_buffer_on_entry: bool = True
 
 
