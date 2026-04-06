@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 
 from .config import (
     QuantConfig,
@@ -22,6 +22,8 @@ from .regime import (
     combined_regime as calc_combined_regime,
 )
 from .walk_forward import run_strategy as run_walk_forward
+from backtest.engine import Bar
+from backtest.strategies import ISignalStrategy
 
 
 class TradeAction(Enum):
@@ -152,8 +154,8 @@ class QuantPipeline:
 
     def validate_strategy(
         self,
-        strategy_fn: Callable[..., list[dict[str, Any]]],
-        bars: list[Any],
+        strategy: ISignalStrategy,
+        bars: List[Bar],
     ) -> ValidationResult:
         if not self._config.walk_forward.enabled:
             return ValidationResult(
@@ -163,8 +165,8 @@ class QuantPipeline:
             )
 
         results = run_walk_forward(
-            strategy_fn=strategy_fn,
-            data=bars,
+            strategy=strategy,
+            bars=bars,
             n_windows=self._config.walk_forward.n_windows,
             train_ratio=self._config.walk_forward.train_ratio,
             val_ratio=self._config.walk_forward.val_ratio,
