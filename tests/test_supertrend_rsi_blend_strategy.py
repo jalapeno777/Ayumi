@@ -397,5 +397,53 @@ class TestSupertrendATRConsistency(unittest.TestCase):
             )
 
 
+class TestSupertrendRealH1Data(unittest.TestCase):
+    def test_supertrend_produces_direction_flips_on_eurusd_h1(self):
+        import pandas as pd
+
+        csv_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "data",
+            "forex",
+            "historical",
+            "EURUSD_H1.csv",
+        )
+        if not os.path.exists(csv_path):
+            self.skipTest(f"EURUSD H1 data not found at {csv_path}")
+
+        df = pd.read_csv(csv_path, parse_dates=["Date"])
+        self.assertGreater(len(df), 100, "Need at least 100 bars for meaningful test")
+
+        bars = [
+            Bar(
+                time=row["Date"].to_pydatetime(),
+                open=row["Open"],
+                high=row["High"],
+                low=row["Low"],
+                close=row["Close"],
+                volume=row["Volume"],
+            )
+            for _, row in df.iterrows()
+        ]
+
+        strategy = SupertrendRSIBlendStrategy()
+
+        flips = []
+        for i in range(50, min(len(bars), 500)):
+            test_bars = bars[: i + 1]
+            current_st, prev_st = strategy._calculate_supertrend(test_bars)
+            if current_st is not None and prev_st is not None:
+                if (current_st > 0 and prev_st < 0) or (current_st < 0 and prev_st > 0):
+                    flips.append((i, prev_st, current_st))
+
+        self.assertGreater(
+            len(flips),
+            0,
+            f"Supertrend must produce direction flips on EURUSD H1 data. "
+            f"Tested 450 bars and found {len(flips)} flips.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
