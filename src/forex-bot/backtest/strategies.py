@@ -1524,11 +1524,10 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
 
         if self.use_volume_filter:
             volume = state.latest_bar.volume
-            if volume <= 0:
-                return None
-            vol_ma = self._calculate_volume_ma(state.bars)
-            if vol_ma <= 0 or volume < vol_ma:
-                return None
+            if volume > 0:
+                vol_ma = self._calculate_volume_ma(state.bars)
+                if volume < vol_ma:
+                    return None
 
         ema_rising = middle > prev_middle
         ema_falling = middle < prev_middle
