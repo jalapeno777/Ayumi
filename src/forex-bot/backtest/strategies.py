@@ -1286,42 +1286,6 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         if len(bars) < 2:
             return supertrend_list[-1], None
 
-        atr_current = self._calculate_atr(bars)
-        atr_prev = self._calculate_atr(bars[:-1]) if len(bars) > 1 else atr_current
-
-        if abs(atr_current - atr_prev) < 0.0000001:
-            hl2_current = (bars[-1].high + bars[-1].low) / 2
-            hl2_prev = (bars[-2].high + bars[-2].low) / 2
-
-            upper_current = hl2_current + atr_current * self.supertrend_multiplier
-            upper_prev = hl2_prev + atr_prev * self.supertrend_multiplier
-            lower_current = hl2_current - atr_current * self.supertrend_multiplier
-            lower_prev = hl2_prev - atr_prev * self.supertrend_multiplier
-
-            if supertrend_list[-1] == 1.0:
-                if bars[-1].close < lower_current:
-                    current_st = -1.0
-                else:
-                    current_st = 1.0
-            else:
-                if bars[-1].close > upper_current:
-                    current_st = 1.0
-                else:
-                    current_st = -1.0
-
-            if supertrend_list[-2] == 1.0:
-                if bars[-2].close < lower_prev:
-                    prev_st = -1.0
-                else:
-                    prev_st = 1.0
-            else:
-                if bars[-2].close > upper_prev:
-                    prev_st = 1.0
-                else:
-                    prev_st = -1.0
-
-            return current_st, prev_st
-
         return supertrend_list[-1], supertrend_list[-2]
 
     def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
