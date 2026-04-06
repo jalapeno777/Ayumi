@@ -19,6 +19,7 @@ from adapters.ctrader.models import cTraderCredentials
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def quote_credentials():
     return cTraderCredentials(
@@ -48,6 +49,7 @@ def mock_feed(quote_credentials):
 # Tick tests
 # ---------------------------------------------------------------------------
 
+
 class TestTick:
     def test_tick_properties(self):
         tick = Tick(symbol_id=1, bid=1.15250, ask=1.15252)
@@ -67,6 +69,7 @@ class TestTick:
 # SymbolInfo tests
 # ---------------------------------------------------------------------------
 
+
 class TestSymbolInfo:
     def test_default_symbols_populated(self):
         assert len(DEFAULT_SYMBOLS) >= 6
@@ -84,6 +87,7 @@ class TestSymbolInfo:
 # ---------------------------------------------------------------------------
 # LiveMarketDataFeed tests
 # ---------------------------------------------------------------------------
+
 
 class TestLiveMarketDataFeed:
     def test_init_resolves_symbols(self, quote_credentials):
@@ -156,7 +160,12 @@ class TestLiveMarketDataFeed:
         msg = FIXMessage()
         msg.fields = {35: "W", 55: "1", 52: "20260406-02:30:00.000"}
         msg._raw_fields = [
-            (55, "1"), (268, "2"), (269, "0"), (270, "1.0"), (269, "1"), (270, "1.1")
+            (55, "1"),
+            (268, "2"),
+            (269, "0"),
+            (270, "1.0"),
+            (269, "1"),
+            (270, "1.1"),
         ]
         mock_feed._on_snapshot(msg)
 
@@ -170,7 +179,12 @@ class TestLiveMarketDataFeed:
         msg = FIXMessage()
         msg.fields = {35: "W", 55: "1", 52: "20260406-02:30:00.000"}
         msg._raw_fields = [
-            (55, "1"), (268, "2"), (269, "0"), (270, "1.0"), (269, "1"), (270, "1.1")
+            (55, "1"),
+            (268, "2"),
+            (269, "0"),
+            (270, "1.0"),
+            (269, "1"),
+            (270, "1.1"),
         ]
         mock_feed._on_snapshot(msg)
 
@@ -186,6 +200,7 @@ class TestLiveMarketDataFeed:
 # ---------------------------------------------------------------------------
 # FIXMessage repeating group tests
 # ---------------------------------------------------------------------------
+
 
 class TestFIXMessageRepeatingGroups:
     def test_body_field_list_preserves_order(self):
