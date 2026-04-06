@@ -93,7 +93,8 @@ class SessionFilter:
     ):
         self.enabled = enabled
         self.allow_entry_sessions = set(
-            allow_entry_sessions or ["london", "london_open", "ny_open", "ny_am", "ny_pm", "asian"]
+            allow_entry_sessions
+            or ["london", "london_open", "ny_open", "ny_am", "ny_pm", "asian"]
         )
         self.hold_through_sessions = hold_through_sessions
         self.weekend_close_hour = weekend_close_hour_utc
