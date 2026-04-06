@@ -216,30 +216,10 @@ def run_strategy(
             accumulated_train: list[Any] = []
             for bar in train:
                 accumulated_train.append(bar)
-                state = MarketState(
-                    bars=list(accumulated_train),
-                    current_session=determine_session(bar.time),
-                )
-                signal = evaluate_method(state)
-                if signal:
-                    accumulated_trades.append({
-                        "pnl": signal.confidence * 100,
-                        "direction": signal.direction.value,
-                    })
 
             accumulated_val: list[Any] = list(accumulated_train)
             for bar in val:
                 accumulated_val.append(bar)
-                state = MarketState(
-                    bars=list(accumulated_val),
-                    current_session=determine_session(bar.time),
-                )
-                signal = evaluate_method(state)
-                if signal:
-                    accumulated_trades.append({
-                        "pnl": signal.confidence * 100,
-                        "direction": signal.direction.value,
-                    })
 
             accumulated_test: list[Any] = list(accumulated_val)
             for bar in test:
