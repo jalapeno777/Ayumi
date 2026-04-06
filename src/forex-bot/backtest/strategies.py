@@ -1095,8 +1095,8 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         atr_min_pips: float = 6.0,
         atr_period: int = 14,
         adx_period: int = 14,
-        adx_min: float = 20.0,
-        atr_min_chop: float = 5.0,
+        adx_min: float = 18.0,
+        atr_min_chop: float = 2.0,
         sl_atr_multiplier: float = 1.5,
         hard_cap_pips: float = 40.0,
         tp1_atr: float = 1.5,
@@ -1142,12 +1142,6 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                     consecutive_low_adx += 1
             if consecutive_low_adx >= 3:
                 return None
-
-        bar_time = state.latest_bar.time
-        hour = bar_time.hour
-        minute = bar_time.minute
-        if hour == 0 and minute < 30:
-            return None
 
         if atr_pips < self.atr_min_pips:
             return None
