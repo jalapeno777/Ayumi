@@ -301,5 +301,99 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
         self.assertIsNone(prev_st)
 
 
+class TestSupertrendATRConsistency(unittest.TestCase):
+    def test_supertrend_consistent_with_increasing_volatility(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=10,
+            supertrend_multiplier=2.0,
+            atr_period=14,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(77)
+        n = 200
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(n):
+            vol_scale = 0.0001 + (i / n) * 0.002
+            price += np.random.normal(0, vol_scale)
+            prices.append(price)
+        prices = np.array(prices)
+        spread_factor = 0.0001 + (np.arange(n) / n) * 0.003
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - spread_factor[i] * np.random.uniform(0, 1),
+                high=prices[i] + spread_factor[i] * np.random.uniform(1, 3),
+                low=prices[i] - spread_factor[i] * np.random.uniform(1, 3),
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(n)
+        ]
+
+        current_st, prev_st = strategy._calculate_supertrend(bars)
+        self.assertIsNotNone(current_st)
+        self.assertIsNotNone(prev_st)
+
+        prev_window_st, prev_window_prev_st = strategy._calculate_supertrend(bars[:-1])
+        self.assertIsNotNone(prev_window_st)
+        self.assertEqual(
+            prev_window_st,
+            prev_st,
+            "Supertrend at bar N-1 must be identical whether computed "
+            "with bars[0:N] or bars[0:N-1] (varying ATR data)",
+        )
+
+    def test_supertrend_consistent_multi_step(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=7,
+            supertrend_multiplier=2.5,
+            atr_period=10,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(123)
+        n = 150
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(n):
+            if i < 30:
+                vol = 0.0001
+            elif i < 70:
+                vol = 0.001
+            elif i < 110:
+                vol = 0.0002
+            else:
+                vol = 0.0015
+            price += np.random.normal(0.0001, vol)
+            prices.append(price)
+        prices = np.array(prices)
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - 0.0003,
+                high=prices[i] + 0.0005,
+                low=prices[i] - 0.0005,
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(n)
+        ]
+
+        for step in range(1, 6):
+            full_st, full_prev = strategy._calculate_supertrend(bars[: n - step])
+            shifted_st, shifted_prev = strategy._calculate_supertrend(bars[: n - step - 1])
+            self.assertEqual(
+                shifted_st,
+                full_prev,
+                f"Step {step}: shifted-window current must match full-window previous",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1236,9 +1236,23 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         if len(bars) < self.supertrend_period + 1:
             return None, None
 
-        atr = self._calculate_atr(bars)
-        if atr == 0:
-            return None, None
+        atr_values: List[float] = []
+        for i in range(len(bars)):
+            if i < self.atr_period:
+                atr_values.append(0.0001)
+            else:
+                tr_sum = 0.0
+                for j in range(i - self.atr_period + 1, i + 1):
+                    if j > 0:
+                        tr = max(
+                            bars[j].high - bars[j].low,
+                            max(
+                                abs(bars[j].high - bars[j - 1].close),
+                                abs(bars[j].low - bars[j - 1].close),
+                            ),
+                        )
+                        tr_sum += tr
+                atr_values.append(tr_sum / self.atr_period)
 
         hl2_list = [(b.high + b.low) / 2 for b in bars]
         upper_band_list = [0.0] * len(bars)
@@ -1246,6 +1260,8 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         supertrend_list = [0.0] * len(bars)
 
         for i in range(len(bars)):
+            atr = atr_values[i]
+
             if i < self.supertrend_period:
                 upper_band_list[i] = hl2_list[i] + atr * self.supertrend_multiplier
                 lower_band_list[i] = hl2_list[i] - atr * self.supertrend_multiplier
