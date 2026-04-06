@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, TYPE_CHECKING
 from threading import Lock
 
 from .models import (
@@ -12,6 +12,9 @@ from .models import (
     OrderStatus,
     PositionStatus,
 )
+
+if TYPE_CHECKING:
+    from .api_client import cTraderAPIClient
 
 
 logger = logging.getLogger(__name__)
@@ -35,11 +38,17 @@ class OrderExecutionResult:
 
 
 class OrderManager:
-    def __init__(self, position_config: Optional[PositionSizeConfig] = None):
+    def __init__(
+        self,
+        position_config: Optional[PositionSizeConfig] = None,
+        api_client: Optional["cTraderAPIClient"] = None,
+    ):
         self._positions: Dict[str, Position] = {}
         self._orders: Dict[str, Order] = {}
         self._position_config = position_config or PositionSizeConfig()
+        self._api_client = api_client
         self._lock = Lock()
+        self._locally_filled_order_ids: set = set()
         self._callbacks: Dict[str, List[Callable]] = {
             "on_order_placed": [],
             "on_order_filled": [],
@@ -47,7 +56,11 @@ class OrderManager:
             "on_order_rejected": [],
             "on_position_opened": [],
             "on_position_closed": [],
+            "on_order_new": [],
+            "on_order_partial_fill": [],
         }
+        if self._api_client and not self._api_client.is_paper_mode:
+            self._wire_live_callbacks()
 
     def calculate_position_size(
         self,
@@ -169,6 +182,158 @@ class OrderManager:
             order=order,
             position=position,
         )
+
+    def execute_live_order(
+        self,
+        symbol: str,
+        direction: TradeDirection,
+        volume: float,
+        order_type: OrderType = OrderType.MARKET,
+        price: Optional[float] = None,
+        stop_loss: Optional[float] = None,
+        take_profit: Optional[float] = None,
+        comment: str = "",
+    ) -> OrderExecutionResult:
+        if not symbol or not symbol.strip():
+            return OrderExecutionResult(
+                success=False,
+                error_message="Symbol is required",
+                rejection_reason="validation_error",
+            )
+
+        if not volume or volume <= 0:
+            return OrderExecutionResult(
+                success=False,
+                error_message=f"Volume must be positive, got {volume}",
+                rejection_reason="validation_error",
+            )
+
+        if order_type in (OrderType.LIMIT, OrderType.STOP) and not price:
+            return OrderExecutionResult(
+                success=False,
+                error_message=f"Price is required for {order_type.value} orders",
+                rejection_reason="validation_error",
+            )
+
+        if not self._api_client or self._api_client.is_paper_mode:
+            return OrderExecutionResult(
+                success=False,
+                error_message="No live API client connected or paper mode is active",
+                rejection_reason="no_live_client",
+            )
+
+        if not self._api_client.is_connected:
+            return OrderExecutionResult(
+                success=False,
+                error_message="FIX connection not established",
+                rejection_reason="not_connected",
+            )
+
+        order = self._api_client.send_order(
+            symbol=symbol,
+            direction=direction,
+            order_type=order_type,
+            volume=volume,
+            price=price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            comment=comment,
+        )
+
+        if order is None:
+            return OrderExecutionResult(
+                success=False,
+                error_message="Failed to send order via FIX",
+                rejection_reason="send_failed",
+            )
+
+        with self._lock:
+            self._orders[order.order_id] = order
+
+        self._trigger_callback("on_order_placed", order)
+
+        if order.status == OrderStatus.FILLED:
+            position = self._create_position_from_order(order)
+            if position:
+                with self._lock:
+                    self._positions[position.position_id] = position
+                self._trigger_callback("on_position_opened", position)
+            self._trigger_callback("on_order_filled", order)
+            with self._lock:
+                self._locally_filled_order_ids.add(order.order_id)
+            return OrderExecutionResult(
+                success=True,
+                order=order,
+                position=position,
+            )
+
+        if order.status == OrderStatus.REJECTED:
+            self._trigger_callback("on_order_rejected", order)
+            return OrderExecutionResult(
+                success=False,
+                order=order,
+                error_message=order.comment or "Order rejected by broker",
+                rejection_reason="broker_rejected",
+            )
+
+        return OrderExecutionResult(
+            success=True,
+            order=order,
+            error_message="Order sent, awaiting execution report",
+        )
+
+    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
+        self._api_client = api_client
+        if self._api_client and not self._api_client.is_paper_mode:
+            if not self._api_client.is_connected:
+                logger.warning(
+                    "cTraderAPIClient not connected — live callbacks will be "
+                    "wired on connect. Call connect() before trading."
+                )
+            self._wire_live_callbacks()
+
+    def _wire_live_callbacks(self):
+        if not self._api_client:
+            return
+
+        if not self._api_client.is_connected:
+            logger.warning("Cannot wire live callbacks: FIX client not connected")
+            return
+
+        api = self._api_client
+
+        def on_filled(order, msg, *args):
+            if not order:
+                return
+            with self._lock:
+                if order.order_id in self._locally_filled_order_ids:
+                    self._locally_filled_order_ids.discard(order.order_id)
+                    return
+            if order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                position = self._create_position_from_order(order)
+                if position:
+                    with self._lock:
+                        self._positions[position.position_id] = position
+                    self._trigger_callback("on_position_opened", position)
+                self._trigger_callback("on_order_filled", order)
+
+        def on_rejected(order, msg, reject_msg, *args):
+            if order and order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                self._trigger_callback("on_order_rejected", order)
+
+        def on_cancelled(order, msg, *args):
+            if order and order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                self._trigger_callback("on_order_cancelled", order)
+
+        api.register_callback("on_order_filled", on_filled)
+        api.register_callback("on_order_rejected", on_rejected)
+        api.register_callback("on_order_cancelled", on_cancelled)
 
     def _create_position_from_order(self, order: Order) -> Optional[Position]:
         if order.status != OrderStatus.FILLED:
