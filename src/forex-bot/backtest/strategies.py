@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Tuple
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 
@@ -1717,6 +1718,8 @@ class HighConvictionStrategy(ISignalStrategy):
         tp_atr_mult: float = 6.0,
         allowed_sessions: Optional[List[str]] = None,
         min_confluences: int = 5,
+        source_timeframe_minutes: int = 240,
+        max_trades_per_week: int = 1,
     ):
         self.trend_lookback = trend_lookback
         self.swing_lookback = swing_lookback
@@ -1731,15 +1734,22 @@ class HighConvictionStrategy(ISignalStrategy):
         else:
             self.allowed_sessions = {SessionType(s) for s in allowed_sessions}
         self.min_confluences = min_confluences
+        self.source_timeframe_minutes = source_timeframe_minutes
+        self.max_trades_per_week = max_trades_per_week
+        self._last_trade_time: Optional[datetime] = None
 
     @property
     def name(self) -> str:
         return "High Conviction"
 
+    def reset(self) -> None:
+        self._last_trade_time = None
+
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        d1_bars = self._resample_to_daily(state.bars)
         min_bars = (
             max(
-                self.trend_lookback,
+                self.trend_lookback * 6,
                 self.swing_lookback,
                 self.rsi_period,
                 self.atr_period,
@@ -1749,12 +1759,17 @@ class HighConvictionStrategy(ISignalStrategy):
         )
         if len(state.bars) < min_bars:
             return None
+        if len(d1_bars) < self.trend_lookback + 2:
+            return None
+
+        if self.max_trades_per_week > 0 and not self._can_trade_this_week(state):
+            return None
 
         atr = self._calculate_atr(state.bars, self.atr_period)
         if atr <= 0:
             return None
 
-        trend_dir = self._detect_trend(state.bars)
+        trend_dir = self._detect_d1_trend(d1_bars)
         if trend_dir is None:
             return None
 
@@ -1781,6 +1796,8 @@ class HighConvictionStrategy(ISignalStrategy):
         if confluences < self.min_confluences:
             return None
 
+        self._last_trade_time = state.latest_bar.time
+
         entry = state.latest_bar.close
         sl_distance = atr * self.sl_atr_mult
         sl = (
@@ -1790,10 +1807,11 @@ class HighConvictionStrategy(ISignalStrategy):
         )
         risk = abs(entry - sl)
 
-        tp = (
-            entry + risk * (self.tp_atr_mult / self.sl_atr_mult)
+        rr_ratio = self.tp_atr_mult / self.sl_atr_mult
+        tp2 = (
+            entry + risk * rr_ratio
             if trend_dir == TradeDirection.LONG
-            else entry - risk * (self.tp_atr_mult / self.sl_atr_mult)
+            else entry - risk * rr_ratio
         )
 
         tp3 = (
@@ -1805,7 +1823,7 @@ class HighConvictionStrategy(ISignalStrategy):
         confidence = 0.75
         rationale = (
             f"High Conviction {trend_dir.value}: "
-            f"trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
+            f"D1 trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
             + ", ".join(labels)
         )
 
@@ -1814,29 +1832,53 @@ class HighConvictionStrategy(ISignalStrategy):
             confidence=confidence,
             entry_price=entry,
             stop_loss=sl,
-            take_profit_1=tp * 0.5 + sl * 0.5,
-            take_profit_2=tp,
+            take_profit_1=tp2 * 0.5 + sl * 0.5,
+            take_profit_2=tp2,
             take_profit_3=tp3,
             rationale=rationale,
         )
 
-    def _detect_trend(self, bars: List[Bar]) -> Optional[TradeDirection]:
-        if len(bars) < self.trend_lookback:
+    def _can_trade_this_week(self, state: MarketState) -> bool:
+        if self._last_trade_time is None:
+            return True
+        now = state.latest_bar.time
+        days_since = (now.date() - self._last_trade_time.date()).days
+        if days_since >= 7:
+            return True
+        if now.weekday() < self._last_trade_time.weekday() or days_since >= 4:
+            return True
+        return False
+
+    def _resample_to_daily(self, bars: List[Bar]) -> List[Bar]:
+
+        if not bars:
+            return []
+        grouped: dict = {}
+        for bar in bars:
+            day_key = bar.time.date()
+            if day_key not in grouped:
+                grouped[day_key] = []
+            grouped[day_key].append(bar)
+        result = []
+        for day in sorted(grouped.keys()):
+            group = grouped[day]
+            result.append(
+                Bar(
+                    time=group[0].time,
+                    open=group[0].open,
+                    high=max(b.high for b in group),
+                    low=min(b.low for b in group),
+                    close=group[-1].close,
+                    volume=sum(b.volume for b in group),
+                )
+            )
+        return result
+
+    def _detect_d1_trend(self, d1_bars: List[Bar]) -> Optional[TradeDirection]:
+        if len(d1_bars) < self.trend_lookback:
             return None
-        recent = bars[-self.trend_lookback :]
+        recent = d1_bars[-self.trend_lookback :]
         closes = [b.close for b in recent]
-        if closes[-1] > closes[0] and all(
-            closes[i] <= closes[i + 1]
-            for i in range(len(closes) - 1)
-            if abs(closes[i + 1] - closes[i]) > 0
-        ):
-            return TradeDirection.LONG
-        if closes[-1] < closes[0] and all(
-            closes[i] >= closes[i + 1]
-            for i in range(len(closes) - 1)
-            if abs(closes[i + 1] - closes[i]) > 0
-        ):
-            return TradeDirection.SHORT
         bullish = sum(1 for i in range(1, len(closes)) if closes[i] > closes[i - 1])
         bearish = len(closes) - 1 - bullish
         net_move = closes[-1] - closes[0]

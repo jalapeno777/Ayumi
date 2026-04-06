@@ -506,5 +506,199 @@ class TestHighConvictionMinConfluences(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestHighConvictionMTFResample(unittest.TestCase):
+    def test_resample_to_daily_groups_bars_by_date(self):
+        strategy = HighConvictionStrategy()
+        bars = []
+        for i in range(12):
+            bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1, 0, 0) + __import__("datetime").timedelta(hours=4 * i),
+                    open=1.1,
+                    high=1.1005,
+                    low=1.0995,
+                    close=1.1 + i * 0.0001,
+                    volume=100,
+                )
+            )
+        d1 = strategy._resample_to_daily(bars)
+        self.assertGreater(len(d1), 1)
+        self.assertLessEqual(len(d1), 3)
+
+    def test_resample_to_daily_empty_bars(self):
+        strategy = HighConvictionStrategy()
+        d1 = strategy._resample_to_daily([])
+        self.assertEqual(d1, [])
+
+    def test_resample_to_daily_preserves_ohlc(self):
+        strategy = HighConvictionStrategy()
+        bars = [
+            Bar(time=datetime(2023, 1, 1, 0), open=1.0, high=1.005, low=0.995, close=1.002, volume=100),
+            Bar(time=datetime(2023, 1, 1, 4), open=1.002, high=1.008, low=1.001, close=1.006, volume=200),
+            Bar(time=datetime(2023, 1, 2, 0), open=1.006, high=1.010, low=1.004, close=1.008, volume=150),
+        ]
+        d1 = strategy._resample_to_daily(bars)
+        self.assertEqual(len(d1), 2)
+        self.assertAlmostEqual(d1[0].open, 1.0)
+        self.assertAlmostEqual(d1[0].high, 1.008)
+        self.assertAlmostEqual(d1[0].low, 0.995)
+        self.assertAlmostEqual(d1[0].close, 1.006)
+        self.assertAlmostEqual(d1[0].volume, 300)
+
+
+class TestHighConvictionD1Trend(unittest.TestCase):
+    def test_detects_d1_bullish_trend(self):
+        strategy = HighConvictionStrategy(trend_lookback=5)
+        d1_bars = []
+        price = 1.1
+        for i in range(10):
+            price += 0.005
+            d1_bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1 + i),
+                    open=price - 0.003,
+                    high=price + 0.002,
+                    low=price - 0.004,
+                    close=price,
+                    volume=1000,
+                )
+            )
+        result = strategy._detect_d1_trend(d1_bars)
+        self.assertEqual(result, TradeDirection.LONG)
+
+    def test_detects_d1_bearish_trend(self):
+        strategy = HighConvictionStrategy(trend_lookback=5)
+        d1_bars = []
+        price = 1.2
+        for i in range(10):
+            price -= 0.005
+            d1_bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1 + i),
+                    open=price + 0.003,
+                    high=price + 0.004,
+                    low=price - 0.002,
+                    close=price,
+                    volume=1000,
+                )
+            )
+        result = strategy._detect_d1_trend(d1_bars)
+        self.assertEqual(result, TradeDirection.SHORT)
+
+    def test_returns_none_in_ranging_d1(self):
+        strategy = HighConvictionStrategy(trend_lookback=5)
+        d1_bars = []
+        for i in range(10):
+            d1_bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1 + i),
+                    open=1.1,
+                    high=1.1 + 0.001 * (i % 2),
+                    low=1.1 - 0.001 * (i % 2),
+                    close=1.1,
+                    volume=1000,
+                )
+            )
+        result = strategy._detect_d1_trend(d1_bars)
+        self.assertIsNone(result)
+
+    def test_returns_none_with_insufficient_d1_bars(self):
+        strategy = HighConvictionStrategy(trend_lookback=20)
+        d1_bars = [
+            Bar(time=datetime(2023, 1, 1), open=1.1, high=1.11, low=1.09, close=1.105, volume=1000),
+        ]
+        result = strategy._detect_d1_trend(d1_bars)
+        self.assertIsNone(result)
+
+
+class TestHighConvictionTradeFrequency(unittest.TestCase):
+    def test_blocks_second_trade_same_week(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            max_trades_per_week=1,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 5, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        strategy._last_trade_time = datetime(2023, 1, 3, 9, 0)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_allows_trade_after_week_elapses(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            max_trades_per_week=1,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 15, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        strategy._last_trade_time = datetime(2023, 1, 3, 9, 0)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertIn("High Conviction", result.rationale)
+
+    def test_allows_trade_when_no_previous(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            max_trades_per_week=1,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        self.assertIsNone(strategy._last_trade_time)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertIn("High Conviction", result.rationale)
+
+    def test_disabled_freq_limit_allows_all(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            max_trades_per_week=0,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 5, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        strategy._last_trade_time = datetime(2023, 1, 3, 9, 0)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertIn("High Conviction", result.rationale)
+
+    def test_reset_clears_trade_time(self):
+        strategy = HighConvictionStrategy(max_trades_per_week=1)
+        strategy._last_trade_time = datetime(2023, 1, 3, 9, 0)
+        strategy.reset()
+        self.assertIsNone(strategy._last_trade_time)
+
+
+class TestHighConvictionNewParameters(unittest.TestCase):
+    def test_max_trades_per_week_default(self):
+        strategy = HighConvictionStrategy()
+        self.assertEqual(strategy.max_trades_per_week, 1)
+
+    def test_max_trades_per_week_custom(self):
+        strategy = HighConvictionStrategy(max_trades_per_week=2)
+        self.assertEqual(strategy.max_trades_per_week, 2)
+
+    def test_source_timeframe_default(self):
+        strategy = HighConvictionStrategy()
+        self.assertEqual(strategy.source_timeframe_minutes, 240)
+
+    def test_custom_new_parameters(self):
+        strategy = HighConvictionStrategy(
+            source_timeframe_minutes=60,
+            max_trades_per_week=3,
+        )
+        self.assertEqual(strategy.source_timeframe_minutes, 60)
+        self.assertEqual(strategy.max_trades_per_week, 3)
+
+
 if __name__ == "__main__":
     unittest.main()
