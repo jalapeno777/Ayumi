@@ -1,12 +1,15 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Callable, Any
+from typing import Optional, List, Callable, Any, TYPE_CHECKING
 from threading import RLock
 
 from .models import TradeSignal, Position, Order
-from .order_manager import OrderManager, PositionSizeConfig
+from .order_manager import OrderManager, PositionSizeConfig, OrderExecutionResult
 from .risk_guard import RiskGuard, FTMOConfig
+
+if TYPE_CHECKING:
+    from .api_client import cTraderAPIClient
 
 
 logger = logging.getLogger(__name__)
@@ -41,10 +44,14 @@ class PaperTrader:
         ftmo_config: Optional[FTMOConfig] = None,
         position_config: Optional[PositionSizeConfig] = None,
         starting_balance: float = 100000.0,
+        api_client: Optional["cTraderAPIClient"] = None,
     ):
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
-        self._order_manager = OrderManager(self._position_config)
+        self._api_client = api_client
+        self._order_manager = OrderManager(
+            self._position_config, api_client=api_client
+        )
         self._risk_guard = RiskGuard(self._ftmo_config, starting_balance)
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -56,6 +63,14 @@ class PaperTrader:
         self._callbacks: List[tuple[str, Callable]] = []
         self._running = False
         self._last_update: Optional[datetime] = None
+
+    @property
+    def is_live_mode(self) -> bool:
+        return (
+            self._api_client is not None
+            and not self._api_client.is_paper_mode
+            and self._api_client.is_connected
+        )
 
     def process_signal(self, signal: TradeSignal) -> PaperTradeResult:
         with self._lock:
@@ -97,14 +112,9 @@ class PaperTrader:
                     risk_guard_result=trade_check,
                 )
 
-            trade_result = self._order_manager.execute_paper_order(
-                symbol=signal.symbol,
-                direction=signal.direction,
+            trade_result = self._execute_order(
+                signal=signal,
                 volume=volume,
-                entry_price=signal.entry_price,
-                stop_loss=signal.stop_loss,
-                take_profit=signal.take_profit_1,
-                comment=signal.rationale,
             )
 
             if trade_result.success:
@@ -138,6 +148,30 @@ class PaperTrader:
                 self._trade_history.append(result)
 
             return result
+
+    def _execute_order(self, signal: TradeSignal, volume: float) -> OrderExecutionResult:
+        if self.is_live_mode:
+            return self._order_manager.execute_live_order(
+                symbol=signal.symbol,
+                direction=signal.direction,
+                volume=volume,
+                stop_loss=signal.stop_loss,
+                take_profit=signal.take_profit_1,
+                comment=signal.rationale,
+            )
+        return self._order_manager.execute_paper_order(
+            symbol=signal.symbol,
+            direction=signal.direction,
+            volume=volume,
+            entry_price=signal.entry_price,
+            stop_loss=signal.stop_loss,
+            take_profit=signal.take_profit_1,
+            comment=signal.rationale,
+        )
+
+    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
+        self._api_client = api_client
+        self._order_manager.set_api_client(api_client)
 
     def update_market_prices(self, prices: dict):
         with self._lock:

@@ -4,6 +4,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from typing import Optional, Callable, Dict
+from enum import Enum
 import logging
 
 from .models import (
@@ -20,6 +21,99 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 SOH = "\x01"
+
+
+class FIXRejectCode(Enum):
+    OTHER = 0
+    UNKNOWN_ID = 1
+    UNKNOWN_SECURITY = 2
+    UNSUPPORTED_MESSAGE_TYPE = 3
+    APPLICATION_NOT_AVAILABLE = 4
+    REQUIRED_FIELD_MISSING = 5
+    NOT_AUTHORIZED = 6
+    DELIVERTO_FIRM_NOT_AVAILABLE = 7
+    INCORRECT_DATA_FORMAT = 8
+    INCORRECT_TAG_VALUE = 99
+    INCORRECT_NUMINGROUP_COUNT = 99
+    INVALID_MSGTYPE = 11
+    TAG_NOT_DEFINED = 12
+    TAG_SPECIFIED_OUT_OF_REQUIRED_ORDER = 14
+    VALUE_IS_INCORRECT = 15
+    INCORRECT_DATA_VALUE = 16
+    DATA_LENGTH_TOO_LONG = 17
+    TAG_APPEARS_MORE_THAN_ONCE = 18
+    TAG_SPECIFIED_WITHOUT_VALUE = 19
+    INCORRECT_QUANTITY = 21
+    TRADING_SESSION_CLOSED = 22
+    INVALID_PRICE_INCREMENT = 23
+    INSUFFICIENT_FUNDS = 26
+    ORDER_EXCEEDS_LIMIT = 29
+    DUPLICATE_ORDER = 38
+    NO_MORE_ORDERS = 39
+    CANNOT_CANCEL = 48
+    EXCHANGE_CLOSED = 50
+    DUPLICATE_CLORDID = 60
+    INCORRECT_ALLOCATED_QTY = 81
+    ORDER_ALREADY_CANCELLED = 84
+    PRICE_EXCEEDS_CURRENT_PRICE = 97
+    NOTAuthorized = 98
+    ORDER_NOT_FOUND = 100
+    UNSUPPORTED_ORDER_TYPE = 101
+    INSUFFICIENT_MARGIN = 102
+    ORDER_SIZE_EXCEEDS_LIMIT = 103
+    NOT_AUTHORIZED_ACTION = 98
+
+
+FIX_REJECT_MESSAGES: Dict[FIXRejectCode, str] = {
+    FIXRejectCode.OTHER: "Unspecified reject reason",
+    FIXRejectCode.UNKNOWN_ID: "Unknown client order ID",
+    FIXRejectCode.UNKNOWN_SECURITY: "Unknown security symbol",
+    FIXRejectCode.UNSUPPORTED_MESSAGE_TYPE: "Unsupported FIX message type",
+    FIXRejectCode.APPLICATION_NOT_AVAILABLE: "Application not available",
+    FIXRejectCode.REQUIRED_FIELD_MISSING: "Required field missing in message",
+    FIXRejectCode.NOT_AUTHORIZED: "Not authorized to trade",
+    FIXRejectCode.DELIVERTO_FIRM_NOT_AVAILABLE: "Delivery firm not available",
+    FIXRejectCode.INCORRECT_DATA_FORMAT: "Incorrect data format for value",
+    FIXRejectCode.INCORRECT_TAG_VALUE: "Incorrect tag value",
+    FIXRejectCode.INCORRECT_NUMINGROUP_COUNT: "Incorrect NumInGroup count",
+    FIXRejectCode.INVALID_MSGTYPE: "Invalid message type",
+    FIXRejectCode.TAG_NOT_DEFINED: "Tag not defined for this message type",
+    FIXRejectCode.TAG_SPECIFIED_OUT_OF_REQUIRED_ORDER: "Tag specified out of required order",
+    FIXRejectCode.VALUE_IS_INCORRECT: "Value is incorrect",
+    FIXRejectCode.INCORRECT_DATA_VALUE: "Incorrect data value",
+    FIXRejectCode.DATA_LENGTH_TOO_LONG: "Data length exceeds maximum",
+    FIXRejectCode.TAG_APPEARS_MORE_THAN_ONCE: "Tag appears more than once",
+    FIXRejectCode.TAG_SPECIFIED_WITHOUT_VALUE: "Tag specified without a value",
+    FIXRejectCode.INCORRECT_QUANTITY: "Incorrect order quantity",
+    FIXRejectCode.TRADING_SESSION_CLOSED: "Trading session is closed",
+    FIXRejectCode.INVALID_PRICE_INCREMENT: "Invalid price increment",
+    FIXRejectCode.INSUFFICIENT_FUNDS: "Insufficient funds for this order",
+    FIXRejectCode.ORDER_EXCEEDS_LIMIT: "Order exceeds position limit",
+    FIXRejectCode.DUPLICATE_ORDER: "Duplicate order detected",
+    FIXRejectCode.NO_MORE_ORDERS: "No more orders allowed",
+    FIXRejectCode.CANNOT_CANCEL: "Order cannot be cancelled",
+    FIXRejectCode.EXCHANGE_CLOSED: "Exchange is closed",
+    FIXRejectCode.DUPLICATE_CLORDID: "Duplicate client order ID",
+    FIXRejectCode.INCORRECT_ALLOCATED_QTY: "Incorrect allocated quantity",
+    FIXRejectCode.ORDER_ALREADY_CANCELLED: "Order already cancelled",
+    FIXRejectCode.PRICE_EXCEEDS_CURRENT_PRICE: "Price exceeds current market price",
+    FIXRejectCode.NOT_AUTHORIZED_ACTION: "Not authorized for this action",
+    FIXRejectCode.ORDER_NOT_FOUND: "Order not found",
+    FIXRejectCode.UNSUPPORTED_ORDER_TYPE: "Unsupported order type",
+    FIXRejectCode.INSUFFICIENT_MARGIN: "Insufficient margin for this order",
+    FIXRejectCode.ORDER_SIZE_EXCEEDS_LIMIT: "Order size exceeds allowed limit",
+}
+
+
+def get_reject_message(reject_code: int, text: Optional[str] = None) -> str:
+    try:
+        code = FIXRejectCode(reject_code)
+        msg = FIX_REJECT_MESSAGES.get(code, f"Unknown reject code {reject_code}")
+    except ValueError:
+        msg = f"Unknown reject code {reject_code}"
+    if text:
+        msg = f"{msg}: {text}"
+    return msg
 
 
 class FIXMessage:
@@ -306,36 +400,85 @@ class FIXClient:
         self._check_heartbeat()
 
     def _handle_execution_report(self, msg: FIXMessage):
-        order_id = msg.get_field(self.TAG_CLORD_ID) or msg.get_field(self.TAG_ORDER_ID)
+        clord_id = msg.get_field(self.TAG_CLORD_ID)
+        order_id = msg.get_field(self.TAG_ORDER_ID)
         exec_type = msg.get_field(self.TAG_EXEC_TYPE)
+        last_px = msg.get_field(self.TAG_LAST_PX)
+        avg_px = msg.get_field(self.TAG_AVG_PX)
+        text = msg.get_field(self.TAG_TEXT)
+
+        lookup_id = clord_id or order_id
 
         with self._lock:
-            if order_id in self._pending_orders:
-                order = self._pending_orders[order_id]
-                if exec_type == "0":
+            order = self._pending_orders.get(lookup_id) if lookup_id else None
+
+            if exec_type == "0":
+                if order:
+                    order.status = OrderStatus.PENDING
+                self._trigger_callback("on_order_new", order, msg)
+
+            elif exec_type == "1":
+                if order:
+                    order.status = OrderStatus.PENDING
+                    if last_px:
+                        order.filled_price = float(last_px)
+                self._trigger_callback("on_order_partial_fill", order, msg)
+
+            elif exec_type in ("F", "f"):
+                if order:
                     order.status = OrderStatus.FILLED
                     order.filled_at = datetime.now(timezone.utc)
-                    order.filled_price = float(msg.get_field(self.TAG_LAST_PX) or 0)
-                    self._trigger_callback("on_order_filled", order)
-                elif exec_type == "4":
+                    if last_px:
+                        order.filled_price = float(last_px)
+                    elif avg_px:
+                        order.filled_price = float(avg_px)
+                    if text:
+                        order.comment = text
+                self._trigger_callback("on_order_filled", order, msg)
+
+            elif exec_type == "4":
+                if order:
                     order.status = OrderStatus.CANCELLED
-                    self._trigger_callback("on_order_cancelled", order)
-                elif exec_type == "8":
+                    if text:
+                        order.comment = text
+                self._trigger_callback("on_order_cancelled", order, msg)
+
+            elif exec_type == "8":
+                reject_code = int(msg.get_field(371) or 0)
+                reject_msg = get_reject_message(reject_code, text)
+                if order:
                     order.status = OrderStatus.REJECTED
-                    order.comment = msg.get_field(self.TAG_TEXT) or "Rejected"
-                    self._trigger_callback("on_order_rejected", order)
+                    order.comment = reject_msg
+                self._trigger_callback("on_order_rejected", order, msg, reject_msg)
+
+            elif exec_type == "C":
+                if order:
+                    order.status = OrderStatus.CANCELLED
+                    if text:
+                        order.comment = f"Expired: {text}"
+                    else:
+                        order.comment = "Order expired"
+                self._trigger_callback("on_order_cancelled", order, msg)
+
+            elif exec_type == "6":
+                self._trigger_callback("on_order_pending_cancel", order, msg)
+
+            else:
+                logger.debug(f"Unhandled exec type {exec_type} for order {lookup_id}")
 
     def _handle_reject(self, msg: FIXMessage):
         clord_id = msg.get_field(self.TAG_CLORD_ID)
         text = msg.get_field(self.TAG_TEXT)
-        logger.warning(f"Order rejected: {clord_id} - {text}")
+        reject_code = int(msg.get_field(371) or 0)
+        reject_msg = get_reject_message(reject_code, text)
+        logger.warning(f"Order rejected: {clord_id} - {reject_msg}")
 
         with self._lock:
-            if clord_id in self._pending_orders:
+            if clord_id and clord_id in self._pending_orders:
                 order = self._pending_orders[clord_id]
                 order.status = OrderStatus.REJECTED
-                order.comment = text or "Rejected"
-                self._trigger_callback("on_order_rejected", order)
+                order.comment = reject_msg
+                self._trigger_callback("on_order_rejected", order, msg, reject_msg)
 
     def _handle_position_report(self, msg: FIXMessage):
         logger.debug(f"Position report: {msg.fields}")
