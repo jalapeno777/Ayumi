@@ -228,6 +228,75 @@ class TestSupertrendRSIBlendStrategy(unittest.TestCase):
             sl_pips = abs(result.entry_price - result.stop_loss) * 10000
             self.assertLessEqual(sl_pips, 40.0)
 
+    def test_supertrend_flip_detection_with_near_identical_atr(self):
+        strategy = SupertrendRSIBlendStrategy(
+            supertrend_period=5,
+            supertrend_multiplier=2.0,
+            rsi_period=5,
+            rsi_threshold=50.0,
+            atr_min_pips=1.0,
+            adx_min=15.0,
+            atr_min_chop=1.0,
+        )
+        import numpy as np
+        import pandas as pd
+
+        np.random.seed(99)
+        n = 120
+        dates = pd.date_range("2023-01-01", periods=n, freq="1h")
+        price = 1.1000
+        prices = []
+        for i in range(n):
+            if i < 30:
+                price += np.random.normal(0, 0.00005)
+            elif i < 60:
+                price += 0.0005 + np.random.normal(0, 0.00005)
+            elif i < 90:
+                price += np.random.normal(0, 0.00005)
+            else:
+                price -= 0.0005 + np.random.normal(0, 0.00005)
+            prices.append(price)
+        prices = np.array(prices)
+        spread = 0.00015
+        bars = [
+            Bar(
+                time=dates[i].to_pydatetime(),
+                open=prices[i] - spread * np.random.uniform(0, 1),
+                high=prices[i] + spread * np.random.uniform(1, 3),
+                low=prices[i] - spread * np.random.uniform(1, 3),
+                close=prices[i],
+                volume=1000,
+            )
+            for i in range(n)
+        ]
+
+        current_st, prev_st = strategy._calculate_supertrend(bars)
+        self.assertIsNotNone(prev_st)
+        self.assertIn(current_st, [1.0, -1.0])
+        self.assertIn(prev_st, [1.0, -1.0])
+
+        window_bars = bars[:-1]
+        prev_current, prev_prev = strategy._calculate_supertrend(window_bars)
+        self.assertIsNotNone(prev_prev)
+        self.assertEqual(prev_current, prev_st,
+                         "Shifted-window current must match full-window previous")
+
+    def test_supertrend_insufficient_bars_returns_none(self):
+        strategy = SupertrendRSIBlendStrategy()
+        bars = [
+            Bar(
+                time=datetime(2023, 1, 1, 10, 0),
+                open=1.1000,
+                high=1.1005,
+                low=1.0995,
+                close=1.1002,
+                volume=1000,
+            )
+        ]
+        current_st, prev_st = strategy._calculate_supertrend(bars)
+        self.assertIsNone(current_st)
+        self.assertIsNone(prev_st)
+
 
 if __name__ == "__main__":
     unittest.main()
