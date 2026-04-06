@@ -1,5 +1,4 @@
 import socket
-import os
 import ssl
 import threading
 import time
