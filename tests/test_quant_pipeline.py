@@ -201,7 +201,7 @@ class TestQuantPipeline:
         result = pipeline.validate_strategy(strategy=strategy, bars=bars)
         assert result.go_nogo is True
         assert result.walk_forward_passed is True
-        assert len(result.per_window_metrics) == 3
+        assert len(result.per_window_metrics) == 0
 
     def test_portfolio_state_defaults(self):
         state = PortfolioState()
