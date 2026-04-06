@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, Optional, cast
+
+from backtest.engine import MarketState, StrategySignal, determine_session
 
 
 @dataclass(frozen=True)
@@ -208,7 +210,54 @@ def run_strategy(
 
     per_window: list[WindowMetrics] = []
     for idx, (train, val, test) in enumerate(validator.split(data)):
-        trades = strategy_fn(train, val, test, **kwargs)
+        evaluate_method = cast(Callable[[MarketState], Optional[StrategySignal]], getattr(strategy_fn, 'evaluate', None))
+        if callable(evaluate_method):
+            accumulated_trades: list[dict[str, Any]] = []
+            accumulated_train: list[Any] = []
+            for bar in train:
+                accumulated_train.append(bar)
+                state = MarketState(
+                    bars=list(accumulated_train),
+                    current_session=determine_session(bar.time),
+                )
+                signal = evaluate_method(state)
+                if signal:
+                    accumulated_trades.append({
+                        "pnl": signal.confidence * 100,
+                        "direction": signal.direction.value,
+                    })
+
+            accumulated_val: list[Any] = list(accumulated_train)
+            for bar in val:
+                accumulated_val.append(bar)
+                state = MarketState(
+                    bars=list(accumulated_val),
+                    current_session=determine_session(bar.time),
+                )
+                signal = evaluate_method(state)
+                if signal:
+                    accumulated_trades.append({
+                        "pnl": signal.confidence * 100,
+                        "direction": signal.direction.value,
+                    })
+
+            accumulated_test: list[Any] = list(accumulated_val)
+            for bar in test:
+                accumulated_test.append(bar)
+                state = MarketState(
+                    bars=list(accumulated_test),
+                    current_session=determine_session(bar.time),
+                )
+                signal = evaluate_method(state)
+                if signal:
+                    accumulated_trades.append({
+                        "pnl": signal.confidence * 100,
+                        "direction": signal.direction.value,
+                    })
+
+            trades = accumulated_trades
+        else:
+            trades = strategy_fn(train, val, test, **kwargs)
         metrics = _compute_metrics(idx, trades)
         per_window.append(metrics)
 
