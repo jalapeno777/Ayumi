@@ -21,7 +21,7 @@ from .regime import (
     trend_regime as calc_trend_regime,
     combined_regime as calc_combined_regime,
 )
-from .walk_forward import run_strategy as run_walk_forward
+
 
 
 class TradeAction(Enum):
@@ -162,9 +162,11 @@ class QuantPipeline:
                 details="Walk-forward validation disabled in config",
             )
 
+        from .walk_forward import run_strategy as run_walk_forward
+
         results = run_walk_forward(
-            strategy_fn=strategy_fn,
-            data=bars,
+            strategy=strategy_fn,
+            bars=bars,
             n_windows=self._config.walk_forward.n_windows,
             train_ratio=self._config.walk_forward.train_ratio,
             val_ratio=self._config.walk_forward.val_ratio,

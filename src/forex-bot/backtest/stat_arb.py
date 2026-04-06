@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .strategies import ISignalStrategy
-from quant.cointegration import PairsSignalGenerator
 
 
 class StatArbStrategy(ISignalStrategy):
@@ -25,6 +24,8 @@ class StatArbStrategy(ISignalStrategy):
         atr_multiplier: float = 2.0,
         pair_b_bars: Optional[List[Bar]] = None,
     ):
+        from quant.cointegration import PairsSignalGenerator
+
         self.lookback = lookback
         self.entry_threshold = entry_threshold
         self.exit_threshold = exit_threshold
