@@ -1779,9 +1779,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             rationale=f"[{regime}] {best_signal.rationale}",
         )
 
-    def _detect_regime(
-        self, state: MarketState
-    ) -> Tuple[str, float, float]:
+    def _detect_regime(self, state: MarketState) -> Tuple[str, float, float]:
         adx = self._calculate_adx(state.bars)
         atr_percentile = self._calculate_atr_percentile(state.bars)
 
@@ -1806,7 +1804,11 @@ class RegimeSwitchingRouter(ISignalStrategy):
         if is_trending:
             raw_confidence = min(adx / 50.0, 1.0)
         elif is_ranging:
-            raw_confidence = min((self.config.adx_range_threshold - adx) / self.config.adx_range_threshold, 1.0)
+            raw_confidence = min(
+                (self.config.adx_range_threshold - adx)
+                / self.config.adx_range_threshold,
+                1.0,
+            )
         elif is_volatile:
             raw_confidence = min(atr_percentile / 100.0, 1.0)
         else:
@@ -1887,9 +1889,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             if plus_di + minus_di == 0:
                 dx_list.append(0.0)
             else:
-                dx_list.append(
-                    100.0 * (abs(plus_di - minus_di) / (plus_di + minus_di))
-                )
+                dx_list.append(100.0 * (abs(plus_di - minus_di) / (plus_di + minus_di)))
 
         for d in dx_list:
             adx = (adx * (period - 1) + d) / period

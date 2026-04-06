@@ -124,7 +124,9 @@ class TestRegimeSwitchingRouterInsufficientBars(unittest.TestCase):
 
 class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
     def test_trending_regime_detected(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -166,7 +168,9 @@ class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
 
 class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
     def test_routes_to_trending_strategy(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         trending = MagicMock(spec=ISignalStrategy)
         trending.name = "Trending Strat"
         trending.evaluate.return_value = _make_signal()
@@ -206,7 +210,9 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_all_strategies_return_none(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
             trending_strategies=[_NeverSignal()],
             config=config,
@@ -217,7 +223,9 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_best_signal_selected_from_multiple(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         low_conf = _AlwaysSignal(_make_signal(confidence=0.5))
         high_conf = _AlwaysSignal(_make_signal(confidence=0.8))
         router = RegimeSwitchingRouter(
@@ -346,7 +354,9 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
 
 class TestRegimeSwitchingRouterRationale(unittest.TestCase):
     def test_rationale_includes_regime_tag(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -358,7 +368,9 @@ class TestRegimeSwitchingRouterRationale(unittest.TestCase):
             self.assertTrue(result.rationale.startswith("[trending]"))
 
     def test_current_regime_property_updated(self):
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -485,9 +497,15 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
     def test_real_strategy_integration(self):
         from backtest.strategies import MomentumBreakoutStrategy
 
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
-            trending_strategies=[MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=15.0)],
+            trending_strategies=[
+                MomentumBreakoutStrategy(
+                    fast_period=5, slow_period=10, adx_threshold=15.0
+                )
+            ],
             config=config,
         )
         bars = make_test_bars(100, trend="strong_up")
@@ -502,9 +520,15 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
     def test_multiple_regime_strategies(self):
         from backtest.strategies import MomentumBreakoutStrategy, BBStrategy
 
-        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
+        config = RegimeRouterConfig(
+            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
+        )
         router = RegimeSwitchingRouter(
-            trending_strategies=[MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=15.0)],
+            trending_strategies=[
+                MomentumBreakoutStrategy(
+                    fast_period=5, slow_period=10, adx_threshold=15.0
+                )
+            ],
             ranging_strategies=[BBStrategy()],
             volatile_strategies=[_NeverSignal()],
             transition_strategies=[_NeverSignal()],
