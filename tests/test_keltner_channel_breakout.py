@@ -305,6 +305,199 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         sl_pips = abs(result.entry_price - result.stop_loss) / pip_value
         self.assertLessEqual(sl_pips, 5.0)
 
+    def test_returns_none_when_ema_is_zero(self):
+        s = KeltnerChannelBreakoutStrategy()
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        for i in range(100):
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=0.0,
+                    high=0.0,
+                    low=0.0,
+                    close=0.0,
+                    volume=1000.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        state = MarketState(bars=bars)
+        self.assertIsNone(s.evaluate(state))
+
+    def test_returns_none_when_atr_is_zero(self):
+        s = KeltnerChannelBreakoutStrategy()
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        for i in range(100):
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=1.1000,
+                    high=1.1000,
+                    low=1.1000,
+                    close=1.1000,
+                    volume=1000.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        state = MarketState(bars=bars)
+        self.assertIsNone(s.evaluate(state))
+
+    def test_returns_none_when_atr_pips_below_min(self):
+        s = KeltnerChannelBreakoutStrategy(atr_min_pips=100000.0)
+        bars = _make_deterministic_breakout_bars("long", n=50)
+        state = MarketState(bars=bars)
+        self.assertIsNone(s.evaluate(state))
+
+    def test_adx_returns_none_when_tr_sum_is_zero(self):
+        s = KeltnerChannelBreakoutStrategy(adx_period=14)
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        for i in range(50):
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=1.1000,
+                    high=1.1000,
+                    low=1.1000,
+                    close=1.1000,
+                    volume=1000.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        self.assertIsNone(s._calculate_adx(bars))
+
+    def test_adx_returns_zero_when_di_sum_is_zero(self):
+        s = KeltnerChannelBreakoutStrategy(adx_period=14)
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        for i in range(50):
+            close = 1.1000 + 0.0001 * ((i % 3) - 1)
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=close,
+                    high=1.1002,
+                    low=1.0998,
+                    close=close,
+                    volume=1000.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        result = s._calculate_adx(bars)
+        self.assertEqual(result, 0.0)
+
+    def test_adx_smoothing_handles_zero_di_sum(self):
+        s = KeltnerChannelBreakoutStrategy(adx_period=5)
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        for i in range(30):
+            if i < 15:
+                high = 1.1000 + i * 0.0002
+                low = 1.1000 + i * 0.0002 - 0.0001
+                close = high
+            else:
+                high = 1.1030
+                low = 1.1029
+                close = 1.10295 + 0.0001 * ((i % 3) - 1)
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=close,
+                    high=high,
+                    low=low,
+                    close=close,
+                    volume=1000.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        result = s._calculate_adx(bars)
+        self.assertIsNotNone(result)
+        self.assertGreaterEqual(result, 0.0)
+
+    def test_volume_ma_returns_zero_for_insufficient_bars(self):
+        s = KeltnerChannelBreakoutStrategy(volume_ma_period=20)
+        bars = _make_bars(10, volume=1000)
+        self.assertEqual(s._calculate_volume_ma(bars), 0.0)
+
+    def test_long_breakout_rejected_when_ema_not_rising(self):
+        s = KeltnerChannelBreakoutStrategy(
+            ema_period=10,
+            atr_period=10,
+            adx_threshold=20.0,
+            atr_min_pips=1.0,
+            volume_ma_period=10,
+        )
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        base = 1.1000
+        for i in range(48):
+            base -= 0.0001
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=base + 0.00005,
+                    high=base + 0.0003,
+                    low=base - 0.0001,
+                    close=base,
+                    volume=1500.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        spike_close = base + 0.0001
+        bars.append(
+            Bar(
+                time=dt,
+                open=base,
+                high=spike_close + 0.0005,
+                low=base - 0.0001,
+                close=spike_close,
+                volume=2000.0,
+            )
+        )
+        state = MarketState(bars=bars)
+        result = s.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_short_breakout_rejected_when_ema_not_falling(self):
+        s = KeltnerChannelBreakoutStrategy(
+            ema_period=10,
+            atr_period=10,
+            adx_threshold=20.0,
+            atr_min_pips=1.0,
+            volume_ma_period=10,
+        )
+        bars = []
+        dt = datetime(2023, 1, 1, 0, 0)
+        base = 1.1000
+        for i in range(48):
+            base += 0.0001
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=base - 0.00005,
+                    high=base + 0.0001,
+                    low=base - 0.0003,
+                    close=base,
+                    volume=1500.0,
+                )
+            )
+            dt += timedelta(hours=1)
+        spike_close = base - 0.0001
+        bars.append(
+            Bar(
+                time=dt,
+                open=base,
+                high=base + 0.0001,
+                low=spike_close - 0.0005,
+                close=spike_close,
+                volume=2000.0,
+            )
+        )
+        state = MarketState(bars=bars)
+        result = s.evaluate(state)
+        self.assertIsNone(result)
+
 
 if __name__ == "__main__":
     unittest.main()
