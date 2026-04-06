@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Generator, List, Optional
+
+from backtest.engine import Bar, MarketState, determine_session
+from backtest.strategies import ISignalStrategy
 
 
 @dataclass(frozen=True)
@@ -190,16 +193,17 @@ def _std(values: list[float], mean: float) -> float:
 
 
 def run_strategy(
-    strategy_fn: Callable[..., list[dict[str, Any]]],
-    data: list[Any],
+    strategy: ISignalStrategy,
+    bars: List[Bar],
     n_windows: int = 3,
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
     overlap_ratio: float = 0.2,
-    **kwargs: Any,
+    initial_balance: float = 10000.0,
+    risk_per_trade_pct: float = 0.005,
 ) -> WalkForwardResults:
     validator = WalkForwardValidator(
-        data=data,
+        data=bars,
         n_windows=n_windows,
         train_ratio=train_ratio,
         val_ratio=val_ratio,
@@ -207,8 +211,27 @@ def run_strategy(
     )
 
     per_window: list[WindowMetrics] = []
-    for idx, (train, val, test) in enumerate(validator.split(data)):
-        trades = strategy_fn(train, val, test, **kwargs)
+    for idx, (train, val, test) in enumerate(validator.split(bars)):
+        if len(test) < 10:
+            metrics = WindowMetrics(
+                window_index=idx,
+                win_rate=0.0,
+                profit_factor=0.0,
+                max_drawdown=0.0,
+                sharpe_ratio=0.0,
+                trade_count=0,
+                total_pnl=0.0,
+                passed_go_nogo=False,
+            )
+            per_window.append(metrics)
+            continue
+
+        trades = _run_strategy_window(
+            strategy=strategy,
+            test_bars=test,
+            initial_balance=initial_balance,
+            risk_per_trade_pct=risk_per_trade_pct,
+        )
         metrics = _compute_metrics(idx, trades)
         per_window.append(metrics)
 
@@ -254,6 +277,98 @@ def run_strategy(
         aggregated=aggregated,
         go_nogo=go_nogo,
     )
+
+
+def _run_strategy_window(
+    strategy: ISignalStrategy,
+    test_bars: List[Bar],
+    initial_balance: float = 10000.0,
+    risk_per_trade_pct: float = 0.005,
+) -> List[dict[str, Any]]:
+    if len(test_bars) < 10:
+        return []
+
+    balance = initial_balance
+    open_trade: Optional[dict[str, Any]] = None
+    trades: list[dict[str, Any]] = []
+
+    for i in range(len(test_bars)):
+        bar = test_bars[i]
+        accumulated_bars = test_bars[: i + 1]
+        state = MarketState(
+            bars=accumulated_bars,
+            current_session=determine_session(bar.time),
+        )
+
+        if open_trade is None and i >= 5:
+            signal = strategy.evaluate(state)
+            if signal is not None:
+                entry_price = signal.entry_price
+                sl = signal.stop_loss
+                tp = signal.take_profit_1 if signal.take_profit_1 else entry_price
+                risk_amount = balance * risk_per_trade_pct
+
+                if signal.direction.value == "long":
+                    sl_distance = entry_price - sl
+                else:
+                    sl_distance = sl - entry_price
+
+                if sl_distance > 0:
+                    lot_size = risk_amount / sl_distance
+                else:
+                    lot_size = 0.0
+
+                open_trade = {
+                    "direction": signal.direction.value,
+                    "entry_price": entry_price,
+                    "sl": sl,
+                    "tp": tp,
+                    "lot_size": lot_size,
+                    "entry_bar_index": i,
+                    "pnl": 0.0,
+                }
+
+        if open_trade is not None:
+            direction = open_trade["direction"]
+            entry_price = open_trade["entry_price"]
+            sl = open_trade["sl"]
+            tp = open_trade["tp"]
+            lot_size = open_trade["lot_size"]
+
+            pip_value = 0.0001 if entry_price < 50 else 0.01
+            pnl = 0.0
+            closed = False
+
+            if direction == "long":
+                if bar.low <= sl:
+                    pips = (sl - entry_price) / pip_value
+                    pnl = pips * lot_size * pip_value * 100000
+                    closed = True
+                elif bar.high >= tp:
+                    pips = (tp - entry_price) / pip_value
+                    pnl = pips * lot_size * pip_value * 100000
+                    closed = True
+            else:
+                if bar.high >= sl:
+                    pips = (entry_price - sl) / pip_value
+                    pnl = pips * lot_size * pip_value * 100000
+                    closed = True
+                elif bar.low <= tp:
+                    pips = (entry_price - tp) / pip_value
+                    pnl = pips * lot_size * pip_value * 100000
+                    closed = True
+
+            if closed:
+                balance = max(0.0, balance + pnl)
+                open_trade["pnl"] = pnl
+                trades.append({"pnl": pnl})
+                open_trade = None
+
+    if open_trade is not None:
+        open_trade["pnl"] = 0.0
+        trades.append({"pnl": 0.0})
+
+    return trades
 
 
 def go_nogo_criteria(results: WalkForwardResults) -> bool:
