@@ -392,5 +392,119 @@ class TestHighConvictionSignalStructure(unittest.TestCase):
             self.assertGreater(result.entry_price, result.stop_loss)
 
 
+class TestHighConvictionTP3Calculation(unittest.TestCase):
+    def test_tp3_long_is_3r_from_entry(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            sl_atr_mult=3.0,
+            tp_atr_mult=6.0,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        result = strategy.evaluate(state)
+        if result is not None:
+            risk = abs(result.entry_price - result.stop_loss)
+            expected_tp3 = result.entry_price + risk * 3.0
+            self.assertAlmostEqual(result.take_profit_3, expected_tp3, places=5)
+            self.assertLess(result.take_profit_3, result.entry_price * 1.1)
+
+    def test_tp3_short_is_3r_from_entry(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            sl_atr_mult=3.0,
+            tp_atr_mult=6.0,
+        )
+        bars = make_strong_downtrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 13, 0)
+        state = MarketState(bars=bars, current_session=SessionType.NY_AM)
+        result = strategy.evaluate(state)
+        if result is not None:
+            risk = abs(result.entry_price - result.stop_loss)
+            expected_tp3 = result.entry_price - risk * 3.0
+            self.assertAlmostEqual(result.take_profit_3, expected_tp3, places=5)
+            self.assertLess(result.take_profit_3, result.entry_price)
+
+    def test_tp3_short_not_above_entry(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+        )
+        bars = make_strong_downtrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 13, 0)
+        state = MarketState(bars=bars, current_session=SessionType.NY_AM)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertLess(result.take_profit_3, result.entry_price)
+
+    def test_tp_ordering_long(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertGreater(result.take_profit_1, result.entry_price)
+            self.assertGreater(result.take_profit_2, result.take_profit_1)
+            self.assertGreater(result.take_profit_3, result.take_profit_2)
+
+    def test_tp_ordering_short(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+        )
+        bars = make_strong_downtrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 13, 0)
+        state = MarketState(bars=bars, current_session=SessionType.NY_AM)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertLess(result.take_profit_1, result.entry_price)
+            self.assertLess(result.take_profit_2, result.take_profit_1)
+            self.assertLess(result.take_profit_3, result.take_profit_2)
+
+
+class TestHighConvictionMinConfluences(unittest.TestCase):
+    def test_default_requires_all_5_confluences(self):
+        strategy = HighConvictionStrategy(min_confluences=5)
+        self.assertEqual(strategy.min_confluences, 5)
+
+    def test_relaxed_confluences_allows_more_signals(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            min_confluences=3,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 9, 0)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertIn("High Conviction", result.rationale)
+
+    def test_confluence_1_blocks_when_5_required(self):
+        strategy = HighConvictionStrategy(
+            trend_lookback=10,
+            swing_lookback=20,
+            atr_percentile_lookback=20,
+            min_confluences=5,
+        )
+        bars = make_strong_uptrend_with_pullback(150)
+        bars[-1].time = datetime(2023, 1, 1, 3, 0)
+        state = MarketState(bars=bars, current_session=SessionType.OUTSIDE)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()

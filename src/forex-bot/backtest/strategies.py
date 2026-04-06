@@ -1716,6 +1716,7 @@ class HighConvictionStrategy(ISignalStrategy):
         sl_atr_mult: float = 3.0,
         tp_atr_mult: float = 6.0,
         allowed_sessions: Optional[List[str]] = None,
+        min_confluences: int = 5,
     ):
         self.trend_lookback = trend_lookback
         self.swing_lookback = swing_lookback
@@ -1729,6 +1730,7 @@ class HighConvictionStrategy(ISignalStrategy):
             self.allowed_sessions = {SessionType.LONDON, SessionType.NY_AM}
         else:
             self.allowed_sessions = {SessionType(s) for s in allowed_sessions}
+        self.min_confluences = min_confluences
 
     @property
     def name(self) -> str:
@@ -1748,28 +1750,35 @@ class HighConvictionStrategy(ISignalStrategy):
         if len(state.bars) < min_bars:
             return None
 
-        if state.current_session not in self.allowed_sessions:
-            return None
-
         atr = self._calculate_atr(state.bars, self.atr_period)
         if atr <= 0:
-            return None
-
-        if not self._atr_in_upper_percentile(state.bars, atr):
             return None
 
         trend_dir = self._detect_trend(state.bars)
         if trend_dir is None:
             return None
 
-        if not self._at_pullback_level(state.bars, trend_dir):
-            return None
+        confluences = 0
+        labels = []
+
+        if state.current_session in self.allowed_sessions:
+            confluences += 1
+            labels.append(f"session={state.current_session.value}")
+
+        if self._atr_in_upper_percentile(state.bars, atr):
+            confluences += 1
+            labels.append(f"ATR={atr * 10000:.1f}p")
+
+        if self._at_pullback_level(state.bars, trend_dir):
+            confluences += 1
+            labels.append("pullback")
 
         momentum_shift = self._detect_momentum_shift(state.bars)
-        if momentum_shift is None:
-            return None
+        if momentum_shift == trend_dir:
+            confluences += 1
+            labels.append("momentum shift")
 
-        if momentum_shift != trend_dir:
+        if confluences < self.min_confluences:
             return None
 
         entry = state.latest_bar.close
@@ -1787,12 +1796,17 @@ class HighConvictionStrategy(ISignalStrategy):
             else entry - risk * (self.tp_atr_mult / self.sl_atr_mult)
         )
 
+        tp3 = (
+            entry + risk * 3.0
+            if trend_dir == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
+
         confidence = 0.75
         rationale = (
             f"High Conviction {trend_dir.value}: "
             f"trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
-            f"pullback, momentum shift, ATR={atr * 10000:.1f}p, "
-            f"session={state.current_session.value}"
+            + ", ".join(labels)
         )
 
         return StrategySignal(
@@ -1802,7 +1816,7 @@ class HighConvictionStrategy(ISignalStrategy):
             stop_loss=sl,
             take_profit_1=tp * 0.5 + sl * 0.5,
             take_profit_2=tp,
-            take_profit_3=tp * 1.5,
+            take_profit_3=tp3,
             rationale=rationale,
         )
 
