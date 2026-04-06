@@ -1,0 +1,194 @@
+{
+  "ftmo_passed": true,
+  "ftmo_criteria": {
+    "win_rate": true,
+    "profit_factor": true,
+    "sharpe_ratio": true,
+    "wf_mean_win_rate": false,
+    "wf_mean_profit_factor": false,
+    "wf_mean_sharpe": false,
+    "wf_go_nogo": true
+  },
+  "weight_method": "inverse_variance",
+  "weights": {
+    "Statistical Arbitrage|EURUSD|M15": 0.024973503383279038,
+    "Commodity XAUUSD|XAUUSD|M15": 0.13301350614993532,
+    "Grid Trading|EURUSD|M15": 0.6362544738065797,
+    "Session-Range Mean Reversion|EURUSD|H1": 0.13256284313518762,
+    "Session-Range Mean Reversion|GBPUSD|H1": 0.07319567352501825
+  },
+  "correlation_average": 0.18833283568566783,
+  "correlation_matrix": {
+    "Statistical Arbitrage|EURUSD|M15": {
+      "Statistical Arbitrage|EURUSD|M15": 1.0,
+      "Commodity XAUUSD|XAUUSD|M15": -0.3278712994837479,
+      "Grid Trading|EURUSD|M15": -0.17337495379097434,
+      "Session-Range Mean Reversion|EURUSD|H1": 0.24616749728047013,
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.05421163012995525
+    },
+    "Commodity XAUUSD|XAUUSD|M15": {
+      "Statistical Arbitrage|EURUSD|M15": -0.3278712994837479,
+      "Commodity XAUUSD|XAUUSD|M15": 1.0,
+      "Grid Trading|EURUSD|M15": -0.4285796123295082,
+      "Session-Range Mean Reversion|EURUSD|H1": -0.19115554229312637,
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.3133593659258626
+    },
+    "Grid Trading|EURUSD|M15": {
+      "Statistical Arbitrage|EURUSD|M15": -0.17337495379097434,
+      "Commodity XAUUSD|XAUUSD|M15": -0.4285796123295082,
+      "Grid Trading|EURUSD|M15": 1.0,
+      "Session-Range Mean Reversion|EURUSD|H1": -0.11278318442699356,
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.042107647736057324
+    },
+    "Session-Range Mean Reversion|EURUSD|H1": {
+      "Statistical Arbitrage|EURUSD|M15": 0.24616749728047013,
+      "Commodity XAUUSD|XAUUSD|M15": -0.19115554229312637,
+      "Grid Trading|EURUSD|M15": -0.11278318442699356,
+      "Session-Range Mean Reversion|EURUSD|H1": 1.0,
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.04201166140245881
+    },
+    "Session-Range Mean Reversion|GBPUSD|H1": {
+      "Statistical Arbitrage|EURUSD|M15": -0.05421163012995525,
+      "Commodity XAUUSD|XAUUSD|M15": -0.3133593659258626,
+      "Grid Trading|EURUSD|M15": -0.042107647736057324,
+      "Session-Range Mean Reversion|EURUSD|H1": -0.04201166140245881,
+      "Session-Range Mean Reversion|GBPUSD|H1": 1.0
+    }
+  },
+  "individual": {
+    "Statistical Arbitrage|EURUSD|M15": {
+      "strategy": "Statistical Arbitrage",
+      "pair": "EURUSD",
+      "timeframe": "M15",
+      "win_rate": 58.06451612903226,
+      "profit_factor": 0.6245392312318548,
+      "sharpe_ratio": 0.2803406318448164,
+      "max_drawdown": 0.16253480230441528,
+      "trade_count": 31,
+      "total_pnl": -961.420389333276
+    },
+    "Commodity XAUUSD|XAUUSD|M15": {
+      "strategy": "Commodity XAUUSD",
+      "pair": "XAUUSD",
+      "timeframe": "M15",
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.44916934367147315,
+      "sharpe_ratio": -0.6349594526631421,
+      "max_drawdown": 0.05181783049897878,
+      "trade_count": 9,
+      "total_pnl": -343.1700751670269
+    },
+    "Grid Trading|EURUSD|M15": {
+      "strategy": "Grid Trading",
+      "pair": "EURUSD",
+      "timeframe": "M15",
+      "win_rate": 93.84615384615384,
+      "profit_factor": 6.412835342128043,
+      "sharpe_ratio": 7.268752521202182,
+      "max_drawdown": 0.05374783790487446,
+      "trade_count": 130,
+      "total_pnl": 7685.429600341042
+    },
+    "Session-Range Mean Reversion|EURUSD|H1": {
+      "strategy": "Session-Range Mean Reversion",
+      "pair": "EURUSD",
+      "timeframe": "H1",
+      "win_rate": 60.0,
+      "profit_factor": 1.2297209356506165,
+      "sharpe_ratio": 0.3294682333536069,
+      "max_drawdown": 0.05882080182772974,
+      "trade_count": 100,
+      "total_pnl": 1124.9105694072096
+    },
+    "Session-Range Mean Reversion|GBPUSD|H1": {
+      "strategy": "Session-Range Mean Reversion",
+      "pair": "GBPUSD",
+      "timeframe": "H1",
+      "win_rate": 55.932203389830505,
+      "profit_factor": 0.8938677802952943,
+      "sharpe_ratio": 0.22152238189810033,
+      "max_drawdown": 0.11925279609864038,
+      "trade_count": 59,
+      "total_pnl": -374.8305924011147
+    }
+  },
+  "combined": {
+    "win_rate": 92.3076923076923,
+    "profit_factor": 7.003906222847012,
+    "sharpe_ratio": 13.613395931192592,
+    "max_drawdown_pct": 5.374783790487459,
+    "total_pnl": 6111.248258043084,
+    "total_pnl_pct": 0.6111248258043084,
+    "starting_balance": 10000,
+    "ending_balance": 16111.248258043084
+  },
+  "walk_forward": {
+    "go_nogo": true,
+    "per_window": [
+      {
+        "window_index": 0,
+        "win_rate": 0.46774193548387094,
+        "profit_factor": 0.403724260767709,
+        "max_drawdown": 0.06868489846555884,
+        "sharpe_ratio": -3.8696456406769126,
+        "trade_count": 124,
+        "total_pnl": -673.8037088294183,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 1,
+        "win_rate": 0.5555555555555556,
+        "profit_factor": 1.253433512422652,
+        "max_drawdown": 0.043183724898648836,
+        "sharpe_ratio": 1.319933237821101,
+        "trade_count": 54,
+        "total_pnl": 190.24245867100814,
+        "passed_go_nogo": true
+      },
+      {
+        "window_index": 2,
+        "win_rate": 0.5892857142857143,
+        "profit_factor": 1.5679776213110297,
+        "max_drawdown": 0.0472051878253463,
+        "sharpe_ratio": 2.5074944956967675,
+        "trade_count": 56,
+        "total_pnl": 390.14567478901915,
+        "passed_go_nogo": true
+      },
+      {
+        "window_index": 3,
+        "win_rate": 0.39473684210526316,
+        "profit_factor": 0.7137006861747315,
+        "max_drawdown": 0.037390225648801026,
+        "sharpe_ratio": -1.6290613560111296,
+        "trade_count": 38,
+        "total_pnl": -155.54870375213528,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 4,
+        "win_rate": 0.6962962962962963,
+        "profit_factor": 2.04507608846275,
+        "max_drawdown": 0.03276308402380997,
+        "sharpe_ratio": 4.154908277654116,
+        "trade_count": 135,
+        "total_pnl": 1081.2938988878625,
+        "passed_go_nogo": true
+      }
+    ],
+    "aggregated": {
+      "mean_win_rate": 0.54072326874534,
+      "std_win_rate": 0.11556338792845798,
+      "mean_profit_factor": 1.1967824338277744,
+      "std_profit_factor": 0.6562976796362193,
+      "mean_max_drawdown": 0.045845424172432994,
+      "std_max_drawdown": 0.013903355638482615,
+      "mean_sharpe_ratio": 0.4967258028967885,
+      "std_sharpe_ratio": 3.2282863435464697,
+      "mean_trade_count": 81.4,
+      "mean_total_pnl": 166.46592395326724,
+      "windows_passed": 3,
+      "total_windows": 5
+    }
+  }
+}
