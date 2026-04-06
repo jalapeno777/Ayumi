@@ -42,6 +42,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     params = {k: v for k, v in config.items() if k != "__class__"}
     from ..strategies import (
         BBStrategy,
+        HighConvictionStrategy,
         KeltnerChannelBreakoutStrategy,
         MACrossStrategy,
         ROCMStrategy,
@@ -58,6 +59,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         "RSIStrategy": RSIStrategy,
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,
+        "HighConvictionStrategy": HighConvictionStrategy,
         "SupertrendRSIBlendStrategy": SupertrendRSIBlendStrategy,
         "MomentumBreakoutStrategy": MomentumBreakoutStrategy,
     }
