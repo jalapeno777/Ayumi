@@ -1,5 +1,5 @@
 from typing import List, Optional, Tuple
-from .engine import Bar, MarketState, StrategySignal, TradeDirection
+from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 
 
 class ISignalStrategy:
@@ -1702,3 +1702,206 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             return 0.0001
         else:
             return 0.00000001
+
+
+class HighConvictionStrategy(ISignalStrategy):
+    def __init__(
+        self,
+        trend_lookback: int = 20,
+        swing_lookback: int = 50,
+        rsi_period: int = 14,
+        atr_period: int = 14,
+        atr_percentile_lookback: int = 100,
+        atr_percentile_threshold: float = 0.60,
+        sl_atr_mult: float = 3.0,
+        tp_atr_mult: float = 6.0,
+        allowed_sessions: Optional[List[str]] = None,
+    ):
+        self.trend_lookback = trend_lookback
+        self.swing_lookback = swing_lookback
+        self.rsi_period = rsi_period
+        self.atr_period = atr_period
+        self.atr_percentile_lookback = atr_percentile_lookback
+        self.atr_percentile_threshold = atr_percentile_threshold
+        self.sl_atr_mult = sl_atr_mult
+        self.tp_atr_mult = tp_atr_mult
+        if allowed_sessions is None:
+            self.allowed_sessions = {SessionType.LONDON, SessionType.NY_AM}
+        else:
+            self.allowed_sessions = {SessionType(s) for s in allowed_sessions}
+
+    @property
+    def name(self) -> str:
+        return "High Conviction"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        min_bars = max(self.trend_lookback, self.swing_lookback,
+                       self.rsi_period, self.atr_period,
+                       self.atr_percentile_lookback) + 5
+        if len(state.bars) < min_bars:
+            return None
+
+        if state.current_session not in self.allowed_sessions:
+            return None
+
+        atr = self._calculate_atr(state.bars, self.atr_period)
+        if atr <= 0:
+            return None
+
+        if not self._atr_in_upper_percentile(state.bars, atr):
+            return None
+
+        trend_dir = self._detect_trend(state.bars)
+        if trend_dir is None:
+            return None
+
+        if not self._at_pullback_level(state.bars, trend_dir):
+            return None
+
+        momentum_shift = self._detect_momentum_shift(state.bars)
+        if momentum_shift is None:
+            return None
+
+        if momentum_shift != trend_dir:
+            return None
+
+        entry = state.latest_bar.close
+        sl_distance = atr * self.sl_atr_mult
+        sl = (
+            entry - sl_distance
+            if trend_dir == TradeDirection.LONG
+            else entry + sl_distance
+        )
+        risk = abs(entry - sl)
+
+        tp = (
+            entry + risk * (self.tp_atr_mult / self.sl_atr_mult)
+            if trend_dir == TradeDirection.LONG
+            else entry - risk * (self.tp_atr_mult / self.sl_atr_mult)
+        )
+
+        confidence = 0.75
+        rationale = (
+            f"High Conviction {trend_dir.value}: "
+            f"trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
+            f"pullback, momentum shift, ATR={atr * 10000:.1f}p, "
+            f"session={state.current_session.value}"
+        )
+
+        return StrategySignal(
+            direction=trend_dir,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp * 0.5 + sl * 0.5,
+            take_profit_2=tp,
+            take_profit_3=tp * 1.5,
+            rationale=rationale,
+        )
+
+    def _detect_trend(self, bars: List[Bar]) -> Optional[TradeDirection]:
+        if len(bars) < self.trend_lookback:
+            return None
+        recent = bars[-self.trend_lookback:]
+        closes = [b.close for b in recent]
+        if closes[-1] > closes[0] and all(closes[i] <= closes[i + 1] for i in range(len(closes) - 1) if abs(closes[i + 1] - closes[i]) > 0):
+            return TradeDirection.LONG
+        if closes[-1] < closes[0] and all(closes[i] >= closes[i + 1] for i in range(len(closes) - 1) if abs(closes[i + 1] - closes[i]) > 0):
+            return TradeDirection.SHORT
+        bullish = sum(1 for i in range(1, len(closes)) if closes[i] > closes[i - 1])
+        bearish = len(closes) - 1 - bullish
+        net_move = closes[-1] - closes[0]
+        if net_move > 0 and bullish >= self.trend_lookback * 0.65:
+            return TradeDirection.LONG
+        if net_move < 0 and bearish >= self.trend_lookback * 0.65:
+            return TradeDirection.SHORT
+        return None
+
+    def _at_pullback_level(self, bars: List[Bar], trend_dir: TradeDirection) -> bool:
+        if len(bars) < self.swing_lookback:
+            return False
+        lookback = bars[-self.swing_lookback:]
+        recent = bars[-5:]
+        if trend_dir == TradeDirection.LONG:
+            swing_lows = sorted(set(b.low for b in lookback))
+            if len(swing_lows) < 5:
+                return False
+            support_level = swing_lows[len(swing_lows) // 4]
+            return any(abs(b.low - support_level) < support_level * 0.001 for b in recent)
+        else:
+            swing_highs = sorted(set(b.high for b in lookback), reverse=True)
+            if len(swing_highs) < 5:
+                return False
+            resistance_level = swing_highs[len(swing_highs) // 4]
+            return any(abs(b.high - resistance_level) < resistance_level * 0.001 for b in recent)
+
+    def _detect_momentum_shift(self, bars: List[Bar]) -> Optional[TradeDirection]:
+        if len(bars) < self.rsi_period + 2:
+            return None
+        rsi = self._calculate_rsi(bars)
+        prev_rsi = self._calculate_rsi(bars[:-1])
+        if rsi is None or prev_rsi is None:
+            return None
+        if prev_rsi < 50 and rsi > 50:
+            return TradeDirection.LONG
+        if prev_rsi > 50 and rsi < 50:
+            return TradeDirection.SHORT
+        closes = [b.close for b in bars[-5:]]
+        if len(closes) < 5:
+            return None
+        momentum = closes[-1] - closes[0]
+        prev_momentum = closes[-2] - closes[-5] if len(closes) >= 5 else 0
+        if prev_momentum < 0 and momentum > 0:
+            return TradeDirection.LONG
+        if prev_momentum > 0 and momentum < 0:
+            return TradeDirection.SHORT
+        return None
+
+    def _atr_in_upper_percentile(self, bars: List[Bar], current_atr: float) -> bool:
+        n = min(self.atr_percentile_lookback, len(bars) - self.atr_period)
+        if n < 10:
+            return True
+        atr_values = []
+        for i in range(n):
+            start = len(bars) - self.atr_period - 1 - i
+            if start < 0:
+                break
+            atr_val = self._calculate_atr(bars[: len(bars) - i], self.atr_period)
+            if atr_val > 0:
+                atr_values.append(atr_val)
+        if len(atr_values) < 10:
+            return True
+        atr_values.sort()
+        rank = sum(1 for v in atr_values if v <= current_atr)
+        percentile = rank / len(atr_values)
+        return percentile >= self.atr_percentile_threshold
+
+    def _calculate_atr(self, bars: List[Bar], period: int) -> float:
+        if len(bars) < period + 1:
+            return 0.0
+        tr_sum = 0.0
+        for i in range(len(bars) - period, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    max(
+                        abs(bars[i].high - bars[i - 1].close),
+                        abs(bars[i].low - bars[i - 1].close),
+                    ),
+                )
+                tr_sum += tr
+        return tr_sum / period
+
+    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+        if len(bars) < self.rsi_period + 1:
+            return None
+        deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
+        recent = deltas[-self.rsi_period:]
+        gains = [d for d in recent if d > 0]
+        losses = [-d for d in recent if d < 0]
+        avg_gain = sum(gains) / self.rsi_period if gains else 0
+        avg_loss = sum(losses) / self.rsi_period if losses else 0
+        if avg_loss == 0:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return 100.0 - (100.0 / (1.0 + rs))
