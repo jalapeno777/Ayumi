@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Tick:
     """A single price update from the market."""
+
     symbol_id: int
     bid: float
     ask: float
@@ -43,6 +44,7 @@ class Tick:
 @dataclass
 class SymbolInfo:
     """Metadata about a tradable symbol."""
+
     symbol_id: int
     name: str  # e.g. "EUR/USD"
     pip_size: float = 0.0001  # default, will be calibrated from live data
@@ -147,7 +149,9 @@ class LiveMarketDataFeed:
 
         self._client = MarketDataClient(self._credentials)
         self._client.register_md_handler(self._on_snapshot)
-        self._client.register_callback("on_logon", lambda m: logger.info("MD feed logged in"))
+        self._client.register_callback(
+            "on_logon", lambda m: logger.info("MD feed logged in")
+        )
 
         if not self._client.connect():
             logger.error("Failed to connect MD feed")
@@ -161,7 +165,9 @@ class LiveMarketDataFeed:
         for name in auto_subscribe:
             self.subscribe(name)
 
-        logger.info(f"Market data feed started (auto-subscribed to {len(auto_subscribe)} pairs)")
+        logger.info(
+            f"Market data feed started (auto-subscribed to {len(auto_subscribe)} pairs)"
+        )
         return True
 
     def stop(self):
@@ -268,7 +274,7 @@ class LiveMarketDataFeed:
         symbol_id = int(msg.get_field(55) or 0)
 
         # Use the _raw_fields attribute if available (set during parsing)
-        raw_fields = getattr(msg, '_raw_fields', None)
+        raw_fields = getattr(msg, "_raw_fields", None)
         if raw_fields is None:
             # Fallback: parse from the flat dict (last value wins)
             entry_type = msg.get_field(269)
@@ -295,7 +301,9 @@ class LiveMarketDataFeed:
                     current_type = None  # reset for next entry
 
         if bid is None or ask is None:
-            logger.debug(f"Incomplete tick for symbol {symbol_id}: bid={bid}, ask={ask}")
+            logger.debug(
+                f"Incomplete tick for symbol {symbol_id}: bid={bid}, ask={ask}"
+            )
             return
 
         timestamp_str = msg.get_field(52)
@@ -305,9 +313,9 @@ class LiveMarketDataFeed:
                     timestamp_str, "%Y%m%d-%H:%M:%S.%f"
                 ).replace(tzinfo=timezone.utc)
             except ValueError:
-                timestamp = datetime.strptime(
-                    timestamp_str, "%Y%m%d-%H:%M:%S"
-                ).replace(tzinfo=timezone.utc)
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
         else:
             timestamp = datetime.now(timezone.utc)
 
