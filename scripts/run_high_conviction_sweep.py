@@ -13,6 +13,7 @@ Usage:
 """
 
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -60,10 +61,26 @@ FIXED_PARAMS = {
     "atr_percentile_lookback": 100,
 }
 
-FTMO_WR = 0.55
+FTMO_WR = 55.0
 FTMO_PF = 1.3
 FTMO_SHARPE = 0.5
 MIN_TRADES = 20
+
+WF_MIN_TRADES_PER_WINDOW = 5
+
+
+def _sanitize_float(value):
+    if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
+        return None
+    return value
+
+
+def _sanitize_for_json(obj):
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    return _sanitize_float(obj)
 
 
 def run_single_backtest(bars, config, strategy):
@@ -135,6 +152,15 @@ def phase2_fine_sweep(bars, config, coarse_combos):
 
 
 def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
+    """Walk-forward validation using MultiStrategyBacktestEngine.
+
+    Note: Walk-forward uses MultiStrategyBacktestEngine internally (via
+    run_strategy_walk_forward), while Phase 1/2 backtests use
+    EnhancedBacktestEngine. The engines produce different trade execution
+    semantics (spread/slippage, order management). Walk-forward results
+    are therefore not directly comparable to Phase 1/2 sweep metrics on
+    a 1:1 basis, but both are valid within their respective contexts.
+    """
     def factory():
         return HighConvictionStrategy(**combo_params)
 
@@ -163,6 +189,7 @@ def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
     agg = wf_result.aggregated
     return {
         "params": combo_params,
+        "pair": pair,
         "go_nogo": wf_result.go_nogo,
         "windows_passed": sum(1 for w in wf_result.per_window if w.passed_go_nogo) if wf_result.per_window else 0,
         "total_windows": len(wf_result.per_window),
@@ -181,7 +208,9 @@ def main():
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     loader = CsvDataLoader()
 
-    all_pair_results = {}
+    pair_summaries = {}
+    sweep_scope = {}
+    any_go_nogo_global = False
 
     for pair, csv_path in DATA_PATHS.items():
         print(f"\n{'='*70}")
@@ -244,13 +273,24 @@ def main():
 
             wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
             with open(wf_path, "w") as f:
-                json.dump(wf_results, f, indent=2)
+                json.dump(_sanitize_for_json(wf_results), f, indent=2)
 
-            all_pair_results[pair] = {
-                "total_coarse": len(all_coarse),
-                "best_trade_count": top_by_trades[0][1]["trade_count"] if top_by_trades else 0,
-                "any_go_nogo": any(w["go_nogo"] for w in wf_results) if wf_results else False,
+            best = max(all_coarse, key=lambda x: x[1]["trade_count"]) if all_coarse else None
+            any_go = any(w["go_nogo"] for w in wf_results) if wf_results else False
+            if any_go:
+                any_go_nogo_global = True
+
+            pair_summaries[pair] = {
+                "combos_tested": len(all_coarse),
+                "best_trade_count": best[1]["trade_count"] if best else 0,
+                "best_win_rate": round(best[1]["win_rate"] / 100, 2) if best else 0,
+                "best_profit_factor": round(best[1]["profit_factor"], 2) if best else 0,
+                "best_sharpe": round(best[1]["sharpe_ratio"], 2) if best else 0,
+                "ftmo_passing_combos": 0,
+                "walk_forward_go_nogo": any_go,
+                "verdict": "NO-GO: No parameter combination passes FTMO criteria",
             }
+            sweep_scope[f"{pair.lower()}_combos_tested"] = len(all_coarse)
             continue
 
         sweep_result = phase2_fine_sweep(bars, config, coarse_results)
@@ -271,6 +311,7 @@ def main():
         )
         print(f"  FTMO-passing combos: {len(ftmo_passing)}")
 
+        wf_results = []
         if ftmo_passing.rows:
             top5 = ftmo_passing.top_n(5, metric="sharpe_ratio")
             print("\n  Top 5 FTMO-passing combos (by Sharpe):")
@@ -283,7 +324,6 @@ def main():
                 print(f"         Params: {row.params}")
 
             print("\n  Running walk-forward validation on top 5...")
-            wf_results = []
             for row in top5:
                 wf = run_walk_forward_for_combo(row.params, bars, pair)
                 wf_results.append(wf)
@@ -294,11 +334,6 @@ def main():
                     f"agg_WR={wf['aggregated']['mean_win_rate']:.2f} "
                     f"agg_PF={wf['aggregated']['mean_profit_factor']:.2f}"
                 )
-
-            wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
-            with open(wf_path, "w") as f:
-                json.dump(wf_results, f, indent=2)
-            print(f"  Walk-forward results saved to {wf_path}")
         else:
             top10 = sweep_result.sort_by("trade_count")[:10]
             print("\n  Top 10 by trade count (no FTMO pass):")
@@ -310,7 +345,6 @@ def main():
                 )
 
             print("\n  Walk-forward on top 3 by trade count...")
-            wf_results = []
             for row in top10[:3]:
                 if row.trade_count < 5:
                     continue
@@ -322,19 +356,51 @@ def main():
                     f"({wf['windows_passed']}/{wf['total_windows']} windows)"
                 )
 
-            wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
-            with open(wf_path, "w") as f:
-                json.dump(wf_results, f, indent=2)
-            print(f"  Walk-forward results saved to {wf_path}")
+        wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
+        with open(wf_path, "w") as f:
+            json.dump(_sanitize_for_json(wf_results), f, indent=2)
+        print(f"  Walk-forward results saved to {wf_path}")
 
-        all_pair_results[pair] = {
-            "total_sweep_results": len(sweep_result),
-            "ftmo_passing": len(ftmo_passing.rows),
+        best_row = max(sweep_result.rows, key=lambda r: r.trade_count) if sweep_result.rows else None
+        any_go = any(w["go_nogo"] for w in wf_results) if wf_results else False
+        if any_go:
+            any_go_nogo_global = True
+
+        pair_summaries[pair] = {
+            "combos_tested": len(sweep_result),
+            "best_trade_count": best_row.trade_count if best_row else 0,
+            "best_win_rate": round(best_row.win_rate / 100, 2) if best_row else 0,
+            "best_profit_factor": round(best_row.profit_factor, 2) if best_row else 0,
+            "best_sharpe": round(best_row.sharpe_ratio, 2) if best_row else 0,
+            "ftmo_passing_combos": len(ftmo_passing.rows),
+            "walk_forward_go_nogo": any_go,
+            "verdict": "GO" if any_go else "NO-GO: No parameter combination passes FTMO criteria",
         }
+        sweep_scope[f"{pair.lower()}_combos_tested"] = len(sweep_result)
+
+    overall_verdict = (
+        "GO: At least one pair passes walk-forward validation"
+        if any_go_nogo_global
+        else "NO-GO: No pair passes FTMO criteria at any parameter combination"
+    )
+
+    summary = {
+        "sweep_date": time.strftime("%Y-%m-%d"),
+        "strategy": "HighConvictionStrategy",
+        "ftmo_criteria": {
+            "min_win_rate": FTMO_WR / 100,
+            "min_profit_factor": FTMO_PF,
+            "min_sharpe": FTMO_SHARPE,
+            "min_trades": MIN_TRADES,
+        },
+        "sweep_scope": sweep_scope,
+        "results": pair_summaries,
+        "overall_verdict": overall_verdict,
+    }
 
     summary_path = str(REPORT_DIR / "sweep_summary.json")
     with open(summary_path, "w") as f:
-        json.dump(all_pair_results, f, indent=2)
+        json.dump(_sanitize_for_json(summary), f, indent=2)
     print(f"\n  Summary saved to {summary_path}")
     print("  Done.")
 
