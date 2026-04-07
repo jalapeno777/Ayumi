@@ -40,9 +40,7 @@ class VAPSBacktestEngine(MultiStrategyBacktestEngine):
         self._atr_history: list[float] = []
         self._all_bars: List[Bar] = []
 
-    def run_all_strategies(
-        self, bars: List[Bar]
-    ) -> dict[str, StrategyBacktestResult]:
+    def run_all_strategies(self, bars: List[Bar]) -> dict[str, StrategyBacktestResult]:
         self._all_bars = bars
         self._atr_history = []
         return super().run_all_strategies(bars)
