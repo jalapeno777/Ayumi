@@ -629,7 +629,7 @@ def _run_portfolio_walk_forward(
         total_weight = sum(
             weights.weights.get(_build_strategy_name(s.name, s.pair, s.timeframe), 0.0)
             for s in strategy_specs
-            if s.name in data_map
+            if _build_strategy_name(s.name, s.pair, s.timeframe) in data_map
         )
         if total_weight > 0:
             portfolio_returns = [r / total_weight for r in window_returns]
