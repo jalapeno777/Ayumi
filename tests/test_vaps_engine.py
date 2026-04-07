@@ -7,7 +7,9 @@ from backtest.vaps_engine import VAPSBacktestEngine, _compute_atr
 from quant.vaps import VAPSConfig
 
 
-def _make_bar(index: int, high: float = 1.10, low: float = 1.09, close: float = 1.095) -> Bar:
+def _make_bar(
+    index: int, high: float = 1.10, low: float = 1.09, close: float = 1.095
+) -> Bar:
     day = 1 + index // 24
     hour = index % 24
     return Bar(
@@ -51,7 +53,9 @@ class TestComputeATR(unittest.TestCase):
         self.assertAlmostEqual(atr, 0.0001)
 
     def test_volatile_bars_higher_atr(self):
-        calm_bars = [_make_bar(i, high=1.0955, low=1.0945, close=1.0950) for i in range(20)]
+        calm_bars = [
+            _make_bar(i, high=1.0955, low=1.0945, close=1.0950) for i in range(20)
+        ]
         wild_bars = [_make_bar(i, high=1.12, low=1.07, close=1.095) for i in range(20)]
         self.assertGreater(_compute_atr(wild_bars), _compute_atr(calm_bars))
 
@@ -94,7 +98,9 @@ class TestVAPSBacktestEngine(unittest.TestCase):
         standard_results = standard_engine.run_all_strategies(bars)
         standard_trades = standard_results["always_long"].metrics.trades
 
-        self.assertGreater(len(vaps_trades), 1, "Need at least 2 trades for VAPS to kick in")
+        self.assertGreater(
+            len(vaps_trades), 1, "Need at least 2 trades for VAPS to kick in"
+        )
         self.assertGreater(len(standard_trades), 1)
 
         vaps_total_lots = sum(t.lot_size for t in vaps_trades)
