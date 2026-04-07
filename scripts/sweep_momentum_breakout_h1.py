@@ -239,11 +239,14 @@ def main() -> None:
         profitable = combined.filter(lambda r: r.profit_factor > 1.0 and r.trade_count >= 10)
         print(f"  Profitable sets (PF>1.0, trades>=10): {len(profitable)}")
 
-        top3 = combined.top_n(3, metric="profit_factor", ascending=False)
-        top_params_by_pair[pair] = top3
+        viable = combined.filter(
+            lambda r: r.trade_count >= 10
+        )
+        top5 = viable.top_n(5, metric="profit_factor", ascending=False)
+        top_params_by_pair[pair] = top5
 
-        print("\n  Top 3 parameter sets by profit_factor:")
-        for i, row in enumerate(top3):
+        print("\n  Top 5 parameter sets by profit_factor (min 10 trades):")
+        for i, row in enumerate(top5):
             print(
                 f"    {i+1}. PF={row.profit_factor:.2f}, WR={row.win_rate:.1f}%, "
                 f"DD={row.max_dd:.2f}%, trades={row.trade_count}"
@@ -251,20 +254,20 @@ def main() -> None:
             print(f"       {row.params}")
 
     print(f"\n{'='*70}")
-    print("  WALK-FORWARD VALIDATION ON TOP 3 PARAM SETS")
+    print("  WALK-FORWARD VALIDATION ON TOP 5 PARAM SETS")
     print(f"{'='*70}")
 
     final_results = {}
 
-    for pair, top3 in top_params_by_pair.items():
+    for pair, top5 in top_params_by_pair.items():
         print(f"\n  {pair}:")
         csv_path = PAIRS[pair]
         bars = loader.load(csv_path)
         config = BacktestConfig(pair=pair, **BACKTEST_CONFIG)
 
         pair_wf_results = []
-        for i, row in enumerate(top3):
-            print(f"\n  [{i+1}/{len(top3)}] Testing params: {row.params}")
+        for i, row in enumerate(top5):
+            print(f"\n  [{i+1}/{len(top5)}] Testing params: {row.params}")
             wf_result = run_walk_forward_for_params(bars, row.params, pair, config)
 
             status = "GO" if wf_result["go_nogo"] else "NO-GO"
