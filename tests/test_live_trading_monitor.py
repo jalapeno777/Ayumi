@@ -167,17 +167,23 @@ class TestCheckCircuitBreaker:
 class TestIsActiveTradingHours:
     def test_within_active_hours(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(
+                2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc
+            )
             assert is_active_trading_hours() is True
 
     def test_outside_active_hours_early(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(
+                2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc
+            )
             assert is_active_trading_hours() is False
 
     def test_outside_active_hours_late(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2024, 1, 1, 23, 0, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(
+                2024, 1, 1, 23, 0, 0, tzinfo=timezone.utc
+            )
             assert is_active_trading_hours() is False
 
 
