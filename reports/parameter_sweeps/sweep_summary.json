@@ -1,0 +1,47 @@
+{
+  "sweep_date": "2026-04-06",
+  "strategy": "HighConvictionStrategy",
+  "ftmo_criteria": {
+    "min_win_rate": 0.55,
+    "min_profit_factor": 1.3,
+    "min_sharpe": 0.5,
+    "min_trades": 20
+  },
+  "sweep_scope": {
+    "eur_combos_tested": 54,
+    "gbpusd_combos_tested": 3,
+    "gbpjpy_combos_tested": 1
+  },
+  "results": {
+    "EURUSD": {
+      "best_trade_count": 21,
+      "best_win_rate": 0.47,
+      "best_profit_factor": 0.74,
+      "best_sharpe": 0.09,
+      "ftmo_passing_combos": 0,
+      "verdict": "NO-GO: No parameter combination passes FTMO criteria"
+    },
+    "GBPUSD": {
+      "best_trade_count": 47,
+      "best_win_rate": 0.47,
+      "best_profit_factor": 0.97,
+      "best_sharpe": 0.2,
+      "ftmo_passing_combos": 0,
+      "walk_forward_go_nogo": false,
+      "walk_forward_note": "Walk-forward GO (2/5 windows) is a statistical artifact \u2014 only 7 total trades across 5 windows, passing windows have 1 trade each",
+      "verdict": "NO-GO: Closest to viability but still fails all FTMO criteria"
+    },
+    "GBPJPY": {
+      "best_trade_count": 11,
+      "best_win_rate": 0.27,
+      "best_profit_factor": 0.23,
+      "best_sharpe": -0.54,
+      "ftmo_passing_combos": 0,
+      "verdict": "NO-GO: Worst performance across all pairs"
+    }
+  },
+  "bugs_found": {
+    "max_trades_per_week": "Parameter has NO effect on trade count \u2014 _can_trade_this_week() logic may be broken or the strategy simply never generates enough signals to hit the weekly limit"
+  },
+  "recommendation": "The HighConvictionStrategy has no statistically significant edge at any parameter combination. The strategy generates too few signals and those signals do not have positive expected value. Parameter tuning cannot fix a fundamentally flawed signal generation approach. Recommend archiving this strategy and focusing development efforts elsewhere."
+}
