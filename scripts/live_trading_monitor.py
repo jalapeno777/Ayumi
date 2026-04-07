@@ -29,7 +29,7 @@ import socket
 import ssl
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -86,6 +86,7 @@ class TradingState:
     last_trade_time: Optional[str] = None
     last_check_time: Optional[str] = None
     starting_balance: float = DEFAULT_STARTING_BALANCE
+    daily_starting_balance: float = DEFAULT_STARTING_BALANCE
     current_balance: float = DEFAULT_STARTING_BALANCE
     daily_trades: int = 0
     daily_wins: int = 0
@@ -93,6 +94,14 @@ class TradingState:
     daily_pnl: float = 0.0
     circuit_breaker_triggered: bool = False
     last_circuit_breaker_check: Optional[str] = None
+
+
+STATE_ALLOWLIST = {
+    "pid", "last_trade_time", "last_check_time", "starting_balance",
+    "daily_starting_balance", "current_balance", "daily_trades",
+    "daily_wins", "daily_losses", "daily_pnl", "circuit_breaker_triggered",
+    "last_circuit_breaker_check",
+}
 
 
 @dataclass
@@ -120,6 +129,7 @@ def save_state(state: TradingState):
         "last_trade_time": state.last_trade_time,
         "last_check_time": state.last_check_time,
         "starting_balance": state.starting_balance,
+        "daily_starting_balance": state.daily_starting_balance,
         "current_balance": state.current_balance,
         "daily_trades": state.daily_trades,
         "daily_wins": state.daily_wins,
@@ -158,7 +168,7 @@ def check_process_health(state: TradingState) -> Alert:
 
 
 def is_active_trading_hours() -> bool:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return ACTIVE_TRADING_HOURS[0] <= now.hour < ACTIVE_TRADING_HOURS[1]
 
 
@@ -172,7 +182,7 @@ def check_last_trade_time(state: TradingState) -> Alert:
         )
 
     last_trade = datetime.fromisoformat(state.last_trade_time)
-    hours_since_trade = (datetime.utcnow() - last_trade).total_seconds() / 3600
+    hours_since_trade = (datetime.now(timezone.utc) - last_trade).total_seconds() / 3600
 
     if is_active_trading_hours() and hours_since_trade > NO_TRADE_ALERT_HOURS:
         return Alert(
@@ -191,8 +201,8 @@ def check_last_trade_time(state: TradingState) -> Alert:
 
 
 def check_daily_pnl(state: TradingState) -> Alert:
-    equity_change = state.current_balance - state.starting_balance
-    equity_change_pct = (equity_change / state.starting_balance) * 100 if state.starting_balance > 0 else 0
+    equity_change = state.current_balance - state.daily_starting_balance
+    equity_change_pct = (equity_change / state.daily_starting_balance) * 100 if state.daily_starting_balance > 0 else 0
 
     win_rate = (state.daily_wins / state.daily_trades * 100) if state.daily_trades > 0 else 0
 
@@ -245,11 +255,11 @@ def check_daily_pnl(state: TradingState) -> Alert:
 
 
 def check_circuit_breaker(state: TradingState) -> Alert:
-    daily_loss_pct = (state.starting_balance - state.current_balance) / state.starting_balance if state.starting_balance > 0 else 0
+    daily_loss_pct = (state.daily_starting_balance - state.current_balance) / state.daily_starting_balance if state.daily_starting_balance > 0 else 0
 
     if daily_loss_pct >= FTMO_DAILY_LOSS_LIMIT:
         state.circuit_breaker_triggered = True
-        state.last_circuit_breaker_check = datetime.utcnow().isoformat()
+        state.last_circuit_breaker_check = datetime.now(timezone.utc).isoformat()
         return Alert(
             severity="critical",
             check_type="circuit",
@@ -306,21 +316,31 @@ def check_fix_connection() -> Alert:
             details={"host": host, "port_str": port_str}
         )
 
+    verify_ssl = os.environ.get("CTRADER_VERIFY_SSL", "true").lower() != "false"
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        ssl_sock = ssl_context.wrap_socket(sock, server_hostname=host)
-        ssl_sock.connect((host, port))
-        ssl_sock.close()
-        return Alert(
-            severity="info",
-            check_type="connection",
-            message=f"FIX connection to {host}:{port} successful",
-            details={"host": host, "port": port}
-        )
+        try:
+            if verify_ssl:
+                ssl_context = ssl.create_default_context()
+            else:
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+            ssl_sock = ssl_context.wrap_socket(sock, server_hostname=host)
+            try:
+                ssl_sock.connect((host, port))
+                return Alert(
+                    severity="info",
+                    check_type="connection",
+                    message=f"FIX connection to {host}:{port} successful",
+                    details={"host": host, "port": port}
+                )
+            finally:
+                ssl_sock.close()
+        finally:
+            sock.close()
     except socket.timeout:
         return Alert(
             severity="critical",
@@ -364,7 +384,7 @@ def post_alert_to_paperclip(alert: Alert, issue_id: str) -> bool:
 
 **Check:** {alert.check_type}
 **Severity:** {alert.severity.upper()}
-**Time:** {datetime.utcnow().isoformat()}
+**Time:** {datetime.now(timezone.utc).isoformat()}
 
 **Message:** {alert.message}
 
@@ -439,7 +459,7 @@ def main():
         try:
             updates = json.loads(args.update_state)
             for key, value in updates.items():
-                if hasattr(state, key):
+                if key in STATE_ALLOWLIST:
                     setattr(state, key, value)
             save_state(state)
             logger.info(f"State updated: {updates}")
@@ -453,7 +473,7 @@ def main():
     for alert in alerts:
         print(f"[{alert.severity.upper()}] {alert.check_type}: {alert.message}")
 
-    state.last_check_time = datetime.utcnow().isoformat()
+    state.last_check_time = datetime.now(timezone.utc).isoformat()
     save_state(state)
 
     critical_count = sum(1 for a in alerts if a.severity == "critical")
