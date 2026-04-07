@@ -16,6 +16,7 @@ from .position_sizing import (
     kelly_criterion,
     dynamic_sizing,
 )
+from .vaps import VAPSConfig, vaps_multiply
 from .regime import (
     volatility_regime as calc_volatility_regime,
     trend_regime as calc_trend_regime,
@@ -283,6 +284,21 @@ class QuantPipeline:
 
     def _apply_sizing_mode(self, base_lot: float) -> float:
         sizing_cfg = self._config.position_sizing
+
+        if sizing_cfg.mode == SizingMode.VOLATILITY_ADAPTIVE:
+            vaps_config = VAPSConfig(
+                lookback=sizing_cfg.vaps_lookback,
+                low_multiplier=sizing_cfg.vaps_low_multiplier,
+                normal_multiplier=sizing_cfg.vaps_normal_multiplier,
+                high_multiplier=sizing_cfg.vaps_high_multiplier,
+                extreme_multiplier=sizing_cfg.vaps_extreme_multiplier,
+                min_multiplier=sizing_cfg.vaps_min_multiplier,
+                max_multiplier=sizing_cfg.vaps_max_multiplier,
+            )
+            adapted_lot, _regime, _pct = vaps_multiply(
+                base_lot, self._atr_history, config=vaps_config
+            )
+            return adapted_lot
 
         if sizing_cfg.mode == SizingMode.DYNAMIC:
             dyn_config = DynamicSizingConfig(
