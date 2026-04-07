@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .position_sizing import fixed_fractional
-from .regime import VolatilityRegime, volatility_regime
+from .regime import VolatilityRegime, VolatilityThresholds, volatility_regime
 
 
 @dataclass(frozen=True)
@@ -16,6 +16,9 @@ class VAPSConfig:
     extreme_multiplier: float = 0.5
     min_multiplier: float = 0.25
     max_multiplier: float = 1.5
+    low_pctile: float = 25.0
+    normal_pctile: float = 75.0
+    high_pctile: float = 90.0
 
 
 _DEFAULT_CONFIG = VAPSConfig()
@@ -40,7 +43,12 @@ def vaps_regime(
     config: Optional[VAPSConfig] = None,
 ) -> tuple[VolatilityRegime, float, float]:
     cfg = config or _DEFAULT_CONFIG
-    result = volatility_regime(atr_series, lookback=cfg.lookback)
+    thresholds = VolatilityThresholds(
+        low=cfg.low_pctile,
+        normal=cfg.normal_pctile,
+        high=cfg.high_pctile,
+    )
+    result = volatility_regime(atr_series, lookback=cfg.lookback, thresholds=thresholds)
     multiplier = _regime_multiplier(result.regime, cfg)
     return result.regime, result.percentile, multiplier
 
