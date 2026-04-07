@@ -164,10 +164,36 @@ class TestComputeMetrics(unittest.TestCase):
     def test_all_wins(self):
         from quant.walk_forward import _compute_metrics
 
-        trades = _make_trades([10.0, 20.0, 30.0])
+        trades = _make_trades([10.0, 20.0, 30.0, 40.0, 50.0])
         m = _compute_metrics(0, trades)
         self.assertAlmostEqual(m.win_rate, 1.0)
-        self.assertAlmostEqual(m.total_pnl, 60.0)
+        self.assertAlmostEqual(m.total_pnl, 150.0)
+        self.assertTrue(m.passed_go_nogo)
+
+    def test_fewer_than_min_trades_fails_go_nogo(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([100.0, 200.0])
+        m = _compute_metrics(0, trades)
+        self.assertAlmostEqual(m.win_rate, 1.0)
+        self.assertEqual(m.trade_count, 2)
+        self.assertFalse(m.passed_go_nogo)
+
+    def test_single_winning_trade_fails_go_nogo(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([500.0])
+        m = _compute_metrics(0, trades)
+        self.assertAlmostEqual(m.win_rate, 1.0)
+        self.assertEqual(m.trade_count, 1)
+        self.assertFalse(m.passed_go_nogo)
+
+    def test_exactly_min_trades_can_pass(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([10.0, 20.0, 30.0, 40.0, 50.0])
+        m = _compute_metrics(0, trades)
+        self.assertEqual(m.trade_count, 5)
         self.assertTrue(m.passed_go_nogo)
 
     def test_all_losses(self):
