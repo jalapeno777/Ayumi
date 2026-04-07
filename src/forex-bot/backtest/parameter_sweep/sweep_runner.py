@@ -45,11 +45,11 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         HighConvictionStrategy,
         KeltnerChannelBreakoutStrategy,
         MACrossStrategy,
+        MomentumBreakoutStrategy,
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
         SupertrendRSIBlendStrategy,
-        MomentumBreakoutStrategy,
     )
 
     registry: Dict[str, type] = {
