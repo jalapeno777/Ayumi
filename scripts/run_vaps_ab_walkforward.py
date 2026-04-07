@@ -220,6 +220,9 @@ def run_vaps_ab_walk_forward(
             "vaps_normal_mult": cfg.normal_multiplier,
             "vaps_high_mult": cfg.high_multiplier,
             "vaps_extreme_mult": cfg.extreme_multiplier,
+            "vaps_low_pctile": cfg.low_pctile,
+            "vaps_normal_pctile": cfg.normal_pctile,
+            "vaps_high_pctile": cfg.high_pctile,
             "spread_pips": effective_spread,
             "initial_balance": initial_balance,
         },
@@ -289,8 +292,10 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"{'=' * 76}")
     print(f"  Windows: {cfg['n_windows']} | Bars: {cfg['total_bars']} | Spread: {cfg['spread_pips']} pips")
     print(f"  VAPS: lookback={cfg['vaps_lookback']}, "
-          f"low={cfg['vaps_low_mult']}x, normal={cfg['vaps_normal_mult']}x, "
-          f"high={cfg['vaps_high_mult']}x, extreme={cfg['vaps_extreme_mult']}x")
+          f"low={cfg['vaps_low_mult']}x (<{cfg['vaps_low_pctile']}%), "
+          f"normal={cfg['vaps_normal_mult']}x ({cfg['vaps_low_pctile']}-{cfg['vaps_normal_pctile']}%), "
+          f"high={cfg['vaps_high_mult']}x ({cfg['vaps_normal_pctile']}-{cfg['vaps_high_pctile']}%), "
+          f"extreme={cfg['vaps_extreme_mult']}x (>{cfg['vaps_high_pctile']}%)")
 
     print(f"\n  {'Metric':<20} {'Fixed':>12} {'VAPS':>12} {'Delta':>12}")
     print(f"  {'-' * 56}")
@@ -344,10 +349,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--balance", type=float, default=10000, help="Starting balance")
     p.add_argument("--spread", type=float, default=None, help="Spread in pips")
     p.add_argument("--vaps-lookback", type=int, default=50, help="VAPS ATR lookback")
-    p.add_argument("--vaps-low", type=float, default=1.25, help="VAPS low vol multiplier")
+    p.add_argument("--vaps-low", type=float, default=1.5, help="VAPS low vol multiplier")
     p.add_argument("--vaps-normal", type=float, default=1.0, help="VAPS normal vol multiplier")
-    p.add_argument("--vaps-high", type=float, default=0.75, help="VAPS high vol multiplier")
+    p.add_argument("--vaps-high", type=float, default=0.7, help="VAPS high vol multiplier")
     p.add_argument("--vaps-extreme", type=float, default=0.5, help="VAPS extreme vol multiplier")
+    p.add_argument("--vaps-low-pctile", type=float, default=30.0, help="VAPS low percentile threshold")
+    p.add_argument("--vaps-normal-pctile", type=float, default=70.0, help="VAPS normal percentile threshold")
+    p.add_argument("--vaps-high-pctile", type=float, default=90.0, help="VAPS high percentile threshold")
     p.add_argument("--output", type=str, default=None, help="Path to save JSON report")
     return p
 
@@ -385,6 +393,9 @@ def main() -> None:
         normal_multiplier=args.vaps_normal,
         high_multiplier=args.vaps_high,
         extreme_multiplier=args.vaps_extreme,
+        low_pctile=args.vaps_low_pctile,
+        normal_pctile=args.vaps_normal_pctile,
+        high_pctile=args.vaps_high_pctile,
     )
 
     print("\nRunning fixed-sizing baseline...")
