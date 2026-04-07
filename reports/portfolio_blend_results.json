@@ -1,4 +1,7 @@
 {
+  "weight_method": "equal_risk",
+  "strategy_filter_enabled": false,
+  "filtered_strategies": [],
   "ftmo_passed": true,
   "ftmo_criteria": {
     "win_rate": true,
@@ -6,16 +9,15 @@
     "sharpe_ratio": true,
     "wf_mean_win_rate": false,
     "wf_mean_profit_factor": false,
-    "wf_mean_sharpe": false,
+    "wf_mean_sharpe": true,
     "wf_go_nogo": true
   },
-  "weight_method": "inverse_variance",
   "weights": {
-    "Statistical Arbitrage|EURUSD|M15": 0.024973503383279038,
-    "Commodity XAUUSD|XAUUSD|M15": 0.13301350614993532,
-    "Grid Trading|EURUSD|M15": 0.6362544738065797,
-    "Session-Range Mean Reversion|EURUSD|H1": 0.13256284313518762,
-    "Session-Range Mean Reversion|GBPUSD|H1": 0.07319567352501825
+    "Statistical Arbitrage|EURUSD|M15": 0.01194200622106806,
+    "Commodity XAUUSD|XAUUSD|M15": 6.923689967759786e-05,
+    "Grid Trading|EURUSD|M15": 0.9363462954220899,
+    "Session-Range Mean Reversion|EURUSD|H1": 0.03878110857187462,
+    "Session-Range Mean Reversion|GBPUSD|H1": 0.012861352885289837
   },
   "correlation_average": 0.18833283568566783,
   "correlation_matrix": {
@@ -65,7 +67,8 @@
       "sharpe_ratio": 0.2803406318448164,
       "max_drawdown": 0.16253480230441528,
       "trade_count": 31,
-      "total_pnl": -961.420389333276
+      "total_pnl": -961.420389333276,
+      "in_blend": true
     },
     "Commodity XAUUSD|XAUUSD|M15": {
       "strategy": "Commodity XAUUSD",
@@ -76,7 +79,8 @@
       "sharpe_ratio": -0.6349594526631421,
       "max_drawdown": 0.05181783049897878,
       "trade_count": 9,
-      "total_pnl": -343.1700751670269
+      "total_pnl": -343.1700751670269,
+      "in_blend": true
     },
     "Grid Trading|EURUSD|M15": {
       "strategy": "Grid Trading",
@@ -87,7 +91,8 @@
       "sharpe_ratio": 7.268752521202182,
       "max_drawdown": 0.05374783790487446,
       "trade_count": 130,
-      "total_pnl": 7685.429600341042
+      "total_pnl": 7685.429600341042,
+      "in_blend": true
     },
     "Session-Range Mean Reversion|EURUSD|H1": {
       "strategy": "Session-Range Mean Reversion",
@@ -98,7 +103,8 @@
       "sharpe_ratio": 0.3294682333536069,
       "max_drawdown": 0.05882080182772974,
       "trade_count": 100,
-      "total_pnl": 1124.9105694072096
+      "total_pnl": 1124.9105694072096,
+      "in_blend": true
     },
     "Session-Range Mean Reversion|GBPUSD|H1": {
       "strategy": "Session-Range Mean Reversion",
@@ -109,18 +115,19 @@
       "sharpe_ratio": 0.22152238189810033,
       "max_drawdown": 0.11925279609864038,
       "trade_count": 59,
-      "total_pnl": -374.8305924011147
+      "total_pnl": -374.8305924011147,
+      "in_blend": true
     }
   },
   "combined": {
-    "win_rate": 92.3076923076923,
-    "profit_factor": 7.003906222847012,
-    "sharpe_ratio": 13.613395931192592,
-    "max_drawdown_pct": 5.374783790487459,
-    "total_pnl": 6111.248258043084,
-    "total_pnl_pct": 0.6111248258043084,
+    "win_rate": 93.84615384615384,
+    "profit_factor": 7.34479650985463,
+    "sharpe_ratio": 15.432985767965505,
+    "max_drawdown_pct": 5.374783790487444,
+    "total_pnl": 7348.213581263048,
+    "total_pnl_pct": 0.7348213581263048,
     "starting_balance": 10000,
-    "ending_balance": 16111.248258043084
+    "ending_balance": 17348.213581263048
   },
   "walk_forward": {
     "go_nogo": true,
@@ -128,67 +135,119 @@
       {
         "window_index": 0,
         "win_rate": 0.46774193548387094,
-        "profit_factor": 0.403724260767709,
-        "max_drawdown": 0.06868489846555884,
-        "sharpe_ratio": -3.8696456406769126,
+        "profit_factor": 0.10733485311312077,
+        "max_drawdown": 0.08348569806210912,
+        "sharpe_ratio": -3.5388053425163153,
         "trade_count": 124,
-        "total_pnl": -673.8037088294183,
+        "total_pnl": -828.7180363739034,
         "passed_go_nogo": false
       },
       {
         "window_index": 1,
         "win_rate": 0.5555555555555556,
-        "profit_factor": 1.253433512422652,
-        "max_drawdown": 0.043183724898648836,
-        "sharpe_ratio": 1.319933237821101,
+        "profit_factor": 1.2824477371071488,
+        "max_drawdown": 0.061919613044536505,
+        "sharpe_ratio": 1.2206301404027204,
         "trade_count": 54,
-        "total_pnl": 190.24245867100814,
+        "total_pnl": 254.0052127946849,
         "passed_go_nogo": true
       },
       {
         "window_index": 2,
         "win_rate": 0.5892857142857143,
-        "profit_factor": 1.5679776213110297,
-        "max_drawdown": 0.0472051878253463,
-        "sharpe_ratio": 2.5074944956967675,
+        "profit_factor": 1.8824683515911846,
+        "max_drawdown": 0.06625081210754763,
+        "sharpe_ratio": 3.018985199748005,
         "trade_count": 56,
-        "total_pnl": 390.14567478901915,
+        "total_pnl": 677.1823809847937,
         "passed_go_nogo": true
       },
       {
         "window_index": 3,
         "win_rate": 0.39473684210526316,
-        "profit_factor": 0.7137006861747315,
-        "max_drawdown": 0.037390225648801026,
-        "sharpe_ratio": -1.6290613560111296,
+        "profit_factor": 0.7324667554861928,
+        "max_drawdown": 0.054142481151752096,
+        "sharpe_ratio": -1.232700868934665,
         "trade_count": 38,
-        "total_pnl": -155.54870375213528,
+        "total_pnl": -169.11654405802338,
         "passed_go_nogo": false
       },
       {
         "window_index": 4,
         "win_rate": 0.6962962962962963,
-        "profit_factor": 2.04507608846275,
-        "max_drawdown": 0.03276308402380997,
-        "sharpe_ratio": 4.154908277654116,
+        "profit_factor": 2.339581916529515,
+        "max_drawdown": 0.04519408484113324,
+        "sharpe_ratio": 4.440604829190666,
         "trade_count": 135,
-        "total_pnl": 1081.2938988878625,
+        "total_pnl": 1670.287018216053,
         "passed_go_nogo": true
       }
     ],
     "aggregated": {
       "mean_win_rate": 0.54072326874534,
       "std_win_rate": 0.11556338792845798,
-      "mean_profit_factor": 1.1967824338277744,
-      "std_profit_factor": 0.6562976796362193,
-      "mean_max_drawdown": 0.045845424172432994,
-      "std_max_drawdown": 0.013903355638482615,
-      "mean_sharpe_ratio": 0.4967258028967885,
-      "std_sharpe_ratio": 3.2282863435464697,
+      "mean_profit_factor": 1.2688599227654325,
+      "std_profit_factor": 0.8888199533495783,
+      "mean_max_drawdown": 0.06219853784141571,
+      "std_max_drawdown": 0.014350029505698154,
+      "mean_sharpe_ratio": 0.7817427915780822,
+      "std_sharpe_ratio": 3.2136531606787218,
       "mean_trade_count": 81.4,
-      "mean_total_pnl": 166.46592395326724,
+      "mean_total_pnl": 320.72800631272094,
       "windows_passed": 3,
       "total_windows": 5
+    }
+  },
+  "method_comparison": {
+    "inverse_variance": {
+      "wr": 92.3076923076923,
+      "pf": 7.003906222847012,
+      "sharpe": 13.613395931192592,
+      "dd": 5.374783790487459,
+      "pnl": 6111.248258043084,
+      "ftmo": true,
+      "wf_go": true,
+      "score": 103.38704348814518
+    },
+    "equal_risk": {
+      "wr": 93.84615384615384,
+      "pf": 7.34479650985463,
+      "sharpe": 15.432985767965505,
+      "dd": 5.374783790487444,
+      "pnl": 7348.213581263048,
+      "ftmo": true,
+      "wf_go": true,
+      "score": 106.2455083765523
+    },
+    "profit_factor": {
+      "wr": 92.3076923076923,
+      "pf": 6.53693371404567,
+      "sharpe": 13.33285490221609,
+      "dd": 5.374783790487446,
+      "pnl": 6023.442025926201,
+      "ftmo": true,
+      "wf_go": true,
+      "score": 102.24697818483202
+    },
+    "sharpe_weighted": {
+      "wr": 93.84615384615384,
+      "pf": 7.304936555453549,
+      "sharpe": 15.227192270452738,
+      "dd": 5.374783790487454,
+      "pnl": 7158.155489420336,
+      "ftmo": true,
+      "wf_go": true,
+      "score": 105.9028314463496
+    },
+    "combined_score": {
+      "wr": 92.3076923076923,
+      "pf": 6.728940152263628,
+      "sharpe": 13.803940780628759,
+      "dd": 5.374783790487454,
+      "pnl": 6232.886673724446,
+      "ftmo": true,
+      "wf_go": true,
+      "score": 103.0800485156874
     }
   }
 }

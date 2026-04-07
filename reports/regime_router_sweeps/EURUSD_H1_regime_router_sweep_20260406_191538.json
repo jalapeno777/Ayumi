@@ -1,0 +1,140 @@
+{
+  "symbol": "EURUSD",
+  "timeframe": "H1",
+  "sweep_type": "regime_router_portfolio",
+  "timestamp": "20260406_191538",
+  "total_runs": 2,
+  "successful_runs": 2,
+  "top_by_sharpe": [
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 20.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    },
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 25.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    }
+  ],
+  "top_by_win_rate": [
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 20.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    },
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 25.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    }
+  ],
+  "top_by_profit_factor": [
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 20.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    },
+    {
+      "params": {
+        "adx_period": 14,
+        "adx_range_threshold": 20.0,
+        "adx_strong_trend_threshold": 40.0,
+        "adx_trend_threshold": 25.0,
+        "atr_lookback": 50,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "ranging_size_multiplier": 1.0,
+        "transition_size_multiplier": 0.5,
+        "trending_size_multiplier": 1.0,
+        "volatile_size_multiplier": 0.5
+      },
+      "win_rate": 47.368421052631575,
+      "sharpe_ratio": 0.025573699626602872,
+      "profit_factor": 0.6305892741442913,
+      "max_dd": 4.669785095968186,
+      "total_return": 0.0050216444005840456,
+      "trade_count": 38
+    }
+  ]
+}
