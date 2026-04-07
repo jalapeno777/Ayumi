@@ -37,7 +37,7 @@ from strategies.session_range_mean_reversion import (  # noqa: E402
 
 @dataclass
 class ICTFilterConfig:
-    min_confluence_score: float = 0.5
+    min_confluence_score: float = 0.35
     require_order_block: bool = False
     require_fvg: bool = True
     require_liquidity_sweep: bool = False
@@ -46,6 +46,8 @@ class ICTFilterConfig:
 
 class ICTFilteredSessionRangeMR:
     """Session Range MR with ICT/SMC as a confirmation filter."""
+
+    ATR_PERIOD = 14
 
     def __init__(
         self,
@@ -68,10 +70,12 @@ class ICTFilteredSessionRangeMR:
             return None
 
         ict_state = ICTMarketState(bars=state.bars)
+        ict_state.atr = self._calculate_atr(state.bars)
+        ict_state.current_session = state.current_session
+
         self._structure_analyzer.analyze(ict_state)
 
-        h4_bars = self._get_h4_bars(state.bars)
-        ict_confluence = self._ict_engine.evaluate(ict_state, h4_bars=h4_bars)
+        ict_confluence = self._ict_engine.evaluate(ict_state, h4_bars=None)
 
         if ict_confluence is None:
             return None
@@ -87,15 +91,25 @@ class ICTFilteredSessionRangeMR:
         session_signal.rationale += f" | ICT confluence: {ict_confluence.confidence_score:.2f}"
         return session_signal
 
-    def _get_h4_bars(self, bars: list) -> Optional[list]:
-        if len(bars) < 100:
-            return None
-        lookback = min(500, len(bars) // 4)
-        return bars[-lookback:]
+    def _calculate_atr(self, bars: list) -> float:
+        if len(bars) < self.ATR_PERIOD + 1:
+            return 0.0
+        tr_sum = 0.0
+        for i in range(len(bars) - self.ATR_PERIOD, len(bars)):
+            if i > 0:
+                tr = max(
+                    bars[i].high - bars[i].low,
+                    abs(bars[i].high - bars[i - 1].close),
+                    abs(bars[i].low - bars[i - 1].close),
+                )
+                tr_sum += tr
+        return tr_sum / self.ATR_PERIOD
 
     def _check_market_structure(
         self, ict_state: ICTMarketState, signal_direction: TradeDirection
     ) -> bool:
+        if ict_state.structure_bias == TradeDirection.NEUTRAL:
+            return True
         return ict_state.structure_bias == signal_direction
 
 
