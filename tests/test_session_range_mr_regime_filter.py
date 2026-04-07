@@ -218,9 +218,7 @@ class TestSessionRangeMRWithRegimeFilter(unittest.TestCase):
         if result is not None and base_result is not None:
             self.assertLess(result.confidence, base_result.confidence)
             self.assertAlmostEqual(
-                result.confidence,
-                base_result.confidence * 0.90,
-                places=2
+                result.confidence, base_result.confidence * 0.90, places=2
             )
 
 

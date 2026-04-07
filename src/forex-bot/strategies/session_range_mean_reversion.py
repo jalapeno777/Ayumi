@@ -351,7 +351,9 @@ class SessionRangeMRWithRegimeFilter:
         if base_signal.confidence < self.config.base_min_confidence:
             return None
 
-        adjusted_confidence = base_signal.confidence * self.config.regime_confidence_multiplier
+        adjusted_confidence = (
+            base_signal.confidence * self.config.regime_confidence_multiplier
+        )
         return StrategySignal(
             direction=base_signal.direction,
             confidence=adjusted_confidence,
