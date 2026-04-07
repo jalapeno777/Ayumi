@@ -509,6 +509,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
 
     Entry signals are generated when the fast EMA crosses the slow EMA
     AND the ADX indicator is above the threshold (indicating a strong trend).
+    An optional RSI filter blocks entries when RSI is in overbought/oversold zones.
     Stop loss is calculated using ATR multiplier. Take profit levels are
     set at 1R, 2R, and 3R risk multiples.
 
@@ -518,6 +519,9 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         adx_period: Period for ADX calculation (default 14).
         adx_threshold: Minimum ADX value to confirm trend (default 25.0).
         atr_multiplier: ATR multiplier for stop loss (default 2.0).
+        rsi_period: Period for RSI filter. None disables the filter (default None).
+        rsi_overbought: RSI level above which longs are blocked (default 70.0).
+        rsi_oversold: RSI level below which shorts are blocked (default 30.0).
     """
 
     def __init__(
@@ -527,12 +531,18 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         adx_period: int = 14,
         adx_threshold: float = 25.0,
         atr_multiplier: float = 2.0,
+        rsi_period: Optional[int] = None,
+        rsi_overbought: float = 70.0,
+        rsi_oversold: float = 30.0,
     ):
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.adx_period = adx_period
         self.adx_threshold = adx_threshold
         self.atr_multiplier = atr_multiplier
+        self.rsi_period = rsi_period
+        self.rsi_overbought = rsi_overbought
+        self.rsi_oversold = rsi_oversold
 
     @property
     def name(self) -> str:
@@ -571,6 +581,15 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             return None
 
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
+
+        if self.rsi_period is not None:
+            rsi = self._calculate_rsi(state.bars, self.rsi_period)
+            if rsi is None:
+                return None
+            if direction == TradeDirection.LONG and rsi >= self.rsi_overbought:
+                return None
+            if direction == TradeDirection.SHORT and rsi <= self.rsi_oversold:
+                return None
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
@@ -714,6 +733,24 @@ class MomentumBreakoutStrategy(ISignalStrategy):
                 )
                 tr_sum += tr
         return tr_sum / 14
+
+    def _calculate_rsi(self, bars: List[Bar], period: int) -> Optional[float]:
+        if len(bars) < period + 1:
+            return None
+        deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
+        gains = [d if d > 0 else 0.0 for d in deltas]
+        losses = [-d if d < 0 else 0.0 for d in deltas]
+        avg_gain = sum(gains[:period]) / period
+        avg_loss = sum(losses[:period]) / period
+        if avg_loss == 0:
+            return 100.0
+        for i in range(period, len(gains)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+            if avg_loss == 0:
+                return 100.0
+        rs = avg_gain / avg_loss
+        return 100.0 - (100.0 / (1.0 + rs))
 
 
 class CommodityTrendStrategy(ISignalStrategy):
