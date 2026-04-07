@@ -7,9 +7,6 @@ from .position_sizing import fixed_fractional
 from .regime import VolatilityRegime, volatility_regime
 
 
-_STANDARD_LOT_SIZE = 100_000
-
-
 @dataclass(frozen=True)
 class VAPSConfig:
     lookback: int = 50
@@ -22,13 +19,6 @@ class VAPSConfig:
 
 
 _DEFAULT_CONFIG = VAPSConfig()
-
-_REGIME_MULTIPLIERS: dict[VolatilityRegime, float] = {
-    VolatilityRegime.LOW: _DEFAULT_CONFIG.low_multiplier,
-    VolatilityRegime.NORMAL: _DEFAULT_CONFIG.normal_multiplier,
-    VolatilityRegime.HIGH: _DEFAULT_CONFIG.high_multiplier,
-    VolatilityRegime.EXTREME: _DEFAULT_CONFIG.extreme_multiplier,
-}
 
 
 def _regime_multiplier(
