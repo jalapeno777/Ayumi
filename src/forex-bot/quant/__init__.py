@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .config import QuantConfig
 from .pipeline import (
     QuantPipeline,
@@ -13,6 +15,17 @@ from .cointegration import (
     PairsSignalGenerator,
     parameter_sweep,
 )
+from .portfolio import (
+    StrategyPortfolio,
+    PortfolioConfig,
+    PortfolioConstraints,
+    PortfolioTracker,
+    PortfolioSignal,
+    StrategyAllocation,
+    AllocationMethod,
+    ConflictResolution,
+    build_default_portfolio,
+)
 
 __all__ = [
     "QuantConfig",
@@ -26,4 +39,13 @@ __all__ = [
     "SpreadStats",
     "PairsSignalGenerator",
     "parameter_sweep",
+    "StrategyPortfolio",
+    "PortfolioConfig",
+    "PortfolioConstraints",
+    "PortfolioTracker",
+    "PortfolioSignal",
+    "StrategyAllocation",
+    "AllocationMethod",
+    "ConflictResolution",
+    "build_default_portfolio",
 ]
