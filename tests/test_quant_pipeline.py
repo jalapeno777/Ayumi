@@ -192,6 +192,7 @@ class TestQuantPipeline:
                 return None
 
         from datetime import datetime, timedelta
+
         strategy = NoSignalsStrategy()
         base_time = datetime(2024, 1, 1, 10, 0, 0)
         bars = [
