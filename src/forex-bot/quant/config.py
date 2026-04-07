@@ -8,6 +8,7 @@ class SizingMode(Enum):
     FIXED_FRACTIONAL = "fixed_fractional"
     KELLY = "kelly"
     DYNAMIC = "dynamic"
+    VOLATILITY_ADAPTIVE = "volatility_adaptive"
 
 
 class RegimeFilterMode(Enum):
@@ -51,6 +52,13 @@ class PositionSizingConfig:
     dynamic_loss_reduction: float = 0.1
     dynamic_win_increase: float = 0.1
     dynamic_max_streak_impact: float = 0.5
+    vaps_lookback: int = 50
+    vaps_low_multiplier: float = 1.25
+    vaps_normal_multiplier: float = 1.0
+    vaps_high_multiplier: float = 0.75
+    vaps_extreme_multiplier: float = 0.5
+    vaps_min_multiplier: float = 0.25
+    vaps_max_multiplier: float = 1.5
 
 
 @dataclass(frozen=True)
