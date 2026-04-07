@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "forex-bot"))
 
 from adapters.ctrader.api_client import FIXClient
 from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick
@@ -129,7 +129,7 @@ class LiveTradingExecutor:
     def _setup_trading(self):
         ftmo_config = FTMOConfig(
             daily_loss_limit_pct=self._config.ftmo_daily_loss_limit,
-            max_drawdown_pct=self._config.ftmo_max_drawdown,
+            total_drawdown_limit_pct=self._config.ftmo_max_drawdown,
         )
         position_config = PositionSizeConfig(
             risk_per_trade_pct=self._config.risk_per_trade,
