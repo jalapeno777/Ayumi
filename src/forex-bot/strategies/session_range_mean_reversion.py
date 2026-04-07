@@ -29,6 +29,7 @@ class SessionRangeMRConfig:
     ema_trend_period: int = 50
     use_session_range_sl: bool = True
     session_range_sl_fraction: float = 0.6
+    pip_value: float | None = None
 
 
 _ASIAN_START = time(0, 0)
@@ -43,7 +44,13 @@ _LONDON_NY_OVERLAP_END = time(16, 0)
 _NY_CLOSE_START = time(16, 0)
 _NY_CLOSE_END = time(20, 0)
 
-_PIP = 0.0001
+_DEFAULT_PIP = 0.0001
+
+
+def _pip_value_for_price(price: float) -> float:
+    if price >= 50:
+        return 0.01
+    return _DEFAULT_PIP
 
 
 def _get_bar_session(bar_time: datetime) -> SessionType:
@@ -163,6 +170,7 @@ def _build_signal(
     config: SessionRangeMRConfig,
     session_range_price: float,
     rationale: str,
+    pip_value: float,
 ) -> Optional[StrategySignal]:
     if atr <= 0:
         return None
@@ -170,11 +178,11 @@ def _build_signal(
     if config.use_session_range_sl and session_range_price > 0:
         sl_distance = min(
             session_range_price * config.session_range_sl_fraction,
-            config.hard_cap_sl_pips * _PIP,
+            config.hard_cap_sl_pips * pip_value,
         )
     else:
         sl_distance = min(
-            atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * _PIP
+            atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * pip_value
         )
 
     if sl_distance <= 0:
@@ -248,7 +256,12 @@ class SessionRangeMeanReversionStrategy:
             )
 
         session_range_price = session_high - session_low
-        session_range_width = session_range_price / _PIP
+        pip = (
+            self.config.pip_value
+            if self.config.pip_value is not None
+            else _pip_value_for_price(latest.close)
+        )
+        session_range_width = session_range_price / pip
         if session_range_width < self.config.session_range_min_pips:
             return None
 
@@ -258,7 +271,7 @@ class SessionRangeMeanReversionStrategy:
         if rsi is None:
             return None
 
-        entry_near_extreme_pips = self.config.entry_near_extreme_pips * _PIP
+        entry_near_extreme_pips = self.config.entry_near_extreme_pips * pip
 
         if (
             price <= session_low + entry_near_extreme_pips
@@ -270,7 +283,7 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale
+                direction, price, atr, self.config, session_range_price, rationale, pip
             )
 
         if (
@@ -283,7 +296,7 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale
+                direction, price, atr, self.config, session_range_price, rationale, pip
             )
 
         return None
