@@ -24,8 +24,9 @@ from .regime import (
 )
 
 if TYPE_CHECKING:
-    from backtest.engine import Bar
+    from backtest.engine import Bar, MarketState
     from backtest.strategies import ISignalStrategy
+    from .portfolio import StrategyPortfolio, PortfolioSignal
 
 
 class TradeAction(Enum):
@@ -83,6 +84,8 @@ class QuantPipeline:
         self._high_history: list[float] = []
         self._low_history: list[float] = []
         self._close_history: list[float] = []
+
+        self._strategy_portfolio: Optional[StrategyPortfolio] = None
 
     def pre_trade_check(
         self,
@@ -229,6 +232,56 @@ class QuantPipeline:
     @portfolio.setter
     def portfolio(self, value: PortfolioState) -> None:
         self._portfolio = value
+
+    @property
+    def strategy_portfolio(self) -> Optional[StrategyPortfolio]:
+        return self._strategy_portfolio
+
+    def attach_portfolio(self, portfolio: StrategyPortfolio) -> None:
+        self._strategy_portfolio = portfolio
+
+    def evaluate_portfolio(
+        self,
+        market_states: dict[str, MarketState],
+    ) -> List[PortfolioSignal]:
+        if self._strategy_portfolio is None:
+            return []
+        from .portfolio import PortfolioSignal as PS
+
+        raw_signals = self._strategy_portfolio.evaluate_all(market_states)
+        result: List[PortfolioSignal] = []
+        for ps in raw_signals:
+            allocation = None
+            for a in self._strategy_portfolio.config.allocations:
+                if a.strategy_name == ps.strategy_name and a.symbol == ps.symbol:
+                    allocation = a
+                    break
+            if allocation is None:
+                continue
+            decision = self.pre_trade_check(
+                signal_symbol=ps.symbol,
+                entry_price=ps.signal.entry_price,
+                stop_loss=ps.signal.stop_loss,
+            )
+            if decision.action == TradeAction.REJECT:
+                continue
+
+            lot_size = self._strategy_portfolio.calculate_position_size(
+                ps.signal, allocation
+            )
+            if decision.lot_size is not None:
+                lot_size = min(lot_size, decision.lot_size)
+
+            result.append(
+                PS(
+                    strategy_name=ps.strategy_name,
+                    symbol=ps.symbol,
+                    signal=ps.signal,
+                    weight=ps.weight,
+                    adjusted_lot_size=lot_size,
+                )
+            )
+        return result
 
     def _check_regime(self, bar_time: Optional[datetime] = None) -> float:
         vol_result = calc_volatility_regime(
