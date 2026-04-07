@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from ..engine import Bar, SessionType, TradeDirection
+from .displacement import DisplacementDetector
 from .fvg import FVGDetector
 from .h4_context import H4ContextModule
 from .liquidity_sweep import LiquiditySweepDetector
@@ -13,20 +14,22 @@ from .models import (
     SignalStrength,
 )
 from .order_block import OrderBlockDetector
-from .premium_discount import PremiumDiscountClassifier
+from .premium_discount import OTEZoneDetector, PremiumDiscountClassifier
 
 
 class SignalConfluenceEngine:
     def __init__(
         self,
         min_confidence: float = 0.55,
-        structure_weight: float = 0.30,
-        ob_weight: float = 0.25,
-        fvg_weight: float = 0.15,
-        sweep_weight: float = 0.15,
-        pd_weight: float = 0.10,
+        structure_weight: float = 0.25,
+        ob_weight: float = 0.20,
+        fvg_weight: float = 0.12,
+        sweep_weight: float = 0.12,
+        pd_weight: float = 0.08,
         session_weight: float = 0.05,
-        h4_weight: float = 0.15,
+        h4_weight: float = 0.12,
+        displacement_weight: float = 0.15,
+        ote_weight: float = 0.10,
         default_sl_multiplier: float = 3.0,
         tp1_rr: float = 1.0,
         tp2_rr: float = 2.0,
@@ -40,6 +43,8 @@ class SignalConfluenceEngine:
         self._pd_weight = pd_weight
         self._session_weight = session_weight
         self._h4_weight = h4_weight
+        self._displacement_weight = displacement_weight
+        self._ote_weight = ote_weight
         self._default_sl_multiplier = default_sl_multiplier
         self._tp1_rr = tp1_rr
         self._tp2_rr = tp2_rr
@@ -51,6 +56,8 @@ class SignalConfluenceEngine:
         self._sweep_detector = LiquiditySweepDetector()
         self._pd_classifier = PremiumDiscountClassifier()
         self._h4_module = H4ContextModule()
+        self._displacement_detector = DisplacementDetector()
+        self._ote_detector = OTEZoneDetector()
 
     def evaluate(
         self, state: ICTMarketState, h4_bars: Optional[List[Bar]] = None
@@ -61,6 +68,9 @@ class SignalConfluenceEngine:
         self._sweep_detector.update_liquidity_pools(state)
         self._sweep_detector.detect_sweeps(state)
         self._pd_classifier.classify(state)
+
+        state.displacement_moves = self._displacement_detector.detect(state)
+        state.ote_zones = self._ote_detector.detect(state, state.displacement_moves)
 
         h4_context = None
         if h4_bars is not None and state.atr > 0:
@@ -120,6 +130,8 @@ class SignalConfluenceEngine:
             has_fvg=self._has_fvg_confluence(state, direction),
             has_liquidity_sweep=self._has_sweep_confluence(state, direction),
             has_premium_discount_confluence=self._has_pd_confluence(state, direction),
+            has_displacement=self._has_displacement(state, direction),
+            has_ote_confluence=self._has_ote_confluence(state, direction),
             has_structure_alignment=state.structure_bias == direction,
             confluence_count=self._count_confluences(state, direction, h4_context),
             risk_reward_ratio=rr,
@@ -129,6 +141,8 @@ class SignalConfluenceEngine:
             liq_sweep_score=component_scores["sweep"],
             pd_zone_score=component_scores["pd"],
             session_score=component_scores["session"],
+            displacement_score=component_scores["displacement"],
+            ote_score=component_scores["ote"],
         )
 
     def _component_scores(
@@ -143,6 +157,8 @@ class SignalConfluenceEngine:
         sweep_score = self._score_sweeps(state, direction)
         pd_score = self._score_premium_discount(state, direction)
         session_score = self._score_session(state)
+        displacement_score = self._score_displacement(state, direction)
+        ote_score = self._score_ote(state, direction)
 
         total = (
             structure_score * self._structure_weight
@@ -151,6 +167,8 @@ class SignalConfluenceEngine:
             + sweep_score * self._sweep_weight
             + pd_score * self._pd_weight
             + session_score * self._session_weight
+            + displacement_score * self._displacement_weight
+            + ote_score * self._ote_weight
         )
 
         if h4_context is not None:
@@ -168,6 +186,8 @@ class SignalConfluenceEngine:
             "sweep": sweep_score,
             "pd": pd_score,
             "session": session_score,
+            "displacement": displacement_score,
+            "ote": ote_score,
             "total": min(1.0, total),
         }
 
@@ -292,6 +312,36 @@ class SignalConfluenceEngine:
         }
         return session_scores.get(state.current_session, 0.1)
 
+    def _score_displacement(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
+        recent = self._displacement_detector.get_recent(
+            state.displacement_moves, direction, max_age=10
+        )
+        if recent is None:
+            return 0.0
+
+        score = min(1.0, recent.atr_normalized / 3.0) * 0.6
+
+        if recent.broke_order_block:
+            score += 0.2
+        if recent.broke_fvg:
+            score += 0.15
+
+        if recent.age <= 3:
+            score += 0.2
+        elif recent.age <= 6:
+            score += 0.1
+
+        return min(1.0, score)
+
+    def _score_ote(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
+        return self._ote_detector.score_ote_proximity(
+            state.ote_zones, state.latest_bar.close, direction, state.atr
+        )
+
     def _calculate_levels(
         self, state: ICTMarketState, direction: TradeDirection, entry: float
     ) -> Tuple[float, float, float, float]:
@@ -348,6 +398,11 @@ class SignalConfluenceEngine:
             else:
                 lines.append("- Price in premium zone")
 
+        if self._has_displacement(state, direction):
+            lines.append("- Displacement detected")
+        if self._has_ote_confluence(state, direction):
+            lines.append("- OTE Fibonacci zone confluence")
+
         if h4_context is not None:
             h4_confluences = (
                 h4_context.confluence_count_bullish
@@ -397,6 +452,20 @@ class SignalConfluenceEngine:
             return state.pd_zone.is_in_discount
         return state.pd_zone.is_in_premium
 
+    def _has_displacement(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
+        return self._displacement_detector.get_recent(
+            state.displacement_moves, direction, max_age=10
+        ) is not None
+
+    def _has_ote_confluence(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
+        return self._ote_detector.get_best_zone_for_price(
+            state.ote_zones, state.latest_bar.close, direction, state.atr
+        ) is not None
+
     def _count_confluences(
         self,
         state: ICTMarketState,
@@ -413,6 +482,10 @@ class SignalConfluenceEngine:
         if self._has_sweep_confluence(state, direction):
             count += 1
         if self._has_pd_confluence(state, direction):
+            count += 1
+        if self._has_displacement(state, direction):
+            count += 1
+        if self._has_ote_confluence(state, direction):
             count += 1
         if state.current_session != SessionType.OUTSIDE:
             count += 1

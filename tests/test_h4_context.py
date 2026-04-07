@@ -200,7 +200,7 @@ class TestH4ContextIntegration(unittest.TestCase):
 
     def test_confluence_engine_h4_default_weight(self):
         engine = SignalConfluenceEngine()
-        self.assertEqual(engine._h4_weight, 0.15)
+        self.assertEqual(engine._h4_weight, 0.12)
 
     def test_confluence_engine_custom_h4_weight(self):
         engine = SignalConfluenceEngine(h4_weight=0.25)

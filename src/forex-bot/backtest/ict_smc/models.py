@@ -3,9 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from ..engine import Bar, SessionType, TradeDirection
+
+if TYPE_CHECKING:
+    from .displacement import DisplacementMove
+    from .premium_discount import OTEZone
 
 
 class StructureType(Enum):
@@ -119,6 +123,8 @@ class ConfluenceSignal:
     has_fvg: bool = False
     has_liquidity_sweep: bool = False
     has_premium_discount_confluence: bool = False
+    has_displacement: bool = False
+    has_ote_confluence: bool = False
     has_structure_alignment: bool = False
     confluence_count: int = 0
     risk_reward_ratio: float = 0.0
@@ -128,6 +134,8 @@ class ConfluenceSignal:
     liq_sweep_score: float = 0.0
     pd_zone_score: float = 0.0
     session_score: float = 0.0
+    displacement_score: float = 0.0
+    ote_score: float = 0.0
 
 
 class ICTMarketState:
@@ -146,6 +154,8 @@ class ICTMarketState:
         self.day_high: float = 0.0
         self.day_low: float = 0.0
         self.atr: float = 0.0
+        self.displacement_moves: List[DisplacementMove] = []
+        self.ote_zones: List[OTEZone] = []
 
     @property
     def latest_bar(self) -> Bar:
