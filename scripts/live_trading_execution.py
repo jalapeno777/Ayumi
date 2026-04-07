@@ -29,8 +29,8 @@ from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "forex-bot"))
 
-from adapters.ctrader.api_client import FIXClient
-from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick
+from adapters.ctrader.api_client import cTraderAPIClient
+from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick, SymbolInfo
 from adapters.ctrader.models import (
     cTraderCredentials,
     TradeDirection,
@@ -52,9 +52,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
-SOH = "\x01"
 
 
 @dataclass
@@ -81,7 +78,7 @@ class LiveTradingExecutor:
         self._bars: Dict[str, List[Bar]] = {}
         self._last_signal_time: Optional[datetime] = None
 
-        self._trade_client: Optional[FIXClient] = None
+        self._trade_client: Optional[cTraderAPIClient] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._paper_trader: Optional[PaperTrader] = None
         self._order_manager: Optional[OrderManager] = None
@@ -146,7 +143,7 @@ class LiveTradingExecutor:
             )
             logger.info("Running in PAPER mode (no real orders)")
         else:
-            self._trade_client = FIXClient(creds)
+            self._trade_client = cTraderAPIClient(creds)
             self._order_manager = OrderManager(
                 position_config,
                 api_client=self._trade_client,
@@ -184,10 +181,18 @@ class LiveTradingExecutor:
 
     def _setup_market_feed(self):
         creds = self._load_credentials()
-        creds.host = self._config.quote_host
-        creds.port = self._config.quote_port
+        quote_creds = cTraderCredentials(
+            host=self._config.quote_host,
+            port=self._config.quote_port,
+            use_ssl=creds.use_ssl,
+            sender_comp_id=creds.sender_comp_id,
+            target_comp_id=creds.target_comp_id,
+            sender_sub_id=creds.sender_sub_id,
+            username=creds.username,
+            password=creds.password,
+        )
 
-        self._market_feed = LiveMarketDataFeed(creds)
+        self._market_feed = LiveMarketDataFeed(quote_creds)
 
         self._market_feed.on_tick(self._on_tick)
 
@@ -198,7 +203,7 @@ class LiveTradingExecutor:
 
     def _on_tick(self, tick: Tick):
         with self._lock:
-            symbol_name = self._market_feed._id_to_name.get(tick.symbol_id, "UNKNOWN")
+            symbol_name = self._market_feed.symbols.get(tick.symbol_id, SymbolInfo(symbol_id=tick.symbol_id, name="UNKNOWN")).name
             if symbol_name != self._config.symbol:
                 return
 
