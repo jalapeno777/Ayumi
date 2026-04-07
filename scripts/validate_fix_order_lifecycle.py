@@ -131,6 +131,7 @@ def validate() -> tuple:
     print(f"Started: {datetime.now(timezone.utc).isoformat()}")
     print("=" * 80)
 
+    client: Optional[FIXClient] = None
     try:
         creds = load_credentials()
         print(f"\nHost: {creds.host}:{creds.port} (SSL={creds.use_ssl})")
@@ -274,18 +275,18 @@ def validate() -> tuple:
                 errors.append("Cancel confirmation timeout (10s)")
                 print("  [FAIL] No cancel confirmation within 10s")
 
-        # --- Step 4: Disconnect ---
-        print("\n--- Step 4: Disconnect ---")
-        client.disconnect()
-        time.sleep(1)
-        print("  [OK] Disconnected")
-
     except KeyError as e:
         errors.append(f"Missing environment variable: {e}")
         print(f"  [FAIL] {e}")
     except Exception as e:
         errors.append(f"{type(e).__name__}: {e}")
         print(f"  [FAIL] {type(e).__name__}: {e}")
+    finally:
+        if client:
+            print("\n--- Step 4: Disconnect ---")
+            client.disconnect()
+            time.sleep(1)
+            print("  [OK] Disconnected")
 
     return errors, results, msg_log
 

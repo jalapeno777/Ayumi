@@ -540,8 +540,9 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
         msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
+        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
+        self._next_outgoing_seq += 1
         self._send_raw(msg.to_wire())
 
     def _send_message(self, msg: FIXMessage) -> bool:
