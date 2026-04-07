@@ -171,7 +171,9 @@ class TestSearchSpace(unittest.TestCase):
         trial.suggest_int.return_value = 10
         params = space.suggest(trial, prefix="strategy_")
         self.assertEqual(params, {"period": 10})
-        trial.suggest_int.assert_called_once_with("strategy_period", 5, 20, step=1, log=False)
+        trial.suggest_int.assert_called_once_with(
+            "strategy_period", 5, 20, step=1, log=False
+        )
 
     def test_unknown_type_raises(self):
         space = SearchSpace(
@@ -247,12 +249,15 @@ class TestWalkForwardObjective(unittest.TestCase):
             pair="GBPUSD",
             search_space=session_range_mr_search_space(),
         )
-        no_agg_result = WalkForwardResults(per_window=[], aggregated=None, go_nogo=False)
+        no_agg_result = WalkForwardResults(
+            per_window=[], aggregated=None, go_nogo=False
+        )
         with patch(
             "backtest.walk_forward_runner.run_strategy_walk_forward",
             return_value=no_agg_result,
         ):
             import optuna
+
             study = optuna.create_study(direction="maximize")
             trial = study.ask()
             with self.assertRaises(optuna.TrialPruned):
@@ -271,6 +276,7 @@ class TestWalkForwardObjective(unittest.TestCase):
             side_effect=ValueError("test error"),
         ):
             import optuna
+
             study = optuna.create_study(direction="maximize")
             trial = study.ask()
             with self.assertRaises(optuna.TrialPruned):
@@ -290,6 +296,7 @@ class TestWalkForwardObjective(unittest.TestCase):
             return_value=low_trade_result,
         ):
             import optuna
+
             study = optuna.create_study(direction="maximize")
             trial = study.ask()
             with self.assertRaises(optuna.TrialPruned):
@@ -311,6 +318,7 @@ class TestWalkForwardObjective(unittest.TestCase):
             return_value=go_result,
         ):
             import optuna
+
             study_go = optuna.create_study(direction="maximize")
             trial_go = study_go.ask()
             score_go = obj(trial_go)
@@ -403,7 +411,9 @@ class TestOptunaOptimizer(unittest.TestCase):
 
     def test_optimize_pruned_trials(self):
         bars = _make_bars(500)
-        no_agg_result = WalkForwardResults(per_window=[], aggregated=None, go_nogo=False)
+        no_agg_result = WalkForwardResults(
+            per_window=[], aggregated=None, go_nogo=False
+        )
 
         optimizer = OptunaOptimizer(
             bars=bars,

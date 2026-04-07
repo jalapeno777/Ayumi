@@ -91,13 +91,19 @@ def session_range_mr_search_space() -> SearchSpace:
         rsi_period=int_range("rsi_period", 8, 28),
         rsi_long_level=float_range("rsi_long_level", 20.0, 40.0, step=1.0),
         rsi_short_level=float_range("rsi_short_level", 60.0, 80.0, step=1.0),
-        session_range_min_pips=float_range("session_range_min_pips", 10.0, 50.0, step=5.0),
-        entry_near_extreme_pips=float_range("entry_near_extreme_pips", 5.0, 30.0, step=1.0),
+        session_range_min_pips=float_range(
+            "session_range_min_pips", 10.0, 50.0, step=5.0
+        ),
+        entry_near_extreme_pips=float_range(
+            "entry_near_extreme_pips", 5.0, 30.0, step=1.0
+        ),
         hard_cap_sl_pips=float_range("hard_cap_sl_pips", 15.0, 50.0, step=5.0),
         tp1_rr=float_range("tp1_rr", 0.5, 2.0, step=0.1),
         tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
         ema_trend_period=int_range("ema_trend_period", 20, 100),
-        session_range_sl_fraction=float_range("session_range_sl_fraction", 0.3, 0.9, step=0.05),
+        session_range_sl_fraction=float_range(
+            "session_range_sl_fraction", 0.3, 0.9, step=0.05
+        ),
     )
 
 
@@ -209,8 +215,12 @@ class WalkForwardObjective:
         score = 0.0
         score += w.get("win_rate", 0.0) * agg.mean_win_rate
         score += w.get("profit_factor", 0.0) * min(agg.mean_profit_factor, 5.0) / 5.0
-        score += w.get("max_drawdown", 0.0) * (1.0 - min(agg.mean_max_drawdown, 0.15) / 0.15)
-        score += w.get("sharpe_ratio", 0.0) * min(max(agg.mean_sharpe_ratio, 0.0), 3.0) / 3.0
+        score += w.get("max_drawdown", 0.0) * (
+            1.0 - min(agg.mean_max_drawdown, 0.15) / 0.15
+        )
+        score += (
+            w.get("sharpe_ratio", 0.0) * min(max(agg.mean_sharpe_ratio, 0.0), 3.0) / 3.0
+        )
         return score
 
     def get_result(self, trial_number: int) -> Optional[WalkForwardResults]:
@@ -279,19 +289,31 @@ class OptunaOptimizer:
             direction=self._direction,
         )
 
-        study.optimize(self._objective, n_trials=self._n_trials, show_progress_bar=False)
+        study.optimize(
+            self._objective, n_trials=self._n_trials, show_progress_bar=False
+        )
 
-        completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+        completed = [
+            t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
+        ]
         if not completed:
             return OptimizationResult(
                 best_params={},
-                best_value=float("-inf") if self._direction == "maximize" else float("inf"),
+                best_value=float("-inf")
+                if self._direction == "maximize"
+                else float("inf"),
                 n_trials=len(study.trials),
                 go_nogo=False,
                 study_summary={
                     "n_trials": len(study.trials),
                     "n_complete": 0,
-                    "n_pruned": len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]),
+                    "n_pruned": len(
+                        [
+                            t
+                            for t in study.trials
+                            if t.state == optuna.trial.TrialState.PRUNED
+                        ]
+                    ),
                     "sampler": type(self._sampler).__name__,
                 },
             )
@@ -302,14 +324,18 @@ class OptunaOptimizer:
         summary: Dict[str, Any] = {
             "n_trials": len(study.trials),
             "n_complete": len(completed),
-            "n_pruned": len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]),
+            "n_pruned": len(
+                [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
+            ),
             "best_score": best_trial.value,
             "sampler": type(self._sampler).__name__,
         }
 
         return OptimizationResult(
             best_params=best_trial.params,
-            best_value=best_trial.value if best_trial.value is not None else float("-inf"),
+            best_value=best_trial.value
+            if best_trial.value is not None
+            else float("-inf"),
             best_walk_forward=best_wf,
             n_trials=len(study.trials),
             go_nogo=best_wf.go_nogo if best_wf else False,
