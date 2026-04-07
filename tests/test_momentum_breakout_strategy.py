@@ -207,7 +207,6 @@ class TestMomentumBreakoutStrategy(unittest.TestCase):
 
 
 class TestRSIFilterIntegration(unittest.TestCase):
-
     def test_rsi_disabled_when_rsi_period_is_none(self):
         strategy = MomentumBreakoutStrategy(
             fast_period=5,
@@ -305,7 +304,6 @@ class TestRSIFilterIntegration(unittest.TestCase):
 
 
 class TestCalculateRSI(unittest.TestCase):
-
     def setUp(self):
         self.strategy = MomentumBreakoutStrategy()
         import pandas as pd
