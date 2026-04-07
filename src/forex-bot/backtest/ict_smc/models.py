@@ -9,6 +9,8 @@ from ..engine import Bar, SessionType, TradeDirection
 
 if TYPE_CHECKING:
     from .displacement import DisplacementMove
+    from .inducement import Inducement
+    from .judas_swing import JudasSwing
     from .premium_discount import OTEZone
 
 
@@ -136,6 +138,8 @@ class ConfluenceSignal:
     session_score: float = 0.0
     displacement_score: float = 0.0
     ote_score: float = 0.0
+    inducement_score: float = 0.0
+    judas_swing_score: float = 0.0
 
 
 class ICTMarketState:
@@ -156,6 +160,8 @@ class ICTMarketState:
         self.atr: float = 0.0
         self.displacement_moves: List[DisplacementMove] = []
         self.ote_zones: List[OTEZone] = []
+        self.inducements: List[Inducement] = []
+        self.judas_swings: List[JudasSwing] = []
 
     @property
     def latest_bar(self) -> Bar:

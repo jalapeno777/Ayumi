@@ -6,6 +6,8 @@ from ..engine import Bar, SessionType, TradeDirection
 from .displacement import DisplacementDetector
 from .fvg import FVGDetector
 from .h4_context import H4ContextModule
+from .inducement import InducementDetector
+from .judas_swing import JudasSwingTimer
 from .liquidity_sweep import LiquiditySweepDetector
 from .market_structure import MarketStructureAnalyzer
 from .models import (
@@ -30,6 +32,8 @@ class SignalConfluenceEngine:
         h4_weight: float = 0.12,
         displacement_weight: float = 0.15,
         ote_weight: float = 0.10,
+        inducement_weight: float = 0.08,
+        judas_swing_weight: float = 0.06,
         default_sl_multiplier: float = 3.0,
         tp1_rr: float = 1.0,
         tp2_rr: float = 2.0,
@@ -45,6 +49,8 @@ class SignalConfluenceEngine:
         self._h4_weight = h4_weight
         self._displacement_weight = displacement_weight
         self._ote_weight = ote_weight
+        self._inducement_weight = inducement_weight
+        self._judas_swing_weight = judas_swing_weight
         self._default_sl_multiplier = default_sl_multiplier
         self._tp1_rr = tp1_rr
         self._tp2_rr = tp2_rr
@@ -58,6 +64,8 @@ class SignalConfluenceEngine:
         self._h4_module = H4ContextModule()
         self._displacement_detector = DisplacementDetector()
         self._ote_detector = OTEZoneDetector()
+        self._inducement_detector = InducementDetector()
+        self._judas_swing_timer = JudasSwingTimer()
 
     def evaluate(
         self, state: ICTMarketState, h4_bars: Optional[List[Bar]] = None
@@ -71,6 +79,8 @@ class SignalConfluenceEngine:
 
         state.displacement_moves = self._displacement_detector.detect(state)
         state.ote_zones = self._ote_detector.detect(state, state.displacement_moves)
+        state.inducements = self._inducement_detector.detect(state)
+        state.judas_swings = self._judas_swing_timer.detect(state)
 
         h4_context = None
         if h4_bars is not None and state.atr > 0:
@@ -143,6 +153,8 @@ class SignalConfluenceEngine:
             session_score=component_scores["session"],
             displacement_score=component_scores["displacement"],
             ote_score=component_scores["ote"],
+            inducement_score=component_scores["inducement"],
+            judas_swing_score=component_scores["judas_swing"],
         )
 
     def _component_scores(
@@ -159,6 +171,8 @@ class SignalConfluenceEngine:
         session_score = self._score_session(state)
         displacement_score = self._score_displacement(state, direction)
         ote_score = self._score_ote(state, direction)
+        inducement_score = self._score_inducement(state, direction)
+        judas_swing_score = self._score_judas_swing(state, direction)
 
         total = (
             structure_score * self._structure_weight
@@ -169,6 +183,8 @@ class SignalConfluenceEngine:
             + session_score * self._session_weight
             + displacement_score * self._displacement_weight
             + ote_score * self._ote_weight
+            + inducement_score * self._inducement_weight
+            + judas_swing_score * self._judas_swing_weight
         )
 
         if h4_context is not None:
@@ -188,6 +204,8 @@ class SignalConfluenceEngine:
             "session": session_score,
             "displacement": displacement_score,
             "ote": ote_score,
+            "inducement": inducement_score,
+            "judas_swing": judas_swing_score,
             "total": min(1.0, total),
         }
 
@@ -342,6 +360,48 @@ class SignalConfluenceEngine:
             state.ote_zones, state.latest_bar.close, direction, state.atr
         )
 
+    def _score_inducement(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
+        recent = self._inducement_detector.get_recent(
+            state.inducements, direction=direction, max_age=10
+        )
+        if recent is None:
+            return 0.0
+
+        score = 0.3
+        score += min(0.3, (recent.wick_ratio - 0.6) * 0.75)
+        score += min(0.2, (recent.volume_ratio - 1.5) * 0.2)
+
+        if recent.reversal_bars <= 2:
+            score += 0.2
+        elif recent.reversal_bars <= 3:
+            score += 0.1
+
+        return min(1.0, score)
+
+    def _score_judas_swing(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
+        current_idx = len(state.bars) - 1
+        recent = self._judas_swing_timer.get_recent(
+            state.judas_swings, max_age=10, current_idx=current_idx
+        )
+        if recent is None:
+            return 0.0
+
+        if self._judas_swing_timer.spike_direction_suppressed(
+            state.judas_swings, direction, max_age=10, current_idx=current_idx
+        ):
+            return 0.0
+
+        score = 0.4
+        if recent.reversal_confirmed:
+            score += 0.3
+        score += min(0.3, (recent.wick_ratio - 0.6) * 0.75)
+
+        return min(1.0, score)
+
     def _calculate_levels(
         self, state: ICTMarketState, direction: TradeDirection, entry: float
     ) -> Tuple[float, float, float, float]:
@@ -402,6 +462,10 @@ class SignalConfluenceEngine:
             lines.append("- Displacement detected")
         if self._has_ote_confluence(state, direction):
             lines.append("- OTE Fibonacci zone confluence")
+        if self._has_inducement(state, direction):
+            lines.append("- Inducement detected (trap)")
+        if self._has_judas_swing(state, direction):
+            lines.append("- Judas Swing at session open")
 
         if h4_context is not None:
             h4_confluences = (
@@ -466,6 +530,25 @@ class SignalConfluenceEngine:
             state.ote_zones, state.latest_bar.close, direction, state.atr
         ) is not None
 
+    def _has_inducement(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
+        return self._inducement_detector.get_recent(
+            state.inducements, direction=direction, max_age=10
+        ) is not None
+
+    def _has_judas_swing(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> bool:
+        current_idx = len(state.bars) - 1
+        if self._judas_swing_timer.spike_direction_suppressed(
+            state.judas_swings, direction, max_age=10, current_idx=current_idx
+        ):
+            return False
+        return self._judas_swing_timer.get_recent(
+            state.judas_swings, max_age=10, current_idx=current_idx
+        ) is not None
+
     def _count_confluences(
         self,
         state: ICTMarketState,
@@ -486,6 +569,10 @@ class SignalConfluenceEngine:
         if self._has_displacement(state, direction):
             count += 1
         if self._has_ote_confluence(state, direction):
+            count += 1
+        if self._has_inducement(state, direction):
+            count += 1
+        if self._has_judas_swing(state, direction):
             count += 1
         if state.current_session != SessionType.OUTSIDE:
             count += 1
