@@ -225,5 +225,124 @@ class TestCheckType:
         assert CheckType.ALL.value == "all"
 
 
+class TestResetDailyStats:
+    def test_resets_on_new_day(self):
+        reset_daily_stats_if_new_day = live_trading_monitor.reset_daily_stats_if_new_day
+        state = TradingState(
+            current_balance=95000.0,
+            daily_trades=10,
+            daily_wins=6,
+            daily_losses=4,
+            daily_pnl=-5000.0,
+            circuit_breaker_triggered=True,
+        )
+        state.last_trading_date = "2020-01-01"
+
+        with patch.object(live_trading_monitor, "datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
+            mock_dt.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            reset = reset_daily_stats_if_new_day(state)
+
+        assert reset is True
+        assert state.daily_starting_balance == 95000.0
+        assert state.daily_trades == 0
+        assert state.circuit_breaker_triggered is False
+        assert state.last_trading_date == "2024-01-02"
+
+    def test_no_reset_same_day(self):
+        reset_daily_stats_if_new_day = live_trading_monitor.reset_daily_stats_if_new_day
+        state = TradingState(
+            current_balance=95000.0,
+            daily_trades=10,
+            daily_wins=6,
+            daily_losses=4,
+            circuit_breaker_triggered=True,
+        )
+        today = datetime.now(timezone.utc).date().isoformat()
+        state.last_trading_date = today
+
+        reset = reset_daily_stats_if_new_day(state)
+
+        assert reset is False
+        assert state.daily_trades == 10
+        assert state.circuit_breaker_triggered is True
+
+
+class TestPostAlertToPaperclip:
+    def test_posts_successfully(self):
+        post_alert_to_paperclip = live_trading_monitor.post_alert_to_paperclip
+        alert = Alert(
+            severity="critical",
+            check_type="circuit",
+            message="Circuit breaker triggered",
+            details={"loss_pct": 6.5},
+        )
+
+        with patch("httpx.post") as mock_post:
+            mock_response = type("MockResponse", (), {"status_code": 201})()
+            mock_post.return_value = mock_response
+
+            with patch.object(live_trading_monitor, "PAPERCLIP_ALERT_KEY", "test-key"):
+                with patch.object(live_trading_monitor, "PAPERCLIP_API_URL", "http://test"):
+                    result = post_alert_to_paperclip(alert, "test-issue-id")
+
+        assert result is True
+        mock_post.assert_called_once()
+
+    def test_no_credentials_returns_false(self):
+        post_alert_to_paperclip = live_trading_monitor.post_alert_to_paperclip
+        alert = Alert(
+            severity="warning",
+            check_type="health",
+            message="Test alert",
+            details={},
+        )
+
+        with patch.object(live_trading_monitor, "PAPERCLIP_ALERT_KEY", ""):
+            result = post_alert_to_paperclip(alert, "test-issue-id")
+
+        assert result is False
+
+
+class TestCheckFixConnection:
+    def test_no_credentials_configured(self):
+        check_fix_connection = live_trading_monitor.check_fix_connection
+
+        with patch.object(live_trading_monitor.os.environ, "get", side_effect=lambda k, d=None: None if k == "CTRADER_HOST" else d):
+            result = check_fix_connection()
+
+        assert result.severity == "warning"
+        assert "not configured" in result.message
+
+    def test_invalid_port(self):
+        check_fix_connection = live_trading_monitor.check_fix_connection
+
+        with patch.object(live_trading_monitor.os.environ, "get", side_effect=lambda k, d=None: "localhost" if k == "CTRADER_HOST" else "invalid"):
+            result = check_fix_connection()
+
+        assert result.severity == "warning"
+        assert "Invalid port" in result.message
+
+
+class TestFTMOStartingBalance:
+    def test_default_balance(self):
+        DEFAULT_STARTING_BALANCE = live_trading_monitor.DEFAULT_STARTING_BALANCE
+        assert DEFAULT_STARTING_BALANCE == 100000.0
+
+    def test_state_persists_daily_starting_balance(self, tmp_path):
+        state_file = tmp_path / "trading_state.json"
+        state = TradingState(
+            starting_balance=100000.0,
+            daily_starting_balance=95000.0,
+            current_balance=94000.0,
+        )
+
+        with patch.object(live_trading_monitor, "STATE_FILE", state_file):
+            save_state(state)
+            loaded_state = load_state()
+
+        assert loaded_state.daily_starting_balance == 95000.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

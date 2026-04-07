@@ -94,13 +94,14 @@ class TradingState:
     daily_pnl: float = 0.0
     circuit_breaker_triggered: bool = False
     last_circuit_breaker_check: Optional[str] = None
+    last_trading_date: Optional[str] = None
 
 
 STATE_ALLOWLIST = {
     "pid", "last_trade_time", "last_check_time", "starting_balance",
     "daily_starting_balance", "current_balance", "daily_trades",
     "daily_wins", "daily_losses", "daily_pnl", "circuit_breaker_triggered",
-    "last_circuit_breaker_check",
+    "last_circuit_breaker_check", "last_trading_date",
 }
 
 
@@ -137,6 +138,7 @@ def save_state(state: TradingState):
         "daily_pnl": state.daily_pnl,
         "circuit_breaker_triggered": state.circuit_breaker_triggered,
         "last_circuit_breaker_check": state.last_circuit_breaker_check,
+        "last_trading_date": state.last_trading_date,
     }, indent=2))
 
 
@@ -172,6 +174,23 @@ def is_active_trading_hours() -> bool:
     return ACTIVE_TRADING_HOURS[0] <= now.hour < ACTIVE_TRADING_HOURS[1]
 
 
+def reset_daily_stats_if_new_day(state: TradingState) -> bool:
+    now = datetime.now(timezone.utc)
+    current_date = now.date().isoformat()
+    
+    if state.last_trading_date != current_date:
+        state.daily_starting_balance = state.current_balance
+        state.daily_trades = 0
+        state.daily_wins = 0
+        state.daily_losses = 0
+        state.daily_pnl = 0.0
+        state.circuit_breaker_triggered = False
+        state.last_circuit_breaker_check = None
+        state.last_trading_date = current_date
+        return True
+    return False
+
+
 def check_last_trade_time(state: TradingState) -> Alert:
     if not state.last_trade_time:
         return Alert(
@@ -184,7 +203,7 @@ def check_last_trade_time(state: TradingState) -> Alert:
     last_trade = datetime.fromisoformat(state.last_trade_time)
     hours_since_trade = (datetime.now(timezone.utc) - last_trade).total_seconds() / 3600
 
-    if is_active_trading_hours() and hours_since_trade > NO_TRADE_ALERT_HOURS:
+    if is_active_trading_hours() and hours_since_trade >= NO_TRADE_ALERT_HOURS:
         return Alert(
             severity="critical",
             check_type="trade_time",
@@ -414,6 +433,10 @@ def post_alert_to_paperclip(alert: Alert, issue_id: str) -> bool:
 
 def run_check(check_type: CheckType, state: TradingState, dry_run: bool = False) -> list[Alert]:
     alerts = []
+
+    reset = reset_daily_stats_if_new_day(state)
+    if reset:
+        logger.info("New trading day detected - reset daily stats")
 
     if check_type == CheckType.HEALTH:
         alerts.append(check_process_health(state))
