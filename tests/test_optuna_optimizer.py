@@ -241,16 +241,22 @@ class TestWalkForwardObjective(unittest.TestCase):
 
     def test_pruned_on_no_aggregation(self):
         bars = _make_bars(500)
-        WalkForwardObjective(
+        obj = WalkForwardObjective(
             bars=bars,
             strategy_factory=lambda p: MagicMock(),
             pair="GBPUSD",
             search_space=session_range_mr_search_space(),
         )
+        no_agg_result = WalkForwardResults(per_window=[], aggregated=None, go_nogo=False)
         with patch(
-            "backtest.parameter_sweep.optuna_optimizer.WalkForwardObjective"
+            "backtest.walk_forward_runner.run_strategy_walk_forward",
+            return_value=no_agg_result,
         ):
-            pass
+            import optuna
+            study = optuna.create_study(direction="maximize")
+            trial = study.ask()
+            with self.assertRaises(optuna.TrialPruned):
+                obj(trial)
 
     def test_pruned_on_exception(self):
         bars = _make_bars(500)
@@ -269,6 +275,66 @@ class TestWalkForwardObjective(unittest.TestCase):
             trial = study.ask()
             with self.assertRaises(optuna.TrialPruned):
                 obj(trial)
+
+    def test_pruned_on_low_trade_count(self):
+        bars = _make_bars(500)
+        obj = WalkForwardObjective(
+            bars=bars,
+            strategy_factory=lambda p: MagicMock(),
+            pair="GBPUSD",
+            search_space=session_range_mr_search_space(),
+        )
+        low_trade_result = _mock_walk_forward_results(trade_count=2.0)
+        with patch(
+            "backtest.walk_forward_runner.run_strategy_walk_forward",
+            return_value=low_trade_result,
+        ):
+            import optuna
+            study = optuna.create_study(direction="maximize")
+            trial = study.ask()
+            with self.assertRaises(optuna.TrialPruned):
+                obj(trial)
+
+    def test_go_nogo_penalty(self):
+        bars = _make_bars(500)
+        obj = WalkForwardObjective(
+            bars=bars,
+            strategy_factory=lambda p: MagicMock(),
+            pair="GBPUSD",
+            search_space=session_range_mr_search_space(),
+        )
+        go_result = _mock_walk_forward_results(go_nogo=True)
+        no_go_result = _mock_walk_forward_results(go_nogo=False)
+
+        with patch(
+            "backtest.walk_forward_runner.run_strategy_walk_forward",
+            return_value=go_result,
+        ):
+            import optuna
+            study_go = optuna.create_study(direction="maximize")
+            trial_go = study_go.ask()
+            score_go = obj(trial_go)
+
+        with patch(
+            "backtest.walk_forward_runner.run_strategy_walk_forward",
+            return_value=no_go_result,
+        ):
+            study_no_go = optuna.create_study(direction="maximize")
+            trial_no_go = study_no_go.ask()
+            score_no_go = obj(trial_no_go)
+
+        self.assertAlmostEqual(score_no_go, score_go - 1.0, places=5)
+
+    def test_custom_weights_validation(self):
+        bars = _make_bars(500)
+        with self.assertRaises(ValueError):
+            WalkForwardObjective(
+                bars=bars,
+                strategy_factory=lambda p: MagicMock(),
+                pair="GBPUSD",
+                search_space=session_range_mr_search_space(),
+                composite_weights={"win_rate": 0.5, "profit_factor": 0.6},
+            )
 
 
 class TestOptimizationResult(unittest.TestCase):

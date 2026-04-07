@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 StrategyFactory = Callable[[Dict[str, Any]], Any]
 
 
-@dataclass
 class SearchSpace:
     def __init__(self, **kwargs):
         self._specs: Dict[str, Dict[str, Any]] = {}
@@ -139,14 +138,20 @@ class WalkForwardObjective:
         self._initial_balance = initial_balance
         self._spread_pips = spread_pips
         self._commission_per_lot = commission_per_lot
+        if composite_weights is not None:
+            total = sum(composite_weights.values())
+            if abs(total - 1.0) > 1e-9:
+                raise ValueError(
+                    f"Custom composite_weights must sum to 1.0, got {total:.4f}"
+                )
         self._composite_weights = composite_weights or {
             "win_rate": 0.30,
             "profit_factor": 0.30,
             "max_drawdown": 0.25,
             "sharpe_ratio": 0.15,
         }
-        self._last_result: Optional[WalkForwardResults] = None
-        self._last_params: Optional[Dict[str, Any]] = None
+        self._results_by_trial: Dict[int, WalkForwardResults] = {}
+        self._params_by_trial: Dict[int, Dict[str, Any]] = {}
 
     def __call__(self, trial: optuna.Trial) -> float:
         from backtest.walk_forward_runner import run_strategy_walk_forward
@@ -172,8 +177,8 @@ class WalkForwardObjective:
             logger.warning("Walk-forward failed for trial %d: %s", trial.number, exc)
             raise optuna.TrialPruned() from exc
 
-        self._last_result = wf_result
-        self._last_params = params
+        self._results_by_trial[trial.number] = wf_result
+        self._params_by_trial[trial.number] = params
 
         agg = wf_result.aggregated
         if agg is None:
@@ -208,13 +213,11 @@ class WalkForwardObjective:
         score += w.get("sharpe_ratio", 0.0) * min(max(agg.mean_sharpe_ratio, 0.0), 3.0) / 3.0
         return score
 
-    @property
-    def last_result(self) -> Optional[WalkForwardResults]:
-        return self._last_result
+    def get_result(self, trial_number: int) -> Optional[WalkForwardResults]:
+        return self._results_by_trial.get(trial_number)
 
-    @property
-    def last_params(self) -> Optional[Dict[str, Any]]:
-        return self._last_params
+    def get_params(self, trial_number: int) -> Optional[Dict[str, Any]]:
+        return self._params_by_trial.get(trial_number)
 
 
 class OptunaOptimizer:
@@ -294,7 +297,7 @@ class OptunaOptimizer:
             )
 
         best_trial = study.best_trial
-        best_wf = self._objective.last_result
+        best_wf = self._objective.get_result(best_trial.number)
 
         summary: Dict[str, Any] = {
             "n_trials": len(study.trials),
@@ -306,7 +309,7 @@ class OptunaOptimizer:
 
         return OptimizationResult(
             best_params=best_trial.params,
-            best_value=best_trial.value,
+            best_value=best_trial.value if best_trial.value is not None else float("-inf"),
             best_walk_forward=best_wf,
             n_trials=len(study.trials),
             go_nogo=best_wf.go_nogo if best_wf else False,
