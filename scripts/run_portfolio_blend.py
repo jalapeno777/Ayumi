@@ -29,11 +29,21 @@ def main() -> None:
         "--weight-method",
         type=str,
         default="combined_score",
-        choices=["inverse_variance", "equal_risk", "profit_factor", "sharpe_weighted", "combined_score"],
+        choices=[
+            "inverse_variance",
+            "equal_risk",
+            "profit_factor",
+            "sharpe_weighted",
+            "combined_score",
+        ],
         help="Weight optimization method",
     )
-    parser.add_argument("--no-filter", action="store_true", help="Disable strategy filtering")
-    parser.add_argument("--compare", action="store_true", help="Compare all weight methods")
+    parser.add_argument(
+        "--no-filter", action="store_true", help="Disable strategy filtering"
+    )
+    parser.add_argument(
+        "--compare", action="store_true", help="Compare all weight methods"
+    )
     args = parser.parse_args()
 
     from backtest.portfolio_blend import (
@@ -84,7 +94,9 @@ def main() -> None:
             wf_score = 0
             if result.walk_forward and result.walk_forward.aggregated:
                 a = result.walk_forward.aggregated
-                wf_score = a.mean_win_rate * 100 + a.mean_profit_factor + a.mean_sharpe_ratio
+                wf_score = (
+                    a.mean_win_rate * 100 + a.mean_profit_factor + a.mean_sharpe_ratio
+                )
 
             score = (
                 (10 if result.ftmo_passed else 0)
@@ -102,9 +114,13 @@ def main() -> None:
             if method_name == "combined_score":
                 _, filtered_out = _get_filtered(specs, args.balance, enable_filter)
 
-        print(f"{'Method':<20} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'PnL':>10} {'FTMO':>6} {'WF GO':>6} {'Score':>7}")
+        print(
+            f"{'Method':<20} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'PnL':>10} {'FTMO':>6} {'WF GO':>6} {'Score':>7}"
+        )
         print("-" * 90)
-        for method_name, c in sorted(comparison.items(), key=lambda x: -x[1].get("score", 0)):
+        for method_name, c in sorted(
+            comparison.items(), key=lambda x: -x[1].get("score", 0)
+        ):
             ftmo_str = "PASS" if c["ftmo"] else "FAIL"
             wf_str = "GO" if c["wf_go"] else "NO"
             print(
@@ -128,7 +144,9 @@ def main() -> None:
         filtered_out = _get_filtered(specs, args.balance, enable_filter)[1]
         print(f"Completed in {elapsed:.1f}s\n")
 
-    report = format_portfolio_report(best_result, filtered_strategies=filtered_out if filtered_out else None)
+    report = format_portfolio_report(
+        best_result, filtered_strategies=filtered_out if filtered_out else None
+    )
     print(report)
 
     output_path = args.output or str(REPORTS_DIR / "portfolio_blend_results.json")
@@ -223,6 +241,7 @@ def _get_filtered(specs, balance, enable_filter):
         return [], []
     from backtest.portfolio_blend import filter_strategies
     from backtest.portfolio_blend import run_portfolio_blend as _run_blend
+
     result = _run_blend(
         strategy_specs=specs,
         initial_balance=balance,

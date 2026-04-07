@@ -533,7 +533,8 @@ def _run_portfolio_walk_forward(
     for spec in strategy_specs:
         bars = loader.load(spec.data_path)
         if len(bars) >= 100:
-            data_map[spec.name] = bars
+            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+            data_map[key] = bars
 
     if not data_map:
         return WalkForwardResults(per_window=[], go_nogo=False)
@@ -585,14 +586,14 @@ def _run_portfolio_walk_forward(
 
         window_returns: List[float] = []
         for spec in strategy_specs:
-            if spec.name not in data_map:
+            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+            if key not in data_map:
                 continue
-            all_bars = data_map[spec.name]
+            all_bars = data_map[key]
             test_bars = all_bars[test_start:test_end]
             if len(test_bars) < 30:
                 continue
 
-            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
             w = weights.weights.get(key, 0.0)
             if w <= 0:
                 continue
