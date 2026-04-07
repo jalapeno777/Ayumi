@@ -1,7 +1,8 @@
 """Portfolio Blend Framework — Combine multiple strategies into a unified portfolio.
 
-AYUAA-487: Loads passing strategies, computes correlation between equity curves,
-optimizes weight allocation, runs walk-forward validation, and evaluates against
+AYUAA-487/AYUAA-481: Loads passing strategies, filters unprofitable ones,
+computes correlation between equity curves, optimizes weight allocation with
+multiple methods, runs walk-forward validation, and evaluates against
 FTMO criteria (WR >55%, PF >1.3, Sharpe >0.5).
 """
 
@@ -61,6 +62,12 @@ class CorrelationResult:
 
 
 @dataclass
+class FilteredStrategy:
+    key: str
+    reason: str
+
+
+@dataclass
 class WeightAllocation:
     weights: Dict[str, float]
     method: str
@@ -104,7 +111,9 @@ def _compute_returns(equity_curve: List[float]) -> List[float]:
     returns = []
     for i in range(1, len(equity_curve)):
         if equity_curve[i - 1] > 0:
-            returns.append((equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1])
+            returns.append(
+                (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
+            )
     return returns
 
 
@@ -198,6 +207,82 @@ def optimize_weights_profit_factor(
     return WeightAllocation(weights=weights, method="profit_factor")
 
 
+def optimize_weights_sharpe(
+    equity_curves: Dict[str, StrategyEquityCurve],
+) -> WeightAllocation:
+    sharpe_scores: Dict[str, float] = {}
+    for key, ec in equity_curves.items():
+        sharpe_scores[key] = max(ec.sharpe_ratio, 0.01)
+
+    total = sum(sharpe_scores.values())
+    weights = {k: v / total for k, v in sharpe_scores.items()}
+    return WeightAllocation(weights=weights, method="sharpe_weighted")
+
+
+def optimize_weights_combined_score(
+    equity_curves: Dict[str, StrategyEquityCurve],
+) -> WeightAllocation:
+    scores: Dict[str, float] = {}
+    for key, ec in equity_curves.items():
+        if len(ec.returns) < 2:
+            scores[key] = 0.01
+            continue
+        mean_r = sum(ec.returns) / len(ec.returns)
+        var = sum((r - mean_r) ** 2 for r in ec.returns) / (len(ec.returns) - 1)
+        std = math.sqrt(var) if var > 0 else 0.0001
+
+        sharpe_component = ec.sharpe_ratio if ec.sharpe_ratio > 0 else 0.0
+        pf_component = ec.profit_factor if ec.profit_factor > 1.0 else 0.5
+        consistency = 1.0 / (1.0 + std * 100) if std > 0 else 1.0
+        dd_penalty = 1.0 / (1.0 + ec.max_drawdown * 5)
+
+        scores[key] = (
+            sharpe_component * 0.3
+            + pf_component * 0.3
+            + consistency * 0.2
+            + dd_penalty * 0.2
+        )
+        scores[key] = max(scores[key], 0.01)
+
+    total = sum(scores.values())
+    weights = {k: v / total for k, v in scores.items()}
+    return WeightAllocation(weights=weights, method="combined_score")
+
+
+MIN_PROFIT_FACTOR = 1.0
+MIN_WIN_RATE = 45.0
+
+
+def filter_strategies(
+    equity_curves: Dict[str, StrategyEquityCurve],
+) -> tuple[Dict[str, StrategyEquityCurve], List[FilteredStrategy]]:
+    filtered: Dict[str, StrategyEquityCurve] = {}
+    removed: List[FilteredStrategy] = []
+
+    for key, ec in equity_curves.items():
+        reasons: List[str] = []
+        if ec.profit_factor < MIN_PROFIT_FACTOR:
+            reasons.append(f"PF {ec.profit_factor:.2f} < {MIN_PROFIT_FACTOR}")
+        if ec.win_rate < MIN_WIN_RATE:
+            reasons.append(f"WR {ec.win_rate:.1f}% < {MIN_WIN_RATE}%")
+
+        if reasons:
+            removed.append(FilteredStrategy(key=key, reason="; ".join(reasons)))
+        else:
+            filtered[key] = ec
+
+    return filtered, removed
+
+
+WEIGHT_METHODS = {
+    "inverse_variance": optimize_weights_inverse_variance,
+    "equal_risk": optimize_weights_equal_risk,
+    "profit_factor": optimize_weights_profit_factor,
+    "sharpe_weighted": optimize_weights_sharpe,
+    "combined_score": optimize_weights_combined_score,
+}
+
+
 def run_single_strategy_backtest(
     strategy: ISignalStrategy,
     bars: List[Bar],
@@ -226,6 +311,8 @@ def run_portfolio_blend(
     strategy_specs: List[StrategySpec],
     initial_balance: float = 10000.0,
     n_walk_forward_windows: int = 5,
+    weight_method: str = "combined_score",
+    enable_filter: bool = True,
 ) -> PortfolioBlendResult:
     loader = CsvDataLoader()
     individual_results: Dict[str, StrategyEquityCurve] = {}
@@ -276,21 +363,35 @@ def run_portfolio_blend(
         )
         individual_metrics[key] = metrics
 
-    correlation = compute_correlation_matrix(individual_results)
-    weights = optimize_weights_inverse_variance(individual_results)
+    active_curves = individual_results
+    filtered_out: List[FilteredStrategy] = []
+    if enable_filter and len(individual_results) > 1:
+        active_curves, filtered_out = filter_strategies(individual_results)
 
-    weighted_equity = _build_weighted_equity(individual_results, weights, initial_balance)
+    filtered_specs = [
+        s
+        for s in strategy_specs
+        if _build_strategy_name(s.name, s.pair, s.timeframe) in active_curves
+    ]
+
+    correlation = compute_correlation_matrix(active_curves)
+
+    optimize_fn = WEIGHT_METHODS.get(weight_method, optimize_weights_combined_score)
+    weights = optimize_fn(active_curves)
+
+    weighted_equity = _build_weighted_equity(active_curves, weights, initial_balance)
     combined_metrics = _compute_combined_metrics(weighted_equity, initial_balance)
 
     wf_result = None
-    if n_walk_forward_windows > 0 and individual_results:
+    if n_walk_forward_windows > 0 and active_curves:
         wf_result = _run_portfolio_walk_forward(
-            strategy_specs, weights, initial_balance, n_walk_forward_windows
+            filtered_specs, weights, initial_balance, n_walk_forward_windows
         )
 
     ftmo_check = {
         "win_rate": combined_metrics.win_rate >= FTMO_CRITERIA["win_rate"],
-        "profit_factor": combined_metrics.profit_factor >= FTMO_CRITERIA["profit_factor"],
+        "profit_factor": combined_metrics.profit_factor
+        >= FTMO_CRITERIA["profit_factor"],
         "sharpe_ratio": combined_metrics.sharpe_ratio >= FTMO_CRITERIA["sharpe_ratio"],
     }
 
@@ -525,9 +626,7 @@ def _run_portfolio_walk_forward(
             continue
 
         total_weight = sum(
-            weights.weights.get(
-                _build_strategy_name(s.name, s.pair, s.timeframe), 0.0
-            )
+            weights.weights.get(_build_strategy_name(s.name, s.pair, s.timeframe), 0.0)
             for s in strategy_specs
             if s.name in data_map
         )
@@ -566,9 +665,7 @@ def _run_portfolio_walk_forward(
             if std_r > 0:
                 sharpe = (mean_r / std_r) * math.sqrt(252)
 
-        passed = (
-            win_rate > 0.55 and pf > 1.0 and portfolio_pnl > 0 and max_dd < 0.10
-        )
+        passed = win_rate > 0.55 and pf > 1.0 and portfolio_pnl > 0 and max_dd < 0.10
 
         per_window.append(
             WindowMetrics(
@@ -621,7 +718,10 @@ def _run_portfolio_walk_forward(
     )
 
 
-def format_portfolio_report(result: PortfolioBlendResult) -> str:
+def format_portfolio_report(
+    result: PortfolioBlendResult,
+    filtered_strategies: Optional[List[FilteredStrategy]] = None,
+) -> str:
     lines: List[str] = []
     lines.append("=" * 80)
     lines.append("PORTFOLIO BLEND TEST REPORT")
@@ -635,12 +735,21 @@ def format_portfolio_report(result: PortfolioBlendResult) -> str:
     )
     for key, ec in result.individual_results.items():
         label = f"{ec.strategy_name} ({ec.pair} {ec.timeframe})"
+        is_active = key in result.weights.weights
+        marker = "" if is_active else " [FILTERED]"
         lines.append(
             f"{label:<45} {ec.win_rate:>6.1f} {ec.profit_factor:>7.2f} "
-            f"{ec.sharpe_ratio:>7.2f} {ec.max_drawdown*100:>7.2f} {ec.trade_count:>7} "
-            f"${ec.total_pnl:>9.2f}"
+            f"{ec.sharpe_ratio:>7.2f} {ec.max_drawdown * 100:>7.2f} {ec.trade_count:>7} "
+            f"${ec.total_pnl:>9.2f}{marker}"
         )
     lines.append("")
+
+    if filtered_strategies:
+        lines.append("FILTERED STRATEGIES (excluded from blend)")
+        lines.append("-" * 80)
+        for fs in filtered_strategies:
+            lines.append(f"  {fs.key:<50} {fs.reason}")
+        lines.append("")
 
     lines.append("CORRELATION MATRIX")
     lines.append("-" * 80)
@@ -653,7 +762,9 @@ def format_portfolio_report(result: PortfolioBlendResult) -> str:
             val = result.correlation.matrix[key_a][key_b]
             row += f"{val:>12.3f}"
         lines.append(row)
-    lines.append(f"\nAverage |correlation|: {result.correlation.average_correlation:.3f}")
+    lines.append(
+        f"\nAverage |correlation|: {result.correlation.average_correlation:.3f}"
+    )
     lines.append("")
 
     lines.append(f"WEIGHT ALLOCATION ({result.weights.method})")
@@ -672,7 +783,9 @@ def format_portfolio_report(result: PortfolioBlendResult) -> str:
     m = result.combined_metrics
     lines.append(f"  Starting Balance:  ${m.starting_balance:>10.2f}")
     lines.append(f"  Ending Balance:    ${m.ending_balance:>10.2f}")
-    lines.append(f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)")
+    lines.append(
+        f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)"
+    )
     lines.append(f"  Win Rate:          {m.win_rate:>10.1f}%")
     lines.append(f"  Profit Factor:     {m.profit_factor:>10.2f}")
     lines.append(f"  Sharpe Ratio:      {m.sharpe_ratio:>10.2f}")
