@@ -85,7 +85,9 @@ class PortfolioTracker:
     def daily_loss_pct(self) -> float:
         if self.daily_start_balance <= 0:
             return 0.0
-        return (self.daily_start_balance - self.balance) / self.daily_start_balance * 100
+        return (
+            (self.daily_start_balance - self.balance) / self.daily_start_balance * 100
+        )
 
     def update_daily(self, bar_time: Any) -> None:
         day = bar_time.date()
@@ -102,7 +104,9 @@ class PortfolioTracker:
         self.balance += pnl
         self.total_trades += 1
         self.daily_pnl += pnl
-        self.strategy_pnl[strategy_name] = self.strategy_pnl.get(strategy_name, 0.0) + pnl
+        self.strategy_pnl[strategy_name] = (
+            self.strategy_pnl.get(strategy_name, 0.0) + pnl
+        )
         if pnl > 0:
             self.wins += 1
         else:
@@ -140,7 +144,9 @@ class StrategyPortfolio:
     def tracker(self) -> PortfolioTracker:
         return self._tracker
 
-    def add_strategy(self, strategy: ISignalStrategy, allocation: StrategyAllocation) -> None:
+    def add_strategy(
+        self, strategy: ISignalStrategy, allocation: StrategyAllocation
+    ) -> None:
         key = f"{allocation.strategy_name}:{allocation.symbol}"
         self._strategies[key] = strategy
 
@@ -185,7 +191,10 @@ class StrategyPortfolio:
             if state is None:
                 continue
 
-            if self._tracker.get_open_count_for_symbol(allocation.symbol) >= allocation.max_positions:
+            if (
+                self._tracker.get_open_count_for_symbol(allocation.symbol)
+                >= allocation.max_positions
+            ):
                 continue
 
             try:
@@ -225,12 +234,18 @@ class StrategyPortfolio:
         if not open_symbols:
             return True
 
-        signal_direction = signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction)
+        signal_direction = (
+            signal.direction.value
+            if hasattr(signal.direction, "value")
+            else str(signal.direction)
+        )
 
         for open_sym in open_symbols:
             corr = self.get_correlation(allocation.symbol, open_sym)
             if corr >= constraints.correlation_threshold:
-                for existing_positions in self._tracker.open_positions.get(open_sym, []):
+                for existing_positions in self._tracker.open_positions.get(
+                    open_sym, []
+                ):
                     existing_direction = existing_positions.get("direction", "")
                     if existing_direction == signal_direction and corr >= 0.75:
                         return False
@@ -273,8 +288,16 @@ class StrategyPortfolio:
                 resolved.append(sym_signals[0])
                 continue
 
-            same_direction = [s for s in sym_signals if s.signal.direction == sym_signals[0].signal.direction]
-            diff_direction = [s for s in sym_signals if s.signal.direction != sym_signals[0].signal.direction]
+            same_direction = [
+                s
+                for s in sym_signals
+                if s.signal.direction == sym_signals[0].signal.direction
+            ]
+            diff_direction = [
+                s
+                for s in sym_signals
+                if s.signal.direction != sym_signals[0].signal.direction
+            ]
 
             if same_direction and not diff_direction:
                 best = max(same_direction, key=lambda s: s.signal.confidence)
@@ -301,7 +324,9 @@ class StrategyPortfolio:
         risk_amount = self._tracker.balance * (allocation.max_risk_pct / 100.0)
         lot_size = risk_amount / (risk_distance * 100_000)
 
-        total_weight = sum(self._calculate_weight(a) for a in self.get_enabled_allocations())
+        total_weight = sum(
+            self._calculate_weight(a) for a in self.get_enabled_allocations()
+        )
         if total_weight > 0:
             weight = self._calculate_weight(allocation) / total_weight
         else:
@@ -309,15 +334,23 @@ class StrategyPortfolio:
 
         adjusted = lot_size * weight
 
-        max_risk_total = self._tracker.balance * (self._config.constraints.max_total_risk_pct / 100.0)
+        max_risk_total = self._tracker.balance * (
+            self._config.constraints.max_total_risk_pct / 100.0
+        )
         current_risk = sum(
-            abs(p.get("entry_price", 0) - p.get("stop_loss", 0)) * p.get("lot_size", 0) * 100_000
+            abs(p.get("entry_price", 0) - p.get("stop_loss", 0))
+            * p.get("lot_size", 0)
+            * 100_000
             for positions in self._tracker.open_positions.values()
             for p in positions
         )
 
         remaining_risk = max(0, max_risk_total - current_risk)
-        max_lot_for_risk = remaining_risk / (risk_distance * 100_000) if risk_distance > 0 else adjusted
+        max_lot_for_risk = (
+            remaining_risk / (risk_distance * 100_000)
+            if risk_distance > 0
+            else adjusted
+        )
 
         return min(adjusted, max_lot_for_risk)
 
@@ -334,7 +367,9 @@ class StrategyPortfolio:
         self._tracker.open_positions[symbol].append(
             {
                 "strategy_name": allocation.strategy_name,
-                "direction": signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction),
+                "direction": signal.direction.value
+                if hasattr(signal.direction, "value")
+                else str(signal.direction),
                 "entry_price": signal.entry_price,
                 "stop_loss": signal.stop_loss,
                 "lot_size": lot_size,
@@ -359,7 +394,9 @@ def build_default_portfolio() -> StrategyPortfolio:
     from strategies.grid.adapter import GridStrategyAdapter
     from strategies.grid.config import GridConfig
     from strategies.momentum import MATrendFollowingStrategy, MomentumConfig
-    from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
     from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
     allocations = (
@@ -480,6 +517,7 @@ def build_default_portfolio() -> StrategyPortfolio:
     portfolio.add_strategy(stat_arb, allocations[3])
 
     from backtest.strategies import KeltnerChannelBreakoutStrategy
+
     keltner = KeltnerChannelBreakoutStrategy()
     portfolio.add_strategy(keltner, allocations[4])
 
