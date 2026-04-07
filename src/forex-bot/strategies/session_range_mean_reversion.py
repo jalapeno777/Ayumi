@@ -12,6 +12,8 @@ from backtest.engine import (
     TradeDirection,
 )
 
+NO_SIGNAL = None
+
 
 @dataclass(frozen=True)
 class SessionRangeMRConfig:
@@ -300,3 +302,133 @@ class SessionRangeMeanReversionStrategy:
         if not seen_days:
             return None
         return max(seen_days)
+
+
+@dataclass(frozen=True)
+class SessionRangeMRWithRegimeFilterConfig:
+    adx_period: int = 14
+    adx_skip_threshold: float = 30.0
+    adx_transition_low: float = 20.0
+    transition_min_confidence: float = 0.65
+    base_min_confidence: float = 0.50
+    regime_confidence_multiplier: float = 0.95
+
+
+class SessionRangeMRWithRegimeFilter:
+    def __init__(
+        self,
+        config: Optional[SessionRangeMRWithRegimeFilterConfig] = None,
+        base_config: Optional[SessionRangeMRConfig] = None,
+    ):
+        self.config = config or SessionRangeMRWithRegimeFilterConfig()
+        self.mr_strategy = SessionRangeMeanReversionStrategy(base_config)
+
+    @property
+    def name(self) -> str:
+        return "Session-Range MR with Regime Filter"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        base_signal = self.mr_strategy.evaluate(state)
+        if base_signal is None or base_signal.direction is None:
+            return None
+
+        adx = self._calculate_adx(state.bars)
+        min_required = max(
+            self.config.adx_period * 2 + 1,
+            self.mr_strategy.config.atr_period + self.mr_strategy.config.rsi_period + 2,
+            self.mr_strategy.config.ema_trend_period + 1,
+        )
+        if len(state.bars) < min_required:
+            return None
+
+        if adx > self.config.adx_skip_threshold:
+            return None
+
+        if adx > self.config.adx_transition_low:
+            if base_signal.confidence < self.config.transition_min_confidence:
+                return None
+
+        if base_signal.confidence < self.config.base_min_confidence:
+            return None
+
+        adjusted_confidence = base_signal.confidence * self.config.regime_confidence_multiplier
+        return StrategySignal(
+            direction=base_signal.direction,
+            confidence=adjusted_confidence,
+            entry_price=base_signal.entry_price,
+            stop_loss=base_signal.stop_loss,
+            take_profit_1=base_signal.take_profit_1,
+            take_profit_2=base_signal.take_profit_2,
+            take_profit_3=base_signal.take_profit_3,
+            rationale=f"[RegimeFilter ADX={adx:.1f}] {base_signal.rationale}",
+        )
+
+    def _calculate_adx(self, bars: List[Bar]) -> float:
+        period = self.config.adx_period
+        if len(bars) < period * 2 + 1:
+            return 0.0
+
+        highs = [b.high for b in bars]
+        lows = [b.low for b in bars]
+        closes = [b.close for b in bars]
+
+        plus_dm_list: List[float] = []
+        minus_dm_list: List[float] = []
+        tr_list: List[float] = []
+
+        for i in range(1, len(bars)):
+            tr = max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+            tr_list.append(tr)
+
+            high_diff = highs[i] - highs[i - 1]
+            low_diff = lows[i - 1] - lows[i]
+
+            plus_dm = high_diff if (high_diff > low_diff and high_diff > 0) else 0.0
+            minus_dm = low_diff if (low_diff > high_diff and low_diff > 0) else 0.0
+            plus_dm_list.append(plus_dm)
+            minus_dm_list.append(minus_dm)
+
+        if len(tr_list) < period:
+            return 0.0
+
+        tr_sum = sum(tr_list[:period])
+        plus_dm_sum = sum(plus_dm_list[:period])
+        minus_dm_sum = sum(minus_dm_list[:period])
+
+        if tr_sum == 0:
+            return 0.0
+
+        plus_di = (plus_dm_sum / tr_sum) * 100
+        minus_di = (minus_dm_sum / tr_sum) * 100
+
+        if plus_di + minus_di == 0:
+            dx = 0.0
+        else:
+            dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+        adx = dx
+        dx_list: List[float] = []
+        for i in range(period, len(tr_list)):
+            tr_sum = tr_sum - tr_sum / period + tr_list[i]
+            plus_dm_sum = plus_dm_sum - plus_dm_sum / period + plus_dm_list[i]
+            minus_dm_sum = minus_dm_sum - minus_dm_sum / period + minus_dm_list[i]
+
+            if tr_sum == 0:
+                dx_list.append(0.0)
+                continue
+
+            plus_di = (plus_dm_sum / tr_sum) * 100
+            minus_di = (minus_dm_sum / tr_sum) * 100
+            if plus_di + minus_di == 0:
+                dx_list.append(0.0)
+            else:
+                dx_list.append(100.0 * (abs(plus_di - minus_di) / (plus_di + minus_di)))
+
+        for d in dx_list:
+            adx = (adx * (period - 1) + d) / period
+
+        return adx
