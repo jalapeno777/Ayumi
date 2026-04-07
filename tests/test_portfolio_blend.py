@@ -684,3 +684,50 @@ def test_format_portfolio_report_with_filtered():
     assert "FILTERED STRATEGIES" in report
     assert "[FILTERED]" in report
     assert "bad" in report
+
+
+def test_walk_forward_data_map_no_collision_for_duplicate_strategy_names():
+    """Regression: two strategies with the same name but different pairs must
+    both load into data_map without overwriting each other (AYUAA-487)."""
+    from unittest.mock import patch
+
+    bars_a = _make_bars(n=500, base_price=1.1000)
+    bars_b = _make_bars(n=500, base_price=1.3000)
+
+    spec_a = StrategySpec(
+        name="Session-Range Mean Reversion",
+        factory=_DummyStrategy,
+        pair="EURUSD",
+        timeframe="H1",
+        data_path="/fake/eurusd.csv",
+    )
+    spec_b = StrategySpec(
+        name="Session-Range Mean Reversion",
+        factory=_DummyStrategy,
+        pair="GBPUSD",
+        timeframe="H1",
+        data_path="/fake/gbpusd.csv",
+    )
+
+    call_log: list = []
+
+    def mock_load(self, path):
+        call_log.append(path)
+        if "eurusd" in path:
+            return bars_a
+        return bars_b
+
+    with patch("backtest.portfolio_blend.CsvDataLoader.load", mock_load):
+        result = run_portfolio_blend(
+            [spec_a, spec_b],
+            initial_balance=10000.0,
+            n_walk_forward_windows=2,
+            enable_filter=False,
+        )
+
+    assert result.walk_forward is not None
+    assert len(result.walk_forward.per_window) == 2
+    assert "/fake/eurusd.csv" in call_log
+    assert "/fake/gbpusd.csv" in call_log
+    for w in result.walk_forward.per_window:
+        assert w.trade_count >= 0
