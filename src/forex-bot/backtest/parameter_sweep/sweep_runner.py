@@ -43,6 +43,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     from ..strategies import (
         BBStrategy,
         MACrossStrategy,
+        MomentumBreakoutStrategy,
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
@@ -56,6 +57,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,
         "SupertrendRSIBlendStrategy": SupertrendRSIBlendStrategy,
+        "MomentumBreakoutStrategy": MomentumBreakoutStrategy,
     }
     cls = registry.get(cls_name)
     if cls is None:
