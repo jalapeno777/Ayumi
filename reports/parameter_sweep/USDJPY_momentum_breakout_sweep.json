@@ -1,0 +1,1219 @@
+{
+  "pair": "USDJPY",
+  "param_space_no_rsi": {
+    "fast_period": [
+      5,
+      9,
+      12
+    ],
+    "slow_period": [
+      21,
+      26
+    ],
+    "adx_threshold": [
+      20.0,
+      25.0,
+      30.0
+    ],
+    "atr_multiplier": [
+      1.5,
+      2.0,
+      2.5
+    ]
+  },
+  "param_space_with_rsi": {
+    "fast_period": [
+      5,
+      9,
+      12
+    ],
+    "slow_period": [
+      21,
+      26
+    ],
+    "adx_threshold": [
+      20.0,
+      25.0
+    ],
+    "atr_multiplier": [
+      1.5,
+      2.0
+    ],
+    "rsi_period": [
+      14
+    ],
+    "rsi_overbought": [
+      70.0
+    ],
+    "rsi_oversold": [
+      30.0
+    ]
+  },
+  "sets_with_trades": 78,
+  "results": [
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 48.38709677419355,
+      "profit_factor": 0.8634497622878096,
+      "max_drawdown_pct": 2.6202122272591133,
+      "sharpe_ratio": 0.37396383354193846,
+      "total_trades": 31,
+      "total_return": 0.03219675466814697
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 48.148148148148145,
+      "profit_factor": 0.7114456042480031,
+      "max_drawdown_pct": 3.143228397780942,
+      "sharpe_ratio": 0.16400611341815438,
+      "total_trades": 27,
+      "total_return": 0.012476662023965036
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 52.0,
+      "profit_factor": 0.8574876329715366,
+      "max_drawdown_pct": 2.7835113059912233,
+      "sharpe_ratio": 0.3295056691288529,
+      "total_trades": 25,
+      "total_return": 0.024493170185707642
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.8631479514669148,
+      "max_drawdown_pct": 2.8528195923236144,
+      "sharpe_ratio": 0.28629924054188066,
+      "total_trades": 21,
+      "total_return": 0.01921074804438722
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.8725564992656981,
+      "max_drawdown_pct": 2.8574311693542196,
+      "sharpe_ratio": 0.2929082929556558,
+      "total_trades": 21,
+      "total_return": 0.019715846947581668
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 42.10526315789473,
+      "profit_factor": 0.81928378130897,
+      "max_drawdown_pct": 2.8902924187702914,
+      "sharpe_ratio": 0.28241500494245464,
+      "total_trades": 19,
+      "total_return": 0.020577535037866256
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 46.42857142857143,
+      "profit_factor": 1.003566658749534,
+      "max_drawdown_pct": 3.4652847055179925,
+      "sharpe_ratio": 0.3300148946706527,
+      "total_trades": 28,
+      "total_return": 0.03114983424372731
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 57.692307692307686,
+      "profit_factor": 1.466356762290727,
+      "max_drawdown_pct": 2.0164892503811536,
+      "sharpe_ratio": 0.6630551855317984,
+      "total_trades": 26,
+      "total_return": 0.06320951762303811
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 54.166666666666664,
+      "profit_factor": 1.2962799829298457,
+      "max_drawdown_pct": 2.147855562759846,
+      "sharpe_ratio": 0.48319835196872163,
+      "total_trades": 24,
+      "total_return": 0.04405759571092494
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7165421400723561,
+      "max_drawdown_pct": 3.0648017174565534,
+      "sharpe_ratio": 0.10414880228993544,
+      "total_trades": 21,
+      "total_return": 0.008236290505898978
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7242217443162738,
+      "max_drawdown_pct": 3.0420703337444963,
+      "sharpe_ratio": 0.11272731466035397,
+      "total_trades": 21,
+      "total_return": 0.008734330140352358
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 58.82352941176471,
+      "profit_factor": 1.427652085222262,
+      "max_drawdown_pct": 1.2388302169470617,
+      "sharpe_ratio": 0.6672444179306292,
+      "total_trades": 17,
+      "total_return": 0.04542056871444584
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 58.333333333333336,
+      "profit_factor": 1.943003040157028,
+      "max_drawdown_pct": 1.338378858373985,
+      "sharpe_ratio": 0.8778631642127295,
+      "total_trades": 24,
+      "total_return": 0.07387645091822852
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 60.0,
+      "profit_factor": 1.5971125905542156,
+      "max_drawdown_pct": 2.0513406774476453,
+      "sharpe_ratio": 0.7649410041732241,
+      "total_trades": 25,
+      "total_return": 0.0671060912060815
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 56.52173913043478,
+      "profit_factor": 1.4204799357107327,
+      "max_drawdown_pct": 1.7545837734081235,
+      "sharpe_ratio": 0.5501464083612249,
+      "total_trades": 23,
+      "total_return": 0.04517759017438766
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 45.0,
+      "profit_factor": 0.8136488028467732,
+      "max_drawdown_pct": 2.4210019395771747,
+      "sharpe_ratio": 0.15882417597053128,
+      "total_trades": 20,
+      "total_return": 0.011459101591069885
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 45.0,
+      "profit_factor": 0.8231385436353593,
+      "max_drawdown_pct": 2.402386316944372,
+      "sharpe_ratio": 0.16679354584358355,
+      "total_trades": 20,
+      "total_return": 0.011929826788026548
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 58.82352941176471,
+      "profit_factor": 1.478710581998205,
+      "max_drawdown_pct": 1.1912895232715461,
+      "sharpe_ratio": 0.6532513068297452,
+      "total_trades": 17,
+      "total_return": 0.04414109656713681
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7966931546277068,
+      "max_drawdown_pct": 1.912048106265237,
+      "sharpe_ratio": 0.2599267302668665,
+      "total_trades": 21,
+      "total_return": 0.01800360999776385
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 61.53846153846154,
+      "profit_factor": 1.113761706088809,
+      "max_drawdown_pct": 2.118463894779828,
+      "sharpe_ratio": 0.40439891777228065,
+      "total_trades": 13,
+      "total_return": 0.022053288470963526
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 46.15384615384615,
+      "profit_factor": 0.7908193001742545,
+      "max_drawdown_pct": 2.7253431245599415,
+      "sharpe_ratio": 0.17817880559652535,
+      "total_trades": 13,
+      "total_return": 0.009666743904982286
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 40.0,
+      "profit_factor": 1.0207549376929845,
+      "max_drawdown_pct": 1.7550415214696025,
+      "sharpe_ratio": 0.295934707701009,
+      "total_trades": 10,
+      "total_return": 0.014692081661788689
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 1.3541172601972746,
+      "max_drawdown_pct": 1.199795854567066,
+      "sharpe_ratio": 0.42874209420494697,
+      "total_trades": 9,
+      "total_return": 0.020426761489722774
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 57.14285714285714,
+      "profit_factor": 1.9181352509886322,
+      "max_drawdown_pct": 0.5263001764446327,
+      "sharpe_ratio": 0.6022066800796271,
+      "total_trades": 7,
+      "total_return": 0.02902653507625946
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 45.0,
+      "profit_factor": 1.0766328587544962,
+      "max_drawdown_pct": 2.3978368504275562,
+      "sharpe_ratio": 0.31802322025082125,
+      "total_trades": 20,
+      "total_return": 0.025124452427487266
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 53.84615384615385,
+      "profit_factor": 1.4260928498709595,
+      "max_drawdown_pct": 2.0859382942380567,
+      "sharpe_ratio": 0.3733377363773958,
+      "total_trades": 13,
+      "total_return": 0.026602415749435566
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 41.66666666666667,
+      "profit_factor": 1.3270192544812422,
+      "max_drawdown_pct": 2.5044680931125876,
+      "sharpe_ratio": 0.30573865936370537,
+      "total_trades": 12,
+      "total_return": 0.02131726898199995
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 40.0,
+      "profit_factor": 1.0334578488210173,
+      "max_drawdown_pct": 1.529555641743338,
+      "sharpe_ratio": 0.3302433531485762,
+      "total_trades": 10,
+      "total_return": 0.015109846747683332
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 1.271962375664802,
+      "max_drawdown_pct": 1.1494726374849173,
+      "sharpe_ratio": 0.42495811806003914,
+      "total_trades": 9,
+      "total_return": 0.019028037659876644
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 71.42857142857143,
+      "profit_factor": 3.448661268032946,
+      "max_drawdown_pct": 0.5197788270377712,
+      "sharpe_ratio": 0.7820838891968702,
+      "total_trades": 7,
+      "total_return": 0.03468033725024325
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 47.05882352941176,
+      "profit_factor": 1.1783724977253687,
+      "max_drawdown_pct": 2.31615428108344,
+      "sharpe_ratio": 0.38260148912723724,
+      "total_trades": 17,
+      "total_return": 0.025520936546379016
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 46.15384615384615,
+      "profit_factor": 1.0062859235600679,
+      "max_drawdown_pct": 3.0281181264852672,
+      "sharpe_ratio": 0.1945392876476284,
+      "total_trades": 13,
+      "total_return": 0.012297555596323218
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 41.66666666666667,
+      "profit_factor": 1.1939653686545064,
+      "max_drawdown_pct": 2.401074062650991,
+      "sharpe_ratio": 0.2475825206149932,
+      "total_trades": 12,
+      "total_return": 0.014811921648873249
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 33.33333333333333,
+      "profit_factor": 1.0612504196609467,
+      "max_drawdown_pct": 1.4236554883953987,
+      "sharpe_ratio": 0.2732535624061933,
+      "total_trades": 9,
+      "total_return": 0.010602015759080678
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 37.5,
+      "profit_factor": 1.315804176030219,
+      "max_drawdown_pct": 1.1191870679348987,
+      "sharpe_ratio": 0.3604160249150178,
+      "total_trades": 8,
+      "total_return": 0.01372341776457033
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 71.42857142857143,
+      "profit_factor": 3.715280009865715,
+      "max_drawdown_pct": 0.5158377553727729,
+      "sharpe_ratio": 0.7418095715397828,
+      "total_trades": 7,
+      "total_return": 0.033058927853679594
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 37.5,
+      "profit_factor": 0.4966466927159633,
+      "max_drawdown_pct": 2.128944236806914,
+      "sharpe_ratio": -0.0905295547142031,
+      "total_trades": 8,
+      "total_return": -0.0037035376008510866
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 50.0,
+      "profit_factor": 0.5625216478451478,
+      "max_drawdown_pct": 1.5125338177146548,
+      "sharpe_ratio": -0.057268886742760955,
+      "total_trades": 6,
+      "total_return": -0.002124450149919721
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 66.66666666666666,
+      "profit_factor": 6.313655824368278,
+      "max_drawdown_pct": 0.12117306238980481,
+      "sharpe_ratio": 0.48146736462249295,
+      "total_trades": 3,
+      "total_return": 0.011324781569793595
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 75.33413030483845,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.5302824493258975,
+      "total_trades": 1,
+      "total_return": 0.012338658099222449
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 100.0,
+      "profit_factor": 75.33413030483845,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.5302824493258975,
+      "total_trades": 1,
+      "total_return": 0.012338658099222449
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 149.04714297354565,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.7508391612776342,
+      "total_trades": 2,
+      "total_return": 0.02449594644989429
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.3447366997610324,
+      "max_drawdown_pct": 2.0931624811721043,
+      "sharpe_ratio": -0.25346471575543267,
+      "total_trades": 8,
+      "total_return": -0.009470920584481974
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 50.0,
+      "profit_factor": 0.5047143424035666,
+      "max_drawdown_pct": 1.5075576924881346,
+      "sharpe_ratio": -0.08294141657452747,
+      "total_trades": 6,
+      "total_return": -0.0028955923776673442
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 66.66666666666666,
+      "profit_factor": 7.632815830181389,
+      "max_drawdown_pct": 0.09098675914250066,
+      "sharpe_ratio": 0.503420516005309,
+      "total_trades": 3,
+      "total_return": 0.010960445531833465
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 68.67324955116521,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.5422657274581493,
+      "total_trades": 1,
+      "total_return": 0.011721083931777138
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 100.0,
+      "profit_factor": 68.67324955116521,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.5422657274581493,
+      "total_trades": 1,
+      "total_return": 0.011721083931777138
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 147.41177516329304,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.7543284770978808,
+      "total_trades": 2,
+      "total_return": 0.024446481949342888
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 21
+      },
+      "win_rate": 25.0,
+      "profit_factor": 0.3309627731197617,
+      "max_drawdown_pct": 2.07161934119384,
+      "sharpe_ratio": -0.25975429434561964,
+      "total_trades": 8,
+      "total_return": -0.009502052743456989
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 5,
+        "slow_period": 26
+      },
+      "win_rate": 50.0,
+      "profit_factor": 0.47666865945283776,
+      "max_drawdown_pct": 1.5045627138962407,
+      "sharpe_ratio": -0.0954773756684231,
+      "total_trades": 6,
+      "total_return": -0.0032458252030030054
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 21
+      },
+      "win_rate": 66.66666666666666,
+      "profit_factor": 7.994856342240527,
+      "max_drawdown_pct": 0.07284084599464753,
+      "sharpe_ratio": 0.4276105613187728,
+      "total_trades": 3,
+      "total_return": 0.007561726730168993
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 9,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 57.44089112468511,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.46518742981442,
+      "total_trades": 1,
+      "total_return": 0.008168433345310587
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 21
+      },
+      "win_rate": 100.0,
+      "profit_factor": 57.44089112468511,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.46518742981442,
+      "total_trades": 1,
+      "total_return": 0.008168433345310587
+    },
+    {
+      "params": {
+        "adx_threshold": 30.0,
+        "atr_multiplier": 2.5,
+        "fast_period": 12,
+        "slow_period": 26
+      },
+      "win_rate": 100.0,
+      "profit_factor": 152.726698594227,
+      "max_drawdown_pct": 0.0,
+      "sharpe_ratio": 0.6770358898125489,
+      "total_trades": 2,
+      "total_return": 0.022574093434947644
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 48.38709677419355,
+      "profit_factor": 0.8634497622878096,
+      "max_drawdown_pct": 2.6202122272591133,
+      "sharpe_ratio": 0.37396383354193846,
+      "total_trades": 31,
+      "total_return": 0.03219675466814697
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 48.148148148148145,
+      "profit_factor": 0.7114456042480031,
+      "max_drawdown_pct": 3.143228397780942,
+      "sharpe_ratio": 0.16400611341815438,
+      "total_trades": 27,
+      "total_return": 0.012476662023965036
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 52.0,
+      "profit_factor": 0.8574876329715366,
+      "max_drawdown_pct": 2.7835113059912233,
+      "sharpe_ratio": 0.3295056691288529,
+      "total_trades": 25,
+      "total_return": 0.024493170185707642
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.8631479514669148,
+      "max_drawdown_pct": 2.8528195923236144,
+      "sharpe_ratio": 0.28629924054188066,
+      "total_trades": 21,
+      "total_return": 0.01921074804438722
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.8725564992656981,
+      "max_drawdown_pct": 2.8574311693542196,
+      "sharpe_ratio": 0.2929082929556558,
+      "total_trades": 21,
+      "total_return": 0.019715846947581668
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 42.10526315789473,
+      "profit_factor": 0.81928378130897,
+      "max_drawdown_pct": 2.8902924187702914,
+      "sharpe_ratio": 0.28241500494245464,
+      "total_trades": 19,
+      "total_return": 0.020577535037866256
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 46.42857142857143,
+      "profit_factor": 1.003566658749534,
+      "max_drawdown_pct": 3.4652847055179925,
+      "sharpe_ratio": 0.3300148946706527,
+      "total_trades": 28,
+      "total_return": 0.03114983424372731
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 57.692307692307686,
+      "profit_factor": 1.466356762290727,
+      "max_drawdown_pct": 2.0164892503811536,
+      "sharpe_ratio": 0.6630551855317984,
+      "total_trades": 26,
+      "total_return": 0.06320951762303811
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 54.166666666666664,
+      "profit_factor": 1.2962799829298457,
+      "max_drawdown_pct": 2.147855562759846,
+      "sharpe_ratio": 0.48319835196872163,
+      "total_trades": 24,
+      "total_return": 0.04405759571092494
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7165421400723561,
+      "max_drawdown_pct": 3.0648017174565534,
+      "sharpe_ratio": 0.10414880228993544,
+      "total_trades": 21,
+      "total_return": 0.008236290505898978
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7242217443162738,
+      "max_drawdown_pct": 3.0420703337444963,
+      "sharpe_ratio": 0.11272731466035397,
+      "total_trades": 21,
+      "total_return": 0.008734330140352358
+    },
+    {
+      "params": {
+        "adx_threshold": 20.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 58.82352941176471,
+      "profit_factor": 1.427652085222262,
+      "max_drawdown_pct": 1.2388302169470617,
+      "sharpe_ratio": 0.6672444179306292,
+      "total_trades": 17,
+      "total_return": 0.04542056871444584
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 47.61904761904761,
+      "profit_factor": 0.7966931546277068,
+      "max_drawdown_pct": 1.912048106265237,
+      "sharpe_ratio": 0.2599267302668665,
+      "total_trades": 21,
+      "total_return": 0.01800360999776385
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 61.53846153846154,
+      "profit_factor": 1.113761706088809,
+      "max_drawdown_pct": 2.118463894779828,
+      "sharpe_ratio": 0.40439891777228065,
+      "total_trades": 13,
+      "total_return": 0.022053288470963526
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 46.15384615384615,
+      "profit_factor": 0.7908193001742545,
+      "max_drawdown_pct": 2.7253431245599415,
+      "sharpe_ratio": 0.17817880559652535,
+      "total_trades": 13,
+      "total_return": 0.009666743904982286
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 40.0,
+      "profit_factor": 1.0207549376929845,
+      "max_drawdown_pct": 1.7550415214696025,
+      "sharpe_ratio": 0.295934707701009,
+      "total_trades": 10,
+      "total_return": 0.014692081661788689
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 1.3541172601972746,
+      "max_drawdown_pct": 1.199795854567066,
+      "sharpe_ratio": 0.42874209420494697,
+      "total_trades": 9,
+      "total_return": 0.020426761489722774
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 1.5,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 57.14285714285714,
+      "profit_factor": 1.9181352509886322,
+      "max_drawdown_pct": 0.5263001764446327,
+      "sharpe_ratio": 0.6022066800796271,
+      "total_trades": 7,
+      "total_return": 0.02902653507625946
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 45.0,
+      "profit_factor": 1.0766328587544962,
+      "max_drawdown_pct": 2.3978368504275562,
+      "sharpe_ratio": 0.31802322025082125,
+      "total_trades": 20,
+      "total_return": 0.025124452427487266
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 5,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 53.84615384615385,
+      "profit_factor": 1.4260928498709595,
+      "max_drawdown_pct": 2.0859382942380567,
+      "sharpe_ratio": 0.3733377363773958,
+      "total_trades": 13,
+      "total_return": 0.026602415749435566
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 41.66666666666667,
+      "profit_factor": 1.3270192544812422,
+      "max_drawdown_pct": 2.5044680931125876,
+      "sharpe_ratio": 0.30573865936370537,
+      "total_trades": 12,
+      "total_return": 0.02131726898199995
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 9,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 40.0,
+      "profit_factor": 1.0334578488210173,
+      "max_drawdown_pct": 1.529555641743338,
+      "sharpe_ratio": 0.3302433531485762,
+      "total_trades": 10,
+      "total_return": 0.015109846747683332
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 21
+      },
+      "win_rate": 44.44444444444444,
+      "profit_factor": 1.271962375664802,
+      "max_drawdown_pct": 1.1494726374849173,
+      "sharpe_ratio": 0.42495811806003914,
+      "total_trades": 9,
+      "total_return": 0.019028037659876644
+    },
+    {
+      "params": {
+        "adx_threshold": 25.0,
+        "atr_multiplier": 2.0,
+        "fast_period": 12,
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "rsi_period": 14,
+        "slow_period": 26
+      },
+      "win_rate": 71.42857142857143,
+      "profit_factor": 3.448661268032946,
+      "max_drawdown_pct": 0.5197788270377712,
+      "sharpe_ratio": 0.7820838891968702,
+      "total_trades": 7,
+      "total_return": 0.03468033725024325
+    }
+  ]
+}

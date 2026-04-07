@@ -44,6 +44,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         BBStrategy,
         KeltnerChannelBreakoutStrategy,
         MACrossStrategy,
+        MomentumBreakoutStrategy,
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
