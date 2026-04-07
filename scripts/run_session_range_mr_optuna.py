@@ -12,7 +12,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -105,6 +105,9 @@ def main() -> None:
 
     loader = CsvDataLoader()
     bars = loader.load(str(csv_path))
+    if not bars:
+        print(f"No bars loaded for {pair}: {csv_path}")
+        sys.exit(1)
     print(f"Loaded {len(bars)} bars for {pair}: {bars[0].time} -> {bars[-1].time}")
 
     print(f"\n{'='*70}")
@@ -154,12 +157,12 @@ def main() -> None:
     print(f"\n{'='*70}")
     print(f"  COMPARISON: Default vs Optuna-Optimized ({pair})")
     print(f"{'='*70}")
-    if opt_result.best_walk_forward:
+    if opt_result.best_walk_forward and baseline_wf.aggregated:
         print(comparison_report(baseline_wf, opt_result.best_walk_forward))
 
     report = {
         "pair": pair,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "n_trials": args.trials,
         "seed": args.seed,
         "baseline": {
