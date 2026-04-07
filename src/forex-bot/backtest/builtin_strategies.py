@@ -18,7 +18,10 @@ from backtest.strategies import (
 from strategies.grid import GridConfig, GridStrategyAdapter
 from backtest.stat_arb import StatArbStrategy
 from strategies.volatility_squeeze import VolatilitySqueezeStrategy
-from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+from strategies.session_range_mean_reversion import (
+    SessionRangeMeanReversionStrategy,
+    SessionRangeMRWithRegimeFilter,
+)
 
 
 def _make_ma_crossover() -> ISignalStrategy:
@@ -75,6 +78,10 @@ def _make_session_range_mr() -> ISignalStrategy:
     return SessionRangeMeanReversionStrategy()
 
 
+def _make_session_range_mr_with_regime_filter() -> ISignalStrategy:
+    return SessionRangeMRWithRegimeFilter()
+
+
 def _make_high_conviction() -> ISignalStrategy:
     return HighConvictionStrategy()
 
@@ -97,5 +104,8 @@ def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("stat_arb", _make_stat_arb)
     register_strategy("volatility_squeeze", _make_volatility_squeeze)
     register_strategy("session_range_mr", _make_session_range_mr)
+    register_strategy(
+        "session_range_mr_with_regime", _make_session_range_mr_with_regime_filter
+    )
     register_strategy("high_conviction", _make_high_conviction)
     register_strategy("regime_router", _make_regime_router)
