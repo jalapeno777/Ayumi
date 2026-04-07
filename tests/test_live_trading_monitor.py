@@ -1,7 +1,7 @@
 import importlib.util
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,7 +38,7 @@ class TestTradingState:
     def test_state_with_values(self):
         state = TradingState(
             pid=12345,
-            last_trade_time=datetime.utcnow().isoformat(),
+            last_trade_time=datetime.now(timezone.utc).isoformat(),
             current_balance=95000.0,
             daily_trades=5,
             daily_wins=3,
@@ -96,7 +96,7 @@ class TestCheckLastTradeTime:
         assert "No trades recorded" in result.message
 
     def test_recent_trade(self):
-        state = TradingState(last_trade_time=datetime.utcnow().isoformat())
+        state = TradingState(last_trade_time=datetime.now(timezone.utc).isoformat())
         result = check_last_trade_time(state)
 
         assert result.severity == "info"
@@ -167,17 +167,17 @@ class TestCheckCircuitBreaker:
 class TestIsActiveTradingHours:
     def test_within_active_hours(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.utcnow.return_value = datetime(2024, 1, 1, 10, 0, 0)
+            mock_dt.now.return_value = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is True
 
     def test_outside_active_hours_early(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.utcnow.return_value = datetime(2024, 1, 1, 3, 0, 0)
+            mock_dt.now.return_value = datetime(2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is False
 
     def test_outside_active_hours_late(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.utcnow.return_value = datetime(2024, 1, 1, 23, 0, 0)
+            mock_dt.now.return_value = datetime(2024, 1, 1, 23, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is False
 
 
@@ -187,7 +187,7 @@ class TestStatePersistence:
 
         original_state = TradingState(
             pid=12345,
-            last_trade_time=datetime.utcnow().isoformat(),
+            last_trade_time=datetime.now(timezone.utc).isoformat(),
             starting_balance=100000.0,
             current_balance=95000.0,
             daily_trades=10,
