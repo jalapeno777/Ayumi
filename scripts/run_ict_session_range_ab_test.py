@@ -26,6 +26,7 @@ sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 from backtest import CsvDataLoader, MarketState  # noqa: E402
 from backtest.engine import StrategySignal, TradeDirection, get_spread_for_pair  # noqa: E402
 from backtest.ict_smc.confluence_engine import SignalConfluenceEngine  # noqa: E402
+from backtest.ict_smc.market_structure import MarketStructureAnalyzer  # noqa: E402
 from backtest.ict_smc.models import ICTMarketState  # noqa: E402
 from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 from strategies.session_range_mean_reversion import (  # noqa: E402
@@ -55,6 +56,7 @@ class ICTFilteredSessionRangeMR:
         self.ict_config = ict_config or ICTFilterConfig()
         self._session_strategy = SessionRangeMeanReversionStrategy(self.session_config)
         self._ict_engine = SignalConfluenceEngine()
+        self._structure_analyzer = MarketStructureAnalyzer()
 
     @property
     def name(self) -> str:
@@ -66,7 +68,10 @@ class ICTFilteredSessionRangeMR:
             return None
 
         ict_state = ICTMarketState(bars=state.bars)
-        ict_confluence = self._ict_engine.evaluate(ict_state, h4_bars=state.bars)
+        self._structure_analyzer.analyze(ict_state)
+
+        h4_bars = self._get_h4_bars(state.bars)
+        ict_confluence = self._ict_engine.evaluate(ict_state, h4_bars=h4_bars)
 
         if ict_confluence is None:
             return None
@@ -75,19 +80,23 @@ class ICTFilteredSessionRangeMR:
             return None
 
         if self.ict_config.require_market_structure:
-            if not self._check_market_structure(ict_confluence, session_signal.direction):
+            if not self._check_market_structure(ict_state, session_signal.direction):
                 return None
 
         session_signal.confidence = min(session_signal.confidence, ict_confluence.confidence_score)
         session_signal.rationale += f" | ICT confluence: {ict_confluence.confidence_score:.2f}"
         return session_signal
 
+    def _get_h4_bars(self, bars: list) -> Optional[list]:
+        if len(bars) < 100:
+            return None
+        lookback = min(500, len(bars) // 4)
+        return bars[-lookback:]
+
     def _check_market_structure(
-        self, confluence, signal_direction: TradeDirection
+        self, ict_state: ICTMarketState, signal_direction: TradeDirection
     ) -> bool:
-        if not hasattr(confluence, "components"):
-            return True
-        return True
+        return ict_state.structure_bias == signal_direction
 
 
 def _make_sr_mr_factory() -> SessionRangeMeanReversionStrategy:
