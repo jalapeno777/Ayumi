@@ -96,15 +96,11 @@ class TestCheckLastTradeTime:
         assert "No trades recorded" in result.message
 
     def test_recent_trade(self):
-        state = TradingState(
-            last_trade_time=datetime.utcnow().isoformat()
-        )
+        state = TradingState(last_trade_time=datetime.utcnow().isoformat())
         result = check_last_trade_time(state)
 
         assert result.severity == "info"
         assert "hours ago" in result.message
-
-
 
 
 class TestCheckDailyPnL:
