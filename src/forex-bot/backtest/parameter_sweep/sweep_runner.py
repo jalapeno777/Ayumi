@@ -49,7 +49,6 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         RSIStrategy,
         SRBreakoutStrategy,
         SupertrendRSIBlendStrategy,
-        MomentumBreakoutStrategy,
     )
 
     registry: Dict[str, type] = {
