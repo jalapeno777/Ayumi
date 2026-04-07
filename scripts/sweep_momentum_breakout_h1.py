@@ -123,7 +123,6 @@ def run_walk_forward_for_params(
     n_windows: int = 5,
     train_ratio: float = 0.60,
     val_ratio: float = 0.15,
-    test_ratio: float = 0.15,
 ) -> Dict[str, Any]:
     from backtest.walk_forward_runner import run_strategy_walk_forward
 

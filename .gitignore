@@ -51,4 +51,5 @@ agents/
 data/forex/forex.db
 data/forex/models/
 reports/walk_forward/*.json
+reports/parameter_sweep/*.json
 docs/forex/wf-*.json

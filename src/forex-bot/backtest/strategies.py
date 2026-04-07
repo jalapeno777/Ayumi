@@ -574,13 +574,6 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         if adx is None or adx < self.adx_threshold:
             return None
 
-        if self.rsi_period is not None:
-            rsi = self._calculate_rsi(state.bars, self.rsi_period)
-            if rsi is None:
-                return None
-            if rsi >= self.rsi_overbought or rsi <= self.rsi_oversold:
-                return None
-
         bullish_cross = prev_fast_ema <= prev_slow_ema and fast_ema > slow_ema
         bearish_cross = prev_fast_ema >= prev_slow_ema and fast_ema < slow_ema
 
@@ -588,6 +581,15 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             return None
 
         direction = TradeDirection.LONG if bullish_cross else TradeDirection.SHORT
+
+        if self.rsi_period is not None:
+            rsi = self._calculate_rsi(state.bars, self.rsi_period)
+            if rsi is None:
+                return None
+            if direction == TradeDirection.LONG and rsi >= self.rsi_overbought:
+                return None
+            if direction == TradeDirection.SHORT and rsi <= self.rsi_oversold:
+                return None
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
