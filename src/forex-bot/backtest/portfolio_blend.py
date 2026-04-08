@@ -74,6 +74,13 @@ class WeightAllocation:
 
 
 @dataclass
+class WindowWeightSnapshot:
+    window_index: int
+    weights: Dict[str, float]
+    method: str
+
+
+@dataclass
 class PortfolioBlendResult:
     individual_results: Dict[str, StrategyEquityCurve]
     correlation: CorrelationResult
@@ -83,6 +90,7 @@ class PortfolioBlendResult:
     walk_forward: Optional[WalkForwardResults] = None
     ftmo_passed: bool = False
     ftmo_criteria: Dict[str, bool] = field(default_factory=dict)
+    adaptive_window_weights: Optional[List[WindowWeightSnapshot]] = None
 
 
 FTMO_CRITERIA = {
@@ -283,6 +291,171 @@ WEIGHT_METHODS = {
 }
 
 
+def cap_weights(
+    weights: Dict[str, float],
+    max_weight: float = 0.40,
+    min_weight: float = 0.10,
+) -> Dict[str, float]:
+    if not weights:
+        return {}
+
+    if len(weights) == 1:
+        return dict(weights)
+
+    result = dict(weights)
+    for _ in range(100):
+        total = sum(result.values())
+        if total <= 0:
+            return {k: 1.0 / len(result) for k in result}
+
+        capped_any = False
+        over_keys = []
+        under_keys = []
+
+        for key, w in result.items():
+            if w / total > max_weight:
+                over_keys.append(key)
+                capped_any = True
+            elif w / total < min_weight and w / total > 0:
+                under_keys.append(key)
+
+        if not capped_any and not under_keys:
+            break
+
+        if over_keys:
+            excess = 0.0
+            for key in over_keys:
+                excess += result[key] - max_weight * total
+                result[key] = max_weight * total
+
+            remaining = [k for k in result if k not in over_keys]
+            remaining_total = sum(result[k] for k in remaining)
+            if remaining_total > 0:
+                for key in remaining:
+                    result[key] += excess * (result[key] / remaining_total)
+
+        if under_keys:
+            deficit = 0.0
+            for key in under_keys:
+                deficit += min_weight * total - result[key]
+                result[key] = min_weight * total
+
+            remaining = [k for k in result if k not in under_keys]
+            remaining_total = sum(result[k] for k in remaining)
+            if remaining_total > 0:
+                for key in remaining:
+                    result[key] -= deficit * (result[key] / remaining_total)
+
+    total = sum(result.values())
+    if total > 0:
+        result = {k: v / total for k, v in result.items()}
+    return result
+
+
+def _compute_atr(bars: List[Bar], period: int = 14) -> List[float]:
+    if len(bars) < period + 1:
+        return [0.0] * len(bars)
+    atr_values: List[float] = []
+    for i in range(len(bars)):
+        if i < period:
+            atr_values.append(0.0)
+            continue
+        tr_sum = 0.0
+        for j in range(i - period + 1, i + 1):
+            high = bars[j].high
+            low = bars[j].low
+            prev_close = bars[j - 1].close if j > 0 else bars[j].open
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            tr_sum += tr
+        atr_values.append(tr_sum / period)
+    return atr_values
+
+
+def _atr_volatility_gate(
+    bars: List[Bar], atr_period: int = 14, atr_percentile_threshold: float = 80.0
+) -> List[bool]:
+    atr_values = _compute_atr(bars, atr_period)
+    active_atr = [a for a in atr_values if a > 0]
+    if not active_atr:
+        return [True] * len(bars)
+    active_atr.sort()
+    idx = int(len(active_atr) * atr_percentile_threshold / 100.0)
+    idx = min(idx, len(active_atr) - 1)
+    threshold = active_atr[idx]
+    return [a > 0 and a <= threshold for a in atr_values]
+
+
+def _reoptimize_weights_for_window(
+    strategy_specs: List[StrategySpec],
+    train_bars_map: Dict[str, List[Bar]],
+    weight_method: str,
+    max_weight: float,
+    min_weight: float,
+    initial_balance: float,
+) -> WeightAllocation:
+
+    window_curves: Dict[str, StrategyEquityCurve] = {}
+    for spec in strategy_specs:
+        key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+        test_bars = train_bars_map.get(key)
+        if not test_bars or len(test_bars) < 50:
+            continue
+        strategy = spec.factory()
+        if hasattr(strategy, "set_balance"):
+            strategy.set_balance(initial_balance)
+        metrics = run_single_strategy_backtest(
+            strategy, test_bars, spec.pair, initial_balance
+        )
+        equity = _compute_equity_curve_from_trades(metrics.trades, initial_balance)
+        returns = _compute_returns(equity)
+        if not returns:
+            continue
+        max_dd = 0.0
+        peak = initial_balance
+        for val in equity:
+            if val > peak:
+                peak = val
+            if peak > 0:
+                dd = (peak - val) / peak
+                if dd > max_dd:
+                    max_dd = dd
+        window_curves[key] = StrategyEquityCurve(
+            strategy_name=spec.name,
+            pair=spec.pair,
+            timeframe=spec.timeframe,
+            equity_curve=equity,
+            returns=returns,
+            total_pnl=metrics.total_pnl,
+            win_rate=metrics.win_rate,
+            profit_factor=metrics.profit_factor,
+            sharpe_ratio=metrics.sharpe_ratio,
+            max_drawdown=max_dd,
+            trade_count=metrics.total_trades,
+        )
+
+    if not window_curves:
+        return WeightAllocation(weights={}, method="adaptive_empty")
+
+    filtered, _ = filter_strategies(window_curves)
+    if not filtered:
+        filtered = window_curves
+
+    optimize_fn = WEIGHT_METHODS.get(weight_method, optimize_weights_combined_score)
+    weights = optimize_fn(filtered)
+
+    if max_weight < 1.0 or min_weight > 0.0:
+        capped = cap_weights(weights.weights, max_weight, min_weight)
+        weights = WeightAllocation(
+            weights=capped, method=f"adaptive_{weights.method}_capped"
+        )
+    else:
+        weights = WeightAllocation(
+            weights=weights.weights, method=f"adaptive_{weights.method}"
+        )
+
+    return weights
+
+
 def run_single_strategy_backtest(
     strategy: ISignalStrategy,
     bars: List[Bar],
@@ -313,6 +486,11 @@ def run_portfolio_blend(
     n_walk_forward_windows: int = 5,
     weight_method: str = "combined_score",
     enable_filter: bool = True,
+    max_weight: float = 1.0,
+    min_weight: float = 0.0,
+    adaptive_weights: bool = False,
+    atr_gate: bool = True,
+    atr_percentile: float = 80.0,
 ) -> PortfolioBlendResult:
     loader = CsvDataLoader()
     individual_results: Dict[str, StrategyEquityCurve] = {}
@@ -379,14 +557,32 @@ def run_portfolio_blend(
     optimize_fn = WEIGHT_METHODS.get(weight_method, optimize_weights_combined_score)
     weights = optimize_fn(active_curves)
 
+    if max_weight < 1.0 or min_weight > 0.0:
+        capped = cap_weights(weights.weights, max_weight, min_weight)
+        weights = WeightAllocation(weights=capped, method=f"{weights.method}_capped")
+
     weighted_equity = _build_weighted_equity(active_curves, weights, initial_balance)
     combined_metrics = _compute_combined_metrics(weighted_equity, initial_balance)
 
     wf_result = None
+    adaptive_snapshots = None
     if n_walk_forward_windows > 0 and active_curves:
-        wf_result = _run_portfolio_walk_forward(
-            filtered_specs, weights, initial_balance, n_walk_forward_windows
-        )
+        if adaptive_weights:
+            wf_result, adaptive_snapshots = _run_adaptive_portfolio_walk_forward(
+                filtered_specs,
+                weights,
+                initial_balance,
+                n_walk_forward_windows,
+                weight_method,
+                max_weight,
+                min_weight,
+                atr_gate=atr_gate,
+                atr_percentile=atr_percentile,
+            )
+        else:
+            wf_result = _run_portfolio_walk_forward(
+                filtered_specs, weights, initial_balance, n_walk_forward_windows
+            )
 
     ftmo_check = {
         "win_rate": combined_metrics.win_rate >= FTMO_CRITERIA["win_rate"],
@@ -418,6 +614,7 @@ def run_portfolio_blend(
         walk_forward=wf_result,
         ftmo_passed=ftmo_passed,
         ftmo_criteria=ftmo_check,
+        adaptive_window_weights=adaptive_snapshots,
     )
 
 
@@ -719,6 +916,258 @@ def _run_portfolio_walk_forward(
     )
 
 
+def _run_adaptive_portfolio_walk_forward(
+    strategy_specs: List[StrategySpec],
+    global_weights: WeightAllocation,
+    initial_balance: float,
+    n_windows: int,
+    weight_method: str,
+    max_weight: float,
+    min_weight: float,
+    atr_gate: bool = True,
+    atr_percentile: float = 80.0,
+) -> tuple[WalkForwardResults, List[WindowWeightSnapshot]]:
+    loader = CsvDataLoader()
+    data_map: Dict[str, List[Bar]] = {}
+
+    for spec in strategy_specs:
+        bars = loader.load(spec.data_path)
+        if len(bars) >= 100:
+            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+            data_map[key] = bars
+
+    if not data_map:
+        return WalkForwardResults(per_window=[], go_nogo=False), []
+
+    first_data = next(iter(data_map.values()))
+    n = len(first_data)
+    full_window_size = n // n_windows
+    if full_window_size == 0:
+        return WalkForwardResults(per_window=[], go_nogo=False), []
+
+    train_ratio = 0.7
+    val_ratio = 0.15
+    overlap_ratio = 0.2
+    test_ratio = 1.0 - train_ratio - val_ratio
+
+    train_size = int(full_window_size * train_ratio)
+    val_size = int(full_window_size * val_ratio)
+    window_size = train_size + val_size + int(full_window_size * test_ratio)
+    overlap_size = int(window_size * overlap_ratio)
+    step = max(window_size - overlap_size, 1)
+
+    per_window: List[WindowMetrics] = []
+    weight_snapshots: List[WindowWeightSnapshot] = []
+
+    for win_idx in range(n_windows):
+        start = win_idx * step
+        end = min(start + window_size, n)
+        if end - start < window_size:
+            end = min(start + window_size, n)
+            start = end - window_size
+            if start < 0:
+                start = 0
+
+        train_end = start + train_size
+        test_start = start + train_size + val_size
+        test_end = end
+        if test_end <= test_start:
+            per_window.append(
+                WindowMetrics(
+                    window_index=win_idx,
+                    win_rate=0.0,
+                    profit_factor=0.0,
+                    max_drawdown=0.0,
+                    sharpe_ratio=0.0,
+                    trade_count=0,
+                    total_pnl=0.0,
+                    passed_go_nogo=False,
+                )
+            )
+            weight_snapshots.append(
+                WindowWeightSnapshot(
+                    window_index=win_idx,
+                    weights=dict(global_weights.weights),
+                    method="fallback_global",
+                )
+            )
+            continue
+
+        train_bars_map: Dict[str, List[Bar]] = {}
+        for spec in strategy_specs:
+            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+            if key in data_map:
+                train_bars_map[key] = data_map[key][start:train_end]
+
+        window_weights = _reoptimize_weights_for_window(
+            strategy_specs,
+            train_bars_map,
+            weight_method,
+            max_weight,
+            min_weight,
+            initial_balance,
+        )
+
+        if not window_weights.weights:
+            window_weights = global_weights
+
+        weight_snapshots.append(
+            WindowWeightSnapshot(
+                window_index=win_idx,
+                weights=dict(window_weights.weights),
+                method=window_weights.method,
+            )
+        )
+
+        window_returns: List[float] = []
+        for spec in strategy_specs:
+            key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
+            if key not in data_map:
+                continue
+            all_bars = data_map[key]
+            test_bars = all_bars[test_start:test_end]
+            if len(test_bars) < 30:
+                continue
+
+            w = window_weights.weights.get(key, 0.0)
+            if w <= 0:
+                continue
+
+            active_mask = (
+                _atr_volatility_gate(
+                    test_bars, atr_period=14, atr_percentile_threshold=atr_percentile
+                )
+                if atr_gate
+                else [True] * len(test_bars)
+            )
+
+            strategy = spec.factory()
+            if hasattr(strategy, "set_balance"):
+                strategy.set_balance(initial_balance)
+
+            metrics = run_single_strategy_backtest(
+                strategy, test_bars, spec.pair, initial_balance
+            )
+
+            equity = _compute_equity_curve_from_trades(metrics.trades, initial_balance)
+            strat_returns = _compute_returns(equity)
+            for j, r in enumerate(strat_returns):
+                bar_idx = min(j, len(active_mask) - 1)
+                if active_mask[bar_idx]:
+                    window_returns.append(w * r)
+
+        if not window_returns:
+            per_window.append(
+                WindowMetrics(
+                    window_index=win_idx,
+                    win_rate=0.0,
+                    profit_factor=0.0,
+                    max_drawdown=0.0,
+                    sharpe_ratio=0.0,
+                    trade_count=0,
+                    total_pnl=0.0,
+                    passed_go_nogo=False,
+                )
+            )
+            continue
+
+        total_weight = sum(
+            window_weights.weights.get(
+                _build_strategy_name(s.name, s.pair, s.timeframe), 0.0
+            )
+            for s in strategy_specs
+            if _build_strategy_name(s.name, s.pair, s.timeframe) in data_map
+        )
+        if total_weight > 0:
+            portfolio_returns = [r / total_weight for r in window_returns]
+        else:
+            portfolio_returns = window_returns
+
+        portfolio_pnl = sum(portfolio_returns) * initial_balance
+        positive = [r for r in portfolio_returns if r > 0]
+        negative = [r for r in portfolio_returns if r < 0]
+        n_returns = len(portfolio_returns)
+        win_rate = len(positive) / n_returns if n_returns > 0 else 0.0
+        total_wins = sum(positive) * initial_balance
+        total_losses = abs(sum(negative)) * initial_balance
+        pf = total_wins / total_losses if total_losses > 0 else 0.0
+
+        balance = initial_balance
+        peak = initial_balance
+        max_dd = 0.0
+        for r in portfolio_returns:
+            balance = max(0.0, balance + r * initial_balance)
+            if balance > peak:
+                peak = balance
+            if peak > 0:
+                dd = (peak - balance) / peak
+                if dd > max_dd:
+                    max_dd = dd
+
+        sharpe = 0.0
+        if n_returns >= 2:
+            mean_r = sum(portfolio_returns) / n_returns
+            std_r = math.sqrt(
+                sum((r - mean_r) ** 2 for r in portfolio_returns) / n_returns
+            )
+            if std_r > 0:
+                sharpe = (mean_r / std_r) * math.sqrt(252)
+
+        passed = win_rate > 0.55 and pf > 1.0 and portfolio_pnl > 0 and max_dd < 0.10
+
+        per_window.append(
+            WindowMetrics(
+                window_index=win_idx,
+                win_rate=win_rate,
+                profit_factor=pf,
+                max_drawdown=max_dd,
+                sharpe_ratio=sharpe,
+                trade_count=n_returns,
+                total_pnl=portfolio_pnl,
+                passed_go_nogo=passed,
+            )
+        )
+
+    if per_window:
+        wr_vals = [m.win_rate for m in per_window]
+        pf_vals = [m.profit_factor for m in per_window]
+        dd_vals = [m.max_drawdown for m in per_window]
+        sr_vals = [m.sharpe_ratio for m in per_window]
+        tc_vals = [float(m.trade_count) for m in per_window]
+        pnl_vals = [m.total_pnl for m in per_window]
+
+        aggregated = AggregatedMetrics(
+            mean_win_rate=_mean(wr_vals),
+            std_win_rate=_std(wr_vals, _mean(wr_vals)),
+            mean_profit_factor=_mean(pf_vals),
+            std_profit_factor=_std(pf_vals, _mean(pf_vals)),
+            mean_max_drawdown=_mean(dd_vals),
+            std_max_drawdown=_std(dd_vals, _mean(dd_vals)),
+            mean_sharpe_ratio=_mean(sr_vals),
+            std_sharpe_ratio=_std(sr_vals, _mean(sr_vals)),
+            mean_trade_count=_mean(tc_vals),
+            std_trade_count=_std(tc_vals, _mean(tc_vals)),
+            mean_total_pnl=_mean(pnl_vals),
+            std_total_pnl=_std(pnl_vals, _mean(pnl_vals)),
+            windows_passed=sum(1 for m in per_window if m.passed_go_nogo),
+            total_windows=len(per_window),
+        )
+    else:
+        aggregated = None
+
+    windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
+    total = len(per_window)
+    go_nogo = total >= 3 and windows_passed >= 2
+
+    wf_result = WalkForwardResults(
+        per_window=per_window,
+        aggregated=aggregated,
+        go_nogo=go_nogo,
+    )
+
+    return wf_result, weight_snapshots
+
+
 def format_portfolio_report(
     result: PortfolioBlendResult,
     filtered_strategies: Optional[List[FilteredStrategy]] = None,
@@ -894,6 +1343,153 @@ def build_passing_strategy_specs(data_dir: str) -> List[StrategySpec]:
             pair="GBPUSD",
             timeframe="H1",
             data_path=f"{data_dir}/GBPUSD_H1.csv",
+        )
+    )
+
+    return specs
+
+
+def build_capped_blend_strategy_specs(data_dir: str) -> List[StrategySpec]:
+    from .stat_arb import StatArbStrategy
+    from .strategies import CommodityMeanReversionStrategy
+    from strategies.grid import GridConfig, GridStrategyAdapter
+    from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
+
+    loader = CsvDataLoader()
+    pair_b_bars = loader.load(f"{data_dir}/GBPUSD_M15.csv")
+
+    specs: List[StrategySpec] = []
+
+    specs.append(
+        StrategySpec(
+            name="Session-Range Mean Reversion",
+            factory=SessionRangeMeanReversionStrategy,
+            pair="GBPUSD",
+            timeframe="H1",
+            data_path=f"{data_dir}/GBPUSD_H1.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Momentum Breakout",
+            factory=lambda: DonchianBreakoutStrategy(
+                channel_period=20,
+                exit_channel_period=10,
+                momentum=MomentumConfig(
+                    atr_period=14,
+                    atr_sl_multiplier=2.0,
+                    atr_trail_multiplier=1.5,
+                    min_adx=20.0,
+                    rsi_period=14,
+                    rsi_max=70.0,
+                    rsi_min=30.0,
+                    session_filter=True,
+                    min_confidence=0.50,
+                ),
+            ),
+            pair="GBPJPY",
+            timeframe="M15",
+            data_path=f"{data_dir}/GBPJPY_M15.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Grid Trading",
+            factory=lambda: GridStrategyAdapter(GridConfig.ftmo("XAUUSD")),
+            pair="XAUUSD",
+            timeframe="M15",
+            data_path=f"{data_dir}/XAUUSD_M15.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Statistical Arbitrage",
+            factory=lambda: StatArbStrategy(pair_b_bars=pair_b_bars),
+            pair="EURUSD",
+            timeframe="M15",
+            data_path=f"{data_dir}/EURUSD_M15.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Commodity XAUUSD",
+            factory=CommodityMeanReversionStrategy,
+            pair="XAUUSD",
+            timeframe="M15",
+            data_path=f"{data_dir}/XAUUSD_M15.csv",
+        )
+    )
+
+    return specs
+
+
+def build_reblend_strategy_specs(data_dir: str) -> List[StrategySpec]:
+    from strategies.grid import GridConfig, GridStrategyAdapter
+    from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
+
+    specs: List[StrategySpec] = []
+
+    specs.append(
+        StrategySpec(
+            name="Session-Range Mean Reversion",
+            factory=SessionRangeMeanReversionStrategy,
+            pair="GBPUSD",
+            timeframe="H1",
+            data_path=f"{data_dir}/GBPUSD_H1.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Momentum Breakout",
+            factory=lambda: DonchianBreakoutStrategy(
+                channel_period=20,
+                exit_channel_period=10,
+                momentum=MomentumConfig(
+                    atr_period=14,
+                    atr_sl_multiplier=2.0,
+                    atr_trail_multiplier=1.5,
+                    min_adx=20.0,
+                    rsi_period=14,
+                    rsi_max=70.0,
+                    rsi_min=30.0,
+                    session_filter=True,
+                    min_confidence=0.50,
+                ),
+            ),
+            pair="GBPJPY",
+            timeframe="M15",
+            data_path=f"{data_dir}/GBPJPY_M15.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Session-Range Mean Reversion",
+            factory=SessionRangeMeanReversionStrategy,
+            pair="EURUSD",
+            timeframe="H1",
+            data_path=f"{data_dir}/EURUSD_H1.csv",
+        )
+    )
+
+    specs.append(
+        StrategySpec(
+            name="Grid Trading",
+            factory=lambda: GridStrategyAdapter(GridConfig.ftmo("XAUUSD")),
+            pair="XAUUSD",
+            timeframe="M15",
+            data_path=f"{data_dir}/XAUUSD_M15.csv",
         )
     )
 
