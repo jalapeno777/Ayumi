@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Optional
-from datetime import datetime
 
 
 class GridSide(Enum):
@@ -30,9 +30,9 @@ class GridLevel:
     price: float
     lot_size: float
     status: GridLevelStatus = GridLevelStatus.ACTIVE
-    filled_at: Optional[datetime] = None
-    entry_price: Optional[float] = None
-    order_id: Optional[str] = None
+    filled_at: datetime | None = None
+    entry_price: float | None = None
+    order_id: str | None = None
 
 
 @dataclass
@@ -42,8 +42,8 @@ class GridTrade:
     lot_size: float
     side: GridSide
     entry_time: datetime
-    exit_price: Optional[float] = None
-    exit_time: Optional[datetime] = None
+    exit_price: float | None = None
+    exit_time: datetime | None = None
     pnl: float = 0.0
     pips: float = 0.0
     is_open: bool = True
@@ -58,12 +58,12 @@ class GridState:
     closed_trades: list[GridTrade] = field(default_factory=list)
     total_pnl: float = 0.0
     realized_pips: float = 0.0
-    direction_bias: Optional[GridSide] = None
+    direction_bias: GridSide | None = None
     adx_value: float = 0.0
     is_active: bool = True
     equity_at_start: float = 0.0
     daily_pnl: float = 0.0
-    last_reset_day: Optional[int] = None
+    last_reset_day: int | None = None
 
     @property
     def open_trade_count(self) -> int:

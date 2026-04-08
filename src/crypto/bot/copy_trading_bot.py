@@ -8,7 +8,6 @@ from ..models.trade import TradeSignal
 from ..services.broadcaster import SignalBroadcaster, WebhookHandler
 from ..services.repository import TradeRepository
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +32,7 @@ class CopyTradingBot:
         self.webhook_handler.providers.add(provider_id)
         logger.info("Registered provider: %s (%s)", name, provider_id)
 
-    def receive_signal(self, payload: dict) -> Optional[dict]:
+    def receive_signal(self, payload: dict) -> dict | None:
         signal = self.webhook_handler.handle_incoming(payload)
         if not signal:
             return None

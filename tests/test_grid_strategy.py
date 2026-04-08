@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 
 from backtest.engine import Bar, MarketState, TradeDirection
 from backtest.grid_strategy import (
+    GRID_PRESETS,
     GridConfig,
     GridDirection,
     GridState,
     GridStrategy,
     create_grid_strategy_from_preset,
-    GRID_PRESETS,
 )
 
 

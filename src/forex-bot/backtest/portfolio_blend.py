@@ -12,6 +12,14 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from quant.walk_forward import (
+    AggregatedMetrics,
+    WalkForwardResults,
+    WindowMetrics,
+    _mean,
+    _std,
+)
+
 from .data_loader import CsvDataLoader
 from .engine import (
     BacktestConfig,
@@ -22,13 +30,6 @@ from .engine import (
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
-from quant.walk_forward import (
-    AggregatedMetrics,
-    WalkForwardResults,
-    WindowMetrics,
-    _mean,
-    _std,
-)
 
 
 @dataclass(frozen=True)
@@ -45,8 +46,8 @@ class StrategyEquityCurve:
     strategy_name: str
     pair: str
     timeframe: str
-    equity_curve: List[float]
-    returns: List[float]
+    equity_curve: list[float]
+    returns: list[float]
     total_pnl: float
     win_rate: float
     profit_factor: float
@@ -57,7 +58,7 @@ class StrategyEquityCurve:
 
 @dataclass
 class CorrelationResult:
-    matrix: Dict[str, Dict[str, float]]
+    matrix: dict[str, dict[str, float]]
     average_correlation: float
 
 
@@ -69,20 +70,20 @@ class FilteredStrategy:
 
 @dataclass
 class WeightAllocation:
-    weights: Dict[str, float]
+    weights: dict[str, float]
     method: str
 
 
 @dataclass
 class PortfolioBlendResult:
-    individual_results: Dict[str, StrategyEquityCurve]
+    individual_results: dict[str, StrategyEquityCurve]
     correlation: CorrelationResult
     weights: WeightAllocation
-    combined_equity_curve: List[float]
+    combined_equity_curve: list[float]
     combined_metrics: BacktestMetrics
-    walk_forward: Optional[WalkForwardResults] = None
+    walk_forward: WalkForwardResults | None = None
     ftmo_passed: bool = False
-    ftmo_criteria: Dict[str, bool] = field(default_factory=dict)
+    ftmo_criteria: dict[str, bool] = field(default_factory=dict)
 
 
 FTMO_CRITERIA = {
@@ -97,8 +98,8 @@ def _build_strategy_name(strategy_name: str, pair: str, timeframe: str) -> str:
 
 
 def _compute_equity_curve_from_trades(
-    trades: List[SimulatedTrade], initial_balance: float
-) -> List[float]:
+    trades: list[SimulatedTrade], initial_balance: float
+) -> list[float]:
     curve = [initial_balance]
     balance = initial_balance
     for t in trades:
@@ -107,7 +108,7 @@ def _compute_equity_curve_from_trades(
     return curve
 
 
-def _compute_returns(equity_curve: List[float]) -> List[float]:
+def _compute_returns(equity_curve: list[float]) -> list[float]:
     returns = []
     for i in range(1, len(equity_curve)):
         if equity_curve[i - 1] > 0:
@@ -117,7 +118,7 @@ def _compute_returns(equity_curve: List[float]) -> List[float]:
     return returns
 
 
-def _correlation(a: List[float], b: List[float]) -> float:
+def _correlation(a: list[float], b: list[float]) -> float:
     n = min(len(a), len(b))
     if n < 2:
         return 0.0
@@ -134,10 +135,10 @@ def _correlation(a: List[float], b: List[float]) -> float:
 
 
 def compute_correlation_matrix(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> CorrelationResult:
     keys = list(equity_curves.keys())
-    matrix: Dict[str, Dict[str, float]] = {}
+    matrix: dict[str, dict[str, float]] = {}
     total_corr = 0.0
     count = 0
 
@@ -162,9 +163,9 @@ def compute_correlation_matrix(
 
 
 def optimize_weights_inverse_variance(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> WeightAllocation:
-    variances: Dict[str, float] = {}
+    variances: dict[str, float] = {}
     for key, ec in equity_curves.items():
         if len(ec.returns) < 2:
             variances[key] = 1.0
@@ -180,9 +181,9 @@ def optimize_weights_inverse_variance(
 
 
 def optimize_weights_equal_risk(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> WeightAllocation:
-    sharpe_scores: Dict[str, float] = {}
+    sharpe_scores: dict[str, float] = {}
     for key, ec in equity_curves.items():
         if ec.max_drawdown > 0:
             sharpe_scores[key] = ec.sharpe_ratio / ec.max_drawdown
@@ -196,9 +197,9 @@ def optimize_weights_equal_risk(
 
 
 def optimize_weights_profit_factor(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> WeightAllocation:
-    pf_scores: Dict[str, float] = {}
+    pf_scores: dict[str, float] = {}
     for key, ec in equity_curves.items():
         pf_scores[key] = max(ec.profit_factor, 0.1)
 
@@ -208,9 +209,9 @@ def optimize_weights_profit_factor(
 
 
 def optimize_weights_sharpe(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> WeightAllocation:
-    sharpe_scores: Dict[str, float] = {}
+    sharpe_scores: dict[str, float] = {}
     for key, ec in equity_curves.items():
         sharpe_scores[key] = max(ec.sharpe_ratio, 0.01)
 
@@ -220,9 +221,9 @@ def optimize_weights_sharpe(
 
 
 def optimize_weights_combined_score(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
 ) -> WeightAllocation:
-    scores: Dict[str, float] = {}
+    scores: dict[str, float] = {}
     for key, ec in equity_curves.items():
         if len(ec.returns) < 2:
             scores[key] = 0.01
@@ -254,13 +255,13 @@ MIN_WIN_RATE = 45.0
 
 
 def filter_strategies(
-    equity_curves: Dict[str, StrategyEquityCurve],
-) -> tuple[Dict[str, StrategyEquityCurve], List[FilteredStrategy]]:
-    filtered: Dict[str, StrategyEquityCurve] = {}
-    removed: List[FilteredStrategy] = []
+    equity_curves: dict[str, StrategyEquityCurve],
+) -> tuple[dict[str, StrategyEquityCurve], list[FilteredStrategy]]:
+    filtered: dict[str, StrategyEquityCurve] = {}
+    removed: list[FilteredStrategy] = []
 
     for key, ec in equity_curves.items():
-        reasons: List[str] = []
+        reasons: list[str] = []
         if ec.profit_factor < MIN_PROFIT_FACTOR:
             reasons.append(f"PF {ec.profit_factor:.2f} < {MIN_PROFIT_FACTOR}")
         if ec.win_rate < MIN_WIN_RATE:
@@ -285,7 +286,7 @@ WEIGHT_METHODS = {
 
 def run_single_strategy_backtest(
     strategy: ISignalStrategy,
-    bars: List[Bar],
+    bars: list[Bar],
     pair: str,
     initial_balance: float = 10000.0,
 ) -> BacktestMetrics:
@@ -308,15 +309,15 @@ def run_single_strategy_backtest(
 
 
 def run_portfolio_blend(
-    strategy_specs: List[StrategySpec],
+    strategy_specs: list[StrategySpec],
     initial_balance: float = 10000.0,
     n_walk_forward_windows: int = 5,
     weight_method: str = "combined_score",
     enable_filter: bool = True,
 ) -> PortfolioBlendResult:
     loader = CsvDataLoader()
-    individual_results: Dict[str, StrategyEquityCurve] = {}
-    individual_metrics: Dict[str, BacktestMetrics] = {}
+    individual_results: dict[str, StrategyEquityCurve] = {}
+    individual_metrics: dict[str, BacktestMetrics] = {}
 
     for spec in strategy_specs:
         try:
@@ -364,7 +365,7 @@ def run_portfolio_blend(
         individual_metrics[key] = metrics
 
     active_curves = individual_results
-    filtered_out: List[FilteredStrategy] = []
+    filtered_out: list[FilteredStrategy] = []
     if enable_filter and len(individual_results) > 1:
         active_curves, filtered_out = filter_strategies(individual_results)
 
@@ -422,15 +423,15 @@ def run_portfolio_blend(
 
 
 def _build_weighted_equity(
-    equity_curves: Dict[str, StrategyEquityCurve],
+    equity_curves: dict[str, StrategyEquityCurve],
     weights: WeightAllocation,
     initial_balance: float,
-) -> List[float]:
+) -> list[float]:
     if not equity_curves:
         return [initial_balance]
 
     max_len = max(len(ec.equity_curve) for ec in equity_curves.values())
-    portfolio_curve: List[float] = [initial_balance]
+    portfolio_curve: list[float] = [initial_balance]
 
     for i in range(1, max_len):
         weighted_return = 0.0
@@ -459,7 +460,7 @@ def _build_weighted_equity(
 
 
 def _compute_combined_metrics(
-    equity_curve: List[float], initial_balance: float
+    equity_curve: list[float], initial_balance: float
 ) -> BacktestMetrics:
     ending = equity_curve[-1] if equity_curve else initial_balance
     total_pnl = ending - initial_balance
@@ -522,13 +523,13 @@ def _compute_combined_metrics(
 
 
 def _run_portfolio_walk_forward(
-    strategy_specs: List[StrategySpec],
+    strategy_specs: list[StrategySpec],
     weights: WeightAllocation,
     initial_balance: float,
     n_windows: int,
 ) -> WalkForwardResults:
     loader = CsvDataLoader()
-    data_map: Dict[str, List[Bar]] = {}
+    data_map: dict[str, list[Bar]] = {}
 
     for spec in strategy_specs:
         bars = loader.load(spec.data_path)
@@ -556,7 +557,7 @@ def _run_portfolio_walk_forward(
     overlap_size = int(window_size * overlap_ratio)
     step = max(window_size - overlap_size, 1)
 
-    per_window: List[WindowMetrics] = []
+    per_window: list[WindowMetrics] = []
 
     for win_idx in range(n_windows):
         start = win_idx * step
@@ -584,7 +585,7 @@ def _run_portfolio_walk_forward(
             )
             continue
 
-        window_returns: List[float] = []
+        window_returns: list[float] = []
         for spec in strategy_specs:
             key = _build_strategy_name(spec.name, spec.pair, spec.timeframe)
             if key not in data_map:
@@ -721,9 +722,9 @@ def _run_portfolio_walk_forward(
 
 def format_portfolio_report(
     result: PortfolioBlendResult,
-    filtered_strategies: Optional[List[FilteredStrategy]] = None,
+    filtered_strategies: list[FilteredStrategy] | None = None,
 ) -> str:
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append("=" * 80)
     lines.append("PORTFOLIO BLEND TEST REPORT")
     lines.append("=" * 80)
@@ -834,18 +835,19 @@ def format_portfolio_report(
     return "\n".join(lines)
 
 
-def build_passing_strategy_specs(data_dir: str) -> List[StrategySpec]:
-    from .stat_arb import StatArbStrategy
-    from .strategies import CommodityMeanReversionStrategy
+def build_passing_strategy_specs(data_dir: str) -> list[StrategySpec]:
     from strategies.grid import GridConfig, GridStrategyAdapter
     from strategies.session_range_mean_reversion import (
         SessionRangeMeanReversionStrategy,
     )
 
+    from .stat_arb import StatArbStrategy
+    from .strategies import CommodityMeanReversionStrategy
+
     loader = CsvDataLoader()
     pair_b_bars = loader.load(f"{data_dir}/GBPUSD_M15.csv")
 
-    specs: List[StrategySpec] = []
+    specs: list[StrategySpec] = []
 
     specs.append(
         StrategySpec(

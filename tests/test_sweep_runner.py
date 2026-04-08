@@ -1,14 +1,14 @@
-import unittest
 import json
 import os
 import tempfile
+import unittest
 from datetime import datetime, timedelta
 
-from backtest.engine import Bar, BacktestConfig
-from backtest.strategies import BBStrategy
-from backtest.parameter_sweep.sweep_runner import SweepRunner
+from backtest.engine import BacktestConfig, Bar
 from backtest.parameter_sweep.grid import ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
+from backtest.parameter_sweep.sweep_runner import SweepRunner
+from backtest.strategies import BBStrategy
 
 
 def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
@@ -278,7 +278,7 @@ class TestSweepRunner(unittest.TestCase):
             with open(json_path, "w") as f:
                 json.dump(data, f)
 
-            with open(json_path, "r") as f:
+            with open(json_path) as f:
                 loaded_data = json.load(f)
 
             self.assertIsInstance(loaded_data, list)

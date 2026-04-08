@@ -1,19 +1,19 @@
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.engine import BacktestConfig, Bar, TradeDirection
-from backtest.strategies import MACrossStrategy, RSIStrategy, ROCMStrategy
-from backtest.ict_smc.strategy_adapter import ICTSMCStrategy
 from backtest.amalgamation import (
+    INDICATOR_STRATEGY_PATTERNS,
     AmalgamatedBacktestEngine,
     AmalgamationConfig,
     ComponentExtractor,
     VotingMethod,
-    INDICATOR_STRATEGY_PATTERNS,
 )
+from backtest.engine import BacktestConfig, Bar, TradeDirection
+from backtest.ict_smc.strategy_adapter import ICTSMCStrategy
+from backtest.strategies import MACrossStrategy, ROCMStrategy, RSIStrategy
 
 
 def make_test_bars(n=100, seed=42):

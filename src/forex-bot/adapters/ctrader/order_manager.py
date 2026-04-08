@@ -1,16 +1,17 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Callable, TYPE_CHECKING
 from threading import Lock
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from .models import (
     Order,
-    Position,
-    TradeDirection,
-    OrderType,
     OrderStatus,
+    OrderType,
+    Position,
     PositionStatus,
+    TradeDirection,
 )
 
 if TYPE_CHECKING:
@@ -31,8 +32,8 @@ class PositionSizeConfig:
 @dataclass
 class OrderExecutionResult:
     success: bool
-    order: Optional[Order] = None
-    position: Optional[Position] = None
+    order: Order | None = None
+    position: Position | None = None
     error_message: str = ""
     rejection_reason: str = ""
 
@@ -40,16 +41,16 @@ class OrderExecutionResult:
 class OrderManager:
     def __init__(
         self,
-        position_config: Optional[PositionSizeConfig] = None,
+        position_config: PositionSizeConfig | None = None,
         api_client: Optional["cTraderAPIClient"] = None,
     ):
-        self._positions: Dict[str, Position] = {}
-        self._orders: Dict[str, Order] = {}
+        self._positions: dict[str, Position] = {}
+        self._orders: dict[str, Order] = {}
         self._position_config = position_config or PositionSizeConfig()
         self._api_client = api_client
         self._lock = Lock()
         self._locally_filled_order_ids: set = set()
-        self._callbacks: Dict[str, List[Callable]] = {
+        self._callbacks: dict[str, list[Callable]] = {
             "on_order_placed": [],
             "on_order_filled": [],
             "on_order_cancelled": [],
@@ -97,8 +98,8 @@ class OrderManager:
         symbol: str,
         direction: TradeDirection,
         volume: float,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
         comment: str = "",
     ) -> OrderExecutionResult:
         order = Order(
@@ -142,8 +143,8 @@ class OrderManager:
         direction: TradeDirection,
         volume: float,
         entry_price: float,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
         comment: str = "",
     ) -> OrderExecutionResult:
         logger.info(
@@ -189,9 +190,9 @@ class OrderManager:
         direction: TradeDirection,
         volume: float,
         order_type: OrderType = OrderType.MARKET,
-        price: Optional[float] = None,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None,
+        price: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
         comment: str = "",
     ) -> OrderExecutionResult:
         if not symbol or not symbol.strip():
@@ -335,7 +336,7 @@ class OrderManager:
         api.register_callback("on_order_rejected", on_rejected)
         api.register_callback("on_order_cancelled", on_cancelled)
 
-    def _create_position_from_order(self, order: Order) -> Optional[Position]:
+    def _create_position_from_order(self, order: Order) -> Position | None:
         if order.status != OrderStatus.FILLED:
             return None
 
@@ -360,7 +361,7 @@ class OrderManager:
         current_price: float,
         bid: float = 0,
         ask: float = 0,
-    ) -> Optional[Position]:
+    ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
                 return None
@@ -409,9 +410,9 @@ class OrderManager:
     def close_position(
         self,
         position_id: str,
-        exit_price: Optional[float] = None,
+        exit_price: float | None = None,
         reason: str = "manual",
-    ) -> Optional[Position]:
+    ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
                 return None
@@ -422,7 +423,7 @@ class OrderManager:
     def _close_position(
         self,
         position: Position,
-        exit_price: Optional[float] = None,
+        exit_price: float | None = None,
         reason: str = "unknown",
     ) -> Position:
         exit_price = exit_price or position.current_price
@@ -444,13 +445,13 @@ class OrderManager:
         self._trigger_callback("on_position_closed", position)
         return position
 
-    def get_open_positions(self) -> List[Position]:
+    def get_open_positions(self) -> list[Position]:
         with self._lock:
             return [
                 p for p in self._positions.values() if p.status == PositionStatus.OPEN
             ]
 
-    def get_position(self, position_id: str) -> Optional[Position]:
+    def get_position(self, position_id: str) -> Position | None:
         with self._lock:
             return self._positions.get(position_id)
 

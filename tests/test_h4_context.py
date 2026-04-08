@@ -2,9 +2,9 @@ import unittest
 from datetime import datetime, timedelta
 
 from backtest.engine import Bar, SessionType, TradeDirection
-from backtest.ict_smc.models import ICTMarketState
-from backtest.ict_smc.h4_context import H4ContextModule, H4ContextResult, H4ZoneMapping
 from backtest.ict_smc.confluence_engine import SignalConfluenceEngine
+from backtest.ict_smc.h4_context import H4ContextModule, H4ContextResult, H4ZoneMapping
+from backtest.ict_smc.models import ICTMarketState
 
 
 def _h4_bar(i, o=1.0, h=1.01, low=0.99, c=1.005):

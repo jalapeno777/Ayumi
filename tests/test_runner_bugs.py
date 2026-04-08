@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from backtest.engine import Bar, BacktestMetrics, TradeDirection
+from backtest.engine import BacktestMetrics, Bar, TradeDirection
 from backtest.hybrid_strategy import HybridStrategy, RejectionMetrics
 from backtest.ict_smc.models import ConfluenceSignal, SignalStrength
 from backtest.runner import _run_window_backtest  # noqa: F401

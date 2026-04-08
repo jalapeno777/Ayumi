@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, List, Optional, Protocol, Union
+from collections.abc import Callable
+from typing import Any, List, Optional, Protocol, Union
 
-from .engine import BacktestConfig, Bar, get_spread_for_pair
-from .multi_strategy_engine import MultiStrategyBacktestEngine
-from .strategies import ISignalStrategy
 from quant.walk_forward import (
+    AggregatedMetrics,
     WalkForwardResults,
     WalkForwardValidator,
     _compute_metrics,
     _mean,
     _std,
-    AggregatedMetrics,
 )
+
+from .engine import BacktestConfig, Bar, get_spread_for_pair
+from .multi_strategy_engine import MultiStrategyBacktestEngine
+from .strategies import ISignalStrategy
 
 
 class SupportsTrain(Protocol):
@@ -21,19 +23,16 @@ class SupportsTrain(Protocol):
 
 
 def run_strategy_walk_forward(
-    bars: List[Bar],
-    strategy_factory: Union[
-        Callable[[], ISignalStrategy],
-        Callable[[List[Bar]], ISignalStrategy],
-    ],
+    bars: list[Bar],
+    strategy_factory: Callable[[], ISignalStrategy] | Callable[[list[Bar]], ISignalStrategy],
     pair: str,
     n_windows: int = 5,
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
     overlap_ratio: float = 0.2,
     initial_balance: float = 10000,
-    spread_pips: Optional[float] = None,
-    commission_per_lot: Optional[float] = None,
+    spread_pips: float | None = None,
+    commission_per_lot: float | None = None,
 ) -> WalkForwardResults:
     factory_params = len(inspect.signature(strategy_factory).parameters)
 
@@ -155,13 +154,13 @@ def get_registered_strategies() -> list[str]:
 
 def run_named_strategy_walk_forward(
     strategy_name: str,
-    bars: List[Bar],
+    bars: list[Bar],
     pair: str,
     n_windows: int = 5,
     train_ratio: float = 0.7,
     initial_balance: float = 10000,
-    spread_pips: Optional[float] = None,
-    commission_per_lot: Optional[float] = None,
+    spread_pips: float | None = None,
+    commission_per_lot: float | None = None,
 ) -> WalkForwardResults:
     if strategy_name not in STRATEGY_REGISTRY:
         available = ", ".join(get_registered_strategies())

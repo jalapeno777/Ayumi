@@ -18,7 +18,7 @@ class ICTSMCStrategy(ISignalStrategy):
     def name(self) -> str:
         return "ICT/SMC Confluence"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         ict_state = ICTMarketState(bars=state.bars)
         ict_state.current_session = state.current_session
 

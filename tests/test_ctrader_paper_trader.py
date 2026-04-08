@@ -1,6 +1,5 @@
 import pytest
-
-from adapters.ctrader.models import TradeSignal, TradeDirection
+from adapters.ctrader.models import TradeDirection, TradeSignal
 from adapters.ctrader.paper_trader import (
     PaperTrader,
     PaperTradeResult,

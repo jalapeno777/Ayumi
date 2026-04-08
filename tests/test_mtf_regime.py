@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sys
 import os
+import sys
 import unittest
 from datetime import datetime, timedelta
 from typing import List
@@ -9,26 +9,26 @@ from typing import List
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from backtest.engine import Bar, MarketState
+from backtest.strategies import MomentumBreakoutStrategy
 from quant.bar_resample import resample_bars
 from quant.mtf_regime import (
+    MarketRegime,
     MTFRegimeConfig,
     MTFRegimeFilter,
+    MultiTimeframeRegime,
+    TimeframeRegime,
     TrendDirection,
     VolatilityRegime,
-    MarketRegime,
-    TimeframeRegime,
-    MultiTimeframeRegime,
     compute_confluence,
     detect_regime,
     volatility_regime_atr,
 )
 from strategies.momentum import (
-    DonchianBreakoutStrategy,
     ATRVolatilityBreakoutStrategy,
+    DonchianBreakoutStrategy,
     MATrendFollowingStrategy,
 )
 from strategies.mtf_filtered_momentum import MTFFilteredMomentumStrategy
-from backtest.strategies import MomentumBreakoutStrategy
 
 
 def _make_bars(
@@ -37,7 +37,7 @@ def _make_bars(
     start: datetime | None = None,
     minutes: int = 15,
     trend: str = "up",
-) -> List[Bar]:
+) -> list[Bar]:
     import random
 
     random.seed(seed)

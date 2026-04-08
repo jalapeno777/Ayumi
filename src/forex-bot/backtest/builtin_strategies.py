@@ -1,27 +1,28 @@
 from __future__ import annotations
 
-from backtest.walk_forward_runner import register_strategy
-from backtest.strategies import (
-    MACrossStrategy,
-    BBStrategy,
-    RSIStrategy,
-    SRBreakoutStrategy,
-    ROCMStrategy,
-    MomentumBreakoutStrategy,
-    CommodityTrendStrategy,
-    CommodityMeanReversionStrategy,
-    KeltnerChannelBreakoutStrategy,
-    HighConvictionStrategy,
-    RegimeSwitchingRouter,
-    ISignalStrategy,
-)
 from strategies.grid import GridConfig, GridStrategyAdapter
-from backtest.stat_arb import StatArbStrategy
-from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRWithRegimeFilter,
 )
+from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+from backtest.stat_arb import StatArbStrategy
+from backtest.strategies import (
+    BBStrategy,
+    CommodityMeanReversionStrategy,
+    CommodityTrendStrategy,
+    HighConvictionStrategy,
+    ISignalStrategy,
+    KeltnerChannelBreakoutStrategy,
+    MACrossStrategy,
+    MomentumBreakoutStrategy,
+    RegimeSwitchingRouter,
+    ROCMStrategy,
+    RSIStrategy,
+    SRBreakoutStrategy,
+)
+from backtest.walk_forward_runner import register_strategy
 
 
 def _make_ma_crossover() -> ISignalStrategy:

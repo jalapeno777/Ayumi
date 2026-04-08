@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 import pytest
-
-from quant.config import (
-    QuantConfig,
-    RegimeConfig,
-    CorrelationConfig,
-    PositionSizingConfig,
-    WalkForwardConfig,
-    RegimeFilterMode,
-    SizingMode,
-)
-from quant.pipeline import (
-    QuantPipeline,
-    TradeDecision,
-    TradeAction,
-    ValidationResult,
-    PortfolioState,
-)
 from backtest.engine import Bar
 from backtest.strategies import ISignalStrategy
+from quant.config import (
+    CorrelationConfig,
+    PositionSizingConfig,
+    QuantConfig,
+    RegimeConfig,
+    RegimeFilterMode,
+    SizingMode,
+    WalkForwardConfig,
+)
+from quant.pipeline import (
+    PortfolioState,
+    QuantPipeline,
+    TradeAction,
+    TradeDecision,
+    ValidationResult,
+)
 
 
 class TestQuantConfig:

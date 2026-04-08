@@ -1,28 +1,28 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 import pickle  # nosec B403
 from typing import Any
 
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
 )
-from sklearn.inspection import permutation_importance
+from sklearn.model_selection import train_test_split
 
 from .features import (
-    build_feature_matrix,
-    add_multi_timeframe_features,
-    load_csv,
     ICT_FEATURE_NAMES,
+    add_multi_timeframe_features,
+    build_feature_matrix,
+    load_csv,
 )
 from .signal_simulator import build_labeled_dataset
 
@@ -658,7 +658,7 @@ def load_model(model_dir: str) -> tuple:
     with open(model_path, "rb") as f:
         model = pickle.load(f)  # nosec B301
 
-    with open(meta_path, "r") as f:
+    with open(meta_path) as f:
         meta = json.load(f)
 
     return model, meta["feature_names"]

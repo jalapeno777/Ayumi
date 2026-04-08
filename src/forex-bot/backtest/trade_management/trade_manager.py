@@ -4,10 +4,10 @@ from typing import List, Optional
 
 from ..engine import Bar, ExitReason, StrategySignal, TradeDirection
 from .config import TradeManagementConfig
-from .partial_exit import PartialExitManager, PartialExitAction, TierState
-from .trailing_stop import TrailingStopManager, TrailingStopState
-from .session_filter import SessionFilter, SessionFilterResult
 from .exit_refinement import ExitRefiner, ExitRefinerState
+from .partial_exit import PartialExitAction, PartialExitManager, TierState
+from .session_filter import SessionFilter, SessionFilterResult
+from .trailing_stop import TrailingStopManager, TrailingStopState
 
 
 class TradeAction:
@@ -37,12 +37,12 @@ class ManagedTrade:
     bars_held: int = 0
     partial_closes: list = field(default_factory=list)
     remaining_pct: float = 1.0
-    tier_state: Optional[TierState] = None
-    trailing_state: Optional[TrailingStopState] = None
-    exit_refiner_state: Optional[ExitRefinerState] = None
+    tier_state: TierState | None = None
+    trailing_state: TrailingStopState | None = None
+    exit_refiner_state: ExitRefinerState | None = None
     is_closed: bool = False
     exit_price: float = 0.0
-    exit_reason: Optional[ExitReason] = None
+    exit_reason: ExitReason | None = None
     realized_pnl: float = 0.0
     partial_realized_pnl: float = 0.0
 
@@ -57,12 +57,12 @@ class ManagementResult:
     exit_price: float = 0.0
     close_pct: float = 0.0
     new_sl: float = 0.0
-    reason: Optional[ExitReason] = None
+    reason: ExitReason | None = None
     message: str = ""
 
 
 class TradeManager:
-    def __init__(self, config: Optional[TradeManagementConfig] = None):
+    def __init__(self, config: TradeManagementConfig | None = None):
         self.config = config or TradeManagementConfig()
         self._partial_exit = PartialExitManager(
             enabled=self.config.partial_exit.enabled,
@@ -139,7 +139,7 @@ class TradeManager:
         bar: Bar,
         bar_index: int,
         atr: float,
-        recent_bars: Optional[List[Bar]] = None,
+        recent_bars: list[Bar] | None = None,
     ) -> ManagementResult:
         if trade.is_closed:
             return ManagementResult(action=TradeAction.NO_ACTION)

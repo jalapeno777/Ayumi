@@ -7,22 +7,22 @@ walk-forward validation, session filtering, and configurable risk parameters.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 from .engine import (
+    DEFAULT_SPREAD_PIPS,
     BacktestMetrics,
     Bar,
+    ExitReason,
     SimulatedTrade,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
     determine_session,
     get_spread_for_pair,
-    DEFAULT_SPREAD_PIPS,
 )
 from .ict_smc.confluence_engine import SignalConfluenceEngine
 from .ict_smc.models import (
@@ -30,7 +30,6 @@ from .ict_smc.models import (
     ICTMarketState,
 )
 from .trade_management.session_filter import SessionFilter
-
 
 COMPONENT_NAMES = [
     "structure",
@@ -64,7 +63,7 @@ class PairingConfig:
     slippage_pips: float = 0.2
     swap_per_lot_per_day: float = -2.0
     pair: str = ""
-    allow_entry_sessions: List[str] = field(
+    allow_entry_sessions: list[str] = field(
         default_factory=lambda: ["london", "ny_am", "ny_pm"]
     )
 
@@ -90,7 +89,7 @@ class ComponentResult:
     avg_risk_reward: float = 0.0
 
     @classmethod
-    def from_metrics(cls, component: str, m: BacktestMetrics) -> "ComponentResult":
+    def from_metrics(cls, component: str, m: BacktestMetrics) -> ComponentResult:
         return cls(
             component=component,
             total_trades=m.total_trades,
@@ -113,22 +112,22 @@ class WindowMetrics:
     test_end: str = ""
     train_bars: int = 0
     test_bars: int = 0
-    components: Dict[str, ComponentResult] = field(default_factory=dict)
-    pairs: Dict[str, ComponentResult] = field(default_factory=dict)
+    components: dict[str, ComponentResult] = field(default_factory=dict)
+    pairs: dict[str, ComponentResult] = field(default_factory=dict)
 
 
 @dataclass
 class PairingReport:
     config: dict = field(default_factory=dict)
-    windows: List[dict] = field(default_factory=list)
-    aggregate_components: Dict[str, dict] = field(default_factory=dict)
-    aggregate_pairs: Dict[str, dict] = field(default_factory=dict)
+    windows: list[dict] = field(default_factory=list)
+    aggregate_components: dict[str, dict] = field(default_factory=dict)
+    aggregate_pairs: dict[str, dict] = field(default_factory=dict)
 
     def to_json(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(asdict(self), indent=2, default=str))
 
 
-def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
+def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -144,7 +143,7 @@ def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
 
 
 class SelectivePairingHarness:
-    def __init__(self, config: Optional[PairingConfig] = None):
+    def __init__(self, config: PairingConfig | None = None):
         self.config = config or PairingConfig()
         self._session_filter = SessionFilter(
             enabled=True,
@@ -156,7 +155,7 @@ class SelectivePairingHarness:
     # ------------------------------------------------------------------
 
     def _build_confluence_engine(
-        self, active_components: Set[str]
+        self, active_components: set[str]
     ) -> SignalConfluenceEngine:
         weights = {
             "structure": 0.30 if "structure" in active_components else 0.0,
@@ -186,12 +185,12 @@ class SelectivePairingHarness:
 
     def _generate_signals(
         self,
-        bars: List[Bar],
-        active_components: Set[str],
-        h4_bars: Optional[List[Bar]] = None,
-    ) -> List[ConfluenceSignal]:
+        bars: list[Bar],
+        active_components: set[str],
+        h4_bars: list[Bar] | None = None,
+    ) -> list[ConfluenceSignal]:
         engine = self._build_confluence_engine(active_components)
-        signals: List[ConfluenceSignal] = []
+        signals: list[ConfluenceSignal] = []
         min_bars = self.config.min_bars_before_signal
 
         for i in range(min_bars, len(bars)):
@@ -227,7 +226,7 @@ class SelectivePairingHarness:
     # ------------------------------------------------------------------
 
     def _run_backtest(
-        self, bars: List[Bar], signals: List[ConfluenceSignal]
+        self, bars: list[Bar], signals: list[ConfluenceSignal]
     ) -> BacktestMetrics:
         cfg = self.config
         balance = cfg.starting_balance
@@ -236,12 +235,12 @@ class SelectivePairingHarness:
         max_daily_loss = 0.0
         current_day = None
         daily_start_balance = balance
-        trades: List[SimulatedTrade] = []
-        equity_curve: List[float] = [balance]
-        open_trades: List[SimulatedTrade] = []
+        trades: list[SimulatedTrade] = []
+        equity_curve: list[float] = [balance]
+        open_trades: list[SimulatedTrade] = []
         cost_tracker = {"spread": 0.0, "commission": 0.0}
 
-        signal_map: Dict[datetime, List[ConfluenceSignal]] = {}
+        signal_map: dict[datetime, list[ConfluenceSignal]] = {}
         for sig in signals:
             signal_map.setdefault(sig.signal_time, []).append(sig)
 
@@ -274,7 +273,7 @@ class SelectivePairingHarness:
                 equity_curve.append(balance)
                 continue
 
-            to_close: List[SimulatedTrade] = []
+            to_close: list[SimulatedTrade] = []
             for trade in open_trades:
                 hit, exit_price, reason = _check_trade_exit(trade, bar)
                 if hit:
@@ -381,10 +380,10 @@ class SelectivePairingHarness:
 
     def run_individual(
         self,
-        bars: List[Bar],
-        h4_bars: Optional[List[Bar]] = None,
-    ) -> Dict[str, ComponentResult]:
-        results: Dict[str, ComponentResult] = {}
+        bars: list[Bar],
+        h4_bars: list[Bar] | None = None,
+    ) -> dict[str, ComponentResult]:
+        results: dict[str, ComponentResult] = {}
         for comp in COMPONENT_NAMES:
             signals = self._generate_signals(bars, {comp}, h4_bars)
             metrics = self._run_backtest(bars, signals)
@@ -397,10 +396,10 @@ class SelectivePairingHarness:
 
     def run_pairs(
         self,
-        bars: List[Bar],
-        h4_bars: Optional[List[Bar]] = None,
-    ) -> Dict[str, ComponentResult]:
-        results: Dict[str, ComponentResult] = {}
+        bars: list[Bar],
+        h4_bars: list[Bar] | None = None,
+    ) -> dict[str, ComponentResult]:
+        results: dict[str, ComponentResult] = {}
         for comp_a, comp_b in combinations(COMPONENT_NAMES, 2):
             pair_key = f"{comp_a}+{comp_b}"
             signals = self._generate_signals(bars, {comp_a, comp_b}, h4_bars)
@@ -414,15 +413,15 @@ class SelectivePairingHarness:
 
     def run_walk_forward(
         self,
-        bars: List[Bar],
+        bars: list[Bar],
         n_windows: int = 3,
         train_ratio: float = 0.6,
         test_ratio: float = 0.2,
-        h4_bars: Optional[List[Bar]] = None,
-    ) -> List[WindowMetrics]:
+        h4_bars: list[Bar] | None = None,
+    ) -> list[WindowMetrics]:
         total = len(bars)
         window_size = total // n_windows
-        windows: List[WindowMetrics] = []
+        windows: list[WindowMetrics] = []
 
         for w in range(n_windows):
             start = w * window_size
@@ -487,12 +486,12 @@ class SelectivePairingHarness:
 
     def run_full_report(
         self,
-        bars: List[Bar],
+        bars: list[Bar],
         n_windows: int = 3,
         train_ratio: float = 0.6,
         test_ratio: float = 0.2,
-        h4_bars: Optional[List[Bar]] = None,
-        output_path: Optional[str] = None,
+        h4_bars: list[Bar] | None = None,
+        output_path: str | None = None,
     ) -> PairingReport:
         individual = self.run_individual(bars, h4_bars)
         pairs = self.run_pairs(bars, h4_bars)
@@ -500,11 +499,11 @@ class SelectivePairingHarness:
             bars, n_windows, train_ratio, test_ratio, h4_bars
         )
 
-        agg_components: Dict[str, dict] = {}
+        agg_components: dict[str, dict] = {}
         for comp, cr in individual.items():
             agg_components[comp] = asdict(cr)
 
-        agg_pairs: Dict[str, dict] = {}
+        agg_pairs: dict[str, dict] = {}
         for pair_key, cr in pairs.items():
             agg_pairs[pair_key] = asdict(cr)
 
@@ -543,7 +542,7 @@ class SelectivePairingHarness:
 
 def _check_trade_exit(
     trade: SimulatedTrade, bar: Bar
-) -> Tuple[bool, float, ExitReason]:
+) -> tuple[bool, float, ExitReason]:
     if trade.direction == TradeDirection.LONG:
         if bar.low <= trade.stop_loss:
             return True, trade.stop_loss, ExitReason.STOP_LOSS
@@ -572,7 +571,7 @@ def _close_trade(
     exit_price: float,
     reason: ExitReason,
     config: PairingConfig,
-    cost_tracker: Optional[dict] = None,
+    cost_tracker: dict | None = None,
 ) -> None:
     trade.exit_bar_index = bar_index
     trade.exit_time = exit_time
@@ -636,14 +635,14 @@ def _get_pip_value(price: float) -> float:
 
 
 def _calculate_metrics(
-    trades: List[SimulatedTrade],
-    equity_curve: List[float],
+    trades: list[SimulatedTrade],
+    equity_curve: list[float],
     rejected: int,
     starting_balance: float,
     max_drawdown: float,
     max_daily_loss: float,
     peak_balance: float,
-    cost_tracker: Optional[dict] = None,
+    cost_tracker: dict | None = None,
 ) -> BacktestMetrics:
     import math
 

@@ -1,26 +1,27 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import optuna
 from optuna.samplers import TPESampler
-
-from backtest.engine import Bar
 from quant.walk_forward import (
     AggregatedMetrics,
     WalkForwardResults,
 )
 
+from backtest.engine import Bar
+
 logger = logging.getLogger(__name__)
 
-StrategyFactory = Callable[[Dict[str, Any]], Any]
+StrategyFactory = Callable[[dict[str, Any]], Any]
 
 
 class SearchSpace:
     def __init__(self, **kwargs):
-        self._specs: Dict[str, Dict[str, Any]] = {}
+        self._specs: dict[str, dict[str, Any]] = {}
         for name, spec in kwargs.items():
             if isinstance(spec, dict) and "type" in spec:
                 self._specs[name] = spec
@@ -30,8 +31,8 @@ class SearchSpace:
                     f"Use suggest_{type}(name, low, high, ...) format."
                 )
 
-    def suggest(self, trial: optuna.Trial, prefix: str = "") -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
+    def suggest(self, trial: optuna.Trial, prefix: str = "") -> dict[str, Any]:
+        params: dict[str, Any] = {}
         for name, spec in self._specs.items():
             key = f"{prefix}{name}" if prefix else name
             suggest_type = spec["type"]
@@ -58,11 +59,11 @@ class SearchSpace:
         return params
 
     @property
-    def param_names(self) -> List[str]:
+    def param_names(self) -> list[str]:
         return sorted(self._specs.keys())
 
 
-def int_range(name: str, low: int, high: int, step: int = 1) -> Dict[str, Any]:
+def int_range(name: str, low: int, high: int, step: int = 1) -> dict[str, Any]:
     return {"type": "int", "low": low, "high": high, "step": step}
 
 
@@ -70,16 +71,16 @@ def float_range(
     name: str,
     low: float,
     high: float,
-    step: Optional[float] = None,
+    step: float | None = None,
     log: bool = False,
-) -> Dict[str, Any]:
-    spec: Dict[str, Any] = {"type": "float", "low": low, "high": high, "log": log}
+) -> dict[str, Any]:
+    spec: dict[str, Any] = {"type": "float", "low": low, "high": high, "log": log}
     if step is not None:
         spec["step"] = step
     return spec
 
 
-def categorical(name: str, choices: List[Any]) -> Dict[str, Any]:
+def categorical(name: str, choices: list[Any]) -> dict[str, Any]:
     return {"type": "categorical", "choices": choices}
 
 
@@ -109,18 +110,18 @@ def session_range_mr_search_space() -> SearchSpace:
 
 @dataclass
 class OptimizationResult:
-    best_params: Dict[str, Any]
+    best_params: dict[str, Any]
     best_value: float
-    best_walk_forward: Optional[WalkForwardResults] = None
+    best_walk_forward: WalkForwardResults | None = None
     n_trials: int = 0
     go_nogo: bool = False
-    study_summary: Dict[str, Any] = field(default_factory=dict)
+    study_summary: dict[str, Any] = field(default_factory=dict)
 
 
 class WalkForwardObjective:
     def __init__(
         self,
-        bars: List[Bar],
+        bars: list[Bar],
         strategy_factory: StrategyFactory,
         pair: str,
         search_space: SearchSpace,
@@ -129,9 +130,9 @@ class WalkForwardObjective:
         val_ratio: float = 0.15,
         overlap_ratio: float = 0.2,
         initial_balance: float = 10000,
-        spread_pips: Optional[float] = None,
-        commission_per_lot: Optional[float] = None,
-        composite_weights: Optional[Dict[str, float]] = None,
+        spread_pips: float | None = None,
+        commission_per_lot: float | None = None,
+        composite_weights: dict[str, float] | None = None,
     ):
         self._bars = bars
         self._strategy_factory = strategy_factory
@@ -156,8 +157,8 @@ class WalkForwardObjective:
             "max_drawdown": 0.25,
             "sharpe_ratio": 0.15,
         }
-        self._results_by_trial: Dict[int, WalkForwardResults] = {}
-        self._params_by_trial: Dict[int, Dict[str, Any]] = {}
+        self._results_by_trial: dict[int, WalkForwardResults] = {}
+        self._params_by_trial: dict[int, dict[str, Any]] = {}
 
     def __call__(self, trial: optuna.Trial) -> float:
         from backtest.walk_forward_runner import run_strategy_walk_forward
@@ -223,17 +224,17 @@ class WalkForwardObjective:
         )
         return score
 
-    def get_result(self, trial_number: int) -> Optional[WalkForwardResults]:
+    def get_result(self, trial_number: int) -> WalkForwardResults | None:
         return self._results_by_trial.get(trial_number)
 
-    def get_params(self, trial_number: int) -> Optional[Dict[str, Any]]:
+    def get_params(self, trial_number: int) -> dict[str, Any] | None:
         return self._params_by_trial.get(trial_number)
 
 
 class OptunaOptimizer:
     def __init__(
         self,
-        bars: List[Bar],
+        bars: list[Bar],
         strategy_factory: StrategyFactory,
         pair: str,
         search_space: SearchSpace,
@@ -243,11 +244,11 @@ class OptunaOptimizer:
         val_ratio: float = 0.15,
         overlap_ratio: float = 0.2,
         initial_balance: float = 10000,
-        spread_pips: Optional[float] = None,
-        commission_per_lot: Optional[float] = None,
-        composite_weights: Optional[Dict[str, float]] = None,
-        sampler: Optional[optuna.samplers.BaseSampler] = None,
-        seed: Optional[int] = 42,
+        spread_pips: float | None = None,
+        commission_per_lot: float | None = None,
+        composite_weights: dict[str, float] | None = None,
+        sampler: optuna.samplers.BaseSampler | None = None,
+        seed: int | None = 42,
         direction: str = "maximize",
     ):
         self._bars = bars
@@ -321,7 +322,7 @@ class OptunaOptimizer:
         best_trial = study.best_trial
         best_wf = self._objective.get_result(best_trial.number)
 
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "n_trials": len(study.trials),
             "n_complete": len(completed),
             "n_pruned": len(

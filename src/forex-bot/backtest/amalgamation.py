@@ -1,17 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 from .engine import (
-    Bar,
     BacktestConfig,
     BacktestMetrics,
+    Bar,
+    ExitReason,
     MarketState,
     SessionType,
     SimulatedTrade,
     StrategySignal,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
     determine_session,
 )
 from .strategies import ISignalStrategy
@@ -53,11 +54,11 @@ class AmalgamationConfig:
     confidence_method: ConfidenceMethod = ConfidenceMethod.WEIGHTED
     min_combined_confidence: float = 0.50
     min_confluence: int = 2
-    strategy_weights: Dict[str, float] = field(default_factory=dict)
+    strategy_weights: dict[str, float] = field(default_factory=dict)
     confluence_bonus: float = 0.10
     session_filter_enabled: bool = True
     regime_filter_enabled: bool = False
-    allowed_sessions: List[SessionType] = field(
+    allowed_sessions: list[SessionType] = field(
         default_factory=lambda: [
             SessionType.LONDON,
             SessionType.NY_AM,
@@ -80,13 +81,13 @@ class AmalgamationConfig:
 class ComponentProfile:
     name: str
     component_type: str
-    sub_components: List[str] = field(default_factory=list)
+    sub_components: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ExtractionResult:
     strategy_name: str
-    direction: Optional[TradeDirection]
+    direction: TradeDirection | None
     confidence: float
     entry_price: float
     stop_loss: float
@@ -107,7 +108,7 @@ class ComponentExtractor:
 
     def extract(
         self, strategy: ISignalStrategy, state: MarketState
-    ) -> Optional[ExtractionResult]:
+    ) -> ExtractionResult | None:
         signal = strategy.evaluate(state)
         if signal is None:
             return None
@@ -140,8 +141,8 @@ class AmalgamationEngine:
         self.config = config
 
     def combine(
-        self, signals: List[StrategySignal], state: MarketState
-    ) -> Optional[StrategySignal]:
+        self, signals: list[StrategySignal], state: MarketState
+    ) -> StrategySignal | None:
         if not signals:
             return None
 
@@ -176,8 +177,8 @@ class AmalgamationEngine:
         )
 
     def _apply_meta_filters(
-        self, signals: List[StrategySignal], state: MarketState
-    ) -> List[StrategySignal]:
+        self, signals: list[StrategySignal], state: MarketState
+    ) -> list[StrategySignal]:
         filtered = signals
 
         if self.config.session_filter_enabled:
@@ -189,7 +190,7 @@ class AmalgamationEngine:
 
         return filtered
 
-    def _vote_direction(self, signals: List[StrategySignal]) -> TradeDirection:
+    def _vote_direction(self, signals: list[StrategySignal]) -> TradeDirection:
         long_signals = [s for s in signals if s.direction == TradeDirection.LONG]
         short_signals = [s for s in signals if s.direction == TradeDirection.SHORT]
 
@@ -240,7 +241,7 @@ class AmalgamationEngine:
             return TradeDirection.NEUTRAL
 
     def _compute_confidence(
-        self, signals: List[StrategySignal], direction: TradeDirection
+        self, signals: list[StrategySignal], direction: TradeDirection
     ) -> float:
         direction_signals = [s for s in signals if s.direction == direction]
 
@@ -263,8 +264,8 @@ class AmalgamationEngine:
             return min(0.99, base * bonus)
 
     def _aggregate_levels(
-        self, signals: List[StrategySignal], direction: TradeDirection
-    ) -> Tuple[float, float, float, float, float]:
+        self, signals: list[StrategySignal], direction: TradeDirection
+    ) -> tuple[float, float, float, float, float]:
         if not signals:
             return (0, 0, 0, 0, 0)
 
@@ -283,7 +284,7 @@ class AmalgamationEngine:
 
     def _build_rationale(
         self,
-        signals: List[StrategySignal],
+        signals: list[StrategySignal],
         direction: TradeDirection,
         confidence: float,
     ) -> str:
@@ -301,8 +302,8 @@ class AmalgamatedBacktestEngine:
     def __init__(
         self,
         config: BacktestConfig,
-        strategies: List[ISignalStrategy],
-        amalgamation_config: Optional[AmalgamationConfig] = None,
+        strategies: list[ISignalStrategy],
+        amalgamation_config: AmalgamationConfig | None = None,
     ):
         self.config = config
         self.amalgamation = (
@@ -326,14 +327,14 @@ class AmalgamatedBacktestEngine:
         else:
             self.strategies = strategies
 
-    def run(self, bars: List[Bar]) -> BacktestMetrics:
+    def run(self, bars: list[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
-        trades: List[SimulatedTrade] = []
+        trades: list[SimulatedTrade] = []
         equity_curve = [self.balance]
-        open_trades: List[SimulatedTrade] = []
+        open_trades: list[SimulatedTrade] = []
         rejected_signals = 0
 
         engine = AmalgamationEngine(self.amalgamation)
@@ -359,7 +360,7 @@ class AmalgamatedBacktestEngine:
                     bars=bars[: i + 1], current_session=determine_session(bars[i].time)
                 )
 
-                all_signals: List[StrategySignal] = []
+                all_signals: list[StrategySignal] = []
                 for strategy in self.strategies:
                     extraction = self.extractor.extract(strategy, state)
                     if (
@@ -398,8 +399,8 @@ class AmalgamatedBacktestEngine:
         return self._calculate_metrics(trades, equity_curve, rejected_signals)
 
     def run_individual_and_combined(
-        self, bars: List[Bar]
-    ) -> Tuple[Dict[str, BacktestMetrics], BacktestMetrics]:
+        self, bars: list[Bar]
+    ) -> tuple[dict[str, BacktestMetrics], BacktestMetrics]:
         from .multi_strategy_engine import MultiStrategyBacktestEngine
 
         multi_engine = MultiStrategyBacktestEngine(self.config, self.strategies)
@@ -446,11 +447,11 @@ class AmalgamatedBacktestEngine:
 
     def _check_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar: Bar,
         bar_index: int,
-        closed_trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        closed_trades: list[SimulatedTrade],
+        equity_curve: list[float],
     ):
         to_close = []
         for trade in open_trades:
@@ -552,10 +553,10 @@ class AmalgamatedBacktestEngine:
 
     def _close_all_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar_index: int,
         exit_time,
-        closed_trades: List[SimulatedTrade],
+        closed_trades: list[SimulatedTrade],
     ):
         for trade in open_trades:
             self._close_trade(
@@ -570,7 +571,7 @@ class AmalgamatedBacktestEngine:
 
     def _open_trade(
         self, signal: StrategySignal, bar: Bar, bar_index: int
-    ) -> Optional[SimulatedTrade]:
+    ) -> SimulatedTrade | None:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
@@ -620,8 +621,8 @@ class AmalgamatedBacktestEngine:
 
     def _calculate_metrics(
         self,
-        trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        trades: list[SimulatedTrade],
+        equity_curve: list[float],
         rejected_signals: int,
     ) -> BacktestMetrics:
         metrics = BacktestMetrics(
@@ -693,7 +694,7 @@ class AmalgamatedBacktestEngine:
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
 
-    def _calculate_sharpe_ratio(self, equity_curve: List[float]) -> float:
+    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
         import math
 
         if len(equity_curve) < 2:

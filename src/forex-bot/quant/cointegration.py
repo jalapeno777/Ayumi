@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import numpy as np
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 from statsmodels.tsa.stattools import adfuller
 
 
@@ -37,7 +37,7 @@ class CointegrationEngine:
 
     def compute_hedge_ratio(
         self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Compute hedge ratio via OLS: prices_a = constant + hedge_ratio * prices_b."""
         if len(prices_a) < 2 or len(prices_b) < 2:
             return 1.0, 0.0
@@ -50,8 +50,8 @@ class CointegrationEngine:
         self,
         prices_a: np.ndarray,
         prices_b: np.ndarray,
-        hedge_ratio: Optional[float] = None,
-        constant: Optional[float] = None,
+        hedge_ratio: float | None = None,
+        constant: float | None = None,
     ) -> np.ndarray:
         """Compute spread: spread = prices_a - hedge_ratio * prices_b - constant."""
         if hedge_ratio is None or constant is None:
@@ -104,9 +104,9 @@ class CointegrationEngine:
         self,
         prices_a: np.ndarray,
         prices_b: np.ndarray,
-        hedge_ratio: Optional[float] = None,
-        constant: Optional[float] = None,
-        lookback: Optional[int] = None,
+        hedge_ratio: float | None = None,
+        constant: float | None = None,
+        lookback: int | None = None,
     ) -> SpreadStats:
         """Compute z-score of the spread with no look-ahead bias.
 
@@ -153,7 +153,7 @@ class CointegrationEngine:
         prices_b: np.ndarray,
         window: int,
         step: int = 1,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Sliding-window Engle-Granger cointegration analysis."""
         results = []
         for i in range(0, len(prices_a) - window, step):
@@ -194,10 +194,10 @@ class PairsSignalGenerator:
         self.stop_loss_threshold = stop_loss_threshold
         self.cointegration_engine = CointegrationEngine(lookback=lookback)
         self.lookback = lookback
-        self._hedge_ratio: Optional[float] = None
-        self._constant: Optional[float] = None
+        self._hedge_ratio: float | None = None
+        self._constant: float | None = None
         self._in_position: bool = False
-        self._position_side: Optional[str] = None
+        self._position_side: str | None = None
 
     def reset(self):
         """Clear all internal state."""
@@ -207,11 +207,11 @@ class PairsSignalGenerator:
         self._position_side = None
 
     @property
-    def hedge_ratio(self) -> Optional[float]:
+    def hedge_ratio(self) -> float | None:
         return self._hedge_ratio
 
     @property
-    def constant(self) -> Optional[float]:
+    def constant(self) -> float | None:
         return self._constant
 
     @property
@@ -229,7 +229,7 @@ class PairsSignalGenerator:
 
     def compute_spread(
         self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> Optional[float]:
+    ) -> float | None:
         """Compute current spread using stored hedge ratio."""
         if self._hedge_ratio is None:
             return None
@@ -237,7 +237,7 @@ class PairsSignalGenerator:
 
     def compute_z_score(
         self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> Optional[float]:
+    ) -> float | None:
         """Compute z-score using stored hedge ratio (no look-ahead bias)."""
         if self._hedge_ratio is None:
             return None
@@ -253,7 +253,7 @@ class PairsSignalGenerator:
 
     def generate_signal(
         self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Generate trading signal based on z-score thresholds.
 
         Returns:
@@ -304,11 +304,11 @@ class PairsSignalGenerator:
 def parameter_sweep(
     prices_a: np.ndarray,
     prices_b: np.ndarray,
-    lookbacks: List[int],
-    entry_thresholds: List[float],
-    exit_thresholds: List[float],
-    stop_thresholds: List[float],
-) -> List[Dict]:
+    lookbacks: list[int],
+    entry_thresholds: list[float],
+    exit_thresholds: list[float],
+    stop_thresholds: list[float],
+) -> list[dict]:
     """Grid search over cointegration parameters.
 
     Returns list of dicts with parameter combos and signal counts.
@@ -321,8 +321,8 @@ def parameter_sweep(
     if len(prices_a) < min_len or len(prices_b) < min_len:
         return []
 
-    coint_cache: Dict[Tuple[int, int], Optional[Tuple[float, float]]] = {}
-    engines: Dict[int, CointegrationEngine] = {
+    coint_cache: dict[tuple[int, int], tuple[float, float] | None] = {}
+    engines: dict[int, CointegrationEngine] = {
         lb: CointegrationEngine(lookback=lb) for lb in lookbacks
     }
 

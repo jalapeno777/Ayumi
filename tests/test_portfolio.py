@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timedelta
 
+import pytest
 from backtest.engine import (
     Bar,
     MarketState,
@@ -11,17 +11,16 @@ from backtest.engine import (
     TradeDirection,
 )
 from backtest.strategies import ISignalStrategy
-
-from quant.config import QuantConfig, RegimeConfig, CorrelationConfig
+from quant.config import CorrelationConfig, QuantConfig, RegimeConfig
 from quant.pipeline import QuantPipeline
 from quant.portfolio import (
-    StrategyPortfolio,
+    AllocationMethod,
+    ConflictResolution,
     PortfolioConfig,
     PortfolioConstraints,
     PortfolioTracker,
     StrategyAllocation,
-    AllocationMethod,
-    ConflictResolution,
+    StrategyPortfolio,
     build_default_portfolio,
 )
 

@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def _to_dataframe(result: SweepResult) -> pd.DataFrame:
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     for row in result.rows:
         record = dict(row.params)
         record["win_rate"] = row.win_rate

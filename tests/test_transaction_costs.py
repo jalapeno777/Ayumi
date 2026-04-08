@@ -2,11 +2,11 @@ import unittest
 from datetime import datetime, timedelta
 
 from backtest.engine import (
-    Bar,
+    DEFAULT_SPREAD_PIPS,
     BacktestConfig,
     BacktestEngine,
+    Bar,
     get_spread_for_pair,
-    DEFAULT_SPREAD_PIPS,
 )
 from backtest.strategies import MACrossStrategy
 

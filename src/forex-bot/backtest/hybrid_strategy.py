@@ -22,7 +22,7 @@ class HybridConfig:
     min_confidence: float = 0.5
     volatility_threshold_percentile: float = 30.0
     trend_threshold_adx: float = 20.0
-    enabled_filters: Tuple[QuantFilterName, ...] = (
+    enabled_filters: tuple[QuantFilterName, ...] = (
         QuantFilterName.VOLATILITY,
         QuantFilterName.TREND,
         QuantFilterName.H4_ALIGNMENT,
@@ -44,7 +44,7 @@ class RejectionMetrics:
             return 0.0
         return (self.total_evaluated - self.passed) / self.total_evaluated
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> dict[str, int]:
         return {
             "total_evaluated": self.total_evaluated,
             "rejected_by_confidence": self.rejected_by_confidence,
@@ -58,8 +58,8 @@ class RejectionMetrics:
 class HybridStrategy:
     def __init__(
         self,
-        config: Optional[HybridConfig] = None,
-        ict_engine: Optional[SignalConfluenceEngine] = None,
+        config: HybridConfig | None = None,
+        ict_engine: SignalConfluenceEngine | None = None,
     ):
         self.config = config or HybridConfig()
         self._ict_engine = ict_engine or SignalConfluenceEngine()
@@ -73,13 +73,13 @@ class HybridStrategy:
     def evaluate(
         self,
         ict_state: ICTMarketState,
-        h4_bars: Optional[List[Bar]] = None,
-        atr_series: Optional[List[float]] = None,
-        high_series: Optional[List[float]] = None,
-        low_series: Optional[List[float]] = None,
-        close_series: Optional[List[float]] = None,
-        bar_time: Optional[datetime] = None,
-    ) -> Optional[StrategySignal]:
+        h4_bars: list[Bar] | None = None,
+        atr_series: list[float] | None = None,
+        high_series: list[float] | None = None,
+        low_series: list[float] | None = None,
+        close_series: list[float] | None = None,
+        bar_time: datetime | None = None,
+    ) -> StrategySignal | None:
         self.metrics.total_evaluated += 1
 
         ict_signal = self._ict_engine.evaluate(ict_state, h4_bars=h4_bars)
@@ -110,12 +110,12 @@ class HybridStrategy:
         self,
         signal: ConfluenceSignal,
         ict_state: ICTMarketState,
-        h4_bars: Optional[List[Bar]] = None,
-        atr_series: Optional[List[float]] = None,
-        high_series: Optional[List[float]] = None,
-        low_series: Optional[List[float]] = None,
-        close_series: Optional[List[float]] = None,
-        bar_time: Optional[datetime] = None,
+        h4_bars: list[Bar] | None = None,
+        atr_series: list[float] | None = None,
+        high_series: list[float] | None = None,
+        low_series: list[float] | None = None,
+        close_series: list[float] | None = None,
+        bar_time: datetime | None = None,
     ) -> bool:
         enabled = set(self.config.enabled_filters)
 
@@ -138,7 +138,7 @@ class HybridStrategy:
 
         return True
 
-    def _check_volatility(self, atr_series: Optional[List[float]]) -> bool:
+    def _check_volatility(self, atr_series: list[float] | None) -> bool:
         if atr_series is None or len(atr_series) < 2:
             return True
 
@@ -153,9 +153,9 @@ class HybridStrategy:
 
     def _check_trend(
         self,
-        high: Optional[List[float]],
-        low: Optional[List[float]],
-        close: Optional[List[float]],
+        high: list[float] | None,
+        low: list[float] | None,
+        close: list[float] | None,
     ) -> bool:
         if high is None or low is None or close is None:
             return True
@@ -170,7 +170,7 @@ class HybridStrategy:
     def _check_h4_alignment(
         self,
         signal: ConfluenceSignal,
-        h4_bars: Optional[List[Bar]],
+        h4_bars: list[Bar] | None,
         current_price: float,
         atr: float,
     ) -> bool:

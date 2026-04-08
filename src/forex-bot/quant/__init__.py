@@ -1,29 +1,29 @@
 from __future__ import annotations
 
-from .config import QuantConfig
-from .pipeline import (
-    QuantPipeline,
-    TradeDecision,
-    TradeAction,
-    ValidationResult,
-    PortfolioState,
-)
 from .cointegration import (
     CointegrationEngine,
     CointegrationResult,
-    SpreadStats,
     PairsSignalGenerator,
+    SpreadStats,
     parameter_sweep,
 )
+from .config import QuantConfig
+from .pipeline import (
+    PortfolioState,
+    QuantPipeline,
+    TradeAction,
+    TradeDecision,
+    ValidationResult,
+)
 from .portfolio import (
-    StrategyPortfolio,
-    PortfolioConfig,
-    PortfolioConstraints,
-    PortfolioTracker,
-    PortfolioSignal,
-    StrategyAllocation,
     AllocationMethod,
     ConflictResolution,
+    PortfolioConfig,
+    PortfolioConstraints,
+    PortfolioSignal,
+    PortfolioTracker,
+    StrategyAllocation,
+    StrategyPortfolio,
     build_default_portfolio,
 )
 

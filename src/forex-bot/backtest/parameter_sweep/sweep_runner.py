@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..engine import BacktestConfig, Bar
 from ..enhanced_engine import EnhancedBacktestEngine
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 StrategyFactory = Callable[[GridPoint], ISignalStrategy]
 
 
-def _worker_entry(args: tuple) -> Optional[Dict[str, Any]]:
+def _worker_entry(args: tuple) -> dict[str, Any] | None:
     config_dict, bars_data, strategy_config = args
     config = BacktestConfig(**config_dict)
     bars = [Bar(**b) for b in bars_data]
@@ -37,7 +38,7 @@ def _worker_entry(args: tuple) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
+def _rebuild_strategy(config: dict[str, Any]) -> ISignalStrategy:
     cls_name = config["__class__"]
     params = {k: v for k, v in config.items() if k != "__class__"}
     from ..strategies import (
@@ -52,7 +53,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         SupertrendRSIBlendStrategy,
     )
 
-    registry: Dict[str, type] = {
+    registry: dict[str, type] = {
         "MACrossStrategy": MACrossStrategy,
         "BBStrategy": BBStrategy,
         "KeltnerChannelBreakoutStrategy": KeltnerChannelBreakoutStrategy,
@@ -69,13 +70,13 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     return cls(**params)
 
 
-def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
+def _serialize_strategy(strategy: ISignalStrategy) -> dict[str, Any]:
     params = {k: v for k, v in strategy.__dict__.items() if not k.startswith("_")}
     params["__class__"] = type(strategy).__name__
     return params
 
 
-def _serialize_bars(bars: List[Bar]) -> List[Dict[str, Any]]:
+def _serialize_bars(bars: list[Bar]) -> list[dict[str, Any]]:
     from dataclasses import asdict
 
     return [asdict(b) for b in bars]
@@ -85,9 +86,9 @@ class SweepRunner:
     def __init__(
         self,
         config: BacktestConfig,
-        bars: List[Bar],
+        bars: list[Bar],
         strategy_factory: StrategyFactory,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
     ):
         self._config = config
         self._bars = bars
@@ -95,9 +96,9 @@ class SweepRunner:
         self._max_workers = max_workers if max_workers is not None else os.cpu_count()
 
     def run(self, grid: ParameterGrid) -> SweepResult:
-        rows: List[SweepRow] = []
-        tasks: List[tuple] = []
-        grid_points: List[GridPoint] = []
+        rows: list[SweepRow] = []
+        tasks: list[tuple] = []
+        grid_points: list[GridPoint] = []
 
         config_dict = self._config_to_dict()
         bars_data = _serialize_bars(self._bars)
@@ -114,7 +115,7 @@ class SweepRunner:
                     executor.submit(_worker_entry, task): idx
                     for idx, task in enumerate(tasks)
                 }
-                results: List[Optional[Dict[str, Any]]] = [None] * len(tasks)  # type: ignore[assignment]
+                results: list[dict[str, Any] | None] = [None] * len(tasks)  # type: ignore[assignment]
                 for future in as_completed(future_to_idx):
                     idx = future_to_idx[future]
                     results[idx] = future.result()
@@ -127,7 +128,7 @@ class SweepRunner:
 
         return SweepResult(rows=rows)
 
-    def _config_to_dict(self) -> Dict[str, Any]:
+    def _config_to_dict(self) -> dict[str, Any]:
         from dataclasses import asdict
 
         return asdict(self._config)

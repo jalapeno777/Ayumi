@@ -22,12 +22,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
+from backtest.strategies import ISignalStrategy
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 
-from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
-from backtest.strategies import ISignalStrategy
 from ml.features import (
     atr,
     bollinger_bands,
@@ -70,7 +70,7 @@ FEATURE_COLS = [
     "outside_session",
 ]
 
-MODEL_HYPERPARAMS: Dict[str, List[Dict[str, Any]]] = {
+MODEL_HYPERPARAMS: dict[str, list[dict[str, Any]]] = {
     "gradient_boosting": [
         {
             "n_estimators": 100,
@@ -135,7 +135,7 @@ try:
         },
     ]
 
-    def _make_xgb(params: Dict[str, Any]) -> Any:
+    def _make_xgb(params: dict[str, Any]) -> Any:
         return XGBClassifier(
             **params,
             use_label_encoder=False,
@@ -149,7 +149,7 @@ except ImportError:
     HAS_XGBOOST = False
 
 
-def _make_model(model_type: str, params: Dict[str, Any]):
+def _make_model(model_type: str, params: dict[str, Any]):
     if model_type == "gradient_boosting":
         return GradientBoostingClassifier(**params, random_state=42)
     if model_type == "random_forest":
@@ -163,10 +163,10 @@ def _make_model(model_type: str, params: Dict[str, Any]):
 class TrainingResult:
     model: Any
     model_type: str
-    feature_names: List[str]
+    feature_names: list[str]
     threshold: float
-    metrics: Dict[str, float]
-    fold_metrics: List[Dict[str, float | str]] = field(default_factory=list)
+    metrics: dict[str, float]
+    fold_metrics: list[dict[str, float | str]] = field(default_factory=list)
 
 
 def _load_csv_to_df(csv_path: str) -> pd.DataFrame:
@@ -247,7 +247,7 @@ def prepare_data(
 def _optimize_threshold(
     y_prob: np.ndarray,
     y_true: np.ndarray,
-    pnl: Optional[np.ndarray] = None,
+    pnl: np.ndarray | None = None,
     min_prob: float = 0.40,
     max_prob: float = 0.80,
 ) -> float:
@@ -285,7 +285,7 @@ def _optimize_threshold(
 
 def train_model(
     dataset: pd.DataFrame,
-    model_types: Optional[List[str]] = None,
+    model_types: list[str] | None = None,
     test_ratio: float = 0.2,
     seed: int = 42,
 ) -> TrainingResult:
@@ -423,7 +423,7 @@ def walk_forward_validate(
     rr: float = 1.5,
     max_holding_bars: int = 50,
     seed: int = 42,
-) -> Tuple[TrainingResult, List[Dict[str, float | str]]]:
+) -> tuple[TrainingResult, list[dict[str, float | str]]]:
     """Train with walk-forward validation on EURUSD M15 data.
 
     Uses true temporal walk-forward: for each fold *i*, the model is
@@ -439,7 +439,7 @@ def walk_forward_validate(
     df = _load_csv_to_df(csv_path)
     fold_size = len(df) // n_folds
 
-    def _build_dataset_for_range(df_subset: pd.DataFrame) -> Optional[pd.DataFrame]:
+    def _build_dataset_for_range(df_subset: pd.DataFrame) -> pd.DataFrame | None:
         signals = bb_mean_reversion_signals(
             df_subset, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr
         )
@@ -472,15 +472,15 @@ def walk_forward_validate(
         ds = ds.dropna(subset=["outcome"])
         return ds
 
-    fold_data: List[Optional[pd.DataFrame]] = []
+    fold_data: list[pd.DataFrame | None] = []
     for fold_idx in range(n_folds):
         start = fold_idx * fold_size
         end = start + fold_size if fold_idx < n_folds - 1 else len(df)
         fold_df = df.iloc[start:end].copy()
         fold_data.append(_build_dataset_for_range(fold_df))
 
-    fold_metrics: List[Dict[str, float | str]] = []
-    last_result: Optional[TrainingResult] = None
+    fold_metrics: list[dict[str, float | str]] = []
+    last_result: TrainingResult | None = None
 
     for fold_idx in range(1, n_folds):
         train_parts = [fd for fd in fold_data[:fold_idx] if fd is not None]
@@ -579,7 +579,7 @@ def save_model(result: TrainingResult, output_dir: str) -> None:
         json.dump(meta, f, indent=2)
 
 
-def load_model(model_dir: str) -> Tuple[Any, List[str], float]:
+def load_model(model_dir: str) -> tuple[Any, list[str], float]:
     """Load a trained model from disk.
 
     Returns
@@ -610,7 +610,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
     def __init__(
         self,
         model: Any,
-        feature_names: List[str],
+        feature_names: list[str],
         threshold: float = 0.50,
         bb_period: int = 20,
         bb_std: float = 2.0,
@@ -635,7 +635,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
     def from_model_dir(
         cls,
         model_dir: str,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
         **kwargs,
     ) -> MLMeanReversionStrategy:
         model, feature_names, default_threshold = load_model(model_dir)
@@ -646,7 +646,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
             **kwargs,
         )
 
-    def _bars_to_dataframe(self, bars: List[Bar]) -> pd.DataFrame:
+    def _bars_to_dataframe(self, bars: list[Bar]) -> pd.DataFrame:
         rows = []
         for bar in bars:
             rows.append(
@@ -662,8 +662,8 @@ class MLMeanReversionStrategy(ISignalStrategy):
         return pd.DataFrame(rows)
 
     def _compute_signal_levels(
-        self, bars: List[Bar]
-    ) -> Optional[Tuple[float, float, float, float, int]]:
+        self, bars: list[Bar]
+    ) -> tuple[float, float, float, float, int] | None:
         """Compute BB levels, ATR, and a mean-reversion direction.
 
         Returns ``(bb_upper, bb_mid, bb_lower, atr_val, direction)`` or
@@ -701,7 +701,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
 
         return bb_u, bb_m, bb_l, a, direction
 
-    def _compute_features(self, bars: List[Bar]) -> Optional[pd.Series]:
+    def _compute_features(self, bars: list[Bar]) -> pd.Series | None:
         """Build a feature row from the current bar history."""
         if len(bars) < self._min_lookback:
             return None
@@ -717,7 +717,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
 
         return row[self._feature_names]
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         bars = state.bars
         if len(bars) < self._min_lookback:
             return None

@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import List
+
 from .engine import Bar, BarPeriod
 
 
 class CsvDataLoader:
-    def load(self, filepath: str) -> List[Bar]:
+    def load(self, filepath: str) -> list[Bar]:
         bars = []
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             lines = f.readlines()
 
         for line in lines[1:]:
@@ -39,7 +40,7 @@ class CsvDataLoader:
 
         return bars
 
-    def load_from_string(self, csv_content: str) -> List[Bar]:
+    def load_from_string(self, csv_content: str) -> list[Bar]:
         bars = []
         lines = csv_content.strip().split("\n")
 
@@ -73,7 +74,7 @@ class CsvDataLoader:
 
         return bars
 
-    def infer_timeframe(self, bars: List[Bar]) -> BarPeriod:
+    def infer_timeframe(self, bars: list[Bar]) -> BarPeriod:
         if len(bars) < 2:
             return BarPeriod(60)
 

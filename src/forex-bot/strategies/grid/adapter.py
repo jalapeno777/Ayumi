@@ -11,7 +11,7 @@ from .types import GridSide, GridTrade
 
 
 class GridStrategyAdapter(ISignalStrategy):
-    def __init__(self, config: Optional[GridConfig] = None):
+    def __init__(self, config: GridConfig | None = None):
         self._config = config or GridConfig.eurusd()
         self._manager = GridManager(self._config)
         self._initialized = False
@@ -34,7 +34,7 @@ class GridStrategyAdapter(ISignalStrategy):
     def set_balance(self, balance: float) -> None:
         self._balance = balance
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if not state.bars:
             return None
 

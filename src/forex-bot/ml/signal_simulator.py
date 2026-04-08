@@ -1,15 +1,16 @@
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
-from typing import Callable
 
 from .features import (
-    sma,
     atr,
-    rsi,
     bollinger_bands,
-    roc,
-    engulfing_bullish,
     engulfing_bearish,
+    engulfing_bullish,
+    roc,
+    rsi,
+    sma,
 )
 
 _SignalFn = Callable[[pd.DataFrame], pd.DataFrame]

@@ -1,12 +1,12 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, date, timedelta, timezone
-from typing import Optional, List, Callable
-from threading import Lock
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
+from threading import Lock
+from typing import List, Optional
 
-from .models import TradeSignal, TradeDirection
-
+from .models import TradeDirection, TradeSignal
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class DailyTradingStats:
 class RiskGuard:
     def __init__(
         self,
-        ftmo_config: Optional[FTMOConfig] = None,
+        ftmo_config: FTMOConfig | None = None,
         starting_balance: float = 100000.0,
     ):
         self._config = ftmo_config or FTMOConfig()
@@ -99,13 +99,13 @@ class RiskGuard:
         self._peak_balance = starting_balance
         self._current_balance = starting_balance
         self._daily_start_balance = starting_balance
-        self._current_day: Optional[date] = None
-        self._daily_stats: List[DailyTradingStats] = []
+        self._current_day: date | None = None
+        self._daily_stats: list[DailyTradingStats] = []
         self._lock = Lock()
-        self._callbacks: List[Callable] = []
+        self._callbacks: list[Callable] = []
         self._daily_trade_count = 0
         self._total_trades = 0
-        self._blocked_until: Optional[datetime] = None
+        self._blocked_until: datetime | None = None
         self._circuit_breaker_triggered = False
 
     def check_signal(self, signal: TradeSignal) -> RiskLimitResult:
@@ -152,7 +152,7 @@ class RiskGuard:
         entry_price: float,
         stop_loss: float,
         take_profit: float,
-        account_balance: Optional[float] = None,
+        account_balance: float | None = None,
     ) -> RiskLimitResult:
         with self._lock:
             return self._check_trade_allowed_internal(
@@ -166,7 +166,7 @@ class RiskGuard:
         entry_price: float,
         stop_loss: float,
         take_profit: float,
-        account_balance: Optional[float] = None,
+        account_balance: float | None = None,
     ) -> RiskLimitResult:
         if account_balance:
             self._current_balance = account_balance

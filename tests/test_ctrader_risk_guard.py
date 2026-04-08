@@ -1,15 +1,14 @@
 from datetime import date
 
 import pytest
-
-from adapters.ctrader.models import TradeSignal, TradeDirection
+from adapters.ctrader.models import TradeDirection, TradeSignal
 from adapters.ctrader.risk_guard import (
-    RiskGuard,
+    FTMO_PROFILE_CHALLENGE,
     FTMOConfig,
     FTMOProfile,
-    FTMO_PROFILE_CHALLENGE,
-    RiskLimitType,
+    RiskGuard,
     RiskLimitResult,
+    RiskLimitType,
 )
 
 

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from .engine import Bar, BacktestConfig
+from quant.vaps import VAPSConfig, vaps_regime
+
+from .engine import BacktestConfig, Bar
 from .multi_strategy_engine import (
     MultiStrategyBacktestEngine,
     StrategyBacktestResult,
 )
 from .strategies import ISignalStrategy
-from quant.vaps import VAPSConfig, vaps_regime
 
 
-def _compute_atr(bars: List[Bar], period: int = 14) -> float:
+def _compute_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -30,17 +31,17 @@ class VAPSBacktestEngine(MultiStrategyBacktestEngine):
     def __init__(
         self,
         config: BacktestConfig,
-        strategies: List[ISignalStrategy],
-        vaps_config: Optional[VAPSConfig] = None,
+        strategies: list[ISignalStrategy],
+        vaps_config: VAPSConfig | None = None,
         atr_period: int = 14,
     ):
         super().__init__(config, strategies)
         self._vaps_config = vaps_config or VAPSConfig()
         self._atr_period = atr_period
         self._atr_history: list[float] = []
-        self._all_bars: List[Bar] = []
+        self._all_bars: list[Bar] = []
 
-    def run_all_strategies(self, bars: List[Bar]) -> dict[str, StrategyBacktestResult]:
+    def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
         self._all_bars = bars
         self._atr_history = []
         return super().run_all_strategies(bars)

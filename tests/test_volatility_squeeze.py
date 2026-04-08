@@ -1,7 +1,7 @@
-import sys
-import os
-import unittest
 import dataclasses
+import os
+import sys
+import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
@@ -9,21 +9,21 @@ from datetime import datetime
 
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
-    VolatilitySqueezeStrategy,
-    VolatilitySqueezeConfig,
-    GBPJPY_H1_PRESET,
     EURUSD_H1_PRESET,
+    GBPJPY_H1_PRESET,
     XAUUSD_H1_PRESET,
-    _calculate_sma,
-    _calculate_ema,
-    _calculate_std,
-    _calculate_atr,
+    VolatilitySqueezeConfig,
+    VolatilitySqueezeStrategy,
+    _build_signal,
     _calculate_adx,
+    _calculate_atr,
     _calculate_bollinger_bands,
+    _calculate_ema,
     _calculate_keltner_channels,
+    _calculate_sma,
+    _calculate_std,
     _detect_squeeze_duration,
     _passes_session_filter,
-    _build_signal,
 )
 
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from .config import GridConfig, GridDirectionBias
+from .trend_filter import TrendFilter, TrendFilterResult
 from .types import (
     GridLevel,
     GridLevelStatus,
@@ -11,28 +12,27 @@ from .types import (
     GridState,
     GridTrade,
 )
-from .trend_filter import TrendFilter, TrendFilterResult
 
 
 class GridManager:
     def __init__(self, config: GridConfig):
         self._config = config
         self._trend_filter = TrendFilter(config)
-        self._state: Optional[GridState] = None
+        self._state: GridState | None = None
 
     @property
     def config(self) -> GridConfig:
         return self._config
 
     @property
-    def state(self) -> Optional[GridState]:
+    def state(self) -> GridState | None:
         return self._state
 
     def initialize(
         self,
         center_price: float,
         equity: float,
-        current_time: Optional[datetime] = None,
+        current_time: datetime | None = None,
     ) -> GridState:
         tf = self._get_initial_trend_filter(center_price)
 
@@ -68,8 +68,8 @@ class GridManager:
         bars_high: list[float],
         bars_low: list[float],
         bars_close: list[float],
-        current_time: Optional[datetime] = None,
-        equity: Optional[float] = None,
+        current_time: datetime | None = None,
+        equity: float | None = None,
     ) -> list[GridTrade]:
         if self._state is None or not self._state.is_active:
             return []
@@ -102,7 +102,7 @@ class GridManager:
         self,
         trade: GridTrade,
         exit_price: float,
-        exit_time: Optional[datetime] = None,
+        exit_time: datetime | None = None,
     ) -> None:
         if self._state is None:
             return
@@ -189,7 +189,7 @@ class GridManager:
         high: float,
         low: float,
         close: float,
-        current_time: Optional[datetime] = None,
+        current_time: datetime | None = None,
     ) -> list[GridTrade]:
         if self._state is None:
             return []
@@ -242,7 +242,7 @@ class GridManager:
     def _check_daily_loss(
         self,
         equity: float,
-        current_time: Optional[datetime] = None,
+        current_time: datetime | None = None,
     ) -> bool:
         if self._state is None:
             return False
@@ -263,8 +263,8 @@ class GridManager:
 
     def _check_daily_reset(
         self,
-        current_time: Optional[datetime],
-        equity: Optional[float] = None,
+        current_time: datetime | None,
+        equity: float | None = None,
     ) -> None:
         if self._state is None or current_time is None:
             return
@@ -288,7 +288,7 @@ class GridManager:
                 level.status = GridLevelStatus.CANCELLED
 
     def _close_all_trades(
-        self, close_price: float, close_time: Optional[datetime] = None
+        self, close_price: float, close_time: datetime | None = None
     ) -> None:
         if self._state is None:
             return
@@ -306,7 +306,7 @@ class GridManager:
         )
 
     @staticmethod
-    def _side_from_bias(bias: GridDirectionBias) -> Optional[GridSide]:
+    def _side_from_bias(bias: GridDirectionBias) -> GridSide | None:
         if bias == GridDirectionBias.LONG:
             return GridSide.BUY
         if bias == GridDirectionBias.SHORT:

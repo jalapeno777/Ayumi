@@ -8,7 +8,7 @@ from ..engine import Bar, ExitReason, TradeDirection
 class ExitRefinerState:
     bars_since_entry: int = 0
     tp1_hit: bool = False
-    momentum_history: List[float] = None  # type: ignore[assignment]
+    momentum_history: list[float] = None  # type: ignore[assignment]
 
     def __post_init__(self):
         if self.momentum_history is None:
@@ -19,7 +19,7 @@ class ExitRefinerState:
 class ExitRefinerResult:
     should_exit: bool = False
     exit_price: float = 0.0
-    reason: Optional[ExitReason] = None
+    reason: ExitReason | None = None
     message: str = ""
 
 
@@ -51,7 +51,7 @@ class ExitRefiner:
         state: ExitRefinerState,
         direction: TradeDirection,
         atr: float,
-        recent_bars: Optional[List[Bar]] = None,
+        recent_bars: list[Bar] | None = None,
     ) -> ExitRefinerResult:
         if not self.enabled:
             return ExitRefinerResult()
@@ -130,7 +130,7 @@ class ExitRefiner:
         return ExitRefinerResult()
 
     def _calculate_momentum(
-        self, bar: Bar, recent_bars: Optional[List[Bar]] = None
+        self, bar: Bar, recent_bars: list[Bar] | None = None
     ) -> float:
         if recent_bars and len(recent_bars) >= 2:
             return bar.close - recent_bars[-1].close

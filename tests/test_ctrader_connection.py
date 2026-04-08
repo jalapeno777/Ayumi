@@ -3,13 +3,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from ctrader_fix.connection import (
+    SOH,
     CTraderConnection,
-    MissingCredentialError,
     FIXConnectionError,
+    MissingCredentialError,
     _build_fix_message,
     _checksum,
     _load_credentials,
-    SOH,
 )
 
 SAMPLE_CREDS = {

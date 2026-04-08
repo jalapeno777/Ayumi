@@ -1,27 +1,27 @@
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
-import math
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from .engine import (
-    Bar,
     BacktestConfig,
     BacktestMetrics,
+    Bar,
+    ExitReason,
     MarketState,
     SimulatedTrade,
+    StrategyBacktestResult,
     StrategySignal,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
-    StrategyBacktestResult,
     determine_session,
 )
 from .strategies import ISignalStrategy
 from .trade_management import (
-    TradeManager,
-    TradeManagementConfig,
     ManagedTrade,
     TradeAction,
+    TradeManagementConfig,
+    TradeManager,
 )
 
 if TYPE_CHECKING:
@@ -82,15 +82,15 @@ class EnhancedBacktestEngine:
     def __init__(
         self,
         config: BacktestConfig,
-        strategies: List[ISignalStrategy],
-        tm_config: Optional[TradeManagementConfig] = None,
+        strategies: list[ISignalStrategy],
+        tm_config: TradeManagementConfig | None = None,
         quant_config: Optional["QuantConfig"] = None,
     ):
         self.config = config
         self.strategies = strategies
         self.tm_config = tm_config or TradeManagementConfig()
         self.trade_manager = TradeManager(self.tm_config)
-        self._quant_pipeline: Optional["QuantPipeline"] = None
+        self._quant_pipeline: QuantPipeline | None = None
         if quant_config is not None:
             from quant.config import QuantConfig as QC
             from quant.pipeline import QuantPipeline
@@ -102,15 +102,15 @@ class EnhancedBacktestEngine:
             self._quant_pipeline = QuantPipeline(quant_config)
 
     def run_strategy(
-        self, strategy: ISignalStrategy, bars: List[Bar]
+        self, strategy: ISignalStrategy, bars: list[Bar]
     ) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
-        trade_records: List[EnhancedTradeRecord] = []
+        trade_records: list[EnhancedTradeRecord] = []
         equity_curve = [self.balance]
-        open_trades: List[ManagedTrade] = []
+        open_trades: list[ManagedTrade] = []
         rejected_signals = 0
 
         for i in range(len(bars)):
@@ -192,7 +192,7 @@ class EnhancedBacktestEngine:
         )
         return self._calculate_metrics(trade_records, equity_curve, rejected_signals)
 
-    def run_all_strategies(self, bars: List[Bar]) -> Dict[str, StrategyBacktestResult]:
+    def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
         results = {}
         for strategy in self.strategies:
             metrics = self.run_strategy(strategy, bars)
@@ -204,8 +204,8 @@ class EnhancedBacktestEngine:
         return results
 
     def run_ab_comparison(
-        self, strategy: ISignalStrategy, bars: List[Bar]
-    ) -> Tuple[BacktestMetrics, BacktestMetrics]:
+        self, strategy: ISignalStrategy, bars: list[Bar]
+    ) -> tuple[BacktestMetrics, BacktestMetrics]:
         from .multi_strategy_engine import MultiStrategyBacktestEngine
 
         baseline_engine = MultiStrategyBacktestEngine(self.config, [strategy])
@@ -251,8 +251,8 @@ class EnhancedBacktestEngine:
         signal: StrategySignal,
         bar: Bar,
         bar_index: int,
-        lot_size_override: Optional[float] = None,
-    ) -> Optional[ManagedTrade]:
+        lot_size_override: float | None = None,
+    ) -> ManagedTrade | None:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
@@ -295,12 +295,12 @@ class EnhancedBacktestEngine:
 
     def _process_open_trades(
         self,
-        open_trades: List[ManagedTrade],
+        open_trades: list[ManagedTrade],
         bar: Bar,
         bar_index: int,
-        all_bars: List[Bar],
-        trade_records: List[EnhancedTradeRecord],
-        equity_curve: List[float],
+        all_bars: list[Bar],
+        trade_records: list[EnhancedTradeRecord],
+        equity_curve: list[float],
     ):
         to_close = []
 
@@ -359,10 +359,10 @@ class EnhancedBacktestEngine:
 
     def _close_all_open_trades(
         self,
-        open_trades: List[ManagedTrade],
+        open_trades: list[ManagedTrade],
         bar_index: int,
         exit_time: datetime,
-        trade_records: List[EnhancedTradeRecord],
+        trade_records: list[EnhancedTradeRecord],
     ):
         for trade in open_trades:
             pnl = self._calculate_pnl(
@@ -398,7 +398,7 @@ class EnhancedBacktestEngine:
         trade: ManagedTrade,
         exit_price: float,
         position_pct: float,
-        exit_time: Optional[datetime] = None,
+        exit_time: datetime | None = None,
     ) -> float:
         pip_value = self._get_pip_value(trade.entry_price)
         standard_lots = trade.lot_size / self.config.units_per_lot
@@ -470,8 +470,8 @@ class EnhancedBacktestEngine:
 
     def _calculate_metrics(
         self,
-        trade_records: List[EnhancedTradeRecord],
-        equity_curve: List[float],
+        trade_records: list[EnhancedTradeRecord],
+        equity_curve: list[float],
         rejected_signals: int,
     ) -> BacktestMetrics:
         trades = [r.to_simulated_trade() for r in trade_records]
@@ -544,7 +544,7 @@ class EnhancedBacktestEngine:
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
 
-    def _calculate_sharpe_ratio(self, equity_curve: List[float]) -> float:
+    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
         if len(equity_curve) < 2:
             return 0.0
         returns = []
@@ -571,7 +571,7 @@ class EnhancedBacktestEngine:
             return 0.00000001
 
     @staticmethod
-    def _calculate_atr(bars: List[Bar], current_index: int) -> float:
+    def _calculate_atr(bars: list[Bar], current_index: int) -> float:
         lookback = min(15, current_index + 1)
         if lookback < 2:
             return 0.0001

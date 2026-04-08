@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass(frozen=True)
 class SweepRow:
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     win_rate: float = 0.0
     max_dd: float = 0.0
     total_return: float = 0.0
@@ -24,7 +25,7 @@ class SweepRow:
 
 @dataclass
 class SweepResult:
-    rows: List[SweepRow] = field(default_factory=list)
+    rows: list[SweepRow] = field(default_factory=list)
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -34,20 +35,20 @@ class SweepResult:
 
     def top_n(
         self, n: int, metric: str = "sharpe_ratio", ascending: bool = False
-    ) -> List[SweepRow]:
+    ) -> list[SweepRow]:
         sorted_rows = self.sort_by(metric, ascending=ascending)
         return sorted_rows[:n]
 
     def filter(self, predicate: Callable[[SweepRow], bool]) -> SweepResult:
         return SweepResult(rows=[r for r in self.rows if predicate(r)])
 
-    def sort_by(self, metric: str, ascending: bool = False) -> List[SweepRow]:
+    def sort_by(self, metric: str, ascending: bool = False) -> list[SweepRow]:
         return sorted(
             self.rows,
             key=lambda row: row.get(metric, 0.0),
             reverse=not ascending,
         )
 
-    def best(self, metric: str = "sharpe_ratio") -> Optional[SweepRow]:
+    def best(self, metric: str = "sharpe_ratio") -> SweepRow | None:
         sorted_rows = self.sort_by(metric)
         return sorted_rows[0] if sorted_rows else None

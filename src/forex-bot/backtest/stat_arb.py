@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import numpy as np
 from dataclasses import dataclass
 from typing import List, Optional
+
+import numpy as np
 
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .strategies import ISignalStrategy
@@ -22,7 +23,7 @@ class StatArbStrategy(ISignalStrategy):
         exit_threshold: float = 0.0,
         stop_loss_threshold: float = 3.0,
         atr_multiplier: float = 2.0,
-        pair_b_bars: Optional[List[Bar]] = None,
+        pair_b_bars: list[Bar] | None = None,
     ):
         from quant.cointegration import PairsSignalGenerator
 
@@ -37,8 +38,8 @@ class StatArbStrategy(ISignalStrategy):
             stop_loss_threshold=stop_loss_threshold,
             lookback=lookback,
         )
-        self._pair_b_bars: List[Bar] = pair_b_bars or []
-        self._last_signal: Optional[str] = None
+        self._pair_b_bars: list[Bar] = pair_b_bars or []
+        self._last_signal: str | None = None
         self._position_open: bool = False
         self._bar_count: int = 0
         self._recompute_interval: int = lookback
@@ -47,7 +48,7 @@ class StatArbStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Statistical Arbitrage"
 
-    def set_pair_b_bars(self, bars: List[Bar]):
+    def set_pair_b_bars(self, bars: list[Bar]):
         self._pair_b_bars = bars
 
     def reset(self):
@@ -56,7 +57,7 @@ class StatArbStrategy(ISignalStrategy):
         self._position_open = False
         self._bar_count = 0
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.lookback + 1:
             return None
 
@@ -114,7 +115,7 @@ class StatArbStrategy(ISignalStrategy):
 
     def _create_signal(
         self, state: MarketState, direction_signal: str, reason: str
-    ) -> Optional[StrategySignal]:
+    ) -> StrategySignal | None:
         latest = state.latest_bar
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
 
@@ -160,7 +161,7 @@ class StatArbStrategy(ISignalStrategy):
     def _create_close_signal(
         self,
         state: MarketState,
-        position_side: Optional[str],
+        position_side: str | None,
         reason: str,
         is_stop: bool,
     ) -> StrategySignal:
@@ -190,7 +191,7 @@ class StatArbStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -206,7 +207,7 @@ class StatArbStrategy(ISignalStrategy):
                 tr_sum += tr
         return tr_sum / 14
 
-    def get_current_z_score(self, state: MarketState) -> Optional[float]:
+    def get_current_z_score(self, state: MarketState) -> float | None:
         if len(state.bars) < self.lookback + 1:
             return None
         if len(self._pair_b_bars) < len(state.bars):
@@ -231,8 +232,8 @@ class StatArbBacktestResult:
     losing_trades: int = 0
     total_pnl: float = 0.0
     max_drawdown: float = 0.0
-    z_scores: Optional[List[float]] = None
-    signals: Optional[List[str]] = None
+    z_scores: list[float] | None = None
+    signals: list[str] | None = None
 
     def __post_init__(self):
         if self.z_scores is None:
@@ -240,7 +241,7 @@ class StatArbBacktestResult:
         if self.signals is None:
             self.signals = []
 
-    def add_signal(self, signal_type: str, z_score: Optional[float]):
+    def add_signal(self, signal_type: str, z_score: float | None):
         self.signals.append(signal_type)
         if z_score is not None:
             self.z_scores.append(z_score)

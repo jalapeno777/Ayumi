@@ -6,13 +6,13 @@ from typing import List
 from backtest.engine import Bar
 
 
-def resample_bars(bars: List[Bar], target_minutes: int) -> List[Bar]:
+def resample_bars(bars: list[Bar], target_minutes: int) -> list[Bar]:
     if not bars:
         return []
 
     interval = timedelta(minutes=target_minutes)
-    resampled: List[Bar] = []
-    current_group: List[Bar] = []
+    resampled: list[Bar] = []
+    current_group: list[Bar] = []
     group_start = None
 
     for bar in bars:
@@ -38,7 +38,7 @@ def resample_bars(bars: List[Bar], target_minutes: int) -> List[Bar]:
     return resampled
 
 
-def _merge_group(group: List[Bar]) -> Bar:
+def _merge_group(group: list[Bar]) -> Bar:
     return Bar(
         time=group[0].time,
         open=group[0].open,

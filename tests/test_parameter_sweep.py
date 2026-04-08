@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 
-from backtest.engine import Bar, BacktestConfig
+from backtest.engine import BacktestConfig, Bar
 from backtest.parameter_sweep.grid import GridPoint, ParameterGrid
 from backtest.parameter_sweep.output import to_csv, to_json
 from backtest.parameter_sweep.result import SweepResult, SweepRow
@@ -247,8 +247,9 @@ class TestSweepRunner(unittest.TestCase):
         self.assertIsNotNone(runner._max_workers)
 
     def test_worker_entry_returns_metrics_dict(self):
-        from backtest.parameter_sweep.sweep_runner import _worker_entry, _serialize_bars
         from dataclasses import asdict
+
+        from backtest.parameter_sweep.sweep_runner import _serialize_bars, _worker_entry
 
         config_dict = asdict(self.config)
         bars_data = _serialize_bars(self.bars)

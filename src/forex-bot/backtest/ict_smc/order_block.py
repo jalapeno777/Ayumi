@@ -133,7 +133,7 @@ class OrderBlockDetector:
 
     def get_most_relevant(
         self, state: ICTMarketState, direction: TradeDirection
-    ) -> Optional[OrderBlock]:
+    ) -> OrderBlock | None:
         candidates = [
             ob
             for ob in state.active_order_blocks

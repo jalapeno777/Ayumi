@@ -1,8 +1,8 @@
+import math
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Dict, List, Optional
-import math
 
 
 class TradeDirection(Enum):
@@ -72,7 +72,7 @@ BarPeriod._init()
 
 @dataclass
 class MarketState:
-    bars: List[Bar]
+    bars: list[Bar]
     current_session: SessionType = SessionType.OUTSIDE
 
     @property
@@ -136,7 +136,7 @@ class SimulatedTrade:
     partial_close_pnl: float = 0.0
 
 
-PAIR_SPREAD_PIPS: Dict[str, float] = {
+PAIR_SPREAD_PIPS: dict[str, float] = {
     "EURUSD": 1.5,
     "GBPUSD": 1.5,
     "USDJPY": 1.5,
@@ -226,8 +226,8 @@ class BacktestMetrics:
     avg_risk_reward: float
     expectancy: float
     avg_holding_bars: float
-    equity_curve: List[float]
-    trades: List[SimulatedTrade]
+    equity_curve: list[float]
+    trades: list[SimulatedTrade]
     total_spread_cost: float
     total_commission_cost: float
     rejected_signals: int
@@ -269,7 +269,7 @@ class BacktestMetrics:
 class StrategyBacktestResult:
     strategy_name: str
     metrics: BacktestMetrics
-    last_signal: Optional[StrategySignal]
+    last_signal: StrategySignal | None
 
 
 class BacktestEngine:
@@ -278,20 +278,20 @@ class BacktestEngine:
         self.balance = config.starting_balance
         self.peak_balance = config.starting_balance
         self.max_drawdown = 0.0
-        self.current_day: Optional[date] = None
+        self.current_day: date | None = None
         self.daily_start_balance = config.starting_balance
         self.max_daily_loss = 0.0
         self.total_spread_cost = 0.0
         self.total_commission_cost = 0.0
 
-    def run(self, bars: List[Bar]) -> BacktestMetrics:
+    def run(self, bars: list[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
-        trades: List[SimulatedTrade] = []
+        trades: list[SimulatedTrade] = []
         equity_curve = [self.balance]
-        open_trades: List[SimulatedTrade] = []
+        open_trades: list[SimulatedTrade] = []
         rejected_signals = 0
 
         for i in range(len(bars)):
@@ -354,11 +354,11 @@ class BacktestEngine:
 
     def _check_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar: Bar,
         bar_index: int,
-        closed_trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        closed_trades: list[SimulatedTrade],
+        equity_curve: list[float],
     ):
         to_close = []
 
@@ -466,10 +466,10 @@ class BacktestEngine:
 
     def _close_all_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar_index: int,
         exit_time: datetime,
-        closed_trades: List[SimulatedTrade],
+        closed_trades: list[SimulatedTrade],
     ):
         for trade in open_trades:
             self._close_trade(
@@ -484,8 +484,8 @@ class BacktestEngine:
 
     def _calculate_metrics(
         self,
-        trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        trades: list[SimulatedTrade],
+        equity_curve: list[float],
         rejected_signals: int,
     ) -> BacktestMetrics:
         metrics = BacktestMetrics(
@@ -557,7 +557,7 @@ class BacktestEngine:
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
 
-    def _calculate_sharpe_ratio(self, equity_curve: List[float]) -> float:
+    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
         if len(equity_curve) < 2:
             return 0.0
         returns = []

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, List
 
 
 @dataclass(frozen=True)
 class GridPoint:
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
 
     def __hash__(self) -> int:
         return hash(tuple(sorted(self.params.items())))
@@ -19,7 +20,7 @@ class GridPoint:
 
 
 class ParameterGrid:
-    def __init__(self, param_space: Dict[str, List[Any]]):
+    def __init__(self, param_space: dict[str, list[Any]]):
         if not param_space:
             raise ValueError("param_space must not be empty")
         self._param_space = param_space
@@ -27,7 +28,7 @@ class ParameterGrid:
         self._value_lists = [param_space[n] for n in self._names]
 
     @property
-    def param_names(self) -> List[str]:
+    def param_names(self) -> list[str]:
         return list(self._names)
 
     @property
@@ -46,5 +47,5 @@ class ParameterGrid:
         for combo in itertools.product(*self._value_lists):
             yield GridPoint(params=dict(zip(self._names, combo)))
 
-    def to_list(self) -> List[GridPoint]:
+    def to_list(self) -> list[GridPoint]:
         return list(self)
