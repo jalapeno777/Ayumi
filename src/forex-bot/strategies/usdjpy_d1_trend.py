@@ -78,8 +78,12 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
         if rsi is None:
             return None
 
-        bullish_cross = prev_fast_ema <= prev_slow_ema and fast_ema > slow_ema and rsi > 50
-        bearish_cross = prev_fast_ema >= prev_slow_ema and fast_ema < slow_ema and rsi < 50
+        bullish_cross = (
+            prev_fast_ema <= prev_slow_ema and fast_ema > slow_ema and rsi > 50
+        )
+        bearish_cross = (
+            prev_fast_ema >= prev_slow_ema and fast_ema < slow_ema and rsi < 50
+        )
 
         if not bullish_cross and not bearish_cross:
             return None
@@ -185,9 +189,7 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
 
             smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
             smoothed_plus_dm = (
-                smoothed_plus_dm
-                - smoothed_plus_dm / self.adx_period
-                + plus_dm_list[i]
+                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
             )
             smoothed_minus_dm = (
                 smoothed_minus_dm
