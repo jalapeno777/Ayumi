@@ -6,7 +6,6 @@ import socket
 import ssl
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -99,13 +98,13 @@ def _build_fix_message(tags: dict[int, str], msg_seq_num: int) -> str:
 class CTraderConnection:
     def __init__(
         self,
-        credentials: Optional[dict[str, str]] = None,
+        credentials: dict[str, str] | None = None,
         heartbeat_interval: int = 30,
     ):
         self._creds = credentials or _load_credentials()
         self._heartbeat_interval = heartbeat_interval
         self._msg_seq_num = 1
-        self._socket: Optional[ssl.SSLSocket] = None
+        self._socket: ssl.SSLSocket | None = None
         self._connected = False
 
     @property

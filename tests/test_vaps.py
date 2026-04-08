@@ -1,7 +1,7 @@
 import unittest
 
-from quant.vaps import VAPSConfig, vaps_regime, vaps_size, vaps_multiply
 from quant.regime import VolatilityRegime
+from quant.vaps import VAPSConfig, vaps_multiply, vaps_regime, vaps_size
 
 
 def _make_atr_series(values):
@@ -245,7 +245,7 @@ class TestVAPSMultiply(unittest.TestCase):
 
 class TestVAPSPipelineIntegration(unittest.TestCase):
     def test_vaps_mode_in_pipeline(self):
-        from quant.config import QuantConfig, PositionSizingConfig, SizingMode
+        from quant.config import PositionSizingConfig, QuantConfig, SizingMode
         from quant.pipeline import QuantPipeline
 
         config = QuantConfig(
@@ -276,7 +276,7 @@ class TestVAPSPipelineIntegration(unittest.TestCase):
         self.assertEqual(decision.sizing_mode, "volatility_adaptive")
 
     def test_vaps_resizes_in_low_vol(self):
-        from quant.config import QuantConfig, PositionSizingConfig, SizingMode
+        from quant.config import PositionSizingConfig, QuantConfig, SizingMode
         from quant.pipeline import QuantPipeline
 
         config = QuantConfig(
@@ -311,7 +311,7 @@ class TestVAPSPipelineIntegration(unittest.TestCase):
         self.assertIsNotNone(decision.lot_size)
 
     def test_vaps_reduces_in_extreme_vol(self):
-        from quant.config import QuantConfig, PositionSizingConfig, SizingMode
+        from quant.config import PositionSizingConfig, QuantConfig, SizingMode
         from quant.pipeline import QuantPipeline
 
         config = QuantConfig(

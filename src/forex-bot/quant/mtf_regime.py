@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from backtest.engine import Bar
 
@@ -136,7 +135,7 @@ def compute_adx(
 def volatility_regime_atr(
     atr_series: list[float],
     lookback: int = 50,
-    thresholds: Optional[MTFRegimeConfig] = None,
+    thresholds: MTFRegimeConfig | None = None,
 ) -> tuple[VolatilityRegime, float, float]:
     if thresholds is None:
         thresholds = MTFRegimeConfig()
@@ -167,7 +166,7 @@ def volatility_regime_atr(
 
 def detect_regime(
     bars: list[Bar],
-    config: Optional[MTFRegimeConfig] = None,
+    config: MTFRegimeConfig | None = None,
 ) -> TimeframeRegime:
     if config is None:
         config = MTFRegimeConfig()
@@ -270,7 +269,7 @@ def detect_multi_timeframe_regime(
     h4_bars: list[Bar],
     h1_bars: list[Bar],
     m15_bars: list[Bar],
-    config: Optional[MTFRegimeConfig] = None,
+    config: MTFRegimeConfig | None = None,
 ) -> MultiTimeframeRegime:
     if config is None:
         config = MTFRegimeConfig()
@@ -291,7 +290,7 @@ def detect_multi_timeframe_regime(
 
 
 class MTFRegimeFilter:
-    def __init__(self, config: Optional[MTFRegimeConfig] = None):
+    def __init__(self, config: MTFRegimeConfig | None = None):
         self.config = config or MTFRegimeConfig()
 
     def evaluate(

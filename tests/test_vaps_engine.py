@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime
 
-from backtest.engine import Bar, BacktestConfig, TradeDirection, StrategySignal
+from backtest.engine import BacktestConfig, Bar, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy
 from backtest.vaps_engine import VAPSBacktestEngine, _compute_atr
 from quant.vaps import VAPSConfig

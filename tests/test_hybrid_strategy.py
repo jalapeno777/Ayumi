@@ -3,13 +3,13 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 from backtest.engine import Bar, TradeDirection
-from backtest.ict_smc.models import ConfluenceSignal, ICTMarketState, SignalStrength
 from backtest.hybrid_strategy import (
     HybridConfig,
     HybridStrategy,
     QuantFilterName,
     RejectionMetrics,
 )
+from backtest.ict_smc.models import ConfluenceSignal, ICTMarketState, SignalStrength
 
 
 def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from ..engine import TradeDirection
 from .models import ICTMarketState, PremiumDiscountZone
 

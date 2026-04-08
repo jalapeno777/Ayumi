@@ -1,12 +1,13 @@
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Optional, List, Callable
 
-from backtest.engine import MarketState, TradeDirection as BacktestTradeDirection
+from backtest.engine import MarketState
+from backtest.engine import TradeDirection as BacktestTradeDirection
 from backtest.strategies import ISignalStrategy
-from .models import TradeSignal, TradeDirection
-from .paper_trader import PaperTrader
 
+from .models import TradeDirection, TradeSignal
+from .paper_trader import PaperTrader
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +23,13 @@ class cTraderSignalAdapter:
         self._strategy = strategy
         self._symbol = symbol
         self._min_confidence: float = 0.50
-        self._last_signal_time: Optional[datetime] = None
-        self._callbacks: List[tuple[str, Callable]] = []
+        self._last_signal_time: datetime | None = None
+        self._callbacks: list[tuple[str, Callable]] = []
 
     def set_min_confidence(self, confidence: float):
         self._min_confidence = confidence
 
-    def evaluate_and_trade(self, market_state: MarketState) -> Optional[TradeSignal]:
+    def evaluate_and_trade(self, market_state: MarketState) -> TradeSignal | None:
         signal = self._strategy.evaluate(market_state)
 
         if signal is None:
@@ -95,7 +96,7 @@ class cTraderSignalAdapter:
         return self._strategy.name
 
     @property
-    def last_signal_time(self) -> Optional[datetime]:
+    def last_signal_time(self) -> datetime | None:
         return self._last_signal_time
 
 
@@ -103,8 +104,8 @@ class cTraderLiveAdapter:
     def __init__(
         self,
         paper_trader: PaperTrader,
-        strategies: List[ISignalStrategy],
-        symbols: List[str],
+        strategies: list[ISignalStrategy],
+        symbols: list[str],
     ):
         self._paper_trader = paper_trader
         self._strategies = {s.name: s for s in strategies}
@@ -123,7 +124,7 @@ class cTraderLiveAdapter:
 
     def evaluate_all_strategies(
         self, market_states: dict[str, MarketState]
-    ) -> List[TradeSignal]:
+    ) -> list[TradeSignal]:
         results = []
         for symbol, state in market_states.items():
             for strategy_name, strategy in self._strategies.items():
@@ -137,7 +138,7 @@ class cTraderLiveAdapter:
 
     def get_adapter(
         self, strategy_name: str, symbol: str
-    ) -> Optional[cTraderSignalAdapter]:
+    ) -> cTraderSignalAdapter | None:
         return self._adapters.get(f"{strategy_name}_{symbol}")
 
     @property

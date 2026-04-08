@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 from enum import Enum
 
 
@@ -35,13 +34,13 @@ class Order:
     direction: TradeDirection
     order_type: OrderType
     volume: float
-    price: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    price: float | None = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
     status: OrderStatus = OrderStatus.PENDING
     created_at: datetime = field(default_factory=datetime.utcnow)
-    filled_at: Optional[datetime] = None
-    filled_price: Optional[float] = None
+    filled_at: datetime | None = None
+    filled_price: float | None = None
     comment: str = ""
 
 
@@ -53,13 +52,13 @@ class Position:
     volume: float
     entry_price: float
     current_price: float
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
     unrealized_pnl: float = 0.0
     status: PositionStatus = PositionStatus.OPEN
     opened_at: datetime = field(default_factory=datetime.utcnow)
-    closed_at: Optional[datetime] = None
-    closed_price: Optional[float] = None
+    closed_at: datetime | None = None
+    closed_price: float | None = None
     closed_pnl: float = 0.0
     comment: str = ""
 

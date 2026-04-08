@@ -3,8 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-
-from adapters.ctrader.api_client import FIXMessage, SOH
+from adapters.ctrader.api_client import SOH, FIXMessage
 from adapters.ctrader.market_data_feed import (
     DEFAULT_SYMBOLS,
     FOREX_PAIRS,
@@ -13,7 +12,6 @@ from adapters.ctrader.market_data_feed import (
     Tick,
 )
 from adapters.ctrader.models import cTraderCredentials
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

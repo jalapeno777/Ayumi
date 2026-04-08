@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List
 
 
 class TrailingStopMethod(Enum):
@@ -13,7 +12,7 @@ class TrailingStopMethod(Enum):
 @dataclass
 class PartialExitConfig:
     enabled: bool = True
-    tiers: List[tuple] = field(
+    tiers: list[tuple] = field(
         default_factory=lambda: [
             (0.5, 1.0, True),
             (0.75, 2.0, False),
@@ -39,7 +38,7 @@ class TrailingStopConfig:
 @dataclass
 class SessionFilterConfig:
     enabled: bool = True
-    allow_entry_sessions: List[str] = field(
+    allow_entry_sessions: list[str] = field(
         default_factory=lambda: [
             "london",
             "london_open",

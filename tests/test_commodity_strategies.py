@@ -1,7 +1,8 @@
 import unittest
 from datetime import datetime, timedelta
-from backtest.strategies import CommodityTrendStrategy, CommodityMeanReversionStrategy
-from backtest.engine import MarketState, Bar, TradeDirection
+
+from backtest.engine import Bar, MarketState, TradeDirection
+from backtest.strategies import CommodityMeanReversionStrategy, CommodityTrendStrategy
 
 
 def _make_bar(offset_days: int, o: float, h: float, lo: float, c: float) -> Bar:

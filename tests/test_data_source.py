@@ -6,7 +6,6 @@ from datetime import timezone
 from pathlib import Path
 
 import pandas as pd
-
 from ml.data_source import (
     CANDLE_COLUMNS,
     SQLiteCandleLoader,

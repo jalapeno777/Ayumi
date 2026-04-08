@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
 
 from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy
@@ -54,7 +53,7 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
     def name(self) -> str:
         return "USDJPY D1 Trend-Following"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_bars = self.slow_ema_period + self.adx_period + 1
         if len(state.bars) < min_bars:
             return None
@@ -126,7 +125,7 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+    def _calculate_ema(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -136,13 +135,13 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
             ema = (bar.close - ema) * multiplier + ema
         return ema
 
-    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_adx(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.adx_period + 1:
             return None
 
-        tr_list: List[float] = []
-        plus_dm_list: List[float] = []
-        minus_dm_list: List[float] = []
+        tr_list: list[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
 
         for i in range(1, len(bars)):
             tr = max(
@@ -212,12 +211,12 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
 
         return adx
 
-    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.rsi_period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains: list[float] = []
+        losses: list[float] = []
         for i in range(len(bars) - self.rsi_period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
@@ -236,7 +235,7 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < self.atr_period + 1:
             return 0.01
         tr_sum = 0.0

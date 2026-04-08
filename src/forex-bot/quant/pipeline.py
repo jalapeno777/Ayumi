@@ -3,30 +3,36 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, List
+from typing import TYPE_CHECKING, Any
 
 from .config import (
     QuantConfig,
     SizingMode,
 )
-from .correlation import CorrelationTracker, Position as CorrelationPosition
+from .correlation import CorrelationTracker
+from .correlation import Position as CorrelationPosition
 from .position_sizing import (
     DynamicSizingConfig,
+    dynamic_sizing,
     fixed_fractional,
     kelly_criterion,
-    dynamic_sizing,
 )
-from .vaps import VAPSConfig, vaps_multiply
 from .regime import (
-    volatility_regime as calc_volatility_regime,
-    trend_regime as calc_trend_regime,
     combined_regime as calc_combined_regime,
 )
-from .portfolio import StrategyPortfolio, PortfolioSignal
+from .regime import (
+    trend_regime as calc_trend_regime,
+)
+from .regime import (
+    volatility_regime as calc_volatility_regime,
+)
+from .vaps import VAPSConfig, vaps_multiply
 
 if TYPE_CHECKING:
-    from backtest.engine import Bar
+    from backtest.engine import Bar, MarketState
     from backtest.strategies import ISignalStrategy
+
+    from .portfolio import PortfolioSignal, StrategyPortfolio
 
 
 class TradeAction(Enum):
@@ -38,7 +44,7 @@ class TradeAction(Enum):
 @dataclass(frozen=True)
 class TradeDecision:
     action: TradeAction
-    lot_size: Optional[float] = None
+    lot_size: float | None = None
     regime_confidence: float = 0.0
     correlation_warnings: tuple[str, ...] = ()
     sizing_mode: str = ""
@@ -72,7 +78,7 @@ class QuantPipeline:
         self._config = config
         self._portfolio = PortfolioState()
 
-        self._corr_tracker: Optional[CorrelationTracker] = None
+        self._corr_tracker: CorrelationTracker | None = None
         if config.correlation.enabled:
             self._corr_tracker = CorrelationTracker(
                 pairs=list(config.correlation.pairs),
@@ -85,12 +91,14 @@ class QuantPipeline:
         self._low_history: list[float] = []
         self._close_history: list[float] = []
 
+        self._strategy_portfolio: StrategyPortfolio | None = None
+
     def pre_trade_check(
         self,
         signal_symbol: str,
         entry_price: float,
         stop_loss: float,
-        bar_time: Optional[datetime] = None,
+        bar_time: datetime | None = None,
     ) -> TradeDecision:
         regime_confidence = 1.0
         correlation_warnings: list[str] = []
@@ -124,7 +132,7 @@ class QuantPipeline:
             if positions:
                 correlation_warnings = self._corr_tracker.check_exposure(positions)
 
-        lot_size: Optional[float] = None
+        lot_size: float | None = None
         sizing_mode = ""
         if self._config.position_sizing.enabled and stop_loss != 0.0:
             base_lot = self._calculate_base_lot(entry_price, stop_loss)
@@ -158,7 +166,7 @@ class QuantPipeline:
     def validate_strategy(
         self,
         strategy: ISignalStrategy,
-        bars: List[Bar],
+        bars: list[Bar],
     ) -> ValidationResult:
         if not self._config.walk_forward.enabled:
             return ValidationResult(
@@ -231,51 +239,57 @@ class QuantPipeline:
     def portfolio(self, value: PortfolioState) -> None:
         self._portfolio = value
 
+    @property
+    def strategy_portfolio(self) -> StrategyPortfolio | None:
+        return self._strategy_portfolio
+
     def attach_portfolio(self, portfolio: StrategyPortfolio) -> None:
         self._strategy_portfolio = portfolio
 
     def evaluate_portfolio(
-        self, market_states: dict[str, Any]
+        self,
+        market_states: dict[str, MarketState],
     ) -> list[PortfolioSignal]:
-        if not hasattr(self, "_strategy_portfolio") or self._strategy_portfolio is None:
+        if self._strategy_portfolio is None:
             return []
+        from .portfolio import PortfolioSignal as PS
 
-        if self._config.regime.enabled:
-            regime_confidence = self._check_regime()
-            if regime_confidence < self._config.regime.min_confidence:
-                return []
-
-        signals = self._strategy_portfolio.evaluate_all(market_states)
-
+        raw_signals = self._strategy_portfolio.evaluate_all(market_states)
         result: list[PortfolioSignal] = []
-        for sig in signals:
-            allocation = next(
-                (
-                    a
-                    for a in self._strategy_portfolio.config.allocations
-                    if a.strategy_name == sig.strategy_name and a.symbol == sig.symbol
-                ),
-                None,
+        for ps in raw_signals:
+            allocation = None
+            for a in self._strategy_portfolio.config.allocations:
+                if a.strategy_name == ps.strategy_name and a.symbol == ps.symbol:
+                    allocation = a
+                    break
+            if allocation is None:
+                continue
+            decision = self.pre_trade_check(
+                signal_symbol=ps.symbol,
+                entry_price=ps.signal.entry_price,
+                stop_loss=ps.signal.stop_loss,
             )
-            if allocation:
-                lot_size = self._strategy_portfolio.calculate_position_size(
-                    sig.signal, allocation
-                )
-                result.append(
-                    PortfolioSignal(
-                        strategy_name=sig.strategy_name,
-                        symbol=sig.symbol,
-                        signal=sig.signal,
-                        weight=sig.weight,
-                        adjusted_lot_size=lot_size,
-                    )
-                )
-            else:
-                result.append(sig)
+            if decision.action == TradeAction.REJECT:
+                continue
 
+            lot_size = self._strategy_portfolio.calculate_position_size(
+                ps.signal, allocation
+            )
+            if decision.lot_size is not None:
+                lot_size = min(lot_size, decision.lot_size)
+
+            result.append(
+                PS(
+                    strategy_name=ps.strategy_name,
+                    symbol=ps.symbol,
+                    signal=ps.signal,
+                    weight=ps.weight,
+                    adjusted_lot_size=lot_size,
+                )
+            )
         return result
 
-    def _check_regime(self, bar_time: Optional[datetime] = None) -> float:
+    def _check_regime(self, bar_time: datetime | None = None) -> float:
         vol_result = calc_volatility_regime(
             self._atr_history,
             lookback=self._config.regime.atr_lookback,

@@ -1,22 +1,21 @@
+import logging
 import socket
 import ssl
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Optional, Callable, Dict
 from enum import Enum
-import logging
 
 from .models import (
-    cTraderCredentials,
     AccountInfo,
     Order,
+    OrderStatus,
+    OrderType,
     Position,
     TradeDirection,
-    OrderType,
-    OrderStatus,
+    cTraderCredentials,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,7 @@ class FIXRejectCode(Enum):
     NOT_AUTHORIZED_ACTION = 198
 
 
-FIX_REJECT_MESSAGES: Dict[FIXRejectCode, str] = {
+FIX_REJECT_MESSAGES: dict[FIXRejectCode, str] = {
     FIXRejectCode.OTHER: "Unspecified reject reason",
     FIXRejectCode.UNKNOWN_ID: "Unknown client order ID",
     FIXRejectCode.UNKNOWN_SECURITY: "Unknown security symbol",
@@ -107,7 +106,7 @@ FIX_REJECT_MESSAGES: Dict[FIXRejectCode, str] = {
 }
 
 
-def get_reject_message(reject_code: int, text: Optional[str] = None) -> str:
+def get_reject_message(reject_code: int, text: str | None = None) -> str:
     try:
         code = FIXRejectCode(reject_code)
         msg = FIX_REJECT_MESSAGES.get(code, f"Unknown reject code {reject_code}")
@@ -125,9 +124,9 @@ class FIXMessage:
     Header field order: 8, 9, 35, 49, 56, 57, 50, 34, 52, then body fields.
     """
 
-    def __init__(self, msg_type: Optional[str] = None):
-        self.fields: Dict[int, str] = {}
-        self._body_fields: Dict[int, str] = {}
+    def __init__(self, msg_type: str | None = None):
+        self.fields: dict[int, str] = {}
+        self._body_fields: dict[int, str] = {}
         self._body_field_list: list = []  # ordered (tag, value) for repeating groups
         if msg_type:
             self.fields[35] = msg_type
@@ -142,7 +141,7 @@ class FIXMessage:
         self._body_field_list.append((tag, val))
         return self
 
-    def get_field(self, tag: int) -> Optional[str]:
+    def get_field(self, tag: int) -> str | None:
         return self.fields.get(tag) or self._body_fields.get(tag)
 
     def to_wire(self) -> str:
@@ -204,7 +203,7 @@ class FIXMessage:
         return msg
 
     @property
-    def msg_type(self) -> Optional[str]:
+    def msg_type(self) -> str | None:
         return self.fields.get(35)
 
 
@@ -265,16 +264,16 @@ class FIXClient:
 
     def __init__(self, credentials: cTraderCredentials):
         self.credentials = credentials
-        self._socket: Optional[socket.socket] = None
+        self._socket: socket.socket | None = None
         self._running = False
-        self._recv_thread: Optional[threading.Thread] = None
+        self._recv_thread: threading.Thread | None = None
         self._next_outgoing_seq = 1
         self._heartbeat_interval = 30
         self._last_heartbeat_sent = 0.0
         self._last_heartbeat_received = 0.0
-        self._callbacks: Dict[str, list] = {}
-        self._pending_orders: Dict[str, Order] = {}
-        self._positions: Dict[str, Position] = {}
+        self._callbacks: dict[str, list] = {}
+        self._pending_orders: dict[str, Order] = {}
+        self._positions: dict[str, Position] = {}
         self._lock = threading.Lock()
         self._logged_in = False
 
@@ -332,7 +331,7 @@ class FIXClient:
                     break
                 buffer += data
                 buffer = self._process_buffer(buffer)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except Exception as e:
                 if self._running:
@@ -585,11 +584,11 @@ class FIXClient:
         direction: TradeDirection,
         order_type: OrderType,
         volume: float,
-        price: Optional[float] = None,
-        stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None,
+        price: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
         comment: str = "",
-    ) -> Optional[Order]:
+    ) -> Order | None:
         if not symbol or not symbol.strip():
             logger.error("send_order: symbol is required")
             return None
@@ -687,13 +686,13 @@ class FIXClient:
 
 
 class cTraderAPIClient:
-    def __init__(self, credentials: Optional[cTraderCredentials] = None):
+    def __init__(self, credentials: cTraderCredentials | None = None):
         self._credentials = credentials
-        self._client: Optional[FIXClient] = None
+        self._client: FIXClient | None = None
         self._paper_mode = True
-        self._callbacks: Dict[str, list] = {}
+        self._callbacks: dict[str, list] = {}
 
-    def connect(self, credentials: Optional[cTraderCredentials] = None) -> bool:
+    def connect(self, credentials: cTraderCredentials | None = None) -> bool:
         if credentials:
             self._credentials = credentials
 
@@ -732,7 +731,7 @@ class cTraderAPIClient:
                 except Exception as e:
                     logger.error(f"Callback error for {event}: {e}")
 
-    def send_order(self, **kwargs) -> Optional[Order]:
+    def send_order(self, **kwargs) -> Order | None:
         if self._paper_mode:
             return self._send_paper_order(**kwargs)
         return self._client.send_order(**kwargs) if self._client else None

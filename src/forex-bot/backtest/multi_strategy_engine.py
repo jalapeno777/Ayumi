@@ -1,16 +1,16 @@
-from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
 import math
+from dataclasses import dataclass
+
 from .engine import (
-    Bar,
     BacktestConfig,
     BacktestMetrics,
+    Bar,
+    ExitReason,
     MarketState,
     SimulatedTrade,
     StrategySignal,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
     determine_session,
 )
 from .strategies import ISignalStrategy
@@ -18,7 +18,7 @@ from .strategies import ISignalStrategy
 
 @dataclass
 class MultiStrategyConfig:
-    weights: Optional[List[float]] = None
+    weights: list[float] | None = None
     min_combined_confidence: float = 0.50
     use_confluence_scoring: bool = True
 
@@ -31,15 +31,15 @@ class MultiStrategyConfig:
 class StrategyBacktestResult:
     strategy_name: str
     metrics: BacktestMetrics
-    last_signal: Optional[StrategySignal]
+    last_signal: StrategySignal | None
 
 
 class MultiStrategyBacktestEngine:
     def __init__(
         self,
         config: BacktestConfig,
-        strategies: List[ISignalStrategy],
-        multi_config: Optional[MultiStrategyConfig] = None,
+        strategies: list[ISignalStrategy],
+        multi_config: MultiStrategyConfig | None = None,
     ):
         self.config = config
         self.strategies = strategies
@@ -53,7 +53,7 @@ class MultiStrategyBacktestEngine:
         self.total_spread_cost = 0.0
         self.total_commission_cost = 0.0
 
-    def run_all_strategies(self, bars: List[Bar]) -> Dict[str, StrategyBacktestResult]:
+    def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
         results = {}
         for strategy in self.strategies:
             result = self._run_single_strategy(strategy, bars)
@@ -61,16 +61,16 @@ class MultiStrategyBacktestEngine:
         return results
 
     def _run_single_strategy(
-        self, strategy: ISignalStrategy, bars: List[Bar]
+        self, strategy: ISignalStrategy, bars: list[Bar]
     ) -> StrategyBacktestResult:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
-        trades: List[SimulatedTrade] = []
+        trades: list[SimulatedTrade] = []
         equity_curve = [self.balance]
-        open_trades: List[SimulatedTrade] = []
-        last_signal: Optional[StrategySignal] = None
+        open_trades: list[SimulatedTrade] = []
+        last_signal: StrategySignal | None = None
 
         for i in range(len(bars)):
             bar = bars[i]
@@ -110,15 +110,15 @@ class MultiStrategyBacktestEngine:
         )
 
     def run_combined_strategies(
-        self, strategies: List[ISignalStrategy], bars: List[Bar]
-    ) -> Tuple[Dict[str, StrategyBacktestResult], BacktestMetrics]:
+        self, strategies: list[ISignalStrategy], bars: list[Bar]
+    ) -> tuple[dict[str, StrategyBacktestResult], BacktestMetrics]:
         individual = {}
-        all_signals: List[StrategySignal] = []
+        all_signals: list[StrategySignal] = []
 
         self._reset()
-        trades: List[SimulatedTrade] = []
+        trades: list[SimulatedTrade] = []
         equity_curve = [self.balance]
-        open_trades: List[SimulatedTrade] = []
+        open_trades: list[SimulatedTrade] = []
 
         for i in range(len(bars)):
             bar = bars[i]
@@ -168,9 +168,7 @@ class MultiStrategyBacktestEngine:
 
         return (individual, combined_metrics)
 
-    def _combine_signals(
-        self, signals: List[StrategySignal]
-    ) -> Optional[StrategySignal]:
+    def _combine_signals(self, signals: list[StrategySignal]) -> StrategySignal | None:
         if len(signals) == 0:
             return None
 
@@ -254,11 +252,11 @@ class MultiStrategyBacktestEngine:
 
     def _check_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar: Bar,
         bar_index: int,
-        closed_trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        closed_trades: list[SimulatedTrade],
+        equity_curve: list[float],
     ):
         to_close = []
         for trade in open_trades:
@@ -368,10 +366,10 @@ class MultiStrategyBacktestEngine:
 
     def _close_all_open_trades(
         self,
-        open_trades: List[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
         bar_index: int,
         exit_time,
-        closed_trades: List[SimulatedTrade],
+        closed_trades: list[SimulatedTrade],
     ):
         for trade in open_trades:
             self._close_trade(
@@ -389,7 +387,7 @@ class MultiStrategyBacktestEngine:
 
     def _open_trade(
         self, signal: StrategySignal, bar: Bar, bar_index: int
-    ) -> Optional[SimulatedTrade]:
+    ) -> SimulatedTrade | None:
         risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
@@ -447,8 +445,8 @@ class MultiStrategyBacktestEngine:
 
     def _calculate_metrics(
         self,
-        trades: List[SimulatedTrade],
-        equity_curve: List[float],
+        trades: list[SimulatedTrade],
+        equity_curve: list[float],
         rejected_signals: int,
     ) -> BacktestMetrics:
         metrics = BacktestMetrics(
@@ -520,7 +518,7 @@ class MultiStrategyBacktestEngine:
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
 
-    def _calculate_sharpe_ratio(self, equity_curve: List[float]) -> float:
+    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
         if len(equity_curve) < 2:
             return 0.0
         returns = []

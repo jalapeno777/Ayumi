@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Callable, Optional
 
 from ..models.trade import TradeSignal
 
@@ -18,7 +18,7 @@ class SignalFormat(Enum):
 @dataclass
 class SignalBroadcaster:
     format_type: SignalFormat = SignalFormat.DISCORD
-    on_broadcast: Optional[Callable[[dict], None]] = None
+    on_broadcast: Callable[[dict], None] | None = None
 
     def format_signal(self, signal: TradeSignal | dict) -> dict:
         if isinstance(signal, TradeSignal):
@@ -70,10 +70,10 @@ class SignalBroadcaster:
 @dataclass
 class WebhookHandler:
     providers: set[str] = field(default_factory=set)
-    on_signal_received: Optional[Callable[[dict], None]] = None
+    on_signal_received: Callable[[dict], None] | None = None
     _logger: logging.Logger = field(default_factory=lambda: logging.getLogger(__name__))
 
-    def handle_incoming(self, payload: dict) -> Optional[dict]:
+    def handle_incoming(self, payload: dict) -> dict | None:
         try:
             if not self._validate_payload(payload):
                 self._logger.warning("Invalid webhook payload: %s", payload)

@@ -17,44 +17,44 @@ Examples:
     python -m backtest.runner /path/to/data.csv H1    # Custom data and timeframe
 """
 
-import sys
-import os
 import json
 import math
+import os
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from strategies.grid.adapter import GridStrategyAdapter
+
 from backtest import (
+    AmalgamatedBacktestEngine,
+    AmalgamationConfig,
     BacktestConfig,
     BacktestMetrics,
-    CsvDataLoader,
-    MACrossStrategy,
     BBStrategy,
+    CommodityMeanReversionStrategy,
+    CommodityTrendStrategy,
+    ConfidenceMethod,
+    CsvDataLoader,
+    EnhancedBacktestEngine,
+    GridStrategy,
+    HybridStrategy,
+    MACrossStrategy,
+    MomentumBreakoutStrategy,
+    MultiStrategyBacktestEngine,
+    MultiStrategyConfig,
+    ROCMStrategy,
     RSIStrategy,
     SRBreakoutStrategy,
-    ROCMStrategy,
-    MomentumBreakoutStrategy,
-    CommodityTrendStrategy,
-    CommodityMeanReversionStrategy,
-    GridStrategy,
     StatArbStrategy,
-    VolatilitySqueezeStrategy,
-    MultiStrategyConfig,
-    MultiStrategyBacktestEngine,
-    AmalgamationConfig,
-    AmalgamatedBacktestEngine,
-    VotingMethod,
-    ConfidenceMethod,
-    EnhancedBacktestEngine,
-    HybridStrategy,
     TradeManagementConfig,
+    VolatilitySqueezeStrategy,
+    VotingMethod,
 )
-from backtest.grid_strategy import GridConfig
-from strategies.grid.adapter import GridStrategyAdapter
 from backtest.engine import get_spread_for_pair
+from backtest.grid_strategy import GridConfig
 from backtest.hybrid_strategy import HybridConfig
-
 
 DEFAULT_DATA_FILE = "/home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv"
 

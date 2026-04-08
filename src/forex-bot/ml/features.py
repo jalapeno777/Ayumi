@@ -1,11 +1,7 @@
 import numpy as np
 import pandas as pd
-
-from typing import List, Optional
-
-from backtest.ict_smc.models import ConfluenceSignal
 from backtest.engine import TradeDirection
-
+from backtest.ict_smc.models import ConfluenceSignal
 
 BIAS_ENCODING = {
     TradeDirection.LONG: 1,
@@ -28,7 +24,7 @@ ICT_FEATURE_NAMES = [
 
 
 def build_ict_features(
-    signals: List[ConfluenceSignal], target_index: pd.DatetimeIndex
+    signals: list[ConfluenceSignal], target_index: pd.DatetimeIndex
 ) -> pd.DataFrame:
     if not signals:
         return pd.DataFrame(
@@ -232,7 +228,7 @@ def pin_bar_bearish(
 
 
 def build_feature_matrix(
-    df: pd.DataFrame, signals: Optional[List[ConfluenceSignal]] = None
+    df: pd.DataFrame, signals: list[ConfluenceSignal] | None = None
 ) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]

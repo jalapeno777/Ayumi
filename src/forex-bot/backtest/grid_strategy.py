@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .strategies import ISignalStrategy
@@ -25,7 +24,7 @@ class GridLevel:
     order_placed: bool = False
     order_filled: bool = False
     filled_price: float = 0.0
-    filled_time: Optional[datetime] = None
+    filled_time: datetime | None = None
 
 
 @dataclass
@@ -42,7 +41,7 @@ class GridConfig:
     atr_period: int = 14
     atr_ma_period: int = 50
     use_midnight_grid: bool = False
-    grid_start_time: Optional[datetime] = None
+    grid_start_time: datetime | None = None
     pair: str = "EURUSD"
 
     @property
@@ -69,7 +68,7 @@ class GridConfig:
         )
 
 
-GRID_PRESETS: Dict[str, Dict] = {
+GRID_PRESETS: dict[str, dict] = {
     "EURUSD": {
         "grid_spacing_pips": 15.0,
         "num_levels": 10,
@@ -100,7 +99,7 @@ GRID_PRESETS: Dict[str, Dict] = {
 class GridState:
     def __init__(self, config: GridConfig):
         self.config = config
-        self.levels: List[GridLevel] = []
+        self.levels: list[GridLevel] = []
         self.grid_active: bool = False
         self.grid_start_bar: int = 0
         self.filled_count: int = 0
@@ -155,7 +154,7 @@ class GridState:
             )
         return self.config.base_lot_size
 
-    def check_level_triggered(self, bar: Bar) -> Optional[Tuple[GridLevel, float]]:
+    def check_level_triggered(self, bar: Bar) -> tuple[GridLevel, float] | None:
         for level in self.levels:
             if level.order_filled:
                 continue
@@ -243,7 +242,7 @@ class GridStrategy(ISignalStrategy):
     def name(self) -> str:
         return f"Grid ({self.config.pair})"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.config.atr_period + 1:
             return None
 
@@ -324,7 +323,7 @@ class GridStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < self.config.atr_period + 1:
             return 0.0001
         tr_sum = 0.0
@@ -348,7 +347,7 @@ class GridStrategy(ISignalStrategy):
     def reset_grid(self) -> None:
         self.state.reset()
 
-    def get_grid_status(self) -> Dict:
+    def get_grid_status(self) -> dict:
         return {
             "active": self.state.grid_active,
             "filled_count": self.state.filled_count,

@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 from backtest.engine import Bar
 from backtest.strategies import MACrossStrategy
-
 from quant.walk_forward import (
     AggregatedMetrics,
     WalkForwardResults,

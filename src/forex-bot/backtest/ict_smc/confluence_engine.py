@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
 
 from ..engine import Bar, SessionType, TradeDirection
 from .fvg import FVGDetector
@@ -53,8 +52,8 @@ class SignalConfluenceEngine:
         self._h4_module = H4ContextModule()
 
     def evaluate(
-        self, state: ICTMarketState, h4_bars: Optional[List[Bar]] = None
-    ) -> Optional[ConfluenceSignal]:
+        self, state: ICTMarketState, h4_bars: list[Bar] | None = None
+    ) -> ConfluenceSignal | None:
         self._structure_analyzer.analyze(state)
         self._ob_detector.detect(state)
         self._fvg_detector.detect(state)
@@ -294,7 +293,7 @@ class SignalConfluenceEngine:
 
     def _calculate_levels(
         self, state: ICTMarketState, direction: TradeDirection, entry: float
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         atr = state.atr
 
         if direction == TradeDirection.LONG:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Set
 
 from backtest.engine import (
     Bar,
@@ -11,8 +10,7 @@ from backtest.engine import (
     TradeDirection,
 )
 
-
-_PREFERRED_SESSIONS: Set[SessionType] = {
+_PREFERRED_SESSIONS: set[SessionType] = {
     SessionType.LONDON,
     SessionType.NY_AM,
 }
@@ -94,7 +92,7 @@ EURUSD_M15_PRESETS = {
 }
 
 
-def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
+def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -111,7 +109,7 @@ def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
-def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
+def _calculate_rsi(bars: list[Bar], period: int = 14) -> float | None:
     if len(bars) < period + 1:
         return None
     gains: list[float] = []
@@ -128,7 +126,7 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
+def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0
     n = len(bars)
@@ -173,7 +171,7 @@ def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
     return 100.0 * (abs(plus_di - minus_di) / di_sum)
 
 
-def _calculate_sma(values: List[float], period: int) -> float:
+def _calculate_sma(values: list[float], period: int) -> float:
     if len(values) < period:
         return 0.0
     return sum(values[-period:]) / period
@@ -184,7 +182,7 @@ def _passes_session_filter(state: MarketState) -> bool:
 
 
 def _passes_momentum_filters(
-    bars: List[Bar],
+    bars: list[Bar],
     config: MomentumConfig,
     direction: TradeDirection,
 ) -> bool:
@@ -209,7 +207,7 @@ def _build_signal(
     config: MomentumConfig,
     confidence: float,
     rationale: str,
-) -> Optional[StrategySignal]:
+) -> StrategySignal | None:
     if atr <= 0:
         return None
 
@@ -245,7 +243,7 @@ class DonchianBreakoutStrategy:
         self,
         channel_period: int = 20,
         exit_channel_period: int = 10,
-        momentum: Optional[MomentumConfig] = None,
+        momentum: MomentumConfig | None = None,
     ):
         self.channel_period = channel_period
         self.exit_channel_period = exit_channel_period
@@ -255,7 +253,7 @@ class DonchianBreakoutStrategy:
     def name(self) -> str:
         return "Donchian Channel Breakout"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = self.channel_period + 2
         if len(state.bars) < min_required:
             return None
@@ -314,7 +312,7 @@ class ATRVolatilityBreakoutStrategy:
         atr_period: int = 14,
         breakout_multiplier: float = 1.5,
         confirmation_bars: int = 1,
-        momentum: Optional[MomentumConfig] = None,
+        momentum: MomentumConfig | None = None,
     ):
         self.atr_period = atr_period
         self.breakout_multiplier = breakout_multiplier
@@ -325,7 +323,7 @@ class ATRVolatilityBreakoutStrategy:
     def name(self) -> str:
         return "ATR Volatility Breakout"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = self.atr_period + self.confirmation_bars + 2
         if len(state.bars) < min_required:
             return None
@@ -392,7 +390,7 @@ class ATRVolatilityBreakoutStrategy:
             direction, entry, atr, self.momentum, confidence, rationale
         )
 
-    def _confirm_breakout(self, bars: List[Bar], level: float, bullish: bool) -> bool:
+    def _confirm_breakout(self, bars: list[Bar], level: float, bullish: bool) -> bool:
         check_count = min(self.confirmation_bars, len(bars))
         if check_count == 0:
             return True
@@ -411,7 +409,7 @@ class MATrendFollowingStrategy:
         fast_period: int = 8,
         slow_period: int = 21,
         trend_ma_period: int = 50,
-        momentum: Optional[MomentumConfig] = None,
+        momentum: MomentumConfig | None = None,
     ):
         self.fast_period = fast_period
         self.slow_period = slow_period
@@ -422,7 +420,7 @@ class MATrendFollowingStrategy:
     def name(self) -> str:
         return "MA Trend Following"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = self.trend_ma_period + 2
         if len(state.bars) < min_required:
             return None

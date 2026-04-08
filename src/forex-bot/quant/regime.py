@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class VolatilityRegime(Enum):
@@ -93,7 +92,7 @@ class CombinedRegime:
 def volatility_regime(
     atr_series: list[float],
     lookback: int = 50,
-    thresholds: Optional[VolatilityThresholds] = None,
+    thresholds: VolatilityThresholds | None = None,
 ) -> VolatilityRegimeResult:
     if thresholds is None:
         thresholds = VolatilityThresholds()
@@ -244,7 +243,7 @@ def combined_regime(
     vol_regime: VolatilityRegimeResult,
     trend_regime: TrendRegimeResult,
     session_regime: SessionRegimeResult,
-    weights: Optional[RegimeWeights] = None,
+    weights: RegimeWeights | None = None,
 ) -> CombinedRegime:
     if weights is None:
         weights = RegimeWeights()

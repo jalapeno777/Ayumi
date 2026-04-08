@@ -1,15 +1,14 @@
 from datetime import datetime
 
-
 from backtest.engine import Bar, TradeDirection, TradeOutcome
 from backtest.portfolio_blend import (
+    WEIGHT_METHODS,
     CorrelationResult,
     FilteredStrategy,
     PortfolioBlendResult,
     StrategyEquityCurve,
     StrategySpec,
     WeightAllocation,
-    WEIGHT_METHODS,
     _build_strategy_name,
     _build_weighted_equity,
     _compute_combined_metrics,
@@ -70,7 +69,7 @@ def test_compute_equity_curve_from_trades_empty():
 
 
 def test_compute_equity_curve_from_trades_with_pnl():
-    from backtest.engine import SimulatedTrade, ExitReason
+    from backtest.engine import ExitReason, SimulatedTrade
 
     trades = [
         SimulatedTrade(

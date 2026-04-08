@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 
+from strategies.grid.adapter import GridStrategyAdapter
 from strategies.grid.config import (
     GridConfig,
     GridDirectionBias,
@@ -8,6 +9,8 @@ from strategies.grid.config import (
     RiskConfig,
     TrendFilterConfig,
 )
+from strategies.grid.manager import GridManager
+from strategies.grid.trend_filter import TrendFilter, _calculate_adx
 from strategies.grid.types import (
     GridLevel,
     GridLevelStatus,
@@ -15,9 +18,6 @@ from strategies.grid.types import (
     GridState,
     GridTrade,
 )
-from strategies.grid.manager import GridManager
-from strategies.grid.trend_filter import TrendFilter, _calculate_adx
-from strategies.grid.adapter import GridStrategyAdapter
 
 
 def _make_bars(
@@ -588,7 +588,7 @@ def _make_ranging_bars(n=500, center=1.1000, half_range=0.0030):
 
 class TestGridBacktestIntegration(unittest.TestCase):
     def test_grid_produces_trades_in_ranging_market(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(500, 1.1000, 0.0030)
@@ -624,7 +624,7 @@ class TestGridBacktestIntegration(unittest.TestCase):
         self.assertGreater(m.total_trades, 0)
 
     def test_grid_respects_max_open_trades(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(200, 1.1000, 0.0030)
@@ -655,7 +655,7 @@ class TestGridBacktestIntegration(unittest.TestCase):
         self.assertGreater(m.total_trades, 0)
 
     def test_grid_xauusd_config(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(200, 2000.0, 15.0)
@@ -688,8 +688,9 @@ class TestGridBacktestIntegration(unittest.TestCase):
 
 class TestGridSpreadSlippageTuning(unittest.TestCase):
     def _make_xauusd_bars(self, n=500, center=2350.0, half_range=25.0):
-        from backtest.engine import Bar
         import random
+
+        from backtest.engine import Bar
 
         rng = random.Random(42)
         bars = []
@@ -780,7 +781,7 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         self.assertEqual(cfg.slippage_pips, 0.2)
 
     def test_slippage_increases_effective_entry_cost(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(200, 1.1000, 0.0030)
@@ -840,7 +841,7 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
 
 class TestGridWalkForward(unittest.TestCase):
     def test_walk_forward_three_windows(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw = _make_ranging_bars(900, 1.1000, 0.0030)
@@ -902,7 +903,7 @@ class TestGridWalkForward(unittest.TestCase):
         )
 
     def test_walk_forward_reproducible_with_fixed_seed(self):
-        from backtest.engine import Bar, BacktestConfig
+        from backtest.engine import BacktestConfig, Bar
         from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 
         raw1 = _make_ranging_bars(600, 1.1000, 0.0030)

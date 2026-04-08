@@ -1,12 +1,13 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Callable, Any, TYPE_CHECKING
 from threading import RLock
+from typing import TYPE_CHECKING, Any, Optional
 
-from .models import TradeSignal, Position, Order
-from .order_manager import OrderManager, PositionSizeConfig, OrderExecutionResult
-from .risk_guard import RiskGuard, FTMOConfig
+from .models import Order, Position, TradeSignal
+from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
+from .risk_guard import FTMOConfig, RiskGuard
 
 if TYPE_CHECKING:
     from .api_client import cTraderAPIClient
@@ -19,10 +20,10 @@ logger = logging.getLogger(__name__)
 class PaperTradeResult:
     success: bool
     signal: TradeSignal
-    order: Optional[Order] = None
-    position: Optional[Position] = None
+    order: Order | None = None
+    position: Position | None = None
     rejection_reason: str = ""
-    risk_guard_result: Optional[Any] = None
+    risk_guard_result: Any | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -41,8 +42,8 @@ class PaperTradingStats:
 class PaperTrader:
     def __init__(
         self,
-        ftmo_config: Optional[FTMOConfig] = None,
-        position_config: Optional[PositionSizeConfig] = None,
+        ftmo_config: FTMOConfig | None = None,
+        position_config: PositionSizeConfig | None = None,
         starting_balance: float = 100000.0,
         api_client: Optional["cTraderAPIClient"] = None,
     ):
@@ -60,10 +61,10 @@ class PaperTrader:
         self._stats = PaperTradingStats(
             starting_balance=starting_balance, current_balance=starting_balance
         )
-        self._trade_history: List[PaperTradeResult] = []
-        self._callbacks: List[tuple[str, Callable]] = []
+        self._trade_history: list[PaperTradeResult] = []
+        self._callbacks: list[tuple[str, Callable]] = []
         self._running = False
-        self._last_update: Optional[datetime] = None
+        self._last_update: datetime | None = None
 
     @property
     def is_live_mode(self) -> bool:
@@ -224,7 +225,7 @@ class PaperTrader:
             for position in positions:
                 self.close_position(position.position_id, exit_price, reason)
 
-    def get_open_positions(self) -> List[Position]:
+    def get_open_positions(self) -> list[Position]:
         return self._order_manager.get_open_positions()
 
     def get_stats(self) -> PaperTradingStats:

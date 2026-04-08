@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Tuple
+
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 
 
@@ -9,7 +9,7 @@ class ISignalStrategy:
     def name(self) -> str:
         raise NotImplementedError
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         raise NotImplementedError
 
 
@@ -25,7 +25,7 @@ class MACrossStrategy(ISignalStrategy):
     def name(self) -> str:
         return "MA Crossover"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.slow_period + 1:
             return None
 
@@ -88,7 +88,7 @@ class MACrossStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_sma(self, bars: List[Bar], period: int) -> float:
+    def _calculate_sma(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period:
             return 0.0
         return sum(b.close for b in bars[-period:]) / period
@@ -98,7 +98,7 @@ class MACrossStrategy(ISignalStrategy):
             return 0.0
         return min(1.0, abs(fast_ma - slow_ma) / slow_ma * 10)
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -127,7 +127,7 @@ class BBStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Bollinger Band Mean Reversion"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.period + 1:
             return None
 
@@ -184,18 +184,18 @@ class BBStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_sma(self, bars: List[Bar]) -> float:
+    def _calculate_sma(self, bars: list[Bar]) -> float:
         if len(bars) < self.period:
             return 0.0
         return sum(b.close for b in bars[-self.period :]) / self.period
 
-    def _calculate_std(self, bars: List[Bar], sma: float) -> float:
+    def _calculate_std(self, bars: list[Bar], sma: float) -> float:
         if len(bars) < self.period:
             return 0.0
         variance = sum((b.close - sma) ** 2 for b in bars[-self.period :]) / self.period
         return variance**0.5
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -231,7 +231,7 @@ class RSIStrategy(ISignalStrategy):
     def name(self) -> str:
         return "RSI Divergence"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.period + 2:
             return None
 
@@ -279,12 +279,12 @@ class RSIStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains: list[float] = []
+        losses: list[float] = []
         for i in range(len(bars) - self.period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
@@ -303,7 +303,7 @@ class RSIStrategy(ISignalStrategy):
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -337,7 +337,7 @@ class SRBreakoutStrategy(ISignalStrategy):
     def name(self) -> str:
         return "S/R Breakout"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.lookback + self.confirmation_bars:
             return None
 
@@ -402,7 +402,7 @@ class SRBreakoutStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -431,7 +431,7 @@ class ROCMStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Momentum ROC"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.period + 1:
             return None
 
@@ -478,7 +478,7 @@ class ROCMStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_roc(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_roc(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.period + 1:
             return None
         current_close = bars[-1].close
@@ -487,7 +487,7 @@ class ROCMStrategy(ISignalStrategy):
             return None
         return ((current_close - past_close) / past_close) * 100
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -531,7 +531,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         adx_period: int = 14,
         adx_threshold: float = 25.0,
         atr_multiplier: float = 2.0,
-        rsi_period: Optional[int] = None,
+        rsi_period: int | None = None,
         rsi_overbought: float = 70.0,
         rsi_oversold: float = 30.0,
     ):
@@ -549,7 +549,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         """Return strategy name."""
         return "Momentum Breakout"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         """Evaluate market state and generate trading signal if conditions are met.
 
         Args:
@@ -636,7 +636,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+    def _calculate_ema(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -645,7 +645,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             ema = (bar.close - ema) * multiplier + ema
         return ema
 
-    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_adx(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.adx_period + 1:
             return None
 
@@ -718,7 +718,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
 
         return adx
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -734,7 +734,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
                 tr_sum += tr
         return tr_sum / 14
 
-    def _calculate_rsi(self, bars: List[Bar], period: int) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar], period: int) -> float | None:
         if len(bars) < period + 1:
             return None
         deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
@@ -784,7 +784,7 @@ class CommodityTrendStrategy(ISignalStrategy):
         self.atr_multiplier = atr_multiplier
         self.risk_reward_ratio = risk_reward_ratio
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -804,7 +804,7 @@ class CommodityTrendStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Commodity Trend Following"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.slow_ema_period + self.adx_period + 1:
             return None
 
@@ -869,7 +869,7 @@ class CommodityTrendStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+    def _calculate_ema(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -879,13 +879,13 @@ class CommodityTrendStrategy(ISignalStrategy):
             ema = (bar.close - ema) * multiplier + ema
         return ema
 
-    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_adx(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.adx_period + 1:
             return None
 
-        tr_list: List[float] = []
-        plus_dm_list: List[float] = []
-        minus_dm_list: List[float] = []
+        tr_list: list[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
 
         for i in range(1, len(bars)):
             tr = max(
@@ -987,7 +987,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         self.rsi_overbought = rsi_overbought
         self.atr_multiplier = atr_multiplier
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < 15:
             return 0.0001
         tr_sum = 0.0
@@ -1007,7 +1007,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Commodity Mean Reversion"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.bb_period + 1:
             return None
 
@@ -1072,12 +1072,12 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_sma(self, bars: List[Bar]) -> float:
+    def _calculate_sma(self, bars: list[Bar]) -> float:
         if len(bars) < self.bb_period:
             return 0.0
         return sum(b.close for b in bars[-self.bb_period :]) / self.bb_period
 
-    def _calculate_std(self, bars: List[Bar], sma: float) -> float:
+    def _calculate_std(self, bars: list[Bar], sma: float) -> float:
         if len(bars) < self.bb_period:
             return 0.0
         variance = (
@@ -1085,12 +1085,12 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
         )
         return variance**0.5
 
-    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.rsi_period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains: list[float] = []
+        losses: list[float] = []
         for i in range(len(bars) - self.rsi_period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
@@ -1161,7 +1161,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Supertrend RSI Blend"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_bars = max(self.supertrend_period, self.rsi_period, self.adx_period) + 5
         if len(state.bars) < min_bars:
             return None
@@ -1264,12 +1264,12 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         )
 
     def _calculate_supertrend(
-        self, bars: List[Bar]
-    ) -> Tuple[Optional[float], Optional[float]]:
+        self, bars: list[Bar]
+    ) -> tuple[float | None, float | None]:
         if len(bars) < self.supertrend_period + 1:
             return None, None
 
-        atr_values: List[float] = []
+        atr_values: list[float] = []
         for i in range(len(bars)):
             if i < self.atr_period:
                 atr_values.append(0.0001)
@@ -1330,12 +1330,12 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
 
         return supertrend_list[-1], supertrend_list[-2]
 
-    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.rsi_period + 1:
             return None
 
-        gains: List[float] = []
-        losses: List[float] = []
+        gains: list[float] = []
+        losses: list[float] = []
         for i in range(len(bars) - self.rsi_period, len(bars)):
             change = bars[i].close - bars[i - 1].close
             if change > 0:
@@ -1354,7 +1354,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
 
-    def _get_prev_rsi_values(self, bars: List[Bar]) -> List[float]:
+    def _get_prev_rsi_values(self, bars: list[Bar]) -> list[float]:
         prev_rsi_values = []
         for offset in range(1, min(4, len(bars))):
             window_bars = bars[:-offset]
@@ -1364,13 +1364,13 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                     prev_rsi_values.append(rsi)
         return prev_rsi_values
 
-    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_adx(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.adx_period + 1:
             return None
 
-        tr_list: List[float] = []
-        plus_dm_list: List[float] = []
-        minus_dm_list: List[float] = []
+        tr_list: list[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
 
         for i in range(1, len(bars)):
             tr = max(
@@ -1440,7 +1440,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
 
         return adx
 
-    def _calculate_atr(self, bars: List[Bar]) -> float:
+    def _calculate_atr(self, bars: list[Bar]) -> float:
         if len(bars) < self.atr_period + 1:
             return 0.0001
         tr_sum = 0.0
@@ -1514,7 +1514,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Keltner Channel Breakout"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_bars = (
             max(
                 self.ema_period,
@@ -1619,7 +1619,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_ema(self, bars: List[Bar], period: int) -> float:
+    def _calculate_ema(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period:
             return 0.0
         multiplier = 2.0 / (period + 1)
@@ -1628,7 +1628,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             ema = (bar.close - ema) * multiplier + ema
         return ema
 
-    def _calculate_atr(self, bars: List[Bar], period: int) -> float:
+    def _calculate_atr(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period + 1:
             return 0.0
         tr_sum = 0.0
@@ -1644,7 +1644,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
                 tr_sum += tr
         return tr_sum / period
 
-    def _calculate_adx(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_adx(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.adx_period * 2 + 1:
             return None
 
@@ -1717,7 +1717,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
 
         return adx
 
-    def _calculate_volume_ma(self, bars: List[Bar]) -> float:
+    def _calculate_volume_ma(self, bars: list[Bar]) -> float:
         if len(bars) < self.volume_ma_period:
             return 0.0
         recent = bars[-self.volume_ma_period :]
@@ -1744,7 +1744,7 @@ class HighConvictionStrategy(ISignalStrategy):
         atr_percentile_threshold: float = 0.60,
         sl_atr_mult: float = 3.0,
         tp_atr_mult: float = 6.0,
-        allowed_sessions: Optional[List[str]] = None,
+        allowed_sessions: list[str] | None = None,
         min_confluences: int = 5,
         source_timeframe_minutes: int = 240,
         max_trades_per_week: int = 1,
@@ -1764,7 +1764,7 @@ class HighConvictionStrategy(ISignalStrategy):
         self.min_confluences = min_confluences
         self.source_timeframe_minutes = source_timeframe_minutes
         self.max_trades_per_week = max_trades_per_week
-        self._last_trade_time: Optional[datetime] = None
+        self._last_trade_time: datetime | None = None
 
     @property
     def name(self) -> str:
@@ -1773,7 +1773,7 @@ class HighConvictionStrategy(ISignalStrategy):
     def reset(self) -> None:
         self._last_trade_time = None
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         d1_bars = self._resample_to_daily(state.bars)
         min_bars = (
             max(
@@ -1877,7 +1877,7 @@ class HighConvictionStrategy(ISignalStrategy):
             return True
         return False
 
-    def _resample_to_daily(self, bars: List[Bar]) -> List[Bar]:
+    def _resample_to_daily(self, bars: list[Bar]) -> list[Bar]:
 
         if not bars:
             return []
@@ -1902,7 +1902,7 @@ class HighConvictionStrategy(ISignalStrategy):
             )
         return result
 
-    def _detect_d1_trend(self, d1_bars: List[Bar]) -> Optional[TradeDirection]:
+    def _detect_d1_trend(self, d1_bars: list[Bar]) -> TradeDirection | None:
         if len(d1_bars) < self.trend_lookback:
             return None
         recent = d1_bars[-self.trend_lookback :]
@@ -1916,7 +1916,7 @@ class HighConvictionStrategy(ISignalStrategy):
             return TradeDirection.SHORT
         return None
 
-    def _at_pullback_level(self, bars: List[Bar], trend_dir: TradeDirection) -> bool:
+    def _at_pullback_level(self, bars: list[Bar], trend_dir: TradeDirection) -> bool:
         if len(bars) < self.swing_lookback:
             return False
         lookback = bars[-self.swing_lookback :]
@@ -1939,7 +1939,7 @@ class HighConvictionStrategy(ISignalStrategy):
                 for b in recent
             )
 
-    def _detect_momentum_shift(self, bars: List[Bar]) -> Optional[TradeDirection]:
+    def _detect_momentum_shift(self, bars: list[Bar]) -> TradeDirection | None:
         if len(bars) < self.rsi_period + 2:
             return None
         rsi = self._calculate_rsi(bars)
@@ -1961,7 +1961,7 @@ class HighConvictionStrategy(ISignalStrategy):
             return TradeDirection.SHORT
         return None
 
-    def _atr_in_upper_percentile(self, bars: List[Bar], current_atr: float) -> bool:
+    def _atr_in_upper_percentile(self, bars: list[Bar], current_atr: float) -> bool:
         n = min(self.atr_percentile_lookback, len(bars) - self.atr_period)
         if n < 10:
             return True
@@ -1980,7 +1980,7 @@ class HighConvictionStrategy(ISignalStrategy):
         percentile = rank / len(atr_values)
         return percentile >= self.atr_percentile_threshold
 
-    def _calculate_atr(self, bars: List[Bar], period: int) -> float:
+    def _calculate_atr(self, bars: list[Bar], period: int) -> float:
         if len(bars) < period + 1:
             return 0.0
         tr_sum = 0.0
@@ -1996,7 +1996,7 @@ class HighConvictionStrategy(ISignalStrategy):
                 tr_sum += tr
         return tr_sum / period
 
-    def _calculate_rsi(self, bars: List[Bar]) -> Optional[float]:
+    def _calculate_rsi(self, bars: list[Bar]) -> float | None:
         if len(bars) < self.rsi_period + 1:
             return None
         deltas = [bars[i].close - bars[i - 1].close for i in range(1, len(bars))]
@@ -2026,11 +2026,11 @@ class RegimeRouterConfig:
     min_confidence: float = 0.55
 
 
-def _default_trending_strategies() -> List[ISignalStrategy]:
+def _default_trending_strategies() -> list[ISignalStrategy]:
     return [MomentumBreakoutStrategy(fast_period=9, slow_period=21, adx_threshold=25.0)]
 
 
-def _default_ranging_strategies() -> List[ISignalStrategy]:
+def _default_ranging_strategies() -> list[ISignalStrategy]:
     from strategies.session_range_mean_reversion import (
         SessionRangeMeanReversionStrategy,
     )
@@ -2038,7 +2038,7 @@ def _default_ranging_strategies() -> List[ISignalStrategy]:
     return [SessionRangeMeanReversionStrategy()]
 
 
-def _default_volatile_strategies() -> List[ISignalStrategy]:
+def _default_volatile_strategies() -> list[ISignalStrategy]:
     from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
     return [VolatilitySqueezeStrategy()]
@@ -2047,11 +2047,11 @@ def _default_volatile_strategies() -> List[ISignalStrategy]:
 class RegimeSwitchingRouter(ISignalStrategy):
     def __init__(
         self,
-        trending_strategies: Optional[List[ISignalStrategy]] = None,
-        ranging_strategies: Optional[List[ISignalStrategy]] = None,
-        volatile_strategies: Optional[List[ISignalStrategy]] = None,
-        transition_strategies: Optional[List[ISignalStrategy]] = None,
-        config: Optional[RegimeRouterConfig] = None,
+        trending_strategies: list[ISignalStrategy] | None = None,
+        ranging_strategies: list[ISignalStrategy] | None = None,
+        volatile_strategies: list[ISignalStrategy] | None = None,
+        transition_strategies: list[ISignalStrategy] | None = None,
+        config: RegimeRouterConfig | None = None,
     ):
         self.config = config or RegimeRouterConfig()
         self.trending_strategies = trending_strategies or _default_trending_strategies()
@@ -2079,7 +2079,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
                 strategy.reset()
         self._current_regime = "neutral"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         if len(state.bars) < self.config.adx_period + self.config.atr_lookback + 1:
             return None
 
@@ -2090,7 +2090,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
         if not strategies:
             return None
 
-        best_signal: Optional[StrategySignal] = None
+        best_signal: StrategySignal | None = None
         for strategy in strategies:
             signal = strategy.evaluate(state)
             if signal is not None and signal.confidence >= self.config.min_confidence:
@@ -2115,7 +2115,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             rationale=f"[{regime}] {best_signal.rationale}",
         )
 
-    def _detect_regime(self, state: MarketState) -> Tuple[str, float, float]:
+    def _detect_regime(self, state: MarketState) -> tuple[str, float, float]:
         adx = self._calculate_adx(state.bars)
         atr_percentile = self._calculate_atr_percentile(state.bars)
 
@@ -2156,7 +2156,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
 
         return regime, raw_confidence, size_mult
 
-    def _get_strategies_for_regime(self, regime: str) -> List[ISignalStrategy]:
+    def _get_strategies_for_regime(self, regime: str) -> list[ISignalStrategy]:
         if regime == "trending":
             return self.trending_strategies
         elif regime == "ranging":
@@ -2166,7 +2166,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
         else:
             return self.transition_strategies
 
-    def _calculate_adx(self, bars: List[Bar]) -> float:
+    def _calculate_adx(self, bars: list[Bar]) -> float:
         period = self.config.adx_period
         if len(bars) < period * 2 + 1:
             return 0.0
@@ -2175,9 +2175,9 @@ class RegimeSwitchingRouter(ISignalStrategy):
         lows = [b.low for b in bars]
         closes = [b.close for b in bars]
 
-        plus_dm_list: List[float] = []
-        minus_dm_list: List[float] = []
-        tr_list: List[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
+        tr_list: list[float] = []
 
         for i in range(1, len(bars)):
             tr = max(
@@ -2214,7 +2214,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
 
         adx = dx
-        dx_list: List[float] = []
+        dx_list: list[float] = []
         for i in range(period, len(tr_list)):
             tr_sum = tr_sum - tr_sum / period + tr_list[i]
             plus_dm_sum = plus_dm_sum - plus_dm_sum / period + plus_dm_list[i]
@@ -2236,12 +2236,12 @@ class RegimeSwitchingRouter(ISignalStrategy):
 
         return adx
 
-    def _calculate_atr_percentile(self, bars: List[Bar]) -> float:
+    def _calculate_atr_percentile(self, bars: list[Bar]) -> float:
         lookback = self.config.atr_lookback
         if len(bars) < lookback + 1:
             return 50.0
 
-        atr_values: List[float] = []
+        atr_values: list[float] = []
         for i in range(1, len(bars)):
             tr = max(
                 bars[i].high - bars[i].low,

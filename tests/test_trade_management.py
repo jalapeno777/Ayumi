@@ -17,12 +17,12 @@ from backtest.trade_management.session_filter import (
     NewsEventSimulator,
     SessionFilter,
 )
-from backtest.trade_management.trailing_stop import (
-    TrailingStopManager,
-)
 from backtest.trade_management.trade_manager import (
     TradeAction,
     TradeManager,
+)
+from backtest.trade_management.trailing_stop import (
+    TrailingStopManager,
 )
 
 

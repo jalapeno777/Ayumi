@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Tuple
 
 from ..engine import Bar, ExitReason, TradeDirection
 
@@ -34,7 +33,7 @@ class PartialExitResult:
     action: PartialExitAction
     close_pct: float = 0.0
     exit_price: float = 0.0
-    new_sl: Optional[float] = None
+    new_sl: float | None = None
     reason: ExitReason = ExitReason.TAKE_PROFIT_1
     tier_reached: ExitTier = ExitTier.NONE
 
@@ -43,7 +42,7 @@ class PartialExitManager:
     def __init__(
         self,
         enabled: bool = True,
-        tiers: Optional[List[Tuple[float, float, bool]]] = None,
+        tiers: list[tuple[float, float, bool]] | None = None,
         final_trail: bool = True,
     ):
         self.enabled = enabled

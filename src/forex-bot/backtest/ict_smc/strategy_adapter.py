@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from ..engine import MarketState, StrategySignal
 from ..strategies import ISignalStrategy
@@ -18,7 +17,7 @@ class ICTSMCStrategy(ISignalStrategy):
     def name(self) -> str:
         return "ICT/SMC Confluence"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         ict_state = ICTMarketState(bars=state.bars)
         ict_state.current_session = state.current_session
 

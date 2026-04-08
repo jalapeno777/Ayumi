@@ -4,7 +4,6 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class Direction(Enum):
@@ -69,7 +68,7 @@ _KILLZONE_SESSIONS = {Session.LONDON, Session.NY_AM, Session.NY_PM}
 
 
 class SignalValidator:
-    def __init__(self, config: Optional[ValidatorConfig] = None):
+    def __init__(self, config: ValidatorConfig | None = None):
         self.config = config or ValidatorConfig()
 
     def validate(self, signal: Signal) -> ValidationResult:

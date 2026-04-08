@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 from ..engine import Bar, TradeDirection
 from .fvg import FVGDetector
@@ -21,8 +20,8 @@ class H4ZoneMapping:
 
 @dataclass
 class H4ContextResult:
-    order_block_zones: List[H4ZoneMapping] = field(default_factory=list)
-    fvg_zones: List[H4ZoneMapping] = field(default_factory=list)
+    order_block_zones: list[H4ZoneMapping] = field(default_factory=list)
+    fvg_zones: list[H4ZoneMapping] = field(default_factory=list)
     bullish_score: float = 0.0
     bearish_score: float = 0.0
     confluence_count_bullish: int = 0
@@ -50,7 +49,7 @@ class H4ContextModule:
 
     def analyze(
         self,
-        h4_bars: List[Bar],
+        h4_bars: list[Bar],
         h1_current_price: float,
         h1_atr: float,
     ) -> H4ContextResult:
@@ -84,7 +83,7 @@ class H4ContextModule:
             confluence_count_bearish=bearish_confluences,
         )
 
-    def _map_order_blocks(self, order_blocks: List[OrderBlock]) -> List[H4ZoneMapping]:
+    def _map_order_blocks(self, order_blocks: list[OrderBlock]) -> list[H4ZoneMapping]:
         zones = []
         for ob in order_blocks:
             if ob.is_mitigated:
@@ -100,7 +99,7 @@ class H4ContextModule:
             )
         return zones
 
-    def _map_fvg_zones(self, fvgs: List) -> List[H4ZoneMapping]:
+    def _map_fvg_zones(self, fvgs: list) -> list[H4ZoneMapping]:
         zones = []
         for fvg in fvgs:
             if fvg.is_mitigated:
@@ -119,11 +118,11 @@ class H4ContextModule:
 
     def _calculate_scores(
         self,
-        ob_zones: List[H4ZoneMapping],
-        fvg_zones: List[H4ZoneMapping],
+        ob_zones: list[H4ZoneMapping],
+        fvg_zones: list[H4ZoneMapping],
         current_price: float,
         atr: float,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         if atr == 0:
             return (0.0, 0.0)
 
@@ -155,8 +154,8 @@ class H4ContextModule:
 
     def _count_zone_confluences(
         self,
-        ob_zones: List[H4ZoneMapping],
-        fvg_zones: List[H4ZoneMapping],
+        ob_zones: list[H4ZoneMapping],
+        fvg_zones: list[H4ZoneMapping],
         direction: TradeDirection,
         current_price: float,
         atr: float,

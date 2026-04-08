@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from backtest.engine import Bar
 from backtest.parameter_sweep.optuna_optimizer import (
-    OptunaOptimizer,
     OptimizationResult,
+    OptunaOptimizer,
     SearchSpace,
     WalkForwardObjective,
     categorical,
