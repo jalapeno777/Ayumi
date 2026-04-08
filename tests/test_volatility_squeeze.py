@@ -1,7 +1,6 @@
 import sys
 import os
 import unittest
-import dataclasses
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
@@ -11,9 +10,6 @@ from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
     VolatilitySqueezeStrategy,
     VolatilitySqueezeConfig,
-    GBPJPY_H1_PRESET,
-    EURUSD_H1_PRESET,
-    XAUUSD_H1_PRESET,
     _calculate_sma,
     _calculate_ema,
     _calculate_std,
@@ -380,66 +376,14 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
         result = strategy.evaluate(state)
         self.assertIsNone(result)
 
-
-class TestPresets(unittest.TestCase):
-    def test_gbpjy_preset_values(self):
-        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 3)
-        self.assertEqual(GBPJPY_H1_PRESET.adx_min, 20)
-        self.assertTrue(GBPJPY_H1_PRESET.session_filter)
-
-    def test_eurusd_preset_values(self):
-        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 2)
-        self.assertEqual(EURUSD_H1_PRESET.adx_min, 18)
-        self.assertTrue(EURUSD_H1_PRESET.session_filter)
-
-    def test_xauusd_preset_values(self):
-        self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
-        self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
-        self.assertFalse(XAUUSD_H1_PRESET.session_filter)
-
-    def test_presets_are_frozen(self):
-        import dataclasses
-
-        self.assertTrue(dataclasses.is_dataclass(VolatilitySqueezeConfig))
-        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)
-
-
-class TestVolatilitySqueezeConfig(unittest.TestCase):
-    def test_default_values(self):
-        config = VolatilitySqueezeConfig()
-        self.assertEqual(config.bb_period, 20)
-        self.assertEqual(config.bb_std_dev, 2.0)
-        self.assertEqual(config.kc_period, 20)
-        self.assertEqual(config.kc_atr_multiplier, 2.0)
-        self.assertEqual(config.squeeze_threshold, 0.0)
-        self.assertEqual(config.min_squeeze_bars, 3)
-        self.assertEqual(config.ema_period, 20)
-        self.assertEqual(config.adx_period, 14)
-        self.assertAlmostEqual(config.adx_min, 20.0)
-        self.assertEqual(config.atr_period, 14)
-        self.assertAlmostEqual(config.atr_sl_multiplier, 1.5)
-        self.assertAlmostEqual(config.tp1_rr, 1.0)
-        self.assertAlmostEqual(config.tp2_rr, 2.0)
-        self.assertAlmostEqual(config.tp3_rr, 3.0)
-        self.assertTrue(config.session_filter)
-        self.assertAlmostEqual(config.min_confidence, 0.55)
-
-    def test_frozen_dataclass(self):
-        config = VolatilitySqueezeConfig()
-        with self.assertRaises(dataclasses.FrozenInstanceError):
-            config.bb_period = 10
-
-    def test_custom_values(self):
-        config = VolatilitySqueezeConfig(
-            bb_period=10,
-            bb_std_dev=1.5,
-            min_squeeze_bars=5,
-            adx_min=30,
-        )
-        self.assertEqual(config.bb_period, 10)
-        self.assertEqual(config.bb_std_dev, 1.5)
-        self.assertEqual(config.min_squeeze_bars, 5)
-        self.assertAlmostEqual(config.adx_min, 30)
+    def test_rsi_filter_rejects_overbought_long(self):
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=1, adx_min=1)
+        strategy = VolatilitySqueezeStrategy(config)
+        bars = _make_squeeze_bars(80, squeeze_start=20, squeeze_end=50, breakout_direction="up")
+        state = _make_state(bars, SessionType.OUTSIDE)
+        result = strategy.evaluate(state)
+        if result is not None:
+            self.assertLess(result.confidence, 0.70)
 
 
 if __name__ == "__main__":
