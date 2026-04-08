@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from .position_sizing import fixed_fractional
 from .regime import VolatilityRegime, VolatilityThresholds, volatility_regime

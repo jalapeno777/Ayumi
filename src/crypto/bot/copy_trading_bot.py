@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 from ..models.trade import TradeSignal
 from ..services.broadcaster import SignalBroadcaster, WebhookHandler

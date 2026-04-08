@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
 
 from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy

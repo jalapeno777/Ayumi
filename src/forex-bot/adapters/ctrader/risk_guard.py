@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from threading import Lock
-from typing import List, Optional
 
 from .models import TradeDirection, TradeSignal
 
@@ -373,7 +372,10 @@ class RiskGuard:
     def is_blocked(self) -> bool:
         if self._circuit_breaker_triggered:
             return True
-        if self._blocked_until is not None and datetime.now(timezone.utc) < self._blocked_until:
+        if (
+            self._blocked_until is not None
+            and datetime.now(timezone.utc) < self._blocked_until
+        ):
             return True
         return False
 

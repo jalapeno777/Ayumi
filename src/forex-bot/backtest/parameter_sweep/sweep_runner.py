@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..engine import BacktestConfig, Bar
 from ..enhanced_engine import EnhancedBacktestEngine

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import Any, List, Optional, Protocol, Union
+from typing import Any, Protocol
 
 from quant.walk_forward import (
     AggregatedMetrics,
@@ -24,7 +24,8 @@ class SupportsTrain(Protocol):
 
 def run_strategy_walk_forward(
     bars: list[Bar],
-    strategy_factory: Callable[[], ISignalStrategy] | Callable[[list[Bar]], ISignalStrategy],
+    strategy_factory: Callable[[], ISignalStrategy]
+    | Callable[[list[Bar]], ISignalStrategy],
     pair: str,
     n_windows: int = 5,
     train_ratio: float = 0.7,

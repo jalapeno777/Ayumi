@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import List, Optional
 
 from backtest.engine import MarketState
 from backtest.engine import TradeDirection as BacktestTradeDirection

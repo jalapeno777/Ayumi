@@ -6,7 +6,6 @@ import socket
 import ssl
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 

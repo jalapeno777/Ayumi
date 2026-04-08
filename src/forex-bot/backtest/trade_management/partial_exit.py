@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Tuple
 
 from ..engine import Bar, ExitReason, TradeDirection
 

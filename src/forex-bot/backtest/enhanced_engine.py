@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from .engine import (
     BacktestConfig,
@@ -90,7 +90,7 @@ class EnhancedBacktestEngine:
         self.strategies = strategies
         self.tm_config = tm_config or TradeManagementConfig()
         self.trade_manager = TradeManager(self.tm_config)
-        self._quant_pipeline: QuantPipeline | None = None
+        self._quant_pipeline: "QuantPipeline | None" = None
         if quant_config is not None:
             from quant.config import QuantConfig as QC
             from quant.pipeline import QuantPipeline

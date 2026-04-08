@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
 
 from quant.vaps import VAPSConfig, vaps_regime
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time
-from typing import List, Optional
 
 from backtest.engine import (
     Bar,
@@ -304,9 +303,7 @@ class SessionRangeMeanReversionStrategy:
         return None
 
     @staticmethod
-    def _find_previous_trading_day(
-        bars: list[Bar], current_day: date
-    ) -> date | None:
+    def _find_previous_trading_day(bars: list[Bar], current_day: date) -> date | None:
         seen_days: set[date] = set()
         for b in bars:
             d = b.time.date()

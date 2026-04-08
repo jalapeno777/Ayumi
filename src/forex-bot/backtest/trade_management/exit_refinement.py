@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Optional
 
 from ..engine import Bar, ExitReason, TradeDirection
 

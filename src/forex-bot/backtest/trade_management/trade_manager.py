@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
 
 from ..engine import Bar, ExitReason, StrategySignal, TradeDirection
 from .config import TradeManagementConfig

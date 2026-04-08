@@ -3,7 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import RLock
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .models import Order, Position, TradeSignal
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig

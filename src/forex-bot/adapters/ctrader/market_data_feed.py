@@ -16,7 +16,6 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set
 
 from .api_client import FIXClient, FIXMessage
 from .models import cTraderCredentials

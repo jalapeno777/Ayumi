@@ -19,7 +19,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from .data_loader import CsvDataLoader
 from .engine import Bar, determine_session

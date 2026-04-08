@@ -2,7 +2,6 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 
 class TradeDirection(Enum):

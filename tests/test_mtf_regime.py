@@ -4,7 +4,6 @@ import os
 import sys
 import unittest
 from datetime import datetime, timedelta
-from typing import List
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 

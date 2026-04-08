@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
 
 from ..engine import Bar, SessionType, TradeDirection
 from .fvg import FVGDetector

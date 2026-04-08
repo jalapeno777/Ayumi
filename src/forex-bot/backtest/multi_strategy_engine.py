@@ -1,6 +1,5 @@
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 from .engine import (
     BacktestConfig,
@@ -169,9 +168,7 @@ class MultiStrategyBacktestEngine:
 
         return (individual, combined_metrics)
 
-    def _combine_signals(
-        self, signals: list[StrategySignal]
-    ) -> StrategySignal | None:
+    def _combine_signals(self, signals: list[StrategySignal]) -> StrategySignal | None:
         if len(signals) == 0:
             return None
 

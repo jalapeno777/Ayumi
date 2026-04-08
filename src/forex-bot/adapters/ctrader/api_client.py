@@ -6,7 +6,6 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Optional
 
 from .models import (
     AccountInfo,

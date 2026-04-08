@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 from .engine import Bar, StrategySignal, TradeDirection
 from .ict_smc.confluence_engine import SignalConfluenceEngine

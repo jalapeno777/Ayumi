@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any
 
 from backtest.engine import Bar, MarketState, determine_session
 from backtest.strategies import ISignalStrategy
