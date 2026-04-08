@@ -10,8 +10,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
-from backtest.engine import Bar
+from backtest.data_loader import CsvDataLoader  # noqa: E402
+from backtest.engine import Bar  # noqa: E402
 
 
 class TestSwingPointDetection:
