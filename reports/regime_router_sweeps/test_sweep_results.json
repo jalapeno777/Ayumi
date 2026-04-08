@@ -1,0 +1,38 @@
+{
+  "total_runs": 2,
+  "successful_runs": 2,
+  "results": [
+    {
+      "params": {
+        "adx_trend_threshold": 20.0,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "trending_size_multiplier": 1.0
+      },
+      "backtest": {
+        "win_rate": 28.57142857142857,
+        "max_dd": 3.929795664877525,
+        "total_return": -0.032198515782437896,
+        "sharpe_ratio": -0.6890992518822316,
+        "trade_count": 7,
+        "profit_factor": 0.1524541787971991
+      }
+    },
+    {
+      "params": {
+        "adx_trend_threshold": 25.0,
+        "atr_volatility_percentile": 75.0,
+        "min_confidence": 0.55,
+        "trending_size_multiplier": 1.0
+      },
+      "backtest": {
+        "win_rate": 28.57142857142857,
+        "max_dd": 3.929795664877525,
+        "total_return": -0.032198515782437896,
+        "sharpe_ratio": -0.6890992518822316,
+        "trade_count": 7,
+        "profit_factor": 0.1524541787971991
+      }
+    }
+  ]
+}

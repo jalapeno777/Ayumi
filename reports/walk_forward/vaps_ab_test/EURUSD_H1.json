@@ -1,0 +1,174 @@
+{
+  "config": {
+    "pair": "EURUSD",
+    "n_windows": 5,
+    "total_bars": 17877,
+    "vaps_lookback": 50,
+    "vaps_low_mult": 1.5,
+    "vaps_normal_mult": 1.0,
+    "vaps_high_mult": 0.7,
+    "vaps_extreme_mult": 0.5,
+    "vaps_low_pctile": 30.0,
+    "vaps_normal_pctile": 70.0,
+    "vaps_high_pctile": 90.0,
+    "spread_pips": 1.5,
+    "initial_balance": 10000
+  },
+  "summary": {
+    "fixed_go_nogo": true,
+    "fixed_windows_passed": 2,
+    "vaps_go_nogo": false,
+    "vaps_windows_passed": 1,
+    "vaps_outperforms_fixed": false
+  },
+  "aggregated": {
+    "fixed": {
+      "mean_wr": 54.03,
+      "mean_pf": 0.9864,
+      "mean_dd": 3.36,
+      "mean_sharpe": -0.6258,
+      "mean_pnl": -23.57,
+      "windows_passed": 2
+    },
+    "vaps": {
+      "mean_wr": 50.64,
+      "mean_pf": 0.7684,
+      "mean_dd": 3.95,
+      "mean_sharpe": -2.2474,
+      "mean_pnl": -163.85,
+      "windows_passed": 1
+    }
+  },
+  "per_window": [
+    {
+      "window_id": 0,
+      "test_start": "2023-08-14 07:00:00",
+      "test_end": "2023-09-13 14:00:00",
+      "test_bars": 536,
+      "fixed": {
+        "trades": 15,
+        "win_rate": 66.67,
+        "profit_factor": 1.6248,
+        "sharpe": 3.7371,
+        "max_dd": 3.52,
+        "total_pnl": 359.57,
+        "passed_go_nogo": true
+      },
+      "vaps": {
+        "trades": 13,
+        "win_rate": 61.54,
+        "profit_factor": 0.9698,
+        "sharpe": -0.2167,
+        "max_dd": 5.14,
+        "total_pnl": -22.63,
+        "passed_go_nogo": false
+      },
+      "wr_improvement": -5.13,
+      "pf_improvement": -0.655
+    },
+    {
+      "window_id": 1,
+      "test_start": "2024-01-30 07:00:00",
+      "test_end": "2024-02-29 14:00:00",
+      "test_bars": 536,
+      "fixed": {
+        "trades": 9,
+        "win_rate": 55.56,
+        "profit_factor": 0.9693,
+        "sharpe": -0.2311,
+        "max_dd": 1.64,
+        "total_pnl": -13.79,
+        "passed_go_nogo": false
+      },
+      "vaps": {
+        "trades": 9,
+        "win_rate": 55.56,
+        "profit_factor": 1.0371,
+        "sharpe": 0.2653,
+        "max_dd": 1.7,
+        "total_pnl": 20.96,
+        "passed_go_nogo": true
+      },
+      "wr_improvement": 0.0,
+      "pf_improvement": 0.0678
+    },
+    {
+      "window_id": 2,
+      "test_start": "2024-07-15 12:00:00",
+      "test_end": "2024-08-14 19:00:00",
+      "test_bars": 536,
+      "fixed": {
+        "trades": 12,
+        "win_rate": 41.67,
+        "profit_factor": 0.4907,
+        "sharpe": -5.3297,
+        "max_dd": 4.48,
+        "total_pnl": -388.9,
+        "passed_go_nogo": false
+      },
+      "vaps": {
+        "trades": 12,
+        "win_rate": 41.67,
+        "profit_factor": 0.4649,
+        "sharpe": -5.5509,
+        "max_dd": 4.95,
+        "total_pnl": -420.34,
+        "passed_go_nogo": false
+      },
+      "wr_improvement": 0.0,
+      "pf_improvement": -0.0258
+    },
+    {
+      "window_id": 3,
+      "test_start": "2024-12-30 07:00:00",
+      "test_end": "2025-01-30 14:00:00",
+      "test_bars": 536,
+      "fixed": {
+        "trades": 10,
+        "win_rate": 50.0,
+        "profit_factor": 0.8082,
+        "sharpe": -1.5968,
+        "max_dd": 2.81,
+        "total_pnl": -104.81,
+        "passed_go_nogo": false
+      },
+      "vaps": {
+        "trades": 10,
+        "win_rate": 50.0,
+        "profit_factor": 0.8087,
+        "sharpe": -1.5462,
+        "max_dd": 2.94,
+        "total_pnl": -108.31,
+        "passed_go_nogo": false
+      },
+      "wr_improvement": 0.0,
+      "pf_improvement": 0.0005
+    },
+    {
+      "window_id": 4,
+      "test_start": "2025-06-16 12:00:00",
+      "test_end": "2025-07-16 19:00:00",
+      "test_bars": 536,
+      "fixed": {
+        "trades": 16,
+        "win_rate": 56.25,
+        "profit_factor": 1.0389,
+        "sharpe": 0.2917,
+        "max_dd": 4.33,
+        "total_pnl": 30.08,
+        "passed_go_nogo": true
+      },
+      "vaps": {
+        "trades": 9,
+        "win_rate": 44.44,
+        "profit_factor": 0.5615,
+        "sharpe": -4.1883,
+        "max_dd": 5.0,
+        "total_pnl": -288.92,
+        "passed_go_nogo": false
+      },
+      "wr_improvement": -11.81,
+      "pf_improvement": -0.4775
+    }
+  ]
+}

@@ -14,6 +14,7 @@ from strategies.volatility_squeeze import (
     GBPJPY_H1_PRESET,
     EURUSD_H1_PRESET,
     XAUUSD_H1_PRESET,
+    USDJPY_H1_PRESET,
     _calculate_sma,
     _calculate_ema,
     _calculate_std,
@@ -397,6 +398,18 @@ class TestPresets(unittest.TestCase):
         self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
         self.assertFalse(XAUUSD_H1_PRESET.session_filter)
 
+    def test_usdjpy_h1_preset_values(self):
+        self.assertEqual(USDJPY_H1_PRESET.kc_atr_multiplier, 1.5)
+        self.assertEqual(USDJPY_H1_PRESET.ema_period, 50)
+        self.assertEqual(USDJPY_H1_PRESET.adx_min, 22)
+        self.assertEqual(USDJPY_H1_PRESET.min_squeeze_bars, 3)
+        self.assertTrue(USDJPY_H1_PRESET.session_filter)
+        self.assertAlmostEqual(USDJPY_H1_PRESET.bb_std_dev, 2.0)
+        self.assertAlmostEqual(USDJPY_H1_PRESET.atr_sl_multiplier, 1.5)
+        self.assertAlmostEqual(USDJPY_H1_PRESET.tp1_rr, 1.0)
+        self.assertAlmostEqual(USDJPY_H1_PRESET.tp2_rr, 2.0)
+        self.assertAlmostEqual(USDJPY_H1_PRESET.tp3_rr, 3.0)
+
     def test_presets_are_frozen(self):
         import dataclasses
 
@@ -440,6 +453,44 @@ class TestVolatilitySqueezeConfig(unittest.TestCase):
         self.assertEqual(config.bb_std_dev, 1.5)
         self.assertEqual(config.min_squeeze_bars, 5)
         self.assertAlmostEqual(config.adx_min, 30)
+
+    def test_usdjpy_preset_strategy_uses_correct_config(self):
+        strategy = VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
+        self.assertEqual(strategy.config.ema_period, 50)
+        self.assertEqual(strategy.config.kc_atr_multiplier, 1.5)
+        self.assertEqual(strategy.config.adx_min, 22)
+
+
+class TestRegistryWiring(unittest.TestCase):
+    def test_volatility_squeeze_usdjpy_registered(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
+        from backtest.builtin_strategies import register_builtin_strategies
+        from backtest.walk_forward_runner import STRATEGY_REGISTRY, get_registered_strategies
+
+        STRATEGY_REGISTRY.clear()
+        register_builtin_strategies()
+        self.assertIn("volatility_squeeze_usdjpy", get_registered_strategies())
+        strategy = STRATEGY_REGISTRY["volatility_squeeze_usdjpy"]()
+        self.assertIsInstance(strategy, VolatilitySqueezeStrategy)
+        self.assertEqual(strategy.config.ema_period, 50)
+        self.assertEqual(strategy.config.kc_atr_multiplier, 1.5)
+        self.assertEqual(strategy.config.adx_min, 22)
+
+    def test_volatility_squeeze_usdjpy_different_from_default(self):
+        default_strategy = VolatilitySqueezeStrategy()
+        usdjpy_strategy = VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
+        self.assertNotEqual(
+            default_strategy.config.kc_atr_multiplier,
+            usdjpy_strategy.config.kc_atr_multiplier,
+        )
+        self.assertNotEqual(
+            default_strategy.config.ema_period,
+            usdjpy_strategy.config.ema_period,
+        )
+        self.assertNotEqual(
+            default_strategy.config.adx_min,
+            usdjpy_strategy.config.adx_min,
+        )
 
 
 if __name__ == "__main__":

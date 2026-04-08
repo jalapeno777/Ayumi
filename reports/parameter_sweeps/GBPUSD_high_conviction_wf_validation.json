@@ -1,0 +1,75 @@
+{
+  "params": {
+    "min_confluences": 3,
+    "atr_percentile_threshold": 0.3,
+    "max_trades_per_week": 3,
+    "trend_lookback": 10,
+    "sl_atr_mult": 2.0,
+    "tp_atr_mult": 8.0,
+    "swing_lookback": 50,
+    "rsi_period": 14
+  },
+  "pair": "GBPUSD",
+  "go_nogo": true,
+  "windows_passed": 2,
+  "total_windows": 5,
+  "aggregated": {
+    "mean_win_rate": 0.4,
+    "mean_profit_factor": Infinity,
+    "mean_sharpe_ratio": -264.1352841499893,
+    "mean_trade_count": 1.4,
+    "mean_max_drawdown": 0.010715173868950368
+  },
+  "per_window": [
+    {
+      "window": 0,
+      "win_rate": 1.0,
+      "profit_factor": Infinity,
+      "sharpe_ratio": 0.0,
+      "max_drawdown": 0.0,
+      "trade_count": 1,
+      "total_pnl": 142.83765347885756,
+      "passed": true
+    },
+    {
+      "window": 1,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "sharpe_ratio": -913.1342656910172,
+      "max_drawdown": 0.02132790552245533,
+      "trade_count": 2,
+      "total_pnl": -213.2790552245537,
+      "passed": false
+    },
+    {
+      "window": 2,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "sharpe_ratio": -407.54215505892915,
+      "max_drawdown": 0.02157517441605978,
+      "trade_count": 2,
+      "total_pnl": -215.75174416059707,
+      "passed": false
+    },
+    {
+      "window": 3,
+      "win_rate": 1.0,
+      "profit_factor": Infinity,
+      "sharpe_ratio": 0.0,
+      "max_drawdown": 0.0,
+      "trade_count": 1,
+      "total_pnl": 144.4676409185827,
+      "passed": true
+    },
+    {
+      "window": 4,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown": 0.010672789406236734,
+      "trade_count": 1,
+      "total_pnl": -106.72789406236646,
+      "passed": false
+    }
+  ]
+}
