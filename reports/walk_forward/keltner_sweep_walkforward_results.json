@@ -1,0 +1,210 @@
+{
+  "strategy": "KeltnerChannelBreakout",
+  "pairs": [
+    "EURUSD",
+    "GBPJPY"
+  ],
+  "overall_go": true,
+  "pair_results": {
+    "EURUSD": {
+      "go_nogo": true,
+      "top5_results": [
+        {
+          "params": {
+            "adx_threshold": 30.0,
+            "atr_multiplier": 2.0,
+            "atr_period": 10,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 20
+          },
+          "go_nogo": true,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.42000000000000004, std_win_rate=0.26624967396954474, mean_profit_factor=1.0646654824860673, std_profit_factor=0.822981506749024, mean_max_drawdown=0.01370896926132048, std_max_drawdown=0.005270253165449812, mean_sharpe_ratio=-104.15160186664002, std_sharpe_ratio=235.43607996515593, mean_trade_count=3.0, std_trade_count=1.224744871391589, mean_total_pnl=-10.907118006652945, std_total_pnl=161.49311962387918, windows_passed=2, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.5043276743500319, max_drawdown=0.011736111111111131, sharpe_ratio=-4.522613216393076, trade_count=3, total_pnl=-113.98138362780163, passed_go_nogo=False)",
+            "WindowMetrics(window_index=1, win_rate=0.6666666666666666, profit_factor=1.9987121871884281, max_drawdown=0.012024691358024536, sharpe_ratio=4.577967173544917, trade_count=3, total_pnl=123.04941505188941, passed_go_nogo=True)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.02308893645328935, sharpe_ratio=-525.2642039825517, trade_count=2, total_pnl=-230.8893645328941, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.6, profit_factor=1.6845061677315036, max_drawdown=0.01093160645307878, sharpe_ratio=3.7372179132569667, trade_count=5, total_pnl=152.4900353449078, passed_go_nogo=True)",
+            "WindowMetrics(window_index=4, win_rate=0.5, profit_factor=1.1357813831603734, max_drawdown=0.01076350093109861, sharpe_ratio=0.7136227789427905, trade_count=2, total_pnl=14.795707730633794, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 30.0,
+            "atr_multiplier": 2.0,
+            "atr_period": 10,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 50
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.4, std_win_rate=0.25276251480171835, mean_profit_factor=0.9527379710627433, std_profit_factor=0.7526581801002775, mean_max_drawdown=0.013708969261320491, std_max_drawdown=0.005270253165449806, mean_sharpe_ratio=-104.73750176839636, std_sharpe_ratio=235.10387921206146, mean_trade_count=2.8, std_trade_count=0.8366600265340756, mean_total_pnl=-35.91014164878611, std_total_pnl=137.81228690262733, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.5043276743500319, max_drawdown=0.011736111111111131, sharpe_ratio=-4.522613216393076, trade_count=3, total_pnl=-113.98138362780163, passed_go_nogo=False)",
+            "WindowMetrics(window_index=1, win_rate=0.6666666666666666, profit_factor=1.9987121871884281, max_drawdown=0.012024691358024536, sharpe_ratio=4.577967173544917, trade_count=3, total_pnl=123.04941505188941, passed_go_nogo=True)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.02308893645328935, sharpe_ratio=-525.2642039825517, trade_count=2, total_pnl=-230.8893645328941, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.5, profit_factor=1.1248686106148829, max_drawdown=0.010931606453078828, sharpe_ratio=0.8077184044754071, trade_count=4, total_pnl=27.474917134241977, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.5, profit_factor=1.1357813831603734, max_drawdown=0.01076350093109861, sharpe_ratio=0.7136227789427905, trade_count=2, total_pnl=14.795707730633794, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 30.0,
+            "atr_multiplier": 3.0,
+            "atr_period": 10,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 20
+          },
+          "go_nogo": true,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.4, std_win_rate=0.5477225575051662, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.0, std_max_drawdown=0.0, mean_sharpe_ratio=0.0, std_sharpe_ratio=0.0, mean_trade_count=0.4, std_trade_count=0.5477225575051662, mean_total_pnl=48.668145459433994, std_total_pnl=66.66941254142154, windows_passed=2, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=118.94736842105249, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=124.39335887611747, passed_go_nogo=True)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 30.0,
+            "atr_multiplier": 3.0,
+            "atr_period": 10,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 50
+          },
+          "go_nogo": true,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.4, std_win_rate=0.5477225575051662, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.0, std_max_drawdown=0.0, mean_sharpe_ratio=0.0, std_sharpe_ratio=0.0, mean_trade_count=0.4, std_trade_count=0.5477225575051662, mean_total_pnl=48.668145459433994, std_total_pnl=66.66941254142154, windows_passed=2, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=118.94736842105249, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=124.39335887611747, passed_go_nogo=True)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 30.0,
+            "atr_multiplier": 3.0,
+            "atr_period": 10,
+            "ema_period": 10,
+            "sl_atr_multiplier": 3.0,
+            "volume_ma_period": 20
+          },
+          "go_nogo": true,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.4, std_win_rate=0.5477225575051662, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.0, std_max_drawdown=0.0, mean_sharpe_ratio=0.0, std_sharpe_ratio=0.0, mean_trade_count=0.4, std_trade_count=0.5477225575051662, mean_total_pnl=28.939736842105447, std_total_pnl=40.659801696890966, windows_passed=2, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=59.473684210526244, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=85.22500000000099, passed_go_nogo=True)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False)"
+          ]
+        }
+      ]
+    },
+    "GBPJPY": {
+      "go_nogo": false,
+      "top5_results": [
+        {
+          "params": {
+            "adx_threshold": 25.0,
+            "atr_multiplier": 2.5,
+            "atr_period": 14,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 20
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.26666666666666666, std_win_rate=0.4346134936801766, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.01942386965689421, std_max_drawdown=0.011752105303551589, mean_sharpe_ratio=-520.167700262057, std_sharpe_ratio=1491.1981966692988, mean_trade_count=2.4, std_trade_count=0.5477225575051661, mean_total_pnl=-120.30982435024313, std_total_pnl=220.7247959207585, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=1769.5547671116046, trade_count=2, total_pnl=247.01728883897925, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.022094768512638256, sharpe_ratio=-834.5605424912989, trade_count=2, total_pnl=-220.94768512638365, passed_go_nogo=False)",
+            "WindowMetrics(window_index=2, win_rate=0.3333333333333333, profit_factor=0.5760669685837748, max_drawdown=0.021485091099234736, sharpe_ratio=-3.6107170167317673, trade_count=3, total_pnl=-92.22383873783116, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.03205439757336317, sharpe_ratio=-1464.9168322998485, trade_count=3, total_pnl=-320.5439757336313, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 25.0,
+            "atr_multiplier": 2.5,
+            "atr_period": 14,
+            "ema_period": 10,
+            "sl_atr_multiplier": 1.5,
+            "volume_ma_period": 50
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.2, std_win_rate=0.447213595499958, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.017310107281981072, std_max_drawdown=0.009680242726344842, mean_sharpe_ratio=-1055.1542370035306, std_sharpe_ratio=1667.257048142621, mean_trade_count=2.0, std_trade_count=0.0, mean_total_pnl=-123.69761505201518, std_total_pnl=207.2527369486382, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=1769.5547671116046, trade_count=2, total_pnl=247.01728883897925, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.022094768512638256, sharpe_ratio=-834.5605424912989, trade_count=2, total_pnl=-220.94768512638365, passed_go_nogo=False)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.02148558569879733, sharpe_ratio=-2076.155056409937, trade_count=2, total_pnl=-214.85585698797382, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 25.0,
+            "atr_multiplier": 2.5,
+            "atr_period": 14,
+            "ema_period": 10,
+            "sl_atr_multiplier": 2.0,
+            "volume_ma_period": 20
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.26666666666666666, std_win_rate=0.4346134936801766, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.019320947570595187, std_max_drawdown=0.011725088811548037, mean_sharpe_ratio=-908.8253971313449, std_sharpe_ratio=947.2536693001672, mean_trade_count=2.4, std_trade_count=0.5477225575051661, mean_total_pnl=-128.29674200811883, std_total_pnl=201.56148794107094, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=124.70575210299077, trade_count=2, total_pnl=202.0132381548048, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021580158081143053, sharpe_ratio=-1132.9957886747566, trade_count=2, total_pnl=-215.80158081143043, passed_go_nogo=False)",
+            "WindowMetrics(window_index=2, win_rate=0.3333333333333333, profit_factor=0.5757113801622582, max_drawdown=0.021485091099234837, sharpe_ratio=-3.614940171099122, trade_count=3, total_pnl=-92.30048065798836, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.03205439757336317, sharpe_ratio=-1464.9168322998485, trade_count=3, total_pnl=-320.5439757336313, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 25.0,
+            "atr_multiplier": 2.5,
+            "atr_period": 14,
+            "ema_period": 10,
+            "sl_atr_multiplier": 2.0,
+            "volume_ma_period": 50
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.2, std_win_rate=0.447213595499958, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.017207185195682033, std_max_drawdown=0.009619196729974886, mean_sharpe_ratio=-1443.811089241945, std_sharpe_ratio=966.2038966283166, mean_trade_count=2.0, std_trade_count=0.0, mean_total_pnl=-131.66920432585943, std_total_pnl=186.53460873387456, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=124.70575210299077, trade_count=2, total_pnl=202.0132381548048, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021580158081143053, sharpe_ratio=-1132.9957886747566, trade_count=2, total_pnl=-215.80158081143043, passed_go_nogo=False)",
+            "WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.02148558569879733, sharpe_ratio=-2076.155056409937, trade_count=2, total_pnl=-214.85585698797382, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)"
+          ]
+        },
+        {
+          "params": {
+            "adx_threshold": 25.0,
+            "atr_multiplier": 2.5,
+            "atr_period": 14,
+            "ema_period": 10,
+            "sl_atr_multiplier": 2.5,
+            "volume_ma_period": 20
+          },
+          "go_nogo": false,
+          "aggregated": "AggregatedMetrics(mean_win_rate=0.26666666666666666, std_win_rate=0.4346134936801766, mean_profit_factor=inf, std_profit_factor=nan, mean_max_drawdown=0.019301934174213557, std_max_drawdown=0.011720585609197703, mean_sharpe_ratio=-1105.875270108922, std_sharpe_ratio=1070.529845946594, mean_trade_count=2.4, std_trade_count=0.5477225575051661, mean_total_pnl=-130.28630294707625, std_total_pnl=197.00374122129452, windows_passed=1, total_windows=5)",
+          "per_window": [
+            "WindowMetrics(window_index=0, win_rate=1.0, profit_factor=inf, max_drawdown=0.0, sharpe_ratio=73.76577515435959, trade_count=2, total_pnl=191.11476364093605, passed_go_nogo=True)",
+            "WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)",
+            "WindowMetrics(window_index=2, win_rate=0.3333333333333333, profit_factor=0.5757113801622582, max_drawdown=0.021485091099234837, sharpe_ratio=-3.614940171099122, trade_count=3, total_pnl=-92.30048065798836, passed_go_nogo=False)",
+            "WindowMetrics(window_index=3, win_rate=0.0, profit_factor=0.0, max_drawdown=0.03205439757336317, sharpe_ratio=-1464.9168322998485, trade_count=3, total_pnl=-320.5439757336313, passed_go_nogo=False)",
+            "WindowMetrics(window_index=4, win_rate=0.0, profit_factor=0.0, max_drawdown=0.021485091099234885, sharpe_ratio=-2067.3051766140106, trade_count=2, total_pnl=-214.85091099234882, passed_go_nogo=False)"
+          ]
+        }
+      ]
+    }
+  }
+}
