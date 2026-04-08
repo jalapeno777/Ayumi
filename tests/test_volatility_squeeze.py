@@ -461,10 +461,6 @@ class TestVolatilitySqueezeConfig(unittest.TestCase):
         self.assertEqual(strategy.config.adx_min, 22)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestRegistryWiring(unittest.TestCase):
     def test_volatility_squeeze_usdjpy_registered(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
@@ -480,7 +476,7 @@ class TestRegistryWiring(unittest.TestCase):
         self.assertEqual(strategy.config.kc_atr_multiplier, 1.5)
         self.assertEqual(strategy.config.adx_min, 22)
 
-    def test_volatility_squeeze_usdjyp_different_from_default(self):
+    def test_volatility_squeeze_usdjpy_different_from_default(self):
         default_strategy = VolatilitySqueezeStrategy()
         usdjpy_strategy = VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
         self.assertNotEqual(
@@ -495,3 +491,7 @@ class TestRegistryWiring(unittest.TestCase):
             default_strategy.config.adx_min,
             usdjpy_strategy.config.adx_min,
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
