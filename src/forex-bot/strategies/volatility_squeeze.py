@@ -16,6 +16,32 @@ _PREFERRED_SESSIONS: set[SessionType] = {
 }
 
 
+def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
+    if len(bars) < period + 1:
+        return 50.0
+    gains: list[float] = []
+    losses: list[float] = []
+    for i in range(1, len(bars)):
+        change = bars[i].close - bars[i - 1].close
+        if change > 0:
+            gains.append(change)
+            losses.append(0.0)
+        else:
+            gains.append(0.0)
+            losses.append(abs(change))
+    if len(gains) < period:
+        return 50.0
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
 @dataclass(frozen=True)
 class VolatilitySqueezeConfig:
     bb_period: int = 20
@@ -91,6 +117,24 @@ XAUUSD_H1_PRESET = VolatilitySqueezeConfig(
     tp2_rr=2.0,
     tp3_rr=3.0,
     session_filter=False,
+)
+
+USDJPY_H1_PRESET = VolatilitySqueezeConfig(
+    bb_period=20,
+    bb_std_dev=2.0,
+    kc_period=20,
+    kc_atr_multiplier=1.5,
+    squeeze_threshold=0.0,
+    min_squeeze_bars=3,
+    ema_period=50,
+    adx_period=14,
+    adx_min=22,
+    atr_period=14,
+    atr_sl_multiplier=1.5,
+    tp1_rr=1.0,
+    tp2_rr=2.0,
+    tp3_rr=3.0,
+    session_filter=True,
 )
 
 
@@ -374,6 +418,12 @@ class VolatilitySqueezeStrategy:
                 signal_type = "breakout"
 
         if direction is None:
+            return None
+
+        rsi = _calculate_rsi(bars, self.config.adx_period)
+        if direction == TradeDirection.LONG and rsi >= 70:
+            return None
+        if direction == TradeDirection.SHORT and rsi <= 30:
             return None
 
         confidence = 0.60

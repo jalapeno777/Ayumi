@@ -1,0 +1,469 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, time
+from typing import List, Optional
+
+from backtest.engine import (
+    Bar,
+    MarketState,
+    SessionType,
+    StrategySignal,
+    TradeDirection,
+)
+
+
+@dataclass(frozen=True)
+class KillzoneMomentumConfig:
+    atr_period: int = 14
+    atr_breakout_multiplier: float = 0.5
+    ema_trend_period: int = 50
+    rsi_period: int = 14
+    min_session_range_pips: float = 20.0
+    hard_cap_sl_pips: float = 35.0
+    atr_sl_multiplier: float = 1.5
+    retest_tolerance_atr: float = 0.5
+    tp1_rr: float = 1.0
+    tp2_rr: float = 2.0
+    tp3_rr: float = 3.0
+    adx_period: int = 14
+    adx_threshold: float = 20.0
+    min_bars_for_setup: int = 80
+    breakout_lookback_bars: int = 6
+
+
+_LONDON_OPEN_START = time(7, 0)
+_LONDON_OPEN_END = time(9, 0)
+_NY_OPEN_START = time(12, 0)
+_NY_OPEN_END = time(14, 0)
+_OVERLAP_START = time(13, 0)
+_OVERLAP_END = time(16, 0)
+
+_ASIAN_START_HOUR = 0
+_ASIAN_END_HOUR = 7
+_LONDON_START_HOUR = 7
+_LONDON_END_HOUR = 12
+
+_PIP = 0.0001
+
+
+def _get_bar_session(bar_time: datetime) -> SessionType:
+    utc_hour = bar_time.hour
+    if _ASIAN_START_HOUR <= utc_hour < _ASIAN_END_HOUR:
+        return SessionType.ASIAN
+    if _LONDON_START_HOUR <= utc_hour < _LONDON_END_HOUR:
+        return SessionType.LONDON
+    if 12 <= utc_hour < 16:
+        return SessionType.NY_AM
+    if 16 <= utc_hour < 20:
+        return SessionType.NY_PM
+    return SessionType.OUTSIDE
+
+
+def _is_killzone(state: MarketState) -> bool:
+    utc_hour = state.latest_bar.time.hour
+    return (
+        _LONDON_OPEN_START.hour <= utc_hour < _LONDON_OPEN_END.hour
+        or _NY_OPEN_START.hour <= utc_hour < _NY_OPEN_END.hour
+        or _OVERLAP_START.hour <= utc_hour < _OVERLAP_END.hour
+    )
+
+
+def _get_killzone_name(state: MarketState) -> Optional[str]:
+    utc_hour = state.latest_bar.time.hour
+    if _LONDON_OPEN_START.hour <= utc_hour < _LONDON_OPEN_END.hour:
+        return "london_open"
+    if _NY_OPEN_START.hour <= utc_hour < _NY_OPEN_END.hour:
+        return "ny_open"
+    if _OVERLAP_START.hour <= utc_hour < _OVERLAP_END.hour:
+        return "overlap"
+    return None
+
+
+def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
+    if len(bars) < period + 1:
+        return 0.0001
+    tr_sum = 0.0
+    count = 0
+    for i in range(len(bars) - period, len(bars)):
+        if i > 0:
+            tr = max(
+                bars[i].high - bars[i].low,
+                abs(bars[i].high - bars[i - 1].close),
+                abs(bars[i].low - bars[i - 1].close),
+            )
+            tr_sum += tr
+            count += 1
+    return tr_sum / count if count > 0 else 0.0001
+
+
+def _calculate_ema(values: List[float], period: int) -> Optional[float]:
+    if len(values) < period:
+        return None
+    multiplier = 2.0 / (period + 1)
+    ema = sum(values[:period]) / period
+    for v in values[period:]:
+        ema = (v - ema) * multiplier + ema
+    return ema
+
+
+def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
+    if len(bars) < period + 1:
+        return None
+    gains: List[float] = []
+    losses: List[float] = []
+    for i in range(len(bars) - period, len(bars)):
+        change = bars[i].close - bars[i - 1].close
+        gains.append(change if change > 0 else 0.0)
+        losses.append(abs(change) if change < 0 else 0.0)
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
+def _calculate_adx(bars: List[Bar], period: int = 14) -> Optional[float]:
+    if len(bars) < period + 1:
+        return None
+
+    tr_list: List[float] = []
+    plus_dm_list: List[float] = []
+    minus_dm_list: List[float] = []
+
+    for i in range(1, len(bars)):
+        tr = max(
+            bars[i].high - bars[i].low,
+            abs(bars[i].high - bars[i - 1].close),
+            abs(bars[i].low - bars[i - 1].close),
+        )
+        tr_list.append(tr)
+
+        high_diff = bars[i].high - bars[i - 1].high
+        low_diff = bars[i - 1].low - bars[i].low
+
+        if high_diff > low_diff and high_diff > 0:
+            plus_dm_list.append(high_diff)
+        else:
+            plus_dm_list.append(0.0)
+        if low_diff > high_diff and low_diff > 0:
+            minus_dm_list.append(low_diff)
+        else:
+            minus_dm_list.append(0.0)
+
+    if len(tr_list) < period:
+        return None
+
+    smoothed_tr = sum(tr_list[:period])
+    smoothed_plus_dm = sum(plus_dm_list[:period])
+    smoothed_minus_dm = sum(minus_dm_list[:period])
+
+    if smoothed_tr == 0:
+        return 0.0
+
+    plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+    minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+
+    if plus_di + minus_di == 0:
+        return 0.0
+
+    dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+
+    adx = dx
+    for i in range(period, len(tr_list)):
+        if smoothed_tr == 0:
+            continue
+        smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
+        smoothed_plus_dm = (
+            smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
+        )
+        smoothed_minus_dm = (
+            smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
+        )
+        if smoothed_tr == 0:
+            continue
+        plus_di = (smoothed_plus_dm / smoothed_tr) * 100
+        minus_di = (smoothed_minus_dm / smoothed_tr) * 100
+        if plus_di + minus_di == 0:
+            dx = 0.0
+        else:
+            dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+        adx = (adx * (period - 1) + dx) / period
+
+    return adx
+
+
+def _calculate_session_range(
+    bars: List[Bar], session_type: SessionType, reference_day: date
+) -> tuple[float, float, float]:
+    session_bars: List[Bar] = []
+    for b in bars:
+        if b.time.date() != reference_day:
+            continue
+        if _get_bar_session(b.time) == session_type:
+            session_bars.append(b)
+
+    if not session_bars:
+        return 0.0, 0.0, 0.0
+
+    high = max(b.high for b in session_bars)
+    low = min(b.low for b in session_bars)
+    mean = sum(b.close for b in session_bars) / len(session_bars)
+    return high, low, mean
+
+
+def _find_previous_trading_day(bars: List[Bar], current_day: date) -> Optional[date]:
+    seen_days: set[date] = set()
+    for b in bars:
+        d = b.time.date()
+        if d < current_day:
+            seen_days.add(d)
+    if not seen_days:
+        return None
+    return max(seen_days)
+
+
+def _get_trend_direction(bars: List[Bar], period: int = 50) -> Optional[str]:
+    if len(bars) < period + 1:
+        return None
+    closes = [b.close for b in bars]
+    ema = _calculate_ema(closes, period)
+    if ema is None:
+        return None
+    price = closes[-1]
+    if price > ema:
+        return "long"
+    return "short"
+
+
+def _detect_prior_breakout(
+    bars: List[Bar],
+    range_high: float,
+    range_low: float,
+    lookback: int,
+    atr: float,
+    breakout_mult: float,
+) -> Optional[str]:
+    breakout_dist = atr * breakout_mult
+    for i in range(max(0, len(bars) - lookback), len(bars) - 1):
+        bar = bars[i]
+        if bar.high > range_high + breakout_dist:
+            return "long"
+        if bar.low < range_low - breakout_dist:
+            return "short"
+    return None
+
+
+def _is_bullish_rejection_bar(bar: Bar) -> bool:
+    candle_range = bar.high - bar.low
+    if candle_range <= 0:
+        return False
+    body = bar.close - bar.open
+    if body <= 0:
+        return False
+    upper_wick = bar.high - bar.close
+    lower_wick = bar.open - bar.low
+    return body > upper_wick and body > lower_wick
+
+
+def _is_bearish_rejection_bar(bar: Bar) -> bool:
+    candle_range = bar.high - bar.low
+    if candle_range <= 0:
+        return False
+    body = bar.open - bar.close
+    if body <= 0:
+        return False
+    upper_wick = bar.high - bar.open
+    lower_wick = bar.close - bar.low
+    return body > upper_wick and body > lower_wick
+
+
+class KillzoneMomentumStrategy:
+    def __init__(self, config: Optional[KillzoneMomentumConfig] = None):
+        self.config = config or KillzoneMomentumConfig()
+
+    @property
+    def name(self) -> str:
+        return "Killzone Momentum"
+
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        min_required = self.config.min_bars_for_setup
+        if len(state.bars) < min_required:
+            return None
+
+        if not _is_killzone(state):
+            return None
+
+        kz_name = _get_killzone_name(state)
+        if kz_name is None:
+            return None
+
+        latest = state.latest_bar
+        current_day = latest.time.date()
+
+        atr = _calculate_atr(state.bars, self.config.atr_period)
+        if atr <= 0:
+            return None
+
+        prior_session_range_high = 0.0
+        prior_session_range_low = 0.0
+        session_range_width = 0.0
+
+        if kz_name == "london_open":
+            prev_day = _find_previous_trading_day(state.bars, current_day)
+            if prev_day is None:
+                return None
+            high, low, _ = _calculate_session_range(
+                state.bars, SessionType.ASIAN, prev_day
+            )
+            if high == 0:
+                return None
+            prior_session_range_high = high
+            prior_session_range_low = low
+            session_range_width = (high - low) / _PIP
+
+        elif kz_name == "ny_open":
+            high, low, _ = _calculate_session_range(
+                state.bars, SessionType.LONDON, current_day
+            )
+            if high == 0:
+                prev_day = _find_previous_trading_day(state.bars, current_day)
+                if prev_day is None:
+                    return None
+                high, low, _ = _calculate_session_range(
+                    state.bars, SessionType.LONDON, prev_day
+                )
+                if high == 0:
+                    return None
+            prior_session_range_high = high
+            prior_session_range_low = low
+            session_range_width = (high - low) / _PIP
+
+        elif kz_name == "overlap":
+            high_london, low_london, _ = _calculate_session_range(
+                state.bars, SessionType.LONDON, current_day
+            )
+            if high_london == 0:
+                prev_day = _find_previous_trading_day(state.bars, current_day)
+                if prev_day is None:
+                    return None
+                high_london, low_london, _ = _calculate_session_range(
+                    state.bars, SessionType.LONDON, prev_day
+                )
+            prior_session_range_high = high_london
+            prior_session_range_low = low_london
+            session_range_width = (high_london - low_london) / _PIP
+
+        if session_range_width < self.config.min_session_range_pips:
+            return None
+
+        price = latest.close
+
+        adx = _calculate_adx(state.bars, self.config.adx_period)
+        if adx is not None and adx < self.config.adx_threshold:
+            return None
+
+        trend = _get_trend_direction(state.bars, self.config.ema_trend_period)
+        if trend is None:
+            return None
+
+        breakout_direction = _detect_prior_breakout(
+            state.bars,
+            prior_session_range_high,
+            prior_session_range_low,
+            self.config.breakout_lookback_bars,
+            atr,
+            self.config.atr_breakout_multiplier,
+        )
+
+        if breakout_direction is None:
+            return None
+
+        if breakout_direction != trend:
+            return None
+
+        retest_tolerance = atr * self.config.retest_tolerance_atr
+
+        direction: Optional[TradeDirection] = None
+        rationale = ""
+
+        if (
+            breakout_direction == "long"
+            and trend == "long"
+            and prior_session_range_high - retest_tolerance
+            <= price
+            <= prior_session_range_high + retest_tolerance * 2
+            and _is_bullish_rejection_bar(latest)
+        ):
+            direction = TradeDirection.LONG
+            rationale = (
+                f"KZ {kz_name} retest long: price={price:.5f} retests range high={prior_session_range_high:.5f}, "
+                f"ATR={atr:.5f}, ADX={adx:.1f}, range={session_range_width:.1f}p"
+            )
+
+        elif (
+            breakout_direction == "short"
+            and trend == "short"
+            and prior_session_range_low - retest_tolerance * 2
+            <= price
+            <= prior_session_range_low + retest_tolerance
+            and _is_bearish_rejection_bar(latest)
+        ):
+            direction = TradeDirection.SHORT
+            rationale = (
+                f"KZ {kz_name} retest short: price={price:.5f} retests range low={prior_session_range_low:.5f}, "
+                f"ATR={atr:.5f}, ADX={adx:.1f}, range={session_range_width:.1f}p"
+            )
+
+        if direction is None:
+            return None
+
+        entry = price
+        sl_distance = min(
+            atr * self.config.atr_sl_multiplier,
+            self.config.hard_cap_sl_pips * _PIP,
+        )
+
+        if sl_distance <= 0:
+            return None
+
+        sl = (
+            entry - sl_distance
+            if direction == TradeDirection.LONG
+            else entry + sl_distance
+        )
+        risk = sl_distance
+
+        tp1 = (
+            entry + risk * self.config.tp1_rr
+            if direction == TradeDirection.LONG
+            else entry - risk * self.config.tp1_rr
+        )
+        tp2 = (
+            entry + risk * self.config.tp2_rr
+            if direction == TradeDirection.LONG
+            else entry - risk * self.config.tp2_rr
+        )
+        tp3 = (
+            entry + risk * self.config.tp3_rr
+            if direction == TradeDirection.LONG
+            else entry - risk * self.config.tp3_rr
+        )
+
+        confidence = 0.65
+        if adx is not None and adx >= 30:
+            confidence = 0.75
+        if adx is not None and adx >= 40:
+            confidence = 0.85
+
+        return StrategySignal(
+            direction=direction,
+            confidence=confidence,
+            entry_price=entry,
+            stop_loss=sl,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            rationale=rationale,
+        )
