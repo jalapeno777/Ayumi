@@ -36,7 +36,9 @@ def _make_bar(
     )
 
 
-def _make_rising_bars(n: int, base_price: float = 1.0, step: float = 0.0001) -> list[Bar]:
+def _make_rising_bars(
+    n: int, base_price: float = 1.0, step: float = 0.0001
+) -> list[Bar]:
     bars = []
     for i in range(n):
         h = (i // 24) % 24
@@ -140,8 +142,12 @@ class TestStatisticalStudyResult:
 
     def test_to_json_with_criteria(self):
         cr = CriterionResult(
-            metric="hit_rate", value=0.7, threshold=0.6,
-            operator=">=", passed=True, weight=1.0,
+            metric="hit_rate",
+            value=0.7,
+            threshold=0.6,
+            operator=">=",
+            passed=True,
+            weight=1.0,
         )
         result = StatisticalStudyResult(
             question="Q2",
@@ -200,8 +206,12 @@ class TestStatisticalStudy:
         study = _DummyStudy(
             question_id="Q1",
             go_nogo_criteria=[
-                GoNoGoCriteria(metric="hit_rate", threshold=0.6, operator=">=", weight=2.0),
-                GoNoGoCriteria(metric="hit_rate", threshold=0.9, operator=">=", weight=1.0),
+                GoNoGoCriteria(
+                    metric="hit_rate", threshold=0.6, operator=">=", weight=2.0
+                ),
+                GoNoGoCriteria(
+                    metric="hit_rate", threshold=0.9, operator=">=", weight=1.0
+                ),
             ],
         )
         bars = _make_rising_bars(100)
@@ -348,7 +358,11 @@ class TestMWPatternDetector:
             bars.append(
                 Bar(
                     time=datetime(2023, 1, 1 + i // 24, i % 24, 0),
-                    open=opn, high=hi, low=lo, close=cls, volume=100.0,
+                    open=opn,
+                    high=hi,
+                    low=lo,
+                    close=cls,
+                    volume=100.0,
                 )
             )
         return bars
@@ -385,15 +399,22 @@ class TestMWPatternDetector:
     def test_is_bullish_bearish(self):
         w = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.0,
-            neckline_start_idx=0, neckline_start_price=1.0,
-            valley_peak_idx=5, valley_peak_price=1.005,
-            neckline_end_idx=10, neckline_end_price=1.0,
-            right_shoulder_idx=10, right_shoulder_price=1.0,
-            neckline_level=1.0, depth_pips=50.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.0,
+            neckline_start_idx=0,
+            neckline_start_price=1.0,
+            valley_peak_idx=5,
+            valley_peak_price=1.005,
+            neckline_end_idx=10,
+            neckline_end_price=1.0,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.0,
+            neckline_level=1.0,
+            depth_pips=50.0,
             formation_start_time=datetime(2023, 1, 1),
             formation_end_time=datetime(2023, 1, 2),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         assert w.is_bullish is True
         assert w.is_bearish is False
@@ -401,12 +422,18 @@ class TestMWPatternDetector:
     def test_sessions_spanned_excludes_outside(self):
         p = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.0,
-            neckline_start_idx=0, neckline_start_price=1.0,
-            valley_peak_idx=5, valley_peak_price=1.005,
-            neckline_end_idx=10, neckline_end_price=1.0,
-            right_shoulder_idx=10, right_shoulder_price=1.0,
-            neckline_level=1.0, depth_pips=50.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.0,
+            neckline_start_idx=0,
+            neckline_start_price=1.0,
+            valley_peak_idx=5,
+            valley_peak_price=1.005,
+            neckline_end_idx=10,
+            neckline_end_price=1.0,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.0,
+            neckline_level=1.0,
+            depth_pips=50.0,
             formation_start_time=datetime(2023, 1, 1),
             formation_end_time=datetime(2023, 1, 2),
             sessions=[SessionType.LONDON, SessionType.OUTSIDE, SessionType.NY_AM],
@@ -417,69 +444,104 @@ class TestMWPatternDetector:
     def test_neckline_break_distance_bullish(self):
         w = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.1,
-            neckline_start_idx=0, neckline_start_price=1.1,
-            valley_peak_idx=5, valley_peak_price=1.09,
-            neckline_end_idx=10, neckline_end_price=1.1,
-            right_shoulder_idx=10, right_shoulder_price=1.1,
-            neckline_level=1.1, depth_pips=100.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.1,
+            neckline_start_idx=0,
+            neckline_start_price=1.1,
+            valley_peak_idx=5,
+            valley_peak_price=1.09,
+            neckline_end_idx=10,
+            neckline_end_price=1.1,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.1,
+            neckline_level=1.1,
+            depth_pips=100.0,
             formation_start_time=datetime(2023, 1, 1),
             formation_end_time=datetime(2023, 1, 2),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         assert w.neckline_break_distance == 0.0
 
     def test_neckline_break_distance_bearish(self):
         m = MWPattern(
             pattern_type="M",
-            left_shoulder_idx=0, left_shoulder_price=1.1,
-            neckline_start_idx=0, neckline_start_price=1.1,
-            valley_peak_idx=5, valley_peak_price=1.12,
-            neckline_end_idx=10, neckline_end_price=1.1,
-            right_shoulder_idx=10, right_shoulder_price=1.1,
-            neckline_level=1.1, depth_pips=200.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.1,
+            neckline_start_idx=0,
+            neckline_start_price=1.1,
+            valley_peak_idx=5,
+            valley_peak_price=1.12,
+            neckline_end_idx=10,
+            neckline_end_price=1.1,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.1,
+            neckline_level=1.1,
+            depth_pips=200.0,
             formation_start_time=datetime(2023, 1, 1),
             formation_end_time=datetime(2023, 1, 2),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         assert m.neckline_break_distance == 0.0
 
     def test_remove_overlapping(self):
         p1 = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.0,
-            neckline_start_idx=0, neckline_start_price=1.0,
-            valley_peak_idx=5, valley_peak_price=1.005,
-            neckline_end_idx=10, neckline_end_price=1.0,
-            right_shoulder_idx=10, right_shoulder_price=1.0,
-            neckline_level=1.0, depth_pips=50.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.0,
+            neckline_start_idx=0,
+            neckline_start_price=1.0,
+            valley_peak_idx=5,
+            valley_peak_price=1.005,
+            neckline_end_idx=10,
+            neckline_end_price=1.0,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.0,
+            neckline_level=1.0,
+            depth_pips=50.0,
             formation_start_time=datetime(2023, 1, 1),
             formation_end_time=datetime(2023, 1, 5),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         p2 = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.0,
-            neckline_start_idx=0, neckline_start_price=1.0,
-            valley_peak_idx=5, valley_peak_price=1.005,
-            neckline_end_idx=10, neckline_end_price=1.0,
-            right_shoulder_idx=10, right_shoulder_price=1.0,
-            neckline_level=1.0, depth_pips=50.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.0,
+            neckline_start_idx=0,
+            neckline_start_price=1.0,
+            valley_peak_idx=5,
+            valley_peak_price=1.005,
+            neckline_end_idx=10,
+            neckline_end_price=1.0,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.0,
+            neckline_level=1.0,
+            depth_pips=50.0,
             formation_start_time=datetime(2023, 1, 3),
             formation_end_time=datetime(2023, 1, 8),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         p3 = MWPattern(
             pattern_type="W",
-            left_shoulder_idx=0, left_shoulder_price=1.0,
-            neckline_start_idx=0, neckline_start_price=1.0,
-            valley_peak_idx=5, valley_peak_price=1.005,
-            neckline_end_idx=10, neckline_end_price=1.0,
-            right_shoulder_idx=10, right_shoulder_price=1.0,
-            neckline_level=1.0, depth_pips=50.0,
+            left_shoulder_idx=0,
+            left_shoulder_price=1.0,
+            neckline_start_idx=0,
+            neckline_start_price=1.0,
+            valley_peak_idx=5,
+            valley_peak_price=1.005,
+            neckline_end_idx=10,
+            neckline_end_price=1.0,
+            right_shoulder_idx=10,
+            right_shoulder_price=1.0,
+            neckline_level=1.0,
+            depth_pips=50.0,
             formation_start_time=datetime(2023, 1, 10),
             formation_end_time=datetime(2023, 1, 15),
-            sessions=[], bar_count=11,
+            sessions=[],
+            bar_count=11,
         )
         detector = MWPatternDetector()
         result = detector._remove_overlapping([p1, p2, p3])
