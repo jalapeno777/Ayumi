@@ -30,8 +30,31 @@ class RiskLimitResult:
 
 
 @dataclass
+class FTMOProfile:
+    risk_per_trade_pct: float = 0.005
+    daily_loss_limit_pct: float = 0.05
+    max_trades_per_day: int = 10
+
+    def __post_init__(self):
+        max_total_risk = self.risk_per_trade_pct * self.max_trades_per_day
+        if max_total_risk > self.daily_loss_limit_pct:
+            raise ValueError(
+                f"Invalid FTMO profile: risk_per_trade_pct ({self.risk_per_trade_pct:.4f}) * "
+                f"max_trades_per_day ({self.max_trades_per_day}) = {max_total_risk:.4f} exceeds "
+                f"daily_loss_limit_pct ({self.daily_loss_limit_pct:.4f})"
+            )
+
+
+FTMO_PROFILE_CHALLENGE = FTMOProfile(
+    risk_per_trade_pct=0.005,
+    daily_loss_limit_pct=0.05,
+    max_trades_per_day=10,
+)
+
+
+@dataclass
 class FTMOConfig:
-    daily_loss_limit_pct: float = 0.03
+    daily_loss_limit_pct: float = 0.05
     total_drawdown_limit_pct: float = 0.10
     max_trades_per_day: int = 10
     max_positions: int = 3

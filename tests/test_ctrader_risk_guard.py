@@ -1,9 +1,12 @@
 from datetime import date
+import pytest
 
 from adapters.ctrader.models import TradeSignal, TradeDirection
 from adapters.ctrader.risk_guard import (
     RiskGuard,
     FTMOConfig,
+    FTMOProfile,
+    FTMO_PROFILE_CHALLENGE,
     RiskLimitType,
     RiskLimitResult,
 )
@@ -12,7 +15,7 @@ from adapters.ctrader.risk_guard import (
 class TestFTMOConfig:
     def test_default_config(self):
         config = FTMOConfig()
-        assert config.daily_loss_limit_pct == 0.03
+        assert config.daily_loss_limit_pct == 0.05
         assert config.total_drawdown_limit_pct == 0.10
         assert config.max_trades_per_day == 10
         assert config.max_positions == 3
@@ -25,6 +28,51 @@ class TestFTMOConfig:
         )
         assert config.daily_loss_limit_pct == 0.02
         assert config.max_trades_per_day == 5
+
+
+class TestFTMOProfile:
+    def test_default_profile(self):
+        profile = FTMOProfile()
+        assert profile.risk_per_trade_pct == 0.005
+        assert profile.daily_loss_limit_pct == 0.05
+        assert profile.max_trades_per_day == 10
+
+    def test_challenge_profile(self):
+        assert FTMO_PROFILE_CHALLENGE.risk_per_trade_pct == 0.005
+        assert FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct == 0.05
+        assert FTMO_PROFILE_CHALLENGE.max_trades_per_day == 10
+
+    def test_valid_profile(self):
+        profile = FTMOProfile(
+            risk_per_trade_pct=0.01,
+            daily_loss_limit_pct=0.05,
+            max_trades_per_day=5,
+        )
+        assert profile.risk_per_trade_pct == 0.01
+
+    def test_invalid_profile_raises_error(self):
+        with pytest.raises(ValueError, match="Invalid FTMO profile"):
+            FTMOProfile(
+                risk_per_trade_pct=0.02,
+                daily_loss_limit_pct=0.05,
+                max_trades_per_day=10,
+            )
+
+    def test_invalid_profile_edge_case(self):
+        with pytest.raises(ValueError, match="Invalid FTMO profile"):
+            FTMOProfile(
+                risk_per_trade_pct=0.005,
+                daily_loss_limit_pct=0.04,
+                max_trades_per_day=10,
+            )
+
+    def test_valid_profile_exact_boundary(self):
+        profile = FTMOProfile(
+            risk_per_trade_pct=0.005,
+            daily_loss_limit_pct=0.05,
+            max_trades_per_day=10,
+        )
+        assert profile.risk_per_trade_pct * profile.max_trades_per_day == profile.daily_loss_limit_pct
 
 
 class TestRiskGuard:
