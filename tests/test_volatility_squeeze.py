@@ -14,6 +14,7 @@ from strategies.volatility_squeeze import (
     GBPJPY_H1_PRESET,
     EURUSD_H1_PRESET,
     XAUUSD_H1_PRESET,
+    USDJPY_H1_PRESET,
     _calculate_sma,
     _calculate_ema,
     _calculate_std,
@@ -396,6 +397,13 @@ class TestPresets(unittest.TestCase):
         self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
         self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
         self.assertFalse(XAUUSD_H1_PRESET.session_filter)
+
+    def test_usdjpy_preset_values(self):
+        self.assertEqual(USDJPY_H1_PRESET.kc_atr_multiplier, 1.5)
+        self.assertEqual(USDJPY_H1_PRESET.ema_period, 50)
+        self.assertEqual(USDJPY_H1_PRESET.adx_min, 22)
+        self.assertEqual(USDJPY_H1_PRESET.min_squeeze_bars, 3)
+        self.assertTrue(USDJPY_H1_PRESET.session_filter)
 
     def test_presets_are_frozen(self):
         import dataclasses
