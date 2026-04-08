@@ -897,7 +897,13 @@ class TestATRCompute:
         from backtest.portfolio_blend import _compute_atr
 
         bars = [
-            Bar(time=__import__("datetime").datetime(2024, 1, 1, h), open=1.0, high=1.0002, low=0.9998, close=1.0 + h * 0.0001)
+            Bar(
+                time=__import__("datetime").datetime(2024, 1, 1, h),
+                open=1.0,
+                high=1.0002,
+                low=0.9998,
+                close=1.0 + h * 0.0001,
+            )
             for h in range(20)
         ]
         atr = _compute_atr(bars, period=14)
@@ -910,7 +916,13 @@ class TestATRCompute:
         from backtest.portfolio_blend import _compute_atr
 
         bars = [
-            Bar(time=__import__("datetime").datetime(2024, 1, 1, h), open=1.0, high=1.0002, low=0.9998, close=1.0)
+            Bar(
+                time=__import__("datetime").datetime(2024, 1, 1, h),
+                open=1.0,
+                high=1.0002,
+                low=0.9998,
+                close=1.0,
+            )
             for h in range(5)
         ]
         atr = _compute_atr(bars, period=14)
@@ -930,7 +942,13 @@ class TestATRVolatilityGate:
 
         t0 = datetime(2024, 1, 1)
         bars = [
-            Bar(time=t0 + timedelta(hours=h), open=1.0, high=1.0001, low=0.9999, close=1.0)
+            Bar(
+                time=t0 + timedelta(hours=h),
+                open=1.0,
+                high=1.0001,
+                low=0.9999,
+                close=1.0,
+            )
             for h in range(50)
         ]
         gate = _atr_volatility_gate(bars, atr_period=14, atr_percentile_threshold=80.0)
@@ -1069,10 +1087,25 @@ class TestAdaptiveWalkForward:
             weights = WeightAllocation(weights={"Grid|XAUUSD|M15": 1.0}, method="test")
 
             wf_no_gate, _ = _run_adaptive_portfolio_walk_forward(
-                [spec], weights, 10000.0, 2, "inverse_variance", 1.0, 0.0, atr_gate=False
+                [spec],
+                weights,
+                10000.0,
+                2,
+                "inverse_variance",
+                1.0,
+                0.0,
+                atr_gate=False,
             )
             wf_with_gate, _ = _run_adaptive_portfolio_walk_forward(
-                [spec], weights, 10000.0, 2, "inverse_variance", 1.0, 0.0, atr_gate=True, atr_percentile=50.0
+                [spec],
+                weights,
+                10000.0,
+                2,
+                "inverse_variance",
+                1.0,
+                0.0,
+                atr_gate=True,
+                atr_percentile=50.0,
             )
 
         total_no_gate = sum(m.trade_count for m in wf_no_gate.per_window)

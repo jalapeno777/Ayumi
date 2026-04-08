@@ -445,9 +445,13 @@ def _reoptimize_weights_for_window(
 
     if max_weight < 1.0 or min_weight > 0.0:
         capped = cap_weights(weights.weights, max_weight, min_weight)
-        weights = WeightAllocation(weights=capped, method=f"adaptive_{weights.method}_capped")
+        weights = WeightAllocation(
+            weights=capped, method=f"adaptive_{weights.method}_capped"
+        )
     else:
-        weights = WeightAllocation(weights=weights.weights, method=f"adaptive_{weights.method}")
+        weights = WeightAllocation(
+            weights=weights.weights, method=f"adaptive_{weights.method}"
+        )
 
     return weights
 
@@ -1029,7 +1033,13 @@ def _run_adaptive_portfolio_walk_forward(
             if w <= 0:
                 continue
 
-            active_mask = _atr_volatility_gate(test_bars, atr_period=14, atr_percentile_threshold=atr_percentile) if atr_gate else [True] * len(test_bars)
+            active_mask = (
+                _atr_volatility_gate(
+                    test_bars, atr_period=14, atr_percentile_threshold=atr_percentile
+                )
+                if atr_gate
+                else [True] * len(test_bars)
+            )
 
             strategy = spec.factory()
             if hasattr(strategy, "set_balance"):
@@ -1062,7 +1072,9 @@ def _run_adaptive_portfolio_walk_forward(
             continue
 
         total_weight = sum(
-            window_weights.weights.get(_build_strategy_name(s.name, s.pair, s.timeframe), 0.0)
+            window_weights.weights.get(
+                _build_strategy_name(s.name, s.pair, s.timeframe), 0.0
+            )
             for s in strategy_specs
             if _build_strategy_name(s.name, s.pair, s.timeframe) in data_map
         )
