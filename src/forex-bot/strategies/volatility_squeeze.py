@@ -18,6 +18,32 @@ _PREFERRED_SESSIONS: Set[SessionType] = {
 }
 
 
+def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
+    if len(bars) < period + 1:
+        return 50.0
+    gains: list[float] = []
+    losses: list[float] = []
+    for i in range(1, len(bars)):
+        change = bars[i].close - bars[i - 1].close
+        if change > 0:
+            gains.append(change)
+            losses.append(0.0)
+        else:
+            gains.append(0.0)
+            losses.append(abs(change))
+    if len(gains) < period:
+        return 50.0
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+
 @dataclass(frozen=True)
 class VolatilitySqueezeConfig:
     bb_period: int = 20
@@ -394,6 +420,12 @@ class VolatilitySqueezeStrategy:
                 signal_type = "breakout"
 
         if direction is None:
+            return None
+
+        rsi = _calculate_rsi(bars, self.config.adx_period)
+        if direction == TradeDirection.LONG and rsi >= 70:
+            return None
+        if direction == TradeDirection.SHORT and rsi <= 30:
             return None
 
         confidence = 0.60

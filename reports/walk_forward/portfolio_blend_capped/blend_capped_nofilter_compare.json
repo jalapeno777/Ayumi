@@ -1,0 +1,253 @@
+{
+  "weight_method": "profit_factor",
+  "strategy_filter_enabled": false,
+  "filtered_strategies": [],
+  "ftmo_passed": false,
+  "ftmo_criteria": {
+    "win_rate": true,
+    "profit_factor": false,
+    "sharpe_ratio": false,
+    "wf_mean_win_rate": true,
+    "wf_mean_profit_factor": false,
+    "wf_mean_sharpe": false,
+    "wf_go_nogo": false
+  },
+  "weights": {
+    "Session-Range Mean Reversion|GBPUSD|H1": 0.19298244212240265,
+    "Momentum Breakout|GBPJPY|M15": 0.24741170504443508,
+    "Grid Trading|XAUUSD|M15": 0.32779650979569774,
+    "Statistical Arbitrage|EURUSD|M15": 0.13483549659274566,
+    "Commodity XAUUSD|XAUUSD|M15": 0.09697384644471896
+  },
+  "correlation_average": 0.06151139039528031,
+  "correlation_matrix": {
+    "Session-Range Mean Reversion|GBPUSD|H1": {
+      "Session-Range Mean Reversion|GBPUSD|H1": 1.0,
+      "Momentum Breakout|GBPJPY|M15": -0.14250026519576173,
+      "Grid Trading|XAUUSD|M15": -0.21886543459331956,
+      "Statistical Arbitrage|EURUSD|M15": -0.05421163012995525,
+      "Commodity XAUUSD|XAUUSD|M15": -0.3133593659258626
+    },
+    "Momentum Breakout|GBPJPY|M15": {
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.14250026519576173,
+      "Momentum Breakout|GBPJPY|M15": 1.0,
+      "Grid Trading|XAUUSD|M15": 0.016738752452507874,
+      "Statistical Arbitrage|EURUSD|M15": 0.02991867963360778,
+      "Commodity XAUUSD|XAUUSD|M15": -0.007396810630680383
+    },
+    "Grid Trading|XAUUSD|M15": {
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.21886543459331956,
+      "Momentum Breakout|GBPJPY|M15": 0.016738752452507874,
+      "Grid Trading|XAUUSD|M15": 1.0,
+      "Statistical Arbitrage|EURUSD|M15": -0.1004038614222779,
+      "Commodity XAUUSD|XAUUSD|M15": 0.5546330779024763
+    },
+    "Statistical Arbitrage|EURUSD|M15": {
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.05421163012995525,
+      "Momentum Breakout|GBPJPY|M15": 0.02991867963360778,
+      "Grid Trading|XAUUSD|M15": -0.1004038614222779,
+      "Statistical Arbitrage|EURUSD|M15": 1.0,
+      "Commodity XAUUSD|XAUUSD|M15": -0.3278712994837479
+    },
+    "Commodity XAUUSD|XAUUSD|M15": {
+      "Session-Range Mean Reversion|GBPUSD|H1": -0.3133593659258626,
+      "Momentum Breakout|GBPJPY|M15": -0.007396810630680383,
+      "Grid Trading|XAUUSD|M15": 0.5546330779024763,
+      "Statistical Arbitrage|EURUSD|M15": -0.3278712994837479,
+      "Commodity XAUUSD|XAUUSD|M15": 1.0
+    }
+  },
+  "individual": {
+    "Session-Range Mean Reversion|GBPUSD|H1": {
+      "strategy": "Session-Range Mean Reversion",
+      "pair": "GBPUSD",
+      "timeframe": "H1",
+      "win_rate": 55.932203389830505,
+      "profit_factor": 0.8938677802952943,
+      "sharpe_ratio": 0.22152238189810033,
+      "max_drawdown": 0.11925279609864038,
+      "trade_count": 59,
+      "total_pnl": -374.8305924011147,
+      "in_blend": true
+    },
+    "Momentum Breakout|GBPJPY|M15": {
+      "strategy": "Momentum Breakout",
+      "pair": "GBPJPY",
+      "timeframe": "M15",
+      "win_rate": 57.971014492753625,
+      "profit_factor": 1.1459765415698941,
+      "sharpe_ratio": 0.09959342327325066,
+      "max_drawdown": 0.056688572870704085,
+      "trade_count": 69,
+      "total_pnl": 491.5059124192758,
+      "in_blend": true
+    },
+    "Grid Trading|XAUUSD|M15": {
+      "strategy": "Grid Trading",
+      "pair": "XAUUSD",
+      "timeframe": "M15",
+      "win_rate": 98.81756756756756,
+      "profit_factor": 1.51830775575832,
+      "sharpe_ratio": 0.8092839256617752,
+      "max_drawdown": 0.06603283983629289,
+      "trade_count": 592,
+      "total_pnl": 386.76138555662874,
+      "in_blend": true
+    },
+    "Statistical Arbitrage|EURUSD|M15": {
+      "strategy": "Statistical Arbitrage",
+      "pair": "EURUSD",
+      "timeframe": "M15",
+      "win_rate": 58.06451612903226,
+      "profit_factor": 0.6245392312318548,
+      "sharpe_ratio": 0.2803406318448164,
+      "max_drawdown": 0.16253480230441528,
+      "trade_count": 31,
+      "total_pnl": -961.420389333276,
+      "in_blend": true
+    },
+    "Commodity XAUUSD|XAUUSD|M15": {
+      "strategy": "Commodity XAUUSD",
+      "pair": "XAUUSD",
+      "timeframe": "M15",
+      "win_rate": 33.33333333333333,
+      "profit_factor": 0.44916934367147315,
+      "sharpe_ratio": -0.6349594526631421,
+      "max_drawdown": 0.05181783049897878,
+      "trade_count": 9,
+      "total_pnl": -343.1700751670269,
+      "in_blend": true
+    }
+  },
+  "combined": {
+    "win_rate": 94.08783783783784,
+    "profit_factor": 1.0554982961165575,
+    "sharpe_ratio": 0.15009424055900947,
+    "max_drawdown_pct": 6.603283983629309,
+    "total_pnl": 95.98588332812687,
+    "total_pnl_pct": 0.009598588332812687,
+    "starting_balance": 10000,
+    "ending_balance": 10095.985883328127
+  },
+  "walk_forward": {
+    "go_nogo": false,
+    "per_window": [
+      {
+        "window_index": 0,
+        "win_rate": 0.5471698113207547,
+        "profit_factor": 0.5394376752102611,
+        "max_drawdown": 0.03465443090964587,
+        "sharpe_ratio": -4.096257348435355,
+        "trade_count": 53,
+        "total_pnl": -245.20295627632422,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 1,
+        "win_rate": 0.5967741935483871,
+        "profit_factor": 0.715625489919579,
+        "max_drawdown": 0.030190398655686384,
+        "sharpe_ratio": -2.2630868171411587,
+        "trade_count": 62,
+        "total_pnl": -150.6903133900275,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 2,
+        "win_rate": 0.8041237113402062,
+        "profit_factor": 1.1086908736809766,
+        "max_drawdown": 0.006787887739529106,
+        "sharpe_ratio": 0.5325058395142904,
+        "trade_count": 97,
+        "total_pnl": 36.18920920416831,
+        "passed_go_nogo": true
+      },
+      {
+        "window_index": 3,
+        "win_rate": 0.7815126050420168,
+        "profit_factor": 0.7927582674302823,
+        "max_drawdown": 0.02274184383959283,
+        "sharpe_ratio": -1.1997749913599522,
+        "trade_count": 119,
+        "total_pnl": -118.45082224817293,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 4,
+        "win_rate": 0.8095238095238095,
+        "profit_factor": 0.621589174342171,
+        "max_drawdown": 0.029884321207476264,
+        "sharpe_ratio": -2.2021936275583567,
+        "trade_count": 126,
+        "total_pnl": -217.1836937733249,
+        "passed_go_nogo": false
+      }
+    ],
+    "aggregated": {
+      "mean_win_rate": 0.7078208261550348,
+      "std_win_rate": 0.12568643918218195,
+      "mean_profit_factor": 0.755620296116654,
+      "std_profit_factor": 0.21928116275898013,
+      "mean_max_drawdown": 0.02485177647038609,
+      "std_max_drawdown": 0.010962154432535173,
+      "mean_sharpe_ratio": -1.8457613889961064,
+      "std_sharpe_ratio": 1.6911083609021622,
+      "mean_trade_count": 91.4,
+      "mean_total_pnl": -139.06771529673625,
+      "windows_passed": 1,
+      "total_windows": 5
+    }
+  },
+  "method_comparison": {
+    "inverse_variance": {
+      "wr": 93.58108108108108,
+      "pf": 1.1407401935943016,
+      "sharpe": 0.40576111309316276,
+      "dd": 6.60328398362932,
+      "pnl": 236.123902857973,
+      "ftmo": false,
+      "wf_go": false,
+      "score": 71.48559074202626
+    },
+    "equal_risk": {
+      "wr": 92.9054054054054,
+      "pf": 1.0379234378631907,
+      "sharpe": 0.10022270655832453,
+      "dd": 6.603283983629324,
+      "pnl": 60.36570789208599,
+      "ftmo": false,
+      "wf_go": false,
+      "score": 71.86835345373883
+    },
+    "profit_factor": {
+      "wr": 94.08783783783784,
+      "pf": 1.0554982961165575,
+      "sharpe": 0.15009424055900947,
+      "dd": 6.603283983629309,
+      "pnl": 95.98588332812687,
+      "ftmo": false,
+      "wf_go": false,
+      "score": 71.95303235541616
+    },
+    "sharpe_weighted": {
+      "wr": 92.56756756756756,
+      "pf": 0.9587180551677473,
+      "sharpe": -0.10587518463596253,
+      "dd": 7.929433326412129,
+      "pnl": -97.44557306630122,
+      "ftmo": false,
+      "wf_go": false,
+      "score": 71.80368297300053
+    },
+    "combined_score": {
+      "wr": 94.25675675675676,
+      "pf": 1.0584473651811557,
+      "sharpe": 0.15725259217458742,
+      "dd": 6.6032839836293125,
+      "pnl": 96.71780848664093,
+      "ftmo": false,
+      "wf_go": false,
+      "score": 71.56156915775269
+    }
+  }
+}
