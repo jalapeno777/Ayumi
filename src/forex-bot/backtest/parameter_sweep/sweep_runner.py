@@ -42,18 +42,26 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
     params = {k: v for k, v in config.items() if k != "__class__"}
     from ..strategies import (
         BBStrategy,
+        HighConvictionStrategy,
+        KeltnerChannelBreakoutStrategy,
         MACrossStrategy,
+        MomentumBreakoutStrategy,
         ROCMStrategy,
         RSIStrategy,
         SRBreakoutStrategy,
+        SupertrendRSIBlendStrategy,
     )
 
     registry: Dict[str, type] = {
         "MACrossStrategy": MACrossStrategy,
         "BBStrategy": BBStrategy,
+        "KeltnerChannelBreakoutStrategy": KeltnerChannelBreakoutStrategy,
         "RSIStrategy": RSIStrategy,
         "SRBreakoutStrategy": SRBreakoutStrategy,
         "ROCMStrategy": ROCMStrategy,
+        "HighConvictionStrategy": HighConvictionStrategy,
+        "SupertrendRSIBlendStrategy": SupertrendRSIBlendStrategy,
+        "MomentumBreakoutStrategy": MomentumBreakoutStrategy,
     }
     cls = registry.get(cls_name)
     if cls is None:
