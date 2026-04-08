@@ -1,0 +1,16 @@
+{
+  "question": "Q2",
+  "test_period": "2020-01-01 to 2024-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 35,
+  "results": {
+    "lod_hod_stop_rate": 0.11,
+    "intrabar_spike_rate": 0.26,
+    "breakeven_rate": 0.0,
+    "avg_stop_buffer_pips": 7.24,
+    "optimal_buffer_pips": 3.2
+  },
+  "pass": true,
+  "notes": "Stop loss rate: 11.4% (target: 40.0%)"
+}
