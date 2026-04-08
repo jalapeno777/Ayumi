@@ -1,0 +1,58 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "USDJPY",
+  "timestamp": "2026-04-08T22:41:24.756729+00:00",
+  "n_trials": 100,
+  "seed": 42,
+  "baseline": {
+    "go_nogo": false,
+    "windows_passed": 0,
+    "total_windows": 5,
+    "metrics": {
+      "win_rate": 0.4,
+      "profit_factor": Infinity,
+      "max_drawdown": 0.002130162368672354,
+      "sharpe_ratio": 0.0,
+      "trade_count": 0.6,
+      "total_pnl": 16.737186089942686
+    }
+  },
+  "optuna": {
+    "best_params": {
+      "bb_period": 24,
+      "bb_std_dev": 1.1,
+      "kc_period": 17,
+      "kc_atr_multiplier": 1.2,
+      "min_squeeze_bars": 4,
+      "ema_period": 26,
+      "adx_period": 19,
+      "adx_min": 16.0,
+      "atr_period": 10,
+      "atr_sl_multiplier": 1.8,
+      "tp1_rr": 1.0,
+      "tp2_rr": 3.2,
+      "tp3_rr": 2.4,
+      "session_filter": false,
+      "min_confidence": 0.55,
+      "squeeze_release_mode": "moderate"
+    },
+    "best_score": 0.882408140802799,
+    "go_nogo": true,
+    "n_trials": 100,
+    "study_summary": {
+      "n_trials": 100,
+      "n_complete": 53,
+      "n_pruned": 47,
+      "best_score": 0.882408140802799,
+      "sampler": "TPESampler"
+    },
+    "metrics": {
+      "win_rate": 0.6777777777777778,
+      "profit_factor": Infinity,
+      "max_drawdown": 0.012555115518320597,
+      "sharpe_ratio": 158.34001343306812,
+      "trade_count": 5.2,
+      "total_pnl": 116.968946656788
+    }
+  }
+}

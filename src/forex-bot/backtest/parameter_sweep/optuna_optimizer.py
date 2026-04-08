@@ -108,6 +108,29 @@ def session_range_mr_search_space() -> SearchSpace:
     )
 
 
+def volatility_squeeze_search_space() -> SearchSpace:
+    return SearchSpace(
+        bb_period=int_range("bb_period", 10, 30),
+        bb_std_dev=float_range("bb_std_dev", 1.0, 2.5, step=0.1),
+        kc_period=int_range("kc_period", 10, 30),
+        kc_atr_multiplier=float_range("kc_atr_multiplier", 1.0, 2.5, step=0.1),
+        min_squeeze_bars=int_range("min_squeeze_bars", 1, 5),
+        ema_period=int_range("ema_period", 10, 60),
+        adx_period=int_range("adx_period", 7, 21),
+        adx_min=float_range("adx_min", 15.0, 30.0, step=1.0),
+        atr_period=int_range("atr_period", 7, 21),
+        atr_sl_multiplier=float_range("atr_sl_multiplier", 0.5, 2.5, step=0.1),
+        tp1_rr=float_range("tp1_rr", 0.5, 2.0, step=0.1),
+        tp2_rr=float_range("tp2_rr", 1.0, 3.5, step=0.1),
+        tp3_rr=float_range("tp3_rr", 2.0, 5.0, step=0.1),
+        session_filter=categorical("session_filter", [False]),
+        min_confidence=float_range("min_confidence", 0.45, 0.60, step=0.05),
+        squeeze_release_mode=categorical(
+            "squeeze_release_mode", ["loose", "moderate"]
+        ),
+    )
+
+
 @dataclass
 class OptimizationResult:
     best_params: dict[str, Any]
