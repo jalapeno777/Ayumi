@@ -24,8 +24,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
-from backtest.engine import Bar, SessionType, determine_session
+from backtest.data_loader import CsvDataLoader  # noqa: E402
+from backtest.engine import Bar, SessionType, determine_session  # noqa: E402
 
 
 class SwingPoint:
@@ -206,36 +206,36 @@ def analyze_3_to_1_rr(bars: list[Bar]) -> dict:
             bar = bars[i]
 
             if entry_direction == 1:
-                if bar.low <= tp3:
-                    outcome = "L3"
-                    rr_ratios.append(3.0)
-                    break
-                elif bar.low <= tp2:
-                    outcome = "L2"
-                    rr_ratios.append(2.0)
-                    break
-                elif bar.low <= tp1:
+                if bar.high >= tp1:
                     outcome = "L1"
                     rr_ratios.append(1.0)
-                    break
-                elif bar.high >= stop:
-                    outcome = "SL"
-                    rr_ratios.append(0.0)
-                    break
-            else:
-                if bar.high >= tp3:
-                    outcome = "L3"
-                    rr_ratios.append(3.0)
                     break
                 elif bar.high >= tp2:
                     outcome = "L2"
                     rr_ratios.append(2.0)
                     break
-                elif bar.high >= tp1:
+                elif bar.high >= tp3:
+                    outcome = "L3"
+                    rr_ratios.append(3.0)
+                    break
+                elif bar.low <= stop:
+                    outcome = "SL"
+                    rr_ratios.append(0.0)
+                    break
+            else:
+                if bar.low <= tp1:
                     outcome = "L1"
                     rr_ratios.append(1.0)
                     break
-                elif bar.low <= stop:
+                elif bar.low <= tp2:
+                    outcome = "L2"
+                    rr_ratios.append(2.0)
+                    break
+                elif bar.low <= tp3:
+                    outcome = "L3"
+                    rr_ratios.append(3.0)
+                    break
+                elif bar.high >= stop:
                     outcome = "SL"
                     rr_ratios.append(0.0)
                     break
