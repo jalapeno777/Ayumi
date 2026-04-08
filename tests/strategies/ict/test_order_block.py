@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from datetime import datetime
 
-from src.forex_trading.strategies.ict import (
+from forex_trading.strategies.ict import (
     Bar,
     ICTMarketState,
     OrderBlock,
