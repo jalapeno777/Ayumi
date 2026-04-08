@@ -1,12 +1,8 @@
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from .models import (
-    Bar,
     ConfluenceSignal,
-    FairValueGap,
     ICTMarketState,
-    OrderBlock,
-    SessionType,
     SignalStrength,
     TradeDirection,
 )
@@ -100,7 +96,9 @@ class ConfluenceEngine:
             fvg=fvg,
         )
 
-    def _score_direction(self, state: ICTMarketState, direction: TradeDirection) -> dict:
+    def _score_direction(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> dict:
         ob_score = self._score_order_blocks(state, direction)
         fvg_score = self._score_fvg(state, direction)
         structure_score = 1.0 if state.structure_bias == direction else 0.3
@@ -118,7 +116,9 @@ class ConfluenceEngine:
             "total": min(1.0, total),
         }
 
-    def _score_order_blocks(self, state: ICTMarketState, direction: TradeDirection) -> float:
+    def _score_order_blocks(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> float:
         ob = self._ob_detector.get_most_relevant(state, direction)
         if ob is None:
             return 0.0
@@ -210,20 +210,29 @@ class ConfluenceEngine:
         if ob is not None:
             lines.append(f"- Order block confluence (strength: {ob.strength:.2f})")
 
-        fvg = self._fvg_detector.get_nearest_unfilled(state, direction, state.latest_bar.close)
+        fvg = self._fvg_detector.get_nearest_unfilled(
+            state, direction, state.latest_bar.close
+        )
         if fvg is not None:
             lines.append(f"- FVG present ({fvg.fvg_type.value})")
 
         lines.append(f"- Confluence count: {self._count_confluences(state, direction)}")
         return "\n".join(lines)
 
-    def _count_confluences(self, state: ICTMarketState, direction: TradeDirection) -> int:
+    def _count_confluences(
+        self, state: ICTMarketState, direction: TradeDirection
+    ) -> int:
         count = 0
         if state.structure_bias == direction:
             count += 1
         if self._ob_detector.get_most_relevant(state, direction) is not None:
             count += 1
-        if self._fvg_detector.get_nearest_unfilled(state, direction, state.latest_bar.close) is not None:
+        if (
+            self._fvg_detector.get_nearest_unfilled(
+                state, direction, state.latest_bar.close
+            )
+            is not None
+        ):
             count += 1
         return count
 
