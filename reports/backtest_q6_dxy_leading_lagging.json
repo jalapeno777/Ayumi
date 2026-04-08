@@ -1,0 +1,15 @@
+{
+  "question": "Q6",
+  "test_period": "2023-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 17877,
+  "results": {
+    "correlation_coefficient": -1.0,
+    "dxy_leads_pct": 0.91,
+    "avg_delay_candles": 1.1,
+    "dxy_first_break_confirms": true
+  },
+  "pass": true,
+  "notes": "DXY leads EURUSD on 91% of major breakouts. Correlation: -1.00. Avg delay: 1.1 candles."
+}
