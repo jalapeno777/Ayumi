@@ -62,6 +62,7 @@ class VolatilitySqueezeConfig:
     tp3_rr: float = 3.0
     session_filter: bool = True
     min_confidence: float = 0.55
+    squeeze_release_mode: str = "moderate"
 
 
 GBPJPY_H1_PRESET = VolatilitySqueezeConfig(
@@ -80,6 +81,7 @@ GBPJPY_H1_PRESET = VolatilitySqueezeConfig(
     tp2_rr=2.0,
     tp3_rr=3.0,
     session_filter=True,
+    squeeze_release_mode="moderate",
 )
 
 EURUSD_H1_PRESET = VolatilitySqueezeConfig(
@@ -98,6 +100,7 @@ EURUSD_H1_PRESET = VolatilitySqueezeConfig(
     tp2_rr=2.0,
     tp3_rr=3.0,
     session_filter=True,
+    squeeze_release_mode="moderate",
 )
 
 XAUUSD_H1_PRESET = VolatilitySqueezeConfig(
@@ -404,6 +407,7 @@ class VolatilitySqueezeStrategy:
 
         if (
             direction is None
+            and self.config.squeeze_release_mode != "strict"
             and in_squeeze
             and self._squeeze_bar_count >= self.config.min_squeeze_bars
             and adx >= self.config.adx_min

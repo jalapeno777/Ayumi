@@ -169,7 +169,14 @@ def _compute_metrics(
         std_pnl = math.sqrt(variance) if variance > 0 else 0.0
         sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
 
-    passed = win_rate > 0.55 and profit_factor > 1.0 and total_pnl > 0 and max_dd < 0.10
+    min_trades = 5
+    passed = (
+        trade_count >= min_trades
+        and win_rate > 0.55
+        and profit_factor > 1.0
+        and total_pnl > 0
+        and max_dd < 0.10
+    )
 
     return WindowMetrics(
         window_index=window_index,
