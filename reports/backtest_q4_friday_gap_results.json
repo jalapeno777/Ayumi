@@ -1,0 +1,15 @@
+{
+  "question": "Q4",
+  "test_period": "2024-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "D1",
+  "sample_size": 103,
+  "results": {
+    "gap_frequency_pct": 0.13,
+    "avg_gap_pips": 48.8,
+    "gap_filled_within_4hrs_pct": 0.15,
+    "level_test_within_24hrs_pct": 0.91
+  },
+  "pass": false,
+  "notes": "Gaps >20 pips occur 13% of Fridays. 15% fill within same-day session."
+}
