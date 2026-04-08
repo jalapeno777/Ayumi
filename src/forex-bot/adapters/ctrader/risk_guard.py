@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Callable
 from threading import Lock
 from enum import Enum
@@ -30,14 +30,51 @@ class RiskLimitResult:
 
 
 @dataclass
-class FTMOConfig:
+class FTMOProfile:
+    risk_per_trade_pct: float = 0.005
     daily_loss_limit_pct: float = 0.05
     total_drawdown_limit_pct: float = 0.10
     max_trades_per_day: int = 10
     max_positions: int = 3
     min_risk_reward: float = 1.5
-    max_position_size_pct: float = 0.02
     best_day_rule_max_pct: float = 0.50
+
+    def __post_init__(self):
+        if self.risk_per_trade_pct <= 0:
+            raise ValueError(
+                f"risk_per_trade_pct must be positive, got {self.risk_per_trade_pct}"
+            )
+        if self.daily_loss_limit_pct <= 0:
+            raise ValueError(
+                f"daily_loss_limit_pct must be positive, got {self.daily_loss_limit_pct}"
+            )
+        if self.max_trades_per_day <= 0:
+            raise ValueError(
+                f"max_trades_per_day must be positive, got {self.max_trades_per_day}"
+            )
+        max_total_risk = self.risk_per_trade_pct * self.max_trades_per_day
+        if max_total_risk > self.daily_loss_limit_pct:
+            raise ValueError(
+                f"risk_per_trade_pct ({self.risk_per_trade_pct}) * "
+                f"max_trades_per_day ({self.max_trades_per_day}) = "
+                f"{max_total_risk:.4f} exceeds daily_loss_limit_pct "
+                f"({self.daily_loss_limit_pct}). Reduce risk per trade or "
+                f"max trades per day."
+            )
+
+
+FTMO_PROFILE_CHALLENGE = FTMOProfile()
+
+
+@dataclass
+class FTMOConfig:
+    daily_loss_limit_pct: float = FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct
+    total_drawdown_limit_pct: float = FTMO_PROFILE_CHALLENGE.total_drawdown_limit_pct
+    max_trades_per_day: int = FTMO_PROFILE_CHALLENGE.max_trades_per_day
+    max_positions: int = FTMO_PROFILE_CHALLENGE.max_positions
+    min_risk_reward: float = FTMO_PROFILE_CHALLENGE.min_risk_reward
+    max_position_size_pct: float = FTMO_PROFILE_CHALLENGE.risk_per_trade_pct
+    best_day_rule_max_pct: float = FTMO_PROFILE_CHALLENGE.best_day_rule_max_pct
 
 
 @dataclass
@@ -85,7 +122,7 @@ class RiskGuard:
                 limit_value=1.0,
             )
 
-        if self._blocked_until and datetime.utcnow() < self._blocked_until:
+        if self._blocked_until and datetime.now(timezone.utc) < self._blocked_until:
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.DAILY_LOSS,
@@ -141,7 +178,7 @@ class RiskGuard:
                 message="Circuit breaker triggered - trading paused",
             )
 
-        if self._blocked_until and datetime.utcnow() < self._blocked_until:
+        if self._blocked_until and datetime.now(timezone.utc) < self._blocked_until:
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.DAILY_LOSS,
@@ -268,7 +305,7 @@ class RiskGuard:
         self, limit_type: RiskLimitType, current: float, limit: float
     ):
         self._circuit_breaker_triggered = True
-        self._blocked_until = datetime.utcnow() + timedelta(minutes=5)
+        self._blocked_until = datetime.now(timezone.utc) + timedelta(minutes=5)
         logger.critical(
             f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current * 100:.2f}% >= {limit * 100:.2f}%"
         )
@@ -336,7 +373,7 @@ class RiskGuard:
     def is_blocked(self) -> bool:
         if self._circuit_breaker_triggered:
             return True
-        if self._blocked_until is not None and datetime.utcnow() < self._blocked_until:
+        if self._blocked_until is not None and datetime.now(timezone.utc) < self._blocked_until:
             return True
         return False
 

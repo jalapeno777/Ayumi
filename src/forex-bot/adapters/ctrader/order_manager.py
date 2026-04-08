@@ -77,7 +77,7 @@ class OrderManager:
             return self._position_config.default_lot_size
 
         is_jpy_pair = symbol.upper().endswith("JPY") or symbol.upper().startswith("JPY")
-        pip_value = 1000.0 if is_jpy_pair else 10000.0
+        pip_value = 100.0 if is_jpy_pair else 10000.0
         sl_pips = sl_distance * pip_value
 
         if sl_pips == 0:
