@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import socket
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -229,6 +230,160 @@ class TestCheckType:
         assert CheckType.CIRCUIT.value == "circuit"
         assert CheckType.CONNECTION.value == "connection"
         assert CheckType.ALL.value == "all"
+
+
+class TestPostAlertToPaperclip:
+    def test_no_credentials_logs_warning(self, caplog):
+        post_alert = live_trading_monitor.post_alert_to_paperclip
+        alert = Alert(
+            severity="critical",
+            check_type="health",
+            message="Test alert",
+            details={},
+        )
+        with patch.object(live_trading_monitor, "PAPERCLIP_ALERT_KEY", ""):
+            result = post_alert(alert, "test-issue-id")
+        assert result is False
+        assert "Paperclip credentials not configured" in caplog.text
+
+    def test_missing_issue_id(self, caplog):
+        post_alert = live_trading_monitor.post_alert_to_paperclip
+        alert = Alert(
+            severity="warning",
+            check_type="health",
+            message="Test alert",
+            details={},
+        )
+        with patch.object(live_trading_monitor, "PAPERCLIP_ALERT_KEY", "test-key"):
+            result = post_alert(alert, "")
+        assert result is False
+
+    def test_http_error_returns_false(self, caplog):
+        post_alert = live_trading_monitor.post_alert_to_paperclip
+        alert = Alert(
+            severity="critical",
+            check_type="circuit",
+            message="Circuit breaker triggered",
+            details={},
+        )
+        with patch.object(live_trading_monitor, "PAPERCLIP_ALERT_KEY", "test-key"):
+            with patch("httpx.post") as mock_post:
+                mock_post.side_effect = Exception("Network error")
+                result = post_alert(alert, "test-issue-id")
+        assert result is False
+        assert "Error posting to Paperclip" in caplog.text
+
+
+class TestCheckFixConnection:
+    def test_no_credentials_configured(self):
+        check_fix = live_trading_monitor.check_fix_connection
+        with patch.dict(
+            os.environ, {"CTRADER_HOST": "", "CTRADER_SSL_PORT": "5212"}, clear=False
+        ):
+            os.environ.pop("CTRADER_HOST", None)
+            result = check_fix()
+        assert result.severity == "warning"
+        assert "not configured" in result.message
+
+    def test_invalid_port(self):
+        check_fix = live_trading_monitor.check_fix_connection
+        with patch.dict(
+            os.environ, {"CTRADER_HOST": "test.host", "CTRADER_SSL_PORT": "not-a-port"}
+        ):
+            result = check_fix()
+        assert result.severity == "warning"
+        assert "Invalid port" in result.message
+
+    def test_connection_timeout(self):
+        check_fix = live_trading_monitor.check_fix_connection
+        with patch.dict(
+            os.environ,
+            {
+                "CTRADER_HOST": "127.0.0.1",
+                "CTRADER_SSL_PORT": "59999",
+                "CTRADER_VERIFY_SSL": "false",
+            },
+        ):
+            with patch("ssl.SSLContext.wrap_socket") as mock_wrap:
+                mock_wrap.side_effect = socket.timeout("timed out")
+                result = check_fix()
+        assert result.severity == "critical"
+        assert "timeout" in result.message.lower()
+
+    def test_connection_refused(self):
+        check_fix = live_trading_monitor.check_fix_connection
+        with patch.dict(
+            os.environ,
+            {
+                "CTRADER_HOST": "127.0.0.1",
+                "CTRADER_SSL_PORT": "59999",
+                "CTRADER_VERIFY_SSL": "false",
+            },
+        ):
+            with patch("ssl.SSLContext.wrap_socket") as mock_wrap:
+                mock_wrap.side_effect = ConnectionRefusedError
+                result = check_fix()
+        assert result.severity == "critical"
+        assert "refused" in result.message.lower()
+
+
+class TestFTMOStartingBalance:
+    def test_default_balance(self):
+        state = TradingState()
+        assert state.starting_balance == 100000.0
+        assert state.daily_starting_balance == 100000.0
+
+    def test_custom_balance_via_constructor(self):
+        state = TradingState(
+            starting_balance=50000.0,
+            current_balance=50000.0,
+            daily_starting_balance=50000.0,
+        )
+        assert state.starting_balance == 50000.0
+        assert state.daily_starting_balance == 50000.0
+
+
+class TestResetDailyStats:
+    def test_resets_on_new_day(self):
+        reset_func = live_trading_monitor.reset_daily_stats_if_new_day
+        state = TradingState(
+            current_balance=95000.0,
+            daily_trades=5,
+            daily_wins=3,
+            daily_losses=2,
+            daily_pnl=-5000.0,
+            circuit_breaker_triggered=True,
+            last_trading_date="2024-01-01",
+        )
+        with patch.object(live_trading_monitor, "datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(
+                2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc
+            )
+            mock_dt.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            result = reset_func(state)
+        assert result is True
+        assert state.daily_starting_balance == 95000.0
+        assert state.daily_trades == 0
+        assert state.circuit_breaker_triggered is False
+        assert state.last_trading_date == "2024-01-02"
+
+    def test_no_reset_same_day(self):
+        reset_func = live_trading_monitor.reset_daily_stats_if_new_day
+        state = TradingState(
+            current_balance=95000.0,
+            daily_trades=5,
+            circuit_breaker_triggered=True,
+            last_trading_date="2024-01-01",
+        )
+        with patch.object(live_trading_monitor, "datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(
+                2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc
+            )
+            mock_dt.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            result = reset_func(state)
+        assert result is False
+        assert state.daily_trades == 5
+        assert state.circuit_breaker_triggered is True
 
 
 if __name__ == "__main__":
