@@ -118,12 +118,14 @@ def _on_trade_executed(trade_logger: TradeLogger):
     def callback(result):
         if result.order and result.position:
             trade_logger.log_trade_opened(result.order, result.position)
+
     return callback
 
 
 def _on_position_closed(trade_logger: TradeLogger):
     def callback(position):
         trade_logger.log_position_closed(position)
+
     return callback
 
 

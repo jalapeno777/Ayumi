@@ -90,7 +90,9 @@ class TradeLogger:
             "win_rate": len(wins) / len(closed) if closed else 0.0,
             "total_pnl": total_pnl,
             "avg_win": sum(r.closed_pnl for r in wins) / len(wins) if wins else 0.0,
-            "avg_loss": sum(r.closed_pnl for r in losses) / len(losses) if losses else 0.0,
+            "avg_loss": sum(r.closed_pnl for r in losses) / len(losses)
+            if losses
+            else 0.0,
             "open_positions": sum(1 for r in self._records if r.status == "open"),
         }
 
