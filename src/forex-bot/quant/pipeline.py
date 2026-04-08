@@ -22,6 +22,7 @@ from .regime import (
     trend_regime as calc_trend_regime,
     combined_regime as calc_combined_regime,
 )
+from .portfolio import StrategyPortfolio, PortfolioSignal
 
 if TYPE_CHECKING:
     from backtest.engine import Bar
@@ -229,6 +230,50 @@ class QuantPipeline:
     @portfolio.setter
     def portfolio(self, value: PortfolioState) -> None:
         self._portfolio = value
+
+    def attach_portfolio(self, portfolio: StrategyPortfolio) -> None:
+        self._strategy_portfolio = portfolio
+
+    def evaluate_portfolio(
+        self, market_states: dict[str, Any]
+    ) -> list[PortfolioSignal]:
+        if not hasattr(self, "_strategy_portfolio") or self._strategy_portfolio is None:
+            return []
+
+        if self._config.regime.enabled:
+            regime_confidence = self._check_regime()
+            if regime_confidence < self._config.regime.min_confidence:
+                return []
+
+        signals = self._strategy_portfolio.evaluate_all(market_states)
+
+        result: list[PortfolioSignal] = []
+        for sig in signals:
+            allocation = next(
+                (
+                    a
+                    for a in self._strategy_portfolio.config.allocations
+                    if a.strategy_name == sig.strategy_name and a.symbol == sig.symbol
+                ),
+                None,
+            )
+            if allocation:
+                lot_size = self._strategy_portfolio.calculate_position_size(
+                    sig.signal, allocation
+                )
+                result.append(
+                    PortfolioSignal(
+                        strategy_name=sig.strategy_name,
+                        symbol=sig.symbol,
+                        signal=sig.signal,
+                        weight=sig.weight,
+                        adjusted_lot_size=lot_size,
+                    )
+                )
+            else:
+                result.append(sig)
+
+        return result
 
     def _check_regime(self, bar_time: Optional[datetime] = None) -> float:
         vol_result = calc_volatility_regime(
