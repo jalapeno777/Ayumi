@@ -44,27 +44,79 @@ def main() -> None:
     parser.add_argument(
         "--compare", action="store_true", help="Compare all weight methods"
     )
+    parser.add_argument(
+        "--max-weight",
+        type=float,
+        default=1.0,
+        help="Max weight per strategy (e.g. 0.40 for 40%% cap)",
+    )
+    parser.add_argument(
+        "--min-weight",
+        type=float,
+        default=0.0,
+        help="Min weight per strategy (e.g. 0.10 for 10%% floor)",
+    )
+    parser.add_argument(
+        "--reblend",
+        action="store_true",
+        help="Use re-blend strategy pool (AYUAA-570 weight cap pool)",
+    )
+    parser.add_argument(
+        "--capped",
+        action="store_true",
+        help="Use capped blend pool (AYUAA-573) with 5 strategies, 40%% max weight",
+    )
+    parser.add_argument(
+        "--adaptive",
+        action="store_true",
+        help="Use adaptive per-window weight re-optimization in walk-forward",
+    )
+    parser.add_argument(
+        "--no-atr-gate",
+        action="store_true",
+        help="Disable ATR volatility regime gate (only used with --adaptive)",
+    )
+    parser.add_argument(
+        "--atr-percentile",
+        type=float,
+        default=80.0,
+        help="ATR percentile threshold for volatility gate (default: 80)",
+    )
     args = parser.parse_args()
 
     from backtest.portfolio_blend import (
         WEIGHT_METHODS,
+        build_capped_blend_strategy_specs,
         build_passing_strategy_specs,
+        build_reblend_strategy_specs,
         format_portfolio_report,
         run_portfolio_blend,
     )
 
-    print("=" * 80)
-    print("PORTFOLIO BLEND TESTING — AYUAA-481")
-    print("=" * 80)
+    if args.capped:
+        specs = build_capped_blend_strategy_specs(DATA_DIR)
+        print("=" * 80)
+        print("PORTFOLIO CAPPED BLEND TESTING — AYUAA-573 (40%% Weight Cap)")
+        print("=" * 80)
+    elif args.reblend:
+        specs = build_reblend_strategy_specs(DATA_DIR)
+        print("=" * 80)
+        print("PORTFOLIO RE-BLEND TESTING — AYUAA-570 (Weight Cap)")
+        print("=" * 80)
+    else:
+        specs = build_passing_strategy_specs(DATA_DIR)
+        print("=" * 80)
+        print("PORTFOLIO BLEND TESTING — AYUAA-481")
+        print("=" * 80)
     print()
 
-    specs = build_passing_strategy_specs(DATA_DIR)
     print(f"Loading {len(specs)} strategy specs:")
     for s in specs:
         print(f"  - {s.name} ({s.pair} {s.timeframe})")
     print()
 
     enable_filter = not args.no_filter
+    atr_gate = not args.no_atr_gate
     best_result = None
     best_method = args.weight_method
     filtered_out: list = []
@@ -80,6 +132,11 @@ def main() -> None:
                 n_walk_forward_windows=args.windows,
                 weight_method=method_name,
                 enable_filter=enable_filter,
+                max_weight=args.max_weight,
+                min_weight=args.min_weight,
+                adaptive_weights=args.adaptive,
+                atr_gate=atr_gate,
+                atr_percentile=args.atr_percentile,
             )
             m = result.combined_metrics
             comparison[method_name] = {
@@ -138,6 +195,11 @@ def main() -> None:
             n_walk_forward_windows=args.windows,
             weight_method=args.weight_method,
             enable_filter=enable_filter,
+            max_weight=args.max_weight,
+            min_weight=args.min_weight,
+            adaptive_weights=args.adaptive,
+            atr_gate=atr_gate,
+            atr_percentile=args.atr_percentile,
         )
         elapsed = time.time() - t0
         best_method = args.weight_method
