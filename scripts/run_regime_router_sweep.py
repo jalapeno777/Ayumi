@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -22,6 +21,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+import sys
+from pathlib import Path
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
@@ -36,6 +38,7 @@ from backtest.strategies import (
     RegimeRouterConfig,
     MomentumBreakoutStrategy,
 )
+from quant.pipeline import QuantPipeline, QuantConfig
 from quant.walk_forward import run_strategy as run_walk_forward
 
 logging.basicConfig(
@@ -43,19 +46,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class WalkForwardSweepRow:
-    """Extended sweep row with walk-forward results."""
-    row: SweepRow
-    walk_forward_go_nogo: bool = False
-    walk_forward_windows_passed: int = 0
-    walk_forward_total_windows: int = 0
-    
-    def get(self, key: str, default: float = 0.0) -> float:
-        """Delegate get to the underlying SweepRow."""
-        return self.row.get(key, default)
 
 
 @dataclass
@@ -188,9 +178,9 @@ def run_walk_forward_validation(
             "go_nogo": results.go_nogo,
             "windows_passed": sum(1 for m in results.per_window if m.passed_go_nogo),
             "total_windows": len(results.per_window),
-            "aggregated_sharpe": results.aggregated.mean_sharpe_ratio if results.aggregated else 0.0,
-            "aggregated_return": results.aggregated.mean_total_pnl if results.aggregated else 0.0,
-            "aggregated_max_dd": results.aggregated.mean_max_drawdown if results.aggregated else 0.0,
+            "aggregated_sharpe": results.aggregated.sharpe_ratio if results.aggregated else 0.0,
+            "aggregated_return": results.aggregated.total_pnl_pct if results.aggregated else 0.0,
+            "aggregated_max_dd": results.aggregated.max_drawdown_pct if results.aggregated else 0.0,
         }
     except Exception as exc:
         logger.warning(f"Walk-forward validation failed: {exc}")
@@ -240,7 +230,6 @@ def worker_entry(args: Tuple) -> Optional[Dict[str, Any]]:
             "params": grid_point.params,
             "backtest": backtest_result,
             "walk_forward": walk_forward_result,
-            "walk_forward_params": walk_forward_params,
         }
         
         return result
@@ -265,7 +254,6 @@ class RegimeRouterSweepRunner:
         param_space.update(self._config.regime_detection_params)
         param_space.update(self._config.size_multiplier_params)
         param_space.update(self._config.confidence_params)
-        param_space.update(self._config.walk_forward_params)
         
         return param_space
     
@@ -362,7 +350,6 @@ class RegimeRouterSweepRunner:
                 row_params = result["params"].copy()
                 
                 if walk_forward:
-                    walk_forward_params = result["walk_forward_params"]
                     row_params.update({
                         "n_windows": walk_forward_params.get("n_windows", 5),
                         "train_ratio": walk_forward_params.get("train_ratio", 0.6),
@@ -381,12 +368,9 @@ class RegimeRouterSweepRunner:
                 )
                 
                 if walk_forward:
-                    row = WalkForwardSweepRow(
-                        row=row,
-                        walk_forward_go_nogo=walk_forward["go_nogo"],
-                        walk_forward_windows_passed=walk_forward["windows_passed"],
-                        walk_forward_total_windows=walk_forward["total_windows"],
-                    )
+                    row.__dict__["walk_forward_go_nogo"] = walk_forward["go_nogo"]
+                    row.__dict__["walk_forward_windows_passed"] = walk_forward["windows_passed"]
+                    row.__dict__["walk_forward_total_windows"] = walk_forward["total_windows"]
                 
                 rows.append(row)
         
@@ -399,12 +383,6 @@ class RegimeRouterSweepRunner:
         filename = f"{self._config.symbol}_{self._config.timeframe}_regime_router_sweep{suffix}_{timestamp}.json"
         filepath = self._output_dir / filename
         
-        def unwrap_row(row):
-            """Unwrap WalkForwardSweepRow to get the underlying SweepRow."""
-            if isinstance(row, WalkForwardSweepRow):
-                return row.row
-            return row
-        
         output_data = {
             "symbol": self._config.symbol,
             "timeframe": self._config.timeframe,
@@ -414,64 +392,64 @@ class RegimeRouterSweepRunner:
             "successful_runs": len(result.rows),
             "top_by_sharpe": [
                 {
-                    "params": unwrap_row(row).params,
-                    "win_rate": unwrap_row(row).win_rate,
-                    "sharpe_ratio": unwrap_row(row).sharpe_ratio,
-                    "profit_factor": unwrap_row(row).profit_factor,
-                    "max_dd": unwrap_row(row).max_dd,
-                    "total_return": unwrap_row(row).total_return,
-                    "trade_count": unwrap_row(row).trade_count,
+                    "params": row.params,
+                    "win_rate": row.win_rate,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "profit_factor": row.profit_factor,
+                    "max_dd": row.max_dd,
+                    "total_return": row.total_return,
+                    "trade_count": row.trade_count,
                 }
                 for row in result.top_n(10, "sharpe_ratio")
             ],
             "top_by_win_rate": [
                 {
-                    "params": unwrap_row(row).params,
-                    "win_rate": unwrap_row(row).win_rate,
-                    "sharpe_ratio": unwrap_row(row).sharpe_ratio,
-                    "profit_factor": unwrap_row(row).profit_factor,
-                    "max_dd": unwrap_row(row).max_dd,
-                    "total_return": unwrap_row(row).total_return,
-                    "trade_count": unwrap_row(row).trade_count,
+                    "params": row.params,
+                    "win_rate": row.win_rate,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "profit_factor": row.profit_factor,
+                    "max_dd": row.max_dd,
+                    "total_return": row.total_return,
+                    "trade_count": row.trade_count,
                 }
                 for row in result.top_n(10, "win_rate")
             ],
             "top_by_profit_factor": [
                 {
-                    "params": unwrap_row(row).params,
-                    "win_rate": unwrap_row(row).win_rate,
-                    "sharpe_ratio": unwrap_row(row).sharpe_ratio,
-                    "profit_factor": unwrap_row(row).profit_factor,
-                    "max_dd": unwrap_row(row).max_dd,
-                    "total_return": unwrap_row(row).total_return,
-                    "trade_count": unwrap_row(row).trade_count,
+                    "params": row.params,
+                    "win_rate": row.win_rate,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "profit_factor": row.profit_factor,
+                    "max_dd": row.max_dd,
+                    "total_return": row.total_return,
+                    "trade_count": row.trade_count,
                 }
                 for row in result.top_n(10, "profit_factor")
             ],
         }
         
-        if any(isinstance(row, WalkForwardSweepRow) for row in result.rows):
+        if any(hasattr(row, "walk_forward_go_nogo") for row in result.rows):
             go_nogo_results = [
                 row for row in result.rows
-                if isinstance(row, WalkForwardSweepRow) and row.walk_forward_go_nogo
+                if hasattr(row, "walk_forward_go_nogo") and row.walk_forward_go_nogo
             ]
             
             output_data["walk_forward_go_nogo_count"] = len(go_nogo_results)
             output_data["top_walk_forward_by_sharpe"] = [
                 {
-                    "params": unwrap_row(row).params,
-                    "win_rate": unwrap_row(row).win_rate,
-                    "sharpe_ratio": unwrap_row(row).sharpe_ratio,
-                    "profit_factor": unwrap_row(row).profit_factor,
-                    "max_dd": unwrap_row(row).max_dd,
-                    "total_return": unwrap_row(row).total_return,
-                    "trade_count": unwrap_row(row).trade_count,
+                    "params": row.params,
+                    "win_rate": row.win_rate,
+                    "sharpe_ratio": row.sharpe_ratio,
+                    "profit_factor": row.profit_factor,
+                    "max_dd": row.max_dd,
+                    "total_return": row.total_return,
+                    "trade_count": row.trade_count,
                     "walk_forward_windows_passed": row.walk_forward_windows_passed,
                     "walk_forward_total_windows": row.walk_forward_total_windows,
                 }
                 for row in sorted(
                     go_nogo_results,
-                    key=lambda r: unwrap_row(r).sharpe_ratio,
+                    key=lambda r: r.sharpe_ratio,
                     reverse=True,
                 )[:10]
             ]
