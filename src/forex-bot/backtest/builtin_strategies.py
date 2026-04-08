@@ -17,7 +17,10 @@ from backtest.strategies import (
 )
 from strategies.grid import GridConfig, GridStrategyAdapter
 from backtest.stat_arb import StatArbStrategy
-from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+from strategies.volatility_squeeze import (
+    VolatilitySqueezeStrategy,
+    USDJPY_H1_PRESET,
+)
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRWithRegimeFilter,
@@ -74,6 +77,10 @@ def _make_volatility_squeeze() -> ISignalStrategy:
     return VolatilitySqueezeStrategy()
 
 
+def _make_volatility_squeeze_usdjpy() -> ISignalStrategy:
+    return VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
+
+
 def _make_session_range_mr() -> ISignalStrategy:
     return SessionRangeMeanReversionStrategy()
 
@@ -103,6 +110,7 @@ def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("grid", lambda: _make_grid(pair))
     register_strategy("stat_arb", _make_stat_arb)
     register_strategy("volatility_squeeze", _make_volatility_squeeze)
+    register_strategy("volatility_squeeze_usdjpy", _make_volatility_squeeze_usdjpy)
     register_strategy("session_range_mr", _make_session_range_mr)
     register_strategy(
         "session_range_mr_with_regime", _make_session_range_mr_with_regime_filter

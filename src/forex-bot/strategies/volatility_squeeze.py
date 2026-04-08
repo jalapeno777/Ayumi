@@ -95,6 +95,24 @@ XAUUSD_H1_PRESET = VolatilitySqueezeConfig(
     session_filter=False,
 )
 
+USDJPY_H1_PRESET = VolatilitySqueezeConfig(
+    bb_period=20,
+    bb_std_dev=2.0,
+    kc_period=20,
+    kc_atr_multiplier=1.5,
+    squeeze_threshold=0.0,
+    min_squeeze_bars=3,
+    ema_period=50,
+    adx_period=14,
+    adx_min=22,
+    atr_period=14,
+    atr_sl_multiplier=1.5,
+    tp1_rr=1.0,
+    tp2_rr=2.0,
+    tp3_rr=3.0,
+    session_filter=True,
+)
+
 
 def _calculate_sma(values: List[float], period: int) -> float:
     if len(values) < period:
