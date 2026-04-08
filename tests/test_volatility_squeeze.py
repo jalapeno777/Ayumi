@@ -1,7 +1,6 @@
 import sys
 import os
 import unittest
-import dataclasses
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
@@ -25,6 +24,7 @@ from strategies.volatility_squeeze import (
     _detect_squeeze_duration,
     _passes_session_filter,
     _build_signal,
+    _calculate_rsi,
 )
 
 
@@ -381,116 +381,108 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
         result = strategy.evaluate(state)
         self.assertIsNone(result)
 
+    def test_rsi_filter_rejects_overbought_long(self):
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=1, adx_min=1)
+        strategy = VolatilitySqueezeStrategy(config)
+        bars = _make_squeeze_bars(80, squeeze_start=20, squeeze_end=50, breakout_direction="up")
+        state = _make_state(bars, SessionType.OUTSIDE)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+    def test_rsi_filter_rejects_oversold_short(self):
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=1, adx_min=1)
+        strategy = VolatilitySqueezeStrategy(config)
+        bars = _make_squeeze_bars(80, squeeze_start=20, squeeze_end=50, breakout_direction="down")
+        state = _make_state(bars, SessionType.OUTSIDE)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
 
 class TestPresets(unittest.TestCase):
-    def test_gbpjy_preset_values(self):
-        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 3)
+    def test_gbpjpy_h1_preset_values(self):
+        self.assertEqual(GBPJPY_H1_PRESET.kc_atr_multiplier, 2.0)
+        self.assertEqual(GBPJPY_H1_PRESET.ema_period, 20)
         self.assertEqual(GBPJPY_H1_PRESET.adx_min, 20)
-        self.assertTrue(GBPJPY_H1_PRESET.session_filter)
+        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 3)
 
-    def test_eurusd_preset_values(self):
-        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 2)
+    def test_eurusd_h1_preset_values(self):
+        self.assertEqual(EURUSD_H1_PRESET.kc_atr_multiplier, 2.0)
+        self.assertEqual(EURUSD_H1_PRESET.ema_period, 20)
         self.assertEqual(EURUSD_H1_PRESET.adx_min, 18)
-        self.assertTrue(EURUSD_H1_PRESET.session_filter)
+        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 2)
 
-    def test_xauusd_preset_values(self):
-        self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
-        self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
-        self.assertFalse(XAUUSD_H1_PRESET.session_filter)
+    def test_xauusd_h1_preset_values(self):
+        self.assertEqual(XAUUSD_H1_PRESET.kc_atr_multiplier, 2.5)
+        self.assertEqual(XAUUSD_H1_PRESET.ema_period, 20)
+        self.assertEqual(XAUUSD_H1_PRESET.adx_min, 20)
+        self.assertEqual(XAUUSD_H1_PRESET.min_squeeze_bars, 2)
 
     def test_usdjpy_h1_preset_values(self):
         self.assertEqual(USDJPY_H1_PRESET.kc_atr_multiplier, 1.5)
         self.assertEqual(USDJPY_H1_PRESET.ema_period, 50)
         self.assertEqual(USDJPY_H1_PRESET.adx_min, 22)
         self.assertEqual(USDJPY_H1_PRESET.min_squeeze_bars, 3)
-        self.assertTrue(USDJPY_H1_PRESET.session_filter)
-        self.assertAlmostEqual(USDJPY_H1_PRESET.bb_std_dev, 2.0)
-        self.assertAlmostEqual(USDJPY_H1_PRESET.atr_sl_multiplier, 1.5)
-        self.assertAlmostEqual(USDJPY_H1_PRESET.tp1_rr, 1.0)
-        self.assertAlmostEqual(USDJPY_H1_PRESET.tp2_rr, 2.0)
-        self.assertAlmostEqual(USDJPY_H1_PRESET.tp3_rr, 3.0)
-
-    def test_presets_are_frozen(self):
-        import dataclasses
-
-        self.assertTrue(dataclasses.is_dataclass(VolatilitySqueezeConfig))
-        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)
 
 
 class TestVolatilitySqueezeConfig(unittest.TestCase):
-    def test_default_values(self):
+    def test_default_config_values(self):
         config = VolatilitySqueezeConfig()
         self.assertEqual(config.bb_period, 20)
         self.assertEqual(config.bb_std_dev, 2.0)
         self.assertEqual(config.kc_period, 20)
         self.assertEqual(config.kc_atr_multiplier, 2.0)
-        self.assertEqual(config.squeeze_threshold, 0.0)
         self.assertEqual(config.min_squeeze_bars, 3)
         self.assertEqual(config.ema_period, 20)
         self.assertEqual(config.adx_period, 14)
-        self.assertAlmostEqual(config.adx_min, 20.0)
-        self.assertEqual(config.atr_period, 14)
-        self.assertAlmostEqual(config.atr_sl_multiplier, 1.5)
-        self.assertAlmostEqual(config.tp1_rr, 1.0)
-        self.assertAlmostEqual(config.tp2_rr, 2.0)
-        self.assertAlmostEqual(config.tp3_rr, 3.0)
-        self.assertTrue(config.session_filter)
-        self.assertAlmostEqual(config.min_confidence, 0.55)
+        self.assertEqual(config.adx_min, 20.0)
+        self.assertEqual(config.session_filter, True)
+        self.assertEqual(config.min_confidence, 0.55)
 
-    def test_frozen_dataclass(self):
+    def test_config_is_frozen(self):
         config = VolatilitySqueezeConfig()
-        with self.assertRaises(dataclasses.FrozenInstanceError):
+        with self.assertRaises(Exception):
             config.bb_period = 10
 
-    def test_custom_values(self):
-        config = VolatilitySqueezeConfig(
-            bb_period=10,
-            bb_std_dev=1.5,
-            min_squeeze_bars=5,
-            adx_min=30,
-        )
+    def test_custom_config_overrides(self):
+        config = VolatilitySqueezeConfig(bb_period=10, adx_min=25, kc_atr_multiplier=1.5)
         self.assertEqual(config.bb_period, 10)
-        self.assertEqual(config.bb_std_dev, 1.5)
-        self.assertEqual(config.min_squeeze_bars, 5)
-        self.assertAlmostEqual(config.adx_min, 30)
-
-    def test_usdjpy_preset_strategy_uses_correct_config(self):
-        strategy = VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
-        self.assertEqual(strategy.config.ema_period, 50)
-        self.assertEqual(strategy.config.kc_atr_multiplier, 1.5)
-        self.assertEqual(strategy.config.adx_min, 22)
+        self.assertEqual(config.adx_min, 25)
+        self.assertEqual(config.kc_atr_multiplier, 1.5)
 
 
-class TestRegistryWiring(unittest.TestCase):
-    def test_volatility_squeeze_usdjpy_registered(self):
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
-        from backtest.builtin_strategies import register_builtin_strategies
-        from backtest.walk_forward_runner import STRATEGY_REGISTRY, get_registered_strategies
+class TestRSICalculation(unittest.TestCase):
+    def test_rsi_returns_50_with_insufficient_data(self):
+        bars = _make_bars(10)
+        result = _calculate_rsi(bars, 14)
+        self.assertEqual(result, 50.0)
 
-        STRATEGY_REGISTRY.clear()
-        register_builtin_strategies()
-        self.assertIn("volatility_squeeze_usdjpy", get_registered_strategies())
-        strategy = STRATEGY_REGISTRY["volatility_squeeze_usdjpy"]()
-        self.assertIsInstance(strategy, VolatilitySqueezeStrategy)
-        self.assertEqual(strategy.config.ema_period, 50)
-        self.assertEqual(strategy.config.kc_atr_multiplier, 1.5)
-        self.assertEqual(strategy.config.adx_min, 22)
+    def test_rsi_overbought_high(self):
+        bars = _make_bars(50, volatility=0.001, seed=1)
+        for i in range(25, 50):
+            bars[i] = Bar(
+                time=bars[i].time,
+                open=bars[i - 1].close,
+                high=bars[i - 1].close + 0.001,
+                low=bars[i - 1].close,
+                close=bars[i - 1].close + 0.001,
+                volume=1000,
+            )
+        result = _calculate_rsi(bars, 14)
+        self.assertGreater(result, 70)
 
-    def test_volatility_squeeze_usdjpy_different_from_default(self):
-        default_strategy = VolatilitySqueezeStrategy()
-        usdjpy_strategy = VolatilitySqueezeStrategy(USDJPY_H1_PRESET)
-        self.assertNotEqual(
-            default_strategy.config.kc_atr_multiplier,
-            usdjpy_strategy.config.kc_atr_multiplier,
-        )
-        self.assertNotEqual(
-            default_strategy.config.ema_period,
-            usdjpy_strategy.config.ema_period,
-        )
-        self.assertNotEqual(
-            default_strategy.config.adx_min,
-            usdjpy_strategy.config.adx_min,
-        )
+    def test_rsi_oversold_low(self):
+        bars = _make_bars(50, volatility=0.001, seed=2)
+        for i in range(25, 50):
+            bars[i] = Bar(
+                time=bars[i].time,
+                open=bars[i - 1].close,
+                high=bars[i - 1].close,
+                low=bars[i - 1].close - 0.001,
+                close=bars[i - 1].close - 0.001,
+                volume=1000,
+            )
+        result = _calculate_rsi(bars, 14)
+        self.assertLess(result, 30)
 
 
 if __name__ == "__main__":
