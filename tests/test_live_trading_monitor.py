@@ -277,7 +277,9 @@ class TestPostAlertToPaperclip:
 class TestCheckFixConnection:
     def test_no_credentials_configured(self):
         check_fix = live_trading_monitor.check_fix_connection
-        with patch.dict(os.environ, {"CTRADER_HOST": "", "CTRADER_SSL_PORT": "5212"}, clear=False):
+        with patch.dict(
+            os.environ, {"CTRADER_HOST": "", "CTRADER_SSL_PORT": "5212"}, clear=False
+        ):
             os.environ.pop("CTRADER_HOST", None)
             result = check_fix()
         assert result.severity == "warning"
@@ -285,14 +287,23 @@ class TestCheckFixConnection:
 
     def test_invalid_port(self):
         check_fix = live_trading_monitor.check_fix_connection
-        with patch.dict(os.environ, {"CTRADER_HOST": "test.host", "CTRADER_SSL_PORT": "not-a-port"}):
+        with patch.dict(
+            os.environ, {"CTRADER_HOST": "test.host", "CTRADER_SSL_PORT": "not-a-port"}
+        ):
             result = check_fix()
         assert result.severity == "warning"
         assert "Invalid port" in result.message
 
     def test_connection_timeout(self):
         check_fix = live_trading_monitor.check_fix_connection
-        with patch.dict(os.environ, {"CTRADER_HOST": "127.0.0.1", "CTRADER_SSL_PORT": "59999", "CTRADER_VERIFY_SSL": "false"}):
+        with patch.dict(
+            os.environ,
+            {
+                "CTRADER_HOST": "127.0.0.1",
+                "CTRADER_SSL_PORT": "59999",
+                "CTRADER_VERIFY_SSL": "false",
+            },
+        ):
             with patch("ssl.SSLContext.wrap_socket") as mock_wrap:
                 mock_wrap.side_effect = socket.timeout("timed out")
                 result = check_fix()
@@ -301,7 +312,14 @@ class TestCheckFixConnection:
 
     def test_connection_refused(self):
         check_fix = live_trading_monitor.check_fix_connection
-        with patch.dict(os.environ, {"CTRADER_HOST": "127.0.0.1", "CTRADER_SSL_PORT": "59999", "CTRADER_VERIFY_SSL": "false"}):
+        with patch.dict(
+            os.environ,
+            {
+                "CTRADER_HOST": "127.0.0.1",
+                "CTRADER_SSL_PORT": "59999",
+                "CTRADER_VERIFY_SSL": "false",
+            },
+        ):
             with patch("ssl.SSLContext.wrap_socket") as mock_wrap:
                 mock_wrap.side_effect = ConnectionRefusedError
                 result = check_fix()
@@ -316,7 +334,11 @@ class TestFTMOStartingBalance:
         assert state.daily_starting_balance == 100000.0
 
     def test_custom_balance_via_constructor(self):
-        state = TradingState(starting_balance=50000.0, current_balance=50000.0, daily_starting_balance=50000.0)
+        state = TradingState(
+            starting_balance=50000.0,
+            current_balance=50000.0,
+            daily_starting_balance=50000.0,
+        )
         assert state.starting_balance == 50000.0
         assert state.daily_starting_balance == 50000.0
 
@@ -334,7 +356,9 @@ class TestResetDailyStats:
             last_trading_date="2024-01-01",
         )
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(
+                2024, 1, 2, 10, 0, 0, tzinfo=timezone.utc
+            )
             mock_dt.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             result = reset_func(state)
         assert result is True
@@ -352,7 +376,9 @@ class TestResetDailyStats:
             last_trading_date="2024-01-01",
         )
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+            mock_dt.now.return_value = datetime(
+                2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc
+            )
             mock_dt.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
             result = reset_func(state)
         assert result is False
