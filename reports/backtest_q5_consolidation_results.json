@@ -1,0 +1,48 @@
+{
+  "question": "Q5",
+  "test_period": "2024-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 62,
+  "results": {
+    "optimal_consolidation_hours": 4,
+    "profitable_breakout_rate_at_optimal": 0.821,
+    "avg_resulting_move_pips": 33.7,
+    "below_3hr_profitable_pct": 0,
+    "above_3hr_profitable_pct": 0.8064516129032258,
+    "bucket_stats": {
+      "3-4_hours": {
+        "count": 56,
+        "profitable_count": 46,
+        "success_rate": 0.821,
+        "avg_move_pips": 33.7
+      },
+      "5-6_hours": {
+        "count": 4,
+        "profitable_count": 3,
+        "success_rate": 0.75,
+        "avg_move_pips": 34.6
+      },
+      "7-8_hours": {
+        "count": 2,
+        "profitable_count": 1,
+        "success_rate": 0.5,
+        "avg_move_pips": 23.5
+      },
+      "9-12_hours": {
+        "count": 0,
+        "profitable_count": 0,
+        "success_rate": 0,
+        "avg_move_pips": 0
+      },
+      "13_plus_hours": {
+        "count": 0,
+        "profitable_count": 0,
+        "success_rate": 0,
+        "avg_move_pips": 0
+      }
+    }
+  },
+  "pass": true,
+  "notes": "4-hour consolidation shows 82% profitable breakout rate. <3hr shows 0%."
+}
