@@ -10,6 +10,10 @@ from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
     VolatilitySqueezeStrategy,
     VolatilitySqueezeConfig,
+    GBPJPY_H1_PRESET,
+    EURUSD_H1_PRESET,
+    XAUUSD_H1_PRESET,
+    USDJPY_H1_PRESET,
     _calculate_sma,
     _calculate_ema,
     _calculate_std,
@@ -20,6 +24,7 @@ from strategies.volatility_squeeze import (
     _detect_squeeze_duration,
     _passes_session_filter,
     _build_signal,
+    _calculate_rsi,
 )
 
 
@@ -382,8 +387,102 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
         bars = _make_squeeze_bars(80, squeeze_start=20, squeeze_end=50, breakout_direction="up")
         state = _make_state(bars, SessionType.OUTSIDE)
         result = strategy.evaluate(state)
-        if result is not None:
-            self.assertLess(result.confidence, 0.70)
+        self.assertIsNone(result)
+
+    def test_rsi_filter_rejects_oversold_short(self):
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=1, adx_min=1)
+        strategy = VolatilitySqueezeStrategy(config)
+        bars = _make_squeeze_bars(80, squeeze_start=20, squeeze_end=50, breakout_direction="down")
+        state = _make_state(bars, SessionType.OUTSIDE)
+        result = strategy.evaluate(state)
+        self.assertIsNone(result)
+
+
+class TestPresets(unittest.TestCase):
+    def test_gbpjpy_h1_preset_values(self):
+        self.assertEqual(GBPJPY_H1_PRESET.kc_atr_multiplier, 2.0)
+        self.assertEqual(GBPJPY_H1_PRESET.ema_period, 20)
+        self.assertEqual(GBPJPY_H1_PRESET.adx_min, 20)
+        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 3)
+
+    def test_eurusd_h1_preset_values(self):
+        self.assertEqual(EURUSD_H1_PRESET.kc_atr_multiplier, 2.0)
+        self.assertEqual(EURUSD_H1_PRESET.ema_period, 20)
+        self.assertEqual(EURUSD_H1_PRESET.adx_min, 18)
+        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 2)
+
+    def test_xauusd_h1_preset_values(self):
+        self.assertEqual(XAUUSD_H1_PRESET.kc_atr_multiplier, 2.5)
+        self.assertEqual(XAUUSD_H1_PRESET.ema_period, 20)
+        self.assertEqual(XAUUSD_H1_PRESET.adx_min, 20)
+        self.assertEqual(XAUUSD_H1_PRESET.min_squeeze_bars, 2)
+
+    def test_usdjpy_h1_preset_values(self):
+        self.assertEqual(USDJPY_H1_PRESET.kc_atr_multiplier, 1.5)
+        self.assertEqual(USDJPY_H1_PRESET.ema_period, 50)
+        self.assertEqual(USDJPY_H1_PRESET.adx_min, 22)
+        self.assertEqual(USDJPY_H1_PRESET.min_squeeze_bars, 3)
+
+
+class TestVolatilitySqueezeConfig(unittest.TestCase):
+    def test_default_config_values(self):
+        config = VolatilitySqueezeConfig()
+        self.assertEqual(config.bb_period, 20)
+        self.assertEqual(config.bb_std_dev, 2.0)
+        self.assertEqual(config.kc_period, 20)
+        self.assertEqual(config.kc_atr_multiplier, 2.0)
+        self.assertEqual(config.min_squeeze_bars, 3)
+        self.assertEqual(config.ema_period, 20)
+        self.assertEqual(config.adx_period, 14)
+        self.assertEqual(config.adx_min, 20.0)
+        self.assertEqual(config.session_filter, True)
+        self.assertEqual(config.min_confidence, 0.55)
+
+    def test_config_is_frozen(self):
+        config = VolatilitySqueezeConfig()
+        with self.assertRaises(Exception):
+            config.bb_period = 10
+
+    def test_custom_config_overrides(self):
+        config = VolatilitySqueezeConfig(bb_period=10, adx_min=25, kc_atr_multiplier=1.5)
+        self.assertEqual(config.bb_period, 10)
+        self.assertEqual(config.adx_min, 25)
+        self.assertEqual(config.kc_atr_multiplier, 1.5)
+
+
+class TestRSICalculation(unittest.TestCase):
+    def test_rsi_returns_50_with_insufficient_data(self):
+        bars = _make_bars(10)
+        result = _calculate_rsi(bars, 14)
+        self.assertEqual(result, 50.0)
+
+    def test_rsi_overbought_high(self):
+        bars = _make_bars(50, volatility=0.001, seed=1)
+        for i in range(25, 50):
+            bars[i] = Bar(
+                time=bars[i].time,
+                open=bars[i - 1].close,
+                high=bars[i - 1].close + 0.001,
+                low=bars[i - 1].close,
+                close=bars[i - 1].close + 0.001,
+                volume=1000,
+            )
+        result = _calculate_rsi(bars, 14)
+        self.assertGreater(result, 70)
+
+    def test_rsi_oversold_low(self):
+        bars = _make_bars(50, volatility=0.001, seed=2)
+        for i in range(25, 50):
+            bars[i] = Bar(
+                time=bars[i].time,
+                open=bars[i - 1].close,
+                high=bars[i - 1].close,
+                low=bars[i - 1].close - 0.001,
+                close=bars[i - 1].close - 0.001,
+                volume=1000,
+            )
+        result = _calculate_rsi(bars, 14)
+        self.assertLess(result, 30)
 
 
 if __name__ == "__main__":
