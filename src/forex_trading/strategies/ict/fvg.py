@@ -51,7 +51,9 @@ class FVGDetector:
 
             age = current_idx - (i + 1)
 
-            filled, mitigated = self._check_mitigation(bars, i, direction, gap, candle1, candle3)
+            filled, mitigated = self._check_mitigation(
+                bars, i, direction, gap, candle1, candle3
+            )
 
             if mitigated:
                 continue
@@ -78,9 +80,15 @@ class FVGDetector:
         self._cleanup_stale(state)
         return state.active_fvgs
 
-    def _classify_fvg(self, bars: List[Bar], i: int, direction: TradeDirection) -> FVGType:
+    def _classify_fvg(
+        self, bars: List[Bar], i: int, direction: TradeDirection
+    ) -> FVGType:
         if len(bars) < i + 3:
-            return FVGType.BULLISH_FVG if direction == TradeDirection.LONG else FVGType.BEARISH_FVG
+            return (
+                FVGType.BULLISH_FVG
+                if direction == TradeDirection.LONG
+                else FVGType.BEARISH_FVG
+            )
 
         candle1 = bars[i]
         candle2 = bars[i + 1]

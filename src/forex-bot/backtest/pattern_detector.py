@@ -88,9 +88,7 @@ class MWPatternDetector:
 
     def _find_swing_highs(self, bars: list[Bar]) -> list[tuple[int, float]]:
         results = []
-        for i in range(
-            self.swing_lookback, len(bars) - self.swing_lookback
-        ):
+        for i in range(self.swing_lookback, len(bars) - self.swing_lookback):
             is_high = True
             for j in range(1, self.swing_lookback + 1):
                 if bars[i].high <= bars[i - j].high or bars[i].high <= bars[i + j].high:
@@ -102,9 +100,7 @@ class MWPatternDetector:
 
     def _find_swing_lows(self, bars: list[Bar]) -> list[tuple[int, float]]:
         results = []
-        for i in range(
-            self.swing_lookback, len(bars) - self.swing_lookback
-        ):
+        for i in range(self.swing_lookback, len(bars) - self.swing_lookback):
             is_low = True
             for j in range(1, self.swing_lookback + 1):
                 if bars[i].low >= bars[i - j].low or bars[i].low >= bars[i + j].low:
@@ -150,8 +146,7 @@ class MWPatternDetector:
 
             neckline_level = (left_price + right_price) / 2
             sessions = [
-                determine_session(bars[k].time)
-                for k in range(left_idx, right_idx + 1)
+                determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)
             ]
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
@@ -198,9 +193,10 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = self._find_peak_between(
-                bars, left_idx, right_idx, swing_lows
-            ) - left_price
+            depth = (
+                self._find_peak_between(bars, left_idx, right_idx, swing_lows)
+                - left_price
+            )
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
 
@@ -211,14 +207,11 @@ class MWPatternDetector:
             if symmetry > self.symmetry_tolerance:
                 continue
 
-            peak_idx, peak_price = self._find_highest_between(
-                bars, left_idx, right_idx
-            )
+            peak_idx, peak_price = self._find_highest_between(bars, left_idx, right_idx)
 
             neckline_level = (left_price + right_price) / 2
             sessions = [
-                determine_session(bars[k].time)
-                for k in range(left_idx, right_idx + 1)
+                determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)
             ]
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
@@ -255,11 +248,7 @@ class MWPatternDetector:
         end: int,
         swing_highs: list[tuple[int, float]],
     ) -> float:
-        relevant = [
-            (idx, price)
-            for idx, price in swing_highs
-            if start < idx < end
-        ]
+        relevant = [(idx, price) for idx, price in swing_highs if start < idx < end]
         if not relevant:
             return max(bars[i].high for i in range(start, end + 1))
         return min(price for _, price in relevant)
@@ -271,11 +260,7 @@ class MWPatternDetector:
         end: int,
         swing_lows: list[tuple[int, float]],
     ) -> float:
-        relevant = [
-            (idx, price)
-            for idx, price in swing_lows
-            if start < idx < end
-        ]
+        relevant = [(idx, price) for idx, price in swing_lows if start < idx < end]
         if not relevant:
             return min(bars[i].low for i in range(start, end + 1))
         return max(price for _, price in relevant)
@@ -302,9 +287,7 @@ class MWPatternDetector:
                 max_idx = i
         return max_idx, max_price
 
-    def _remove_overlapping(
-        self, patterns: list[MWPattern]
-    ) -> list[MWPattern]:
+    def _remove_overlapping(self, patterns: list[MWPattern]) -> list[MWPattern]:
         if not patterns:
             return []
         non_overlapping = [patterns[0]]

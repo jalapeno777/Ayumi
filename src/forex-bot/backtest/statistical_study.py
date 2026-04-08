@@ -136,12 +136,8 @@ class StatisticalStudy(ABC):
             )
 
         total_weight = sum(c.weight for c in self.go_nogo_criteria)
-        passed_weight = sum(
-            c.weight for c in criterion_results if c.passed
-        )
-        go_nogo = (
-            total_weight > 0 and passed_weight / total_weight >= 0.5
-        )
+        passed_weight = sum(c.weight for c in criterion_results if c.passed)
+        go_nogo = total_weight > 0 and passed_weight / total_weight >= 0.5
 
         notes_parts = []
         for cr in criterion_results:
@@ -164,14 +160,10 @@ class StatisticalStudy(ABC):
             notes=notes,
         )
 
-    def filter_by_session(
-        self, bars: list[Bar], session: SessionType
-    ) -> list[Bar]:
+    def filter_by_session(self, bars: list[Bar], session: SessionType) -> list[Bar]:
         return [b for b in bars if determine_session(b.time) == session]
 
-    def filter_by_day_of_week(
-        self, bars: list[Bar], day: int
-    ) -> list[Bar]:
+    def filter_by_day_of_week(self, bars: list[Bar], day: int) -> list[Bar]:
         return [b for b in bars if b.time.weekday() == day]
 
     def filter_by_date_range(
@@ -180,9 +172,7 @@ class StatisticalStudy(ABC):
         return [b for b in bars if start <= b.time <= end]
 
     def group_by_session(self, bars: list[Bar]) -> dict[SessionType, list[Bar]]:
-        groups: dict[SessionType, list[Bar]] = {
-            s: [] for s in SessionType
-        }
+        groups: dict[SessionType, list[Bar]] = {s: [] for s in SessionType}
         for b in bars:
             groups[determine_session(b.time)].append(b)
         return groups
