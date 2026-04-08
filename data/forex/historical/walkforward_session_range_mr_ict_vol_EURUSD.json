@@ -1,0 +1,196 @@
+{
+  "config": {
+    "pair": "EURUSD",
+    "n_windows": 5,
+    "ict_min_confidence": 0.4,
+    "ict_min_confluence_count": 0,
+    "total_bars": 17877
+  },
+  "per_window": [
+    {
+      "window_id": 0,
+      "test_start": "2023-08-14 07:00:00",
+      "test_end": "2023-09-13 15:00:00",
+      "test_bars": 537,
+      "baseline": {
+        "trades": 18,
+        "win_rate": 55.56,
+        "profit_factor": 1.1202,
+        "sharpe": 0.172,
+        "max_dd": 3.2,
+        "total_pnl": 51.66,
+        "avg_rr": 0.8961,
+        "expectancy": 2.87,
+        "rejected": 0
+      },
+      "ict_filtered": {
+        "trades": 17,
+        "win_rate": 52.94,
+        "profit_factor": 1.0092,
+        "sharpe": 0.02,
+        "max_dd": 3.2,
+        "total_pnl": 3.92,
+        "avg_rr": 0.897,
+        "expectancy": 0.23,
+        "rejected": 0
+      },
+      "ict_stats": {
+        "total_evaluated": 383,
+        "mr_signals": 23,
+        "passed_ict": 17,
+        "rejected_ict": 6,
+        "ict_pass_rate": 0.7391304347826086
+      },
+      "wr_improvement": -2.61,
+      "pf_improvement": -0.111
+    },
+    {
+      "window_id": 1,
+      "test_start": "2024-03-12 01:00:00",
+      "test_end": "2024-04-11 11:00:00",
+      "test_bars": 537,
+      "baseline": {
+        "trades": 8,
+        "win_rate": 62.5,
+        "profit_factor": 1.4895,
+        "sharpe": 0.3845,
+        "max_dd": 1.05,
+        "total_pnl": 78.02,
+        "avg_rr": 0.8937,
+        "expectancy": 9.75,
+        "rejected": 0
+      },
+      "ict_filtered": {
+        "trades": 5,
+        "win_rate": 80.0,
+        "profit_factor": 3.6082,
+        "sharpe": 0.8661,
+        "max_dd": 0.52,
+        "total_pnl": 136.25,
+        "avg_rr": 0.902,
+        "expectancy": 27.25,
+        "rejected": 0
+      },
+      "ict_stats": {
+        "total_evaluated": 439,
+        "mr_signals": 8,
+        "passed_ict": 5,
+        "rejected_ict": 3,
+        "ict_pass_rate": 0.625
+      },
+      "wr_improvement": 17.5,
+      "pf_improvement": 2.1187
+    },
+    {
+      "window_id": 2,
+      "test_start": "2024-10-07 02:00:00",
+      "test_end": "2024-11-06 11:00:00",
+      "test_bars": 537,
+      "baseline": {
+        "trades": 7,
+        "win_rate": 71.43,
+        "profit_factor": 2.2506,
+        "sharpe": 0.6955,
+        "max_dd": 0.53,
+        "total_pnl": 132.12,
+        "avg_rr": 0.9003,
+        "expectancy": 18.87,
+        "rejected": 0
+      },
+      "ict_filtered": {
+        "trades": 7,
+        "win_rate": 71.43,
+        "profit_factor": 2.2506,
+        "sharpe": 0.6955,
+        "max_dd": 0.53,
+        "total_pnl": 132.12,
+        "avg_rr": 0.9003,
+        "expectancy": 18.87,
+        "rejected": 0
+      },
+      "ict_stats": {
+        "total_evaluated": 439,
+        "mr_signals": 7,
+        "passed_ict": 7,
+        "rejected_ict": 0,
+        "ict_pass_rate": 1.0
+      },
+      "wr_improvement": 0.0,
+      "pf_improvement": 0.0
+    },
+    {
+      "window_id": 3,
+      "test_start": "2025-05-05 17:00:00",
+      "test_end": "2025-06-05 01:00:00",
+      "test_bars": 537,
+      "baseline": {
+        "trades": 14,
+        "win_rate": 50.0,
+        "profit_factor": 0.9145,
+        "sharpe": -0.1077,
+        "max_dd": 2.16,
+        "total_pnl": -31.54,
+        "avg_rr": 0.9145,
+        "expectancy": -2.25,
+        "rejected": 0
+      },
+      "ict_filtered": {
+        "trades": 14,
+        "win_rate": 50.0,
+        "profit_factor": 0.9145,
+        "sharpe": -0.1077,
+        "max_dd": 2.16,
+        "total_pnl": -31.54,
+        "avg_rr": 0.9145,
+        "expectancy": -2.25,
+        "rejected": 0
+      },
+      "ict_stats": {
+        "total_evaluated": 461,
+        "mr_signals": 14,
+        "passed_ict": 14,
+        "rejected_ict": 0,
+        "ict_pass_rate": 1.0
+      },
+      "wr_improvement": 0.0,
+      "pf_improvement": 0.0
+    },
+    {
+      "window_id": 4,
+      "test_start": "2025-11-30 18:00:00",
+      "test_end": "2025-12-31 16:00:00",
+      "test_bars": 537,
+      "baseline": {
+        "trades": 9,
+        "win_rate": 66.67,
+        "profit_factor": 1.7987,
+        "sharpe": 0.5827,
+        "max_dd": 1.06,
+        "total_pnl": 127.01,
+        "avg_rr": 0.8994,
+        "expectancy": 14.11,
+        "rejected": 0
+      },
+      "ict_filtered": {
+        "trades": 8,
+        "win_rate": 87.5,
+        "profit_factor": 6.3409,
+        "sharpe": 1.3996,
+        "max_dd": 0.53,
+        "total_pnl": 282.73,
+        "avg_rr": 0.9058,
+        "expectancy": 35.34,
+        "rejected": 0
+      },
+      "ict_stats": {
+        "total_evaluated": 443,
+        "mr_signals": 17,
+        "passed_ict": 8,
+        "rejected_ict": 9,
+        "ict_pass_rate": 0.47058823529411764
+      },
+      "wr_improvement": 20.83,
+      "pf_improvement": 4.5422
+    }
+  ]
+}
