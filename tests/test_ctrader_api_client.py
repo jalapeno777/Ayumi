@@ -1,4 +1,4 @@
-from adapters.ctrader.api_client import FIXMessage, FIXClient, SOH
+from adapters.ctrader.api_client import SOH, FIXClient, FIXMessage
 
 
 class TestFIXMessage:

@@ -1,12 +1,11 @@
 import unittest
 
-
 import numpy as np
 from quant.cointegration import (
     CointegrationEngine,
     CointegrationResult,
-    SpreadStats,
     PairsSignalGenerator,
+    SpreadStats,
     parameter_sweep,
 )
 

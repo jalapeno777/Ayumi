@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from ..engine import TradeDirection
 from .models import ICTMarketState, OrderBlock
@@ -133,7 +132,7 @@ class OrderBlockDetector:
 
     def get_most_relevant(
         self, state: ICTMarketState, direction: TradeDirection
-    ) -> Optional[OrderBlock]:
+    ) -> OrderBlock | None:
         candidates = [
             ob
             for ob in state.active_order_blocks

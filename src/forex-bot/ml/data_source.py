@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 DEFAULT_DB_PATH = Path("data/forex/forex.db")
 DB_PATH_ENV_VAR = "FOREX_DB_PATH"
 

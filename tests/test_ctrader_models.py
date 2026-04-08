@@ -1,16 +1,15 @@
 import pytest
-
 from adapters.ctrader.models import (
-    TradeDirection,
-    OrderType,
-    OrderStatus,
-    PositionStatus,
-    Order,
-    Position,
-    TradeSignal,
-    cTraderCredentials,
     AccountInfo,
     MarketDataSnapshot,
+    Order,
+    OrderStatus,
+    OrderType,
+    Position,
+    PositionStatus,
+    TradeDirection,
+    TradeSignal,
+    cTraderCredentials,
 )
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from .position_sizing import fixed_fractional
 from .regime import VolatilityRegime, VolatilityThresholds, volatility_regime
@@ -40,7 +39,7 @@ def _regime_multiplier(
 
 def vaps_regime(
     atr_series: list[float],
-    config: Optional[VAPSConfig] = None,
+    config: VAPSConfig | None = None,
 ) -> tuple[VolatilityRegime, float, float]:
     cfg = config or _DEFAULT_CONFIG
     thresholds = VolatilityThresholds(
@@ -59,7 +58,7 @@ def vaps_size(
     entry_price: float,
     stop_loss: float,
     atr_series: list[float],
-    config: Optional[VAPSConfig] = None,
+    config: VAPSConfig | None = None,
 ) -> tuple[float, VolatilityRegime, float]:
     cfg = config or _DEFAULT_CONFIG
     regime, percentile, multiplier = vaps_regime(atr_series, cfg)
@@ -76,7 +75,7 @@ def vaps_size(
 def vaps_multiply(
     base_lot: float,
     atr_series: list[float],
-    config: Optional[VAPSConfig] = None,
+    config: VAPSConfig | None = None,
 ) -> tuple[float, VolatilityRegime, float]:
     cfg = config or _DEFAULT_CONFIG
     regime, percentile, multiplier = vaps_regime(atr_series, cfg)

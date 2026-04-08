@@ -1,18 +1,19 @@
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from datetime import datetime
-from backtest.engine import Bar, MarketState, TradeDirection, SessionType
+
+from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,
-    _get_bar_session,
     _calculate_atr,
     _calculate_rsi,
     _calculate_session_range,
+    _get_bar_session,
 )
 
 

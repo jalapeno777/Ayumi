@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set
 
 from ..engine import Bar, TradeDirection
 
@@ -13,7 +12,7 @@ class SessionKillZone:
     is_kill_zone: bool = True
 
 
-DEFAULT_KILL_ZONES: List[SessionKillZone] = [
+DEFAULT_KILL_ZONES: list[SessionKillZone] = [
     SessionKillZone("london_open", 7, 9, True),
     SessionKillZone("london", 8, 12, False),
     SessionKillZone("ny_open", 12, 14, True),
@@ -39,8 +38,8 @@ class SessionFilterResult:
 
 
 class NewsEventSimulator:
-    def __init__(self, events: Optional[List[NewsEvent]] = None):
-        self.events: Dict[datetime, List[NewsEvent]] = {}
+    def __init__(self, events: list[NewsEvent] | None = None):
+        self.events: dict[datetime, list[NewsEvent]] = {}
         if events:
             for event in events:
                 dt = event.time
@@ -68,7 +67,7 @@ class NewsEventSimulator:
 
     def get_impact_near(
         self, bar_time: datetime, buffer_hours: float = 1.0
-    ) -> List[NewsEvent]:
+    ) -> list[NewsEvent]:
         window_start = bar_time - timedelta(hours=buffer_hours)
         window_end = bar_time + timedelta(hours=buffer_hours)
         result = []
@@ -82,14 +81,14 @@ class SessionFilter:
     def __init__(
         self,
         enabled: bool = True,
-        allow_entry_sessions: Optional[List[str]] = None,
+        allow_entry_sessions: list[str] | None = None,
         hold_through_sessions: bool = True,
         weekend_close_hour_utc: int = 21,
         weekend_close_minute_utc: int = 55,
         news_buffer_bars: int = 2,
         news_buffer_on_entry: bool = True,
-        news_simulator: Optional[NewsEventSimulator] = None,
-        kill_zones: Optional[List[SessionKillZone]] = None,
+        news_simulator: NewsEventSimulator | None = None,
+        kill_zones: list[SessionKillZone] | None = None,
     ):
         self.enabled = enabled
         self.allow_entry_sessions = set(
@@ -103,7 +102,7 @@ class SessionFilter:
         self.news_buffer_on_entry = news_buffer_on_entry
         self.news_simulator = news_simulator
         self.kill_zones = kill_zones or DEFAULT_KILL_ZONES
-        self._news_buffered_bars: Set[datetime] = set()
+        self._news_buffered_bars: set[datetime] = set()
 
     def check_entry(self, bar: Bar, pair: str = "EURUSD") -> SessionFilterResult:
         if not self.enabled:

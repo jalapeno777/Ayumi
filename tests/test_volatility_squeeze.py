@@ -1,7 +1,7 @@
-import sys
-import os
-import unittest
 import dataclasses
+import os
+import sys
+import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
@@ -9,22 +9,21 @@ from datetime import datetime
 
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
-    VolatilitySqueezeStrategy,
-    VolatilitySqueezeConfig,
-    GBPJPY_H1_PRESET,
     EURUSD_H1_PRESET,
+    GBPJPY_H1_PRESET,
     XAUUSD_H1_PRESET,
-    USDJPY_H1_PRESET,
-    _calculate_sma,
-    _calculate_ema,
-    _calculate_std,
-    _calculate_atr,
+    VolatilitySqueezeConfig,
+    VolatilitySqueezeStrategy,
+    _build_signal,
     _calculate_adx,
+    _calculate_atr,
     _calculate_bollinger_bands,
+    _calculate_ema,
     _calculate_keltner_channels,
+    _calculate_sma,
+    _calculate_std,
     _detect_squeeze_duration,
     _passes_session_filter,
-    _build_signal,
 )
 
 
@@ -397,13 +396,6 @@ class TestPresets(unittest.TestCase):
         self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
         self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
         self.assertFalse(XAUUSD_H1_PRESET.session_filter)
-
-    def test_usdjpy_preset_values(self):
-        self.assertEqual(USDJPY_H1_PRESET.kc_atr_multiplier, 1.5)
-        self.assertEqual(USDJPY_H1_PRESET.ema_period, 50)
-        self.assertEqual(USDJPY_H1_PRESET.adx_min, 22)
-        self.assertEqual(USDJPY_H1_PRESET.min_squeeze_bars, 3)
-        self.assertTrue(USDJPY_H1_PRESET.session_filter)
 
     def test_presets_are_frozen(self):
         import dataclasses

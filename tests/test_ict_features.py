@@ -7,14 +7,13 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.ict_smc.models import ConfluenceSignal, SignalStrength
 from backtest.engine import TradeDirection
+from backtest.ict_smc.models import ConfluenceSignal, SignalStrength
 from ml.features import (
-    build_ict_features,
-    build_feature_matrix,
     ICT_FEATURE_NAMES,
+    build_feature_matrix,
+    build_ict_features,
 )
-
 
 SIGNAL_TIME = datetime(2024, 6, 15, 10, 0, 0)
 SIGNAL_TIME_2 = datetime(2024, 6, 15, 11, 0, 0)

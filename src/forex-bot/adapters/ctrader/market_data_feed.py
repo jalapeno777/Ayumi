@@ -13,9 +13,9 @@ Protocol notes:
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Set
 
 from .api_client import FIXClient, FIXMessage
 from .models import cTraderCredentials
@@ -53,7 +53,7 @@ class SymbolInfo:
 
 # Known cTrader symbol IDs (FTMO demo account).
 # This will be auto-populated from live data, but we seed common ones.
-DEFAULT_SYMBOLS: Dict[int, str] = {
+DEFAULT_SYMBOLS: dict[int, str] = {
     1: "EUR/USD",
     2: "GBP/USD",
     3: "USD/JPY",
@@ -72,7 +72,7 @@ class MarketDataClient(FIXClient):
 
     def __init__(self, credentials):
         super().__init__(credentials)
-        self._md_handlers: List[Callable] = []
+        self._md_handlers: list[Callable] = []
 
     def register_md_handler(self, handler: Callable):
         self._md_handlers.append(handler)
@@ -114,22 +114,22 @@ class LiveMarketDataFeed:
 
     def __init__(self, credentials: cTraderCredentials):
         self._credentials = credentials
-        self._client: Optional[MarketDataClient] = None
+        self._client: MarketDataClient | None = None
         self._running = False
-        self._ticks: Dict[int, Tick] = {}
-        self._symbols: Dict[int, SymbolInfo] = {
+        self._ticks: dict[int, Tick] = {}
+        self._symbols: dict[int, SymbolInfo] = {
             sid: SymbolInfo(symbol_id=sid, name=name)
             for sid, name in DEFAULT_SYMBOLS.items()
         }
-        self._name_to_id: Dict[str, int] = {v: k for k, v in DEFAULT_SYMBOLS.items()}
-        self._id_to_name: Dict[int, str] = {k: v for k, v in DEFAULT_SYMBOLS.items()}
-        self._subscriptions: Set[int] = set()
+        self._name_to_id: dict[str, int] = {v: k for k, v in DEFAULT_SYMBOLS.items()}
+        self._id_to_name: dict[int, str] = {k: v for k, v in DEFAULT_SYMBOLS.items()}
+        self._subscriptions: set[int] = set()
         self._lock = threading.Lock()
-        self._tick_callbacks: List[Callable[[Tick], None]] = []
+        self._tick_callbacks: list[Callable[[Tick], None]] = []
         self._next_req_id = 1
 
     @property
-    def symbols(self) -> Dict[int, SymbolInfo]:
+    def symbols(self) -> dict[int, SymbolInfo]:
         with self._lock:
             return dict(self._symbols)
 
@@ -138,11 +138,11 @@ class LiveMarketDataFeed:
         return self._running
 
     @property
-    def name_to_id(self) -> Dict[str, int]:
+    def name_to_id(self) -> dict[str, int]:
         with self._lock:
             return dict(self._name_to_id)
 
-    def start(self, auto_subscribe: Optional[List[str]] = None) -> bool:
+    def start(self, auto_subscribe: list[str] | None = None) -> bool:
         """Connect and optionally auto-subscribe to symbols."""
         if self._running:
             return True
@@ -228,18 +228,18 @@ class LiveMarketDataFeed:
             return True
         return False
 
-    def get_tick(self, symbol_name: str) -> Optional[Tick]:
+    def get_tick(self, symbol_name: str) -> Tick | None:
         symbol_id = self._resolve_id(symbol_name)
         if symbol_id is None:
             return None
         with self._lock:
             return self._ticks.get(symbol_id)
 
-    def get_tick_by_id(self, symbol_id: int) -> Optional[Tick]:
+    def get_tick_by_id(self, symbol_id: int) -> Tick | None:
         with self._lock:
             return self._ticks.get(symbol_id)
 
-    def get_all_ticks(self) -> Dict[str, Tick]:
+    def get_all_ticks(self) -> dict[str, Tick]:
         with self._lock:
             return {
                 self._symbols[sid].name: tick
@@ -247,14 +247,14 @@ class LiveMarketDataFeed:
                 if sid in self._symbols
             }
 
-    def get_spread(self, symbol_name: str) -> Optional[float]:
+    def get_spread(self, symbol_name: str) -> float | None:
         tick = self.get_tick(symbol_name)
         return tick.spread if tick else None
 
     def on_tick(self, callback: Callable[[Tick], None]):
         self._tick_callbacks.append(callback)
 
-    def _resolve_id(self, symbol_name: str) -> Optional[int]:
+    def _resolve_id(self, symbol_name: str) -> int | None:
         with self._lock:
             return self._name_to_id.get(symbol_name)
 

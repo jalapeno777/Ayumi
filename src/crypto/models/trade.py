@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 
 class TradeDirection(Enum):
@@ -52,7 +51,7 @@ class CopyTrade:
     allocation_usd: float = 0.0
     status: TradeStatus = TradeStatus.OPEN
     opened_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    closed_at: Optional[datetime] = None
+    closed_at: datetime | None = None
     close_price: float = 0.0
     profit_loss: float = 0.0
 

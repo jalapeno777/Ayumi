@@ -1,8 +1,8 @@
-from adapters.ctrader.models import TradeDirection, PositionStatus
+from adapters.ctrader.models import PositionStatus, TradeDirection
 from adapters.ctrader.order_manager import (
+    OrderExecutionResult,
     OrderManager,
     PositionSizeConfig,
-    OrderExecutionResult,
 )
 
 

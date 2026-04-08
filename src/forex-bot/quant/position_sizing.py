@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -54,7 +53,7 @@ def dynamic_sizing(
     recent_pnl: float,
     win_streak: int,
     loss_streak: int,
-    config: Optional[DynamicSizingConfig] = None,
+    config: DynamicSizingConfig | None = None,
 ) -> float:
     cfg = config or _DEFAULT_CONFIG
     if base_size <= 0:

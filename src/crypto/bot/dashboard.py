@@ -7,7 +7,6 @@ from typing import Any
 
 from ..services.repository import TradeRepository
 
-
 _LEADERBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>

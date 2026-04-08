@@ -1,19 +1,18 @@
-from unittest.mock import MagicMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
-
-from adapters.ctrader.models import (
-    TradeDirection,
-    OrderType,
-    OrderStatus,
-    Order,
-    TradeSignal,
-)
 from adapters.ctrader.api_client import (
+    FIX_REJECT_MESSAGES,
     FIXMessage,
     FIXRejectCode,
-    FIX_REJECT_MESSAGES,
     get_reject_message,
+)
+from adapters.ctrader.models import (
+    Order,
+    OrderStatus,
+    OrderType,
+    TradeDirection,
+    TradeSignal,
 )
 from adapters.ctrader.order_manager import (
     OrderManager,

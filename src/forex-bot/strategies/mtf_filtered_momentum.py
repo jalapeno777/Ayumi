@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
 
 from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy
@@ -17,7 +16,7 @@ class MTFFilteredMomentumStrategy(ISignalStrategy):
     def __init__(
         self,
         inner_strategy: ISignalStrategy,
-        regime_config: Optional[MTFRegimeConfig] = None,
+        regime_config: MTFRegimeConfig | None = None,
         mtf_bars_source_minutes: int = 15,
         confidence_boost: float = 0.0,
         direction_filter: bool = True,
@@ -32,7 +31,7 @@ class MTFFilteredMomentumStrategy(ISignalStrategy):
     def name(self) -> str:
         return f"MTF-Filtered {self.inner.name}"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         h4_bars, h1_bars, m15_bars = self._build_mtf_bars(state.bars)
         if not m15_bars:
             return None
@@ -67,8 +66,8 @@ class MTFFilteredMomentumStrategy(ISignalStrategy):
         return signal
 
     def _build_mtf_bars(
-        self, bars: List[Bar]
-    ) -> tuple[List[Bar], List[Bar], List[Bar]]:
+        self, bars: list[Bar]
+    ) -> tuple[list[Bar], list[Bar], list[Bar]]:
         if self.source_minutes == 15:
             m15_bars = bars
         else:

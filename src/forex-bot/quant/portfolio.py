@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from backtest.strategies import ISignalStrategy
@@ -41,7 +41,7 @@ class PortfolioConstraints:
 
 @dataclass(frozen=True)
 class PortfolioConfig:
-    allocations: Tuple[StrategyAllocation, ...] = ()
+    allocations: tuple[StrategyAllocation, ...] = ()
     constraints: PortfolioConstraints = PortfolioConstraints()
     allocation_method: AllocationMethod = AllocationMethod.EQUAL_WEIGHT
     rebalance_on_close: bool = True
@@ -59,17 +59,17 @@ class PortfolioSignal:
     symbol: str
     signal: Any
     weight: float
-    adjusted_lot_size: Optional[float] = None
+    adjusted_lot_size: float | None = None
 
 
 @dataclass
 class PortfolioTracker:
     balance: float = 100_000.0
     peak_balance: float = 100_000.0
-    open_positions: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+    open_positions: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     daily_pnl: float = 0.0
     daily_start_balance: float = 100_000.0
-    strategy_pnl: Dict[str, float] = field(default_factory=dict)
+    strategy_pnl: dict[str, float] = field(default_factory=dict)
     total_trades: int = 0
     wins: int = 0
     losses: int = 0
@@ -128,12 +128,12 @@ class StrategyPortfolio:
     def __init__(
         self,
         config: PortfolioConfig,
-        tracker: Optional[PortfolioTracker] = None,
+        tracker: PortfolioTracker | None = None,
     ):
         self._config = config
         self._tracker = tracker or PortfolioTracker()
-        self._strategies: Dict[str, ISignalStrategy] = {}
-        self._correlation_cache: Dict[str, float] = {}
+        self._strategies: dict[str, ISignalStrategy] = {}
+        self._correlation_cache: dict[str, float] = {}
         self._conflict_resolution = ConflictResolution.HIGHEST_CONFIDENCE
 
     @property
@@ -160,13 +160,13 @@ class StrategyPortfolio:
             return 1.0
         return self._correlation_cache.get(f"{pair_a}:{pair_b}", 0.0)
 
-    def get_enabled_allocations(self) -> List[StrategyAllocation]:
+    def get_enabled_allocations(self) -> list[StrategyAllocation]:
         return [a for a in self._config.allocations if a.enabled]
 
     def evaluate_all(
         self,
-        market_states: Dict[str, Any],
-    ) -> List[PortfolioSignal]:
+        market_states: dict[str, Any],
+    ) -> list[PortfolioSignal]:
         allocations = self.get_enabled_allocations()
         constraints = self._config.constraints
 
@@ -179,7 +179,7 @@ class StrategyPortfolio:
         if self._tracker.get_total_open_positions() >= constraints.max_open_positions:
             return []
 
-        portfolio_signals: List[PortfolioSignal] = []
+        portfolio_signals: list[PortfolioSignal] = []
 
         for allocation in allocations:
             key = f"{allocation.strategy_name}:{allocation.symbol}"
@@ -276,13 +276,13 @@ class StrategyPortfolio:
 
     def _resolve_conflicts(
         self,
-        signals: List[PortfolioSignal],
-    ) -> List[PortfolioSignal]:
-        by_symbol: Dict[str, List[PortfolioSignal]] = {}
+        signals: list[PortfolioSignal],
+    ) -> list[PortfolioSignal]:
+        by_symbol: dict[str, list[PortfolioSignal]] = {}
         for ps in signals:
             by_symbol.setdefault(ps.symbol, []).append(ps)
 
-        resolved: List[PortfolioSignal] = []
+        resolved: list[PortfolioSignal] = []
         for symbol, sym_signals in by_symbol.items():
             if len(sym_signals) == 1:
                 resolved.append(sym_signals[0])
@@ -387,10 +387,10 @@ class StrategyPortfolio:
 
 
 def build_default_portfolio() -> StrategyPortfolio:
+    from backtest.stat_arb import StatArbStrategy
     from backtest.strategies import (
         RegimeSwitchingRouter,
     )
-    from backtest.stat_arb import StatArbStrategy
     from strategies.grid.adapter import GridStrategyAdapter
     from strategies.grid.config import GridConfig
     from strategies.momentum import MATrendFollowingStrategy, MomentumConfig

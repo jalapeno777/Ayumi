@@ -1,3 +1,4 @@
+from .adapter import GridStrategyAdapter
 from .config import (
     GridConfig,
     GridDirectionBias,
@@ -5,6 +6,8 @@ from .config import (
     RiskConfig,
     TrendFilterConfig,
 )
+from .manager import GridManager
+from .trend_filter import TrendFilter, TrendFilterResult
 from .types import (
     GridLevel,
     GridLevelStatus,
@@ -13,9 +16,6 @@ from .types import (
     GridState,
     GridTrade,
 )
-from .manager import GridManager
-from .trend_filter import TrendFilter, TrendFilterResult
-from .adapter import GridStrategyAdapter
 
 __all__ = [
     "GridConfig",

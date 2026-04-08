@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Set
 
 from backtest.engine import (
     Bar,
@@ -11,8 +10,7 @@ from backtest.engine import (
     TradeDirection,
 )
 
-
-_PREFERRED_SESSIONS: Set[SessionType] = {
+_PREFERRED_SESSIONS: set[SessionType] = {
     SessionType.LONDON,
     SessionType.NY_AM,
 }
@@ -140,13 +138,13 @@ USDJPY_H1_PRESET = VolatilitySqueezeConfig(
 )
 
 
-def _calculate_sma(values: List[float], period: int) -> float:
+def _calculate_sma(values: list[float], period: int) -> float:
     if len(values) < period:
         return 0.0
     return sum(values[-period:]) / period
 
 
-def _calculate_ema(values: List[float], period: int) -> float:
+def _calculate_ema(values: list[float], period: int) -> float:
     if len(values) < period:
         return 0.0
     multiplier = 2.0 / (period + 1)
@@ -156,7 +154,7 @@ def _calculate_ema(values: List[float], period: int) -> float:
     return ema
 
 
-def _calculate_std(values: List[float], period: int) -> float:
+def _calculate_std(values: list[float], period: int) -> float:
     if len(values) < period:
         return 0.0
     subset = values[-period:]
@@ -165,7 +163,7 @@ def _calculate_std(values: List[float], period: int) -> float:
     return variance**0.5
 
 
-def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
+def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -182,7 +180,7 @@ def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
-def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
+def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period * 2 + 1:
         return 0.0
     n = len(bars)
@@ -243,7 +241,7 @@ def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
 
 
 def _calculate_bollinger_bands(
-    bars: List[Bar], period: int, std_dev: float
+    bars: list[Bar], period: int, std_dev: float
 ) -> tuple[float, float, float]:
     closes = [b.close for b in bars]
     sma = _calculate_sma(closes, period)
@@ -254,7 +252,7 @@ def _calculate_bollinger_bands(
 
 
 def _calculate_keltner_channels(
-    bars: List[Bar], period: int, atr_multiplier: float
+    bars: list[Bar], period: int, atr_multiplier: float
 ) -> tuple[float, float, float]:
     closes = [b.close for b in bars]
     ema = _calculate_ema(closes, period)
@@ -265,7 +263,7 @@ def _calculate_keltner_channels(
 
 
 def _detect_squeeze_duration(
-    bars: List[Bar],
+    bars: list[Bar],
     bb_period: int,
     bb_std_dev: float,
     kc_period: int,
@@ -303,7 +301,7 @@ def _build_signal(
     config: VolatilitySqueezeConfig,
     confidence: float,
     rationale: str,
-) -> Optional[StrategySignal]:
+) -> StrategySignal | None:
     if atr <= 0:
         return None
 
@@ -335,7 +333,7 @@ def _build_signal(
 
 
 class VolatilitySqueezeStrategy:
-    def __init__(self, config: Optional[VolatilitySqueezeConfig] = None):
+    def __init__(self, config: VolatilitySqueezeConfig | None = None):
         self.config = config or VolatilitySqueezeConfig()
         self._squeeze_bar_count: int = 0
         self._was_in_squeeze: bool = False
@@ -348,7 +346,7 @@ class VolatilitySqueezeStrategy:
         self._squeeze_bar_count = 0
         self._was_in_squeeze = False
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = (
             max(self.config.bb_period, self.config.kc_period, self.config.ema_period)
             + self.config.adx_period

@@ -19,7 +19,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from .data_loader import CsvDataLoader
 from .engine import Bar, determine_session
@@ -27,7 +26,6 @@ from .ict_smc.confluence_engine import SignalConfluenceEngine
 from .ict_smc.models import ConfluenceSignal, ICTMarketState
 from .selective_pairing import PairingConfig, SelectivePairingHarness
 from .trade_management.session_filter import SessionFilter
-
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "forex" / "historical"
 
@@ -64,7 +62,7 @@ class WindowResult:
 class EvalResult:
     pair_name: str
     config: dict
-    windows: List[WindowResult] = field(default_factory=list)
+    windows: list[WindowResult] = field(default_factory=list)
     total_oos_trades: int = 0
     mean_win_rate: float = 0.0
     mean_profit_factor: float = 0.0
@@ -72,14 +70,14 @@ class EvalResult:
     mean_sharpe_ratio: float = 0.0
     profitable_windows: int = 0
     go_nogo: bool = False
-    passed_criteria: Dict[str, bool] = field(default_factory=dict)
+    passed_criteria: dict[str, bool] = field(default_factory=dict)
 
 
 def compute_all_signals(
-    bars: List[Bar],
+    bars: list[Bar],
     config: PairingConfig,
-    h4_bars: Optional[List[Bar]] = None,
-) -> List[Tuple[int, ConfluenceSignal]]:
+    h4_bars: list[Bar] | None = None,
+) -> list[tuple[int, ConfluenceSignal]]:
     """Compute signals for all bars, returning (bar_index, signal) pairs.
 
     Processes bars sequentially from the start so each bar has full historical
@@ -106,7 +104,7 @@ def compute_all_signals(
         allow_entry_sessions=config.allow_entry_sessions,
     )
 
-    results: List[Tuple[int, ConfluenceSignal]] = []
+    results: list[tuple[int, ConfluenceSignal]] = []
     min_bars = config.min_bars_before_signal
 
     for i in range(min_bars, len(bars)):
@@ -141,12 +139,12 @@ def compute_all_signals(
 
 
 def compute_window_signals(
-    full_bars: List[Bar],
+    full_bars: list[Bar],
     window_train_end: int,
     window_test_end: int,
     config: PairingConfig,
-    h4_bars: Optional[List[Bar]] = None,
-) -> List[Tuple[int, ConfluenceSignal]]:
+    h4_bars: list[Bar] | None = None,
+) -> list[tuple[int, ConfluenceSignal]]:
     """Compute signals for a walk-forward window.
 
     Processes all bars from 0 to window_test_end so detectors have full
@@ -173,7 +171,7 @@ def compute_window_signals(
         allow_entry_sessions=config.allow_entry_sessions,
     )
 
-    results: List[Tuple[int, ConfluenceSignal]] = []
+    results: list[tuple[int, ConfluenceSignal]] = []
     min_bars = config.min_bars_before_signal
 
     gap_start = window_train_end
@@ -219,7 +217,7 @@ def anchored_walk_forward_indices(
     gap_pct: float = 0.15,
     test_pct: float = 0.15,
     step_pct: float = 0.10,
-) -> List[Tuple[int, int, int, int]]:
+) -> list[tuple[int, int, int, int]]:
     """Return (train_start, train_end, test_start, test_end) index tuples.
 
     Rolling walk-forward: 5 non-overlapping windows across the full dataset.
@@ -260,9 +258,9 @@ def anchored_walk_forward_indices(
 
 def run_phase2d_eval(
     pair_name: str,
-    bars: List[Bar],
+    bars: list[Bar],
     config: PairingConfig,
-    h4_bars: Optional[List[Bar]] = None,
+    h4_bars: list[Bar] | None = None,
 ) -> EvalResult:
     """Run Phase 2D walk-forward evaluation."""
     harness = SelectivePairingHarness(config)
@@ -445,7 +443,7 @@ def main():
         ("all_ict_smc (GBPUSD)", gbpusd_h1, gbpusd_h4),
     ]
 
-    results: List[EvalResult] = []
+    results: list[EvalResult] = []
 
     for name, h1_bars, h4_bars in combinations:
         print(f"\n{'=' * 60}")

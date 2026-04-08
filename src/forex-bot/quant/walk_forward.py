@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Any, Generator, List, Optional
+from typing import Any
 
 from backtest.engine import Bar, MarketState, determine_session
 from backtest.strategies import ISignalStrategy
@@ -41,7 +42,7 @@ class AggregatedMetrics:
 @dataclass
 class WalkForwardResults:
     per_window: list[WindowMetrics] = field(default_factory=list)
-    aggregated: Optional[AggregatedMetrics] = None
+    aggregated: AggregatedMetrics | None = None
     go_nogo: bool = False
 
 
@@ -68,7 +69,7 @@ class WalkForwardValidator:
             )
 
     def split(
-        self, data: Optional[list[Any]] = None
+        self, data: list[Any] | None = None
     ) -> Generator[tuple[list[Any], list[Any], list[Any]], None, None]:
         source = data if data is not None else self.data
         n = len(source)
@@ -203,7 +204,7 @@ def _std(values: list[float], mean: float) -> float:
 
 def run_strategy(
     strategy: ISignalStrategy,
-    bars: List[Bar],
+    bars: list[Bar],
     n_windows: int = 3,
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
@@ -290,15 +291,15 @@ def run_strategy(
 
 def _run_strategy_window(
     strategy: ISignalStrategy,
-    test_bars: List[Bar],
+    test_bars: list[Bar],
     initial_balance: float = 10000.0,
     risk_per_trade_pct: float = 0.005,
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     if len(test_bars) < 10:
         return []
 
     balance = initial_balance
-    open_trade: Optional[dict[str, Any]] = None
+    open_trade: dict[str, Any] | None = None
     trades: list[dict[str, Any]] = []
 
     for i in range(len(test_bars)):

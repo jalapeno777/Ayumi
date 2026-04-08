@@ -2,30 +2,29 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-
 from backtest.engine import (
     BacktestConfig,
     BacktestMetrics,
     Bar,
+    ExitReason,
     SimulatedTrade,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
 )
+from backtest.runner import analyze_rolling_walk_forward
 from backtest.selective_pairing import (
     COMPONENT_NAMES,
+    ComponentResult,
     PairingConfig,
     PairingReport,
     SelectivePairingHarness,
     WindowMetrics,
-    ComponentResult,
     _calculate_metrics,
     _check_trade_exit,
     _close_trade,
     _get_pip_value,
 )
-from backtest.runner import analyze_rolling_walk_forward
-from backtest.strategies import MACrossStrategy, BBStrategy
+from backtest.strategies import BBStrategy, MACrossStrategy
 
 
 def _make_trending_bars(n: int = 200, trend: float = 0.00005) -> list:

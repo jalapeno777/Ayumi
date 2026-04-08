@@ -1,43 +1,44 @@
 import os
 import sys
 import tempfile
+
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from ml.features import (
-    sma,
-    ema,
     atr,
-    rsi,
     bollinger_bands,
-    roc,
-    stochastic,
-    macd,
-    volatility_percentile,
-    trend_alignment,
-    session_features,
     build_feature_matrix,
-)
-from ml.signal_simulator import (
-    ma_crossover_signals,
-    rsi_divergence_signals,
-    bb_mean_reversion_signals,
-    momentum_signals,
-    label_trades,
-    generate_all_signals,
-    build_labeled_dataset,
+    ema,
+    macd,
+    roc,
+    rsi,
+    session_features,
+    sma,
+    stochastic,
+    trend_alignment,
+    volatility_percentile,
 )
 from ml.predict import SignalFilter, create_filter_integration_stub
+from ml.signal_simulator import (
+    bb_mean_reversion_signals,
+    build_labeled_dataset,
+    generate_all_signals,
+    label_trades,
+    ma_crossover_signals,
+    momentum_signals,
+    rsi_divergence_signals,
+)
 from ml.train_model import (
-    train_single_model,
     MODEL_REGISTRY,
     MODEL_TYPE_DEFAULT,
     available_model_types,
     build_comparison_table,
-    save_model,
     load_model,
+    save_model,
+    train_single_model,
 )
 from sklearn.ensemble import GradientBoostingClassifier
 
@@ -217,8 +218,9 @@ class TestPredict:
 
     def test_signal_filter_predict(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            import pickle
             import json
+            import pickle
+
             from sklearn.ensemble import GradientBoostingClassifier
 
             model = GradientBoostingClassifier(
@@ -240,8 +242,9 @@ class TestPredict:
 
     def test_signal_filter_predict_batch(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            import pickle
             import json
+            import pickle
+
             from sklearn.ensemble import GradientBoostingClassifier
 
             model = GradientBoostingClassifier(
@@ -265,8 +268,9 @@ class TestPredict:
 
     def test_signal_filter_missing_features(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            import pickle
             import json
+            import pickle
+
             from sklearn.ensemble import GradientBoostingClassifier
 
             model = GradientBoostingClassifier(

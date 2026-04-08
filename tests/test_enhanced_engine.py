@@ -2,21 +2,21 @@ import unittest
 from datetime import datetime, timedelta
 
 from backtest.engine import (
-    Bar,
     BacktestConfig,
+    Bar,
+    ExitReason,
     TradeDirection,
     TradeOutcome,
-    ExitReason,
 )
-from backtest.strategies import MACrossStrategy, BBStrategy
 from backtest.enhanced_engine import EnhancedBacktestEngine, EnhancedTradeRecord
+from backtest.strategies import BBStrategy, MACrossStrategy
 from backtest.trade_management.config import (
-    TradeManagementConfig,
+    ExitRefinementConfig,
     PartialExitConfig,
+    SessionFilterConfig,
+    TradeManagementConfig,
     TrailingStopConfig,
     TrailingStopMethod,
-    SessionFilterConfig,
-    ExitRefinementConfig,
 )
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
 
 from ..engine import Bar, SessionType, TradeDirection
 
@@ -72,7 +71,7 @@ class LiquidityPool:
     is_high: bool = True
     is_day_high: bool = False
     is_day_low: bool = False
-    last_sweep_time: Optional[datetime] = None
+    last_sweep_time: datetime | None = None
     bar_index: int = 0
 
 
@@ -131,17 +130,17 @@ class ConfluenceSignal:
 
 
 class ICTMarketState:
-    def __init__(self, bars: List[Bar]):
+    def __init__(self, bars: list[Bar]):
         self.bars = bars
         self.structure_bias: TradeDirection = TradeDirection.NEUTRAL
-        self.structure_breaks: List[StructureBreak] = []
-        self.swing_highs: List[SwingPoint] = []
-        self.swing_lows: List[SwingPoint] = []
-        self.active_order_blocks: List[OrderBlock] = []
-        self.active_fvgs: List[FairValueGap] = []
-        self.recent_sweeps: List[LiquiditySweep] = []
-        self.liquidity_pools: List[LiquidityPool] = []
-        self.pd_zone: Optional[PremiumDiscountZone] = None
+        self.structure_breaks: list[StructureBreak] = []
+        self.swing_highs: list[SwingPoint] = []
+        self.swing_lows: list[SwingPoint] = []
+        self.active_order_blocks: list[OrderBlock] = []
+        self.active_fvgs: list[FairValueGap] = []
+        self.recent_sweeps: list[LiquiditySweep] = []
+        self.liquidity_pools: list[LiquidityPool] = []
+        self.pd_zone: PremiumDiscountZone | None = None
         self.current_session: SessionType = SessionType.OUTSIDE
         self.day_high: float = 0.0
         self.day_low: float = 0.0
@@ -152,7 +151,7 @@ class ICTMarketState:
         return self.bars[-1]
 
     @property
-    def previous_bar(self) -> Optional[Bar]:
+    def previous_bar(self) -> Bar | None:
         return self.bars[-2] if len(self.bars) > 1 else None
 
     @staticmethod

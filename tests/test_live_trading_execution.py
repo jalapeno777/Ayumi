@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.models import (
     TradeDirection,
@@ -167,7 +167,7 @@ class TestLiveTradingExecutorUnit:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
         config = executor._create_strategy_config()
@@ -183,7 +183,7 @@ class TestLiveTradingExecutorUnit:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
         assert executor._config.symbol == "GBPUSD"
@@ -197,7 +197,7 @@ class TestLiveTradingExecutorUnit:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
         bars = []
@@ -223,7 +223,7 @@ class TestLiveTradingExecutorUnit:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
         bars = [
@@ -243,7 +243,7 @@ class TestLiveTradingExecutorUnit:
 
 class TestTradeSignalCreation:
     def test_trade_signal_from_strategy_signal(self):
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         _ = LiveTradingExecutor(ExecutionConfig())
         strategy = SessionRangeMeanReversionStrategy()
@@ -302,7 +302,7 @@ class TestSignalEvaluation:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
 
@@ -330,7 +330,7 @@ class TestSignalEvaluation:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from scripts.live_trading_execution import LiveTradingExecutor, ExecutionConfig
+        from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
 
@@ -380,7 +380,7 @@ class TestQuantPipelineIntegration:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from quant.pipeline import QuantPipeline, TradeAction, QuantConfig
+        from quant.pipeline import QuantConfig, QuantPipeline, TradeAction
 
         pipeline = QuantPipeline(QuantConfig.disabled())
 
@@ -399,8 +399,8 @@ class TestQuantPipelineIntegration:
 
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-        from quant.pipeline import QuantPipeline, TradeAction
         from quant.config import QuantConfig
+        from quant.pipeline import QuantPipeline, TradeAction
 
         config = QuantConfig.ftmo()
         pipeline = QuantPipeline(config)

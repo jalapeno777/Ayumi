@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from ..engine import TradeDirection
-from .models import ICTMarketState, FairValueGap
+from .models import FairValueGap, ICTMarketState
 
 
 class FVGDetector:
@@ -99,7 +98,7 @@ class FVGDetector:
 
     def get_nearest_unfilled(
         self, state: ICTMarketState, direction: TradeDirection, current_price: float
-    ) -> Optional[FairValueGap]:
+    ) -> FairValueGap | None:
         candidates = [
             fvg
             for fvg in state.active_fvgs

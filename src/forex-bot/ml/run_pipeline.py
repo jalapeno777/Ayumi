@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
-import json
 
 ml_dir = os.path.dirname(os.path.abspath(__file__))
 forex_bot_dir = os.path.dirname(ml_dir)

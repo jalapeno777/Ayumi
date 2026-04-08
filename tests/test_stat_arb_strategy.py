@@ -1,11 +1,9 @@
 import unittest
 
-
 import numpy as np
 import pandas as pd
-
 from backtest.engine import Bar, MarketState, TradeDirection
-from backtest.stat_arb import StatArbStrategy, StatArbBacktestResult
+from backtest.stat_arb import StatArbBacktestResult, StatArbStrategy
 
 
 def make_cointegrated_pair_bars(n=300, base_price=1.1000, seed=42):

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time
-from typing import List, Optional
 
 from backtest.engine import (
     Bar,
@@ -83,7 +82,7 @@ def _is_in_london_ny_overlap(state: MarketState) -> bool:
     return _LONDON_NY_OVERLAP_START.hour <= utc_hour < _LONDON_NY_OVERLAP_END.hour
 
 
-def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
+def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 0.0001
     tr_sum = 0.0
@@ -100,7 +99,7 @@ def _calculate_atr(bars: List[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
-def _calculate_ema(values: List[float], period: int) -> Optional[float]:
+def _calculate_ema(values: list[float], period: int) -> float | None:
     if len(values) < period:
         return None
     multiplier = 2.0 / (period + 1)
@@ -110,7 +109,7 @@ def _calculate_ema(values: List[float], period: int) -> Optional[float]:
     return ema
 
 
-def _get_trend_bias(bars: List[Bar], period: int = 50) -> Optional[str]:
+def _get_trend_bias(bars: list[Bar], period: int = 50) -> str | None:
     if len(bars) < period + 1:
         return None
     closes = [b.close for b in bars]
@@ -123,11 +122,11 @@ def _get_trend_bias(bars: List[Bar], period: int = 50) -> Optional[str]:
     return "short"
 
 
-def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
+def _calculate_rsi(bars: list[Bar], period: int = 14) -> float | None:
     if len(bars) < period + 1:
         return None
-    gains: List[float] = []
-    losses: List[float] = []
+    gains: list[float] = []
+    losses: list[float] = []
     for i in range(len(bars) - period, len(bars)):
         change = bars[i].close - bars[i - 1].close
         gains.append(change if change > 0 else 0.0)
@@ -141,7 +140,7 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> Optional[float]:
 
 
 def _calculate_session_range(
-    bars: List[Bar], session_type: SessionType, reference_day: Optional[date] = None
+    bars: list[Bar], session_type: SessionType, reference_day: date | None = None
 ) -> tuple[float, float, float]:
     if not bars:
         return 0.0, 0.0, 0.0
@@ -149,7 +148,7 @@ def _calculate_session_range(
     if reference_day is None:
         reference_day = bars[-1].time.date()
 
-    session_bars: List[Bar] = []
+    session_bars: list[Bar] = []
     for b in bars:
         if b.time.date() != reference_day:
             continue
@@ -173,7 +172,7 @@ def _build_signal(
     session_range_price: float,
     rationale: str,
     pip_value: float,
-) -> Optional[StrategySignal]:
+) -> StrategySignal | None:
     if atr <= 0:
         return None
 
@@ -219,14 +218,14 @@ def _build_signal(
 
 
 class SessionRangeMeanReversionStrategy:
-    def __init__(self, config: Optional[SessionRangeMRConfig] = None):
+    def __init__(self, config: SessionRangeMRConfig | None = None):
         self.config = config or SessionRangeMRConfig()
 
     @property
     def name(self) -> str:
         return "Session-Range Mean Reversion"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = max(
             self.config.atr_period + self.config.rsi_period + 2,
             self.config.ema_trend_period + 1,
@@ -304,9 +303,7 @@ class SessionRangeMeanReversionStrategy:
         return None
 
     @staticmethod
-    def _find_previous_trading_day(
-        bars: List[Bar], current_day: date
-    ) -> Optional[date]:
+    def _find_previous_trading_day(bars: list[Bar], current_day: date) -> date | None:
         seen_days: set[date] = set()
         for b in bars:
             d = b.time.date()
@@ -330,8 +327,8 @@ class SessionRangeMRWithRegimeFilterConfig:
 class SessionRangeMRWithRegimeFilter:
     def __init__(
         self,
-        config: Optional[SessionRangeMRWithRegimeFilterConfig] = None,
-        base_config: Optional[SessionRangeMRConfig] = None,
+        config: SessionRangeMRWithRegimeFilterConfig | None = None,
+        base_config: SessionRangeMRConfig | None = None,
     ):
         self.config = config or SessionRangeMRWithRegimeFilterConfig()
         self.mr_strategy = SessionRangeMeanReversionStrategy(base_config)
@@ -340,7 +337,7 @@ class SessionRangeMRWithRegimeFilter:
     def name(self) -> str:
         return "Session-Range MR with Regime Filter"
 
-    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+    def evaluate(self, state: MarketState) -> StrategySignal | None:
         base_signal = self.mr_strategy.evaluate(state)
         if base_signal is None or base_signal.direction is None:
             return None
@@ -378,7 +375,7 @@ class SessionRangeMRWithRegimeFilter:
             rationale=f"[RegimeFilter ADX={adx:.1f}] {base_signal.rationale}",
         )
 
-    def _calculate_adx(self, bars: List[Bar]) -> float:
+    def _calculate_adx(self, bars: list[Bar]) -> float:
         period = self.config.adx_period
         if len(bars) < period * 2 + 1:
             return 0.0
@@ -387,9 +384,9 @@ class SessionRangeMRWithRegimeFilter:
         lows = [b.low for b in bars]
         closes = [b.close for b in bars]
 
-        plus_dm_list: List[float] = []
-        minus_dm_list: List[float] = []
-        tr_list: List[float] = []
+        plus_dm_list: list[float] = []
+        minus_dm_list: list[float] = []
+        tr_list: list[float] = []
 
         for i in range(1, len(bars)):
             tr = max(
@@ -426,7 +423,7 @@ class SessionRangeMRWithRegimeFilter:
             dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
 
         adx = dx
-        dx_list: List[float] = []
+        dx_list: list[float] = []
         for i in range(period, len(tr_list)):
             tr_sum = tr_sum - tr_sum / period + tr_list[i]
             plus_dm_sum = plus_dm_sum - plus_dm_sum / period + plus_dm_list[i]

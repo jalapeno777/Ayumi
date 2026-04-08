@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from backtest.data_loader import CsvDataLoader
 from backtest.engine import BacktestConfig
-from backtest.grid_strategy import GridStrategy, GridDirection
 from backtest.enhanced_engine import EnhancedBacktestEngine
+from backtest.grid_strategy import GridDirection, GridStrategy
 
 
 def test_grid_backtest_eurusd():
