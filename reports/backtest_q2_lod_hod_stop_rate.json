@@ -1,0 +1,31 @@
+{
+  "question": "Q2",
+  "test_period": "2023-06-22 00:00:00 to 2026-04-08 00:00:00",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 514,
+  "results": {
+    "total_trades": 660,
+    "stop_loss_rate": 0.572,
+    "lod_hod_stop_rate": 0.2857,
+    "intrabar_spike_rate": 0.7143,
+    "breakeven_rate": 0.0,
+    "avg_slippage_intrabar_pips": 13.64,
+    "optimal_buffer_pips": 7.8,
+    "sl_count": 294,
+    "tp_count": 220,
+    "tp_rate": 0.428
+  },
+  "pass": false,
+  "criteria": [
+    {
+      "metric": "stop_loss_rate",
+      "value": 0.572,
+      "threshold": 0.4,
+      "operator": "<=",
+      "passed": false,
+      "weight": 1.0
+    }
+  ],
+  "notes": "stop_loss_rate: 0.5720 <= 0.4 -> FAIL"
+}
