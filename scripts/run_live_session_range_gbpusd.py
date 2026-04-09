@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """Forward test runner — Session Range MR GBPUSD on cTrader demo.
 
-Thin wrapper around ForwardTestEngine. All live data wiring, bar aggregation,
-strategy evaluation, spread/slippage, and reconnection are handled by the engine.
+Wires together:
+  LiveMarketDataFeed -> TickBarBuilder -> SessionRangeMeanReversionStrategy
+    -> cTraderSignalAdapter -> PaperTrader -> TradeLogger
+
+Starts in paper mode.  Pass --live to switch to live execution.
+
+Features:
+  - Live spread + slippage simulation on paper fills
+  - Session-aware: only trades during Asian/early London (per strategy rules)
+  - Passes live bid/ask spread to adapter for realistic fills
+  - --reset clears synthetic trade logs and starts fresh
 
 Usage:
     python scripts/run_live_session_range_gbpusd.py [--live] [--bar-minutes 15] [--reset]
@@ -11,14 +20,24 @@ Usage:
 import argparse
 import logging
 import shutil
+import signal
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+from backtest.engine import Bar, MarketState, SessionType
+from adapters.ctrader.market_data_feed import DEFAULT_SYMBOLS, LiveMarketDataFeed, Tick
+from adapters.ctrader.models import cTraderCredentials
+from adapters.ctrader.session_range_gbpusd import (
+    SessionRangeGBPUSDConfig,
+    build_gbpusd_paper_trader,
+    load_credentials_from_env,
+)
+from adapters.ctrader.tick_bar_builder import TickBarBuilder
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,
@@ -26,9 +45,11 @@ from strategies.session_range_mean_reversion import (
 
 logger = logging.getLogger("forward_test")
 
-SYMBOL = "GBPUSD"
-LOG_DIR = "logs/trades"
+SYMBOL = "GBP/USD"
+STRATEGY_SYMBOL = "GBPUSD"
+MIN_BARS = 100
 STATUS_INTERVAL_S = 300
+LOG_DIR = "logs/trades"
 
 
 def _build_logging(verbose: bool):
@@ -38,6 +59,24 @@ def _build_logging(verbose: bool):
         format="%(asctime)s [%(name)s] %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+
+def _current_session() -> SessionType:
+    utc_hour = datetime.now(timezone.utc).hour
+    if 0 <= utc_hour < 7:
+        return SessionType.ASIAN
+    if 7 <= utc_hour < 11:
+        return SessionType.LONDON
+    if 11 <= utc_hour < 16:
+        return SessionType.NY_AM
+    if 16 <= utc_hour < 20:
+        return SessionType.NY_PM
+    return SessionType.OUTSIDE
+
+
+def _is_trading_session() -> bool:
+    session = _current_session()
+    return session in (SessionType.ASIAN, SessionType.LONDON, SessionType.NY_AM, SessionType.NY_PM)
 
 
 def _reset_synthetic_data(log_dir: str):
@@ -61,9 +100,9 @@ def _reset_synthetic_data(log_dir: str):
             dest = archive_dir / f.name
             shutil.move(str(f), str(dest))
             removed += 1
-            logger.info("Archived synthetic log: %s -> %s", f.name, dest)
+            logger.info(f"Archived synthetic log: {f.name} -> {dest}")
 
-    logger.info("Reset complete: archived %d synthetic trade log(s)", removed)
+    logger.info(f"Reset complete: archived {removed} synthetic trade log(s)")
     if removed == 0:
         logger.info("No synthetic data detected — logs may contain real data, not clearing")
 
@@ -81,83 +120,163 @@ def main():
     if args.reset:
         _reset_synthetic_data(LOG_DIR)
 
-    config = ForwardTestConfig(
-        symbol=SYMBOL,
-        bar_period_minutes=args.bar_minutes,
-        min_bars_for_evaluation=100,
-        min_confidence=0.50,
-        live_mode=args.live,
-        log_dir=LOG_DIR,
-        stats_interval_sec=STATUS_INTERVAL_S,
-        clear_stuck_positions_on_start=args.reset,
-        reset_on_start=args.reset,
-    )
+    shutdown_event = _install_shutdown_handlers()
 
+    config = SessionRangeGBPUSDConfig(live_mode=args.live)
     strategy = SessionRangeMeanReversionStrategy(SessionRangeMRConfig())
 
-    engine = ForwardTestEngine(config=config, strategies=[strategy])
+    if args.live:
+        logger.warning("=== LIVE MODE ENABLED — real orders will be placed ===")
+        credentials = load_credentials_from_env()
+        trade_credentials = cTraderCredentials(
+            host=credentials.host,
+            port=credentials.port,
+            use_ssl=credentials.use_ssl,
+            sender_comp_id=credentials.sender_comp_id,
+            target_comp_id=credentials.target_comp_id,
+            sender_sub_id=credentials.sender_sub_id,
+            username=credentials.username,
+            password=credentials.password,
+        )
+        quote_credentials = cTraderCredentials(
+            host=credentials.host,
+            port=5211,
+            use_ssl=credentials.use_ssl,
+            sender_comp_id=credentials.sender_comp_id,
+            target_comp_id=credentials.target_comp_id,
+            sender_sub_id="QUOTE",
+            username=credentials.username,
+            password=credentials.password,
+        )
+    else:
+        logger.info("=== PAPER MODE — no real orders ===")
+        trade_credentials = load_credentials_from_env()
+        quote_credentials = cTraderCredentials(
+            host=trade_credentials.host,
+            port=5211,
+            use_ssl=trade_credentials.use_ssl,
+            sender_comp_id=trade_credentials.sender_comp_id,
+            target_comp_id=trade_credentials.target_comp_id,
+            sender_sub_id="QUOTE",
+            username=trade_credentials.username,
+            password=trade_credentials.password,
+        )
+
+    trader, adapter, trade_logger = build_gbpusd_paper_trader(strategy, config)
+
+    if args.reset:
+        cleared = trader.clear_stuck_positions()
+        if cleared > 0:
+            logger.info(f"Cleared {cleared} stuck position(s) from previous runs")
+        trader.reset()
+        logger.info("Paper trader reset to initial state")
+
+    bar_builder = TickBarBuilder(bar_minutes=args.bar_minutes, max_bars=500)
+
+    def on_tick(tick: Tick):
+        spread = tick.spread
+        adapter.update_spread(spread)
+        bar_builder.on_tick(tick)
+
+    def on_bar_complete(symbol_name: str, bar: Bar):
+        if symbol_name != SYMBOL:
+            return
+        bars = bar_builder.get_bars(SYMBOL)
+        if len(bars) < MIN_BARS:
+            logger.info(f"Accumulating bars: {len(bars)}/{MIN_BARS}")
+            return
+
+        tick = feed.get_tick(SYMBOL)
+        current_spread = tick.spread if tick else 0.0
+
+        market_state = MarketState(bars=bars, current_session=_current_session())
+        try:
+            adapter.evaluate_and_trade(market_state, spread=current_spread)
+        except Exception:
+            logger.exception("Error evaluating strategy")
+
+    bar_builder.register_bar_callback(on_bar_complete)
+
+    feed = LiveMarketDataFeed(quote_credentials)
+    bar_builder.set_symbol_map(dict(DEFAULT_SYMBOLS))
+
+    logger.info("Starting market data feed...")
+    if not feed.start(auto_subscribe=[SYMBOL]):
+        logger.error("Failed to start market data feed — exiting")
+        sys.exit(1)
+
+    feed.on_tick(on_tick)
 
     logger.info(
-        "Starting forward test — %s, %dm bars, %s mode",
-        SYMBOL, args.bar_minutes, "LIVE" if args.live else "PAPER",
+        f"Forward test running — {SYMBOL}, {args.bar_minutes}m bars, "
+        f"{'LIVE' if args.live else 'PAPER'} mode"
     )
-    logger.info(
-        "Spread/slippage simulation enabled on paper fills (via SlippageModel)"
-    )
-
-    if not engine.start():
-        logger.error("Failed to start forward test engine — exiting")
-        return
+    logger.info(f"Need {MIN_BARS} bars before strategy activates (~{MIN_BARS * args.bar_minutes // 60}h)")
+    logger.info("Spread/slippage simulation enabled on paper fills")
 
     last_status = 0.0
     try:
-        while engine.is_running:
-            time.sleep(1.0)
+        while not shutdown_event.is_set():
+            shutdown_event.wait(timeout=1.0)
 
             now = time.monotonic()
             if now - last_status >= STATUS_INTERVAL_S:
                 last_status = now
-                stats = engine.get_stats()
-                health = stats["health"]
-                trading = stats["trading"]
-
-                utc_hour = time.gmtime(time.time()).tm_hour
-                if 0 <= utc_hour < 7:
-                    session = "ASIAN"
-                elif 7 <= utc_hour < 11:
-                    session = "LONDON"
-                elif 11 <= utc_hour < 16:
-                    session = "NY_AM"
-                elif 16 <= utc_hour < 20:
-                    session = "NY_PM"
-                else:
-                    session = "OUTSIDE"
-
+                stats = trader.get_stats()
+                risk = trader.get_risk_guard_stats()
+                bars = bar_builder.get_bars(SYMBOL)
+                summary = trade_logger.get_summary()
+                tick = feed.get_tick(SYMBOL)
+                current_spread = tick.spread if tick else 0.0
                 logger.info(
-                    "[STATUS] session=%s "
-                    "trades=%d rejected=%d balance=%.2f "
-                    "realized=%.2f unrealized=%.2f spread=%.5f",
-                    session,
-                    trading["trades_executed"],
-                    trading["trades_rejected"],
-                    trading["current_balance"],
-                    trading["realized_pnl"],
-                    trading["unrealized_pnl"],
-                    health.get("current_spread", 0),
+                    f"[STATUS] session={_current_session().name} "
+                    f"bars={len(bars)} signals={stats.total_signals_processed} "
+                    f"trades={stats.trades_executed} rejected={stats.trades_rejected} "
+                    f"risk_blocked={stats.signals_blocked_by_risk} "
+                    f"balance={stats.current_balance:.2f} "
+                    f"realized={stats.realized_pnl:.2f} unrealized={stats.unrealized_pnl:.2f} "
+                    f"daily_pnl={risk.get('daily_pnl', 0):.2f} "
+                    f"dd_pct={risk.get('drawdown_pct', 0):.2%} "
+                    f"spread={current_spread:.5f}"
                 )
+                if summary["total_trades"] > 0:
+                    logger.info(
+                        f"[PERF] win_rate={summary['win_rate']:.1%} "
+                        f"wins={summary['wins']} losses={summary['losses']} "
+                        f"pnl={summary['total_pnl']:.2f}"
+                    )
+
+            tick = feed.get_tick(SYMBOL)
+            if tick:
+                adapter.update_spread(tick.spread)
+                trader.update_market_prices({STRATEGY_SYMBOL: tick.mid})
     except KeyboardInterrupt:
         logger.info("Interrupted")
     finally:
-        engine.stop()
+        logger.info("Shutting down...")
+        feed.stop()
+        stats = trader.get_stats()
+        summary = trade_logger.get_summary()
+        logger.info(
+            f"[FINAL] signals={stats.total_signals_processed} "
+            f"trades={stats.trades_executed} "
+            f"balance={stats.current_balance:.2f} "
+            f"realized={stats.realized_pnl:.2f} "
+            f"win_rate={summary['win_rate']:.1%}" if summary["total_trades"] else ""
+        )
 
-    stats = engine.get_stats()
-    trading = stats["trading"]
-    logger.info(
-        "[FINAL] trades=%d balance=%.2f realized=%.2f",
-        trading["trades_executed"],
-        trading["current_balance"],
-        trading["realized_pnl"],
-    )
+
+def _install_shutdown_handlers():
+    import threading
+    event = threading.Event()
+
+    def handler(signum, frame):
+        logger.info(f"Received signal {signum} — shutting down")
+        event.set()
+
+    signal.signal(signal.SIGTERM, handler)
+    signal.signal(signal.SIGINT, handler)
+    return event
 
 
 if __name__ == "__main__":
