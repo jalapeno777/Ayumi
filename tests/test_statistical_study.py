@@ -367,6 +367,48 @@ class TestMWPatternDetector:
             )
         return bars
 
+    @staticmethod
+    def _make_clear_w_pattern_bars() -> list[Bar]:
+        bars = []
+        lows = [1.0980, 1.0985, 1.0982, 1.0981, 1.0980, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1045, 1.1040, 1.1030, 1.1020, 1.1010, 1.1000, 1.0990, 1.0980, 1.0978, 1.0980, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1050, 1.1060, 1.1065, 1.1060, 1.1055, 1.1050, 1.1045, 1.1040, 1.1035, 1.1030, 1.1035]
+        highs = [1.1000, 1.0995, 1.0992, 1.0993, 1.0998, 1.1005, 1.1015, 1.1025, 1.1035, 1.1045, 1.1055, 1.1060, 1.1055, 1.1045, 1.1035, 1.1025, 1.1015, 1.1005, 1.0995, 1.0990, 1.0995, 1.1005, 1.1015, 1.1025, 1.1035, 1.1045, 1.1055, 1.1065, 1.1075, 1.1080, 1.1075, 1.1070, 1.1065, 1.1060, 1.1055, 1.1050, 1.1055, 1.1060]
+        for i in range(len(lows)):
+            day = 1 + i // 24
+            hour = i % 24
+            mid = (highs[i] + lows[i]) / 2
+            bars.append(
+                Bar(
+                    time=datetime(2023, 1, day, hour, 0),
+                    open=mid - 0.0001,
+                    high=highs[i],
+                    low=lows[i],
+                    close=mid + 0.0001,
+                    volume=100.0,
+                )
+            )
+        return bars
+
+    @staticmethod
+    def _make_clear_m_pattern_bars() -> list[Bar]:
+        bars = []
+        lows = [1.1040, 1.1045, 1.1050, 1.1055, 1.1060, 1.1065, 1.1060, 1.1050, 1.1040, 1.1030, 1.1020, 1.1010, 1.1000, 1.0990, 1.0985, 1.0980, 1.0985, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1050, 1.1055, 1.1060, 1.1065, 1.1070, 1.1075, 1.1080, 1.1085, 1.1090, 1.1095, 1.1100, 1.1105, 1.1110]
+        highs = [1.1080, 1.1085, 1.1090, 1.1095, 1.1100, 1.1105, 1.1100, 1.1095, 1.1090, 1.1080, 1.1070, 1.1060, 1.1050, 1.1040, 1.1030, 1.1025, 1.1030, 1.1035, 1.1040, 1.1050, 1.1060, 1.1070, 1.1080, 1.1090, 1.1100, 1.1110, 1.1120, 1.1130, 1.1135, 1.1130, 1.1125, 1.1120, 1.1115, 1.1110, 1.1105, 1.1100, 1.1095, 1.1100]
+        for i in range(len(lows)):
+            day = 1 + i // 24
+            hour = i % 24
+            mid = (highs[i] + lows[i]) / 2
+            bars.append(
+                Bar(
+                    time=datetime(2023, 1, day, hour, 0),
+                    open=mid - 0.0001,
+                    high=highs[i],
+                    low=lows[i],
+                    close=mid + 0.0001,
+                    volume=100.0,
+                )
+            )
+        return bars
+
     def test_detect_empty_bars(self):
         detector = MWPatternDetector()
         patterns = detector.detect([])
@@ -384,10 +426,57 @@ class TestMWPatternDetector:
         patterns = detector.detect(bars)
         assert isinstance(patterns, list)
 
+    def test_w_pattern_detected_with_positive_depth(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(
+            swing_lookback=2, min_bar_span=5, min_depth_atr=0.5
+        )
+        patterns = detector.detect(bars)
+        w_patterns = [p for p in patterns if p.pattern_type == "W"]
+        assert len(w_patterns) >= 1, "Expected at least one W pattern to be detected"
+        for p in w_patterns:
+            assert p.depth_pips > 0, f"W pattern depth_pips should be positive, got {p.depth_pips}"
+            assert p.valley_peak_price > p.left_shoulder_price, (
+                f"W peak ({p.valley_peak_price}) should be above shoulders ({p.left_shoulder_price})"
+            )
+
+    def test_m_pattern_detected_with_positive_depth(self):
+        bars = self._make_clear_m_pattern_bars()
+        detector = MWPatternDetector(
+            swing_lookback=2, min_bar_span=5, min_depth_atr=0.5
+        )
+        patterns = detector.detect(bars)
+        m_patterns = [p for p in patterns if p.pattern_type == "M"]
+        assert len(m_patterns) >= 1, "Expected at least one M pattern to be detected"
+        for p in m_patterns:
+            assert p.depth_pips > 0, f"M pattern depth_pips should be positive, got {p.depth_pips}"
+            assert p.valley_peak_price < p.left_shoulder_price, (
+                f"M valley ({p.valley_peak_price}) should be below shoulders ({p.left_shoulder_price})"
+            )
+
+    def test_atr_filter_rejects_shallow_patterns(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector_strict = MWPatternDetector(
+            swing_lookback=2, min_bar_span=5, min_depth_atr=100.0
+        )
+        patterns = detector_strict.detect(bars)
+        w_patterns = [p for p in patterns if p.pattern_type == "W"]
+        assert len(w_patterns) == 0, "Extremely high ATR threshold should reject all patterns"
+
+    def test_atr_filter_accepts_deep_patterns(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector_relaxed = MWPatternDetector(
+            swing_lookback=2, min_bar_span=5, min_depth_atr=0.1
+        )
+        patterns = detector_relaxed.detect(bars)
+        w_patterns = [p for p in patterns if p.pattern_type == "W"]
+        assert len(w_patterns) >= 1, "Low ATR threshold should accept deep patterns"
+
     def test_pattern_has_required_fields(self):
-        bars = self._make_w_pattern_bars()
+        bars = self._make_clear_w_pattern_bars()
         detector = MWPatternDetector(swing_lookback=2, min_bar_span=5)
         patterns = detector.detect(bars)
+        assert len(patterns) >= 1, "Expected at least one pattern to be detected"
         for p in patterns:
             assert p.pattern_type in ("M", "W")
             assert p.neckline_level > 0
@@ -484,6 +573,48 @@ class TestMWPatternDetector:
             bar_count=11,
         )
         assert m.neckline_break_distance == 0.0
+
+    def test_find_swing_highs_detects_peaks(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(swing_lookback=2)
+        swing_highs = detector._find_swing_highs(bars)
+        assert len(swing_highs) >= 1, "Expected at least one swing high"
+        for idx, price in swing_highs:
+            assert bars[idx].high == price
+
+    def test_find_swing_lows_detects_troughs(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(swing_lookback=2)
+        swing_lows = detector._find_swing_lows(bars)
+        assert len(swing_lows) >= 1, "Expected at least one swing low"
+        for idx, price in swing_lows:
+            assert bars[idx].low == price
+
+    def test_swing_highs_are_higher_than_neighbors(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(swing_lookback=2)
+        swing_highs = detector._find_swing_highs(bars)
+        for idx, price in swing_highs:
+            for j in range(1, detector.swing_lookback + 1):
+                assert price > bars[idx - j].high, (
+                    f"Swing high at {idx} ({price}) should be > neighbor {idx-j} ({bars[idx-j].high})"
+                )
+                assert price > bars[idx + j].high, (
+                    f"Swing high at {idx} ({price}) should be > neighbor {idx+j} ({bars[idx+j].high})"
+                )
+
+    def test_swing_lows_are_lower_than_neighbors(self):
+        bars = self._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(swing_lookback=2)
+        swing_lows = detector._find_swing_lows(bars)
+        for idx, price in swing_lows:
+            for j in range(1, detector.swing_lookback + 1):
+                assert price < bars[idx - j].low, (
+                    f"Swing low at {idx} ({price}) should be < neighbor {idx-j} ({bars[idx-j].low})"
+                )
+                assert price < bars[idx + j].low, (
+                    f"Swing low at {idx} ({price}) should be < neighbor {idx+j} ({bars[idx+j].low})"
+                )
 
     def test_remove_overlapping(self):
         p1 = MWPattern(
