@@ -7,11 +7,13 @@ Question Q3 from backtest questions.
 """
 
 from datetime import datetime
-from typing import List, Dict
+from pathlib import Path
+from typing import Dict, List
+
 import csv
 
 
-def load_bars(filepath: str) -> List[Dict]:
+def load_bars(filepath: str | Path) -> List[Dict]:
     bars = []
     with open(filepath, "r") as f:
         reader = csv.DictReader(f)
@@ -162,9 +164,7 @@ def analyze_reversals(
 
 
 def main():
-    data_dir = (
-        "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-2/data/forex/historical"
-    )
+    data_dir = Path(__file__).parent.parent / "data" / "forex" / "historical"
     start = "2024-01-01"
     end = "2025-12-31"
 
@@ -176,7 +176,7 @@ def main():
 
     results = []
     for filename, instrument in instruments:
-        filepath = f"{data_dir}/{filename}"
+        filepath = data_dir / filename
         bars = load_bars(filepath)
         result = analyze_reversals(bars, instrument, start, end)
         results.append(result)
