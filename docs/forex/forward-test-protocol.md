@@ -121,12 +121,13 @@ volume, pnl, pnl_pct, duration_minutes, strategy_name, signal_rationale
 | RiskGuard | `src/forex-bot/adapters/ctrader/risk_guard.py` | Done |
 | OrderManager | `src/forex-bot/adapters/ctrader/order_manager.py` | Done |
 | cTrader API Client | `src/forex-bot/adapters/ctrader/api_client.py` | Done |
-| Market Data Feed | `src/forex-bot/adapters/ctrader/market_data_feed.py` | In Review (AYUAA-409) |
+| Market Data Feed | `src/forex-bot/adapters/ctrader/market_data_feed.py` | Done |
+| Forward Test Engine | `src/forex-bot/adapters/ctrader/forward_test_engine.py` | Done |
 | FTMO Risk Research | `docs/forex/ftmo-challenge-risk-parameters-and-trade-plan.md` | Done |
 
 ## Blocking Items
 
-- [ ] Market data feed (AYUAA-409) — needs QUOTE session wiring
+- [x] Market data feed (AYUAA-409) — QUOTE session wiring complete, integrated via ForwardTestEngine
 - [ ] TRADE port 5202 connectivity verification
 - [ ] End-to-end order flow test (signal -> FIX order -> execution report)
 - [ ] Passing strategy portfolio from parameter sweeps (AYUAA-490, 491, 495)
