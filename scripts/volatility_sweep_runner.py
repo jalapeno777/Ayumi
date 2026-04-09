@@ -52,7 +52,6 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
         VolatilitySqueezeConfig,
         VolatilitySqueezeStrategy,
     )
-    from dataclasses import asdict
 
     registry: Dict[str, type] = {
         "MACrossStrategy": MACrossStrategy,
@@ -78,9 +77,9 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
 
 
 def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
-    from strategies.volatility_squeeze import VolatilitySqueezeStrategy, VolatilitySqueezeConfig
+    from strategies.volatility_squeeze import VolatilitySqueezeConfig
     from dataclasses import asdict
-    
+
     params = {}
     for k, v in strategy.__dict__.items():
         if k.startswith("_"):
@@ -95,6 +94,7 @@ def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
 
 def _serialize_bars(bars: List[Bar]) -> List[Dict[str, Any]]:
     from dataclasses import asdict
+
     return [asdict(b) for b in bars]
 
 
@@ -146,4 +146,5 @@ class SweepRunner:
 
     def _config_to_dict(self) -> Dict[str, Any]:
         from dataclasses import asdict
+
         return asdict(self._config)

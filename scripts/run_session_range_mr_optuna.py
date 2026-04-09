@@ -85,8 +85,12 @@ def run_optuna(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Optuna optimization for Session Range MR")
-    parser.add_argument("--trials", type=int, default=100, help="Number of Optuna trials")
+    parser = argparse.ArgumentParser(
+        description="Optuna optimization for Session Range MR"
+    )
+    parser.add_argument(
+        "--trials", type=int, default=100, help="Number of Optuna trials"
+    )
     parser.add_argument("--pair", type=str, default="GBPUSD", help="Currency pair")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
@@ -110,9 +114,9 @@ def main() -> None:
         sys.exit(1)
     print(f"Loaded {len(bars)} bars for {pair}: {bars[0].time} -> {bars[-1].time}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  BASELINE: Default Session Range MR Parameters ({pair})")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     baseline_wf = run_baseline(bars, pair)
     if baseline_wf.aggregated:
         agg = baseline_wf.aggregated
@@ -125,10 +129,10 @@ def main() -> None:
         print(f"  Windows Pass:  {agg.windows_passed}/{agg.total_windows}")
         print(f"  GO/NO-GO:      {'GO' if baseline_wf.go_nogo else 'NO-GO'}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  OPTUNA BAYESIAN OPTIMIZATION ({pair})")
     print(f"  Trials: {args.trials}, Seed: {args.seed}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     opt_result = run_optuna(bars, pair, n_trials=args.trials, seed=args.seed)
 
@@ -154,9 +158,9 @@ def main() -> None:
         print(f"    Total PnL:      {agg.mean_total_pnl:.2f}")
         print(f"    Windows Pass:   {agg.windows_passed}/{agg.total_windows}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  COMPARISON: Default vs Optuna-Optimized ({pair})")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     if opt_result.best_walk_forward and baseline_wf.aggregated:
         print(comparison_report(baseline_wf, opt_result.best_walk_forward))
 
@@ -167,7 +171,9 @@ def main() -> None:
         "seed": args.seed,
         "baseline": {
             "go_nogo": baseline_wf.go_nogo,
-            "windows_passed": sum(1 for m in baseline_wf.per_window if m.passed_go_nogo),
+            "windows_passed": sum(
+                1 for m in baseline_wf.per_window if m.passed_go_nogo
+            ),
             "total_windows": len(baseline_wf.per_window),
         },
         "optuna": {

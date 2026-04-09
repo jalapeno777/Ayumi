@@ -267,10 +267,14 @@ def analyze_dxy_leading_lagging(aligned: list[tuple[Bar, Bar]]) -> dict:
             best_leading_corr = abs(corr)
             best_leading_lag = lag
 
-    breakouts = identify_breakout_bars(aligned, lookback=20, atr_window=14, breakout_multiplier=1.5)
+    breakouts = identify_breakout_bars(
+        aligned, lookback=20, atr_window=14, breakout_multiplier=1.5
+    )
     lead_lag_stats = measure_lead_lag(aligned, breakouts, response_window=8)
 
-    total_decisive = lead_lag_stats["dxy_leads_count"] + lead_lag_stats["opposite_response_count"]
+    total_decisive = (
+        lead_lag_stats["dxy_leads_count"] + lead_lag_stats["opposite_response_count"]
+    )
     dxy_leads_pct = (
         lead_lag_stats["dxy_leads_count"] / total_decisive
         if total_decisive > 0
@@ -302,7 +306,7 @@ def analyze_dxy_leading_lagging(aligned: list[tuple[Bar, Bar]]) -> dict:
         "pass": dxy_leads_pct >= 0.70,
         "notes": (
             f"Using USDJPY as DXY proxy. DXY leads EURUSD on "
-            f"{dxy_leads_pct*100:.0f}% of breakouts. "
+            f"{dxy_leads_pct * 100:.0f}% of breakouts. "
             f"Correlation: {avg_correlation:.2f}. "
             f"Avg delay: {avg_delay:.1f} candles. "
             f"Best leading lag from cross-correlation: {best_leading_lag} candles "
@@ -322,7 +326,9 @@ def analyze_dxy_leading_lagging(aligned: list[tuple[Bar, Bar]]) -> dict:
 
 
 def main():
-    data_dir = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
+    data_dir = Path(
+        "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical"
+    )
     eurusd_file = data_dir / "EURUSD_H1.csv"
     usdjpy_file = data_dir / "USDJPY_H1.csv"
 
@@ -335,11 +341,15 @@ def main():
         return
 
     aligned = align_bars_by_timestamp(eurusd_bars, usdjpy_bars)
-    print(f"Aligned bars: {len(aligned)} (EURUSD: {len(eurusd_bars)}, USDJPY: {len(usdjpy_bars)})")
+    print(
+        f"Aligned bars: {len(aligned)} (EURUSD: {len(eurusd_bars)}, USDJPY: {len(usdjpy_bars)})"
+    )
 
     results = analyze_dxy_leading_lagging(aligned)
 
-    output_file = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/reports/backtest_q6_dxy_leading_lagging.json")
+    output_file = Path(
+        "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/reports/backtest_q6_dxy_leading_lagging.json"
+    )
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(json.dumps(results, indent=2))
 

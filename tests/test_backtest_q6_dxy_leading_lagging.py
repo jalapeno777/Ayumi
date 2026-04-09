@@ -74,7 +74,9 @@ class TestCalculateReturns:
 
 class TestCalculateRollingCorrelation:
     def test_perfect_positive_correlation(self):
-        from scripts.backtest_q6_dxy_leading_lagging import calculate_rolling_correlation
+        from scripts.backtest_q6_dxy_leading_lagging import (
+            calculate_rolling_correlation,
+        )
 
         s1 = [float(i) for i in range(100)]
         s2 = [float(i * 2) for i in range(100)]
@@ -83,7 +85,9 @@ class TestCalculateRollingCorrelation:
         assert all(abs(c - 1.0) < 0.001 for c in corr)
 
     def test_perfect_negative_correlation(self):
-        from scripts.backtest_q6_dxy_leading_lagging import calculate_rolling_correlation
+        from scripts.backtest_q6_dxy_leading_lagging import (
+            calculate_rolling_correlation,
+        )
 
         s1 = [float(i) for i in range(100)]
         s2 = [float(-i) for i in range(100)]
@@ -91,9 +95,12 @@ class TestCalculateRollingCorrelation:
         assert all(abs(c + 1.0) < 0.001 for c in corr)
 
     def test_zero_correlation(self):
-        from scripts.backtest_q6_dxy_leading_lagging import calculate_rolling_correlation
+        from scripts.backtest_q6_dxy_leading_lagging import (
+            calculate_rolling_correlation,
+        )
 
         import random
+
         random.seed(42)
         s1 = [random.gauss(0, 1) for _ in range(200)]
         s2 = [random.gauss(0, 1) for _ in range(200)]
@@ -110,10 +117,18 @@ class TestIdentifyBreakoutBars:
         for i in range(30):
             jpy_close = 150.0 + (0.1 if i < 20 else 5.0)
             eur_bar = _bar_at(i, open=1.0, high=1.01, low=0.99, close=1.0)
-            jpy_bar = _bar_at(i, open=jpy_close, high=jpy_close + 0.1, low=jpy_close - 0.1, close=jpy_close)
+            jpy_bar = _bar_at(
+                i,
+                open=jpy_close,
+                high=jpy_close + 0.1,
+                low=jpy_close - 0.1,
+                close=jpy_close,
+            )
             aligned.append((eur_bar, jpy_bar))
 
-        breakouts = identify_breakout_bars(aligned, lookback=20, atr_window=14, breakout_multiplier=0.1)
+        breakouts = identify_breakout_bars(
+            aligned, lookback=20, atr_window=14, breakout_multiplier=0.1
+        )
         assert len(breakouts) > 0
         assert breakouts[-1][1] == "UP"
 
@@ -124,10 +139,18 @@ class TestIdentifyBreakoutBars:
         for i in range(30):
             jpy_close = 150.0 - (0.0 if i < 20 else 5.0)
             eur_bar = _bar_at(i, open=1.0, high=1.01, low=0.99, close=1.0)
-            jpy_bar = _bar_at(i, open=jpy_close, high=jpy_close + 0.1, low=jpy_close - 0.1, close=jpy_close)
+            jpy_bar = _bar_at(
+                i,
+                open=jpy_close,
+                high=jpy_close + 0.1,
+                low=jpy_close - 0.1,
+                close=jpy_close,
+            )
             aligned.append((eur_bar, jpy_bar))
 
-        breakouts = identify_breakout_bars(aligned, lookback=20, atr_window=14, breakout_multiplier=0.1)
+        breakouts = identify_breakout_bars(
+            aligned, lookback=20, atr_window=14, breakout_multiplier=0.1
+        )
         assert len(breakouts) > 0
         assert breakouts[-1][1] == "DOWN"
 
@@ -140,7 +163,9 @@ class TestIdentifyBreakoutBars:
             jpy_bar = _bar_at(i, open=150.0, high=150.1, low=149.9, close=150.0)
             aligned.append((eur_bar, jpy_bar))
 
-        breakouts = identify_breakout_bars(aligned, lookback=20, atr_window=14, breakout_multiplier=1.5)
+        breakouts = identify_breakout_bars(
+            aligned, lookback=20, atr_window=14, breakout_multiplier=1.5
+        )
         break_indices = [idx for idx, _ in breakouts]
         assert len(break_indices) == 0
 
@@ -151,10 +176,18 @@ class TestIdentifyBreakoutBars:
         for i in range(50):
             jpy_close = 150.0 + (5.0 if i >= 20 else 0.0)
             eur_bar = _bar_at(i, open=1.0, high=1.01, low=0.99, close=1.0)
-            jpy_bar = _bar_at(i, open=jpy_close, high=jpy_close + 0.1, low=jpy_close - 0.1, close=jpy_close)
+            jpy_bar = _bar_at(
+                i,
+                open=jpy_close,
+                high=jpy_close + 0.1,
+                low=jpy_close - 0.1,
+                close=jpy_close,
+            )
             aligned.append((eur_bar, jpy_bar))
 
-        breakouts = identify_breakout_bars(aligned, lookback=20, atr_window=14, breakout_multiplier=0.1)
+        breakouts = identify_breakout_bars(
+            aligned, lookback=20, atr_window=14, breakout_multiplier=0.1
+        )
         for i in range(1, len(breakouts)):
             assert breakouts[i][0] - breakouts[i - 1][0] >= 8
 
@@ -166,9 +199,21 @@ class TestMeasureLeadLag:
         aligned = []
         for i in range(30):
             eur_close = 1.0 if i < 20 else 0.99
-            eur_bar = _bar_at(i, open=eur_close, high=eur_close + 0.001, low=eur_close - 0.001, close=eur_close)
+            eur_bar = _bar_at(
+                i,
+                open=eur_close,
+                high=eur_close + 0.001,
+                low=eur_close - 0.001,
+                close=eur_close,
+            )
             jpy_close = 150.0 if i < 20 else 155.0
-            jpy_bar = _bar_at(i, open=jpy_close, high=jpy_close + 0.1, low=jpy_close - 0.1, close=jpy_close)
+            jpy_bar = _bar_at(
+                i,
+                open=jpy_close,
+                high=jpy_close + 0.1,
+                low=jpy_close - 0.1,
+                close=jpy_close,
+            )
             aligned.append((eur_bar, jpy_bar))
 
         breakouts = [(20, "UP")]
@@ -182,9 +227,21 @@ class TestMeasureLeadLag:
         aligned = []
         for i in range(30):
             eur_close = 1.0 if i < 20 else 1.01
-            eur_bar = _bar_at(i, open=eur_close, high=eur_close + 0.001, low=eur_close - 0.001, close=eur_close)
+            eur_bar = _bar_at(
+                i,
+                open=eur_close,
+                high=eur_close + 0.001,
+                low=eur_close - 0.001,
+                close=eur_close,
+            )
             jpy_close = 150.0 if i < 20 else 145.0
-            jpy_bar = _bar_at(i, open=jpy_close, high=jpy_close + 0.1, low=jpy_close - 0.1, close=jpy_close)
+            jpy_bar = _bar_at(
+                i,
+                open=jpy_close,
+                high=jpy_close + 0.1,
+                low=jpy_close - 0.1,
+                close=jpy_close,
+            )
             aligned.append((eur_bar, jpy_bar))
 
         breakouts = [(20, "DOWN")]
@@ -210,6 +267,7 @@ class TestCalculateCrossCorrelation:
         from scripts.backtest_q6_dxy_leading_lagging import calculate_cross_correlation
 
         import random
+
         random.seed(42)
         s1 = [random.gauss(0, 1) for _ in range(500)]
         s2 = [x * -0.5 for x in s1]
@@ -270,6 +328,7 @@ class TestQ6Integration:
         if not report.exists():
             pytest.skip("Report not yet generated")
         import json
+
         data = json.loads(report.read_text())
         assert data["question"] == "Q6"
         assert "pass" in data
