@@ -370,8 +370,86 @@ class TestMWPatternDetector:
     @staticmethod
     def _make_clear_w_pattern_bars() -> list[Bar]:
         bars = []
-        lows = [1.0980, 1.0985, 1.0982, 1.0981, 1.0980, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1045, 1.1040, 1.1030, 1.1020, 1.1010, 1.1000, 1.0990, 1.0980, 1.0978, 1.0980, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1050, 1.1060, 1.1065, 1.1060, 1.1055, 1.1050, 1.1045, 1.1040, 1.1035, 1.1030, 1.1035]
-        highs = [1.1000, 1.0995, 1.0992, 1.0993, 1.0998, 1.1005, 1.1015, 1.1025, 1.1035, 1.1045, 1.1055, 1.1060, 1.1055, 1.1045, 1.1035, 1.1025, 1.1015, 1.1005, 1.0995, 1.0990, 1.0995, 1.1005, 1.1015, 1.1025, 1.1035, 1.1045, 1.1055, 1.1065, 1.1075, 1.1080, 1.1075, 1.1070, 1.1065, 1.1060, 1.1055, 1.1050, 1.1055, 1.1060]
+        lows = [
+            1.0980,
+            1.0985,
+            1.0982,
+            1.0981,
+            1.0980,
+            1.0990,
+            1.1000,
+            1.1010,
+            1.1020,
+            1.1030,
+            1.1040,
+            1.1045,
+            1.1040,
+            1.1030,
+            1.1020,
+            1.1010,
+            1.1000,
+            1.0990,
+            1.0980,
+            1.0978,
+            1.0980,
+            1.0990,
+            1.1000,
+            1.1010,
+            1.1020,
+            1.1030,
+            1.1040,
+            1.1050,
+            1.1060,
+            1.1065,
+            1.1060,
+            1.1055,
+            1.1050,
+            1.1045,
+            1.1040,
+            1.1035,
+            1.1030,
+            1.1035,
+        ]
+        highs = [
+            1.1000,
+            1.0995,
+            1.0992,
+            1.0993,
+            1.0998,
+            1.1005,
+            1.1015,
+            1.1025,
+            1.1035,
+            1.1045,
+            1.1055,
+            1.1060,
+            1.1055,
+            1.1045,
+            1.1035,
+            1.1025,
+            1.1015,
+            1.1005,
+            1.0995,
+            1.0990,
+            1.0995,
+            1.1005,
+            1.1015,
+            1.1025,
+            1.1035,
+            1.1045,
+            1.1055,
+            1.1065,
+            1.1075,
+            1.1080,
+            1.1075,
+            1.1070,
+            1.1065,
+            1.1060,
+            1.1055,
+            1.1050,
+            1.1055,
+            1.1060,
+        ]
         for i in range(len(lows)):
             day = 1 + i // 24
             hour = i % 24
@@ -391,8 +469,84 @@ class TestMWPatternDetector:
     @staticmethod
     def _make_clear_m_pattern_bars() -> list[Bar]:
         bars = []
-        lows = [1.1040, 1.1045, 1.1050, 1.1055, 1.1060, 1.1065, 1.1060, 1.1050, 1.1040, 1.1030, 1.1020, 1.1010, 1.1000, 1.0990, 1.0985, 1.0980, 1.0985, 1.0990, 1.1000, 1.1010, 1.1020, 1.1030, 1.1040, 1.1050, 1.1055, 1.1060, 1.1065, 1.1070, 1.1075, 1.1080, 1.1085, 1.1090, 1.1095, 1.1100, 1.1105, 1.1110]
-        highs = [1.1080, 1.1085, 1.1090, 1.1095, 1.1100, 1.1105, 1.1100, 1.1095, 1.1090, 1.1080, 1.1070, 1.1060, 1.1050, 1.1040, 1.1030, 1.1025, 1.1030, 1.1035, 1.1040, 1.1050, 1.1060, 1.1070, 1.1080, 1.1090, 1.1100, 1.1110, 1.1120, 1.1130, 1.1135, 1.1130, 1.1125, 1.1120, 1.1115, 1.1110, 1.1105, 1.1100, 1.1095, 1.1100]
+        lows = [
+            1.1040,
+            1.1045,
+            1.1050,
+            1.1055,
+            1.1060,
+            1.1065,
+            1.1060,
+            1.1050,
+            1.1040,
+            1.1030,
+            1.1020,
+            1.1010,
+            1.1000,
+            1.0990,
+            1.0985,
+            1.0980,
+            1.0985,
+            1.0990,
+            1.1000,
+            1.1010,
+            1.1020,
+            1.1030,
+            1.1040,
+            1.1050,
+            1.1055,
+            1.1060,
+            1.1065,
+            1.1070,
+            1.1075,
+            1.1080,
+            1.1085,
+            1.1090,
+            1.1095,
+            1.1100,
+            1.1105,
+            1.1110,
+        ]
+        highs = [
+            1.1080,
+            1.1085,
+            1.1090,
+            1.1095,
+            1.1100,
+            1.1105,
+            1.1100,
+            1.1095,
+            1.1090,
+            1.1080,
+            1.1070,
+            1.1060,
+            1.1050,
+            1.1040,
+            1.1030,
+            1.1025,
+            1.1030,
+            1.1035,
+            1.1040,
+            1.1050,
+            1.1060,
+            1.1070,
+            1.1080,
+            1.1090,
+            1.1100,
+            1.1110,
+            1.1120,
+            1.1130,
+            1.1135,
+            1.1130,
+            1.1125,
+            1.1120,
+            1.1115,
+            1.1110,
+            1.1105,
+            1.1100,
+            1.1095,
+            1.1100,
+        ]
         for i in range(len(lows)):
             day = 1 + i // 24
             hour = i % 24
@@ -435,7 +589,9 @@ class TestMWPatternDetector:
         w_patterns = [p for p in patterns if p.pattern_type == "W"]
         assert len(w_patterns) >= 1, "Expected at least one W pattern to be detected"
         for p in w_patterns:
-            assert p.depth_pips > 0, f"W pattern depth_pips should be positive, got {p.depth_pips}"
+            assert p.depth_pips > 0, (
+                f"W pattern depth_pips should be positive, got {p.depth_pips}"
+            )
             assert p.valley_peak_price > p.left_shoulder_price, (
                 f"W peak ({p.valley_peak_price}) should be above shoulders ({p.left_shoulder_price})"
             )
@@ -449,7 +605,9 @@ class TestMWPatternDetector:
         m_patterns = [p for p in patterns if p.pattern_type == "M"]
         assert len(m_patterns) >= 1, "Expected at least one M pattern to be detected"
         for p in m_patterns:
-            assert p.depth_pips > 0, f"M pattern depth_pips should be positive, got {p.depth_pips}"
+            assert p.depth_pips > 0, (
+                f"M pattern depth_pips should be positive, got {p.depth_pips}"
+            )
             assert p.valley_peak_price < p.left_shoulder_price, (
                 f"M valley ({p.valley_peak_price}) should be below shoulders ({p.left_shoulder_price})"
             )
@@ -461,7 +619,9 @@ class TestMWPatternDetector:
         )
         patterns = detector_strict.detect(bars)
         w_patterns = [p for p in patterns if p.pattern_type == "W"]
-        assert len(w_patterns) == 0, "Extremely high ATR threshold should reject all patterns"
+        assert len(w_patterns) == 0, (
+            "Extremely high ATR threshold should reject all patterns"
+        )
 
     def test_atr_filter_accepts_deep_patterns(self):
         bars = self._make_clear_w_pattern_bars()
@@ -597,10 +757,10 @@ class TestMWPatternDetector:
         for idx, price in swing_highs:
             for j in range(1, detector.swing_lookback + 1):
                 assert price > bars[idx - j].high, (
-                    f"Swing high at {idx} ({price}) should be > neighbor {idx-j} ({bars[idx-j].high})"
+                    f"Swing high at {idx} ({price}) should be > neighbor {idx - j} ({bars[idx - j].high})"
                 )
                 assert price > bars[idx + j].high, (
-                    f"Swing high at {idx} ({price}) should be > neighbor {idx+j} ({bars[idx+j].high})"
+                    f"Swing high at {idx} ({price}) should be > neighbor {idx + j} ({bars[idx + j].high})"
                 )
 
     def test_swing_lows_are_lower_than_neighbors(self):
@@ -610,10 +770,10 @@ class TestMWPatternDetector:
         for idx, price in swing_lows:
             for j in range(1, detector.swing_lookback + 1):
                 assert price < bars[idx - j].low, (
-                    f"Swing low at {idx} ({price}) should be < neighbor {idx-j} ({bars[idx-j].low})"
+                    f"Swing low at {idx} ({price}) should be < neighbor {idx - j} ({bars[idx - j].low})"
                 )
                 assert price < bars[idx + j].low, (
-                    f"Swing low at {idx} ({price}) should be < neighbor {idx+j} ({bars[idx+j].low})"
+                    f"Swing low at {idx} ({price}) should be < neighbor {idx + j} ({bars[idx + j].low})"
                 )
 
     def test_remove_overlapping(self):

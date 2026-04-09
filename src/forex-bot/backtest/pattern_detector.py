@@ -127,9 +127,10 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = self._find_valley_between(
-                bars, left_idx, right_idx, swing_highs
-            ) - left_price
+            depth = (
+                self._find_valley_between(bars, left_idx, right_idx, swing_highs)
+                - left_price
+            )
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
 
@@ -140,9 +141,7 @@ class MWPatternDetector:
             if symmetry > self.symmetry_tolerance:
                 continue
 
-            peak_idx, peak_price = self._find_highest_between(
-                bars, left_idx, right_idx
-            )
+            peak_idx, peak_price = self._find_highest_between(bars, left_idx, right_idx)
 
             neckline_level = (left_price + right_price) / 2
             sessions = [
