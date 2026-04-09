@@ -35,43 +35,64 @@ def build_fix_string(fields: dict, use_soh: bool = True) -> str:
     sep = SOH if use_soh else "|"
     term = SOH  # trailing terminator is always SOH
     # Body = all fields except 8, 9, 10
-    body = sep.join(f"{tag}={val}" for tag, val in sorted(fields.items()) if tag not in (8, 9, 10)) + term
+    body = (
+        sep.join(
+            f"{tag}={val}"
+            for tag, val in sorted(fields.items())
+            if tag not in (8, 9, 10)
+        )
+        + term
+    )
     body_str = f"8=FIX.4.4{sep}9={len(body)}{sep}{body}"
     # Checksum over everything before it
     checksum = sum(ord(c) for c in body_str) % 256
     return body_str + f"10={checksum:03d}{term}"
 
 
-def build_logon(sender_comp_id: str, sender_sub_id: str = "", target_comp_id: str = TARGET_COMP_ID, use_soh: bool = True) -> str:
+def build_logon(
+    sender_comp_id: str,
+    sender_sub_id: str = "",
+    target_comp_id: str = TARGET_COMP_ID,
+    use_soh: bool = True,
+) -> str:
     fields = {
-        35: "A",           # Logon
+        35: "A",  # Logon
         49: sender_comp_id,
         56: target_comp_id,
-        34: "1",           # SeqNum
+        34: "1",  # SeqNum
         52: time.strftime("%Y%m%d-%H:%M:%S"),
-        98: "0",           # EncryptMethod = None
-        108: "30",         # Heartbeat interval
-        141: "Y",         # ResetSeqNumFlag
+        98: "0",  # EncryptMethod = None
+        108: "30",  # Heartbeat interval
+        141: "Y",  # ResetSeqNumFlag
     }
     return build_fix_string(fields, use_soh=use_soh)
 
 
-def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh: bool = True) -> dict:
+def test_connection(
+    host: str, port: int, mode: str, timeout: int = 10, use_soh: bool = True
+) -> dict:
     """Try to connect, send logon, and read the response."""
-    result = {"mode": mode, "host": host, "port": port, "success": False, "error": None, "response": None}
+    result = {
+        "mode": mode,
+        "host": host,
+        "port": port,
+        "success": False,
+        "error": None,
+        "response": None,
+    }
 
     # Use SENDER_SUB_ID=QUOTE for read-only, TRADE for live
     sub_id = "QUOTE" if mode == "read-only" else SENDER_SUB_ID
     sender_id = SENDER_COMP_ID
     sep_label = "SOH" if use_soh else "pipe"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Testing: {mode.upper()} connection (separator: {sep_label})")
     print(f"  Host: {host}")
     print(f"  Port: {port}")
     print(f"  Sender: {sender_id}")
     print(f"  Sub: {sub_id}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         # DNS resolution
@@ -84,23 +105,23 @@ def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh:
             return result
 
         # TCP connect
-        print(f"  Connecting TCP...")
+        print("  Connecting TCP...")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         sock.connect((host, port))
-        print(f"  ✅ TCP connected")
+        print("  ✅ TCP connected")
 
         # SSL handshake
-        print(f"  SSL handshake...")
+        print("  SSL handshake...")
         ctx = ssl.create_default_context()
         ctx.check_hostname = False  # demo cert
         ctx.verify_mode = ssl.CERT_NONE
         ssl_sock = ctx.wrap_socket(sock, server_hostname=host)
-        print(f"  ✅ SSL established")
+        print("  ✅ SSL established")
 
         # Build and send logon
         logon_msg = build_logon(sender_id, sub_id, use_soh=use_soh)
-        print(f"  Sending logon...")
+        print("  Sending logon...")
         ssl_sock.send(logon_msg.encode("latin-1"))
         print(f"  ✅ Logon sent ({len(logon_msg)} bytes)")
 
@@ -134,7 +155,7 @@ def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh:
                 # Check for logon ack (msg type 35=A)
                 if "35=A" in msg_part:
                     result["success"] = True
-                    print(f"  ✅ LOGON ACKNOWLEDGED — Authentication successful!")
+                    print("  ✅ LOGON ACKNOWLEDGED — Authentication successful!")
                 elif "35=5" in msg_part or "35=3" in msg_part:
                     # Logout or Reject
                     text_tag = None
@@ -144,19 +165,21 @@ def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh:
                     result["error"] = f"Rejected/Logged out: {text_tag or 'no reason'}"
                     print(f"  ❌ Rejected: {text_tag or 'no reason provided'}")
                 elif "35=0" in msg_part:
-                    print(f"  ℹ️ Heartbeat received (server alive)")
+                    print("  ℹ️ Heartbeat received (server alive)")
         else:
             result["error"] = "No response received (empty)"
-            print(f"  ❌ No response from server")
+            print("  ❌ No response from server")
 
         # Clean disconnect
-        logout = build_fix_string({
-            35: "5",
-            49: sender_id,
-            56: TARGET_COMP_ID,
-            34: "2",
-            52: time.strftime("%Y%m%d-%H:%M:%S"),
-        })
+        logout = build_fix_string(
+            {
+                35: "5",
+                49: sender_id,
+                56: TARGET_COMP_ID,
+                34: "2",
+                52: time.strftime("%Y%m%d-%H:%M:%S"),
+            }
+        )
         try:
             ssl_sock.send(logout.encode("latin-1"))
             time.sleep(0.5)
@@ -170,7 +193,7 @@ def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh:
         print(f"  ❌ Timeout after {timeout}s")
     except ConnectionRefusedError:
         result["error"] = "Connection refused"
-        print(f"  ❌ Connection refused (port closed or firewall)")
+        print("  ❌ Connection refused (port closed or firewall)")
     except ssl.SSLError as e:
         result["error"] = f"SSL error: {e}"
         print(f"  ❌ SSL error: {e}")
@@ -182,24 +205,28 @@ def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh:
 
 
 def main():
-    print(f"cTrader FIX Connectivity Test")
+    print("cTrader FIX Connectivity Test")
     print(f"Host: {HOST}")
     print(f"Account: {ACCOUNT}")
 
     results = []
 
     # Test with SOH separators (correct FIX)
-    results.append(test_connection(HOST, READONLY_SSL_PORT, "read-only (SOH)", use_soh=True))
+    results.append(
+        test_connection(HOST, READONLY_SSL_PORT, "read-only (SOH)", use_soh=True)
+    )
     results.append(test_connection(HOST, LIVE_SSL_PORT, "live (SOH)", use_soh=True))
 
     # Test with pipe separators (matching existing adapter)
-    results.append(test_connection(HOST, READONLY_SSL_PORT, "read-only (pipe)", use_soh=False))
+    results.append(
+        test_connection(HOST, READONLY_SSL_PORT, "read-only (pipe)", use_soh=False)
+    )
     results.append(test_connection(HOST, LIVE_SSL_PORT, "live (pipe)", use_soh=False))
 
     # Summary
-    print(f"\n{'='*60}")
-    print(f"SUMMARY")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("SUMMARY")
+    print(f"{'=' * 60}")
     for r in results:
         status = "✅ PASS" if r["success"] else "❌ FAIL"
         print(f"  {r['mode']:>12} ({r['port']:>5}): {status}")
@@ -207,7 +234,9 @@ def main():
             print(f"                Error: {r['error']}")
 
     all_pass = all(r["success"] for r in results)
-    print(f"\n  Overall: {'✅ BOTH CONNECTIONS WORK' if all_pass else '❌ SOME CONNECTIONS FAILED'}")
+    print(
+        f"\n  Overall: {'✅ BOTH CONNECTIONS WORK' if all_pass else '❌ SOME CONNECTIONS FAILED'}"
+    )
 
     return 0 if all_pass else 1
 
