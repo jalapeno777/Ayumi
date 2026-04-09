@@ -42,6 +42,19 @@ class MWPattern:
             return self.left_shoulder_price - self.neckline_level
         return self.neckline_level - self.left_shoulder_price
 
+    @property
+    def is_multi_session(self) -> bool:
+        return self.sessions_spanned_count() >= 2
+
+    @property
+    def session_span_quality_score(self) -> float:
+        span = self.sessions_spanned_count()
+        if span >= 3:
+            return 1.0
+        if span == 2:
+            return 0.85
+        return 0.55
+
     def sessions_spanned_count(self) -> int:
         unique = set(self.sessions)
         unique.discard(SessionType.OUTSIDE)
