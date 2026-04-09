@@ -1,3 +1,5 @@
+import json
+import math
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
@@ -102,7 +104,7 @@ def volatility_squeeze_search_space() -> SearchSpace:
         tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
         tp3_rr=float_range("tp3_rr", 2.0, 4.0, step=0.1),
         session_filter=categorical("session_filter", [True, False]),
-        min_confidence=float_range("min_confidence", 0.25, 0.55, step=0.05),
+        min_confidence=float_range("min_confidence", 0.45, 0.80, step=0.05),
         squeeze_release_mode=categorical(
             "squeeze_release_mode", ["strict", "moderate", "loose"]
         ),
@@ -141,6 +143,65 @@ class TestVolatilitySqueezeSearchSpace(unittest.TestCase):
         mode_spec = space._specs["squeeze_release_mode"]
         self.assertEqual(mode_spec["choices"], ["strict", "moderate", "loose"])
 
+    def test_min_confidence_range_extends_above_base(self):
+        space = volatility_squeeze_search_space()
+        conf_spec = space._specs["min_confidence"]
+        self.assertEqual(conf_spec["type"], "float")
+        self.assertGreaterEqual(conf_spec["high"], 0.70)
+
+    def test_spread_pips_is_realistic(self):
+        from pathlib import Path
+
+        script_path = Path(__file__).parent.parent / "scripts" / "run_volatility_squeeze_optuna.py"
+        content = script_path.read_text()
+        self.assertIn('"spread_pips": 1.0', content)
+
+
+class TestJsonSanitization(unittest.TestCase):
+    @staticmethod
+    def _sanitize_float(value):
+        if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
+            return None
+        return value
+
+    @classmethod
+    def _sanitize_report(cls, obj):
+        if isinstance(obj, dict):
+            return {k: cls._sanitize_report(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [cls._sanitize_report(v) for v in obj]
+        return cls._sanitize_float(obj)
+
+    def test_inf_replaced_with_null(self):
+        data = {"sharpe": float("inf"), "pf": float("-inf"), "dd": 0.05}
+        result = self._sanitize_report(data)
+        self.assertIsNone(result["sharpe"])
+        self.assertIsNone(result["pf"])
+        self.assertEqual(result["dd"], 0.05)
+
+    def test_nan_replaced_with_null(self):
+        data = {"value": float("nan")}
+        result = self._sanitize_report(data)
+        self.assertIsNone(result["value"])
+
+    def test_valid_report_unchanged(self):
+        data = {"win_rate": 0.65, "profit_factor": 1.5, "max_drawdown": 0.03}
+        result = self._sanitize_report(data)
+        self.assertEqual(result["win_rate"], 0.65)
+
+    def test_nested_sanitization(self):
+        data = {"outer": {"inner": float("inf")}, "list": [1.0, float("nan")]}
+        result = self._sanitize_report(data)
+        self.assertIsNone(result["outer"]["inner"])
+        self.assertEqual(result["list"][0], 1.0)
+        self.assertIsNone(result["list"][1])
+
+    def test_allow_nan_false_serialization(self):
+        data = {"val": float("inf")}
+        sanitized = self._sanitize_report(data)
+        output = json.dumps(sanitized, allow_nan=False)
+        self.assertEqual(json.loads(output)["val"], None)
+
 
 class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
     def test_make_strategy_with_params(self):
@@ -159,7 +220,7 @@ class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
             "tp2_rr": 1.9,
             "tp3_rr": 3.0,
             "session_filter": False,
-            "min_confidence": 0.35,
+            "min_confidence": 0.55,
             "squeeze_release_mode": "loose",
         }
         strategy = VolatilitySqueezeStrategy(config=VolatilitySqueezeConfig(**params))
@@ -169,7 +230,7 @@ class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
         self.assertEqual(strategy.config.kc_atr_multiplier, 1.8)
         self.assertEqual(strategy.config.squeeze_release_mode, "loose")
         self.assertFalse(strategy.config.session_filter)
-        self.assertAlmostEqual(strategy.config.min_confidence, 0.35)
+        self.assertAlmostEqual(strategy.config.min_confidence, 0.55)
 
     def test_make_strategy_default_config(self):
         strategy = VolatilitySqueezeStrategy()
