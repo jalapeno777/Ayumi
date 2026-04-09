@@ -1,0 +1,27 @@
+{
+  "question": "Q1",
+  "test_period": "2023-01-01 17:00:00 to 2025-12-31 16:00:00",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 13,
+  "results": {
+    "rr_3_1_hit_rate": 0.0,
+    "average_rr": 1.0,
+    "l1_hit_rate": 0.6,
+    "l2_hit_rate": 0.0,
+    "l3_hit_rate": 0.0,
+    "stop_loss_rate": 0.4
+  },
+  "pass": false,
+  "criteria": [
+    {
+      "metric": "rr_3_1_hit_rate",
+      "value": 0.0,
+      "threshold": 0.6,
+      "operator": ">=",
+      "passed": false,
+      "weight": 1.0
+    }
+  ],
+  "notes": "rr_3_1_hit_rate: 0.0000 >= 0.6 -> FAIL"
+}
