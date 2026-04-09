@@ -1,4 +1,5 @@
 import logging
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -30,12 +31,37 @@ class PositionSizeConfig:
 
 
 @dataclass
+class SlippageModel:
+    base_pips: float = 0.1
+    random_pips: float = 0.2
+    pip_value: float = 0.0001
+
+    def apply(self, price: float, direction: TradeDirection) -> float:
+        slippage_pips = self.base_pips + random.random() * self.random_pips
+        slippage = slippage_pips * self.pip_value
+        if direction == TradeDirection.LONG:
+            return price + slippage
+        return price - slippage
+
+    def apply_with_spread(
+        self, price: float, direction: TradeDirection, spread: float = 0.0
+    ) -> float:
+        if spread > 0:
+            if direction == TradeDirection.LONG:
+                price = price + spread / 2
+            else:
+                price = price - spread / 2
+        return self.apply(price, direction)
+
+
+@dataclass
 class OrderExecutionResult:
     success: bool
     order: Order | None = None
     position: Position | None = None
     error_message: str = ""
     rejection_reason: str = ""
+    slippage_applied: float = 0.0
 
 
 class OrderManager:
@@ -48,6 +74,7 @@ class OrderManager:
         self._orders: dict[str, Order] = {}
         self._position_config = position_config or PositionSizeConfig()
         self._api_client = api_client
+        self._slippage_model = SlippageModel()
         self._lock = Lock()
         self._locally_filled_order_ids: set = set()
         self._callbacks: dict[str, list[Callable]] = {
@@ -146,9 +173,19 @@ class OrderManager:
         stop_loss: float | None = None,
         take_profit: float | None = None,
         comment: str = "",
+        spread: float = 0.0,
     ) -> OrderExecutionResult:
+        slippage_model = self._slippage_model
+        fill_price = slippage_model.apply_with_spread(
+            entry_price, direction, spread
+        )
+        slippage_amount = abs(fill_price - entry_price)
+
         logger.info(
-            f"[PAPER] Executing order: {direction.value} {volume} {symbol} @ {entry_price}, SL: {stop_loss}, TP: {take_profit}"
+            f"[PAPER] Executing order: {direction.value} {volume} {symbol} "
+            f"@ signal={entry_price:.5f} fill={fill_price:.5f} "
+            f"(spread={spread:.5f} slippage={slippage_amount:.5f}), "
+            f"SL: {stop_loss}, TP: {take_profit}"
         )
 
         order = Order(
@@ -162,7 +199,7 @@ class OrderManager:
             take_profit=take_profit,
             status=OrderStatus.FILLED,
             filled_at=datetime.utcnow(),
-            filled_price=entry_price,
+            filled_price=fill_price,
             comment=f"[PAPER MODE] {comment}",
         )
 
@@ -182,6 +219,7 @@ class OrderManager:
             success=True,
             order=order,
             position=position,
+            slippage_applied=slippage_amount,
         )
 
     def execute_live_order(

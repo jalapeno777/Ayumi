@@ -24,12 +24,20 @@ class cTraderSignalAdapter:
         self._symbol = symbol
         self._min_confidence: float = 0.50
         self._last_signal_time: datetime | None = None
+        self._current_spread: float = 0.0
         self._callbacks: list[tuple[str, Callable]] = []
 
     def set_min_confidence(self, confidence: float):
         self._min_confidence = confidence
 
-    def evaluate_and_trade(self, market_state: MarketState) -> TradeSignal | None:
+    def update_spread(self, spread: float):
+        self._current_spread = spread
+
+    def evaluate_and_trade(
+        self, market_state: MarketState, spread: float = 0.0
+    ) -> TradeSignal | None:
+        if spread > 0:
+            self._current_spread = spread
         signal = self._strategy.evaluate(market_state)
 
         if signal is None:
@@ -56,12 +64,14 @@ class cTraderSignalAdapter:
             rationale=signal.rationale,
         )
 
-        result = self._paper_trader.process_signal(trade_signal)
+        result = self._paper_trader.process_signal(trade_signal, spread=self._current_spread)
 
         if result.success:
             self._last_signal_time = datetime.utcnow()
+            slippage = result.slippage_applied
             logger.info(
-                f"Signal traded: {self._strategy.name} {trade_direction.value} {self._symbol} @ {signal.entry_price}"
+                f"Signal traded: {self._strategy.name} {trade_direction.value} {self._symbol} "
+                f"@ signal={signal.entry_price:.5f} slippage={slippage:.5f}"
             )
             self._trigger_callback("on_signal_traded", result)
         else:
