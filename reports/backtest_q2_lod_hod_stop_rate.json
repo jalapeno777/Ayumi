@@ -1,0 +1,45 @@
+{
+  "question": "Q2",
+  "test_period": "2023-01-01 17:00:00 to 2025-12-31 16:00:00",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 13,
+  "results": {
+    "lod_hod_stop_rate": 0.3077,
+    "intrabar_spike_rate": 0.0,
+    "breakeven_rate": 0.6923,
+    "avg_stop_buffer_pips": 0.0,
+    "optimal_buffer_pips": 0,
+    "stop_loss_rate": 0.3077,
+    "buffer_comparison": {
+      "0": {
+        "stop_loss_rate": 0.3077,
+        "lod_hod_stop_rate": 0.3077
+      },
+      "2": {
+        "stop_loss_rate": 0.3077,
+        "lod_hod_stop_rate": 0.3077
+      },
+      "5": {
+        "stop_loss_rate": 0.3077,
+        "lod_hod_stop_rate": 0.3077
+      },
+      "10": {
+        "stop_loss_rate": 0.3077,
+        "lod_hod_stop_rate": 0.3077
+      }
+    }
+  },
+  "pass": true,
+  "criteria": [
+    {
+      "metric": "stop_loss_rate",
+      "value": 0.3077,
+      "threshold": 0.4,
+      "operator": "<=",
+      "passed": true,
+      "weight": 1.0
+    }
+  ],
+  "notes": "stop_loss_rate: 0.3077 <= 0.4 -> PASS"
+}
