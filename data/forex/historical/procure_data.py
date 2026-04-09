@@ -17,7 +17,9 @@ import pandas as pd
 import urllib.request
 import urllib.parse
 
-OUTPUT_DIR = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
+OUTPUT_DIR = Path(
+    "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical"
+)
 BASE_URL = "https://www.histdata.com"
 
 PAIRS = ["EURUSD", "GBPUSD", "GBPJPY", "USDJPY", "XAUUSD"]
@@ -33,7 +35,9 @@ def get_token_and_download(pair: str, year: int) -> bytes:
     resp = urllib.request.urlopen(req, timeout=30)
     html = resp.read().decode()
 
-    forms = re.findall(r'<form[^>]*action="(/get\.php)"[^>]*>(.*?)</form>', html, re.DOTALL)
+    forms = re.findall(
+        r'<form[^>]*action="(/get\.php)"[^>]*>(.*?)</form>', html, re.DOTALL
+    )
     params = {}
     for action, body in forms:
         inputs = re.findall(r'<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"', body)
@@ -43,19 +47,25 @@ def get_token_and_download(pair: str, year: int) -> bytes:
     if "tk" not in params:
         raise ValueError(f"No download token found for {pair} {year}")
 
-    data = urllib.parse.urlencode({
-        "tk": params["tk"],
-        "date": params.get("date", str(year)),
-        "datemonth": params.get("datemonth", str(year)),
-        "platform": params.get("platform", "MT"),
-        "timeframe": params.get("timeframe", "M1"),
-        "fxpair": params.get("fxpair", pair),
-    }).encode()
+    data = urllib.parse.urlencode(
+        {
+            "tk": params["tk"],
+            "date": params.get("date", str(year)),
+            "datemonth": params.get("datemonth", str(year)),
+            "platform": params.get("platform", "MT"),
+            "timeframe": params.get("timeframe", "M1"),
+            "fxpair": params.get("fxpair", pair),
+        }
+    ).encode()
 
-    req2 = urllib.request.Request(f"{BASE_URL}/get.php", data=data, headers={
-        "User-Agent": "Mozilla/5.0",
-        "Referer": f"{BASE_URL}/download-free-forex-historical-data/",
-    })
+    req2 = urllib.request.Request(
+        f"{BASE_URL}/get.php",
+        data=data,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Referer": f"{BASE_URL}/download-free-forex-historical-data/",
+        },
+    )
     resp2 = urllib.request.urlopen(req2, timeout=120)
     return resp2.read()
 
@@ -66,23 +76,32 @@ def parse_histdata_csv(csv_bytes: bytes) -> pd.DataFrame:
     records = []
     for line in lines:
         line = line.strip()
-        if not line or line.startswith("//") or line.startswith("#") or line.startswith("local_time"):
+        if (
+            not line
+            or line.startswith("//")
+            or line.startswith("#")
+            or line.startswith("local_time")
+        ):
             continue
         parts = line.split(",")
         if len(parts) < 7:
             continue
         try:
-            dt = pd.to_datetime(f"{parts[0]} {parts[1]}", format="%Y.%m.%d %H:%M", errors="coerce")
+            dt = pd.to_datetime(
+                f"{parts[0]} {parts[1]}", format="%Y.%m.%d %H:%M", errors="coerce"
+            )
             if pd.isna(dt):
                 continue
-            records.append({
-                "timestamp": dt,
-                "Open": float(parts[2]),
-                "High": float(parts[3]),
-                "Low": float(parts[4]),
-                "Close": float(parts[5]),
-                "Volume": int(float(parts[6])) if parts[6].strip() else 0,
-            })
+            records.append(
+                {
+                    "timestamp": dt,
+                    "Open": float(parts[2]),
+                    "High": float(parts[3]),
+                    "Low": float(parts[4]),
+                    "Close": float(parts[5]),
+                    "Volume": int(float(parts[6])) if parts[6].strip() else 0,
+                }
+            )
         except (ValueError, IndexError):
             continue
 
@@ -97,26 +116,30 @@ def resample_df(df: pd.DataFrame, tf_name: str) -> pd.DataFrame:
     if df.empty:
         return df
     tf_map = {"M15": "15min", "H1": "1h", "H4": "4h", "D1": "1D"}
-    resampled = df.resample(tf_map[tf_name], closed="left", label="left").agg({
-        "Open": "first",
-        "High": "max",
-        "Low": "min",
-        "Close": "last",
-        "Volume": "sum",
-    })
+    resampled = df.resample(tf_map[tf_name], closed="left", label="left").agg(
+        {
+            "Open": "first",
+            "High": "max",
+            "Low": "min",
+            "Close": "last",
+            "Volume": "sum",
+        }
+    )
     resampled = resampled.dropna(subset=["Open", "High", "Low", "Close"])
     return resampled
 
 
 def write_csv(df: pd.DataFrame, filepath: Path) -> int:
-    csv_df = pd.DataFrame({
-        "Date": df.index.strftime("%Y-%m-%d %H:%M"),
-        "Open": df["Open"].round(5),
-        "High": df["High"].round(5),
-        "Low": df["Low"].round(5),
-        "Close": df["Close"].round(5),
-        "Volume": df["Volume"].astype(int),
-    })
+    csv_df = pd.DataFrame(
+        {
+            "Date": df.index.strftime("%Y-%m-%d %H:%M"),
+            "Open": df["Open"].round(5),
+            "High": df["High"].round(5),
+            "Low": df["Low"].round(5),
+            "Close": df["Close"].round(5),
+            "Volume": df["Volume"].astype(int),
+        }
+    )
     csv_df.to_csv(filepath, index=False)
     return len(csv_df)
 
@@ -141,9 +164,9 @@ def main():
     all_reports = []
 
     for pair in PAIRS:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  {pair}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         m1_combined = pd.DataFrame()
 
@@ -194,13 +217,18 @@ def main():
             gaps = gap_analysis(df, tf_name)
 
             report = {
-                "pair": pair, "tf": tf_name, "bars": rows,
-                "start": str(df.index.min()), "end": str(df.index.max()),
+                "pair": pair,
+                "tf": tf_name,
+                "bars": rows,
+                "start": str(df.index.min()),
+                "end": str(df.index.max()),
                 **gaps,
             }
             all_reports.append(report)
-            print(f"    {tf_name}: {rows:>7d} bars  gaps={gaps['total_gaps']:>4d} "
-                  f"(weekend={gaps['weekend_gaps']}, intraday={gaps['intraday_gaps']})")
+            print(
+                f"    {tf_name}: {rows:>7d} bars  gaps={gaps['total_gaps']:>4d} "
+                f"(weekend={gaps['weekend_gaps']}, intraday={gaps['intraday_gaps']})"
+            )
 
     report_path = OUTPUT_DIR / "quality_report.txt"
     with open(report_path, "w") as f:
@@ -219,9 +247,11 @@ def main():
         f.write("\nGAP ANALYSIS\n")
         f.write("-" * 60 + "\n")
         for r in all_reports:
-            f.write(f"  {r['pair']:8s} {r['tf']:4s}  bars={r['bars']:>7d}  "
-                    f"gaps={r['total_gaps']:>4d}  "
-                    f"(weekend={r['weekend_gaps']}, intraday={r['intraday_gaps']})\n")
+            f.write(
+                f"  {r['pair']:8s} {r['tf']:4s}  bars={r['bars']:>7d}  "
+                f"gaps={r['total_gaps']:>4d}  "
+                f"(weekend={r['weekend_gaps']}, intraday={r['intraday_gaps']})\n"
+            )
             f.write(f"           range: {r['start']} to {r['end']}\n")
 
         f.write("\nNOTES\n")
@@ -233,11 +263,11 @@ def main():
         f.write("- CSV format: Date,Open,High,Low,Close,Volume (yyyy-MM-dd HH:mm)\n")
         f.write("- Compatible with ICTSMC.CsvDataLoader\n")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  DONE - {len(all_reports)} files generated")
     print(f"  Report: {report_path}")
     print(f"  Files:  {OUTPUT_DIR}/")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

@@ -105,17 +105,23 @@ def analyze_reversals(bars: list[Bar]) -> dict:
 
         if curr_dow == 2 and prev_dow == 1:
             is_reversal = curr_dir != 0 and curr_dir != prev_dir
-            wednesday_reversal_details.append({
-                "date": curr_bar.time.strftime("%Y-%m-%d"),
-                "tue_open": prev_bar.open,
-                "tue_close": prev_bar.close,
-                "tue_dir": "up" if prev_dir == 1 else "down",
-                "wed_open": curr_bar.open,
-                "wed_close": curr_bar.close,
-                "wed_dir": "up" if curr_dir == 1 else "down" if curr_dir == -1 else "flat",
-                "reversal": is_reversal,
-                "pip_move": round(pip_move, 1),
-            })
+            wednesday_reversal_details.append(
+                {
+                    "date": curr_bar.time.strftime("%Y-%m-%d"),
+                    "tue_open": prev_bar.open,
+                    "tue_close": prev_bar.close,
+                    "tue_dir": "up" if prev_dir == 1 else "down",
+                    "wed_open": curr_bar.open,
+                    "wed_close": curr_bar.close,
+                    "wed_dir": "up"
+                    if curr_dir == 1
+                    else "down"
+                    if curr_dir == -1
+                    else "flat",
+                    "reversal": is_reversal,
+                    "pip_move": round(pip_move, 1),
+                }
+            )
 
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     results_by_day = {}
@@ -128,7 +134,9 @@ def analyze_reversals(bars: list[Bar]) -> dict:
             if stats["reversal_pips"]
             else 0.0
         )
-        big_reversals = sum(1 for p in stats["reversal_pips"] if p >= reversal_threshold_pips)
+        big_reversals = sum(
+            1 for p in stats["reversal_pips"] if p >= reversal_threshold_pips
+        )
         big_reversal_rate = big_reversals / total if total > 0 else 0.0
         results_by_day[day_names[dow]] = {
             "total_days": total,
@@ -156,9 +164,9 @@ def analyze_reversals(bars: list[Bar]) -> dict:
         },
         "pass": passes,
         "notes": (
-            f"Wednesday reversal rate: {wed['reversal_rate']*100:.0f}%. "
-            f"Tuesday: {results_by_day['Tuesday']['reversal_rate']*100:.0f}%, "
-            f"Thursday: {results_by_day['Thursday']['reversal_rate']*100:.0f}%. "
+            f"Wednesday reversal rate: {wed['reversal_rate'] * 100:.0f}%. "
+            f"Tuesday: {results_by_day['Tuesday']['reversal_rate'] * 100:.0f}%, "
+            f"Thursday: {results_by_day['Thursday']['reversal_rate'] * 100:.0f}%. "
             f"Avg Wednesday reversal: {wed['avg_reversal_pips']:.1f} pips."
         ),
         "by_day": results_by_day,
@@ -173,7 +181,9 @@ def analyze_reversals(bars: list[Bar]) -> dict:
 
 
 def main():
-    data_dir = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical")
+    data_dir = Path(
+        "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/data/forex/historical"
+    )
     eurusd_file = data_dir / "EURUSD_D1.csv"
 
     loader = CsvDataLoader()
@@ -185,7 +195,9 @@ def main():
 
     results = analyze_reversals(bars)
 
-    output_file = Path("/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/reports/backtest_q3_wednesday_reversal.json")
+    output_file = Path(
+        "/home/TacoPants/projects/Ayumi/worktrees/junior-dev-1/reports/backtest_q3_wednesday_reversal.json"
+    )
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(json.dumps(results, indent=2))
 

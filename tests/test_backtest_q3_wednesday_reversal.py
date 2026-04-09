@@ -15,8 +15,13 @@ from backtest.engine import Bar
 
 
 def _dbar(date: datetime, open_p: float, close: float) -> Bar:
-    return Bar(time=date, open=open_p, high=max(open_p, close) + 0.001,
-               low=min(open_p, close) - 0.001, close=close)
+    return Bar(
+        time=date,
+        open=open_p,
+        high=max(open_p, close) + 0.001,
+        low=min(open_p, close) - 0.001,
+        close=close,
+    )
 
 
 class TestComputeBarDirection:
@@ -160,6 +165,7 @@ class TestQ3Integration:
         if not report.exists():
             pytest.skip("Report not yet generated")
         import json
+
         data = json.loads(report.read_text())
         assert data["question"] == "Q3"
         assert "pass" in data
