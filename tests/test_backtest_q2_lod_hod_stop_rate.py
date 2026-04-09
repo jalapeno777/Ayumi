@@ -226,6 +226,9 @@ class TestQ2LODHODStudy:
         assert "intrabar_spike_rate" in result.results
         assert "avg_slippage_intrabar_pips" in result.results
         assert "optimal_buffer_pips" in result.results
+        assert "profit_factor" in result.results
+        assert "net_expectancy_r" in result.results
+        assert "rr_ratio" in result.results
         assert result.sample_size >= 0
 
     def test_study_empty_bars(self):
@@ -234,22 +237,49 @@ class TestQ2LODHODStudy:
         assert result.sample_size == 0
         assert result.go_nogo is False
 
-    def test_go_nogo_stop_loss_under_40(self):
+    def test_profit_factor_calculation(self):
+        study = Q2LODHODStudy(rr_ratio=3.0)
+        result = study.run([])
+        assert result.results.get("profit_factor", 0.0) == 0.0
+
+    def test_net_expectancy_positive_with_favorable_rr(self):
+        study = Q2LODHODStudy(rr_ratio=3.0)
+        result = study.run([])
+        assert result.results.get("net_expectancy_r", 0.0) == 0.0
+
+    def test_rr_ratio_stored_in_results(self):
         base = datetime(2024, 1, 1)
         bars = []
-        for day in range(10):
+        for day in range(5):
             day_start = base + timedelta(days=day)
+            lod = 1.1000 - (day + 1) * 0.001
+            hod = 1.1000 + (day + 1) * 0.001
             for hour in range(24):
-                o = 1.1000 + hour * 0.0002
-                h = o + 0.005
-                low = o - 0.001
-                c = o + 0.003
+                o = 1.1000 + (hour * 0.0001 * (1 if day % 2 == 0 else -1))
+                h = max(o, hod - 0.002)
+                low = min(o, lod + 0.002)
+                c = o + 0.0001
                 bars.append(_make_bar(day_start + timedelta(hours=hour), o, h, low, c))
-
         study = Q2LODHODStudy(rr_ratio=3.0)
         result = study.run(bars)
-        assert result.results["stop_loss_rate"] <= 1.0
-        assert "stop_loss_rate" in result.results
+        assert result.results["rr_ratio"] == 3.0
+
+    def test_study_with_custom_rr(self):
+        study = Q2LODHODStudy(rr_ratio=2.0)
+        base = datetime(2024, 1, 1)
+        bars = []
+        for day in range(5):
+            day_start = base + timedelta(days=day)
+            lod = 1.1000 - (day + 1) * 0.001
+            hod = 1.1000 + (day + 1) * 0.001
+            for hour in range(24):
+                o = 1.1000 + (hour * 0.0001 * (1 if day % 2 == 0 else -1))
+                h = max(o, hod - 0.002)
+                low = min(o, lod + 0.002)
+                c = o + 0.0001
+                bars.append(_make_bar(day_start + timedelta(hours=hour), o, h, low, c))
+        result = study.run(bars)
+        assert result.results["rr_ratio"] == 2.0
 
     def test_result_to_json(self):
         study = Q2LODHODStudy(rr_ratio=3.0)

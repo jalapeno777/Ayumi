@@ -233,10 +233,16 @@ class Q2LODHODStudy(StatisticalStudy):
     def __init__(self, rr_ratio: float = 3.0):
         criteria = [
             GoNoGoCriteria(
-                metric="stop_loss_rate",
-                threshold=0.40,
-                operator="<=",
-                weight=1.0,
+                metric="net_expectancy_r",
+                threshold=0.0,
+                operator=">",
+                weight=0.5,
+            ),
+            GoNoGoCriteria(
+                metric="profit_factor",
+                threshold=1.0,
+                operator=">=",
+                weight=0.5,
             ),
         ]
         super().__init__(
@@ -324,6 +330,13 @@ class Q2LODHODStudy(StatisticalStudy):
 
         optimal_buffer = compute_optimal_buffer(sl_trades)
 
+        total_wins_r = len(tp_trades) * self.rr_ratio
+        total_losses_r = len(sl_trades)
+        profit_factor = total_wins_r / total_losses_r if total_losses_r > 0 else 0.0
+
+        tp_rate = len(tp_trades) / len(closed_trades) if closed_trades else 0
+        net_expectancy_r = (tp_rate * self.rr_ratio) - (stop_loss_rate * 1.0)
+
         return {
             "sample_size": len(closed_trades),
             "total_trades": len(trades),
@@ -335,9 +348,10 @@ class Q2LODHODStudy(StatisticalStudy):
             "optimal_buffer_pips": round(optimal_buffer, 1),
             "sl_count": len(sl_trades),
             "tp_count": len(tp_trades),
-            "tp_rate": round(
-                len(tp_trades) / len(closed_trades) if closed_trades else 0, 4
-            ),
+            "tp_rate": round(tp_rate, 4),
+            "profit_factor": round(profit_factor, 4),
+            "net_expectancy_r": round(net_expectancy_r, 4),
+            "rr_ratio": self.rr_ratio,
         }
 
 

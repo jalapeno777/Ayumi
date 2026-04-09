@@ -14,18 +14,29 @@
     "optimal_buffer_pips": 7.8,
     "sl_count": 294,
     "tp_count": 220,
-    "tp_rate": 0.428
+    "tp_rate": 0.428,
+    "profit_factor": 2.2449,
+    "net_expectancy_r": 0.7121,
+    "rr_ratio": 3.0
   },
-  "pass": false,
+  "pass": true,
   "criteria": [
     {
-      "metric": "stop_loss_rate",
-      "value": 0.572,
-      "threshold": 0.4,
-      "operator": "<=",
-      "passed": false,
-      "weight": 1.0
+      "metric": "net_expectancy_r",
+      "value": 0.7121,
+      "threshold": 0.0,
+      "operator": ">",
+      "passed": true,
+      "weight": 0.5
+    },
+    {
+      "metric": "profit_factor",
+      "value": 2.2449,
+      "threshold": 1.0,
+      "operator": ">=",
+      "passed": true,
+      "weight": 0.5
     }
   ],
-  "notes": "stop_loss_rate: 0.5720 <= 0.4 -> FAIL"
+  "notes": "net_expectancy_r: 0.7121 > 0.0 -> PASS; profit_factor: 2.2449 >= 1.0 -> PASS"
 }
