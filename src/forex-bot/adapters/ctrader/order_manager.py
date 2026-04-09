@@ -176,9 +176,7 @@ class OrderManager:
         spread: float = 0.0,
     ) -> OrderExecutionResult:
         slippage_model = self._slippage_model
-        fill_price = slippage_model.apply_with_spread(
-            entry_price, direction, spread
-        )
+        fill_price = slippage_model.apply_with_spread(entry_price, direction, spread)
         slippage_amount = abs(fill_price - entry_price)
 
         logger.info(

@@ -64,7 +64,9 @@ class cTraderSignalAdapter:
             rationale=signal.rationale,
         )
 
-        result = self._paper_trader.process_signal(trade_signal, spread=self._current_spread)
+        result = self._paper_trader.process_signal(
+            trade_signal, spread=self._current_spread
+        )
 
         if result.success:
             self._last_signal_time = datetime.utcnow()
@@ -133,7 +135,7 @@ class cTraderLiveAdapter:
                 )
 
     def evaluate_all_strategies(
-        self, market_states: dict[str, MarketState]
+        self, market_states: dict[str, MarketState], spread: float = 0.0
     ) -> list[TradeSignal]:
         results = []
         for symbol, state in market_states.items():
@@ -141,7 +143,7 @@ class cTraderLiveAdapter:
                 key = f"{strategy_name}_{symbol}"
                 adapter = self._adapters.get(key)
                 if adapter:
-                    result = adapter.evaluate_and_trade(state)
+                    result = adapter.evaluate_and_trade(state, spread=spread)
                     if result:
                         results.append(result)
         return results

@@ -274,9 +274,7 @@ class PaperTrader:
                 closed = self._order_manager.get_position(position.position_id)
                 if closed and closed.status == PositionStatus.CLOSED:
                     self._stats.realized_pnl += closed.closed_pnl
-            self._current_balance = (
-                self._starting_balance + self._stats.realized_pnl
-            )
+            self._current_balance = self._starting_balance + self._stats.realized_pnl
             self._stats.current_balance = self._current_balance
             logger.info(f"[PAPER] Cleared {count} stuck position(s)")
             return count
