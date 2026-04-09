@@ -152,7 +152,11 @@ class TestVolatilitySqueezeSearchSpace(unittest.TestCase):
     def test_spread_pips_is_realistic(self):
         from pathlib import Path
 
-        script_path = Path(__file__).parent.parent / "scripts" / "run_volatility_squeeze_optuna.py"
+        script_path = (
+            Path(__file__).parent.parent
+            / "scripts"
+            / "run_volatility_squeeze_optuna.py"
+        )
         content = script_path.read_text()
         self.assertIn('"spread_pips": 1.0', content)
 
