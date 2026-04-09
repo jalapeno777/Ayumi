@@ -127,9 +127,9 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = left_price - self._find_valley_between(
+            depth = self._find_valley_between(
                 bars, left_idx, right_idx, swing_highs
-            )
+            ) - left_price
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
 
@@ -140,7 +140,7 @@ class MWPatternDetector:
             if symmetry > self.symmetry_tolerance:
                 continue
 
-            valley_idx, valley_price = self._find_lowest_between(
+            peak_idx, peak_price = self._find_highest_between(
                 bars, left_idx, right_idx
             )
 
@@ -158,8 +158,8 @@ class MWPatternDetector:
                     left_shoulder_price=left_price,
                     neckline_start_idx=left_idx,
                     neckline_start_price=left_price,
-                    valley_peak_idx=valley_idx,
-                    valley_peak_price=valley_price,
+                    valley_peak_idx=peak_idx,
+                    valley_peak_price=peak_price,
                     neckline_end_idx=right_idx,
                     neckline_end_price=right_price,
                     right_shoulder_idx=right_idx,
@@ -193,9 +193,8 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = (
-                self._find_peak_between(bars, left_idx, right_idx, swing_lows)
-                - left_price
+            depth = left_price - self._find_peak_between(
+                bars, left_idx, right_idx, swing_lows
             )
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
@@ -207,7 +206,7 @@ class MWPatternDetector:
             if symmetry > self.symmetry_tolerance:
                 continue
 
-            peak_idx, peak_price = self._find_highest_between(bars, left_idx, right_idx)
+            peak_idx, peak_price = self._find_lowest_between(bars, left_idx, right_idx)
 
             neckline_level = (left_price + right_price) / 2
             sessions = [
@@ -251,7 +250,7 @@ class MWPatternDetector:
         relevant = [(idx, price) for idx, price in swing_highs if start < idx < end]
         if not relevant:
             return max(bars[i].high for i in range(start, end + 1))
-        return min(price for _, price in relevant)
+        return max(price for _, price in relevant)
 
     def _find_peak_between(
         self,
@@ -263,7 +262,7 @@ class MWPatternDetector:
         relevant = [(idx, price) for idx, price in swing_lows if start < idx < end]
         if not relevant:
             return min(bars[i].low for i in range(start, end + 1))
-        return max(price for _, price in relevant)
+        return min(price for _, price in relevant)
 
     def _find_lowest_between(
         self, bars: list[Bar], start: int, end: int
