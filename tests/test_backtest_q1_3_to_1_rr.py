@@ -7,14 +7,13 @@ from pathlib import Path
 import pytest
 
 project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import Bar  # noqa: E402
-
-from scripts.backtest_q1_3_to_1_rr import (
+from backtest.engine import Bar, SessionType  # noqa: E402
+from scripts.backtest_q1_3_to_1_rr import (  # noqa: E402
     SwingPoint,
-    SessionType,
     calculate_atr,
     compute_outcome_stats,
     detect_swing_points,
@@ -272,7 +271,6 @@ class TestComputeOutcomeStats:
         stats = compute_outcome_stats(outcomes, rr_ratios)
         assert stats["average_rr"] == 3.0
         assert stats["rr_3_1_hit_rate"] == 1.0
-        assert stats["pass"] if "pass" in stats else True
 
     def test_empty_outcomes(self):
         outcomes = {"L1": 0, "L2": 0, "L3": 0, "SL": 0, "open": 0}
@@ -297,7 +295,7 @@ class TestQ1Results:
         if len(bars) < 1000:
             pytest.skip("Insufficient data for analysis")
 
-        from scripts.backtest_q1_3_to_1_rr import analyze_3_to_1_rr
+        from scripts.backtest_q1_3_to_1_rr import analyze_3_to_1_rr  # noqa: E402
 
         results = analyze_3_to_1_rr(bars)
 
