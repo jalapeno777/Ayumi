@@ -116,6 +116,7 @@ class ForwardTestEngine:
 
         self._last_evaluation_at: float = 0.0
         self._reconnect_delay: float = config.reconnect_delay_sec
+        self._last_reconnect_attempt_at: float = 0.0
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
 
@@ -195,6 +196,19 @@ class ForwardTestEngine:
         if self._health_monitor_thread is not None:
             self._health_monitor_thread.join(timeout=10.0)
             self._health_monitor_thread = None
+
+        with self._lock:
+            for symbol in list(self._current_bar.keys()):
+                finalized = self._finalize_current_bar(symbol)
+                if finalized is not None:
+                    if symbol not in self._bars:
+                        self._bars[symbol] = []
+                    self._bars[symbol].append(finalized)
+                    self._health.bars_built += 1
+                    if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
+                        self._bars[symbol] = self._bars[symbol][
+                            -self._config.max_bars_per_symbol :
+                        ]
 
         if self._market_feed:
             self._market_feed.stop()
@@ -415,14 +429,14 @@ class ForwardTestEngine:
             return
 
         bar_time = self._bar_period_start(tick.timestamp)
-        self._update_current_bar(tick, symbol_name, bar_time)
-
-        self._update_paper_trader_prices(tick, symbol_name)
 
         with self._lock:
+            self._update_current_bar(tick, symbol_name, bar_time)
             bar_count = len(self._bars.get(symbol_name, []))
             current_bar = self._current_bar.get(symbol_name)
             total_bars = bar_count + (1 if current_bar else 0)
+
+        self._update_paper_trader_prices(tick, symbol_name)
 
         if total_bars < self._config.min_bars_for_evaluation:
             return
@@ -532,9 +546,18 @@ class ForwardTestEngine:
         if last_tick is not None:
             staleness = (datetime.now(timezone.utc) - last_tick).total_seconds()
 
-        if feed_connected and last_tick is not None:
-            if staleness < self._config.stale_tick_threshold_sec:
-                return
+        is_healthy = (
+            feed_connected
+            and last_tick is not None
+            and staleness < self._config.stale_tick_threshold_sec
+        )
+        if is_healthy:
+            self._reconnect_delay = self._config.reconnect_delay_sec
+            return
+
+        now = time.monotonic()
+        if now - self._last_reconnect_attempt_at < self._reconnect_delay:
+            return
 
         logger.warning(
             "Connection health check failed: connected=%s last_tick_ago=%.1fs threshold=%.1fs — reconnecting",
@@ -543,6 +566,7 @@ class ForwardTestEngine:
             self._config.stale_tick_threshold_sec,
         )
 
+        self._last_reconnect_attempt_at = now
         self._attempt_reconnect()
 
     def _attempt_reconnect(self):
@@ -550,7 +574,7 @@ class ForwardTestEngine:
             self._health.reconnection_attempts += 1
 
         logger.info(
-            "Reconnection attempt %d (delay=%.1fs)",
+            "Reconnection attempt %d (backoff=%.1fs)",
             self._health.reconnection_attempts,
             self._reconnect_delay,
         )
@@ -560,8 +584,6 @@ class ForwardTestEngine:
                 self._market_feed.stop()
             except Exception as exc:
                 logger.warning("Error stopping feed for reconnect: %s", exc)
-
-        time.sleep(self._reconnect_delay)
 
         success = self._start_market_feed()
         if success:
@@ -578,7 +600,7 @@ class ForwardTestEngine:
                 self._config.max_reconnect_delay_sec,
             )
             logger.warning(
-                "Reconnection failed — next delay=%.1fs", self._reconnect_delay
+                "Reconnection failed — next attempt in %.1fs", self._reconnect_delay
             )
 
     def _on_trade_executed(self, result):

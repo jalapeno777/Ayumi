@@ -550,6 +550,59 @@ class TestBarConstruction:
         assert current.low == pytest.approx(1.24000, abs=1e-5)
         assert current.volume == 3
 
+    def test_bar_finalization_on_shutdown(self, engine, gbpusd_symbol_info):
+        _setup_running_engine(engine, gbpusd_symbol_info)
+        engine._config.min_bars_for_evaluation = 999
+        engine._config.bar_period_minutes = 60
+
+        ticks = _make_ticks_in_period(count=5, period_minutes=60)
+        for tick in ticks:
+            engine._on_tick(tick)
+
+        assert engine._current_bar.get("GBPUSD") is not None
+        bars_before = len(engine._bars.get("GBPUSD", []))
+
+        engine._market_feed = MagicMock()
+        mock_pt = MagicMock()
+        mock_pt.get_stats.return_value = MagicMock(
+            current_balance=100_000.0,
+            trades_executed=0,
+            starting_balance=100_000.0,
+        )
+        engine._paper_trader = mock_pt
+
+        engine.stop()
+
+        assert engine._current_bar.get("GBPUSD") is None
+        assert len(engine._bars.get("GBPUSD", [])) == bars_before + 1
+
+    def test_concurrent_tick_bar_safety(self, engine, gbpusd_symbol_info):
+        _setup_running_engine(engine, gbpusd_symbol_info)
+        engine._config.min_bars_for_evaluation = 999
+        engine._config.bar_period_minutes = 60
+
+        errors = []
+
+        def tick_worker(tick_id):
+            try:
+                for _ in range(100):
+                    tick = _make_tick(
+                        bid=1.25000 + tick_id * 0.00001,
+                        ask=1.25002 + tick_id * 0.00001,
+                    )
+                    engine._on_tick(tick)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=tick_worker, args=(i,)) for i in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5.0)
+
+        assert len(errors) == 0
+        assert engine.health.ticks_received == 400
+
 
 class TestReconnection:
     def test_health_monitor_detects_stale_ticks(self, engine, gbpusd_symbol_info):
@@ -584,10 +637,7 @@ class TestReconnection:
         engine._config.max_reconnect_delay_sec = 1.0
         engine._reconnect_delay = 0.01
 
-        with (
-            patch.object(engine, "_start_market_feed", return_value=False),
-            patch("adapters.ctrader.forward_test_engine.time.sleep"),
-        ):
+        with patch.object(engine, "_start_market_feed", return_value=False):
             engine._attempt_reconnect()
             assert engine._health.reconnection_attempts == 1
             assert engine._reconnect_delay == pytest.approx(0.02, abs=1e-3)
@@ -595,6 +645,36 @@ class TestReconnection:
             engine._attempt_reconnect()
             assert engine._health.reconnection_attempts == 2
             assert engine._reconnect_delay == pytest.approx(0.04, abs=1e-3)
+
+    def test_reconnect_non_blocking(self, engine, gbpusd_symbol_info):
+        _setup_running_engine(engine, gbpusd_symbol_info)
+        engine._config.reconnect_delay_sec = 60.0
+
+        with (
+            patch.object(engine, "_start_market_feed", return_value=False),
+            patch("adapters.ctrader.forward_test_engine.time.sleep") as mock_sleep,
+        ):
+            engine._attempt_reconnect()
+            mock_sleep.assert_not_called()
+
+    def test_reconnect_respects_backoff_timing(self, engine, gbpusd_symbol_info):
+        _setup_running_engine(engine, gbpusd_symbol_info)
+        engine._config.stale_tick_threshold_sec = 0.05
+        engine._config.health_monitor_interval_sec = 0.05
+        engine._config.reconnect_delay_sec = 0.1
+        engine._config.max_reconnect_delay_sec = 1.0
+
+        tick = _make_tick()
+        engine._on_tick(tick)
+        engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(seconds=30)
+
+        with patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+            engine._check_connection_health()
+            mock_reconnect.assert_called_once()
+
+            mock_reconnect.reset_mock()
+            engine._check_connection_health()
+            mock_reconnect.assert_not_called()
 
     def test_reconnect_resets_delay_on_success(self, engine, gbpusd_symbol_info):
         _setup_running_engine(engine, gbpusd_symbol_info)
