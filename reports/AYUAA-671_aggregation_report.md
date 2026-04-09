@@ -8,7 +8,7 @@ Aggregate results from completed parameter sweeps into a ranked candidate list f
 | Task ID | Strategy | Status | Notes |
 |---------|----------|--------|-------|
 | AYUAA-491 | Keltner Channel Breakout | DONE | Walk-forward complete |
-| AYUAA-495 | Momentum Breakout | DONE | Walk-forward complete |
+| AYUAA-495 | Momentum Breakout | PENDING | Walk-forward not yet run |
 | AYUAA-592 | Optuna Optimization | IN_REVIEW | Not yet available |
 | AYUAA-490 | Supertrend RSI | CANCELLED | Skipped |
 
