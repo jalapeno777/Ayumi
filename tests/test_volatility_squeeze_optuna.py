@@ -113,10 +113,21 @@ class TestVolatilitySqueezeSearchSpace(unittest.TestCase):
     def test_search_space_has_all_params(self):
         space = volatility_squeeze_search_space()
         expected = [
-            "adx_min", "adx_period", "atr_period", "atr_sl_multiplier",
-            "bb_period", "bb_std_dev", "ema_period", "kc_atr_multiplier",
-            "kc_period", "min_confidence", "min_squeeze_bars",
-            "session_filter", "squeeze_release_mode", "tp1_rr", "tp2_rr",
+            "adx_min",
+            "adx_period",
+            "atr_period",
+            "atr_sl_multiplier",
+            "bb_period",
+            "bb_std_dev",
+            "ema_period",
+            "kc_atr_multiplier",
+            "kc_period",
+            "min_confidence",
+            "min_squeeze_bars",
+            "session_filter",
+            "squeeze_release_mode",
+            "tp1_rr",
+            "tp2_rr",
             "tp3_rr",
         ]
         self.assertEqual(sorted(space.param_names), sorted(expected))
