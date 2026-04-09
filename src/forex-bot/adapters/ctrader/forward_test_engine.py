@@ -199,16 +199,7 @@ class ForwardTestEngine:
 
         with self._lock:
             for symbol in list(self._current_bar.keys()):
-                finalized = self._finalize_current_bar(symbol)
-                if finalized is not None:
-                    if symbol not in self._bars:
-                        self._bars[symbol] = []
-                    self._bars[symbol].append(finalized)
-                    self._health.bars_built += 1
-                    if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
-                        self._bars[symbol] = self._bars[symbol][
-                            -self._config.max_bars_per_symbol :
-                        ]
+                self._finalize_and_store_bar(symbol)
 
         if self._market_feed:
             self._market_feed.stop()
@@ -365,6 +356,20 @@ class ForwardTestEngine:
         self._current_bar[symbol] = None
         return finalized
 
+    def _store_bar(self, symbol: str, bar: Bar):
+        if symbol not in self._bars:
+            self._bars[symbol] = []
+        self._bars[symbol].append(bar)
+        self._health.bars_built += 1
+        if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
+            self._bars[symbol] = self._bars[symbol][-self._config.max_bars_per_symbol :]
+
+    def _finalize_and_store_bar(self, symbol: str) -> Optional[Bar]:
+        finalized = self._finalize_current_bar(symbol)
+        if finalized is not None:
+            self._store_bar(symbol, finalized)
+        return finalized
+
     def _update_current_bar(self, tick: Tick, symbol: str, bar_time: datetime) -> Bar:
         current = self._current_bar.get(symbol)
 
@@ -381,17 +386,7 @@ class ForwardTestEngine:
             self._current_bar[symbol] = updated
             return updated
 
-        finalized = self._finalize_current_bar(symbol)
-        if finalized is not None:
-            with self._lock:
-                if symbol not in self._bars:
-                    self._bars[symbol] = []
-                self._bars[symbol].append(finalized)
-                self._health.bars_built += 1
-                if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
-                    self._bars[symbol] = self._bars[symbol][
-                        -self._config.max_bars_per_symbol :
-                    ]
+        self._finalize_and_store_bar(symbol)
 
         new_bar = Bar(
             time=bar_time,
@@ -435,8 +430,7 @@ class ForwardTestEngine:
             bar_count = len(self._bars.get(symbol_name, []))
             current_bar = self._current_bar.get(symbol_name)
             total_bars = bar_count + (1 if current_bar else 0)
-
-        self._update_paper_trader_prices(tick, symbol_name)
+            self._update_paper_trader_prices(tick, symbol_name)
 
         if total_bars < self._config.min_bars_for_evaluation:
             return
