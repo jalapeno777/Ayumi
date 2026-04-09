@@ -15,8 +15,9 @@ Usage::
 import logging
 import signal as sig_module
 import threading
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 
@@ -36,6 +37,10 @@ from .trade_logger import TradeLogger
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_RECONNECT_DELAY_SEC = 5.0
+_DEFAULT_MAX_RECONNECT_DELAY_SEC = 60.0
+_DEFAULT_STALE_TICK_THRESHOLD_SEC = 15.0
+
 
 @dataclass
 class ForwardTestConfig:
@@ -53,6 +58,12 @@ class ForwardTestConfig:
     live_mode: bool = False
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
+    evaluation_interval_sec: float = 1.0
+    bar_period_minutes: int = 60
+    stale_tick_threshold_sec: float = _DEFAULT_STALE_TICK_THRESHOLD_SEC
+    reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
+    max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
+    health_monitor_interval_sec: float = 5.0
 
 
 @dataclass
@@ -65,6 +76,10 @@ class ForwardTestHealth:
     signals_traded: int = 0
     signals_rejected: int = 0
     uptime_sec: float = 0.0
+    evaluation_errors: int = 0
+    reconnection_attempts: int = 0
+    reconnection_successes: int = 0
+    bars_built: int = 0
 
 
 class ForwardTestEngine:
@@ -82,8 +97,10 @@ class ForwardTestEngine:
         self._position_config = position_config
         self._running = False
         self._lock = threading.RLock()
+        self._eval_semaphore = threading.Semaphore(1)
 
         self._bars: dict[str, list[Bar]] = {}
+        self._current_bar: dict[str, Optional[Bar]] = {}
         self._paper_trader: Optional[PaperTrader] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
@@ -97,6 +114,11 @@ class ForwardTestEngine:
         self._callbacks: list[tuple[str, "Callable"]] = []
         self._health = ForwardTestHealth()
 
+        self._last_evaluation_at: float = 0.0
+        self._reconnect_delay: float = config.reconnect_delay_sec
+        self._health_monitor_thread: Optional[threading.Thread] = None
+        self._stop_health_monitor = threading.Event()
+
     @property
     def health(self) -> ForwardTestHealth:
         with self._lock:
@@ -109,6 +131,10 @@ class ForwardTestEngine:
                 signals_traded=self._health.signals_traded,
                 signals_rejected=self._health.signals_rejected,
                 uptime_sec=self._health.uptime_sec,
+                evaluation_errors=self._health.evaluation_errors,
+                reconnection_attempts=self._health.reconnection_attempts,
+                reconnection_successes=self._health.reconnection_successes,
+                bars_built=self._health.bars_built,
             )
 
     @property
@@ -124,6 +150,10 @@ class ForwardTestEngine:
             logger.warning("ForwardTestEngine already running")
             return True
 
+        if not self._validate_credentials():
+            logger.error("Invalid credentials — aborting start")
+            return False
+
         self._build_components()
         self._wire_callbacks()
 
@@ -134,14 +164,24 @@ class ForwardTestEngine:
         self._running = True
         self._start_time = datetime.now(timezone.utc)
 
+        self._stop_health_monitor.clear()
+        self._health_monitor_thread = threading.Thread(
+            target=self._health_monitor_loop,
+            name="forward-test-health-monitor",
+            daemon=True,
+        )
+        self._health_monitor_thread.start()
+
         sig_module.signal(sig_module.SIGINT, self._on_shutdown)
         sig_module.signal(sig_module.SIGTERM, self._on_shutdown)
 
         logger.info(
-            "Forward test started: symbol=%s strategies=%s mode=%s",
+            "Forward test started: symbol=%s strategies=%s mode=%s eval_interval=%.1fs bar_period=%dm",
             self._config.symbol,
             [s.name for s in self._strategies],
             "LIVE" if self._config.live_mode else "PAPER",
+            self._config.evaluation_interval_sec,
+            self._config.bar_period_minutes,
         )
         return True
 
@@ -150,6 +190,11 @@ class ForwardTestEngine:
             return
 
         self._running = False
+        self._stop_health_monitor.set()
+
+        if self._health_monitor_thread is not None:
+            self._health_monitor_thread.join(timeout=10.0)
+            self._health_monitor_thread = None
 
         if self._market_feed:
             self._market_feed.stop()
@@ -158,14 +203,33 @@ class ForwardTestEngine:
         stats = self._paper_trader.get_stats() if self._paper_trader else None
         if stats:
             logger.info(
-                "Forward test stopped: balance=%.2f trades=%d pnl=%.2f",
+                "Forward test stopped: balance=%.2f trades=%d pnl=%.2f errors=%d reconnects=%d",
                 stats.current_balance,
                 stats.trades_executed,
                 stats.current_balance - stats.starting_balance,
+                self._health.evaluation_errors,
+                self._health.reconnection_attempts,
             )
 
     def register_callback(self, event: str, callback: Callable):
         self._callbacks.append((event, callback))
+
+    def _validate_credentials(self) -> bool:
+        creds = self._credentials or self._build_quote_credentials()
+        if not creds.host:
+            logger.error("Credential validation: host is empty")
+            return False
+        if not creds.username:
+            logger.error("Credential validation: username (CTRADER_ACCOUNT) is empty")
+            return False
+        if not creds.password:
+            logger.error("Credential validation: password (CTRADER_PASSWORD) is empty")
+            return False
+        if not creds.sender_comp_id:
+            logger.warning(
+                "Credential validation: sender_comp_id is empty — may cause FIX logon failure"
+            )
+        return True
 
     def _build_components(self):
         cfg = self._config
@@ -214,9 +278,7 @@ class ForwardTestEngine:
         subscribe_name = self._resolve_feed_symbol_name(symbol_key)
 
         if subscribe_name is None:
-            logger.error(
-                "Cannot resolve symbol %s for market data feed", cfg.symbol
-            )
+            logger.error("Cannot resolve symbol %s for market data feed", cfg.symbol)
             return False
 
         success = self._market_feed.start(auto_subscribe=[subscribe_name])
@@ -252,18 +314,14 @@ class ForwardTestEngine:
             load_dotenv(env_path)
 
         host = os.environ.get("CTRADER_HOST", self._config.quote_host)
-        port = int(
-            os.environ.get("CTRADER_SSL_PORT", str(self._config.quote_port))
-        )
+        port = int(os.environ.get("CTRADER_SSL_PORT", str(self._config.quote_port)))
 
         return cTraderCredentials(
             host=host,
             port=port,
             use_ssl=self._config.use_ssl,
             sender_comp_id=os.environ.get("CTRADER_SENDER_COMP_ID", ""),
-            target_comp_id=os.environ.get(
-                "CTRADER_TARGET_COMP_ID", "cServer"
-            ),
+            target_comp_id=os.environ.get("CTRADER_TARGET_COMP_ID", "cServer"),
             sender_sub_id=os.environ.get(
                 "CTRADER_QUOTE_SENDER_SUB_ID",
                 self._config.quote_sender_sub_id,
@@ -271,6 +329,66 @@ class ForwardTestEngine:
             username=os.environ.get("CTRADER_ACCOUNT", ""),
             password=os.environ.get("CTRADER_PASSWORD", ""),
         )
+
+    def _bar_period_start(self, ts: datetime) -> datetime:
+        minutes = self._config.bar_period_minutes
+        return ts.replace(second=0, microsecond=0) - timedelta(
+            minutes=ts.minute % minutes
+        )
+
+    def _finalize_current_bar(self, symbol: str) -> Optional[Bar]:
+        current = self._current_bar.get(symbol)
+        if current is None:
+            return None
+        finalized = Bar(
+            time=current.time,
+            open=current.open,
+            high=current.high,
+            low=current.low,
+            close=current.close,
+            volume=current.volume,
+        )
+        self._current_bar[symbol] = None
+        return finalized
+
+    def _update_current_bar(self, tick: Tick, symbol: str, bar_time: datetime) -> Bar:
+        current = self._current_bar.get(symbol)
+
+        if current is not None and current.time == bar_time:
+            mid = tick.mid
+            updated = Bar(
+                time=current.time,
+                open=current.open,
+                high=max(current.high, tick.ask),
+                low=min(current.low, tick.bid),
+                close=mid,
+                volume=current.volume + 1,
+            )
+            self._current_bar[symbol] = updated
+            return updated
+
+        finalized = self._finalize_current_bar(symbol)
+        if finalized is not None:
+            with self._lock:
+                if symbol not in self._bars:
+                    self._bars[symbol] = []
+                self._bars[symbol].append(finalized)
+                self._health.bars_built += 1
+                if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
+                    self._bars[symbol] = self._bars[symbol][
+                        -self._config.max_bars_per_symbol :
+                    ]
+
+        new_bar = Bar(
+            time=bar_time,
+            open=tick.mid,
+            high=tick.ask,
+            low=tick.bid,
+            close=tick.mid,
+            volume=1,
+        )
+        self._current_bar[symbol] = new_bar
+        return new_bar
 
     def _on_tick(self, tick: Tick):
         with self._lock:
@@ -296,30 +414,24 @@ class ForwardTestEngine:
         if symbol_name is None or symbol_name != self._config.symbol:
             return
 
-        bar = Bar(
-            time=tick.timestamp,
-            open=tick.bid,
-            high=tick.ask,
-            low=tick.bid,
-            close=tick.bid,
-            volume=0,
-        )
-
-        with self._lock:
-            if symbol_name not in self._bars:
-                self._bars[symbol_name] = []
-            self._bars[symbol_name].append(bar)
-
-            if len(self._bars[symbol_name]) > self._config.max_bars_per_symbol:
-                self._bars[symbol_name] = self._bars[symbol_name][
-                    -self._config.max_bars_per_symbol :
-                ]
+        bar_time = self._bar_period_start(tick.timestamp)
+        self._update_current_bar(tick, symbol_name, bar_time)
 
         self._update_paper_trader_prices(tick, symbol_name)
 
-        if len(self._bars[symbol_name]) < self._config.min_bars_for_evaluation:
+        with self._lock:
+            bar_count = len(self._bars.get(symbol_name, []))
+            current_bar = self._current_bar.get(symbol_name)
+            total_bars = bar_count + (1 if current_bar else 0)
+
+        if total_bars < self._config.min_bars_for_evaluation:
             return
 
+        now_ts = time.monotonic()
+        if now_ts - self._last_evaluation_at < self._config.evaluation_interval_sec:
+            return
+
+        self._last_evaluation_at = now_ts
         self._evaluate_strategies(symbol_name)
 
     def _resolve_symbol_name(self, tick: Tick) -> Optional[str]:
@@ -349,39 +461,129 @@ class ForwardTestEngine:
         if self._live_adapter is None:
             return
 
-        with self._lock:
-            bars = self._bars.get(symbol, [])
-
-        if not bars:
+        if not self._eval_semaphore.acquire(blocking=False):
+            logger.debug("Evaluation already in progress — skipping")
             return
 
-        state = MarketState(bars=list(bars))
+        try:
+            with self._lock:
+                bars = list(self._bars.get(symbol, []))
+                current = self._current_bar.get(symbol)
+                if current is not None:
+                    bars.append(current)
 
-        signals = self._live_adapter.evaluate_all_strategies({symbol: state})
+            if not bars:
+                return
+
+            state = MarketState(bars=bars)
+
+            signals = self._live_adapter.evaluate_all_strategies({symbol: state})
+
+            with self._lock:
+                self._health.signals_generated += len(signals)
+
+            for s in signals:
+                with self._lock:
+                    self._health.signals_traded += 1
+
+                logger.info(
+                    "Signal traded: %s %s %s @ %.5f conf=%.2f",
+                    s.direction.value,
+                    s.volume,
+                    s.symbol,
+                    s.entry_price,
+                    s.confidence,
+                )
+
+                self._trigger_callback("on_signal_traded", s)
+        except Exception as exc:
+            with self._lock:
+                self._health.evaluation_errors += 1
+            logger.error(
+                "Strategy evaluation error (total=%d): %s",
+                self._health.evaluation_errors,
+                exc,
+                exc_info=True,
+            )
+        finally:
+            self._eval_semaphore.release()
+
+    def _health_monitor_loop(self):
+        while not self._stop_health_monitor.wait(
+            self._config.health_monitor_interval_sec
+        ):
+            try:
+                self._update_health()
+                self._check_connection_health()
+            except Exception as exc:
+                logger.error("Health monitor error: %s", exc, exc_info=True)
+
+    def _check_connection_health(self):
+        if not self._running:
+            return
 
         with self._lock:
-            self._health.signals_generated += len(signals)
-
-        for s in signals:
-            with self._lock:
-                self._health.signals_traded += 1
-
-            logger.info(
-                "Signal traded: %s %s %s @ %.5f conf=%.2f",
-                s.direction.value,
-                s.volume,
-                s.symbol,
-                s.entry_price,
-                s.confidence,
+            feed_connected = (
+                self._market_feed.is_running if self._market_feed else False
             )
+            last_tick = self._health.last_tick_at
 
-            self._trigger_callback("on_signal_traded", s)
+        staleness = float("inf")
+        if last_tick is not None:
+            staleness = (datetime.now(timezone.utc) - last_tick).total_seconds()
+
+        if feed_connected and last_tick is not None:
+            if staleness < self._config.stale_tick_threshold_sec:
+                return
+
+        logger.warning(
+            "Connection health check failed: connected=%s last_tick_ago=%.1fs threshold=%.1fs — reconnecting",
+            feed_connected,
+            staleness,
+            self._config.stale_tick_threshold_sec,
+        )
+
+        self._attempt_reconnect()
+
+    def _attempt_reconnect(self):
+        with self._lock:
+            self._health.reconnection_attempts += 1
+
+        logger.info(
+            "Reconnection attempt %d (delay=%.1fs)",
+            self._health.reconnection_attempts,
+            self._reconnect_delay,
+        )
+
+        if self._market_feed:
+            try:
+                self._market_feed.stop()
+            except Exception as exc:
+                logger.warning("Error stopping feed for reconnect: %s", exc)
+
+        time.sleep(self._reconnect_delay)
+
+        success = self._start_market_feed()
+        if success:
+            with self._lock:
+                self._health.reconnection_successes += 1
+            self._reconnect_delay = self._config.reconnect_delay_sec
+            logger.info(
+                "Reconnection successful on attempt %d",
+                self._health.reconnection_attempts,
+            )
+        else:
+            self._reconnect_delay = min(
+                self._reconnect_delay * 2,
+                self._config.max_reconnect_delay_sec,
+            )
+            logger.warning(
+                "Reconnection failed — next delay=%.1fs", self._reconnect_delay
+            )
 
     def _on_trade_executed(self, result):
         if self._trade_logger and result.order:
-            self._trade_logger.log_trade_opened(
-                result.order, result.position
-            )
+            self._trade_logger.log_trade_opened(result.order, result.position)
         self._trigger_callback("on_trade_executed", result)
 
     def _on_position_closed(self, position):
