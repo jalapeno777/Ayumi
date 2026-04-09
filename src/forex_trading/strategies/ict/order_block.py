@@ -5,7 +5,6 @@ from .models import (
     ICTMarketState,
     OrderBlock,
     TradeDirection,
-    SwingPoint,
 )
 
 
@@ -121,7 +120,12 @@ class OrderBlockDetector:
         return False
 
     def _is_mitigated(
-        self, bars: List[Bar], ob_index: int, direction: TradeDirection, top: float, bottom: float
+        self,
+        bars: List[Bar],
+        ob_index: int,
+        direction: TradeDirection,
+        top: float,
+        bottom: float,
     ) -> bool:
         current_idx = len(bars) - 1
         for j in range(ob_index + 1, current_idx + 1):

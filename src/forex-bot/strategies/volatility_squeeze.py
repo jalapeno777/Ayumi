@@ -16,7 +16,7 @@ _PREFERRED_SESSIONS: set[SessionType] = {
 }
 
 
-def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
+def _calculate_rsi(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 50.0
     gains: list[float] = []
