@@ -3,7 +3,6 @@ from typing import List, Optional
 from .confluence import ConfluenceEngine
 from .fvg import FVGDetector
 from .models import (
-    Bar,
     ConfluenceSignal,
     FairValueGap,
     ICTMarketState,
