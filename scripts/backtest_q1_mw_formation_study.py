@@ -142,7 +142,7 @@ class Q1BacktestStudy(StatisticalStudy):
         tp2 = entry_price + risk * 2
         tp3 = entry_price + risk * 3
 
-        for i in range(entry_idx, min(entry_idx + self.MAX_BARS_AHEAD, len(bars))):
+        for i in range(entry_idx + 1, min(entry_idx + self.MAX_BARS_AHEAD, len(bars))):
             bar = bars[i]
             if bar.high >= tp3:
                 return {"outcome": "L3", "rr": 3.0}
@@ -168,7 +168,7 @@ class Q1BacktestStudy(StatisticalStudy):
         tp2 = entry_price - risk * 2
         tp3 = entry_price - risk * 3
 
-        for i in range(entry_idx, min(entry_idx + self.MAX_BARS_AHEAD, len(bars))):
+        for i in range(entry_idx + 1, min(entry_idx + self.MAX_BARS_AHEAD, len(bars))):
             bar = bars[i]
             if bar.low <= tp3:
                 return {"outcome": "L3", "rr": 3.0}
