@@ -10,27 +10,32 @@ import pandas as pd
 import json
 from pathlib import Path
 
-DATA_PATH = Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_D1.csv"
-OUTPUT_PATH = Path(__file__).parent.parent / "reports" / "backtest_q4_friday_gap_results.json"
+DATA_PATH = (
+    Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_D1.csv"
+)
+OUTPUT_PATH = (
+    Path(__file__).parent.parent / "reports" / "backtest_q4_friday_gap_results.json"
+)
+
 
 def analyze_friday_gaps():
     df = pd.read_csv(DATA_PATH)
-    df['Date'] = pd.to_datetime(df['Date'])
-    df['DayName'] = df['Date'].dt.day_name()
-    df = df.sort_values('Date').reset_index(drop=True)
+    df["Date"] = pd.to_datetime(df["Date"])
+    df["DayName"] = df["Date"].dt.day_name()
+    df = df.sort_values("Date").reset_index(drop=True)
 
     # Filter to test period: 2024-01-01 to 2025-12-31 (data ends there)
-    df = df[(df['Date'] >= '2024-01-01') & (df['Date'] <= '2025-12-31')].copy()
+    df = df[(df["Date"] >= "2024-01-01") & (df["Date"] <= "2025-12-31")].copy()
 
     # Find Fridays and their following Sunday bars
-    fridays = df[df['DayName'] == 'Friday'].copy()
+    fridays = df[df["DayName"] == "Friday"].copy()
     fridays = fridays.reset_index(drop=True)
 
     results = []
     for i in range(len(fridays)):
         friday = fridays.iloc[i]
-        friday_date = friday['Date']
-        friday_close = friday['Close']
+        friday_date = friday["Date"]
+        friday_close = friday["Close"]
 
         after = df[df["Date"] > friday_date]
         if len(after) == 0:
@@ -38,12 +43,12 @@ def analyze_friday_gaps():
         next_day_idx = after.index[0]
         next_day = df.loc[next_day_idx]
 
-        if next_day['DayName'] != 'Sunday':
+        if next_day["DayName"] != "Sunday":
             continue  # Skip if not Sunday (holidays etc)
 
-        sunday_open = next_day['Open']
-        sunday_high = next_day['High']
-        sunday_low = next_day['Low']
+        sunday_open = next_day["Open"]
+        sunday_high = next_day["High"]
+        sunday_low = next_day["Low"]
 
         # Gap in pips (positive = up gap, negative = down gap)
         gap_pips = (sunday_open - friday_close) * 10000
@@ -66,25 +71,27 @@ def analyze_friday_gaps():
         else:
             gap_filled = None  # No significant gap
 
-        results.append({
-            'friday_date': str(friday_date.date()),
-            'friday_close': friday_close,
-            'sunday_open': sunday_open,
-            'gap_pips': round(gap_pips, 1),
-            'abs_gap_pips': round(abs_gap_pips, 1),
-            'is_large_gap': is_large_gap,
-            'gap_filled': gap_filled,
-            'sunday_high': sunday_high,
-            'sunday_low': sunday_low
-        })
+        results.append(
+            {
+                "friday_date": str(friday_date.date()),
+                "friday_close": friday_close,
+                "sunday_open": sunday_open,
+                "gap_pips": round(gap_pips, 1),
+                "abs_gap_pips": round(abs_gap_pips, 1),
+                "is_large_gap": is_large_gap,
+                "gap_filled": gap_filled,
+                "sunday_high": sunday_high,
+                "sunday_low": sunday_low,
+            }
+        )
 
     # Calculate statistics
     total_weekends = len(results)
-    large_gaps = [r for r in results if r['is_large_gap']]
+    large_gaps = [r for r in results if r["is_large_gap"]]
     large_gap_count = len(large_gaps)
 
     if large_gap_count > 0:
-        avg_gap_pips = sum(r['abs_gap_pips'] for r in large_gaps) / large_gap_count
+        avg_gap_pips = sum(r["abs_gap_pips"] for r in large_gaps) / large_gap_count
     else:
         avg_gap_pips = 0
 
@@ -97,14 +104,24 @@ def analyze_friday_gaps():
     for r in results:
         # For up gap: price retraces down toward Friday close
         # For down gap: price retraces up toward Friday close
-        if r['gap_pips'] > 0:  # Up gap
+        if r["gap_pips"] > 0:  # Up gap
             # Does the low come down to test Friday close area?
-            retrace_pct = (r['sunday_open'] - r['sunday_low']) / (r['sunday_open'] - r['friday_close']) if r['sunday_open'] != r['friday_close'] else 1
-            if r['sunday_low'] <= r['friday_close'] or retrace_pct >= 0.5:
+            retrace_pct = (
+                (r["sunday_open"] - r["sunday_low"])
+                / (r["sunday_open"] - r["friday_close"])
+                if r["sunday_open"] != r["friday_close"]
+                else 1
+            )
+            if r["sunday_low"] <= r["friday_close"] or retrace_pct >= 0.5:
                 level_test_count += 1
         else:  # Down gap
-            retrace_pct = (r['sunday_high'] - r['sunday_open']) / (r['friday_close'] - r['sunday_open']) if r['friday_close'] != r['sunday_open'] else 1
-            if r['sunday_high'] >= r['friday_close'] or retrace_pct >= 0.5:
+            retrace_pct = (
+                (r["sunday_high"] - r["sunday_open"])
+                / (r["friday_close"] - r["sunday_open"])
+                if r["friday_close"] != r["sunday_open"]
+                else 1
+            )
+            if r["sunday_high"] >= r["friday_close"] or retrace_pct >= 0.5:
                 level_test_count += 1
 
     level_test_pct = level_test_count / total_weekends if total_weekends > 0 else 0
@@ -114,19 +131,23 @@ def analyze_friday_gaps():
     # the gap having a partial fill (50%+ retrace)
     gap_filled_count = 0
     for r in large_gaps:
-        if r['gap_pips'] > 0:  # Up gap - price should come back down
+        if r["gap_pips"] > 0:  # Up gap - price should come back down
             # Gap fills if Sunday low <= Friday close OR retrace is 50%+
-            if r['sunday_low'] <= r['friday_close']:
+            if r["sunday_low"] <= r["friday_close"]:
                 gap_filled_count += 1
             else:
-                retrace = (r['sunday_open'] - r['sunday_low']) * 10000 / r['abs_gap_pips']
+                retrace = (
+                    (r["sunday_open"] - r["sunday_low"]) * 10000 / r["abs_gap_pips"]
+                )
                 if retrace >= 0.5:
                     gap_filled_count += 1
         else:  # Down gap - price should come back up
-            if r['sunday_high'] >= r['friday_close']:
+            if r["sunday_high"] >= r["friday_close"]:
                 gap_filled_count += 1
             else:
-                retrace = (r['sunday_high'] - r['sunday_open']) * 10000 / r['abs_gap_pips']
+                retrace = (
+                    (r["sunday_high"] - r["sunday_open"]) * 10000 / r["abs_gap_pips"]
+                )
                 if retrace >= 0.5:
                     gap_filled_count += 1
 
@@ -143,10 +164,10 @@ def analyze_friday_gaps():
             "gap_frequency_pct": round(gap_frequency_pct, 2),
             "avg_gap_pips": round(avg_gap_pips, 1),
             "gap_filled_within_4hrs_pct": round(gap_filled_pct, 2),
-            "level_test_within_24hrs_pct": round(level_test_pct, 2)
+            "level_test_within_24hrs_pct": round(level_test_pct, 2),
         },
         "pass": gap_filled_pct >= 0.60,  # Pass if 60%+ gaps fill
-        "notes": f"Gaps >20 pips occur {gap_frequency_pct*100:.0f}% of Fridays. {gap_filled_pct*100:.0f}% fill within same-day session."
+        "notes": f"Gaps >20 pips occur {gap_frequency_pct * 100:.0f}% of Fridays. {gap_filled_pct * 100:.0f}% fill within same-day session.",
     }
 
     print("=" * 60)
@@ -154,16 +175,16 @@ def analyze_friday_gaps():
     print("=" * 60)
     print(f"Test Period: {output['test_period']}")
     print(f"Sample Size: {total_weekends} Friday-Sunday pairs")
-    print(f"Large Gaps (>20 pips): {large_gap_count} ({gap_frequency_pct*100:.1f}%)")
+    print(f"Large Gaps (>20 pips): {large_gap_count} ({gap_frequency_pct * 100:.1f}%)")
     print(f"Average Gap Size: {avg_gap_pips:.1f} pips")
-    print(f"Gaps Filled Within Session: {gap_filled_pct*100:.1f}%")
-    print(f"Level Test Within 24hrs: {level_test_pct*100:.1f}%")
+    print(f"Gaps Filled Within Session: {gap_filled_pct * 100:.1f}%")
+    print(f"Level Test Within 24hrs: {level_test_pct * 100:.1f}%")
     print(f"PASS: {output['pass']}")
     print("=" * 60)
 
     # Save results
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, 'w') as f:
+    with open(OUTPUT_PATH, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nResults saved to: {OUTPUT_PATH}")
 
@@ -171,9 +192,12 @@ def analyze_friday_gaps():
     if large_gaps:
         print("\nSample Large Gaps:")
         for r in large_gaps[:5]:
-            print(f"  {r['friday_date']}: {r['gap_pips']} pips, filled={r['gap_filled']}")
+            print(
+                f"  {r['friday_date']}: {r['gap_pips']} pips, filled={r['gap_filled']}"
+            )
 
     return output
+
 
 if __name__ == "__main__":
     analyze_friday_gaps()
