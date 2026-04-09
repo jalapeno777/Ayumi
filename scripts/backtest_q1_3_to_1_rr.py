@@ -206,34 +206,34 @@ def analyze_3_to_1_rr(bars: list[Bar]) -> dict:
             bar = bars[i]
 
             if entry_direction == 1:
-                if bar.high >= tp1:
-                    outcome = "L1"
-                    rr_ratios.append(1.0)
+                if bar.high >= tp3:
+                    outcome = "L3"
+                    rr_ratios.append(3.0)
                     break
                 elif bar.high >= tp2:
                     outcome = "L2"
                     rr_ratios.append(2.0)
                     break
-                elif bar.high >= tp3:
-                    outcome = "L3"
-                    rr_ratios.append(3.0)
+                elif bar.high >= tp1:
+                    outcome = "L1"
+                    rr_ratios.append(1.0)
                     break
                 elif bar.low <= stop:
                     outcome = "SL"
                     rr_ratios.append(0.0)
                     break
             else:
-                if bar.low <= tp1:
-                    outcome = "L1"
-                    rr_ratios.append(1.0)
+                if bar.low <= tp3:
+                    outcome = "L3"
+                    rr_ratios.append(3.0)
                     break
                 elif bar.low <= tp2:
                     outcome = "L2"
                     rr_ratios.append(2.0)
                     break
-                elif bar.low <= tp3:
-                    outcome = "L3"
-                    rr_ratios.append(3.0)
+                elif bar.low <= tp1:
+                    outcome = "L1"
+                    rr_ratios.append(1.0)
                     break
                 elif bar.high >= stop:
                     outcome = "SL"
@@ -259,7 +259,8 @@ def analyze_3_to_1_rr(bars: list[Bar]) -> dict:
     l3_hit_rate = outcomes.get("L3", 0) / total_closed if total_closed > 0 else 0.0
     stop_loss_rate = outcomes.get("SL", 0) / total_closed if total_closed > 0 else 0.0
     rr_3_1_hit_rate = trades_with_3_1_or_better / total_closed if total_closed > 0 else 0.0
-    average_rr = sum(rr_ratios) / len(rr_ratios) if rr_ratios else 0.0
+    closed_rrs = [r for r in rr_ratios if r > 0.0]
+    average_rr = sum(closed_rrs) / len(closed_rrs) if closed_rrs else 0.0
 
     start_date = bars[0].time.strftime("%Y-%m-%d")
     end_date = bars[-1].time.strftime("%Y-%m-%d")
