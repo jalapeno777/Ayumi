@@ -1,0 +1,62 @@
+{
+  "question": "Q3",
+  "test_period": "2023-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "D1",
+  "sample_size": 155,
+  "results": {
+    "wednesday_reversal_rate": 0.47,
+    "avg_reversal_pips": 30.3,
+    "vs_tuesday_rate": 0.44,
+    "vs_thursday_rate": 0.53
+  },
+  "pass": false,
+  "notes": "Wednesday reversal rate: 47%. Tuesday: 44%, Thursday: 53%. Avg Wednesday reversal: 30.3 pips.",
+  "by_day": {
+    "Monday": {
+      "total_days": 157,
+      "reversals": 91,
+      "reversal_rate": 0.58,
+      "avg_reversal_pips": 33.9,
+      "big_reversals_50pips": 16,
+      "big_reversal_rate": 0.1
+    },
+    "Tuesday": {
+      "total_days": 157,
+      "reversals": 69,
+      "reversal_rate": 0.44,
+      "avg_reversal_pips": 34.5,
+      "big_reversals_50pips": 15,
+      "big_reversal_rate": 0.1
+    },
+    "Wednesday": {
+      "total_days": 155,
+      "reversals": 73,
+      "reversal_rate": 0.47,
+      "avg_reversal_pips": 30.3,
+      "big_reversals_50pips": 16,
+      "big_reversal_rate": 0.1
+    },
+    "Thursday": {
+      "total_days": 156,
+      "reversals": 83,
+      "reversal_rate": 0.53,
+      "avg_reversal_pips": 42.9,
+      "big_reversals_50pips": 25,
+      "big_reversal_rate": 0.16
+    },
+    "Friday": {
+      "total_days": 154,
+      "reversals": 80,
+      "reversal_rate": 0.52,
+      "avg_reversal_pips": 35.1,
+      "big_reversals_50pips": 16,
+      "big_reversal_rate": 0.1
+    }
+  },
+  "methodology": {
+    "reversal_definition": "Current day close direction opposite to previous day open-close direction",
+    "data": "EURUSD D1 bars",
+    "big_reversal_threshold_pips": 50
+  }
+}
