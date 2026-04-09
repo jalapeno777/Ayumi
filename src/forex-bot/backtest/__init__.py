@@ -67,7 +67,12 @@ from .statistical_study import (
     StatisticalStudy,
     StatisticalStudyResult,
 )
-from .pattern_detector import MWPattern, MWPatternDetector
+from .pattern_detector import (
+    ConsolidationFilter,
+    ConsolidationMetrics,
+    MWPattern,
+    MWPatternDetector,
+)
 
 try:
     from .parameter_sweep import (
@@ -150,6 +155,8 @@ __all__ = [
     "StatisticalStudyResult",
     "GoNoGoCriteria",
     "CriterionResult",
+    "ConsolidationFilter",
+    "ConsolidationMetrics",
     "MWPattern",
     "MWPatternDetector",
 ]

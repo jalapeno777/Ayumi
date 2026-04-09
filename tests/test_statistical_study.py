@@ -12,7 +12,12 @@ from backtest.statistical_study import (
     StatisticalStudy,
     StatisticalStudyResult,
 )
-from backtest.pattern_detector import MWPattern, MWPatternDetector
+from backtest.pattern_detector import (
+    ConsolidationFilter,
+    ConsolidationMetrics,
+    MWPattern,
+    MWPatternDetector,
+)
 
 
 def _make_bar(
@@ -839,3 +844,227 @@ class TestMWPatternDetector:
         assert len(result) == 2
         assert result[0] is p1
         assert result[1] is p3
+
+
+class TestConsolidationFilter:
+    def _make_consolidation_bars(self, tight_hours: int = 6) -> list[Bar]:
+        bars = []
+        base = 1.1000
+        for i in range(tight_hours):
+            bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1, i, 0),
+                    open=base,
+                    high=base + 0.0005,
+                    low=base - 0.0005,
+                    close=base,
+                    volume=100.0,
+                )
+            )
+        return bars
+
+    def _make_volatile_bars(self, hours: int = 6) -> list[Bar]:
+        bars = []
+        base = 1.1000
+        for i in range(hours):
+            offset = i * 0.002
+            bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1, i, 0),
+                    open=base + offset,
+                    high=base + offset + 0.003,
+                    low=base + offset - 0.003,
+                    close=base + offset + 0.001,
+                    volume=100.0,
+                )
+            )
+        return bars
+
+    def test_tight_consolidation_passes_filter(self):
+        cons_bars = self._make_consolidation_bars(6)
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=60,
+        )
+        metrics = filt.measure(cons_bars, len(cons_bars))
+        assert metrics.passes_filter is True
+        assert metrics.meets_min_duration is True
+        assert metrics.meets_max_range is True
+        assert metrics.duration_hours >= 4.0
+
+    def test_short_consolidation_fails_duration(self):
+        cons_bars = self._make_consolidation_bars(2)
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=60,
+        )
+        metrics = filt.measure(cons_bars, len(cons_bars))
+        assert metrics.meets_min_duration is False
+        assert metrics.passes_filter is False
+
+    def test_wide_consolidation_fails_range(self):
+        vol_bars = self._make_volatile_bars(6)
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=60,
+        )
+        metrics = filt.measure(vol_bars, len(vol_bars))
+        assert metrics.meets_max_range is False
+        assert metrics.passes_filter is False
+
+    def test_disabled_filter_always_passes(self):
+        cons_bars = self._make_consolidation_bars(1)
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=60,
+            enabled=False,
+        )
+        metrics = filt.measure(cons_bars, len(cons_bars))
+        assert metrics.passes_filter is False
+        assert metrics.duration_bars == 0
+
+    def test_empty_bars_returns_empty_metrics(self):
+        filt = ConsolidationFilter()
+        metrics = filt.measure([], 5)
+        assert metrics == ConsolidationMetrics()
+
+    def test_pattern_start_at_zero_returns_empty_metrics(self):
+        cons_bars = self._make_consolidation_bars(6)
+        filt = ConsolidationFilter()
+        metrics = filt.measure(cons_bars, 0)
+        assert metrics == ConsolidationMetrics()
+
+    def test_consolidation_breaks_on_volatility_spike(self):
+        tight_bars = self._make_consolidation_bars(4)
+        spike_bar = Bar(
+            time=datetime(2023, 1, 1, 4, 0),
+            open=1.1000,
+            high=1.1050,
+            low=1.0950,
+            close=1.1000,
+            volume=100.0,
+        )
+        more_tight = self._make_consolidation_bars(3)
+        for b in more_tight:
+            tight_bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1, b.time.hour + 5, 0),
+                    open=b.open,
+                    high=b.high,
+                    low=b.low,
+                    close=b.close,
+                    volume=b.volume,
+                )
+            )
+        tight_bars.insert(4, spike_bar)
+
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=60,
+        )
+        pattern_start = len(tight_bars)
+        metrics = filt.measure(tight_bars, pattern_start)
+        assert metrics.duration_bars <= 3
+
+    def test_15min_bar_period_converts_correctly(self):
+        cons_bars = []
+        base = 1.1000
+        for i in range(16):
+            hour = (i * 15) // 60
+            minute = (i * 15) % 60
+            cons_bars.append(
+                Bar(
+                    time=datetime(2023, 1, 1, hour, minute),
+                    open=base,
+                    high=base + 0.0005,
+                    low=base - 0.0005,
+                    close=base,
+                    volume=100.0,
+                )
+            )
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=20.0,
+            bar_period_minutes=15,
+        )
+        metrics = filt.measure(cons_bars, len(cons_bars))
+        assert metrics.meets_min_duration is True
+        assert metrics.duration_hours == 4.0
+
+    def test_detector_filters_patterns_without_consolidation(self):
+        bars = TestMWPatternDetector._make_clear_w_pattern_bars()
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=5.0,
+            bar_period_minutes=60,
+        )
+        detector_with = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+            consolidation_filter=filt,
+        )
+        detector_without = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+        )
+        patterns_with = detector_with.detect(bars)
+        patterns_without = detector_without.detect(bars)
+        assert len(patterns_with) <= len(patterns_without)
+
+    def test_detector_with_disabled_filter_matches_no_filter(self):
+        bars = TestMWPatternDetector._make_clear_w_pattern_bars()
+        filt = ConsolidationFilter(
+            min_duration_hours=4.0,
+            max_range_pips=5.0,
+            bar_period_minutes=60,
+            enabled=False,
+        )
+        detector_with = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+            consolidation_filter=filt,
+        )
+        detector_without = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+        )
+        assert len(detector_with.detect(bars)) == len(detector_without.detect(bars))
+
+    def test_pattern_consolidation_field_populated(self):
+        bars = TestMWPatternDetector._make_clear_w_pattern_bars()
+        filt = ConsolidationFilter(
+            min_duration_hours=1.0,
+            max_range_pips=100.0,
+            bar_period_minutes=60,
+        )
+        detector = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+            consolidation_filter=filt,
+        )
+        patterns = detector.detect(bars)
+        for p in patterns:
+            assert isinstance(p.consolidation, ConsolidationMetrics)
+            assert p.consolidation.duration_bars >= 0
+            assert p.consolidation.range_pips >= 0
+
+    def test_pattern_consolidation_default_when_no_filter(self):
+        bars = TestMWPatternDetector._make_clear_w_pattern_bars()
+        detector = MWPatternDetector(
+            swing_lookback=2,
+            min_bar_span=5,
+            min_depth_atr=0.1,
+        )
+        patterns = detector.detect(bars)
+        for p in patterns:
+            assert p.consolidation == ConsolidationMetrics()
