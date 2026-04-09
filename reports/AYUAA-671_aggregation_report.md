@@ -12,6 +12,17 @@ Aggregate results from completed parameter sweeps into a ranked candidate list f
 | AYUAA-592 | Optuna Optimization | IN_REVIEW | Not yet available |
 | AYUAA-490 | Supertrend RSI | CANCELLED | Skipped |
 
+## Source Data Files
+
+| Strategy | Source File |
+|----------|-------------|
+| Keltner Channel Breakout | `reports/parameter_sweeps/combined_keltner_sweep.json` |
+| Keltner Walk-Forward | `reports/walk_forward/keltner_sweep_walkforward_results.json` |
+| Momentum Breakout | `reports/parameter_sweeps/combined_momentum_sweep.json` |
+| Momentum Walk-Forward | `reports/walk_forward/momentum_sweep_walkforward_results.json` (NOT YET RUN) |
+| Volatility Squeeze | `reports/parameter_sweeps/combined_volatility_squeeze_sweep.json` |
+| Volatility Squeeze Walk-Forward | `reports/walk_forward/volatility_squeeze_sweep_walkforward_results.json` |
+
 ---
 
 ## Ranked Candidates for Walk-Forward Validation
@@ -47,32 +58,34 @@ Aggregate results from completed parameter sweeps into a ranked candidate list f
 | 3 | 60.0% | 1.68 | 1.09% | +3.74 | YES |
 | 4 | 50.0% | 1.14 | 1.08% | +0.71 | NO |
 
-**Recommended Walk-Forward Window Config:** 5-window, 20% train/80% test split
+**Recommended Walk-Forward Window Config:** 5-window, 70% train / 30% test split (train_ratio=0.7)
 
 ---
 
-### 2. Momentum Breakout — EURUSD (NO-GO)
+### 2. Momentum Breakout — EURUSD (PENDING WALK-FORWARD)
 
-**Note:** Walk-forward validation failed. Both GBPJPY and EURUSD returned NO-GO verdicts with very low win rates (10-20%) and poor profit factors (<0.2).
+**Note:** In-sample results show promise, but walk-forward validation has not been completed. The reported walk-forward NO-GO verdict is unverifiable without the results file.
 
-**Top In-Sample Parameters (Not Recommended for WF):**
+**Top In-Sample Parameters:**
 | Parameter | Value |
 |-----------|-------|
-| adx_threshold | 20.0 |
+| adx_threshold | 30.0 |
 | atr_multiplier | 2.0 |
 | fast_period | 5 |
-| slow_period | 18 |
+| slow_period | 50 |
 
 **In-Sample Metrics:**
-| Metric | Value |
-|--------|-------|
-| Win Rate | 51.6% |
-| Profit Factor | 0.97 |
-| Max Drawdown | 5.39% |
-| Sharpe Ratio | +0.55 |
-| Trade Count | 62 |
+| Metric | Value | Source |
+|--------|-------|--------|
+| Win Rate | 76.9% | combined_momentum_sweep.json (EURUSD, adx=30, atr_mult=2.0, fast=5, slow=50) |
+| Profit Factor | 3.95 | combined_momentum_sweep.json |
+| Max Drawdown | 1.07% | combined_momentum_sweep.json |
+| Sharpe Ratio | +0.68 | combined_momentum_sweep.json |
+| Trade Count | 13 | combined_momentum_sweep.json |
 
-**Recommendation:** Do not proceed to walk-forward validation until strategy logic is reviewed.
+**Walk-Forward Status:** `reports/walk_forward/momentum_sweep_walkforward_results.json` does not exist. Walk-forward must be completed before GO/NO-GO determination.
+
+**Recommendation:** Run momentum walk-forward before final evaluation.
 
 ---
 
@@ -89,7 +102,7 @@ Aggregate results from completed parameter sweeps into a ranked candidate list f
 | Rank | Strategy | Pair | WF Verdict | Recommendation |
 |------|----------|------|------------|----------------|
 | 1 | Keltner Channel Breakout | EURUSD | GO (2/5 windows) | Proceed to WF validation |
-| 2 | Momentum Breakout | EURUSD | NO-GO | Review strategy logic first |
+| 2 | Momentum Breakout | EURUSD | PENDING | Walk-forward not yet run |
 | 3 | Volatility Squeeze | GBPJPY/EURUSD | NO-GO | Do not proceed |
 
 **AYUAA-592 (Optuna Optimization):** Results pending. Will update this report when available.
@@ -100,6 +113,22 @@ Aggregate results from completed parameter sweeps into a ranked candidate list f
 - [x] Ranked table compiled
 - [ ] Top candidates sent for walk-forward validation
 - [ ] AYUAA-592 Optuna results to be added when available
+- [ ] Momentum walk-forward must be run before final ranking
 
 **Report Generated:** 2026-04-08
-**Next Step:** Move top candidate (Keltner/EURUSD) to walk-forward validation phase
+**Last Updated:** 2026-04-09
+**Next Steps:**
+1. Run momentum walk-forward (`scripts/run_momentum_sweep_walkforward.py`) and update report
+2. Await AYUAA-592 Optuna results
+3. Finalize ranked candidate list for walk-forward validation
+
+---
+
+## Revision Notes (2026-04-09)
+
+This report has been revised to address engineering review feedback:
+1. **Train/test split corrected:** 70% train / 30% test (was incorrectly stated as 20%/80%)
+2. **Momentum metrics verified:** Corrected top in-sample parameters and metrics from `combined_momentum_sweep.json`
+3. **Momentum walk-forward status:** Flagged as PENDING - no walk-forward results file exists
+4. **Source data files added:** Table of source files added for auditability
+5. **Q7 files note:** AYUAA-648 Q7 backtest files belong on `junior-dev-1/AYUAA-648-q7-multi-session-mw` branch
