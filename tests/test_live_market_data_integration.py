@@ -4,7 +4,11 @@ from adapters.ctrader.models import (
     TradeDirection,
     TradeSignal,
 )
-from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig, SlippageModel
+from adapters.ctrader.order_manager import (
+    OrderManager,
+    PositionSizeConfig,
+    SlippageModel,
+)
 from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig
 
@@ -62,7 +66,9 @@ class TestSlippageModel:
     def test_zero_spread_no_effect(self):
         model = SlippageModel(base_pips=0.1, random_pips=0.0, pip_value=0.0001)
         fill_no_spread = model.apply(1.26000, TradeDirection.LONG)
-        fill_zero_spread = model.apply_with_spread(1.26000, TradeDirection.LONG, spread=0.0)
+        fill_zero_spread = model.apply_with_spread(
+            1.26000, TradeDirection.LONG, spread=0.0
+        )
         assert fill_no_spread == fill_zero_spread
 
 

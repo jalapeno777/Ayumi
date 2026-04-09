@@ -143,7 +143,6 @@ class cTraderLiveAdapter:
                 key = f"{strategy_name}_{symbol}"
                 adapter = self._adapters.get(key)
                 if adapter:
-                    adapter.update_spread(spread)
                     result = adapter.evaluate_and_trade(state, spread=spread)
                     if result:
                         results.append(result)
