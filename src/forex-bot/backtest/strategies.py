@@ -3,6 +3,58 @@ from datetime import datetime
 
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 
+DEFAULT_LOD_HOD_STOP_BUFFER_PIPS = 8.0
+
+
+def _pip_value_for(price: float) -> float:
+    if price >= 50:
+        return 0.01
+    elif price >= 1:
+        return 0.0001
+    else:
+        return 0.00000001
+
+
+def _get_daily_high_low(bars: list[Bar]) -> tuple[float, float]:
+    if not bars:
+        return (0.0, 0.0)
+    current_day = bars[-1].time.date()
+    day_bars = [b for b in bars if b.time.date() == current_day]
+    if not day_bars:
+        return (0.0, 0.0)
+    day_high = max(b.high for b in day_bars)
+    day_low = min(b.low for b in day_bars)
+    return (day_high, day_low)
+
+
+def apply_lod_hod_stop_buffer(
+    stop_loss: float,
+    direction: TradeDirection,
+    bars: list[Bar],
+    buffer_pips: float = DEFAULT_LOD_HOD_STOP_BUFFER_PIPS,
+) -> float:
+    if not bars or buffer_pips <= 0:
+        return stop_loss
+
+    price = bars[-1].close
+    pip = _pip_value_for(price)
+    buffer_price = buffer_pips * pip
+    day_high, day_low = _get_daily_high_low(bars)
+
+    if day_high == 0.0 and day_low == 0.0:
+        return stop_loss
+
+    if direction == TradeDirection.LONG:
+        lod_floor = day_low - buffer_price
+        if stop_loss > lod_floor:
+            return lod_floor
+    elif direction == TradeDirection.SHORT:
+        hod_ceiling = day_high + buffer_price
+        if stop_loss < hod_ceiling:
+            return hod_ceiling
+
+    return stop_loss
+
 
 class ISignalStrategy:
     @property
@@ -522,6 +574,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         rsi_period: Period for RSI filter. None disables the filter (default None).
         rsi_overbought: RSI level above which longs are blocked (default 70.0).
         rsi_oversold: RSI level below which shorts are blocked (default 30.0).
+        lod_hod_stop_buffer_pips: Minimum pip buffer beyond daily high/low for stops (default 8.0).
     """
 
     def __init__(
@@ -534,6 +587,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         rsi_period: int | None = None,
         rsi_overbought: float = 70.0,
         rsi_oversold: float = 30.0,
+        lod_hod_stop_buffer_pips: float = DEFAULT_LOD_HOD_STOP_BUFFER_PIPS,
     ):
         self.fast_period = fast_period
         self.slow_period = slow_period
@@ -543,6 +597,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         self.rsi_period = rsi_period
         self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
+        self.lod_hod_stop_buffer_pips = lod_hod_stop_buffer_pips
 
     @property
     def name(self) -> str:
@@ -596,6 +651,9 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             entry - atr * self.atr_multiplier
             if direction == TradeDirection.LONG
             else entry + atr * self.atr_multiplier
+        )
+        sl = apply_lod_hod_stop_buffer(
+            sl, direction, state.bars, self.lod_hod_stop_buffer_pips
         )
         risk = abs(entry - sl)
         tp1 = (
@@ -1496,6 +1554,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         sl_max_pips: float = 40.0,
         tp1_atr_multiplier: float = 2.0,
         tp2_atr_multiplier: float = 3.0,
+        lod_hod_stop_buffer_pips: float = DEFAULT_LOD_HOD_STOP_BUFFER_PIPS,
     ):
         self.ema_period = ema_period
         self.atr_period = atr_period
@@ -1509,6 +1568,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         self.sl_max_pips = sl_max_pips
         self.tp1_atr_multiplier = tp1_atr_multiplier
         self.tp2_atr_multiplier = tp2_atr_multiplier
+        self.lod_hod_stop_buffer_pips = lod_hod_stop_buffer_pips
 
     @property
     def name(self) -> str:
@@ -1587,6 +1647,10 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             sl = entry + sl_distance
             tp1 = entry - self.tp1_atr_multiplier * atr
             tp2 = entry - self.tp2_atr_multiplier * atr
+
+        sl = apply_lod_hod_stop_buffer(
+            sl, direction, state.bars, self.lod_hod_stop_buffer_pips
+        )
 
         risk = abs(entry - sl)
         if direction == TradeDirection.LONG:
