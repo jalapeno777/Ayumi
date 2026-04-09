@@ -1,17 +1,17 @@
 {
   "question": "Q3",
-  "test_period": "2024-01-01 to 2025-12-31",
+  "test_period": "2025-10-01 to 2025-12-31",
   "instrument": "EURUSD",
   "timeframe": "D1",
-  "sample_size": 105,
+  "sample_size": 13,
   "results": {
-    "wednesday_reversal_rate": 0.22,
-    "avg_reversal_pips": 82.2,
-    "vs_tuesday_rate": 0.25,
-    "vs_thursday_rate": 0.23,
-    "gbpUSD_reversal_rate": 0.35,
-    "usdJPY_reversal_rate": 0.57
+    "wednesday_reversal_rate": 0.1538,
+    "avg_reversal_pips": 63.8,
+    "vs_tuesday_rate": 0.1538,
+    "vs_thursday_rate": 0.2308,
+    "gbpUSD_reversal_rate": 0.3846,
+    "usdJPY_reversal_rate": 0.3846
   },
   "pass": false,
-  "notes": "Wednesday shows only 22% reversal rate in EURUSD (below 50% threshold). USDJPY shows 57% but EURUSD (primary) fails. Wed reversals not consistently stronger than Tue/Thu."
+  "notes": "wednesday_reversal_rate: 0.1538 >= 0.5 -> FAIL"
 }
