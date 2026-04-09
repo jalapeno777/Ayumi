@@ -1,0 +1,23 @@
+{
+  "question": "Q6",
+  "test_period": "2023-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 114,
+  "results": {
+    "correlation_coefficient": -0.47,
+    "dxy_leads_pct": 0.51,
+    "avg_delay_candles": 1.4,
+    "dxy_first_break_confirms": false,
+    "usdjpy_proxy_note": "USDJPY used as DXY proxy (direct USD strength measure). Avoids circularity of inverting EURUSD."
+  },
+  "pass": false,
+  "notes": "Using USDJPY as DXY proxy. DXY leads EURUSD on 51% of breakouts. Correlation: -0.47. Avg delay: 1.4 candles. Best leading lag from cross-correlation: 0 candles (corr=0.47). Total breakouts analyzed: 114.",
+  "methodology": {
+    "dxy_proxy": "USDJPY (direct USD strength measure)",
+    "breakout_detection": "ATR-based (lookback=20, multiplier=1.5)",
+    "response_window": 8,
+    "min_breakout_separation": 8,
+    "data_alignment": "Timestamp-matched EURUSD + USDJPY H1 bars"
+  }
+}
