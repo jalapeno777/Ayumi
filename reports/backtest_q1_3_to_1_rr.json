@@ -5,13 +5,13 @@
   "timeframe": "H1",
   "sample_size": 179,
   "results": {
-    "rr_3_1_hit_rate": 0.0,
-    "average_rr": 0.61,
-    "l1_hit_rate": 0.62,
-    "l2_hit_rate": 0.0,
-    "l3_hit_rate": 0.0,
+    "rr_3_1_hit_rate": 0.03,
+    "average_rr": 1.14,
+    "l1_hit_rate": 0.56,
+    "l2_hit_rate": 0.02,
+    "l3_hit_rate": 0.03,
     "stop_loss_rate": 0.38
   },
   "pass": false,
-  "notes": "0% of trades hit 3:1 or better. Average R:R was 0.61. Sample size: 179 M/W formations. Pass criteria: \u226560% at 3:1."
+  "notes": "3% of trades hit 3:1 or better. Average R:R was 1.14. Sample size: 179 M/W formations. Pass criteria: \u226560% at 3:1."
 }
