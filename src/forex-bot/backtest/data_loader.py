@@ -1,6 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from .engine import Bar, BarPeriod
+
+_EASTERN = ZoneInfo("America/New_York")
+_UTC = timezone.utc
+
+
+def _parse_csv_timestamp(ts_str: str) -> datetime:
+    dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M")
+    dt = dt.replace(tzinfo=_EASTERN)
+    return dt.astimezone(_UTC)
 
 
 class CsvDataLoader:
@@ -18,7 +28,7 @@ class CsvDataLoader:
                 continue
 
             try:
-                dt = self._parse_datetime(parts[0])
+                dt = _parse_csv_timestamp(parts[0])
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
@@ -52,7 +62,7 @@ class CsvDataLoader:
                 continue
 
             try:
-                dt = self._parse_datetime(parts[0])
+                dt = _parse_csv_timestamp(parts[0])
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
