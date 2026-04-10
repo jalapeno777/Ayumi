@@ -64,6 +64,8 @@ class ForwardTestConfig:
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     health_monitor_interval_sec: float = 5.0
+    clear_stuck_positions_on_start: bool = False
+    reset_on_start: bool = False
 
 
 @dataclass
@@ -119,6 +121,7 @@ class ForwardTestEngine:
         self._last_reconnect_attempt_at: float = 0.0
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
+        self._current_spread: float = 0.0
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -157,6 +160,14 @@ class ForwardTestEngine:
 
         self._build_components()
         self._wire_callbacks()
+
+        if self._config.clear_stuck_positions_on_start and self._paper_trader:
+            cleared = self._paper_trader.clear_stuck_positions()
+            logger.info("Cleared %d stuck position(s) on start", cleared)
+
+        if self._config.reset_on_start and self._paper_trader:
+            self._paper_trader.reset()
+            logger.info("Paper trader reset on start")
 
         if not self._start_market_feed():
             logger.error("Failed to start market data feed")
@@ -431,6 +442,7 @@ class ForwardTestEngine:
             current_bar = self._current_bar.get(symbol_name)
             total_bars = bar_count + (1 if current_bar else 0)
             self._update_paper_trader_prices(tick, symbol_name)
+            self._current_spread = tick.spread
 
         if total_bars < self._config.min_bars_for_evaluation:
             return
@@ -485,7 +497,9 @@ class ForwardTestEngine:
 
             state = MarketState(bars=bars)
 
-            signals = self._live_adapter.evaluate_all_strategies({symbol: state})
+            signals = self._live_adapter.evaluate_all_strategies(
+                {symbol: state}, spread=self._current_spread
+            )
 
             with self._lock:
                 self._health.signals_generated += len(signals)
@@ -639,6 +653,7 @@ class ForwardTestEngine:
                 "ticks_received": health.ticks_received,
                 "ticks_per_second": round(health.ticks_per_second, 2),
                 "uptime_sec": round(health.uptime_sec, 1),
+                "current_spread": round(self._current_spread, 5),
             },
             "trading": {
                 "current_balance": stats.current_balance if stats else 0,
