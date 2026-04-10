@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,7 +50,7 @@ DEFAULT_CONFIG = {
     "val_ratio": 0.15,
     "overlap_ratio": 0.20,
     "initial_balance": 10000.0,
-    "spread_pips": 0.0,
+    "spread_pips": 1.0,
     "commission_per_lot": 0.0,
 }
 
@@ -70,7 +71,7 @@ def volatility_squeeze_search_space() -> SearchSpace:
         tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
         tp3_rr=float_range("tp3_rr", 2.0, 4.0, step=0.1),
         session_filter=categorical("session_filter", [True, False]),
-        min_confidence=float_range("min_confidence", 0.25, 0.55, step=0.05),
+        min_confidence=float_range("min_confidence", 0.45, 0.80, step=0.05),
         squeeze_release_mode=categorical(
             "squeeze_release_mode", ["strict", "moderate", "loose"]
         ),
@@ -144,6 +145,20 @@ def get_top_n_results(
     for i, r in enumerate(results[:n]):
         r["rank"] = i + 1
     return results[:n]
+
+
+def _sanitize_float(value):
+    if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
+        return None
+    return value
+
+
+def _sanitize_report(obj):
+    if isinstance(obj, dict):
+        return {k: _sanitize_report(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_report(v) for v in obj]
+    return _sanitize_float(obj)
 
 
 def main() -> None:
@@ -286,8 +301,9 @@ def main() -> None:
         }
 
     report_path = REPORT_DIR / f"{pair}_volatility_squeeze_optuna.json"
+    sanitized = _sanitize_report(report)
     with open(report_path, "w") as f:
-        json.dump(report, f, indent=2, default=str)
+        json.dump(sanitized, f, indent=2, allow_nan=False)
     print(f"\n  Report saved: {report_path}")
 
 
