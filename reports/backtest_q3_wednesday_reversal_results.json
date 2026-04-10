@@ -7,11 +7,11 @@
   "results": {
     "wednesday_reversal_rate": 0.1019,
     "avg_reversal_pips": 71.9,
-    "vs_tuesday_rate": 0.0955,
+    "vs_tuesday_rate": 0.0,
     "vs_thursday_rate": 0.1603,
     "gbpusd_wed_rate": 0.1783,
     "usdjpy_wed_rate": 0.2611
   },
   "pass": false,
-  "notes": "Wednesday reversal rate in EURUSD: 10.2% (16/157). Tue: 9.6%, Thu: 16.0%. GBPUSD: 17.8%, USDJPY: 26.1%."
+  "notes": "Direction-corrected reversal rate in EURUSD: 10.2% (16/157). Tue: 0.0%, Thu: 16.0%. GBPUSD: 17.8%, USDJPY: 26.1%."
 }

@@ -53,31 +53,32 @@ class WednesdayReversalStudy(StatisticalStudy):
     def _to_pips(self, price_diff: float, ref_price: float) -> float:
         return price_diff / self._pip_value(ref_price)
 
-    @staticmethod
-    def _count_consecutive_days(bars: list[Bar]) -> int:
-        if not bars:
-            return 0
-        count = 1
-        for i in range(1, len(bars)):
-            gap_days = (bars[i].time - bars[i - 1].time).days
-            if gap_days <= 3:
-                count += 1
-            else:
-                break
-        return count
+    def _is_direction_reversal(
+        self,
+        prev_prev: Bar,
+        prev: Bar,
+        curr: Bar,
+    ) -> bool:
+        prev_direction = prev.close - prev_prev.close
+        curr_direction = curr.close - prev.close
+        if prev_direction == 0.0:
+            return False
+        return prev_direction * curr_direction < 0
 
     def _compute_day_stats(
         self,
         bars: list[Bar],
         target_weekday: int,
         prev_weekday: int,
+        prev_prev_weekday: int,
     ) -> DayReversalStats:
         total = 0
         reversal_pips_list: list[float] = []
 
-        for i in range(1, len(bars)):
+        for i in range(2, len(bars)):
             curr = bars[i]
             prev = bars[i - 1]
+            prev_prev = bars[i - 2]
 
             gap_days = (curr.time - prev.time).days
             if gap_days > 3:
@@ -87,8 +88,14 @@ class WednesdayReversalStudy(StatisticalStudy):
                 continue
             if prev.time.weekday() != prev_weekday:
                 continue
+            if prev_prev.time.weekday() != prev_prev_weekday:
+                continue
 
             total += 1
+
+            if not self._is_direction_reversal(prev_prev, prev, curr):
+                continue
+
             close_diff = abs(curr.close - prev.close)
             pips = self._to_pips(close_diff, prev.close)
 
@@ -112,9 +119,15 @@ class WednesdayReversalStudy(StatisticalStudy):
         )
 
     def analyze(self, bars: list[Bar]) -> dict[str, Any]:
-        wed = self._compute_day_stats(bars, target_weekday=2, prev_weekday=1)
-        tue = self._compute_day_stats(bars, target_weekday=1, prev_weekday=0)
-        thu = self._compute_day_stats(bars, target_weekday=3, prev_weekday=2)
+        wed = self._compute_day_stats(
+            bars, target_weekday=2, prev_weekday=1, prev_prev_weekday=0
+        )
+        tue = self._compute_day_stats(
+            bars, target_weekday=1, prev_weekday=0, prev_prev_weekday=4
+        )
+        thu = self._compute_day_stats(
+            bars, target_weekday=3, prev_weekday=2, prev_prev_weekday=1
+        )
 
         return {
             "sample_size": wed.total,
@@ -135,9 +148,12 @@ class WednesdayReversalStudy(StatisticalStudy):
     ) -> list[StatisticalStudyResult]:
         results = []
         for instrument, bars in instruments.items():
-            self.instrument = instrument
-            filtered = self.filter_by_date_range(bars, start, end)
-            result = self.run(filtered)
+            study = WednesdayReversalStudy(
+                instrument=instrument,
+                min_reversal_pips=self.min_reversal_pips,
+            )
+            filtered = study.filter_by_date_range(bars, start, end)
+            result = study.run(filtered)
             results.append(result)
         return results
 
