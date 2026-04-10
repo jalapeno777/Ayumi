@@ -120,9 +120,14 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ --tb=line -o console_output_style=count > /tmp/pytest.log 2>&1
+          python --version
+          which pytest || echo "pytest not found"
+          python -c "import pytest; print('pytest:', pytest.__version__)"
+          ls tests/ | head -5
+          pytest tests/ -q --tb=line > /tmp/pytest.log 2>&1
           PYTEST_EXIT=$?
-          tail -30 /tmp/pytest.log
+          echo "Exit code: $PYTEST_EXIT"
+          cat /tmp/pytest.log | tail -30
           exit $PYTEST_EXIT
 
   label-result:
