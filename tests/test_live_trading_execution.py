@@ -20,9 +20,9 @@ class TestSessionRangeMRConfig:
         assert config.atr_period == 14
         assert config.atr_sl_multiplier == 1.5
         assert config.rsi_period == 14
-        assert config.rsi_long_level == 30.0
-        assert config.rsi_short_level == 70.0
-        assert config.session_range_min_pips == 25.0
+        assert config.rsi_long_level == 35.0
+        assert config.rsi_short_level == 65.0
+        assert config.session_range_min_pips == 15.0
 
     def test_ftmo_optimized_config(self):
         config = SessionRangeMRConfig(
