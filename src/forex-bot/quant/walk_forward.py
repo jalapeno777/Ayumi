@@ -146,7 +146,12 @@ def _compute_metrics(
     total_loss = abs(sum(losses))
 
     win_rate = len(wins) / len(pnls)
-    profit_factor = total_win / total_loss if total_loss > 0 else float("inf")
+    if total_loss > 0:
+        profit_factor = total_win / total_loss
+    elif total_win > 0:
+        profit_factor = 10.0
+    else:
+        profit_factor = 0.0
     total_pnl = sum(pnls)
     trade_count = len(pnls)
 
@@ -280,7 +285,7 @@ def run_strategy(
 
     windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
     total = len(per_window)
-    go_nogo = total >= 3 and windows_passed >= 2
+    go_nogo = total >= 3 and windows_passed >= 3
 
     return WalkForwardResults(
         per_window=per_window,
