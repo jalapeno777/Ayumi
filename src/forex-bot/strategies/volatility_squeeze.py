@@ -50,17 +50,17 @@ class VolatilitySqueezeConfig:
     kc_period: int = 20
     kc_atr_multiplier: float = 2.0
     squeeze_threshold: float = 0.0
-    min_squeeze_bars: int = 3
+    min_squeeze_bars: int = 1
     ema_period: int = 20
     adx_period: int = 14
-    adx_min: float = 20.0
+    adx_min: float = 15.0
     atr_period: int = 14
     atr_sl_multiplier: float = 1.5
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
-    session_filter: bool = True
-    min_confidence: float = 0.55
+    session_filter: bool = False
+    min_confidence: float = 0.50
     squeeze_release_mode: str = "moderate"
 
 
@@ -70,16 +70,16 @@ GBPJPY_H1_PRESET = VolatilitySqueezeConfig(
     kc_period=20,
     kc_atr_multiplier=2.0,
     squeeze_threshold=0.0,
-    min_squeeze_bars=3,
+    min_squeeze_bars=1,
     ema_period=20,
     adx_period=14,
-    adx_min=20,
+    adx_min=15,
     atr_period=14,
     atr_sl_multiplier=1.5,
     tp1_rr=1.0,
     tp2_rr=2.0,
     tp3_rr=3.0,
-    session_filter=True,
+    session_filter=False,
     squeeze_release_mode="moderate",
 )
 
@@ -89,16 +89,16 @@ EURUSD_H1_PRESET = VolatilitySqueezeConfig(
     kc_period=20,
     kc_atr_multiplier=2.0,
     squeeze_threshold=0.0,
-    min_squeeze_bars=2,
+    min_squeeze_bars=1,
     ema_period=20,
     adx_period=14,
-    adx_min=18,
+    adx_min=15,
     atr_period=14,
     atr_sl_multiplier=1.5,
     tp1_rr=1.0,
     tp2_rr=2.0,
     tp3_rr=3.0,
-    session_filter=True,
+    session_filter=False,
     squeeze_release_mode="moderate",
 )
 
@@ -126,16 +126,16 @@ USDJPY_H1_PRESET = VolatilitySqueezeConfig(
     kc_period=20,
     kc_atr_multiplier=1.5,
     squeeze_threshold=0.0,
-    min_squeeze_bars=3,
+    min_squeeze_bars=1,
     ema_period=50,
     adx_period=14,
-    adx_min=22,
+    adx_min=15,
     atr_period=14,
     atr_sl_multiplier=1.5,
     tp1_rr=1.0,
     tp2_rr=2.0,
     tp3_rr=3.0,
-    session_filter=True,
+    session_filter=False,
 )
 
 

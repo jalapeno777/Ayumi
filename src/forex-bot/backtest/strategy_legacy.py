@@ -1189,11 +1189,11 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         supertrend_multiplier: float = 2.5,
         rsi_period: int = 14,
         rsi_threshold: float = 50.0,
-        atr_min_pips: float = 3.0,
+        atr_min_pips: float = 1.0,
         atr_period: int = 14,
         adx_period: int = 14,
-        adx_min: float = 18.0,
-        atr_min_chop: float = 2.0,
+        adx_min: float = 12.0,
+        atr_min_chop: float = 0.0,
         sl_atr_multiplier: float = 1.5,
         hard_cap_pips: float = 40.0,
         tp1_atr: float = 1.5,
@@ -1622,11 +1622,8 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             if vol_ma <= 0 or volume < vol_ma:
                 return None
 
-        ema_rising = middle > prev_middle
-        ema_falling = middle < prev_middle
-
-        long_breakout = prev_close <= prev_upper and close > upper and ema_rising
-        short_breakout = prev_close >= prev_lower and close < lower and ema_falling
+        long_breakout = prev_close <= prev_upper and close > upper
+        short_breakout = prev_close >= prev_lower and close < lower
 
         if not long_breakout and not short_breakout:
             return None

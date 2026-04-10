@@ -64,9 +64,9 @@ def _make_h4_bars(n=50):
 class TestHybridConfig(unittest.TestCase):
     def test_defaults(self):
         config = HybridConfig()
-        self.assertEqual(config.min_confidence, 0.5)
-        self.assertEqual(config.volatility_threshold_percentile, 30.0)
-        self.assertEqual(config.trend_threshold_adx, 20.0)
+        self.assertEqual(config.min_confidence, 0.4)
+        self.assertEqual(config.volatility_threshold_percentile, 20.0)
+        self.assertEqual(config.trend_threshold_adx, 15.0)
         self.assertEqual(len(config.enabled_filters), 3)
 
     def test_custom_filters(self):

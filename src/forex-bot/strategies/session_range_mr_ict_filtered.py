@@ -19,7 +19,7 @@ from strategies.session_range_mean_reversion import (
 
 @dataclass(frozen=True)
 class ICTFilterConfig:
-    min_confluence_confidence: float = 0.40
+    min_confluence_confidence: float = 0.25
     require_structure_alignment: bool = False
     require_order_block: bool = False
     require_fvg: bool = False
@@ -38,7 +38,7 @@ class SessionRangeMRWithICTFilter:
     ):
         self._mr = SessionRangeMeanReversionStrategy(config=mr_config)
         self._ict_config = ict_config or ICTFilterConfig()
-        self._ict_engine = ict_engine or SignalConfluenceEngine(min_confidence=0.30)
+        self._ict_engine = ict_engine or SignalConfluenceEngine(min_confidence=0.15)
         self._h4_module = H4ContextModule()
         self._total_evaluated = 0
         self._passed_ict_filter = 0
@@ -126,7 +126,7 @@ class SessionRangeMRWithICTFilter:
 
         combined_confidence = min(
             0.95,
-            0.4 * mr_signal.confidence + 0.6 * ict_signal.confidence_score,
+            0.6 * mr_signal.confidence + 0.4 * ict_signal.confidence_score,
         )
 
         rationale = (

@@ -18,9 +18,9 @@ class QuantFilterName(Enum):
 
 @dataclass
 class HybridConfig:
-    min_confidence: float = 0.5
-    volatility_threshold_percentile: float = 30.0
-    trend_threshold_adx: float = 20.0
+    min_confidence: float = 0.4
+    volatility_threshold_percentile: float = 20.0
+    trend_threshold_adx: float = 15.0
     enabled_filters: tuple[QuantFilterName, ...] = (
         QuantFilterName.VOLATILITY,
         QuantFilterName.TREND,

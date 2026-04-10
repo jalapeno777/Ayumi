@@ -21,10 +21,10 @@ class SessionRangeMRConfig:
     atr_sl_multiplier: float = 1.5
     atr_tp_multiplier: float = 2.0
     rsi_period: int = 14
-    rsi_long_level: float = 30.0
-    rsi_short_level: float = 70.0
-    session_range_min_pips: float = 25.0
-    entry_near_extreme_pips: float = 15.0
+    rsi_long_level: float = 35.0
+    rsi_short_level: float = 65.0
+    session_range_min_pips: float = 15.0
+    entry_near_extreme_pips: float = 20.0
     hard_cap_sl_pips: float = 30.0
     tp1_rr: float = 1.0
     tp2_rr: float = 1.5
@@ -318,7 +318,7 @@ class SessionRangeMeanReversionStrategy:
 @dataclass(frozen=True)
 class SessionRangeMRWithRegimeFilterConfig:
     adx_period: int = 14
-    adx_skip_threshold: float = 30.0
+    adx_skip_threshold: float = 45.0
     adx_transition_low: float = 20.0
     transition_min_confidence: float = 0.65
     base_min_confidence: float = 0.50

@@ -138,7 +138,7 @@ class TestSessionRangeMeanReversionStrategy(unittest.TestCase):
         config = SessionRangeMRConfig()
         self.assertTrue(config.use_session_range_sl)
         self.assertEqual(config.session_range_sl_fraction, 0.6)
-        self.assertEqual(config.session_range_min_pips, 25.0)
+        self.assertEqual(config.session_range_min_pips, 15.0)
 
     def test_no_z_score_threshold_in_config(self):
         config = SessionRangeMRConfig()
