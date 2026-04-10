@@ -113,7 +113,11 @@ def main() -> None:
     if data_file is None:
         pair_upper = args.pair.upper().replace("/", "")
         data_file = str(
-            Path(project_root) / "data" / "forex" / "historical" / f"{pair_upper}_H1.csv"
+            Path(project_root)
+            / "data"
+            / "forex"
+            / "historical"
+            / f"{pair_upper}_H1.csv"
         )
 
     if not Path(data_file).exists():
@@ -150,11 +154,21 @@ def main() -> None:
         a = results.aggregated
         print("\n  Aggregate Metrics:")
         print(f"    Win Rate:       {a.mean_win_rate:.2%} (std {a.std_win_rate:.2%})")
-        print(f"    Profit Factor:  {a.mean_profit_factor:.2f} (std {a.std_profit_factor:.2f})")
-        print(f"    Max Drawdown:   {a.mean_max_drawdown:.2%} (std {a.std_max_drawdown:.2%})")
-        print(f"    Sharpe Ratio:   {a.mean_sharpe_ratio:.2f} (std {a.std_sharpe_ratio:.2f})")
-        print(f"    Trade Count:    {a.mean_trade_count:.0f} (std {a.std_trade_count:.0f})")
-        print(f"    Total PnL:      ${a.mean_total_pnl:.2f} (std ${a.std_total_pnl:.2f})")
+        print(
+            f"    Profit Factor:  {a.mean_profit_factor:.2f} (std {a.std_profit_factor:.2f})"
+        )
+        print(
+            f"    Max Drawdown:   {a.mean_max_drawdown:.2%} (std {a.std_max_drawdown:.2%})"
+        )
+        print(
+            f"    Sharpe Ratio:   {a.mean_sharpe_ratio:.2f} (std {a.std_sharpe_ratio:.2f})"
+        )
+        print(
+            f"    Trade Count:    {a.mean_trade_count:.0f} (std {a.std_trade_count:.0f})"
+        )
+        print(
+            f"    Total PnL:      ${a.mean_total_pnl:.2f} (std ${a.std_total_pnl:.2f})"
+        )
         print(f"    Windows Passed: {a.windows_passed}/{a.total_windows}")
 
     print("\n  Per-Window Details:")

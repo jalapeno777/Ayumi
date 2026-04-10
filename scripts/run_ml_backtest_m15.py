@@ -57,7 +57,9 @@ def compute_sharpe(returns: np.ndarray, risk_free_rate: float = 0.0) -> float:
     return float(np.mean(excess) / np.std(excess) * np.sqrt(252))
 
 
-def build_equity_curve(trades: pd.DataFrame, starting_balance: float = 10000.0) -> np.ndarray:
+def build_equity_curve(
+    trades: pd.DataFrame, starting_balance: float = 10000.0
+) -> np.ndarray:
     equity = [starting_balance]
     for _, trade in trades.iterrows():
         equity.append(equity[-1] + trade["pnl"])
@@ -136,31 +138,38 @@ def run_full_backtest():
         filtered_wr = fold.get("filtered_win_rate", 0)
         filtered_pf = fold.get("filtered_profit_factor", 0)
 
-        passes = opt_wr >= ACCEPTANCE["min_win_rate"] and opt_pf >= ACCEPTANCE["min_profit_factor"]
+        passes = (
+            opt_wr >= ACCEPTANCE["min_win_rate"]
+            and opt_pf >= ACCEPTANCE["min_profit_factor"]
+        )
         if passes:
             passing_windows += 1
 
-        window_results.append({
-            "window": fold_num + 1,
-            "train_size": train_size,
-            "test_size": test_size,
-            "baseline_wr": baseline_wr,
-            "baseline_pf": baseline_pf,
-            "filtered_wr": filtered_wr,
-            "filtered_pf": filtered_pf,
-            "opt_threshold": opt_threshold,
-            "opt_win_rate": opt_wr,
-            "opt_profit_factor": opt_pf,
-            "opt_total_pnl": opt_pnl,
-            "opt_trade_count": opt_tc,
-            "passes": passes,
-        })
+        window_results.append(
+            {
+                "window": fold_num + 1,
+                "train_size": train_size,
+                "test_size": test_size,
+                "baseline_wr": baseline_wr,
+                "baseline_pf": baseline_pf,
+                "filtered_wr": filtered_wr,
+                "filtered_pf": filtered_pf,
+                "opt_threshold": opt_threshold,
+                "opt_win_rate": opt_wr,
+                "opt_profit_factor": opt_pf,
+                "opt_total_pnl": opt_pnl,
+                "opt_trade_count": opt_tc,
+                "passes": passes,
+            }
+        )
 
         status = "PASS" if passes else "FAIL"
         print(f"Window {fold_num + 1}: train={train_size}, test={test_size}")
         print(f"  Baseline: WR={baseline_wr:.1f}%, PF={baseline_pf:.2f}")
         print(f"  Filtered: WR={filtered_wr:.1f}%, PF={filtered_pf:.2f}")
-        print(f"  Optimized: threshold={opt_threshold:.2f}, WR={opt_wr:.1f}%, PF={opt_pf:.2f}, trades={opt_tc}, PnL={opt_pnl:.2f}")
+        print(
+            f"  Optimized: threshold={opt_threshold:.2f}, WR={opt_wr:.1f}%, PF={opt_pf:.2f}, trades={opt_tc}, PnL={opt_pnl:.2f}"
+        )
         print(f"  [{status}]\n")
 
     summary = wf_results.get("summary", {})
@@ -186,9 +195,7 @@ def run_full_backtest():
     returns = np.array(all_opt_pnls)
     sharpe = compute_sharpe(returns) if len(returns) > 1 else 0.0
 
-    simulated_equity = build_equity_curve(
-        pd.DataFrame({"pnl": all_opt_pnls}), 10000.0
-    )
+    simulated_equity = build_equity_curve(pd.DataFrame({"pnl": all_opt_pnls}), 10000.0)
     max_dd = compute_drawdown(simulated_equity)
 
     overall_wr = avg_wr
@@ -203,18 +210,28 @@ def run_full_backtest():
     print("AGGREGATE RESULTS")
     print("=" * 70)
     print(f"\nWalk-Forward Windows: {len(window_results)}")
-    print(f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ACCEPTANCE['min_passing_windows']})")
+    print(
+        f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ACCEPTANCE['min_passing_windows']})"
+    )
     print("\n--- Average Optimized Metrics ---")
-    print(f"  Win Rate:       {avg_wr:.2f}% (target: >= {ACCEPTANCE['min_win_rate']}%) [{'PASS' if meets_wr else 'FAIL'}]")
-    print(f"  Profit Factor:  {avg_pf:.2f} (target: >= {ACCEPTANCE['min_profit_factor']}) [{'PASS' if meets_pf else 'FAIL'}]")
+    print(
+        f"  Win Rate:       {avg_wr:.2f}% (target: >= {ACCEPTANCE['min_win_rate']}%) [{'PASS' if meets_wr else 'FAIL'}]"
+    )
+    print(
+        f"  Profit Factor:  {avg_pf:.2f} (target: >= {ACCEPTANCE['min_profit_factor']}) [{'PASS' if meets_pf else 'FAIL'}]"
+    )
     print(f"  Sharpe Ratio:   {sharpe:.4f}")
     print(f"  Max Drawdown:   {max_dd:.2f}%")
     print(f"  Total Trades:   {total_trades}")
     print(f"  Total PnL:      {total_pnl:.2f}")
     print(f"  Avg Threshold:  {avg_threshold:.2f}")
     print("\n--- Improvement over Baseline ---")
-    print(f"  Win Rate:  {avg_baseline_wr:.1f}% -> {avg_wr:.1f}% (filtered: {avg_filtered_wr:.1f}%)")
-    print(f"  PF:        {avg_baseline_pf:.2f} -> {avg_pf:.2f} (filtered: {avg_filtered_pf:.2f})")
+    print(
+        f"  Win Rate:  {avg_baseline_wr:.1f}% -> {avg_wr:.1f}% (filtered: {avg_filtered_wr:.1f}%)"
+    )
+    print(
+        f"  PF:        {avg_baseline_pf:.2f} -> {avg_pf:.2f} (filtered: {avg_filtered_pf:.2f})"
+    )
     print(f"\n{'=' * 70}")
     print(f"GO/NO-GO: {'GO' if go_nogo else 'NO-GO'}")
     print(f"{'=' * 70}")

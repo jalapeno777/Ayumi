@@ -1,4 +1,5 @@
 """Walk-forward validation: Baseline vs MTF-Filtered momentum strategies."""
+
 import sys
 import os
 
@@ -11,7 +12,6 @@ from strategies.momentum import (
     DonchianBreakoutStrategy,
     ATRVolatilityBreakoutStrategy,
     MATrendFollowingStrategy,
-    MomentumConfig,
 )
 from strategies.mtf_filtered_momentum import MTFFilteredMomentumStrategy
 from quant.mtf_regime import MTFRegimeConfig
@@ -33,7 +33,10 @@ REGIME_CONFIG = MTFRegimeConfig(
 
 strategies_to_test = [
     ("Donchian", lambda: DonchianBreakoutStrategy(channel_period=20)),
-    ("ATR Breakout", lambda: ATRVolatilityBreakoutStrategy(atr_period=14, breakout_multiplier=1.5)),
+    (
+        "ATR Breakout",
+        lambda: ATRVolatilityBreakoutStrategy(atr_period=14, breakout_multiplier=1.5),
+    ),
     ("MA Trend", lambda: MATrendFollowingStrategy(fast_period=8, slow_period=21)),
 ]
 
@@ -47,13 +50,14 @@ def make_mtf_factory(baseline_factory):
             direction_filter=True,
             mtf_bars_source_minutes=15,
         )
+
     return factory
 
 
 for name, baseline_factory in strategies_to_test:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Strategy: {name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     mtf_factory = make_mtf_factory(baseline_factory)
 
@@ -94,7 +98,7 @@ for name, baseline_factory in strategies_to_test:
         sr_delta = agg_m.mean_sharpe_ratio - agg_b.mean_sharpe_ratio
         dd_delta = (agg_m.mean_max_drawdown - agg_b.mean_max_drawdown) * 100
 
-        print(f"\nDelta Summary:")
+        print("\nDelta Summary:")
         print(f"  Win Rate:    {wr_delta:+.2f} pp")
         print(f"  Profit Factor: {pf_delta:+.4f}")
         print(f"  Sharpe:      {sr_delta:+.4f}")

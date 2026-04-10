@@ -18,7 +18,7 @@ class CsvDataLoader:
                 continue
 
             try:
-                dt = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
+                dt = self._parse_datetime(parts[0])
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
@@ -52,7 +52,7 @@ class CsvDataLoader:
                 continue
 
             try:
-                dt = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
+                dt = self._parse_datetime(parts[0])
                 open_price = float(parts[1])
                 high = float(parts[2])
                 low = float(parts[3])
@@ -72,6 +72,16 @@ class CsvDataLoader:
                 continue
 
         return bars
+
+    @staticmethod
+    def _parse_datetime(s: str) -> datetime:
+        """Parse datetime with or without seconds."""
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(s, fmt)
+            except ValueError:
+                continue
+        raise ValueError(f"Cannot parse datetime: {s}")
 
     def infer_timeframe(self, bars: list[Bar]) -> BarPeriod:
         if len(bars) < 2:

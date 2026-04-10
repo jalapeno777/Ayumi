@@ -181,21 +181,8 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
 
         dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
 
-        adx = dx
+        dx_list: list[float] = []
         for i in range(self.adx_period, len(tr_list)):
-            if smoothed_tr == 0:
-                continue
-
-            smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
-            smoothed_plus_dm = (
-                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
-            )
-            smoothed_minus_dm = (
-                smoothed_minus_dm
-                - smoothed_minus_dm / self.adx_period
-                + minus_dm_list[i]
-            )
-
             if smoothed_tr == 0:
                 continue
 
@@ -207,6 +194,23 @@ class USDJPYD1TrendStrategy(ISignalStrategy):
             else:
                 dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
 
+            dx_list.append(dx)
+
+            smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
+            smoothed_plus_dm = (
+                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            )
+            smoothed_minus_dm = (
+                smoothed_minus_dm
+                - smoothed_minus_dm / self.adx_period
+                + minus_dm_list[i]
+            )
+
+        if len(dx_list) < self.adx_period:
+            return 0.0
+
+        adx = sum(dx_list[: self.adx_period]) / self.adx_period
+        for dx in dx_list[self.adx_period :]:
             adx = (adx * (self.adx_period - 1) + dx) / self.adx_period
 
         return adx

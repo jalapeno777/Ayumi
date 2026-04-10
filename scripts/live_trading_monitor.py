@@ -61,7 +61,9 @@ load_dotenv()
 
 
 PAPERCLIP_API_URL = os.environ.get("PAPERCLIP_API_URL", "http://localhost:3101")
-PAPERCLIP_ALERT_KEY = os.environ.get("PAPERCLIP_ALERT_KEY", os.environ.get("PAPERCLIP_API_KEY", ""))
+PAPERCLIP_ALERT_KEY = os.environ.get(
+    "PAPERCLIP_ALERT_KEY", os.environ.get("PAPERCLIP_API_KEY", "")
+)
 PAPERCLIP_ISSUE_ID = os.environ.get("PAPERCLIP_ISSUE_ID", "")
 
 
@@ -97,9 +99,17 @@ class TradingState:
 
 
 STATE_ALLOWLIST = {
-    "pid", "last_trade_time", "last_check_time", "starting_balance",
-    "daily_starting_balance", "current_balance", "daily_trades",
-    "daily_wins", "daily_losses", "daily_pnl", "circuit_breaker_triggered",
+    "pid",
+    "last_trade_time",
+    "last_check_time",
+    "starting_balance",
+    "daily_starting_balance",
+    "current_balance",
+    "daily_trades",
+    "daily_wins",
+    "daily_losses",
+    "daily_pnl",
+    "circuit_breaker_triggered",
     "last_circuit_breaker_check",
 }
 
@@ -124,20 +134,25 @@ def load_state() -> TradingState:
 
 def save_state(state: TradingState):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({
-        "pid": state.pid,
-        "last_trade_time": state.last_trade_time,
-        "last_check_time": state.last_check_time,
-        "starting_balance": state.starting_balance,
-        "daily_starting_balance": state.daily_starting_balance,
-        "current_balance": state.current_balance,
-        "daily_trades": state.daily_trades,
-        "daily_wins": state.daily_wins,
-        "daily_losses": state.daily_losses,
-        "daily_pnl": state.daily_pnl,
-        "circuit_breaker_triggered": state.circuit_breaker_triggered,
-        "last_circuit_breaker_check": state.last_circuit_breaker_check,
-    }, indent=2))
+    STATE_FILE.write_text(
+        json.dumps(
+            {
+                "pid": state.pid,
+                "last_trade_time": state.last_trade_time,
+                "last_check_time": state.last_check_time,
+                "starting_balance": state.starting_balance,
+                "daily_starting_balance": state.daily_starting_balance,
+                "current_balance": state.current_balance,
+                "daily_trades": state.daily_trades,
+                "daily_wins": state.daily_wins,
+                "daily_losses": state.daily_losses,
+                "daily_pnl": state.daily_pnl,
+                "circuit_breaker_triggered": state.circuit_breaker_triggered,
+                "last_circuit_breaker_check": state.last_circuit_breaker_check,
+            },
+            indent=2,
+        )
+    )
 
 
 def check_process_health(state: TradingState) -> Alert:
@@ -150,20 +165,20 @@ def check_process_health(state: TradingState) -> Alert:
                 severity="info",
                 check_type="health",
                 message=f"Trading process is running (PID: {pid})",
-                details={"pid": pid}
+                details={"pid": pid},
             )
         except (ValueError, ProcessLookupError, PermissionError) as e:
             return Alert(
                 severity="warning",
                 check_type="health",
                 message="Trading process not running or PID file invalid",
-                details={"error": str(e)}
+                details={"error": str(e)},
             )
     return Alert(
         severity="warning",
         check_type="health",
         message="No PID file found - trading process may not be running",
-        details={}
+        details={},
     )
 
 
@@ -178,7 +193,7 @@ def check_last_trade_time(state: TradingState) -> Alert:
             severity="warning",
             check_type="trade_time",
             message="No trades recorded yet",
-            details={}
+            details={},
         )
 
     last_trade = datetime.fromisoformat(state.last_trade_time)
@@ -189,28 +204,40 @@ def check_last_trade_time(state: TradingState) -> Alert:
             severity="critical",
             check_type="trade_time",
             message=f"No trade in {hours_since_trade:.1f} hours during active trading hours",
-            details={"hours_since_trade": hours_since_trade, "last_trade": state.last_trade_time}
+            details={
+                "hours_since_trade": hours_since_trade,
+                "last_trade": state.last_trade_time,
+            },
         )
 
     return Alert(
         severity="info",
         check_type="trade_time",
         message=f"Last trade {hours_since_trade:.1f} hours ago",
-        details={"hours_since_trade": hours_since_trade, "last_trade": state.last_trade_time}
+        details={
+            "hours_since_trade": hours_since_trade,
+            "last_trade": state.last_trade_time,
+        },
     )
 
 
 def check_daily_pnl(state: TradingState) -> Alert:
     equity_change = state.current_balance - state.daily_starting_balance
-    equity_change_pct = (equity_change / state.daily_starting_balance) * 100 if state.daily_starting_balance > 0 else 0
+    equity_change_pct = (
+        (equity_change / state.daily_starting_balance) * 100
+        if state.daily_starting_balance > 0
+        else 0
+    )
 
-    win_rate = (state.daily_wins / state.daily_trades * 100) if state.daily_trades > 0 else 0
+    win_rate = (
+        (state.daily_wins / state.daily_trades * 100) if state.daily_trades > 0 else 0
+    )
 
     if state.circuit_breaker_triggered:
         return Alert(
             severity="critical",
             check_type="daily_pnl",
-            message=f"CIRCUIT BREAKER TRIGGERED - Daily loss limit ({FTMO_DAILY_LOSS_LIMIT*100}%) exceeded",
+            message=f"CIRCUIT BREAKER TRIGGERED - Daily loss limit ({FTMO_DAILY_LOSS_LIMIT * 100}%) exceeded",
             details={
                 "daily_pnl": state.daily_pnl,
                 "equity_change": equity_change,
@@ -219,7 +246,7 @@ def check_daily_pnl(state: TradingState) -> Alert:
                 "wins": state.daily_wins,
                 "losses": state.daily_losses,
                 "win_rate": win_rate,
-            }
+            },
         )
 
     if abs(equity_change_pct) > 0.1:
@@ -235,7 +262,7 @@ def check_daily_pnl(state: TradingState) -> Alert:
                 "wins": state.daily_wins,
                 "losses": state.daily_losses,
                 "win_rate": win_rate,
-            }
+            },
         )
 
     return Alert(
@@ -250,12 +277,17 @@ def check_daily_pnl(state: TradingState) -> Alert:
             "wins": state.daily_wins,
             "losses": state.daily_losses,
             "win_rate": win_rate,
-        }
+        },
     )
 
 
 def check_circuit_breaker(state: TradingState) -> Alert:
-    daily_loss_pct = (state.daily_starting_balance - state.current_balance) / state.daily_starting_balance if state.daily_starting_balance > 0 else 0
+    daily_loss_pct = (
+        (state.daily_starting_balance - state.current_balance)
+        / state.daily_starting_balance
+        if state.daily_starting_balance > 0
+        else 0
+    )
 
     if daily_loss_pct >= FTMO_DAILY_LOSS_LIMIT:
         state.circuit_breaker_triggered = True
@@ -263,13 +295,13 @@ def check_circuit_breaker(state: TradingState) -> Alert:
         return Alert(
             severity="critical",
             check_type="circuit",
-            message=f"CIRCUIT BREAKER: Daily loss {daily_loss_pct*100:.2f}% exceeds FTMO limit {FTMO_DAILY_LOSS_LIMIT*100}%",
+            message=f"CIRCUIT BREAKER: Daily loss {daily_loss_pct * 100:.2f}% exceeds FTMO limit {FTMO_DAILY_LOSS_LIMIT * 100}%",
             details={
                 "daily_loss_pct": daily_loss_pct,
                 "ftmo_limit_pct": FTMO_DAILY_LOSS_LIMIT * 100,
                 "balance": state.current_balance,
                 "starting_balance": state.starting_balance,
-            }
+            },
         )
 
     if state.circuit_breaker_triggered:
@@ -280,17 +312,17 @@ def check_circuit_breaker(state: TradingState) -> Alert:
             details={
                 "daily_loss_pct": daily_loss_pct,
                 "triggered_at": state.last_circuit_breaker_check,
-            }
+            },
         )
 
     return Alert(
         severity="info",
         check_type="circuit",
-        message=f"Circuit breaker OK - Daily loss {daily_loss_pct*100:.2f}% within limit",
+        message=f"Circuit breaker OK - Daily loss {daily_loss_pct * 100:.2f}% within limit",
         details={
             "daily_loss_pct": daily_loss_pct,
             "ftmo_limit_pct": FTMO_DAILY_LOSS_LIMIT * 100,
-        }
+        },
     )
 
 
@@ -303,7 +335,7 @@ def check_fix_connection() -> Alert:
             severity="warning",
             check_type="connection",
             message="cTrader credentials not configured",
-            details={}
+            details={},
         )
 
     try:
@@ -313,7 +345,7 @@ def check_fix_connection() -> Alert:
             severity="warning",
             check_type="connection",
             message=f"Invalid port configured: {port_str}",
-            details={"host": host, "port_str": port_str}
+            details={"host": host, "port_str": port_str},
         )
 
     verify_ssl = os.environ.get("CTRADER_VERIFY_SSL", "true").lower() != "false"
@@ -335,7 +367,7 @@ def check_fix_connection() -> Alert:
                     severity="info",
                     check_type="connection",
                     message=f"FIX connection to {host}:{port} successful",
-                    details={"host": host, "port": port}
+                    details={"host": host, "port": port},
                 )
             finally:
                 ssl_sock.close()
@@ -346,21 +378,21 @@ def check_fix_connection() -> Alert:
             severity="critical",
             check_type="connection",
             message=f"FIX connection timeout to {host}:{port}",
-            details={"host": host, "port": port}
+            details={"host": host, "port": port},
         )
     except ConnectionRefusedError:
         return Alert(
             severity="critical",
             check_type="connection",
             message=f"FIX connection refused - {host}:{port}",
-            details={"host": host, "port": port}
+            details={"host": host, "port": port},
         )
     except Exception as e:
         return Alert(
             severity="critical",
             check_type="connection",
             message=f"FIX connection error: {e}",
-            details={"host": host, "port": port, "error": str(e)}
+            details={"host": host, "port": port, "error": str(e)},
         )
 
 
@@ -402,17 +434,23 @@ def post_alert_to_paperclip(alert: Alert, issue_id: str) -> bool:
             timeout=10,
         )
         if response.status_code in (200, 201):
-            logger.info(f"Alert posted to Paperclip: {alert.check_type} - {alert.message}")
+            logger.info(
+                f"Alert posted to Paperclip: {alert.check_type} - {alert.message}"
+            )
             return True
         else:
-            logger.error(f"Failed to post alert: {response.status_code} {response.text}")
+            logger.error(
+                f"Failed to post alert: {response.status_code} {response.text}"
+            )
             return False
     except Exception as e:
         logger.error(f"Error posting to Paperclip: {e}")
         return False
 
 
-def run_check(check_type: CheckType, state: TradingState, dry_run: bool = False) -> list[Alert]:
+def run_check(
+    check_type: CheckType, state: TradingState, dry_run: bool = False
+) -> list[Alert]:
     alerts = []
 
     if check_type == CheckType.HEALTH:
@@ -449,8 +487,12 @@ def main():
         default="all",
         help="Type of check to run",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Don't post to Paperclip")
-    parser.add_argument("--update-state", type=str, help="Update state from JSON string")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Don't post to Paperclip"
+    )
+    parser.add_argument(
+        "--update-state", type=str, help="Update state from JSON string"
+    )
     args = parser.parse_args()
 
     state = load_state()

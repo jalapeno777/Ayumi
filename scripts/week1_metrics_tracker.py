@@ -16,9 +16,9 @@ from crypto.services.repository import TradeRepository
 
 
 def print_header(title: str) -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 def print_metric(label: str, value: str, target: str = "") -> None:
@@ -28,7 +28,7 @@ def print_metric(label: str, value: str, target: str = "") -> None:
 
 def print_section(title: str) -> None:
     print(f"\n{title}")
-    print(f"{'-'*60}")
+    print(f"{'-' * 60}")
 
 
 def calculate_day_of_week() -> int:
@@ -47,13 +47,21 @@ def main():
 
     # Acquisition Metrics
     print_section("ACQUISITION METRICS")
-    
+
     # Get total users count
     with repo._connect() as conn:
-        total_users = conn.execute("SELECT COUNT(*) as count FROM users").fetchone()["count"]
-        free_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'free'").fetchone()["count"]
-        pro_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'pro'").fetchone()["count"]
-        vip_users = conn.execute("SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'vip'").fetchone()["count"]
+        total_users = conn.execute("SELECT COUNT(*) as count FROM users").fetchone()[
+            "count"
+        ]
+        free_users = conn.execute(
+            "SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'free'"
+        ).fetchone()["count"]
+        pro_users = conn.execute(
+            "SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'pro'"
+        ).fetchone()["count"]
+        vip_users = conn.execute(
+            "SELECT COUNT(*) as count FROM users WHERE subscription_tier = 'vip'"
+        ).fetchone()["count"]
 
     print_metric("Total Users", str(total_users), "25+")
     print_metric("Free Tier Users", str(free_users), "")
@@ -65,7 +73,7 @@ def main():
         today = datetime.now(timezone.utc).date()
         today_signups = conn.execute(
             "SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = ?",
-            (str(today),)
+            (str(today),),
         ).fetchone()["count"]
 
     print_metric("New Signups Today", str(today_signups), "3-5")
@@ -74,12 +82,20 @@ def main():
     print_section("REFERRAL METRICS")
 
     with repo._connect() as conn:
-        total_referral_codes = conn.execute("SELECT COUNT(*) as count FROM referral_codes WHERE is_active = TRUE").fetchone()["count"]
-        total_clicks = conn.execute("SELECT COUNT(*) as count FROM referral_clicks").fetchone()["count"]
-        total_conversions = conn.execute("SELECT COUNT(*) as count FROM referral_conversions WHERE conversion_type = 'signup'").fetchone()["count"]
-        
+        total_referral_codes = conn.execute(
+            "SELECT COUNT(*) as count FROM referral_codes WHERE is_active = TRUE"
+        ).fetchone()["count"]
+        total_clicks = conn.execute(
+            "SELECT COUNT(*) as count FROM referral_clicks"
+        ).fetchone()["count"]
+        total_conversions = conn.execute(
+            "SELECT COUNT(*) as count FROM referral_conversions WHERE conversion_type = 'signup'"
+        ).fetchone()["count"]
+
         # Get conversion rate
-        conversion_rate = (total_conversions / total_clicks * 100) if total_clicks > 0 else 0.0
+        conversion_rate = (
+            (total_conversions / total_clicks * 100) if total_clicks > 0 else 0.0
+        )
 
     print_metric("Active Referral Codes", str(total_referral_codes), "10+")
     print_metric("Total Referral Clicks", str(total_clicks), "50+")
@@ -93,11 +109,11 @@ def main():
         pending_payouts = conn.execute(
             "SELECT COUNT(*) as count FROM referral_payouts WHERE status = 'pending'"
         ).fetchone()["count"]
-        
+
         paid_payouts = conn.execute(
             "SELECT COUNT(*) as count FROM referral_payouts WHERE status = 'paid'"
         ).fetchone()["count"]
-        
+
         total_pending_amount = conn.execute(
             "SELECT COALESCE(SUM(amount), 0) as total FROM referral_payouts WHERE status = 'pending'"
         ).fetchone()["total"]
@@ -122,17 +138,22 @@ def main():
     print_section("SIGNAL METRICS")
 
     signals = repo.get_recent_signals(limit=100)
-    signals_this_week = [s for s in signals if datetime.fromisoformat(s["signal_time"]) >= datetime.now(timezone.utc) - timedelta(days=7)]
+    signals_this_week = [
+        s
+        for s in signals
+        if datetime.fromisoformat(s["signal_time"])
+        >= datetime.now(timezone.utc) - timedelta(days=7)
+    ]
 
     print_metric("Total Signals", str(len(signals)), "")
     print_metric("Signals This Week", str(len(signals_this_week)), "")
-    
+
     if signals_this_week:
         symbol_counts = {}
         for signal in signals_this_week:
             symbol = signal["symbol"]
             symbol_counts[symbol] = symbol_counts.get(symbol, 0) + 1
-        
+
         top_symbol = max(symbol_counts, key=symbol_counts.get)
         print_metric("Top Symbol", top_symbol, "")
 
@@ -145,17 +166,28 @@ def main():
     referral_code_progress = min((total_referral_codes / 10) * 100, 100)
     commission_progress = min((total_pending_amount / 50) * 100, 100)
 
-    overall_progress = (signup_progress + conversion_progress + referral_code_progress + commission_progress) / 4
+    overall_progress = (
+        signup_progress
+        + conversion_progress
+        + referral_code_progress
+        + commission_progress
+    ) / 4
 
     print_metric("Signup Target Progress", f"{signup_progress:.0f}%", "25 users")
-    print_metric("Conversion Target Progress", f"{conversion_progress:.0f}%", "10 conversions")
-    print_metric("Referral Code Progress", f"{referral_code_progress:.0f}%", "10 active codes")
-    print_metric("Commission Target Progress", f"{commission_progress:.0f}%", "$50 pending")
+    print_metric(
+        "Conversion Target Progress", f"{conversion_progress:.0f}%", "10 conversions"
+    )
+    print_metric(
+        "Referral Code Progress", f"{referral_code_progress:.0f}%", "10 active codes"
+    )
+    print_metric(
+        "Commission Target Progress", f"{commission_progress:.0f}%", "$50 pending"
+    )
     print_metric("OVERALL WEEK 1 PROGRESS", f"{overall_progress:.0f}%", "")
 
     # Daily Targets
     print_section(f"DAY {day_of_week} TARGETS")
-    
+
     day_target_map = {
         1: "Post referral announcement to Discord",
         2: "Create Telegram bot and channel",
@@ -182,16 +214,24 @@ def main():
     recommendations = []
 
     if signup_progress < 50:
-        recommendations.append("• Boost user acquisition: Share referral link across all channels")
+        recommendations.append(
+            "• Boost user acquisition: Share referral link across all channels"
+        )
 
     if conversion_rate < 5.0:
-        recommendations.append("• Improve referral conversion: Test CTA placement, messaging")
+        recommendations.append(
+            "• Improve referral conversion: Test CTA placement, messaging"
+        )
 
     if len(leaderboard) < 5:
-        recommendations.append("• Recruit more providers: Reach out to top traders in community")
+        recommendations.append(
+            "• Recruit more providers: Reach out to top traders in community"
+        )
 
     if pending_payouts > 20:
-        recommendations.append("• Process pending payouts: Ensure timely commission payments")
+        recommendations.append(
+            "• Process pending payouts: Ensure timely commission payments"
+        )
 
     if not recommendations:
         recommendations.append("• Week 1 on track: Continue current execution strategy")
@@ -199,7 +239,7 @@ def main():
     for rec in recommendations:
         print(f"  {rec}")
 
-    print(f"\n{'='*60}\n")
+    print(f"\n{'=' * 60}\n")
 
 
 if __name__ == "__main__":

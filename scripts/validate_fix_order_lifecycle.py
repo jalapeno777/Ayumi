@@ -208,7 +208,9 @@ def validate() -> tuple:
                 print("  [FAIL] No fill received within 10s")
 
         # --- Step 3: Limit Order + Cancel ---
-        print("\n--- Step 3: Limit Order (symbol=1 EUR/USD, BUY 0.01 @ 0.5000) + Cancel ---")
+        print(
+            "\n--- Step 3: Limit Order (symbol=1 EUR/USD, BUY 0.01 @ 0.5000) + Cancel ---"
+        )
 
         limit_new_event = threading.Event()
         limit_cancel_event = threading.Event()
@@ -230,7 +232,9 @@ def validate() -> tuple:
         def on_limit_fill(order, msg):
             if order:
                 limit_cancel_data["order_id"] = order.order_id
-                limit_cancel_data["comment"] = f"Filled unexpectedly @ {order.filled_price}"
+                limit_cancel_data["comment"] = (
+                    f"Filled unexpectedly @ {order.filled_price}"
+                )
             limit_fill_event.set()
 
         client.register_callback("on_order_new", on_limit_new)
@@ -253,8 +257,12 @@ def validate() -> tuple:
             print(f"  [OUT] NewOrderSingle sent: {limit_order.order_id} @ 0.5000")
 
             if limit_fill_event.wait(timeout=3):
-                errors.append("Limit order filled unexpectedly (price 0.5000 should be far from market)")
-                print(f"  [FAIL] Limit order filled unexpectedly: {limit_cancel_data.get('comment')}")
+                errors.append(
+                    "Limit order filled unexpectedly (price 0.5000 should be far from market)"
+                )
+                print(
+                    f"  [FAIL] Limit order filled unexpectedly: {limit_cancel_data.get('comment')}"
+                )
             elif limit_new_event.wait(timeout=5):
                 print("  [OK] Limit order acknowledged (pending new)")
             else:
