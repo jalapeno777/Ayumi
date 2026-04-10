@@ -143,21 +143,33 @@ def run_walk_forward_for_params(
 
     per_window = []
     for wm in wf_results.per_window:
-        per_window.append({
-            "window_id": wm.window_index,
-            "win_rate": wm.win_rate,
-            "profit_factor": wm.profit_factor,
-            "max_drawdown": wm.max_drawdown,
-            "sharpe_ratio": wm.sharpe_ratio,
-            "trade_count": wm.trade_count,
-            "total_pnl": wm.total_pnl,
-            "passed_go_nogo": wm.passed_go_nogo,
-        })
+        per_window.append(
+            {
+                "window_id": wm.window_index,
+                "win_rate": wm.win_rate,
+                "profit_factor": wm.profit_factor,
+                "max_drawdown": wm.max_drawdown,
+                "sharpe_ratio": wm.sharpe_ratio,
+                "trade_count": wm.trade_count,
+                "total_pnl": wm.total_pnl,
+                "passed_go_nogo": wm.passed_go_nogo,
+            }
+        )
 
     windows_passed = sum(1 for r in per_window if r["passed_go_nogo"])
-    avg_wr = sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
-    avg_pf = sum(r["profit_factor"] for r in per_window) / len(per_window) if per_window else 0
-    avg_dd = sum(r["max_drawdown"] for r in per_window) / len(per_window) if per_window else 0
+    avg_wr = (
+        sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
+    )
+    avg_pf = (
+        sum(r["profit_factor"] for r in per_window) / len(per_window)
+        if per_window
+        else 0
+    )
+    avg_dd = (
+        sum(r["max_drawdown"] for r in per_window) / len(per_window)
+        if per_window
+        else 0
+    )
 
     return {
         "params": {k: v for k, v in params.items()},
@@ -186,9 +198,9 @@ def main() -> None:
     ]
 
     for pair, csv_path in PAIRS.items():
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"  PARAMETER SWEEP: {pair}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         bars = loader.load(csv_path)
         print(f"  Loaded {len(bars)} bars: {bars[0].time} -> {bars[-1].time}")
@@ -200,8 +212,12 @@ def main() -> None:
         merged_rows = []
 
         for sweep_name, param_space in param_spaces:
-            print(f"\n  Running {sweep_name} sweep ({len(ParameterGrid(param_space))} combos)...")
-            sweep_result, grid = run_sweep(sweep_bars, pair, config, param_space, max_workers=None)
+            print(
+                f"\n  Running {sweep_name} sweep ({len(ParameterGrid(param_space))} combos)..."
+            )
+            sweep_result, grid = run_sweep(
+                sweep_bars, pair, config, param_space, max_workers=None
+            )
 
             print(f"  {sweep_name}: {len(sweep_result)} parameter sets with trades")
             for row in sweep_result:
@@ -236,26 +252,26 @@ def main() -> None:
 
         all_sweep_results[pair] = sweep_data
 
-        profitable = combined.filter(lambda r: r.profit_factor > 1.0 and r.trade_count >= 10)
+        profitable = combined.filter(
+            lambda r: r.profit_factor > 1.0 and r.trade_count >= 10
+        )
         print(f"  Profitable sets (PF>1.0, trades>=10): {len(profitable)}")
 
-        viable = combined.filter(
-            lambda r: r.trade_count >= 10
-        )
+        viable = combined.filter(lambda r: r.trade_count >= 10)
         top5 = viable.top_n(5, metric="profit_factor", ascending=False)
         top_params_by_pair[pair] = top5
 
         print("\n  Top 5 parameter sets by profit_factor (min 10 trades):")
         for i, row in enumerate(top5):
             print(
-                f"    {i+1}. PF={row.profit_factor:.2f}, WR={row.win_rate:.1f}%, "
+                f"    {i + 1}. PF={row.profit_factor:.2f}, WR={row.win_rate:.1f}%, "
                 f"DD={row.max_dd:.2f}%, trades={row.trade_count}"
             )
             print(f"       {row.params}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  WALK-FORWARD VALIDATION ON TOP 5 PARAM SETS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     final_results = {}
 
@@ -267,11 +283,13 @@ def main() -> None:
 
         pair_wf_results = []
         for i, row in enumerate(top5):
-            print(f"\n  [{i+1}/{len(top5)}] Testing params: {row.params}")
+            print(f"\n  [{i + 1}/{len(top5)}] Testing params: {row.params}")
             wf_result = run_walk_forward_for_params(bars, row.params, pair, config)
 
             status = "GO" if wf_result["go_nogo"] else "NO-GO"
-            print(f"      Windows passed: {wf_result['windows_passed']}/{wf_result['total_windows']}")
+            print(
+                f"      Windows passed: {wf_result['windows_passed']}/{wf_result['total_windows']}"
+            )
             print(
                 f"      Avg WR: {wf_result['avg_wr']:.1f}%, PF: {wf_result['avg_pf']:.2f}, "
                 f"DD: {wf_result['avg_dd']:.2f}%"
@@ -287,33 +305,37 @@ def main() -> None:
             json.dump(pair_wf_results, f, indent=2, default=str)
         print(f"\n  Walk-forward report saved: {wf_report_path}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  FINAL SUMMARY")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     any_go = False
     for pair, results in final_results.items():
         print(f"\n  {pair}:")
         for i, r in enumerate(results):
             status = "GO" if r["go_nogo"] else "NO-GO"
-            print(f"    Param set {i+1}: {r['params']}")
-            print(f"      -> {status} ({r['windows_passed']}/{r['total_windows']} windows passed)")
+            print(f"    Param set {i + 1}: {r['params']}")
+            print(
+                f"      -> {status} ({r['windows_passed']}/{r['total_windows']} windows passed)"
+            )
 
         go_sets = [r for r in results if r["go_nogo"]]
         if go_sets:
             any_go = True
-            print(f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***")
+            print(
+                f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***"
+            )
         else:
             print(f"\n  {pair}: No parameter sets passed - NO-GO")
 
     if any_go:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("  AT LEAST ONE GO RESULT FOUND!")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
     else:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("  ALL PAIRS: NO-GO")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":
