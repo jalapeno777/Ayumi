@@ -296,6 +296,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
             volume_ma_period=10,
             sl_max_pips=5.0,
             sl_atr_multiplier=10.0,
+            lod_hod_stop_buffer_pips=0.0,
         )
         bars = _make_deterministic_breakout_bars("long", n=50)
         state = MarketState(bars=bars)
