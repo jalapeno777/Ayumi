@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 import math
@@ -585,7 +585,11 @@ class BacktestEngine:
 
 
 def determine_session(time: datetime) -> SessionType:
+    if time.tzinfo is not None:
+        time = time.astimezone(timezone.utc)
     hour = time.hour
+    if 0 <= hour < 6:
+        return SessionType.ASIAN
     if 8 <= hour < 12:
         return SessionType.LONDON
     if 12 <= hour < 16:
