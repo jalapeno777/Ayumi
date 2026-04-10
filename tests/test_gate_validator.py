@@ -5,12 +5,16 @@ from __future__ import annotations
 
 from signal_engine.gate_validator import GateValidator
 from signal_engine.data_types import (
-    HTFState, HTFPhase, Level, LevelType, SessionState, Signal,
+    HTFState,
+    HTFPhase,
+    Level,
+    LevelType,
+    SessionState,
+    Signal,
 )
 
 
 class TestGateValidator:
-
     def setup_method(self):
         self.validator = GateValidator(quality_threshold=0.6)
 
@@ -41,8 +45,10 @@ class TestGateValidator:
         """Good symmetry should pass."""
         # Perfectly symmetric M: SH1=SH2 at top, SL1=SL2 at bottom
         levels = {
-            "SH1": 1.1000, "SH2": 1.1000,
-            "SL1": 1.0950, "SL2": 1.0950,
+            "SH1": 1.1000,
+            "SH2": 1.1000,
+            "SL1": 1.0950,
+            "SL2": 1.0950,
         }
         result = self.validator.validate(self._make_candidate(key_levels=levels))
         assert result.gate_details["G1_symmetry"] is True
@@ -50,8 +56,10 @@ class TestGateValidator:
     def test_g1_fails_bad_symmetry(self):
         """Asymmetric structure should fail G1."""
         levels = {
-            "SH1": 1.1000, "SH2": 1.1001,
-            "SL1": 1.0900, "SL2": 1.0980,  # wildly asymmetric
+            "SH1": 1.1000,
+            "SH2": 1.1001,
+            "SL1": 1.0900,
+            "SL2": 1.0980,  # wildly asymmetric
         }
         result = self.validator.validate(self._make_candidate(key_levels=levels))
         assert result.gate_details["G1_symmetry"] is False
@@ -133,17 +141,13 @@ class TestGateValidator:
     def test_g4_fails_conflicting_phase(self):
         """CONFLICTING phase always fails."""
         htf = HTFState(HTFPhase.CONFLICTING, 0.0, 0.0, 0.01)
-        result = self.validator.validate(
-            self._make_candidate(), htf_state=htf
-        )
+        result = self.validator.validate(self._make_candidate(), htf_state=htf)
         assert result.gate_details["G4_htf_alignment"] is False
 
     def test_g4_passes_consolidating(self):
         """CONSOLIDATING phase should pass (degraded, not blocked)."""
         htf = HTFState(HTFPhase.CONSOLIDATING, 0.0, 0.0, 0.001)
-        result = self.validator.validate(
-            self._make_candidate(), htf_state=htf
-        )
+        result = self.validator.validate(self._make_candidate(), htf_state=htf)
         assert result.gate_details["G4_htf_alignment"] is True
 
     # ── G5: No Conflict ────────────────────────────────────────────
@@ -177,18 +181,14 @@ class TestGateValidator:
 
     def test_quality_threshold_rejects_low_confidence(self):
         """Below 0.6 confidence → overall pass=False even if gates pass."""
-        result = self.validator.validate(
-            self._make_candidate(confidence=0.5)
-        )
+        result = self.validator.validate(self._make_candidate(confidence=0.5))
         # All gates should pass individually
         assert len(result.failed_gates) == 0
         # But overall quality fails
         assert result.passed is False
 
     def test_quality_threshold_accepts_high_confidence(self):
-        result = self.validator.validate(
-            self._make_candidate(confidence=0.8)
-        )
+        result = self.validator.validate(self._make_candidate(confidence=0.8))
         assert result.passed is True
 
     # ── All Gates Pass ─────────────────────────────────────────────

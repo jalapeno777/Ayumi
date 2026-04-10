@@ -314,7 +314,9 @@ class BacktestEngine:
 
             equity_curve.append(self.balance)
 
-        self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close)
+        self._close_all_open_trades(
+            open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
+        )
         return self._calculate_metrics(trades, equity_curve, rejected_signals)
 
     def _reset(self):

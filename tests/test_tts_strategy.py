@@ -12,7 +12,9 @@ def _make_bars(n: int, base_price: float = 1.1000, trend: float = 0.0) -> list[B
     bars = []
     price = base_price
     for i in range(n):
-        change = trend * 0.0001 + 0.0002 * (1 if i % 3 == 0 else -1 if i % 3 == 1 else 0)
+        change = trend * 0.0001 + 0.0002 * (
+            1 if i % 3 == 0 else -1 if i % 3 == 1 else 0
+        )
         high = price + abs(change) + 0.0001
         low = price - abs(change) - 0.0001
         close = price + change
@@ -76,7 +78,11 @@ class TestTTSStrategySession(unittest.TestCase):
         bars = _make_bars(60)
         bars[-1] = Bar(
             time=datetime(2024, 6, 1, 3, 0),
-            open=1.1, high=1.1005, low=1.0995, close=1.1001, volume=1000,
+            open=1.1,
+            high=1.1005,
+            low=1.0995,
+            close=1.1001,
+            volume=1000,
         )
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
@@ -112,6 +118,7 @@ class TestTTSStrategyEMA(unittest.TestCase):
     def test_ema_short_data(self):
         """EMA with insufficient data should return NaN-filled array."""
         import numpy as np
+
         data = np.array([1.0, 2.0, 3.0])
         result = TTSStrategy._ema(data, 10)
         self.assertTrue(np.all(np.isnan(result)))
@@ -119,6 +126,7 @@ class TestTTSStrategyEMA(unittest.TestCase):
     def test_ema_computation(self):
         """EMA should produce valid values for sufficient data."""
         import numpy as np
+
         data = np.array([float(i) for i in range(100)])
         result = TTSStrategy._ema(data, 10)
         # First 10 values should be NaN

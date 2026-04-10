@@ -367,9 +367,7 @@ class EnhancedBacktestEngine:
     ) -> list[EnhancedTradeRecord]:
         records = []
         for trade in open_trades:
-            pnl = self._calculate_pnl(
-                trade, exit_price, trade.remaining_pct, exit_time
-            )
+            pnl = self._calculate_pnl(trade, exit_price, trade.remaining_pct, exit_time)
             pnl += trade.partial_realized_pnl
             self.balance += pnl
 

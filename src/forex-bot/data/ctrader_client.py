@@ -85,7 +85,9 @@ def _run_reactor(coro):
         finally:
             reactor.stop()
 
-    reactor.callWhenRunning(lambda: reactor.callLater(0.01, lambda: ensureDeferred(capture())))
+    reactor.callWhenRunning(
+        lambda: reactor.callLater(0.01, lambda: ensureDeferred(capture()))
+    )
     reactor.run(installSignalHandlers=0)
 
     if error_holder[0]:
@@ -265,6 +267,7 @@ class CTraderHistoricalClient:
         to_ts: int,
     ) -> list[dict]:
         """Fetch one page of trendbars (up to 1000 bars)."""
+
         async def fetch():
             client = self._new_client()
             client.startService()
@@ -328,7 +331,9 @@ class CTraderHistoricalClient:
         symbol_id = self._resolve_symbol(symbol)
         period = TIMEFRAME_MAP[timeframe]
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
         end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         from_ts = int(start_dt.timestamp() * 1000)
         to_ts = int(end_dt.timestamp() * 1000)
@@ -362,14 +367,28 @@ class CTraderHistoricalClient:
             logger.warning(
                 "No bars for %s %s [%s → %s]", symbol, timeframe, start_date, end_date
             )
-            return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume"])
+            return pd.DataFrame(
+                columns=["Date", "Open", "High", "Low", "Close", "Volume"]
+            )
 
         df = pd.DataFrame(all_bars)
         df["Date"] = pd.to_datetime(df["utc_timestamp_ms"], unit="ms", utc=True)
         df["Date"] = df["Date"].dt.strftime("%Y-%m-%d %H:%M")
-        df = df.rename(columns={"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"})
+        df = df.rename(
+            columns={
+                "open": "Open",
+                "high": "High",
+                "low": "Low",
+                "close": "Close",
+                "volume": "Volume",
+            }
+        )
         df = df[["Date", "Open", "High", "Low", "Close", "Volume"]]
-        df = df.drop_duplicates(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+        df = (
+            df.drop_duplicates(subset=["Date"])
+            .sort_values("Date")
+            .reset_index(drop=True)
+        )
         return df
 
     def download_and_save(
@@ -394,7 +413,11 @@ class CTraderHistoricalClient:
         if append and path.exists():
             existing = pd.read_csv(path)
             df = pd.concat([existing, df], ignore_index=True)
-            df = df.drop_duplicates(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+            df = (
+                df.drop_duplicates(subset=["Date"])
+                .sort_values("Date")
+                .reset_index(drop=True)
+            )
 
         df.to_csv(path, index=False)
         logger.info("Saved %d bars to %s", len(df), path)

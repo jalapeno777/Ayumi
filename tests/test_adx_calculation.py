@@ -5,6 +5,7 @@ Verifies that Wilder smoothing initialization is correct:
 - The first `period` DX values should be averaged for initial ADX
 - Subsequent DX values use Wilder smoothing: adx = (adx * (period-1) + dx) / period
 """
+
 import os
 import sys
 import unittest

@@ -50,8 +50,12 @@ def test_score_range(scorer):
 
 def test_kill_zone_bonus(scorer):
     """Kill zone active should boost session score."""
-    _, no_kz = scorer.score(_base_candidate(), _base_htf(), _base_session(kill_zone_active=False))
-    _, with_kz = scorer.score(_base_candidate(), _base_htf(), _base_session(kill_zone_active=True))
+    _, no_kz = scorer.score(
+        _base_candidate(), _base_htf(), _base_session(kill_zone_active=False)
+    )
+    _, with_kz = scorer.score(
+        _base_candidate(), _base_htf(), _base_session(kill_zone_active=True)
+    )
 
     kz_no = next(b for b in no_kz if b.name == "session_phase")
     kz_yes = next(b for b in with_kz if b.name == "session_phase")
@@ -114,6 +118,13 @@ def test_boardroom_too_few_bars(scorer):
 def test_all_booster_names_present(scorer):
     _, boosters = scorer.score(_base_candidate(), _base_htf(), _base_session())
     names = {b.name for b in boosters}
-    expected = {"session_phase", "level_proximity", "htf_alignment",
-                "ema_proximity", "boardroom", "volume", "pattern_type"}
+    expected = {
+        "session_phase",
+        "level_proximity",
+        "htf_alignment",
+        "ema_proximity",
+        "boardroom",
+        "volume",
+        "pattern_type",
+    }
     assert names == expected

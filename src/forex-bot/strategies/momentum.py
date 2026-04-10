@@ -173,7 +173,6 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
         else:
             dx_list.append(100.0 * (abs(plus_di - minus_di) / di_sum))
 
-
     if len(dx_list) < period:
         return 0.0
 

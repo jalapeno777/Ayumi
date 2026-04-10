@@ -53,7 +53,7 @@ class TestCloseAllOpenTradesExitPrice:
         # Create bars: trade opens at bar 1, another trade opens at bar 2,
         # backtest ends at bar 3
         bars = [
-            _make_bar(9, 2000.0),   # bar 0 - first trade entry
+            _make_bar(9, 2000.0),  # bar 0 - first trade entry
             _make_bar(10, 2001.0),  # bar 1 - second trade entry
             _make_bar(11, 2002.5),  # bar 2 - last bar, end of data
         ]
@@ -138,7 +138,7 @@ class TestCloseAllOpenTradesExitPrice:
         engine = BacktestEngine(config)
 
         bars = [
-            _make_bar(9, 2000.0),   # bar 0 - trade entry
+            _make_bar(9, 2000.0),  # bar 0 - trade entry
             _make_bar(10, 2002.5),  # bar 1 - last bar
         ]
 

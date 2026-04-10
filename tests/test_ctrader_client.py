@@ -102,7 +102,14 @@ class TestGetHistoricalBars:
         """Verify date format matches existing CSV format: YYYY-MM-DD HH:MM"""
         ts = int(datetime(2026, 1, 15, 14, 30, tzinfo=timezone.utc).timestamp() * 1000)
         mock_run.return_value = [
-            {"utc_timestamp_ms": ts, "open": 1.05, "high": 1.06, "low": 1.04, "close": 1.055, "volume": 50}
+            {
+                "utc_timestamp_ms": ts,
+                "open": 1.05,
+                "high": 1.06,
+                "low": 1.04,
+                "close": 1.055,
+                "volume": 50,
+            }
         ]
         client._symbol_cache = {"EUR/USD": (1, 5)}
 
@@ -116,12 +123,21 @@ class TestDownloadAndSave:
     def test_saves_csv(self, mock_run, client, tmp_path):
         ts = int(datetime(2026, 1, 15, 14, 30, tzinfo=timezone.utc).timestamp() * 1000)
         mock_run.return_value = [
-            {"utc_timestamp_ms": ts, "open": 1.05, "high": 1.06, "low": 1.04, "close": 1.055, "volume": 50}
+            {
+                "utc_timestamp_ms": ts,
+                "open": 1.05,
+                "high": 1.06,
+                "low": 1.04,
+                "close": 1.055,
+                "volume": 50,
+            }
         ]
         client._symbol_cache = {"EUR/USD": (1, 5)}
 
         filepath = str(tmp_path / "EURUSD_M15.csv")
-        client.download_and_save("EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=False)
+        client.download_and_save(
+            "EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=False
+        )
 
         saved = pd.read_csv(filepath)
         assert len(saved) == 1
@@ -129,27 +145,38 @@ class TestDownloadAndSave:
 
     @patch("data.ctrader_client._run_reactor")
     def test_appends_to_existing(self, mock_run, client, tmp_path):
-        ts1 = int(datetime(2025, 12, 31, 23, 45, tzinfo=timezone.utc).timestamp() * 1000)
+        _ = int(datetime(2025, 12, 31, 23, 45, tzinfo=timezone.utc).timestamp() * 1000)
         ts2 = int(datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
         mock_run.return_value = [
-            {"utc_timestamp_ms": ts2, "open": 1.05, "high": 1.06, "low": 1.04, "close": 1.055, "volume": 50}
+            {
+                "utc_timestamp_ms": ts2,
+                "open": 1.05,
+                "high": 1.06,
+                "low": 1.04,
+                "close": 1.055,
+                "volume": 50,
+            }
         ]
         client._symbol_cache = {"EUR/USD": (1, 5)}
 
         filepath = str(tmp_path / "EURUSD_M15.csv")
 
         # Create existing file
-        existing = pd.DataFrame({
-            "Date": ["2025-12-31 23:45"],
-            "Open": [1.04],
-            "High": [1.05],
-            "Low": [1.03],
-            "Close": [1.045],
-            "Volume": [30],
-        })
+        existing = pd.DataFrame(
+            {
+                "Date": ["2025-12-31 23:45"],
+                "Open": [1.04],
+                "High": [1.05],
+                "Low": [1.03],
+                "Close": [1.045],
+                "Volume": [30],
+            }
+        )
         existing.to_csv(filepath, index=False)
 
-        client.download_and_save("EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=True)
+        client.download_and_save(
+            "EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=True
+        )
 
         saved = pd.read_csv(filepath)
         assert len(saved) == 2

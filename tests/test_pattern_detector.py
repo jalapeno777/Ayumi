@@ -17,20 +17,22 @@ def _make_swings(prices: list[tuple[int, float, str]]) -> list[Swing]:
 
 # ── M/W Formation Tests ────────────────────────────────────────────
 
-class TestMWFormation:
 
+class TestMWFormation:
     def setup_method(self):
         self.detector = PatternDetector()
 
     def test_detects_w_bullish_reversal(self):
         """W pattern: lower lows with higher high in middle → long signal."""
-        swings = _make_swings([
-            (0, 1.1000, "L"),  # SL1
-            (2, 1.1050, "H"),  # SH1
-            (4, 1.0990, "L"),  # SL2 (lower than SL1)
-            (6, 1.1060, "H"),  # SH2 (higher than SH1)
-            (8, 1.0985, "L"),  # SL3 (breaks SL1)
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.1000, "L"),  # SL1
+                (2, 1.1050, "H"),  # SH1
+                (4, 1.0990, "L"),  # SL2 (lower than SL1)
+                (6, 1.1060, "H"),  # SH2 (higher than SH1)
+                (8, 1.0985, "L"),  # SL3 (breaks SL1)
+            ]
+        )
         levels = [
             Level(1.1000, LevelType.D1, 0.0050, 0),
             Level(1.0990, LevelType.D2, 0.0060, 4),
@@ -43,13 +45,15 @@ class TestMWFormation:
 
     def test_detects_m_bearish_reversal(self):
         """M pattern: higher highs with lower low in middle → short signal."""
-        swings = _make_swings([
-            (0, 1.1000, "H"),  # SH1
-            (2, 1.0950, "L"),  # SL1
-            (4, 1.1010, "H"),  # SH2 (higher than SH1)
-            (6, 1.0940, "L"),  # SL2 (lower than SL1)
-            (8, 1.1015, "H"),  # SH3 (breaks SH1)
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.1000, "H"),  # SH1
+                (2, 1.0950, "L"),  # SL1
+                (4, 1.1010, "H"),  # SH2 (higher than SH1)
+                (6, 1.0940, "L"),  # SL2 (lower than SL1)
+                (8, 1.1015, "H"),  # SH3 (breaks SH1)
+            ]
+        )
         levels = [
             Level(1.1000, LevelType.R1, 0.0050, 0),
             Level(1.1010, LevelType.R2, 0.0060, 4),
@@ -61,31 +65,35 @@ class TestMWFormation:
 
     def test_no_pattern_insufficient_swings(self):
         """Should return None with fewer than 5 alternating swings."""
-        swings = _make_swings([
-            (0, 1.1000, "H"),
-            (2, 1.0950, "L"),
-            (4, 1.1010, "H"),
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.1000, "H"),
+                (2, 1.0950, "L"),
+                (4, 1.1010, "H"),
+            ]
+        )
         result = self.detector.detect_mw_formation(swings, [])
         assert result is None
 
     def test_no_pattern_bad_structure(self):
         """M pattern fails if SH3 doesn't break SH1."""
-        swings = _make_swings([
-            (0, 1.1000, "H"),
-            (2, 1.0950, "L"),
-            (4, 1.0990, "H"),  # SH2 below SH1
-            (6, 1.0940, "L"),
-            (8, 1.0995, "H"),  # SH3 doesn't break SH1
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.1000, "H"),
+                (2, 1.0950, "L"),
+                (4, 1.0990, "H"),  # SH2 below SH1
+                (6, 1.0940, "L"),
+                (8, 1.0995, "H"),  # SH3 doesn't break SH1
+            ]
+        )
         result = self.detector.detect_mw_formation(swings, [])
         assert result is None
 
 
 # ── SVC Tests ──────────────────────────────────────────────────────
 
-class TestSVC:
 
+class TestSVC:
     def setup_method(self):
         self.detector = PatternDetector()
 
@@ -118,8 +126,8 @@ class TestSVC:
 
 # ── Trap Tests ─────────────────────────────────────────────────────
 
-class TestTrap:
 
+class TestTrap:
     def setup_method(self):
         self.detector = PatternDetector()
 
@@ -167,8 +175,8 @@ class TestTrap:
 
 # ── Liquidity Grab Tests ───────────────────────────────────────────
 
-class TestLiquidityGrab:
 
+class TestLiquidityGrab:
     def setup_method(self):
         self.detector = PatternDetector()
 
@@ -192,21 +200,23 @@ class TestLiquidityGrab:
 
 # ── FL Pattern Tests ───────────────────────────────────────────────
 
-class TestFLPattern:
 
+class TestFLPattern:
     def setup_method(self):
         self.detector = PatternDetector()
 
     def test_detects_bullish_fl(self):
         """HH-HL staircase pattern → bullish FL."""
-        swings = _make_swings([
-            (0, 1.0950, "L"),   # HL1
-            (2, 1.1000, "H"),   # HH1
-            (4, 1.0970, "L"),   # HL2
-            (6, 1.1030, "H"),   # HH2
-            (8, 1.0990, "L"),   # HL3
-            (10, 1.1050, "H"),  # HH3
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.0950, "L"),  # HL1
+                (2, 1.1000, "H"),  # HH1
+                (4, 1.0970, "L"),  # HL2
+                (6, 1.1030, "H"),  # HH2
+                (8, 1.0990, "L"),  # HL3
+                (10, 1.1050, "H"),  # HH3
+            ]
+        )
         result = self.detector.detect_fl_pattern(swings, [])
         assert result is not None
         assert result.direction == "long"
@@ -214,14 +224,16 @@ class TestFLPattern:
 
     def test_detects_bearish_fl(self):
         """LH-LL staircase → bearish FL."""
-        swings = _make_swings([
-            (0, 1.1050, "H"),
-            (2, 1.1000, "L"),
-            (4, 1.1030, "H"),
-            (6, 1.0970, "L"),
-            (8, 1.1010, "H"),
-            (10, 1.0950, "L"),
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.1050, "H"),
+                (2, 1.1000, "L"),
+                (4, 1.1030, "H"),
+                (6, 1.0970, "L"),
+                (8, 1.1010, "H"),
+                (10, 1.0950, "L"),
+            ]
+        )
         result = self.detector.detect_fl_pattern(swings, [])
         assert result is not None
         assert result.direction == "short"
@@ -234,15 +246,19 @@ class TestFLPattern:
 
 # ── Composite Detection ────────────────────────────────────────────
 
-class TestDetectAll:
 
+class TestDetectAll:
     def test_detect_all_returns_patterns(self):
         detector = PatternDetector()
-        swings = _make_swings([
-            (0, 1.0950, "L"), (2, 1.1000, "H"),
-            (4, 1.0990, "L"), (6, 1.1010, "H"),
-            (8, 1.0985, "L"),
-        ])
+        swings = _make_swings(
+            [
+                (0, 1.0950, "L"),
+                (2, 1.1000, "H"),
+                (4, 1.0990, "L"),
+                (6, 1.1010, "H"),
+                (8, 1.0985, "L"),
+            ]
+        )
         levels = [Level(1.1000, LevelType.R1, 0.005, 2)]
         bars = [{"high": 1.1020, "low": 1.0970, "open": 1.0990, "close": 1.1010}]
         patterns = detector.detect_all(swings, levels, bars, 1.1010, "LONDON")

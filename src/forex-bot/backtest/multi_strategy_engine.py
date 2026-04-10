@@ -102,7 +102,11 @@ class MultiStrategyBacktestEngine:
 
             equity_curve.append(self.balance)
 
-        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
+        trades.extend(
+            self._close_all_open_trades(
+                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
+            )
+        )
         metrics = self._calculate_metrics(trades, equity_curve, 0)
 
         return StrategyBacktestResult(
@@ -163,7 +167,11 @@ class MultiStrategyBacktestEngine:
         for strategy in strategies:
             individual[strategy.name] = self._run_single_strategy(strategy, bars)
 
-        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
+        trades.extend(
+            self._close_all_open_trades(
+                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
+            )
+        )
         combined_metrics = self._calculate_metrics(trades, equity_curve, 0)
 
         return (individual, combined_metrics)
