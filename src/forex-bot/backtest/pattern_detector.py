@@ -1,10 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from .engine import Bar, SessionType, determine_session
 from .statistical_study import StatisticalStudy
+
+
+@dataclass(frozen=True)
+class ConsolidationMetrics:
+    duration_bars: int = 0
+    duration_hours: float = 0.0
+    range_pips: float = 0.0
+    meets_min_duration: bool = False
+    meets_max_range: bool = False
+    passes_filter: bool = False
 
 
 @dataclass(frozen=True)
@@ -27,6 +37,7 @@ class MWPattern:
     sessions: list[SessionType]
     bar_count: int
     atr_at_formation: float = 0.0
+    consolidation: ConsolidationMetrics = field(default_factory=ConsolidationMetrics)
 
     @property
     def is_bullish(self) -> bool:
@@ -42,10 +53,85 @@ class MWPattern:
             return self.left_shoulder_price - self.neckline_level
         return self.neckline_level - self.left_shoulder_price
 
+    @property
+    def is_multi_session(self) -> bool:
+        return self.sessions_spanned_count() >= 2
+
+    @property
+    def session_span_quality_score(self) -> float:
+        span = self.sessions_spanned_count()
+        if span >= 3:
+            return 1.0
+        if span == 2:
+            return 0.85
+        return 0.55
+
     def sessions_spanned_count(self) -> int:
         unique = set(self.sessions)
         unique.discard(SessionType.OUTSIDE)
         return len(unique)
+
+
+class ConsolidationFilter:
+    def __init__(
+        self,
+        min_duration_hours: float = 4.0,
+        max_range_pips: float = 20.0,
+        bar_period_minutes: int = 60,
+        enabled: bool = True,
+    ):
+        self.min_duration_hours = min_duration_hours
+        self.max_range_pips = max_range_pips
+        self.bar_period_minutes = bar_period_minutes
+        self.enabled = enabled
+        self.min_duration_bars = int(min_duration_hours * (60 / bar_period_minutes))
+
+    def measure(self, bars: list[Bar], pattern_start_idx: int) -> ConsolidationMetrics:
+        if not self.enabled or pattern_start_idx < 1:
+            return ConsolidationMetrics()
+
+        scan_start = max(0, pattern_start_idx - self.min_duration_bars * 3)
+        pre_bars = bars[scan_start:pattern_start_idx]
+
+        if len(pre_bars) < 2:
+            return ConsolidationMetrics()
+
+        pip_val = StatisticalStudy.pip_value(pre_bars[-1].close)
+        pre_high = max(b.high for b in pre_bars)
+        pre_low = min(b.low for b in pre_bars)
+        range_pips = (pre_high - pre_low) / pip_val
+
+        atr_values = StatisticalStudy.compute_atr(pre_bars)
+        avg_atr = atr_values[-1] if atr_values else 0.0001
+        tight_threshold = max(avg_atr * 0.75, pre_bars[-1].close * 0.0005)
+
+        consolidation_start = pattern_start_idx
+        for i in range(len(pre_bars) - 1, -1, -1):
+            bar_range = pre_bars[i].high - pre_bars[i].low
+            if bar_range > tight_threshold:
+                consolidation_start = scan_start + i + 1
+                break
+
+        if (
+            consolidation_start == pattern_start_idx
+            and len(pre_bars) >= self.min_duration_bars
+        ):
+            consolidation_start = scan_start
+
+        duration_bars = pattern_start_idx - consolidation_start
+        duration_hours = duration_bars * (self.bar_period_minutes / 60.0)
+        meets_min_duration = duration_bars >= self.min_duration_bars
+        meets_max_range = range_pips <= self.max_range_pips
+        passes_filter = meets_min_duration and meets_max_range
+
+        return ConsolidationMetrics(
+            duration_bars=duration_bars,
+            duration_hours=round(duration_hours, 1),
+            range_pips=round(range_pips, 1),
+            meets_min_duration=meets_min_duration,
+            meets_max_range=meets_max_range,
+            passes_filter=passes_filter,
+        )
 
 
 class MWPatternDetector:
@@ -56,12 +142,14 @@ class MWPatternDetector:
         min_depth_atr: float = 0.5,
         min_bar_span: int = 10,
         max_bar_span: int = 200,
+        consolidation_filter: ConsolidationFilter | None = None,
     ):
         self.swing_lookback = swing_lookback
         self.symmetry_tolerance = symmetry_tolerance
         self.min_depth_atr = min_depth_atr
         self.min_bar_span = min_bar_span
         self.max_bar_span = max_bar_span
+        self.consolidation_filter = consolidation_filter
 
     def detect(
         self, bars: list[Bar], atr_values: list[float] | None = None
@@ -82,6 +170,9 @@ class MWPatternDetector:
 
         patterns.extend(w_patterns)
         patterns.extend(m_patterns)
+
+        if self.consolidation_filter and self.consolidation_filter.enabled:
+            patterns = [p for p in patterns if p.consolidation.passes_filter]
 
         patterns.sort(key=lambda p: p.formation_start_time)
         return self._remove_overlapping(patterns)
@@ -150,6 +241,10 @@ class MWPatternDetector:
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
 
+            consolidation = ConsolidationMetrics()
+            if self.consolidation_filter:
+                consolidation = self.consolidation_filter.measure(bars, left_idx)
+
             patterns.append(
                 MWPattern(
                     pattern_type="W",
@@ -170,6 +265,7 @@ class MWPatternDetector:
                     sessions=sessions,
                     bar_count=span + 1,
                     atr_at_formation=avg_atr,
+                    consolidation=consolidation,
                 )
             )
 
@@ -214,6 +310,10 @@ class MWPatternDetector:
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
 
+            consolidation = ConsolidationMetrics()
+            if self.consolidation_filter:
+                consolidation = self.consolidation_filter.measure(bars, left_idx)
+
             patterns.append(
                 MWPattern(
                     pattern_type="M",
@@ -234,6 +334,7 @@ class MWPatternDetector:
                     sessions=sessions,
                     bar_count=span + 1,
                     atr_at_formation=avg_atr,
+                    consolidation=consolidation,
                 )
             )
 

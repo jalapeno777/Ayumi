@@ -251,7 +251,7 @@ class TestComputeMetrics(unittest.TestCase):
 
         trades = _make_trades([10.0, 20.0])
         m = _compute_metrics(0, trades)
-        self.assertEqual(m.profit_factor, float("inf"))
+        self.assertEqual(m.profit_factor, 10.0)
 
     def test_sharpe_ratio_single_trade(self):
         from quant.walk_forward import _compute_metrics

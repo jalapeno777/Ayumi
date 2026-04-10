@@ -37,6 +37,7 @@ PARAM_GRID = {
     "slow_period": [18, 21, 26, 50],
     "adx_threshold": [15.0, 20.0, 25.0, 30.0],
     "atr_multiplier": [1.5, 2.0, 2.5, 3.0],
+    "lod_hod_stop_buffer_pips": [8.0, 10.0, 12.0],
 }
 
 SWEEP_BARS_SUBSET = 5000
@@ -64,6 +65,7 @@ def run_sweep(
             slow_period=point.params["slow_period"],
             adx_threshold=point.params["adx_threshold"],
             atr_multiplier=point.params["atr_multiplier"],
+            lod_hod_stop_buffer_pips=point.params["lod_hod_stop_buffer_pips"],
         )
 
     grid = ParameterGrid(param_grid)
@@ -137,6 +139,7 @@ def run_walkforward_on_params(
             slow_period=params["slow_period"],
             adx_threshold=params["adx_threshold"],
             atr_multiplier=params["atr_multiplier"],
+            lod_hod_stop_buffer_pips=params.get("lod_hod_stop_buffer_pips", 8.0),
         )
 
     results = run_strategy_walk_forward(

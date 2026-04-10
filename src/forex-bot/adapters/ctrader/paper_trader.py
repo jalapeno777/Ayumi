@@ -5,7 +5,7 @@ from datetime import datetime
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
-from .models import Order, Position, TradeSignal
+from .models import Order, Position, PositionStatus, TradeSignal
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
 from .risk_guard import FTMOConfig, RiskGuard
 
@@ -25,6 +25,7 @@ class PaperTradeResult:
     rejection_reason: str = ""
     risk_guard_result: Any | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
+    slippage_applied: float = 0.0
 
 
 @dataclass
@@ -70,7 +71,9 @@ class PaperTrader:
     def is_live_mode(self) -> bool:
         return self._live_mode_enabled
 
-    def process_signal(self, signal: TradeSignal) -> PaperTradeResult:
+    def process_signal(
+        self, signal: TradeSignal, spread: float = 0.0
+    ) -> PaperTradeResult:
         with self._lock:
             self._stats.total_signals_processed += 1
 
@@ -113,6 +116,7 @@ class PaperTrader:
             trade_result = self._execute_order(
                 signal=signal,
                 volume=volume,
+                spread=spread,
             )
 
             if trade_result.success:
@@ -129,6 +133,7 @@ class PaperTrader:
                     order=trade_result.order,
                     position=position,
                     risk_guard_result=risk_result,
+                    slippage_applied=trade_result.slippage_applied,
                 )
                 self._trade_history.append(result)
                 logger.info(
@@ -148,7 +153,7 @@ class PaperTrader:
             return result
 
     def _execute_order(
-        self, signal: TradeSignal, volume: float
+        self, signal: TradeSignal, volume: float, spread: float = 0.0
     ) -> OrderExecutionResult:
         if self.is_live_mode:
             return self._order_manager.execute_live_order(
@@ -167,6 +172,7 @@ class PaperTrader:
             stop_loss=signal.stop_loss,
             take_profit=signal.take_profit_1,
             comment=signal.rationale,
+            spread=spread,
         )
 
     def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
@@ -255,6 +261,25 @@ class PaperTrader:
             self._risk_guard.reset_circuit_breaker()
             self._risk_guard.reset_daily_tracking()
             logger.info("[PAPER] Trading reset")
+
+    def clear_stuck_positions(self) -> int:
+        with self._lock:
+            positions = self._order_manager.get_open_positions()
+            count = len(positions)
+            for position in positions:
+                exit_price = position.current_price or position.entry_price
+                self._order_manager.close_position(
+                    position.position_id, exit_price, "synthetic_cleanup"
+                )
+                closed = self._order_manager.get_position(position.position_id)
+                if closed and closed.status == PositionStatus.CLOSED:
+                    self._stats.realized_pnl += closed.closed_pnl
+            self._current_balance = (
+                self._starting_balance + self._stats.realized_pnl
+            )
+            self._stats.current_balance = self._current_balance
+            logger.info(f"[PAPER] Cleared {count} stuck position(s)")
+            return count
 
     def register_callback(self, event: str, callback: Callable):
         if event not in ["on_trade_executed", "on_position_closed"]:

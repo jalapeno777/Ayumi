@@ -61,6 +61,18 @@ from .trade_management import (
     TradeManagementConfig,
     TradeManager,
 )
+from .statistical_study import (
+    CriterionResult,
+    GoNoGoCriteria,
+    StatisticalStudy,
+    StatisticalStudyResult,
+)
+from .pattern_detector import (
+    ConsolidationFilter,
+    ConsolidationMetrics,
+    MWPattern,
+    MWPatternDetector,
+)
 
 try:
     from .parameter_sweep import (
@@ -139,4 +151,12 @@ __all__ = [
     "HybridStrategy",
     "HybridConfig",
     "MLMeanReversionStrategy",
+    "StatisticalStudy",
+    "StatisticalStudyResult",
+    "GoNoGoCriteria",
+    "CriterionResult",
+    "ConsolidationFilter",
+    "ConsolidationMetrics",
+    "MWPattern",
+    "MWPatternDetector",
 ]

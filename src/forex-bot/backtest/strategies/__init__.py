@@ -16,6 +16,8 @@ from ..strategy_legacy import (
     HighConvictionStrategy,
     RegimeSwitchingRouter,
     RegimeRouterConfig,
+    DEFAULT_LOD_HOD_STOP_BUFFER_PIPS,
+    apply_lod_hod_stop_buffer,
 )
 
 # TTSStrategy loaded last — depends on ISignalStrategy being already defined
@@ -37,4 +39,6 @@ __all__ = [
     "HighConvictionStrategy",
     "RegimeSwitchingRouter",
     "RegimeRouterConfig",
+    "DEFAULT_LOD_HOD_STOP_BUFFER_PIPS",
+    "apply_lod_hod_stop_buffer",
 ]

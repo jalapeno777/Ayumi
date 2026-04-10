@@ -1,0 +1,54 @@
+{
+  "pair": "GBPUSD",
+  "timestamp": "2026-04-09T10:12:54.135030+00:00",
+  "n_trials": 1,
+  "seed": 42,
+  "baseline": {
+    "go_nogo": true,
+    "windows_passed": 5,
+    "total_windows": 5,
+    "metrics": {
+      "win_rate": 0.645,
+      "profit_factor": 1.6402667688340553,
+      "max_drawdown": 0.029244157073907272,
+      "sharpe_ratio": 3.395323762302006,
+      "trade_count": 14.8,
+      "total_pnl": 274.32590195892186
+    }
+  },
+  "optuna": {
+    "best_params": {
+      "atr_period": 16,
+      "atr_sl_multiplier": 2.9000000000000004,
+      "atr_tp_multiplier": 3.2,
+      "rsi_period": 20,
+      "rsi_long_level": 23.0,
+      "rsi_short_level": 63.0,
+      "session_range_min_pips": 10.0,
+      "entry_near_extreme_pips": 27.0,
+      "hard_cap_sl_pips": 35.0,
+      "tp1_rr": 1.6,
+      "tp2_rr": 1.0,
+      "ema_trend_period": 98,
+      "session_range_sl_fraction": 0.8
+    },
+    "best_score": 0.42039082402526334,
+    "go_nogo": true,
+    "n_trials": 1,
+    "study_summary": {
+      "n_trials": 1,
+      "n_complete": 1,
+      "n_pruned": 0,
+      "best_score": 0.42039082402526334,
+      "sampler": "TPESampler"
+    },
+    "metrics": {
+      "win_rate": 0.48119047619047617,
+      "profit_factor": 1.5644946550033012,
+      "max_drawdown": 0.04070159887924654,
+      "sharpe_ratio": -1.8844951679910007,
+      "trade_count": 10.8,
+      "total_pnl": -79.4403089734727
+    }
+  }
+}
