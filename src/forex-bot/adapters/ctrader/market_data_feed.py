@@ -135,7 +135,11 @@ class LiveMarketDataFeed:
 
     @property
     def is_running(self) -> bool:
-        return self._running
+        if not self._running:
+            return False
+        if self._client is not None and not self._client.is_connected:
+            return False
+        return True
 
     @property
     def name_to_id(self) -> dict[str, int]:
@@ -152,6 +156,7 @@ class LiveMarketDataFeed:
         self._client.register_callback(
             "on_logon", lambda m: logger.info("MD feed logged in")
         )
+        self._client.register_callback("on_connection_lost", self._on_connection_lost)
 
         if not self._client.connect():
             logger.error("Failed to connect MD feed")
@@ -253,6 +258,10 @@ class LiveMarketDataFeed:
 
     def on_tick(self, callback: Callable[[Tick], None]):
         self._tick_callbacks.append(callback)
+
+    def _on_connection_lost(self, reason: str):
+        logger.warning("FIX connection lost in market data feed: %s", reason)
+        self._running = False
 
     def _resolve_id(self, symbol_name: str) -> int | None:
         with self._lock:

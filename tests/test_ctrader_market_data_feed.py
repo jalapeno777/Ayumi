@@ -228,3 +228,27 @@ class TestFIXMessageRepeatingGroups:
         # Flat dict should have last value for repeated tags
         assert msg.get_field(269) == "1"
         assert msg.get_field(270) == "1.15252"
+
+
+class TestLiveMarketDataFeedConnectionState:
+    def test_is_running_false_when_client_disconnected(self, mock_feed):
+        mock_feed._client.is_connected = False
+        assert mock_feed.is_running is False
+
+    def test_is_running_true_when_client_connected(self, mock_feed):
+        mock_feed._client.is_connected = True
+        assert mock_feed.is_running is True
+
+    def test_is_running_false_when_not_started(self, quote_credentials):
+        feed = LiveMarketDataFeed(quote_credentials)
+        assert feed.is_running is False
+
+    def test_on_connection_lost_sets_running_false(self, mock_feed):
+        assert mock_feed._running is True
+        mock_feed._on_connection_lost("heartbeat_timeout")
+        assert mock_feed._running is False
+
+    def test_on_connection_lost_propagates_to_is_running(self, mock_feed):
+        mock_feed._client.is_connected = False
+        mock_feed._on_connection_lost("recv_loop_exited")
+        assert mock_feed.is_running is False

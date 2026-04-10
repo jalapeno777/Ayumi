@@ -19,6 +19,9 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_HEARTBEAT_INTERVAL = 30
+_DEFAULT_HEARTBEAT_TIMEOUT_FACTOR = 1.2
+
 SOH = "\x01"
 
 
@@ -262,13 +265,19 @@ class FIXClient:
     TAG_LAST = 799
     TAG_TIMESTAMP = 52
 
-    def __init__(self, credentials: cTraderCredentials):
+    def __init__(
+        self,
+        credentials: cTraderCredentials,
+        heartbeat_interval: int = _DEFAULT_HEARTBEAT_INTERVAL,
+        heartbeat_timeout_factor: float = _DEFAULT_HEARTBEAT_TIMEOUT_FACTOR,
+    ):
         self.credentials = credentials
         self._socket: socket.socket | None = None
         self._running = False
         self._recv_thread: threading.Thread | None = None
         self._next_outgoing_seq = 1
-        self._heartbeat_interval = 30
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_timeout_factor = heartbeat_timeout_factor
         self._last_heartbeat_sent = 0.0
         self._last_heartbeat_received = 0.0
         self._callbacks: dict[str, list] = {}
@@ -276,6 +285,9 @@ class FIXClient:
         self._positions: dict[str, Position] = {}
         self._lock = threading.Lock()
         self._logged_in = False
+        self._heartbeat_thread: threading.Thread | None = None
+        self._stop_heartbeat = threading.Event()
+        self._connection_lost = False
 
     def connect(self) -> bool:
         try:
@@ -285,6 +297,14 @@ class FIXClient:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.settimeout(10)
 
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            if hasattr(socket, "TCP_KEEPIDLE"):
+                self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
+            if hasattr(socket, "TCP_KEEPINTVL"):
+                self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+            if hasattr(socket, "TCP_KEEPCNT"):
+                self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+
             if self.credentials.use_ssl:
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
                 ctx.check_hostname = False
@@ -292,14 +312,16 @@ class FIXClient:
                 self._socket = ctx.wrap_socket(self._socket, server_hostname=host)
 
             self._socket.connect((host, port))
-            self._socket.settimeout(None)  # blocking for recv loop
+            self._socket.settimeout(None)
 
             self._running = True
+            self._connection_lost = False
             self._recv_thread = threading.Thread(target=self._recv_loop, daemon=True)
             self._recv_thread.start()
 
             if self._send_logon():
                 logger.info(f"Connected to cTrader at {host}:{port}")
+                self._start_heartbeat_thread()
                 return True
 
             return False
@@ -310,6 +332,10 @@ class FIXClient:
 
     def disconnect(self):
         self._running = False
+        self._stop_heartbeat.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=5.0)
+            self._heartbeat_thread = None
         if self._logged_in:
             self._send_logout()
         if self._socket:
@@ -317,6 +343,7 @@ class FIXClient:
                 self._socket.close()
             except Exception:
                 pass
+        self._logged_in = False
         logger.info("Disconnected from cTrader")
 
     def _recv_loop(self):
@@ -328,6 +355,7 @@ class FIXClient:
             try:
                 data = sock.recv(4096)
                 if not data:
+                    logger.warning("Socket closed by remote — connection lost")
                     break
                 buffer += data
                 buffer = self._process_buffer(buffer)
@@ -337,7 +365,12 @@ class FIXClient:
                 if self._running:
                     logger.error(f"Receive error: {e}")
                 break
-        self._logged_in = False
+        with self._lock:
+            was_logged_in = self._logged_in
+            self._logged_in = False
+            self._connection_lost = True
+        if was_logged_in:
+            self._trigger_callback("on_connection_lost", "recv_loop_exited")
 
     def _process_buffer(self, buffer: bytes) -> bytes:
         """Parse complete FIX messages from the receive buffer.
@@ -574,9 +607,42 @@ class FIXClient:
             self._send_heartbeat()
         if (
             self._last_heartbeat_received > 0
-            and now - self._last_heartbeat_received > self._heartbeat_interval * 3
+            and now - self._last_heartbeat_received
+            > self._heartbeat_interval * self._heartbeat_timeout_factor
         ):
-            logger.warning("Heartbeat timeout - connection may be lost")
+            logger.warning(
+                "Heartbeat timeout (%.0fs) — closing connection",
+                self._heartbeat_interval * self._heartbeat_timeout_factor,
+            )
+            self._close_on_heartbeat_timeout()
+
+    def _close_on_heartbeat_timeout(self):
+        with self._lock:
+            if self._connection_lost:
+                return
+            self._logged_in = False
+            self._connection_lost = True
+        self._trigger_callback("on_connection_lost", "heartbeat_timeout")
+        try:
+            if self._socket:
+                self._socket.close()
+        except Exception:
+            pass
+
+    def _start_heartbeat_thread(self):
+        self._stop_heartbeat.clear()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop, name="fix-heartbeat", daemon=True
+        )
+        self._heartbeat_thread.start()
+
+    def _heartbeat_loop(self):
+        check_interval = max(self._heartbeat_interval // 3, 1)
+        while not self._stop_heartbeat.wait(check_interval):
+            with self._lock:
+                if not self._logged_in or self._connection_lost:
+                    continue
+            self._check_heartbeat()
 
     def send_order(
         self,
@@ -682,7 +748,8 @@ class FIXClient:
 
     @property
     def is_connected(self) -> bool:
-        return self._logged_in
+        with self._lock:
+            return self._logged_in and not self._connection_lost
 
 
 class cTraderAPIClient:
