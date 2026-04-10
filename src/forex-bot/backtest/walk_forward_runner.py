@@ -70,6 +70,9 @@ def run_strategy_walk_forward(
         else:
             strategy = strategy_factory(train_bars)
 
+        if hasattr(strategy, "reset") and callable(strategy.reset):
+            strategy.reset()
+
         if (
             hasattr(strategy, "train")
             and callable(strategy.train)

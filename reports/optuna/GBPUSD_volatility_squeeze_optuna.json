@@ -1,0 +1,261 @@
+{
+  "strategy": "Volatility Squeeze Breakout",
+  "pair": "GBPUSD",
+  "timeframe": "H1",
+  "timestamp": "2026-04-09T23:06:15.240395+00:00",
+  "n_trials": 60,
+  "seed": 42,
+  "spread_pips": 0.0,
+  "go_nogo_threshold": "3/5 windows",
+  "baseline_preset": "USDJPY_H1_PRESET",
+  "baseline": {
+    "go_nogo": false,
+    "windows_passed": 0,
+    "total_windows": 5,
+    "per_window": [
+      {
+        "window_index": 0,
+        "win_rate": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 0.0,
+        "trade_count": 0,
+        "total_pnl": 0.0,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 1,
+        "win_rate": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 0.0,
+        "trade_count": 0,
+        "total_pnl": 0.0,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 2,
+        "win_rate": 0.5,
+        "profit_factor": 0.817,
+        "max_drawdown": 0.011,
+        "sharpe_ratio": -1.1302,
+        "trade_count": 2,
+        "total_pnl": -20.15,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 3,
+        "win_rate": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 0.0,
+        "trade_count": 0,
+        "total_pnl": 0.0,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 4,
+        "win_rate": 1.0,
+        "profit_factor": 10.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 0.0,
+        "trade_count": 1,
+        "total_pnl": 92.58,
+        "passed_go_nogo": false
+      }
+    ],
+    "metrics": {
+      "win_rate": 0.3,
+      "profit_factor": 2.163408550642051,
+      "max_drawdown": 0.002202768903088399,
+      "sharpe_ratio": -0.22604751573573562,
+      "trade_count": 0.6,
+      "total_pnl": 14.484926915707325
+    }
+  },
+  "optuna": {
+    "best_params": {
+      "bb_period": 14,
+      "bb_std_dev": 1.6,
+      "kc_period": 12,
+      "kc_atr_multiplier": 1.1,
+      "min_squeeze_bars": 3,
+      "ema_period": 65,
+      "adx_period": 20,
+      "adx_min": 10.0,
+      "atr_period": 15,
+      "atr_sl_multiplier": 1.1,
+      "tp1_rr": 2.0,
+      "tp2_rr": 1.7,
+      "tp3_rr": 3.2,
+      "session_filter": true,
+      "min_confidence": 0.55,
+      "squeeze_release_mode": "loose"
+    },
+    "best_score": -0.35629721753534516,
+    "go_nogo": false,
+    "n_trials": 60,
+    "study_summary": {
+      "n_trials": 60,
+      "n_complete": 13,
+      "n_pruned": 47,
+      "best_score": -0.35629721753534516,
+      "sampler": "TPESampler"
+    },
+    "per_window": [
+      {
+        "window_index": 0,
+        "win_rate": 1.0,
+        "profit_factor": 10.0,
+        "max_drawdown": 0.0,
+        "sharpe_ratio": 10.0,
+        "trade_count": 2,
+        "total_pnl": 385.81,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 1,
+        "win_rate": 0.2857,
+        "profit_factor": 0.5577,
+        "max_drawdown": 0.0398,
+        "sharpe_ratio": -4.2911,
+        "trade_count": 7,
+        "total_pnl": -245.2,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 2,
+        "win_rate": 0.2857,
+        "profit_factor": 0.6093,
+        "max_drawdown": 0.0435,
+        "sharpe_ratio": -3.5908,
+        "trade_count": 7,
+        "total_pnl": -213.14,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 3,
+        "win_rate": 0.25,
+        "profit_factor": 0.5822,
+        "max_drawdown": 0.0213,
+        "sharpe_ratio": -3.6215,
+        "trade_count": 4,
+        "total_pnl": -134.8,
+        "passed_go_nogo": false
+      },
+      {
+        "window_index": 4,
+        "win_rate": 0.4,
+        "profit_factor": 0.9589,
+        "max_drawdown": 0.0217,
+        "sharpe_ratio": -0.2934,
+        "trade_count": 5,
+        "total_pnl": -13.61,
+        "passed_go_nogo": false
+      }
+    ],
+    "metrics": {
+      "win_rate": 0.4442857142857143,
+      "profit_factor": 2.541628392733405,
+      "max_drawdown": 0.02524838123103823,
+      "sharpe_ratio": 10.0,
+      "trade_count": 5.0,
+      "total_pnl": -44.18802741677876
+    }
+  },
+  "top_parameter_sets": [
+    {
+      "rank": 1,
+      "score": 0.3685852439466535,
+      "params": {
+        "bb_period": 17,
+        "bb_std_dev": 1.2,
+        "kc_period": 13,
+        "kc_atr_multiplier": 1.3,
+        "min_squeeze_bars": 4,
+        "ema_period": 70,
+        "adx_period": 16,
+        "adx_min": 12.0,
+        "atr_period": 20,
+        "atr_sl_multiplier": 1.6,
+        "tp1_rr": 1.9000000000000001,
+        "tp2_rr": 1.8,
+        "tp3_rr": 3.4000000000000004,
+        "session_filter": true,
+        "min_confidence": 0.55,
+        "squeeze_release_mode": "strict"
+      },
+      "go_nogo": true,
+      "win_rate": 0.3295238095238095,
+      "profit_factor": 1.162931933628956,
+      "max_drawdown": 0.030028688956936046,
+      "sharpe_ratio": -581.5705102950235,
+      "trade_count": 4.8,
+      "total_pnl": -16.50669659028383,
+      "windows_passed": 2,
+      "total_windows": 5
+    },
+    {
+      "rank": 2,
+      "score": -0.05700992811433814,
+      "params": {
+        "bb_period": 21,
+        "bb_std_dev": 1.7,
+        "kc_period": 12,
+        "kc_atr_multiplier": 1.5,
+        "min_squeeze_bars": 1,
+        "ema_period": 75,
+        "adx_period": 11,
+        "adx_min": 21.0,
+        "atr_period": 19,
+        "atr_sl_multiplier": 2.4000000000000004,
+        "tp1_rr": 1.2000000000000002,
+        "tp2_rr": 1.7,
+        "tp3_rr": 4.0,
+        "session_filter": false,
+        "min_confidence": 0.7,
+        "squeeze_release_mode": "moderate"
+      },
+      "go_nogo": false,
+      "win_rate": 0.8333333333333334,
+      "profit_factor": 6.649108527157615,
+      "max_drawdown": 0.004205956868602934,
+      "sharpe_ratio": 10.0,
+      "trade_count": 1.8,
+      "total_pnl": 118.72193862595127,
+      "windows_passed": 0,
+      "total_windows": 5
+    },
+    {
+      "rank": 3,
+      "score": -0.16571548775818146,
+      "params": {
+        "bb_period": 30,
+        "bb_std_dev": 1.4,
+        "kc_period": 19,
+        "kc_atr_multiplier": 1.6,
+        "min_squeeze_bars": 2,
+        "ema_period": 40,
+        "adx_period": 11,
+        "adx_min": 21.0,
+        "atr_period": 22,
+        "atr_sl_multiplier": 1.0,
+        "tp1_rr": 1.8,
+        "tp2_rr": 1.7,
+        "tp3_rr": 3.6,
+        "session_filter": true,
+        "min_confidence": 0.65,
+        "squeeze_release_mode": "moderate"
+      },
+      "go_nogo": false,
+      "win_rate": 0.7333333333333333,
+      "profit_factor": 6.586340600992342,
+      "max_drawdown": 0.00450777910321518,
+      "sharpe_ratio": 1.435949548276875,
+      "trade_count": 1.4,
+      "total_pnl": 124.07346074430359,
+      "windows_passed": 0,
+      "total_windows": 5
+    }
+  ]
+}

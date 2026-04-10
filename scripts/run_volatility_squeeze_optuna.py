@@ -43,6 +43,9 @@ DATA_DIR = Path("data/forex/historical")
 REPORT_DIR = Path("reports/optuna")
 
 USDJPY_PATH = DATA_DIR / "USDJPY_H1.csv"
+GBPUSD_PATH = DATA_DIR / "GBPUSD_H1.csv"
+
+MAX_SHARPE_REPORT = 10.0
 
 DEFAULT_CONFIG = {
     "n_windows": 5,
@@ -50,9 +53,27 @@ DEFAULT_CONFIG = {
     "val_ratio": 0.15,
     "overlap_ratio": 0.20,
     "initial_balance": 10000.0,
-    "spread_pips": 1.0,
+    "spread_pips": 0.0,
     "commission_per_lot": 0.0,
 }
+
+
+def _sanitize_float(value: float) -> float | None:
+    if math.isinf(value) or math.isnan(value):
+        return None
+    if abs(value) > 1e6:
+        return None
+    return value
+
+
+def _sanitize_report(obj: Any) -> Any:
+    if isinstance(obj, float):
+        return _sanitize_float(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_report(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_report(v) for v in obj]
+    return obj
 
 
 def volatility_squeeze_search_space() -> SearchSpace:
@@ -68,7 +89,7 @@ def volatility_squeeze_search_space() -> SearchSpace:
         atr_period=int_range("atr_period", 10, 25),
         atr_sl_multiplier=float_range("atr_sl_multiplier", 1.0, 3.0, step=0.1),
         tp1_rr=float_range("tp1_rr", 0.5, 2.0, step=0.1),
-        tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
+        tp2_rr=float_range("tp2_rr", 1.5, 3.0, step=0.1),
         tp3_rr=float_range("tp3_rr", 2.0, 4.0, step=0.1),
         session_filter=categorical("session_filter", [True, False]),
         min_confidence=float_range("min_confidence", 0.45, 0.80, step=0.05),
@@ -112,6 +133,24 @@ def run_optuna(
     return optimizer
 
 
+def _per_window_detail(wf_result: Any) -> List[Dict[str, Any]]:
+    detail = []
+    for w in wf_result.per_window:
+        detail.append(
+            {
+                "window_index": w.window_index,
+                "win_rate": round(w.win_rate, 4),
+                "profit_factor": round(w.profit_factor, 4),
+                "max_drawdown": round(w.max_drawdown, 4),
+                "sharpe_ratio": round(min(w.sharpe_ratio, MAX_SHARPE_REPORT), 4),
+                "trade_count": w.trade_count,
+                "total_pnl": round(w.total_pnl, 2),
+                "passed_go_nogo": w.passed_go_nogo,
+            }
+        )
+    return detail
+
+
 def get_top_n_results(
     optimizer: OptunaOptimizer,
     n: int = 3,
@@ -127,38 +166,26 @@ def get_top_n_results(
         score = objective._composite_score(agg)
         if not wf.go_nogo:
             score -= 1.0
-        results.append({
-            "rank": 0,
-            "score": score,
-            "params": params,
-            "go_nogo": wf.go_nogo,
-            "win_rate": agg.mean_win_rate,
-            "profit_factor": agg.mean_profit_factor,
-            "max_drawdown": agg.mean_max_drawdown,
-            "sharpe_ratio": agg.mean_sharpe_ratio,
-            "trade_count": agg.mean_trade_count,
-            "total_pnl": agg.mean_total_pnl,
-            "windows_passed": agg.windows_passed,
-            "total_windows": agg.total_windows,
-        })
+        results.append(
+            {
+                "rank": 0,
+                "score": score,
+                "params": params,
+                "go_nogo": wf.go_nogo,
+                "win_rate": agg.mean_win_rate,
+                "profit_factor": agg.mean_profit_factor,
+                "max_drawdown": agg.mean_max_drawdown,
+                "sharpe_ratio": min(agg.mean_sharpe_ratio, MAX_SHARPE_REPORT),
+                "trade_count": agg.mean_trade_count,
+                "total_pnl": agg.mean_total_pnl,
+                "windows_passed": agg.windows_passed,
+                "total_windows": agg.total_windows,
+            }
+        )
     results.sort(key=lambda r: r["score"], reverse=True)
     for i, r in enumerate(results[:n]):
         r["rank"] = i + 1
     return results[:n]
-
-
-def _sanitize_float(value):
-    if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
-        return None
-    return value
-
-
-def _sanitize_report(obj):
-    if isinstance(obj, dict):
-        return {k: _sanitize_report(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_sanitize_report(v) for v in obj]
-    return _sanitize_float(obj)
 
 
 def main() -> None:
@@ -173,12 +200,20 @@ def main() -> None:
     parser.add_argument(
         "--top", type=int, default=3, help="Number of top parameter sets to output"
     )
+    parser.add_argument(
+        "--spread-pips",
+        type=float,
+        default=0.0,
+        help="Spread in pips (0.0 = zero-cost baseline)",
+    )
     args = parser.parse_args()
+
+    DEFAULT_CONFIG["spread_pips"] = args.spread_pips
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     pair = args.pair
-    csv_path = USDJPY_PATH
+    csv_path = USDJPY_PATH if pair == "USDJPY" else GBPUSD_PATH
     if not csv_path.exists():
         print(f"Data file not found for {pair}: {csv_path}")
         sys.exit(1)
@@ -190,25 +225,25 @@ def main() -> None:
         sys.exit(1)
     print(f"Loaded {len(bars)} bars for {pair}: {bars[0].time} -> {bars[-1].time}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  BASELINE: USDJPY_H1_PRESET Parameters ({pair})")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     baseline_wf = run_baseline(bars, pair)
     if baseline_wf.aggregated:
         agg = baseline_wf.aggregated
         print(f"  Win Rate:     {agg.mean_win_rate:.4f}")
         print(f"  Profit Factor: {agg.mean_profit_factor:.4f}")
         print(f"  Max Drawdown:  {agg.mean_max_drawdown:.4f}")
-        print(f"  Sharpe Ratio:  {agg.mean_sharpe_ratio:.4f}")
+        print(f"  Sharpe Ratio:  {min(agg.mean_sharpe_ratio, MAX_SHARPE_REPORT):.4f}")
         print(f"  Trade Count:   {agg.mean_trade_count:.1f}")
         print(f"  Total PnL:     {agg.mean_total_pnl:.2f}")
         print(f"  Windows Pass:  {agg.windows_passed}/{agg.total_windows}")
         print(f"  GO/NO-GO:      {'GO' if baseline_wf.go_nogo else 'NO-GO'}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  OPTUNA BAYESIAN OPTIMIZATION ({pair})")
     print(f"  Trials: {args.trials}, Seed: {args.seed}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     optimizer = run_optuna(bars, pair, n_trials=args.trials, seed=args.seed)
     opt_result = optimizer.optimize()
@@ -230,28 +265,34 @@ def main() -> None:
         print(f"    Win Rate:      {agg.mean_win_rate:.4f}")
         print(f"    Profit Factor: {agg.mean_profit_factor:.4f}")
         print(f"    Max Drawdown:   {agg.mean_max_drawdown:.4f}")
-        print(f"    Sharpe Ratio:   {agg.mean_sharpe_ratio:.4f}")
+        print(
+            f"    Sharpe Ratio:   {min(agg.mean_sharpe_ratio, MAX_SHARPE_REPORT):.4f}"
+        )
         print(f"    Trade Count:    {agg.mean_trade_count:.1f}")
         print(f"    Total PnL:      {agg.mean_total_pnl:.2f}")
         print(f"    Windows Pass:   {agg.windows_passed}/{agg.total_windows}")
 
     top_n = get_top_n_results(optimizer, n=args.top)
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  TOP-{args.top} PARAMETER SETS (for walk-forward QA gate)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     for entry in top_n:
-        print(f"\n  Rank #{entry['rank']} (score={entry['score']:.4f}, "
-              f"GO={'GO' if entry['go_nogo'] else 'NO-GO'})")
-        print(f"    WR={entry['win_rate']:.4f} PF={entry['profit_factor']:.4f} "
-              f"DD={entry['max_drawdown']:.4f} Sharpe={entry['sharpe_ratio']:.4f} "
-              f"Trades={entry['trade_count']:.1f} "
-              f"Windows={entry['windows_passed']}/{entry['total_windows']}")
+        print(
+            f"\n  Rank #{entry['rank']} (score={entry['score']:.4f}, "
+            f"GO={'GO' if entry['go_nogo'] else 'NO-GO'})"
+        )
+        print(
+            f"    WR={entry['win_rate']:.4f} PF={entry['profit_factor']:.4f} "
+            f"DD={entry['max_drawdown']:.4f} Sharpe={entry['sharpe_ratio']:.4f} "
+            f"Trades={entry['trade_count']:.1f} "
+            f"Windows={entry['windows_passed']}/{entry['total_windows']}"
+        )
         for k, v in sorted(entry["params"].items()):
             print(f"    {k}: {v}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"  COMPARISON: Baseline vs Optuna-Optimized ({pair})")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     if opt_result.best_walk_forward and baseline_wf.aggregated:
         print(comparison_report(baseline_wf, opt_result.best_walk_forward))
 
@@ -262,6 +303,8 @@ def main() -> None:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "n_trials": args.trials,
         "seed": args.seed,
+        "spread_pips": args.spread_pips,
+        "go_nogo_threshold": "3/5 windows",
         "baseline_preset": "USDJPY_H1_PRESET",
         "baseline": {
             "go_nogo": baseline_wf.go_nogo,
@@ -269,6 +312,7 @@ def main() -> None:
                 1 for m in baseline_wf.per_window if m.passed_go_nogo
             ),
             "total_windows": len(baseline_wf.per_window),
+            "per_window": _per_window_detail(baseline_wf),
         },
         "optuna": {
             "best_params": opt_result.best_params,
@@ -276,6 +320,9 @@ def main() -> None:
             "go_nogo": opt_result.go_nogo,
             "n_trials": opt_result.n_trials,
             "study_summary": opt_result.study_summary,
+            "per_window": _per_window_detail(opt_result.best_walk_forward)
+            if opt_result.best_walk_forward
+            else [],
         },
         "top_parameter_sets": top_n,
     }
@@ -285,7 +332,7 @@ def main() -> None:
             "win_rate": agg.mean_win_rate,
             "profit_factor": agg.mean_profit_factor,
             "max_drawdown": agg.mean_max_drawdown,
-            "sharpe_ratio": agg.mean_sharpe_ratio,
+            "sharpe_ratio": min(agg.mean_sharpe_ratio, MAX_SHARPE_REPORT),
             "trade_count": agg.mean_trade_count,
             "total_pnl": agg.mean_total_pnl,
         }
@@ -295,15 +342,15 @@ def main() -> None:
             "win_rate": agg.mean_win_rate,
             "profit_factor": agg.mean_profit_factor,
             "max_drawdown": agg.mean_max_drawdown,
-            "sharpe_ratio": agg.mean_sharpe_ratio,
+            "sharpe_ratio": min(agg.mean_sharpe_ratio, MAX_SHARPE_REPORT),
             "trade_count": agg.mean_trade_count,
             "total_pnl": agg.mean_total_pnl,
         }
 
+    report = _sanitize_report(report)
     report_path = REPORT_DIR / f"{pair}_volatility_squeeze_optuna.json"
-    sanitized = _sanitize_report(report)
     with open(report_path, "w") as f:
-        json.dump(sanitized, f, indent=2, allow_nan=False)
+        json.dump(report, f, indent=2, allow_nan=False)
     print(f"\n  Report saved: {report_path}")
 
 
