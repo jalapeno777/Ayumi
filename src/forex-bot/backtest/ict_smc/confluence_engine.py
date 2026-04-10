@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from ..engine import Bar, SessionType, TradeDirection
+from ..engine import Bar, SessionType, TradeDirection, determine_session
 from .fvg import FVGDetector
 from .h4_context import H4ContextModule
 from .liquidity_sweep import LiquiditySweepDetector
@@ -13,6 +13,21 @@ from .models import (
 )
 from .order_block import OrderBlockDetector
 from .premium_discount import PremiumDiscountClassifier
+
+MULTI_SESSION_BONUS = 0.08
+SINGLE_SESSION_PENALTY = 0.03
+
+
+def compute_session_span(bars: list[Bar]) -> tuple[int, bool]:
+    if not bars:
+        return (0, False)
+    sessions_seen: set[SessionType] = set()
+    for bar in bars:
+        s = determine_session(bar.time)
+        if s != SessionType.OUTSIDE:
+            sessions_seen.add(s)
+    count = len(sessions_seen)
+    return (count, count >= 2)
 
 
 class SignalConfluenceEngine:
@@ -30,6 +45,8 @@ class SignalConfluenceEngine:
         tp1_rr: float = 1.0,
         tp2_rr: float = 2.0,
         tp3_rr: float = 3.0,
+        multi_session_weight_bonus: float = MULTI_SESSION_BONUS,
+        single_session_penalty: float = SINGLE_SESSION_PENALTY,
     ):
         self._min_confidence = min_confidence
         self._structure_weight = structure_weight
@@ -43,6 +60,8 @@ class SignalConfluenceEngine:
         self._tp1_rr = tp1_rr
         self._tp2_rr = tp2_rr
         self._tp3_rr = tp3_rr
+        self._multi_session_bonus = multi_session_weight_bonus
+        self._single_session_penalty = single_session_penalty
 
         self._structure_analyzer = MarketStructureAnalyzer()
         self._ob_detector = OrderBlockDetector()
@@ -70,11 +89,18 @@ class SignalConfluenceEngine:
         if state.atr == 0:
             return None
 
+        session_span_count, is_multi_session = compute_session_span(state.bars)
+        session_span_adjustment = (
+            self._multi_session_bonus
+            if is_multi_session
+            else -self._single_session_penalty
+        )
+
         bullish_scores = self._component_scores(state, TradeDirection.LONG, h4_context)
         bearish_scores = self._component_scores(state, TradeDirection.SHORT, h4_context)
 
-        bullish_total = bullish_scores["total"]
-        bearish_total = bearish_scores["total"]
+        bullish_total = min(1.0, bullish_scores["total"] + session_span_adjustment)
+        bearish_total = min(1.0, bearish_scores["total"] + session_span_adjustment)
 
         if bullish_total > bearish_total and bullish_total >= self._min_confidence:
             direction = TradeDirection.LONG
@@ -102,7 +128,9 @@ class SignalConfluenceEngine:
 
         rr = abs(tp2 - entry) / risk
 
-        rationale = self._build_rationale(state, direction, confidence, h4_context)
+        rationale = self._build_rationale(
+            state, direction, confidence, h4_context, is_multi_session
+        )
 
         return ConfluenceSignal(
             direction=direction,
@@ -128,6 +156,8 @@ class SignalConfluenceEngine:
             liq_sweep_score=component_scores["sweep"],
             pd_zone_score=component_scores["pd"],
             session_score=component_scores["session"],
+            session_span_count=session_span_count,
+            is_multi_session=is_multi_session,
         )
 
     def _component_scores(
@@ -320,6 +350,7 @@ class SignalConfluenceEngine:
         direction: TradeDirection,
         confidence: float,
         h4_context=None,
+        is_multi_session: bool = False,
     ) -> str:
         lines = [f"{direction.value.upper()} signal (confidence: {confidence:.2f})"]
 
@@ -346,6 +377,9 @@ class SignalConfluenceEngine:
                 lines.append("- Price in discount zone")
             else:
                 lines.append("- Price in premium zone")
+
+        if is_multi_session:
+            lines.append("- Multi-session formation (higher quality)")
 
         if h4_context is not None:
             h4_confluences = (
