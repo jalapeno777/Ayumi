@@ -39,6 +39,7 @@ PARAM_GRID = {
     "adx_threshold": [15.0, 20.0, 25.0, 30.0],
     "sl_atr_multiplier": [1.5, 2.0, 2.5, 3.0],
     "volume_ma_period": [20, 50],
+    "lod_hod_stop_buffer_pips": [8.0, 10.0, 12.0],
 }
 
 SWEEP_BARS_SUBSET = 5000
@@ -71,10 +72,13 @@ def run_sweep(
             atr_min_pips=1.0,
             sl_max_pips=40.0,
             use_volume_filter=False,
+            lod_hod_stop_buffer_pips=point.params["lod_hod_stop_buffer_pips"],
         )
 
     grid = ParameterGrid(param_grid)
-    runner = SweepRunner(config=config, bars=sweep_bars, strategy_factory=strategy_factory, max_workers=1)
+    runner = SweepRunner(
+        config=config, bars=sweep_bars, strategy_factory=strategy_factory, max_workers=1
+    )
     result = runner.run(grid)
 
     print(f"\n  Swept {len(grid)} parameter combinations on {len(sweep_bars)} bars")
@@ -147,6 +151,7 @@ def run_walkforward_on_params(
             atr_min_pips=1.0,
             sl_max_pips=40.0,
             use_volume_filter=False,
+            lod_hod_stop_buffer_pips=params.get("lod_hod_stop_buffer_pips", 8.0),
         )
 
     results = run_strategy_walk_forward(
@@ -193,9 +198,9 @@ def main() -> None:
     all_top_params = {}
 
     for pair, csv_path in pairs:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"  PARAMETER SWEEP: Keltner Channel Breakout on {pair}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         bars = loader.load(csv_path)
         print(f"  Loaded {len(bars)} bars: {bars[0].time} → {bars[-1].time}")
@@ -210,7 +215,9 @@ def main() -> None:
 
         trade_results = sweep_result["trade_results"]
         if not trade_results:
-            print(f"\n  WARNING: No trades generated for {pair} with any parameter combination!")
+            print(
+                f"\n  WARNING: No trades generated for {pair} with any parameter combination!"
+            )
             all_sweep_results[pair] = {"trade_results": [], "all_results": []}
             all_top_params[pair] = []
             continue
@@ -221,34 +228,44 @@ def main() -> None:
 
         print(f"\n  Top 5 parameter sets for {pair}:")
         for i, row in enumerate(top5):
-            print(f"    {i+1}. ema={row.params['ema_period']}, atr={row.params['atr_period']}, "
-                  f"kc_mult={row.params['atr_multiplier']}, adx={row.params['adx_threshold']}, "
-                  f"sl_mult={row.params['sl_atr_multiplier']}, vol={row.params['volume_ma_period']}")
-            print(f"       WR={row.win_rate:.1%}, PF={row.profit_factor:.2f}, "
-                  f"DD={row.max_dd:.1%}, Sharpe={row.sharpe_ratio:.2f}, Trades={row.trade_count}")
+            print(
+                f"    {i + 1}. ema={row.params['ema_period']}, atr={row.params['atr_period']}, "
+                f"kc_mult={row.params['atr_multiplier']}, adx={row.params['adx_threshold']}, "
+                f"sl_mult={row.params['sl_atr_multiplier']}, vol={row.params['volume_ma_period']}"
+            )
+            print(
+                f"       WR={row.win_rate:.1%}, PF={row.profit_factor:.2f}, "
+                f"DD={row.max_dd:.1%}, Sharpe={row.sharpe_ratio:.2f}, Trades={row.trade_count}"
+            )
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  WALK-FORWARD VALIDATION: Top 5 params per pair")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     walkforward_results = {}
 
     for pair, top5 in all_top_params.items():
         if not top5:
             print(f"\n  Skipping {pair} - no parameter sets with trades")
-            walkforward_results[pair] = {"go_nogo": False, "per_window": [], "top5_results": []}
+            walkforward_results[pair] = {
+                "go_nogo": False,
+                "per_window": [],
+                "top5_results": [],
+            }
             continue
 
-        bars = loader.load(
-            EURUSD_PATH if pair == "EURUSD" else GBPJPY_PATH
+        bars = loader.load(EURUSD_PATH if pair == "EURUSD" else GBPJPY_PATH)
+        print(
+            f"\n  Running 5-window walk-forward for {pair} top 5 params on {len(bars)} bars..."
         )
-        print(f"\n  Running 5-window walk-forward for {pair} top 5 params on {len(bars)} bars...")
 
         pair_wf_results = []
         for i, row in enumerate(top5):
             params = row.params
-            print(f"\n    [{i+1}/5] Testing: ema={params['ema_period']}, atr={params['atr_period']}, "
-                  f"kc_mult={params['atr_multiplier']}, adx={params['adx_threshold']}")
+            print(
+                f"\n    [{i + 1}/5] Testing: ema={params['ema_period']}, atr={params['atr_period']}, "
+                f"kc_mult={params['atr_multiplier']}, adx={params['adx_threshold']}"
+            )
 
             wf_result = run_walkforward_on_params(bars, pair, params)
 
@@ -258,22 +275,28 @@ def main() -> None:
 
             if wf_result.aggregated:
                 print(f"       {go_status} ({passed}/{total} windows)")
-                print(f"       WR={wf_result.aggregated.mean_win_rate:.1%}, "
-                      f"PF={wf_result.aggregated.mean_profit_factor:.2f}, "
-                      f"DD={wf_result.aggregated.mean_max_drawdown:.1%}, "
-                      f"Sharpe={wf_result.aggregated.mean_sharpe_ratio:.2f}")
+                print(
+                    f"       WR={wf_result.aggregated.mean_win_rate:.1%}, "
+                    f"PF={wf_result.aggregated.mean_profit_factor:.2f}, "
+                    f"DD={wf_result.aggregated.mean_max_drawdown:.1%}, "
+                    f"Sharpe={wf_result.aggregated.mean_sharpe_ratio:.2f}"
+                )
             else:
                 print("       NO-GO (no aggregated metrics)")
 
-            pair_wf_results.append({
-                "params": params,
-                "go_nogo": wf_result.go_nogo,
-                "aggregated": wf_result.aggregated,
-                "per_window": wf_result.per_window,
-            })
+            pair_wf_results.append(
+                {
+                    "params": params,
+                    "go_nogo": wf_result.go_nogo,
+                    "aggregated": wf_result.aggregated,
+                    "per_window": wf_result.per_window,
+                }
+            )
 
         any_go = any(r["go_nogo"] for r in pair_wf_results)
-        print(f"\n  {pair} Summary: {'AT LEAST ONE PARAM SET PASSED' if any_go else 'ALL PARAM SETS FAILED'}")
+        print(
+            f"\n  {pair} Summary: {'AT LEAST ONE PARAM SET PASSED' if any_go else 'ALL PARAM SETS FAILED'}"
+        )
 
         walkforward_results[pair] = {
             "go_nogo": any_go,
@@ -285,9 +308,9 @@ def main() -> None:
         json.dump(all_sweep_results, f, indent=2, default=str)
     print(f"\n  Combined sweep report: {combined_sweep_path}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  FINAL SUMMARY: Keltner Channel Breakout Walk-Forward")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     for pair, wf_result in walkforward_results.items():
         go_nogo = wf_result["go_nogo"]
@@ -305,13 +328,17 @@ def main() -> None:
         status = "GO" if go_nogo else "NO-GO"
         print(f"\n  {pair}: {status}")
         if best_params:
-            print(f"    Best: ema={best_params['ema_period']}, atr={best_params['atr_period']}, "
-                  f"kc_mult={best_params['atr_multiplier']}, adx={best_params['adx_threshold']}, "
-                  f"sl_mult={best_params['sl_atr_multiplier']}, vol={best_params['volume_ma_period']}")
+            print(
+                f"    Best: ema={best_params['ema_period']}, atr={best_params['atr_period']}, "
+                f"kc_mult={best_params['atr_multiplier']}, adx={best_params['adx_threshold']}, "
+                f"sl_mult={best_params['sl_atr_multiplier']}, vol={best_params['volume_ma_period']}"
+            )
             print(f"    Windows passed: {best_windows_passed}/5")
 
     overall_go = any(r["go_nogo"] for r in walkforward_results.values())
-    print(f"\n  OVERALL: {'GO' if overall_go else 'NO-GO'} (need at least one pair with 3/5 windows passing)")
+    print(
+        f"\n  OVERALL: {'GO' if overall_go else 'NO-GO'} (need at least one pair with 3/5 windows passing)"
+    )
 
     final_report = {
         "strategy": "KeltnerChannelBreakout",
@@ -320,7 +347,9 @@ def main() -> None:
         "pair_results": walkforward_results,
     }
 
-    final_report_path = WALKFORWARD_REPORT_DIR / "keltner_sweep_walkforward_results.json"
+    final_report_path = (
+        WALKFORWARD_REPORT_DIR / "keltner_sweep_walkforward_results.json"
+    )
     with open(final_report_path, "w") as f:
         json.dump(final_report, f, indent=2, default=str)
     print(f"\n  Final report saved: {final_report_path}")
