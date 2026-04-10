@@ -21,6 +21,7 @@ from backtest.strategies import (
     ROCMStrategy,
     RSIStrategy,
     SRBreakoutStrategy,
+    SupertrendRSIBlendStrategy,
 )
 from backtest.walk_forward_runner import register_strategy
 
@@ -91,6 +92,10 @@ def _make_regime_router() -> ISignalStrategy:
     return RegimeSwitchingRouter()
 
 
+def _make_supertrend_rsi_blend() -> ISignalStrategy:
+    return SupertrendRSIBlendStrategy()
+
+
 def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("ma_crossover", _make_ma_crossover)
     register_strategy("bollinger", _make_bollinger)
@@ -110,3 +115,4 @@ def register_builtin_strategies(pair: str = "EURUSD") -> None:
     )
     register_strategy("high_conviction", _make_high_conviction)
     register_strategy("regime_router", _make_regime_router)
+    register_strategy("supertrend_rsi_blend", _make_supertrend_rsi_blend)
