@@ -154,6 +154,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     smoothed_plus_dm = sum(plus_dms[:period])
     smoothed_minus_dm = sum(minus_dms[:period])
 
+    dx_list: list[float] = []
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
@@ -161,14 +162,26 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
             smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
         )
 
-    if smoothed_tr == 0:
+        if smoothed_tr == 0:
+            dx_list.append(0.0)
+            continue
+        plus_di = 100.0 * (smoothed_plus_dm / smoothed_tr)
+        minus_di = 100.0 * (smoothed_minus_dm / smoothed_tr)
+        di_sum = plus_di + minus_di
+        if di_sum == 0:
+            dx_list.append(0.0)
+        else:
+            dx_list.append(100.0 * (abs(plus_di - minus_di) / di_sum))
+
+
+    if len(dx_list) < period:
         return 0.0
-    plus_di = 100.0 * (smoothed_plus_dm / smoothed_tr)
-    minus_di = 100.0 * (smoothed_minus_dm / smoothed_tr)
-    di_sum = plus_di + minus_di
-    if di_sum == 0:
-        return 0.0
-    return 100.0 * (abs(plus_di - minus_di) / di_sum)
+
+    adx = sum(dx_list[:period]) / period
+    for dx in dx_list[period:]:
+        adx = (adx * (period - 1) + dx) / period
+
+    return adx
 
 
 def _calculate_sma(values: list[float], period: int) -> float:

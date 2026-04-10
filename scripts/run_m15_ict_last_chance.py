@@ -57,7 +57,9 @@ from backtest.selective_pairing import PairingConfig, SelectivePairingHarness
 from backtest.trade_management.session_filter import SessionFilter
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "forex" / "historical"
-REPORT_PATH = Path(__file__).resolve().parent.parent / "reports" / "m15_ict_last_chance.json"
+REPORT_PATH = (
+    Path(__file__).resolve().parent.parent / "reports" / "m15_ict_last_chance.json"
+)
 
 M15_TUNING = {
     "swing_lookback": 10,
@@ -139,7 +141,11 @@ def compute_all_signals_single_pass(
     running_bars = list(bars[:min_bars])
     for i in range(min_bars, total):
         if i % 5000 == 0:
-            print(f"\r    Signal computation: {i}/{total} ({100*i/total:.0f}%)", end="", flush=True)
+            print(
+                f"\r    Signal computation: {i}/{total} ({100 * i / total:.0f}%)",
+                end="",
+                flush=True,
+            )
 
         bar = bars[i]
         running_bars.append(bar)
@@ -204,9 +210,7 @@ def run_m15_eval(
     print()
 
     for w_idx, (train_start, train_end, test_start, test_end) in enumerate(splits):
-        window_sigs = [
-            sig for idx, sig in all_signals if test_start <= idx < test_end
-        ]
+        window_sigs = [sig for idx, sig in all_signals if test_start <= idx < test_end]
 
         test_bars = bars[test_start:test_end]
         if not test_bars:
@@ -270,9 +274,7 @@ def run_m15_eval(
     passing_wr = sum(1 for w in win_rates if w >= ACCEPTANCE_CRITERIA["win_rate"])
     passing_pf = sum(1 for p in pfs if p >= ACCEPTANCE_CRITERIA["profit_factor"])
     passing_dd = sum(1 for d in dds if d <= ACCEPTANCE_CRITERIA["max_drawdown"])
-    passing_sh = sum(
-        1 for s in sharpes if s >= ACCEPTANCE_CRITERIA["sharpe_ratio"]
-    )
+    passing_sh = sum(1 for s in sharpes if s >= ACCEPTANCE_CRITERIA["sharpe_ratio"])
 
     result.passed_criteria = {
         "win_rate": passing_wr >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
@@ -280,8 +282,7 @@ def run_m15_eval(
         "max_drawdown": passing_dd >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
         "sharpe_ratio": passing_sh >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
         "min_profitable_windows": (
-            result.profitable_windows
-            >= ACCEPTANCE_CRITERIA["min_profitable_windows"]
+            result.profitable_windows >= ACCEPTANCE_CRITERIA["min_profitable_windows"]
         ),
     }
 
@@ -336,11 +337,21 @@ def main():
     print()
 
     print("  M15 Component Tuning:")
-    print(f"    MarketStructure:  swing_lookback={M15_TUNING['swing_lookback']}, bos_threshold={M15_TUNING['bos_threshold']}")
-    print(f"    OrderBlock:       freshness={M15_TUNING['freshness_window']}, lookback={M15_TUNING['ob_lookback']}")
-    print(f"    FVG:              max_age={M15_TUNING['fvg_max_age']}, mini_threshold={M15_TUNING['fvg_mini_threshold']}")
-    print(f"    LiquiditySweep:   pool_lookback={M15_TUNING['pool_lookback']}, validity={M15_TUNING['sweep_validity_bars']}, wick={M15_TUNING['sweep_wick_ratio']}")
-    print(f"    PremiumDiscount:  lookback={M15_TUNING['pd_lookback']}, buffer={M15_TUNING['pd_equilibrium_buffer']}")
+    print(
+        f"    MarketStructure:  swing_lookback={M15_TUNING['swing_lookback']}, bos_threshold={M15_TUNING['bos_threshold']}"
+    )
+    print(
+        f"    OrderBlock:       freshness={M15_TUNING['freshness_window']}, lookback={M15_TUNING['ob_lookback']}"
+    )
+    print(
+        f"    FVG:              max_age={M15_TUNING['fvg_max_age']}, mini_threshold={M15_TUNING['fvg_mini_threshold']}"
+    )
+    print(
+        f"    LiquiditySweep:   pool_lookback={M15_TUNING['pool_lookback']}, validity={M15_TUNING['sweep_validity_bars']}, wick={M15_TUNING['sweep_wick_ratio']}"
+    )
+    print(
+        f"    PremiumDiscount:  lookback={M15_TUNING['pd_lookback']}, buffer={M15_TUNING['pd_equilibrium_buffer']}"
+    )
     print()
 
     print("  Acceptance criteria (per window):")

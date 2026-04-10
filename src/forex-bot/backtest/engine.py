@@ -314,7 +314,7 @@ class BacktestEngine:
 
             equity_curve.append(self.balance)
 
-        self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, trades)
+        self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close)
         return self._calculate_metrics(trades, equity_curve, rejected_signals)
 
     def _reset(self):
@@ -468,18 +468,20 @@ class BacktestEngine:
         open_trades: list[SimulatedTrade],
         bar_index: int,
         exit_time: datetime,
-        closed_trades: list[SimulatedTrade],
-    ):
+        exit_price: float,
+    ) -> list[SimulatedTrade]:
+        closed = []
         for trade in open_trades:
             self._close_trade(
                 trade,
                 bar_index,
                 exit_time,
-                closed_trades[-1].exit_price if closed_trades else trade.entry_price,
+                exit_price,
                 ExitReason.END_OF_DATA,
             )
-            closed_trades.append(trade)
+            closed.append(trade)
         open_trades.clear()
+        return closed
 
     def _calculate_metrics(
         self,

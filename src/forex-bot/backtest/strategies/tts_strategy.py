@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-import pandas as pd
 
 from ..engine import Bar, MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
@@ -20,7 +19,7 @@ from signal_engine import (
     StopTargetCalculator,
     SessionAnalyzer,
 )
-from signal_engine.data_types import HTFState, SessionState, Swing, SwingType, Level
+from signal_engine.data_types import HTFState, SessionState, Swing, Level
 from signal_engine.swing_detector import SwingDetector
 from signal_engine.level_counter import LevelCounter
 from signal_engine.htf_analyzer import HTFAnalyzer
@@ -137,8 +136,13 @@ class TTSStrategy(ISignalStrategy):
 
         # ── Step 3: Pattern detection ──────────────────────────────────
         bars_dict = [
-            {"high": b.high, "low": b.low, "close": b.close,
-             "open": b.open, "volume": b.volume}
+            {
+                "high": b.high,
+                "low": b.low,
+                "close": b.close,
+                "open": b.open,
+                "volume": b.volume,
+            }
             for b in bars
         ]
         patterns = self._pattern_detector.detect_all(
@@ -237,14 +241,21 @@ class TTSStrategy(ISignalStrategy):
 
         risk = abs(latest.close - stop_price)
         direction = (
-            TradeDirection.LONG if best_pattern.direction == "long"
+            TradeDirection.LONG
+            if best_pattern.direction == "long"
             else TradeDirection.SHORT
         )
         tp1 = tp_price
-        tp2 = (tp_price + risk * 2.0 if best_pattern.direction == "long"
-               else tp_price - risk * 2.0)
-        tp3 = (tp_price + risk * 3.0 if best_pattern.direction == "long"
-               else tp_price - risk * 3.0)
+        tp2 = (
+            tp_price + risk * 2.0
+            if best_pattern.direction == "long"
+            else tp_price - risk * 2.0
+        )
+        tp3 = (
+            tp_price + risk * 3.0
+            if best_pattern.direction == "long"
+            else tp_price - risk * 3.0
+        )
 
         rationale = (
             f"{self.name}: {best_pattern.pattern_type} "
@@ -267,7 +278,7 @@ class TTSStrategy(ISignalStrategy):
 
     def _get_session_state(self, ts: datetime) -> SessionState:
         session_name = self._session_analyzer.get_current_session(ts)
-        kill_zone = self._session_analyzer.is_kill_zone(ts)
+        _ = self._session_analyzer.is_kill_zone(ts)
         session_result = self._session_analyzer.score_session_phase_with_time(
             session_name, ts
         )
@@ -310,7 +321,9 @@ class TTSStrategy(ISignalStrategy):
             valid = valid[~np.isnan(valid)]
             if len(valid) >= 2:
                 slope_raw = valid[-1] - valid[0]
-                ema_slope = slope_raw / (len(valid) * valid[-1]) if valid[-1] > 0 else 0.0
+                ema_slope = (
+                    slope_raw / (len(valid) * valid[-1]) if valid[-1] > 0 else 0.0
+                )
 
         # Phase: use M15-appropriate thresholds
         # Boardroom: range < 0.3% over 20h is very tight
@@ -318,8 +331,14 @@ class TTSStrategy(ISignalStrategy):
         phase = self._classify_htf_phase(range_size, ema_slope, highs, lows, closes)
 
         # Alignment score
-        htf_dir = "bullish" if ema_slope > 0.00003 else ("bearish" if ema_slope < -0.00003 else None)
-        alignment = self._htf_analyzer.analyze_htf_alignment({"D1": htf_dir} if htf_dir else {})
+        htf_dir = (
+            "bullish"
+            if ema_slope > 0.00003
+            else ("bearish" if ema_slope < -0.00003 else None)
+        )
+        alignment = self._htf_analyzer.analyze_htf_alignment(
+            {"D1": htf_dir} if htf_dir else {}
+        )
 
         return HTFState(phase, alignment, ema_slope, range_size)
 
@@ -380,7 +399,7 @@ class TTSStrategy(ISignalStrategy):
         alpha = 2.0 / (period + 1)
         ema = np.copy(data)
         ema[:period] = np.nan
-        ema[period] = np.mean(data[:period + 1])
+        ema[period] = np.mean(data[: period + 1])
         for i in range(period + 1, len(data)):
             ema[i] = alpha * data[i] + (1 - alpha) * ema[i - 1]
         return ema

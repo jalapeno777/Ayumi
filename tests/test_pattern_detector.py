@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 
-from signal_engine.pattern_detector import PatternDetector, DetectedPattern
+from signal_engine.pattern_detector import PatternDetector
 from signal_engine.data_types import Level, LevelType, Swing, SwingType
 
 

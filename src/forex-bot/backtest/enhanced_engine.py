@@ -187,9 +187,10 @@ class EnhancedBacktestEngine:
 
             equity_curve.append(self.balance)
 
-        self._close_all_open_trades(
-            open_trades, len(bars) - 1, bars[-1].time, trade_records
+        closed = self._close_all_open_trades(
+            open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
         )
+        trade_records.extend(closed)
         return self._calculate_metrics(trade_records, equity_curve, rejected_signals)
 
     def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
@@ -362,11 +363,12 @@ class EnhancedBacktestEngine:
         open_trades: list[ManagedTrade],
         bar_index: int,
         exit_time: datetime,
-        trade_records: list[EnhancedTradeRecord],
-    ):
+        exit_price: float,
+    ) -> list[EnhancedTradeRecord]:
+        records = []
         for trade in open_trades:
             pnl = self._calculate_pnl(
-                trade, trade.entry_price, trade.remaining_pct, exit_time
+                trade, exit_price, trade.remaining_pct, exit_time
             )
             pnl += trade.partial_realized_pnl
             self.balance += pnl
@@ -376,7 +378,7 @@ class EnhancedBacktestEngine:
                 exit_bar_index=bar_index,
                 direction=trade.direction,
                 entry_price=trade.entry_price,
-                exit_price=trade.entry_price,
+                exit_price=exit_price,
                 lot_size=trade.lot_size,
                 outcome=self._determine_outcome(pnl),
                 exit_reason=ExitReason.END_OF_DATA,
@@ -389,9 +391,10 @@ class EnhancedBacktestEngine:
                 partial_closes=list(trade.partial_closes),
                 partial_realized_pnl=trade.partial_realized_pnl,
             )
-            trade_records.append(record)
+            records.append(record)
             self._update_peak_and_drawdown()
         open_trades.clear()
+        return records
 
     def _calculate_pnl(
         self,

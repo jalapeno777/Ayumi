@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List
 
 from dataclasses import dataclass
 
@@ -16,7 +17,7 @@ _PREFERRED_SESSIONS: set[SessionType] = {
 }
 
 
-def _calculate_rsi(bars: list[Bar], period: int = 14) -> float:
+def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
         return 50.0
     gains: list[float] = []
@@ -210,14 +211,13 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
 
     dx_list: list[float] = []
     for i in range(period, len(true_ranges)):
-        if i > period:
-            smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
-            smoothed_plus_dm = (
-                smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-            )
-            smoothed_minus_dm = (
-                smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
-            )
+        smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
+        smoothed_plus_dm = (
+            smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
+        )
+        smoothed_minus_dm = (
+            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
+        )
 
         if smoothed_tr == 0:
             dx_list.append(0.0)

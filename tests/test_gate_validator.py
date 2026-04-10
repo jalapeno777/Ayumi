@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 
-from signal_engine.gate_validator import GateValidator, GateResult
+from signal_engine.gate_validator import GateValidator
 from signal_engine.data_types import (
     HTFState, HTFPhase, Level, LevelType, SessionState, Signal,
 )
