@@ -127,6 +127,8 @@ class ConfluenceSignal:
     liq_sweep_score: float = 0.0
     pd_zone_score: float = 0.0
     session_score: float = 0.0
+    session_span_count: int = 0
+    is_multi_session: bool = False
 
 
 class ICTMarketState:
