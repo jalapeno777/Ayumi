@@ -123,13 +123,23 @@ class TestQ1BacktestStudy:
         assert result["rr"] == 0.0
 
         metrics = study.analyze(bars)
-        sl_count = sum(1 for p in study.detector.detect(bars, study.compute_atr(bars, 14))
-                       if study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"] == "SL")
+        sl_count = sum(
+            1
+            for p in study.detector.detect(bars, study.compute_atr(bars, 14))
+            if study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"]
+            == "SL"
+        )
         if sl_count > 0:
-            closed_count = sum(1 for v in [
-                study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"]
-                for p in study.detector.detect(bars, study.compute_atr(bars, 14))
-            ] if v != "open")
+            closed_count = sum(
+                1
+                for v in [
+                    study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))[
+                        "outcome"
+                    ]
+                    for p in study.detector.detect(bars, study.compute_atr(bars, 14))
+                ]
+                if v != "open"
+            )
             if closed_count > 0:
                 avg = metrics["average_rr"]
                 assert avg >= 0.0, "average_rr must include SL trades at rr=0.0"
