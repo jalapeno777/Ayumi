@@ -1,0 +1,31 @@
+5-Window Walk-Forward Execution Log
+====================================
+Date: 2026-04-10
+Executed by: Senior Dev (agent 2d422947-98b4-407f-b569-0b95bf8096ca)
+Script: scripts/run_5window_walkforward.py
+Code SHA: abf7a6b (HEAD of senior-dev/AYUAA-730-walkforward)
+
+Test Suite: 1869 passed, 5 skipped, 0 failures
+
+EURUSD (17877 bars, 2023-01-01 → 2025-12-31)
+--------------------------------------------------
+Window  Trades  WR%    PF     MaxDD%  Sharpe    PnL       GO?
+0       31      64.5   2.04   1.57    6.20      456.07    YES
+1       36      50.0   0.92   4.72   -0.72     -63.46     NO
+2       40      57.5   1.11   5.29    1.30       96.63     NO
+3       24      37.5   0.57   5.77   -5.67     -315.48     NO
+4       13       0.0   0.00   5.70  -14.97     -570.73     NO
+Aggregated: WR=41.9%, PF=0.93, Sharpe=-2.77, DD=4.61% — NO-GO (1/5 windows)
+
+GBPUSD (17862 bars, 2023-01-01 → 2025-12-31)
+--------------------------------------------------
+Window  Trades  WR%    PF     MaxDD%  Sharpe    PnL       GO?
+0       25      64.0   2.31   2.57    6.31      415.97    YES
+1       32      46.9   0.89   3.85   -1.03     -83.39     NO
+2       36      47.2   0.90   4.76   -0.99     -86.18     NO
+3       17      35.3   0.53   5.07   -6.01     -242.75     NO
+4       14       7.1   0.07   5.71  -15.26     -571.56     NO
+Aggregated: WR=40.1%, PF=0.94, Sharpe=-3.40, DD=4.39% — NO-GO (1/5 windows)
+
+Conclusion: NO-GO on both pairs. Only Window 0 passed for each.
+JSON reports: EURUSD_5window_walkforward.json, GBPUSD_5window_walkforward.json, combined_5window_evaluation.json
