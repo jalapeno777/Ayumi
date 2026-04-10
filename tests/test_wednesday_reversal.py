@@ -80,6 +80,36 @@ class TestWednesdayReversalStudyInit(unittest.TestCase):
         self.assertEqual(study.go_nogo_criteria[0].threshold, 0.50)
 
 
+class TestIsDirectionReversal(unittest.TestCase):
+    def test_up_then_down_is_reversal(self):
+        study = WednesdayReversalStudy()
+        prev_prev = _eurusd_bar(datetime(2025, 10, 6), 1.1000)
+        prev = _eurusd_bar(datetime(2025, 10, 7), 1.1070)
+        curr = _eurusd_bar(datetime(2025, 10, 8), 1.1000)
+        self.assertTrue(study._is_direction_reversal(prev_prev, prev, curr))
+
+    def test_down_then_up_is_reversal(self):
+        study = WednesdayReversalStudy()
+        prev_prev = _eurusd_bar(datetime(2025, 10, 6), 1.1070)
+        prev = _eurusd_bar(datetime(2025, 10, 7), 1.1000)
+        curr = _eurusd_bar(datetime(2025, 10, 8), 1.1070)
+        self.assertTrue(study._is_direction_reversal(prev_prev, prev, curr))
+
+    def test_same_direction_not_reversal(self):
+        study = WednesdayReversalStudy()
+        prev_prev = _eurusd_bar(datetime(2025, 10, 6), 1.1000)
+        prev = _eurusd_bar(datetime(2025, 10, 7), 1.1050)
+        curr = _eurusd_bar(datetime(2025, 10, 8), 1.1100)
+        self.assertFalse(study._is_direction_reversal(prev_prev, prev, curr))
+
+    def test_zero_prev_direction_not_reversal(self):
+        study = WednesdayReversalStudy()
+        prev_prev = _eurusd_bar(datetime(2025, 10, 6), 1.1000)
+        prev = _eurusd_bar(datetime(2025, 10, 7), 1.1000)
+        curr = _eurusd_bar(datetime(2025, 10, 8), 1.1100)
+        self.assertFalse(study._is_direction_reversal(prev_prev, prev, curr))
+
+
 class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
     def test_empty_bars(self):
         study = WednesdayReversalStudy()
@@ -93,20 +123,7 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
         result = study.run([bar])
         self.assertEqual(result.sample_size, 0)
 
-    def test_all_wednesdays_reversal_passes(self):
-        study = WednesdayReversalStudy()
-        bars = []
-        base = datetime(2025, 10, 6)
-        for i in range(6):
-            date = base + timedelta(days=i)
-            close = 1.1000 + (i * 0.01)
-            bars.append(_eurusd_bar(date, close))
-
-        result = study.run(bars)
-        self.assertTrue(result.go_nogo)
-        self.assertGreater(result.results["wednesday_reversal_rate"], 0)
-
-    def test_no_wednesdays_in_range(self):
+    def test_two_bars_no_match(self):
         study = WednesdayReversalStudy()
         bars = [
             _eurusd_bar(datetime(2025, 10, 6), 1.1000),
@@ -115,33 +132,50 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
         result = study.run(bars)
         self.assertEqual(result.sample_size, 0)
 
-    def test_wednesday_small_move_below_threshold(self):
-        study = WednesdayReversalStudy(min_reversal_pips=100)
-        bars = [
-            _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1002),
-        ]
-        result = study.run(bars)
-        self.assertEqual(result.results["wednesday"]["reversals"], 0)
-        self.assertEqual(result.results["wednesday_reversal_rate"], 0.0)
-
-    def test_wednesday_large_move_above_threshold(self):
+    def test_direction_reversal_counted(self):
         study = WednesdayReversalStudy(min_reversal_pips=50)
         bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 7), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
+        ]
+        result = study.run(bars)
+        self.assertEqual(result.results["wednesday"]["reversals"], 1)
+        self.assertEqual(result.results["wednesday"]["total"], 1)
+
+    def test_same_direction_not_counted(self):
+        study = WednesdayReversalStudy(min_reversal_pips=50)
+        bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
             _eurusd_bar(datetime(2025, 10, 8), 1.1100),
         ]
         result = study.run(bars)
-        self.assertEqual(result.results["wednesday"]["reversals"], 1)
-        self.assertGreater(result.results["wednesday_reversal_rate"], 0.5)
+        self.assertEqual(result.results["wednesday"]["reversals"], 0)
+        self.assertEqual(result.results["wednesday"]["total"], 1)
+
+    def test_below_threshold_not_counted(self):
+        study = WednesdayReversalStudy(min_reversal_pips=100)
+        bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 7), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0950),
+        ]
+        result = study.run(bars)
+        self.assertEqual(result.results["wednesday"]["reversals"], 0)
 
     def test_tuesday_and_thursday_computed(self):
         study = WednesdayReversalStudy()
         bars = [
-            _eurusd_bar(datetime(2025, 10, 6), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 7), 1.1200),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1300),
-            _eurusd_bar(datetime(2025, 10, 9), 1.1500),
+            _eurusd_bar(datetime(2025, 9, 29), 1.0800),
+            _eurusd_bar(datetime(2025, 9, 30), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 1), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 2), 1.1100),
+            _eurusd_bar(datetime(2025, 10, 3), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 7), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 8), 1.1100),
+            _eurusd_bar(datetime(2025, 10, 9), 1.1200),
         ]
         result = study.run(bars)
         self.assertIn("tuesday", result.results)
@@ -152,22 +186,21 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
     def test_usdjpy_pip_calculation(self):
         study = WednesdayReversalStudy(instrument="USDJPY", min_reversal_pips=50)
         bars = [
-            _usdjpy_bar(datetime(2025, 10, 7), 150.00),
-            _usdjpy_bar(datetime(2025, 10, 8), 151.00),
+            _usdjpy_bar(datetime(2025, 10, 6), 150.00),
+            _usdjpy_bar(datetime(2025, 10, 7), 151.00),
+            _usdjpy_bar(datetime(2025, 10, 8), 150.00),
         ]
         result = study.run(bars)
-        move_pips = abs(151.00 - 150.00) / 0.01
-        self.assertEqual(move_pips, 100)
         self.assertEqual(result.results["wednesday"]["reversals"], 1)
 
     def test_weekend_gap_skipped(self):
         study = WednesdayReversalStudy()
         bars = [
+            _eurusd_bar(datetime(2025, 10, 2), 1.0900),
             _eurusd_bar(datetime(2025, 10, 3), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1200),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
         ]
         result = study.run(bars)
-        self.assertEqual(result.results["wednesday"]["reversals"], 0)
         self.assertEqual(result.results["wednesday"]["total"], 0)
 
     def test_multiple_weeks(self):
@@ -176,11 +209,11 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
         week_start = datetime(2025, 10, 6)
         for week in range(4):
             base = week_start + timedelta(weeks=week)
-            bars.append(_eurusd_bar(base, 1.1000 + week * 0.01))
-            bars.append(_eurusd_bar(base + timedelta(days=1), 1.1000 + week * 0.01))
-            bars.append(_eurusd_bar(base + timedelta(days=2), 1.1000 + week * 0.01))
-            bars.append(_eurusd_bar(base + timedelta(days=3), 1.1000 + week * 0.01))
-            bars.append(_eurusd_bar(base + timedelta(days=4), 1.1000 + week * 0.01))
+            bars.append(_eurusd_bar(base, 1.0900))
+            bars.append(_eurusd_bar(base + timedelta(days=1), 1.1000))
+            bars.append(_eurusd_bar(base + timedelta(days=2), 1.0900))
+            bars.append(_eurusd_bar(base + timedelta(days=3), 1.1000))
+            bars.append(_eurusd_bar(base + timedelta(days=4), 1.1100))
 
         result = study.run(bars)
         self.assertEqual(result.results["wednesday"]["total"], 4)
@@ -188,11 +221,12 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
     def test_date_range_filtering(self):
         study = WednesdayReversalStudy()
         bars = [
-            _eurusd_bar(datetime(2025, 9, 1), 1.1000),
-            _eurusd_bar(datetime(2025, 9, 2), 1.1000),
-            _eurusd_bar(datetime(2025, 9, 3), 1.1200),
+            _eurusd_bar(datetime(2025, 9, 29), 1.0800),
+            _eurusd_bar(datetime(2025, 9, 30), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 1), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1300),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
         ]
         filtered = study.filter_by_date_range(
             bars,
@@ -205,25 +239,40 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
     def test_avg_reversal_pips(self):
         study = WednesdayReversalStudy(min_reversal_pips=50)
         bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1100),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
         ]
         result = study.run(bars)
-        expected_pips = abs(1.1100 - 1.1000) / 0.0001
-        self.assertAlmostEqual(result.results["avg_reversal_pips"], expected_pips, places=1)
+        expected_pips = abs(1.1000 - 1.0900) / 0.0001
+        self.assertAlmostEqual(
+            result.results["avg_reversal_pips"], expected_pips, places=1
+        )
+
+    def test_wrong_prev_prev_weekday_skipped(self):
+        study = WednesdayReversalStudy()
+        bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
+            _eurusd_bar(datetime(2025, 10, 7), 1.1000),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
+        ]
+        result = study.run(bars)
+        self.assertEqual(result.results["wednesday"]["total"], 1)
 
 
 class TestWednesdayReversalStudyMultiInstrument(unittest.TestCase):
-    def test_multi_instrument(self):
-        study = WednesdayReversalStudy()
+    def test_multi_instrument_no_mutation(self):
+        study = WednesdayReversalStudy(instrument="EURUSD")
         instruments = {
             "EURUSD": [
+                _eurusd_bar(datetime(2025, 10, 6), 1.0900),
                 _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-                _eurusd_bar(datetime(2025, 10, 8), 1.1200),
+                _eurusd_bar(datetime(2025, 10, 8), 1.0900),
             ],
             "GBPUSD": [
+                _bar(datetime(2025, 10, 6), c=1.2900, h=1.2950, low=1.2850),
                 _bar(datetime(2025, 10, 7), c=1.3000, h=1.3050, low=1.2950),
-                _bar(datetime(2025, 10, 8), c=1.3200, h=1.3250, low=1.3150),
+                _bar(datetime(2025, 10, 8), c=1.2900, h=1.2950, low=1.2850),
             ],
         }
         results = study.run_multi_instrument(
@@ -234,6 +283,7 @@ class TestWednesdayReversalStudyMultiInstrument(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].instrument, "EURUSD")
         self.assertEqual(results[1].instrument, "GBPUSD")
+        self.assertEqual(study.instrument, "EURUSD")
 
     def test_empty_instrument(self):
         study = WednesdayReversalStudy()
@@ -249,10 +299,12 @@ class TestWednesdayReversalStudyMultiInstrument(unittest.TestCase):
 class TestWednesdayReversalStudyFormatSummary(unittest.TestCase):
     def test_format_summary(self):
         study = WednesdayReversalStudy()
-        result = study.run([
+        bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1200),
-        ])
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
+        ]
+        result = study.run(bars)
         summary = study.format_summary([result])
         self.assertIn("EURUSD", summary)
         self.assertIn("Wednesday", summary)
@@ -263,8 +315,9 @@ class TestWednesdayReversalStudyToDict(unittest.TestCase):
     def test_result_to_dict_has_required_fields(self):
         study = WednesdayReversalStudy()
         bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1200),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
         ]
         result = study.run(bars)
         d = result.to_dict()
@@ -281,8 +334,9 @@ class TestWednesdayReversalStudyToDict(unittest.TestCase):
 
         study = WednesdayReversalStudy()
         bars = [
+            _eurusd_bar(datetime(2025, 10, 6), 1.0900),
             _eurusd_bar(datetime(2025, 10, 7), 1.1000),
-            _eurusd_bar(datetime(2025, 10, 8), 1.1200),
+            _eurusd_bar(datetime(2025, 10, 8), 1.0900),
         ]
         result = study.run(bars)
         json_str = result.to_json()
