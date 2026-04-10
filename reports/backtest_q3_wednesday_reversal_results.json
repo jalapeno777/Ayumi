@@ -1,17 +1,17 @@
 {
   "question": "Q3",
-  "test_period": "2025-01-01 to 2025-12-31",
+  "test_period": "2023-01-01 to 2025-12-31",
   "instrument": "EURUSD",
   "timeframe": "D1",
-  "sample_size": 52,
+  "sample_size": 157,
   "results": {
-    "wednesday_reversal_rate": 0.0385,
-    "avg_reversal_pips": 91.0,
-    "vs_tuesday_rate": 0.1538,
-    "vs_thursday_rate": 0.1373,
-    "gbpusd_wed_rate": 0.1154,
-    "usdjpy_wed_rate": 0.2308
+    "wednesday_reversal_rate": 0.1019,
+    "avg_reversal_pips": 71.9,
+    "vs_tuesday_rate": 0.0955,
+    "vs_thursday_rate": 0.1603,
+    "gbpusd_wed_rate": 0.1783,
+    "usdjpy_wed_rate": 0.2611
   },
   "pass": false,
-  "notes": "Wednesday reversal rate in EURUSD: 3.9% (2/52). Tue: 15.4%, Thu: 13.7%. GBPUSD: 11.5%, USDJPY: 23.1%."
+  "notes": "Wednesday reversal rate in EURUSD: 10.2% (16/157). Tue: 9.6%, Thu: 16.0%. GBPUSD: 17.8%, USDJPY: 26.1%."
 }

@@ -88,24 +88,26 @@ def test_is_reversal_usdjpy():
 
 def test_analyze_reversals_basic():
     bars = [
-        {'date': datetime(2025, 10, 3), 'open': 1.1000, 'high': 1.1050, 'low': 1.0990, 'close': 1.1000},
-        {'date': datetime(2025, 10, 6), 'open': 1.1000, 'high': 1.1060, 'low': 1.0990, 'close': 1.1050},
-        {'date': datetime(2025, 10, 7), 'open': 1.1050, 'high': 1.1120, 'low': 1.1040, 'close': 1.1110},
-        {'date': datetime(2025, 10, 8), 'open': 1.1110, 'high': 1.1120, 'low': 1.0990, 'close': 1.1000},
-        {'date': datetime(2025, 10, 9), 'open': 1.1000, 'high': 1.1010, 'low': 1.0900, 'close': 1.0910},
-        {'date': datetime(2025, 10, 10), 'open': 1.0910, 'high': 1.0960, 'low': 1.0900, 'close': 1.0950},
+        {'date': datetime(2025, 9, 29), 'open': 1.0900, 'high': 1.0950, 'low': 1.0890, 'close': 1.0900},
+        {'date': datetime(2025, 9, 30), 'open': 1.0900, 'high': 1.0960, 'low': 1.0890, 'close': 1.0950},
+        {'date': datetime(2025, 10, 1), 'open': 1.0950, 'high': 1.1020, 'low': 1.0940, 'close': 1.1010},
+        {'date': datetime(2025, 10, 2), 'open': 1.1010, 'high': 1.1020, 'low': 1.0990, 'close': 1.1000},
+        {'date': datetime(2025, 10, 3), 'open': 1.1000, 'high': 1.1010, 'low': 1.0900, 'close': 1.0910},
+        {'date': datetime(2025, 10, 6), 'open': 1.0910, 'high': 1.0960, 'low': 1.0900, 'close': 1.0950},
+        {'date': datetime(2025, 10, 7), 'open': 1.0950, 'high': 1.1020, 'low': 1.0940, 'close': 1.1010},
+        {'date': datetime(2025, 10, 8), 'open': 1.1010, 'high': 1.1020, 'low': 1.0950, 'close': 1.0960},
+        {'date': datetime(2025, 10, 9), 'open': 1.0960, 'high': 1.0970, 'low': 1.0860, 'close': 1.0870},
+        {'date': datetime(2025, 10, 10), 'open': 1.0870, 'high': 1.0920, 'low': 1.0860, 'close': 1.0910},
     ]
-    result = analyze_reversals(bars, 'EURUSD', '2025-10-01', '2025-10-31')
+    result = analyze_reversals(bars, 'EURUSD', '2025-09-29', '2025-10-31')
 
-    assert result['sample_size'] == 1
-    assert result['wednesday']['total'] == 1
-    assert result['tuesday']['total'] == 1
-    assert result['thursday']['total'] == 1
+    assert result['wednesday']['total'] == 2
+    assert result['tuesday']['total'] == 2
+    assert result['thursday']['total'] == 2
 
 
 def test_analyze_reversals_wednesday_reversal_detected():
     bars = [
-        {'date': datetime(2025, 10, 3), 'open': 1.1000, 'high': 1.1050, 'low': 1.0990, 'close': 1.1000},
         {'date': datetime(2025, 10, 6), 'open': 1.1000, 'high': 1.1050, 'low': 1.0990, 'close': 1.1000},
         {'date': datetime(2025, 10, 7), 'open': 1.1000, 'high': 1.1080, 'low': 1.0990, 'close': 1.1070},
         {'date': datetime(2025, 10, 8), 'open': 1.1070, 'high': 1.1080, 'low': 1.0990, 'close': 1.1000},
@@ -121,7 +123,6 @@ def test_analyze_reversals_wednesday_reversal_detected():
 
 def test_analyze_reversals_no_reversal_same_direction():
     bars = [
-        {'date': datetime(2025, 10, 3), 'open': 1.1000, 'high': 1.1050, 'low': 1.0990, 'close': 1.1000},
         {'date': datetime(2025, 10, 6), 'open': 1.1000, 'high': 1.1050, 'low': 1.0990, 'close': 1.1000},
         {'date': datetime(2025, 10, 7), 'open': 1.1000, 'high': 1.1080, 'low': 1.0990, 'close': 1.1070},
         {'date': datetime(2025, 10, 8), 'open': 1.1070, 'high': 1.1150, 'low': 1.1060, 'close': 1.1140},
@@ -168,6 +169,28 @@ def test_analyze_reversals_pass_threshold():
     result = analyze_reversals(bars, 'EURUSD', '2025-09-29', '2025-12-31')
     assert result['wednesday']['rate'] >= 0.50
     assert result['pass'] is True
+
+
+def test_weekend_gap_skipped():
+    bars = [
+        {'date': datetime(2025, 10, 3), 'open': 1.1000, 'high': 1.1100, 'low': 1.0900, 'close': 1.1070},
+        {'date': datetime(2025, 10, 6), 'open': 1.1070, 'high': 1.1150, 'low': 1.1060, 'close': 1.0950},
+        {'date': datetime(2025, 10, 7), 'open': 1.0950, 'high': 1.1000, 'low': 1.0900, 'close': 1.1000},
+    ]
+    result = analyze_reversals(bars, 'EURUSD', '2025-10-01', '2025-10-31')
+    assert result['wednesday']['total'] == 0
+    assert result['wednesday']['reversals'] == 0
+
+
+def test_wrong_adjacent_day_skipped():
+    bars = [
+        {'date': datetime(2025, 10, 6), 'open': 1.1000, 'high': 1.1100, 'low': 1.0900, 'close': 1.1000},
+        {'date': datetime(2025, 10, 7), 'open': 1.1000, 'high': 1.1100, 'low': 1.0900, 'close': 1.1000},
+        {'date': datetime(2025, 10, 8), 'open': 1.1000, 'high': 1.1150, 'low': 1.0950, 'close': 1.0950},
+    ]
+    result = analyze_reversals(bars, 'EURUSD', '2025-10-01', '2025-10-31')
+    assert result['wednesday']['total'] == 1
+    assert result['wednesday']['reversals'] == 0
 
 
 if __name__ == '__main__':
