@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime
 from typing import List, Optional
 
 from backtest.engine import (
@@ -11,6 +11,7 @@ from backtest.engine import (
     StrategySignal,
     TradeDirection,
 )
+from config.sessions import KillzoneHours
 
 
 @dataclass(frozen=True)
@@ -32,12 +33,12 @@ class KillzoneMomentumConfig:
     breakout_lookback_bars: int = 6
 
 
-_LONDON_OPEN_START = time(7, 0)
-_LONDON_OPEN_END = time(9, 0)
-_NY_OPEN_START = time(12, 0)
-_NY_OPEN_END = time(14, 0)
-_OVERLAP_START = time(13, 0)
-_OVERLAP_END = time(16, 0)
+_LONDON_OPEN_START = KillzoneHours.LONDON_OPEN_START
+_LONDON_OPEN_END = KillzoneHours.LONDON_OPEN_END
+_NY_OPEN_START = KillzoneHours.NY_OPEN_START
+_NY_OPEN_END = KillzoneHours.NY_OPEN_END
+_OVERLAP_START = KillzoneHours.OVERLAP_START
+_OVERLAP_END = KillzoneHours.OVERLAP_END
 
 _ASIAN_START_HOUR = 0
 _ASIAN_END_HOUR = 7

@@ -34,6 +34,7 @@ def run_strategy_walk_forward(
     initial_balance: float = 10000,
     spread_pips: float | None = None,
     commission_per_lot: float | None = None,
+    min_confidence: float = 0.30,
 ) -> WalkForwardResults:
     factory_params = len(inspect.signature(strategy_factory).parameters)
 
@@ -48,6 +49,7 @@ def run_strategy_walk_forward(
         if commission_per_lot is not None
         else 3.5,
         pair=pair,
+        min_confidence=min_confidence,
     )
 
     validator = WalkForwardValidator(

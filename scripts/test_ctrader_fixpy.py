@@ -4,7 +4,6 @@ Test cTrader FIX connection using Spotware's official cTraderFixPy library forma
 Falls back to manual connection if ctrader-fix not installed.
 """
 
-import json
 import os
 import ssl
 import socket
@@ -25,7 +24,9 @@ if env_path.exists():
 HOST = os.environ.get("CTRADER_FIX_HOST", "demo-uk-eqx-01.p.c-trader.com")
 ACCOUNT = os.environ.get("CTRADER_ACCOUNT", "5795523")
 PASSWORD = os.environ.get("CTRADER_PASSWORD", "44J*aldC3Req9osKd")
-SENDER_COMP_ID = os.environ.get("CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}")
+SENDER_COMP_ID = os.environ.get(
+    "CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}"
+)
 
 config = {
     "Host": HOST,
@@ -42,6 +43,7 @@ config = {
 }
 
 SOH = "\x01"
+
 
 def build_message_official(msg_type, cfg, body_fields=None, seq_num=1):
     """Replicate the official cTraderFixPy library's exact message construction."""
@@ -129,9 +131,9 @@ def main():
 
     # Manual fallback — same wire format as official library
     logon_body = [
-        f"98=0",
+        "98=0",
         f"108={config['HeartBeat']}",
-        f"141=Y",
+        "141=Y",
         f"553={config['Username']}",
         f"554={config['Password']}",
     ]
@@ -177,7 +179,10 @@ def main():
             print("\n  ✅✅✅ LOGON ACKNOWLEDGED!")
             return 0
         elif "35=5" in decoded:
-            reason = next((f.split("=", 1)[1] for f in decoded.split(SOH) if f.startswith("58=")), "?")
+            reason = next(
+                (f.split("=", 1)[1] for f in decoded.split(SOH) if f.startswith("58=")),
+                "?",
+            )
             print(f"\n  ❌ Logout: {reason}")
             return 1
     else:

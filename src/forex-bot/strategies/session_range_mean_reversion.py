@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime
 
 from backtest.engine import (
     Bar,
@@ -10,6 +10,7 @@ from backtest.engine import (
     StrategySignal,
     TradeDirection,
 )
+from config.sessions import SessionRangeHours
 
 NO_SIGNAL = None
 
@@ -33,17 +34,17 @@ class SessionRangeMRConfig:
     pip_value: float | None = None
 
 
-_ASIAN_START = time(0, 0)
-_ASIAN_END = time(7, 0)
-_EARLY_LONDON_END = time(9, 0)
-_LONDON_START = time(7, 0)
-_LONDON_END = time(11, 0)
-_NY_OPEN_START = time(12, 0)
-_NY_OPEN_END = time(15, 0)
-_LONDON_NY_OVERLAP_START = time(12, 0)
-_LONDON_NY_OVERLAP_END = time(16, 0)
-_NY_CLOSE_START = time(16, 0)
-_NY_CLOSE_END = time(20, 0)
+_ASIAN_START = SessionRangeHours.ASIAN_START
+_ASIAN_END = SessionRangeHours.ASIAN_END
+_EARLY_LONDON_END = SessionRangeHours.EARLY_LONDON_END
+_LONDON_START = SessionRangeHours.LONDON_START
+_LONDON_END = SessionRangeHours.LONDON_END
+_NY_OPEN_START = SessionRangeHours.NY_OPEN_START
+_NY_OPEN_END = SessionRangeHours.NY_OPEN_END
+_LONDON_NY_OVERLAP_START = SessionRangeHours.LONDON_NY_OVERLAP_START
+_LONDON_NY_OVERLAP_END = SessionRangeHours.LONDON_NY_OVERLAP_END
+_NY_CLOSE_START = SessionRangeHours.NY_CLOSE_START
+_NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
 
 _DEFAULT_PIP = 0.0001
 
@@ -422,8 +423,7 @@ class SessionRangeMRWithRegimeFilter:
         else:
             dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
 
-        adx = dx
-        dx_list: list[float] = []
+        dx_list: list[float] = [dx]
         for i in range(period, len(tr_list)):
             tr_sum = tr_sum - tr_sum / period + tr_list[i]
             plus_dm_sum = plus_dm_sum - plus_dm_sum / period + plus_dm_list[i]
@@ -440,7 +440,11 @@ class SessionRangeMRWithRegimeFilter:
             else:
                 dx_list.append(100.0 * (abs(plus_di - minus_di) / (plus_di + minus_di)))
 
-        for d in dx_list:
-            adx = (adx * (period - 1) + d) / period
+        if len(dx_list) < period:
+            return 0.0
+
+        adx = sum(dx_list[:period]) / period
+        for dx in dx_list[period:]:
+            adx = (adx * (period - 1) + dx) / period
 
         return adx

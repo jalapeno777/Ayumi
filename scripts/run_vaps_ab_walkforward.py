@@ -133,7 +133,9 @@ def run_vaps_ab_walk_forward(
             spread_pips=effective_spread,
             vaps_config=cfg,
         )
-        vaps_metrics = _compute_metrics(idx, vaps_trades, initial_balance=initial_balance)
+        vaps_metrics = _compute_metrics(
+            idx, vaps_trades, initial_balance=initial_balance
+        )
         vaps_per_window.append(vaps_metrics)
 
         fixed_m = fixed_results.per_window[idx]
@@ -228,14 +230,10 @@ def run_vaps_ab_walk_forward(
         },
         "summary": {
             "fixed_go_nogo": fixed_go,
-            "fixed_windows_passed": (
-                fixed_agg.windows_passed if fixed_agg else 0
-            ),
+            "fixed_windows_passed": (fixed_agg.windows_passed if fixed_agg else 0),
             "vaps_go_nogo": vaps_go,
             "vaps_windows_passed": vaps_windows_passed,
-            "vaps_outperforms_fixed": _vaps_outperforms(
-                fixed_agg, vaps_agg
-            ),
+            "vaps_outperforms_fixed": _vaps_outperforms(fixed_agg, vaps_agg),
         },
         "aggregated": {
             "fixed": (
@@ -290,12 +288,16 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"\n{'=' * 76}")
     print(f"  VAPS A/B WALK-FORWARD: {cfg['pair']} Session Range MR")
     print(f"{'=' * 76}")
-    print(f"  Windows: {cfg['n_windows']} | Bars: {cfg['total_bars']} | Spread: {cfg['spread_pips']} pips")
-    print(f"  VAPS: lookback={cfg['vaps_lookback']}, "
-          f"low={cfg['vaps_low_mult']}x (<{cfg['vaps_low_pctile']}%), "
-          f"normal={cfg['vaps_normal_mult']}x ({cfg['vaps_low_pctile']}-{cfg['vaps_normal_pctile']}%), "
-          f"high={cfg['vaps_high_mult']}x ({cfg['vaps_normal_pctile']}-{cfg['vaps_high_pctile']}%), "
-          f"extreme={cfg['vaps_extreme_mult']}x (>{cfg['vaps_high_pctile']}%)")
+    print(
+        f"  Windows: {cfg['n_windows']} | Bars: {cfg['total_bars']} | Spread: {cfg['spread_pips']} pips"
+    )
+    print(
+        f"  VAPS: lookback={cfg['vaps_lookback']}, "
+        f"low={cfg['vaps_low_mult']}x (<{cfg['vaps_low_pctile']}%), "
+        f"normal={cfg['vaps_normal_mult']}x ({cfg['vaps_low_pctile']}-{cfg['vaps_normal_pctile']}%), "
+        f"high={cfg['vaps_high_mult']}x ({cfg['vaps_normal_pctile']}-{cfg['vaps_high_pctile']}%), "
+        f"extreme={cfg['vaps_extreme_mult']}x (>{cfg['vaps_high_pctile']}%)"
+    )
 
     print(f"\n  {'Metric':<20} {'Fixed':>12} {'VAPS':>12} {'Delta':>12}")
     print(f"  {'-' * 56}")
@@ -306,18 +308,32 @@ def print_report(report: dict[str, Any]) -> None:
             ("Win Rate (%)", f["mean_wr"], v["mean_wr"], v["mean_wr"] - f["mean_wr"]),
             ("Profit Factor", f["mean_pf"], v["mean_pf"], v["mean_pf"] - f["mean_pf"]),
             ("Max DD (%)", f["mean_dd"], v["mean_dd"], v["mean_dd"] - f["mean_dd"]),
-            ("Sharpe Ratio", f["mean_sharpe"], v["mean_sharpe"], v["mean_sharpe"] - f["mean_sharpe"]),
-            ("Total PnL ($)", f["mean_pnl"], v["mean_pnl"], v["mean_pnl"] - f["mean_pnl"]),
+            (
+                "Sharpe Ratio",
+                f["mean_sharpe"],
+                v["mean_sharpe"],
+                v["mean_sharpe"] - f["mean_sharpe"],
+            ),
+            (
+                "Total PnL ($)",
+                f["mean_pnl"],
+                v["mean_pnl"],
+                v["mean_pnl"] - f["mean_pnl"],
+            ),
         ]
         for label, fv, vv, delta in rows:
             sign = "+" if delta >= 0 else ""
             print(f"  {label:<20} {fv:>12.2f} {vv:>12.2f} {sign}{delta:>11.2f}")
 
     print("\n  GO/NO-GO Summary:")
-    print(f"    Fixed: {'GO' if summary['fixed_go_nogo'] else 'NO-GO'} "
-          f"({summary['fixed_windows_passed']} windows passed)")
-    print(f"    VAPS:  {'GO' if summary['vaps_go_nogo'] else 'NO-GO'} "
-          f"({summary['vaps_windows_passed']} windows passed)")
+    print(
+        f"    Fixed: {'GO' if summary['fixed_go_nogo'] else 'NO-GO'} "
+        f"({summary['fixed_windows_passed']} windows passed)"
+    )
+    print(
+        f"    VAPS:  {'GO' if summary['vaps_go_nogo'] else 'NO-GO'} "
+        f"({summary['vaps_windows_passed']} windows passed)"
+    )
     print(f"    VAPS outperforms: {summary['vaps_outperforms_fixed']}")
 
     print("\n  Per-Window Comparison:")
@@ -342,20 +358,45 @@ def build_parser() -> argparse.ArgumentParser:
         description="VAPS vs Fixed Sizing A/B Walk-Forward Comparison"
     )
     p.add_argument("--pair", type=str, default="GBPUSD", help="Currency pair")
-    p.add_argument("--strategy", type=str, default="session_range_mr", help="Strategy name")
+    p.add_argument(
+        "--strategy", type=str, default="session_range_mr", help="Strategy name"
+    )
     p.add_argument("--data", type=str, default=None, help="Path to CSV data file")
     p.add_argument("--windows", type=int, default=5, help="Number of windows")
     p.add_argument("--train-ratio", type=float, default=0.7, help="Train split ratio")
     p.add_argument("--balance", type=float, default=10000, help="Starting balance")
     p.add_argument("--spread", type=float, default=None, help="Spread in pips")
     p.add_argument("--vaps-lookback", type=int, default=50, help="VAPS ATR lookback")
-    p.add_argument("--vaps-low", type=float, default=1.5, help="VAPS low vol multiplier")
-    p.add_argument("--vaps-normal", type=float, default=1.0, help="VAPS normal vol multiplier")
-    p.add_argument("--vaps-high", type=float, default=0.7, help="VAPS high vol multiplier")
-    p.add_argument("--vaps-extreme", type=float, default=0.5, help="VAPS extreme vol multiplier")
-    p.add_argument("--vaps-low-pctile", type=float, default=30.0, help="VAPS low percentile threshold")
-    p.add_argument("--vaps-normal-pctile", type=float, default=70.0, help="VAPS normal percentile threshold")
-    p.add_argument("--vaps-high-pctile", type=float, default=90.0, help="VAPS high percentile threshold")
+    p.add_argument(
+        "--vaps-low", type=float, default=1.5, help="VAPS low vol multiplier"
+    )
+    p.add_argument(
+        "--vaps-normal", type=float, default=1.0, help="VAPS normal vol multiplier"
+    )
+    p.add_argument(
+        "--vaps-high", type=float, default=0.7, help="VAPS high vol multiplier"
+    )
+    p.add_argument(
+        "--vaps-extreme", type=float, default=0.5, help="VAPS extreme vol multiplier"
+    )
+    p.add_argument(
+        "--vaps-low-pctile",
+        type=float,
+        default=30.0,
+        help="VAPS low percentile threshold",
+    )
+    p.add_argument(
+        "--vaps-normal-pctile",
+        type=float,
+        default=70.0,
+        help="VAPS normal percentile threshold",
+    )
+    p.add_argument(
+        "--vaps-high-pctile",
+        type=float,
+        default=90.0,
+        help="VAPS high percentile threshold",
+    )
     p.add_argument("--output", type=str, default=None, help="Path to save JSON report")
     return p
 
@@ -370,7 +411,11 @@ def main() -> None:
     if data_file is None:
         pair_upper = args.pair.upper().replace("/", "")
         data_file = str(
-            Path(project_root) / "data" / "forex" / "historical" / f"{pair_upper}_H1.csv"
+            Path(project_root)
+            / "data"
+            / "forex"
+            / "historical"
+            / f"{pair_upper}_H1.csv"
         )
 
     if not Path(data_file).exists():
@@ -384,7 +429,10 @@ def main() -> None:
 
     if args.strategy not in STRATEGY_REGISTRY:
         available = ", ".join(sorted(STRATEGY_REGISTRY.keys()))
-        print(f"Error: Unknown strategy '{args.strategy}'. Available: {available}", file=sys.stderr)
+        print(
+            f"Error: Unknown strategy '{args.strategy}'. Available: {available}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     vaps_config = VAPSConfig(
