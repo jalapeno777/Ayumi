@@ -64,7 +64,9 @@ class cTraderSignalAdapter:
             rationale=signal.rationale,
         )
 
-        result = self._paper_trader.process_signal(trade_signal, spread=self._current_spread)
+        result = self._paper_trader.process_signal(
+            trade_signal, spread=self._current_spread
+        )
 
         if result.success:
             self._last_signal_time = datetime.utcnow()
