@@ -67,7 +67,7 @@ def parse_csv_file(csv_path: Path) -> list:
     """Parse a CSV file and return rows as dicts."""
     rows = []
     # Try to detect format
-    with open(csv_path, 'r') as f:
+    with open(csv_path, "r") as f:
         reader = csv.DictReader(f)
         for row in reader:
             rows.append(row)
@@ -77,29 +77,30 @@ def parse_csv_file(csv_path: Path) -> list:
 def infer_symbol_timeframe(filename: str) -> tuple:
     """Extract symbol and timeframe from filename like EURUSD_M15.csv."""
     name = Path(filename).stem.upper()
-    parts = name.rsplit('_', 1)
+    parts = name.rsplit("_", 1)
     if len(parts) == 2:
         return parts[0], parts[1]
-    return name, 'D1'
+    return name, "D1"
 
 
 def normalize_row(row: dict, symbol: str, timeframe: str) -> dict:
     """Normalize CSV row columns to standard names."""
+
     def get(keys, default=0.0):
         for k in keys:
             val = row.get(k)
             if val is not None:
                 try:
-                    return float(val.strip().replace(',', ''))
+                    return float(val.strip().replace(",", ""))
                 except (ValueError, AttributeError):
                     continue
         return default
 
     # Timestamp detection
-    ts_keys = ['timestamp', 'time', 'date', 'datetime', 'Date', 'Time', 'Local time']
+    ts_keys = ["timestamp", "time", "date", "datetime", "Date", "Time", "Local time"]
     ts_val = None
     for k in ts_keys:
-        val = row.get(k, '').strip()
+        val = row.get(k, "").strip()
         if val:
             # Try unix timestamp first
             try:
@@ -108,11 +109,19 @@ def normalize_row(row: dict, symbol: str, timeframe: str) -> dict:
             except ValueError:
                 pass
             # Try ISO/standard date formats
-            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y.%m.%d %H:%M:%S',
-                        '%Y.%m.%d %H:%M', '%d/%m/%Y %H:%M:%S', '%d/%m/%Y %H:%M',
-                        '%Y-%m-%d', '%d.%m.%Y'):
+            for fmt in (
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%Y.%m.%d %H:%M:%S",
+                "%Y.%m.%d %H:%M",
+                "%d/%m/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M",
+                "%Y-%m-%d",
+                "%d.%m.%Y",
+            ):
                 try:
                     from datetime import datetime
+
                     ts_val = int(datetime.strptime(val, fmt).timestamp())
                     break
                 except ValueError:
@@ -124,14 +133,14 @@ def normalize_row(row: dict, symbol: str, timeframe: str) -> dict:
         return None
 
     return {
-        'symbol': symbol,
-        'timeframe': timeframe,
-        'timestamp': ts_val,
-        'open': get(['open', 'Open', 'Open price', 'open_price']),
-        'high': get(['high', 'High', 'High price', 'high_price']),
-        'low': get(['low', 'Low', 'Low price', 'low_price']),
-        'close': get(['close', 'Close', 'Close price', 'close_price']),
-        'volume': get(['volume', 'Volume', 'Vol.', 'Tick_volume', 'Real_volume']),
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "timestamp": ts_val,
+        "open": get(["open", "Open", "Open price", "open_price"]),
+        "high": get(["high", "High", "High price", "high_price"]),
+        "low": get(["low", "Low", "Low price", "low_price"]),
+        "close": get(["close", "Close", "Close price", "close_price"]),
+        "volume": get(["volume", "Volume", "Vol.", "Tick_volume", "Real_volume"]),
     }
 
 
@@ -154,16 +163,24 @@ def migrate_csv(conn, csv_path: Path, batch_size=5000):
         if normalized is None:
             skipped += 1
             continue
-        batch.append((
-            normalized['symbol'], normalized['timeframe'], normalized['timestamp'],
-            normalized['open'], normalized['high'], normalized['low'],
-            normalized['close'], normalized['volume']
-        ))
+        batch.append(
+            (
+                normalized["symbol"],
+                normalized["timeframe"],
+                normalized["timestamp"],
+                normalized["open"],
+                normalized["high"],
+                normalized["low"],
+                normalized["close"],
+                normalized["volume"],
+            )
+        )
 
         if len(batch) >= batch_size:
             conn.executemany(
                 "INSERT OR IGNORE INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", batch
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                batch,
             )
             inserted += conn.total_changes
             batch = []
@@ -171,12 +188,13 @@ def migrate_csv(conn, csv_path: Path, batch_size=5000):
     if batch:
         conn.executemany(
             "INSERT OR IGNORE INTO candles (symbol, timeframe, timestamp, open, high, low, close, volume) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)", batch
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            batch,
         )
 
     count = conn.execute(
         "SELECT COUNT(*) FROM candles WHERE symbol=? AND timeframe=?",
-        (symbol, timeframe)
+        (symbol, timeframe),
     ).fetchone()[0]
 
     print(f"    ✅ {count} candles ({skipped} rows skipped)")
@@ -211,12 +229,13 @@ def main():
     for s in symbols:
         tfs = conn.execute(
             "SELECT timeframe, COUNT(*), MIN(timestamp), MAX(timestamp) FROM candles WHERE symbol=? GROUP BY timeframe",
-            s
+            s,
         ).fetchall()
         for tf, count, min_ts, max_ts in tfs:
             from datetime import datetime
-            start = datetime.utcfromtimestamp(min_ts).strftime('%Y-%m-%d')
-            end = datetime.utcfromtimestamp(max_ts).strftime('%Y-%m-%d')
+
+            start = datetime.utcfromtimestamp(min_ts).strftime("%Y-%m-%d")
+            end = datetime.utcfromtimestamp(max_ts).strftime("%Y-%m-%d")
             print(f"   {s[0]} {tf}: {count:,} candles ({start} → {end})")
 
     conn.commit()
@@ -224,5 +243,5 @@ def main():
     print(f"\n✅ Database created at {DB_PATH}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

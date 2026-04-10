@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
-from backtest.strategies import ISignalStrategy, StrategySignal
+from backtest.strategies import ISignalStrategy
+from backtest.engine import StrategySignal
 
 from adapters.ctrader.models import (
     TradeDirection as CTraderDirection,

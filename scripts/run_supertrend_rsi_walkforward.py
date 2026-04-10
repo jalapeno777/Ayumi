@@ -69,7 +69,9 @@ def _aggregate_metrics(results: list) -> dict:
     return {
         "total_windows": total_windows,
         "windows_passed": windows_passed,
-        "windows_passed_ratio": windows_passed / total_windows if total_windows > 0 else 0,
+        "windows_passed_ratio": windows_passed / total_windows
+        if total_windows > 0
+        else 0,
         "total_test_trades": test_trades,
         "avg_test_win_rate": avg_test_winrate,
         "avg_test_profit_factor": avg_test_pf,
@@ -257,9 +259,9 @@ def main() -> None:
     all_results = {}
 
     for pair, csv_path in pairs:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"  Loading {pair} data from {csv_path}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         bars = loader.load(csv_path)
         print(f"  Loaded {len(bars)} bars: {bars[0].time} → {bars[-1].time}")
@@ -281,18 +283,20 @@ def main() -> None:
         json.dump(all_results, f, indent=2, default=str)
     print(f"\n  Combined report saved: {combined_path}")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  GO/NO-GO SUMMARY")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     for pair, result in all_results.items():
         agg = result.get("aggregated", {})
         print(f"\n  {pair}:")
-        print(f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}")
+        print(
+            f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}"
+        )
         print(f"    GO/NO-GO: {'GO' if result.get('go_nogo') else 'NO-GO'}")
 
     print(f"\n  Reports saved to: {REPORT_DIR}/")
-    print(f"  {'='*70}")
+    print(f"  {'=' * 70}")
 
 
 if __name__ == "__main__":
