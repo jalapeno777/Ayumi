@@ -119,11 +119,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: |
-          python -c "import sys; sys.path.insert(0, 'src'); from forex_bot import __version__; print('import ok')" 2>&1 || echo "main import failed"
-          python -c "import tests.test_adx_calculation" 2>&1 || echo "test import failed"
-          pytest tests/ -q --tb=line -p no:cacheprovider 2>&1 | head -50
-          echo "Exit: $?"
+        run: pytest tests/ -q --tb=line -p no:cacheprovider
 
   label-result:
     needs: [auto-pr, ci-check]
