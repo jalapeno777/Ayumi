@@ -1,8 +1,8 @@
 """Proximity thresholds from spec §1.2. Single source of truth for all distance checks."""
 
 # Default proximity
-NEAR_THRESHOLD = 0.005   # 0.5%
-AT_THRESHOLD = 0.002     # 0.2%
+NEAR_THRESHOLD = 0.005  # 0.5%
+AT_THRESHOLD = 0.002  # 0.2%
 
 # M/W symmetry
 MW_SYMMETRY_MAX = 0.015  # 1.5%
@@ -13,16 +13,16 @@ EQUAL_SWING_THRESHOLD = 0.0005  # 0.05%
 
 # Trap break thresholds
 TRAP_BREAK_LONDON_NY = 0.002  # 0.2%
-TRAP_BREAK_ASIA = 0.004       # 0.4%
-TRAP_BREAK_CRYPTO = 0.003     # 0.3%
+TRAP_BREAK_ASIA = 0.004  # 0.4%
+TRAP_BREAK_CRYPTO = 0.003  # 0.3%
 
 # Asia range
 ASIA_RANGE_MAX = 0.02  # 2.0%
 
 # Period extreme proximity tiers
 PERIOD_EXTREME_T1 = 0.003  # ≤ 0.3% → score 1.0
-PERIOD_EXTREME_T2 = 0.01   # ≤ 1.0% → score 0.7
-PERIOD_EXTREME_T3 = 0.02   # ≤ 2.0% → score 0.3
+PERIOD_EXTREME_T2 = 0.01  # ≤ 1.0% → score 0.7
+PERIOD_EXTREME_T3 = 0.02  # ≤ 2.0% → score 0.3
 
 # EMA
 EMA_TOUCH_THRESHOLD = 0.001  # 0.1%

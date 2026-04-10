@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .thresholds import (
-    BOARDROOM_RANGE,
     EMA_TOUCH_THRESHOLD,
     PERIOD_EXTREME_T1,
     PERIOD_EXTREME_T2,
@@ -92,7 +91,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "level_proximity", score, WEIGHT_LEVEL_PROXIMITY,
+            "level_proximity",
+            score,
+            WEIGHT_LEVEL_PROXIMITY,
             f"proximity={proximity_pct:.4f}",
         )
 
@@ -109,7 +110,9 @@ class ConfluenceScorer:
             score = max(0.0, -alignment)
 
         return BoosterResult(
-            "htf_alignment", score, WEIGHT_HTF_ALIGNMENT,
+            "htf_alignment",
+            score,
+            WEIGHT_HTF_ALIGNMENT,
             f"alignment={alignment:.2f}, dir={direction}",
         )
 
@@ -127,7 +130,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "ema_proximity", score, WEIGHT_EMA_PROXIMITY,
+            "ema_proximity",
+            score,
+            WEIGHT_EMA_PROXIMITY,
             f"ema_dist={ema_distance:.4f}",
         )
 
@@ -148,7 +153,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "boardroom", score, WEIGHT_BOARDROOM,
+            "boardroom",
+            score,
+            WEIGHT_BOARDROOM,
             f"in={in_boardroom}, bars={boardroom_bars}",
         )
 
@@ -167,7 +174,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "volume", score, WEIGHT_VOLUME,
+            "volume",
+            score,
+            WEIGHT_VOLUME,
             f"ratio={volume_ratio:.2f}",
         )
 
@@ -187,6 +196,8 @@ class ConfluenceScorer:
         score = pattern_scores.get(pattern, 0.3)
 
         return BoosterResult(
-            "pattern_type", score, WEIGHT_PATTERN_TYPE,
+            "pattern_type",
+            score,
+            WEIGHT_PATTERN_TYPE,
             f"pattern={pattern}",
         )

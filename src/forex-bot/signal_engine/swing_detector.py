@@ -65,9 +65,7 @@ class SwingDetector:
             [Swing(bi, p, SwingType.LOW) for bi, p in swing_lows],
         )
 
-    def _merge_nearby(
-        self, swings: list[tuple[int, float]]
-    ) -> list[tuple[int, float]]:
+    def _merge_nearby(self, swings: list[tuple[int, float]]) -> list[tuple[int, float]]:
         """Merge consecutive swings within 0.05% of each other into one.
 
         Keeps the first (earliest) swing in each merged group.

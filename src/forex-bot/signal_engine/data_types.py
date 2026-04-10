@@ -10,6 +10,7 @@ from typing import Optional
 
 class LevelType(str, Enum):
     """All counted level types in the TTC system."""
+
     R1 = "R1"
     R2 = "R2"
     R3 = "R3"

@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 
 from .data_types import Level, LevelType, Swing, SwingType
-from .thresholds import LEVEL_COMPLETION_RATIO, AT_THRESHOLD, NEAR_THRESHOLD
+from .thresholds import LEVEL_COMPLETION_RATIO
 
 
 class LevelCounter:
@@ -47,16 +47,14 @@ class LevelCounter:
             return []
 
         # Merge and sort all swings chronologically
-        all_swings = sorted(
-            swing_highs + swing_lows, key=lambda s: s.bar_index
-        )
+        all_swings = sorted(swing_highs + swing_lows, key=lambda s: s.bar_index)
         if len(all_swings) < 2:
             return []
 
         levels: list[Level] = []
         rise_count = 0
         drop_count = 0
-        prev_extreme_price: float = 0.0
+        _prev_extreme_price: float = 0.0
 
         # Track the highest high and lowest low for new-high/new-low checks
         running_high = all_swings[0].price
@@ -74,17 +72,17 @@ class LevelCounter:
                 if is_new_high:
                     rise_count += 1
                     running_high = curr.price
-                    completed = self._validate_rise(
-                        rise_count, curr, prev, magnitude
-                    )
+                    completed = self._validate_rise(rise_count, curr, prev, magnitude)
                     lt = self._rise_level_type(rise_count)
-                    levels.append(Level(
-                        price=curr.price,
-                        level_type=lt,
-                        magnitude=magnitude,
-                        bar_index=curr.bar_index,
-                        completed=completed,
-                    ))
+                    levels.append(
+                        Level(
+                            price=curr.price,
+                            level_type=lt,
+                            magnitude=magnitude,
+                            bar_index=curr.bar_index,
+                            completed=completed,
+                        )
+                    )
 
             elif curr.swing_type == SwingType.LOW and prev.swing_type == SwingType.HIGH:
                 # Drop leg
@@ -93,17 +91,17 @@ class LevelCounter:
                 if is_new_low:
                     drop_count += 1
                     running_low = curr.price
-                    completed = self._validate_drop(
-                        drop_count, curr, prev, magnitude
-                    )
+                    completed = self._validate_drop(drop_count, curr, prev, magnitude)
                     lt = self._drop_level_type(drop_count)
-                    levels.append(Level(
-                        price=curr.price,
-                        level_type=lt,
-                        magnitude=magnitude,
-                        bar_index=curr.bar_index,
-                        completed=completed,
-                    ))
+                    levels.append(
+                        Level(
+                            price=curr.price,
+                            level_type=lt,
+                            magnitude=magnitude,
+                            bar_index=curr.bar_index,
+                            completed=completed,
+                        )
+                    )
 
         return levels
 

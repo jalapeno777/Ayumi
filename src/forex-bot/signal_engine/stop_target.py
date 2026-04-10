@@ -6,8 +6,6 @@ and trailing SL logic for lock-in behavior (§9.3).
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 # Default R:R ratio
 DEFAULT_RR_RATIO = 2.0
@@ -54,7 +52,11 @@ class StopTargetCalculator:
         }
 
     def _place_stop_loss(
-        self, direction: str, entry: float, context: dict, spread: float,
+        self,
+        direction: str,
+        entry: float,
+        context: dict,
+        spread: float,
     ) -> float:
         """SL beyond structure: below SL2 for long, above SH2 for short."""
         buffer = max(SPREAD_BUFFER_PIPS * self.pip_size, spread)
@@ -73,39 +75,80 @@ class StopTargetCalculator:
         return round(sl, 5)
 
     def _place_take_profit(
-        self, direction: str, entry: float, sl: float, context: dict,
+        self,
+        direction: str,
+        entry: float,
+        sl: float,
+        context: dict,
     ) -> tuple[float, list[dict]]:
         """TP based on R:R ratio and structure levels (R3/R2 or D3/D2)."""
         risk = abs(entry - sl)
-        risk_reward_target = entry + (risk * self.rr_ratio) if direction == "long" else entry - (risk * self.rr_ratio)
+        risk_reward_target = (
+            entry + (risk * self.rr_ratio)
+            if direction == "long"
+            else entry - (risk * self.rr_ratio)
+        )
 
         tp_levels = []
         if direction == "long":
             r2 = context.get("r2")
             r3 = context.get("r3")
             if r2:
-                tp_levels.append({"level": "R2", "price": r2, "rr": round((r2 - entry) / risk, 2) if risk else 0})
+                tp_levels.append(
+                    {
+                        "level": "R2",
+                        "price": r2,
+                        "rr": round((r2 - entry) / risk, 2) if risk else 0,
+                    }
+                )
             if r3:
-                tp_levels.append({"level": "R3", "price": r3, "rr": round((r3 - entry) / risk, 2) if risk else 0})
+                tp_levels.append(
+                    {
+                        "level": "R3",
+                        "price": r3,
+                        "rr": round((r3 - entry) / risk, 2) if risk else 0,
+                    }
+                )
             # If no structure levels, use pure R:R
             if not tp_levels:
-                tp_levels.append({"level": "TP1", "price": risk_reward_target, "rr": self.rr_ratio})
+                tp_levels.append(
+                    {"level": "TP1", "price": risk_reward_target, "rr": self.rr_ratio}
+                )
             tp = tp_levels[-1]["price"]  # furthest target
         else:
             d2 = context.get("d2")
             d3 = context.get("d3")
             if d2:
-                tp_levels.append({"level": "D2", "price": d2, "rr": round((entry - d2) / risk, 2) if risk else 0})
+                tp_levels.append(
+                    {
+                        "level": "D2",
+                        "price": d2,
+                        "rr": round((entry - d2) / risk, 2) if risk else 0,
+                    }
+                )
             if d3:
-                tp_levels.append({"level": "D3", "price": d3, "rr": round((entry - d3) / risk, 2) if risk else 0})
+                tp_levels.append(
+                    {
+                        "level": "D3",
+                        "price": d3,
+                        "rr": round((entry - d3) / risk, 2) if risk else 0,
+                    }
+                )
             if not tp_levels:
-                tp_levels.append({"level": "TP1", "price": risk_reward_target, "rr": self.rr_ratio})
+                tp_levels.append(
+                    {"level": "TP1", "price": risk_reward_target, "rr": self.rr_ratio}
+                )
             tp = tp_levels[-1]["price"]
 
         return round(tp, 5), tp_levels
 
     def _trailing_config(
-        self, direction: str, entry: float, sl: float, tp: float, context: dict,
+        self,
+        direction: str,
+        entry: float,
+        sl: float,
+        tp: float,
+        context: dict,
     ) -> dict:
         """Trailing stop logic for lock-in behavior.
 

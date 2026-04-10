@@ -12,6 +12,7 @@ from .thresholds import MW_SYMMETRY_MAX, LEVEL_COMPLETION_RATIO
 @dataclass
 class GateResult:
     """Result of gate validation."""
+
     passed: bool
     failed_gates: list[str] = field(default_factory=list)
     gate_details: dict[str, bool] = field(default_factory=dict)

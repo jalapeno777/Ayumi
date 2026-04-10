@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from typing import Optional
 
 
@@ -29,12 +29,12 @@ OVERLAPS = {
 # Weekly confidence modifiers (§8.3)
 WEEKLY_MODIFIERS = {
     0: -0.10,  # Monday
-    1: 0.05,   # Tuesday
-    2: 0.05,   # Wednesday
-    3: 0.0,    # Thursday
+    1: 0.05,  # Tuesday
+    2: 0.05,  # Wednesday
+    3: 0.0,  # Thursday
     4: -0.10,  # Friday
-    5: 0.0,    # Saturday
-    6: 0.0,    # Sunday
+    5: 0.0,  # Saturday
+    6: 0.0,  # Sunday
 }
 
 
@@ -154,8 +154,7 @@ class SessionAnalyzer:
         ).total_seconds()
 
         elapsed = (
-            datetime.combine(utc_dt.date(), t)
-            - datetime.combine(utc_dt.date(), start)
+            datetime.combine(utc_dt.date(), t) - datetime.combine(utc_dt.date(), start)
         ).total_seconds()
 
         if session_duration <= 0:

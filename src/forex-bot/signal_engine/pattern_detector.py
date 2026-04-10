@@ -11,7 +11,6 @@ from .thresholds import (
     MW_EQUAL_THRESHOLD,
     TRAP_BREAK_LONDON_NY,
     TRAP_BREAK_ASIA,
-    TRAP_BREAK_CRYPTO,
     NEAR_THRESHOLD,
 )
 
@@ -19,8 +18,9 @@ from .thresholds import (
 @dataclass
 class DetectedPattern:
     """A detected pattern with metadata."""
+
     pattern_type: str  # "M", "W", "SVC_SPRING", "SVC_VACATION", "SVC_CONTINUATION",
-                       # "TRAP", "LIQUIDITY_GRAB", "FL"
+    # "TRAP", "LIQUIDITY_GRAB", "FL"
     direction: str  # "long" or "short"
     confidence: float  # 0.0 - 1.0
     key_levels: dict = field(default_factory=dict)
@@ -91,10 +91,13 @@ class PatternDetector:
             return None
 
         checklist = self._mw_checklist(
-            sh1=sh1.price, sl1=sl1.price,
-            sh2=sh2.price, sl2=sl2.price,
+            sh1=sh1.price,
+            sl1=sl1.price,
+            sh2=sh2.price,
+            sl2=sl2.price,
             sh3=sh3.price,
-            is_bearish=True, levels=levels,
+            is_bearish=True,
+            levels=levels,
             current_price=current_price,
         )
 
@@ -106,8 +109,13 @@ class PatternDetector:
             pattern_type="M",
             direction="short",
             confidence=score,
-            key_levels={"SH1": sh1.price, "SL1": sl1.price,
-                        "SH2": sh2.price, "SL2": sl2.price, "SH3": sh3.price},
+            key_levels={
+                "SH1": sh1.price,
+                "SL1": sl1.price,
+                "SH2": sh2.price,
+                "SL2": sl2.price,
+                "SH3": sh3.price,
+            },
             checklist_score=score,
             checklist_details=checklist,
         )
@@ -130,10 +138,13 @@ class PatternDetector:
             return None
 
         checklist = self._mw_checklist(
-            sh1=sh1.price, sl1=sl1.price,
-            sh2=sh2.price, sl2=sl2.price,
+            sh1=sh1.price,
+            sl1=sl1.price,
+            sh2=sh2.price,
+            sl2=sl2.price,
             sh3=sl3.price,  # reuse field for SL3
-            is_bearish=False, levels=levels,
+            is_bearish=False,
+            levels=levels,
             current_price=current_price,
         )
 
@@ -145,8 +156,13 @@ class PatternDetector:
             pattern_type="W",
             direction="long",
             confidence=score,
-            key_levels={"SL1": sl1.price, "SH1": sh1.price,
-                        "SL2": sl2.price, "SH2": sh2.price, "SL3": sl3.price},
+            key_levels={
+                "SL1": sl1.price,
+                "SH1": sh1.price,
+                "SL2": sl2.price,
+                "SH2": sh2.price,
+                "SL3": sl3.price,
+            },
             checklist_score=score,
             checklist_details=checklist,
         )
@@ -162,14 +178,17 @@ class PatternDetector:
             if s.swing_type == expected:
                 result.append(s)
                 expected = (
-                    SwingType.LOW if expected == SwingType.HIGH
-                    else SwingType.HIGH
+                    SwingType.LOW if expected == SwingType.HIGH else SwingType.HIGH
                 )
         return result
 
     def _mw_checklist(
         self,
-        sh1: float, sl1: float, sh2: float, sl2: float, sh3: float,
+        sh1: float,
+        sl1: float,
+        sh2: float,
+        sl2: float,
+        sh3: float,
         is_bearish: bool,
         levels: list[Level],
         current_price: float,
@@ -408,23 +427,27 @@ class PatternDetector:
 
         # ILOD break — price breaks below session low then shows rejection
         if last_bar["close"] < session_low:
-            patterns.append(DetectedPattern(
-                pattern_type="ILOD_BREAK",
-                direction="short",
-                confidence=0.6,
-                key_levels={"ilod": session_low},
-                notes=f"ILOD break in {session}",
-            ))
+            patterns.append(
+                DetectedPattern(
+                    pattern_type="ILOD_BREAK",
+                    direction="short",
+                    confidence=0.6,
+                    key_levels={"ilod": session_low},
+                    notes=f"ILOD break in {session}",
+                )
+            )
 
         # IHOD break — price breaks above session high then shows rejection
         if last_bar["close"] > session_high:
-            patterns.append(DetectedPattern(
-                pattern_type="IHOD_BREAK",
-                direction="long",
-                confidence=0.6,
-                key_levels={"ihod": session_high},
-                notes=f"IHOD break in {session}",
-            ))
+            patterns.append(
+                DetectedPattern(
+                    pattern_type="IHOD_BREAK",
+                    direction="long",
+                    confidence=0.6,
+                    key_levels={"ihod": session_high},
+                    notes=f"IHOD break in {session}",
+                )
+            )
 
         return patterns
 
@@ -507,7 +530,9 @@ class PatternDetector:
             return None
 
         # Extract alternating swings starting from the most common type
-        starts_high = sum(1 for s in sorted_swings[:3] if s.swing_type == SwingType.HIGH)
+        starts_high = sum(
+            1 for s in sorted_swings[:3] if s.swing_type == SwingType.HIGH
+        )
         start_type = SwingType.HIGH if starts_high >= 2 else SwingType.LOW
         alt = self._extract_alternating(sorted_swings, start_type)
 
@@ -590,8 +615,9 @@ class PatternDetector:
 
         # Traps (check each level)
         for lv in levels:
-            trap = self.detect_trap(bars[-5:] if len(bars) >= 5 else bars,
-                                    lv.price, session)
+            trap = self.detect_trap(
+                bars[-5:] if len(bars) >= 5 else bars, lv.price, session
+            )
             if trap:
                 patterns.append(trap)
 

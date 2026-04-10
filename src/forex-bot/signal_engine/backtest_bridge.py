@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 
 from .data_types import (
-    Signal, Swing, SwingType, Level, LevelType,
-    HTFState, HTFPhase, SessionState,
+    Signal,
+    Swing,
+    Level,
+    LevelType,
 )
 from .swing_detector import SwingDetector
 from .level_counter import LevelCounter
@@ -35,7 +36,9 @@ class SignalEngineBridge:
         self.min_confidence = config.get("min_confidence", 0.40)
         self.symbol = config.get("symbol", "EURUSD")
 
-        self.swing_detector = SwingDetector(lookback=5)  # fixed small lookback for swing detection
+        self.swing_detector = SwingDetector(
+            lookback=5
+        )  # fixed small lookback for swing detection
         self.level_counter = LevelCounter()
         self.htf_analyzer = HTFAnalyzer()
         self.session_analyzer = SessionAnalyzer()
@@ -79,9 +82,7 @@ class SignalEngineBridge:
 
         return signals
 
-    def get_signals_for_bar(
-        self, df: pd.DataFrame, bar_idx: int
-    ) -> Optional[Signal]:
+    def get_signals_for_bar(self, df: pd.DataFrame, bar_idx: int) -> Optional[Signal]:
         """Evaluate a single bar for signal generation.
 
         Note: run() should be called first to populate swing/level state.
@@ -108,8 +109,6 @@ class SignalEngineBridge:
         """
         bar = df.iloc[bar_idx]
         close = float(bar["close"])
-        high = float(bar["high"])
-        low = float(bar["low"])
 
         if not self._levels:
             return None
@@ -146,9 +145,8 @@ class SignalEngineBridge:
 
         # Session context
         timestamp = self._get_timestamp(df, bar_idx)
-        session_name = "H1"
         if timestamp:
-            session_name = self.session_analyzer.get_current_session(timestamp)
+            _ = self.session_analyzer.get_current_session(timestamp)
 
         return Signal(
             symbol=self.symbol,
@@ -172,9 +170,7 @@ class SignalEngineBridge:
             return None
         return min(completed, key=lambda lv: abs(lv.price - price))
 
-    def _determine_direction(
-        self, level: Level, current_price: float
-    ) -> Optional[str]:
+    def _determine_direction(self, level: Level, current_price: float) -> Optional[str]:
         """Determine trade direction based on level type and price position.
 
         Rise levels (R1-R3) near price → expect continuation up (long)
@@ -214,9 +210,9 @@ class SignalEngineBridge:
         tr_sum = 0.0
         for i in range(bar_idx - lookback + 1, bar_idx + 1):
             h = float(df.iloc[i]["high"])
-            l = float(df.iloc[i]["low"])
+            low_val = float(df.iloc[i]["low"])
             c_prev = float(df.iloc[i - 1]["close"])
-            tr = max(h - l, abs(h - c_prev), abs(l - c_prev))
+            tr = max(h - low_val, abs(h - c_prev), abs(low_val - c_prev))
             tr_sum += tr
 
         atr = tr_sum / lookback
