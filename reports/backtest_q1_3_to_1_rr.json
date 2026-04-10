@@ -1,0 +1,17 @@
+{
+  "question": "Q1",
+  "test_period": "2023-01-01 to 2025-12-31",
+  "instrument": "EURUSD",
+  "timeframe": "H1",
+  "sample_size": 179,
+  "results": {
+    "rr_3_1_hit_rate": 0.03,
+    "average_rr": 1.14,
+    "l1_hit_rate": 0.56,
+    "l2_hit_rate": 0.02,
+    "l3_hit_rate": 0.03,
+    "stop_loss_rate": 0.38
+  },
+  "pass": false,
+  "notes": "3% of trades hit 3:1 or better. Average R:R was 1.14. Sample size: 179 M/W formations. Pass criteria: >=60% at 3:1."
+}
