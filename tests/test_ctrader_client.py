@@ -26,7 +26,13 @@ def mock_credentials():
 
 @pytest.fixture
 def client(mock_credentials):
-    return CTraderHistoricalClient(**mock_credentials)
+    return CTraderHistoricalClient(
+        client_id=mock_credentials["client_id"],
+        client_secret=mock_credentials["client_secret"],
+        access_token="test_access_token",
+        refresh_token="test_refresh_token",
+        trader_login=mock_credentials["account_id"],
+    )
 
 
 class TestConstants:
