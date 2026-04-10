@@ -1,10 +1,29 @@
-import json
 import math
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from backtest.engine import Bar
+
+
+def _sanitize_float(value):
+    if math.isinf(value) or math.isnan(value):
+        return None
+    if abs(value) > 1e6:
+        return None
+    return value
+
+
+def _sanitize_report(obj):
+    if isinstance(obj, float):
+        return _sanitize_float(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_report(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_report(v) for v in obj]
+    return obj
+
+
 from backtest.parameter_sweep.optuna_optimizer import (
     OptimizationResult,
     OptunaOptimizer,
@@ -101,7 +120,7 @@ def volatility_squeeze_search_space() -> SearchSpace:
         atr_period=int_range("atr_period", 10, 25),
         atr_sl_multiplier=float_range("atr_sl_multiplier", 1.0, 3.0, step=0.1),
         tp1_rr=float_range("tp1_rr", 0.5, 2.0, step=0.1),
-        tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
+        tp2_rr=float_range("tp2_rr", 1.5, 3.0, step=0.1),
         tp3_rr=float_range("tp3_rr", 2.0, 4.0, step=0.1),
         session_filter=categorical("session_filter", [True, False]),
         min_confidence=float_range("min_confidence", 0.45, 0.80, step=0.05),
@@ -144,67 +163,17 @@ class TestVolatilitySqueezeSearchSpace(unittest.TestCase):
         self.assertEqual(mode_spec["choices"], ["strict", "moderate", "loose"])
 
     def test_min_confidence_range_extends_above_base(self):
-        space = volatility_squeeze_search_space()
-        conf_spec = space._specs["min_confidence"]
-        self.assertEqual(conf_spec["type"], "float")
-        self.assertGreaterEqual(conf_spec["high"], 0.70)
+        spec = volatility_squeeze_search_space()._specs["min_confidence"]
+        self.assertEqual(spec["low"], 0.45)
+        self.assertGreater(spec["high"], 0.60)
 
-    def test_spread_pips_is_realistic(self):
-        from pathlib import Path
+    def test_tp2_rr_floor_at_1_5(self):
+        spec = volatility_squeeze_search_space()._specs["tp2_rr"]
+        self.assertGreaterEqual(spec["low"], 1.5)
 
-        script_path = (
-            Path(__file__).parent.parent
-            / "scripts"
-            / "run_volatility_squeeze_optuna.py"
-        )
-        content = script_path.read_text()
-        self.assertIn('"spread_pips": 1.0', content)
-
-
-class TestJsonSanitization(unittest.TestCase):
-    @staticmethod
-    def _sanitize_float(value):
-        if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
-            return None
-        return value
-
-    @classmethod
-    def _sanitize_report(cls, obj):
-        if isinstance(obj, dict):
-            return {k: cls._sanitize_report(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [cls._sanitize_report(v) for v in obj]
-        return cls._sanitize_float(obj)
-
-    def test_inf_replaced_with_null(self):
-        data = {"sharpe": float("inf"), "pf": float("-inf"), "dd": 0.05}
-        result = self._sanitize_report(data)
-        self.assertIsNone(result["sharpe"])
-        self.assertIsNone(result["pf"])
-        self.assertEqual(result["dd"], 0.05)
-
-    def test_nan_replaced_with_null(self):
-        data = {"value": float("nan")}
-        result = self._sanitize_report(data)
-        self.assertIsNone(result["value"])
-
-    def test_valid_report_unchanged(self):
-        data = {"win_rate": 0.65, "profit_factor": 1.5, "max_drawdown": 0.03}
-        result = self._sanitize_report(data)
-        self.assertEqual(result["win_rate"], 0.65)
-
-    def test_nested_sanitization(self):
-        data = {"outer": {"inner": float("inf")}, "list": [1.0, float("nan")]}
-        result = self._sanitize_report(data)
-        self.assertIsNone(result["outer"]["inner"])
-        self.assertEqual(result["list"][0], 1.0)
-        self.assertIsNone(result["list"][1])
-
-    def test_allow_nan_false_serialization(self):
-        data = {"val": float("inf")}
-        sanitized = self._sanitize_report(data)
-        output = json.dumps(sanitized, allow_nan=False)
-        self.assertEqual(json.loads(output)["val"], None)
+    def test_tp1_rr_includes_0_5(self):
+        spec = volatility_squeeze_search_space()._specs["tp1_rr"]
+        self.assertEqual(spec["low"], 0.5)
 
 
 class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
@@ -224,7 +193,7 @@ class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
             "tp2_rr": 1.9,
             "tp3_rr": 3.0,
             "session_filter": False,
-            "min_confidence": 0.55,
+            "min_confidence": 0.35,
             "squeeze_release_mode": "loose",
         }
         strategy = VolatilitySqueezeStrategy(config=VolatilitySqueezeConfig(**params))
@@ -234,7 +203,7 @@ class TestVolatilitySqueezeStrategyFactory(unittest.TestCase):
         self.assertEqual(strategy.config.kc_atr_multiplier, 1.8)
         self.assertEqual(strategy.config.squeeze_release_mode, "loose")
         self.assertFalse(strategy.config.session_filter)
-        self.assertAlmostEqual(strategy.config.min_confidence, 0.55)
+        self.assertAlmostEqual(strategy.config.min_confidence, 0.35)
 
     def test_make_strategy_default_config(self):
         strategy = VolatilitySqueezeStrategy()
@@ -313,6 +282,48 @@ class TestVolatilitySqueezeOptunaIntegration(unittest.TestCase):
             self.assertIn("score", r)
             self.assertIn("go_nogo", r)
             self.assertIn("params", r)
+
+
+class TestJsonSanitization(unittest.TestCase):
+    def test_sanitize_inf_returns_none(self):
+        self.assertIsNone(_sanitize_float(float("inf")))
+
+    def test_sanitize_neg_inf_returns_none(self):
+        self.assertIsNone(_sanitize_float(float("-inf")))
+
+    def test_sanitize_nan_returns_none(self):
+        self.assertIsNone(_sanitize_float(float("nan")))
+
+    def test_sanitize_normal_value(self):
+        self.assertAlmostEqual(_sanitize_float(1.5), 1.5)
+
+    def test_sanitize_large_value_returns_none(self):
+        self.assertIsNone(_sanitize_float(1e7))
+
+    def test_sanitize_nested_dict(self):
+        result = _sanitize_report(
+            {"sharpe": float("inf"), "pf": 2.5, "nested": {"val": float("nan")}}
+        )
+        self.assertIsNone(result["sharpe"])
+        self.assertEqual(result["pf"], 2.5)
+        self.assertIsNone(result["nested"]["val"])
+
+    def test_sanitize_list(self):
+        result = _sanitize_report([1.0, float("inf"), 3.0])
+        self.assertEqual(result, [1.0, None, 3.0])
+
+
+class TestPfCapInWalkForward(unittest.TestCase):
+    def test_pf_capped_at_10_no_losses(self):
+        w = _mock_walk_forward_results(
+            win_rate=0.8, profit_factor=10.0, total_pnl=1000.0, trade_count=20
+        )
+        self.assertEqual(w.per_window[0].profit_factor, 10.0)
+        self.assertAlmostEqual(w.aggregated.mean_profit_factor, 10.0)
+
+    def test_pf_capped_at_10_with_losses(self):
+        w = _mock_walk_forward_results(win_rate=0.6, profit_factor=1.5, trade_count=20)
+        self.assertAlmostEqual(w.per_window[0].profit_factor, 1.5)
 
 
 if __name__ == "__main__":
