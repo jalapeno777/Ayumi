@@ -12,6 +12,7 @@ Usage:
 """
 
 import argparse
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +26,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 from backtest.engine import Bar
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
+from signal_engine.risk_sizer import (
+    ConfidencePositionSizer,
+    ConfidenceTier,
+    parse_tiers,
+)
 
 
 PAIRS_CONFIG = {
@@ -85,6 +91,7 @@ def run_pair(
     n_windows: int,
     train_ratio: float,
     val_ratio: float,
+    risk_sizer: ConfidencePositionSizer,
 ) -> dict:
     cfg = PAIRS_CONFIG[pair]
     csv_path = cfg["csv"].format(tf=tf)
@@ -106,7 +113,7 @@ def run_pair(
             symbol=pair,
             min_confidence=min_confidence,
             min_quality_score=min_quality_score,
-            lookback=200,
+            
         )
 
     result = run_strategy_walk_forward(
@@ -118,6 +125,8 @@ def run_pair(
         val_ratio=val_ratio,
         spread_pips=spread,
         commission_per_lot=3.5,
+        min_confidence=min_confidence,
+        risk_sizer=risk_sizer,
     )
 
     return result
@@ -143,7 +152,34 @@ def main() -> None:
     parser.add_argument("--min-confidence", type=float, default=DEFAULT_MIN_CONFIDENCE)
     parser.add_argument("--min-quality", type=float, default=DEFAULT_MIN_QUALITY)
     parser.add_argument("--report-dir", default="reports/tts_walkforward")
+    parser.add_argument(
+        "--confidence-tiers",
+        type=str,
+        default=None,
+        help=(
+            'JSON list of [min_conf, max_conf, risk_pct] tiers, e.g. '
+            '"[[0.85,1.0,0.01],[0.70,0.85,0.0075]]"'
+        ),
+    )
+    parser.add_argument(
+        "--risk-pct",
+        type=float,
+        default=0.01,
+        help="Max risk %% per trade at highest confidence tier (default: 0.01 = 1%%)",
+    )
     args = parser.parse_args()
+
+    # Build risk sizer
+    if args.confidence_tiers:
+        custom_tiers = parse_tiers(args.confidence_tiers)
+        risk_sizer = ConfidencePositionSizer(
+            account_size=10000.0, tiers=custom_tiers
+        )
+    else:
+        risk_sizer = ConfidencePositionSizer(
+            account_size=10000.0,
+        )
+    print(f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}")
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -159,6 +195,7 @@ def main() -> None:
     print(f"{'═' * 60}")
 
     all_results = {}
+    all_trade_records = {}
     go_nogo = {}
 
     for pair in args.pairs:
@@ -170,11 +207,45 @@ def main() -> None:
             n_windows=args.windows,
             train_ratio=args.train_ratio,
             val_ratio=args.val_ratio,
+            risk_sizer=risk_sizer,
         )
         all_results[pair] = result
 
-        # Extract go/nogo from walk-forward validator
-        if isinstance(result, dict) and "aggregated" in result:
+        # Extract per-trade records with confidence scores
+        trade_records = getattr(result, '_trade_records', [])
+        if trade_records:
+            all_trade_records[pair] = [
+                {**t, "pair": pair} for t in trade_records
+            ]
+            print(f"  Trade records: {len(trade_records)} (with confidence scores)")
+
+        # Extract go/nogo from walk-forward results
+        agg = getattr(result, 'aggregated', None)
+        if agg is not None:
+            net_profit = getattr(agg, 'mean_total_pnl', 0)
+            win_rate = getattr(agg, 'mean_win_rate', 0)
+            max_dd = getattr(agg, 'mean_max_drawdown', 1.0) * 100  # decimal to pct
+            total_trades = int(getattr(agg, 'mean_trade_count', 0))
+
+            # FTMO-style go/nogo
+            passes = (
+                total_trades >= 20
+                and max_dd <= 5.0
+                and net_profit > 0
+                and win_rate >= 0.40
+            )
+            go_nogo[pair] = {
+                "pass": passes,
+                "net_profit": net_profit,
+                "win_rate": win_rate,
+                "max_dd": max_dd,
+                "total_trades": total_trades,
+            }
+            status = "✅ GO" if passes else "❌ NO-GO"
+            print(
+                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"
+            )
+        elif isinstance(result, dict) and "aggregated" in result:
             agg = result["aggregated"]
             metrics = agg.get("aggregated_metrics", {})
             net_profit = metrics.get("net_profit", 0)
@@ -198,11 +269,18 @@ def main() -> None:
             }
             status = "✅ GO" if passes else "❌ NO-GO"
             print(
-                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.1%} | Trades: {total_trades}"
+                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"
             )
+        else:
+            print(f"\n  {pair}: No results")
 
     # Save report
     report_path = report_dir / f"tts_{args.timeframe}_{timestamp}.json"
+    # Flatten all trade records
+    flat_trades = []
+    for pair, records in all_trade_records.items():
+        flat_trades.extend(records)
+
     report = {
         "strategy": "TTSStrategy",
         "timeframe": args.timeframe,
@@ -214,6 +292,7 @@ def main() -> None:
             "val_ratio": args.val_ratio,
         },
         "per_pair": all_results,
+        "trade_records": flat_trades,
         "go_nogo": go_nogo,
     }
     with open(report_path, "w") as f:
@@ -221,27 +300,84 @@ def main() -> None:
 
     print(f"\nReport: {report_path}")
 
-    # Summary table
+    # ── Tier distribution analysis ──────────────────────────────────
+    print(f"\n{'═' * 60}")
+    print("  TIER DISTRIBUTION")
+    print(f"{'═' * 60}")
+    tier_dist = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+    for record in flat_trades:
+        conf = record.get("confidence_score", record.get("confidence", 0))
+        tier = 5 if conf >= 0.85 else (4 if conf >= 0.70 else (3 if conf >= 0.55 else (2 if conf >= 0.40 else 1)))
+        tier_dist[tier] += 1
+    total_trades_all = sum(tier_dist.values())
+    for t in sorted(tier_dist.keys(), reverse=True):
+        count = tier_dist[t]
+        pct = count / total_trades_all * 100 if total_trades_all > 0 else 0
+        print(f"  Tier {t}: {count:>4} trades ({pct:.1f}%)")
+    print(f"  Total: {total_trades_all} trades")
+
+    # ── Confluence factor frequency ──────────────────────────────────
+    print(f"\n{'═' * 60}")
+    print("  CONFLUENCE FACTOR FREQUENCY")
+    print(f"{'═' * 60}")
+    boost_counts = {}
+    import re
+    for record in flat_trades:
+        rationale = record.get("rationale", "")
+        boosts = re.findall(r"\('([^']+)',\s*[\d.]+\)", rationale) if "boosts=" in rationale else []
+        for b in boosts:
+            boost_counts[b] = boost_counts.get(b, 0) + 1
+    for name, count in sorted(boost_counts.items(), key=lambda x: -x[1]):
+        pct = count / total_trades_all * 100 if total_trades_all > 0 else 0
+        print(f"  {name:<25} {count:>4} ({pct:.1f}%)")
+
+    # ── Per-boost win rate analysis ──────────────────────────────────
+    print(f"\n{'═' * 60}")
+    print("  PER-BOOST WIN RATE (top factors)")
+    print(f"{'═' * 60}")
+    import re as _re
+    top_boosts = sorted(boost_counts.items(), key=lambda x: -x[1])[:10]
+    for boost_name, _ in top_boosts:
+        wins = 0
+        total = 0
+        for record in flat_trades:
+            rationale = record.get("rationale", "")
+            has_boost = f"('{boost_name}'," in rationale
+            if has_boost:
+                total += 1
+                if record.get("pnl", 0) > 0:
+                    wins += 1
+        wr = wins / total * 100 if total > 0 else 0
+        print(f"  {boost_name:<25} WR: {wr:>5.1f}% ({wins}/{total} trades)")
+
+    # ── Summary table ────────────────────────────────────────────────
     print(f"\n{'═' * 60}")
     print("  SUMMARY")
     print(f"{'═' * 60}")
     print(
-        f"  {'Pair':<10} {'Net P&L':>12} {'WR':>8} {'DD':>8} {'Trades':>8} {'Verdict':<10}"
+        f"  {'Pair':<10} {'P&L':>10} {'WR':>7} {'DD%':>6} {'Trades':>7} {'T5':>4} {'T4':>4} {'T3':>4} {'Verdict':<10}"
     )
-    print(f"  {'─' * 60}")
-    for pair, verdict in go_nogo.items():
-        v = verdict
-        status = "✅ GO" if v["pass"] else "❌ NO-GO"
+    print(f"  {'─' * 70}")
+    for pair in args.pairs:
+        records = all_trade_records.get(pair, [])
+        verdict = go_nogo.get(pair, {})
+        status = "✅ GO" if verdict.get("pass") else "❌ NO-GO"
+        total = len(records)
+        wins = sum(1 for r in records if r.get("pnl", 0) > 0)
+        wr = wins / total * 100 if total > 0 else 0
+        t5 = sum(1 for r in records if r.get("confidence_score", r.get("confidence", 0)) >= 0.85)
+        t4 = sum(1 for r in records if 0.70 <= r.get("confidence_score", r.get("confidence", 0)) < 0.85)
+        t3 = sum(1 for r in records if 0.55 <= r.get("confidence_score", r.get("confidence", 0)) < 0.70)
+        pnl = verdict.get("net_profit", 0)
+        dd = verdict.get("max_dd", 0)
         print(
-            f"  {pair:<10} ${v['net_profit']:>10.2f} {v['win_rate']:>7.1%} {v['max_dd']:>7.1%} {v['total_trades']:>7} {status}"
+            f"  {pair:<10} ${pnl:>8.2f} {wr:>6.1f}% {dd:>5.2f}% {total:>6} {t5:>4} {t4:>4} {t3:>4} {status}"
         )
-    print(f"  {'─' * 60}")
+    print(f"  {'─' * 70}")
 
     go_count = sum(1 for v in go_nogo.values() if v["pass"])
     print(f"\n  {go_count}/{len(go_nogo)} pairs passed FTMO-style criteria")
 
 
 if __name__ == "__main__":
-    import json
-
     main()

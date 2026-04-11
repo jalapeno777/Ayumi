@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytz
 from datetime import datetime, time
 from typing import Optional
 
+_ET = pytz.timezone("America/New_York")
 
 # Session definitions (UTC times)
 SESSIONS = {
@@ -13,12 +15,38 @@ SESSIONS = {
     "NY": (time(12, 0), time(21, 0)),
 }
 
-# Kill zones (first 90 minutes of each session)
+# Kill zones (first 90 minutes of each session) — static defaults (EDT)
+# NY KZ is DST-aware: see get_ny_kz_hours()
 KILL_ZONES = {
     "ASIA": (time(0, 0), time(1, 30)),
     "LONDON": (time(7, 0), time(8, 30)),
     "NY": (time(12, 30), time(14, 0)),
 }
+
+
+def _is_dst(utc_dt: datetime) -> bool:
+    """Check if a UTC datetime falls in US Eastern DST.
+
+    Approximation: DST runs from 2nd Sunday March to 1st Sunday November.
+    Uses the first bar's ET offset to determine DST vs EST.
+    """
+    if utc_dt.tzinfo is None:
+        utc_dt = pytz.utc.localize(utc_dt)
+    et = utc_dt.astimezone(_ET)
+    # ET offset of -4h = EDT, -5h = EST
+    return et.utcoffset().total_seconds() == -4 * 3600
+
+
+def get_ny_kz_hours(is_dst: bool) -> tuple[time, time]:
+    """Return NY kill zone UTC hours adjusted for DST.
+
+    EDT (UTC-4): NY KZ 8:30-10:00 ET = 12:30-14:00 UTC
+    EST (UTC-5): NY KZ 8:30-10:00 ET = 13:30-15:00 UTC
+    """
+    if is_dst:
+        return (time(12, 30), time(14, 0))
+    else:
+        return (time(13, 30), time(15, 0))
 
 # Overlaps
 OVERLAPS = {
@@ -60,10 +88,16 @@ class SessionAnalyzer:
 
         return active[0]
 
+    def _get_kill_zones(self, utc_dt: datetime) -> dict[str, tuple[time, time]]:
+        """Return KILL_ZONES with NY adjusted for DST."""
+        kz = dict(KILL_ZONES)
+        kz["NY"] = get_ny_kz_hours(_is_dst(utc_dt))
+        return kz
+
     def is_kill_zone(self, utc_dt: datetime) -> bool:
         """Check if the given time falls within any session's kill zone."""
         t = utc_dt.time()
-        for _, (start, end) in KILL_ZONES.items():
+        for _, (start, end) in self._get_kill_zones(utc_dt).items():
             if start <= t < end:
                 return True
         return False
@@ -71,7 +105,7 @@ class SessionAnalyzer:
     def get_kill_zone_name(self, utc_dt: datetime) -> Optional[str]:
         """Return which session's kill zone is active, or None."""
         t = utc_dt.time()
-        for name, (start, end) in KILL_ZONES.items():
+        for name, (start, end) in self._get_kill_zones(utc_dt).items():
             if start <= t < end:
                 return name
         return None
