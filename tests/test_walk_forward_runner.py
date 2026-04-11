@@ -157,7 +157,7 @@ class TestRunStrategyWalkForward(unittest.TestCase):
         )
         expected = (
             len(results.per_window) >= 3
-            and sum(1 for m in results.per_window if m.passed_go_nogo) >= 2
+            and sum(1 for m in results.per_window if m.passed_go_nogo) >= 3
         )
         self.assertEqual(results.go_nogo, expected)
 

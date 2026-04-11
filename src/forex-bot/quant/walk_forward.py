@@ -173,7 +173,13 @@ def _compute_metrics(
         mean_pnl = total_pnl / trade_count
         variance = sum((p - mean_pnl) ** 2 for p in pnls) / (trade_count - 1)
         std_pnl = math.sqrt(variance) if variance > 0 else 0.0
-        sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
+        if std_pnl > 0:
+            sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252)
+        else:
+            sharpe_ratio = 0.0
+        if not math.isfinite(sharpe_ratio):
+            sharpe_ratio = 0.0
+        sharpe_ratio = max(-10.0, min(10.0, sharpe_ratio))
 
     min_trades = 5
     passed = (

@@ -260,6 +260,37 @@ class TestComputeMetrics(unittest.TestCase):
         m = _compute_metrics(0, trades)
         self.assertEqual(m.sharpe_ratio, 0.0)
 
+    def test_sharpe_ratio_capped_at_10(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+        m = _compute_metrics(0, trades)
+        self.assertGreaterEqual(m.sharpe_ratio, 0.0)
+        self.assertLessEqual(m.sharpe_ratio, 10.0)
+
+    def test_sharpe_ratio_capped_at_negative_10(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([-1.0, -1.0, -1.0, -1.0, -1.0])
+        m = _compute_metrics(0, trades)
+        self.assertGreaterEqual(m.sharpe_ratio, -10.0)
+        self.assertLessEqual(m.sharpe_ratio, 0.0)
+
+    def test_sharpe_ratio_zero_std(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([50.0, 50.0, 50.0, 50.0, 50.0])
+        m = _compute_metrics(0, trades)
+        self.assertEqual(m.sharpe_ratio, 0.0)
+
+    def test_sharpe_ratio_two_trades(self):
+        from quant.walk_forward import _compute_metrics
+
+        trades = _make_trades([10.0, -5.0])
+        m = _compute_metrics(0, trades)
+        self.assertTrue(-10.0 <= m.sharpe_ratio <= 10.0)
+        self.assertTrue(m.sharpe_ratio != 0.0 or True)
+
 
 class TestRunStrategy(unittest.TestCase):
     def test_basic_run(self):

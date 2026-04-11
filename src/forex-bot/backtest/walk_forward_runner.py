@@ -138,7 +138,7 @@ def run_strategy_walk_forward(
 
     windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
     total = len(per_window)
-    go_nogo = total >= 3 and windows_passed >= 2
+    go_nogo = total >= 3 and windows_passed >= 3
 
     return WalkForwardResults(
         per_window=per_window,

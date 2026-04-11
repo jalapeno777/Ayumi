@@ -33,8 +33,8 @@ from strategies.session_range_mean_reversion import (  # noqa: E402
 )
 from quant.walk_forward import comparison_report  # noqa: E402
 
-DATA_DIR = Path("data/forex/historical")
-REPORT_DIR = Path("reports/optuna")
+DATA_DIR = project_root / "data" / "forex" / "historical"
+REPORT_DIR = project_root / "reports" / "optuna"
 
 GBPUSD_PATH = DATA_DIR / "GBPUSD_H1.csv"
 EURUSD_PATH = DATA_DIR / "EURUSD_H1.csv"
@@ -45,7 +45,7 @@ DEFAULT_CONFIG = {
     "val_ratio": 0.15,
     "overlap_ratio": 0.20,
     "initial_balance": 10000.0,
-    "spread_pips": 0.0,
+    "spread_pips": None,
     "commission_per_lot": 3.5,
 }
 
@@ -169,8 +169,22 @@ def main() -> None:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "n_trials": args.trials,
         "seed": args.seed,
+        "spread_pips": "pair_default",
         "baseline": {
             "go_nogo": baseline_wf.go_nogo,
+            "per_window": [
+                {
+                    "window_index": m.window_index,
+                    "win_rate": m.win_rate,
+                    "profit_factor": m.profit_factor,
+                    "max_drawdown": m.max_drawdown,
+                    "sharpe_ratio": max(-10.0, min(10.0, m.sharpe_ratio)),
+                    "trade_count": m.trade_count,
+                    "total_pnl": m.total_pnl,
+                    "passed_go_nogo": m.passed_go_nogo,
+                }
+                for m in baseline_wf.per_window
+            ],
             "windows_passed": sum(
                 1 for m in baseline_wf.per_window if m.passed_go_nogo
             ),
@@ -182,6 +196,23 @@ def main() -> None:
             "go_nogo": opt_result.go_nogo,
             "n_trials": opt_result.n_trials,
             "study_summary": opt_result.study_summary,
+            "per_window": (
+                [
+                    {
+                        "window_index": m.window_index,
+                        "win_rate": m.win_rate,
+                        "profit_factor": m.profit_factor,
+                        "max_drawdown": m.max_drawdown,
+                        "sharpe_ratio": max(-10.0, min(10.0, m.sharpe_ratio)),
+                        "trade_count": m.trade_count,
+                        "total_pnl": m.total_pnl,
+                        "passed_go_nogo": m.passed_go_nogo,
+                    }
+                    for m in opt_result.best_walk_forward.per_window
+                ]
+                if opt_result.best_walk_forward
+                else []
+            ),
         },
     }
     if baseline_wf.aggregated:
@@ -190,7 +221,7 @@ def main() -> None:
             "win_rate": agg.mean_win_rate,
             "profit_factor": agg.mean_profit_factor,
             "max_drawdown": agg.mean_max_drawdown,
-            "sharpe_ratio": agg.mean_sharpe_ratio,
+            "sharpe_ratio": max(-10.0, min(10.0, agg.mean_sharpe_ratio)),
             "trade_count": agg.mean_trade_count,
             "total_pnl": agg.mean_total_pnl,
         }
@@ -200,7 +231,7 @@ def main() -> None:
             "win_rate": agg.mean_win_rate,
             "profit_factor": agg.mean_profit_factor,
             "max_drawdown": agg.mean_max_drawdown,
-            "sharpe_ratio": agg.mean_sharpe_ratio,
+            "sharpe_ratio": max(-10.0, min(10.0, agg.mean_sharpe_ratio)),
             "trade_count": agg.mean_trade_count,
             "total_pnl": agg.mean_total_pnl,
         }
