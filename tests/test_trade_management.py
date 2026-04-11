@@ -1,5 +1,6 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from backtest.engine import Bar, ExitReason, StrategySignal, TradeDirection
 from backtest.trade_management.config import (
@@ -461,6 +462,43 @@ class TestSessionFilter(unittest.TestCase):
         bar = _bar(time=datetime(2024, 1, 1, 10, 0))
         result = f.check_entry(bar)
         self.assertTrue(result.allow_entry)
+
+    def test_utc_aware_entry_in_london(self):
+        bar = _bar(time=datetime(2024, 1, 1, 9, 0, tzinfo=timezone.utc))
+        result = self.filter.check_entry(bar)
+        self.assertTrue(result.allow_entry)
+
+    def test_utc_aware_deny_outside(self):
+        bar = _bar(time=datetime(2024, 1, 1, 22, 0, tzinfo=timezone.utc))
+        result = self.filter.check_entry(bar)
+        self.assertFalse(result.allow_entry)
+
+    def test_est_timestamp_converted_to_utc_for_london(self):
+        est_time = datetime(2024, 1, 1, 4, 0, tzinfo=ZoneInfo("America/New_York"))
+        bar = _bar(time=est_time)
+        result = self.filter.check_entry(bar)
+        self.assertTrue(result.allow_entry)
+
+    def test_est_timestamp_converted_to_utc_for_outside(self):
+        est_time = datetime(2024, 1, 1, 20, 0, tzinfo=ZoneInfo("America/New_York"))
+        bar = _bar(time=est_time)
+        result = self.filter.check_entry(bar)
+        self.assertFalse(result.allow_entry)
+
+    def test_utc_aware_kill_zone_london_open(self):
+        self.assertTrue(
+            self.filter.is_kill_zone(datetime(2024, 1, 1, 7, 30, tzinfo=timezone.utc))
+        )
+        self.assertFalse(
+            self.filter.is_kill_zone(datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc))
+        )
+
+    def test_est_weekend_close_correct_in_utc(self):
+        est_friday = datetime(2024, 1, 5, 17, 0, tzinfo=ZoneInfo("America/New_York"))
+        bar = _bar(time=est_friday)
+        result = self.filter.check_entry(bar)
+        self.assertFalse(result.allow_entry)
+        self.assertIn("Weekend", result.reason)
 
 
 class TestExitRefiner(unittest.TestCase):
