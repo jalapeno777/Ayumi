@@ -364,6 +364,8 @@ class BacktestEngine:
         to_close = []
 
         for trade in open_trades:
+            # Progressive SL management
+            self._progressive_sl_update(trade, bar)
             hit, exit_price, reason = self._check_trade_exit(trade, bar)
             if hit:
                 self._close_trade(trade, bar_index, bar.time, exit_price, reason)
@@ -373,6 +375,31 @@ class BacktestEngine:
 
         for t in to_close:
             open_trades.remove(t)
+
+    def _progressive_sl_update(self, trade: SimulatedTrade, bar: Bar) -> None:
+        """Move SL progressively as TP levels are hit."""
+        if not hasattr(trade, '_sl_moved_to_be'):
+            trade._sl_moved_to_be = False
+            trade._sl_moved_to_tp1 = False
+
+        pip_size = self._get_pip_value(trade.entry_price)
+
+        if trade.direction == TradeDirection.LONG:
+            if bar.high >= trade.take_profit_2 and not trade._sl_moved_to_tp1:
+                trade.stop_loss = trade.take_profit_1
+                trade._sl_moved_to_tp1 = True
+                trade._sl_moved_to_be = True
+            elif bar.high >= trade.take_profit_1 and not trade._sl_moved_to_be:
+                trade.stop_loss = max(trade.stop_loss, trade.entry_price + pip_size)
+                trade._sl_moved_to_be = True
+        else:
+            if bar.low <= trade.take_profit_2 and not trade._sl_moved_to_tp1:
+                trade.stop_loss = trade.take_profit_1
+                trade._sl_moved_to_tp1 = True
+                trade._sl_moved_to_be = True
+            elif bar.low <= trade.take_profit_1 and not trade._sl_moved_to_be:
+                trade.stop_loss = min(trade.stop_loss, trade.entry_price - pip_size)
+                trade._sl_moved_to_be = True
 
     def _check_trade_exit(self, trade: SimulatedTrade, bar: Bar):
         if trade.direction == TradeDirection.LONG:

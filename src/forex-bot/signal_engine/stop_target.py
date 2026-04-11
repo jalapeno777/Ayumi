@@ -93,7 +93,8 @@ class StopTargetCalculator:
         if direction == "long":
             r2 = context.get("r2")
             r3 = context.get("r3")
-            if r2:
+            # Only use structure levels that are ABOVE entry (correct side for long TP)
+            if r2 and r2 > entry:
                 tp_levels.append(
                     {
                         "level": "R2",
@@ -101,7 +102,7 @@ class StopTargetCalculator:
                         "rr": round((r2 - entry) / risk, 2) if risk else 0,
                     }
                 )
-            if r3:
+            if r3 and r3 > entry:
                 tp_levels.append(
                     {
                         "level": "R3",
@@ -109,7 +110,7 @@ class StopTargetCalculator:
                         "rr": round((r3 - entry) / risk, 2) if risk else 0,
                     }
                 )
-            # If no structure levels, use pure R:R
+            # If no valid structure levels, use pure R:R
             if not tp_levels:
                 tp_levels.append(
                     {"level": "TP1", "price": risk_reward_target, "rr": self.rr_ratio}
@@ -118,7 +119,8 @@ class StopTargetCalculator:
         else:
             d2 = context.get("d2")
             d3 = context.get("d3")
-            if d2:
+            # Only use structure levels that are BELOW entry (correct side for short TP)
+            if d2 and d2 < entry:
                 tp_levels.append(
                     {
                         "level": "D2",
@@ -126,7 +128,7 @@ class StopTargetCalculator:
                         "rr": round((entry - d2) / risk, 2) if risk else 0,
                     }
                 )
-            if d3:
+            if d3 and d3 < entry:
                 tp_levels.append(
                     {
                         "level": "D3",

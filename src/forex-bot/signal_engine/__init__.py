@@ -9,6 +9,7 @@ from .gate_validator import GateValidator
 from .confluence_scorer import ConfluenceScorer
 from .signal_output import format_signal_json, parse_signal_json, create_signal
 from .stop_target import StopTargetCalculator
+from .tp_manager import TPManager
 from .backtest_bridge import SignalEngineBridge
 
 BacktestBridge = SignalEngineBridge  # alias
@@ -36,6 +37,7 @@ __all__ = [
     "parse_signal_json",
     "create_signal",
     "StopTargetCalculator",
+    "TPManager",
     "SignalEngineBridge",
     "BacktestBridge",
     "Signal",
