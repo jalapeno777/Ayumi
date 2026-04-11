@@ -1,0 +1,77 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "GBPUSD",
+  "n_windows": 5,
+  "train_ratio": 0.7,
+  "spread_pips": 1.5,
+  "initial_balance": 10000,
+  "go_nogo": false,
+  "per_window": [
+    {
+      "window_index": 0,
+      "win_rate": 0.3333333333333333,
+      "profit_factor": 0.42111254372330126,
+      "max_drawdown": 0.021595841787581595,
+      "sharpe_ratio": -5.7599607356686535,
+      "trade_count": 3,
+      "total_pnl": -125.01561918567153,
+      "passed_go_nogo": false
+    },
+    {
+      "window_index": 1,
+      "win_rate": 0.5,
+      "profit_factor": 0.8290310373805588,
+      "max_drawdown": 0.022095287411233896,
+      "sharpe_ratio": -1.285062909208366,
+      "trade_count": 4,
+      "total_pnl": -38.480965652894085,
+      "passed_go_nogo": false
+    },
+    {
+      "window_index": 2,
+      "win_rate": 0.5,
+      "profit_factor": 0.8025038520495097,
+      "max_drawdown": 0.013217007335015478,
+      "sharpe_ratio": -1.5061767718767203,
+      "trade_count": 4,
+      "total_pnl": -44.2132095898031,
+      "passed_go_nogo": false
+    },
+    {
+      "window_index": 3,
+      "win_rate": 0.5,
+      "profit_factor": 0.8600615222023176,
+      "max_drawdown": 0.010915470494417986,
+      "sharpe_ratio": -0.8444911626239986,
+      "trade_count": 2,
+      "total_pnl": -15.41970305919611,
+      "passed_go_nogo": false
+    },
+    {
+      "window_index": 4,
+      "win_rate": 1.0,
+      "profit_factor": 10.0,
+      "max_drawdown": 0.0,
+      "sharpe_ratio": 845.6493718677386,
+      "trade_count": 5,
+      "total_pnl": 467.94615511822275,
+      "passed_go_nogo": true
+    }
+  ],
+  "aggregated": {
+    "mean_win_rate": 0.5666666666666667,
+    "std_win_rate": 0.25276251480171835,
+    "mean_profit_factor": 2.5825417910711375,
+    "std_profit_factor": 4.150323360197494,
+    "mean_max_drawdown": 0.01356472140564979,
+    "std_max_drawdown": 0.009061050618487639,
+    "mean_sharpe_ratio": 167.25073605767219,
+    "std_sharpe_ratio": 379.2415545695396,
+    "mean_trade_count": 3.6,
+    "std_trade_count": 1.140175425099138,
+    "mean_total_pnl": 48.96333152613158,
+    "std_total_pnl": 237.84912750620936,
+    "windows_passed": 1,
+    "total_windows": 5
+  }
+}
