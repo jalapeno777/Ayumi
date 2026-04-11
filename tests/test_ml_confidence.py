@@ -12,7 +12,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
         self.extractor = ConfluenceFeatureExtractor()
 
     def test_feature_names_count(self):
-        self.assertEqual(len(self.extractor.FEATURE_NAMES), 15)
+        self.assertEqual(len(self.extractor.FEATURE_NAMES), 16)
 
     def test_extract_all_boosts_present(self):
         record = {
@@ -26,7 +26,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
             "confluence_count": 6,
         }
         features = self.extractor.extract(record)
-        self.assertEqual(len(features), 15)
+        self.assertEqual(len(features), 16)
 
         # Binary features that should be 1
         self.assertEqual(features[0], 1.0)  # rsi_divergence
@@ -41,7 +41,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
 
         # Numeric features
         self.assertEqual(features[13], 0.75)  # confidence_score
-        self.assertEqual(features[14], 6.0)   # confluence_count
+        self.assertEqual(features[15], 6.0)   # confluence_count
 
     def test_extract_no_boosts(self):
         record = {
@@ -53,7 +53,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
         # All binary features should be 0
         for i in range(13):
             self.assertEqual(features[i], 0.0)
-        self.assertEqual(features[13], 0.55)
+        self.assertEqual(features[13], 0.55)  # confidence_score
 
     def test_extract_penalty_boosts(self):
         record = {
@@ -72,7 +72,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
     def test_extract_empty_rationale(self):
         record = {"rationale": "", "confidence_score": 0.5, "confluence_count": 0}
         features = self.extractor.extract(record)
-        self.assertEqual(len(features), 15)
+        self.assertEqual(len(features), 16)
         for f in features[:13]:
             self.assertEqual(f, 0.0)
 
@@ -83,7 +83,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
         ]
         batch = self.extractor.extract_batch(records)
         self.assertEqual(len(batch), 2)
-        self.assertEqual(len(batch[0]), 15)
+        self.assertEqual(len(batch[0]), 16)
 
     def test_parse_boosts_unknown_name(self):
         """Unknown boost names should still be captured with their original name."""
@@ -110,10 +110,11 @@ class TestConfidenceLearner(unittest.TestCase):
             outcome = 1 if random.random() < win_rate else 0
             # Feature 0 (rsi_divergence) correlated with wins when win_rate > 0.5
             rsi = 1.0 if (outcome == 1 and random.random() < 0.7) else 0.0
-            features = [0.0] * 15
+            features = [0.0] * 16
             features[0] = rsi
             features[13] = 0.5 + random.random() * 0.3  # confidence
-            features[14] = float(random.randint(0, 5))
+            features[14] = 0.4 + random.random() * 0.2  # base_confidence
+            features[15] = float(random.randint(0, 5))
             records.append({"features": features, "outcome": outcome})
         return records
 
@@ -129,18 +130,18 @@ class TestConfidenceLearner(unittest.TestCase):
         records = self._make_records(50, win_rate=0.6)
         weights = learner.train(records, self.feature_names)
         self.assertTrue(learner.is_trained)
-        self.assertEqual(len(weights), 15)
+        self.assertEqual(len(weights), 16)
         self.assertIn("rsi_divergence", weights)
 
         # Predict on a record with rsi_divergence
-        features = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 2.0]
+        features = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 0.5, 2.0]
         proba = learner.predict_proba(features)
         self.assertGreaterEqual(proba, 0.0)
         self.assertLessEqual(proba, 1.0)
 
     def test_predict_untrained(self):
         learner = ConfidenceLearner("TEST", "M15")
-        proba = learner.predict_proba([0.0] * 15)
+        proba = learner.predict_proba([0.0] * 16)
         self.assertEqual(proba, 0.5)
 
     def test_get_top_features(self):
@@ -158,7 +159,7 @@ class TestConfidenceLearner(unittest.TestCase):
         learner = ConfidenceLearner("TEST", "M15")
         records = self._make_records(25)
         learner.train(records, self.feature_names)
-        proba = learner.predict_proba([0.0] * 15)
+        proba = learner.predict_proba([0.0] * 16)
         self.assertIsInstance(proba, float)
 
 
