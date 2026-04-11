@@ -276,7 +276,7 @@ class TestStatisticalStudy:
             _make_bar(9),
             _make_bar(14),
             _make_bar(18),
-            _make_bar(3),
+            _make_bar(22),
         ]
         study = _DummyStudy(question_id="Q1")
         groups = study.group_by_session(bars)

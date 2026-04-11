@@ -22,9 +22,11 @@ from ..strategy_legacy import (
 
 # TTSStrategy loaded last — depends on ISignalStrategy being already defined
 from .tts_strategy import TTSStrategy
+from .scalper_strategy import ScalperStrategy
 
 __all__ = [
     "TTSStrategy",
+    "ScalperStrategy",
     "ISignalStrategy",
     "MACrossStrategy",
     "BBStrategy",

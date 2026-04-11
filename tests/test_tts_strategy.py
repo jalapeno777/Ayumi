@@ -96,7 +96,7 @@ class TestTTSStrategyInit(unittest.TestCase):
 
     def test_default_params(self):
         strategy = TTSStrategy("EURUSD")
-        self.assertEqual(strategy.min_confidence, 0.25)
+        self.assertEqual(strategy.min_confidence, 0.20)
         self.assertEqual(strategy.min_quality_score, 0.25)
         self.assertEqual(strategy.HISTORY_BARS, 50)
 
