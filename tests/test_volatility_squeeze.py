@@ -395,7 +395,7 @@ class TestPresets(unittest.TestCase):
     def test_xauusd_preset_values(self):
         self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
         self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
-        self.assertTrue(XAUUSD_H1_PRESET.session_filter)
+        self.assertFalse(XAUUSD_H1_PRESET.session_filter)
 
     def test_presets_are_frozen(self):
         import dataclasses

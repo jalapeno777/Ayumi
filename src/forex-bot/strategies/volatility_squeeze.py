@@ -117,7 +117,7 @@ XAUUSD_H1_PRESET = VolatilitySqueezeConfig(
     tp1_rr=1.0,
     tp2_rr=2.0,
     tp3_rr=3.0,
-    session_filter=True,
+    session_filter=False,
 )
 
 USDJPY_H1_PRESET = VolatilitySqueezeConfig(

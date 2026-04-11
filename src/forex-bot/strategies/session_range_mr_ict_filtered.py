@@ -126,7 +126,7 @@ class SessionRangeMRWithICTFilter:
 
         combined_confidence = min(
             0.95,
-            0.6 * mr_signal.confidence + 0.4 * ict_signal.confidence_score,
+            0.4 * mr_signal.confidence + 0.6 * ict_signal.confidence_score,
         )
 
         rationale = (
