@@ -1,0 +1,2885 @@
+{
+  "timestamp": "20260411_2016",
+  "symbols": [
+    "EURUSD",
+    "GBPUSD",
+    "USDJPY",
+    "GBPJPY",
+    "XAUUSD"
+  ],
+  "timeframes": [
+    "M15"
+  ],
+  "configs_tested": [
+    {
+      "label": "A_baseline",
+      "base": 0.3,
+      "kz_penalty": -0.05,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "B_high_base",
+      "base": 0.35,
+      "kz_penalty": -0.05,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "C_low_base",
+      "base": 0.25,
+      "kz_penalty": -0.05,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "D_no_kz",
+      "base": 0.3,
+      "kz_penalty": 0.0,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "E_strong_kz",
+      "base": 0.3,
+      "kz_penalty": -0.1,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "F_no_htf_pen",
+      "base": 0.3,
+      "kz_penalty": -0.05,
+      "htf_penalty": 0.0
+    },
+    {
+      "label": "G_low_base_no_kz",
+      "base": 0.25,
+      "kz_penalty": 0.0,
+      "htf_penalty": -0.15
+    },
+    {
+      "label": "H_high_base_strong_kz",
+      "base": 0.35,
+      "kz_penalty": -0.1,
+      "htf_penalty": -0.15
+    }
+  ],
+  "per_symbol_configs": {
+    "EURUSD": {
+      "M15": {
+        "base_confidence": 0.25,
+        "kz_penalty": -0.05,
+        "htf_penalty": -0.15,
+        "config_label": "C_low_base",
+        "top_confluences": [],
+        "metrics": {
+          "pnl": -101.93638409383149,
+          "win_rate": 0.3333333333333333,
+          "max_drawdown_pct": 1.698147032591068,
+          "profit_factor": 0.5799682928112185,
+          "total_trades": 15,
+          "t4_trades": 10,
+          "t5_trades": 2
+        }
+      }
+    },
+    "GBPUSD": {
+      "M15": {
+        "base_confidence": 0.25,
+        "kz_penalty": 0.0,
+        "htf_penalty": -0.15,
+        "config_label": "G_low_base_no_kz",
+        "top_confluences": [
+          "confidence_score",
+          "rsi_divergence",
+          "htf_trend_aligned",
+          "svc_at_peak",
+          "consolidation"
+        ],
+        "metrics": {
+          "pnl": 115.97158402595097,
+          "win_rate": 0.5,
+          "max_drawdown_pct": 0.42608504027477934,
+          "profit_factor": 1.659133882150563,
+          "total_trades": 20,
+          "t4_trades": 9,
+          "t5_trades": 3
+        }
+      }
+    },
+    "USDJPY": {
+      "M15": {
+        "base_confidence": 0.3,
+        "kz_penalty": -0.1,
+        "htf_penalty": -0.15,
+        "config_label": "E_strong_kz",
+        "top_confluences": [
+          "confidence_score",
+          "htf_trend_aligned",
+          "kill_zone_active",
+          "vwap_rejection",
+          "rsi_divergence"
+        ],
+        "metrics": {
+          "pnl": 7.984723509414431,
+          "win_rate": 0.52,
+          "max_drawdown_pct": 1.2048739596282643,
+          "profit_factor": 1.02294486888207,
+          "total_trades": 25,
+          "t4_trades": 18,
+          "t5_trades": 8
+        }
+      }
+    },
+    "GBPJPY": {
+      "M15": {
+        "base_confidence": 0.3,
+        "kz_penalty": 0.0,
+        "htf_penalty": -0.15,
+        "config_label": "D_no_kz",
+        "top_confluences": [
+          "htf_trend_aligned",
+          "confidence_score",
+          "vwap_rejection",
+          "kill_zone_active",
+          "rsi_divergence"
+        ],
+        "metrics": {
+          "pnl": -5.874734472706699,
+          "win_rate": 0.5217391304347826,
+          "max_drawdown_pct": 2.1435457877999844,
+          "profit_factor": 0.9862583032032419,
+          "total_trades": 23,
+          "t4_trades": 22,
+          "t5_trades": 15
+        }
+      }
+    },
+    "XAUUSD": {
+      "M15": {
+        "base_confidence": 0.25,
+        "kz_penalty": -0.05,
+        "htf_penalty": -0.15,
+        "config_label": "C_low_base",
+        "top_confluences": [
+          "confidence_score",
+          "htf_trend_aligned",
+          "kill_zone_active",
+          "vwap_rejection",
+          "rsi_divergence"
+        ],
+        "metrics": {
+          "pnl": -3.279196385559432,
+          "win_rate": 0.4411764705882353,
+          "max_drawdown_pct": 2.4475687008273557,
+          "profit_factor": 0.9936843871269728,
+          "total_trades": 34,
+          "t4_trades": 27,
+          "t5_trades": 15
+        }
+      }
+    }
+  },
+  "results": {
+    "EURUSD_M15": {
+      "key": "EURUSD_M15",
+      "symbol": "EURUSD",
+      "timeframe": "M15",
+      "config_results": [
+        {
+          "label": "A_baseline",
+          "config": {
+            "label": "A_baseline",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -187.69208515501904,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 32.84430562041568,
+            "profit_factor": 0.42853995050407895,
+            "max_drawdown_pct": 2.551873077911692,
+            "t4_trades": 12,
+            "t5_trades": 4
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -93.84604257750952
+        },
+        {
+          "label": "B_high_base",
+          "config": {
+            "label": "B_high_base",
+            "base": 0.35,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -188.25266543231712,
+            "avg_win": 47.06163613789845,
+            "avg_loss": 42.356084612180936,
+            "profit_factor": 0.5555475272183712,
+            "max_drawdown_pct": 3.01243062658648,
+            "t4_trades": 14,
+            "t5_trades": 10
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -94.12633271615856
+        },
+        {
+          "label": "C_low_base",
+          "config": {
+            "label": "C_low_base",
+            "base": 0.25,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -101.93638409383149,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 24.268735514296928,
+            "profit_factor": 0.5799682928112185,
+            "max_drawdown_pct": 1.698147032591068,
+            "t4_trades": 10,
+            "t5_trades": 2
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -50.968192046915746
+        },
+        {
+          "label": "D_no_kz",
+          "config": {
+            "label": "D_no_kz",
+            "base": 0.3,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -229.85305725662562,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 37.06040283057634,
+            "profit_factor": 0.37978802252255206,
+            "max_drawdown_pct": 2.9715993413993624,
+            "t4_trades": 12,
+            "t5_trades": 5
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -114.92652862831281
+        },
+        {
+          "label": "E_strong_kz",
+          "config": {
+            "label": "E_strong_kz",
+            "base": 0.3,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -187.69208515501904,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 32.84430562041568,
+            "profit_factor": 0.42853995050407895,
+            "max_drawdown_pct": 2.551873077911692,
+            "t4_trades": 12,
+            "t5_trades": 4
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -93.84604257750952
+        },
+        {
+          "label": "F_no_htf_pen",
+          "config": {
+            "label": "F_no_htf_pen",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": 0.0
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -187.69208515501904,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 32.84430562041568,
+            "profit_factor": 0.42853995050407895,
+            "max_drawdown_pct": 2.551873077911692,
+            "t4_trades": 12,
+            "t5_trades": 4
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -93.84604257750952
+        },
+        {
+          "label": "G_low_base_no_kz",
+          "config": {
+            "label": "G_low_base_no_kz",
+            "base": 0.25,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -101.93638409383149,
+            "avg_win": 28.15019420982756,
+            "avg_loss": 24.268735514296928,
+            "profit_factor": 0.5799682928112185,
+            "max_drawdown_pct": 1.698147032591068,
+            "t4_trades": 10,
+            "t5_trades": 2
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -50.968192046915746
+        },
+        {
+          "label": "H_high_base_strong_kz",
+          "config": {
+            "label": "H_high_base_strong_kz",
+            "base": 0.35,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 15,
+            "wins": 5,
+            "losses": 10,
+            "win_rate": 0.3333333333333333,
+            "total_pnl": -146.09169333071054,
+            "avg_win": 47.06163613789845,
+            "avg_loss": 38.139987402020274,
+            "profit_factor": 0.6169592512162916,
+            "max_drawdown_pct": 2.5936472641140007,
+            "t4_trades": 14,
+            "t5_trades": 9
+          },
+          "learner": {
+            "weights": null,
+            "top_features": null,
+            "trained": false
+          },
+          "score": -73.04584666535527
+        }
+      ],
+      "best": {
+        "label": "C_low_base",
+        "config": {
+          "label": "C_low_base",
+          "base": 0.25,
+          "kz_penalty": -0.05,
+          "htf_penalty": -0.15
+        },
+        "metrics": {
+          "total_trades": 15,
+          "wins": 5,
+          "losses": 10,
+          "win_rate": 0.3333333333333333,
+          "total_pnl": -101.93638409383149,
+          "avg_win": 28.15019420982756,
+          "avg_loss": 24.268735514296928,
+          "profit_factor": 0.5799682928112185,
+          "max_drawdown_pct": 1.698147032591068,
+          "t4_trades": 10,
+          "t5_trades": 2
+        },
+        "learner": {
+          "weights": null,
+          "top_features": null,
+          "trained": false
+        },
+        "score": -50.968192046915746
+      },
+      "best_score": -50.968192046915746
+    },
+    "GBPUSD_M15": {
+      "key": "GBPUSD_M15",
+      "symbol": "GBPUSD",
+      "timeframe": "M15",
+      "config_results": [
+        {
+          "label": "A_baseline",
+          "config": {
+            "label": "A_baseline",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 79.68324137598552,
+            "avg_win": 29.565352829654557,
+            "avg_loss": 22.32142179547406,
+            "profit_factor": 1.3245282088459658,
+            "max_drawdown_pct": 0.6830338878412937,
+            "t4_trades": 13,
+            "t5_trades": 5
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 118.71400517899208
+        },
+        {
+          "label": "B_high_base",
+          "config": {
+            "label": "B_high_base",
+            "base": 0.35,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 107.24004181088524,
+            "avg_win": 37.36512467829549,
+            "avg_loss": 27.616029968215006,
+            "profit_factor": 1.3530230348569767,
+            "max_drawdown_pct": 0.8524396595378377,
+            "t4_trades": 17,
+            "t5_trades": 9
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 159.50041789704488
+        },
+        {
+          "label": "C_low_base",
+          "config": {
+            "label": "C_low_base",
+            "base": 0.25,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 20,
+            "wins": 10,
+            "losses": 10,
+            "win_rate": 0.5,
+            "total_pnl": 102.04301259737959,
+            "avg_win": 27.798842697597177,
+            "avg_loss": 17.59454143785922,
+            "profit_factor": 1.579969719346067,
+            "max_drawdown_pct": 0.42608504027477934,
+            "t4_trades": 9,
+            "t5_trades": 3
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 20
+          },
+          "score": 152.4151009517941
+        },
+        {
+          "label": "D_no_kz",
+          "config": {
+            "label": "D_no_kz",
+            "base": 0.3,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 87.13645108364108,
+            "avg_win": 31.73657485381776,
+            "avg_loss": 23.81507930075948,
+            "profit_factor": 1.3326252015799778,
+            "max_drawdown_pct": 0.658325809911878,
+            "t4_trades": 14,
+            "t5_trades": 6
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 129.84984160405244
+        },
+        {
+          "label": "E_strong_kz",
+          "config": {
+            "label": "E_strong_kz",
+            "base": 0.3,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 65.75466994741413,
+            "avg_win": 28.299119063420793,
+            "avg_loss": 22.32142179547406,
+            "profit_factor": 1.2678009188984005,
+            "max_drawdown_pct": 0.6830338878412937,
+            "t4_trades": 13,
+            "t5_trades": 5
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 97.96288521757806
+        },
+        {
+          "label": "F_no_htf_pen",
+          "config": {
+            "label": "F_no_htf_pen",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": 0.0
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 61.225688881065736,
+            "avg_win": 30.798968051641875,
+            "avg_loss": 25.232996335181358,
+            "profit_factor": 1.220583066811614,
+            "max_drawdown_pct": 0.8466147979523279,
+            "t4_trades": 14,
+            "t5_trades": 5
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 91.0675420346022
+        },
+        {
+          "label": "G_low_base_no_kz",
+          "config": {
+            "label": "G_low_base_no_kz",
+            "base": 0.25,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 20,
+            "wins": 10,
+            "losses": 10,
+            "win_rate": 0.5,
+            "total_pnl": 115.97158402595097,
+            "avg_win": 29.191699840454316,
+            "avg_loss": 17.59454143785922,
+            "profit_factor": 1.659133882150563,
+            "max_drawdown_pct": 0.42608504027477934,
+            "t4_trades": 9,
+            "t5_trades": 3
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 20
+          },
+          "score": 173.21931445317497
+        },
+        {
+          "label": "H_high_base_strong_kz",
+          "config": {
+            "label": "H_high_base_strong_kz",
+            "base": 0.35,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 22,
+            "wins": 11,
+            "losses": 11,
+            "win_rate": 0.5,
+            "total_pnl": 99.78683210322967,
+            "avg_win": 35.19390265413228,
+            "avg_loss": 26.122372462929583,
+            "profit_factor": 1.3472705323406655,
+            "max_drawdown_pct": 0.6887736445245523,
+            "t4_trades": 16,
+            "t5_trades": 8
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.0,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0,
+              "kill_zone_active": 0.0,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 1.0,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                1.0
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ],
+              [
+                "htf_trend_aligned",
+                0.0
+              ],
+              [
+                "svc_at_peak",
+                0.0
+              ],
+              [
+                "consolidation",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 22
+          },
+          "score": 148.65634244715432
+        }
+      ],
+      "best": {
+        "label": "G_low_base_no_kz",
+        "config": {
+          "label": "G_low_base_no_kz",
+          "base": 0.25,
+          "kz_penalty": 0.0,
+          "htf_penalty": -0.15
+        },
+        "metrics": {
+          "total_trades": 20,
+          "wins": 10,
+          "losses": 10,
+          "win_rate": 0.5,
+          "total_pnl": 115.97158402595097,
+          "avg_win": 29.191699840454316,
+          "avg_loss": 17.59454143785922,
+          "profit_factor": 1.659133882150563,
+          "max_drawdown_pct": 0.42608504027477934,
+          "t4_trades": 9,
+          "t5_trades": 3
+        },
+        "learner": {
+          "weights": {
+            "rsi_divergence": 0.0,
+            "htf_trend_aligned": 0.0,
+            "svc_at_peak": 0.0,
+            "consolidation": 0.0,
+            "asia_gap_favorable": 0.0,
+            "ilod_ihod_at_boundary": 0.0,
+            "vwap_rejection": 0.0,
+            "kill_zone_active": 0.0,
+            "quality_gate": 0.0,
+            "confluence_scorer": 0.0,
+            "htf_opposing": 0.0,
+            "htf_conflicting": 0.0,
+            "htf_consolidating": 0.0,
+            "confidence_score": 1.0,
+            "base_confidence": 0.0,
+            "confluence_count": 0.0
+          },
+          "top_features": [
+            [
+              "confidence_score",
+              1.0
+            ],
+            [
+              "rsi_divergence",
+              0.0
+            ],
+            [
+              "htf_trend_aligned",
+              0.0
+            ],
+            [
+              "svc_at_peak",
+              0.0
+            ],
+            [
+              "consolidation",
+              0.0
+            ]
+          ],
+          "trained": true,
+          "train_size": 20
+        },
+        "score": 173.21931445317497
+      },
+      "best_score": 173.21931445317497
+    },
+    "USDJPY_M15": {
+      "key": "USDJPY_M15",
+      "symbol": "USDJPY",
+      "timeframe": "M15",
+      "config_results": [
+        {
+          "label": "A_baseline",
+          "config": {
+            "label": "A_baseline",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 25,
+            "wins": 13,
+            "losses": 12,
+            "win_rate": 0.52,
+            "total_pnl": -18.891377812170994,
+            "avg_win": 27.383135655022638,
+            "avg_loss": 31.239345110622107,
+            "profit_factor": 0.9496058102763401,
+            "max_drawdown_pct": 1.2048739596282643,
+            "t4_trades": 20,
+            "t5_trades": 9
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.41699081296449,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.060414220126981756,
+              "kill_zone_active": 0.10680304683140351,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.4157919200771247,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.41699081296449
+              ],
+              [
+                "confidence_score",
+                0.4157919200771247
+              ],
+              [
+                "kill_zone_active",
+                0.10680304683140351
+              ],
+              [
+                "vwap_rejection",
+                0.060414220126981756
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 25
+          },
+          "score": -28.373034964654565
+        },
+        {
+          "label": "B_high_base",
+          "config": {
+            "label": "B_high_base",
+            "base": 0.35,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 26,
+            "wins": 13,
+            "losses": 13,
+            "win_rate": 0.5,
+            "total_pnl": -62.55107294501344,
+            "avg_win": 34.05750098309432,
+            "avg_loss": 38.86912197886459,
+            "profit_factor": 0.876209681340715,
+            "max_drawdown_pct": 1.5899607929505541,
+            "t4_trades": 22,
+            "t5_trades": 16
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.33266459463111286,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.11690357824294771,
+              "kill_zone_active": 0.1532704412125504,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.39716138591338906,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.39716138591338906
+              ],
+              [
+                "htf_trend_aligned",
+                0.33266459463111286
+              ],
+              [
+                "kill_zone_active",
+                0.1532704412125504
+              ],
+              [
+                "vwap_rejection",
+                0.11690357824294771
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 26
+          },
+          "score": -92.35815102709529
+        },
+        {
+          "label": "C_low_base",
+          "config": {
+            "label": "C_low_base",
+            "base": 0.25,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 25,
+            "wins": 13,
+            "losses": 12,
+            "win_rate": 0.52,
+            "total_pnl": -17.59393769623135,
+            "avg_win": 21.482363772679648,
+            "avg_loss": 24.73872222842223,
+            "profit_factor": 0.9407341470125941,
+            "max_drawdown_pct": 1.207793875490499,
+            "t4_trades": 16,
+            "t5_trades": 3
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.39606336862496355,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.1266793468245373,
+              "kill_zone_active": 0.09694430404696627,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3803129805035328,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.39606336862496355
+              ],
+              [
+                "confidence_score",
+                0.3803129805035328
+              ],
+              [
+                "vwap_rejection",
+                0.1266793468245373
+              ],
+              [
+                "kill_zone_active",
+                0.09694430404696627
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 25
+          },
+          "score": -26.4236421665031
+        },
+        {
+          "label": "D_no_kz",
+          "config": {
+            "label": "D_no_kz",
+            "base": 0.3,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 26,
+            "wins": 13,
+            "losses": 13,
+            "win_rate": 0.5,
+            "total_pnl": -57.00101587437842,
+            "avg_win": 28.497353241871284,
+            "avg_loss": 32.88204677066962,
+            "profit_factor": 0.8666538747001167,
+            "max_drawdown_pct": 1.294037708872623,
+            "t4_trades": 20,
+            "t5_trades": 10
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.3065653375085381,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.11009913824336419,
+              "kill_zone_active": 0.1439696796983148,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.43936584454978295,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.43936584454978295
+              ],
+              [
+                "htf_trend_aligned",
+                0.3065653375085381
+              ],
+              [
+                "kill_zone_active",
+                0.1439696796983148
+              ],
+              [
+                "vwap_rejection",
+                0.11009913824336419
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 26
+          },
+          "score": -84.40923646197817
+        },
+        {
+          "label": "E_strong_kz",
+          "config": {
+            "label": "E_strong_kz",
+            "base": 0.3,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 25,
+            "wins": 13,
+            "losses": 12,
+            "win_rate": 0.52,
+            "total_pnl": 7.984723509414431,
+            "avg_win": 27.383135655022638,
+            "avg_loss": 28.99967000048999,
+            "profit_factor": 1.02294486888207,
+            "max_drawdown_pct": 1.2048739596282643,
+            "t4_trades": 18,
+            "t5_trades": 8
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.41282616261809474,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.06041422012698179,
+              "kill_zone_active": 0.10680304683140354,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.41995657042352,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.41995657042352
+              ],
+              [
+                "htf_trend_aligned",
+                0.41282616261809474
+              ],
+              [
+                "kill_zone_active",
+                0.10680304683140354
+              ],
+              [
+                "vwap_rejection",
+                0.06041422012698179
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 25
+          },
+          "score": 11.992287781664972
+        },
+        {
+          "label": "F_no_htf_pen",
+          "config": {
+            "label": "F_no_htf_pen",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": 0.0
+          },
+          "metrics": {
+            "total_trades": 26,
+            "wins": 13,
+            "losses": 13,
+            "win_rate": 0.5,
+            "total_pnl": -15.872191765658963,
+            "avg_win": 28.44555962640012,
+            "avg_loss": 29.666497454527736,
+            "profit_factor": 0.9588445575687171,
+            "max_drawdown_pct": 1.1614135500378109,
+            "t4_trades": 20,
+            "t5_trades": 9
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.33266459463111286,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.11690357824294771,
+              "kill_zone_active": 0.1532704412125504,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.39716138591338906,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.39716138591338906
+              ],
+              [
+                "htf_trend_aligned",
+                0.33266459463111286
+              ],
+              [
+                "kill_zone_active",
+                0.1532704412125504
+              ],
+              [
+                "vwap_rejection",
+                0.11690357824294771
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 26
+          },
+          "score": -23.534949555357954
+        },
+        {
+          "label": "G_low_base_no_kz",
+          "config": {
+            "label": "G_low_base_no_kz",
+            "base": 0.25,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 25,
+            "wins": 13,
+            "losses": 12,
+            "win_rate": 0.52,
+            "total_pnl": -44.470039017816774,
+            "avg_win": 21.482363772679648,
+            "avg_loss": 26.97839733855435,
+            "profit_factor": 0.8626368891260224,
+            "max_drawdown_pct": 1.207793875490499,
+            "t4_trades": 18,
+            "t5_trades": 4
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.3715858444956907,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.14320858000070075,
+              "kill_zone_active": 0.09694430404696629,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.38826127145664235,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.38826127145664235
+              ],
+              [
+                "htf_trend_aligned",
+                0.3715858444956907
+              ],
+              [
+                "vwap_rejection",
+                0.14320858000070075
+              ],
+              [
+                "kill_zone_active",
+                0.09694430404696629
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 25
+          },
+          "score": -66.78780034494048
+        },
+        {
+          "label": "H_high_base_strong_kz",
+          "config": {
+            "label": "H_high_base_strong_kz",
+            "base": 0.35,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 25,
+            "wins": 13,
+            "losses": 12,
+            "win_rate": 0.52,
+            "total_pnl": -24.441434882806014,
+            "avg_win": 32.943283396245675,
+            "avg_loss": 37.72534325283332,
+            "profit_factor": 0.9460101336498544,
+            "max_drawdown_pct": 1.459034050817445,
+            "t4_trades": 22,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.41282616261809474,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.06041422012698179,
+              "kill_zone_active": 0.10680304683140354,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.41995657042352,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.41995657042352
+              ],
+              [
+                "htf_trend_aligned",
+                0.41282616261809474
+              ],
+              [
+                "kill_zone_active",
+                0.10680304683140354
+              ],
+              [
+                "vwap_rejection",
+                0.06041422012698179
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 25
+          },
+          "score": -36.616730456212956
+        }
+      ],
+      "best": {
+        "label": "E_strong_kz",
+        "config": {
+          "label": "E_strong_kz",
+          "base": 0.3,
+          "kz_penalty": -0.1,
+          "htf_penalty": -0.15
+        },
+        "metrics": {
+          "total_trades": 25,
+          "wins": 13,
+          "losses": 12,
+          "win_rate": 0.52,
+          "total_pnl": 7.984723509414431,
+          "avg_win": 27.383135655022638,
+          "avg_loss": 28.99967000048999,
+          "profit_factor": 1.02294486888207,
+          "max_drawdown_pct": 1.2048739596282643,
+          "t4_trades": 18,
+          "t5_trades": 8
+        },
+        "learner": {
+          "weights": {
+            "rsi_divergence": 0.0,
+            "htf_trend_aligned": 0.41282616261809474,
+            "svc_at_peak": 0.0,
+            "consolidation": 0.0,
+            "asia_gap_favorable": 0.0,
+            "ilod_ihod_at_boundary": 0.0,
+            "vwap_rejection": 0.06041422012698179,
+            "kill_zone_active": 0.10680304683140354,
+            "quality_gate": 0.0,
+            "confluence_scorer": 0.0,
+            "htf_opposing": 0.0,
+            "htf_conflicting": 0.0,
+            "htf_consolidating": 0.0,
+            "confidence_score": 0.41995657042352,
+            "base_confidence": 0.0,
+            "confluence_count": 0.0
+          },
+          "top_features": [
+            [
+              "confidence_score",
+              0.41995657042352
+            ],
+            [
+              "htf_trend_aligned",
+              0.41282616261809474
+            ],
+            [
+              "kill_zone_active",
+              0.10680304683140354
+            ],
+            [
+              "vwap_rejection",
+              0.06041422012698179
+            ],
+            [
+              "rsi_divergence",
+              0.0
+            ]
+          ],
+          "trained": true,
+          "train_size": 25
+        },
+        "score": 11.992287781664972
+      },
+      "best_score": 11.992287781664972
+    },
+    "GBPJPY_M15": {
+      "key": "GBPJPY_M15",
+      "symbol": "GBPJPY",
+      "timeframe": "M15",
+      "config_results": [
+        {
+          "label": "A_baseline",
+          "config": {
+            "label": "A_baseline",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -18.639734472705694,
+            "avg_win": 34.07265357104156,
+            "avg_loss": 38.86468884774586,
+            "profit_factor": 0.9563994627015057,
+            "max_drawdown_pct": 2.268824803142733,
+            "t4_trades": 22,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.1480782544105602,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3535260162476292,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.3535260162476292
+              ],
+              [
+                "vwap_rejection",
+                0.1480782544105602
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -27.73554246138042
+        },
+        {
+          "label": "B_high_base",
+          "config": {
+            "label": "B_high_base",
+            "base": 0.35,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -8.094244136983402,
+            "avg_win": 37.14354201649945,
+            "avg_loss": 41.25606803045244,
+            "profit_factor": 0.9821640691607777,
+            "max_drawdown_pct": 2.1440128147358952,
+            "t4_trades": 22,
+            "t5_trades": 17
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.1480782544105602,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3535260162476292,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.3535260162476292
+              ],
+              [
+                "vwap_rejection",
+                0.1480782544105602
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -12.058786114934179
+        },
+        {
+          "label": "C_low_base",
+          "config": {
+            "label": "C_low_base",
+            "base": 0.25,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -15.064446253163494,
+            "avg_win": 30.024369670800027,
+            "avg_loss": 34.12335293661489,
+            "profit_factor": 0.9598663379748223,
+            "max_drawdown_pct": 1.7653819483683089,
+            "t4_trades": 17,
+            "t5_trades": 11
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.1480782544105602,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3535260162476292,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.3535260162476292
+              ],
+              [
+                "vwap_rejection",
+                0.1480782544105602
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -22.526478948805337
+        },
+        {
+          "label": "D_no_kz",
+          "config": {
+            "label": "D_no_kz",
+            "base": 0.3,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -5.874734472706699,
+            "avg_win": 35.13640357104148,
+            "avg_loss": 38.86468884774586,
+            "profit_factor": 0.9862583032032419,
+            "max_drawdown_pct": 2.1435457877999844,
+            "t4_trades": 22,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.14669904465052344,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.35490522600766594,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.35490522600766594
+              ],
+              [
+                "vwap_rejection",
+                0.14669904465052344
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -8.752205789491697
+        },
+        {
+          "label": "E_strong_kz",
+          "config": {
+            "label": "E_strong_kz",
+            "base": 0.3,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -16.801258581653492,
+            "avg_win": 32.08005563173,
+            "avg_loss": 36.52381146931031,
+            "profit_factor": 0.958181058264686,
+            "max_drawdown_pct": 2.020853405165089,
+            "t4_trades": 20,
+            "t5_trades": 13
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.3531067767345272,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.14459033849769665,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3689865205053307,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.3689865205053307
+              ],
+              [
+                "htf_trend_aligned",
+                0.3531067767345272
+              ],
+              [
+                "vwap_rejection",
+                0.14459033849769665
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -25.060692761231998
+        },
+        {
+          "label": "F_no_htf_pen",
+          "config": {
+            "label": "F_no_htf_pen",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": 0.0
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -18.639734472705694,
+            "avg_win": 34.07265357104156,
+            "avg_loss": 38.86468884774586,
+            "profit_factor": 0.9563994627015057,
+            "max_drawdown_pct": 2.268824803142733,
+            "t4_trades": 22,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.1480782544105602,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3535260162476292,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.3535260162476292
+              ],
+              [
+                "vwap_rejection",
+                0.1480782544105602
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -27.73554246138042
+        },
+        {
+          "label": "G_low_base_no_kz",
+          "config": {
+            "label": "G_low_base_no_kz",
+            "base": 0.25,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -16.902922144215697,
+            "avg_win": 32.01696761011159,
+            "avg_loss": 36.464230315050436,
+            "profit_factor": 0.9578592699595924,
+            "max_drawdown_pct": 2.0145561140844306,
+            "t4_trades": 19,
+            "t5_trades": 13
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.36507936507936506,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.14669904465052344,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.35490522600766594,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "htf_trend_aligned",
+                0.36507936507936506
+              ],
+              [
+                "confidence_score",
+                0.35490522600766594
+              ],
+              [
+                "vwap_rejection",
+                0.14669904465052344
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -25.213890081313988
+        },
+        {
+          "label": "H_high_base_strong_kz",
+          "config": {
+            "label": "H_high_base_strong_kz",
+            "base": 0.35,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 23,
+            "wins": 12,
+            "losses": 11,
+            "win_rate": 0.5217391304347826,
+            "total_pnl": -20.859244136982397,
+            "avg_win": 36.07979201649953,
+            "avg_loss": 41.25606803045244,
+            "profit_factor": 0.9540359755044,
+            "max_drawdown_pct": 2.2693191253550045,
+            "t4_trades": 22,
+            "t5_trades": 17
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.3531067767345272,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.14459033849769665,
+              "kill_zone_active": 0.13331636426244547,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.3689865205053307,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.3689865205053307
+              ],
+              [
+                "htf_trend_aligned",
+                0.3531067767345272
+              ],
+              [
+                "vwap_rejection",
+                0.14459033849769665
+              ],
+              [
+                "kill_zone_active",
+                0.13331636426244547
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 23
+          },
+          "score": -31.037977280000053
+        }
+      ],
+      "best": {
+        "label": "D_no_kz",
+        "config": {
+          "label": "D_no_kz",
+          "base": 0.3,
+          "kz_penalty": 0.0,
+          "htf_penalty": -0.15
+        },
+        "metrics": {
+          "total_trades": 23,
+          "wins": 12,
+          "losses": 11,
+          "win_rate": 0.5217391304347826,
+          "total_pnl": -5.874734472706699,
+          "avg_win": 35.13640357104148,
+          "avg_loss": 38.86468884774586,
+          "profit_factor": 0.9862583032032419,
+          "max_drawdown_pct": 2.1435457877999844,
+          "t4_trades": 22,
+          "t5_trades": 15
+        },
+        "learner": {
+          "weights": {
+            "rsi_divergence": 0.0,
+            "htf_trend_aligned": 0.36507936507936506,
+            "svc_at_peak": 0.0,
+            "consolidation": 0.0,
+            "asia_gap_favorable": 0.0,
+            "ilod_ihod_at_boundary": 0.0,
+            "vwap_rejection": 0.14669904465052344,
+            "kill_zone_active": 0.13331636426244547,
+            "quality_gate": 0.0,
+            "confluence_scorer": 0.0,
+            "htf_opposing": 0.0,
+            "htf_conflicting": 0.0,
+            "htf_consolidating": 0.0,
+            "confidence_score": 0.35490522600766594,
+            "base_confidence": 0.0,
+            "confluence_count": 0.0
+          },
+          "top_features": [
+            [
+              "htf_trend_aligned",
+              0.36507936507936506
+            ],
+            [
+              "confidence_score",
+              0.35490522600766594
+            ],
+            [
+              "vwap_rejection",
+              0.14669904465052344
+            ],
+            [
+              "kill_zone_active",
+              0.13331636426244547
+            ],
+            [
+              "rsi_divergence",
+              0.0
+            ]
+          ],
+          "trained": true,
+          "train_size": 23
+        },
+        "score": -8.752205789491697
+      },
+      "best_score": -8.752205789491697
+    },
+    "XAUUSD_M15": {
+      "key": "XAUUSD_M15",
+      "symbol": "XAUUSD",
+      "timeframe": "M15",
+      "config_results": [
+        {
+          "label": "A_baseline",
+          "config": {
+            "label": "A_baseline",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -84.6163657123389,
+            "avg_win": 32.33781565396527,
+            "avg_loss": 33.3873279910394,
+            "profit_factor": 0.8666112803808798,
+            "max_drawdown_pct": 3.14693406340567,
+            "t4_trades": 30,
+            "t5_trades": 19
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.18250105476933917,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.026528261631066002,
+              "kill_zone_active": 0.19661209874210228,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.5943585848574925,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.5943585848574925
+              ],
+              [
+                "kill_zone_active",
+                0.19661209874210228
+              ],
+              [
+                "htf_trend_aligned",
+                0.18250105476933917
+              ],
+              [
+                "vwap_rejection",
+                0.026528261631066002
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -120.77343364254592
+        },
+        {
+          "label": "B_high_base",
+          "config": {
+            "label": "B_high_base",
+            "base": 0.35,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -74.94291546177062,
+            "avg_win": 39.68571581191444,
+            "avg_loss": 39.45263601391137,
+            "profit_factor": 0.9000228027784678,
+            "max_drawdown_pct": 3.8917300025416703,
+            "t4_trades": 32,
+            "t5_trades": 27
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.18250105476933917,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.026528261631066002,
+              "kill_zone_active": 0.19661209874210228,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.5943585848574925,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.5943585848574925
+              ],
+              [
+                "kill_zone_active",
+                0.19661209874210228
+              ],
+              [
+                "htf_trend_aligned",
+                0.18250105476933917
+              ],
+              [
+                "vwap_rejection",
+                0.026528261631066002
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -106.19962295193358
+        },
+        {
+          "label": "C_low_base",
+          "config": {
+            "label": "C_low_base",
+            "base": 0.25,
+            "kz_penalty": -0.05,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 34,
+            "wins": 15,
+            "losses": 19,
+            "win_rate": 0.4411764705882353,
+            "total_pnl": -3.279196385559432,
+            "avg_win": 34.396094421493004,
+            "avg_loss": 27.32740066883971,
+            "profit_factor": 0.9936843871269728,
+            "max_drawdown_pct": 2.4475687008273557,
+            "t4_trades": 27,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.22246894271073303,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.05501150172446542,
+              "kill_zone_active": 0.14526823875955874,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.5772513168052429,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.5772513168052429
+              ],
+              [
+                "htf_trend_aligned",
+                0.22246894271073303
+              ],
+              [
+                "kill_zone_active",
+                0.14526823875955874
+              ],
+              [
+                "vwap_rejection",
+                0.05501150172446542
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 34
+          },
+          "score": -4.6129944646193195
+        },
+        {
+          "label": "D_no_kz",
+          "config": {
+            "label": "D_no_kz",
+            "base": 0.3,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -49.64735816099138,
+            "avg_win": 35.27740685810905,
+            "avg_loss": 34.17701446046554,
+            "profit_factor": 0.9235445549639475,
+            "max_drawdown_pct": 3.143258513119349,
+            "t4_trades": 31,
+            "t5_trades": 21
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.1936543891834458,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.0316116841391794,
+              "kill_zone_active": 0.15659589349848366,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.6181380331788912,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.6181380331788912
+              ],
+              [
+                "htf_trend_aligned",
+                0.1936543891834458
+              ],
+              [
+                "kill_zone_active",
+                0.15659589349848366
+              ],
+              [
+                "vwap_rejection",
+                0.0316116841391794
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -70.8644898492715
+        },
+        {
+          "label": "E_strong_kz",
+          "config": {
+            "label": "E_strong_kz",
+            "base": 0.3,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -69.5741015122346,
+            "avg_win": 32.33781565396527,
+            "avg_loss": 32.595629875244434,
+            "profit_factor": 0.8876599461201257,
+            "max_drawdown_pct": 2.9972361768445546,
+            "t4_trades": 27,
+            "t5_trades": 19
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.19325524257481563,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.02677216508210792,
+              "kill_zone_active": 0.17325843181719028,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.6067141605258862,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.6067141605258862
+              ],
+              [
+                "htf_trend_aligned",
+                0.19325524257481563
+              ],
+              [
+                "kill_zone_active",
+                0.17325843181719028
+              ],
+              [
+                "vwap_rejection",
+                0.02677216508210792
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -99.44785135941746
+        },
+        {
+          "label": "F_no_htf_pen",
+          "config": {
+            "label": "F_no_htf_pen",
+            "base": 0.3,
+            "kz_penalty": -0.05,
+            "htf_penalty": 0.0
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -40.63655770580429,
+            "avg_win": 34.92486318376143,
+            "avg_loss": 33.3873279910394,
+            "profit_factor": 0.9359407798187284,
+            "max_drawdown_pct": 2.8536990802124236,
+            "t4_trades": 31,
+            "t5_trades": 19
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.18955288869066028,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.026528261631066006,
+              "kill_zone_active": 0.19803532822145986,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.585883521456814,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.585883521456814
+              ],
+              [
+                "kill_zone_active",
+                0.19803532822145986
+              ],
+              [
+                "htf_trend_aligned",
+                0.18955288869066028
+              ],
+              [
+                "vwap_rejection",
+                0.026528261631066006
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -58.166156223943176
+        },
+        {
+          "label": "G_low_base_no_kz",
+          "config": {
+            "label": "G_low_base_no_kz",
+            "base": 0.25,
+            "kz_penalty": 0.0,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 34,
+            "wins": 15,
+            "losses": 19,
+            "win_rate": 0.4411764705882353,
+            "total_pnl": -18.321460585663722,
+            "avg_win": 34.396094421493004,
+            "avg_loss": 28.11909878463467,
+            "profit_factor": 0.9657070304197524,
+            "max_drawdown_pct": 2.5974786214017316,
+            "t4_trades": 30,
+            "t5_trades": 15
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.22111156193112352,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.04430153120742241,
+              "kill_zone_active": 0.14791474503973637,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.5866721618217178,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.5866721618217178
+              ],
+              [
+                "htf_trend_aligned",
+                0.22111156193112352
+              ],
+              [
+                "kill_zone_active",
+                0.14791474503973637
+              ],
+              [
+                "vwap_rejection",
+                0.04430153120742241
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 34
+          },
+          "score": -25.735971544002798
+        },
+        {
+          "label": "H_high_base_strong_kz",
+          "config": {
+            "label": "H_high_base_strong_kz",
+            "base": 0.35,
+            "kz_penalty": -0.1,
+            "htf_penalty": -0.15
+          },
+          "metrics": {
+            "total_trades": 36,
+            "wins": 17,
+            "losses": 19,
+            "win_rate": 0.4722222222222222,
+            "total_pnl": -109.91192301311814,
+            "avg_win": 36.74612460777066,
+            "avg_loss": 38.66294954448523,
+            "profit_factor": 0.8503777357527772,
+            "max_drawdown_pct": 3.8954055528279916,
+            "t4_trades": 31,
+            "t5_trades": 25
+          },
+          "learner": {
+            "weights": {
+              "rsi_divergence": 0.0,
+              "htf_trend_aligned": 0.19325524257481563,
+              "svc_at_peak": 0.0,
+              "consolidation": 0.0,
+              "asia_gap_favorable": 0.0,
+              "ilod_ihod_at_boundary": 0.0,
+              "vwap_rejection": 0.02677216508210792,
+              "kill_zone_active": 0.17325843181719028,
+              "quality_gate": 0.0,
+              "confluence_scorer": 0.0,
+              "htf_opposing": 0.0,
+              "htf_conflicting": 0.0,
+              "htf_consolidating": 0.0,
+              "confidence_score": 0.6067141605258862,
+              "base_confidence": 0.0,
+              "confluence_count": 0.0
+            },
+            "top_features": [
+              [
+                "confidence_score",
+                0.6067141605258862
+              ],
+              [
+                "htf_trend_aligned",
+                0.19325524257481563
+              ],
+              [
+                "kill_zone_active",
+                0.17325843181719028
+              ],
+              [
+                "vwap_rejection",
+                0.02677216508210792
+              ],
+              [
+                "rsi_divergence",
+                0.0
+              ]
+            ],
+            "trained": true,
+            "train_size": 36
+          },
+          "score": -155.7477683311147
+        }
+      ],
+      "best": {
+        "label": "C_low_base",
+        "config": {
+          "label": "C_low_base",
+          "base": 0.25,
+          "kz_penalty": -0.05,
+          "htf_penalty": -0.15
+        },
+        "metrics": {
+          "total_trades": 34,
+          "wins": 15,
+          "losses": 19,
+          "win_rate": 0.4411764705882353,
+          "total_pnl": -3.279196385559432,
+          "avg_win": 34.396094421493004,
+          "avg_loss": 27.32740066883971,
+          "profit_factor": 0.9936843871269728,
+          "max_drawdown_pct": 2.4475687008273557,
+          "t4_trades": 27,
+          "t5_trades": 15
+        },
+        "learner": {
+          "weights": {
+            "rsi_divergence": 0.0,
+            "htf_trend_aligned": 0.22246894271073303,
+            "svc_at_peak": 0.0,
+            "consolidation": 0.0,
+            "asia_gap_favorable": 0.0,
+            "ilod_ihod_at_boundary": 0.0,
+            "vwap_rejection": 0.05501150172446542,
+            "kill_zone_active": 0.14526823875955874,
+            "quality_gate": 0.0,
+            "confluence_scorer": 0.0,
+            "htf_opposing": 0.0,
+            "htf_conflicting": 0.0,
+            "htf_consolidating": 0.0,
+            "confidence_score": 0.5772513168052429,
+            "base_confidence": 0.0,
+            "confluence_count": 0.0
+          },
+          "top_features": [
+            [
+              "confidence_score",
+              0.5772513168052429
+            ],
+            [
+              "htf_trend_aligned",
+              0.22246894271073303
+            ],
+            [
+              "kill_zone_active",
+              0.14526823875955874
+            ],
+            [
+              "vwap_rejection",
+              0.05501150172446542
+            ],
+            [
+              "rsi_divergence",
+              0.0
+            ]
+          ],
+          "trained": true,
+          "train_size": 34
+        },
+        "score": -4.6129944646193195
+      },
+      "best_score": -4.6129944646193195
+    }
+  }
+}

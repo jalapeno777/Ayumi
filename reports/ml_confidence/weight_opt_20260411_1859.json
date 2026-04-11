@@ -1,0 +1,164 @@
+{
+  "timestamp": "20260411_1859",
+  "configs_tested": {
+    "A_baseline": {
+      "kill_zone": 0.05,
+      "htf_opposing": -0.15,
+      "base_confidence": 0.2
+    },
+    "B_kz_pen_small": {
+      "kill_zone": -0.03,
+      "htf_opposing": -0.15,
+      "base_confidence": 0.2
+    },
+    "C_kz_pen_lg_htf_relax": {
+      "kill_zone": -0.05,
+      "htf_opposing": -0.1,
+      "base_confidence": 0.25
+    },
+    "D_kz_pen_small_htf_relax_base25": {
+      "kill_zone": -0.03,
+      "htf_opposing": -0.05,
+      "base_confidence": 0.25
+    },
+    "E_kz_pen_lg_htf_strict_base30": {
+      "kill_zone": -0.05,
+      "htf_opposing": -0.15,
+      "base_confidence": 0.3
+    }
+  },
+  "per_pair_results": {
+    "A_baseline_EURUSD": {
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "total_pnl": -51.75483214649036
+    },
+    "A_baseline_USDJPY": {
+      "total_trades": 4,
+      "wins": 2,
+      "losses": 2,
+      "win_rate": 0.5,
+      "total_pnl": -8.733394140224426
+    },
+    "A_baseline_XAUUSD": {
+      "total_trades": 5,
+      "wins": 2,
+      "losses": 3,
+      "win_rate": 0.4,
+      "total_pnl": -50.297246394706555
+    },
+    "B_kz_pen_small_EURUSD": {
+      "total_trades": 1,
+      "wins": 0,
+      "losses": 1,
+      "win_rate": 0.0,
+      "total_pnl": -51.75483214649036
+    },
+    "B_kz_pen_small_USDJPY": {
+      "total_trades": 4,
+      "wins": 2,
+      "losses": 2,
+      "win_rate": 0.5,
+      "total_pnl": -8.733394140224426
+    },
+    "B_kz_pen_small_XAUUSD": {
+      "total_trades": 5,
+      "wins": 2,
+      "losses": 3,
+      "win_rate": 0.4,
+      "total_pnl": -50.297246394706555
+    },
+    "C_kz_pen_lg_htf_relax_EURUSD": {
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "total_pnl": -103.02654430529932
+    },
+    "C_kz_pen_lg_htf_relax_USDJPY": {
+      "total_trades": 5,
+      "wins": 3,
+      "losses": 2,
+      "win_rate": 0.6,
+      "total_pnl": 40.222848209837004
+    },
+    "C_kz_pen_lg_htf_relax_XAUUSD": {
+      "total_trades": 10,
+      "wins": 5,
+      "losses": 5,
+      "win_rate": 0.5,
+      "total_pnl": -3.0338607101075183
+    },
+    "D_kz_pen_small_htf_relax_base25_EURUSD": {
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "total_pnl": -103.02654430529932
+    },
+    "D_kz_pen_small_htf_relax_base25_USDJPY": {
+      "total_trades": 5,
+      "wins": 3,
+      "losses": 2,
+      "win_rate": 0.6,
+      "total_pnl": 40.222848209837004
+    },
+    "D_kz_pen_small_htf_relax_base25_XAUUSD": {
+      "total_trades": 10,
+      "wins": 5,
+      "losses": 5,
+      "win_rate": 0.5,
+      "total_pnl": -3.0338607101075183
+    },
+    "E_kz_pen_lg_htf_strict_base30_EURUSD": {
+      "total_trades": 2,
+      "wins": 0,
+      "losses": 2,
+      "win_rate": 0.0,
+      "total_pnl": -103.02654430529932
+    },
+    "E_kz_pen_lg_htf_strict_base30_USDJPY": {
+      "total_trades": 8,
+      "wins": 5,
+      "losses": 3,
+      "win_rate": 0.625,
+      "total_pnl": 81.65073821548725
+    },
+    "E_kz_pen_lg_htf_strict_base30_XAUUSD": {
+      "total_trades": 10,
+      "wins": 5,
+      "losses": 5,
+      "win_rate": 0.5,
+      "total_pnl": -3.0338607101075183
+    }
+  },
+  "feature_importances": {
+    "rsi_divergence": 0.0,
+    "htf_trend_aligned": 0.06381185627249338,
+    "svc_at_peak": 0.0,
+    "consolidation": 0.0,
+    "asia_gap_favorable": 0.24040412779463452,
+    "ilod_ihod_at_boundary": 0.0,
+    "vwap_rejection": 0.03708728629087738,
+    "kill_zone_active": 0.020047601982511362,
+    "quality_gate": 0.0,
+    "confluence_scorer": 0.0,
+    "htf_opposing": 0.0,
+    "htf_conflicting": 0.0,
+    "htf_consolidating": 0.0,
+    "confidence_score": 0.3542427210031071,
+    "confluence_count": 0.0,
+    "kill_zone_val": 0.09471256551942693,
+    "htf_opposing_val": 0.07830466800746201,
+    "base_confidence_val": 0.11138917312948728
+  },
+  "best_config": "E_kz_pen_lg_htf_strict_base30",
+  "best_params": {
+    "kill_zone": -0.05,
+    "htf_opposing": -0.15,
+    "base_confidence": 0.3
+  },
+  "best_aggregate_pnl": -24.40966679991959
+}

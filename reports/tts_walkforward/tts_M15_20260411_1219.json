@@ -1,0 +1,15 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.2,
+    "min_quality_score": 0.25,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=1.0, profit_factor=10.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=557.7732793523272, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.011435568235855134, sharpe_ratio=0.0, trade_count=1, total_pnl=-114.35568235855214, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.3333333333333333, profit_factor=0.32808204466095986, max_drawdown=0.013880960436104942, sharpe_ratio=-7.4356170567002655, trade_count=3, total_pnl=-138.80960436104942, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.4444444444444444, std_win_rate=0.5091750772173156, mean_profit_factor=3.4426940148869867, std_profit_factor=5.681162362915395, mean_max_drawdown=0.008438842890653359, std_max_drawdown=0.007409827106829733, mean_sharpe_ratio=-2.4785390189000887, std_sharpe_ratio=4.2929555092768705, mean_trade_count=1.6666666666666667, std_trade_count=1.1547005383792517, mean_total_pnl=101.53599754424188, std_total_pnl=395.30221547450094, windows_passed=0, total_windows=3), go_nogo=False)"
+  },
+  "go_nogo": {}
+}

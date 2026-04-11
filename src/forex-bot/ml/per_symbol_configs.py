@@ -14,6 +14,7 @@ DEFAULT_SYMBOL_CONFIG = {
     "kz_penalty": -0.05,
     "htf_penalty": -0.15,
     "top_confluences": [],
+    "negative_weight": 1.0,
 }
 
 PER_SYMBOL_CONFIGS = {
@@ -23,6 +24,7 @@ PER_SYMBOL_CONFIGS = {
             "kz_penalty": -0.05,
             "htf_penalty": -0.15,
             "top_confluences": [],
+            "negative_weight": 1.0,
             # Note: Only 15 trades — insufficient data for ML.
             # Low base reduces exposure. Needs more data before optimizing further.
         },
@@ -39,6 +41,7 @@ PER_SYMBOL_CONFIGS = {
                 "svc_at_peak",
                 "consolidation",
             ],
+            "negative_weight": 1.0,
             # Best config: G_low_base_no_kz
             # P&L: $115.97 | WR: 50.0% | DD: 0.4% | PF: 1.66 | 20 trades
             # Removing KZ penalty helps — GBPUSD doesn't need kill zone filtering.
@@ -56,6 +59,7 @@ PER_SYMBOL_CONFIGS = {
                 "vwap_rejection",
                 "rsi_divergence",
             ],
+            "negative_weight": 1.0,
             # Best config: E_strong_kz
             # P&L: $7.98 | WR: 52.0% | DD: 1.2% | PF: 1.02 | 25 trades
             # Stronger KZ penalty needed — USDJPY benefits from kill zone filtering.
@@ -73,6 +77,7 @@ PER_SYMBOL_CONFIGS = {
                 "kill_zone_active",
                 "rsi_divergence",
             ],
+            "negative_weight": 1.0,
             # Best config: D_no_kz
             # P&L: -$5.87 | WR: 52.2% | DD: 2.1% | PF: 0.99 | 23 trades
             # Nearly breakeven. No KZ penalty needed. HTF trend is #1 feature.
@@ -90,6 +95,7 @@ PER_SYMBOL_CONFIGS = {
                 "vwap_rejection",
                 "rsi_divergence",
             ],
+            "negative_weight": 1.0,
             # Best config: C_low_base
             # P&L: -$3.28 | WR: 44.1% | DD: 2.4% | PF: 0.99 | 34 trades
             # Nearly breakeven. Low base reduces exposure. Kill zone is #2 feature.
