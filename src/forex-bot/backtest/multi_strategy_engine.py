@@ -14,6 +14,7 @@ from .engine import (
     determine_session,
 )
 from .strategies import ISignalStrategy
+from signal_engine.risk_sizer import ConfidencePositionSizer
 
 
 @dataclass
@@ -40,10 +41,14 @@ class MultiStrategyBacktestEngine:
         config: BacktestConfig,
         strategies: list[ISignalStrategy],
         multi_config: MultiStrategyConfig | None = None,
+        risk_sizer: ConfidencePositionSizer | None = None,
     ):
         self.config = config
         self.strategies = strategies
         self.multi_config = multi_config or MultiStrategyConfig()
+        self.risk_sizer = risk_sizer or ConfidencePositionSizer(
+            account_size=config.starting_balance
+        )
         self.balance = config.starting_balance
         self.peak_balance = config.starting_balance
         self.max_drawdown = 0.0
@@ -268,6 +273,8 @@ class MultiStrategyBacktestEngine:
     ):
         to_close = []
         for trade in open_trades:
+            # Progressive SL management: move SL when TP1 or TP2 is hit
+            self._progressive_sl_update(trade, bar)
             hit, exit_price, reason = self._check_trade_exit(trade, bar)
             if hit:
                 self._close_trade(trade, bar_index, bar.time, exit_price, reason)
@@ -276,6 +283,37 @@ class MultiStrategyBacktestEngine:
                 equity_curve.append(self.balance)
         for t in to_close:
             open_trades.remove(t)
+
+    def _progressive_sl_update(self, trade: SimulatedTrade, bar: Bar) -> None:
+        """Move SL progressively as TP levels are approached/hit.
+
+        When price reaches TP1 → move SL to breakeven + 1 pip
+        When price reaches TP2 → move SL to TP1 price (lock profit)
+        """
+        if not hasattr(trade, '_sl_moved_to_be'):
+            trade._sl_moved_to_be = False
+            trade._sl_moved_to_tp1 = False
+
+        risk = abs(trade.entry_price - trade.stop_loss)
+        pip_size = self._get_pip_value(trade.entry_price)
+
+        if trade.direction == TradeDirection.LONG:
+            if bar.high >= trade.take_profit_2 and not trade._sl_moved_to_tp1:
+                trade.stop_loss = trade.take_profit_1
+                trade._sl_moved_to_tp1 = True
+                trade._sl_moved_to_be = True
+            elif bar.high >= trade.take_profit_1 and not trade._sl_moved_to_be:
+                # Move to breakeven + 1 pip
+                trade.stop_loss = max(trade.stop_loss, trade.entry_price + pip_size)
+                trade._sl_moved_to_be = True
+        else:
+            if bar.low <= trade.take_profit_2 and not trade._sl_moved_to_tp1:
+                trade.stop_loss = trade.take_profit_1
+                trade._sl_moved_to_tp1 = True
+                trade._sl_moved_to_be = True
+            elif bar.low <= trade.take_profit_1 and not trade._sl_moved_to_be:
+                trade.stop_loss = min(trade.stop_loss, trade.entry_price - pip_size)
+                trade._sl_moved_to_be = True
 
     def _check_trade_exit(self, trade: SimulatedTrade, bar: Bar):
         if trade.direction == TradeDirection.LONG:
@@ -398,12 +436,20 @@ class MultiStrategyBacktestEngine:
     def _open_trade(
         self, signal: StrategySignal, bar: Bar, bar_index: int
     ) -> SimulatedTrade | None:
-        risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
             return None
 
         pip_value = self._get_pip_value(signal.entry_price)
+        stop_pips = risk / pip_value
+
+        # Confidence-based risk sizing
+        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
+        lot_size = self.risk_sizer.get_lot_size(
+            signal.confidence, stop_pips, pip_value
+        )
+        if lot_size <= 0:
+            return None
 
         if self.config.round_trip_spread:
             effective_entry = signal.entry_price
@@ -422,6 +468,7 @@ class MultiStrategyBacktestEngine:
         if adjusted_risk == 0:
             return None
 
+        # Recalculate lot size based on adjusted risk
         lot_size = risk_amount / adjusted_risk
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:

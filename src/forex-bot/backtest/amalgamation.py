@@ -15,6 +15,7 @@ from .engine import (
     determine_session,
 )
 from .strategies import ISignalStrategy
+from signal_engine.risk_sizer import ConfidencePositionSizer, ConfidenceTier
 
 
 class VotingMethod(Enum):
@@ -303,10 +304,14 @@ class AmalgamatedBacktestEngine:
         config: BacktestConfig,
         strategies: list[ISignalStrategy],
         amalgamation_config: AmalgamationConfig | None = None,
+        risk_sizer: ConfidencePositionSizer | None = None,
     ):
         self.config = config
         self.amalgamation = (
             amalgamation_config if amalgamation_config else AmalgamationConfig()
+        )
+        self.risk_sizer = risk_sizer or ConfidencePositionSizer(
+            account_size=config.starting_balance
         )
         self.extractor = ComponentExtractor()
         if self.amalgamation.ict_smc_only:
@@ -571,12 +576,21 @@ class AmalgamatedBacktestEngine:
     def _open_trade(
         self, signal: StrategySignal, bar: Bar, bar_index: int
     ) -> SimulatedTrade | None:
-        risk_amount = self.balance * self.config.risk_per_trade_pct
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
             return None
 
         pip_value = self._get_pip_value(signal.entry_price)
+        stop_pips = abs(signal.entry_price - signal.stop_loss) / pip_value
+
+        # Confidence-based risk sizing
+        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
+        lot_size = self.risk_sizer.get_lot_size(
+            signal.confidence, stop_pips, pip_value
+        )
+        if lot_size <= 0:
+            return None
+
         spread_cost = self.config.effective_spread_pips * pip_value
         effective_entry = (
             signal.entry_price + spread_cost
@@ -587,6 +601,7 @@ class AmalgamatedBacktestEngine:
         if adjusted_risk == 0:
             return None
 
+        # Recalculate lot size based on adjusted risk (wider due to spread)
         lot_size = risk_amount / adjusted_risk
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:

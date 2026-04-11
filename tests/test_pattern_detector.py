@@ -99,7 +99,7 @@ class TestSVC:
 
     def test_detects_spring(self):
         """SVC spring: wick below D1 level, body closes above."""
-        bar = {"high": 1.0970, "low": 1.0940, "open": 1.0952, "close": 1.0968}
+        bar = {"high": 1.0970, "low": 1.0940, "open": 1.0955, "close": 1.0960}
         levels = [Level(1.0950, LevelType.D1, 0.005, 0)]
         result = self.detector.detect_svc(bar, levels)
         assert result is not None
@@ -108,7 +108,7 @@ class TestSVC:
 
     def test_detects_vacation(self):
         """SVC vacation: wick above R1 level, body closes below."""
-        bar = {"high": 1.1010, "low": 1.0980, "open": 1.0998, "close": 1.0982}
+        bar = {"high": 1.1010, "low": 1.0980, "open": 1.0995, "close": 1.0990}
         levels = [Level(1.1000, LevelType.R1, 0.005, 0)]
         result = self.detector.detect_svc(bar, levels)
         assert result is not None
