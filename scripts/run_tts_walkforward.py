@@ -113,7 +113,6 @@ def run_pair(
             symbol=pair,
             min_confidence=min_confidence,
             min_quality_score=min_quality_score,
-            
         )
 
     result = run_strategy_walk_forward(
@@ -157,7 +156,7 @@ def main() -> None:
         type=str,
         default=None,
         help=(
-            'JSON list of [min_conf, max_conf, risk_pct] tiers, e.g. '
+            "JSON list of [min_conf, max_conf, risk_pct] tiers, e.g. "
             '"[[0.85,1.0,0.01],[0.70,0.85,0.0075]]"'
         ),
     )
@@ -172,14 +171,14 @@ def main() -> None:
     # Build risk sizer
     if args.confidence_tiers:
         custom_tiers = parse_tiers(args.confidence_tiers)
-        risk_sizer = ConfidencePositionSizer(
-            account_size=10000.0, tiers=custom_tiers
-        )
+        risk_sizer = ConfidencePositionSizer(account_size=10000.0, tiers=custom_tiers)
     else:
         risk_sizer = ConfidencePositionSizer(
             account_size=10000.0,
         )
-    print(f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}")
+    print(
+        f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}"
+    )
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -212,20 +211,18 @@ def main() -> None:
         all_results[pair] = result
 
         # Extract per-trade records with confidence scores
-        trade_records = getattr(result, '_trade_records', [])
+        trade_records = getattr(result, "_trade_records", [])
         if trade_records:
-            all_trade_records[pair] = [
-                {**t, "pair": pair} for t in trade_records
-            ]
+            all_trade_records[pair] = [{**t, "pair": pair} for t in trade_records]
             print(f"  Trade records: {len(trade_records)} (with confidence scores)")
 
         # Extract go/nogo from walk-forward results
-        agg = getattr(result, 'aggregated', None)
+        agg = getattr(result, "aggregated", None)
         if agg is not None:
-            net_profit = getattr(agg, 'mean_total_pnl', 0)
-            win_rate = getattr(agg, 'mean_win_rate', 0)
-            max_dd = getattr(agg, 'mean_max_drawdown', 1.0) * 100  # decimal to pct
-            total_trades = int(getattr(agg, 'mean_trade_count', 0))
+            net_profit = getattr(agg, "mean_total_pnl", 0)
+            win_rate = getattr(agg, "mean_win_rate", 0)
+            max_dd = getattr(agg, "mean_max_drawdown", 1.0) * 100  # decimal to pct
+            total_trades = int(getattr(agg, "mean_trade_count", 0))
 
             # FTMO-style go/nogo
             passes = (
@@ -307,7 +304,15 @@ def main() -> None:
     tier_dist = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
     for record in flat_trades:
         conf = record.get("confidence_score", record.get("confidence", 0))
-        tier = 5 if conf >= 0.85 else (4 if conf >= 0.70 else (3 if conf >= 0.55 else (2 if conf >= 0.40 else 1)))
+        tier = (
+            5
+            if conf >= 0.85
+            else (
+                4
+                if conf >= 0.70
+                else (3 if conf >= 0.55 else (2 if conf >= 0.40 else 1))
+            )
+        )
         tier_dist[tier] += 1
     total_trades_all = sum(tier_dist.values())
     for t in sorted(tier_dist.keys(), reverse=True):
@@ -322,9 +327,14 @@ def main() -> None:
     print(f"{'═' * 60}")
     boost_counts = {}
     import re
+
     for record in flat_trades:
         rationale = record.get("rationale", "")
-        boosts = re.findall(r"\('([^']+)',\s*[\d.]+\)", rationale) if "boosts=" in rationale else []
+        boosts = (
+            re.findall(r"\('([^']+)',\s*[\d.]+\)", rationale)
+            if "boosts=" in rationale
+            else []
+        )
         for b in boosts:
             boost_counts[b] = boost_counts.get(b, 0) + 1
     for name, count in sorted(boost_counts.items(), key=lambda x: -x[1]):
@@ -336,6 +346,7 @@ def main() -> None:
     print("  PER-BOOST WIN RATE (top factors)")
     print(f"{'═' * 60}")
     import re as _re
+
     top_boosts = sorted(boost_counts.items(), key=lambda x: -x[1])[:10]
     for boost_name, _ in top_boosts:
         wins = 0
@@ -365,9 +376,21 @@ def main() -> None:
         total = len(records)
         wins = sum(1 for r in records if r.get("pnl", 0) > 0)
         wr = wins / total * 100 if total > 0 else 0
-        t5 = sum(1 for r in records if r.get("confidence_score", r.get("confidence", 0)) >= 0.85)
-        t4 = sum(1 for r in records if 0.70 <= r.get("confidence_score", r.get("confidence", 0)) < 0.85)
-        t3 = sum(1 for r in records if 0.55 <= r.get("confidence_score", r.get("confidence", 0)) < 0.70)
+        t5 = sum(
+            1
+            for r in records
+            if r.get("confidence_score", r.get("confidence", 0)) >= 0.85
+        )
+        t4 = sum(
+            1
+            for r in records
+            if 0.70 <= r.get("confidence_score", r.get("confidence", 0)) < 0.85
+        )
+        t3 = sum(
+            1
+            for r in records
+            if 0.55 <= r.get("confidence_score", r.get("confidence", 0)) < 0.70
+        )
         pnl = verdict.get("net_profit", 0)
         dd = verdict.get("max_dd", 0)
         print(

@@ -42,9 +42,11 @@ class DetectedPattern:
 
 # ── Asia Session Analyzer ──────────────────────────────────────────
 
+
 @dataclass
 class AsiaRangeResult:
     """Result of Asia session analysis."""
+
     asia_high: float
     asia_low: float
     range_pct: float
@@ -87,7 +89,9 @@ class AsiaSessionAnalyzer:
         self.mandatory_exit_hour = mandatory_exit_hour
 
     def analyze_asia_range(
-        self, bars: list[dict], bar_interval_minutes: int = 15,
+        self,
+        bars: list[dict],
+        bar_interval_minutes: int = 15,
     ) -> Optional[AsiaRangeResult]:
         if not bars:
             return None
@@ -104,13 +108,26 @@ class AsiaSessionAnalyzer:
         is_tradable = range_pct < self.max_range_pct
         touch_tol_high = asia_high * (self.touch_tolerance_pct / 100)
         touch_tol_low = asia_low * (self.touch_tolerance_pct / 100)
-        high_touches = sum(1 for b in asia_bars if abs(b["high"] - asia_high) <= touch_tol_high)
-        low_touches = sum(1 for b in asia_bars if abs(b["low"] - asia_low) <= touch_tol_low)
-        is_consolidated = high_touches >= self.min_touches_per_side and low_touches >= self.min_touches_per_side
-        range_score = max(0, 1.0 - range_pct / self.max_range_pct) if self.max_range_pct > 0 else 0
+        high_touches = sum(
+            1 for b in asia_bars if abs(b["high"] - asia_high) <= touch_tol_high
+        )
+        low_touches = sum(
+            1 for b in asia_bars if abs(b["low"] - asia_low) <= touch_tol_low
+        )
+        is_consolidated = (
+            high_touches >= self.min_touches_per_side
+            and low_touches >= self.min_touches_per_side
+        )
+        range_score = (
+            max(0, 1.0 - range_pct / self.max_range_pct)
+            if self.max_range_pct > 0
+            else 0
+        )
         consolidation_score = 1.0 if is_consolidated else 0.3
         touch_score = min(high_touches + low_touches, 10) / 10.0
-        quality_score = range_score * 0.5 + consolidation_score * 0.3 + touch_score * 0.2
+        quality_score = (
+            range_score * 0.5 + consolidation_score * 0.3 + touch_score * 0.2
+        )
 
         # ILOD/IHOD: first swing high/low in Asia (timing-based, not size-based)
         ilod, ilhod = self._detect_ilod_ihod_from_bars(asia_bars)
@@ -125,14 +142,23 @@ class AsiaSessionAnalyzer:
                 asia_gap_type = "bearish"
 
         return AsiaRangeResult(
-            asia_high=asia_high, asia_low=asia_low, range_pct=range_pct,
-            is_tradable=is_tradable, high_touches=high_touches, low_touches=low_touches,
-            is_consolidated=is_consolidated, quality_score=quality_score,
-            ilod=ilod, ilhod=ilhod, asia_gap_type=asia_gap_type,
+            asia_high=asia_high,
+            asia_low=asia_low,
+            range_pct=range_pct,
+            is_tradable=is_tradable,
+            high_touches=high_touches,
+            low_touches=low_touches,
+            is_consolidated=is_consolidated,
+            quality_score=quality_score,
+            ilod=ilod,
+            ilhod=ilhod,
+            asia_gap_type=asia_gap_type,
         )
 
     @staticmethod
-    def _detect_ilod_ihod_from_bars(asia_bars: list[dict]) -> tuple[Optional[float], Optional[float]]:
+    def _detect_ilod_ihod_from_bars(
+        asia_bars: list[dict],
+    ) -> tuple[Optional[float], Optional[float]]:
         """Find the FIRST swing low (ILOD) and FIRST swing high (IHOD) in Asia.
 
         A swing low: bar whose low is lower than the N bars on each side.
@@ -184,7 +210,8 @@ class AsiaSessionAnalyzer:
 
     @staticmethod
     def _get_next_session_open(
-        all_bars: list[dict], asia_bars: list[dict],
+        all_bars: list[dict],
+        asia_bars: list[dict],
     ) -> Optional[float]:
         """Get the open price of the first bar after the Asia session."""
         if not asia_bars or not all_bars:
@@ -251,7 +278,9 @@ class AsiaSessionAnalyzer:
             return result
         if first_utc.tzinfo is not None:
             first_utc = first_utc.replace(tzinfo=None)
-        et_offset_hours = round(_ET.localize(first_utc).utcoffset().total_seconds() / 3600)
+        et_offset_hours = round(
+            _ET.localize(first_utc).utcoffset().total_seconds() / 3600
+        )
         is_dst = et_offset_hours == -4
         for b in bars:
             t = b.get("time")
@@ -292,45 +321,92 @@ class PatternDetector:
 
     # ── M/W 11-Point Checklist ──────────────────────────────────────
 
+    MW_MAX_BARS_AGO = 200
+
     def detect_mw_formation(
         self,
         swings: list[Swing],
         levels: list[Level],
         current_price: float = 0.0,
+        current_bar_index: int = -1,
     ) -> Optional[DetectedPattern]:
         """Detect M (bearish reversal) or W (bullish reversal) using 11-point checklist.
 
-        M structure: SH1 → SL1 → SH2 → SL2 → SH3 (breaks SH1)
-        W structure: SL1 → SH1 → SL2 → SH2 → SL3 (breaks SL1)
+        M structure: SH1 -> SL1 -> SH2 -> SL2 -> SH3 (breaks SH1)
+        W structure: SL1 -> SH1 -> SL2 -> SH2 -> SL3 (breaks SL1)
 
-        Returns the best-matching pattern or None.
+        Scans all possible 5-swing windows and returns the best-matching pattern.
         """
-        m_result = self._evaluate_m_pattern(swings, levels, current_price)
-        w_result = self._evaluate_w_pattern(swings, levels, current_price)
-
         best = None
-        for candidate in (m_result, w_result):
-            if candidate and candidate.confidence > 0.3:
-                if best is None or candidate.confidence > best.confidence:
-                    best = candidate
-
+        best = self._scan_m_patterns(
+            swings, levels, current_price, best, current_bar_index
+        )
+        best = self._scan_w_patterns(
+            swings, levels, current_price, best, current_bar_index
+        )
         return best
 
-    def _evaluate_m_pattern(
+    def _scan_m_patterns(
         self,
         swings: list[Swing],
         levels: list[Level],
         current_price: float,
+        best: Optional[DetectedPattern],
+        current_bar_index: int,
     ) -> Optional[DetectedPattern]:
-        """Evaluate M formation (bearish reversal) against 11-point checklist."""
-        # Need at least 5 swings: H, L, H, L, H
         pattern_swings = self._extract_alternating(swings, SwingType.HIGH)
         if len(pattern_swings) < 5:
-            return None
+            return best
+        for i in range(len(pattern_swings) - 4):
+            sh3 = pattern_swings[i + 4]
+            if (
+                current_bar_index >= 0
+                and (current_bar_index - sh3.bar_index) > self.MW_MAX_BARS_AGO
+            ):
+                continue
+            candidate = self._evaluate_m_window(
+                pattern_swings, i, levels, current_price
+            )
+            if candidate and candidate.confidence > 0.3:
+                if best is None or candidate.confidence > best.confidence:
+                    best = candidate
+        return best
 
-        sh1, sl1, sh2, sl2, sh3 = pattern_swings[:5]
+    def _scan_w_patterns(
+        self,
+        swings: list[Swing],
+        levels: list[Level],
+        current_price: float,
+        best: Optional[DetectedPattern],
+        current_bar_index: int,
+    ) -> Optional[DetectedPattern]:
+        pattern_swings = self._extract_alternating(swings, SwingType.LOW)
+        if len(pattern_swings) < 5:
+            return best
+        for i in range(len(pattern_swings) - 4):
+            sl3 = pattern_swings[i + 4]
+            if (
+                current_bar_index >= 0
+                and (current_bar_index - sl3.bar_index) > self.MW_MAX_BARS_AGO
+            ):
+                continue
+            candidate = self._evaluate_w_window(
+                pattern_swings, i, levels, current_price
+            )
+            if candidate and candidate.confidence > 0.3:
+                if best is None or candidate.confidence > best.confidence:
+                    best = candidate
+        return best
 
-        # Basic structure: SH3 > SH1 (break), SL2 < SL1 (lower low)
+    def _evaluate_m_window(
+        self,
+        pattern_swings: list[Swing],
+        start_idx: int,
+        levels: list[Level],
+        current_price: float,
+    ) -> Optional[DetectedPattern]:
+        sh1, sl1, sh2, sl2, sh3 = pattern_swings[start_idx : start_idx + 5]
+
         if sh3.price <= sh1.price or sl2.price >= sl1.price:
             return None
 
@@ -364,20 +440,15 @@ class PatternDetector:
             checklist_details=checklist,
         )
 
-    def _evaluate_w_pattern(
+    def _evaluate_w_window(
         self,
-        swings: list[Swing],
+        pattern_swings: list[Swing],
+        start_idx: int,
         levels: list[Level],
         current_price: float,
     ) -> Optional[DetectedPattern]:
-        """Evaluate W formation (bullish reversal) against 11-point checklist."""
-        pattern_swings = self._extract_alternating(swings, SwingType.LOW)
-        if len(pattern_swings) < 5:
-            return None
+        sl1, sh1, sl2, sh2, sl3 = pattern_swings[start_idx : start_idx + 5]
 
-        sl1, sh1, sl2, sh2, sl3 = pattern_swings[:5]
-
-        # Basic structure: SL3 < SL1 (break), SH2 > SH1 (higher high)
         if sl3.price >= sl1.price or sh2.price <= sh1.price:
             return None
 
@@ -386,7 +457,7 @@ class PatternDetector:
             sl1=sl1.price,
             sh2=sh2.price,
             sl2=sl2.price,
-            sh3=sl3.price,  # reuse field for SL3
+            sh3=sl3.price,
             is_bearish=False,
             levels=levels,
             current_price=current_price,
@@ -406,6 +477,25 @@ class PatternDetector:
                 "SL2": sl2.price,
                 "SH2": sh2.price,
                 "SL3": sl3.price,
+            },
+            checklist_score=score,
+            checklist_details=checklist,
+        )
+
+        score = sum(checklist.values()) / 11.0
+        if score < 0.4:
+            return None
+
+        return DetectedPattern(
+            pattern_type="M",
+            direction="short",
+            confidence=score,
+            key_levels={
+                "SH1": sh1.price,
+                "SL1": sl1.price,
+                "SH2": sh2.price,
+                "SL2": sl2.price,
+                "SH3": sh3.price,
             },
             checklist_score=score,
             checklist_details=checklist,
@@ -721,6 +811,41 @@ class PatternDetector:
                     )
                 )
 
+        session_high = (
+            max(b.get("high", 0) for b in bars[:-1])
+            if len(bars) > 1
+            else bars[0].get("high", 0)
+        )
+        session_low = (
+            min(b.get("low", 0) for b in bars[:-1])
+            if len(bars) > 1
+            else bars[0].get("low", 0)
+        )
+
+        # ILOD break — price breaks below prior session low then shows rejection
+        if last_bar["low"] < session_low and last_bar["close"] > session_low:
+            patterns.append(
+                DetectedPattern(
+                    pattern_type="ILOD_BREAK",
+                    direction="short",
+                    confidence=0.6,
+                    key_levels={"ilod": session_low},
+                    notes=f"ILOD break in {session}",
+                )
+            )
+
+        # IHOD break — price breaks above prior session high then shows rejection
+        if last_bar["high"] > session_high and last_bar["close"] < session_high:
+            patterns.append(
+                DetectedPattern(
+                    pattern_type="IHOD_BREAK",
+                    direction="long",
+                    confidence=0.6,
+                    key_levels={"ihod": session_high},
+                    notes=f"IHOD break in {session}",
+                )
+            )
+
         return patterns
 
     # ── Liquidity Grab ──────────────────────────────────────────────
@@ -863,7 +988,9 @@ class PatternDetector:
 
     # ── SVC (Vector Candle) Helper ──────────────────────────────────
 
-    def _detect_svc(self, bar: dict, direction: str, bars_for_vol: Optional[list[dict]] = None) -> bool:
+    def _detect_svc(
+        self, bar: dict, direction: str, bars_for_vol: Optional[list[dict]] = None
+    ) -> bool:
         """Check if a single bar is an SVC (Stopping Volume Candle / Vector).
 
         TTC Rules:
@@ -906,7 +1033,9 @@ class PatternDetector:
         # Volume check
         bar_vol = bar.get("volume", 0)
         if bar_vol > 0 and bars_for_vol and len(bars_for_vol) >= 9:
-            prior_vols = [b.get("volume", 0) for b in bars_for_vol[-9:] if b.get("volume", 0) > 0]
+            prior_vols = [
+                b.get("volume", 0) for b in bars_for_vol[-9:] if b.get("volume", 0) > 0
+            ]
             if prior_vols:
                 avg_vol = sum(prior_vols) / len(prior_vols)
                 if avg_vol > 0 and bar_vol < avg_vol * 1.3:
@@ -925,12 +1054,13 @@ class PatternDetector:
         session: str = "LONDON",
         bar_time: Optional[datetime] = None,
         asia_analyzer: Optional[AsiaSessionAnalyzer] = None,
+        current_bar_index: int = -1,
     ) -> list[DetectedPattern]:
         """Run all pattern detectors and return combined results."""
         patterns: list[DetectedPattern] = []
 
         # M/W formation
-        mw = self.detect_mw_formation(swings, levels, current_price)
+        mw = self.detect_mw_formation(swings, levels, current_price, current_bar_index)
         if mw:
             patterns.append(mw)
 
@@ -949,7 +1079,9 @@ class PatternDetector:
                 patterns.append(trap)
 
         # ILOD/IHOD
-        patterns.extend(self.detect_ilod_ihod(bars, session, asia_analyzer=asia_analyzer))
+        patterns.extend(
+            self.detect_ilod_ihod(bars, session, asia_analyzer=asia_analyzer)
+        )
 
         # Liquidity grab (on last bar)
         if bars:
@@ -965,8 +1097,11 @@ class PatternDetector:
         # Flight-log patterns (TTC Asia→UK)
         if asia_analyzer is not None and bar_time is not None:
             fl_patterns = self._detect_flight_log_patterns(
-                swings=swings, levels=levels, bars=bars,
-                current_price=current_price, bar_time=bar_time,
+                swings=swings,
+                levels=levels,
+                bars=bars,
+                current_price=current_price,
+                bar_time=bar_time,
                 asia_analyzer=asia_analyzer,
             )
             patterns.extend(fl_patterns)
@@ -1056,89 +1191,139 @@ class PatternDetector:
         # This is correct because detect_swings() receives bars[-window:]
         # and indexes from 0 within that slice.
         for sl1, sl2 in self._pair_consecutive(lows[-6:]):
-            if not (asia.asia_low <= sl1.price <= asia.asia_high): continue
-            if not (asia.asia_low <= sl2.price <= asia.asia_high): continue
-            sh1 = self._find_low_between.__func__(self, sl1.bar_index, sl2.bar_index, highs) if hasattr(self._find_low_between, '__func__') else None
+            if not (asia.asia_low <= sl1.price <= asia.asia_high):
+                continue
+            if not (asia.asia_low <= sl2.price <= asia.asia_high):
+                continue
+            sh1 = (
+                self._find_low_between.__func__(
+                    self, sl1.bar_index, sl2.bar_index, highs
+                )
+                if hasattr(self._find_low_between, "__func__")
+                else None
+            )
             # Use _find_high_between
             in_range = [h for h in highs if sl1.bar_index < h.bar_index < sl2.bar_index]
             sh1 = max(in_range, key=lambda h: h.price) if in_range else None
-            if sh1 is None or not (asia.asia_low <= sh1.price <= asia.asia_high): continue
-            if sl2.price <= sl1.price: continue  # need higher low
+            if sh1 is None or not (asia.asia_low <= sh1.price <= asia.asia_high):
+                continue
+            if sl2.price <= sl1.price:
+                continue  # need higher low
 
             # Entry trigger: next candle after HL
             swing_rel = len(bars) - window + sl2.bar_index
             bars_since = len(bars) - 1 - swing_rel
-            if bars_since < 1 or bars_since > 3: continue
+            if bars_since < 1 or bars_since > 3:
+                continue
 
             cur = bars[-1]
-            if cur["low"] < sl2.price: continue  # broke below second peak
-            if cur["close"] <= sl2.price: continue  # no bullish reaction
+            if cur["low"] < sl2.price:
+                continue  # broke below second peak
+            if cur["close"] <= sl2.price:
+                continue  # no bullish reaction
 
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sl1.bar_index
-            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            first_bar = (
+                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            )
             is_svc = False
             if first_bar:
-                prior = bars[max(0, first_bar_idx - 9):first_bar_idx]
+                prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
                 is_svc = self._detect_svc(first_bar, "long", prior)
 
             stop = sl1.price - (asia.asia_high - asia.asia_low) * 0.1
             target = asia.asia_high
-            conf = asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
+            conf = (
+                asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
+            )
             conf = min(conf, 1.0)
-            candidates.append(DetectedPattern(
-                pattern_type="W", direction="long", confidence=conf,
-                key_levels={"SL1": sl1.price, "SH1": sh1.price, "SL2": sl2.price,
-                           "stop": stop, "target": target,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-001", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
-                notes=f"FL-001 W: HL={sl2.price:.5f}, svc={is_svc}",
-            ))
+            candidates.append(
+                DetectedPattern(
+                    pattern_type="W",
+                    direction="long",
+                    confidence=conf,
+                    key_levels={
+                        "SL1": sl1.price,
+                        "SH1": sh1.price,
+                        "SL2": sl2.price,
+                        "stop": stop,
+                        "target": target,
+                        "asia_high": asia.asia_high,
+                        "asia_low": asia.asia_low,
+                    },
+                    flight_log_id="FL-001",
+                    asia_range=(asia.asia_high, asia.asia_low),
+                    stop_at_first_peak=True,
+                    mandatory_exit_time=asia.mandatory_exit_time,
+                    notes=f"FL-001 W: HL={sl2.price:.5f}, svc={is_svc}",
+                )
+            )
 
         # M pattern
         for sh1, sh2 in self._pair_consecutive(highs[-6:]):
-            if not (asia.asia_low <= sh1.price <= asia.asia_high): continue
-            if not (asia.asia_low <= sh2.price <= asia.asia_high): continue
+            if not (asia.asia_low <= sh1.price <= asia.asia_high):
+                continue
+            if not (asia.asia_low <= sh2.price <= asia.asia_high):
+                continue
             in_range = [l for l in lows if sh1.bar_index < l.bar_index < sh2.bar_index]
             sl1 = min(in_range, key=lambda l: l.price) if in_range else None
-            if sl1 is None or not (asia.asia_low <= sl1.price <= asia.asia_high): continue
-            if sh2.price >= sh1.price: continue  # need lower high
+            if sl1 is None or not (asia.asia_low <= sl1.price <= asia.asia_high):
+                continue
+            if sh2.price >= sh1.price:
+                continue  # need lower high
 
             swing_rel = len(bars) - window + sh2.bar_index
             bars_since = len(bars) - 1 - swing_rel
-            if bars_since < 1 or bars_since > 3: continue
+            if bars_since < 1 or bars_since > 3:
+                continue
 
             cur = bars[-1]
-            if cur["high"] > sh2.price: continue
-            if cur["close"] >= sh2.price: continue
+            if cur["high"] > sh2.price:
+                continue
+            if cur["close"] >= sh2.price:
+                continue
 
             first_bar_idx = len(bars) - window + sh1.bar_index
-            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            first_bar = (
+                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            )
             is_svc = False
             if first_bar:
-                prior = bars[max(0, first_bar_idx - 9):first_bar_idx]
+                prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
                 is_svc = self._detect_svc(first_bar, "short", prior)
 
             stop = sh1.price + (asia.asia_high - asia.asia_low) * 0.1
             target = asia.asia_low
-            conf = asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
+            conf = (
+                asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
+            )
             conf = min(conf, 1.0)
-            candidates.append(DetectedPattern(
-                pattern_type="M", direction="short", confidence=conf,
-                key_levels={"SH1": sh1.price, "SL1": sl1.price, "SH2": sh2.price,
-                           "stop": stop, "target": target,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-001", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
-                notes=f"FL-001 M: LH={sh2.price:.5f}, svc={is_svc}",
-            ))
+            candidates.append(
+                DetectedPattern(
+                    pattern_type="M",
+                    direction="short",
+                    confidence=conf,
+                    key_levels={
+                        "SH1": sh1.price,
+                        "SL1": sl1.price,
+                        "SH2": sh2.price,
+                        "stop": stop,
+                        "target": target,
+                        "asia_high": asia.asia_high,
+                        "asia_low": asia.asia_low,
+                    },
+                    flight_log_id="FL-001",
+                    asia_range=(asia.asia_high, asia.asia_low),
+                    stop_at_first_peak=True,
+                    mandatory_exit_time=asia.mandatory_exit_time,
+                    notes=f"FL-001 M: LH={sh2.price:.5f}, svc={is_svc}",
+                )
+            )
 
         return max(candidates, key=lambda p: p.confidence) if candidates else None
 
-    def _detect_fl002(
-        self, bars, current_price, asia
-    ) -> Optional[DetectedPattern]:
+    def _detect_fl002(self, bars, current_price, asia) -> Optional[DetectedPattern]:
         """FL-002: Liquidity Grab — single candle stop-hunt.
 
         Key TTC rules:
@@ -1151,53 +1336,95 @@ class PatternDetector:
             return None
         grab = bars[-2]
         post = bars[-1]
-        g_high, g_low, g_close, g_open = grab["high"], grab["low"], grab["close"], grab["open"]
+        g_high, g_low, g_close, g_open = (
+            grab["high"],
+            grab["low"],
+            grab["close"],
+            grab["open"],
+        )
         g_range = g_high - g_low
-        if g_range <= 0: return None
+        if g_range <= 0:
+            return None
         body = abs(g_close - g_open)
         body_ratio = body / g_range
         wick_ratio = 1.0 - body_ratio
-        if wick_ratio < 0.60 or body_ratio > 0.40: return None
+        if wick_ratio < 0.60 or body_ratio > 0.40:
+            return None
 
         # Volume spike
         g_vol = grab.get("volume", 0)
         if g_vol > 0 and len(bars) >= 10:
             avg_vol = sum(b.get("volume", 0) for b in bars[-10:-1]) / 9
-            if avg_vol > 0 and g_vol < avg_vol * 1.3: return None
+            if avg_vol > 0 and g_vol < avg_vol * 1.3:
+                return None
 
         # Bullish grab
         if g_low < asia.asia_low and g_close > asia.asia_low:
-            if post["close"] <= post.get("open", 0) and post["close"] <= g_close: return None
+            if post["close"] <= post.get("open", 0) and post["close"] <= g_close:
+                return None
             sweep = (asia.asia_low - g_low) / asia.asia_low * 100
             stop = g_low - g_range * 0.1
             target = asia.asia_high
             risk = asia.asia_low - stop
             rr = (target - asia.asia_low) / risk if risk > 0 else 0
-            conf = min(wick_ratio, 0.9) * 0.35 + min(sweep / 0.1, 1.0) * 0.25 + asia.quality_score * 0.25 + 0.15
+            conf = (
+                min(wick_ratio, 0.9) * 0.35
+                + min(sweep / 0.1, 1.0) * 0.25
+                + asia.quality_score * 0.25
+                + 0.15
+            )
             return DetectedPattern(
-                pattern_type="LIQUIDITY_GRAB", direction="long", confidence=min(conf, 1.0),
-                key_levels={"grab_low": g_low, "grab_high": g_high, "stop": stop, "target": target,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low, "rr": rr},
-                flight_log_id="FL-002", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
+                pattern_type="LIQUIDITY_GRAB",
+                direction="long",
+                confidence=min(conf, 1.0),
+                key_levels={
+                    "grab_low": g_low,
+                    "grab_high": g_high,
+                    "stop": stop,
+                    "target": target,
+                    "asia_high": asia.asia_high,
+                    "asia_low": asia.asia_low,
+                    "rr": rr,
+                },
+                flight_log_id="FL-002",
+                asia_range=(asia.asia_high, asia.asia_low),
+                stop_at_first_peak=True,
+                mandatory_exit_time=asia.mandatory_exit_time,
                 notes=f"FL-002 bull: sweep {sweep:.3f}%, RR={rr:.1f}",
             )
 
         # Bearish grab
         if g_high > asia.asia_high and g_close < asia.asia_high:
-            if post["close"] >= post.get("open", 0) and post["close"] >= g_close: return None
+            if post["close"] >= post.get("open", 0) and post["close"] >= g_close:
+                return None
             sweep = (g_high - asia.asia_high) / asia.asia_high * 100
             stop = g_high + g_range * 0.1
             target = asia.asia_low
             risk = stop - asia.asia_high
             rr = (asia.asia_high - target) / risk if risk > 0 else 0
-            conf = min(wick_ratio, 0.9) * 0.35 + min(sweep / 0.1, 1.0) * 0.25 + asia.quality_score * 0.25 + 0.15
+            conf = (
+                min(wick_ratio, 0.9) * 0.35
+                + min(sweep / 0.1, 1.0) * 0.25
+                + asia.quality_score * 0.25
+                + 0.15
+            )
             return DetectedPattern(
-                pattern_type="LIQUIDITY_GRAB", direction="short", confidence=min(conf, 1.0),
-                key_levels={"grab_low": g_low, "grab_high": g_high, "stop": stop, "target": target,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low, "rr": rr},
-                flight_log_id="FL-002", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
+                pattern_type="LIQUIDITY_GRAB",
+                direction="short",
+                confidence=min(conf, 1.0),
+                key_levels={
+                    "grab_low": g_low,
+                    "grab_high": g_high,
+                    "stop": stop,
+                    "target": target,
+                    "asia_high": asia.asia_high,
+                    "asia_low": asia.asia_low,
+                    "rr": rr,
+                },
+                flight_log_id="FL-002",
+                asia_range=(asia.asia_high, asia.asia_low),
+                stop_at_first_peak=True,
+                mandatory_exit_time=asia.mandatory_exit_time,
                 notes=f"FL-002 bear: sweep {sweep:.3f}%, RR={rr:.1f}",
             )
         return None
@@ -1206,7 +1433,8 @@ class PatternDetector:
         self, swings, bars, current_price, asia
     ) -> Optional[DetectedPattern]:
         """FL-003: Multi-Session M/W — first peak Asia, second near Asia boundary."""
-        if len(swings) < 4 or len(bars) < 4: return None
+        if len(swings) < 4 or len(bars) < 4:
+            return None
         sorted_swings = sorted(swings, key=lambda s: s.bar_index)
         highs = [s for s in sorted_swings if s.swing_type == SwingType.HIGH]
         lows = [s for s in sorted_swings if s.swing_type == SwingType.LOW]
@@ -1214,107 +1442,189 @@ class PatternDetector:
         window = min(300, len(bars))
 
         for sl1, sl2 in self._pair_consecutive(lows[-8:]):
-            if not (asia.asia_low * 0.999 <= sl1.price <= asia.asia_high): continue
-            if abs(sl2.price - asia.asia_low) > asia.asia_low * 0.002: continue
-            if sl2.price < asia.asia_low * 0.998: continue  # broke through → FL-004
+            if not (asia.asia_low * 0.999 <= sl1.price <= asia.asia_high):
+                continue
+            if abs(sl2.price - asia.asia_low) > asia.asia_low * 0.002:
+                continue
+            if sl2.price < asia.asia_low * 0.998:
+                continue  # broke through → FL-004
             in_range = [h for h in highs if sl1.bar_index < h.bar_index < sl2.bar_index]
             sh1 = max(in_range, key=lambda h: h.price) if in_range else None
-            if sh1 is None: continue
-            if current_price < sl2.price: continue
+            if sh1 is None:
+                continue
+            if current_price < sl2.price:
+                continue
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sl1.bar_index
-            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            first_bar = (
+                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            )
             is_svc = False
             if first_bar:
-                prior = bars[max(0, first_bar_idx - 9):first_bar_idx]
+                prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
                 is_svc = self._detect_svc(first_bar, "long", prior)
             stop = sl1.price - (asia.asia_high - asia.asia_low) * 0.1
             conf = asia.quality_score * 0.3 + 0.3 + 0.2 + 0.2 + (0.15 if is_svc else 0)
-            candidates.append(DetectedPattern(
-                pattern_type="W", direction="long", confidence=min(conf, 1.0),
-                key_levels={"SL1": sl1.price, "SL2": sl2.price, "stop": stop, "target": asia.asia_high,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-003", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
-                notes=f"FL-003 W: svc={is_svc}",
-            ))
+            candidates.append(
+                DetectedPattern(
+                    pattern_type="W",
+                    direction="long",
+                    confidence=min(conf, 1.0),
+                    key_levels={
+                        "SL1": sl1.price,
+                        "SL2": sl2.price,
+                        "stop": stop,
+                        "target": asia.asia_high,
+                        "asia_high": asia.asia_high,
+                        "asia_low": asia.asia_low,
+                    },
+                    flight_log_id="FL-003",
+                    asia_range=(asia.asia_high, asia.asia_low),
+                    stop_at_first_peak=True,
+                    mandatory_exit_time=asia.mandatory_exit_time,
+                    notes=f"FL-003 W: svc={is_svc}",
+                )
+            )
 
         for sh1, sh2 in self._pair_consecutive(highs[-8:]):
-            if not (asia.asia_low <= sh1.price <= asia.asia_high * 1.001): continue
-            if abs(sh2.price - asia.asia_high) > asia.asia_high * 0.002: continue
-            if sh2.price > asia.asia_high * 1.002: continue
+            if not (asia.asia_low <= sh1.price <= asia.asia_high * 1.001):
+                continue
+            if abs(sh2.price - asia.asia_high) > asia.asia_high * 0.002:
+                continue
+            if sh2.price > asia.asia_high * 1.002:
+                continue
             in_range = [l for l in lows if sh1.bar_index < l.bar_index < sh2.bar_index]
             sl1 = min(in_range, key=lambda l: l.price) if in_range else None
-            if sl1 is None: continue
-            if current_price > sh2.price: continue
+            if sl1 is None:
+                continue
+            if current_price > sh2.price:
+                continue
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sh1.bar_index
-            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            first_bar = (
+                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
+            )
             is_svc = False
             if first_bar:
-                prior = bars[max(0, first_bar_idx - 9):first_bar_idx]
+                prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
                 is_svc = self._detect_svc(first_bar, "short", prior)
             stop = sh1.price + (asia.asia_high - asia.asia_low) * 0.1
-            conf = min(asia.quality_score * 0.3 + 0.3 + 0.2 + 0.2 + (0.15 if is_svc else 0), 1.0)
-            candidates.append(DetectedPattern(
-                pattern_type="M", direction="short", confidence=conf,
-                key_levels={"SH1": sh1.price, "SH2": sh2.price, "stop": stop, "target": asia.asia_low,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-003", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
-                notes=f"FL-003 M: svc={is_svc}",
-            ))
+            conf = min(
+                asia.quality_score * 0.3 + 0.3 + 0.2 + 0.2 + (0.15 if is_svc else 0),
+                1.0,
+            )
+            candidates.append(
+                DetectedPattern(
+                    pattern_type="M",
+                    direction="short",
+                    confidence=conf,
+                    key_levels={
+                        "SH1": sh1.price,
+                        "SH2": sh2.price,
+                        "stop": stop,
+                        "target": asia.asia_low,
+                        "asia_high": asia.asia_high,
+                        "asia_low": asia.asia_low,
+                    },
+                    flight_log_id="FL-003",
+                    asia_range=(asia.asia_high, asia.asia_low),
+                    stop_at_first_peak=True,
+                    mandatory_exit_time=asia.mandatory_exit_time,
+                    notes=f"FL-003 M: svc={is_svc}",
+                )
+            )
 
         return max(candidates, key=lambda p: p.confidence) if candidates else None
 
-    def _detect_fl004(
-        self, bars, current_price, asia
-    ) -> Optional[DetectedPattern]:
+    def _detect_fl004(self, bars, current_price, asia) -> Optional[DetectedPattern]:
         """FL-004: Fakeout — multi-candle break + failure.
 
         Key distinction from FL-002:
         - FL-002: single candle stop-hunt (wick back inside)
         - FL-004: multi-candle ACCEPTANCE outside range, then failure
         """
-        if len(bars) < 5: return None
+        if len(bars) < 5:
+            return None
         pre = bars[-6:-1]
         cur = bars[-1]
         closed_below = sum(1 for b in pre if b["close"] < asia.asia_low)
         closed_above = sum(1 for b in pre if b["close"] > asia.asia_high)
 
         if closed_below >= 2 and cur["close"] > asia.asia_low:
-            if cur["close"] <= cur.get("open", 0): return None
+            if cur["close"] <= cur.get("open", 0):
+                return None
             # SVC check on breakout candle
-            breakout_bar = max(pre, key=lambda b: (asia.asia_low - b["low"]) if b["low"] < asia.asia_low else 0)
-            prior = bars[max(0, len(bars) - 6 - 9):len(bars) - 6]
+            breakout_bar = max(
+                pre,
+                key=lambda b: (
+                    (asia.asia_low - b["low"]) if b["low"] < asia.asia_low else 0
+                ),
+            )
+            prior = bars[max(0, len(bars) - 6 - 9) : len(bars) - 6]
             is_svc = self._detect_svc(breakout_bar, "long", prior) if prior else False
             sweep_low = min(b["low"] for b in pre)
             stop = sweep_low - (asia.asia_high - asia.asia_low) * 0.05
-            conf = asia.quality_score * 0.25 + min(closed_below / 4.0, 1.0) * 0.35 + 0.25 + 0.15 + (0.15 if is_svc else 0)
+            conf = (
+                asia.quality_score * 0.25
+                + min(closed_below / 4.0, 1.0) * 0.35
+                + 0.25
+                + 0.15
+                + (0.15 if is_svc else 0)
+            )
             return DetectedPattern(
-                pattern_type="W", direction="long", confidence=min(conf, 1.0),
-                key_levels={"sweep_low": sweep_low, "stop": stop, "target": asia.asia_high,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-004", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
+                pattern_type="W",
+                direction="long",
+                confidence=min(conf, 1.0),
+                key_levels={
+                    "sweep_low": sweep_low,
+                    "stop": stop,
+                    "target": asia.asia_high,
+                    "asia_high": asia.asia_high,
+                    "asia_low": asia.asia_low,
+                },
+                flight_log_id="FL-004",
+                asia_range=(asia.asia_high, asia.asia_low),
+                stop_at_first_peak=True,
+                mandatory_exit_time=asia.mandatory_exit_time,
                 notes=f"FL-004 W: {closed_below} bars below, svc={is_svc}",
             )
 
         if closed_above >= 2 and cur["close"] < asia.asia_high:
-            if cur["close"] >= cur.get("open", 0): return None
+            if cur["close"] >= cur.get("open", 0):
+                return None
             # SVC check on breakout candle
-            breakout_bar = max(pre, key=lambda b: (b["high"] - asia.asia_high) if b["high"] > asia.asia_high else 0)
-            prior = bars[max(0, len(bars) - 6 - 9):len(bars) - 6]
+            breakout_bar = max(
+                pre,
+                key=lambda b: (
+                    (b["high"] - asia.asia_high) if b["high"] > asia.asia_high else 0
+                ),
+            )
+            prior = bars[max(0, len(bars) - 6 - 9) : len(bars) - 6]
             is_svc = self._detect_svc(breakout_bar, "short", prior) if prior else False
             sweep_high = max(b["high"] for b in pre)
             stop = sweep_high + (asia.asia_high - asia.asia_low) * 0.05
-            conf = asia.quality_score * 0.25 + min(closed_above / 4.0, 1.0) * 0.35 + 0.25 + 0.15 + (0.15 if is_svc else 0)
+            conf = (
+                asia.quality_score * 0.25
+                + min(closed_above / 4.0, 1.0) * 0.35
+                + 0.25
+                + 0.15
+                + (0.15 if is_svc else 0)
+            )
             return DetectedPattern(
-                pattern_type="M", direction="short", confidence=min(conf, 1.0),
-                key_levels={"sweep_high": sweep_high, "stop": stop, "target": asia.asia_low,
-                           "asia_high": asia.asia_high, "asia_low": asia.asia_low},
-                flight_log_id="FL-004", asia_range=(asia.asia_high, asia.asia_low),
-                stop_at_first_peak=True, mandatory_exit_time=asia.mandatory_exit_time,
+                pattern_type="M",
+                direction="short",
+                confidence=min(conf, 1.0),
+                key_levels={
+                    "sweep_high": sweep_high,
+                    "stop": stop,
+                    "target": asia.asia_low,
+                    "asia_high": asia.asia_high,
+                    "asia_low": asia.asia_low,
+                },
+                flight_log_id="FL-004",
+                asia_range=(asia.asia_high, asia.asia_low),
+                stop_at_first_peak=True,
+                mandatory_exit_time=asia.mandatory_exit_time,
                 notes=f"FL-004 M: {closed_above} bars above, svc={is_svc}",
             )
         return None
