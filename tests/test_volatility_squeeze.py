@@ -330,7 +330,7 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
         strategy = VolatilitySqueezeStrategy()
         self.assertEqual(strategy.config.bb_period, 20)
         self.assertEqual(strategy.config.bb_std_dev, 2.0)
-        self.assertEqual(strategy.config.min_squeeze_bars, 1)
+        self.assertEqual(strategy.config.min_squeeze_bars, 2)
 
     def test_custom_config(self):
         config = VolatilitySqueezeConfig(bb_period=10, adx_min=25)
@@ -383,19 +383,19 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
 
 class TestPresets(unittest.TestCase):
     def test_gbpjy_preset_values(self):
-        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 1)
+        self.assertEqual(GBPJPY_H1_PRESET.min_squeeze_bars, 2)
         self.assertEqual(GBPJPY_H1_PRESET.adx_min, 15)
-        self.assertFalse(GBPJPY_H1_PRESET.session_filter)
+        self.assertTrue(GBPJPY_H1_PRESET.session_filter)
 
     def test_eurusd_preset_values(self):
-        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 1)
+        self.assertEqual(EURUSD_H1_PRESET.min_squeeze_bars, 2)
         self.assertEqual(EURUSD_H1_PRESET.adx_min, 15)
-        self.assertFalse(EURUSD_H1_PRESET.session_filter)
+        self.assertTrue(EURUSD_H1_PRESET.session_filter)
 
     def test_xauusd_preset_values(self):
         self.assertEqual(XAUUSD_H1_PRESET.bb_std_dev, 2.5)
         self.assertEqual(XAUUSD_H1_PRESET.atr_sl_multiplier, 2.0)
-        self.assertFalse(XAUUSD_H1_PRESET.session_filter)
+        self.assertTrue(XAUUSD_H1_PRESET.session_filter)
 
     def test_presets_are_frozen(self):
         import dataclasses
@@ -412,7 +412,7 @@ class TestVolatilitySqueezeConfig(unittest.TestCase):
         self.assertEqual(config.kc_period, 20)
         self.assertEqual(config.kc_atr_multiplier, 2.0)
         self.assertEqual(config.squeeze_threshold, 0.0)
-        self.assertEqual(config.min_squeeze_bars, 1)
+        self.assertEqual(config.min_squeeze_bars, 2)
         self.assertEqual(config.ema_period, 20)
         self.assertEqual(config.adx_period, 14)
         self.assertAlmostEqual(config.adx_min, 15.0)
@@ -421,7 +421,7 @@ class TestVolatilitySqueezeConfig(unittest.TestCase):
         self.assertAlmostEqual(config.tp1_rr, 1.0)
         self.assertAlmostEqual(config.tp2_rr, 2.0)
         self.assertAlmostEqual(config.tp3_rr, 3.0)
-        self.assertFalse(config.session_filter)
+        self.assertTrue(config.session_filter)
         self.assertAlmostEqual(config.min_confidence, 0.50)
 
     def test_frozen_dataclass(self):
