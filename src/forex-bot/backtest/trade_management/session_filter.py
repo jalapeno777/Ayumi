@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..engine import Bar, TradeDirection
 
@@ -164,19 +164,28 @@ class SessionFilter:
 
         return SessionFilterResult(force_close=False)
 
+    @staticmethod
+    def _ensure_utc(time: datetime) -> datetime:
+        if time.tzinfo is not None:
+            return time.astimezone(timezone.utc)
+        return time
+
     def is_kill_zone(self, bar_time: datetime) -> bool:
+        bar_time = self._ensure_utc(bar_time)
         for kz in self.kill_zones:
             if kz.is_kill_zone and kz.start_hour_utc <= bar_time.hour < kz.end_hour_utc:
                 return True
         return False
 
     def _get_session_name(self, time: datetime) -> str:
+        time = self._ensure_utc(time)
         for kz in self.kill_zones:
             if kz.start_hour_utc <= time.hour < kz.end_hour_utc:
                 return kz.name
         return "outside"
 
     def _is_weekend_close(self, time: datetime) -> bool:
+        time = self._ensure_utc(time)
         if time.weekday() == 4:
             if time.hour > self.weekend_close_hour:
                 return True
