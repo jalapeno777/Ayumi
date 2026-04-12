@@ -443,8 +443,9 @@ class MultiStrategyBacktestEngine:
         pip_value = self._get_pip_value(signal.entry_price)
         stop_pips = risk / pip_value
 
-        # Confidence-based risk sizing
-        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
+        # Confidence-based risk sizing — reduce by 50% during high-volatility bars
+        vol_multiplier = 0.5 if signal.is_volatile else 1.0
+        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence) * vol_multiplier
         lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None

@@ -123,9 +123,18 @@ def load_bars(pair: str, timeframe: str = "H1") -> list:
             if len(parts) < 6:
                 continue
             try:
+                date_str = parts[0].strip()
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+                    try:
+                        bar_time = _dt.strptime(date_str, fmt)
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    continue
                 bars.append(
                     Bar(
-                        time=_dt.strptime(parts[0], "%Y-%m-%d %H:%M"),
+                        time=bar_time,
                         open=float(parts[1]),
                         high=float(parts[2]),
                         low=float(parts[3]),
@@ -136,7 +145,7 @@ def load_bars(pair: str, timeframe: str = "H1") -> list:
             except (ValueError, IndexError):
                 continue
 
-    logger.info("Loaded %d H1 bars for %s", len(bars), pair)
+    logger.info("Loaded %d %s bars for %s", len(bars), timeframe, pair)
     return bars
 
 

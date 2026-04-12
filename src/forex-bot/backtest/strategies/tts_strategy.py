@@ -79,7 +79,6 @@ HTF_COUNTER_TREND_NC = -0.08  # HTF alignment opposes entry direction
 LATE_KILL_ZONE_NC = -0.06  # UK session nearly over (near 8am NY)
 VOLUME_DIVERGENCE_NC = -0.05  # Price up/down but volume not confirming
 BB_SQUEEZE_NC = -0.04  # Bollinger bandwidth compressed = breakout risk
-VOLATILE_SESSION_NC = -0.06  # ATR near multi-month high = high volatility = negative
 ADX_EXHAUSTION_NC = -0.05  # ADX > 40 but price stalling = weakening
 VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
 ASIA_RANGE_WIDE_NC = -0.05  # Asia range > 2% of price = low quality range
@@ -173,6 +172,8 @@ class TTSStrategy(ISignalStrategy):
         self.min_confidence = min_confidence
         self.min_quality_score = min_quality_score
         self.lookback = lookback
+        self.timeframe = timeframe
+        self._is_volatile_session = False  # set per-bar in evaluate
 
         # Phase 2 components
         self._pattern_detector = PatternDetector()
@@ -246,6 +247,9 @@ class TTSStrategy(ISignalStrategy):
 
         latest = bars[-1]
         bar_idx = len(bars) - 1
+
+        # Mark high-volatility bars for reduced position sizing
+        self._is_volatile_session = self._check_volatile_session(bars) < 0
 
         # Skip if already evaluated (batch mode dedup)
         if bar_idx == self._last_bar_idx:
@@ -527,9 +531,6 @@ class TTSStrategy(ISignalStrategy):
             neg_bb = self._check_bb_squeeze(bars, best_pattern.direction)
             if neg_bb < 0:
                 builder.add_boost("bb_squeeze", neg_bb * neg_weight)
-            neg_volatile = self._check_volatile_session(bars)
-            if neg_volatile < 0:
-                builder.add_boost("volatile_session", neg_volatile * neg_weight)
             neg_adx = self._check_adx_exhaustion(bars, best_pattern.direction)
             if neg_adx < 0:
                 builder.add_boost("adx_exhaustion", neg_adx * neg_weight)
@@ -671,6 +672,7 @@ class TTSStrategy(ISignalStrategy):
             take_profit_2=tp_mgr.tp2_price,
             take_profit_3=tp_mgr.tp3_price,
             rationale=rationale,
+            is_volatile=self._is_volatile_session,
         )
 
     def _get_asia_result(self, bars: list[Bar]) -> Optional[AsiaRangeResult]:

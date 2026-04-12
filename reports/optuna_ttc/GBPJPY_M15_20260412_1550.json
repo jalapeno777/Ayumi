@@ -1,0 +1,37 @@
+{
+  "pair": "GBPJPY",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": 0.48784752848061974,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.5,
+    "min_quality_score": 0.15,
+    "mw_base_confidence": 0.35000000000000003,
+    "rsi_divergence_boost": 0.1,
+    "htf_trend_aligned_boost": 0.0,
+    "htf_opposing_penalty": -0.15,
+    "kill_zone_active_boost": -0.15,
+    "negative_weight": 1.5,
+    "swing_lookback": 8,
+    "history_bars": 80
+  },
+  "study_summary": {
+    "n_trials": 100,
+    "n_complete": 100,
+    "n_pruned": 0,
+    "best_score": 0.48784752848061974,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T15:50:31.246195",
+  "best_metrics": {
+    "win_rate": 0.5333333333333333,
+    "profit_factor": 1.282174850379843,
+    "max_drawdown": 0.016396620909894,
+    "sharpe_ratio": 0.5648947794863834,
+    "trade_count": 7.6,
+    "total_pnl": 1.6818040243960368,
+    "windows_passed": 2,
+    "total_windows": 5
+  }
+}
