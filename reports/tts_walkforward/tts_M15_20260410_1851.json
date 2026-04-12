@@ -1,0 +1,15 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.3,
+    "min_quality_score": 0.3,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "EURUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.5, profit_factor=0.1776376677817777, max_drawdown=0.010906976744185158, sharpe_ratio=-7.838569143456971, trade_count=2, total_pnl=-89.69486832798056, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.010906976744185158, sharpe_ratio=0.0, trade_count=1, total_pnl=-109.06976744185111, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5, profit_factor=1.964346172605585, max_drawdown=0.021041945134340677, sharpe_ratio=4.465455114036838, trade_count=4, total_pnl=202.917192544781, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.3333333333333333, std_win_rate=0.2886751345948129, mean_profit_factor=0.7139946134624543, std_profit_factor=1.086472756834004, mean_max_drawdown=0.014285299540903665, std_max_drawdown=0.0058514267282846364, mean_sharpe_ratio=-1.1243713431400444, std_sharpe_ratio=6.228596264023294, mean_trade_count=2.3333333333333335, std_trade_count=1.5275252316519468, mean_total_pnl=1.3841855916497725, std_total_pnl=174.8013482430736, windows_passed=0, total_windows=3), go_nogo=False)"
+  },
+  "go_nogo": {}
+}

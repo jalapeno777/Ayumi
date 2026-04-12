@@ -34,6 +34,7 @@ from signal_engine.data_types import HTFState, SessionState, Swing, Level
 from signal_engine.swing_detector import SwingDetector
 from signal_engine.level_counter import LevelCounter
 from signal_engine.htf_analyzer import HTFAnalyzer
+from ml.per_symbol_configs import PER_SYMBOL_CONFIGS
 
 import numpy as np
 
@@ -53,6 +54,7 @@ ILOD_IHOD_AT_BOUNDARY_BOOST = 0.05
 VWAP_REJECTION_BOOST = 0.10
 KILL_ZONE_ACTIVE_BOOST = -0.05
 HTF_OPPOSING_PENALTY = -0.15
+NEGATIVE_WEIGHT = 1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
 
 # New confluence boost constants
 MFI_BOOST = 0.08
@@ -68,6 +70,19 @@ EMA_CLUSTER_BOOST = 0.06
 # 4H 200 EMA confluence
 HTF_200EMA_BOOST = 0.10
 HTF_200EMA_PENALTY = 0.08
+
+# Negative confluence constants (reduce confidence when triggered)
+RSI_OVERBOUGHT_NC = -0.05    # RSI > 70 for longs = overbought
+RSI_OVERSOLD_NC = -0.05      # RSI < 30 for shorts = oversold
+HTF_COUNTER_TREND_NC = -0.08  # HTF alignment opposes entry direction
+LATE_KILL_ZONE_NC = -0.06    # UK session nearly over (near 8am NY)
+VOLUME_DIVERGENCE_NC = -0.05  # Price up/down but volume not confirming
+BB_SQUEEZE_NC = -0.04        # Bollinger bandwidth compressed = breakout risk
+ADX_EXHAUSTION_NC = -0.05    # ADX > 40 but price stalling = weakening
+VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
+ASIA_RANGE_WIDE_NC = -0.05   # Asia range > 2% of price = low quality range
+MFI_OVERBOUGHT_NC = -0.04    # MFI > 80 for longs
+MFI_OVERSOLD_NC = -0.04      # MFI < 20 for shorts
 
 # Pattern-type-specific base confidence
 PATTERN_BASE_CONFIGS = {
@@ -488,6 +503,36 @@ class TTSStrategy(ISignalStrategy):
             name = "htf_200ema_aligned" if htf_200ema > 0 else "htf_200ema_fighting"
             builder.add_boost(name, htf_200ema)
 
+        # ── Negative confluence (reduce confidence when triggered) ─────
+        neg_weight = PER_SYMBOL_CONFIGS.get(self.symbol.upper(), {}).get(
+            self.timeframe, {}
+        ).get("negative_weight", 1.0)
+        if neg_weight > 0:
+            neg_rsi = self._check_rsi_negative_confluence(bars, best_pattern.direction)
+            if neg_rsi < 0:
+                builder.add_boost("rsi_overbought_oversold", neg_rsi * neg_weight)
+            neg_htf = self._check_htf_counter_trend(htf_state, best_pattern.direction)
+            if neg_htf < 0:
+                builder.add_boost("htf_counter_trend", neg_htf * neg_weight)
+            neg_kz = self._check_late_kill_zone(session_state)
+            if neg_kz < 0:
+                builder.add_boost("late_kill_zone", neg_kz * neg_weight)
+            neg_vol = self._check_volume_divergence(bars, best_pattern.direction)
+            if neg_vol < 0:
+                builder.add_boost("volume_divergence", neg_vol * neg_weight)
+            neg_bb = self._check_bb_squeeze(bars, best_pattern.direction)
+            if neg_bb < 0:
+                builder.add_boost("bb_squeeze", neg_bb * neg_weight)
+            neg_adx = self._check_adx_exhaustion(bars, best_pattern.direction)
+            if neg_adx < 0:
+                builder.add_boost("adx_exhaustion", neg_adx * neg_weight)
+            neg_mfi = self._check_mfi_negative(bars, best_pattern.direction)
+            if neg_mfi < 0:
+                builder.add_boost("mfi_extreme", neg_mfi * neg_weight)
+            neg_asia = self._check_asia_range_quality(asia_result, latest)
+            if neg_asia < 0:
+                builder.add_boost("asia_range_wide", neg_asia * neg_weight)
+
         # Require active session (not outside core hours)
         if session_state.phase_score < 0.2:
             return None
@@ -895,6 +940,142 @@ class TTSStrategy(ISignalStrategy):
             return HTF_200EMA_BOOST if direction == "long" else -HTF_200EMA_PENALTY
         else:
             return HTF_200EMA_BOOST if direction == "short" else -HTF_200EMA_PENALTY
+
+    # ── Negative confluence check methods ──────────────────────────
+
+    def _compute_rsi(self, closes: list[float], period: int = 14) -> list[float]:
+        """Compute RSI for a list of close prices."""
+        if len(closes) < period + 1:
+            return []
+        deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+        gains = [d if d > 0 else 0.0 for d in deltas]
+        losses = [-d if d < 0 else 0.0 for d in deltas]
+        avg_gain = sum(gains[-period:]) / period
+        avg_loss = sum(losses[-period:]) / period
+        if avg_loss == 0:
+            return [100.0] * len(closes)
+        rs = avg_gain / avg_loss
+        rsi = [100.0 - (100.0 / (1.0 + rs))]
+        for i in range(period, len(closes)):
+            avg_gain = (avg_gain * (period - 1) + gains[i-1]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i-1]) / period
+            if avg_loss == 0:
+                rsi.append(100.0)
+            else:
+                rs = avg_gain / avg_loss
+                rsi.append(100.0 - (100.0 / (1.0 + rs)))
+        return rsi
+
+    def _check_rsi_negative_confluence(self, bars: list[Bar], direction: str) -> float:
+        """RSI overbought (>70) for longs or RSI oversold (<30) for shorts = negative."""
+        if len(bars) < 15:
+            return 0.0
+        closes = [b.close for b in bars[-15:]]
+        rsi = self._compute_rsi(closes, period=14)
+        if not rsi:
+            return 0.0
+        current_rsi = rsi[-1]
+        if direction == "long" and current_rsi > 70:
+            return RSI_OVERBOUGHT_NC
+        if direction == "short" and current_rsi < 30:
+            return RSI_OVERSOLD_NC
+        return 0.0
+
+    def _check_htf_counter_trend(self, htf_state: HTFState, direction: str) -> float:
+        """HTF alignment opposes entry direction = negative."""
+        if not htf_state or not hasattr(htf_state, 'alignment_score'):
+            return 0.0
+        alignment = htf_state.alignment_score
+        if direction == "long" and alignment < -0.3:
+            return HTF_COUNTER_TREND_NC
+        if direction == "short" and alignment > 0.3:
+            return HTF_COUNTER_TREND_NC
+        return 0.0
+
+    def _check_late_kill_zone(self, session_state: SessionState) -> float:
+        """UK session near close (last ~45 min) = negative for new entries."""
+        if not session_state or session_state.session_name != "UK":
+            return 0.0
+        if session_state.phase_score < 0.3:
+            return LATE_KILL_ZONE_NC
+        return 0.0
+
+    def _check_volume_divergence(self, bars: list[Bar], direction: str) -> float:
+        """Price direction and volume direction diverge = negative."""
+        if len(bars) < 10:
+            return 0.0
+        recent = bars[-10:]
+        avg_volume = sum(b.volume for b in recent) / len(recent)
+        last_volume = recent[-1].volume
+        if last_volume < avg_volume * 0.7:
+            price_change_pct = abs(recent[-1].close - recent[0].close) / recent[0].close
+            if price_change_pct > 0.002:
+                return VOLUME_DIVERGENCE_NC
+        return 0.0
+
+    def _check_bb_squeeze(self, bars: list[Bar], direction: str) -> float:
+        """Bollinger bandwidth near recent low = squeeze = breakout risk = negative."""
+        if len(bars) < 20:
+            return 0.0
+        recent = bars[-20:]
+        closes = [b.close for b in recent]
+        mean = sum(closes) / len(closes)
+        variance = sum((x - mean) ** 2 for x in closes) / len(closes)
+        bandwidth = variance ** 0.5
+        if len(closes) < 10:
+            return 0.0
+        older = closes[:-5]
+        older_mean = sum(older) / len(older)
+        older_var = sum((x - older_mean) ** 2 for x in older) / len(older)
+        older_bandwidth = older_var ** 0.5
+        if older_bandwidth > 0 and bandwidth < older_bandwidth * 0.5:
+            return BB_SQUEEZE_NC
+        return 0.0
+
+    def _check_adx_exhaustion(self, bars: list[Bar], direction: str) -> float:
+        """ADX > 40 but price stalling = exhaustion = negative for continuation."""
+        if len(bars) < 15:
+            return 0.0
+        trs = []
+        for i in range(1, len(bars)):
+            high = bars[i].high
+            low = bars[i].low
+            prev_close = bars[i-1].close
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            trs.append(tr)
+        if len(trs) < 10:
+            return 0.0
+        recent_trend = sum(trs[-5:]) / 5
+        older_trend = sum(trs[-10:-5]) / 5
+        if recent_trend < older_trend * 0.8 and recent_trend > 0.0001:
+            return ADX_EXHAUSTION_NC
+        return 0.0
+
+    def _check_mfi_negative(self, bars: list[Bar], direction: str) -> float:
+        """MFI overbought (>80) for longs or oversold (<20) for shorts = negative."""
+        if len(bars) < 15:
+            return 0.0
+        typical_prices = [(b.high + b.low + b.close) / 3 * b.volume for b in bars[-15:]]
+        if not typical_prices or sum(typical_prices) == 0:
+            return 0.0
+        mfi = typical_prices[-1] / (sum(typical_prices) + 0.00001) * 100
+        mfi = max(0.0, min(100.0, mfi))
+        if direction == "long" and mfi > 80:
+            return MFI_OVERBOUGHT_NC
+        if direction == "short" and mfi < 20:
+            return MFI_OVERSOLD_NC
+        return 0.0
+
+    def _check_asia_range_quality(self, asia_result, latest: Bar) -> float:
+        """Asia range > 2% of price = low quality range = negative."""
+        if not asia_result:
+            return 0.0
+        if asia_result.ilod is None or asia_result.ilod == 0:
+            return 0.0
+        range_pct = abs(asia_result.ilod - latest.close) / latest.close
+        if range_pct > 0.020:
+            return ASIA_RANGE_WIDE_NC
+        return 0.0
 
     @staticmethod
     def _resample_to_h4(bars: list[Bar]) -> list[Bar]:

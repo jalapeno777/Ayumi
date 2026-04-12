@@ -1,0 +1,1465 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.2,
+    "min_quality_score": 0.2,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "EURUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.55, profit_factor=0.947716036912042, max_drawdown=0.014655262578414105, sharpe_ratio=-0.3771973519609551, trade_count=20, total_pnl=-11.379072405208106, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.42857142857142855, profit_factor=0.8011959859835738, max_drawdown=0.007975985651646835, sharpe_ratio=-1.4845362841076677, trade_count=14, total_pnl=-40.01906364591973, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5217391304347826, profit_factor=1.028357759514827, max_drawdown=0.009703446421941693, sharpe_ratio=0.20124352645977525, trade_count=23, total_pnl=7.183211266549659, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.500103519668737, std_win_rate=0.06353974527577831, mean_profit_factor=0.9257565941368142, std_profit_factor=0.11516197585885268, mean_max_drawdown=0.010778231550667544, std_max_drawdown=0.0034669233292371916, mean_sharpe_ratio=-0.5534967032029492, std_sharpe_ratio=0.8566063788960844, mean_trade_count=19.0, std_trade_count=4.58257569495584, mean_total_pnl=-14.738308261526058, std_total_pnl=23.779761108595338, windows_passed=0, total_windows=3), go_nogo=False)",
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.42105263157894735, profit_factor=1.0730062338047617, max_drawdown=0.009709259259317595, sharpe_ratio=0.4698544597900711, trade_count=19, total_pnl=15.304210586081709, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.5333333333333333, profit_factor=3.0380474259099675, max_drawdown=0.0036156784655544134, sharpe_ratio=6.975317268783196, trade_count=15, total_pnl=168.76950259102884, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5238095238095238, profit_factor=1.0126657209082657, max_drawdown=0.011898515707454862, sharpe_ratio=0.08553283602992182, trade_count=21, total_pnl=3.6933104266141896, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.49273182957393485, std_win_rate=0.06225838341833905, mean_profit_factor=1.707906460207665, std_profit_factor=1.152330892519047, mean_max_drawdown=0.008407817810775623, std_max_drawdown=0.004292046199301742, mean_sharpe_ratio=2.5102348548677296, std_sharpe_ratio=3.871646484367508, mean_trade_count=18.333333333333332, std_trade_count=3.0550504633038935, mean_total_pnl=62.589007867908244, std_total_pnl=92.13808303499297, windows_passed=0, total_windows=3), go_nogo=False)",
+    "XAUUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.6833601211905742, max_drawdown=0.010731706388034036, sharpe_ratio=-2.598701634836755, trade_count=12, total_pnl=-57.44156834983186, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.48484848484848486, profit_factor=1.061026901606671, max_drawdown=0.02891878812838169, sharpe_ratio=0.386712868512605, trade_count=33, total_pnl=27.15982013464227, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5714285714285714, profit_factor=1.9980758691856224, max_drawdown=0.01439540971561474, sharpe_ratio=4.728894883431748, trade_count=21, total_pnl=195.71045564543917, passed_go_nogo=True)], aggregated=AggregatedMetrics(mean_win_rate=0.4632034632034632, std_win_rate=0.12051438014783597, mean_profit_factor=1.247487630660956, std_profit_factor=0.6769010837014049, mean_max_drawdown=0.018015301410676823, std_max_drawdown=0.009618741990016489, mean_sharpe_ratio=0.8389687057025327, std_sharpe_ratio=3.684673552750561, mean_trade_count=22.0, std_trade_count=10.535653752852738, mean_total_pnl=55.14290247674986, std_total_pnl=128.87504213869127, windows_passed=1, total_windows=3), go_nogo=False)"
+  },
+  "trade_records": [
+    {
+      "pnl": 22.732558139537232,
+      "confidence_score": 0.3900000000000693,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.09730, conf=0.39, boosts=[('asia_gap_favorable', 0.05), ('ema_cross', 0.08), ('quality_gate', 0.05400000000006928), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -26.001026694044157,
+      "confidence_score": 0.3905,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: FL short @ 1.09401, conf=0.39, boosts=[('adx', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.95241477272798,
+      "confidence_score": 0.49769424460433176,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.10041, conf=0.50, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.057194244604331715), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.42233009708885,
+      "confidence_score": 0.35868181818183786,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.09427, conf=0.36, boosts=[('ema_cross', 0.08), ('quality_gate', 0.06818181818183784), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.3726495327102859,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.09172, conf=0.37, boosts=[('mfi', 0.08), ('quality_gate', 0.07464953271028586), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.267441860467205,
+      "confidence_score": 0.43324725274723425,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.09454, conf=0.43, boosts=[('asia_gap_favorable', 0.05), ('ilod_ihod_at_boundary', 0.05), ('bollinger', 0.07), ('quality_gate', 0.05274725274723425), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628842,
+      "confidence_score": 0.29275806451615155,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.09414, conf=0.29, boosts=[('quality_gate', 0.08225806451615156), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -51.91885964912064,
+      "confidence_score": 0.5147857142857653,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.09857, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.06428571428576527), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.65055762081716,
+      "confidence_score": 0.3362009345794282,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.09474, conf=0.34, boosts=[('ilod_ihod_at_boundary', 0.05), ('quality_gate', 0.0757009345794282), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.44319230769229406,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.09750, conf=0.44, boosts=[('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.082692307692294), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.549237983587894,
+      "confidence_score": 0.4690697674418362,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.08690, conf=0.47, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('asia_gap_favorable', 0.05), ('quality_gate', 0.05406976744183615), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.51532769555974,
+      "confidence_score": 0.37385714285713345,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.07943, conf=0.37, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.06785714285713342), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.813953488371244,
+      "confidence_score": 0.266,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.07640, conf=0.27, boosts=[('quality_gate', 0.06), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628758,
+      "confidence_score": 0.30157142857148383,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.07827, conf=0.30, boosts=[('quality_gate', 0.0910714285714838), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.06567796609972,
+      "confidence_score": 0.384090909090903,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: SVC_VACATION short @ 1.07617, conf=0.38, boosts=[('htf_consolidating', -0.05), ('kill_zone_active', 0.05), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('quality_gate', 0.05909090909090298), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.7325581395328,
+      "confidence_score": 0.39106818181819186,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.07814, conf=0.39, boosts=[('asia_gap_favorable', 0.05), ('rsi_extreme', 0.06), ('quality_gate', 0.06306818181819185), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.964354527939282,
+      "confidence_score": 0.4610000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.08119, conf=0.46, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.075), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.906976744185108,
+      "confidence_score": 0.2265000000000107,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.08185, conf=0.23, boosts=[('htf_consolidating', -0.05), ('quality_gate', 0.06600000000001066), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628842,
+      "confidence_score": 0.23403260869564804,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.08367, conf=0.23, boosts=[('htf_consolidating', -0.05), ('quality_gate', 0.06603260869564805), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 15.849156118143581,
+      "confidence_score": 0.4092857142856463,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.08417, conf=0.41, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.0642857142856463), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -53.34757834757548,
+      "confidence_score": 0.5860000000000889,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.08217, conf=0.59, boosts=[('htf_trend_aligned', 0.1), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.09000000000008883), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.9285714285725,
+      "confidence_score": 0.4464322033897933,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.08561, conf=0.45, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.05593220338979319), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4059347826087083,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.08767, conf=0.41, boosts=[('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.055434782608708245), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.583333333332666,
+      "confidence_score": 0.33879268292682513,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.05540, conf=0.34, boosts=[('rsi_extreme', 0.06), ('quality_gate', 0.06829268292682508), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.579545454547013,
+      "confidence_score": 0.43234782608693767,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: SVC_SPRING long @ 1.05595, conf=0.43, boosts=[('mfi', 0.08), ('ema_cross', 0.08), ('quality_gate', 0.05434782608693763), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.407949790794575,
+      "confidence_score": 0.3436249999999971,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.05956, conf=0.34, boosts=[('mfi', 0.08), ('quality_gate', 0.053124999999997105), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.946601941746636,
+      "confidence_score": 0.4296666666666662,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.05170, conf=0.43, boosts=[('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.07916666666666615), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.774336283184935,
+      "confidence_score": 0.3281147540983556,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.04693, conf=0.33, boosts=[('kill_zone_active', 0.05), ('quality_gate', 0.06311475409835558), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.339805825242344,
+      "confidence_score": 0.33143749999999245,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.04982, conf=0.33, boosts=[('rsi_extreme', 0.06), ('quality_gate', 0.060937499999992414), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 45.93023255814421,
+      "confidence_score": 0.5255000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.05413, conf=0.53, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.135), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.500000000002103,
+      "confidence_score": 0.3785714285714116,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.05783, conf=0.38, boosts=[('kill_zone_active', 0.05), ('rsi_extreme', 0.06), ('quality_gate', 0.053571428571411575), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720927905,
+      "confidence_score": 0.4002631578947307,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: SVC_SPRING long @ 1.05003, conf=0.40, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.05526315789473069), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -52.86458333333137,
+      "confidence_score": 0.5234210526315743,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.05159, conf=0.52, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.11842105263157433), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.376543209878456,
+      "confidence_score": 0.36550000000000005,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.04198, conf=0.37, boosts=[('mfi', 0.08), ('quality_gate', 0.075), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.44999999999999263,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: SVC_SPRING long @ 1.16943, conf=0.45, boosts=[('kill_zone_active', 0.05), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('quality_gate', 0.0549999999999926), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.35365789473685133,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16890, conf=0.35, boosts=[('mfi', 0.08), ('quality_gate', 0.06315789473685132), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 24.254684838160966,
+      "confidence_score": 0.49153061224489103,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16870, conf=0.49, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.07653061224489101), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -26.453488372091442,
+      "confidence_score": 0.4394329896906997,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.16835, conf=0.44, boosts=[('kill_zone_active', 0.05), ('adx', 0.06), ('quality_gate', 0.1144329896906997), ('confluence_scorer', 0.015)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4247043618739913,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: SVC_SPRING long @ 1.17048, conf=0.42, boosts=[('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.05670436187399127), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 24.09188034188103,
+      "confidence_score": 0.47956249999998707,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.17276, conf=0.48, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.08906249999998699), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.267441860462778,
+      "confidence_score": 0.39459836065570997,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.18189, conf=0.39, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.05409836065570995), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.753955696203317,
+      "confidence_score": 0.4176428571428232,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.17865, conf=0.42, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.10714285714282315), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -0.3488372093014632,
+      "confidence_score": 0.28790291262135,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.17539, conf=0.29, boosts=[('quality_gate', 0.06990291262134996), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.586864406780053,
+      "confidence_score": 0.3057380952381179,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.17328, conf=0.31, boosts=[('quality_gate', 0.0952380952381179), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.000000000000943,
+      "confidence_score": 0.2919285714286122,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.17410, conf=0.29, boosts=[('quality_gate', 0.0814285714286122), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.4511645569619896,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: SVC_SPRING long @ 1.17244, conf=0.45, boosts=[('kill_zone_active', 0.05), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('quality_gate', 0.05316455696198956), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.88812301166438,
+      "confidence_score": 0.368192307692292,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.16144, conf=0.37, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.05769230769229192), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720927905,
+      "confidence_score": 0.4799736842105346,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16771, conf=0.48, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.08947368421053452), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.419642857143437,
+      "confidence_score": 0.27299999999996144,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.16472, conf=0.27, boosts=[('quality_gate', 0.06249999999996145), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.37927551020408723,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16210, conf=0.38, boosts=[('mfi', 0.08), ('quality_gate', 0.08877551020408718), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 45.93023255814421,
+      "confidence_score": 0.503,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: FL short @ 1.16076, conf=0.50, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('quality_gate', 0.135), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.42800000000003335,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.15911, conf=0.43, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.08000000000003331), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.906976744185203,
+      "confidence_score": 0.29808620689651216,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.16178, conf=0.30, boosts=[('htf_consolidating', -0.05), ('rsi_extreme', 0.06), ('quality_gate', 0.07758620689651212), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.592213114756074,
+      "confidence_score": 0.35556024096383176,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16272, conf=0.36, boosts=[('mfi', 0.08), ('quality_gate', 0.06506024096383173), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.42550000000000004,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: FL long @ 1.16617, conf=0.43, boosts=[('mfi', 0.08), ('quality_gate', 0.135), ('confluence_scorer', 0.0105)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4772307692307574,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB long @ 1.16302, conf=0.48, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.0692307692307574), ('confluence_scorer', 0.018)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.267441860462778,
+      "confidence_score": 0.38217647058827564,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD EURUSD: LIQUIDITY_GRAB short @ 1.15062, conf=0.38, boosts=[('asia_gap_favorable', 0.05), ('adx', 0.06), ('quality_gate', 0.06617647058827564), ('confluence_scorer', 0.006)]",
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 48.92310443490592,
+      "confidence_score": 0.5105,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: FL short @ 143.32200, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('ema_cross', 0.08), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.89069905213358,
+      "confidence_score": 0.43505696202529465,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 142.03100, conf=0.44, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.0645569620252946), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.35117415730337403,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 142.57200, conf=0.35, boosts=[('mfi', 0.08), ('quality_gate', 0.06067415730337401), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.82754868270316,
+      "confidence_score": 0.34291379310345466,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 141.80100, conf=0.34, boosts=[('adx', 0.06), ('quality_gate', 0.07241379310345461), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.260395189003695,
+      "confidence_score": 0.4286818181818495,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 141.21700, conf=0.43, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('quality_gate', 0.0681818181818495), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.6007579717717,
+      "confidence_score": 0.5060000000000124,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 144.75100, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.055500000000012366), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.540291262134524,
+      "confidence_score": 0.5193286713286837,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 147.85400, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.07132867132868362), ('confluence_scorer', 0.018)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.321389830508515,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 148.38600, conf=0.32, boosts=[('kill_zone_active', 0.05), ('quality_gate', 0.05338983050851499), ('confluence_scorer', 0.018)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.270900900901164,
+      "confidence_score": 0.2656724137931043,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 147.76900, conf=0.27, boosts=[('quality_gate', 0.055172413793104294), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.4529295774647524,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 147.87300, conf=0.45, boosts=[('kill_zone_active', 0.05), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.05492957746475236), ('confluence_scorer', 0.018)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.301302605210703,
+      "confidence_score": 0.34378947368418916,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 147.87700, conf=0.34, boosts=[('mfi', 0.08), ('quality_gate', 0.05328947368418912), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.60119363395187,
+      "confidence_score": 0.34454411764705656,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 147.56400, conf=0.34, boosts=[('ema_cross', 0.08), ('quality_gate', 0.054044117647056515), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.2432272727272622,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 148.56300, conf=0.24, boosts=[('htf_opposing', -0.15), ('rsi_extreme', 0.06), ('quality_gate', 0.12272727272726215), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.579306722690628,
+      "confidence_score": 0.476382352941147,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 148.58800, conf=0.48, boosts=[('mfi', 0.08), ('ema_cross', 0.08), ('quality_gate', 0.10588235294114696), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.268725680933148,
+      "confidence_score": 0.4085645161290234,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 149.57700, conf=0.41, boosts=[('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.058064516129023386), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.24487499999991674,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 150.13200, conf=0.24, boosts=[('htf_consolidating', -0.05), ('quality_gate', 0.08437499999991672), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.731796116505596,
+      "confidence_score": 0.39488593155892837,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 150.19700, conf=0.39, boosts=[('kill_zone_active', 0.05), ('bollinger', 0.07), ('quality_gate', 0.05988593155892834), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.70805825242689,
+      "confidence_score": 0.33107692307694203,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 150.75600, conf=0.33, boosts=[('rsi_extreme', 0.06), ('quality_gate', 0.06057692307694199), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.46334985835643,
+      "confidence_score": 0.46893749999997786,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 150.10600, conf=0.47, boosts=[('htf_trend_aligned', 0.1), ('rsi_extreme', 0.06), ('quality_gate', 0.09843749999997779), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 46.50348837208917,
+      "confidence_score": 0.587994923857852,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.56300, conf=0.59, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.08299492385785198), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.177516411377738,
+      "confidence_score": 0.39144329896908137,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 152.64200, conf=0.39, boosts=[('kill_zone_active', 0.05), ('bollinger', 0.07), ('quality_gate', 0.05644329896908134), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.270145631067262,
+      "confidence_score": 0.47622302158273144,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.03700, conf=0.48, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.07122302158273139), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.23166409861348,
+      "confidence_score": 0.3161737588652484,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 151.90900, conf=0.32, boosts=[('quality_gate', 0.10567375886524841), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.765644458281223,
+      "confidence_score": 0.42576878612717806,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.92500, conf=0.43, boosts=[('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.07976878612717803), ('confluence_scorer', 0.006)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -0.22990867580018307,
+      "confidence_score": 0.27912745098038927,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 154.75000, conf=0.28, boosts=[('quality_gate', 0.06862745098038923), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.89732142857234,
+      "confidence_score": 0.4482678571428528,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 154.80900, conf=0.45, boosts=[('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.09776785714285273), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -0.23604651162901372,
+      "confidence_score": 0.3080612244897914,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 149.57700, conf=0.31, boosts=[('htf_opposing', -0.15), ('kill_zone_active', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.05306122448979138), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.18937106918258,
+      "confidence_score": 0.2645000000000182,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 149.45400, conf=0.26, boosts=[('quality_gate', 0.05400000000001819), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.51742327365681,
+      "confidence_score": 0.5175000000000047,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 151.38700, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.06700000000000474), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.292330097087657,
+      "confidence_score": 0.2602857142857205,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: SVC_VACATION short @ 152.78300, conf=0.26, boosts=[('quality_gate', 0.05428571428572047), ('confluence_scorer', 0.006)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.732766990292003,
+      "confidence_score": 0.4149999999999738,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 157.13900, conf=0.41, boosts=[('kill_zone_active', 0.05), ('rsi_extreme', 0.06), ('quality_gate', 0.08999999999997377), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.04357506361229,
+      "confidence_score": 0.3818861386138877,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 157.46900, conf=0.38, boosts=[('adx', 0.06), ('quality_gate', 0.11138613861388771), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.764710485132783,
+      "confidence_score": 0.2817765957446931,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 157.22300, conf=0.28, boosts=[('quality_gate', 0.07127659574469307), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.536407766988816,
+      "confidence_score": 0.5314756097560814,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 156.94600, conf=0.53, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('bollinger', 0.07), ('rsi_extreme', 0.06), ('quality_gate', 0.060975609756081496), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.35071428571430313,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 147.53600, conf=0.35, boosts=[('kill_zone_active', 0.05), ('quality_gate', 0.0857142857143031), ('confluence_scorer', 0.015)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -51.23036006546767,
+      "confidence_score": 0.5660000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: FL long @ 147.81900, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.006)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.540291262134446,
+      "confidence_score": 0.6160000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: FL long @ 147.21800, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.006)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -52.3865079365103,
+      "confidence_score": 0.528,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: FL long @ 147.80100, conf=0.53, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.018)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.33029359430541,
+      "confidence_score": 0.406,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: FL long @ 147.53100, conf=0.41, boosts=[('mfi', 0.08), ('quality_gate', 0.12), ('confluence_scorer', 0.006)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -50.79131578947448,
+      "confidence_score": 0.5193888888888898,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 148.03300, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.05888888888888982), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582163,
+      "confidence_score": 0.3456851851851826,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 147.18100, conf=0.35, boosts=[('ilod_ihod_at_boundary', 0.05), ('quality_gate', 0.08518518518518257), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 46.50348837208965,
+      "confidence_score": 0.5054999999999973,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 147.16000, conf=0.51, boosts=[('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.10499999999999733), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.34462371134021214,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 147.32800, conf=0.34, boosts=[('htf_consolidating', -0.05), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('quality_gate', 0.05412371134021208), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.5137273901804,
+      "confidence_score": 0.3929999999999526,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 146.96200, conf=0.39, boosts=[('kill_zone_active', 0.05), ('adx', 0.06), ('quality_gate', 0.06499999999995262), ('confluence_scorer', 0.018)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.60969650205723,
+      "confidence_score": 0.5543461538461356,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: SVC_SPRING long @ 147.41000, conf=0.55, boosts=[('htf_trend_aligned', 0.1), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.05384615384613563), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.30069767441793,
+      "confidence_score": 0.215236842105212,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 149.84700, conf=0.22, boosts=[('htf_opposing', -0.15), ('rsi_extreme', 0.06), ('quality_gate', 0.09473684210521198), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.630514705881996,
+      "confidence_score": 0.42674999999997043,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 148.59000, conf=0.43, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.056249999999970386), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.3229700854704,
+      "confidence_score": 0.37338819875775925,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 146.86100, conf=0.37, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.06288819875775921), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.3675038167938946,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.71000, conf=0.37, boosts=[('mfi', 0.08), ('quality_gate', 0.07700381679389455), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.69810756972082,
+      "confidence_score": 0.46952912621360154,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 151.70700, conf=0.47, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.09902912621360148), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.300697674417837,
+      "confidence_score": 0.3432027027027152,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 150.52100, conf=0.34, boosts=[('mfi', 0.08), ('quality_gate', 0.05270270270271516), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.13560779816431,
+      "confidence_score": 0.354249999999986,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.73900, conf=0.35, boosts=[('mfi', 0.08), ('quality_gate', 0.06374999999998601), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.47489560439557815,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB long @ 152.69600, conf=0.47, boosts=[('mfi', 0.08), ('bollinger', 0.07), ('rsi_extreme', 0.06), ('quality_gate', 0.05439560439557814), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.729099099098837,
+      "confidence_score": 0.32494444444445547,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 153.62300, conf=0.32, boosts=[('adx', 0.06), ('quality_gate', 0.05444444444445544), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.224385245902061,
+      "confidence_score": 0.3931666666666656,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD USDJPY: LIQUIDITY_GRAB short @ 152.91800, conf=0.39, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.08266666666666557), ('confluence_scorer', 0.0105)]",
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.031879661859696,
+      "confidence_score": 0.25919969159599393,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2033.33500, conf=0.26, boosts=[('quality_gate', 0.05319969159599391), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.10517071569247,
+      "confidence_score": 0.4379161620866282,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2031.85500, conf=0.44, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.08991616208662814), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.610423018291204,
+      "confidence_score": 0.49632664526484765,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2023.59500, conf=0.50, boosts=[('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.09582664526484766), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.7562024353126,
+      "confidence_score": 0.42958823529410695,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2016.44500, conf=0.43, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('quality_gate', 0.06158823529410687), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.206012861735847,
+      "confidence_score": 0.32617857142858114,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2022.58500, conf=0.33, boosts=[('ilod_ihod_at_boundary', 0.05), ('quality_gate', 0.07017857142858112), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.421750902524412,
+      "confidence_score": 0.3700176470588168,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2048.73500, conf=0.37, boosts=[('mfi', 0.08), ('quality_gate', 0.07951764705881677), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.060577141129194,
+      "confidence_score": 0.5515537848605698,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2056.34800, conf=0.55, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.10655378486056981), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.914755188930478,
+      "confidence_score": 0.4963863227354556,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2029.28500, conf=0.50, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('adx', 0.06), ('quality_gate', 0.06838632273545552), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.037121911798568,
+      "confidence_score": 0.4129308002013059,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2036.47500, conf=0.41, boosts=[('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.06243080020130585), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.216335764451145,
+      "confidence_score": 0.4079310344827599,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2029.13500, conf=0.41, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.06293103448275986), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.142251332148874,
+      "confidence_score": 0.29249999999999365,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2025.05800, conf=0.29, boosts=[('quality_gate', 0.08199999999999363), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.87549553050765,
+      "confidence_score": 0.5202916666666589,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2037.20500, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.06979166666665892), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.629653179188892,
+      "confidence_score": 0.26728247734137717,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: SVC_VACATION short @ 2735.92500, conf=0.27, boosts=[('quality_gate', 0.05678247734137715), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2720.49500, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 48.33497920997125,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2721.85500, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 44.866185897409736,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2721.20500, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2720.01800, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2720.11500, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: FL long @ 2719.84500, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.12), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.84601518938592,
+      "confidence_score": 0.4723656716418001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2732.81400, conf=0.47, boosts=[('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.06436567164180006), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.065006087662649,
+      "confidence_score": 0.26656557377048223,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2730.90500, conf=0.27, boosts=[('quality_gate', 0.05606557377048219), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.19833457157103,
+      "confidence_score": 0.36955393223500327,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: SVC_VACATION short @ 2731.79500, conf=0.37, boosts=[('kill_zone_active', 0.05), ('ilod_ihod_at_boundary', 0.05), ('quality_gate', 0.05455393223500328), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.130170662333017,
+      "confidence_score": 0.3016842105263093,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2735.81800, conf=0.30, boosts=[('quality_gate', 0.09118421052630928), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -51.043485342024624,
+      "confidence_score": 0.6104122313491638,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2739.28500, conf=0.61, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('bollinger', 0.07), ('rsi_extreme', 0.06), ('quality_gate', 0.08991223134916378), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.017904472359657,
+      "confidence_score": 0.44919603139990705,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2713.45500, conf=0.45, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.07869603139990698), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.026467824883085,
+      "confidence_score": 0.5083030303030431,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2557.97500, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('adx', 0.06), ('quality_gate', 0.08030303030304306), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.892716008037,
+      "confidence_score": 0.44349539170506486,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2628.16500, conf=0.44, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.05299539170506476), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.920251431416105,
+      "confidence_score": 0.5065309516476696,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2637.69500, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.05853095164766953), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.346324324325908,
+      "confidence_score": 0.24184210526315908,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2709.12500, conf=0.24, boosts=[('htf_opposing', -0.15), ('kill_zone_active', 0.05), ('rsi_extreme', 0.06), ('quality_gate', 0.06684210526315906), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.0371625535861,
+      "confidence_score": 0.5954017857142702,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2710.81500, conf=0.60, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.09040178571427009), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.1164400988665,
+      "confidence_score": 0.6090330578512294,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2672.56500, conf=0.61, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.1010330578512293), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.990745341614863,
+      "confidence_score": 0.32534189723320805,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2670.20500, conf=0.33, boosts=[('adx', 0.06), ('quality_gate', 0.05484189723320802), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.22558353808286705,
+      "confidence_score": 0.4088433734939833,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2639.30500, conf=0.41, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.06084337349398327), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.606932515335574,
+      "confidence_score": 0.2847507886435419,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2650.48500, conf=0.28, boosts=[('quality_gate', 0.07425078864354188), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.06193963518347,
+      "confidence_score": 0.4177988090174408,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2650.49800, conf=0.42, boosts=[('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.07279880901744076), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.95437909427492,
+      "confidence_score": 0.3679834710743645,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2631.94500, conf=0.37, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.06198347107436449), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.03329008822019,
+      "confidence_score": 0.2682834179357119,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2634.78500, conf=0.27, boosts=[('quality_gate', 0.057783417935711893), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.287877426313365,
+      "confidence_score": 0.5179600000000029,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2696.30400, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('mfi', 0.08), ('quality_gate', 0.07296000000000276), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.07916378543948,
+      "confidence_score": 0.503527777777776,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2710.56500, conf=0.50, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.057527777777776), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.970055150495279,
+      "confidence_score": 0.2774230769230709,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2653.56500, conf=0.28, boosts=[('quality_gate', 0.06692307692307087), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 23.44490291261356,
+      "confidence_score": 0.41812765957446074,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 2643.80500, conf=0.42, boosts=[('mfi', 0.08), ('rsi_extreme', 0.06), ('quality_gate', 0.06762765957446071), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.221542185339935,
+      "confidence_score": 0.4239887640449463,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: SVC_VACATION short @ 2643.67500, conf=0.42, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('quality_gate', 0.058988764044946226), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.1528085991673676,
+      "confidence_score": 0.43868206820682293,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2645.71500, conf=0.44, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('quality_gate', 0.07068206820682287), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -2.0031818181752024,
+      "confidence_score": 0.36490000000000516,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: SVC_VACATION short @ 2635.26500, conf=0.36, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.05440000000000509), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 4.190463917525136,
+      "confidence_score": 0.40396153846154775,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 2636.22500, conf=0.40, boosts=[('htf_trend_aligned', 0.1), ('quality_gate', 0.09346153846154771), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.976571407688823,
+      "confidence_score": 0.4097217289109474,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3544.61500, conf=0.41, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.06922172891094736), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.97878717779236,
+      "confidence_score": 0.4826307300509359,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3580.16500, conf=0.48, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.08213073005093587), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.95977235078542,
+      "confidence_score": 0.5587897574123937,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3617.52500, conf=0.56, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.0627897574123936), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.91311364252739,
+      "confidence_score": 0.5121131020877826,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3646.45500, conf=0.51, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.06411310208778251), ('confluence_scorer', 0.018)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.42062762605242,
+      "confidence_score": 0.5249098776082376,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3646.13800, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.08440987760823758), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.025234344230132,
+      "confidence_score": 0.28283333333333577,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 3643.81500, conf=0.28, boosts=[('quality_gate', 0.07233333333333575), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.038592583674635,
+      "confidence_score": 0.40543853554248827,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3647.41500, conf=0.41, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.06493853554248825), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.96604382807521,
+      "confidence_score": 0.4382777777777759,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3663.83500, conf=0.44, boosts=[('mfi', 0.08), ('ema_cross', 0.08), ('quality_gate', 0.06777777777777584), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.08601385458101,
+      "confidence_score": 0.39806172839506054,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3759.62500, conf=0.40, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.057561728395060505), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.03562075654693552,
+      "confidence_score": 0.4367661737523159,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 3757.29800, conf=0.44, boosts=[('htf_trend_aligned', 0.1), ('rsi_extreme', 0.06), ('quality_gate', 0.06626617375231583), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.397456575684213,
+      "confidence_score": 0.42229343629343263,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3742.94500, conf=0.42, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.08629343629343264), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.025037123876634,
+      "confidence_score": 0.3068636363636399,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 3748.64500, conf=0.31, boosts=[('quality_gate', 0.09636363636363986), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.04839708726153,
+      "confidence_score": 0.377099999999994,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 3874.36500, conf=0.38, boosts=[('bollinger', 0.07), ('quality_gate', 0.09659999999999398), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.91775353016649,
+      "confidence_score": 0.6047222222222274,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 3976.47500, conf=0.60, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', 0.05), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.10972222222222738), ('confluence_scorer', 0.015)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.010774183585827,
+      "confidence_score": 0.42361336032388214,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 3971.99800, conf=0.42, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.05311336032388208), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.377961165045425,
+      "confidence_score": 0.20129878048779867,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 4048.49800, conf=0.20, boosts=[('htf_opposing', -0.15), ('rsi_extreme', 0.06), ('quality_gate', 0.08529878048779865), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.984679539262935,
+      "confidence_score": 0.5713340872082533,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 4079.44500, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('quality_gate', 0.07083408720825331), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.97797676337127,
+      "confidence_score": 0.4775569573191873,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 4189.81500, conf=0.48, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.08705695731918724), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.98010001242381,
+      "confidence_score": 0.4445166204986086,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 4222.57500, conf=0.44, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('quality_gate', 0.054016620498608524), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522986,
+      "confidence_score": 0.5338259790402621,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB long @ 4248.01500, conf=0.53, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('quality_gate', 0.09332597904026209), ('confluence_scorer', 0.0105)]",
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 10.875644538563504,
+      "confidence_score": 0.43192377614719063,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD XAUUSD: LIQUIDITY_GRAB short @ 4074.59800, conf=0.43, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('quality_gate', 0.0659237761471906), ('confluence_scorer', 0.006)]",
+      "pair": "XAUUSD"
+    }
+  ],
+  "go_nogo": {
+    "EURUSD": {
+      "pass": false,
+      "net_profit": -14.738308261526058,
+      "win_rate": 0.500103519668737,
+      "max_dd": 1.0778231550667543,
+      "total_trades": 19
+    },
+    "USDJPY": {
+      "pass": false,
+      "net_profit": 62.589007867908244,
+      "win_rate": 0.49273182957393485,
+      "max_dd": 0.8407817810775623,
+      "total_trades": 18
+    },
+    "XAUUSD": {
+      "pass": true,
+      "net_profit": 55.14290247674986,
+      "win_rate": 0.4632034632034632,
+      "max_dd": 1.8015301410676823,
+      "total_trades": 22
+    }
+  }
+}

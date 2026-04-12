@@ -1,0 +1,16 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.2,
+    "min_quality_score": 0.6,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=1.0, profit_factor=10.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=1, total_pnl=262.7744186046459, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.0, profit_factor=0.0, max_drawdown=0.0, sharpe_ratio=0.0, trade_count=0, total_pnl=0.0, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.3333333333333333, profit_factor=0.3200040372714305, max_drawdown=0.014028227713948946, sharpe_ratio=-7.599236869952477, trade_count=3, total_pnl=-140.28227713948922, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.4444444444444444, std_win_rate=0.5091750772173156, mean_profit_factor=3.440001345757144, std_profit_factor=5.683378168283241, mean_max_drawdown=0.004676075904649649, std_max_drawdown=0.008099201046901792, mean_sharpe_ratio=-2.5330789566508254, std_sharpe_ratio=4.3874214525027915, mean_trade_count=1.3333333333333333, std_trade_count=1.5275252316519468, mean_total_pnl=40.830713821718895, std_total_pnl=204.6070267352478, windows_passed=0, total_windows=3), go_nogo=False)",
+    "GBPJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.5, profit_factor=1.8938424262820366, max_drawdown=0.010292649006622741, sharpe_ratio=3.4671398344315083, trade_count=2, total_pnl=92.000063609491, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=1.0, profit_factor=10.0, max_drawdown=0.0, sharpe_ratio=505.97431437593235, trade_count=2, total_pnl=393.88666021344625, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.0, profit_factor=0.0, max_drawdown=0.020460301377953873, sharpe_ratio=-4427.263847978996, trade_count=2, total_pnl=-204.6030137795388, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.5, std_win_rate=0.5, mean_profit_factor=3.964614142094012, std_profit_factor=5.311880234366655, mean_max_drawdown=0.010250983461525538, std_max_drawdown=0.010230214324852216, mean_sharpe_ratio=-1305.9407979228774, std_sharpe_ratio=2714.7967791761403, mean_trade_count=2.0, std_trade_count=0.0, mean_total_pnl=93.76123668113281, std_total_pnl=299.2487239187472, windows_passed=0, total_windows=3), go_nogo=False)"
+  },
+  "go_nogo": {}
+}

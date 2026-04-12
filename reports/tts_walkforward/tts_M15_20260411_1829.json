@@ -1,0 +1,1287 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.2,
+    "min_quality_score": 0.2,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "EURUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.55, profit_factor=0.947716036912042, max_drawdown=0.014655262578414105, sharpe_ratio=-0.3771973519609551, trade_count=20, total_pnl=-11.379072405208106, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.42857142857142855, profit_factor=0.8011959859835738, max_drawdown=0.007975985651646835, sharpe_ratio=-1.4845362841076677, trade_count=14, total_pnl=-40.01906364591973, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5217391304347826, profit_factor=1.028357759514827, max_drawdown=0.009703446421941693, sharpe_ratio=0.20124352645977525, trade_count=23, total_pnl=7.183211266549659, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.500103519668737, std_win_rate=0.06353974527577831, mean_profit_factor=0.9257565941368142, std_profit_factor=0.11516197585885268, mean_max_drawdown=0.010778231550667544, std_max_drawdown=0.0034669233292371916, mean_sharpe_ratio=-0.5534967032029492, std_sharpe_ratio=0.8566063788960844, mean_trade_count=19.0, std_trade_count=4.58257569495584, mean_total_pnl=-14.738308261526058, std_total_pnl=23.779761108595338, windows_passed=0, total_windows=3), go_nogo=False)",
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.42105263157894735, profit_factor=1.0730062338047617, max_drawdown=0.009709259259317595, sharpe_ratio=0.4698544597900711, trade_count=19, total_pnl=15.304210586081709, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.5333333333333333, profit_factor=3.0380474259099675, max_drawdown=0.0036156784655544134, sharpe_ratio=6.975317268783196, trade_count=15, total_pnl=168.76950259102884, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5238095238095238, profit_factor=1.0126657209082657, max_drawdown=0.011898515707454862, sharpe_ratio=0.08553283602992182, trade_count=21, total_pnl=3.6933104266141896, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.49273182957393485, std_win_rate=0.06225838341833905, mean_profit_factor=1.707906460207665, std_profit_factor=1.152330892519047, mean_max_drawdown=0.008407817810775623, std_max_drawdown=0.004292046199301742, mean_sharpe_ratio=2.5102348548677296, std_sharpe_ratio=3.871646484367508, mean_trade_count=18.333333333333332, std_trade_count=3.0550504633038935, mean_total_pnl=62.589007867908244, std_total_pnl=92.13808303499297, windows_passed=0, total_windows=3), go_nogo=False)",
+    "XAUUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.6833601211905742, max_drawdown=0.010731706388034036, sharpe_ratio=-2.598701634836755, trade_count=12, total_pnl=-57.44156834983186, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.48484848484848486, profit_factor=1.061026901606671, max_drawdown=0.02891878812838169, sharpe_ratio=0.386712868512605, trade_count=33, total_pnl=27.15982013464227, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5714285714285714, profit_factor=1.9980758691856224, max_drawdown=0.01439540971561474, sharpe_ratio=4.728894883431748, trade_count=21, total_pnl=195.71045564543917, passed_go_nogo=True)], aggregated=AggregatedMetrics(mean_win_rate=0.4632034632034632, std_win_rate=0.12051438014783597, mean_profit_factor=1.247487630660956, std_profit_factor=0.6769010837014049, mean_max_drawdown=0.018015301410676823, std_max_drawdown=0.009618741990016489, mean_sharpe_ratio=0.8389687057025327, std_sharpe_ratio=3.684673552750561, mean_trade_count=22.0, std_trade_count=10.535653752852738, mean_total_pnl=55.14290247674986, std_total_pnl=128.87504213869127, windows_passed=1, total_windows=3), go_nogo=False)"
+  },
+  "trade_records": [
+    {
+      "pnl": 22.732558139537232,
+      "confidence_score": 0.3900000000000693,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -26.001026694044157,
+      "confidence_score": 0.3905,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.95241477272798,
+      "confidence_score": 0.49769424460433176,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.42233009708885,
+      "confidence_score": 0.35868181818183786,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.3726495327102859,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.267441860467205,
+      "confidence_score": 0.43324725274723425,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628842,
+      "confidence_score": 0.29275806451615155,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -51.91885964912064,
+      "confidence_score": 0.5147857142857653,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.65055762081716,
+      "confidence_score": 0.3362009345794282,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.44319230769229406,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.549237983587894,
+      "confidence_score": 0.4690697674418362,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.51532769555974,
+      "confidence_score": 0.37385714285713345,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.813953488371244,
+      "confidence_score": 0.266,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628758,
+      "confidence_score": 0.30157142857148383,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.06567796609972,
+      "confidence_score": 0.384090909090903,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.7325581395328,
+      "confidence_score": 0.39106818181819186,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.964354527939282,
+      "confidence_score": 0.4610000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.906976744185108,
+      "confidence_score": 0.2265000000000107,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.186046511628842,
+      "confidence_score": 0.23403260869564804,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 15.849156118143581,
+      "confidence_score": 0.4092857142856463,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -53.34757834757548,
+      "confidence_score": 0.5860000000000889,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.9285714285725,
+      "confidence_score": 0.4464322033897933,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4059347826087083,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.583333333332666,
+      "confidence_score": 0.33879268292682513,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.579545454547013,
+      "confidence_score": 0.43234782608693767,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.407949790794575,
+      "confidence_score": 0.3436249999999971,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.946601941746636,
+      "confidence_score": 0.4296666666666662,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.774336283184935,
+      "confidence_score": 0.3281147540983556,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.339805825242344,
+      "confidence_score": 0.33143749999999245,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 45.93023255814421,
+      "confidence_score": 0.5255000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.500000000002103,
+      "confidence_score": 0.3785714285714116,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720927905,
+      "confidence_score": 0.4002631578947307,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -52.86458333333137,
+      "confidence_score": 0.5234210526315743,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.376543209878456,
+      "confidence_score": 0.36550000000000005,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.44999999999999263,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.35365789473685133,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 24.254684838160966,
+      "confidence_score": 0.49153061224489103,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -26.453488372091442,
+      "confidence_score": 0.4394329896906997,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4247043618739913,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 24.09188034188103,
+      "confidence_score": 0.47956249999998707,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.267441860462778,
+      "confidence_score": 0.39459836065570997,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 23.753955696203317,
+      "confidence_score": 0.4176428571428232,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -0.3488372093014632,
+      "confidence_score": 0.28790291262135,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.586864406780053,
+      "confidence_score": 0.3057380952381179,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.000000000000943,
+      "confidence_score": 0.2919285714286122,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.4511645569619896,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -25.88812301166438,
+      "confidence_score": 0.368192307692292,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720927905,
+      "confidence_score": 0.4799736842105346,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 9.419642857143437,
+      "confidence_score": 0.27299999999996144,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.37927551020408723,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 45.93023255814421,
+      "confidence_score": 0.503,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279072106,
+      "confidence_score": 0.42800000000003335,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -10.906976744185203,
+      "confidence_score": 0.29808620689651216,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.592213114756074,
+      "confidence_score": 0.35556024096383176,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.034883720928107,
+      "confidence_score": 0.42550000000000004,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 22.965116279071896,
+      "confidence_score": 0.4772307692307574,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": -27.267441860462778,
+      "confidence_score": 0.38217647058827564,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "EURUSD"
+    },
+    {
+      "pnl": 48.92310443490592,
+      "confidence_score": 0.5105,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.89069905213358,
+      "confidence_score": 0.43505696202529465,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.35117415730337403,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.82754868270316,
+      "confidence_score": 0.34291379310345466,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.260395189003695,
+      "confidence_score": 0.4286818181818495,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.6007579717717,
+      "confidence_score": 0.5060000000000124,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.540291262134524,
+      "confidence_score": 0.5193286713286837,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.321389830508515,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.270900900901164,
+      "confidence_score": 0.2656724137931043,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.4529295774647524,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.301302605210703,
+      "confidence_score": 0.34378947368418916,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.60119363395187,
+      "confidence_score": 0.34454411764705656,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.2432272727272622,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.579306722690628,
+      "confidence_score": 0.476382352941147,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.268725680933148,
+      "confidence_score": 0.4085645161290234,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.24487499999991674,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.731796116505596,
+      "confidence_score": 0.39488593155892837,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.70805825242689,
+      "confidence_score": 0.33107692307694203,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.46334985835643,
+      "confidence_score": 0.46893749999997786,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 46.50348837208917,
+      "confidence_score": 0.587994923857852,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.177516411377738,
+      "confidence_score": 0.39144329896908137,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.270145631067262,
+      "confidence_score": 0.47622302158273144,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.23166409861348,
+      "confidence_score": 0.3161737588652484,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.765644458281223,
+      "confidence_score": 0.42576878612717806,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -0.22990867580018307,
+      "confidence_score": 0.27912745098038927,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.89732142857234,
+      "confidence_score": 0.4482678571428528,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -0.23604651162901372,
+      "confidence_score": 0.3080612244897914,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.18937106918258,
+      "confidence_score": 0.2645000000000182,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.51742327365681,
+      "confidence_score": 0.5175000000000047,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.292330097087657,
+      "confidence_score": 0.2602857142857205,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.732766990292003,
+      "confidence_score": 0.4149999999999738,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.04357506361229,
+      "confidence_score": 0.3818861386138877,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.764710485132783,
+      "confidence_score": 0.2817765957446931,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.536407766988816,
+      "confidence_score": 0.5314756097560814,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.35071428571430313,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -51.23036006546767,
+      "confidence_score": 0.5660000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 48.540291262134446,
+      "confidence_score": 0.6160000000000001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -52.3865079365103,
+      "confidence_score": 0.528,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.33029359430541,
+      "confidence_score": 0.406,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -50.79131578947448,
+      "confidence_score": 0.5193888888888898,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582163,
+      "confidence_score": 0.3456851851851826,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 46.50348837208965,
+      "confidence_score": 0.5054999999999973,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.699302325582073,
+      "confidence_score": 0.34462371134021214,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.5137273901804,
+      "confidence_score": 0.3929999999999526,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 49.60969650205723,
+      "confidence_score": 0.5543461538461356,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.30069767441793,
+      "confidence_score": 0.215236842105212,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.630514705881996,
+      "confidence_score": 0.42674999999997043,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -25.3229700854704,
+      "confidence_score": 0.37338819875775925,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.3675038167938946,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.69810756972082,
+      "confidence_score": 0.46952912621360154,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.300697674417837,
+      "confidence_score": 0.3432027027027152,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 24.13560779816431,
+      "confidence_score": 0.354249999999986,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -26.748255813955176,
+      "confidence_score": 0.47489560439557815,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": 9.729099099098837,
+      "confidence_score": 0.32494444444445547,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.224385245902061,
+      "confidence_score": 0.3931666666666656,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "USDJPY"
+    },
+    {
+      "pnl": -10.031879661859696,
+      "confidence_score": 0.25919969159599393,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.10517071569247,
+      "confidence_score": 0.4379161620866282,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.610423018291204,
+      "confidence_score": 0.49632664526484765,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.7562024353126,
+      "confidence_score": 0.42958823529410695,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.206012861735847,
+      "confidence_score": 0.32617857142858114,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.421750902524412,
+      "confidence_score": 0.3700176470588168,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.060577141129194,
+      "confidence_score": 0.5515537848605698,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.914755188930478,
+      "confidence_score": 0.4963863227354556,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.037121911798568,
+      "confidence_score": 0.4129308002013059,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.216335764451145,
+      "confidence_score": 0.4079310344827599,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.142251332148874,
+      "confidence_score": 0.29249999999999365,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.87549553050765,
+      "confidence_score": 0.5202916666666589,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.629653179188892,
+      "confidence_score": 0.26728247734137717,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 48.33497920997125,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 44.866185897409736,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522712,
+      "confidence_score": 0.6205,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.84601518938592,
+      "confidence_score": 0.4723656716418001,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.065006087662649,
+      "confidence_score": 0.26656557377048223,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.19833457157103,
+      "confidence_score": 0.36955393223500327,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.130170662333017,
+      "confidence_score": 0.3016842105263093,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -51.043485342024624,
+      "confidence_score": 0.6104122313491638,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.017904472359657,
+      "confidence_score": 0.44919603139990705,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.026467824883085,
+      "confidence_score": 0.5083030303030431,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.892716008037,
+      "confidence_score": 0.44349539170506486,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.920251431416105,
+      "confidence_score": 0.5065309516476696,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.346324324325908,
+      "confidence_score": 0.24184210526315908,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.0371625535861,
+      "confidence_score": 0.5954017857142702,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.1164400988665,
+      "confidence_score": 0.6090330578512294,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.990745341614863,
+      "confidence_score": 0.32534189723320805,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.22558353808286705,
+      "confidence_score": 0.4088433734939833,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.606932515335574,
+      "confidence_score": 0.2847507886435419,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.06193963518347,
+      "confidence_score": 0.4177988090174408,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.95437909427492,
+      "confidence_score": 0.3679834710743645,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.03329008822019,
+      "confidence_score": 0.2682834179357119,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.287877426313365,
+      "confidence_score": 0.5179600000000029,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.07916378543948,
+      "confidence_score": 0.503527777777776,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.970055150495279,
+      "confidence_score": 0.2774230769230709,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 23.44490291261356,
+      "confidence_score": 0.41812765957446074,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.221542185339935,
+      "confidence_score": 0.4239887640449463,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.1528085991673676,
+      "confidence_score": 0.43868206820682293,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -2.0031818181752024,
+      "confidence_score": 0.36490000000000516,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 4.190463917525136,
+      "confidence_score": 0.40396153846154775,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.976571407688823,
+      "confidence_score": 0.4097217289109474,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.97878717779236,
+      "confidence_score": 0.4826307300509359,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.95977235078542,
+      "confidence_score": 0.5587897574123937,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.91311364252739,
+      "confidence_score": 0.5121131020877826,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -50.42062762605242,
+      "confidence_score": 0.5249098776082376,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.025234344230132,
+      "confidence_score": 0.28283333333333577,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.038592583674635,
+      "confidence_score": 0.40543853554248827,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.96604382807521,
+      "confidence_score": 0.4382777777777759,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.08601385458101,
+      "confidence_score": 0.39806172839506054,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -0.03562075654693552,
+      "confidence_score": 0.4367661737523159,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.397456575684213,
+      "confidence_score": 0.42229343629343263,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -10.025037123876634,
+      "confidence_score": 0.3068636363636399,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.04839708726153,
+      "confidence_score": 0.377099999999994,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.91775353016649,
+      "confidence_score": 0.6047222222222274,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": -25.010774183585827,
+      "confidence_score": 0.42361336032388214,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 9.377961165045425,
+      "confidence_score": 0.20129878048779867,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 49.984679539262935,
+      "confidence_score": 0.5713340872082533,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.97797676337127,
+      "confidence_score": 0.4775569573191873,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 24.98010001242381,
+      "confidence_score": 0.4445166204986086,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 46.88980582522986,
+      "confidence_score": 0.5338259790402621,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    },
+    {
+      "pnl": 10.875644538563504,
+      "confidence_score": 0.43192377614719063,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "pair": "XAUUSD"
+    }
+  ],
+  "go_nogo": {
+    "EURUSD": {
+      "pass": false,
+      "net_profit": -14.738308261526058,
+      "win_rate": 0.500103519668737,
+      "max_dd": 1.0778231550667543,
+      "total_trades": 19
+    },
+    "USDJPY": {
+      "pass": false,
+      "net_profit": 62.589007867908244,
+      "win_rate": 0.49273182957393485,
+      "max_dd": 0.8407817810775623,
+      "total_trades": 18
+    },
+    "XAUUSD": {
+      "pass": true,
+      "net_profit": 55.14290247674986,
+      "win_rate": 0.4632034632034632,
+      "max_dd": 1.8015301410676823,
+      "total_trades": 22
+    }
+  }
+}
