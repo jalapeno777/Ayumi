@@ -1,0 +1,266 @@
+"""Optuna optimization study for the TTC signal engine (TTSStrategy).
+
+Uses the existing WalkForwardObjective / OptunaOptimizer infrastructure
+from optuna_optimizer.py, targeting the TTC-specific tunable parameters.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from .optuna_optimizer import (
+    OptimizationResult,
+    OptunaOptimizer,
+    SearchSpace,
+    float_range,
+    int_range,
+)
+
+logger = logging.getLogger(__name__)
+
+# Project root (for data/ path resolution)
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+_DATA_DIR = _PROJECT_ROOT / "data" / "forex" / "historical"
+_REPORTS_DIR = _PROJECT_ROOT / "reports" / "optuna_ttc"
+
+
+def ttc_search_space() -> SearchSpace:
+    """Search space for TTC signal engine optimization.
+
+    Targets confidence thresholds, confluence boost weights,
+    negative confluence severity, and swing detection parameters.
+    """
+    return SearchSpace(
+        min_confidence=float_range("min_confidence", 0.15, 0.50, step=0.05),
+        min_quality_score=float_range("min_quality_score", 0.15, 0.45, step=0.05),
+        mw_base_confidence=float_range("mw_base_confidence", 0.20, 0.45, step=0.05),
+        rsi_divergence_boost=float_range("rsi_divergence_boost", 0.0, 0.20, step=0.05),
+        htf_trend_aligned_boost=float_range(
+            "htf_trend_aligned_boost", 0.0, 0.20, step=0.05
+        ),
+        htf_opposing_penalty=float_range(
+            "htf_opposing_penalty", -0.25, -0.05, step=0.05
+        ),
+        kill_zone_active_boost=float_range(
+            "kill_zone_active_boost", -0.15, 0.05, step=0.05
+        ),
+        negative_weight=float_range("negative_weight", 0.0, 2.0, step=0.25),
+        swing_lookback=int_range("swing_lookback", 3, 10),
+        history_bars=int_range("history_bars", 30, 100, step=10),
+    )
+
+
+def ttc_strategy_factory(
+    params: dict[str, Any],
+    symbol: str = "EURUSD",
+    timeframe: str = "H1",
+):
+    """Create a TTSStrategy with Optuna-optimized parameters.
+
+    Monkeypatches the module-level constants in tts_strategy.py
+    before constructing the strategy instance.
+    """
+    from backtest.strategies.tts_strategy import TTSStrategy
+
+    # Map search-space param names to module-level constant names
+    _CONST_MAP = {
+        "mw_base_confidence": "MW_BASE_CONFIDENCE",
+        "rsi_divergence_boost": "RSI_DIVERGENCE_BOOST",
+        "htf_trend_aligned_boost": "HTF_TREND_ALIGNED_BOOST",
+        "htf_opposing_penalty": "HTF_OPPOSING_PENALTY",
+        "kill_zone_active_boost": "KILL_ZONE_ACTIVE_BOOST",
+        "negative_weight": "NEGATIVE_WEIGHT",
+    }
+
+    import backtest.strategies.tts_strategy as tts_mod
+
+    # Save originals (in case of nested calls)
+    originals = {}
+    for param_name, const_name in _CONST_MAP.items():
+        if param_name in params:
+            originals[const_name] = getattr(tts_mod, const_name, None)
+            setattr(tts_mod, const_name, params[param_name])
+
+    # Also patch swing/history if present
+    if "swing_lookback" in params:
+        originals["SWING_LOOKBACK"] = getattr(tts_mod, "SWING_LOOKBACK", 5)
+        tts_mod.SWING_LOOKBACK = params["swing_lookback"]
+    if "history_bars" in params:
+        originals["HISTORY_BARS"] = getattr(tts_mod, "HISTORY_BARS", 50)
+        tts_mod.HISTORY_BARS = params["history_bars"]
+
+    strategy = TTSStrategy(
+        symbol=symbol,
+        min_confidence=params.get("min_confidence", 0.20),
+        min_quality_score=params.get("min_quality_score", 0.25),
+        timeframe=timeframe,
+    )
+
+    # Restore originals
+    for const_name, orig_val in originals.items():
+        setattr(tts_mod, const_name, orig_val)
+
+    return strategy
+
+
+def load_h1_bars(pair: str) -> list:
+    """Load H1 CSV data for a pair into Bar objects."""
+    from backtest.engine import Bar
+
+    csv_path = _DATA_DIR / f"{pair.upper()}_H1.csv"
+    if not csv_path.exists():
+        raise FileNotFoundError(f"No H1 data for {pair}: {csv_path}")
+
+    bars: list[Bar] = []
+    with open(csv_path) as f:
+        f.readline()  # skip header
+        for line in f:
+            parts = line.strip().split(",")
+            if len(parts) < 6:
+                continue
+            try:
+                bars.append(
+                    Bar(
+                        time=parts[0],
+                        open=float(parts[1]),
+                        high=float(parts[2]),
+                        low=float(parts[3]),
+                        close=float(parts[4]),
+                        volume=float(parts[5]),
+                    )
+                )
+            except (ValueError, IndexError):
+                continue
+
+    logger.info("Loaded %d H1 bars for %s", len(bars), pair)
+    return bars
+
+
+def run_ttc_optuna(
+    pair: str = "EURUSD",
+    timeframe: str = "H1",
+    n_trials: int = 100,
+    n_windows: int = 5,
+    seed: int = 42,
+    composite_weights: dict[str, float] | None = None,
+) -> OptimizationResult:
+    """Run Optuna optimization for the TTC signal engine.
+
+    Args:
+        pair: Forex pair (e.g. "EURUSD")
+        timeframe: Bar timeframe (default "H1")
+        n_trials: Number of Optuna trials
+        n_windows: Walk-forward windows
+        seed: Random seed for reproducibility
+        composite_weights: Custom composite score weights
+
+    Returns:
+        OptimizationResult with best params and walk-forward results.
+    """
+    from backtest.engine import get_spread_for_pair
+
+    bars = load_h1_bars(pair)
+    search_space = ttc_search_space()
+
+    def factory(_params: dict[str, Any]):
+        return ttc_strategy_factory(_params, symbol=pair, timeframe=timeframe)
+
+    optimizer = OptunaOptimizer(
+        bars=bars,
+        strategy_factory=factory,
+        pair=pair,
+        search_space=search_space,
+        n_trials=n_trials,
+        n_windows=n_windows,
+        spread_pips=get_spread_for_pair(pair),
+        composite_weights=composite_weights,
+        seed=seed,
+    )
+
+    result = optimizer.optimize()
+
+    # Save results
+    _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M")
+    out_path = _REPORTS_DIR / f"{pair}_{timeframe}_{timestamp}.json"
+
+    report = {
+        "pair": pair,
+        "timeframe": timeframe,
+        "n_trials": result.n_trials,
+        "best_score": result.best_value,
+        "go_nogo": result.go_nogo,
+        "best_params": result.best_params,
+        "study_summary": result.study_summary,
+        "completed_at": datetime.utcnow().isoformat(),
+    }
+
+    # Add best metrics if available from walk-forward
+    if result.best_walk_forward and result.best_walk_forward.aggregated:
+        agg = result.best_walk_forward.aggregated
+        report["best_metrics"] = {
+            "win_rate": agg.mean_win_rate,
+            "profit_factor": agg.mean_profit_factor,
+            "max_drawdown": agg.mean_max_drawdown,
+            "sharpe_ratio": agg.mean_sharpe_ratio,
+            "trade_count": agg.mean_trade_count,
+            "total_pnl": agg.mean_total_pnl,
+            "windows_passed": agg.windows_passed,
+            "total_windows": agg.total_windows,
+        }
+
+    with open(out_path, "w") as f:
+        json.dump(report, f, indent=2, default=str)
+
+    logger.info("Results saved to %s", out_path)
+    return result
+
+
+if __name__ == "__main__":
+    import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    parser = argparse.ArgumentParser(
+        description="Optuna optimization for TTC signal engine"
+    )
+    parser.add_argument("--pair", default="EURUSD", help="Forex pair")
+    parser.add_argument("--timeframe", default="H1", help="Bar timeframe")
+    parser.add_argument(
+        "--n-trials", type=int, default=100, help="Number of Optuna trials"
+    )
+    parser.add_argument("--n-windows", type=int, default=5, help="Walk-forward windows")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    args = parser.parse_args()
+
+    result = run_ttc_optuna(
+        pair=args.pair,
+        timeframe=args.timeframe,
+        n_trials=args.n_trials,
+        n_windows=args.n_windows,
+        seed=args.seed,
+    )
+
+    print(f"\n{'=' * 60}")
+    print(f"TTC Optuna Results — {args.pair} {args.timeframe}")
+    print(f"{'=' * 60}")
+    print(f"Trials: {result.n_trials}")
+    print(f"Best score: {result.best_value:.4f}")
+    print(f"Go/No-Go: {result.go_nogo}")
+    print("\nBest params:")
+    for k, v in sorted(result.best_params.items()):
+        print(f"  {k}: {v}")
+
+    if result.best_walk_forward and result.best_walk_forward.aggregated:
+        agg = result.best_walk_forward.aggregated
+        print("\nMetrics:")
+        print(f"  Win Rate:    {agg.mean_win_rate:.1%}")
+        print(f"  Profit Factor: {agg.mean_profit_factor:.2f}")
+        print(f"  Max Drawdown:  {agg.mean_max_drawdown:.1%}")
+        print(f"  Sharpe:        {agg.mean_sharpe_ratio:.2f}")
+        print(f"  Avg Trades:    {agg.mean_trade_count:.1f}")
+        print(f"  Windows:       {agg.windows_passed}/{agg.total_windows} passed")

@@ -72,5 +72,6 @@ class ConfidencePositionSizer:
 def parse_tiers(tiers_json: str) -> list[ConfidenceTier]:
     """Parse a JSON list of [min_conf, max_conf, risk_pct] tuples."""
     import json
+
     raw = json.loads(tiers_json)
     return [ConfidenceTier(min_c, max_c, risk) for min_c, max_c, risk in raw]

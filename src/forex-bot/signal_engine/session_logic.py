@@ -48,6 +48,7 @@ def get_ny_kz_hours(is_dst: bool) -> tuple[time, time]:
     else:
         return (time(13, 30), time(15, 0))
 
+
 # Overlaps
 OVERLAPS = {
     "ASIA_LONDON": (time(7, 0), time(8, 0)),

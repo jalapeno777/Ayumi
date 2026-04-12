@@ -378,7 +378,7 @@ class BacktestEngine:
 
     def _progressive_sl_update(self, trade: SimulatedTrade, bar: Bar) -> None:
         """Move SL progressively as TP levels are hit."""
-        if not hasattr(trade, '_sl_moved_to_be'):
+        if not hasattr(trade, "_sl_moved_to_be"):
             trade._sl_moved_to_be = False
             trade._sl_moved_to_tp1 = False
 

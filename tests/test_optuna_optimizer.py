@@ -1,7 +1,8 @@
 """Tests for ml/optuna_optimizer.py (V2 walk-forward version)."""
+
 import unittest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 from backtest.engine import Bar
 from quant.walk_forward import (
@@ -31,31 +32,45 @@ def _make_bars(n=500):
 
 
 def _mock_wf(
-    win_rate=0.6, profit_factor=1.5, max_drawdown=0.05,
-    trade_count=20.0, total_pnl=500.0, windows_passed=2, total_windows=3,
+    win_rate=0.6,
+    profit_factor=1.5,
+    max_drawdown=0.05,
+    trade_count=20.0,
+    total_pnl=500.0,
+    windows_passed=2,
+    total_windows=3,
     go_nogo=True,
 ):
     windows = []
     for i in range(total_windows):
         passed = i < windows_passed
-        windows.append(WindowMetrics(
-            window_index=i,
-            win_rate=win_rate if passed else 0.4,
-            profit_factor=profit_factor if passed else 0.8,
-            max_drawdown=max_drawdown if passed else 0.15,
-            sharpe_ratio=1.0 if passed else 0.3,
-            trade_count=int(trade_count) if passed else 5,
-            total_pnl=total_pnl / total_windows if passed else -100,
-            passed_go_nogo=passed,
-        ))
+        windows.append(
+            WindowMetrics(
+                window_index=i,
+                win_rate=win_rate if passed else 0.4,
+                profit_factor=profit_factor if passed else 0.8,
+                max_drawdown=max_drawdown if passed else 0.15,
+                sharpe_ratio=1.0 if passed else 0.3,
+                trade_count=int(trade_count) if passed else 5,
+                total_pnl=total_pnl / total_windows if passed else -100,
+                passed_go_nogo=passed,
+            )
+        )
     agg = AggregatedMetrics(
-        mean_win_rate=win_rate, std_win_rate=0.05,
-        mean_profit_factor=profit_factor, std_profit_factor=0.3,
-        mean_max_drawdown=max_drawdown, std_max_drawdown=0.02,
-        mean_sharpe_ratio=1.0, std_sharpe_ratio=0.2,
-        mean_trade_count=trade_count, std_trade_count=5.0,
-        mean_total_pnl=total_pnl, std_total_pnl=100.0,
-        windows_passed=windows_passed, total_windows=total_windows,
+        mean_win_rate=win_rate,
+        std_win_rate=0.05,
+        mean_profit_factor=profit_factor,
+        std_profit_factor=0.3,
+        mean_max_drawdown=max_drawdown,
+        std_max_drawdown=0.02,
+        mean_sharpe_ratio=1.0,
+        std_sharpe_ratio=0.2,
+        mean_trade_count=trade_count,
+        std_trade_count=5.0,
+        mean_total_pnl=total_pnl,
+        std_total_pnl=100.0,
+        windows_passed=windows_passed,
+        total_windows=total_windows,
     )
     return WalkForwardResults(per_window=windows, aggregated=agg, go_nogo=go_nogo)
 
@@ -65,10 +80,12 @@ class TestApplyTrialParams(unittest.TestCase):
 
     def setUp(self):
         import backtest.strategies.tts_strategy as tts
+
         self._tts = tts
 
     def test_continuous_params_applied(self):
         from ml.optuna_optimizer import _apply_trial_params, restore_defaults
+
         trial = MagicMock()
         trial.suggest_float.side_effect = [0.30, 0.5, -0.05]
         trial.suggest_categorical.return_value = True
@@ -83,8 +100,11 @@ class TestApplyTrialParams(unittest.TestCase):
 
     def test_booster_switches(self):
         from ml.optuna_optimizer import (
-            _apply_trial_params, restore_defaults, BOOSTER_SWITCHES,
+            _apply_trial_params,
+            restore_defaults,
+            BOOSTER_SWITCHES,
         )
+
         trial = MagicMock()
         # 3 continuous + 11 boosters + 9 negatives = 23 suggest_float/categorical calls
         trial.suggest_float.side_effect = [0.25, 1.0, -0.03]
@@ -103,8 +123,10 @@ class TestApplyTrialParams(unittest.TestCase):
 
     def test_restore_defaults_resets(self):
         from ml.optuna_optimizer import restore_defaults
+
         restore_defaults()
         import backtest.strategies.tts_strategy as tts
+
         self.assertAlmostEqual(tts.MW_BASE_CONFIDENCE, 0.30)
         self.assertAlmostEqual(tts.NEGATIVE_WEIGHT, 1.0)
 
@@ -115,7 +137,9 @@ class TestBuildWFObjective(unittest.TestCase):
     @patch("ml.optuna_optimizer.run_strategy_walk_forward")
     def test_pruned_on_no_aggregation(self, mock_wf):
         mock_wf.return_value = WalkForwardResults(
-            per_window=[], aggregated=None, go_nogo=False,
+            per_window=[],
+            aggregated=None,
+            go_nogo=False,
         )
         from ml.optuna_optimizer import build_wf_objective
 
@@ -123,6 +147,7 @@ class TestBuildWFObjective(unittest.TestCase):
         objective = build_wf_objective("EURUSD", "M15", bars)
 
         import optuna
+
         study = optuna.create_study(direction="maximize")
         trial = study.ask()
 
@@ -138,6 +163,7 @@ class TestBuildWFObjective(unittest.TestCase):
         objective = build_wf_objective("EURUSD", "M15", bars)
 
         import optuna
+
         study = optuna.create_study(direction="maximize")
         trial = study.ask()
 
@@ -153,6 +179,7 @@ class TestBuildWFObjective(unittest.TestCase):
         objective = build_wf_objective("EURUSD", "M15", bars)
 
         import optuna
+
         study = optuna.create_study(direction="maximize")
         trial = study.ask()
 
@@ -163,6 +190,7 @@ class TestBuildWFObjective(unittest.TestCase):
     @patch("ml.optuna_optimizer.run_strategy_walk_forward")
     def test_go_nogo_penalty(self, mock_wf):
         from ml.optuna_optimizer import build_wf_objective
+
         bars = _make_bars(500)
         objective = build_wf_objective("EURUSD", "M15", bars)
 
@@ -182,13 +210,15 @@ class TestBuildWFObjective(unittest.TestCase):
 
     @patch("ml.optuna_optimizer.run_strategy_walk_forward")
     def test_restore_called_on_exception(self, mock_wf):
-        from ml.optuna_optimizer import build_wf_objective, restore_defaults
+        from ml.optuna_optimizer import build_wf_objective
+
         mock_wf.side_effect = RuntimeError("boom")
 
         bars = _make_bars(500)
         objective = build_wf_objective("EURUSD", "M15", bars)
 
         import optuna
+
         study = optuna.create_study(direction="maximize")
         trial = study.ask()
 
@@ -197,6 +227,7 @@ class TestBuildWFObjective(unittest.TestCase):
 
         # tts_module should still be restored
         import backtest.strategies.tts_strategy as tts
+
         self.assertAlmostEqual(tts.MW_BASE_CONFIDENCE, 0.30)
 
 
@@ -211,10 +242,13 @@ class TestGridSearch(unittest.TestCase):
 
         from ml.optuna_optimizer import run_grid
 
-        result = run_grid("EURUSD", "M15",
-                          base_values=[0.25, 0.30],
-                          neg_weight_values=[0.0, 1.0],
-                          kz_penalty_values=[-0.05])
+        result = run_grid(
+            "EURUSD",
+            "M15",
+            base_values=[0.25, 0.30],
+            neg_weight_values=[0.0, 1.0],
+            kz_penalty_values=[-0.05],
+        )
 
         self.assertGreater(len(result["rows"]), 0)
         self.assertIn("best_grid_row", result)
@@ -228,10 +262,13 @@ class TestGridSearch(unittest.TestCase):
 
         from ml.optuna_optimizer import run_grid
 
-        result = run_grid("EURUSD", "M15",
-                          base_values=[0.25],
-                          neg_weight_values=[0.0],
-                          kz_penalty_values=[-0.05])
+        result = run_grid(
+            "EURUSD",
+            "M15",
+            base_values=[0.25],
+            neg_weight_values=[0.0],
+            kz_penalty_values=[-0.05],
+        )
 
         self.assertEqual(len(result["rows"]), 1)
         self.assertEqual(result["rows"][0]["win_rate"], 0)
@@ -273,15 +310,17 @@ class TestSearchSpaceConstants(unittest.TestCase):
 
     def test_booster_switches_count(self):
         from ml.optuna_optimizer import BOOSTER_SWITCHES, NEGATIVE_SWITCHES
+
         self.assertEqual(len(BOOSTER_SWITCHES), 11)
         self.assertEqual(len(NEGATIVE_SWITCHES), 9)
 
     def test_total_dims(self):
         # 3 continuous + 11 boosters + 9 negatives = 23 dims (was 31+)
         from ml.optuna_optimizer import (
-            BOOSTER_SWITCHES, NEGATIVE_SWITCHES,
-            BASE_CONF_RANGE, NEG_WEIGHT_RANGE, KZ_PENALTY_RANGE,
+            BOOSTER_SWITCHES,
+            NEGATIVE_SWITCHES,
         )
+
         continuous = 3
         switches = len(BOOSTER_SWITCHES) + len(NEGATIVE_SWITCHES)
         total = continuous + switches
