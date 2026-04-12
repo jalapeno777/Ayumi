@@ -136,7 +136,7 @@ MIN_TOTAL_TRADES = 15
 def load_bars(pair: str, tf: str = "M15") -> list[Bar]:
     """Load historical bars from CSV."""
     data_dir = PROJECT_ROOT / "data" / "forex" / "historical"
-    for suffix in (f"{pair}_{tf}_2026.csv", f"{pair}_{tf}.csv"):
+    for suffix in (f"{pair}_{tf}.csv", f"{pair}_{tf}_2026.csv"):
         csv_path = data_dir / suffix
         if csv_path.exists():
             break
