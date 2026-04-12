@@ -192,6 +192,12 @@ class CTraderHistoricalClient:
             f"trader_login {self.trader_login} not found. Available: {available}"
         )
 
+    def _ensure_ctid(self) -> int:
+        """Resolve trader_login to ctidTraderAccountId (outside reactor context)."""
+        if self._ctid_account_id is not None:
+            return self._ctid_account_id
+        return self._resolve_ctid_account_id()
+
     async def _auth(self, client: Client) -> None:
         """Authenticate: app auth → account auth using OAuth2 access token."""
         auth = ProtoOAApplicationAuthReq()
@@ -199,9 +205,9 @@ class CTraderHistoricalClient:
         auth.clientSecret = self.client_secret
         await client.send(auth, responseTimeoutInSeconds=10)
 
-        ctid_id = await self._resolve_ctid_account_id(client)
+
         acct = ProtoOAAccountAuthReq()
-        acct.ctidTraderAccountId = ctid_id
+        acct.ctidTraderAccountId = self._ctid_account_id
         acct.accessToken = self.access_token
         await client.send(acct, responseTimeoutInSeconds=10)
 
