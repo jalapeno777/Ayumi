@@ -189,7 +189,7 @@ class TTSStrategy(ISignalStrategy):
             if symbol.upper().endswith("JPY") or symbol.upper() == "XAUUSD"
             else 0.0001
         )
-        self._stop_target = StopTargetCalculator(pip_size=pip_size)
+        self._stop_target = StopTargetCalculator(pip_size=pip_size, timeframe=timeframe)
         # Session
         self._session_analyzer = SessionAnalyzer()
         # Asia session analyzer (TTC flight-log system)
@@ -641,14 +641,28 @@ class TTSStrategy(ISignalStrategy):
                 f"SL ({stop_price:.5f}) must be above entry ({entry_price:.5f}) for short"
             )
 
-        # Use TPManager for 3-level TP (1R / 1.5R / 2R)
-        pip_size = self._stop_target.pip_size
-        tp_mgr = TPManager(
-            entry_price=entry_price,
-            stop_price=stop_price,
-            pip_size=pip_size,
-            direction=best_pattern.direction,
-        )
+        # Use ATR-based TP levels from StopTargetCalculator
+        tp_levels = st_result["tp_levels"]
+        non_structure = [t for t in tp_levels if not t.get("structure")]
+        if len(non_structure) >= 3:
+            tp1_price = non_structure[0]["price"]
+            tp2_price = non_structure[1]["price"]
+            tp3_price = non_structure[2]["price"]
+        elif len(non_structure) >= 1:
+            tp1_price = non_structure[0]["price"]
+            tp2_price = non_structure[-1]["price"]
+            tp3_price = non_structure[-1]["price"]
+        else:
+            pip_size = self._stop_target.pip_size
+            tp_mgr = TPManager(
+                entry_price=entry_price,
+                stop_price=stop_price,
+                pip_size=pip_size,
+                direction=best_pattern.direction,
+            )
+            tp1_price = tp_mgr.tp1_price
+            tp2_price = tp_mgr.tp2_price
+            tp3_price = tp_mgr.tp3_price
 
         direction = (
             TradeDirection.LONG
@@ -668,9 +682,9 @@ class TTSStrategy(ISignalStrategy):
             confidence=total_confidence,
             entry_price=entry_price,
             stop_loss=stop_price,
-            take_profit_1=tp_mgr.tp1_price,
-            take_profit_2=tp_mgr.tp2_price,
-            take_profit_3=tp_mgr.tp3_price,
+            take_profit_1=tp1_price,
+            take_profit_2=tp2_price,
+            take_profit_3=tp3_price,
             rationale=rationale,
             is_volatile=self._is_volatile_session,
         )
@@ -1042,7 +1056,7 @@ class TTSStrategy(ISignalStrategy):
         return 0.0
 
     def _check_volatile_session(self, bars: list[Bar]) -> float:
-        """"ATR near 90th percentile of last 100 bars = high volatility = negative."""
+        """ "ATR near 90th percentile of last 100 bars = high volatility = negative."""
         if len(bars) < 100:
             return 0.0
         recent = bars[-100:]
