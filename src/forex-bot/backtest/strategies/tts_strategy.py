@@ -54,6 +54,7 @@ ILOD_IHOD_AT_BOUNDARY_BOOST = 0.05
 VWAP_REJECTION_BOOST = 0.10
 KILL_ZONE_ACTIVE_BOOST = -0.05
 HTF_OPPOSING_PENALTY = -0.15
+NEGATIVE_WEIGHT = 1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
 
 # New confluence boost constants
 MFI_BOOST = 0.08
