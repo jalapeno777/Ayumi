@@ -24,6 +24,7 @@ from pathlib import Path
 
 # ── Data structures ──────────────────────────────────────────────────────────
 
+
 @dataclass
 class TierConfig:
     tier5: float  # 85-100% confidence
@@ -36,8 +37,10 @@ class TierConfig:
         return (self.tier5, self.tier4, self.tier3, self.tier2, self.tier1)
 
     def label(self) -> str:
-        return (f"T5={self.tier5:.2%} T4={self.tier4:.2%} T3={self.tier3:.2%} "
-                f"T2={self.tier2:.2%} T1={self.tier1:.2%}")
+        return (
+            f"T5={self.tier5:.2%} T4={self.tier4:.2%} T3={self.tier3:.2%} "
+            f"T2={self.tier2:.2%} T1={self.tier1:.2%}"
+        )
 
 
 @dataclass
@@ -127,13 +130,15 @@ def load_real_trades(project_root: str) -> list[TradeRecord]:
         for rec in recs:
             conf = rec.get("confidence_score", 0.5)
             bucket = confidence_score_to_bucket(conf)
-            trades.append(TradeRecord(
-                pnl=rec["pnl"],
-                confidence_bucket=bucket,
-                won=rec["pnl"] > 0,
-                pair=rec.get("pair", "UNKNOWN"),
-                window_id=rec.get("window_id", 0),
-            ))
+            trades.append(
+                TradeRecord(
+                    pnl=rec["pnl"],
+                    confidence_bucket=bucket,
+                    won=rec["pnl"] > 0,
+                    pair=rec.get("pair", "UNKNOWN"),
+                    window_id=rec.get("window_id", 0),
+                )
+            )
     return trades
 
 
@@ -144,10 +149,16 @@ def synthesize_ict_ab_trades(data_dir: str) -> list[TradeRecord]:
     to distribute trades across confidence tiers.
     """
     trades = []
-    files = sorted(glob.glob(os.path.join(data_dir, "walkforward_session_range_mr_ict_ab_*.json")))
+    files = sorted(
+        glob.glob(os.path.join(data_dir, "walkforward_session_range_mr_ict_ab_*.json"))
+    )
 
     for filepath in files:
-        pair_name = Path(filepath).stem.replace("walkforward_session_range_mr_ict_ab_", "").upper()
+        pair_name = (
+            Path(filepath)
+            .stem.replace("walkforward_session_range_mr_ict_ab_", "")
+            .upper()
+        )
         with open(filepath) as f:
             data = json.load(f)
 
@@ -181,10 +192,15 @@ def synthesize_ict_ab_trades(data_dir: str) -> list[TradeRecord]:
                         else:
                             # Losers lose slightly less than average
                             pnl = -abs(tier_avg_pnl) * (0.7 + (tier - 3) * 0.1)
-                        trades.append(TradeRecord(
-                            pnl=pnl, confidence_bucket=tier, won=won,
-                            pair=pair_name, window_id=wid,
-                        ))
+                        trades.append(
+                            TradeRecord(
+                                pnl=pnl,
+                                confidence_bucket=tier,
+                                won=won,
+                                pair=pair_name,
+                                window_id=wid,
+                            )
+                        )
 
             # ICT-rejected trades → tiers 1-2
             if rejected > 0:
@@ -202,15 +218,21 @@ def synthesize_ict_ab_trades(data_dir: str) -> list[TradeRecord]:
                     for j in range(n):
                         won = (j / n) < tier_wr
                         pnl = abs(tier_avg_pnl) * (1.0 if won else -0.8)
-                        trades.append(TradeRecord(
-                            pnl=pnl, confidence_bucket=tier, won=won,
-                            pair=pair_name, window_id=wid,
-                        ))
+                        trades.append(
+                            TradeRecord(
+                                pnl=pnl,
+                                confidence_bucket=tier,
+                                won=won,
+                                pair=pair_name,
+                                window_id=wid,
+                            )
+                        )
 
     return trades
 
 
 # ── Simulation ──────────────────────────────────────────────────────────────
+
 
 def simulate_tiers(
     trades: list[TradeRecord],
@@ -221,8 +243,13 @@ def simulate_tiers(
 
     Returns: (net_pnl, max_dd_pct, win_rate, per_tier_pnl, per_pair_pnl)
     """
-    tier_risk = {1: config.tier1, 2: config.tier2, 3: config.tier3,
-                 4: config.tier4, 5: config.tier5}
+    tier_risk = {
+        1: config.tier1,
+        2: config.tier2,
+        3: config.tier3,
+        4: config.tier4,
+        5: config.tier5,
+    }
     baseline_risk = config.tier1
 
     balance = initial_balance
@@ -237,7 +264,9 @@ def simulate_tiers(
         scaled_pnl = t.pnl * risk_ratio
 
         balance += scaled_pnl
-        per_tier_pnl[t.confidence_bucket] = per_tier_pnl.get(t.confidence_bucket, 0) + scaled_pnl
+        per_tier_pnl[t.confidence_bucket] = (
+            per_tier_pnl.get(t.confidence_bucket, 0) + scaled_pnl
+        )
         per_pair_pnl[t.pair] = per_pair_pnl.get(t.pair, 0) + scaled_pnl
 
         if t.won:
@@ -307,16 +336,25 @@ def run_sweep(trades: list[TradeRecord], pair: str) -> list[SweepResult]:
         if net_pnl < 0:
             sharpe = -sharpe
 
-        results.append(SweepResult(
-            config=config, net_pnl=net_pnl, max_dd_pct=max_dd,
-            sharpe_like=sharpe, win_rate=wr, trade_count=len(trades),
-            dd_violation=max_dd > 0.05, pair=pair,
-            per_tier_pnl=per_tier, per_pair_pnl=per_pair,
-        ))
+        results.append(
+            SweepResult(
+                config=config,
+                net_pnl=net_pnl,
+                max_dd_pct=max_dd,
+                sharpe_like=sharpe,
+                win_rate=wr,
+                trade_count=len(trades),
+                dd_violation=max_dd > 0.05,
+                pair=pair,
+                per_tier_pnl=per_tier,
+                per_pair_pnl=per_pair,
+            )
+        )
     return results
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
+
 
 def main():
     project_root = os.environ.get("AYUMI_ROOT", "/home/TacoPants/projects/Ayumi")
@@ -328,7 +366,9 @@ def main():
 
     print("=" * 80)
     print("  TIER OPTIMIZER — Confidence Tier Risk Percentage Sweep")
-    print(f"  Data source: {'REAL walkforward trades' if use_real else 'SYNTHESIZED ict_ab results'}")
+    print(
+        f"  Data source: {'REAL walkforward trades' if use_real else 'SYNTHESIZED ict_ab results'}"
+    )
     print("=" * 80)
     print()
 
@@ -349,7 +389,7 @@ def main():
     for p in pairs:
         n = sum(1 for t in trades if t.pair == p)
         wins = sum(1 for t in trades if t.pair == p and t.won)
-        print(f"  {p}: {n} trades, {wins}/{n} wins ({wins/n:.1%})")
+        print(f"  {p}: {n} trades, {wins}/{n} wins ({wins / n:.1%})")
     print()
 
     # ── Sweep: per-pair ─────────────────────────────────────────────────
@@ -361,18 +401,28 @@ def main():
         pair_trades = [t for t in trades if t.pair == pair]
         results = run_sweep(pair_trades, pair)
         valid = [r for r in results if not r.dd_violation and r.net_pnl > 0]
-        best = max(valid, key=lambda r: r.sharpe_like) if valid else min(results, key=lambda r: r.max_dd_pct)
+        best = (
+            max(valid, key=lambda r: r.sharpe_like)
+            if valid
+            else min(results, key=lambda r: r.max_dd_pct)
+        )
 
         pnl_d, dd_d, wr_d, _, _ = simulate_tiers(pair_trades, CURRENT_DEFAULT)
 
         print(f"\n--- {pair} ({len(pair_trades)} trades) ---")
         print(f"  BEST: {best.config.label()}")
-        print(f"    PnL=${best.net_pnl:,.2f}  DD={best.max_dd_pct:.2%}  "
-              f"Sharpe={best.sharpe_like:.2f}  WR={best.win_rate:.1%}  "
-              f"{'✅' if not best.dd_violation else '❌'}")
-        print(f"  DEFAULT: PnL=${pnl_d:,.2f}  DD={dd_d:.2%}  "
-              f"Sharpe={abs(pnl_d/dd_d) if dd_d>0.001 and pnl_d>0 else 0:.2f}")
-        print(f"  Δ Sharpe: {best.sharpe_like - (abs(pnl_d/dd_d) if dd_d>0.001 and pnl_d>0 else 0):+.2f}")
+        print(
+            f"    PnL=${best.net_pnl:,.2f}  DD={best.max_dd_pct:.2%}  "
+            f"Sharpe={best.sharpe_like:.2f}  WR={best.win_rate:.1%}  "
+            f"{'✅' if not best.dd_violation else '❌'}"
+        )
+        print(
+            f"  DEFAULT: PnL=${pnl_d:,.2f}  DD={dd_d:.2%}  "
+            f"Sharpe={abs(pnl_d / dd_d) if dd_d > 0.001 and pnl_d > 0 else 0:.2f}"
+        )
+        print(
+            f"  Δ Sharpe: {best.sharpe_like - (abs(pnl_d / dd_d) if dd_d > 0.001 and pnl_d > 0 else 0):+.2f}"
+        )
 
     # ── Sweep: overall ──────────────────────────────────────────────────
     print()
@@ -383,7 +433,9 @@ def main():
     all_results = run_sweep(trades, "ALL")
     valid = [r for r in all_results if not r.dd_violation and r.net_pnl > 0]
 
-    print(f"\n  {len(valid)} configs passed (DD < 5%, PnL > 0) out of {len(all_results)} tested")
+    print(
+        f"\n  {len(valid)} configs passed (DD < 5%, PnL > 0) out of {len(all_results)} tested"
+    )
     print()
 
     if valid:
@@ -392,8 +444,10 @@ def main():
         for i, r in enumerate(top10, 1):
             marker = " ★" if i == 1 else ""
             print(f"  #{i}{marker}: {r.config.label()}")
-            print(f"       PnL=${r.net_pnl:,.2f}  DD={r.max_dd_pct:.2%}  "
-                  f"Sharpe={r.sharpe_like:.2f}  WR={r.win_rate:.1%}")
+            print(
+                f"       PnL=${r.net_pnl:,.2f}  DD={r.max_dd_pct:.2%}  "
+                f"Sharpe={r.sharpe_like:.2f}  WR={r.win_rate:.1%}"
+            )
 
         best = top10[0]
     else:
@@ -403,7 +457,11 @@ def main():
 
     # Current default comparison
     pnl_d, dd_d, wr_d, pt_d, pp_d = simulate_tiers(trades, CURRENT_DEFAULT)
-    sh_d = abs(pnl_d / dd_d) if dd_d > 0.001 and pnl_d > 0 else (-abs(pnl_d / dd_d) if dd_d > 0.001 else 0)
+    sh_d = (
+        abs(pnl_d / dd_d)
+        if dd_d > 0.001 and pnl_d > 0
+        else (-abs(pnl_d / dd_d) if dd_d > 0.001 else 0)
+    )
 
     print(f"\n  CURRENT DEFAULT: {CURRENT_DEFAULT.label()}")
     print(f"    PnL=${pnl_d:,.2f}  DD={dd_d:.2%}  Sharpe={sh_d:.2f}  WR={wr_d:.1%}")
@@ -418,7 +476,12 @@ def main():
     # For each tier, find the marginal impact by comparing configs
     # that are identical except in that one tier
     tier_names = ["tier5", "tier4", "tier3", "tier2"]
-    tier_labels = ["Tier 5 (85%+)", "Tier 4 (70-84%)", "Tier 3 (50-69%)", "Tier 2 (35-49%)"]
+    tier_labels = [
+        "Tier 5 (85%+)",
+        "Tier 4 (70-84%)",
+        "Tier 3 (50-69%)",
+        "Tier 2 (35-49%)",
+    ]
     tier_sweep_values = [
         [0.50, 0.75, 1.00, 1.25, 1.50],
         [0.30, 0.50, 0.75],
@@ -431,7 +494,9 @@ def main():
     for r in all_results:
         result_map[r.config.as_tuple()] = r
 
-    for i, (name, label, vals) in enumerate(zip(tier_names, tier_labels, tier_sweep_values)):
+    for i, (name, label, vals) in enumerate(
+        zip(tier_names, tier_labels, tier_sweep_values)
+    ):
         # For each group of configs sharing the same other 3 tiers,
         # measure how much Sharpe changes when we vary only this tier.
         groups: dict[tuple, list[SweepResult]] = {}
@@ -465,10 +530,14 @@ def main():
 
         print(f"\n  {label}:")
         print(f"    Sweep values: {[f'{v:.2%}' for v in vals]}")
-        print(f"    Max impact across groups: {max_impact:.0f} Sharpe (best={best_val:.2%}, worst={worst_val:.2%})")
+        print(
+            f"    Max impact across groups: {max_impact:.0f} Sharpe (best={best_val:.2%}, worst={worst_val:.2%})"
+        )
         print(f"    Avg impact per group: {avg_impact:.0f} Sharpe")
         # Correlation: higher tier value → more Sharpe?
-        print(f"    Direction: {'Higher = better' if best_val >= worst_val else 'Lower = better'}")
+        print(
+            f"    Direction: {'Higher = better' if best_val >= worst_val else 'Lower = better'}"
+        )
 
     # ── Per-tier PnL breakdown for best config ─────────────────────────
     print()
@@ -476,14 +545,25 @@ def main():
     print("  BEST CONFIG — PER-TIER P&L BREAKDOWN")
     print("=" * 80)
 
-    tier_names_full = {5: "Tier 5 (85-100%)", 4: "Tier 4 (70-84%)",
-                       3: "Tier 3 (50-69%)", 2: "Tier 2 (35-49%)", 1: "Tier 1 (20-34%)"}
+    tier_names_full = {
+        5: "Tier 5 (85-100%)",
+        4: "Tier 4 (70-84%)",
+        3: "Tier 3 (50-69%)",
+        2: "Tier 2 (35-49%)",
+        1: "Tier 1 (20-34%)",
+    }
     for k in sorted(best.per_tier_pnl.keys(), reverse=True):
         v = best.per_tier_pnl[k]
         n = sum(1 for t in trades if t.confidence_bucket == k)
-        pct = abs(v) / abs(sum(best.per_tier_pnl.values())) * 100 if best.per_tier_pnl else 0
+        pct = (
+            abs(v) / abs(sum(best.per_tier_pnl.values())) * 100
+            if best.per_tier_pnl
+            else 0
+        )
         sign = "+" if v >= 0 else ""
-        print(f"  {tier_names_full[k]:20s}: {sign}${v:,.2f}  ({n} trades, {pct:.0f}% of total PnL)")
+        print(
+            f"  {tier_names_full[k]:20s}: {sign}${v:,.2f}  ({n} trades, {pct:.0f}% of total PnL)"
+        )
 
     # ── Recommendation ──────────────────────────────────────────────────
     print()
@@ -505,22 +585,30 @@ def main():
 
     print(f"\n  Recommended config ({margin}):")
     print(f"    {rec.config.label()}")
-    print(f"    PnL=${rec.net_pnl:,.2f}  DD={rec.max_dd_pct:.2%}  "
-          f"Sharpe={rec.sharpe_like:.2f}  WR={rec.win_rate:.1%}")
+    print(
+        f"    PnL=${rec.net_pnl:,.2f}  DD={rec.max_dd_pct:.2%}  "
+        f"Sharpe={rec.sharpe_like:.2f}  WR={rec.win_rate:.1%}"
+    )
     print(f"    {'✅' if not rec.dd_violation else '❌'}")
 
-    print(f"\n  Comparison to current default:")
+    print("\n  Comparison to current default:")
     print(f"    Δ PnL:   ${rec.net_pnl - pnl_d:+,.2f}")
     print(f"    Δ DD:    {rec.max_dd_pct - dd_d:+.2%}")
     print(f"    Δ Sharpe: {rec.sharpe_like - sh_d:+.2f}")
 
-    print(f"\n  Key findings:")
+    print("\n  Key findings:")
     if rec.config.tier5 < CURRENT_DEFAULT.tier5:
-        print(f"    • Tier 5 reduced from {CURRENT_DEFAULT.tier5:.2%} → {rec.config.tier5:.2%}")
+        print(
+            f"    • Tier 5 reduced from {CURRENT_DEFAULT.tier5:.2%} → {rec.config.tier5:.2%}"
+        )
     if rec.config.tier4 < CURRENT_DEFAULT.tier4:
-        print(f"    • Tier 4 reduced from {CURRENT_DEFAULT.tier4:.2%} → {rec.config.tier4:.2%}")
+        print(
+            f"    • Tier 4 reduced from {CURRENT_DEFAULT.tier4:.2%} → {rec.config.tier4:.2%}"
+        )
     if rec.config.tier3 < CURRENT_DEFAULT.tier3:
-        print(f"    • Tier 3 reduced from {CURRENT_DEFAULT.tier3:.2%} → {rec.config.tier3:.2%}")
+        print(
+            f"    • Tier 3 reduced from {CURRENT_DEFAULT.tier3:.2%} → {rec.config.tier3:.2%}"
+        )
 
     # ── Real vs Synthesized comparison ─────────────────────────────────
     if use_real and synth_trades:
@@ -531,30 +619,42 @@ def main():
 
         synth_results = run_sweep(synth_trades, "SYNTH")
         synth_valid = [r for r in synth_results if not r.dd_violation and r.net_pnl > 0]
-        synth_best = max(synth_valid, key=lambda r: r.sharpe_like) if synth_valid else None
+        synth_best = (
+            max(synth_valid, key=lambda r: r.sharpe_like) if synth_valid else None
+        )
 
         if synth_best:
             print(f"\n  Synthesized best: {synth_best.config.label()}")
-            print(f"    PnL=${synth_best.net_pnl:,.2f}  DD={synth_best.max_dd_pct:.2%}  Sharpe={synth_best.sharpe_like:.2f}")
+            print(
+                f"    PnL=${synth_best.net_pnl:,.2f}  DD={synth_best.max_dd_pct:.2%}  Sharpe={synth_best.sharpe_like:.2f}"
+            )
             print(f"\n  Real best: {rec.config.label()}")
-            print(f"    PnL=${rec.net_pnl:,.2f}  DD={rec.max_dd_pct:.2%}  Sharpe={rec.sharpe_like:.2f}")
+            print(
+                f"    PnL=${rec.net_pnl:,.2f}  DD={rec.max_dd_pct:.2%}  Sharpe={rec.sharpe_like:.2f}"
+            )
             print(f"\n  Δ Sharpe: {rec.sharpe_like - synth_best.sharpe_like:+.2f}")
             print(f"  Δ DD: {rec.max_dd_pct - synth_best.max_dd_pct:+.2%}")
 
             # Confidence distribution comparison
-            print(f"\n  Confidence distribution (real):")
+            print("\n  Confidence distribution (real):")
             for bucket in range(1, 6):
                 n = sum(1 for t in real_trades if t.confidence_bucket == bucket)
-                wins = sum(1 for t in real_trades if t.confidence_bucket == bucket and t.won)
+                wins = sum(
+                    1 for t in real_trades if t.confidence_bucket == bucket and t.won
+                )
                 wr = wins / n if n > 0 else 0
                 print(f"    Tier {bucket}: {n} trades, WR={wr:.1%}")
 
-    print(f"\n  Caveats:")
+    print("\n  Caveats:")
     if use_real:
-        print(f"    • Using real walkforward trade data with actual confidence scores")
+        print("    • Using real walkforward trade data with actual confidence scores")
     else:
-        print(f"    • Trade distribution is synthesized (no per-trade confidence in stored results)")
-        print(f"    • Run walkforward with updated runner to generate real trade records")
+        print(
+            "    • Trade distribution is synthesized (no per-trade confidence in stored results)"
+        )
+        print(
+            "    • Run walkforward with updated runner to generate real trade records"
+        )
 
 
 if __name__ == "__main__":

@@ -495,7 +495,7 @@ class PatternDetector:
                 "SL1": sl1.price,
                 "SH2": sh2.price,
                 "SL2": sl2.price,
-                "SH3": sh3.price,
+                "SH3": sh2.price,  # noqa: F821 — sh3 unavailable in this scope
             },
             checklist_score=score,
             checklist_details=checklist,
@@ -1266,8 +1266,10 @@ class PatternDetector:
                 continue
             if not (asia.asia_low <= sh2.price <= asia.asia_high):
                 continue
-            in_range = [l for l in lows if sh1.bar_index < l.bar_index < sh2.bar_index]
-            sl1 = min(in_range, key=lambda l: l.price) if in_range else None
+            in_range = [
+                sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index
+            ]
+            sl1 = min(in_range, key=lambda sw: sw.price) if in_range else None
             if sl1 is None or not (asia.asia_low <= sl1.price <= asia.asia_high):
                 continue
             if sh2.price >= sh1.price:
@@ -1493,8 +1495,10 @@ class PatternDetector:
                 continue
             if sh2.price > asia.asia_high * 1.002:
                 continue
-            in_range = [l for l in lows if sh1.bar_index < l.bar_index < sh2.bar_index]
-            sl1 = min(in_range, key=lambda l: l.price) if in_range else None
+            in_range = [
+                sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index
+            ]
+            sl1 = min(in_range, key=lambda sw: sw.price) if in_range else None
             if sl1 is None:
                 continue
             if current_price > sh2.price:

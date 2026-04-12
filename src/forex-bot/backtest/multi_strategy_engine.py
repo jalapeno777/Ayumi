@@ -290,11 +290,11 @@ class MultiStrategyBacktestEngine:
         When price reaches TP1 → move SL to breakeven + 1 pip
         When price reaches TP2 → move SL to TP1 price (lock profit)
         """
-        if not hasattr(trade, '_sl_moved_to_be'):
+        if not hasattr(trade, "_sl_moved_to_be"):
             trade._sl_moved_to_be = False
             trade._sl_moved_to_tp1 = False
 
-        risk = abs(trade.entry_price - trade.stop_loss)
+        abs(trade.entry_price - trade.stop_loss)
         pip_size = self._get_pip_value(trade.entry_price)
 
         if trade.direction == TradeDirection.LONG:
@@ -445,9 +445,7 @@ class MultiStrategyBacktestEngine:
 
         # Confidence-based risk sizing
         risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
-        lot_size = self.risk_sizer.get_lot_size(
-            signal.confidence, stop_pips, pip_value
-        )
+        lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None
 

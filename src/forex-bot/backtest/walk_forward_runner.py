@@ -16,7 +16,7 @@ from quant.walk_forward import (
 from .engine import BacktestConfig, Bar, get_spread_for_pair
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
-from signal_engine.risk_sizer import ConfidencePositionSizer, ConfidenceTier, parse_tiers
+from signal_engine.risk_sizer import ConfidencePositionSizer
 
 
 class SupportsTrain(Protocol):
@@ -88,7 +88,9 @@ def run_strategy_walk_forward(
         try:
             if risk_sizer is None:
                 risk_sizer = ConfidencePositionSizer(account_size=initial_balance)
-            engine = MultiStrategyBacktestEngine(config, [strategy], risk_sizer=risk_sizer)
+            engine = MultiStrategyBacktestEngine(
+                config, [strategy], risk_sizer=risk_sizer
+            )
             result = engine.run_all_strategies(test_bars)
             metrics_obj = result[strategy.name].metrics
 
@@ -212,7 +214,7 @@ def run_multi_strategy_walk_forward(
 
         strategies = [factory() for factory in strategy_factories]
         for s in strategies:
-            if hasattr(s, 'reset') and callable(s.reset):
+            if hasattr(s, "reset") and callable(s.reset):
                 s.reset()
 
         try:

@@ -1,4 +1,5 @@
 """Tests for ML confidence pipeline — confluence features, learner, integration."""
+
 from __future__ import annotations
 
 import unittest
@@ -41,7 +42,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
 
         # Numeric features
         self.assertEqual(features[13], 0.75)  # confidence_score
-        self.assertEqual(features[15], 6.0)   # confluence_count
+        self.assertEqual(features[15], 6.0)  # confluence_count
 
     def test_extract_no_boosts(self):
         record = {
@@ -78,8 +79,16 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
 
     def test_extract_batch(self):
         records = [
-            {"rationale": "boosts=[('rsi_divergence', 0.05)]", "confidence_score": 0.6, "confluence_count": 1},
-            {"rationale": "boosts=[('kill_zone_active', 0.05)]", "confidence_score": 0.7, "confluence_count": 1},
+            {
+                "rationale": "boosts=[('rsi_divergence', 0.05)]",
+                "confidence_score": 0.6,
+                "confluence_count": 1,
+            },
+            {
+                "rationale": "boosts=[('kill_zone_active', 0.05)]",
+                "confidence_score": 0.7,
+                "confluence_count": 1,
+            },
         ]
         batch = self.extractor.extract_batch(records)
         self.assertEqual(len(batch), 2)
@@ -104,6 +113,7 @@ class TestConfidenceLearner(unittest.TestCase):
     def _make_records(self, n: int, win_rate: float = 0.5) -> list[dict]:
         """Generate synthetic trade records."""
         import random
+
         random.seed(42)
         records = []
         for i in range(n):
@@ -134,7 +144,24 @@ class TestConfidenceLearner(unittest.TestCase):
         self.assertIn("rsi_divergence", weights)
 
         # Predict on a record with rsi_divergence
-        features = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.7, 0.5, 2.0]
+        features = [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.7,
+            0.5,
+            2.0,
+        ]
         proba = learner.predict_proba(features)
         self.assertGreaterEqual(proba, 0.0)
         self.assertLessEqual(proba, 1.0)
@@ -176,7 +203,11 @@ class TestIntegration(unittest.TestCase):
             boosts = "rsi_divergence" if i % 3 == 0 else ""
             if i % 4 == 0:
                 boosts += ", htf_trend_aligned" if boosts else "htf_trend_aligned"
-            rationale = f"TTSStrategy: M long, conf=0.6, boosts=[({boosts}, 0.05)]" if boosts else "TTSStrategy: M long, conf=0.5, boosts=[]"
+            rationale = (
+                f"TTSStrategy: M long, conf=0.6, boosts=[({boosts}, 0.05)]"
+                if boosts
+                else "TTSStrategy: M long, conf=0.5, boosts=[]"
+            )
             record = {
                 "rationale": rationale,
                 "confidence_score": 0.5 + (i % 10) * 0.03,
@@ -186,7 +217,7 @@ class TestIntegration(unittest.TestCase):
             record["features"] = extractor.extract(record)
             trade_records.append(record)
 
-        weights = learner.train(trade_records, extractor.FEATURE_NAMES)
+        learner.train(trade_records, extractor.FEATURE_NAMES)
         self.assertTrue(learner.is_trained)
 
         # Predict on a new trade

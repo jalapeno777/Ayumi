@@ -3,6 +3,7 @@
 Extracts binary feature vectors from trade records indicating which
 confluence factors were present at signal time.
 """
+
 from __future__ import annotations
 
 import re
@@ -46,7 +47,7 @@ class ConfluenceFeatureExtractor:
         "htf_consolidating",
         # Numeric features
         "confidence_score",
-        "base_confidence",      # raw base confidence before boosts
+        "base_confidence",  # raw base confidence before boosts
         "confluence_count",
     ]
 

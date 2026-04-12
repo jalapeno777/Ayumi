@@ -10,11 +10,11 @@ Pipeline:
 Usage:
     python -c "import sys; sys.path.insert(0, 'src/forex-bot'); from ml.backtest_with_ml import main; main()"
 """
+
 from __future__ import annotations
 
 import json
 import sys
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -53,12 +53,13 @@ DEFAULT_CONFIG = {
 
 # ML thresholds
 ML_HIGH_PROBA = 0.58  # boost confidence
-ML_LOW_PROBA = 0.42   # reduce / skip
+ML_LOW_PROBA = 0.42  # reduce / skip
 ML_CONFIDENCE_BOOST = 0.05
 ML_CONFIDENCE_PENALTY = 0.10
 
 
 # ── Data Loading ───────────────────────────────────────────────────────
+
 
 def load_bars(pair: str, tf: str) -> list[Bar]:
     csv_path = DATA_DIR / f"{pair}_{tf}_2026.csv"
@@ -85,6 +86,7 @@ def load_bars(pair: str, tf: str) -> list[Bar]:
 
 # ── Trade → Feature Extraction ────────────────────────────────────────
 
+
 def trade_to_record(trade: SimulatedTrade) -> dict | None:
     """Convert a SimulatedTrade to a feature record dict."""
     if not trade.rationale:
@@ -102,6 +104,7 @@ def trade_to_record(trade: SimulatedTrade) -> dict | None:
 
 
 # ── Phase 1: Collect Trades ───────────────────────────────────────────
+
 
 def collect_trades(pair: str, tf: str) -> list[SimulatedTrade]:
     """Run rule-based backtest and return all trades."""
@@ -130,6 +133,7 @@ def collect_trades(pair: str, tf: str) -> list[SimulatedTrade]:
 
 # ── Phase 2: Train Learners ───────────────────────────────────────────
 
+
 def train_learners(
     all_trades: dict[str, list[SimulatedTrade]],
     tf: str,
@@ -143,7 +147,9 @@ def train_learners(
         records = [r for r in records if r is not None]
 
         if len(records) < 20:
-            print(f"  {pair}: SKIP — only {len(records)} trades with rationale (need 20+)")
+            print(
+                f"  {pair}: SKIP — only {len(records)} trades with rationale (need 20+)"
+            )
             continue
 
         # Extract features
@@ -152,7 +158,7 @@ def train_learners(
 
         learner = ConfidenceLearner(symbol=pair, timeframe=tf)
         try:
-            weights = learner.train(records, extractor.FEATURE_NAMES)
+            learner.train(records, extractor.FEATURE_NAMES)
             learners[pair] = learner
             print(f"  {pair}: Trained on {learner.train_size} trades")
             print(f"    Top features: {learner.get_top_features(5)}")
@@ -164,10 +170,17 @@ def train_learners(
 
 # ── Phase 3: ML-Adjusted Backtest ─────────────────────────────────────
 
+
 class MLFilteredTTSStrategy(TTSStrategy):
     """TTSStrategy wrapper that adjusts confidence based on ML predictions."""
 
-    def __init__(self, symbol: str, learner: ConfidenceLearner, extractor: ConfluenceFeatureExtractor, **kwargs):
+    def __init__(
+        self,
+        symbol: str,
+        learner: ConfidenceLearner,
+        extractor: ConfluenceFeatureExtractor,
+        **kwargs,
+    ):
         super().__init__(symbol=symbol, **kwargs)
         self._learner = learner
         self._extractor = extractor
@@ -203,7 +216,12 @@ class MLFilteredTTSStrategy(TTSStrategy):
         return signal
 
 
-def run_ml_backtest(pair: str, tf: str, learner: ConfidenceLearner, extractor: ConfluenceFeatureExtractor) -> dict:
+def run_ml_backtest(
+    pair: str,
+    tf: str,
+    learner: ConfidenceLearner,
+    extractor: ConfluenceFeatureExtractor,
+) -> dict:
     """Run backtest with ML-adjusted confidence."""
     bars = load_bars(pair, tf)
     spread = get_spread_for_pair(pair)
@@ -237,6 +255,7 @@ def run_ml_backtest(pair: str, tf: str, learner: ConfidenceLearner, extractor: C
 
 # ── Reporting ──────────────────────────────────────────────────────────
 
+
 def print_comparison(baseline: dict, ml_result: dict, pair: str):
     bm = baseline
     mm = ml_result
@@ -259,10 +278,13 @@ def print_comparison(baseline: dict, ml_result: dict, pair: str):
     print(f"  {'Max Drawdown %':<25} {'N/A':>12} {mdd:>11.2f}% {'N/A':>12}")
     print(f"  {'Profit Factor':<25} {'N/A':>12} {mpf:>12.2f} {'N/A':>12}")
 
-    print(f"\n  ML filter stats: boosted={ms['boosted']}, penalized={ms['penalized']}, skipped={ms['skipped']}, passed={ms['passed']}")
+    print(
+        f"\n  ML filter stats: boosted={ms['boosted']}, penalized={ms['penalized']}, skipped={ms['skipped']}, passed={ms['passed']}"
+    )
 
 
 # ── Main ───────────────────────────────────────────────────────────────
+
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -290,7 +312,9 @@ def main():
             losses = sum(1 for t in trades if t.outcome == TradeOutcome.LOSS)
             total_pnl = sum(t.profit_loss for t in trades)
             wr = wins / len(trades) * 100 if trades else 0
-            print(f"    Trades: {len(trades)} | W: {wins} L: {losses} | WR: {wr:.1f}% | P&L: ${total_pnl:.2f}")
+            print(
+                f"    Trades: {len(trades)} | W: {wins} L: {losses} | WR: {wr:.1f}% | P&L: ${total_pnl:.2f}"
+            )
         except FileNotFoundError as e:
             print(f"    SKIP: {e}")
         except Exception as e:
@@ -381,19 +405,23 @@ def main():
 
         improved = pnl_m > pnl_b
         wr_delta = ml_summary["win_rate"] - baseline_summary["win_rate"]
-        summary_rows.append({
-            "pair": pair,
-            "baseline_pnl": pnl_b,
-            "ml_pnl": pnl_m,
-            "delta": pnl_m - pnl_b,
-            "baseline_wr": baseline_summary["win_rate"],
-            "ml_wr": ml_summary["win_rate"],
-            "wr_delta": wr_delta,
-            "improved": improved,
-        })
+        summary_rows.append(
+            {
+                "pair": pair,
+                "baseline_pnl": pnl_b,
+                "ml_pnl": pnl_m,
+                "delta": pnl_m - pnl_b,
+                "baseline_wr": baseline_summary["win_rate"],
+                "ml_wr": ml_summary["win_rate"],
+                "wr_delta": wr_delta,
+                "improved": improved,
+            }
+        )
 
     # Save report
-    report_path = PROJECT_ROOT / "reports" / "ml_confidence" / f"ml_{TIMEFRAME}_{timestamp}.json"
+    report_path = (
+        PROJECT_ROOT / "reports" / "ml_confidence" / f"ml_{TIMEFRAME}_{timestamp}.json"
+    )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
@@ -403,7 +431,9 @@ def main():
     print(f"\n{'═' * 70}")
     print("  SUMMARY")
     print(f"{'═' * 70}")
-    print(f"  {'Pair':<10} {'Base P&L':>12} {'ML P&L':>12} {'Delta':>12} {'Base WR':>10} {'ML WR':>10} {'Δ WR':>8} {'Status':<8}")
+    print(
+        f"  {'Pair':<10} {'Base P&L':>12} {'ML P&L':>12} {'Delta':>12} {'Base WR':>10} {'ML WR':>10} {'Δ WR':>8} {'Status':<8}"
+    )
     print(f"  {'─' * 85}")
 
     for row in summary_rows:
