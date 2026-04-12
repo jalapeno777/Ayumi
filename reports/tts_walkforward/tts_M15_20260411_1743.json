@@ -1,0 +1,47 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.2,
+    "min_quality_score": 0.2,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "EURUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.55, profit_factor=1.2228647846156864, max_drawdown=0.0072411139831408435, sharpe_ratio=1.4064464887382966, trade_count=20, total_pnl=28.29934895141002, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.42857142857142855, profit_factor=0.7170036918170527, max_drawdown=0.0048302266040938305, sharpe_ratio=-2.2978710639970514, trade_count=14, total_pnl=-32.94193065303337, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5217391304347826, profit_factor=0.942180353761174, max_drawdown=0.008111079523165582, sharpe_ratio=-0.389436331611198, trade_count=23, total_pnl=-10.878415877304302, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.500103519668737, std_win_rate=0.06353974527577831, mean_profit_factor=0.960682943397971, std_profit_factor=0.25343760705409873, mean_max_drawdown=0.006727473370133419, std_max_drawdown=0.001699667314106908, mean_sharpe_ratio=-0.4269536356233176, std_sharpe_ratio=1.8524437357045564, mean_trade_count=19.0, std_trade_count=4.58257569495584, mean_total_pnl=-5.17366585964255, std_total_pnl=31.016636043749365, windows_passed=0, total_windows=3), go_nogo=False)",
+    "GBPJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.5354257702865114, max_drawdown=0.011177756531951242, sharpe_ratio=-4.411156912856829, trade_count=18, total_pnl=-88.22386131973848, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.2222222222222222, profit_factor=0.17230844506657053, max_drawdown=0.019537919929473284, sharpe_ratio=-12.796585362258066, trade_count=18, total_pnl=-185.7336961627203, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.2727272727272727, profit_factor=0.3289138294504015, max_drawdown=0.019530371580104757, sharpe_ratio=-8.024787754951863, trade_count=22, total_pnl=-175.37919150035495, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.2760942760942761, std_win_rate=0.05563202573016265, mean_profit_factor=0.3455493482678278, std_profit_factor=0.18212935879057165, mean_max_drawdown=0.01674868268050976, std_max_drawdown=0.004824565043495044, mean_sharpe_ratio=-8.410843343355586, std_sharpe_ratio=4.206023271215962, mean_trade_count=19.333333333333332, std_trade_count=2.3094010767585034, mean_total_pnl=-149.77891632760458, std_total_pnl=53.55905655878194, windows_passed=0, total_windows=3), go_nogo=False)",
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.4444444444444444, profit_factor=0.9032688182328186, max_drawdown=0.007310831019291614, sharpe_ratio=-0.7143569525843726, trade_count=18, total_pnl=-14.654184139411342, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.5714285714285714, profit_factor=1.5870105002930217, max_drawdown=0.0035859119902046455, sharpe_ratio=3.0989321064338102, trade_count=14, total_pnl=39.35023098473411, passed_go_nogo=True), WindowMetrics(window_index=2, win_rate=0.5, profit_factor=0.9318699173046476, max_drawdown=0.008064938696647005, sharpe_ratio=-0.502051073027705, trade_count=20, total_pnl=-12.419903713062046, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.5052910052910052, std_win_rate=0.06365719267468764, mean_profit_factor=1.1407164119434958, std_profit_factor=0.3867664872876525, mean_max_drawdown=0.006320560568714421, std_max_drawdown=0.0023981027361688946, mean_sharpe_ratio=0.6275080269405775, std_sharpe_ratio=2.142946845385534, mean_trade_count=17.333333333333332, std_trade_count=3.0550504633038935, mean_total_pnl=4.092047710753574, std_total_pnl=30.55491152158835, windows_passed=1, total_windows=3), go_nogo=False)",
+    "XAUUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.3333333333333333, profit_factor=0.668455498411063, max_drawdown=0.006678775124554158, sharpe_ratio=-2.8240744412001355, trade_count=12, total_pnl=-41.850003480285906, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.5, profit_factor=1.0340825338224582, max_drawdown=0.015253978407460095, sharpe_ratio=0.232556402190362, trade_count=32, total_pnl=9.159086097432079, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.55, profit_factor=2.163055739643889, max_drawdown=0.007501348883665782, sharpe_ratio=5.095719120657539, trade_count=20, total_pnl=128.55855722710416, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.4611111111111111, std_win_rate=0.11344765475923412, mean_profit_factor=1.28853125729247, std_profit_factor=0.7791120490211563, mean_max_drawdown=0.009811367471893345, std_max_drawdown=0.004731349410502022, mean_sharpe_ratio=0.8347336938825886, std_sharpe_ratio=3.9940888364660725, mean_trade_count=21.333333333333332, std_trade_count=10.066445913694333, mean_total_pnl=31.955879948083446, std_total_pnl=87.4616472975034, windows_passed=0, total_windows=3), go_nogo=False)"
+  },
+  "go_nogo": {
+    "EURUSD": {
+      "pass": false,
+      "net_profit": -5.17366585964255,
+      "win_rate": 0.500103519668737,
+      "max_dd": 0.6727473370133419,
+      "total_trades": 19
+    },
+    "GBPJPY": {
+      "pass": false,
+      "net_profit": -149.77891632760458,
+      "win_rate": 0.2760942760942761,
+      "max_dd": 1.674868268050976,
+      "total_trades": 19
+    },
+    "USDJPY": {
+      "pass": false,
+      "net_profit": 4.092047710753574,
+      "win_rate": 0.5052910052910052,
+      "max_dd": 0.6320560568714422,
+      "total_trades": 17
+    },
+    "XAUUSD": {
+      "pass": true,
+      "net_profit": 31.955879948083446,
+      "win_rate": 0.4611111111111111,
+      "max_dd": 0.9811367471893345,
+      "total_trades": 21
+    }
+  }
+}

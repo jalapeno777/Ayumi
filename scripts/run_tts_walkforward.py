@@ -143,7 +143,7 @@ def main() -> None:
         "--timeframe",
         "--tf",
         default=DEFAULT_TIMEFRAME,
-        choices=["M15", "H1", "H4", "D1"],
+        choices=["M5", "M15", "H1", "H4", "D1"],
     )
     parser.add_argument("--windows", type=int, default=DEFAULT_WINDOWS)
     parser.add_argument("--train-ratio", type=float, default=DEFAULT_TRAIN_RATIO)

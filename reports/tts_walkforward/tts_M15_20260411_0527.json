@@ -1,0 +1,16 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.3,
+    "min_quality_score": 0.2,
+    "n_windows": 3,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "USDJPY": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.36363636363636365, profit_factor=1.4077372055980326, max_drawdown=0.05145500477473055, sharpe_ratio=2.0793280060275303, trade_count=11, total_pnl=320.5581228357554, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.14285714285714285, profit_factor=0.37526427414905145, max_drawdown=0.051957525945521235, sharpe_ratio=-6.499985889981247, trade_count=7, total_pnl=-331.0520138856922, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.6190476190476191, profit_factor=3.4046039949954516, max_drawdown=0.02471913952066625, sharpe_ratio=6.537618985346513, trade_count=21, total_pnl=2203.5915300787, passed_go_nogo=True)], aggregated=AggregatedMetrics(mean_win_rate=0.3751803751803752, std_win_rate=0.23830503678169357, mean_profit_factor=1.7292018249141785, std_profit_factor=1.5400420163678952, mean_max_drawdown=0.04271055674697268, std_max_drawdown=0.015583050158426943, mean_sharpe_ratio=0.7056537004642656, std_sharpe_ratio=6.626463690734002, mean_trade_count=13.0, std_trade_count=7.211102550927978, mean_total_pnl=731.0325463429211, std_total_pnl=1316.233798762685, windows_passed=1, total_windows=3), go_nogo=False)",
+    "XAUUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.2727272727272727, profit_factor=0.5331666203437462, max_drawdown=0.05914848979551934, sharpe_ratio=-4.4457651892282195, trade_count=11, total_pnl=-375.95621886505575, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.375, profit_factor=0.7324687973554174, max_drawdown=0.05847378910309805, sharpe_ratio=-2.179268211871515, trade_count=24, total_pnl=-401.51614433296595, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.4666666666666667, profit_factor=1.3494651611744577, max_drawdown=0.029726619584953876, sharpe_ratio=1.9895437928978064, trade_count=15, total_pnl=263.19253941640244, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.37146464646464644, std_win_rate=0.09701801984095436, mean_profit_factor=0.8717001929578737, std_profit_factor=0.42558766791536967, mean_max_drawdown=0.04911629949452376, std_max_drawdown=0.016795343714933963, mean_sharpe_ratio=-1.545163202733976, std_sharpe_ratio=3.2641794215113182, mean_trade_count=16.666666666666668, std_trade_count=6.6583281184793925, mean_total_pnl=-171.42660792720642, std_total_pnl=376.6081250792997, windows_passed=0, total_windows=3), go_nogo=False)"
+  },
+  "go_nogo": {}
+}

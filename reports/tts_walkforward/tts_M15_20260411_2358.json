@@ -1,0 +1,425 @@
+{
+  "strategy": "TTSStrategy",
+  "timeframe": "M15",
+  "config": {
+    "min_confidence": 0.5,
+    "min_quality_score": 0.25,
+    "n_windows": 5,
+    "train_ratio": 0.65,
+    "val_ratio": 0.15
+  },
+  "per_pair": {
+    "GBPUSD": "WalkForwardResults(per_window=[WindowMetrics(window_index=0, win_rate=0.5, profit_factor=0.981171802077231, max_drawdown=0.010760861693968674, sharpe_ratio=-0.13993650330753815, trade_count=8, total_pnl=-3.5742303139633904, passed_go_nogo=False), WindowMetrics(window_index=1, win_rate=0.4444444444444444, profit_factor=0.7226349353725501, max_drawdown=0.024907883109502805, sharpe_ratio=-2.3195092792163114, trade_count=9, total_pnl=-70.35205427182275, passed_go_nogo=False), WindowMetrics(window_index=2, win_rate=0.5, profit_factor=0.8340117590188714, max_drawdown=0.02710179289731469, sharpe_ratio=-1.3606783565759224, trade_count=14, total_pnl=-69.42220210217931, passed_go_nogo=False), WindowMetrics(window_index=3, win_rate=0.4, profit_factor=0.5030535190820158, max_drawdown=0.022753545106433556, sharpe_ratio=-5.135200716110205, trade_count=10, total_pnl=-161.07424657788454, passed_go_nogo=False), WindowMetrics(window_index=4, win_rate=0.1111111111111111, profit_factor=0.11613788123977851, max_drawdown=0.0387924453427655, sharpe_ratio=-17.870751603257442, trade_count=9, total_pnl=-362.4202113214705, passed_go_nogo=False)], aggregated=AggregatedMetrics(mean_win_rate=0.3911111111111111, std_win_rate=0.16204708963526393, mean_profit_factor=0.6314019793580894, std_profit_factor=0.3367801664391855, mean_max_drawdown=0.024863305629997046, std_max_drawdown=0.010029503476880794, mean_sharpe_ratio=-5.365215291693484, std_sharpe_ratio=7.22941084633357, mean_trade_count=10.0, std_trade_count=2.345207879911715, mean_total_pnl=-133.3685889174641, std_total_pnl=139.76681360669406, windows_passed=0, total_windows=5), go_nogo=False)"
+  },
+  "trade_records": [
+    {
+      "pnl": 45.23255813953502,
+      "confidence_score": 0.5300000000000075,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.26226, conf=0.53, boosts=[('bollinger', 0.07), ('ema_extension', 0.07), ('quality_gate', 0.07333333333334073), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 47.222222222222165,
+      "confidence_score": 0.5866666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.25371, conf=0.59, boosts=[('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.01612903225813,
+      "confidence_score": 0.5700000000000001,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.24567, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.920227920228044,
+      "confidence_score": 0.5066666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.23710, conf=0.51, boosts=[('bollinger', 0.07), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 48.57233502538068,
+      "confidence_score": 0.5366666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.23326, conf=0.54, boosts=[('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.23948811700182,
+      "confidence_score": 0.62,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.21613, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 45.23255813953502,
+      "confidence_score": 0.5035632183908304,
+      "direction": "TradeDirection.LONG",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.21957, conf=0.50, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('asia_range_wide', -0.05), ('quality_gate', 0.05689655172416367), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -32.65805877114829,
+      "confidence_score": 0.5700000000000001,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 0,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.20563, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', -0.05), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 44.76744186046472,
+      "confidence_score": 0.5166666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.26344, conf=0.52, boosts=[('kill_zone_active', -0.05), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('ema_cross', 0.08), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 45.23255813953502,
+      "confidence_score": 0.512397003745333,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.26214, conf=0.51, boosts=[('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('quality_gate', 0.06573033707866639), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 46.41719745222916,
+      "confidence_score": 0.5604166666666751,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.27349, conf=0.56, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx_exhaustion', -0.05), ('quality_gate', 0.06375000000000833), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 46.874999999999915,
+      "confidence_score": 0.6666666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.27698, conf=0.67, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -78.3909574468085,
+      "confidence_score": 0.7666666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.28176, conf=0.77, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.18446601941752,
+      "confidence_score": 0.5395045045045143,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.26685, conf=0.54, boosts=[('mfi', 0.08), ('rsi_extreme', 0.06), ('ema_extension', 0.07), ('adx_exhaustion', -0.05), ('quality_gate', 0.06283783783784756), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -54.693486590038376,
+      "confidence_score": 0.5584848484850412,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.26356, conf=0.56, boosts=[('htf_consolidating', -0.05), ('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('adx_exhaustion', -0.05), ('quality_gate', 0.08181818181837451), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -54.76744186046548,
+      "confidence_score": 0.56,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.25438, conf=0.56, boosts=[('htf_trend_aligned', 0.1), ('ema_extension', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -13.607899807321695,
+      "confidence_score": 0.5166666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 1,
+      "rationale": "TTC/TBD GBPUSD: FL long @ 1.26683, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', -0.05), ('mfi', 0.08), ('adx_exhaustion', -0.05), ('quality_gate', 0.12), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 73.30231388329977,
+      "confidence_score": 0.7066666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.31248, conf=0.71, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 44.8394495412845,
+      "confidence_score": 0.5307116104868738,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.31653, conf=0.53, boosts=[('mfi', 0.08), ('ema_extension', 0.07), ('quality_gate', 0.06404494382020705), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 43.83720930232578,
+      "confidence_score": 0.6315909090909246,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.31305, conf=0.63, boosts=[('mfi', 0.08), ('rsi_extreme', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.07159090909092457), ('confluence_scorer', 0.05)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 45.23255813953452,
+      "confidence_score": 0.5406926406926343,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.31161, conf=0.54, boosts=[('mfi', 0.08), ('bollinger', 0.07), ('quality_gate', 0.07402597402596756), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.57281553398063,
+      "confidence_score": 0.5510256410256511,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.31191, conf=0.55, boosts=[('mfi', 0.08), ('rsi_extreme', 0.06), ('ema_extension', 0.07), ('adx_exhaustion', -0.05), ('quality_gate', 0.07435897435898434), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.33769322235435,
+      "confidence_score": 0.5366666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.30146, conf=0.54, boosts=[('ilod_ihod_at_boundary', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('adx_exhaustion', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -54.767441860464984,
+      "confidence_score": 0.5241666666666547,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.31561, conf=0.52, boosts=[('rsi_extreme', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.07749999999998797), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 44.76744186046472,
+      "confidence_score": 0.5526595744680791,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.31584, conf=0.55, boosts=[('mfi', 0.08), ('ema_extension', 0.07), ('quality_gate', 0.052659574468079076), ('confluence_scorer', 0.05)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -54.76744186046548,
+      "confidence_score": 0.535238095238105,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.32136, conf=0.54, boosts=[('rsi_extreme', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.08857142857143822), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -76.5498991935484,
+      "confidence_score": 0.8166666666666669,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.32590, conf=0.82, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('ema_cross', 0.08), ('bollinger', 0.07), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 48.1942215088282,
+      "confidence_score": 0.582038567493121,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.32555, conf=0.58, boosts=[('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.10537190082645424), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 48.64026717557251,
+      "confidence_score": 0.6166666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.33229, conf=0.62, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -76.91543700340524,
+      "confidence_score": 0.7166666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.34235, conf=0.72, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.32493483927023,
+      "confidence_score": 0.55,
+      "direction": "TradeDirection.LONG",
+      "window_id": 2,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.34280, conf=0.55, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('adx_exhaustion', -0.05), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.05)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -55.23255813953528,
+      "confidence_score": 0.5022222222222177,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.26310, conf=0.50, boosts=[('ilod_ihod_at_boundary', 0.05), ('mfi', 0.08), ('quality_gate', 0.05555555555555099), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -54.1666666666669,
+      "confidence_score": 0.5966666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.26272, conf=0.60, boosts=[('ilod_ihod_at_boundary', 0.05), ('ema_cross', 0.08), ('adx', 0.06), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.76361386138613,
+      "confidence_score": 0.5700000000000001,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.26046, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('ema_extension', 0.07), ('adx_exhaustion', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 49.08969804618115,
+      "confidence_score": 0.6666666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.27894, conf=0.67, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', -0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 47.50280583613914,
+      "confidence_score": 0.6666666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.29046, conf=0.67, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -55.23255813953473,
+      "confidence_score": 0.5566666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.30089, conf=0.56, boosts=[('asia_gap_favorable', 0.05), ('mfi', 0.08), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.50000000000004,
+      "confidence_score": 0.596393442622949,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.28735, conf=0.60, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.06639344262294902), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -55.23255813953473,
+      "confidence_score": 0.5128409090909152,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.29264, conf=0.51, boosts=[('mfi', 0.08), ('ema_cross', 0.08), ('asia_range_wide', -0.05), ('quality_gate', 0.052840909090915114), ('confluence_scorer', 0.05)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 49.23260572987721,
+      "confidence_score": 0.6666666666666667,
+      "direction": "TradeDirection.LONG",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.30453, conf=0.67, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 17.228598756575796,
+      "confidence_score": 0.5483999999999967,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 3,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.29056, conf=0.55, boosts=[('htf_trend_aligned', 0.1), ('adx', 0.06), ('ema_extension', 0.07), ('asia_range_wide', -0.05), ('quality_gate', 0.06839999999999659), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.870229007633604,
+      "confidence_score": 0.55,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.34507, conf=0.55, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.332938388625614,
+      "confidence_score": 0.698475177304979,
+      "direction": "TradeDirection.LONG",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB long @ 1.35290, conf=0.70, boosts=[('htf_trend_aligned', 0.1), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.0718085106383122), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -50.8113900796081,
+      "confidence_score": 0.5700000000000001,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.33785, conf=0.57, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('adx_exhaustion', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.964205816554724,
+      "confidence_score": 0.5666666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.35478, conf=0.57, boosts=[('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -52.18446601941752,
+      "confidence_score": 0.5816666666666667,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.35823, conf=0.58, boosts=[('rsi_extreme', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.135), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -77.57352941176477,
+      "confidence_score": 0.7166666666666668,
+      "direction": "TradeDirection.LONG",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: IHOD_BREAK long @ 1.36642, conf=0.72, boosts=[('htf_trend_aligned', 0.1), ('asia_gap_favorable', 0.05), ('mfi', 0.08), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -51.187694704049854,
+      "confidence_score": 0.52,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: ILOD_BREAK short @ 1.33305, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('kill_zone_active', -0.05), ('adx', 0.06), ('ema_extension', 0.07), ('rsi_overbought_oversold', -0.05), ('quality_gate', 0.09), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": 47.62135922330093,
+      "confidence_score": 0.5460173160173262,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.34791, conf=0.55, boosts=[('rsi_extreme', 0.06), ('ema_extension', 0.07), ('quality_gate', 0.09935064935065946), ('confluence_scorer', 0.016666666666666666)]",
+      "pair": "GBPUSD"
+    },
+    {
+      "pnl": -22.117117117117253,
+      "confidence_score": 0.524166666666653,
+      "direction": "TradeDirection.SHORT",
+      "window_id": 4,
+      "rationale": "TTC/TBD GBPUSD: LIQUIDITY_GRAB short @ 1.33899, conf=0.52, boosts=[('htf_trend_aligned', 0.1), ('ema_extension', 0.07), ('quality_gate', 0.05416666666665296), ('confluence_scorer', 0.0)]",
+      "pair": "GBPUSD"
+    }
+  ],
+  "go_nogo": {
+    "GBPUSD": {
+      "pass": false,
+      "net_profit": -133.3685889174641,
+      "win_rate": 0.3911111111111111,
+      "max_dd": 2.486330562999705,
+      "total_trades": 10
+    }
+  }
+}
