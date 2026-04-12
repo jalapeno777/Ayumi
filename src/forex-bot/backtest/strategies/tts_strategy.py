@@ -79,6 +79,7 @@ HTF_COUNTER_TREND_NC = -0.08  # HTF alignment opposes entry direction
 LATE_KILL_ZONE_NC = -0.06  # UK session nearly over (near 8am NY)
 VOLUME_DIVERGENCE_NC = -0.05  # Price up/down but volume not confirming
 BB_SQUEEZE_NC = -0.04  # Bollinger bandwidth compressed = breakout risk
+VOLATILE_SESSION_NC = -0.06  # ATR near multi-month high = high volatility = negative
 ADX_EXHAUSTION_NC = -0.05  # ADX > 40 but price stalling = weakening
 VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
 ASIA_RANGE_WIDE_NC = -0.05  # Asia range > 2% of price = low quality range
@@ -526,6 +527,9 @@ class TTSStrategy(ISignalStrategy):
             neg_bb = self._check_bb_squeeze(bars, best_pattern.direction)
             if neg_bb < 0:
                 builder.add_boost("bb_squeeze", neg_bb * neg_weight)
+            neg_volatile = self._check_volatile_session(bars)
+            if neg_volatile < 0:
+                builder.add_boost("volatile_session", neg_volatile * neg_weight)
             neg_adx = self._check_adx_exhaustion(bars, best_pattern.direction)
             if neg_adx < 0:
                 builder.add_boost("adx_exhaustion", neg_adx * neg_weight)
@@ -1033,6 +1037,29 @@ class TTSStrategy(ISignalStrategy):
         older_bandwidth = older_var**0.5
         if older_bandwidth > 0 and bandwidth < older_bandwidth * 0.5:
             return BB_SQUEEZE_NC
+        return 0.0
+
+    def _check_volatile_session(self, bars: list[Bar]) -> float:
+        """"ATR near 90th percentile of last 100 bars = high volatility = negative."""
+        if len(bars) < 100:
+            return 0.0
+        recent = bars[-100:]
+        trs = []
+        for i in range(1, len(recent)):
+            high = recent[i].high
+            low = recent[i].low
+            prev_close = recent[i - 1].close
+            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+            trs.append(tr)
+        if not trs:
+            return 0.0
+        current_atr = sum(trs[-14:]) / min(14, len(trs))
+        atr_values = trs[:-1]
+        if not atr_values:
+            return 0.0
+        threshold = sorted(atr_values)[int(len(atr_values) * 0.90)]
+        if current_atr >= threshold:
+            return VOLATILE_SESSION_NC
         return 0.0
 
     def _check_adx_exhaustion(self, bars: list[Bar], direction: str) -> float:
