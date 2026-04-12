@@ -9,12 +9,11 @@ V2 approach: walk-forward objectives + reduced search space.
 - Run walk-forward windows for valid out-of-sample metrics
 - Score = wr * sqrt(trades) * (1 / (1 + dd/100)) — rewards consistency
 """
+
 from __future__ import annotations
 
-import copy
 import json
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -26,7 +25,7 @@ from optuna.samplers import TPESampler
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from backtest.engine import Bar, BacktestConfig, get_spread_for_pair
+from backtest.engine import Bar, get_spread_for_pair
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
 
@@ -133,6 +132,7 @@ MIN_TOTAL_TRADES = 15
 
 # ── Data loading ────────────────────────────────────────────────────────────
 
+
 def load_bars(pair: str, tf: str = "M15") -> list[Bar]:
     """Load historical bars from CSV."""
     data_dir = PROJECT_ROOT / "data" / "forex" / "historical"
@@ -161,6 +161,7 @@ def load_bars(pair: str, tf: str = "M15") -> list[Bar]:
 
 # ── Param application ───────────────────────────────────────────────────────
 
+
 def _apply_trial_params(trial: optuna.Trial) -> dict[str, Any]:
     """Apply trial params to tts_module constants. Returns applied dict."""
     applied: dict[str, Any] = {}
@@ -173,7 +174,9 @@ def _apply_trial_params(trial: optuna.Trial) -> dict[str, Any]:
     setattr(tts_module, "MW_BASE_CONFIDENCE", base_conf)
     setattr(tts_module, "NEGATIVE_WEIGHT", neg_weight)
     setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz_penalty)
-    applied.update(base_confidence=base_conf, negative_weight=neg_weight, kz_penalty=kz_penalty)
+    applied.update(
+        base_confidence=base_conf, negative_weight=neg_weight, kz_penalty=kz_penalty
+    )
 
     # 2. Booster on/off switches
     enabled_boosters: list[str] = []
@@ -225,6 +228,7 @@ def restore_defaults() -> None:
 
 # ── Walk-forward objective ──────────────────────────────────────────────────
 
+
 def build_wf_objective(
     pair: str,
     tf: str,
@@ -274,7 +278,7 @@ def build_wf_objective(
         trades = max(total_trades, 1.0)
 
         # Score: rewards win rate, trade count, and low drawdown
-        score = wr * (trades ** 0.5) * (1.0 / (1.0 + dd * 100))
+        score = wr * (trades**0.5) * (1.0 / (1.0 + dd * 100))
 
         trial.set_user_attr("win_rate", wr)
         trial.set_user_attr("profit_factor", agg.mean_profit_factor)
@@ -294,6 +298,7 @@ def build_wf_objective(
 
 
 # ── Study runner ────────────────────────────────────────────────────────────
+
 
 def run_wf_study(
     pair: str,
@@ -331,21 +336,27 @@ def run_wf_study(
     bars = load_bars(pair, tf)
     print(f"  Loaded {len(bars)} bars")
 
-    objective = build_wf_objective(pair, tf, bars, n_windows=n_windows,
-                                    train_ratio=train_ratio)
+    objective = build_wf_objective(
+        pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio
+    )
 
     print(f"  Running {n_trials} trials ({n_windows}-window walk-forward)...")
-    study.optimize(objective, n_trials=n_trials, timeout=timeout,
-                   show_progress_bar=True)
+    study.optimize(
+        objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True
+    )
 
     best = study.best_trial
     completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
 
-    print(f"\n  ★ Best trial #{best.number} (of {len(completed)} complete): "
-          f"score={best.value:.3f}")
-    print(f"    WR: {best.user_attrs.get('win_rate', 'N/A'):.1%} | "
-          f"PF: {best.user_attrs.get('profit_factor', 0):.2f} | "
-          f"Trades: {best.user_attrs.get('total_trades', 0):.0f}")
+    print(
+        f"\n  ★ Best trial #{best.number} (of {len(completed)} complete): "
+        f"score={best.value:.3f}"
+    )
+    print(
+        f"    WR: {best.user_attrs.get('win_rate', 'N/A'):.1%} | "
+        f"PF: {best.user_attrs.get('profit_factor', 0):.2f} | "
+        f"Trades: {best.user_attrs.get('total_trades', 0):.0f}"
+    )
 
     # Check if we should update per_symbol_configs
     wr = best.user_attrs.get("win_rate", 0)
@@ -374,6 +385,7 @@ def run_wf_study(
 
 
 # ── Grid search (warm-start helper) ────────────────────────────────────────
+
 
 def run_grid(
     pair: str,
@@ -432,24 +444,33 @@ def run_grid(
                     )
                     agg = wf.aggregated
                     if agg:
-                        rows.append({
+                        rows.append(
+                            {
+                                "base_confidence": base,
+                                "negative_weight": nw,
+                                "kz_penalty": kz,
+                                "win_rate": agg.mean_win_rate,
+                                "profit_factor": agg.mean_profit_factor,
+                                "max_drawdown": agg.mean_max_drawdown,
+                                "mean_trade_count": agg.mean_trade_count,
+                                "total_pnl": agg.mean_total_pnl,
+                                "go_nogo": wf.go_nogo,
+                            }
+                        )
+                except Exception:
+                    rows.append(
+                        {
                             "base_confidence": base,
                             "negative_weight": nw,
                             "kz_penalty": kz,
-                            "win_rate": agg.mean_win_rate,
-                            "profit_factor": agg.mean_profit_factor,
-                            "max_drawdown": agg.mean_max_drawdown,
-                            "mean_trade_count": agg.mean_trade_count,
-                            "total_pnl": agg.mean_total_pnl,
-                            "go_nogo": wf.go_nogo,
-                        })
-                except Exception:
-                    rows.append({
-                        "base_confidence": base, "negative_weight": nw,
-                        "kz_penalty": kz, "win_rate": 0, "profit_factor": 0,
-                        "max_drawdown": 1, "mean_trade_count": 0,
-                        "total_pnl": 0, "go_nogo": False,
-                    })
+                            "win_rate": 0,
+                            "profit_factor": 0,
+                            "max_drawdown": 1,
+                            "mean_trade_count": 0,
+                            "total_pnl": 0,
+                            "go_nogo": False,
+                        }
+                    )
                 finally:
                     restore_defaults()
 
@@ -461,20 +482,25 @@ def run_grid(
         wr = r["win_rate"]
         dd = max(r["max_drawdown"], 0.01)
         tc = max(r["mean_trade_count"], 1.0)
-        r["score"] = wr * (tc ** 0.5) * (1.0 / (1.0 + dd * 100))
+        r["score"] = wr * (tc**0.5) * (1.0 / (1.0 + dd * 100))
 
     rows.sort(key=lambda r: r["score"], reverse=True)
     best = rows[0]
 
-    print(f"  Grid best: WR={best['win_rate']:.1%} PF={best['profit_factor']:.2f} "
-          f"Trades={best['mean_trade_count']:.0f} P&L=${best['total_pnl']:.2f}")
-    print(f"    base={best['base_confidence']} nw={best['negative_weight']} "
-          f"kz={best['kz_penalty']}")
+    print(
+        f"  Grid best: WR={best['win_rate']:.1%} PF={best['profit_factor']:.2f} "
+        f"Trades={best['mean_trade_count']:.0f} P&L=${best['total_pnl']:.2f}"
+    )
+    print(
+        f"    base={best['base_confidence']} nw={best['negative_weight']} "
+        f"kz={best['kz_penalty']}"
+    )
 
     return {"rows": rows, "best_grid_row": best}
 
 
 # ── Config update ───────────────────────────────────────────────────────────
+
 
 def update_per_symbol_config(pair: str, tf: str, study_result: dict) -> bool:
     """Update per_symbol_configs.py if study result beats current config.
@@ -493,7 +519,7 @@ def update_per_symbol_config(pair: str, tf: str, study_result: dict) -> bool:
         print(f"  Config file not found: {config_path}")
         return False
 
-    content = config_path.read_text()
+    config_path.read_text()
     new_config = {
         "base_confidence": params.get("base_confidence", 0.30),
         "kz_penalty": params.get("kz_penalty", -0.05),
@@ -506,20 +532,23 @@ def update_per_symbol_config(pair: str, tf: str, study_result: dict) -> bool:
     }
 
     # Build enabled boosters list
-    enabled = [name for name in BOOSTER_SWITCHES
-               if params.get(f"booster_{name}", False)]
+    enabled = [
+        name for name in BOOSTER_SWITCHES if params.get(f"booster_{name}", False)
+    ]
     new_config["top_confluences"] = enabled
 
     # Mark: this is a simplified update — a proper implementation would
     # parse the Python AST. For now, we append a note.
-    print(f"  ★ {pair}/{tf} config eligible for update. "
-          f"Manual review recommended.")
-    print(f"    New config: {json.dumps({k: v for k, v in new_config.items() if v is not None}, indent=2)}")
+    print(f"  ★ {pair}/{tf} config eligible for update. Manual review recommended.")
+    print(
+        f"    New config: {json.dumps({k: v for k, v in new_config.items() if v is not None}, indent=2)}"
+    )
 
     return True
 
 
 # ── Main ────────────────────────────────────────────────────────────────────
+
 
 def main():
     """Run grid + Optuna for all pairs."""
@@ -527,12 +556,12 @@ def main():
     tf = "M15"
 
     for pair in pairs:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"  {pair}/{tf}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Quick grid warm-start
-        grid = run_grid(pair, tf, n_windows=2)
+        run_grid(pair, tf, n_windows=2)
 
         # Walk-forward Optuna
         result = run_wf_study(pair, tf, n_trials=80, n_windows=2)

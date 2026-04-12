@@ -16,7 +16,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from inspect import iscoroutinefunction
@@ -205,7 +204,6 @@ class CTraderHistoricalClient:
         auth.clientSecret = self.client_secret
         await client.send(auth, responseTimeoutInSeconds=10)
 
-
         acct = ProtoOAAccountAuthReq()
         acct.ctidTraderAccountId = self._ctid_account_id
         acct.accessToken = self.access_token
@@ -337,7 +335,10 @@ class CTraderHistoricalClient:
                     if len(all_bars) >= 10000:
                         logger.warning(
                             "Reached 10000 bar limit for %s %s [%s → %s]",
-                            symbol, timeframe, start_date, end_date,
+                            symbol,
+                            timeframe,
+                            start_date,
+                            end_date,
                         )
                         break
                 return all_bars

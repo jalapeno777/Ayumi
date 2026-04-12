@@ -15,7 +15,7 @@ from .engine import (
     determine_session,
 )
 from .strategies import ISignalStrategy
-from signal_engine.risk_sizer import ConfidencePositionSizer, ConfidenceTier
+from signal_engine.risk_sizer import ConfidencePositionSizer
 
 
 class VotingMethod(Enum):
@@ -585,9 +585,7 @@ class AmalgamatedBacktestEngine:
 
         # Confidence-based risk sizing
         risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
-        lot_size = self.risk_sizer.get_lot_size(
-            signal.confidence, stop_pips, pip_value
-        )
+        lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None
 

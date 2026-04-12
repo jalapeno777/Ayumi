@@ -1,0 +1,15 @@
+{
+  "pair": "EURUSD",
+  "timeframe": "H1",
+  "n_trials": 3,
+  "best_score": -Infinity,
+  "go_nogo": false,
+  "best_params": {},
+  "study_summary": {
+    "n_trials": 3,
+    "n_complete": 0,
+    "n_pruned": 3,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T14:51:22.810432"
+}

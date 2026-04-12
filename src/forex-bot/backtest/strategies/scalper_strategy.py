@@ -21,16 +21,17 @@ Entry Logic:
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from typing import Optional
 
 import numpy as np
 
-from ..engine import Bar, MarketState, StrategySignal, TradeDirection
+from ..engine import MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
 
 try:
     import pytz
+
     _ET = pytz.timezone("America/New_York")
 except ImportError:
     _ET = None
@@ -44,11 +45,11 @@ except ImportError:
 class ScalperStrategy(ISignalStrategy):
     """TTC VWAP rejection scalper for London-NY overlap sessions."""
 
-    VWAP_PERIOD = 15       # bars for VWAP calculation
-    EMA_PERIOD = 50        # 50 EMA for trend direction
-    RSI_PERIOD = 7         # RSI period
-    STOP_VWAP_PCT = 0.0025 # 0.25% from VWAP for stop loss
-    RR_RATIO = 2.0         # minimum risk-reward
+    VWAP_PERIOD = 15  # bars for VWAP calculation
+    EMA_PERIOD = 50  # 50 EMA for trend direction
+    RSI_PERIOD = 7  # RSI period
+    STOP_VWAP_PCT = 0.0025  # 0.25% from VWAP for stop loss
+    RR_RATIO = 2.0  # minimum risk-reward
     BASE_CONFIDENCE = 0.35
     MIN_HISTORY_BARS = 55  # need at least 50 bars for EMA
 
@@ -58,9 +59,9 @@ class ScalperStrategy(ISignalStrategy):
     # NY KZ:      ET 13:30-15:00 = UTC 17:30-19:00 (EDT)
     # LON-NY:     ET 08:00-12:00 = UTC 12:00-16:00 (EDT)
     KILL_ZONES = [
-        (time(4, 0),  time(6, 0)),   # Asia KZ
+        (time(4, 0), time(6, 0)),  # Asia KZ
         (time(12, 0), time(14, 0)),  # London KZ
-        (time(17, 30), time(19, 0)), # NY KZ
+        (time(17, 30), time(19, 0)),  # NY KZ
         (time(12, 0), time(16, 0)),  # London-NY overlap
     ]
 
@@ -94,7 +95,7 @@ class ScalperStrategy(ISignalStrategy):
         latest = bars[-1]
         bar_idx = len(bars) - 1
 
-            # ── 1. Session filter: Any active kill zone ──
+        # ── 1. Session filter: Any active kill zone ──
         if not self._in_kill_zone(latest.time):
             return None
 
@@ -106,7 +107,7 @@ class ScalperStrategy(ISignalStrategy):
         closes = np.array([b.close for b in bars])
 
         # VWAP (simple 15-bar average as proxy)
-        vwap_window = closes[-self.VWAP_PERIOD:]
+        vwap_window = closes[-self.VWAP_PERIOD :]
         vwap = float(np.mean(vwap_window))
 
         # 50 EMA
@@ -143,11 +144,13 @@ class ScalperStrategy(ISignalStrategy):
             # Trend is up — look for long VWAP rejection
             # Price was above VWAP, pulled back to VWAP area, RSI(7) 50-70,
             # current candle closes above VWAP
-            if (self._prev_close_above_vwap is not None
-                    and self._prev_close_above_vwap
-                    and not close_above_vwap
-                    and close_above_vwap  # recovered — close above VWAP
-                    and 50 < current_rsi < 70):
+            if (
+                self._prev_close_above_vwap is not None
+                and self._prev_close_above_vwap
+                and not close_above_vwap
+                and close_above_vwap  # recovered — close above VWAP
+                and 50 < current_rsi < 70
+            ):
                 direction = "long"
             # Simpler: just require close above VWAP with RSI confirmation
             elif close_above_vwap and 50 < current_rsi < 70:
@@ -165,11 +168,13 @@ class ScalperStrategy(ISignalStrategy):
 
         elif ema_slope_down and latest.close < current_ema:
             # Trend is down — look for short VWAP rejection
-            if (self._prev_close_below_vwap is not None
-                    and self._prev_close_below_vwap
-                    and not close_below_vwap
-                    and close_below_vwap
-                    and 30 < current_rsi < 50):
+            if (
+                self._prev_close_below_vwap is not None
+                and self._prev_close_below_vwap
+                and not close_below_vwap
+                and close_below_vwap
+                and 30 < current_rsi < 50
+            ):
                 direction = "short"
             elif close_below_vwap and 30 < current_rsi < 50:
                 recent_touched_vwap = False
@@ -243,10 +248,10 @@ class ScalperStrategy(ISignalStrategy):
             et_time = et.time()
             # Kill zones in ET
             zones = [
-                (time(0, 0),  time(2, 0)),   # Asia KZ
-                (time(8, 0),  time(10, 0)),  # London KZ
-                (time(13, 30), time(15, 0)), # NY KZ
-                (time(8, 0),  time(12, 0)),  # London-NY overlap
+                (time(0, 0), time(2, 0)),  # Asia KZ
+                (time(8, 0), time(10, 0)),  # London KZ
+                (time(13, 30), time(15, 0)),  # NY KZ
+                (time(8, 0), time(12, 0)),  # London-NY overlap
             ]
             for start, end in zones:
                 if start <= et_time < end:
@@ -280,7 +285,7 @@ class ScalperStrategy(ISignalStrategy):
         alpha = 2.0 / (period + 1)
         ema = np.copy(data)
         ema[:period] = np.nan
-        ema[period] = np.mean(data[:period + 1])
+        ema[period] = np.mean(data[: period + 1])
         for i in range(period + 1, len(data)):
             ema[i] = alpha * data[i] + (1 - alpha) * ema[i - 1]
         return ema

@@ -8,6 +8,7 @@ Usage:
     cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate
     python -c "import sys; sys.path.insert(0, 'src/forex-bot'); from ml.per_symbol_optimizer import main; main()"
 """
+
 from __future__ import annotations
 
 import json
@@ -45,8 +46,18 @@ CONFIGS = [
     {"label": "D_no_kz", "base": 0.30, "kz_penalty": 0.0, "htf_penalty": -0.15},
     {"label": "E_strong_kz", "base": 0.30, "kz_penalty": -0.10, "htf_penalty": -0.15},
     {"label": "F_no_htf_pen", "base": 0.30, "kz_penalty": -0.05, "htf_penalty": 0.0},
-    {"label": "G_low_base_no_kz", "base": 0.25, "kz_penalty": 0.0, "htf_penalty": -0.15},
-    {"label": "H_high_base_strong_kz", "base": 0.35, "kz_penalty": -0.10, "htf_penalty": -0.15},
+    {
+        "label": "G_low_base_no_kz",
+        "base": 0.25,
+        "kz_penalty": 0.0,
+        "htf_penalty": -0.15,
+    },
+    {
+        "label": "H_high_base_strong_kz",
+        "base": 0.35,
+        "kz_penalty": -0.10,
+        "htf_penalty": -0.15,
+    },
 ]
 
 DEFAULT_BT_CONFIG = {
@@ -58,6 +69,7 @@ DEFAULT_BT_CONFIG = {
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def load_bars(pair: str, tf: str) -> list[Bar]:
     for suffix in ["_2026.csv", ".csv"]:
@@ -99,6 +111,7 @@ def restore_tts_constants() -> None:
 
 # ── Per-Symbol Optimizer ──────────────────────────────────────────────
 
+
 class PerSymbolOptimizer:
     """Runs independent ML optimization for each symbol+timeframe."""
 
@@ -111,6 +124,7 @@ class PerSymbolOptimizer:
         spread = get_spread_for_pair(pair)
 
         from backtest.engine import BacktestConfig
+
         bt_config = BacktestConfig(
             starting_balance=DEFAULT_BT_CONFIG["starting_balance"],
             spread_pips=spread,
@@ -133,10 +147,17 @@ class PerSymbolOptimizer:
         """Compute summary metrics from a trade list."""
         if not trades:
             return {
-                "total_trades": 0, "wins": 0, "losses": 0,
-                "win_rate": 0.0, "total_pnl": 0.0,
-                "avg_win": 0.0, "avg_loss": 0.0, "profit_factor": 0.0,
-                "max_drawdown_pct": 0.0, "t4_trades": 0, "t5_trades": 0,
+                "total_trades": 0,
+                "wins": 0,
+                "losses": 0,
+                "win_rate": 0.0,
+                "total_pnl": 0.0,
+                "avg_win": 0.0,
+                "avg_loss": 0.0,
+                "profit_factor": 0.0,
+                "max_drawdown_pct": 0.0,
+                "t4_trades": 0,
+                "t5_trades": 0,
             }
 
         wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
@@ -180,8 +201,9 @@ class PerSymbolOptimizer:
             "t5_trades": t5,
         }
 
-    def run_for_symbol(self, symbol: str, timeframe: str,
-                       base_configs: list[dict]) -> dict:
+    def run_for_symbol(
+        self, symbol: str, timeframe: str, base_configs: list[dict]
+    ) -> dict:
         """Run walk-forward for one symbol+timeframe across multiple configs.
 
         Returns dict with per-config results, best config, and learned weights.
@@ -196,7 +218,9 @@ class PerSymbolOptimizer:
 
         for cfg in base_configs:
             label = cfg["label"]
-            print(f"\n  Config {label}: base={cfg['base']}, kz={cfg['kz_penalty']}, htf={cfg['htf_penalty']}")
+            print(
+                f"\n  Config {label}: base={cfg['base']}, kz={cfg['kz_penalty']}, htf={cfg['htf_penalty']}"
+            )
 
             try:
                 patch_tts_constants(cfg)
@@ -209,9 +233,11 @@ class PerSymbolOptimizer:
                 config_results.append({"label": label, "config": cfg, "error": str(e)})
                 continue
 
-            print(f"    Trades: {metrics['total_trades']} | WR: {metrics['win_rate']:.1%} | "
-                  f"P&L: ${metrics['total_pnl']:.2f} | PF: {metrics['profit_factor']:.2f} | "
-                  f"DD: {metrics['max_drawdown_pct']:.1f}% | T4: {metrics['t4_trades']} T5: {metrics['t5_trades']}")
+            print(
+                f"    Trades: {metrics['total_trades']} | WR: {metrics['win_rate']:.1%} | "
+                f"P&L: ${metrics['total_pnl']:.2f} | PF: {metrics['profit_factor']:.2f} | "
+                f"DD: {metrics['max_drawdown_pct']:.1f}% | T4: {metrics['t4_trades']} T5: {metrics['t5_trades']}"
+            )
 
             # Train ML model on these trades
             learner_result = {"weights": None, "top_features": None, "trained": False}
@@ -245,12 +271,14 @@ class PerSymbolOptimizer:
             else:
                 print(f"    ML skip: only {len(records)} trades with rationale")
 
-            config_results.append({
-                "label": label,
-                "config": cfg,
-                "metrics": metrics,
-                "learner": learner_result,
-            })
+            config_results.append(
+                {
+                    "label": label,
+                    "config": cfg,
+                    "metrics": metrics,
+                    "learner": learner_result,
+                }
+            )
 
         # Select best config: highest P&L with WR >= 40% and DD < 25%
         # Score = P&L * (1 + WR) / (1 + DD%)
@@ -283,17 +311,20 @@ class PerSymbolOptimizer:
         }
 
         if best:
-            print(f"\n  ★ BEST: {best['label']} — P&L: ${best['metrics']['total_pnl']:.2f}, "
-                  f"WR: {best['metrics']['win_rate']:.1%}, DD: {best['metrics']['max_drawdown_pct']:.1f}%, "
-                  f"Score: {best_score:.2f}")
+            print(
+                f"\n  ★ BEST: {best['label']} — P&L: ${best['metrics']['total_pnl']:.2f}, "
+                f"WR: {best['metrics']['win_rate']:.1%}, DD: {best['metrics']['max_drawdown_pct']:.1f}%, "
+                f"Score: {best_score:.2f}"
+            )
             if best["learner"]["trained"]:
-                print(f"    Top confluences: {[f[0] for f in best['learner']['top_features']]}")
+                print(
+                    f"    Top confluences: {[f[0] for f in best['learner']['top_features']]}"
+                )
 
         self.results[key] = result
         return result
 
-    def run_all(self, symbols: list, timeframes: list,
-                base_configs: list) -> dict:
+    def run_all(self, symbols: list, timeframes: list, base_configs: list) -> dict:
         """Run full grid: all symbols × all timeframes × all configs."""
         for symbol in symbols:
             for timeframe in timeframes:
@@ -339,6 +370,7 @@ class PerSymbolOptimizer:
 
 
 # ── Main ───────────────────────────────────────────────────────────────
+
 
 def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -428,8 +460,10 @@ def main():
     if best_overall:
         b = best_overall["best"]
         print(f"\n  ★ BEST OVERALL: {best_overall['key']} with config {b['label']}")
-        print(f"    P&L: ${b['metrics']['total_pnl']:.2f} | WR: {b['metrics']['win_rate']:.1%} | "
-              f"DD: {b['metrics']['max_drawdown_pct']:.1f}%")
+        print(
+            f"    P&L: ${b['metrics']['total_pnl']:.2f} | WR: {b['metrics']['win_rate']:.1%} | "
+            f"DD: {b['metrics']['max_drawdown_pct']:.1f}%"
+        )
 
     # Global vs per-symbol comparison
     print(f"\n{'═' * 70}")
@@ -446,6 +480,7 @@ def main():
             bars = load_bars(symbol, "M15")
             spread = get_spread_for_pair(symbol)
             from backtest.engine import BacktestConfig
+
             bt_config = BacktestConfig(
                 starting_balance=DEFAULT_BT_CONFIG["starting_balance"],
                 spread_pips=spread,
@@ -483,16 +518,24 @@ def main():
             per_symbol_total_trades += m["total_trades"]
             per_symbol_wins += m["wins"]
 
-    per_symbol_wr = per_symbol_wins / per_symbol_total_trades if per_symbol_total_trades else 0
+    per_symbol_wr = (
+        per_symbol_wins / per_symbol_total_trades if per_symbol_total_trades else 0
+    )
 
     print(f"  {'Metric':<25} {'Global (A)':>15} {'Per-Symbol':>15} {'Delta':>15}")
     print(f"  {'─' * 72}")
-    print(f"  {'Total P&L':<25} ${global_total_pnl:>13.2f} ${per_symbol_total_pnl:>13.2f} "
-          f"${per_symbol_total_pnl - global_total_pnl:>+13.2f}")
-    print(f"  {'Win Rate':<25} {global_wr:>14.1%} {per_symbol_wr:>14.1%} "
-          f"{per_symbol_wr - global_wr:>+14.1%}")
-    print(f"  {'Total Trades':<25} {global_total_trades:>15} {per_symbol_total_trades:>15} "
-          f"{per_symbol_total_trades - global_total_trades:>+15}")
+    print(
+        f"  {'Total P&L':<25} ${global_total_pnl:>13.2f} ${per_symbol_total_pnl:>13.2f} "
+        f"${per_symbol_total_pnl - global_total_pnl:>+13.2f}"
+    )
+    print(
+        f"  {'Win Rate':<25} {global_wr:>14.1%} {per_symbol_wr:>14.1%} "
+        f"{per_symbol_wr - global_wr:>+14.1%}"
+    )
+    print(
+        f"  {'Total Trades':<25} {global_total_trades:>15} {per_symbol_total_trades:>15} "
+        f"{per_symbol_total_trades - global_total_trades:>+15}"
+    )
 
     # Learned weights summary
     print(f"\n{'═' * 70}")

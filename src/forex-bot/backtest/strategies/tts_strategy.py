@@ -28,7 +28,6 @@ from signal_engine import (
 from signal_engine.pattern_detector import (
     AsiaSessionAnalyzer,
     AsiaRangeResult,
-    DetectedPattern,
 )
 from signal_engine.data_types import HTFState, SessionState, Swing, Level
 from signal_engine.swing_detector import SwingDetector
@@ -54,7 +53,9 @@ ILOD_IHOD_AT_BOUNDARY_BOOST = 0.05
 VWAP_REJECTION_BOOST = 0.10
 KILL_ZONE_ACTIVE_BOOST = -0.05
 HTF_OPPOSING_PENALTY = -0.15
-NEGATIVE_WEIGHT = 1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
+NEGATIVE_WEIGHT = (
+    1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
+)
 
 # New confluence boost constants
 MFI_BOOST = 0.08
@@ -72,17 +73,17 @@ HTF_200EMA_BOOST = 0.10
 HTF_200EMA_PENALTY = 0.08
 
 # Negative confluence constants (reduce confidence when triggered)
-RSI_OVERBOUGHT_NC = -0.05    # RSI > 70 for longs = overbought
-RSI_OVERSOLD_NC = -0.05      # RSI < 30 for shorts = oversold
+RSI_OVERBOUGHT_NC = -0.05  # RSI > 70 for longs = overbought
+RSI_OVERSOLD_NC = -0.05  # RSI < 30 for shorts = oversold
 HTF_COUNTER_TREND_NC = -0.08  # HTF alignment opposes entry direction
-LATE_KILL_ZONE_NC = -0.06    # UK session nearly over (near 8am NY)
+LATE_KILL_ZONE_NC = -0.06  # UK session nearly over (near 8am NY)
 VOLUME_DIVERGENCE_NC = -0.05  # Price up/down but volume not confirming
-BB_SQUEEZE_NC = -0.04        # Bollinger bandwidth compressed = breakout risk
-ADX_EXHAUSTION_NC = -0.05    # ADX > 40 but price stalling = weakening
+BB_SQUEEZE_NC = -0.04  # Bollinger bandwidth compressed = breakout risk
+ADX_EXHAUSTION_NC = -0.05  # ADX > 40 but price stalling = weakening
 VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
-ASIA_RANGE_WIDE_NC = -0.05   # Asia range > 2% of price = low quality range
-MFI_OVERBOUGHT_NC = -0.04    # MFI > 80 for longs
-MFI_OVERSOLD_NC = -0.04      # MFI < 20 for shorts
+ASIA_RANGE_WIDE_NC = -0.05  # Asia range > 2% of price = low quality range
+MFI_OVERBOUGHT_NC = -0.04  # MFI > 80 for longs
+MFI_OVERSOLD_NC = -0.04  # MFI < 20 for shorts
 
 # Pattern-type-specific base confidence
 PATTERN_BASE_CONFIGS = {
@@ -504,9 +505,11 @@ class TTSStrategy(ISignalStrategy):
             builder.add_boost(name, htf_200ema)
 
         # ── Negative confluence (reduce confidence when triggered) ─────
-        neg_weight = PER_SYMBOL_CONFIGS.get(self.symbol.upper(), {}).get(
-            self.timeframe, {}
-        ).get("negative_weight", 1.0)
+        neg_weight = (
+            PER_SYMBOL_CONFIGS.get(self.symbol.upper(), {})
+            .get(self.timeframe, {})
+            .get("negative_weight", 1.0)
+        )
         if neg_weight > 0:
             neg_rsi = self._check_rsi_negative_confluence(bars, best_pattern.direction)
             if neg_rsi < 0:
@@ -947,7 +950,7 @@ class TTSStrategy(ISignalStrategy):
         """Compute RSI for a list of close prices."""
         if len(closes) < period + 1:
             return []
-        deltas = [closes[i] - closes[i-1] for i in range(1, len(closes))]
+        deltas = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
         gains = [d if d > 0 else 0.0 for d in deltas]
         losses = [-d if d < 0 else 0.0 for d in deltas]
         avg_gain = sum(gains[-period:]) / period
@@ -957,8 +960,8 @@ class TTSStrategy(ISignalStrategy):
         rs = avg_gain / avg_loss
         rsi = [100.0 - (100.0 / (1.0 + rs))]
         for i in range(period, len(closes)):
-            avg_gain = (avg_gain * (period - 1) + gains[i-1]) / period
-            avg_loss = (avg_loss * (period - 1) + losses[i-1]) / period
+            avg_gain = (avg_gain * (period - 1) + gains[i - 1]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i - 1]) / period
             if avg_loss == 0:
                 rsi.append(100.0)
             else:
@@ -983,7 +986,7 @@ class TTSStrategy(ISignalStrategy):
 
     def _check_htf_counter_trend(self, htf_state: HTFState, direction: str) -> float:
         """HTF alignment opposes entry direction = negative."""
-        if not htf_state or not hasattr(htf_state, 'alignment_score'):
+        if not htf_state or not hasattr(htf_state, "alignment_score"):
             return 0.0
         alignment = htf_state.alignment_score
         if direction == "long" and alignment < -0.3:
@@ -1021,13 +1024,13 @@ class TTSStrategy(ISignalStrategy):
         closes = [b.close for b in recent]
         mean = sum(closes) / len(closes)
         variance = sum((x - mean) ** 2 for x in closes) / len(closes)
-        bandwidth = variance ** 0.5
+        bandwidth = variance**0.5
         if len(closes) < 10:
             return 0.0
         older = closes[:-5]
         older_mean = sum(older) / len(older)
         older_var = sum((x - older_mean) ** 2 for x in older) / len(older)
-        older_bandwidth = older_var ** 0.5
+        older_bandwidth = older_var**0.5
         if older_bandwidth > 0 and bandwidth < older_bandwidth * 0.5:
             return BB_SQUEEZE_NC
         return 0.0
@@ -1040,7 +1043,7 @@ class TTSStrategy(ISignalStrategy):
         for i in range(1, len(bars)):
             high = bars[i].high
             low = bars[i].low
-            prev_close = bars[i-1].close
+            prev_close = bars[i - 1].close
             tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
             trs.append(tr)
         if len(trs) < 10:

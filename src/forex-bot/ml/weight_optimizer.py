@@ -1,4 +1,5 @@
 """ML-driven weight optimizer for kill zone, HTF opposing, and base confidence."""
+
 from __future__ import annotations
 
 import json
@@ -29,10 +30,26 @@ TIMEFRAME = "M15"
 
 CONFIGS = {
     "A_baseline": {"kill_zone": 0.05, "htf_opposing": -0.15, "base_confidence": 0.20},
-    "B_kz_pen_small": {"kill_zone": -0.03, "htf_opposing": -0.15, "base_confidence": 0.20},
-    "C_kz_pen_lg_htf_relax": {"kill_zone": -0.05, "htf_opposing": -0.10, "base_confidence": 0.25},
-    "D_kz_pen_small_htf_relax_base25": {"kill_zone": -0.03, "htf_opposing": -0.05, "base_confidence": 0.25},
-    "E_kz_pen_lg_htf_strict_base30": {"kill_zone": -0.05, "htf_opposing": -0.15, "base_confidence": 0.30},
+    "B_kz_pen_small": {
+        "kill_zone": -0.03,
+        "htf_opposing": -0.15,
+        "base_confidence": 0.20,
+    },
+    "C_kz_pen_lg_htf_relax": {
+        "kill_zone": -0.05,
+        "htf_opposing": -0.10,
+        "base_confidence": 0.25,
+    },
+    "D_kz_pen_small_htf_relax_base25": {
+        "kill_zone": -0.03,
+        "htf_opposing": -0.05,
+        "base_confidence": 0.25,
+    },
+    "E_kz_pen_lg_htf_strict_base30": {
+        "kill_zone": -0.05,
+        "htf_opposing": -0.15,
+        "base_confidence": 0.30,
+    },
 }
 
 
@@ -108,7 +125,13 @@ def run_config(pair: str, params: dict) -> list[SimulatedTrade]:
 
 def summarize_trades(trades: list[SimulatedTrade]) -> dict:
     if not trades:
-        return {"total_trades": 0, "wins": 0, "losses": 0, "win_rate": 0.0, "total_pnl": 0.0}
+        return {
+            "total_trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "total_pnl": 0.0,
+        }
     wins = sum(1 for t in trades if t.outcome == TradeOutcome.WIN)
     losses = sum(1 for t in trades if t.outcome == TradeOutcome.LOSS)
     pnl = sum(t.profit_loss for t in trades)
@@ -132,17 +155,24 @@ def main():
     all_records = []
 
     for config_name, params in CONFIGS.items():
-        print(f"\n── Config {config_name}: kz={params['kill_zone']:+.2f}, "
-              f"htf_opp={params['htf_opposing']:+.2f}, base={params['base_confidence']:.2f} ──")
+        print(
+            f"\n── Config {config_name}: kz={params['kill_zone']:+.2f}, "
+            f"htf_opp={params['htf_opposing']:+.2f}, base={params['base_confidence']:.2f} ──"
+        )
 
         for pair in PAIRS:
             try:
                 trades = run_config(pair, params)
                 summary = summarize_trades(trades)
-                all_results[(config_name, pair)] = {"trades": trades, "summary": summary}
+                all_results[(config_name, pair)] = {
+                    "trades": trades,
+                    "summary": summary,
+                }
 
-                print(f"  {pair}: {summary['total_trades']} trades | "
-                      f"WR: {summary['win_rate']:.1%} | P&L: ${summary['total_pnl']:.2f}")
+                print(
+                    f"  {pair}: {summary['total_trades']} trades | "
+                    f"WR: {summary['win_rate']:.1%} | P&L: ${summary['total_pnl']:.2f}"
+                )
 
                 for t in trades:
                     if not t.rationale:
@@ -161,11 +191,13 @@ def main():
                     }
                     record["features"] = extractor.extract(record)
                     # Append config params as features for ML to learn from
-                    record["features"].extend([
-                        params["kill_zone"],
-                        params["htf_opposing"],
-                        params["base_confidence"],
-                    ])
+                    record["features"].extend(
+                        [
+                            params["kill_zone"],
+                            params["htf_opposing"],
+                            params["base_confidence"],
+                        ]
+                    )
                     all_records.append(record)
 
             except Exception as e:
@@ -182,16 +214,22 @@ def main():
     print(f"  Total trade records for training: {len(all_records)}")
 
     aug_feature_names = extractor.FEATURE_NAMES + [
-        "kill_zone_val", "htf_opposing_val", "base_confidence_val"
+        "kill_zone_val",
+        "htf_opposing_val",
+        "base_confidence_val",
     ]
 
     from sklearn.ensemble import RandomForestClassifier
+
     X = np.array([r["features"] for r in all_records])
     y = np.array([r["outcome"] for r in all_records], dtype=np.int32)
 
     model = RandomForestClassifier(
-        n_estimators=200, max_depth=6, min_samples_leaf=5,
-        random_state=42, class_weight="balanced"
+        n_estimators=200,
+        max_depth=6,
+        min_samples_leaf=5,
+        random_state=42,
+        class_weight="balanced",
     )
     model.fit(X, y)
 
@@ -215,8 +253,10 @@ def main():
             if key not in all_results:
                 continue
             s = all_results[key]["summary"]
-            print(f"    {config_name:<35s} trades={s['total_trades']:>4d}  "
-                  f"WR={s['win_rate']:.1%}  P&L=${s['total_pnl']:.2f}")
+            print(
+                f"    {config_name:<35s} trades={s['total_trades']:>4d}  "
+                f"WR={s['win_rate']:.1%}  P&L=${s['total_pnl']:.2f}"
+            )
             if s["total_pnl"] > best_pnl:
                 best_pnl = s["total_pnl"]
                 best_config = config_name
@@ -243,7 +283,9 @@ def main():
             total_wins += s["wins"]
             total_pnl += s["total_pnl"]
         wr = total_wins / total_trades if total_trades else 0
-        print(f"  {config_name:<35s} trades={total_trades:>4d}  WR={wr:>6.1%}  P&L=${total_pnl:>10.2f}")
+        print(
+            f"  {config_name:<35s} trades={total_trades:>4d}  WR={wr:>6.1%}  P&L=${total_pnl:>10.2f}"
+        )
         if total_pnl > best_agg_pnl:
             best_agg_pnl = total_pnl
             best_agg = config_name
@@ -256,24 +298,28 @@ def main():
     print(f"{'═' * 70}")
 
     print(f"\n  Optimal config by aggregate P&L: {best_agg}")
-    print(f"    kill_zone_boost: {best_params['kill_zone']:+.2f} "
-          f"({'PENALTY' if best_params['kill_zone'] < 0 else 'BOOST'})")
+    print(
+        f"    kill_zone_boost: {best_params['kill_zone']:+.2f} "
+        f"({'PENALTY' if best_params['kill_zone'] < 0 else 'BOOST'})"
+    )
     print(f"    htf_opposing_penalty: {best_params['htf_opposing']:+.2f}")
     print(f"    base_confidence: {best_params['base_confidence']:.2f}")
 
     kz_imp = importances.get("kill_zone_active", 0)
     htf_imp = importances.get("htf_opposing", 0)
-    print(f"\n  Feature importance insights:")
+    print("\n  Feature importance insights:")
     print(f"    kill_zone_active:  {kz_imp:.4f}")
     print(f"    htf_opposing:      {htf_imp:.4f}")
     print(f"    kill_zone_val:     {importances.get('kill_zone_val', 0):.4f}")
     print(f"    htf_opposing_val:  {importances.get('htf_opposing_val', 0):.4f}")
     print(f"    base_confidence_val: {importances.get('base_confidence_val', 0):.4f}")
 
-    if best_params['kill_zone'] < 0:
-        print(f"\n  ✅ Best config penalizes kill zone (not boosting). Removing the boost helped.")
+    if best_params["kill_zone"] < 0:
+        print(
+            "\n  ✅ Best config penalizes kill zone (not boosting). Removing the boost helped."
+        )
     else:
-        print(f"\n  ❌ Best config still boosts kill zone. Penalty did not help.")
+        print("\n  ❌ Best config still boosts kill zone. Penalty did not help.")
 
     # Save report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -282,7 +328,8 @@ def main():
         "configs_tested": CONFIGS,
         "per_pair_results": {
             f"{cn}_{pair}": all_results.get((cn, pair), {}).get("summary", {})
-            for cn in CONFIGS for pair in PAIRS
+            for cn in CONFIGS
+            for pair in PAIRS
             if (cn, pair) in all_results
         },
         "feature_importances": importances,
@@ -291,7 +338,9 @@ def main():
         "best_aggregate_pnl": best_agg_pnl,
     }
 
-    report_path = PROJECT_ROOT / "reports" / "ml_confidence" / f"weight_opt_{timestamp}.json"
+    report_path = (
+        PROJECT_ROOT / "reports" / "ml_confidence" / f"weight_opt_{timestamp}.json"
+    )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
