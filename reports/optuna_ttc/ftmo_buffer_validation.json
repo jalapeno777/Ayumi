@@ -1,0 +1,38 @@
+{
+  "EURUSD": {
+    "avg_wr": 0.5307936507936508,
+    "avg_pf": 1.3049189161264534,
+    "avg_dd": 0.010060925972396478,
+    "total_pnl": 76.75522550214083,
+    "total_trades": 31,
+    "windows_passed": 2,
+    "ftmo_pass": true
+  },
+  "USDJPY": {
+    "avg_wr": 0.7095238095238094,
+    "avg_pf": 3.917958189283252,
+    "avg_dd": 0.007079457503884459,
+    "total_pnl": 308.75856485531574,
+    "total_trades": 29,
+    "windows_passed": 2,
+    "ftmo_pass": true
+  },
+  "XAUUSD": {
+    "avg_wr": 0.5447402597402597,
+    "avg_pf": 2.063897158417624,
+    "avg_dd": 0.006954958540395696,
+    "total_pnl": 548.4753312884291,
+    "total_trades": 32,
+    "windows_passed": 4,
+    "ftmo_pass": true
+  },
+  "GBPJPY": {
+    "avg_wr": 0.5276190476190477,
+    "avg_pf": 1.3523160973112651,
+    "avg_dd": 0.01611446002784394,
+    "total_pnl": 55.09053826265575,
+    "total_trades": 36,
+    "windows_passed": 2,
+    "ftmo_pass": true
+  }
+}

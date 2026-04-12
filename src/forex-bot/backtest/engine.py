@@ -106,6 +106,7 @@ class StrategySignal:
     take_profit_2: float
     take_profit_3: float
     rationale: str
+    is_volatile: bool = False  # ATR near 90th pct — reduce position size
 
 
 @dataclass

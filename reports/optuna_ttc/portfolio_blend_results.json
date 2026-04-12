@@ -1,0 +1,33 @@
+{
+  "test_days": 85,
+  "total_trades": 50,
+  "win_rate": 0.56,
+  "total_pnl": 175.09652311677928,
+  "max_dd": 0.05260953920797141,
+  "max_daily_dd": 0.012510616479319657,
+  "avg_pnl_per_day": 2.059959095491521,
+  "target_hit_days": null,
+  "est_weeks_to_target": 69.3495046429823,
+  "per_pair": {
+    "USDJPY": {
+      "pnl": -2.9609413343817046,
+      "trades": 7,
+      "wins": 4
+    },
+    "GBPJPY": {
+      "pnl": -32.902609994554595,
+      "trades": 14,
+      "wins": 7
+    },
+    "XAUUSD": {
+      "pnl": 175.42788647662803,
+      "trades": 19,
+      "wins": 12
+    },
+    "EURUSD": {
+      "pnl": 35.532187969087744,
+      "trades": 10,
+      "wins": 5
+    }
+  }
+}

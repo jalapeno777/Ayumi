@@ -1,0 +1,37 @@
+{
+  "pair": "GBPUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.6136085149896453,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.4,
+    "min_quality_score": 0.45,
+    "mw_base_confidence": 0.4,
+    "rsi_divergence_boost": 0.1,
+    "htf_trend_aligned_boost": 0.2,
+    "htf_opposing_penalty": -0.15,
+    "kill_zone_active_boost": 2.7755575615628914e-17,
+    "negative_weight": 1.25,
+    "swing_lookback": 10,
+    "history_bars": 90
+  },
+  "study_summary": {
+    "n_trials": 100,
+    "n_complete": 100,
+    "n_pruned": 0,
+    "best_score": -0.6136085149896453,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T15:48:41.959355",
+  "best_metrics": {
+    "win_rate": 0.42257575757575755,
+    "profit_factor": 0.5798695983751996,
+    "max_drawdown": 0.015104050898930748,
+    "sharpe_ratio": -4.169912372922115,
+    "trade_count": 10.0,
+    "total_pnl": -96.83056149924123,
+    "windows_passed": 0,
+    "total_windows": 5
+  }
+}
