@@ -1,0 +1,37 @@
+{
+  "pair": "EURUSD",
+  "timeframe": "H1",
+  "n_trials": 3,
+  "best_score": -0.308069555534383,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.25,
+    "min_quality_score": 0.45,
+    "mw_base_confidence": 0.4,
+    "rsi_divergence_boost": 0.1,
+    "htf_trend_aligned_boost": 0.0,
+    "htf_opposing_penalty": -0.25,
+    "kill_zone_active_boost": -0.15,
+    "negative_weight": 1.75,
+    "swing_lookback": 7,
+    "history_bars": 80
+  },
+  "study_summary": {
+    "n_trials": 3,
+    "n_complete": 3,
+    "n_pruned": 0,
+    "best_score": -0.308069555534383,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T14:59:25.056569",
+  "best_metrics": {
+    "win_rate": 0.5,
+    "profit_factor": 6.978290415820314,
+    "max_drawdown": 0.00484173332062977,
+    "sharpe_ratio": -0.4208385082191904,
+    "trade_count": 3.3333333333333335,
+    "total_pnl": -32.234481778521065,
+    "windows_passed": 0,
+    "total_windows": 3
+  }
+}

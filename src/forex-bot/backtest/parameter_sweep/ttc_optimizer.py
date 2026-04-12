@@ -14,7 +14,6 @@ from typing import Any
 
 from .optuna_optimizer import (
     OptimizationResult,
-    OptunaOptimizer,
     SearchSpace,
     float_range,
     int_range,
@@ -107,11 +106,12 @@ def ttc_strategy_factory(
     return strategy
 
 
-def load_h1_bars(pair: str) -> list:
-    """Load H1 CSV data for a pair into Bar objects."""
+def load_bars(pair: str, timeframe: str = "H1") -> list:
+    """Load CSV data for a pair/timeframe into Bar objects."""
+    from datetime import datetime as _dt
     from backtest.engine import Bar
 
-    csv_path = _DATA_DIR / f"{pair.upper()}_H1.csv"
+    csv_path = _DATA_DIR / f"{pair.upper()}_{timeframe}.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"No H1 data for {pair}: {csv_path}")
 
@@ -125,7 +125,7 @@ def load_h1_bars(pair: str) -> list:
             try:
                 bars.append(
                     Bar(
-                        time=parts[0],
+                        time=_dt.strptime(parts[0], "%Y-%m-%d %H:%M"),
                         open=float(parts[1]),
                         high=float(parts[2]),
                         low=float(parts[3]),
@@ -147,6 +147,7 @@ def run_ttc_optuna(
     n_windows: int = 5,
     seed: int = 42,
     composite_weights: dict[str, float] | None = None,
+    min_trades: int = 2,
 ) -> OptimizationResult:
     """Run Optuna optimization for the TTC signal engine.
 
@@ -157,31 +158,127 @@ def run_ttc_optuna(
         n_windows: Walk-forward windows
         seed: Random seed for reproducibility
         composite_weights: Custom composite score weights
+        min_trades: Minimum avg trades per window (default 2, TTC is selective)
 
     Returns:
         OptimizationResult with best params and walk-forward results.
     """
-    from backtest.engine import get_spread_for_pair
+    import optuna
+    from optuna.samplers import TPESampler
+    from .optuna_optimizer import WalkForwardObjective
 
-    bars = load_h1_bars(pair)
+    bars = load_bars(pair, timeframe)
     search_space = ttc_search_space()
 
     def factory(_params: dict[str, Any]):
         return ttc_strategy_factory(_params, symbol=pair, timeframe=timeframe)
 
-    optimizer = OptunaOptimizer(
+    class TTCObjective(WalkForwardObjective):
+        """Custom objective with configurable min trade threshold."""
+
+        def __init__(self, *args, min_trades: int = 2, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._min_trades = min_trades
+
+        def __call__(self, trial):
+            from backtest.walk_forward_runner import run_strategy_walk_forward
+
+            params = self._search_space.suggest(trial)
+            strategy = self._strategy_factory(params)
+
+            try:
+                wf_result = run_strategy_walk_forward(
+                    bars=self._bars,
+                    strategy_factory=lambda: strategy,
+                    pair=self._pair,
+                    n_windows=self._n_windows,
+                    train_ratio=self._train_ratio,
+                    val_ratio=self._val_ratio,
+                    overlap_ratio=self._overlap_ratio,
+                    initial_balance=self._initial_balance,
+                    spread_pips=self._spread_pips,
+                    commission_per_lot=self._commission_per_lot,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Walk-forward failed for trial %d: %s", trial.number, exc
+                )
+                raise optuna.TrialPruned() from exc
+
+            self._results_by_trial[trial.number] = wf_result
+            self._params_by_trial[trial.number] = params
+
+            agg = wf_result.aggregated
+            if agg is None:
+                raise optuna.TrialPruned()
+
+            if agg.mean_trade_count < self._min_trades:
+                raise optuna.TrialPruned()
+
+            score = self._composite_score(agg)
+
+            trial.set_user_attr("win_rate", agg.mean_win_rate)
+            trial.set_user_attr("profit_factor", agg.mean_profit_factor)
+            trial.set_user_attr("max_drawdown", agg.mean_max_drawdown)
+            trial.set_user_attr("sharpe_ratio", agg.mean_sharpe_ratio)
+            trial.set_user_attr("trade_count", agg.mean_trade_count)
+            trial.set_user_attr("total_pnl", agg.mean_total_pnl)
+            trial.set_user_attr("windows_passed", agg.windows_passed)
+            trial.set_user_attr("total_windows", agg.total_windows)
+            trial.set_user_attr("go_nogo", wf_result.go_nogo)
+
+            if not wf_result.go_nogo:
+                score -= 1.0
+
+            return score
+
+    objective = TTCObjective(
         bars=bars,
         strategy_factory=factory,
         pair=pair,
         search_space=search_space,
-        n_trials=n_trials,
         n_windows=n_windows,
-        spread_pips=get_spread_for_pair(pair),
         composite_weights=composite_weights,
-        seed=seed,
+        min_trades=min_trades,
     )
 
-    result = optimizer.optimize()
+    sampler = TPESampler(seed=seed)
+    study = optuna.create_study(sampler=sampler, direction="maximize")
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+    completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+    if not completed:
+        return OptimizationResult(
+            best_params={},
+            best_value=float("-inf"),
+            n_trials=len(study.trials),
+            go_nogo=False,
+            study_summary={
+                "n_trials": len(study.trials),
+                "n_complete": 0,
+                "n_pruned": len(study.trials),
+            },
+        )
+
+    best_trial = study.best_trial
+    best_wf = objective.get_result(best_trial.number)
+
+    result = OptimizationResult(
+        best_params=best_trial.params,
+        best_value=best_trial.value if best_trial.value is not None else float("-inf"),
+        best_walk_forward=best_wf,
+        n_trials=len(study.trials),
+        go_nogo=best_wf.go_nogo if best_wf else False,
+        study_summary={
+            "n_trials": len(study.trials),
+            "n_complete": len(completed),
+            "n_pruned": len(
+                [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
+            ),
+            "best_score": best_trial.value,
+            "sampler": type(sampler).__name__,
+        },
+    )
 
     # Save results
     _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -199,7 +296,6 @@ def run_ttc_optuna(
         "completed_at": datetime.utcnow().isoformat(),
     }
 
-    # Add best metrics if available from walk-forward
     if result.best_walk_forward and result.best_walk_forward.aggregated:
         agg = result.best_walk_forward.aggregated
         report["best_metrics"] = {
