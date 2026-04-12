@@ -1,0 +1,151 @@
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+
+jobs:
+  auto-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.branch.outputs.name }}
+      pr_number: ${{ steps.pr.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture branch name
+        id: branch
+        run: echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract issue number from branch name
+        id: issue
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          ISSUE=$(echo "$BRANCH" | grep -oiP '(?:AYUAA|ayuaa|AYUAA)[-_]\d+' | head -1 | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+          if [ -z "$ISSUE" ]; then
+            NUM=$(echo "$BRANCH" | grep -oP '\d{3,}' | head -1)
+            if [ -n "$NUM" ]; then
+              ISSUE="AYUAA-${NUM}"
+            fi
+          fi
+          echo "issue=${ISSUE}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if PR already exists
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          echo "existing=${EXISTING}" >> "$GITHUB_OUTPUT"
+
+      - name: Create PR
+        if: steps.check-pr.outputs.existing == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          ISSUE="${{ steps.issue.outputs.issue }}"
+          
+          BODY="## Auto-generated PR\n\n"
+          BODY+="**Branch:** \`${BRANCH}\`\n"
+          if [ -n "$ISSUE" ]; then
+            BODY+="**Related:** ${ISSUE}\n"
+          fi
+          BODY+="\n---\n\n### Commits\n\n"
+          
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"- %s" 2>/dev/null)
+          if [ -n "$COMMITS" ]; then
+            BODY+="${COMMITS}\n"
+          fi
+          
+          BODY+="\n---\n\n🤖 *Auto-created PR. Will be labeled once CI resolves.*\n"
+          
+          FIRST_COMMIT=$(git log origin/main..HEAD --pretty=format:"%s" 2>/dev/null | head -1)
+          TITLE="${FIRST_COMMIT:-PR from ${BRANCH}}"
+          if [ -n "$ISSUE" ]; then
+            TITLE="${ISSUE}: ${TITLE}"
+          fi
+          
+          gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --title "${TITLE}" \
+            --body "${BODY}" \
+            --label "auto-pr" 2>&1
+
+      - name: Get PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+          echo "number=${PR}" >> "$GITHUB_OUTPUT"
+
+  ci-check:
+    needs: auto-pr
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.auto-pr.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Install tools
+        run: pip install ruff bandit
+
+      - name: Gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar -xf gitleaks_8.21.2_linux_x64.tar.gz
+          ./gitleaks detect --source . --config .gitleaks.toml --verbose --report-format json --report-path gitleaks-report.json
+
+      - name: Ruff lint + format
+        run: ruff check src/ tests/ --ignore E501 && ruff format --check src/ tests/
+
+      - name: Bandit security scan
+        run: bandit -r src/ -ll --format txt
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -q --tb=line -p no:cacheprovider
+
+  label-result:
+    needs: [auto-pr, ci-check]
+    runs-on: ubuntu-latest
+    if: always() && needs.auto-pr.outputs.pr_number != ''
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Label PR based on CI result
+        run: |
+          PR_NUMBER="${{ needs.auto-pr.outputs.pr_number }}"
+          
+          if [ "${{ needs.ci-check.result }}" = "success" ]; then
+            echo "✅ CI passed, labeling ready-to-merge"
+            gh pr edit "${PR_NUMBER}" --add-label "ready-to-merge" --remove-label "auto-pr"
+          elif [ "${{ needs.ci-check.result }}" = "failure" ]; then
+            echo "❌ CI failed, labeling ci-failed"
+            gh pr edit "${PR_NUMBER}" --add-label "ci-failed" --remove-label "auto-pr"
+            gh pr comment "${PR_NUMBER}" --body "⚠️ **CI failed.** Fix the errors and push to this branch."
+          else
+            echo "⏰ CI cancelled/skipped, labeling ci-timeout"
+            gh pr edit "${PR_NUMBER}" --add-label "ci-timeout" --remove-label "auto-pr"
+          fi
