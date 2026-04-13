@@ -319,21 +319,21 @@ class MultiStrategyBacktestEngine:
         if trade.direction == TradeDirection.LONG:
             if bar.low <= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.high >= trade.take_profit_1:
-                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
-            if bar.high >= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
             if bar.high >= trade.take_profit_3:
                 return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
+            if bar.high >= trade.take_profit_2:
+                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
+            if bar.high >= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
         else:
             if bar.high >= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.low <= trade.take_profit_1:
-                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
-            if bar.low <= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
             if bar.low <= trade.take_profit_3:
                 return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
+            if bar.low <= trade.take_profit_2:
+                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
+            if bar.low <= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
         return (False, 0, ExitReason.STOP_LOSS)
 
     def _close_trade(
