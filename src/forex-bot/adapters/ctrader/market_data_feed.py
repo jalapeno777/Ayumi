@@ -61,6 +61,7 @@ DEFAULT_SYMBOLS: dict[int, str] = {
     5: "AUD/USD",
     6: "USD/CAD",
     7: "NZD/USD",
+    31: "XAU/USD",
 }
 
 # Common forex symbols we care about for trading
