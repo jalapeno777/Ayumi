@@ -1,0 +1,60 @@
+{
+  "test_days": 90,
+  "total_trades": 269,
+  "win_rate": 0.5910780669144982,
+  "total_pnl": 1822.0534310645962,
+  "max_dd": 0.03943277945332541,
+  "max_daily_dd": 0.026467650477286882,
+  "avg_pnl_per_day": 20.24503812293996,
+  "target_hit_days": 67,
+  "est_weeks_to_target": 7.0564027585242854,
+  "per_strategy": {
+    "SRM_XAUUSD": {
+      "pnl": 1730.7316666665988,
+      "trades": 46,
+      "wins": 41
+    },
+    "TTC_USDJPY": {
+      "pnl": -89.30693347398197,
+      "trades": 6,
+      "wins": 3
+    },
+    "TTC_GBPJPY": {
+      "pnl": -60.930486769995454,
+      "trades": 17,
+      "wins": 8
+    },
+    "SRM_GBPJPY": {
+      "pnl": -477.9850000001314,
+      "trades": 54,
+      "wins": 24
+    },
+    "TTC_XAUUSD": {
+      "pnl": 300.44970577026794,
+      "trades": 17,
+      "wins": 12
+    },
+    "SRM_USDJPY": {
+      "pnl": 320.82184086222105,
+      "trades": 52,
+      "wins": 31
+    },
+    "SRM_GBPUSD": {
+      "pnl": 34.88827456268042,
+      "trades": 51,
+      "wins": 26
+    },
+    "TTC_EURUSD": {
+      "pnl": 153.78038157379967,
+      "trades": 7,
+      "wins": 5
+    },
+    "SRM_EURUSD": {
+      "pnl": -90.39601812681833,
+      "trades": 19,
+      "wins": 9
+    }
+  },
+  "longs": 136,
+  "shorts": 133
+}

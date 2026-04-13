@@ -1,0 +1,13 @@
+{
+  "strategy": "session_range_mr",
+  "pair": "XAUUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": 0.8882039640629807,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.4,
+    "session_range_min_pips": 35.0,
+    "session_range_sl_fraction": 0.3
+  }
+}

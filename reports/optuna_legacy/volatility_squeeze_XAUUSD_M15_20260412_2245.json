@@ -1,0 +1,14 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "XAUUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.2106362521536661,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.4,
+    "bb_period": 25,
+    "bb_std": 1.75,
+    "squeeze_threshold": 1.25
+  }
+}

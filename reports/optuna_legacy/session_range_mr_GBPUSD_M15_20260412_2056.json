@@ -1,0 +1,13 @@
+{
+  "strategy": "session_range_mr",
+  "pair": "GBPUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": 0.4451661372870184,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.4,
+    "session_range_min_pips": 25.0,
+    "session_range_sl_fraction": 0.8
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "GBPUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.46833130379100574,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.30000000000000004,
+    "bb_period": 19,
+    "bb_std": 2.25,
+    "squeeze_threshold": 1.5
+  }
+}

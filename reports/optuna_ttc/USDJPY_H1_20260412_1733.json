@@ -1,0 +1,37 @@
+{
+  "pair": "USDJPY",
+  "timeframe": "H1",
+  "n_trials": 100,
+  "best_score": -0.48069126796234163,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.15,
+    "min_quality_score": 0.30000000000000004,
+    "mw_base_confidence": 0.2,
+    "rsi_divergence_boost": 0.2,
+    "htf_trend_aligned_boost": 0.05,
+    "htf_opposing_penalty": -0.09999999999999998,
+    "kill_zone_active_boost": -0.09999999999999999,
+    "negative_weight": 1.0,
+    "swing_lookback": 7,
+    "history_bars": 40
+  },
+  "study_summary": {
+    "n_trials": 100,
+    "n_complete": 72,
+    "n_pruned": 28,
+    "best_score": -0.48069126796234163,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T17:33:04.093248",
+  "best_metrics": {
+    "win_rate": 0.45,
+    "profit_factor": 2.315327523877655,
+    "max_drawdown": 0.0027665516370005425,
+    "sharpe_ratio": -2.465564685625076,
+    "trade_count": 2.0,
+    "total_pnl": -11.054629044836018,
+    "windows_passed": 0,
+    "total_windows": 5
+  }
+}

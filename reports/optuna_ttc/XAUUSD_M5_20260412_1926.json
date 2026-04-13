@@ -1,0 +1,37 @@
+{
+  "pair": "XAUUSD",
+  "timeframe": "M5",
+  "n_trials": 100,
+  "best_score": 0.6740385617496193,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.5,
+    "min_quality_score": 0.45,
+    "mw_base_confidence": 0.35000000000000003,
+    "rsi_divergence_boost": 0.1,
+    "htf_trend_aligned_boost": 0.1,
+    "htf_opposing_penalty": -0.09999999999999998,
+    "kill_zone_active_boost": 0.05,
+    "negative_weight": 0.75,
+    "swing_lookback": 6,
+    "history_bars": 80
+  },
+  "study_summary": {
+    "n_trials": 100,
+    "n_complete": 100,
+    "n_pruned": 0,
+    "best_score": 0.6740385617496193,
+    "sampler": "TPESampler"
+  },
+  "completed_at": "2026-04-12T19:26:12.714962",
+  "best_metrics": {
+    "win_rate": 0.6190476190476191,
+    "profit_factor": 1.6996849820685398,
+    "max_drawdown": 0.008194093733267316,
+    "sharpe_ratio": 3.4501750270755513,
+    "trade_count": 8.0,
+    "total_pnl": 96.26657789877882,
+    "windows_passed": 4,
+    "total_windows": 5
+  }
+}

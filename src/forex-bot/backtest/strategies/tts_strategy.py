@@ -84,6 +84,7 @@ VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
 ASIA_RANGE_WIDE_NC = -0.05  # Asia range > 2% of price = low quality range
 MFI_OVERBOUGHT_NC = -0.04  # MFI > 80 for longs
 MFI_OVERSOLD_NC = -0.04  # MFI < 20 for shorts
+VOLATILE_SESSION_NC = -0.04  # High volatility session = wider stops, more risk
 
 # Pattern-type-specific base confidence
 PATTERN_BASE_CONFIGS = {
@@ -509,6 +510,16 @@ class TTSStrategy(ISignalStrategy):
             name = "htf_200ema_aligned" if htf_200ema > 0 else "htf_200ema_fighting"
             builder.add_boost(name, htf_200ema)
 
+        # ── ATR regime filter (1a) ─────────────────────────────────────
+        atr_high_vol, atr_conf_boost = self._check_atr_regime(bars, best_pattern.direction)
+        if atr_high_vol:
+            builder.add_boost("atr_high_vol_regime", -0.05)
+
+        # ── Dollar strength correlation check (1b) ────────────────────
+        dollar_adj = self._check_dollar_regime(bars, best_pattern.direction, self.symbol)
+        if dollar_adj != 0.0:
+            builder.add_boost("dollar_regime", dollar_adj)
+
         # ── Negative confluence (reduce confidence when triggered) ─────
         neg_weight = (
             PER_SYMBOL_CONFIGS.get(self.symbol.upper(), {})
@@ -581,7 +592,12 @@ class TTSStrategy(ISignalStrategy):
         # Finalize confidence
         total_confidence = builder.finalize()
 
-        if total_confidence < self.min_confidence:
+        # Adjust min_confidence for ATR regime
+        effective_min_conf = self.min_confidence
+        if atr_high_vol:
+            effective_min_conf = max(effective_min_conf, 0.6)
+
+        if total_confidence < effective_min_conf:
             return None
 
         # ── Step 5: SL/TP calculation (TPManager 3-level system) ──────
@@ -1107,6 +1123,50 @@ class TTSStrategy(ISignalStrategy):
         range_pct = abs(asia_result.ilod - latest.close) / latest.close
         if range_pct > 0.020:
             return ASIA_RANGE_WIDE_NC
+        return 0.0
+
+    def _check_atr_regime(self, bars: list[Bar], direction: str) -> tuple[bool, float]:
+        """ATR regime filter: high volatility regime requires higher confidence.
+
+        Returns (is_high_vol, required_confidence_boost).
+        If current ATR > 1.3x the 30-bar rolling average, we're in high vol.
+        """
+        if len(bars) < 45:
+            return False, 0.0
+        # Compute ATR(14) for current bar
+        trs = []
+        for i in range(max(1, len(bars) - 44), len(bars)):
+            high = bars[i].high
+            low = bars[i].low
+            prev_close = bars[i - 1].close
+            trs.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
+        current_atr = sum(trs[-14:]) / 14
+        avg_atr = sum(trs[:-14]) / len(trs[:-14]) if len(trs) > 14 else current_atr
+        if avg_atr <= 0:
+            return False, 0.0
+        is_high_vol = current_atr > avg_atr * 1.3
+        return is_high_vol, 0.0
+
+    def _check_dollar_regime(self, bars: list[Bar], direction: str, pair: str) -> float:
+        """Dollar strength correlation check.
+
+        EURUSD/GBPUSD LONG when both falling: -0.15 penalty.
+        USDJPY SHORT when rising: +0.05 boost.
+        """
+        if len(bars) < 5:
+            return 0.0
+        pair_upper = pair.upper()
+        last5 = bars[-5:]
+        falling_count = sum(1 for b in last5 if b.close < b.open)
+
+        if pair_upper in ("EURUSD", "GBPUSD"):
+            if direction == "long" and falling_count >= 3:
+                return -0.15
+        elif pair_upper == "USDJPY":
+            rising_count = sum(1 for b in last5 if b.close > b.open)
+            if direction == "short" and rising_count >= 5:
+                return 0.05
+
         return 0.0
 
     @staticmethod

@@ -1,0 +1,14 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "USDJPY",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.37916954939445535,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.2,
+    "bb_period": 18,
+    "bb_std": 2.25,
+    "squeeze_threshold": 0.75
+  }
+}

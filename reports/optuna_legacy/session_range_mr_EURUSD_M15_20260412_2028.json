@@ -1,0 +1,13 @@
+{
+  "strategy": "session_range_mr",
+  "pair": "EURUSD",
+  "timeframe": "M15",
+  "n_trials": 2,
+  "best_score": 0.6749913569109312,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.35000000000000003,
+    "session_range_min_pips": 50.0,
+    "session_range_sl_fraction": 0.8
+  }
+}

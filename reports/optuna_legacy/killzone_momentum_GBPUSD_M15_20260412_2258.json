@@ -1,0 +1,13 @@
+{
+  "strategy": "killzone_momentum",
+  "pair": "GBPUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.6540324450734656,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.5,
+    "kill_zone_start_hour": 0,
+    "kill_zone_end_hour": 23
+  }
+}

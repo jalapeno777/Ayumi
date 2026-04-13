@@ -1,0 +1,14 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "EURUSD",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.48536754808842686,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.5,
+    "bb_period": 20,
+    "bb_std": 2.0,
+    "squeeze_threshold": 0.75
+  }
+}

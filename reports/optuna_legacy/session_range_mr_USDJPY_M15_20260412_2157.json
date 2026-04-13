@@ -1,0 +1,13 @@
+{
+  "strategy": "session_range_mr",
+  "pair": "USDJPY",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": 0.6395373525383428,
+  "go_nogo": true,
+  "best_params": {
+    "min_confidence": 0.5,
+    "session_range_min_pips": 20.0,
+    "session_range_sl_fraction": 0.9
+  }
+}

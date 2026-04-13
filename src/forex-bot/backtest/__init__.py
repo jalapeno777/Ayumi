@@ -1,5 +1,6 @@
-from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
-from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+# Import moved to avoid circular dependency
+# from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+# from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
 from .amalgamation import (
     AmalgamatedBacktestEngine,
@@ -125,11 +126,11 @@ __all__ = [
     "SupertrendRSIBlendStrategy",
     "KeltnerChannelBreakoutStrategy",
     "HighConvictionStrategy",
-    "SessionRangeMeanReversionStrategy",
-    "GridStrategy",
-    "StatArbStrategy",
-    "StatArbBacktestResult",
-    "VolatilitySqueezeStrategy",
+    # "SessionRangeMeanReversionStrategy",  # Commented out due to circular import
+    # "GridStrategy",  # Commented out due to circular import
+    # "StatArbStrategy",  # Commented out due to circular import
+    # "StatArbBacktestResult",  # Commented out due to circular import
+    # "VolatilitySqueezeStrategy",  # Commented out due to circular import
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
     "AmalgamationConfig",

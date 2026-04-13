@@ -1,0 +1,3 @@
+# Ayumi
+
+Trading bot project.

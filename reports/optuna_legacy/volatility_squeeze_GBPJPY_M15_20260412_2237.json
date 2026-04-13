@@ -1,0 +1,14 @@
+{
+  "strategy": "volatility_squeeze",
+  "pair": "GBPJPY",
+  "timeframe": "M15",
+  "n_trials": 100,
+  "best_score": -0.4648984982575034,
+  "go_nogo": false,
+  "best_params": {
+    "min_confidence": 0.25,
+    "bb_period": 27,
+    "bb_std": 2.0,
+    "squeeze_threshold": 0.75
+  }
+}
