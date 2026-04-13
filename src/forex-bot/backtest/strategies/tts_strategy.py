@@ -80,6 +80,7 @@ LATE_KILL_ZONE_NC = -0.06  # UK session nearly over (near 8am NY)
 VOLUME_DIVERGENCE_NC = -0.05  # Price up/down but volume not confirming
 BB_SQUEEZE_NC = -0.04  # Bollinger bandwidth compressed = breakout risk
 ADX_EXHAUSTION_NC = -0.05  # ADX > 40 but price stalling = weakening
+VOLATILE_SESSION_NC = -0.06  # ATR at 90th percentile = high volatility session
 VWAP_EXTREME_DISTANCE_NC = -0.04  # price far from VWAP = mean reversion risk
 ASIA_RANGE_WIDE_NC = -0.05  # Asia range > 2% of price = low quality range
 MFI_OVERBOUGHT_NC = -0.04  # MFI > 80 for longs

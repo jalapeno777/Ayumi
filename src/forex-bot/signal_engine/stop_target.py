@@ -82,7 +82,9 @@ class StopTargetCalculator:
         """
         atr = context.get("atr", 0.0)
         sl = self._place_stop_loss(direction, entry, context, spread, atr)
-        tp, tp_levels = self._place_take_profit(direction, entry, sl, context, atr)
+        tp, tp_levels = self._place_take_profit(
+            direction, entry, sl, context, atr, spread
+        )
         trailing = self._trailing_config(direction, entry, sl, tp, context, atr)
 
         return {
@@ -158,16 +160,16 @@ class StopTargetCalculator:
         sl: float,
         context: dict,
         atr: float,
+        spread: float = 0.0,
     ) -> tuple[float, list[dict]]:
         """TP using ATR multiples, enforcing minimum RR ratio.
 
-        If ATR is available, TPs are at ATR multiples (timeframe-scaled).
-        Otherwise, uses R:R ratio from SL distance.
-        Structure levels (R2/R3, D2/D3) are included as reference levels
-        but do not override ATR-based targets.
+        Spread-compensated: min_reward = risk * min_rr + spread to account
+        for the round-trip spread charged on exit (SL already includes
+        entry-side spread buffer, but exit-side spread reduces TP gain).
         """
         risk = abs(entry - sl)
-        min_reward = risk * self._min_rr
+        min_reward = risk * self._min_rr + spread
 
         if atr > 0:
             tp_levels = self._atr_tp_levels(direction, entry, atr, context, min_reward)
