@@ -54,3 +54,11 @@ reports/walk_forward/*.json
 reports/parameter_sweep/*.json
 docs/forex/wf-*.json
 tests/test_flatten.py
+close_all_openapi.py
+reports/optuna_legacy/
+reports/optuna_ttc/
+logs/trades/
+tests/test_close_all.py
+tests/test_fix_single_order.py
+tests/test_raw_fix.py
+tests/test_flatten.py
