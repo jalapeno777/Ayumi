@@ -458,6 +458,7 @@ class FIXClient:
                 self._trigger_callback("on_order_partial_fill", order, msg)
 
             elif exec_type in ("F", "f"):
+                position_id = msg.get_field(721)  # cTrader position ID (hedging)
                 if order:
                     order.status = OrderStatus.FILLED
                     order.filled_at = datetime.now(timezone.utc)
@@ -465,6 +466,8 @@ class FIXClient:
                         order.filled_price = float(last_px)
                     elif avg_px:
                         order.filled_price = float(avg_px)
+                    if position_id:
+                        order.comment = f"pos_id:{position_id}"
                     if text:
                         order.comment = text
                 self._trigger_callback("on_order_filled", order, msg)
@@ -514,7 +517,37 @@ class FIXClient:
                 self._trigger_callback("on_order_rejected", order, msg, reject_msg)
 
     def _handle_position_report(self, msg: FIXMessage):
-        logger.debug(f"Position report: {msg.fields}")
+        pos_id = msg.get_field(721)
+        symbol_id = msg.get_field(self.TAG_SYMBOL)
+        side_code = msg.get_field(727)  # 1=long, 2=short
+        entry_px = msg.get_field(730)
+        pnl = msg.get_field(704)
+        volume_code = msg.get_field(702)
+        # Map symbol ID back to name
+        symbol = symbol_id  # Keep numeric ID for now; resolve if needed
+
+        direction = TradeDirection.SHORT if side_code == "2" else TradeDirection.LONG
+        # Volume: tag 702 = lots (e.g., 1 = 0.01 lots based on 1000 units)
+        # Tag 704 = PnL in account currency
+        # Tag 730 = entry price
+
+        position = Position(
+            position_id=pos_id or "",
+            symbol=symbol or "",
+            direction=direction,
+            volume=volume_code or "0",
+            entry_price=float(entry_px or 0),
+            current_price=float(entry_px or 0),
+            unrealized_pnl=float(pnl or 0),
+            status=PositionStatus.OPEN,
+        )
+
+        with self._lock:
+            self._positions[pos_id] = position
+
+        logger.info(f"Position report: pos_id={pos_id} symbol={symbol} side={direction.value} "
+                    f"entry={entry_px} pnl={pnl}")
+        self._trigger_callback("on_position_update", position, msg)
 
     def _handle_account_info(self, msg: FIXMessage):
         account_id = self.credentials.sender_comp_id
@@ -650,9 +683,9 @@ class FIXClient:
             self._pending_orders[order_id] = order
 
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
-        msg.set_field(self.TAG_CLORD_ID, order_id)
-        msg.set_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_field(self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2")
+        msg.set_body_field(self.TAG_CLORD_ID, order_id)
+        msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
+        msg.set_body_field(self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2")
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
         msg.set_body_field(59, "1")  # TimeInForce = Good Till Cancel
@@ -669,12 +702,9 @@ class FIXClient:
             if price:
                 msg.set_body_field(self.TAG_STOP_PX, str(price))
 
-        if stop_loss:
-            msg.set_body_field(700, str(stop_loss))
-        if take_profit:
-            msg.set_body_field(701, str(take_profit))
-
         # NOTE: Do NOT send tag 58 (Text) — cTrader rejects it on NewOrderSingle
+        # NOTE: cTrader FIX does NOT support SL/TP on NewOrderSingle (tags 700/701 invalid)
+        # SL/TP must be implemented as separate stop/limit orders linked via tag 721
 
         if self._send_message(msg):
             logger.info(f"Order sent: {order_id} {direction.value} {volume} {symbol}")
@@ -692,11 +722,13 @@ class FIXClient:
         symbol: str,
         direction: TradeDirection,
         volume: float,
+        position_id: str | None = None,
     ) -> Order | None:
-        """Close a position by sending an opposing market order.
+        """Close a position on a hedging account.
 
-        This is the safest way to close on cTrader — send a new market order
-        in the opposite direction for the same volume.
+        For hedging accounts, position_id (tag 721) is REQUIRED — without it,
+        cTrader opens a NEW position instead of closing the existing one.
+        For netting accounts, position_id can be omitted.
         """
         close_direction = TradeDirection.SHORT if direction == TradeDirection.LONG else TradeDirection.LONG
         order_id = f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
@@ -714,11 +746,13 @@ class FIXClient:
             self._pending_orders[order_id] = order
 
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
-        msg.set_field(self.TAG_CLORD_ID, order_id)
-        msg.set_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_field(self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2")
+        msg.set_body_field(self.TAG_CLORD_ID, order_id)
+        msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
+        msg.set_body_field(self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2")
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
+        if position_id:
+            msg.set_body_field(721, position_id)  # PositionID — REQUIRED for hedging
         msg.set_body_field(59, "3")  # TimeInForce = Immediate Or Cancel
         msg.set_body_field(
             60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
@@ -745,9 +779,20 @@ class FIXClient:
         msg = FIXMessage(msg_type=self.MSG_TYPE_ACCOUNT_INFO)
         self._send_message(msg)
 
-    def request_positions(self):
+    def request_positions(self, req_id: str = "REQ_1"):
+        """Request position reports from cTrader.
+
+        cTrader uses tag 710 as PosReqID (a string identifier, NOT standard PosReqType).
+        Responses come as Position Report (MsgType=AP) messages handled by _handle_position_report.
+        Results are stored in self._positions dict.
+        """
         msg = FIXMessage(msg_type=self.MSG_TYPE_POSITION_REPORT)
+        msg.set_body_field(710, req_id)
         self._send_message(msg)
+
+        # Wait briefly for responses to arrive
+        time.sleep(3)
+        return dict(self._positions)
 
     def register_callback(self, event: str, callback: Callable):
         if event not in self._callbacks:
