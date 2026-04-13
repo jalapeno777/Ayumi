@@ -250,6 +250,12 @@ class LivePaperTradingSystem:
         self._status_thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._last_bar_close: dict[str, datetime] = {}
+        # Position ID tracking: strategy+symbol → cTrader position_id (tag 721)
+        self._position_ids: dict[str, str] = {}
+        # Pending SL/TP to attach after fill: clord_id → {signal, strategy_key}
+        self._pending_sl_tp: dict[str, dict] = {}
+        # Linked SL/TP order IDs per position_id (for cleanup on close)
+        self._linked_orders: dict[str, dict[str, str]] = {}
 
     def _init_strategies(self):
         """Instantiate all 5 strategies."""
@@ -280,9 +286,9 @@ class LivePaperTradingSystem:
         self._trade_logger = TradeLogger(log_dir=LOG_DIR, strategy_name="live_paper")
 
     def _init_trade_connection(self):
-        """Connect to cTrader trade port (5202) for real order execution on DEMO."""
+        """Connect to cTrader trade port (5212 SSL) for real order execution on DEMO."""
         host = os.environ.get("CTRADER_HOST", "live-uk-eqx-01.p.c-trader.com")
-        trade_port = int(os.environ.get("CTRADER_TRADE_PORT", "5202"))
+        trade_port = int(os.environ.get("CTRADER_TRADE_SSL_PORT", "5212"))
         sender = os.environ.get("CTRADER_SENDER_COMP_ID", "live.ftmo.17087404")
         target = os.environ.get("CTRADER_TARGET_COMP_ID", "cServer")
         sub = os.environ.get("CTRADER_SENDER_SUB_ID", "TRADE")
@@ -292,7 +298,7 @@ class LivePaperTradingSystem:
         trade_creds = cTraderCredentials(
             host=host,
             port=trade_port,
-            use_ssl=False,  # TRADE port is plain text
+            use_ssl=True,  # TRADE port uses SSL
             sender_comp_id=sender,
             target_comp_id=target,
             sender_sub_id=sub,
@@ -305,24 +311,139 @@ class LivePaperTradingSystem:
         self._api_client.set_paper_mode(False)  # real execution on demo
         connected = self._api_client.connect()
         if not connected:
-            raise RuntimeError("Failed to connect to cTrader trade port 5202")
+            raise RuntimeError(f"Failed to connect to cTrader trade port {trade_port}")
 
         # Wire API client to PaperTrader for live execution
         self._paper_trader.set_api_client(self._api_client)
 
         # Register execution report callbacks
         self._api_client._client.register_callback("on_order_filled", self._on_order_filled)
+        self._api_client._client.register_callback("on_order_new", self._on_order_new)
         self._api_client._client.register_callback("on_order_rejected", self._on_order_rejected)
 
-        logger.info("Trade connection established on port %d (plain text)", trade_port)
+        # Request existing positions to restore state
+        self._sync_existing_positions()
 
-    def _on_order_filled(self, order):
-        """Callback when cTrader fills an order."""
+        logger.info("Trade connection established on port %d (SSL)", trade_port)
+
+    def _on_order_new(self, order, msg):
+        """Callback when cTrader acknowledges a new order (pending fill)."""
+        if order is None:
+            return
+        logger.info(f"ORDER NEW: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume}")
+
+    def _on_order_filled(self, order, msg):
+        """Callback when cTrader fills an order.
+
+        Extracts position_id from the fill report (tag 721, stored in order.comment
+        as 'pos_id:XXXXX' by FIXClient) and updates position tracking + PaperTrader.
+        """
+        if order is None:
+            return
+
         logger.info(f"ORDER FILLED: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume} @ {order.filled_price}")
+
+        # Extract position_id from order comment (set by FIXClient as "pos_id:XXXXX")
+        position_id = None
+        if order.comment and "pos_id:" in order.comment:
+            try:
+                position_id = order.comment.split("pos_id:")[1].split()[0]
+            except (IndexError, ValueError):
+                pass
+
+        # Also check raw FIX message tag 721 directly
+        if not position_id and msg:
+            raw_pos_id = msg.get_field(721)
+            if raw_pos_id:
+                position_id = raw_pos_id
+
+        if position_id:
+            # Try to match by symbol to find the strategy key
+            for strat_name, cfg in STRATEGY_PARAMS.items():
+                if cfg["symbol"] == order.symbol:
+                    key = f"{strat_name}_{order.symbol}"
+                    self._position_ids[key] = position_id
+                    logger.info(f"Position ID mapped: {key} → {position_id}")
+                    break
+
+            # Update PaperTrader position with broker position_id
+            positions = self._paper_trader.get_open_positions()
+            for pos in positions:
+                if pos.symbol == order.symbol and pos.direction == order.direction:
+                    self._paper_trader._order_manager.update_position_id(
+                        pos.position_id, position_id
+                    )
+                    break
+
+        # Check if there's a pending SL/TP to attach
+        pending = self._pending_sl_tp.pop(order.order_id, None)
+        if pending and position_id:
+            self._attach_sl_tp(position_id, pending["signal"], pending["strategy_key"])
+
 
     def _on_order_rejected(self, order, reason=""):
         """Callback when cTrader rejects an order."""
         logger.warning(f"ORDER REJECTED: {order.order_id} {order.symbol} reason={reason}")
+
+    def _sync_existing_positions(self):
+        """Request existing positions from cTrader and populate PaperTrader state."""
+        logger.info("Requesting existing positions from cTrader...")
+        positions = self._api_client._client.request_positions(req_id="STARTUP_SYNC")
+        if not positions:
+            logger.info("No existing positions found on startup")
+            return
+        for pos_id, pos in positions.items():
+            logger.info(f"  Existing position: {pos_id} {pos.symbol} {pos.direction.value} vol={pos.volume}")
+        logger.info(f"Found {len(positions)} existing position(s) on startup")
+
+    def _attach_sl_tp(self, position_id: str, signal, strategy_key: str):
+        """Send SL and TP as linked stop/limit orders via tag 721."""
+        symbol = signal.symbol
+
+        sl_orders = []
+        tp_orders = []
+
+        if signal.stop_loss and signal.stop_loss > 0:
+            sl_order = self._api_client._client.send_order(
+                symbol=symbol,
+                direction=signal.direction,
+                order_type=OrderType.STOP,
+                volume=signal.volume,
+                price=signal.stop_loss,
+                comment=f"SL_{strategy_key}",
+            )
+            if sl_order:
+                sl_orders.append(sl_order.order_id)
+                logger.info(f"SL order sent: {sl_order.order_id} @ {signal.stop_loss} for pos {position_id}")
+
+        if signal.take_profit_1 and signal.take_profit_1 > 0:
+            tp_order = self._api_client._client.send_order(
+                symbol=symbol,
+                direction=signal.direction,
+                order_type=OrderType.LIMIT,
+                volume=signal.volume,
+                price=signal.take_profit_1,
+                comment=f"TP_{strategy_key}",
+            )
+            if tp_order:
+                tp_orders.append(tp_order.order_id)
+                logger.info(f"TP order sent: {tp_order.order_id} @ {signal.take_profit_1} for pos {position_id}")
+
+        self._linked_orders[position_id] = {}
+        if sl_orders:
+            self._linked_orders[position_id]["sl"] = sl_orders[0]
+        if tp_orders:
+            self._linked_orders[position_id]["tp"] = tp_orders[0]
+
+    def _cancel_linked_orders(self, position_id: str):
+        """Cancel any SL/TP orders linked to a position."""
+        linked = self._linked_orders.pop(position_id, {})
+        for order_type, order_id in linked.items():
+            success = self._api_client._client.cancel_order(order_id)
+            if success:
+                logger.info(f"Cancelled {order_type} order {order_id} for pos {position_id}")
+            else:
+                logger.warning(f"Failed to cancel {order_type} order {order_id} for pos {position_id}")
 
     def _init_feed(self):
         creds = _load_credentials()
@@ -447,6 +568,12 @@ class LivePaperTradingSystem:
             )
             if result.order and self._trade_logger:
                 self._trade_logger.log_trade_opened(result.order, result.position)
+            # Track pending SL/TP attachment — will be sent after fill with position_id
+            if result.order and self._paper_trader.is_live_mode:
+                self._pending_sl_tp[result.order.order_id] = {
+                    "signal": trade_signal,
+                    "strategy_key": f"{strat_name}_{symbol}",
+                }
         else:
             logger.warning(f"OPEN REJECTED {strat_name}: {result.rejection_reason}")
 
@@ -459,22 +586,22 @@ class LivePaperTradingSystem:
         for pos in positions:
             if pos.symbol == symbol and pos.status.value == "open":
                 if self._paper_trader.is_live_mode and self._api_client:
-                    # Live mode: send a market order in the opposite direction to cTrader
-                    close_dir = (
-                        CTradeDirection.SHORT if pos.direction == CTradeDirection.LONG
-                        else CTradeDirection.LONG
-                    )
-                    order = self._api_client.send_order(
+                    # Live mode: use close_position with position_id for hedging account
+                    broker_pos_id = self._position_ids.get(f"{strat_name}_{symbol}")
+                    close_order = self._api_client._client.close_position(
                         symbol=pos.symbol,
-                        direction=close_dir,
-                        order_type=OrderType.MARKET,
+                        direction=pos.direction,
                         volume=pos.volume,
-                        comment=f"close_{strat_name}",
+                        position_id=broker_pos_id,
                     )
-                    if order:
-                        logger.info(f"LIVE CLOSE {strat_name} {symbol} sent: {order.order_id}")
+                    if close_order:
+                        logger.info(f"LIVE CLOSE {strat_name} {symbol} sent: {close_order.order_id} pos_id={broker_pos_id}")
                     else:
-                        logger.error(f"LIVE CLOSE {strat_name} {symbol} failed — send_order returned None")
+                        logger.error(f"LIVE CLOSE {strat_name} {symbol} failed")
+                    # Cancel linked SL/TP orders
+                    if broker_pos_id:
+                        self._cancel_linked_orders(broker_pos_id)
+                        self._position_ids.pop(f"{strat_name}_{symbol}", None)
                     # Also update local PaperTrader state
                     close_price = tracker.last_tick.mid if tracker.last_tick else pos.current_price
                     self._paper_trader.close_position(
@@ -563,21 +690,25 @@ class LivePaperTradingSystem:
             positions = self._paper_trader.get_open_positions()
             for pos in positions:
                 if pos.status.value == "open":
-                    close_dir = (
-                        CTradeDirection.SHORT if pos.direction == CTradeDirection.LONG
-                        else CTradeDirection.LONG
-                    )
-                    order = self._api_client.send_order(
+                    # Find broker position_id for this position
+                    broker_pos_id = None
+                    for key, pid in self._position_ids.items():
+                        if pos.symbol in key:
+                            broker_pos_id = pid
+                            break
+                    close_order = self._api_client._client.close_position(
                         symbol=pos.symbol,
-                        direction=close_dir,
-                        order_type=OrderType.MARKET,
+                        direction=pos.direction,
                         volume=pos.volume,
-                        comment="shutdown_close",
+                        position_id=broker_pos_id,
                     )
-                    if order:
-                        print(f"  Sent close order for {pos.symbol} {pos.direction.value}: {order.order_id}")
+                    if close_order:
+                        print(f"  Sent close order for {pos.symbol} {pos.direction.value}: {close_order.order_id}")
                     else:
                         print(f"  FAILED to send close order for {pos.symbol} {pos.direction.value}")
+                    # Cancel linked SL/TP orders
+                    if broker_pos_id:
+                        self._cancel_linked_orders(broker_pos_id)
             print("Waiting 3s for close orders to submit...")
             time.sleep(3)
         # Also close local state
@@ -600,7 +731,7 @@ class LivePaperTradingSystem:
         print("=" * 60)
         print(f"Account: {account}")
         print("Market Data: port 5211 (SSL)")
-        print("Trade Execution: port 5202 (plain)")
+        print("Trade Execution: port 5212 (SSL)")
         print("-" * 60)
 
         # Initialize
