@@ -190,13 +190,18 @@ class LiveTradingExecutor:
 
     def _setup_market_feed(self):
         creds = self._load_credentials()
+        quote_sender_sub_id = os.environ.get("CTRADER_QUOTE_SENDER_SUB_ID", "QUOTE")
+        quote_target_sub_id = os.environ.get(
+            "CTRADER_QUOTE_TARGET_SUB_ID", quote_sender_sub_id
+        )
         quote_creds = cTraderCredentials(
             host=self._config.quote_host,
             port=self._config.quote_port,
             use_ssl=creds.use_ssl,
             sender_comp_id=creds.sender_comp_id,
             target_comp_id=creds.target_comp_id,
-            sender_sub_id=creds.sender_sub_id,
+            sender_sub_id=quote_sender_sub_id,
+            target_sub_id=quote_target_sub_id,
             username=creds.username,
             password=creds.password,
         )

@@ -5,10 +5,12 @@ Provides live price streaming from cTrader via the QUOTE connection (port 5211/S
 Protocol notes:
 - MarketDataRequest (35=V) requires SubscriptionRequestType=1 (snapshot + updates)
 - cTrader does NOT support snapshot-only (263=0)
+- MarketDepth=0 (full book), MDUpdateType=0 (full refresh per tick)
 - Symbols are identified by numeric ID (tag 55), not string (e.g. 1 = EUR/USD)
 - MDEntryType 269=0 (bid), 269=1 (ask)
 - MDEntryPx (270) contains the price
 - Responses are MarketDataSnapshot (35=W) with repeating group entries
+- SenderSubID must be "QUOTE" for quote-only connections (port 5211)
 """
 
 import logging
@@ -191,16 +193,15 @@ class LiveMarketDataFeed:
         self._next_req_id += 1
 
         msg = FIXMessage(msg_type="V")
-        # Body fields in correct FIX order with repeating groups
         msg.set_body_field(self.TAG_MD_REQ_ID, req_id)
         msg.set_body_field(self.TAG_SUBSCRIPTION_TYPE, "1")
-        msg.set_body_field(self.TAG_MARKET_DEPTH, "1")
-        msg.set_body_field(self.TAG_MD_UPDATE_TYPE, "1")
+        msg.set_body_field(self.TAG_MARKET_DEPTH, "0")
+        msg.set_body_field(self.TAG_MD_UPDATE_TYPE, "0")
         msg.set_body_field(self.TAG_NO_MD_ENTRY_TYPES, "2")
         msg.set_body_field(self.TAG_MD_ENTRY_TYPE, "0")
         msg.set_body_field(self.TAG_MD_ENTRY_TYPE, "1")
         msg.set_body_field(self.TAG_NO_RELATED_SYM, "1")
-        msg.set_body_field(self.TAG_SYMBOL, str(symbol_id))  # Inside repeating group
+        msg.set_body_field(self.TAG_SYMBOL, str(symbol_id))
 
         if self._client._send_message(msg):
             with self._lock:
