@@ -27,7 +27,14 @@ _REQUIRED_ENV_VARS = [
 OPTIONAL_ENV_VARS = [
     "CTRADER_PLAIN_PORT",
     "CTRADER_QUOTE_SENDER_SUB_ID",
+    "CTRADER_QUOTE_TARGET_SUB_ID",
+    "CTRADER_TRADE_SSL_PORT",
 ]
+
+DEFAULT_PORTS = {
+    "QUOTE": 5211,
+    "TRADE": 5202,
+}
 
 
 class MissingCredentialError(RuntimeError):
@@ -100,7 +107,11 @@ class CTraderConnection:
         self,
         credentials: dict[str, str] | None = None,
         heartbeat_interval: int = 30,
+        session_type: str = "QUOTE",
     ):
+        if session_type not in ("QUOTE", "TRADE"):
+            raise ValueError(f"session_type must be 'QUOTE' or 'TRADE', got '{session_type}'")
+        self._session_type = session_type
         self._creds = credentials or _load_credentials()
         self._heartbeat_interval = heartbeat_interval
         self._msg_seq_num = 1
@@ -121,8 +132,14 @@ class CTraderConnection:
             56: self._creds["CTRADER_TARGET_COMP_ID"],
             34: str(self._msg_seq_num),
             52: self._get_sending_time(),
-            50: self._creds["CTRADER_SENDER_SUB_ID"],
-            57: self._creds.get("CTRADER_QUOTE_SENDER_SUB_ID", ""),
+            50: self._creds.get(
+                f"CTRADER_{self._session_type}_SENDER_SUB_ID",
+                self._creds.get("CTRADER_SENDER_SUB_ID", self._session_type),
+            ),
+            57: self._creds.get(
+                f"CTRADER_{self._session_type}_TARGET_SUB_ID",
+                self._session_type,
+            ),
             98: "0",
             108: str(self._heartbeat_interval),
             553: self._creds["CTRADER_ACCOUNT"],
@@ -180,7 +197,10 @@ class CTraderConnection:
 
     def connect(self) -> None:
         host = self._creds["CTRADER_HOST"]
-        port = int(self._creds["CTRADER_SSL_PORT"])
+        if self._session_type == "QUOTE":
+            port = int(self._creds["CTRADER_SSL_PORT"])
+        else:
+            port = int(self._creds.get("CTRADER_TRADE_SSL_PORT", str(DEFAULT_PORTS["TRADE"])))
 
         logger.info("Connecting to cTrader FIX at %s:%s", host, port)
 
