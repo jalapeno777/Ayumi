@@ -17,6 +17,38 @@ from .models import (
     cTraderCredentials,
 )
 
+# cTrader uses numeric symbol IDs (tag 55), not string names.
+# This is the canonical mapping used by the market data feed.
+DEFAULT_SYMBOLS: dict[int, str] = {
+    1: "EUR/USD",
+    2: "GBP/USD",
+    3: "USD/JPY",
+    4: "USD/CHF",
+    5: "AUD/USD",
+    6: "USD/CAD",
+    7: "NZD/USD",
+}
+
+# Reverse lookup: normalize symbol names (with or without slash)
+_NAME_TO_ID: dict[str, int] = {}
+for _sid, _name in DEFAULT_SYMBOLS.items():
+    _NAME_TO_ID[_name] = _sid
+    _NAME_TO_ID[_name.replace("/", "")] = _sid  # EURUSD -> 1
+
+
+def _resolve_symbol_id(symbol: str) -> str:
+    """Convert a symbol name (e.g. 'EURUSD', 'EUR/USD') to cTrader numeric ID."""
+    sid = _NAME_TO_ID.get(symbol)
+    if sid is not None:
+        return str(sid)
+    # Not in default map — return as-is and let the server reject if invalid
+    return symbol
+
+
+def _lots_to_units(lots: float) -> int:
+    """Convert lots to units for cTrader (1 standard lot = 100,000 units)."""
+    return int(round(lots * 100_000))
+
 logger = logging.getLogger(__name__)
 
 SOH = "\x01"
@@ -274,7 +306,7 @@ class FIXClient:
         self._callbacks: dict[str, list] = {}
         self._pending_orders: dict[str, Order] = {}
         self._positions: dict[str, Position] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._logged_in = False
 
     def connect(self) -> bool:
@@ -529,7 +561,7 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
         msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
+        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
         self._next_outgoing_seq += 1
         self._send_raw(msg.to_wire())
@@ -549,7 +581,7 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
         msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
+        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
         self._next_outgoing_seq += 1
 
@@ -619,13 +651,16 @@ class FIXClient:
 
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
         msg.set_field(self.TAG_CLORD_ID, order_id)
-        msg.set_field(self.TAG_SYMBOL, symbol)
+        msg.set_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
         msg.set_field(self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2")
-        msg.set_field(self.TAG_ORD_QTY, str(volume))
+        msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
+        msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
+        msg.set_body_field(59, "1")  # TimeInForce = Good Till Cancel
+        msg.set_body_field(
+            60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        )  # TransactTime
 
-        if order_type == OrderType.MARKET:
-            msg.set_body_field(self.TAG_ORD_TYPE, "1")
-        elif order_type == OrderType.LIMIT:
+        if order_type == OrderType.LIMIT:
             msg.set_body_field(self.TAG_ORD_TYPE, "2")
             if price:
                 msg.set_body_field(self.TAG_PRICE, str(price))
@@ -639,8 +674,7 @@ class FIXClient:
         if take_profit:
             msg.set_body_field(701, str(take_profit))
 
-        if comment:
-            msg.set_body_field(self.TAG_TEXT, comment)
+        # NOTE: Do NOT send tag 58 (Text) — cTrader rejects it on NewOrderSingle
 
         if self._send_message(msg):
             logger.info(f"Order sent: {order_id} {direction.value} {volume} {symbol}")
@@ -653,10 +687,58 @@ class FIXClient:
         )
         return None
 
+    def close_position(
+        self,
+        symbol: str,
+        direction: TradeDirection,
+        volume: float,
+    ) -> Order | None:
+        """Close a position by sending an opposing market order.
+
+        This is the safest way to close on cTrader — send a new market order
+        in the opposite direction for the same volume.
+        """
+        close_direction = TradeDirection.SHORT if direction == TradeDirection.LONG else TradeDirection.LONG
+        order_id = f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
+
+        order = Order(
+            order_id=order_id,
+            symbol=symbol,
+            direction=close_direction,
+            order_type=OrderType.MARKET,
+            volume=volume,
+            comment="Position close",
+        )
+
+        with self._lock:
+            self._pending_orders[order_id] = order
+
+        msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
+        msg.set_field(self.TAG_CLORD_ID, order_id)
+        msg.set_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
+        msg.set_field(self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2")
+        msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
+        msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
+        msg.set_body_field(59, "3")  # TimeInForce = Immediate Or Cancel
+        msg.set_body_field(
+            60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
+        )  # TransactTime
+
+        if self._send_message(msg):
+            logger.info(f"Close order sent: {order_id} {close_direction.value} {volume} {symbol}")
+            return order
+
+        with self._lock:
+            self._pending_orders.pop(order_id, None)
+        logger.error(f"Failed to send close order: {order_id}")
+        return None
+
     def cancel_order(self, order_id: str) -> bool:
+        """Cancel a pending (not yet filled) order via Order Cancel Request."""
         msg = FIXMessage(msg_type=self.MSG_TYPE_ORDER_CANCEL_REQUEST)
         msg.set_field(self.TAG_CLORD_ID, f"CANCEL_{order_id}")
         msg.set_body_field(41, order_id)
+        # NOTE: Do NOT include tag 54 (Side) — cTrader rejects it here
         return self._send_message(msg)
 
     def request_account_info(self):
