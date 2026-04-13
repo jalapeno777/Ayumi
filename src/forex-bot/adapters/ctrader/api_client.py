@@ -13,6 +13,7 @@ from .models import (
     OrderStatus,
     OrderType,
     Position,
+    PositionStatus,
     TradeDirection,
     cTraderCredentials,
 )

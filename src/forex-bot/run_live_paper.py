@@ -129,12 +129,11 @@ def _m15_bar_start(dt_utc: datetime) -> datetime:
 
 
 def _load_credentials() -> cTraderCredentials:
-    """Load cTrader credentials from environment variables."""
+    """Load cTrader credentials for the QUOTE (market data) port."""
     host = os.environ.get("CTRADER_HOST", "live-uk-eqx-01.p.c-trader.com")
     readonly_port = int(os.environ.get("CTRADER_READONLY_SSL_PORT", "5211"))
     sender = os.environ.get("CTRADER_SENDER_COMP_ID", "live.ftmo.17087404")
     target = os.environ.get("CTRADER_TARGET_COMP_ID", "cServer")
-    sub = os.environ.get("CTRADER_SENDER_SUB_ID", "QUOTE")
     username = os.environ.get("CTRADER_ACCOUNT", "17087404")
     password = os.environ.get("CTRADER_PASSWORD", "")
     return cTraderCredentials(
@@ -143,8 +142,8 @@ def _load_credentials() -> cTraderCredentials:
         use_ssl=True,
         sender_comp_id=sender,
         target_comp_id=target,
-        sender_sub_id=sub,
-        target_sub_id=sub,
+        sender_sub_id="QUOTE",
+        target_sub_id="QUOTE",
         username=username,
         password=password,
     )
