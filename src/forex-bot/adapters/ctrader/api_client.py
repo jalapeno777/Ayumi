@@ -653,6 +653,7 @@ class FIXClient:
         stop_loss: float | None = None,
         take_profit: float | None = None,
         comment: str = "",
+        position_id: str | None = None,
     ) -> Order | None:
         if not symbol or not symbol.strip():
             logger.error("send_order: symbol is required")
@@ -705,6 +706,9 @@ class FIXClient:
         # NOTE: Do NOT send tag 58 (Text) — cTrader rejects it on NewOrderSingle
         # NOTE: cTrader FIX does NOT support SL/TP on NewOrderSingle (tags 700/701 invalid)
         # SL/TP must be implemented as separate stop/limit orders linked via tag 721
+
+        if position_id:
+            msg.set_body_field(721, position_id)  # Link to hedging position
 
         if self._send_message(msg):
             logger.info(f"Order sent: {order_id} {direction.value} {volume} {symbol}")

@@ -411,6 +411,7 @@ class LivePaperTradingSystem:
                 volume=signal.volume,
                 price=signal.stop_loss,
                 comment=f"SL_{strategy_key}",
+                position_id=position_id,
             )
             if sl_order:
                 sl_orders.append(sl_order.order_id)
@@ -424,6 +425,7 @@ class LivePaperTradingSystem:
                 volume=signal.volume,
                 price=signal.take_profit_1,
                 comment=f"TP_{strategy_key}",
+                position_id=position_id,
             )
             if tp_order:
                 tp_orders.append(tp_order.order_id)
