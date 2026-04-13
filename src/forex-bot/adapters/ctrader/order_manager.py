@@ -392,6 +392,14 @@ class OrderManager:
         )
         return position
 
+    def update_position_id(self, old_id: str, new_id: str):
+        """Update a position's ID (e.g., to set broker position_id after fill)."""
+        with self._lock:
+            if old_id in self._positions:
+                pos = self._positions.pop(old_id)
+                pos.position_id = new_id
+                self._positions[new_id] = pos
+
     def update_position(
         self,
         position_id: str,
