@@ -237,8 +237,10 @@ class SymbolTracker:
 
 
 class LivePaperTradingSystem:
-    def __init__(self):
+    def __init__(self, paper_only: bool = False):
+        self._paper_only = paper_only
         self._shutdown = False
+        self._tick_count = 0
         self._trackers: dict[str, SymbolTracker] = {}
         self._strategies: dict[str, ISignalStrategy] = {}
         self._last_signal_dir: dict[str, TradeDirection | None] = {}
@@ -307,7 +309,7 @@ class LivePaperTradingSystem:
         )
 
         self._api_client = cTraderAPIClient(trade_creds)
-        self._api_client.set_paper_mode(False)  # real execution on demo
+        self._api_client.set_paper_mode(self._paper_only)  # paper=True = local sim only
         connected = self._api_client.connect()
         if not connected:
             raise RuntimeError(f"Failed to connect to cTrader trade port {trade_port}")
@@ -520,6 +522,10 @@ class LivePaperTradingSystem:
 
     def _on_tick(self, tick: Tick):
         """Callback for incoming ticks — route to correct tracker."""
+        self._tick_count += 1
+        if self._tick_count % 1000 == 0:
+            logger.info(f"Tick #{self._tick_count}: {tick.symbol_id} bid={tick.bid}")
+
         # Map symbol_id to internal name
         internal_name = SYMBOL_ID_MAP.get(tick.symbol_id)
         if internal_name is None:
@@ -549,6 +555,7 @@ class LivePaperTradingSystem:
                 del self._last_bar_close[oldest]
 
             # Evaluate strategies for this symbol
+            logger.info(f"{internal_name}: M15 bar closed at {closed_bar.time.strftime('%H:%M')} | {len(tracker.bars)} bars total")
             self._evaluate_symbol(internal_name, tracker)
 
     def _evaluate_symbol(self, symbol: str, tracker: SymbolTracker):
@@ -743,14 +750,16 @@ class LivePaperTradingSystem:
     def _status_loop(self):
         """Background thread for periodic status + bar close checks."""
         while not self._shutdown:
-            time.sleep(5)  # check every 5s for bar closes
-            if not self._shutdown:
-                self._check_bar_closes()
-            if not self._shutdown:
-                self._print_status()
-            # Sleep remainder of 60s interval
-            if not self._shutdown:
-                time.sleep(STATUS_INTERVAL_S - 5)
+            # Check bar closes every 5 seconds (catches M15 boundaries reliably)
+            time.sleep(5)
+            if self._shutdown:
+                break
+            self._check_bar_closes()
+
+            # Print status every STATUS_INTERVAL_S seconds
+            if int(time.time()) % STATUS_INTERVAL_S < 6:
+                if not self._shutdown:
+                    self._print_status()
 
     def _status_loop_wrapper(self):
         """Wrapper that catches and logs exceptions in status thread."""
@@ -804,7 +813,10 @@ class LivePaperTradingSystem:
         """Main entry point."""
         account = os.environ.get("CTRADER_ACCOUNT", "17087404")
         print("=" * 60)
-        print("AYUMI — Live Paper Trading (DEMO EXECUTION)")
+        if self._paper_only:
+            print("AYUMI — Live Paper Trading (PAPER-ONLY MODE - no real trades)")
+        else:
+            print("AYUMI — Live Paper Trading (DEMO EXECUTION)")
         print("=" * 60)
         print(f"Account: {account}")
         print("Market Data: port 5211 (SSL)")
@@ -874,12 +886,18 @@ class LivePaperTradingSystem:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Ayumi Live Paper Trading")
+    parser.add_argument("--paper-only", action="store_true",
+                        help="Local simulation only - no real broker orders")
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    system = LivePaperTradingSystem()
+    system = LivePaperTradingSystem(paper_only=args.paper_only)
     system.run()
 
 
