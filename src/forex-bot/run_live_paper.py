@@ -582,6 +582,12 @@ class LivePaperTradingSystem:
 
             # Signal flip or new signal
             if current_dir is not None and current_dir != last_dir:
+                # Check confidence threshold
+                min_conf = cfg["params"].get("min_confidence", 0.5)
+                if signal.confidence < min_conf:
+                    logger.debug(f"{strat_name}: signal confidence {signal.confidence:.2f} < {min_conf}, skipping")
+                    continue
+
                 # Close existing position if any
                 if last_dir is not None:
                     self._close_position_for_strategy(strat_name, symbol, tracker)
@@ -599,6 +605,20 @@ class LivePaperTradingSystem:
         if self._paper_trader is None:
             return
 
+        # Safety: max 1 open position per symbol across all strategies
+        key = f"{strat_name}_{symbol}"
+        existing_pos_id = self._position_ids.get(key)
+        if existing_pos_id:
+            logger.warning(f"{strat_name} {symbol}: already have open position {existing_pos_id}, skipping open")
+            return
+
+        # Also check PaperTrader for any open position on this symbol
+        open_positions = self._paper_trader.get_open_positions()
+        for pos in open_positions:
+            if pos.symbol == symbol and pos.status.value == "open":
+                logger.warning(f"{strat_name} {symbol}: PaperTrader has open position {pos.position_id}, skipping open")
+                return
+
         c_dir = (
             CTradeDirection.LONG if signal.direction == TradeDirection.LONG
             else CTradeDirection.SHORT
@@ -612,7 +632,7 @@ class LivePaperTradingSystem:
             take_profit_1=signal.take_profit_1,
             take_profit_2=signal.take_profit_2,
             take_profit_3=signal.take_profit_3,
-            volume=0.1,
+            volume=0.01,  # Minimal size for safety during initial testing
             confidence=signal.confidence,
             rationale=signal.rationale,
         )
