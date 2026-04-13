@@ -510,7 +510,7 @@ class FIXClient:
         msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
         msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
         msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.sender_sub_id)
+        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
         msg.set_field(34, str(self._next_outgoing_seq))
         # Body fields
         msg.set_body_field(98, "0")  # EncryptMethod = NONE

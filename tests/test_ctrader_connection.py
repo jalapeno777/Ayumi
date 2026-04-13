@@ -176,7 +176,7 @@ class TestCTraderConnection(unittest.TestCase):
         self.assertFalse(conn.is_connected)
 
     def test_build_logon_message_format(self):
-        conn = CTraderConnection(credentials=SAMPLE_CREDS)
+        conn = CTraderConnection(credentials=SAMPLE_CREDS, session_type="TRADE")
         msg = conn._build_logon_message()
         self.assertIn("35=A", msg)
         self.assertIn("49=sender", msg)
@@ -308,6 +308,31 @@ class TestCTraderConnection(unittest.TestCase):
         conn = CTraderConnection(credentials=SAMPLE_CREDS)
         raw = f"8=FIX.4.4{SOH}9=5{SOH}49=CSERVER{SOH}10=000{SOH}"
         self.assertEqual(conn._parse_msg_type(raw), "")
+
+    def test_quote_session_sets_correct_sub_ids(self):
+        conn = CTraderConnection(credentials=SAMPLE_CREDS, session_type="QUOTE")
+        msg = conn._build_logon_message()
+        self.assertIn("50=QUOTE", msg)
+        self.assertIn("57=QUOTE", msg)
+
+    def test_trade_session_sets_correct_sub_ids(self):
+        conn = CTraderConnection(credentials=SAMPLE_CREDS, session_type="TRADE")
+        msg = conn._build_logon_message()
+        self.assertIn("50=TRADE", msg)
+        self.assertIn("57=TRADE", msg)
+
+    def test_invalid_session_type_raises(self):
+        with self.assertRaises(ValueError):
+            CTraderConnection(credentials=SAMPLE_CREDS, session_type="INVALID")
+
+    def test_env_override_sub_ids(self):
+        creds = dict(SAMPLE_CREDS)
+        creds["CTRADER_QUOTE_SENDER_SUB_ID"] = "CUSTOM"
+        creds["CTRADER_QUOTE_TARGET_SUB_ID"] = "CUSTOM2"
+        conn = CTraderConnection(credentials=creds, session_type="QUOTE")
+        msg = conn._build_logon_message()
+        self.assertIn("50=CUSTOM", msg)
+        self.assertIn("57=CUSTOM2", msg)
 
     def test_custom_heartbeat_interval(self):
         conn = CTraderConnection(credentials=SAMPLE_CREDS, heartbeat_interval=60)
