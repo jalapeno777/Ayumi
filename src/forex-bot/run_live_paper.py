@@ -451,8 +451,6 @@ class LivePaperTradingSystem:
         self._feed = LiveMarketDataFeed(creds)
 
         # Add XAU/USD to feed's symbol map (not in DEFAULT_SYMBOLS)
-        self._feed._symbols[31] = type(self._feed._symbols.get(1)).__new__(type(self._feed._symbols.get(1)))
-        # Manually set the attributes
         from adapters.ctrader.market_data_feed import SymbolInfo
         self._feed._symbols[31] = SymbolInfo(symbol_id=31, name="XAU/USD", pip_size=0.01, digits=2)
         self._feed._name_to_id["XAU/USD"] = 31
@@ -461,6 +459,64 @@ class LivePaperTradingSystem:
         # Initialize trackers
         for internal, cTrader in SYMBOLS.items():
             self._trackers[internal] = SymbolTracker(internal_name=internal, cTrader_name=cTrader)
+
+    def _load_historical_bars(self, max_bars: int = 200):
+        """Pre-load M15 bars from historical CSV files to avoid 25-hour cold start.
+
+        Looks for {SYMBOL}_M15_2026.csv or {SYMBOL}_M15.csv in data/forex/historical/.
+        Loads the most recent max_bars bars for each symbol.
+        """
+        data_dir = Path(__file__).resolve().parents[2] / "data" / "forex" / "historical"
+        if not data_dir.exists():
+            logger.warning(f"Historical data directory not found: {data_dir}")
+            return
+
+        for internal_name in SYMBOLS:
+            csv_name = f"{internal_name}_M15_2026.csv"
+            csv_path = data_dir / csv_name
+            if not csv_path.exists():
+                csv_name = f"{internal_name}_M15.csv"
+                csv_path = data_dir / csv_name
+            if not csv_path.exists():
+                logger.warning(f"No historical M15 data for {internal_name}")
+                continue
+
+            tracker = self._trackers.get(internal_name)
+            if not tracker:
+                continue
+
+            try:
+                import csv as csv_mod
+                bars_loaded = 0
+                with open(csv_path, "r") as f:
+                    reader = csv_mod.DictReader(f)
+                    rows = list(reader)
+                    # Take the most recent max_bars
+                    rows = rows[-max_bars:] if len(rows) > max_bars else rows
+                    for row in rows:
+                        try:
+                            dt = datetime.strptime(row["Date"].strip(), "%Y-%m-%d %H:%M:%S")
+                        except ValueError:
+                            dt = datetime.strptime(row["Date"].strip(), "%Y-%m-%d %H:%M")
+                        dt = dt.replace(tzinfo=timezone.utc)
+                        bar = Bar(
+                            time=dt,
+                            open=float(row["Open"]),
+                            high=float(row["High"]),
+                            low=float(row["Low"]),
+                            close=float(row["Close"]),
+                            volume=float(row.get("Volume", 0)),
+                        )
+                        tracker.bars.append(bar)
+                        bars_loaded += 1
+
+                # Trim to max lookback
+                tracker.bars = tracker.bars[-MAX_LOOKBACK_BARS:]
+                logger.info(f"Loaded {bars_loaded} historical M15 bars for {internal_name} "
+                            f"({tracker.bars[0].time.strftime('%Y-%m-%d')} to "
+                            f"{tracker.bars[-1].time.strftime('%Y-%m-%d %H:%M')})")
+            except Exception as e:
+                logger.error(f"Failed to load historical data for {internal_name}: {e}")
 
     def _on_tick(self, tick: Tick):
         """Callback for incoming ticks — route to correct tracker."""
@@ -739,6 +795,9 @@ class LivePaperTradingSystem:
         self._init_strategies()
         self._init_paper_trader()
         self._init_feed()
+
+        # Load historical bars to avoid 25-hour cold start
+        self._load_historical_bars(max_bars=200)
 
         # Wire up tick callback
         self._feed.on_tick(self._on_tick)
