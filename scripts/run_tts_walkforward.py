@@ -26,9 +26,9 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 from backtest.engine import Bar
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
+from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
 from signal_engine.risk_sizer import (
     ConfidencePositionSizer,
-    ConfidenceTier,
     parse_tiers,
 )
 
@@ -61,8 +61,13 @@ DEFAULT_TIMEFRAME = "M15"
 DEFAULT_WINDOWS = 5
 DEFAULT_TRAIN_RATIO = 0.65
 DEFAULT_VAL_RATIO = 0.15
-DEFAULT_MIN_CONFIDENCE = 0.50
+DEFAULT_MIN_CONFIDENCE = None
 DEFAULT_MIN_QUALITY = 0.60
+
+
+def get_per_symbol_min_confidence(pair: str, tf: str) -> float:
+    config = PER_SYMBOL_CONFIGS.get(pair.upper(), {}).get(tf, DEFAULT_SYMBOL_CONFIG)
+    return config["base_confidence"]
 
 
 def load_bars(csv_path: str, tf: str) -> list[Bar]:
@@ -190,7 +195,12 @@ def main() -> None:
     print(
         f"  Windows: {args.windows} | Train: {args.train_ratio} | Val: {args.val_ratio}"
     )
-    print(f"  Min confidence: {args.min_confidence} | Min quality: {args.min_quality}")
+    cli_confidence = args.min_confidence
+    print(f"  Min quality: {args.min_quality}")
+    if cli_confidence is not None:
+        print(f"  Min confidence (CLI override): {cli_confidence}")
+    else:
+        print("  Min confidence: per-symbol ML values")
     print(f"{'═' * 60}")
 
     all_results = {}
@@ -198,10 +208,15 @@ def main() -> None:
     go_nogo = {}
 
     for pair in args.pairs:
+        pair_confidence = (
+            cli_confidence
+            if cli_confidence is not None
+            else get_per_symbol_min_confidence(pair, args.timeframe)
+        )
         result = run_pair(
             pair=pair,
             tf=args.timeframe,
-            min_confidence=args.min_confidence,
+            min_confidence=pair_confidence,
             min_quality_score=args.min_quality,
             n_windows=args.windows,
             train_ratio=args.train_ratio,
@@ -282,7 +297,11 @@ def main() -> None:
         "strategy": "TTSStrategy",
         "timeframe": args.timeframe,
         "config": {
-            "min_confidence": args.min_confidence,
+            "min_confidence": (
+                {p: get_per_symbol_min_confidence(p, args.timeframe) for p in args.pairs}
+                if cli_confidence is None
+                else cli_confidence
+            ),
             "min_quality_score": args.min_quality,
             "n_windows": args.windows,
             "train_ratio": args.train_ratio,
@@ -345,7 +364,6 @@ def main() -> None:
     print(f"\n{'═' * 60}")
     print("  PER-BOOST WIN RATE (top factors)")
     print(f"{'═' * 60}")
-    import re as _re
 
     top_boosts = sorted(boost_counts.items(), key=lambda x: -x[1])[:10]
     for boost_name, _ in top_boosts:
