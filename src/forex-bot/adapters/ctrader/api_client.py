@@ -519,8 +519,13 @@ class FIXClient:
 
     def _handle_position_report(self, msg: FIXMessage):
         pos_id = msg.get_field(721)
+        side_code = msg.get_field(727)
+
+        # Skip empty position reports (727=0 means no positions)
+        if not pos_id or side_code == "0":
+            return
+
         symbol_id = msg.get_field(self.TAG_SYMBOL)
-        side_code = msg.get_field(727)  # 1=long, 2=short
         entry_px = msg.get_field(730)
         pnl = msg.get_field(704)
         volume_code = msg.get_field(702)
