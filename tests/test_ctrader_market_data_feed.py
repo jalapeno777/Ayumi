@@ -228,3 +228,44 @@ class TestFIXMessageRepeatingGroups:
         # Flat dict should have last value for repeated tags
         assert msg.get_field(269) == "1"
         assert msg.get_field(270) == "1.15252"
+
+
+# ---------------------------------------------------------------------------
+# MarketDataRequest wire format tests (AYUAA-776)
+# ---------------------------------------------------------------------------
+
+
+class TestMarketDataRequestWireFormat:
+    def test_market_depth_is_zero(self, mock_feed):
+        mock_feed.subscribe("EUR/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        assert msg.get_field(264) == "0"
+
+    def test_md_update_type_is_zero(self, mock_feed):
+        mock_feed.subscribe("EUR/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        assert msg.get_field(265) == "0"
+
+    def test_subscription_type_is_snapshot_plus_updates(self, mock_feed):
+        mock_feed.subscribe("EUR/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        assert msg.get_field(263) == "1"
+
+    def test_no_md_entry_types_is_two(self, mock_feed):
+        mock_feed.subscribe("EUR/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        assert msg.get_field(267) == "2"
+
+    def test_bid_and_ask_entry_types_in_wire(self, mock_feed):
+        mock_feed.subscribe("EUR/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        wire = msg.to_wire()
+        assert "269=0" in wire
+        assert "269=1" in wire
+
+    def test_symbol_id_in_related_sym_group(self, mock_feed):
+        mock_feed.subscribe("GBP/USD")
+        msg = mock_feed._client._send_message.call_args[0][0]
+        assert msg.get_field(146) == "1"
+        wire = msg.to_wire()
+        assert "55=2" in wire
