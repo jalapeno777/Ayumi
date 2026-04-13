@@ -790,7 +790,7 @@ class FIXClient:
         Responses come as Position Report (MsgType=AP) messages handled by _handle_position_report.
         Results are stored in self._positions dict.
         """
-        msg = FIXMessage(msg_type=self.MSG_TYPE_POSITION_REPORT)
+        msg = FIXMessage(msg_type="AN")  # Request for Positions
         msg.set_body_field(710, req_id)
         self._send_message(msg)
 
