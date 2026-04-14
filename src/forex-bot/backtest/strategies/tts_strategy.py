@@ -33,7 +33,7 @@ from signal_engine.data_types import HTFState, SessionState, Swing, Level
 from signal_engine.swing_detector import SwingDetector
 from signal_engine.level_counter import LevelCounter
 from signal_engine.htf_analyzer import HTFAnalyzer
-from ml.per_symbol_configs import PER_SYMBOL_CONFIGS
+from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
 
 import numpy as np
 
@@ -175,6 +175,11 @@ class TTSStrategy(ISignalStrategy):
         self.lookback = lookback
         self.timeframe = timeframe
         self._is_volatile_session = False  # set per-bar in evaluate
+
+        # Load per-symbol, per-timeframe ML-optimized config
+        self._symbol_config = PER_SYMBOL_CONFIGS.get(symbol.upper(), {}).get(
+            timeframe, DEFAULT_SYMBOL_CONFIG
+        )
 
         # Phase 2 components
         self._pattern_detector = PatternDetector()
@@ -392,130 +397,145 @@ class TTSStrategy(ISignalStrategy):
             self._last_signal_bar = bar_idx
 
         # ── Step 3c: ConfidenceBuilder cascade ─────────────────────────
-        # Determine base confidence from pattern type
-        pattern_type_key = self._classify_pattern_type(best_pattern, bars, latest)
-        base_conf = PATTERN_BASE_CONFIGS.get(
-            pattern_type_key, PATTERN_BASE_CONFIGS["default"]
-        )
+        # Use per-symbol ML-optimized base confidence
+        base_conf = self._symbol_config["base_confidence"]
         builder = ConfidenceBuilder(base_conf)
+
+        top_confluences = self._symbol_config.get("top_confluences", [])
 
         # RSI divergence boost
         if best_pattern.pattern_type in ("M", "W"):
-            rsi_boost = self._get_rsi_divergence_boost(best_pattern, bars)
-            if rsi_boost > 0:
-                builder.add_boost("rsi_divergence", RSI_DIVERGENCE_BOOST)
+            if not top_confluences or "rsi_divergence" in top_confluences:
+                rsi_boost = self._get_rsi_divergence_boost(best_pattern, bars)
+                if rsi_boost > 0:
+                    builder.add_boost("rsi_divergence", RSI_DIVERGENCE_BOOST)
 
         # HTF trend alignment boost
-        if htf_state:
-            htf_trend = (
-                "bullish"
-                if htf_state.ema_slope > 0.00003
-                else ("bearish" if htf_state.ema_slope < -0.00003 else None)
-            )
-            if htf_trend is not None:
-                aligned = (
-                    best_pattern.direction == "long" and htf_trend == "bullish"
-                ) or (best_pattern.direction == "short" and htf_trend == "bearish")
-                if aligned:
-                    builder.add_boost("htf_trend_aligned", HTF_TREND_ALIGNED_BOOST)
-            # Conflicting HTF: apply penalty instead of blocking
-            if htf_trend is not None:
-                opposing = (
-                    best_pattern.direction == "long" and htf_trend == "bearish"
-                ) or (best_pattern.direction == "short" and htf_trend == "bullish")
-                if opposing:
-                    builder.add_boost("htf_opposing", HTF_OPPOSING_PENALTY)
-            # HTF phase penalties
-            if htf_state.phase.value == "conflicting":
-                builder.add_boost("htf_conflicting", -0.10)
-            elif htf_state.phase.value == "consolidating":
-                builder.add_boost("htf_consolidating", -0.05)
+        if not top_confluences or "htf_trend_aligned" in top_confluences:
+            if htf_state:
+                htf_trend = (
+                    "bullish"
+                    if htf_state.ema_slope > 0.00003
+                    else ("bearish" if htf_state.ema_slope < -0.00003 else None)
+                )
+                if htf_trend is not None:
+                    aligned = (
+                        best_pattern.direction == "long" and htf_trend == "bullish"
+                    ) or (best_pattern.direction == "short" and htf_trend == "bearish")
+                    if aligned:
+                        builder.add_boost("htf_trend_aligned", HTF_TREND_ALIGNED_BOOST)
+                # Conflicting HTF: apply penalty instead of blocking
+                if htf_trend is not None:
+                    opposing = (
+                        best_pattern.direction == "long" and htf_trend == "bearish"
+                    ) or (best_pattern.direction == "short" and htf_trend == "bullish")
+                    if opposing:
+                        builder.add_boost("htf_opposing", HTF_OPPOSING_PENALTY)
+                # HTF phase penalties
+                if htf_state.phase.value == "conflicting":
+                    builder.add_boost("htf_conflicting", -0.10)
+                elif htf_state.phase.value == "consolidating":
+                    builder.add_boost("htf_consolidating", -0.05)
 
         # Kill zone boost
-        if session_state.kill_zone_active:
-            builder.add_boost("kill_zone_active", KILL_ZONE_ACTIVE_BOOST)
+        if not top_confluences or "kill_zone_active" in top_confluences:
+            if session_state.kill_zone_active:
+                builder.add_boost("kill_zone_active", KILL_ZONE_ACTIVE_BOOST)
 
         # Consolidation boost (from FL pattern)
-        if getattr(best_pattern, "consolidation_confirmed", False):
-            builder.add_boost("consolidation", CONSOLIDATION_BOOST)
+        if not top_confluences or "consolidation" in top_confluences:
+            if getattr(best_pattern, "consolidation_confirmed", False):
+                builder.add_boost("consolidation", CONSOLIDATION_BOOST)
 
         # SVC at peak boost
-        if (
-            getattr(best_pattern, "flight_log_id", None)
-            and "svc=" in best_pattern.notes
-        ):
-            if "svc=True" in best_pattern.notes:
-                builder.add_boost("svc_at_peak", SVC_AT_PEAK_BOOST)
+        if not top_confluences or "svc_at_peak" in top_confluences:
+            if (
+                getattr(best_pattern, "flight_log_id", None)
+                and "svc=" in best_pattern.notes
+            ):
+                if "svc=True" in best_pattern.notes:
+                    builder.add_boost("svc_at_peak", SVC_AT_PEAK_BOOST)
 
         # ── New confluence detections ─────────────────────────────────
         # Asia gap type boost
-        asia_result = self._get_asia_result(bars)
-        if asia_result and asia_result.asia_gap_type != "none":
-            gap_favorable = (
-                asia_result.asia_gap_type == "bullish"
-                and best_pattern.direction == "long"
-            ) or (
-                asia_result.asia_gap_type == "bearish"
-                and best_pattern.direction == "short"
-            )
-            if gap_favorable:
-                builder.add_boost("asia_gap_favorable", ASIA_GAP_FAVORABLE_BOOST)
+        if not top_confluences or "asia_gap_favorable" in top_confluences:
+            asia_result = self._get_asia_result(bars)
+            if asia_result and asia_result.asia_gap_type != "none":
+                gap_favorable = (
+                    asia_result.asia_gap_type == "bullish"
+                    and best_pattern.direction == "long"
+                ) or (
+                    asia_result.asia_gap_type == "bearish"
+                    and best_pattern.direction == "short"
+                )
+                if gap_favorable:
+                    builder.add_boost("asia_gap_favorable", ASIA_GAP_FAVORABLE_BOOST)
+        else:
+            asia_result = self._get_asia_result(bars)
 
         # ILOD/IHOD at boundary boost
-        if asia_result and (
-            asia_result.ilod is not None or asia_result.ilhod is not None
-        ):
-            if self._is_price_near_boundary(latest.close, asia_result):
-                builder.add_boost("ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST)
+        if not top_confluences or "ilod_ihod_at_boundary" in top_confluences:
+            if asia_result and (
+                asia_result.ilod is not None or asia_result.ilhod is not None
+            ):
+                if self._is_price_near_boundary(latest.close, asia_result):
+                    builder.add_boost("ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST)
 
         # VWAP rejection boost
-        if self._check_vwap_rejection(bars, latest, best_pattern.direction):
-            builder.add_boost("vwap_rejection", VWAP_REJECTION_BOOST)
+        if not top_confluences or "vwap_rejection" in top_confluences:
+            if self._check_vwap_rejection(bars, latest, best_pattern.direction):
+                builder.add_boost("vwap_rejection", VWAP_REJECTION_BOOST)
 
         # ── New modular confluence detectors ──────────────────────────
-        if self._check_mfi_confluence(bars, best_pattern.direction):
-            builder.add_boost("mfi", MFI_BOOST)
+        if not top_confluences or "mfi" in top_confluences:
+            if self._check_mfi_confluence(bars, best_pattern.direction):
+                builder.add_boost("mfi", MFI_BOOST)
 
-        if self._check_ema_cross_confluence(bars, best_pattern.direction):
-            builder.add_boost("ema_cross", EMA_CROSS_BOOST)
+        if not top_confluences or "ema_cross" in top_confluences:
+            if self._check_ema_cross_confluence(bars, best_pattern.direction):
+                builder.add_boost("ema_cross", EMA_CROSS_BOOST)
 
-        if self._check_bollinger_confluence(bars, latest, best_pattern.direction):
-            builder.add_boost("bollinger", BB_CONF_BOOST)
+        if not top_confluences or "bollinger" in top_confluences:
+            if self._check_bollinger_confluence(bars, latest, best_pattern.direction):
+                builder.add_boost("bollinger", BB_CONF_BOOST)
 
-        if self._check_adx_confluence(bars, best_pattern.direction):
-            builder.add_boost("adx", ADX_BOOST)
+        if not top_confluences or "adx" in top_confluences:
+            if self._check_adx_confluence(bars, best_pattern.direction):
+                builder.add_boost("adx", ADX_BOOST)
 
-        if self._check_volume_spike_confluence(bars, latest, best_pattern.direction):
-            builder.add_boost("volume_spike", VOLUME_SPIKE_BOOST)
+        if not top_confluences or "volume_spike" in top_confluences:
+            if self._check_volume_spike_confluence(bars, latest, best_pattern.direction):
+                builder.add_boost("volume_spike", VOLUME_SPIKE_BOOST)
 
-        if self._check_vwap_distance_confluence(bars, latest, best_pattern.direction):
-            builder.add_boost("vwap_distance", VWAP_DISTANCE_BOOST)
+        if not top_confluences or "vwap_distance" in top_confluences:
+            if self._check_vwap_distance_confluence(bars, latest, best_pattern.direction):
+                builder.add_boost("vwap_distance", VWAP_DISTANCE_BOOST)
 
-        if self._check_rsi_extreme_confluence(bars, best_pattern.direction):
-            builder.add_boost("rsi_extreme", RSI_EXTREME_BOOST)
+        if not top_confluences or "rsi_extreme" in top_confluences:
+            if self._check_rsi_extreme_confluence(bars, best_pattern.direction):
+                builder.add_boost("rsi_extreme", RSI_EXTREME_BOOST)
 
-        extension_boost = self._check_ema_extension_confluence(
-            bars, best_pattern.direction
-        )
-        if extension_boost > 0:
-            builder.add_boost("ema_extension", extension_boost)
+        if not top_confluences or "ema_extension" in top_confluences:
+            extension_boost = self._check_ema_extension_confluence(
+                bars, best_pattern.direction
+            )
+            if extension_boost > 0:
+                builder.add_boost("ema_extension", extension_boost)
 
-        cluster_boost = self._check_ema_cluster_confluence(bars, best_pattern.direction)
-        if cluster_boost > 0:
-            builder.add_boost("ema_cluster", cluster_boost)
+        if not top_confluences or "ema_cluster" in top_confluences:
+            cluster_boost = self._check_ema_cluster_confluence(bars, best_pattern.direction)
+            if cluster_boost > 0:
+                builder.add_boost("ema_cluster", cluster_boost)
 
         # 4H 200 EMA confluence
-        htf_200ema = self._check_htf_200ema_confluence(bars, best_pattern.direction)
-        if htf_200ema != 0.0:
-            name = "htf_200ema_aligned" if htf_200ema > 0 else "htf_200ema_fighting"
-            builder.add_boost(name, htf_200ema)
+        if not top_confluences or "htf_200ema" in top_confluences:
+            htf_200ema = self._check_htf_200ema_confluence(bars, best_pattern.direction)
+            if htf_200ema != 0.0:
+                name = "htf_200ema_aligned" if htf_200ema > 0 else "htf_200ema_fighting"
+                builder.add_boost(name, htf_200ema)
 
         # ── Negative confluence (reduce confidence when triggered) ─────
-        neg_weight = (
-            PER_SYMBOL_CONFIGS.get(self.symbol.upper(), {})
-            .get(self.timeframe, {})
-            .get("negative_weight", 1.0)
-        )
+        neg_weight = self._symbol_config.get("negative_weight", 1.0)
         if neg_weight > 0:
             neg_rsi = self._check_rsi_negative_confluence(bars, best_pattern.direction)
             if neg_rsi < 0:
@@ -566,18 +586,19 @@ class TTSStrategy(ISignalStrategy):
         builder.add_boost("quality_gate", quality_boost)
 
         # Confluence scorer boosters (legacy, additive)
-        session_dict = {
-            "phase_score": session_state.phase_score,
-            "kill_zone_active": session_state.kill_zone_active,
-        }
-        htf_dict = {"alignment_score": htf_state.alignment_score} if htf_state else {}
-        confluence_score, confluence_boosters = self._confluence_scorer.score(
-            candidate=candidate,
-            htf_state=htf_dict,
-            session_state=session_dict,
-        )
-        # Add confluence score as a proportional boost (0-0.10)
-        builder.add_boost("confluence_scorer", confluence_score * 0.10)
+        if not top_confluences or "confidence_score" in top_confluences:
+            session_dict = {
+                "phase_score": session_state.phase_score,
+                "kill_zone_active": session_state.kill_zone_active,
+            }
+            htf_dict = {"alignment_score": htf_state.alignment_score} if htf_state else {}
+            confluence_score, confluence_boosters = self._confluence_scorer.score(
+                candidate=candidate,
+                htf_state=htf_dict,
+                session_state=session_dict,
+            )
+            # Add confluence score as a proportional boost (0-0.10)
+            builder.add_boost("confluence_scorer", confluence_score * 0.10)
 
         # Finalize confidence
         total_confidence = builder.finalize()
