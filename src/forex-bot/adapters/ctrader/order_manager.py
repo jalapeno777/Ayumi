@@ -415,18 +415,26 @@ class OrderManager:
             position.current_price = current_price
 
             if position.direction == TradeDirection.LONG:
+                exit_price = bid if bid > 0 else current_price
                 position.unrealized_pnl = (
-                    (current_price - position.entry_price) * position.volume * 100000
+                    (exit_price - position.entry_price) * position.volume * 100000
                 )
             else:
+                exit_price = ask if ask > 0 else current_price
                 position.unrealized_pnl = (
-                    (position.entry_price - current_price) * position.volume * 100000
+                    (position.entry_price - exit_price) * position.volume * 100000
                 )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
-                self._close_position(position, position.stop_loss or current_price)
+                sl_fill = bid if position.direction == TradeDirection.LONG else ask
+                self._close_position(
+                    position, sl_fill if sl_fill > 0 else position.stop_loss
+                )
             elif self._check_take_profit_hit(position, current_price, bid, ask):
-                self._close_position(position, position.take_profit or current_price)
+                tp_fill = ask if position.direction == TradeDirection.LONG else bid
+                self._close_position(
+                    position, tp_fill if tp_fill > 0 else position.take_profit
+                )
 
             return position
 

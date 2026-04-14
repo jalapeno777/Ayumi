@@ -242,3 +242,115 @@ class TestPaperTrader:
         trader = PaperTrader(starting_balance=100000.0)
         with pytest.raises(ValueError):
             trader.register_callback("on_invalid", lambda: None)
+
+    def test_update_market_prices_with_bid_ask_uses_real_prices_for_unrealized_pnl(
+        self,
+    ):
+        config = FTMOConfig(
+            min_risk_reward=1.0,
+            max_position_size_pct=2.0,
+        )
+        trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
+        signal = TradeSignal(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit_1=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+            volume=0.1,
+            confidence=0.85,
+            rationale="Test",
+        )
+        result = trader.process_signal(signal)
+        if result.success:
+            actual_entry = result.position.entry_price
+            actual_volume = result.position.volume
+            trader.update_market_prices(
+                {"EURUSD": 1.1050},
+                bids={"EURUSD": 1.1048},
+                asks={"EURUSD": 1.1052},
+            )
+            stats = trader.get_stats()
+            expected_pnl = (1.1048 - actual_entry) * actual_volume * 100000
+            assert abs(stats.unrealized_pnl - expected_pnl) < 0.01
+
+    def test_update_market_prices_without_bid_ask_falls_back_to_mid(self):
+        config = FTMOConfig(
+            min_risk_reward=1.0,
+            max_position_size_pct=2.0,
+        )
+        trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
+        signal = TradeSignal(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit_1=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+            volume=0.1,
+            confidence=0.85,
+            rationale="Test",
+        )
+        result = trader.process_signal(signal)
+        if result.success:
+            actual_entry = result.position.entry_price
+            actual_volume = result.position.volume
+            trader.update_market_prices({"EURUSD": 1.1050})
+            stats = trader.get_stats()
+            expected_pnl = (1.1050 - actual_entry) * actual_volume * 100000
+            assert abs(stats.unrealized_pnl - expected_pnl) < 0.01
+
+    def test_update_market_prices_with_bid_ask_triggers_stop_loss_for_long(self):
+        config = FTMOConfig(
+            min_risk_reward=1.0,
+            max_position_size_pct=2.0,
+        )
+        trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
+        signal = TradeSignal(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit_1=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+            volume=0.1,
+            confidence=0.85,
+            rationale="Test",
+        )
+        result = trader.process_signal(signal)
+        if result.success:
+            trader.update_market_prices(
+                {"EURUSD": 1.0949},
+                bids={"EURUSD": 1.0948},
+                asks={"EURUSD": 1.0952},
+            )
+            positions = trader.get_open_positions()
+            assert len(positions) == 0
+
+    def test_update_market_prices_without_bid_ask_does_not_trigger_stop_loss(self):
+        config = FTMOConfig(
+            min_risk_reward=1.0,
+            max_position_size_pct=2.0,
+        )
+        trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
+        signal = TradeSignal(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit_1=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+            volume=0.1,
+            confidence=0.85,
+            rationale="Test",
+        )
+        result = trader.process_signal(signal)
+        if result.success:
+            trader.update_market_prices({"EURUSD": 1.0940})
+            positions = trader.get_open_positions()
+            assert len(positions) == 1
