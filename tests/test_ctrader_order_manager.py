@@ -204,3 +204,126 @@ class TestOrderManager:
             entry_price=1.1000,
         )
         assert len(called) == 1
+
+    def test_update_position_with_bid_ask_uses_bid_for_long_unrealized_pnl(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+        )
+        position_id = result.position.position_id
+        actual_entry = result.position.entry_price
+        updated = manager.update_position(position_id, 1.1050, bid=1.1048, ask=1.1052)
+        assert updated is not None
+        expected_pnl = (1.1048 - actual_entry) * 0.1 * 100000
+        assert abs(updated.unrealized_pnl - expected_pnl) < 0.01
+
+    def test_update_position_with_bid_ask_uses_ask_for_short_unrealized_pnl(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.SHORT,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.1050,
+        )
+        position_id = result.position.position_id
+        actual_entry = result.position.entry_price
+        updated = manager.update_position(position_id, 1.0950, bid=1.0948, ask=1.0952)
+        assert updated is not None
+        expected_pnl = (actual_entry - 1.0952) * 0.1 * 100000
+        assert abs(updated.unrealized_pnl - expected_pnl) < 0.01
+
+    def test_update_position_without_bid_ask_falls_back_to_mid_price(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+        )
+        position_id = result.position.position_id
+        actual_entry = result.position.entry_price
+        updated = manager.update_position(position_id, 1.1050)
+        assert updated is not None
+        expected_pnl = (1.1050 - actual_entry) * 0.1 * 100000
+        assert abs(updated.unrealized_pnl - expected_pnl) < 0.01
+
+    def test_stop_loss_triggers_with_real_bid_for_long(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+        )
+        position_id = result.position.position_id
+        updated = manager.update_position(position_id, 1.0949, bid=1.0948, ask=1.0952)
+        assert updated is not None
+        assert updated.status == PositionStatus.CLOSED
+        assert abs(updated.closed_price - 1.0948) < 0.0001
+
+    def test_stop_loss_triggers_with_real_ask_for_short(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.SHORT,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.1050,
+        )
+        position_id = result.position.position_id
+        updated = manager.update_position(position_id, 1.1051, bid=1.1048, ask=1.1052)
+        assert updated is not None
+        assert updated.status == PositionStatus.CLOSED
+        assert abs(updated.closed_price - 1.1052) < 0.0001
+
+    def test_stop_loss_does_not_trigger_with_zero_bid_ask(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+        )
+        position_id = result.position.position_id
+        updated = manager.update_position(position_id, 1.0940, bid=0, ask=0)
+        assert updated is not None
+        assert updated.status == PositionStatus.OPEN
+
+    def test_take_profit_triggers_with_real_ask_for_long(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        position_id = result.position.position_id
+        updated = manager.update_position(position_id, 1.1099, bid=1.1098, ask=1.1102)
+        assert updated is not None
+        assert updated.status == PositionStatus.CLOSED
+        assert abs(updated.closed_price - 1.1102) < 0.0001
+
+    def test_take_profit_triggers_with_real_bid_for_short(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.SHORT,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.1050,
+            take_profit=1.0900,
+        )
+        position_id = result.position.position_id
+        updated = manager.update_position(position_id, 1.0901, bid=1.0898, ask=1.0902)
+        assert updated is not None
+        assert updated.status == PositionStatus.CLOSED
+        assert abs(updated.closed_price - 1.0898) < 0.0001

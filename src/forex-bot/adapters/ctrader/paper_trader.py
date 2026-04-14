@@ -182,14 +182,20 @@ class PaperTrader:
         )
         self._order_manager.set_api_client(api_client)
 
-    def update_market_prices(self, prices: dict):
+    def update_market_prices(
+        self, prices: dict, bids: dict | None = None, asks: dict | None = None
+    ):
+        bids = bids or {}
+        asks = asks or {}
         with self._lock:
             total_unrealized = 0.0
             for position in self._order_manager.get_open_positions():
                 if position.symbol in prices:
                     current_price = prices[position.symbol]
+                    bid = bids.get(position.symbol, 0)
+                    ask = asks.get(position.symbol, 0)
                     self._order_manager.update_position(
-                        position.position_id, current_price
+                        position.position_id, current_price, bid=bid, ask=ask
                     )
                     updated_pos = self._order_manager.get_position(position.position_id)
                     if updated_pos:

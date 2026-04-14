@@ -483,7 +483,11 @@ class ForwardTestEngine:
             return
 
         mid_price = tick.mid
-        self._paper_trader.update_market_prices({symbol_name: mid_price})
+        self._paper_trader.update_market_prices(
+            {symbol_name: mid_price},
+            bids={symbol_name: tick.bid},
+            asks={symbol_name: tick.ask},
+        )
 
     def _evaluate_strategies(self, symbol: str):
         if self._live_adapter is None:
