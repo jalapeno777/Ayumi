@@ -1,10 +1,14 @@
-"""Tests for TTSStrategy signal engine adapter — HTF, session, and quality gates."""
+"""Tests for TTSStrategy signal engine adapter — HTF, session, quality gates, and ConfidenceBuilder."""
 
 import unittest
 from datetime import datetime, timedelta
 
 from backtest.engine import Bar, MarketState
-from backtest.strategies.tts_strategy import TTSStrategy
+from backtest.strategies.tts_strategy import (
+    TTSStrategy,
+    ConfidenceBuilder,
+    _CONFLUENCE_DENSITY_BUCKETS,
+)
 
 
 def _make_bars(n: int, base_price: float = 1.1000, trend: float = 0.0) -> list[Bar]:
@@ -133,6 +137,89 @@ class TestTTSStrategyEMA(unittest.TestCase):
         self.assertTrue(np.isnan(result[:10]).all())
         # Remaining values should be valid
         self.assertFalse(np.isnan(result[10:]).any())
+
+
+class TestConfidenceBuilderDensityScaling(unittest.TestCase):
+    """Test multiplicative confluence density scaling in ConfidenceBuilder."""
+
+    def test_zero_boosts_no_multiplier(self):
+        builder = ConfidenceBuilder(0.30)
+        result = builder.finalize()
+        self.assertAlmostEqual(result, 0.30)
+
+    def test_single_positive_boost_low_density(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("htf_trend_aligned", 0.10)
+        result = builder.finalize()
+        density = 1 / 15.0
+        self.assertAlmostEqual(density, 0.0667, places=3)
+        self.assertGreaterEqual(result, 0.40)
+        self.assertLessEqual(result, 0.42)
+
+    def test_two_positive_boosts_low_density(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("htf_trend_aligned", 0.10)
+        builder.add_boost("rsi_divergence", 0.10)
+        result = builder.finalize()
+        density = 2 / 15.0
+        self.assertAlmostEqual(density, 0.133, places=3)
+        self.assertGreater(result, 0.40)
+        self.assertLessEqual(result, 0.55)
+
+    def test_four_positive_boosts_medium_density(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("htf_trend_aligned", 0.10)
+        builder.add_boost("rsi_divergence", 0.10)
+        builder.add_boost("vwap_rejection", 0.10)
+        builder.add_boost("mfi", 0.08)
+        result = builder.finalize()
+        self.assertGreater(result, 0.50)
+
+    def test_six_positive_boosts_high_density(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("htf_trend_aligned", 0.10)
+        builder.add_boost("rsi_divergence", 0.10)
+        builder.add_boost("vwap_rejection", 0.10)
+        builder.add_boost("mfi", 0.08)
+        builder.add_boost("ema_cross", 0.08)
+        builder.add_boost("bollinger", 0.07)
+        result = builder.finalize()
+        self.assertGreater(result, 0.60)
+
+    def test_negative_boosts_not_counted_as_positive(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("htf_trend_aligned", 0.10)
+        builder.add_boost("kill_zone_active", -0.05)
+        builder.add_boost("htf_opposing", -0.15)
+        positive_count = sum(1 for _, v in builder.boosts_applied if v > 0)
+        self.assertEqual(positive_count, 1)
+
+    def test_capped_at_one(self):
+        builder = ConfidenceBuilder(0.50)
+        for i in range(10):
+            builder.add_boost(f"boost_{i}", 0.10)
+        result = builder.finalize()
+        self.assertAlmostEqual(result, 1.0)
+
+    def test_density_multipliers_monotonic(self):
+        multipliers = [m for _, m in _CONFLUENCE_DENSITY_BUCKETS]
+        for i in range(len(multipliers) - 1):
+            self.assertGreaterEqual(multipliers[i], multipliers[i + 1])
+
+    def test_high_confluence_exceeds_low_confluence(self):
+        high = ConfidenceBuilder(0.30)
+        for i in range(5):
+            high.add_boost(f"boost_{i}", 0.08)
+        low = ConfidenceBuilder(0.30)
+        low.add_boost("single", 0.08)
+        self.assertGreater(high.finalize(), low.finalize())
+
+    def test_quality_and_scorer_always_count_as_positive(self):
+        builder = ConfidenceBuilder(0.30)
+        builder.add_boost("quality_gate", 0.10)
+        builder.add_boost("confluence_scorer", 0.08)
+        positive_count = sum(1 for _, v in builder.boosts_applied if v > 0)
+        self.assertEqual(positive_count, 2)
 
 
 if __name__ == "__main__":

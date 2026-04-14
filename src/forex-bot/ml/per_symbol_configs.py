@@ -11,7 +11,7 @@ TTSStrategy should read from this at initialization:
 from __future__ import annotations
 
 DEFAULT_SYMBOL_CONFIG = {
-    "base_confidence": 0.30,
+    "base_confidence": 0.35,
     "kz_penalty": -0.05,
     "htf_penalty": -0.15,
     "top_confluences": [],
@@ -21,7 +21,7 @@ DEFAULT_SYMBOL_CONFIG = {
 PER_SYMBOL_CONFIGS = {
     "EURUSD": {
         "M15": {
-            "base_confidence": 0.25,
+            "base_confidence": 0.30,
             "kz_penalty": -0.05,
             "htf_penalty": -0.15,
             "top_confluences": [],
@@ -30,7 +30,7 @@ PER_SYMBOL_CONFIGS = {
             # Low base reduces exposure. Needs more data before optimizing further.
         },
         "M5": {
-            "base_confidence": 0.20,
+            "base_confidence": 0.25,
             "kz_penalty": -0.10,
             "htf_penalty": -0.15,
             "top_confluences": [],
@@ -42,7 +42,7 @@ PER_SYMBOL_CONFIGS = {
     },
     "GBPUSD": {
         "M15": {
-            "base_confidence": 0.25,
+            "base_confidence": 0.30,
             "kz_penalty": 0.0,
             "htf_penalty": -0.15,
             "top_confluences": [
@@ -58,7 +58,7 @@ PER_SYMBOL_CONFIGS = {
             # Removing KZ penalty helps — GBPUSD doesn't need kill zone filtering.
         },
         "M5": {
-            "base_confidence": 0.25,
+            "base_confidence": 0.30,
             "kz_penalty": -0.10,
             "htf_penalty": -0.15,
             "top_confluences": [
@@ -74,7 +74,7 @@ PER_SYMBOL_CONFIGS = {
     },
     "USDJPY": {
         "M15": {
-            "base_confidence": 0.30,
+            "base_confidence": 0.35,
             "kz_penalty": -0.10,
             "htf_penalty": -0.15,
             "top_confluences": [
@@ -92,7 +92,7 @@ PER_SYMBOL_CONFIGS = {
     },
     "GBPJPY": {
         "M15": {
-            "base_confidence": 0.30,
+            "base_confidence": 0.35,
             "kz_penalty": 0.0,
             "htf_penalty": -0.15,
             "top_confluences": [
@@ -110,7 +110,7 @@ PER_SYMBOL_CONFIGS = {
     },
     "XAUUSD": {
         "M15": {
-            "base_confidence": 0.25,
+            "base_confidence": 0.30,
             "kz_penalty": -0.05,
             "htf_penalty": -0.15,
             "top_confluences": [
@@ -126,7 +126,7 @@ PER_SYMBOL_CONFIGS = {
             # Nearly breakeven. Low base reduces exposure. Kill zone is #2 feature.
         },
         "M5": {
-            "base_confidence": 0.35,
+            "base_confidence": 0.40,
             "kz_penalty": -0.10,
             "htf_penalty": -0.15,
             "top_confluences": [

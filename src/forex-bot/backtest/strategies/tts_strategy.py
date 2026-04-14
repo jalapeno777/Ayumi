@@ -96,19 +96,41 @@ PATTERN_BASE_CONFIGS = {
 }
 
 
+_CONFLUENCE_DENSITY_BUCKETS = [
+    (0.40, 1.25),
+    (0.27, 1.15),
+    (0.13, 1.05),
+    (0.00, 1.00),
+]
+
+_QUALITY_GATE_WEIGHT = 0.18
+_CONFLUENCE_SCORER_WEIGHT = 0.18
+
+
 class ConfidenceBuilder:
-    """Modular confidence scoring — each confluence adds to the score."""
+    """Modular confidence scoring — each confluence adds to the score.
+
+    Finalize applies a multiplicative density bonus: trades with more
+    independent positive confluences receive a compounding multiplier,
+    naturally pushing high-confirmation setups into higher tiers.
+    """
+
+    _MAX_POSITIVE_CONFLUENCES = 15.0
 
     def __init__(self, base_confidence: float):
         self.score = base_confidence
         self.boosts_applied: list[tuple[str, float]] = []
 
     def add_boost(self, name: str, value: float) -> None:
-        """Add a confluence boost to the score."""
         self.score += value
         self.boosts_applied.append((name, value))
 
     def finalize(self) -> float:
+        positive_count = sum(1 for _, v in self.boosts_applied if v > 0)
+        density = positive_count / self._MAX_POSITIVE_CONFLUENCES
+        for threshold, multiplier in _CONFLUENCE_DENSITY_BUCKETS:
+            if density >= threshold:
+                return min(self.score * multiplier, 1.0)
         return min(self.score, 1.0)
 
 
@@ -479,7 +501,9 @@ class TTSStrategy(ISignalStrategy):
                 asia_result.ilod is not None or asia_result.ilhod is not None
             ):
                 if self._is_price_near_boundary(latest.close, asia_result):
-                    builder.add_boost("ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST)
+                    builder.add_boost(
+                        "ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST
+                    )
 
         # VWAP rejection boost
         if not top_confluences or "vwap_rejection" in top_confluences:
@@ -504,11 +528,15 @@ class TTSStrategy(ISignalStrategy):
                 builder.add_boost("adx", ADX_BOOST)
 
         if not top_confluences or "volume_spike" in top_confluences:
-            if self._check_volume_spike_confluence(bars, latest, best_pattern.direction):
+            if self._check_volume_spike_confluence(
+                bars, latest, best_pattern.direction
+            ):
                 builder.add_boost("volume_spike", VOLUME_SPIKE_BOOST)
 
         if not top_confluences or "vwap_distance" in top_confluences:
-            if self._check_vwap_distance_confluence(bars, latest, best_pattern.direction):
+            if self._check_vwap_distance_confluence(
+                bars, latest, best_pattern.direction
+            ):
                 builder.add_boost("vwap_distance", VWAP_DISTANCE_BOOST)
 
         if not top_confluences or "rsi_extreme" in top_confluences:
@@ -523,7 +551,9 @@ class TTSStrategy(ISignalStrategy):
                 builder.add_boost("ema_extension", extension_boost)
 
         if not top_confluences or "ema_cluster" in top_confluences:
-            cluster_boost = self._check_ema_cluster_confluence(bars, best_pattern.direction)
+            cluster_boost = self._check_ema_cluster_confluence(
+                bars, best_pattern.direction
+            )
             if cluster_boost > 0:
                 builder.add_boost("ema_cluster", cluster_boost)
 
@@ -581,8 +611,8 @@ class TTSStrategy(ISignalStrategy):
         if quality_score < self.min_quality_score:
             return None
 
-        # Quality score as a proportional boost (scaled to 0-0.15 range)
-        quality_boost = quality_score * 0.15
+        # Quality score as a proportional boost (scaled by _QUALITY_GATE_WEIGHT)
+        quality_boost = quality_score * _QUALITY_GATE_WEIGHT
         builder.add_boost("quality_gate", quality_boost)
 
         # Confluence scorer boosters (legacy, additive)
@@ -591,14 +621,18 @@ class TTSStrategy(ISignalStrategy):
                 "phase_score": session_state.phase_score,
                 "kill_zone_active": session_state.kill_zone_active,
             }
-            htf_dict = {"alignment_score": htf_state.alignment_score} if htf_state else {}
+            htf_dict = (
+                {"alignment_score": htf_state.alignment_score} if htf_state else {}
+            )
             confluence_score, confluence_boosters = self._confluence_scorer.score(
                 candidate=candidate,
                 htf_state=htf_dict,
                 session_state=session_dict,
             )
-            # Add confluence score as a proportional boost (0-0.10)
-            builder.add_boost("confluence_scorer", confluence_score * 0.10)
+            # Add confluence score as a proportional boost (scaled by _CONFLUENCE_SCORER_WEIGHT)
+            builder.add_boost(
+                "confluence_scorer", confluence_score * _CONFLUENCE_SCORER_WEIGHT
+            )
 
         # Finalize confidence
         total_confidence = builder.finalize()

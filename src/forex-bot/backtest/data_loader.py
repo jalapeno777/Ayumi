@@ -8,9 +8,14 @@ _UTC = timezone.utc
 
 
 def _parse_csv_timestamp(ts_str: str) -> datetime:
-    dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M")
-    dt = dt.replace(tzinfo=_EASTERN)
-    return dt.astimezone(_UTC)
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            dt = datetime.strptime(ts_str, fmt)
+            dt = dt.replace(tzinfo=_EASTERN)
+            return dt.astimezone(_UTC)
+        except ValueError:
+            continue
+    raise ValueError(f"Cannot parse timestamp: {ts_str}")
 
 
 class CsvDataLoader:
