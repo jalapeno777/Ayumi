@@ -345,7 +345,7 @@ class TestMarketDataIncrementalRefresh:
 
     def test_change_updates_price(self, mock_feed):
         mock_feed._order_book[2] = {
-            "bids": {"ord_bid_1": 1.35643, "ord_bid_2": 1.35640},
+            "bids": {"ord_bid_1": 1.35640, "ord_bid_2": 1.35638},
             "asks": {"ord_ask_1": 1.35650},
         }
 
@@ -355,7 +355,7 @@ class TestMarketDataIncrementalRefresh:
                     "action": "1",
                     "entry_type": "0",
                     "order_id": "ord_bid_1",
-                    "price": 1.35655,
+                    "price": 1.35643,
                 },
             ]
         )
@@ -363,7 +363,7 @@ class TestMarketDataIncrementalRefresh:
 
         tick = mock_feed.get_tick("GBP/USD")
         assert tick is not None
-        assert tick.bid == pytest.approx(1.35655, abs=1e-8)
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
 
     def test_delete_removes_order(self, mock_feed):
         mock_feed._order_book[2] = {
@@ -410,14 +410,14 @@ class TestMarketDataIncrementalRefresh:
 
         msg = self._make_incremental_msg(
             [
-                {"action": "1", "entry_type": "0", "order_id": "b1", "price": 1.35655},
+                {"action": "1", "entry_type": "0", "order_id": "b1", "price": 1.35643},
             ]
         )
         mock_feed._on_incremental(msg)
 
         assert len(received) == 1
         assert received[0].symbol_id == 2
-        assert received[0].bid == pytest.approx(1.35655, abs=1e-8)
+        assert received[0].bid == pytest.approx(1.35643, abs=1e-8)
 
     def test_incremental_ignored_for_non_x_messages(self, mock_feed):
         msg = FIXMessage()
@@ -502,3 +502,188 @@ class TestMarketDataIncrementalRefresh:
         tick = mock_feed.get_tick("GBP/USD")
         assert tick is not None
         assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+
+    def test_cross_symbol_entries_isolated(self, mock_feed):
+        """Entries with per-entry symbol_id go to their own order book."""
+        mock_feed._order_book[1] = {"bids": {}, "asks": {"a_eur": 1.15255}}
+        mock_feed._order_book[2] = {"bids": {}, "asks": {"a_gbp": 1.35650}}
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_eur",
+                    "symbol_id": 1,
+                    "price": 1.15250,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_gbp",
+                    "symbol_id": 2,
+                    "price": 1.35643,
+                },
+            ],
+            symbol_id=2,
+        )
+        mock_feed._on_incremental(msg)
+
+        tick_eur = mock_feed.get_tick("EUR/USD")
+        tick_gbp = mock_feed.get_tick("GBP/USD")
+        assert tick_eur is not None
+        assert tick_eur.bid == pytest.approx(1.15250, abs=1e-8)
+        assert tick_eur.ask == pytest.approx(1.15255, abs=1e-8)
+        assert tick_gbp is not None
+        assert tick_gbp.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick_gbp.ask == pytest.approx(1.35650, abs=1e-8)
+
+    def test_cross_symbol_no_contamination(self, mock_feed):
+        """Multi-symbol X message must not mix bids/asks across symbols."""
+        mock_feed._order_book[1] = {"bids": {}, "asks": {}}
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_eur",
+                    "symbol_id": 1,
+                    "price": 1.15250,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a_eur",
+                    "symbol_id": 1,
+                    "price": 1.15255,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_gbp",
+                    "symbol_id": 2,
+                    "price": 1.35643,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a_gbp",
+                    "symbol_id": 2,
+                    "price": 1.35650,
+                },
+            ],
+            symbol_id=0,
+        )
+        mock_feed._on_incremental(msg)
+
+        tick_eur = mock_feed.get_tick("EUR/USD")
+        tick_gbp = mock_feed.get_tick("GBP/USD")
+        assert tick_eur is not None
+        assert tick_eur.spread == pytest.approx(0.00005, abs=1e-8)
+        assert tick_gbp is not None
+        assert tick_gbp.spread == pytest.approx(0.00007, abs=1e-8)
+        assert tick_eur.spread > 0
+        assert tick_gbp.spread > 0
+
+    def test_inverted_spread_skipped(self, mock_feed):
+        """Spread guard prevents emitting a tick when bid >= ask."""
+        mock_feed._order_book[2] = {
+            "bids": {},
+            "asks": {},
+        }
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b1",
+                    "price": 1.36000,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a1",
+                    "price": 1.35000,
+                },
+            ],
+            symbol_id=2,
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is None
+
+    def test_inverted_spread_does_not_corrupt_other_symbols(self, mock_feed):
+        """Inverted spread on one symbol must not block a valid spread on another."""
+        mock_feed._order_book[1] = {"bids": {}, "asks": {}}
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_bad",
+                    "symbol_id": 2,
+                    "price": 1.36000,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a_bad",
+                    "symbol_id": 2,
+                    "price": 1.35000,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b_good",
+                    "symbol_id": 1,
+                    "price": 1.15250,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a_good",
+                    "symbol_id": 1,
+                    "price": 1.15255,
+                },
+            ],
+            symbol_id=0,
+        )
+        mock_feed._on_incremental(msg)
+
+        tick_gbp = mock_feed.get_tick("GBP/USD")
+        tick_eur = mock_feed.get_tick("EUR/USD")
+        assert tick_gbp is None
+        assert tick_eur is not None
+        assert tick_eur.spread > 0
+
+    def test_entry_without_symbol_id_falls_back_to_msg_level(self, mock_feed):
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "b1",
+                    "price": 1.35643,
+                },
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "a1",
+                    "price": 1.35650,
+                },
+            ],
+            symbol_id=2,
+        )
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
