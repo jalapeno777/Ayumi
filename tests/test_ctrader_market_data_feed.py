@@ -269,3 +269,236 @@ class TestMarketDataRequestWireFormat:
         assert msg.get_field(146) == "1"
         wire = msg.to_wire()
         assert "55=2" in wire
+
+
+# ---------------------------------------------------------------------------
+# MarketDataIncrementalRefresh (35=X) tests
+# ---------------------------------------------------------------------------
+
+
+class TestMarketDataIncrementalRefresh:
+    def _make_incremental_msg(
+        self, entries: list[dict], symbol_id: int = 2, md_req_id: str = "SUB_0001"
+    ) -> FIXMessage:
+        """Build a FIXMessage mimicking a 35=X incremental refresh."""
+        raw_fields: list[tuple[int, str]] = [
+            (262, md_req_id),
+            (268, str(len(entries))),
+        ]
+        for entry in entries:
+            raw_fields.append((279, entry["action"]))
+            if "entry_type" in entry:
+                raw_fields.append((269, entry["entry_type"]))
+            if "order_id" in entry:
+                raw_fields.append((278, entry["order_id"]))
+            if "symbol_id" in entry:
+                raw_fields.append((55, str(entry["symbol_id"])))
+            if "price" in entry:
+                raw_fields.append((270, str(entry["price"])))
+
+        msg = FIXMessage()
+        msg.fields = {35: "X", 55: str(symbol_id), 52: "20260415-03:30:00.000"}
+        msg._raw_fields = raw_fields
+        return msg
+
+    def test_new_bid_updates_tick(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+        mock_feed._order_book[2]["asks"]["ord_ask_1"] = 1.35650
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "0",
+                    "order_id": "ord_bid_1",
+                    "price": 1.35643,
+                },
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
+
+    def test_new_ask_updates_tick(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+        mock_feed._order_book[2]["bids"]["ord_bid_1"] = 1.35643
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "1",
+                    "order_id": "ord_ask_1",
+                    "price": 1.35650,
+                },
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
+
+    def test_change_updates_price(self, mock_feed):
+        mock_feed._order_book[2] = {
+            "bids": {"ord_bid_1": 1.35643, "ord_bid_2": 1.35640},
+            "asks": {"ord_ask_1": 1.35650},
+        }
+
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "1",
+                    "entry_type": "0",
+                    "order_id": "ord_bid_1",
+                    "price": 1.35655,
+                },
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35655, abs=1e-8)
+
+    def test_delete_removes_order(self, mock_feed):
+        mock_feed._order_book[2] = {
+            "bids": {"ord_bid_1": 1.35655, "ord_bid_2": 1.35643},
+            "asks": {"ord_ask_1": 1.35650},
+        }
+
+        msg = self._make_incremental_msg(
+            [
+                {"action": "2", "entry_type": "0", "order_id": "ord_bid_1"},
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+
+    def test_multiple_entries_in_one_message(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+
+        msg = self._make_incremental_msg(
+            [
+                {"action": "0", "entry_type": "0", "order_id": "b1", "price": 1.35640},
+                {"action": "0", "entry_type": "0", "order_id": "b2", "price": 1.35643},
+                {"action": "0", "entry_type": "1", "order_id": "a1", "price": 1.35650},
+                {"action": "0", "entry_type": "1", "order_id": "a2", "price": 1.35648},
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick.ask == pytest.approx(1.35648, abs=1e-8)
+
+    def test_incremental_tick_callback_fired(self, mock_feed):
+        received = []
+        mock_feed.on_tick(lambda t: received.append(t))
+        mock_feed._order_book[2] = {
+            "bids": {"b1": 1.35640},
+            "asks": {"a1": 1.35650},
+        }
+
+        msg = self._make_incremental_msg(
+            [
+                {"action": "1", "entry_type": "0", "order_id": "b1", "price": 1.35655},
+            ]
+        )
+        mock_feed._on_incremental(msg)
+
+        assert len(received) == 1
+        assert received[0].symbol_id == 2
+        assert received[0].bid == pytest.approx(1.35655, abs=1e-8)
+
+    def test_incremental_ignored_for_non_x_messages(self, mock_feed):
+        msg = FIXMessage()
+        msg.fields = {35: "W", 55: "1", 52: "20260415-03:30:00.000"}
+        msg._raw_fields = [
+            (55, "1"),
+            (268, "2"),
+            (269, "0"),
+            (270, "1.0"),
+            (269, "1"),
+            (270, "1.1"),
+        ]
+        mock_feed._on_incremental(msg)
+        assert mock_feed.get_tick("EUR/USD") is None
+
+    def test_incremental_no_raw_fields_ignored(self, mock_feed):
+        msg = FIXMessage()
+        msg.fields = {35: "X", 55: "2", 52: "20260415-03:30:00.000"}
+        mock_feed._on_incremental(msg)
+        assert mock_feed.get_tick("GBP/USD") is None
+
+    def test_incremental_incomplete_book_no_update(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {}, "asks": {}}
+        msg = self._make_incremental_msg(
+            [
+                {"action": "0", "entry_type": "0", "order_id": "b1", "price": 1.35643},
+            ]
+        )
+        mock_feed._on_incremental(msg)
+        assert mock_feed.get_tick("GBP/USD") is None
+
+    def test_snapshot_clears_order_book(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {"b1": 1.35643}, "asks": {"a1": 1.35650}}
+        msg = FIXMessage()
+        msg.fields = {35: "W", 55: "2", 52: "20260415-03:30:00.000"}
+        msg._raw_fields = [
+            (55, "2"),
+            (268, "2"),
+            (269, "0"),
+            (270, "1.35643"),
+            (269, "1"),
+            (270, "1.35650"),
+        ]
+        mock_feed._on_snapshot(msg)
+        assert 2 not in mock_feed._order_book
+
+    def test_stop_clears_order_book(self, mock_feed):
+        mock_feed._order_book[2] = {"bids": {"b1": 1.0}, "asks": {"a1": 1.1}}
+        mock_feed.stop()
+        assert mock_feed._order_book == {}
+
+    def test_unknown_entry_type_skipped(self, mock_feed):
+        mock_feed._order_book[2] = {
+            "bids": {"b1": 1.35643},
+            "asks": {"a1": 1.35650},
+        }
+        msg = self._make_incremental_msg(
+            [
+                {
+                    "action": "0",
+                    "entry_type": "2",
+                    "order_id": "trade_1",
+                    "price": 1.35645,
+                },
+            ]
+        )
+        mock_feed._on_incremental(msg)
+        assert mock_feed._order_book[2]["bids"] == {"b1": 1.35643}
+        assert mock_feed._order_book[2]["asks"] == {"a1": 1.35650}
+
+    def test_delete_nonexistent_order_no_error(self, mock_feed):
+        mock_feed._order_book[2] = {
+            "bids": {"b1": 1.35643},
+            "asks": {"a1": 1.35650},
+        }
+        msg = self._make_incremental_msg(
+            [
+                {"action": "2", "entry_type": "0", "order_id": "nonexistent"},
+            ]
+        )
+        mock_feed._on_incremental(msg)
+        tick = mock_feed.get_tick("GBP/USD")
+        assert tick is not None
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
