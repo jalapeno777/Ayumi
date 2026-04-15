@@ -352,6 +352,10 @@ class LiveMarketDataFeed:
         OrderID (tag 278): identifies the order
         MDEntryPx (tag 270): price (absent for delete)
         Symbol (tag 55): repeated per entry in incremental messages
+
+        cTrader incremental messages can contain entries for multiple symbols.
+        Each entry carries its own tag 55. We route each entry to the correct
+        per-symbol order book to prevent cross-symbol contamination.
         """
         if msg.msg_type != "X":
             return
@@ -359,6 +363,8 @@ class LiveMarketDataFeed:
         raw_fields = getattr(msg, "_raw_fields", None)
         if raw_fields is None:
             return
+
+        msg_level_symbol_id = int(msg.get_field(55) or 0)
 
         entries: list[dict] = []
         current_entry: dict | None = None
@@ -388,17 +394,22 @@ class LiveMarketDataFeed:
         if not entries:
             return
 
-        symbol_id = int(msg.get_field(55) or 0)
-        if symbol_id == 0 and entries:
-            symbol_id = entries[0].get("symbol_id", 0)
-        if symbol_id == 0:
-            return
+        timestamp_str = msg.get_field(52)
+        if timestamp_str:
+            try:
+                timestamp = datetime.strptime(
+                    timestamp_str, "%Y%m%d-%H:%M:%S.%f"
+                ).replace(tzinfo=timezone.utc)
+            except ValueError:
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
+        else:
+            timestamp = datetime.now(timezone.utc)
+
+        updated_symbols: set[int] = set()
 
         with self._lock:
-            if symbol_id not in self._order_book:
-                self._order_book[symbol_id] = {"bids": {}, "asks": {}}
-            book = self._order_book[symbol_id]
-
             for entry in entries:
                 action = entry.get("action")
                 entry_type = entry.get("entry_type")
@@ -407,6 +418,16 @@ class LiveMarketDataFeed:
 
                 if not order_id or not entry_type:
                     continue
+
+                entry_symbol = entry.get("symbol_id", 0)
+                if entry_symbol == 0:
+                    entry_symbol = msg_level_symbol_id
+                if entry_symbol == 0:
+                    continue
+
+                if entry_symbol not in self._order_book:
+                    self._order_book[entry_symbol] = {"bids": {}, "asks": {}}
+                book = self._order_book[entry_symbol]
 
                 side = (
                     "bids"
@@ -424,36 +445,39 @@ class LiveMarketDataFeed:
                 elif action == "2":
                     book[side].pop(order_id, None)
 
-            bids = book["bids"]
-            asks = book["asks"]
-            if not bids or not asks:
-                return
+                updated_symbols.add(entry_symbol)
 
-            best_bid = max(bids.values())
-            best_ask = min(asks.values())
+        for sym_id in updated_symbols:
+            with self._lock:
+                book = self._order_book.get(sym_id)
+                if not book:
+                    continue
 
-        timestamp_str = msg.get_field(52)
-        if timestamp_str:
-            try:
-                timestamp = datetime.strptime(
-                    timestamp_str, "%Y%m%d-%H:%M:%S.%f"
-                ).replace(tzinfo=timezone.utc)
-            except ValueError:
-                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
-                    tzinfo=timezone.utc
+                bids = book["bids"]
+                asks = book["asks"]
+                if not bids or not asks:
+                    continue
+
+                best_bid = max(bids.values())
+                best_ask = min(asks.values())
+
+                if best_bid >= best_ask:
+                    logger.debug(
+                        f"Inverted spread for symbol {sym_id}: "
+                        f"bid={best_bid} >= ask={best_ask}, skipping tick"
+                    )
+                    continue
+
+                tick = Tick(
+                    symbol_id=sym_id,
+                    bid=best_bid,
+                    ask=best_ask,
+                    timestamp=timestamp,
                 )
-        else:
-            timestamp = datetime.now(timezone.utc)
+                self._ticks[sym_id] = tick
 
-        tick = Tick(
-            symbol_id=symbol_id, bid=best_bid, ask=best_ask, timestamp=timestamp
-        )
-
-        with self._lock:
-            self._ticks[symbol_id] = tick
-
-        for cb in self._tick_callbacks:
-            try:
-                cb(tick)
-            except Exception as e:
-                logger.error(f"Tick callback error: {e}")
+            for cb in self._tick_callbacks:
+                try:
+                    cb(tick)
+                except Exception as e:
+                    logger.error(f"Tick callback error: {e}")
