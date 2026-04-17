@@ -46,7 +46,10 @@ def eurusd_h1_data():
     )
     if not data_path.exists():
         pytest.skip("EURUSD H1 data not found")
-    return pd.read_parquet(data_path)
+    df = pd.read_parquet(data_path)
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+    return df
 
 
 @pytest.fixture(scope="session")
@@ -58,7 +61,10 @@ def gbpusd_h1_data():
     )
     if not data_path.exists():
         pytest.skip("GBPUSD H1 data not found")
-    return pd.read_parquet(data_path)
+    df = pd.read_parquet(data_path)
+    if df.index.tz is not None:
+        df.index = df.index.tz_localize(None)
+    return df
 
 
 @pytest.fixture(scope="session")
