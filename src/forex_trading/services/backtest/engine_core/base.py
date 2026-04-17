@@ -28,6 +28,9 @@ class BacktestMetrics:
     profit_factor: float = 0.0
     total_trades: int = 0
     avg_trade_duration: float = 0.0
+    trades: list = field(default_factory=list)
+    equity_curve: list = field(default_factory=list)
+    compliance_report: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -123,6 +126,9 @@ class EngineCore:
             profit_factor=profit_factor,
             total_trades=len(trades),
             avg_trade_duration=avg_duration,
+            trades=list(trades),
+            equity_curve=list(equity_curve),
+            compliance_report=self.prop_firm.get_compliance_report(),
         )
 
     def _calculate_sharpe_ratio(self, equity_curve: list[float] | pd.Series) -> float:

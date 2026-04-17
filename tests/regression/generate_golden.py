@@ -1,14 +1,13 @@
-"""Generate golden reference metrics using the legacy v1 backtest engine.
+"""Generate golden reference metrics using the v2 backtest engine.
 
 Run once to produce pickle files consumed by the regression test suite.
-Usage: python tests/regression/generate_golden.py
+Usage: PYTHONPATH=src python tests/regression/generate_golden.py
 """
 
 from __future__ import annotations
 
 import pickle
 import sys
-from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -16,19 +15,20 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from forex_trading.services.backtest.engine import (
-    BacktestConfig,
+from src.forex_trading.services.backtest.engine_v2 import (
     BacktestEngine,
-    BacktestResult,
-    walk_forward_analysis,
+    WalkForwardConfig,
 )
-from forex_trading.services.backtest.prop_firm_rules import PropFirmConfig
-from forex_trading.strategies.momentum import MomentumCrossoverStrategy
-from forex_trading.strategies.mean_reversion import MeanReversionStrategy
-from forex_trading.strategies.breakout import BreakoutStrategy
-from forex_trading.strategies.regime_aware import RegimeAwareStrategy, RegimeClassifier
-from forex_trading.strategies.carry import CarryTradeStrategy
-from forex_trading.strategies.regime_switching_momentum import (
+from src.forex_trading.services.backtest.prop_firm_rules import PropFirmConfig
+from src.forex_trading.strategies.momentum import MomentumCrossoverStrategy
+from src.forex_trading.strategies.mean_reversion import MeanReversionStrategy
+from src.forex_trading.strategies.breakout import BreakoutStrategy
+from src.forex_trading.strategies.regime_aware import (
+    RegimeAwareStrategy,
+    RegimeClassifier,
+)
+from src.forex_trading.strategies.carry import CarryTradeStrategy
+from src.forex_trading.strategies.regime_switching_momentum import (
     RegimeSwitchingMomentumStrategy,
 )
 
@@ -43,11 +43,11 @@ PROP_FIRM_CONFIG = PropFirmConfig(
     max_daily_trades=10,
 )
 
-WF_CONFIG = {
-    "train_bars": 378,
-    "test_bars": 756,
-    "step_bars": 126,
-}
+WF_CONFIG = WalkForwardConfig(
+    train_bars=378,
+    test_bars=756,
+    step_bars=126,
+)
 
 
 def get_strategies(data: pd.DataFrame) -> list:
@@ -62,16 +62,16 @@ def get_strategies(data: pd.DataFrame) -> list:
     ]
 
 
-def extract_metrics(result: BacktestResult) -> dict:
+def extract_metrics(metrics) -> dict:
     return {
-        "total_return": result.total_return,
-        "sharpe_ratio": result.sharpe_ratio,
-        "max_drawdown": result.max_drawdown,
-        "max_drawdown_duration": result.max_drawdown_duration,
-        "win_rate": result.win_rate,
-        "profit_factor": result.profit_factor,
-        "total_trades": result.total_trades,
-        "avg_trade_duration": result.avg_trade_duration,
+        "total_return": metrics.total_return,
+        "sharpe_ratio": metrics.sharpe_ratio,
+        "max_drawdown": metrics.max_drawdown,
+        "max_drawdown_duration": metrics.max_drawdown_duration,
+        "win_rate": metrics.win_rate,
+        "profit_factor": metrics.profit_factor,
+        "total_trades": metrics.total_trades,
+        "avg_trade_duration": metrics.avg_trade_duration,
     }
 
 
@@ -83,7 +83,7 @@ def generate_for_pair(pair: str) -> dict:
     df = pd.read_parquet(data_path)
     print(f"  {len(df)} bars loaded")
 
-    config = BacktestConfig(
+    engine = BacktestEngine(
         starting_balance=10_000.0,
         prop_firm_config=PROP_FIRM_CONFIG,
     )
@@ -96,28 +96,25 @@ def generate_for_pair(pair: str) -> dict:
         print(f"  Strategy: {name}")
 
         try:
-            engine = BacktestEngine(config)
-            single_result = engine.run(df, strategy, pair)
+            single_result = engine.run_single(strategy, df, pair)
             single_metrics = extract_metrics(single_result)
         except Exception as e:
             print(f"    Single-pass FAILED: {e}")
             single_metrics = {"error": str(e)}
 
         try:
-            wf_results = walk_forward_analysis(
-                data=df,
+            wf_results = engine.run_walk_forward(
                 strategy=strategy,
-                config=config,
-                train_bars=WF_CONFIG["train_bars"],
-                test_bars=WF_CONFIG["test_bars"],
-                step_bars=WF_CONFIG["step_bars"],
+                bars=df,
                 pair=pair,
+                wf_config=WF_CONFIG,
             )
 
-            window_metrics = [extract_metrics(r) for r in wf_results]
+            oos_list = [m for m in wf_results.oos_results if m is not None]
+            window_metrics = [extract_metrics(m) for m in oos_list]
 
             avg_oos = {}
-            if wf_results:
+            if oos_list:
                 for key in [
                     "total_return",
                     "sharpe_ratio",
@@ -134,7 +131,7 @@ def generate_for_pair(pair: str) -> dict:
             wf_data = {
                 "avg_oos": avg_oos,
                 "windows": window_metrics,
-                "n_windows": len(wf_results),
+                "n_windows": len(oos_list),
             }
         except Exception as e:
             print(f"    Walk-forward FAILED: {e}")
