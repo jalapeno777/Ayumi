@@ -6,7 +6,7 @@ from core.types import SimulatedTrade
 @dataclass
 class BacktestConfig:
     starting_balance: float = 100_000.0
-    risk_per_trade_pct: float = 0.5
+    risk_per_trade_pct: float = 0.005
     max_daily_drawdown_pct: float = 0.05
     max_total_drawdown_pct: float = 0.10
     spread_pips: float = 1.5
