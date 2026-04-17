@@ -65,3 +65,4 @@ tests/test_close_all.py
 tests/test_fix_single_order.py
 tests/test_raw_fix.py
 tests/test_flatten.py
+src/reports/
