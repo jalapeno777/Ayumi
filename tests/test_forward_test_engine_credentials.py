@@ -23,6 +23,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
         for key in [
             "CTRADER_HOST",
             "CTRADER_SSL_PORT",
+            "CTRADER_READONLY_SSL_PORT",
             "CTRADER_SENDER_COMP_ID",
             "CTRADER_TARGET_COMP_ID",
             "CTRADER_QUOTE_SENDER_SUB_ID",
@@ -106,6 +107,36 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
             creds = engine._build_quote_credentials()
         assert creds.host == "fallback.host.com"
 
+    def test_reads_ctrader_readonly_ssl_port_not_trade_port(self):
+        os.environ["CTRADER_ACCOUNT"] = "12345"
+        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_READONLY_SSL_PORT"] = "5211"
+        config = self._make_config()
+        engine = ForwardTestEngine(config=config, strategies=[])
+        with patch("dotenv.load_dotenv"):
+            creds = engine._build_quote_credentials()
+        assert creds.port == 5211
+
+    def test_trade_port_env_var_is_ignored_for_quote_credentials(self):
+        os.environ["CTRADER_ACCOUNT"] = "12345"
+        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_SSL_PORT"] = "5202"
+        os.environ["CTRADER_READONLY_SSL_PORT"] = "5211"
+        config = self._make_config()
+        engine = ForwardTestEngine(config=config, strategies=[])
+        with patch("dotenv.load_dotenv"):
+            creds = engine._build_quote_credentials()
+        assert creds.port == 5211
+
+    def test_port_falls_back_to_config_when_no_env_var(self):
+        os.environ["CTRADER_ACCOUNT"] = "12345"
+        os.environ["CTRADER_PASSWORD"] = "pw"
+        config = self._make_config(quote_port=9999)
+        engine = ForwardTestEngine(config=config, strategies=[])
+        with patch("dotenv.load_dotenv"):
+            creds = engine._build_quote_credentials()
+        assert creds.port == 9999
+
 
 class TestForwardTestConfigDefaults(unittest.TestCase):
     def test_quote_sender_sub_id_default(self):
@@ -123,3 +154,7 @@ class TestForwardTestConfigDefaults(unittest.TestCase):
     def test_use_ssl_default(self):
         cfg = ForwardTestConfig()
         assert cfg.use_ssl is True
+
+    def test_max_reconnect_attempts_default(self):
+        cfg = ForwardTestConfig()
+        assert cfg.max_reconnect_attempts == 20
