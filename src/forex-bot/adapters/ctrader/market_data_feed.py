@@ -10,6 +10,8 @@ Protocol notes:
 - MDEntryType 269=0 (bid), 269=1 (ask)
 - MDEntryPx (270) contains the price
 - Responses are MarketDataSnapshot (35=W) with repeating group entries
+- Incremental updates arrive as MarketDataIncrementalRefresh (35=X)
+  with MDUpdateAction (tag 279): 0=new, 1=change, 2=delete
 - SenderSubID must be "QUOTE" for quote-only connections (port 5211)
 """
 
@@ -83,13 +85,13 @@ class MarketDataClient(FIXClient):
     def _handle_message(self, msg: FIXMessage):
         msg_type = msg.msg_type
 
-        if msg_type == "W":  # MarketDataSnapshot
+        if msg_type in ("W", "X"):  # MarketDataSnapshot or MarketDataIncrementalRefresh
             for handler in self._md_handlers:
                 try:
                     handler(msg)
                 except Exception as e:
                     logger.error(f"MD handler error: {e}")
-            return  # Don't pass to parent — we handle it ourselves
+            return
 
         super()._handle_message(msg)
 
@@ -129,6 +131,7 @@ class LiveMarketDataFeed:
         self._subscriptions: set[int] = set()
         self._lock = threading.Lock()
         self._tick_callbacks: list[Callable[[Tick], None]] = []
+        self._order_book: dict[int, dict[str, dict[str, float]]] = {}
         self._next_req_id = 1
 
     @property
@@ -152,6 +155,7 @@ class LiveMarketDataFeed:
 
         self._client = MarketDataClient(self._credentials)
         self._client.register_md_handler(self._on_snapshot)
+        self._client.register_md_handler(self._on_incremental)
         self._client.register_callback(
             "on_logon", lambda m: logger.info("MD feed logged in")
         )
@@ -180,6 +184,7 @@ class LiveMarketDataFeed:
         with self._lock:
             self._subscriptions.clear()
             self._ticks.clear()
+            self._order_book.clear()
 
     def subscribe(self, symbol_name: str) -> bool:
         symbol_id = self._resolve_id(symbol_name)
@@ -272,6 +277,9 @@ class LiveMarketDataFeed:
         buffer processing. The FIXClient._process_buffer calls _handle_message
         with a parsed message. We enhance this by storing raw field lists.
         """
+        if msg.msg_type != "W":
+            return
+
         # Parse from raw data stored during buffer processing
         symbol_id = int(msg.get_field(55) or 0)
 
@@ -325,9 +333,151 @@ class LiveMarketDataFeed:
 
         with self._lock:
             self._ticks[symbol_id] = tick
+            self._order_book.pop(symbol_id, None)
 
         for cb in self._tick_callbacks:
             try:
                 cb(tick)
             except Exception as e:
                 logger.error(f"Tick callback error: {e}")
+
+    def _on_incremental(self, msg: FIXMessage):
+        """Handle MarketDataIncrementalRefresh (35=X).
+
+        Maintains a local order book keyed by OrderID (tag 278) to support
+        top-of-book extraction across new, change, and delete actions.
+
+        MDUpdateAction (tag 279): 0=new, 1=change, 2=delete
+        MDEntryType (tag 269): 0=bid, 1=ask
+        OrderID (tag 278): identifies the order
+        MDEntryPx (tag 270): price (absent for delete)
+        Symbol (tag 55): repeated per entry in incremental messages
+
+        cTrader incremental messages can contain entries for multiple symbols.
+        Each entry carries its own tag 55. We route each entry to the correct
+        per-symbol order book to prevent cross-symbol contamination.
+        """
+        if msg.msg_type != "X":
+            return
+
+        raw_fields = getattr(msg, "_raw_fields", None)
+        if raw_fields is None:
+            return
+
+        msg_level_symbol_id = int(msg.get_field(55) or 0)
+
+        entries: list[dict] = []
+        current_entry: dict | None = None
+        for tag, value in raw_fields:
+            if tag == 279:
+                if current_entry is not None:
+                    entries.append(current_entry)
+                current_entry = {"action": value}
+            elif current_entry is not None:
+                if tag == 269:
+                    current_entry["entry_type"] = value
+                elif tag == 270:
+                    try:
+                        current_entry["price"] = float(value)
+                    except ValueError:
+                        pass
+                elif tag == 278:
+                    current_entry["order_id"] = value
+                elif tag == 55:
+                    try:
+                        current_entry["symbol_id"] = int(value)
+                    except ValueError:
+                        pass
+        if current_entry is not None:
+            entries.append(current_entry)
+
+        if not entries:
+            return
+
+        timestamp_str = msg.get_field(52)
+        if timestamp_str:
+            try:
+                timestamp = datetime.strptime(
+                    timestamp_str, "%Y%m%d-%H:%M:%S.%f"
+                ).replace(tzinfo=timezone.utc)
+            except ValueError:
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
+        else:
+            timestamp = datetime.now(timezone.utc)
+
+        updated_symbols: set[int] = set()
+
+        with self._lock:
+            for entry in entries:
+                action = entry.get("action")
+                entry_type = entry.get("entry_type")
+                order_id = entry.get("order_id")
+                price = entry.get("price")
+
+                if not order_id or not entry_type:
+                    continue
+
+                entry_symbol = entry.get("symbol_id", 0)
+                if entry_symbol == 0:
+                    entry_symbol = msg_level_symbol_id
+                if entry_symbol == 0:
+                    continue
+
+                if entry_symbol not in self._order_book:
+                    self._order_book[entry_symbol] = {"bids": {}, "asks": {}}
+                book = self._order_book[entry_symbol]
+
+                side = (
+                    "bids"
+                    if entry_type == "0"
+                    else "asks"
+                    if entry_type == "1"
+                    else None
+                )
+                if side is None:
+                    continue
+
+                if action in ("0", "1"):
+                    if price is not None:
+                        book[side][order_id] = price
+                elif action == "2":
+                    book[side].pop(order_id, None)
+
+                updated_symbols.add(entry_symbol)
+
+        for sym_id in updated_symbols:
+            with self._lock:
+                book = self._order_book.get(sym_id)
+                if not book:
+                    continue
+
+                bids = book["bids"]
+                asks = book["asks"]
+                if not bids or not asks:
+                    continue
+
+                best_bid = max(bids.values())
+                best_ask = min(asks.values())
+
+                if best_bid >= best_ask:
+                    logger.debug(
+                        f"Inverted spread for symbol {sym_id}: "
+                        f"bid={best_bid} >= ask={best_ask}, skipping tick"
+                    )
+                    continue
+
+                tick = Tick(
+                    symbol_id=sym_id,
+                    bid=best_bid,
+                    ask=best_ask,
+                    timestamp=timestamp,
+                )
+                self._ticks[sym_id] = tick
+
+            for cb in self._tick_callbacks:
+                try:
+                    cb(tick)
+                except Exception as e:
+                    logger.error(f"Tick callback error: {e}")
