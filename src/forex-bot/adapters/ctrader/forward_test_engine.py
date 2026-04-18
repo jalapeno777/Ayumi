@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 60.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 15.0
+_DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
 
 
 @dataclass
@@ -64,6 +65,7 @@ class ForwardTestConfig:
     stale_tick_threshold_sec: float = _DEFAULT_STALE_TICK_THRESHOLD_SEC
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
+    max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
     health_monitor_interval_sec: float = 5.0
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
@@ -331,7 +333,9 @@ class ForwardTestEngine:
             load_dotenv(env_path)
 
         host = os.environ.get("CTRADER_HOST", self._config.quote_host)
-        port = int(os.environ.get("CTRADER_SSL_PORT", str(self._config.quote_port)))
+        port = int(
+            os.environ.get("CTRADER_READONLY_SSL_PORT", str(self._config.quote_port))
+        )
 
         quote_sender_sub_id = os.environ.get(
             "CTRADER_QUOTE_SENDER_SUB_ID",
@@ -573,6 +577,13 @@ class ForwardTestEngine:
         )
         if is_healthy:
             self._reconnect_delay = self._config.reconnect_delay_sec
+            with self._lock:
+                if self._health.reconnection_attempts > 0:
+                    logger.info(
+                        "Connection healthy — reset consecutive reconnect counter (%d -> 0)",
+                        self._health.reconnection_attempts,
+                    )
+                    self._health.reconnection_attempts = 0
             return
 
         now = time.monotonic()
@@ -592,6 +603,17 @@ class ForwardTestEngine:
     def _attempt_reconnect(self):
         with self._lock:
             self._health.reconnection_attempts += 1
+            attempts = self._health.reconnection_attempts
+
+        if attempts >= self._config.max_reconnect_attempts:
+            logger.critical(
+                "Reconnect circuit-breaker tripped: %d consecutive attempts with no ticks "
+                "(max=%d). Stopping engine gracefully.",
+                attempts,
+                self._config.max_reconnect_attempts,
+            )
+            self.stop()
+            return
 
         logger.info(
             "Reconnection attempt %d (backoff=%.1fs)",
@@ -609,11 +631,9 @@ class ForwardTestEngine:
         if success:
             with self._lock:
                 self._health.reconnection_successes += 1
+                self._health.reconnection_attempts = 0
             self._reconnect_delay = self._config.reconnect_delay_sec
-            logger.info(
-                "Reconnection successful on attempt %d",
-                self._health.reconnection_attempts,
-            )
+            logger.info("Reconnection successful — reset consecutive failure counter")
         else:
             self._reconnect_delay = min(
                 self._reconnect_delay * 2,
