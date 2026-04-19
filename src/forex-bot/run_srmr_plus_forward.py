@@ -134,7 +134,6 @@ class SRMRPlusForwardTest:
                 live_mode=not self._paper_only,
                 log_dir=LOG_DIR,
                 health_monitor_interval_sec=5.0,
-                stale_tick_threshold_sec=30.0,
                 max_reconnect_attempts=20,
                 reset_on_start=True,
             )
