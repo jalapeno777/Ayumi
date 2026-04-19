@@ -212,8 +212,11 @@ class ForwardTestEngine:
         )
         self._health_monitor_thread.start()
 
-        sig_module.signal(sig_module.SIGINT, self._on_shutdown)
-        sig_module.signal(sig_module.SIGTERM, self._on_shutdown)
+        try:
+            sig_module.signal(sig_module.SIGINT, self._on_shutdown)
+            sig_module.signal(sig_module.SIGTERM, self._on_shutdown)
+        except (ValueError, RuntimeError):
+            pass
 
         logger.info(
             "Forward test started: symbol=%s strategies=%s mode=%s eval_interval=%.1fs bar_period=%dm",
