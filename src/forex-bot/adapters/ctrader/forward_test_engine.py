@@ -39,8 +39,31 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 60.0
-_DEFAULT_STALE_TICK_THRESHOLD_SEC = 15.0
+_DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
+
+_WEEKEND_CLOSE_HOUR_UTC = 21
+_WEEKEND_CLOSE_MINUTE_UTC = 55
+_WEEKEND_OPEN_HOUR_UTC = 21
+
+
+def _is_forex_market_closed() -> bool:
+    now = datetime.now(timezone.utc)
+    if now.weekday() == 4:
+        if now.hour > _WEEKEND_CLOSE_HOUR_UTC:
+            return True
+        if (
+            now.hour == _WEEKEND_CLOSE_HOUR_UTC
+            and now.minute >= _WEEKEND_CLOSE_MINUTE_UTC
+        ):
+            return True
+    if now.weekday() == 5:
+        return True
+    if now.weekday() == 6:
+        return True
+    if now.weekday() == 0 and now.hour < _WEEKEND_OPEN_HOUR_UTC:
+        return True
+    return False
 
 
 @dataclass
@@ -569,6 +592,12 @@ class ForwardTestEngine:
         staleness = float("inf")
         if last_tick is not None:
             staleness = (datetime.now(timezone.utc) - last_tick).total_seconds()
+
+        # If connected but never received a tick (pre-market/closed market),
+        # don't treat as unhealthy — the connection itself is fine.
+        if feed_connected and last_tick is None:
+            self._reconnect_delay = self._config.reconnect_delay_sec
+            return
 
         is_healthy = (
             feed_connected
