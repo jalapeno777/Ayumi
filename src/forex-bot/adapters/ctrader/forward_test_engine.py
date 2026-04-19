@@ -60,7 +60,9 @@ def _is_forex_market_closed() -> bool:
     if now.weekday() == 5:
         return True
     if now.weekday() == 6:
-        return True
+        if now.hour < _WEEKEND_OPEN_HOUR_UTC:
+            return True
+        return False
     if now.weekday() == 0 and now.hour < _WEEKEND_OPEN_HOUR_UTC:
         return True
     return False
@@ -593,12 +595,6 @@ class ForwardTestEngine:
         if last_tick is not None:
             staleness = (datetime.now(timezone.utc) - last_tick).total_seconds()
 
-        # If connected but never received a tick (pre-market/closed market),
-        # don't treat as unhealthy — the connection itself is fine.
-        if feed_connected and last_tick is None:
-            self._reconnect_delay = self._config.reconnect_delay_sec
-            return
-
         is_healthy = (
             feed_connected
             and last_tick is not None
@@ -610,6 +606,17 @@ class ForwardTestEngine:
                 if self._health.reconnection_attempts > 0:
                     logger.info(
                         "Connection healthy — reset consecutive reconnect counter (%d -> 0)",
+                        self._health.reconnection_attempts,
+                    )
+                    self._health.reconnection_attempts = 0
+            return
+
+        if feed_connected and _is_forex_market_closed():
+            self._reconnect_delay = self._config.reconnect_delay_sec
+            with self._lock:
+                if self._health.reconnection_attempts > 0:
+                    logger.info(
+                        "Market closed — reset consecutive reconnect counter (%d -> 0)",
                         self._health.reconnection_attempts,
                     )
                     self._health.reconnection_attempts = 0
