@@ -25,7 +25,11 @@ from .engine import (
     BacktestConfig,
     BacktestMetrics,
     Bar,
+    MarketState,
     SimulatedTrade,
+    StrategySignal,
+    TradeDirection,
+    determine_session,
     get_spread_for_pair,
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
@@ -900,3 +904,226 @@ def build_passing_strategy_specs(data_dir: str) -> list[StrategySpec]:
     )
 
     return specs
+
+
+@dataclass
+class SignalRecord:
+    bar_index: int
+    direction: int
+    confidence: float
+
+
+@dataclass
+class StrategyInventoryResult:
+    strategy_name: str
+    metrics: BacktestMetrics
+    signals: list[SignalRecord]
+
+
+def inventory_strategies_on_data(
+    strategy_factories: dict[str, Any],
+    bars: list[Bar],
+    pair: str,
+    initial_balance: float = 10000.0,
+) -> dict[str, StrategyInventoryResult]:
+    config = BacktestConfig(
+        starting_balance=initial_balance,
+        spread_pips=get_spread_for_pair(pair),
+        commission_per_lot=3.5,
+        pair=pair,
+        max_open_trades=1,
+        risk_per_trade_pct=0.005,
+        max_daily_drawdown_pct=0.03,
+        max_total_drawdown_pct=0.05,
+        round_trip_spread=True,
+        slippage_pips=0.2,
+        swap_per_lot_per_day=-2.0,
+    )
+
+    results: dict[str, StrategyInventoryResult] = {}
+
+    for name, factory in strategy_factories.items():
+        try:
+            strategy = factory()
+            if hasattr(strategy, "set_balance"):
+                strategy.set_balance(initial_balance)
+        except Exception:
+            continue
+
+        signals: list[SignalRecord] = []
+        engine = MultiStrategyBacktestEngine(config, [strategy])
+
+        if len(bars) < config.min_bars_before_signal:
+            continue
+
+        engine._reset()
+        trades: list[SimulatedTrade] = []
+        equity_curve = [engine.balance]
+        open_trades: list[SimulatedTrade] = []
+
+        for i in range(len(bars)):
+            bar = bars[i]
+            engine._update_daily_tracking(bar.time)
+
+            if engine.balance <= 0:
+                break
+            if engine._is_max_drawdown_breached():
+                break
+            if engine._is_max_daily_loss_breached():
+                continue
+
+            engine._check_open_trades(open_trades, bar, i, trades, equity_curve)
+
+            if (
+                len(open_trades) < config.max_open_trades
+                and i >= config.min_bars_before_signal
+            ):
+                state = MarketState(
+                    bars=bars[: i + 1],
+                    current_session=determine_session(bars[i].time),
+                )
+                signal = strategy.evaluate(state)
+                if signal is not None and signal.confidence >= config.min_confidence:
+                    direction_val = (
+                        1
+                        if signal.direction == TradeDirection.LONG
+                        else -1
+                        if signal.direction == TradeDirection.SHORT
+                        else 0
+                    )
+                    signals.append(
+                        SignalRecord(
+                            bar_index=i,
+                            direction=direction_val,
+                            confidence=signal.confidence,
+                        )
+                    )
+                    trade = engine._open_trade(signal, bar, i)
+                    if trade is not None:
+                        open_trades.append(trade)
+
+            equity_curve.append(engine.balance)
+
+        trades.extend(
+            engine._close_all_open_trades(
+                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
+            )
+        )
+        metrics = engine._calculate_metrics(trades, equity_curve, 0)
+
+        results[name] = StrategyInventoryResult(
+            strategy_name=name,
+            metrics=metrics,
+            signals=signals,
+        )
+
+    return results
+
+
+def compute_signal_correlation(
+    inventory_results: dict[str, StrategyInventoryResult],
+    total_bars: int,
+) -> CorrelationResult:
+    keys = list(inventory_results.keys())
+    signal_vectors: dict[str, list[float]] = {}
+
+    for key in keys:
+        vec = [0.0] * total_bars
+        for sig in inventory_results[key].signals:
+            if 0 <= sig.bar_index < total_bars:
+                vec[sig.bar_index] = float(sig.direction)
+        signal_vectors[key] = vec
+
+    return compute_correlation_matrix(
+        {
+            key: StrategyEquityCurve(
+                strategy_name=key,
+                pair="",
+                timeframe="",
+                equity_curve=[],
+                returns=signal_vectors[key],
+                total_pnl=0.0,
+                win_rate=0.0,
+                profit_factor=0.0,
+                sharpe_ratio=0.0,
+                max_drawdown=0.0,
+                trade_count=0,
+            )
+            for key in keys
+        }
+    )
+
+
+@dataclass
+class SelectionResult:
+    selected: list[str]
+    weights: dict[str, float]
+    correlation_matrix: dict[str, dict[str, float]]
+    skipped: list[tuple[str, str]]
+
+
+def select_least_correlated(
+    inventory_results: dict[str, StrategyInventoryResult],
+    correlation: CorrelationResult,
+    max_strategies: int = 4,
+    min_pf: float = 1.0,
+    min_wr: float = 45.0,
+    max_pairwise_corr: float = 0.5,
+) -> SelectionResult:
+    candidates: list[str] = []
+    for key, inv in inventory_results.items():
+        if inv.metrics.profit_factor >= min_pf and inv.metrics.win_rate >= min_wr:
+            candidates.append(key)
+
+    candidates.sort(
+        key=lambda k: inventory_results[k].metrics.sharpe_ratio, reverse=True
+    )
+
+    selected: list[str] = []
+    skipped: list[tuple[str, str]] = []
+
+    for candidate in candidates:
+        if len(selected) >= max_strategies:
+            break
+
+        can_add = True
+        for existing in selected:
+            corr = abs(correlation.matrix.get(candidate, {}).get(existing, 0.0))
+            if corr > max_pairwise_corr:
+                skipped.append((candidate, existing))
+                can_add = False
+                break
+
+        if can_add:
+            selected.append(candidate)
+
+    weights: dict[str, float] = {}
+    if selected:
+        variances: dict[str, float] = {}
+        for key in selected:
+            ec_returns = [
+                1.0 if s.direction != 0 else 0.0 for s in inventory_results[key].signals
+            ]
+            if len(ec_returns) < 2:
+                variances[key] = 1.0
+                continue
+            mean_r = sum(ec_returns) / len(ec_returns)
+            var = sum((r - mean_r) ** 2 for r in ec_returns) / (len(ec_returns) - 1)
+            variances[key] = var if var > 0 else 0.0001
+
+        inv_var = {k: 1.0 / v for k, v in variances.items()}
+        total_inv = sum(inv_var.values())
+        weights = {k: v / total_inv for k, v in inv_var.items()}
+
+    sub_matrix: dict[str, dict[str, float]] = {}
+    for key_a in selected:
+        sub_matrix[key_a] = {}
+        for key_b in selected:
+            sub_matrix[key_a][key_b] = correlation.matrix.get(key_a, {}).get(key_b, 0.0)
+
+    return SelectionResult(
+        selected=selected,
+        weights=weights,
+        correlation_matrix=sub_matrix,
+        skipped=skipped,
+    )
