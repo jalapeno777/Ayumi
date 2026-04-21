@@ -625,6 +625,29 @@ class ForwardTestEngine:
                     self._health.reconnection_attempts = 0
             return
 
+        # Zero-tick detection: connected but receiving nothing
+        with self._lock:
+            ticks_received = self._health.ticks_received
+            bars_built = self._health.bars_built
+            signals_generated = self._health.signals_generated
+            uptime = self._health.uptime_sec
+
+        if feed_connected and ticks_received == 0 and uptime > 60:
+            logger.error(
+                "ZERO ticks received for %.0fs despite connected feed — "
+                "check MarketDataRequest wire format (MarketDepth=0, MDUpdateType=0) "
+                "and cTrader subscription status",
+                uptime,
+            )
+
+        # Zero-signal detection: bars exist but no signals evaluated
+        if ticks_received > 0 and bars_built > 50 and signals_generated == 0:
+            logger.warning(
+                "%d bars built but zero signals generated — "
+                "check strategy evaluation thresholds and session windows",
+                bars_built,
+            )
+
         now = time.monotonic()
         if now - self._last_reconnect_attempt_at < self._reconnect_delay:
             return

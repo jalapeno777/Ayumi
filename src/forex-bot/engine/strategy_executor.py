@@ -88,6 +88,8 @@ class StrategyExecutor:
             if self._current_bar is not None:
                 bars.append(self._current_bar)
 
+            self._bar_closed = False
+
         if not bars:
             return None
 
