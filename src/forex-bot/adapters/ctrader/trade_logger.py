@@ -25,6 +25,7 @@ class TradeRecord:
     closed_pnl: float
     status: str
     comment: str
+    strategy_id: str = ""
 
 
 class TradeLogger:
@@ -34,7 +35,9 @@ class TradeLogger:
         self._records: list[TradeRecord] = []
         os.makedirs(log_dir, exist_ok=True)
 
-    def log_trade_opened(self, order: Order, position: Optional[Position] = None):
+    def log_trade_opened(
+        self, order: Order, position: Optional[Position] = None, strategy_id: str = ""
+    ):
         record = TradeRecord(
             trade_id=position.position_id if position else order.order_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -48,6 +51,7 @@ class TradeLogger:
             closed_pnl=0.0,
             status="open",
             comment=order.comment,
+            strategy_id=strategy_id,
         )
         self._records.append(record)
         self._flush_record(record)
@@ -56,7 +60,7 @@ class TradeLogger:
             f"@ {record.entry_price} SL={record.stop_loss} TP={record.take_profit}"
         )
 
-    def log_position_closed(self, position: Position):
+    def log_position_closed(self, position: Position, strategy_id: str = ""):
         record = TradeRecord(
             trade_id=position.position_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -70,6 +74,7 @@ class TradeLogger:
             closed_pnl=position.closed_pnl,
             status="closed",
             comment=position.comment,
+            strategy_id=strategy_id,
         )
         self._records.append(record)
         self._flush_record(record)
