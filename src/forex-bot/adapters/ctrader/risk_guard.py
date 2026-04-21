@@ -106,6 +106,7 @@ class RiskGuard:
         self._total_trades = 0
         self._blocked_until: datetime | None = None
         self._circuit_breaker_triggered = False
+        self._per_strategy_pnl: dict[str, float] = {}
 
     def check_signal(self, signal: TradeSignal) -> RiskLimitResult:
         with self._lock:
@@ -330,6 +331,12 @@ class RiskGuard:
 
             self._update_daily_tracking()
 
+    def record_strategy_trade(self, strategy_id: str, pnl: float):
+        with self._lock:
+            self._per_strategy_pnl[strategy_id] = (
+                self._per_strategy_pnl.get(strategy_id, 0.0) + pnl
+            )
+
     def update_balance(self, new_balance: float):
         with self._lock:
             self._current_balance = new_balance
@@ -389,4 +396,5 @@ class RiskGuard:
                 "daily_loss_pct": self.current_daily_loss_pct,
                 "total_drawdown_pct": self.current_drawdown_pct,
                 "is_blocked": self.is_blocked,
+                "per_strategy_pnl": dict(self._per_strategy_pnl),
             }
