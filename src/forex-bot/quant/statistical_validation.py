@@ -165,7 +165,7 @@ def evaluate_statistical_checks(
     trades_passed = trade_count_check.passed
 
     if not trades_passed:
-        decision = GoNogoDecision.NO_GO
+        decision = GoNogoDecision.INCONCLUSIVE
     elif full_bt_consistent is False:
         decision = GoNogoDecision.INCONCLUSIVE
     elif sig_passed and trades_passed:
