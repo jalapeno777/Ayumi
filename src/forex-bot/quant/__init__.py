@@ -26,6 +26,16 @@ from .portfolio import (
     StrategyPortfolio,
     build_default_portfolio,
 )
+from .statistical_validation import (
+    CheckResult,
+    GoNogoDecision,
+    GoNogoResult,
+    check_full_bt_consistency,
+    check_min_trade_count,
+    check_multi_pair_validation,
+    check_statistical_significance,
+    evaluate_statistical_checks,
+)
 
 __all__ = [
     "QuantConfig",
@@ -48,4 +58,12 @@ __all__ = [
     "AllocationMethod",
     "ConflictResolution",
     "build_default_portfolio",
+    "GoNogoDecision",
+    "GoNogoResult",
+    "CheckResult",
+    "check_statistical_significance",
+    "check_min_trade_count",
+    "check_full_bt_consistency",
+    "check_multi_pair_validation",
+    "evaluate_statistical_checks",
 ]
