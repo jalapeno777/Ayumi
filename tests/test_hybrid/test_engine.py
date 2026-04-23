@@ -26,7 +26,7 @@ def _buy_signal(
         stop_loss=sl,
         take_profit=tp,
         confidence=confidence,
-        timestamp=timestamp or datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
+        timestamp=timestamp or datetime(2026, 4, 23, 14, 0, tzinfo=timezone.utc),
     )
 
 
@@ -114,7 +114,7 @@ class TestGetOpenPositions:
                 entry_price=1.2600,
                 stop_loss=1.2650,
                 take_profit=1.2450,
-                timestamp=datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 4, 23, 14, 0, tzinfo=timezone.utc),
             )
         )
         positions = engine.get_open_positions()

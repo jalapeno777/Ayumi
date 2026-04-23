@@ -21,7 +21,7 @@ def _london_buy_signal(
         stop_loss=sl,
         take_profit=tp,
         confidence=0.8,
-        timestamp=datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 4, 23, 14, 0, tzinfo=timezone.utc),
     )
 
 

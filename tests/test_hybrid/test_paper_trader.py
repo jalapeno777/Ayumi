@@ -17,7 +17,7 @@ def _buy_signal(
     entry: float = 1.1000,
     sl: float = 1.0950,
     tp: float = 1.1150,
-    hour: int = 8,
+    hour: int = 14,
 ) -> HumanSignal:
     return HumanSignal(
         signal_type=SignalType.BUY,
@@ -310,7 +310,7 @@ class TestSimulateTradingDay:
                 stop_loss=1.0950,
                 take_profit=1.1150,
                 confidence=0.8,
-                timestamp=datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 4, 23, 14, 0, tzinfo=timezone.utc),
             )
         )
         assert r1.success is True
@@ -323,7 +323,7 @@ class TestSimulateTradingDay:
                 stop_loss=1.2650,
                 take_profit=1.2450,
                 confidence=0.7,
-                timestamp=datetime(2026, 4, 23, 9, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 4, 23, 15, 0, tzinfo=timezone.utc),
             )
         )
         assert r2.success is True
@@ -336,7 +336,7 @@ class TestSimulateTradingDay:
                 stop_loss=149.50,
                 take_profit=151.00,
                 confidence=0.75,
-                timestamp=datetime(2026, 4, 23, 10, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 4, 23, 16, 0, tzinfo=timezone.utc),
             )
         )
         assert r3.success is True
