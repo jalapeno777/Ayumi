@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from hybrid.signal import HumanSignal, SignalType
+from quant.position_sizing import fixed_fractional
 
 
 class RiskAction(StrEnum):
@@ -31,6 +32,7 @@ class RiskManager:
         max_trades_per_day: int = 10,
         max_positions: int = 3,
         min_risk_reward: float = 1.5,
+        max_daily_risk_pct: float = 1.5,
     ) -> None:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -40,8 +42,11 @@ class RiskManager:
         self._max_trades_per_day = max_trades_per_day
         self._max_positions = max_positions
         self._min_risk_reward = min_risk_reward
+        self._max_daily_risk_pct = max_daily_risk_pct
         self._daily_trade_count = 0
+        self._daily_risk_used_pct = 0.0
         self._peak_balance = starting_balance
+        self._open_position_count = 0
 
     @property
     def current_balance(self) -> float:
@@ -53,7 +58,27 @@ class RiskManager:
 
     @property
     def open_position_count(self) -> int:
-        return 0
+        return self._open_position_count
+
+    @property
+    def daily_loss_pct(self) -> float:
+        if self._starting_balance <= 0:
+            return 0.0
+        return max(
+            0.0,
+            (self._starting_balance - self._current_balance)
+            / self._starting_balance
+            * 100.0,
+        )
+
+    @property
+    def total_drawdown_pct(self) -> float:
+        if self._peak_balance <= 0:
+            return 0.0
+        return max(
+            0.0,
+            (self._peak_balance - self._current_balance) / self._peak_balance * 100.0,
+        )
 
     def validate_signal(self, signal: HumanSignal) -> RiskDecision:
         if signal.signal_type == SignalType.CLOSE:
@@ -71,11 +96,11 @@ class RiskManager:
                 ),
             )
 
-        if self.open_position_count >= self._max_positions:
+        if self._open_position_count >= self._max_positions:
             return RiskDecision(
                 action=RiskAction.REJECT,
                 reason=(
-                    f"Max positions reached: {self.open_position_count}/"
+                    f"Max positions reached: {self._open_position_count}/"
                     f"{self._max_positions}"
                 ),
             )
@@ -84,6 +109,36 @@ class RiskManager:
             return RiskDecision(
                 action=RiskAction.REJECT,
                 reason="Signal must include a stop loss",
+            )
+
+        daily_dd = self.daily_loss_pct
+        if daily_dd >= self._max_daily_loss_pct:
+            return RiskDecision(
+                action=RiskAction.REJECT,
+                reason=(
+                    f"Daily drawdown {daily_dd:.2f}% >= limit "
+                    f"{self._max_daily_loss_pct:.2f}%"
+                ),
+            )
+
+        total_dd = self.total_drawdown_pct
+        if total_dd >= self._max_total_drawdown_pct:
+            return RiskDecision(
+                action=RiskAction.REJECT,
+                reason=(
+                    f"Total drawdown {total_dd:.2f}% >= limit "
+                    f"{self._max_total_drawdown_pct:.2f}%"
+                ),
+            )
+
+        remaining_daily_risk = self._max_daily_risk_pct - self._daily_risk_used_pct
+        if remaining_daily_risk <= 0:
+            return RiskDecision(
+                action=RiskAction.REJECT,
+                reason=(
+                    f"Daily risk budget exhausted: "
+                    f"{self._daily_risk_used_pct:.2f}%/{self._max_daily_risk_pct:.2f}%"
+                ),
             )
 
         risk_reward = self._calculate_risk_reward(signal)
@@ -97,16 +152,24 @@ class RiskManager:
                 risk_reward=risk_reward,
             )
 
+        if self._risk_per_trade_pct > remaining_daily_risk:
+            capped_risk = remaining_daily_risk
+        else:
+            capped_risk = self._risk_per_trade_pct
+
         return RiskDecision(
             action=RiskAction.ALLOW,
             reason="Signal passes all risk checks",
             risk_reward=risk_reward,
+            suggested_lot_size=capped_risk,
+            max_lot_size=remaining_daily_risk,
         )
 
     def calculate_position_size(
         self,
         signal: HumanSignal,
         account_balance: float | None = None,
+        risk_pct_override: float | None = None,
     ) -> float:
         balance = (
             account_balance if account_balance is not None else self._current_balance
@@ -116,25 +179,39 @@ class RiskManager:
         if not signal.has_stop_loss or signal.entry_price <= 0:
             return 0.0
 
-        stop_loss = (
-            signal.stop_loss if signal.stop_loss is not None else signal.entry_price
+        sl = signal.stop_loss if signal.stop_loss is not None else signal.entry_price
+        risk_pct = (
+            risk_pct_override
+            if risk_pct_override is not None
+            else self._risk_per_trade_pct
         )
-        stop_distance = abs(signal.entry_price - stop_loss)
-        if stop_distance == 0:
-            return 0.0
 
-        risk_amount = balance * (self._risk_per_trade_pct / 100.0)
-        lot_size = risk_amount / (stop_distance * 100_000)
+        lot_size = fixed_fractional(
+            account_balance=balance,
+            risk_pct=risk_pct,
+            entry_price=signal.entry_price,
+            stop_loss=sl,
+        )
         return max(0.0, round(lot_size, 2))
 
-    def record_trade(self, pnl: float) -> None:
+    def open_position(self) -> None:
+        self._open_position_count += 1
+
+    def close_position(self) -> None:
+        if self._open_position_count > 0:
+            self._open_position_count -= 1
+
+    def record_trade(self, pnl: float, risk_pct: float | None = None) -> None:
         self._current_balance += pnl
         self._daily_trade_count += 1
+        used_risk = risk_pct if risk_pct is not None else self._risk_per_trade_pct
+        self._daily_risk_used_pct += used_risk
         if self._current_balance > self._peak_balance:
             self._peak_balance = self._current_balance
 
     def reset_daily_tracking(self) -> None:
         self._daily_trade_count = 0
+        self._daily_risk_used_pct = 0.0
 
     def _calculate_risk_reward(self, signal: HumanSignal) -> float:
         if not signal.has_stop_loss or not signal.has_take_profit:

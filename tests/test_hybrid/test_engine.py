@@ -1,5 +1,13 @@
+from datetime import datetime, time, timezone
 
-from hybrid.engine import HybridEngine, OrderResult, OrderStatus
+from hybrid.engine import (
+    DEFAULT_SESSION_WINDOWS,
+    HybridEngine,
+    HybridEngineConfig,
+    OrderResult,
+    OrderStatus,
+    SessionWindow,
+)
 from hybrid.risk_manager import RiskAction, RiskManager
 from hybrid.signal import HumanSignal, SignalType
 
@@ -8,6 +16,8 @@ def _buy_signal(
     entry: float = 1.1000,
     sl: float = 1.0950,
     tp: float = 1.1150,
+    confidence: float = 0.8,
+    timestamp: datetime | None = None,
 ) -> HumanSignal:
     return HumanSignal(
         signal_type=SignalType.BUY,
@@ -15,7 +25,8 @@ def _buy_signal(
         entry_price=entry,
         stop_loss=sl,
         take_profit=tp,
-        confidence=0.8,
+        confidence=confidence,
+        timestamp=timestamp or datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
     )
 
 
@@ -30,6 +41,10 @@ class TestHybridEngineInit:
         engine = HybridEngine(risk_manager=rm)
         assert engine.risk_manager is rm
         assert engine.risk_manager.current_balance == 50_000.0
+
+    def test_session_filter_enabled_by_default(self):
+        engine = HybridEngine()
+        assert engine._config.session_filter_enabled is True
 
 
 class TestSubmitSignal:
@@ -99,6 +114,7 @@ class TestGetOpenPositions:
                 entry_price=1.2600,
                 stop_loss=1.2650,
                 take_profit=1.2450,
+                timestamp=datetime(2026, 4, 23, 8, 0, tzinfo=timezone.utc),
             )
         )
         positions = engine.get_open_positions()
@@ -133,6 +149,13 @@ class TestClosePosition:
         engine.close_position(result.position_id)
         assert engine.get_open_positions() == []
 
+    def test_close_position_decrements_risk_manager_count(self):
+        engine = HybridEngine()
+        result = engine.submit_signal(_buy_signal())
+        assert engine.risk_manager.open_position_count == 1
+        engine.close_position(result.position_id)
+        assert engine.risk_manager.open_position_count == 0
+
 
 class TestOrderResult:
     def test_success_result(self):
@@ -153,3 +176,34 @@ class TestOrderStatus:
         assert OrderStatus.FILLED == "filled"
         assert OrderStatus.REJECTED == "rejected"
         assert OrderStatus.CANCELLED == "cancelled"
+
+
+class TestSessionWindow:
+    def test_session_window_fields(self):
+        sw = SessionWindow(name="london", start_utc=time(8, 0), end_utc=time(12, 0))
+        assert sw.name == "london"
+        assert sw.start_utc == time(8, 0)
+        assert sw.end_utc == time(12, 0)
+
+    def test_default_session_windows(self):
+        assert len(DEFAULT_SESSION_WINDOWS) == 6
+        names = {sw.name for sw in DEFAULT_SESSION_WINDOWS}
+        assert "london_open" in names
+        assert "ny_open" in names
+
+
+class TestHybridEngineConfig:
+    def test_default_config(self):
+        config = HybridEngineConfig()
+        assert config.session_filter_enabled is True
+        assert config.allowed_sessions is None
+
+    def test_custom_allowed_sessions(self):
+        config = HybridEngineConfig(
+            allowed_sessions=["london_open", "ny_open"],
+        )
+        assert config.allowed_sessions == ["london_open", "ny_open"]
+
+    def test_session_filter_disabled(self):
+        config = HybridEngineConfig(session_filter_enabled=False)
+        assert config.session_filter_enabled is False
