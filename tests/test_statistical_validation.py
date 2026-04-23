@@ -164,6 +164,16 @@ class TestEvaluateStatisticalChecks(unittest.TestCase):
         self.assertEqual(result.decision, GoNogoDecision.INCONCLUSIVE)
         self.assertFalse(result.full_bt_consistent)
 
+    def test_bt_consistency_uses_aggregate_pnl_not_any_trade(self):
+        mostly_losing = [-10.0, -20.0, -15.0, -8.0, -12.0, -9.0, -11.0, 0.5]
+        self.assertTrue(any(p > 0 for p in mostly_losing))
+        self.assertLess(sum(mostly_losing), 0)
+        result = evaluate_statistical_checks(
+            mostly_losing, full_bt_pnl=-500.0, min_trades=5
+        )
+        self.assertTrue(result.full_bt_consistent)
+        self.assertEqual(result.decision, GoNogoDecision.NO_GO)
+
     def test_with_multi_pair_confirmed(self):
         pnls = [50.0] * 60
         pair_results = {"EUR/USD": 1.5, "GBP/USD": 1.2}
