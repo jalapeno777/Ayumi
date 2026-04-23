@@ -154,7 +154,9 @@ class TestFTMOComplianceIntegration:
 
 class TestPositionSizingIntegration:
     def test_position_size_correct_for_given_stop_distance(self):
-        engine = HybridEngine()
+        engine = HybridEngine(
+            risk_manager=RiskManager(starting_balance=100_000.0, max_lot_size=10.0),
+        )
         signal = _london_buy_signal(entry=1.1000, sl=1.0950, tp=1.1150)
         result = engine.submit_signal(signal)
         assert result.success is True
@@ -164,7 +166,9 @@ class TestPositionSizingIntegration:
         assert abs(result.lot_size - round(expected_lots, 2)) < 0.01
 
     def test_larger_stop_distance_gives_smaller_position(self):
-        engine = HybridEngine()
+        engine = HybridEngine(
+            risk_manager=RiskManager(starting_balance=100_000.0, max_lot_size=10.0),
+        )
         tight = _london_buy_signal(entry=1.1000, sl=1.0990, tp=1.1150)
         wide = _london_buy_signal(entry=1.1000, sl=1.0950, tp=1.1150)
         result_tight = engine.submit_signal(tight)
@@ -174,8 +178,14 @@ class TestPositionSizingIntegration:
         assert result_tight.lot_size > result_wide.lot_size
 
     def test_smaller_balance_gives_smaller_position(self):
-        engine_big = HybridEngine(starting_balance=100_000.0)
-        engine_small = HybridEngine(starting_balance=50_000.0)
+        engine_big = HybridEngine(
+            starting_balance=100_000.0,
+            risk_manager=RiskManager(starting_balance=100_000.0, max_lot_size=10.0),
+        )
+        engine_small = HybridEngine(
+            starting_balance=50_000.0,
+            risk_manager=RiskManager(starting_balance=50_000.0, max_lot_size=10.0),
+        )
         r1 = engine_big.submit_signal(_london_buy_signal())
         r2 = engine_small.submit_signal(_london_buy_signal())
         assert r1.lot_size > r2.lot_size
