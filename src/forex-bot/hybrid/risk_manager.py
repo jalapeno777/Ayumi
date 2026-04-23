@@ -33,6 +33,7 @@ class RiskManager:
         max_positions: int = 3,
         min_risk_reward: float = 1.5,
         max_daily_risk_pct: float = 1.5,
+        max_lot_size: float = 1.0,
     ) -> None:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -43,6 +44,7 @@ class RiskManager:
         self._max_positions = max_positions
         self._min_risk_reward = min_risk_reward
         self._max_daily_risk_pct = max_daily_risk_pct
+        self._max_lot_size = max_lot_size
         self._daily_trade_count = 0
         self._daily_risk_used_pct = 0.0
         self._peak_balance = starting_balance
@@ -59,6 +61,10 @@ class RiskManager:
     @property
     def open_position_count(self) -> int:
         return self._open_position_count
+
+    @property
+    def max_lot_size(self) -> float:
+        return self._max_lot_size
 
     @property
     def daily_loss_pct(self) -> float:
@@ -192,6 +198,7 @@ class RiskManager:
             entry_price=signal.entry_price,
             stop_loss=sl,
         )
+        lot_size = min(lot_size, self._max_lot_size)
         return max(0.0, round(lot_size, 2))
 
     def open_position(self) -> None:
