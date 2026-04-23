@@ -26,6 +26,11 @@ from .portfolio import (
     StrategyPortfolio,
     build_default_portfolio,
 )
+from .go_nogo_criteria import (
+    AggregateCriteria,
+    EvaluateResult,
+    PerWindowCriteria,
+)
 from .statistical_validation import (
     CheckResult,
     GoNogoDecision,
@@ -66,4 +71,7 @@ __all__ = [
     "check_full_bt_consistency",
     "check_multi_pair_validation",
     "evaluate_statistical_checks",
+    "AggregateCriteria",
+    "EvaluateResult",
+    "PerWindowCriteria",
 ]
