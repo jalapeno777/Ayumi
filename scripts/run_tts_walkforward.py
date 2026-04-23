@@ -27,9 +27,17 @@ from backtest.engine import Bar
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
+from quant.go_nogo_criteria import PerWindowCriteria
 from signal_engine.risk_sizer import (
     ConfidencePositionSizer,
     parse_tiers,
+)
+
+TTS_PER_WINDOW = PerWindowCriteria(
+    min_trades=20,
+    win_rate=0.40,
+    profit_factor=1.0,
+    max_drawdown=0.05,
 )
 
 
@@ -231,21 +239,24 @@ def main() -> None:
             all_trade_records[pair] = [{**t, "pair": pair} for t in trade_records]
             print(f"  Trade records: {len(trade_records)} (with confidence scores)")
 
-        # Extract go/nogo from walk-forward results
+        # Extract go/nogo from walk-forward results using shared module
         agg = getattr(result, "aggregated", None)
         if agg is not None:
             net_profit = getattr(agg, "mean_total_pnl", 0)
             win_rate = getattr(agg, "mean_win_rate", 0)
-            max_dd = getattr(agg, "mean_max_drawdown", 1.0) * 100  # decimal to pct
+            max_dd_decimal = getattr(agg, "mean_max_drawdown", 1.0)
             total_trades = int(getattr(agg, "mean_trade_count", 0))
+            profit_factor = getattr(agg, "mean_profit_factor", 0.0)
 
-            # FTMO-style go/nogo
-            passes = (
-                total_trades >= 20
-                and max_dd <= 5.0
-                and net_profit > 0
-                and win_rate >= 0.40
+            pw_result = TTS_PER_WINDOW.evaluate(
+                trade_count=total_trades,
+                win_rate=win_rate,
+                profit_factor=profit_factor,
+                total_pnl=net_profit,
+                max_drawdown=max_dd_decimal,
             )
+            passes = pw_result.passed
+            max_dd = max_dd_decimal * 100
             go_nogo[pair] = {
                 "pass": passes,
                 "net_profit": net_profit,
@@ -264,14 +275,16 @@ def main() -> None:
             win_rate = metrics.get("win_rate", 0)
             max_dd = metrics.get("max_drawdown_pct", 100)
             total_trades = metrics.get("total_trades", 0)
+            profit_factor = metrics.get("profit_factor", 0.0)
 
-            # FTMO-style go/nogo
-            passes = (
-                total_trades >= 20
-                and max_dd <= 5.0
-                and net_profit > 0
-                and win_rate >= 0.40
+            pw_result = TTS_PER_WINDOW.evaluate(
+                trade_count=total_trades,
+                win_rate=win_rate,
+                profit_factor=profit_factor,
+                total_pnl=net_profit,
+                max_drawdown=max_dd / 100.0,
             )
+            passes = pw_result.passed
             go_nogo[pair] = {
                 "pass": passes,
                 "net_profit": net_profit,
@@ -298,7 +311,10 @@ def main() -> None:
         "timeframe": args.timeframe,
         "config": {
             "min_confidence": (
-                {p: get_per_symbol_min_confidence(p, args.timeframe) for p in args.pairs}
+                {
+                    p: get_per_symbol_min_confidence(p, args.timeframe)
+                    for p in args.pairs
+                }
                 if cli_confidence is None
                 else cli_confidence
             ),

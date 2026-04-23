@@ -26,6 +26,14 @@ from backtest.engine import BacktestConfig, BacktestMetrics
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import SupertrendRSIBlendStrategy
 from backtest import CsvDataLoader
+from quant.go_nogo_criteria import PerWindowCriteria
+
+STRICT_PER_WINDOW = PerWindowCriteria(
+    min_trades=5,
+    win_rate=0.55,
+    profit_factor=1.5,
+    max_drawdown=0.05,
+)
 
 
 def _metrics_to_dict(m: BacktestMetrics) -> dict:
@@ -164,12 +172,14 @@ def run_supertrend_walkforward(
         val_metrics = engine.run_strategy(strategy, val_bars)
         test_metrics = engine.run_strategy(strategy, test_bars)
 
-        passed = (
-            test_metrics.win_rate > 55
-            and test_metrics.profit_factor > 1.5
-            and test_metrics.max_drawdown_pct < 5.0
-            and test_metrics.sharpe_ratio > 0.5
+        pw_result = STRICT_PER_WINDOW.evaluate(
+            trade_count=test_metrics.total_trades,
+            win_rate=test_metrics.win_rate / 100.0,
+            profit_factor=test_metrics.profit_factor,
+            total_pnl=test_metrics.total_pnl,
+            max_drawdown=test_metrics.max_drawdown_pct / 100.0,
         )
+        passed = pw_result.passed
 
         results.append(
             {
