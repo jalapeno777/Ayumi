@@ -486,5 +486,56 @@ class TestMeanAndStd(unittest.TestCase):
         self.assertAlmostEqual(result, 2.1381, places=3)
 
 
+class TestGoNogoResultField(unittest.TestCase):
+    def test_run_strategy_populates_go_nogo_result(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        self.assertIsNotNone(results.go_nogo_result)
+
+    def test_go_nogo_result_has_decision(self):
+        from quant.statistical_validation import GoNogoDecision
+
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        self.assertIsInstance(results.go_nogo_result.decision, GoNogoDecision)
+
+    def test_go_nogo_result_total_oos_trades(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        expected_trades = sum(m.trade_count for m in results.per_window)
+        self.assertEqual(results.go_nogo_result.total_oos_trades, expected_trades)
+
+    def test_go_nogo_result_checks_populated(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        self.assertTrue(len(results.go_nogo_result.checks) >= 2)
+
+    def test_backward_compat_go_nogo_bool(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        self.assertIsInstance(results.go_nogo, bool)
+
+    def test_empty_results_go_nogo_result_none(self):
+        results = WalkForwardResults()
+        self.assertIsNone(results.go_nogo_result)
+
+    def test_default_go_nogo_result_none(self):
+        results = WalkForwardResults(go_nogo=False)
+        self.assertIsNone(results.go_nogo_result)
+
+    def test_comparison_report_includes_statistical_info(self):
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(300, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3)
+        report = comparison_report(results, results)
+        self.assertIn("Statistical Validation", report)
+        self.assertIn("Decision:", report)
+
+
 if __name__ == "__main__":
     unittest.main()

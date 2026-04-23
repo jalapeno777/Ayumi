@@ -7,6 +7,10 @@ from typing import Any
 
 from backtest.engine import Bar, MarketState, determine_session
 from backtest.strategies import ISignalStrategy
+from quant.statistical_validation import (
+    GoNogoResult,
+    evaluate_statistical_checks,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +48,7 @@ class WalkForwardResults:
     per_window: list[WindowMetrics] = field(default_factory=list)
     aggregated: AggregatedMetrics | None = None
     go_nogo: bool = False
+    go_nogo_result: GoNogoResult | None = None
 
 
 @dataclass
@@ -226,6 +231,7 @@ def run_strategy(
     )
 
     per_window: list[WindowMetrics] = []
+    all_oos_pnls: list[float] = []
     for idx, (train, val, test) in enumerate(validator.split(bars)):
         if len(test) < 10:
             metrics = WindowMetrics(
@@ -249,6 +255,7 @@ def run_strategy(
         )
         metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
         per_window.append(metrics)
+        all_oos_pnls.extend(t["pnl"] for t in trades)
 
     aggregated = None
     if per_window:
@@ -287,10 +294,13 @@ def run_strategy(
     total = len(per_window)
     go_nogo = total >= 3 and windows_passed >= 3
 
+    go_nogo_result = evaluate_statistical_checks(all_oos_pnls)
+
     return WalkForwardResults(
         per_window=per_window,
         aggregated=aggregated,
         go_nogo=go_nogo,
+        go_nogo_result=go_nogo_result,
     )
 
 
@@ -454,6 +464,22 @@ def comparison_report(
         f"Strategy B: {passed_b}/{total_b} windows passed GO/NO-GO  -> {'GO' if results_b.go_nogo else 'NO-GO'}"
     )
     lines.append("")
+
+    for label, results in [("Strategy A", results_a), ("Strategy B", results_b)]:
+        stat = results.go_nogo_result
+        if stat is not None:
+            lines.append(f"{label} Statistical Validation:")
+            lines.append(f"  Decision: {stat.decision.value}")
+            if stat.p_value is not None:
+                lines.append(f"  P-value: {stat.p_value:.4f}")
+            lines.append(f"  Total OOS trades: {stat.total_oos_trades}")
+            lines.append(f"  Min trades met: {stat.min_trades_met}")
+            lines.append(f"  Significance met: {stat.significance_met}")
+            if stat.full_bt_consistent is not None:
+                lines.append(f"  Full BT consistent: {stat.full_bt_consistent}")
+            if stat.multi_pair_status is not None:
+                lines.append(f"  Multi-pair status: {stat.multi_pair_status}")
+            lines.append("")
 
     if agg_a:
         lines.append("Strategy A Per-Window Details:")
