@@ -63,6 +63,7 @@ def check_statistical_significance(
         name="statistical_significance",
         passed=passed,
         detail=detail,
+        extra={"one_tailed_p": one_tailed_p},
     )
 
 
@@ -150,7 +151,7 @@ def evaluate_statistical_checks(
 
     full_bt_consistent: bool | None = None
     if full_bt_pnl is not None:
-        wf_positive = any(p > 0 for p in oos_pnls) if oos_pnls else False
+        wf_positive = sum(oos_pnls) > 0 if oos_pnls else False
         bt_check = check_full_bt_consistency(full_bt_pnl, wf_positive)
         checks.append(bt_check)
         full_bt_consistent = bt_check.passed
@@ -180,13 +181,7 @@ def evaluate_statistical_checks(
     else:
         decision = GoNogoDecision.NO_GO
 
-    p_value = None
-    if len(oos_pnls) >= 2:
-        arr = np.array(oos_pnls, dtype=np.float64)
-        t_stat, raw_p = stats.ttest_1samp(arr, 0.0)
-        t_stat = float(t_stat)
-        raw_p = float(raw_p)
-        p_value = _one_tailed_p(t_stat, raw_p)
+    p_value = sig_check.extra.get("one_tailed_p") if len(oos_pnls) >= 2 else None
 
     return GoNogoResult(
         decision=decision,
