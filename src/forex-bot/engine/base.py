@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from core.config import BacktestConfig, BacktestMetrics
 from core.pip import PipCalculator
-from core.spread import SpreadModel
+from core.spread import RealisticSpreadModel, SpreadModel
 from core.types import (
     Bar,
     ExitReason,
@@ -39,7 +39,7 @@ class EngineCore:
     def __init__(
         self,
         config: BacktestConfig,
-        spread_model: SpreadModel | None = None,
+        spread_model: SpreadModel | RealisticSpreadModel | None = None,
     ):
         self.config = config
         self.spread_model = spread_model or SpreadModel(
@@ -69,6 +69,10 @@ class EngineCore:
                 self.max_daily_loss = daily_loss
             self.current_day = day
             self.daily_start_balance = self.balance
+
+    def _update_bar_spread(self, bar: Bar) -> None:
+        if isinstance(self.spread_model, RealisticSpreadModel):
+            self.spread_model.set_bar_spread(bar.spread_pips)
 
     def _is_max_drawdown_breached(self) -> bool:
         if self.peak_balance <= 0:

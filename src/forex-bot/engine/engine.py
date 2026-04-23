@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from core.config import BacktestConfig, BacktestMetrics
-from core.spread import SpreadModel
+from core.spread import RealisticSpreadModel, SpreadModel
 from core.types import Bar, MarketState, SimulatedTrade, StrategySignal
 
 from engine.base import EngineCore, determine_session
@@ -35,7 +35,7 @@ class BacktestEngine(
         strategies: list["IStrategy"],
         trade_mgmt_config: "TradeManagementConfig | None" = None,
         quant_config: "QuantConfig | None" = None,
-        spread_model: SpreadModel | None = None,
+        spread_model: SpreadModel | RealisticSpreadModel | None = None,
     ):
         EngineCore.__init__(self, config, spread_model)
         ProgressiveSLMixin.__init__(self, config)
@@ -64,6 +64,7 @@ class BacktestEngine(
         for i in range(len(bars)):
             bar = bars[i]
             self._update_daily_tracking(bar.time)
+            self._update_bar_spread(bar)
 
             if self.balance <= 0:
                 break
@@ -123,6 +124,7 @@ class BacktestEngine(
         for i in range(len(bars)):
             bar = bars[i]
             self._update_daily_tracking(bar.time)
+            self._update_bar_spread(bar)
 
             if self.balance <= 0:
                 break

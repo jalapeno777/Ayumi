@@ -1,10 +1,37 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+import pyarrow.parquet as pq
+
 from .engine import Bar, BarPeriod
+from core.pip import PipCalculator
 
 _EASTERN = ZoneInfo("America/New_York")
 _UTC = timezone.utc
+
+_ASK_OPEN = "ask_open"
+_ASK_CLOSE = "ask_close"
+_BID_OPEN = "Open"
+_BID_CLOSE = "Close"
+
+_OHLC_COL_MAP = {
+    "open": "Open",
+    "high": "High",
+    "low": "Low",
+    "close": "Close",
+    "volume": "Volume",
+}
+
+
+def _find_column(df: pd.DataFrame, name: str) -> str:
+    if name in df.columns:
+        return name
+    lower_map = {c.lower(): c for c in df.columns}
+    if name.lower() in lower_map:
+        return lower_map[name.lower()]
+    return name
 
 
 def _parse_csv_timestamp(ts_str: str) -> datetime:
@@ -16,6 +43,15 @@ def _parse_csv_timestamp(ts_str: str) -> datetime:
         except ValueError:
             continue
     raise ValueError(f"Cannot parse timestamp: {ts_str}")
+
+
+def _compute_spread_pips(bid_price: float, ask_price: float) -> float:
+    spread_price = abs(ask_price - bid_price)
+    return PipCalculator.price_to_pips(bid_price, spread_price)
+
+
+def _detect_ask_columns(df: pd.DataFrame) -> bool:
+    return _ASK_OPEN in df.columns and _ASK_CLOSE in df.columns
 
 
 class CsvDataLoader:
@@ -117,3 +153,45 @@ class CsvDataLoader:
             return BarPeriod(240)
         else:
             return BarPeriod(1440)
+
+    def load_parquet(self, filepath: str | Path) -> list[Bar]:
+        """Load OHLC(V) bars from a parquet file.
+
+        Supports two parquet formats:
+          1. Bid-only: timestamp, Open, High, Low, Close, Volume
+          2. Bid+Ask:  timestamp, Open, High, Low, Close, Volume,
+                      ask_open, ask_high, ask_low, ask_close
+
+        When ask columns are present, per-bar spread_pips is computed
+        from (ask_open - bid_open) using PipCalculator.
+
+        Column names are matched case-insensitively.
+        """
+        table = pq.read_table(str(filepath))
+        df = table.to_pandas(timestamp_as_object=True)
+        ts_col = _find_column(df, "timestamp")
+        timestamps = pd.to_datetime(df[ts_col], utc=True).dt.tz_convert(_UTC)
+        has_ask = _detect_ask_columns(df)
+        col_open = _find_column(df, "open")
+        col_high = _find_column(df, "high")
+        col_low = _find_column(df, "low")
+        col_close = _find_column(df, "close")
+        col_volume = _find_column(df, "volume")
+        bars = []
+        for i, row in df.iterrows():
+            spread = 0.0
+            if has_ask:
+                bid_open = float(row[col_open])
+                ask_open_val = float(row[_ASK_OPEN])
+                spread = _compute_spread_pips(bid_open, ask_open_val)
+            bar = Bar(
+                time=timestamps.iloc[i].to_pydatetime(),
+                open=float(row[col_open]),
+                high=float(row[col_high]),
+                low=float(row[col_low]),
+                close=float(row[col_close]),
+                volume=float(row.get(col_volume, 0.0)),
+                spread_pips=spread,
+            )
+            bars.append(bar)
+        return bars
