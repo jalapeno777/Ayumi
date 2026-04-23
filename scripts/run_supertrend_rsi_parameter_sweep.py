@@ -30,6 +30,14 @@ from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.strategies import SupertrendRSIBlendStrategy  # noqa: E402
 from backtest import CsvDataLoader  # noqa: E402
 from backtest.parameter_sweep import ParameterGrid, SweepRunner  # noqa: E402
+from quant.go_nogo_criteria import PerWindowCriteria  # noqa: E402
+
+SWEEP_PER_WINDOW = PerWindowCriteria(
+    min_trades=5,
+    win_rate=0.55,
+    profit_factor=1.2,
+    max_drawdown=0.10,
+)
 
 
 PARAM_SPACE: Dict[str, List[Any]] = {
@@ -135,11 +143,16 @@ def run_walk_forward_for_params(
         engine.run_strategy(strategy, val_bars)
         test_metrics = engine.run_strategy(strategy, test_bars)
 
-        passed = (
-            test_metrics.win_rate > 55
-            and test_metrics.profit_factor > 1.2
-            and test_metrics.max_drawdown_pct < 10.0
+        pw_result = SWEEP_PER_WINDOW.evaluate(
+            trade_count=test_metrics.total_trades,
+            win_rate=test_metrics.win_rate / 100.0,
+            profit_factor=test_metrics.profit_factor,
+            total_pnl=test_metrics.total_pnl
+            if hasattr(test_metrics, "total_pnl")
+            else 0.0,
+            max_drawdown=test_metrics.max_drawdown_pct / 100.0,
         )
+        passed = pw_result.passed
 
         results.append(
             {
