@@ -43,6 +43,7 @@ class Bar:
     low: float
     close: float
     volume: float = 0.0
+    spread_pips: float = 0.0
 
     @property
     def period(self):

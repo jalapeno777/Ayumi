@@ -68,6 +68,7 @@ class Bar:
     close: float
     volume: float = 0.0
     period: BarPeriod = field(default_factory=BarPeriod.H1)
+    spread_pips: float = 0.0
 
 
 @dataclass
