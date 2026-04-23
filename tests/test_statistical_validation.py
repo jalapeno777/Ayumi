@@ -147,10 +147,10 @@ class TestEvaluateStatisticalChecks(unittest.TestCase):
         self.assertTrue(result.significance_met)
         self.assertEqual(result.total_oos_trades, 100)
 
-    def test_too_few_trades_no_go(self):
+    def test_too_few_trades_inconclusive(self):
         pnls = [100.0, 200.0]
         result = evaluate_statistical_checks(pnls, min_trades=50)
-        self.assertEqual(result.decision, GoNogoDecision.NO_GO)
+        self.assertEqual(result.decision, GoNogoDecision.INCONCLUSIVE)
         self.assertFalse(result.min_trades_met)
 
     def test_negative_pnls_no_go(self):
@@ -187,7 +187,7 @@ class TestEvaluateStatisticalChecks(unittest.TestCase):
 
     def test_empty_pnls(self):
         result = evaluate_statistical_checks([])
-        self.assertEqual(result.decision, GoNogoDecision.NO_GO)
+        self.assertEqual(result.decision, GoNogoDecision.INCONCLUSIVE)
         self.assertFalse(result.min_trades_met)
         self.assertIsNone(result.p_value)
 
