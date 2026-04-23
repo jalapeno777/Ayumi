@@ -21,6 +21,16 @@ from hybrid.trade_rules import (
     WeeklyDrawdownConfig,
 )
 
+from hybrid.cli import (
+    build_parser,
+    cmd_close,
+    cmd_positions,
+    cmd_signal,
+    cmd_status,
+    create_engine,
+    main as cli_main,
+)
+
 __all__ = [
     "HumanSignal",
     "SignalSource",
@@ -44,4 +54,11 @@ __all__ = [
     "RuleAction",
     "RuleResult",
     "RejectReason",
+    "build_parser",
+    "cmd_signal",
+    "cmd_status",
+    "cmd_positions",
+    "cmd_close",
+    "create_engine",
+    "cli_main",
 ]
