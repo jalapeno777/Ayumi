@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from datetime import datetime, time, timezone
 from enum import StrEnum
 
 from hybrid.signal import HumanSignal, SignalType
 from quant.position_sizing import fixed_fractional
+
+logger = logging.getLogger(__name__)
 
 
 class RiskAction(StrEnum):
@@ -22,6 +26,29 @@ class RiskDecision:
     max_lot_size: float | None = None
 
 
+@dataclass
+class LondonSessionConfig:
+    start_hour: int = 8
+    start_minute: int = 0
+    end_hour: int = 12
+    end_minute: int = 0
+    min_risk_reward: float = 2.0
+    size_multiplier: float = 0.5
+    blocked_pair_prefixes: tuple[str, ...] = ("GBP",)
+
+    def contains(self, utc_dt: datetime) -> bool:
+        t = utc_dt.time()
+        start = time(self.start_hour, self.start_minute)
+        end = time(self.end_hour, self.end_minute)
+        if start <= end:
+            return start <= t < end
+        return t >= start or t < end
+
+    def is_blocked_pair(self, pair: str) -> bool:
+        upper = pair.upper().replace("/", "")
+        return any(upper.startswith(p) for p in self.blocked_pair_prefixes)
+
+
 class RiskManager:
     def __init__(
         self,
@@ -34,6 +61,7 @@ class RiskManager:
         min_risk_reward: float = 1.5,
         max_daily_risk_pct: float = 1.5,
         max_lot_size: float = 1.0,
+        london_config: LondonSessionConfig | None = None,
     ) -> None:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -45,10 +73,12 @@ class RiskManager:
         self._min_risk_reward = min_risk_reward
         self._max_daily_risk_pct = max_daily_risk_pct
         self._max_lot_size = max_lot_size
+        self._london_config = london_config or LondonSessionConfig()
         self._daily_trade_count = 0
         self._daily_risk_used_pct = 0.0
         self._peak_balance = starting_balance
         self._open_position_count = 0
+        self._london_trade_count = 0
 
     @property
     def current_balance(self) -> float:
@@ -65,6 +95,14 @@ class RiskManager:
     @property
     def max_lot_size(self) -> float:
         return self._max_lot_size
+
+    @property
+    def london_trade_count(self) -> int:
+        return self._london_trade_count
+
+    @property
+    def london_config(self) -> LondonSessionConfig:
+        return self._london_config
 
     @property
     def daily_loss_pct(self) -> float:
@@ -85,6 +123,11 @@ class RiskManager:
             0.0,
             (self._peak_balance - self._current_balance) / self._peak_balance * 100.0,
         )
+
+    def is_london_session(self, utc_dt: datetime | None = None) -> bool:
+        if utc_dt is None:
+            utc_dt = datetime.now(timezone.utc)
+        return self._london_config.contains(utc_dt)
 
     def validate_signal(self, signal: HumanSignal) -> RiskDecision:
         if signal.signal_type == SignalType.CLOSE:
@@ -117,6 +160,11 @@ class RiskManager:
                 reason="Signal must include a stop loss",
             )
 
+        if self._london_config.contains(signal.timestamp):
+            pair_rejection = self._check_london_pair_filter(signal)
+            if pair_rejection is not None:
+                return pair_rejection
+
         daily_dd = self.daily_loss_pct
         if daily_dd >= self._max_daily_loss_pct:
             return RiskDecision(
@@ -148,12 +196,12 @@ class RiskManager:
             )
 
         risk_reward = self._calculate_risk_reward(signal)
-        if risk_reward < self._min_risk_reward:
+        effective_min_rr = self._get_effective_min_rr(signal)
+        if risk_reward < effective_min_rr:
             return RiskDecision(
                 action=RiskAction.REJECT,
                 reason=(
-                    f"Risk:Reward {risk_reward:.2f} below minimum "
-                    f"{self._min_risk_reward}"
+                    f"Risk:Reward {risk_reward:.2f} below minimum {effective_min_rr}"
                 ),
                 risk_reward=risk_reward,
             )
@@ -162,6 +210,16 @@ class RiskManager:
             capped_risk = remaining_daily_risk
         else:
             capped_risk = self._risk_per_trade_pct
+
+        in_london = self._london_config.contains(signal.timestamp)
+        if in_london:
+            self._london_trade_count += 1
+            logger.info(
+                "London entry: pair=%s R:R=%.2f risk_pct=%.2f",
+                signal.pair,
+                risk_reward,
+                capped_risk,
+            )
 
         return RiskDecision(
             action=RiskAction.ALLOW,
@@ -192,6 +250,15 @@ class RiskManager:
             else self._risk_per_trade_pct
         )
 
+        if self._london_config.contains(signal.timestamp):
+            risk_pct *= self._london_config.size_multiplier
+            logger.info(
+                "London size reduction: pair=%s multiplier=%.1f adjusted_risk_pct=%.2f",
+                signal.pair,
+                self._london_config.size_multiplier,
+                risk_pct,
+            )
+
         lot_size = fixed_fractional(
             account_balance=balance,
             risk_pct=risk_pct,
@@ -219,6 +286,28 @@ class RiskManager:
     def reset_daily_tracking(self) -> None:
         self._daily_trade_count = 0
         self._daily_risk_used_pct = 0.0
+        self._london_trade_count = 0
+
+    def _get_effective_min_rr(self, signal: HumanSignal) -> float:
+        if self._london_config.contains(signal.timestamp):
+            return max(self._min_risk_reward, self._london_config.min_risk_reward)
+        return self._min_risk_reward
+
+    def _check_london_pair_filter(self, signal: HumanSignal) -> RiskDecision | None:
+        if self._london_config.is_blocked_pair(signal.pair):
+            logger.info(
+                "London pair filter: rejected %s during London session",
+                signal.pair,
+            )
+            return RiskDecision(
+                action=RiskAction.REJECT,
+                reason=(
+                    f"Pair {signal.pair} blocked during London session "
+                    f"({self._london_config.start_hour:02d}:00-"
+                    f"{self._london_config.end_hour:02d}:00 UTC)"
+                ),
+            )
+        return None
 
     def _calculate_risk_reward(self, signal: HumanSignal) -> float:
         if not signal.has_stop_loss or not signal.has_take_profit:
