@@ -27,6 +27,7 @@ from ml.train_model import (  # noqa: E402
 )
 from ml.features import build_feature_matrix, add_multi_timeframe_features, load_csv  # noqa: E402
 from ml.signal_simulator import build_labeled_dataset
+from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria  # noqa: E402
 
 
 SEED = 42
@@ -37,11 +38,17 @@ OUTPUT_DIR = str(project_root / "data" / "forex" / "models")
 N_FOLDS = 5
 MAX_HOLDING_BARS = 50
 
-ACCEPTANCE = {
-    "min_win_rate": 55.0,
-    "min_profit_factor": 1.3,
-    "min_passing_windows": 3,
-}
+ML_PER_WINDOW = PerWindowCriteria(
+    min_trades=5,
+    win_rate=0.55,
+    profit_factor=1.3,
+    max_drawdown=0.10,
+)
+ML_AGGREGATE = AggregateCriteria(
+    min_total_trades=50,
+    min_windows_passed=3,
+    min_total_windows=3,
+)
 
 
 def compute_drawdown(equity_curve: np.ndarray) -> float:
@@ -138,10 +145,14 @@ def run_full_backtest():
         filtered_wr = fold.get("filtered_win_rate", 0)
         filtered_pf = fold.get("filtered_profit_factor", 0)
 
-        passes = (
-            opt_wr >= ACCEPTANCE["min_win_rate"]
-            and opt_pf >= ACCEPTANCE["min_profit_factor"]
+        pw_result = ML_PER_WINDOW.evaluate(
+            trade_count=opt_tc,
+            win_rate=opt_wr / 100.0,
+            profit_factor=opt_pf,
+            total_pnl=opt_pnl,
+            max_drawdown=0.10,
         )
+        passes = pw_result.passed
         if passes:
             passing_windows += 1
 
@@ -201,9 +212,14 @@ def run_full_backtest():
     overall_wr = avg_wr
     overall_pf = avg_pf
 
-    meets_wr = overall_wr >= ACCEPTANCE["min_win_rate"]
-    meets_pf = overall_pf >= ACCEPTANCE["min_profit_factor"]
-    meets_windows = passing_windows >= ACCEPTANCE["min_passing_windows"]
+    meets_wr = overall_wr >= ML_PER_WINDOW.win_rate * 100
+    meets_pf = overall_pf >= ML_PER_WINDOW.profit_factor
+    agg_result = ML_AGGREGATE.evaluate(
+        total_trades=total_trades,
+        windows_passed=passing_windows,
+        total_windows=len(window_results),
+    )
+    meets_windows = agg_result.passed
     go_nogo = meets_wr and meets_pf and meets_windows
 
     print("=" * 70)
@@ -211,14 +227,14 @@ def run_full_backtest():
     print("=" * 70)
     print(f"\nWalk-Forward Windows: {len(window_results)}")
     print(
-        f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ACCEPTANCE['min_passing_windows']})"
+        f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ML_AGGREGATE.min_windows_passed})"
     )
     print("\n--- Average Optimized Metrics ---")
     print(
-        f"  Win Rate:       {avg_wr:.2f}% (target: >= {ACCEPTANCE['min_win_rate']}%) [{'PASS' if meets_wr else 'FAIL'}]"
+        f"  Win Rate:       {avg_wr:.2f}% (target: >= {ML_PER_WINDOW.win_rate * 100}%) [{'PASS' if meets_wr else 'FAIL'}]"
     )
     print(
-        f"  Profit Factor:  {avg_pf:.2f} (target: >= {ACCEPTANCE['min_profit_factor']}) [{'PASS' if meets_pf else 'FAIL'}]"
+        f"  Profit Factor:  {avg_pf:.2f} (target: >= {ML_PER_WINDOW.profit_factor}) [{'PASS' if meets_pf else 'FAIL'}]"
     )
     print(f"  Sharpe Ratio:   {sharpe:.4f}")
     print(f"  Max Drawdown:   {max_dd:.2f}%")
@@ -250,7 +266,11 @@ def run_full_backtest():
         "labeled_trades": len(dataset),
         "strategy_breakdown": dataset["strategy"].value_counts().to_dict(),
         "baseline_win_rate": dataset["outcome"].mean() * 100,
-        "acceptance_criteria": ACCEPTANCE,
+        "acceptance_criteria": {
+            "min_win_rate": ML_PER_WINDOW.win_rate * 100,
+            "min_profit_factor": ML_PER_WINDOW.profit_factor,
+            "min_passing_windows": ML_AGGREGATE.min_windows_passed,
+        },
         "window_results": window_results,
         "passing_windows": passing_windows,
         "total_windows": len(window_results),

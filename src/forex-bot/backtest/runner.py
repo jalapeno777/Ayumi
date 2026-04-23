@@ -55,6 +55,14 @@ from backtest import (
 from backtest.engine import get_spread_for_pair
 from backtest.grid_strategy import GridConfig
 from backtest.hybrid_strategy import HybridConfig
+from quant.go_nogo_criteria import PerWindowCriteria
+
+RUNNER_PER_WINDOW = PerWindowCriteria(
+    min_trades=5,
+    win_rate=0.55,
+    profit_factor=1.5,
+    max_drawdown=0.05,
+)
 
 DEFAULT_DATA_FILE = "/home/TacoPants/projects/Ayumi/data/forex/historical/EURUSD_H1.csv"
 
@@ -970,12 +978,14 @@ def run_hybrid_backtest(
         strategy.reset_metrics()
         test_metrics = _run_window_backtest(test_bars, strategy, pair=pair)
 
-        passed = (
-            test_metrics.win_rate > 55
-            and test_metrics.profit_factor > 1.5
-            and test_metrics.max_drawdown_pct < 5.0
-            and test_metrics.sharpe_ratio > 0.5
+        pw_result = RUNNER_PER_WINDOW.evaluate(
+            trade_count=test_metrics.total_trades,
+            win_rate=test_metrics.win_rate / 100.0,
+            profit_factor=test_metrics.profit_factor,
+            total_pnl=test_metrics.total_pnl,
+            max_drawdown=test_metrics.max_drawdown_pct / 100.0,
         )
+        passed = pw_result.passed
 
         results.append(
             {
@@ -1157,12 +1167,14 @@ def run_grid_walk_forward(
         train_m = train_results[adapter.name].metrics
         test_m = test_results[adapter.name].metrics
 
-        passed = (
-            test_m.win_rate > 55
-            and test_m.profit_factor > 1.5
-            and test_m.max_drawdown_pct < 5.0
-            and test_m.sharpe_ratio > 0.5
+        pw_result = RUNNER_PER_WINDOW.evaluate(
+            trade_count=test_m.total_trades,
+            win_rate=test_m.win_rate / 100.0,
+            profit_factor=test_m.profit_factor,
+            total_pnl=test_m.total_pnl,
+            max_drawdown=test_m.max_drawdown_pct / 100.0,
         )
+        passed = pw_result.passed
 
         results.append(
             {

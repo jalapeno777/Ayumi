@@ -19,9 +19,10 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from backtest.data_loader import CsvDataLoader
-from backtest.engine import BacktestConfig, Bar, get_spread_for_pair
+from backtest.engine import BacktestConfig, get_spread_for_pair
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import ScalperStrategy
+from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria
 from quant.walk_forward import WalkForwardValidator
 from signal_engine.risk_sizer import ConfidencePositionSizer
 
@@ -33,9 +34,17 @@ TRAIN_RATIO = 0.70
 VAL_RATIO = 0.15
 INITIAL_BALANCE = 10000.0
 
-GO_WR = 0.45
-GO_PF = 1.3
-GO_MIN_WINDOWS = 3
+SCALPER_PER_WINDOW = PerWindowCriteria(
+    min_trades=5,
+    win_rate=0.45,
+    profit_factor=1.3,
+    max_drawdown=0.10,
+)
+SCALPER_AGGREGATE = AggregateCriteria(
+    min_total_trades=50,
+    min_windows_passed=3,
+    min_total_windows=3,
+)
 
 
 @dataclass
@@ -117,12 +126,14 @@ def _compute_window_metrics(
         std_pnl = math.sqrt(variance) if variance > 0 else 0.0
         sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
 
-    passed = (
-        trade_count >= 5
-        and win_rate > GO_WR
-        and profit_factor > GO_PF
-        and total_pnl > 0
+    pw_result = SCALPER_PER_WINDOW.evaluate(
+        trade_count=trade_count,
+        win_rate=win_rate,
+        profit_factor=profit_factor,
+        total_pnl=total_pnl,
+        max_drawdown=max_dd,
     )
+    passed = pw_result.passed
 
     return WindowResult(
         window_index=window_index,
@@ -225,9 +236,13 @@ def run_scalper_walkforward(pair: str) -> PairResult:
         )
 
     result.windows_passed = sum(1 for w in result.windows if w.passed)
-    result.go_nogo = (
-        result.total_windows >= 3 and result.windows_passed >= GO_MIN_WINDOWS
+    total_trades = sum(w.trade_count for w in result.windows)
+    agg_result = SCALPER_AGGREGATE.evaluate(
+        total_trades=total_trades,
+        windows_passed=result.windows_passed,
+        total_windows=result.total_windows,
     )
+    result.go_nogo = agg_result.passed
 
     if result.windows:
         result.mean_wr = sum(w.win_rate for w in result.windows) / len(result.windows)
@@ -284,9 +299,10 @@ def main():
     report = {
         "timestamp": timestamp,
         "criteria": {
-            "min_wr": GO_WR,
-            "min_pf": GO_PF,
-            "min_windows_passed": GO_MIN_WINDOWS,
+            "min_wr": SCALPER_PER_WINDOW.win_rate,
+            "min_pf": SCALPER_PER_WINDOW.profit_factor,
+            "min_max_drawdown": SCALPER_PER_WINDOW.max_drawdown,
+            "min_windows_passed": SCALPER_AGGREGATE.min_windows_passed,
             "total_windows": N_WINDOWS,
         },
         "pairs": {},
