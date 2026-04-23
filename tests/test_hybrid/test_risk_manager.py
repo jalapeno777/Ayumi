@@ -205,14 +205,18 @@ class TestCalculatePositionSize:
         assert custom_size < default_size
 
     def test_risk_pct_override(self):
-        rm = RiskManager(starting_balance=100_000.0, risk_per_trade_pct=0.5)
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=0.5, max_lot_size=10.0
+        )
         signal = _buy_signal(entry=1.1000, sl=1.0950)
         default_size = rm.calculate_position_size(signal)
         doubled_size = rm.calculate_position_size(signal, risk_pct_override=1.0)
         assert doubled_size > default_size
 
     def test_position_size_uses_fixed_fractional(self):
-        rm = RiskManager(starting_balance=100_000.0, risk_per_trade_pct=1.0)
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=1.0, max_lot_size=10.0
+        )
         signal = _buy_signal(entry=1.1000, sl=1.0950)
         size = rm.calculate_position_size(signal)
         expected_risk = 100_000.0 * 0.01
@@ -282,3 +286,48 @@ class TestRiskDecision:
         assert d.reason == "OK"
         assert d.risk_reward == 2.0
         assert d.suggested_lot_size == 0.1
+
+
+class TestMaxLotSize:
+    def test_default_max_lot_size(self):
+        rm = RiskManager()
+        assert rm.max_lot_size == 1.0
+
+    def test_custom_max_lot_size(self):
+        rm = RiskManager(max_lot_size=5.0)
+        assert rm.max_lot_size == 5.0
+
+    def test_position_size_capped_at_max(self):
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=1.0, max_lot_size=1.0
+        )
+        signal = _buy_signal(entry=1.1000, sl=1.0990)
+        size = rm.calculate_position_size(signal)
+        assert size == 1.0
+
+    def test_position_size_not_capped_when_below_max(self):
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=0.1, max_lot_size=5.0
+        )
+        signal = _buy_signal(entry=1.1000, sl=1.0950)
+        size = rm.calculate_position_size(signal)
+        assert size < 5.0
+
+    def test_position_size_with_high_max_lot_size_uncapped(self):
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=1.0, max_lot_size=100.0
+        )
+        signal = _buy_signal(entry=1.1000, sl=1.0950)
+        size = rm.calculate_position_size(signal)
+        expected_risk = 100_000.0 * 0.01
+        stop_distance = 0.005
+        expected_size = expected_risk / (stop_distance * 100_000)
+        assert abs(size - round(expected_size, 2)) < 0.01
+
+    def test_zero_max_lot_size_returns_zero(self):
+        rm = RiskManager(
+            starting_balance=100_000.0, risk_per_trade_pct=0.5, max_lot_size=0.0
+        )
+        signal = _buy_signal(entry=1.1000, sl=1.0950)
+        size = rm.calculate_position_size(signal)
+        assert size == 0.0
