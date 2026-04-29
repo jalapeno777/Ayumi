@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Generator
 from dataclasses import dataclass, field
@@ -11,6 +12,8 @@ from quant.statistical_validation import (
     GoNogoResult,
     evaluate_statistical_checks,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -330,7 +333,12 @@ def _run_strategy_window(
             if signal is not None:
                 entry_price = signal.entry_price
                 sl = signal.stop_loss
-                tp = signal.take_profit_1 if signal.take_profit_1 else entry_price
+                if signal.take_profit_1 is None or signal.take_profit_1 <= 0:
+                    logger.warning(
+                        "Signal at bar %d has no valid take_profit_1, skipping", i
+                    )
+                    continue
+                tp = signal.take_profit_1
                 risk_amount = balance * risk_per_trade_pct
 
                 if signal.direction.value == "long":
@@ -341,7 +349,12 @@ def _run_strategy_window(
                 if sl_distance > 0:
                     lot_size = risk_amount / sl_distance
                 else:
-                    lot_size = 0.0
+                    logger.warning(
+                        "Signal at bar %d has SL distance %.6f <= 0, skipping",
+                        i,
+                        sl_distance,
+                    )
+                    continue
 
                 open_trade = {
                     "direction": signal.direction.value,

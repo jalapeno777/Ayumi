@@ -228,29 +228,35 @@ class EngineCore:
         trades: list[SimulatedTrade],
         equity_curve: list[float],
     ) -> BacktestMetrics:
+        closed_trades = [
+            t
+            for t in trades
+            if t.outcome
+            in (TradeOutcome.WIN, TradeOutcome.LOSS, TradeOutcome.BREAKEVEN)
+        ]
+
         metrics = BacktestMetrics(
-            starting_balance=self.config.starting_balance,
-            ending_balance=self.balance,
-            total_pnl=self.balance - self.config.starting_balance,
-            total_pnl_pct=(
-                (self.balance - self.config.starting_balance)
-                / self.config.starting_balance
-                if self.config.starting_balance > 0
-                else 0.0
+            total_pnl=self.balance - initial_balance,
+            total_pnl_pct=self.balance / initial_balance - 1
+            if initial_balance > 0
+            else 0.0,
+            max_drawdown_pct=self.max_drawdown_pct,
+            total_trades=len(closed_trades),
+            winning_trades=sum(
+                1 for t in closed_trades if t.outcome == TradeOutcome.WIN
+            ),
+            losing_trades=sum(
+                1 for t in closed_trades if t.outcome == TradeOutcome.LOSS
+            ),
+            breakeven_trades=sum(
+                1 for t in closed_trades if t.outcome == TradeOutcome.BREAKEVEN
             ),
             win_rate=0.0,
-            total_trades=len(trades),
-            winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
-            losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
-            ),
             avg_win=0.0,
             avg_loss=0.0,
             largest_win=0.0,
             largest_loss=0.0,
             profit_factor=0.0,
-            max_drawdown_pct=self.max_drawdown * 100,
             max_drawdown_dollar=self.max_drawdown * self.peak_balance
             if self.peak_balance > 0
             else 0.0,
@@ -266,11 +272,11 @@ class EngineCore:
             rejected_signals=self.rejected_signals,
         )
 
-        if len(trades) > 0:
-            wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
-            losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
+        if len(closed_trades) > 0:
+            wins = [t for t in closed_trades if t.outcome == TradeOutcome.WIN]
+            losses = [t for t in closed_trades if t.outcome == TradeOutcome.LOSS]
 
-            metrics.win_rate = metrics.winning_trades / len(trades) * 100
+            metrics.win_rate = metrics.winning_trades / len(closed_trades) * 100
             metrics.avg_win = (
                 sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
             )
@@ -298,8 +304,8 @@ class EngineCore:
                 (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
             )
             metrics.avg_holding_bars = sum(
-                (t.exit_bar_index or 0) - t.entry_bar_index for t in trades
-            ) / len(trades)
+                (t.exit_bar_index or 0) - t.entry_bar_index for t in closed_trades
+            ) / len(closed_trades)
 
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics

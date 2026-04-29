@@ -49,6 +49,16 @@ class SignalRouter:
                 reason="Negative confidence",
             )
 
+        if signal.take_profit_1 is None or signal.take_profit_1 <= 0:
+            logger.warning(
+                "Signal %s has no valid take_profit_1, rejecting", signal.strategy_id
+            )
+            return RouteResult(
+                action="invalid_signal",
+                signal=signal,
+                reason="take_profit_1 is zero or None",
+            )
+
         for pos in self._order_manager.get_open_positions():
             if pos.symbol == signal.symbol and pos.status.value == "open":
                 return RouteResult(
@@ -83,7 +93,7 @@ class SignalRouter:
             signal.symbol,
         )
 
-        tp = signal.take_profit_1 or signal.entry_price
+        tp = signal.take_profit_1
         trade_check = self._portfolio_risk.check_trade_allowed(signal, volume)
         if not trade_check.allowed:
             return RouteResult(
@@ -140,7 +150,7 @@ class SignalRouter:
             volume=volume,
             entry_price=signal.entry_price,
             stop_loss=signal.stop_loss,
-            take_profit=signal.take_profit_1 or signal.entry_price,
+            take_profit=signal.take_profit_1,
             comment=f"[{signal.strategy_id}] {signal.rationale}",
             spread=spread,
         )
