@@ -50,6 +50,7 @@ def _lots_to_units(lots: float) -> int:
     """Convert lots to units for cTrader (1 standard lot = 100,000 units)."""
     return int(round(lots * 100_000))
 
+
 logger = logging.getLogger(__name__)
 
 SOH = "\x01"
@@ -232,7 +233,7 @@ class FIXMessage:
                     msg.fields[tag] = value
                     msg._raw_fields.append((tag, value))
                 except ValueError:
-                    pass
+                    logger.warning("Skipping malformed FIX tag: %r", field)
         return msg
 
     @property
@@ -349,7 +350,7 @@ class FIXClient:
             try:
                 self._socket.close()
             except Exception:
-                pass
+                logger.debug("Error during socket close", exc_info=True)
         logger.info("Disconnected from cTrader")
 
     def _recv_loop(self):
@@ -551,8 +552,10 @@ class FIXClient:
         with self._lock:
             self._positions[pos_id] = position
 
-        logger.info(f"Position report: pos_id={pos_id} symbol={symbol} side={direction.value} "
-                    f"entry={entry_px} pnl={pnl}")
+        logger.info(
+            f"Position report: pos_id={pos_id} symbol={symbol} side={direction.value} "
+            f"entry={entry_px} pnl={pnl}"
+        )
         self._trigger_callback("on_position_update", position, msg)
 
     def _handle_account_info(self, msg: FIXMessage):
@@ -692,7 +695,9 @@ class FIXClient:
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
         msg.set_body_field(self.TAG_CLORD_ID, order_id)
         msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_body_field(self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2")
+        msg.set_body_field(
+            self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2"
+        )
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
         msg.set_body_field(59, "1")  # TimeInForce = Good Till Cancel
@@ -740,8 +745,14 @@ class FIXClient:
         cTrader opens a NEW position instead of closing the existing one.
         For netting accounts, position_id can be omitted.
         """
-        close_direction = TradeDirection.SHORT if direction == TradeDirection.LONG else TradeDirection.LONG
-        order_id = f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
+        close_direction = (
+            TradeDirection.SHORT
+            if direction == TradeDirection.LONG
+            else TradeDirection.LONG
+        )
+        order_id = (
+            f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
+        )
 
         order = Order(
             order_id=order_id,
@@ -758,7 +769,9 @@ class FIXClient:
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
         msg.set_body_field(self.TAG_CLORD_ID, order_id)
         msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_body_field(self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2")
+        msg.set_body_field(
+            self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2"
+        )
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
         if position_id:
@@ -769,7 +782,9 @@ class FIXClient:
         )  # TransactTime
 
         if self._send_message(msg):
-            logger.info(f"Close order sent: {order_id} {close_direction.value} {volume} {symbol}")
+            logger.info(
+                f"Close order sent: {order_id} {close_direction.value} {volume} {symbol}"
+            )
             return order
 
         with self._lock:
@@ -875,18 +890,24 @@ class cTraderAPIClient:
 
     def _send_paper_order(self, **kwargs) -> Order:
         order_id = f"PAPER_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        symbol = kwargs.get("symbol", "")
+        price = kwargs.get("price")
+        if not symbol:
+            raise ValueError("Paper order requires a non-empty 'symbol'")
+        if price is None:
+            raise ValueError("Paper order requires a 'price'")
         order = Order(
             order_id=order_id,
-            symbol=kwargs.get("symbol", ""),
+            symbol=symbol,
             direction=kwargs.get("direction", TradeDirection.LONG),
             order_type=kwargs.get("order_type", OrderType.MARKET),
             volume=kwargs.get("volume", 0.01),
-            price=kwargs.get("price"),
+            price=price,
             stop_loss=kwargs.get("stop_loss"),
             take_profit=kwargs.get("take_profit"),
             status=OrderStatus.FILLED,
             filled_at=datetime.now(timezone.utc),
-            filled_price=kwargs.get("price") or 0,
+            filled_price=price,
             comment=f"[PAPER MODE] {kwargs.get('comment', '')}",
         )
         logger.info(

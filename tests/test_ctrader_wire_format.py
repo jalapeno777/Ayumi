@@ -121,11 +121,21 @@ class TestSubscribeWireFormat:
 
         # Expected order: 262, 263, 264, 265, 267, 269, 269, 146, 55
         assert tag_order.index(262) < tag_order.index(263), "MDReqID before SubReqType"
-        assert tag_order.index(263) < tag_order.index(264), "SubReqType before MarketDepth"
-        assert tag_order.index(264) < tag_order.index(265), "MarketDepth before MDUpdateType"
-        assert tag_order.index(265) < tag_order.index(267), "MDUpdateType before NoMDEntryTypes"
-        assert tag_order.index(267) < tag_order.index(269), "NoMDEntryTypes before MDEntryType"
-        assert tag_order.index(269) < tag_order.index(146), "MDEntryType before NoRelatedSym"
+        assert tag_order.index(263) < tag_order.index(264), (
+            "SubReqType before MarketDepth"
+        )
+        assert tag_order.index(264) < tag_order.index(265), (
+            "MarketDepth before MDUpdateType"
+        )
+        assert tag_order.index(265) < tag_order.index(267), (
+            "MDUpdateType before NoMDEntryTypes"
+        )
+        assert tag_order.index(267) < tag_order.index(269), (
+            "NoMDEntryTypes before MDEntryType"
+        )
+        assert tag_order.index(269) < tag_order.index(146), (
+            "MDEntryType before NoRelatedSym"
+        )
 
 
 class TestUnsubscribeWireFormat:
@@ -157,18 +167,38 @@ class TestUnsubscribeWireFormat:
 class TestSenderSubID:
     """Verify SenderSubID is set correctly in credentials passed to market data feed."""
 
+    @patch.dict(
+        "os.environ",
+        {
+            "CTRADER_HOST": "test-host",
+            "CTRADER_SENDER_COMP_ID": "test-sender",
+            "CTRADER_ACCOUNT": "test-account",
+            "CTRADER_PASSWORD": "test-password",
+        },
+    )
     def test_run_live_paper_uses_quote_sender_sub_id(self):
         """run_live_paper._load_credentials() must set sender_sub_id='QUOTE'."""
         import run_live_paper
+
         creds = run_live_paper._load_credentials()
         assert creds.sender_sub_id == "QUOTE", (
             f"run_live_paper must use sender_sub_id='QUOTE' for market data port. "
             f"Got: {creds.sender_sub_id!r}"
         )
 
+    @patch.dict(
+        "os.environ",
+        {
+            "CTRADER_HOST": "test-host",
+            "CTRADER_SENDER_COMP_ID": "test-sender",
+            "CTRADER_ACCOUNT": "test-account",
+            "CTRADER_PASSWORD": "test-password",
+        },
+    )
     def test_run_srmr_plus_forward_uses_quote_sender_sub_id(self):
         """run_srmr_plus_forward._load_credentials() must set sender_sub_id='QUOTE'."""
         import run_srmr_plus_forward
+
         creds = run_srmr_plus_forward._load_credentials()
         assert creds.sender_sub_id == "QUOTE", (
             f"run_srmr_plus_forward must use sender_sub_id='QUOTE' for market data port. "

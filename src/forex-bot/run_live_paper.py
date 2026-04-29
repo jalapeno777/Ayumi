@@ -160,12 +160,24 @@ def _m15_bar_start(dt_utc: datetime) -> datetime:
 
 def _load_credentials() -> cTraderCredentials:
     """Load cTrader credentials for the QUOTE (market data) port."""
-    host = os.environ.get("CTRADER_HOST", "live-uk-eqx-01.p.c-trader.com")
+    host = os.environ.get("CTRADER_HOST", "")
     readonly_port = int(os.environ.get("CTRADER_READONLY_SSL_PORT", "5211"))
-    sender = os.environ.get("CTRADER_SENDER_COMP_ID", "live.ftmo.17087404")
+    sender = os.environ.get("CTRADER_SENDER_COMP_ID", "")
     target = os.environ.get("CTRADER_TARGET_COMP_ID", "cServer")
-    username = os.environ.get("CTRADER_ACCOUNT", "17087404")
+    username = os.environ.get("CTRADER_ACCOUNT", "")
     password = os.environ.get("CTRADER_PASSWORD", "")
+    missing = [
+        k
+        for k, v in [
+            ("CTRADER_HOST", host),
+            ("CTRADER_SENDER_COMP_ID", sender),
+            ("CTRADER_ACCOUNT", username),
+            ("CTRADER_PASSWORD", password),
+        ]
+        if not v
+    ]
+    if missing:
+        raise ValueError(f"Missing required env vars: {', '.join(missing)}")
     return cTraderCredentials(
         host=host,
         port=readonly_port,
@@ -322,12 +334,12 @@ class LivePaperTradingSystem:
 
     def _init_trade_connection(self):
         """Connect to cTrader trade port (5212 SSL) for real order execution on DEMO."""
-        host = os.environ.get("CTRADER_HOST", "live-uk-eqx-01.p.c-trader.com")
+        host = os.environ.get("CTRADER_HOST", "")
         trade_port = int(os.environ.get("CTRADER_TRADE_SSL_PORT", "5212"))
-        sender = os.environ.get("CTRADER_SENDER_COMP_ID", "live.ftmo.17087404")
+        sender = os.environ.get("CTRADER_SENDER_COMP_ID", "")
         target = os.environ.get("CTRADER_TARGET_COMP_ID", "cServer")
         sub = os.environ.get("CTRADER_SENDER_SUB_ID", "TRADE")
-        username = os.environ.get("CTRADER_ACCOUNT", "17087404")
+        username = os.environ.get("CTRADER_ACCOUNT", "")
         password = os.environ.get("CTRADER_PASSWORD", "")
 
         trade_creds = cTraderCredentials(
@@ -392,7 +404,9 @@ class LivePaperTradingSystem:
             try:
                 position_id = order.comment.split("pos_id:")[1].split()[0]
             except (IndexError, ValueError):
-                pass
+                logger.warning(
+                    "Failed to extract position_id from comment: %s", order.comment
+                )
 
         # Also check raw FIX message tag 721 directly
         if not position_id and msg:
@@ -425,6 +439,8 @@ class LivePaperTradingSystem:
 
     def _on_order_rejected(self, order, reason=""):
         """Callback when cTrader rejects an order."""
+        if not reason:
+            reason = "(no reason provided)"
         logger.warning(
             f"ORDER REJECTED: {order.order_id} {order.symbol} reason={reason}"
         )

@@ -253,7 +253,7 @@ class SignalEngineBridge:
             try:
                 return pd.to_datetime(ts).to_pydatetime()
             except Exception:
-                return None
+                raise ValueError(f"Cannot parse timestamp at bar {bar_idx}: {ts!r}")
         elif isinstance(df.index, pd.DatetimeIndex):
             return df.index[bar_idx].to_pydatetime()
-        return None
+        raise ValueError(f"No timestamp source available for bar {bar_idx}")

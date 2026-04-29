@@ -103,7 +103,7 @@ class StrategyExecutor:
             logger.error(
                 "Strategy evaluation error [%s]: %s", self._slot.id, exc, exc_info=True
             )
-            return None
+            raise
 
     def _to_canonical_signal(self, result) -> CanonicalSignal:
         direction = result.direction

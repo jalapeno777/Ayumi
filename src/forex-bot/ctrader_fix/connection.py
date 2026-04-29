@@ -110,7 +110,9 @@ class CTraderConnection:
         session_type: str = "QUOTE",
     ):
         if session_type not in ("QUOTE", "TRADE"):
-            raise ValueError(f"session_type must be 'QUOTE' or 'TRADE', got '{session_type}'")
+            raise ValueError(
+                f"session_type must be 'QUOTE' or 'TRADE', got '{session_type}'"
+            )
         self._session_type = session_type
         self._creds = credentials or _load_credentials()
         self._heartbeat_interval = heartbeat_interval
@@ -200,7 +202,9 @@ class CTraderConnection:
         if self._session_type == "QUOTE":
             port = int(self._creds["CTRADER_SSL_PORT"])
         else:
-            port = int(self._creds.get("CTRADER_TRADE_SSL_PORT", str(DEFAULT_PORTS["TRADE"])))
+            port = int(
+                self._creds.get("CTRADER_TRADE_SSL_PORT", str(DEFAULT_PORTS["TRADE"]))
+            )
 
         logger.info("Connecting to cTrader FIX at %s:%s", host, port)
 
@@ -232,11 +236,13 @@ class CTraderConnection:
                 logout_msg = self._build_logout_message()
                 self._socket.sendall(logout_msg.encode("ascii"))
             except OSError:
-                pass
+                logger.debug(
+                    "Error sending logout message during disconnect", exc_info=True
+                )
             try:
                 self._socket.close()
             except OSError:
-                pass
+                logger.debug("Error closing socket during disconnect", exc_info=True)
         self._socket = None
         self._connected = False
         logger.info("Disconnected from cTrader FIX")

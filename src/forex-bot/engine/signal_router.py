@@ -38,6 +38,10 @@ class SignalRouter:
         self._callbacks: list[tuple[str, callable]] = []
 
     def route(self, signal: CanonicalSignal, spread: float = 0.0) -> RouteResult:
+        if spread == 0.0:
+            logger.warning(
+                "SignalRouter.route() called with spread=0.0, spread validation bypassed"
+            )
         if signal.confidence < 0.0:
             return RouteResult(
                 action="rejected",

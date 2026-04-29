@@ -417,6 +417,9 @@ class LiveMarketDataFeed:
                 price = entry.get("price")
 
                 if not order_id or not entry_type:
+                    logger.debug(
+                        "Skipping order book entry missing order_id or entry_type"
+                    )
                     continue
 
                 entry_symbol = entry.get("symbol_id", 0)

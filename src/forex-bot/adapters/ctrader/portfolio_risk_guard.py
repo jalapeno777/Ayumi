@@ -134,4 +134,4 @@ class PortfolioRiskGuard:
         try:
             return TradeDirection(value)
         except ValueError:
-            return TradeDirection.NEUTRAL
+            raise ValueError(f"Cannot convert direction: {value!r}")

@@ -126,7 +126,9 @@ class MultiStrategyOrchestrator:
             sig_module.signal(sig_module.SIGINT, self._on_shutdown)
             sig_module.signal(sig_module.SIGTERM, self._on_shutdown)
         except (ValueError, RuntimeError):
-            pass
+            logger.debug(
+                "Signal handler registration not available (subprocess/thread context)"
+            )
 
         strategy_ids = [ex.slot_id for ex in self._executors]
         logger.info(
@@ -414,7 +416,10 @@ class MultiStrategyOrchestrator:
         username = os.environ.get("CTRADER_ACCOUNT", "")
         password = os.environ.get("CTRADER_PASSWORD", "")
 
-        if not host or not username:
+        if not host or not username or not password:
+            logger.error(
+                "Missing cTrader credentials (CTRADER_HOST, CTRADER_ACCOUNT, CTRADER_PASSWORD)"
+            )
             return None
 
         return cTraderCredentials(

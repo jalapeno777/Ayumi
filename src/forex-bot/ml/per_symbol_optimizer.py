@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import time
 from datetime import datetime
@@ -31,6 +32,8 @@ from ml.confidence_learner import ConfidenceLearner
 
 # We monkey-patch TTSStrategy constants per config variant
 import backtest.strategies.tts_strategy as tts_module
+
+logger = logging.getLogger(__name__)
 
 
 # ── Configuration ──────────────────────────────────────────────────────
@@ -502,7 +505,11 @@ def main():
             global_total_trades += len(trades)
             global_wins += wins
         except Exception:
-            pass
+            logger.warning(
+                "Global baseline backtest failed for %s, skipping",
+                symbol,
+                exc_info=True,
+            )
 
     global_wr = global_wins / global_total_trades if global_total_trades else 0
 

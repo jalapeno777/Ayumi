@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -49,6 +50,12 @@ class GridConfig:
     pip_value: float = 0.0001
     contract_size: float = 100000.0
     spread: float = 0.0
+
+    def __post_init__(self):
+        if self.spread == 0.0:
+            logging.getLogger(__name__).warning(
+                "GridConfig spread is 0.0 — P&L calculations will assume cost-free trading"
+            )
 
     @classmethod
     def eurusd(cls) -> GridConfig:
