@@ -8,6 +8,7 @@ FTMO criteria (WR >55%, PF >1.3, Sharpe >0.5).
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 from typing import Any
@@ -34,6 +35,8 @@ from .engine import (
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -948,6 +951,9 @@ def inventory_strategies_on_data(
             if hasattr(strategy, "set_balance"):
                 strategy.set_balance(initial_balance)
         except Exception:
+            logger.warning(
+                "Strategy %s initialization failed, skipping", name, exc_info=True
+            )
             continue
 
         signals: list[SignalRecord] = []

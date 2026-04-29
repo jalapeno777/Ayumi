@@ -1,7 +1,10 @@
+import logging
 from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from .features import (
     atr,
@@ -298,6 +301,9 @@ def generate_all_signals(df: pd.DataFrame) -> pd.DataFrame:
             if len(sigs) > 0:
                 all_signals.append(sigs)
         except Exception:
+            logger.warning(
+                "Signal function %s failed, skipping", getattr(fn, "__name__", fn)
+            )
             continue
 
     if not all_signals:

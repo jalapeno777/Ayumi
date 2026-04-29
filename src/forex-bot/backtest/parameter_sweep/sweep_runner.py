@@ -35,7 +35,7 @@ def _worker_entry(args: tuple) -> dict[str, Any] | None:
         }
     except Exception as exc:
         logger.warning("Backtest failed in worker: %s", exc)
-        return None
+        raise
 
 
 def _rebuild_strategy(config: dict[str, Any]) -> ISignalStrategy:

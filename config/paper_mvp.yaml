@@ -1,0 +1,133 @@
+# Paper Trading MVP Configuration — Blend One (Quality Anchor)
+# Externalized parameters for the Ayumi trading bot paper trading MVP.
+
+# ---------------------------------------------------------------------------
+# Account
+# ---------------------------------------------------------------------------
+account:
+  starting_balance: 10_000.0
+  currency: USD
+
+# ---------------------------------------------------------------------------
+# Risk Management (FTMO-style)
+# ---------------------------------------------------------------------------
+risk:
+  max_drawdown_pct: 0.20
+  daily_loss_limit_pct: 0.05
+  max_concurrent_positions: 5
+  max_trades_per_day: 10
+  min_risk_reward: 0.0          # strategies manage exits via signal flips
+  max_position_size_pct: 0.005
+  correlation_threshold: 0.7
+
+# ---------------------------------------------------------------------------
+# Trading Session (UTC)
+# ---------------------------------------------------------------------------
+session:
+  start_utc_hour: 0             # 0 = no restriction
+  end_utc_hour: 24             # 24 = no restriction
+
+# ---------------------------------------------------------------------------
+# Strategy Portfolio — Blend One
+# ---------------------------------------------------------------------------
+strategies:
+
+  # 1. SRMR+ XAUUSD M5 (Optuna Optimized — BEST RESULT)
+  #    Expected: 0.43 trades/day, Sharpe 32.65, 5/5 WF pass
+  srmr_plus_m5:
+    enabled: true
+    class: strategies.srmr_plus.SRMRPlusStrategy
+    symbol: XAUUSD
+    timeframe: M5
+    min_confidence: 0.55
+    max_positions_per_symbol: 1
+    cooldown_sec: 60
+    params:
+      atr_period: 15
+      rsi_period: 13
+      rsi_long_level: 34.0
+      rsi_short_level: 73.0
+      adx_max_threshold: 22.0
+      session_range_min_pips: 23.0
+      entry_near_extreme_pips: 18.0
+      hard_cap_sl_pips: 25.0
+      tp1_rr: 0.9
+      tp2_rr: 1.5
+      ema_trend_period: 32
+
+  # 2. SRMR+ XAUUSD H1 (ORIGINAL config — NOT frequency-optimized)
+  #    Expected: 0.9 trades/day, Sharpe 15.2, 5/5 WF pass
+  srmr_plus_h1:
+    enabled: true
+    class: strategies.srmr_plus.SRMRPlusStrategy
+    symbol: XAUUSD
+    timeframe: H1
+    min_confidence: 0.55
+    max_positions_per_symbol: 1
+    cooldown_sec: 300
+    params: null               # use default constructor params
+
+  # 3. SRMR+ XAUUSD H4 (Default)
+  #    Expected: 0.2 trades/day, Sharpe 33.1, 5/5 WF pass
+  srmr_plus_h4:
+    enabled: true
+    class: strategies.srmr_plus.SRMRPlusStrategy
+    symbol: XAUUSD
+    timeframe: H4
+    min_confidence: 0.55
+    max_positions_per_symbol: 1
+    cooldown_sec: 1800
+    params: null               # use default constructor params
+
+  # 4. Session Range MR XAUUSD H1
+  #    Expected: 0.8 trades/day, Sharpe 21.0
+  session_range_mr:
+    enabled: true
+    class: strategies.session_range_mean_reversion.SessionRangeMeanReversionStrategy
+    symbol: XAUUSD
+    timeframe: H1
+    min_confidence: 0.60
+    max_positions_per_symbol: 1
+    cooldown_sec: 300
+    params: null               # use default constructor params
+
+  # 5. TTC XAUUSD M15 (lower confidence threshold)
+  #    Expected: 0.2 trades/day, Sharpe 1.38
+  ttc_m15:
+    enabled: true
+    class: backtest.strategies.tts_strategy.TTSStrategy
+    symbol: XAUUSD
+    timeframe: M15
+    min_confidence: 0.35       # lower than default 0.40
+    max_positions_per_symbol: 1
+    cooldown_sec: 300
+    params:
+      symbol: XAUUSD
+      min_confidence: 0.35
+      min_quality_score: 0.35
+      timeframe: M15
+
+# ---------------------------------------------------------------------------
+# Data & Storage
+# ---------------------------------------------------------------------------
+data:
+  trade_db_path: data/trading.db
+  log_dir: logs/trades
+  equity_snapshot_interval_sec: 300   # 5 minutes
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: INFO
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  file: logs/trades/paper_mvp.log
+  max_bytes: 10_485_760             # 10 MB
+  backup_count: 5
+
+# ---------------------------------------------------------------------------
+# Status Reporting
+# ---------------------------------------------------------------------------
+reporting:
+  status_interval_sec: 60
+  daily_summary_trigger_hour_utc: 0  # midnight UTC = end of NY session

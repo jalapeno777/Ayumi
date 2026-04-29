@@ -1,0 +1,131 @@
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_start_restores_no_state0/risk_state.json — starting fresh
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_signal_processing0/risk_state.json — starting fresh
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_multiple_signals_in_seque0/risk_state.json — starting fresh
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_fill_handling_updates_bal0/risk_state.json — starting fresh
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_state_save_on_stop0/risk_state.json — starting fresh
+2026-04-26 15:46:24 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_state_restore_on_start0/risk_state.json — starting fresh
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by routing: strategy=test_strat symbol=EURUSD score=0.200
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by routing: strategy=test_strat symbol=EURUSD score=0.390
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=SL distance 1.0 pips < minimum 5.0 pips
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=Trade risk $50.00 exceeds daily remaining $0.00
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=Trading halted until 2026-04-27T15:46:45.712952+00:00: test breaker
+2026-04-26 15:46:45 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=FAKEPAIR reason=Unknown instrument: FAKEPAIR
+2026-04-26 15:46:46 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-root/pytest-395/test_restore_missing_file0/risk_state.json — starting fresh
+2026-04-26 15:46:46 | ERROR    | ayumi.risk | Corrupt state file /tmp/pytest-of-root/pytest-395/test_restore_corrupt_file0/risk_state.json: Expecting value: line 1 column 1 (char 0)
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Time: 2026-04-26T15:51:14.554439+00:00 UTC
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | === DRY RUN — validating pipeline ===
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | BlendForwardTestRunner initialized OK
+2026-04-26 15:51:14 | INFO     | ayumi.launcher | === DRY RUN PASSED ===
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Time: 2026-04-26T21:01:36.742960+00:00 UTC
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 21:01:36 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Time: 2026-04-26T21:04:00.152574+00:00 UTC
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | === DRY RUN — validating pipeline ===
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | BlendForwardTestRunner initialized OK
+2026-04-26 21:04:00 | INFO     | ayumi.launcher | === DRY RUN PASSED ===
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Time: 2026-04-26T21:04:07.062688+00:00 UTC
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 21:04:07 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Time: 2026-04-26T21:06:01.815295+00:00 UTC
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 21:06:01 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Time: 2026-04-26T21:16:12.203163+00:00 UTC
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 21:16:12 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Time: 2026-04-26T21:18:14.551077+00:00 UTC
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 21:18:14 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Time: 2026-04-26T22:10:54.952546+00:00 UTC
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 22:10:54 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Time: 2026-04-26T22:11:31.789643+00:00 UTC
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 22:11:31 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher ===
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Time: 2026-04-26T22:12:08.816971+00:00 UTC
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Strategy: SRMR+ (session range mean reversion)
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Symbol: GBPUSD
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Balance: $100000.00
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Risk/trade: 0.5%
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Daily loss limit: 5.0%
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Max drawdown: 10.0%
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Min R:R: 1.5
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | Market is OPEN
+2026-04-26 22:12:08 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===
+2026-04-26 22:27:32 | INFO     | ayumi.launcher | === Ayumi Forward Test Launcher (Preloaded) ===
+2026-04-26 22:27:35 | INFO     | ayumi.launcher | Fetching 100 H1 bars from OpenAPI...
+2026-04-26 22:27:37 | INFO     | ayumi.launcher | Fetched 99 bars
+2026-04-26 22:27:37 | INFO     | ayumi.launcher | Preloaded 99 H1 bars into engine._bars['GBPUSD']
+2026-04-26 22:27:37 | INFO     | ayumi.launcher | === STARTING FORWARD TEST ===

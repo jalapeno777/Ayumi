@@ -77,12 +77,24 @@ SRMR_PLUS_PAIRS = [
 
 
 def _load_credentials() -> cTraderCredentials:
-    host = os.environ.get("CTRADER_HOST", "live-uk-eqx-01.p.c-trader.com")
+    host = os.environ.get("CTRADER_HOST", "")
     readonly_port = int(os.environ.get("CTRADER_READONLY_SSL_PORT", "5211"))
-    sender = os.environ.get("CTRADER_SENDER_COMP_ID", "live.ftmo.17087404")
+    sender = os.environ.get("CTRADER_SENDER_COMP_ID", "")
     target = os.environ.get("CTRADER_TARGET_COMP_ID", "cServer")
-    username = os.environ.get("CTRADER_ACCOUNT", "17087404")
+    username = os.environ.get("CTRADER_ACCOUNT", "")
     password = os.environ.get("CTRADER_PASSWORD", "")
+    missing = [
+        k
+        for k, v in [
+            ("CTRADER_HOST", host),
+            ("CTRADER_SENDER_COMP_ID", sender),
+            ("CTRADER_ACCOUNT", username),
+            ("CTRADER_PASSWORD", password),
+        ]
+        if not v
+    ]
+    if missing:
+        raise ValueError(f"Missing required env vars: {', '.join(missing)}")
     return cTraderCredentials(
         host=host,
         port=readonly_port,

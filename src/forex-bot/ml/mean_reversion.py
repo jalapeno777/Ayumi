@@ -555,6 +555,10 @@ def walk_forward_validate(
             final_result.fold_metrics = fold_metrics
             return final_result, fold_metrics
         except Exception:
+            logger.warning(
+                "Final model training on all folds failed, using last fold model",
+                exc_info=True,
+            )
             pass
 
     last_result.fold_metrics = fold_metrics

@@ -270,8 +270,7 @@ class TestGridSearch(unittest.TestCase):
             kz_penalty_values=[-0.05],
         )
 
-        self.assertEqual(len(result["rows"]), 1)
-        self.assertEqual(result["rows"][0]["win_rate"], 0)
+        self.assertEqual(len(result["rows"]), 0)
 
 
 class TestUpdateConfig(unittest.TestCase):

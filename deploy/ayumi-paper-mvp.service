@@ -1,0 +1,18 @@
+[Unit]
+Description=Ayumi Paper Trading MVP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=TacoPants
+WorkingDirectory=/home/TacoPants/projects/Ayumi
+ExecStart=/home/TacoPants/projects/Ayumi/.venv/bin/python -m src.forex-bot.run_paper_mvp
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

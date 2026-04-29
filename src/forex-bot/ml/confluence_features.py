@@ -6,7 +6,10 @@ confluence factors were present at signal time.
 
 from __future__ import annotations
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 
 class ConfluenceFeatureExtractor:
@@ -69,7 +72,14 @@ class ConfluenceFeatureExtractor:
         features: list[float] = []
         for feat_name in self.FEATURE_NAMES:
             if feat_name in self.NUMERIC_FEATURES:
-                features.append(float(trade_record.get(feat_name, 0.0)))
+                val = trade_record.get(feat_name)
+                if val is None:
+                    logger.warning(
+                        "Missing feature '%s' in trade record, using 0.0", feat_name
+                    )
+                    features.append(0.0)
+                else:
+                    features.append(float(val))
             else:
                 features.append(1.0 if feat_name in active_boosts else 0.0)
 
