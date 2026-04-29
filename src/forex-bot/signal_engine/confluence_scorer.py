@@ -99,7 +99,9 @@ class ConfluenceScorer:
 
     def _htf_alignment_booster(self, candidate: dict, htf_state: dict) -> BoosterResult:
         """Score based on HTF trend direction matching signal direction."""
-        direction = candidate.get("direction", "long")
+        direction = candidate.get("direction")
+        if direction is None:
+            return BoosterResult(0.0, 0.0, "no-direction")
         alignment = htf_state.get("alignment_score", 0.0)
 
         # Alignment score from HTF analyzer is -1 to 1.

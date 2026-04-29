@@ -1,0 +1,11 @@
+/home/TacoPants/projects/Ayumi/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 TacoPants TacoPants
+    dateext
+    dateformat -%Y%m%d
+}

@@ -21,7 +21,7 @@ def format_signal_json(signal: Signal, gate_results: Optional[dict] = None) -> s
         JSON string conforming to the §10 schema.
     """
     if gate_results is None:
-        gate_results = {}
+        gate_results = {"_status": "not_evaluated"}
 
     output = {
         "signal_id": str(uuid.uuid4()),
@@ -63,7 +63,17 @@ def create_signal(
     gates_passed: Optional[list[str]] = None,
     boosters_active: Optional[list[str]] = None,
 ) -> Signal:
-    """Factory function to create a Signal with sensible defaults."""
+    """Factory function to create a Signal.
+
+    Warning: pattern_type and session default to empty string. Callers should
+    provide these values to avoid corrupting ML training data and analytics.
+    """
+    if not pattern_type or not session:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "create_signal called without pattern_type or session"
+        )
     return Signal(
         symbol=symbol,
         direction=direction,

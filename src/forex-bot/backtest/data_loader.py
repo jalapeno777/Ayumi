@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -7,6 +8,8 @@ import pyarrow.parquet as pq
 
 from .engine import Bar, BarPeriod
 from core.pip import PipCalculator
+
+logger = logging.getLogger(__name__)
 
 _EASTERN = ZoneInfo("America/New_York")
 _UTC = timezone.utc
@@ -57,6 +60,7 @@ def _detect_ask_columns(df: pd.DataFrame) -> bool:
 class CsvDataLoader:
     def load(self, filepath: str) -> list[Bar]:
         bars = []
+        dropped = 0
         with open(filepath) as f:
             lines = f.readlines()
 
@@ -86,12 +90,16 @@ class CsvDataLoader:
                 )
                 bars.append(bar)
             except (ValueError, IndexError):
+                dropped += 1
                 continue
 
+        if dropped:
+            logger.warning("Dropped %d malformed rows from %s", dropped, filepath)
         return bars
 
     def load_from_string(self, csv_content: str) -> list[Bar]:
         bars = []
+        dropped = 0
         lines = csv_content.strip().split("\n")
 
         for line in lines[1:]:
@@ -120,8 +128,11 @@ class CsvDataLoader:
                 )
                 bars.append(bar)
             except (ValueError, IndexError):
+                dropped += 1
                 continue
 
+        if dropped:
+            logger.warning("Dropped %d malformed rows from CSV string input", dropped)
         return bars
 
     @staticmethod

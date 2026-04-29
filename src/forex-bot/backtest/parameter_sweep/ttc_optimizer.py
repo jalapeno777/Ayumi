@@ -116,6 +116,7 @@ def load_bars(pair: str, timeframe: str = "H1") -> list:
         raise FileNotFoundError(f"No H1 data for {pair}: {csv_path}")
 
     bars: list[Bar] = []
+    dropped = 0
     with open(csv_path) as f:
         f.readline()  # skip header
         for line in f:
@@ -143,7 +144,11 @@ def load_bars(pair: str, timeframe: str = "H1") -> list:
                     )
                 )
             except (ValueError, IndexError):
+                dropped += 1
                 continue
+
+    if dropped:
+        logger.warning("Dropped %d malformed bars from %s", dropped, csv_path)
 
     logger.info("Loaded %d %s bars for %s", len(bars), timeframe, pair)
     return bars

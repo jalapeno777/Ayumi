@@ -13,6 +13,7 @@ V2 approach: walk-forward objectives + reduced search space.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,8 @@ from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
 
 import backtest.strategies.tts_strategy as tts_module
+
+logger = logging.getLogger(__name__)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 
@@ -458,18 +461,11 @@ def run_grid(
                             }
                         )
                 except Exception:
-                    rows.append(
-                        {
-                            "base_confidence": base,
-                            "negative_weight": nw,
-                            "kz_penalty": kz,
-                            "win_rate": 0,
-                            "profit_factor": 0,
-                            "max_drawdown": 1,
-                            "mean_trade_count": 0,
-                            "total_pnl": 0,
-                            "go_nogo": False,
-                        }
+                    logger.warning(
+                        "Walk-forward failed for base=%.3f nw=%.3f kz=%.3f, skipping row",
+                        base,
+                        nw,
+                        kz,
                     )
                 finally:
                     restore_defaults()

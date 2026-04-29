@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -33,6 +34,8 @@ if TYPE_CHECKING:
     from backtest.strategies import ISignalStrategy
 
     from .portfolio import PortfolioSignal, StrategyPortfolio
+
+logger = logging.getLogger(__name__)
 
 
 class TradeAction(Enum):
@@ -290,6 +293,10 @@ class QuantPipeline:
         return result
 
     def _check_regime(self, bar_time: datetime | None = None) -> float:
+        if bar_time is None:
+            logger.warning(
+                "_check_regime called without bar_time, using fabricated noon Monday"
+            )
         vol_result = calc_volatility_regime(
             self._atr_history,
             lookback=self._config.regime.atr_lookback,

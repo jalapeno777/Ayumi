@@ -1,0 +1,95 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║                  AYUMI PAPER TRADING — BLEND ONE                ║
+║                      Quality Anchor Portfolio                     ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                  ║
+║  Strategy                  Symbol   TF   Exp Tr/d  Sharpe   WF   ║
+║  ─────────────────────────────────────────────────────────────── ║
+║  1. SRMR+ (Optuna)         XAUUSD   M5   0.43     32.65   5/5  ║
+║  2. SRMR+ (Original)       XAUUSD   H1   0.90     15.20   5/5  ║
+║  3. SRMR+ (Default)        XAUUSD   H4   0.20     33.10   5/5  ║
+║  4. Session Range MR       XAUUSD   H1   0.80     21.00    —   ║
+║  5. TTC                    XAUUSD   M15  0.20      1.38    —   ║
+║                                                                  ║
+║  Expected Total: ~2.53 trades/day                                ║
+║                                                                  ║
+║  Risk: 20% max DD | 5% daily loss | 5 max positions             ║
+║  Starting Balance: $10,000.00                                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+2026-04-23 01:42:27,069 [INFO] paper_mvp: TradeStore initialized at data/trading.db
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Registered strategy 'SRMR+': symbols=['XAUUSD'] timeframes=['M5'] min_conf=0.55
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Registered strategy 'SRMR+': symbols=['XAUUSD'] timeframes=['H1'] min_conf=0.55
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Registered strategy 'SRMR+': symbols=['XAUUSD'] timeframes=['H4'] min_conf=0.55
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Registered strategy 'Session-Range Mean Reversion': symbols=['XAUUSD'] timeframes=['H1'] min_conf=0.60
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Registered strategy 'TTC/TBD XAUUSD': symbols=['XAUUSD'] timeframes=['M15'] min_conf=0.35
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: TradeStore callbacks wired into orchestrator
+2026-04-23 01:42:27,082 [INFO] engine.trading_orchestrator: Blend One MVP orchestrator built: 5 strategies registered, balance=$10000.00
+2026-04-23 01:42:27,082 [INFO] paper_mvp: Registered strategies: ['SRMR+_XAUUSD_M5', 'SRMR+_XAUUSD_H1', 'SRMR+_XAUUSD_H4', 'Session-Range Mean Reversion_XAUUSD_H1', 'TTC/TBD XAUUSD_XAUUSD_M15']
+2026-04-23 01:42:27,474 [INFO] adapters.ctrader.api_client: Sending logon (154 bytes)
+2026-04-23 01:42:27,474 [INFO] adapters.ctrader.api_client: Connected to cTrader at live-uk-eqx-01.p.c-trader.com:5211
+2026-04-23 01:42:27,667 [INFO] adapters.ctrader.api_client: Logon successful
+2026-04-23 01:42:27,667 [INFO] adapters.ctrader.market_data_feed: MD feed logged in
+2026-04-23 01:42:27,667 [INFO] adapters.ctrader.market_data_feed: Subscribed to XAU/USD (id=31)
+2026-04-23 01:42:27,667 [INFO] adapters.ctrader.market_data_feed: Market data feed started (auto-subscribed to 1 pairs)
+2026-04-23 01:42:27,667 [INFO] __main__: cTrader tick streamer connected for XAUUSD (total ticks: 0)
+2026-04-23 01:42:27,667 [INFO] __main__: Watchdog thread started
+
+======================================================================
+  AYUMI PAPER TRADING — Blend One MVP
+  2026-04-23 01:42:32 UTC
+======================================================================
+  Balance:    $10,000.00
+  Realized:   $0.00
+  Unrealized: $0.00
+  Open Pos:   0
+  Signals:    0 exec / 0 rej / 0 gen
+  Errors:     0
+  Risk:       DD=0.00%  DailyLoss=$0.00
+======================================================================
+2026-04-23 01:42:32,085 [INFO] __main__: Daily summary calculated for 2026-04-23
+
+======================================================================
+  AYUMI PAPER TRADING — Blend One MVP
+  2026-04-23 01:43:32 UTC
+======================================================================
+  Balance:    $10,000.00
+  Realized:   $0.00
+  Unrealized: $0.00
+  Open Pos:   0
+  Signals:    0 exec / 0 rej / 0 gen
+  Errors:     0
+  Risk:       DD=0.00%  DailyLoss=$0.00
+======================================================================
+
+======================================================================
+  AYUMI PAPER TRADING — Blend One MVP
+  2026-04-23 01:44:32 UTC
+======================================================================
+  Balance:    $10,000.00
+  Realized:   $0.00
+  Unrealized: $0.00
+  Open Pos:   0
+  Signals:    0 exec / 0 rej / 0 gen
+  Errors:     0
+  Risk:       DD=0.00%  DailyLoss=$0.00
+======================================================================
+2026-04-23 01:44:45,579 [INFO] paper_mvp: Received SIGTERM — shutting down gracefully...
+2026-04-23 01:44:45,579 [INFO] paper_mvp: Closing all open positions...
+
+======================================================================
+  AYUMI PAPER TRADING — Blend One MVP
+  2026-04-23 01:44:45 UTC
+======================================================================
+  Balance:    $10,000.00
+  Realized:   $0.00
+  Unrealized: $0.00
+  Open Pos:   0
+  Signals:    0 exec / 0 rej / 0 gen
+  Errors:     0
+  Risk:       DD=0.00%  DailyLoss=$0.00
+======================================================================
+2026-04-23 01:44:50,581 [INFO] adapters.ctrader.api_client: Disconnected from cTrader
+2026-04-23 01:44:50,582 [INFO] paper_mvp: Final daily summary recorded
+2026-04-23 01:44:50,582 [INFO] paper_mvp: Paper trading MVP stopped cleanly

@@ -24,10 +24,14 @@ from __future__ import annotations
 from datetime import datetime, time
 from typing import Optional
 
+import logging
+
 import numpy as np
 
 from ..engine import MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
+
+logger = logging.getLogger(__name__)
 
 try:
     import pytz
@@ -243,6 +247,9 @@ class ScalperStrategy(ISignalStrategy):
                 try:
                     utc_dt = pytz.utc.localize(utc_dt)
                 except Exception:
+                    logger.warning(
+                        "Cannot localize datetime for kill zone check: %s", utc_dt
+                    )
                     return False
             et = utc_dt.astimezone(_ET)
             et_time = et.time()
@@ -272,6 +279,7 @@ class ScalperStrategy(ISignalStrategy):
                 try:
                     utc_dt = pytz.utc.localize(utc_dt)
                 except Exception:
+                    logger.warning("Cannot localize datetime for ET date: %s", utc_dt)
                     return str(utc_dt.date())
             et = utc_dt.astimezone(_ET)
             return str(et.date())

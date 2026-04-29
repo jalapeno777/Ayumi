@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -17,6 +18,8 @@ from .engine import BacktestConfig, Bar, get_spread_for_pair
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
+
+logger = logging.getLogger(__name__)
 
 
 class SupportsTrain(Protocol):
@@ -113,7 +116,8 @@ def run_strategy_walk_forward(
                     for _ in range(metrics_obj.total_trades)
                 ]
         except ValueError:
-            trades = []
+            logger.warning("Trade extraction failed for window %d, skipping", idx)
+            raise
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
         per_window.append(window_metrics)
@@ -239,7 +243,8 @@ def run_multi_strategy_walk_forward(
                     trades.append(rec)
                     all_trade_records.append(rec)
         except Exception:
-            trades = []
+            logger.warning("Trade extraction failed for window %d, skipping", idx)
+            raise
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
         per_window.append(window_metrics)

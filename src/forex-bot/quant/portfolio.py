@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from backtest.strategies import ISignalStrategy
+
+logger = logging.getLogger(__name__)
 
 
 class AllocationMethod(Enum):
@@ -200,6 +203,11 @@ class StrategyPortfolio:
             try:
                 signal = strategy.evaluate(state)
             except Exception:
+                logger.warning(
+                    "Strategy %s evaluate() failed, skipping",
+                    allocation.strategy_name,
+                    exc_info=True,
+                )
                 continue
 
             if signal is None:
@@ -246,7 +254,13 @@ class StrategyPortfolio:
                 for existing_positions in self._tracker.open_positions.get(
                     open_sym, []
                 ):
-                    existing_direction = existing_positions.get("direction", "")
+                    existing_direction = existing_positions.get("direction")
+                    if existing_direction is None:
+                        logger.warning(
+                            "Open position on %s missing 'direction' field, skipping correlation check",
+                            open_sym,
+                        )
+                        continue
                     if existing_direction == signal_direction and corr >= 0.75:
                         return False
 
@@ -384,6 +398,11 @@ class StrategyPortfolio:
                 positions.pop(i)
                 self._tracker.on_trade_closed(strategy_name, pnl)
                 return
+        logger.warning(
+            "No open position found for %s/%s — possible orphaned position",
+            symbol,
+            strategy_name,
+        )
 
 
 def build_default_portfolio() -> StrategyPortfolio:

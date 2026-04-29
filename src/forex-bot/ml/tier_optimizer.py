@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import json
 import glob
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
-# ── Data structures ──────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -123,6 +123,7 @@ def load_real_trades(project_root: str) -> list[TradeRecord]:
             with open(filepath) as f:
                 data = json.load(f)
         except (json.JSONDecodeError, KeyError):
+            logger.warning("Failed to load trade report: %s", filepath)
             continue
         recs = data.get("trade_records", [])
         if not recs:
