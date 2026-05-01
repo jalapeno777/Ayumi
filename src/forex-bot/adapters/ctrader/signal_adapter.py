@@ -142,10 +142,14 @@ class cTraderLiveAdapter:
             for strategy_name, strategy in self._strategies.items():
                 key = f"{strategy_name}_{symbol}"
                 adapter = self._adapters.get(key)
-                if adapter:
-                    result = adapter.evaluate_and_trade(state, spread=spread)
-                    if result:
-                        results.append(result)
+                if adapter is None:
+                    logger.debug("No adapter for %s — skipped", key)
+                    continue
+                result = adapter.evaluate_and_trade(state, spread=spread)
+                if result is None:
+                    logger.debug("%s %s: no signal (conditions not met)", strategy_name, symbol)
+                else:
+                    results.append(result)
         return results
 
     def update_spread(self, spread: float):
