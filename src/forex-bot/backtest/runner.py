@@ -25,7 +25,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from strategies.grid.adapter import GridStrategyAdapter
+# Grid strategy archived — lazy import to avoid collection errors
+try:
+    from strategies.grid.adapter import GridStrategyAdapter
+except ImportError:
+    GridStrategyAdapter = None  # type: ignore
 
 from backtest import (
     AmalgamatedBacktestEngine,
@@ -53,7 +57,10 @@ from backtest import (
     VotingMethod,
 )
 from backtest.engine import get_spread_for_pair
-from backtest.grid_strategy import GridConfig
+try:
+    from backtest.grid_strategy import GridConfig
+except ImportError:
+    GridConfig = None  # type: ignore
 from backtest.hybrid_strategy import HybridConfig
 from quant.go_nogo_criteria import PerWindowCriteria
 
