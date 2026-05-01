@@ -15,8 +15,8 @@ from .models import (
     TradeDirection,
 )
 
-if TYPE_CHECKING:
-    from .api_client import cTraderAPIClient
+# NOTE: api_client.py archived (Sprint 2). cTraderAPIClient no longer exists.
+# Live FIX execution paths below are dead code kept for historical reference.
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class OrderManager:
     def __init__(
         self,
         position_config: PositionSizeConfig | None = None,
-        api_client: Optional["cTraderAPIClient"] = None,
+        api_client: Optional[Any] = None,
     ):
         self._positions: dict[str, Position] = {}
         self._orders: dict[str, Order] = {}
@@ -319,7 +319,7 @@ class OrderManager:
             error_message="Order sent, awaiting execution report",
         )
 
-    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
+    def set_api_client(self, api_client: Optional[Any]):
         self._api_client = api_client
         if self._api_client and not self._api_client.is_paper_mode:
             if not self._api_client.is_connected:
