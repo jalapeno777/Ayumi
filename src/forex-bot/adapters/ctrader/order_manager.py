@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Lock
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .models import (
     Order,
@@ -14,9 +14,6 @@ from .models import (
     PositionStatus,
     TradeDirection,
 )
-
-# NOTE: api_client.py archived (Sprint 2). cTraderAPIClient no longer exists.
-# Live FIX execution paths below are dead code kept for historical reference.
 
 
 logger = logging.getLogger(__name__)
@@ -68,15 +65,15 @@ class OrderManager:
     def __init__(
         self,
         position_config: PositionSizeConfig | None = None,
-        api_client: Optional[Any] = None,
+        api_client: Optional[Any] = None,  # deprecated: ignored, kept for caller compat
     ):
+        if api_client is not None:
+            logger.warning("api_client param is deprecated and ignored (FIX archived)")
         self._positions: dict[str, Position] = {}
         self._orders: dict[str, Order] = {}
         self._position_config = position_config or PositionSizeConfig()
-        self._api_client = api_client
         self._slippage_model = SlippageModel()
         self._lock = Lock()
-        self._locally_filled_order_ids: set = set()
         self._callbacks: dict[str, list[Callable]] = {
             "on_order_placed": [],
             "on_order_filled": [],
@@ -87,8 +84,6 @@ class OrderManager:
             "on_order_new": [],
             "on_order_partial_fill": [],
         }
-        if self._api_client and not self._api_client.is_paper_mode:
-            self._wire_live_callbacks()
 
     def calculate_position_size(
         self,
@@ -221,156 +216,19 @@ class OrderManager:
         )
 
     def execute_live_order(
-        self,
-        symbol: str,
-        direction: TradeDirection,
-        volume: float,
-        order_type: OrderType = OrderType.MARKET,
-        price: float | None = None,
-        stop_loss: float | None = None,
-        take_profit: float | None = None,
-        comment: str = "",
+        self, *args, **kwargs,
     ) -> OrderExecutionResult:
-        if not symbol or not symbol.strip():
-            return OrderExecutionResult(
-                success=False,
-                error_message="Symbol is required",
-                rejection_reason="validation_error",
-            )
-
-        if not volume or volume <= 0:
-            return OrderExecutionResult(
-                success=False,
-                error_message=f"Volume must be positive, got {volume}",
-                rejection_reason="validation_error",
-            )
-
-        if order_type in (OrderType.LIMIT, OrderType.STOP) and not price:
-            return OrderExecutionResult(
-                success=False,
-                error_message=f"Price is required for {order_type.value} orders",
-                rejection_reason="validation_error",
-            )
-
-        if not self._api_client or self._api_client.is_paper_mode:
-            return OrderExecutionResult(
-                success=False,
-                error_message="No live API client connected or paper mode is active",
-                rejection_reason="no_live_client",
-            )
-
-        if not self._api_client.is_connected:
-            return OrderExecutionResult(
-                success=False,
-                error_message="FIX connection not established",
-                rejection_reason="not_connected",
-            )
-
-        order = self._api_client.send_order(
-            symbol=symbol,
-            direction=direction,
-            order_type=order_type,
-            volume=volume,
-            price=price,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-            comment=comment,
-        )
-
-        if order is None:
-            return OrderExecutionResult(
-                success=False,
-                error_message="Failed to send order via FIX",
-                rejection_reason="send_failed",
-            )
-
-        with self._lock:
-            self._orders[order.order_id] = order
-
-        self._trigger_callback("on_order_placed", order)
-
-        if order.status == OrderStatus.FILLED:
-            position = self._create_position_from_order(order)
-            if position:
-                with self._lock:
-                    self._positions[position.position_id] = position
-                self._trigger_callback("on_position_opened", position)
-            self._trigger_callback("on_order_filled", order)
-            with self._lock:
-                self._locally_filled_order_ids.add(order.order_id)
-            return OrderExecutionResult(
-                success=True,
-                order=order,
-                position=position,
-            )
-
-        if order.status == OrderStatus.REJECTED:
-            self._trigger_callback("on_order_rejected", order)
-            return OrderExecutionResult(
-                success=False,
-                order=order,
-                error_message=order.comment or "Order rejected by broker",
-                rejection_reason="broker_rejected",
-            )
-
+        """Deprecated: FIX live execution removed (api_client.py archived in Sprint 2)."""
+        logger.warning("execute_live_order() is no-op — FIX live execution was archived")
         return OrderExecutionResult(
-            success=True,
-            order=order,
-            error_message="Order sent, awaiting execution report",
+            success=False,
+            error_message="Live FIX execution removed (api_client.py archived)",
+            rejection_reason="no_live_client",
         )
 
     def set_api_client(self, api_client: Optional[Any]):
-        self._api_client = api_client
-        if self._api_client and not self._api_client.is_paper_mode:
-            if not self._api_client.is_connected:
-                logger.warning(
-                    "cTraderAPIClient not connected — live callbacks will be "
-                    "wired on connect. Call connect() before trading."
-                )
-            self._wire_live_callbacks()
-
-    def _wire_live_callbacks(self):
-        if not self._api_client:
-            return
-
-        if not self._api_client.is_connected:
-            logger.warning("Cannot wire live callbacks: FIX client not connected")
-            return
-
-        api = self._api_client
-
-        def on_filled(order, msg, *args):
-            if not order:
-                return
-            with self._lock:
-                if order.order_id in self._locally_filled_order_ids:
-                    self._locally_filled_order_ids.discard(order.order_id)
-                    return
-            if order.order_id in self._orders:
-                with self._lock:
-                    self._orders[order.order_id] = order
-                position = self._create_position_from_order(order)
-                if position:
-                    with self._lock:
-                        self._positions[position.position_id] = position
-                    self._trigger_callback("on_position_opened", position)
-                self._trigger_callback("on_order_filled", order)
-
-        def on_rejected(order, msg, reject_msg, *args):
-            if order and order.order_id in self._orders:
-                with self._lock:
-                    self._orders[order.order_id] = order
-                self._trigger_callback("on_order_rejected", order)
-
-        def on_cancelled(order, msg, *args):
-            if order and order.order_id in self._orders:
-                with self._lock:
-                    self._orders[order.order_id] = order
-                self._trigger_callback("on_order_cancelled", order)
-
-        api.register_callback("on_order_filled", on_filled)
-        api.register_callback("on_order_rejected", on_rejected)
-        api.register_callback("on_order_cancelled", on_cancelled)
+        """Deprecated: FIX live execution removed (api_client.py archived in Sprint 2)."""
+        logger.warning("set_api_client() is no-op — FIX live execution was archived")
 
     def _create_position_from_order(self, order: Order) -> Position | None:
         if order.status != OrderStatus.FILLED:
