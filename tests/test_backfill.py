@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from adapters.ctrader.models import cTraderCredentials
-from adapters.ctrader.symbol_discovery import SymbolInfo
+from adapters.ctrader.models import SymbolInfo
 from data.backfill import HistoricalDataBackfill, VALID_TIMEFRAMES
 
 
@@ -56,8 +56,8 @@ class TestMissingSymbols:
             (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
 
             discovered = {
-                1: SymbolInfo(symbol_id=1, name="EUR/USD", category="forex_major"),
-                2: SymbolInfo(symbol_id=2, name="GBP/USD", category="forex_major"),
+                1: SymbolInfo(symbol_id=1, name="EUR/USD"),
+                2: SymbolInfo(symbol_id=2, name="GBP/USD"),
             }
 
             missing = bf.get_missing_symbols(discovered, "H1")
@@ -70,7 +70,7 @@ class TestMissingSymbols:
             (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
 
             discovered = {
-                1: SymbolInfo(symbol_id=1, name="EUR/USD", category="forex_major"),
+                1: SymbolInfo(symbol_id=1, name="EUR/USD"),
             }
 
             missing = bf.get_missing_symbols(discovered, "H1")
