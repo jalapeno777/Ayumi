@@ -72,7 +72,11 @@ class PaperTrader:
         return self._live_mode_enabled
 
     def process_signal(
-        self, signal: TradeSignal, spread: float = 0.0
+        self,
+        signal: TradeSignal,
+        spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> PaperTradeResult:
         with self._lock:
             self._stats.total_signals_processed += 1
@@ -117,6 +121,8 @@ class PaperTrader:
                 signal=signal,
                 volume=volume,
                 spread=spread,
+                bid=bid,
+                ask=ask,
             )
 
             if trade_result.success:
@@ -153,7 +159,12 @@ class PaperTrader:
             return result
 
     def _execute_order(
-        self, signal: TradeSignal, volume: float, spread: float = 0.0
+        self,
+        signal: TradeSignal,
+        volume: float,
+        spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> OrderExecutionResult:
         if self.is_live_mode:
             return self._order_manager.execute_live_order(
@@ -173,6 +184,8 @@ class PaperTrader:
             take_profit=signal.take_profit_1,
             comment=signal.rationale,
             spread=spread,
+            bid=bid,
+            ask=ask,
         )
 
     def set_api_client(self, api_client: Optional["cTraderAPIClient"]):

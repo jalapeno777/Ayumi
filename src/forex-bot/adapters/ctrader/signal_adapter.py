@@ -34,7 +34,11 @@ class cTraderSignalAdapter:
         self._current_spread = spread
 
     def evaluate_and_trade(
-        self, market_state: MarketState, spread: float = 0.0
+        self,
+        market_state: MarketState,
+        spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> TradeSignal | None:
         if spread > 0:
             self._current_spread = spread
@@ -65,7 +69,10 @@ class cTraderSignalAdapter:
         )
 
         result = self._paper_trader.process_signal(
-            trade_signal, spread=self._current_spread
+            trade_signal,
+            spread=self._current_spread,
+            bid=bid,
+            ask=ask,
         )
 
         if result.success:
@@ -135,7 +142,11 @@ class cTraderLiveAdapter:
                 )
 
     def evaluate_all_strategies(
-        self, market_states: dict[str, MarketState], spread: float = 0.0
+        self,
+        market_states: dict[str, MarketState],
+        spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> list[TradeSignal]:
         results = []
         for symbol, state in market_states.items():
@@ -145,9 +156,16 @@ class cTraderLiveAdapter:
                 if adapter is None:
                     logger.debug("No adapter for %s — skipped", key)
                     continue
-                result = adapter.evaluate_and_trade(state, spread=spread)
+                result = adapter.evaluate_and_trade(
+                    state,
+                    spread=spread,
+                    bid=bid,
+                    ask=ask,
+                )
                 if result is None:
-                    logger.debug("%s %s: no signal (conditions not met)", strategy_name, symbol)
+                    logger.debug(
+                        "%s %s: no signal (conditions not met)", strategy_name, symbol
+                    )
                 else:
                     results.append(result)
         return results

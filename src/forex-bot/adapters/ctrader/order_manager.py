@@ -169,9 +169,21 @@ class OrderManager:
         take_profit: float | None = None,
         comment: str = "",
         spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> OrderExecutionResult:
         slippage_model = self._slippage_model
-        fill_price = slippage_model.apply_with_spread(entry_price, direction, spread)
+
+        if bid > 0 and ask > 0:
+            if direction == TradeDirection.LONG:
+                fill_price = slippage_model.apply(ask, direction)
+            else:
+                fill_price = slippage_model.apply(bid, direction)
+        else:
+            fill_price = slippage_model.apply_with_spread(
+                entry_price, direction, spread
+            )
+
         slippage_amount = abs(fill_price - entry_price)
 
         logger.info(
@@ -216,10 +228,14 @@ class OrderManager:
         )
 
     def execute_live_order(
-        self, *args, **kwargs,
+        self,
+        *args,
+        **kwargs,
     ) -> OrderExecutionResult:
         """Deprecated: FIX live execution removed (api_client.py archived in Sprint 2)."""
-        logger.warning("execute_live_order() is no-op — FIX live execution was archived")
+        logger.warning(
+            "execute_live_order() is no-op — FIX live execution was archived"
+        )
         return OrderExecutionResult(
             success=False,
             error_message="Live FIX execution removed (api_client.py archived)",
