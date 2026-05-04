@@ -103,7 +103,7 @@ class GridState:
         self.grid_active: bool = False
         self.grid_start_bar: int = 0
         self.filled_count: int = 0
-        self.base_price: float = 0.0
+        self.base_price: float | None = None
         self.pip_size: float = self._get_pip_size(config.pair)
         self.bar_count: int = 0
 
@@ -177,12 +177,16 @@ class GridState:
         return None
 
     def get_tp_for_level(self, level: GridLevel, entry_price: float) -> float:
+        if self.base_price is None:
+            return entry_price
         tp_distance = abs(entry_price - self.base_price) * level.tp_multiplier
         if level.is_buy:
             return entry_price + tp_distance
         return entry_price - tp_distance
 
     def get_sl_for_level(self, level: GridLevel, entry_price: float) -> float:
+        if self.base_price is None:
+            return entry_price
         sl_distance = abs(entry_price - self.base_price) * 0.25
         if level.is_buy:
             return entry_price - sl_distance
@@ -201,7 +205,7 @@ class GridState:
         self.grid_active = False
         self.grid_start_bar = 0
         self.filled_count = 0
-        self.base_price = 0.0
+        self.base_price = None
         self.bar_count = 0
 
 

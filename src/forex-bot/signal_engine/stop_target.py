@@ -8,7 +8,6 @@ and trailing SL logic for lock-in behavior (§9.3).
 from __future__ import annotations
 
 
-
 DEFAULT_RR_RATIO = 2.0
 SPREAD_BUFFER_PIPS = 0.5
 
@@ -69,7 +68,7 @@ class StopTargetCalculator:
         direction: str,
         entry: float,
         context: dict,
-        spread: float = 0.0,
+        spread: float | None = None,
     ) -> dict:
         """Return stop_loss, take_profit, tp_levels, and trailing config.
 
@@ -80,10 +79,11 @@ class StopTargetCalculator:
             r2, r3: demand/take-profit levels for longs
             d2, d3: supply/take-profit levels for shorts
         """
-        atr = context.get("atr", 0.0)
-        sl = self._place_stop_loss(direction, entry, context, spread, atr)
+        atr = context.get("atr")
+        effective_spread = spread if spread is not None else 0.0
+        sl = self._place_stop_loss(direction, entry, context, effective_spread, atr)
         tp, tp_levels = self._place_take_profit(
-            direction, entry, sl, context, atr, spread
+            direction, entry, sl, context, atr, effective_spread
         )
         trailing = self._trailing_config(direction, entry, sl, tp, context, atr)
 
@@ -103,7 +103,7 @@ class StopTargetCalculator:
         entry: float,
         context: dict,
         spread: float,
-        atr: float,
+        atr: float | None,
     ) -> float:
         """ATR-based SL scaled to entry timeframe.
 
@@ -112,7 +112,7 @@ class StopTargetCalculator:
         """
         buffer = max(SPREAD_BUFFER_PIPS * self.pip_size, spread)
 
-        if atr > 0:
+        if atr is not None and atr > 0:
             atr_sl_distance = atr * self._sl_mult
             atr_sl_distance = min(atr_sl_distance, atr * MAX_SL_ATR_MULT)
 
@@ -159,7 +159,7 @@ class StopTargetCalculator:
         entry: float,
         sl: float,
         context: dict,
-        atr: float,
+        atr: float | None,
         spread: float = 0.0,
     ) -> tuple[float, list[dict]]:
         """TP using ATR multiples, enforcing minimum RR ratio.
@@ -171,7 +171,7 @@ class StopTargetCalculator:
         risk = abs(entry - sl)
         min_reward = risk * self._min_rr + spread
 
-        if atr > 0:
+        if atr is not None and atr > 0:
             tp_levels = self._atr_tp_levels(direction, entry, atr, context, min_reward)
         else:
             tp_levels = self._rr_tp_levels(direction, entry, risk, context, min_reward)
@@ -287,7 +287,7 @@ class StopTargetCalculator:
         sl: float,
         tp: float,
         context: dict,
-        atr: float,
+        atr: float | None,
     ) -> dict:
         """Trailing stop logic for lock-in behavior.
 
@@ -304,12 +304,12 @@ class StopTargetCalculator:
             trail_start = entry - risk * 1.5
 
         trail_step = "half_remaining"
-        if atr > 0:
+        if atr is not None and atr > 0:
             trail_step = "atr_half"
 
         return {
             "breakeven_trigger": round(breakeven_trigger, 5),
             "trail_start": round(trail_start, 5),
             "trail_step": trail_step,
-            "atr_trail": atr if atr > 0 else context.get("atr"),
+            "atr_trail": atr if atr is not None and atr > 0 else context.get("atr"),
         }

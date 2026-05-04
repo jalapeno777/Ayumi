@@ -242,14 +242,14 @@ class SessionAnalyzer:
         # Check for wick-heavy candles in the pre-NY / early NY window
         wick_count = 0
         for bar in bars_before_ny[-6:]:  # Last ~6 bars before NY open
-            body = abs(bar.get("close", 0) - bar.get("open", 0))
-            total_range = bar.get("high", 0) - bar.get("low", 0)
+            body = abs(bar["close"] - bar["open"])
+            total_range = bar["high"] - bar["low"]
             if total_range > 0 and body / total_range < 0.5:
                 wick_count += 1
 
         # Early NY bar wick check
-        ny_body = abs(ny_open_bar.get("close", 0) - ny_open_bar.get("open", 0))
-        ny_range = ny_open_bar.get("high", 0) - ny_open_bar.get("low", 0)
+        ny_body = abs(ny_open_bar["close"] - ny_open_bar["open"])
+        ny_range = ny_open_bar["high"] - ny_open_bar["low"]
         ny_wicky = ny_range > 0 and ny_body / ny_range < 0.5
 
         if wick_count >= 3 or ny_wicky:

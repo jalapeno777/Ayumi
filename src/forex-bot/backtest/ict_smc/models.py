@@ -144,8 +144,8 @@ class ICTMarketState:
         self.liquidity_pools: list[LiquidityPool] = []
         self.pd_zone: PremiumDiscountZone | None = None
         self.current_session: SessionType = SessionType.OUTSIDE
-        self.day_high: float = 0.0
-        self.day_low: float = 0.0
+        self.day_high: float | None = None
+        self.day_low: float | None = None
         self.atr: float = 0.0
 
     @property

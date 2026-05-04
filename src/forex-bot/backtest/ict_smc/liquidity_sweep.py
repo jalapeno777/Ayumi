@@ -48,8 +48,11 @@ class LiquiditySweepDetector:
                             level=bars[i].high,
                             touches=touches,
                             is_high=True,
-                            is_day_high=abs(bars[i].high - state.day_high)
-                            < bars[i].high * 0.0001,
+                            is_day_high=(
+                                state.day_high is not None
+                                and abs(bars[i].high - state.day_high)
+                                < bars[i].high * 0.0001
+                            ),
                             bar_index=i,
                         )
                     )
@@ -66,8 +69,11 @@ class LiquiditySweepDetector:
                             level=bars[i].low,
                             touches=touches,
                             is_high=False,
-                            is_day_low=abs(bars[i].low - state.day_low)
-                            < bars[i].low * 0.0001,
+                            is_day_low=(
+                                state.day_low is not None
+                                and abs(bars[i].low - state.day_low)
+                                < bars[i].low * 0.0001
+                            ),
                             bar_index=i,
                         )
                     )

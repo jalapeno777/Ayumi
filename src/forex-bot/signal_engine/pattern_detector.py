@@ -327,7 +327,7 @@ class PatternDetector:
         self,
         swings: list[Swing],
         levels: list[Level],
-        current_price: float = 0.0,
+        current_price: float | None = None,
         current_bar_index: int = -1,
     ) -> Optional[DetectedPattern]:
         """Detect M (bearish reversal) or W (bullish reversal) using 11-point checklist.
@@ -625,10 +625,10 @@ class PatternDetector:
         Vacation: price sweeps above resistance then reverses (bearish).
         Continuation: momentum candle in trend direction.
         """
-        high = bar.get("high", 0)
-        low = bar.get("low", 0)
-        close = bar.get("close", 0)
-        open_ = bar.get("open", 0)
+        high = bar["high"]
+        low = bar["low"]
+        close = bar["close"]
+        open_ = bar["open"]
         body = abs(close - open_)
         total_range = high - low
         if total_range <= 0:
@@ -774,9 +774,9 @@ class PatternDetector:
 
         # Fallback: use session high/low if no Asia analyzer
         if ilod is None:
-            ilod = min(b.get("low", 0) for b in bars)
+            ilod = min(b["low"] for b in bars)
         if ilhod is None:
-            ilhod = max(b.get("high", 0) for b in bars)
+            ilhod = max(b["high"] for b in bars)
 
         last_bar = bars[-1]
         prev_bar = bars[-2] if len(bars) >= 2 else None
@@ -812,14 +812,10 @@ class PatternDetector:
                 )
 
         session_high = (
-            max(b.get("high", 0) for b in bars[:-1])
-            if len(bars) > 1
-            else bars[0].get("high", 0)
+            max(b["high"] for b in bars[:-1]) if len(bars) > 1 else bars[0]["high"]
         )
         session_low = (
-            min(b.get("low", 0) for b in bars[:-1])
-            if len(bars) > 1
-            else bars[0].get("low", 0)
+            min(b["low"] for b in bars[:-1]) if len(bars) > 1 else bars[0]["low"]
         )
 
         # ILOD break — price breaks below prior session low then shows rejection
@@ -860,10 +856,10 @@ class PatternDetector:
         A liquidity grab has a long wick through a level with the body
         closing on the opposite side, indicating stops were taken.
         """
-        high = bar.get("high", 0)
-        low = bar.get("low", 0)
-        close = bar.get("close", 0)
-        open_ = bar.get("open", 0)
+        high = bar["high"]
+        low = bar["low"]
+        close = bar["close"]
+        open_ = bar["open"]
         total_range = high - low
         if total_range <= 0:
             return None
@@ -914,7 +910,7 @@ class PatternDetector:
         self,
         swings: list[Swing],
         levels: list[Level],
-        current_price: float = 0.0,
+        current_price: float | None = None,
     ) -> Optional[DetectedPattern]:
         """Detect FL (Flight Log) strategy patterns.
 
@@ -1008,10 +1004,10 @@ class PatternDetector:
         Returns:
             True if the bar qualifies as an SVC.
         """
-        high = bar.get("high", 0)
-        low = bar.get("low", 0)
-        close = bar.get("close", 0)
-        open_ = bar.get("open", 0)
+        high = bar["high"]
+        low = bar["low"]
+        close = bar["close"]
+        open_ = bar["open"]
         total_range = high - low
         if total_range <= 0:
             return False
@@ -1050,7 +1046,7 @@ class PatternDetector:
         swings: list[Swing],
         levels: list[Level],
         bars: list[dict],
-        current_price: float = 0.0,
+        current_price: float | None = None,
         session: str = "LONDON",
         bar_time: Optional[datetime] = None,
         asia_analyzer: Optional[AsiaSessionAnalyzer] = None,
@@ -1115,11 +1111,13 @@ class PatternDetector:
         swings: list[Swing],
         levels: list[Level],
         bars: list[dict],
-        current_price: float,
+        current_price: float | None,
         bar_time: datetime,
         asia_analyzer: AsiaSessionAnalyzer,
     ) -> list[DetectedPattern]:
         """Detect TTC flight-log patterns (FL-001 through FL-004)."""
+        if current_price is None:
+            return []
         kz = asia_analyzer.is_kill_zone(bar_time)
         if kz == "outside":
             return []
