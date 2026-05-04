@@ -1,0 +1,14 @@
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_start_restores_no_state0/risk_state.json — starting fresh
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_signal_processing0/risk_state.json — starting fresh
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_multiple_signals_in_seque0/risk_state.json — starting fresh
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_fill_handling_updates_bal0/risk_state.json — starting fresh
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_state_save_on_stop0/risk_state.json — starting fresh
+2026-05-04 05:17:45 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_state_restore_on_start0/risk_state.json — starting fresh
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by routing: strategy=test_strat symbol=EURUSD score=0.200
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by routing: strategy=test_strat symbol=EURUSD score=0.390
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=SL distance 1.0 pips < minimum 5.0 pips
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=Trade risk $50.00 exceeds daily remaining $0.00
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=EURUSD reason=Trading halted until 2026-05-05T05:18:10.813398+00:00: test breaker
+2026-05-04 05:18:10 | WARNING  | ayumi.orchestrator | Signal REJECTED by sizing: strategy=test_strat symbol=FAKEPAIR reason=Unknown instrument: FAKEPAIR
+2026-05-04 05:18:11 | WARNING  | ayumi.risk | No state file at /tmp/pytest-of-TacoPants/pytest-333/test_restore_missing_file0/risk_state.json — starting fresh
+2026-05-04 05:18:11 | ERROR    | ayumi.risk | Corrupt state file /tmp/pytest-of-TacoPants/pytest-333/test_restore_corrupt_file0/risk_state.json: Expecting value: line 1 column 1 (char 0)

@@ -407,6 +407,8 @@ class BacktestEngine:
         if trade.direction == TradeDirection.LONG:
             if bar.low <= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
+            if bar.high >= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
             if bar.high >= trade.take_profit_3:
                 return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
             if bar.high >= trade.take_profit_2:
@@ -414,6 +416,8 @@ class BacktestEngine:
         else:
             if bar.high >= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
+            if bar.low <= trade.take_profit_1:
+                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
             if bar.low <= trade.take_profit_3:
                 return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
             if bar.low <= trade.take_profit_2:
@@ -520,6 +524,13 @@ class BacktestEngine:
         equity_curve: list[float],
         rejected_signals: int,
     ) -> BacktestMetrics:
+        closed_trades = [
+            t
+            for t in trades
+            if t.outcome
+            in (TradeOutcome.WIN, TradeOutcome.LOSS, TradeOutcome.BREAKEVEN)
+        ]
+
         metrics = BacktestMetrics(
             starting_balance=self.config.starting_balance,
             ending_balance=self.balance,
@@ -527,11 +538,15 @@ class BacktestEngine:
             total_pnl_pct=(self.balance - self.config.starting_balance)
             / self.config.starting_balance,
             win_rate=0.0,
-            total_trades=len(trades),
-            winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
-            losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
+            total_trades=len(closed_trades),
+            winning_trades=sum(
+                1 for t in closed_trades if t.outcome == TradeOutcome.WIN
+            ),
+            losing_trades=sum(
+                1 for t in closed_trades if t.outcome == TradeOutcome.LOSS
+            ),
             breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
+                1 for t in closed_trades if t.outcome == TradeOutcome.BREAKEVEN
             ),
             avg_win=0.0,
             avg_loss=0.0,
@@ -552,11 +567,11 @@ class BacktestEngine:
             rejected_signals=rejected_signals,
         )
 
-        if len(trades) > 0:
-            wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
-            losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
+        if len(closed_trades) > 0:
+            wins = [t for t in closed_trades if t.outcome == TradeOutcome.WIN]
+            losses = [t for t in closed_trades if t.outcome == TradeOutcome.LOSS]
 
-            metrics.win_rate = metrics.winning_trades / len(trades) * 100
+            metrics.win_rate = metrics.winning_trades / len(closed_trades) * 100
             metrics.avg_win = (
                 sum(t.profit_loss for t in wins) / len(wins) if wins else 0
             )
@@ -583,8 +598,8 @@ class BacktestEngine:
                 (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
             )
             metrics.avg_holding_bars = sum(
-                t.exit_bar_index - t.entry_bar_index for t in trades
-            ) / len(trades)
+                t.exit_bar_index - t.entry_bar_index for t in closed_trades
+            ) / len(closed_trades)
 
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics

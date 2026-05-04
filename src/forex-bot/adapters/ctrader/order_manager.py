@@ -148,7 +148,7 @@ class OrderManager:
 
         order.status = OrderStatus.FILLED
         order.filled_at = datetime.utcnow()
-        order.filled_price = 0
+        order.filled_price = None
 
         position = self._create_position_from_order(order)
         if position:
@@ -376,14 +376,24 @@ class OrderManager:
         if order.status != OrderStatus.FILLED:
             return None
 
+        entry_price = order.filled_price or order.price
+        if entry_price is None or entry_price == 0:
+            logger.error(
+                "Cannot create position for %s: filled_price=%s, price=%s",
+                order.order_id,
+                order.filled_price,
+                order.price,
+            )
+            return None
+
         position_id = f"POS_{order.order_id}"
         position = Position(
             position_id=position_id,
             symbol=order.symbol,
             direction=order.direction,
             volume=order.volume,
-            entry_price=order.filled_price or order.price or 0,
-            current_price=order.filled_price or order.price or 0,
+            entry_price=entry_price,
+            current_price=entry_price,
             stop_loss=order.stop_loss,
             take_profit=order.take_profit,
             opened_at=order.filled_at or datetime.utcnow(),
