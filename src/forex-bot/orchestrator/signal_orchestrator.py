@@ -76,9 +76,11 @@ class SignalOrchestrator:
         )
 
         if confidence_result.blocked:
+            gates_str = ",".join(confidence_result.gates_failed)
             logger.warning(
-                "Signal REJECTED by confidence gates: strategy=%s symbol=%s reason=%s",
-                signal.strategy_id, signal.symbol, confidence_result.block_reason,
+                "Signal rejected: strategy=%s symbol=%s reason=confidence_gate gate=%s final_score=%.3f",
+                signal.strategy_id, signal.symbol, gates_str,
+                confidence_result.final_score,
             )
             return OrchestratedOrder(
                 signal=signal, profile=Profile.SNIPER,
@@ -92,8 +94,9 @@ class SignalOrchestrator:
         profile = self._router.route(confidence_result.final_score)
         if profile is None:
             logger.warning(
-                "Signal REJECTED by routing: strategy=%s symbol=%s score=%.3f",
+                "Signal rejected: strategy=%s symbol=%s reason=routing_threshold score=%.3f threshold=%.2f",
                 signal.strategy_id, signal.symbol, confidence_result.final_score,
+                ProfileRouter.SWARM_THRESHOLD,
             )
             return OrchestratedOrder(
                 signal=signal, profile=Profile.SNIPER,
@@ -117,8 +120,10 @@ class SignalOrchestrator:
 
         if size_result.blocked:
             logger.warning(
-                "Signal REJECTED by sizing: strategy=%s symbol=%s reason=%s",
+                "Signal rejected: strategy=%s symbol=%s reason=sizing gate=%s sl_pips=%.1f risk_avail=%.2f",
                 signal.strategy_id, signal.symbol, size_result.block_reason,
+                size_result.sl_distance_pips,
+                size_result.risk_amount,
             )
         else:
             logger.info(
