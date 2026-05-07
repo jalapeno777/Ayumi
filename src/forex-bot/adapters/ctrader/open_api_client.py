@@ -247,6 +247,15 @@ class CTraderOpenApiClient:
             return None
 
         payload = Protobuf.extract(response)
+        msg_type = getattr(payload, 'payloadType', None)
+        if msg_type == 2142:  # ProtoOAErrorRes — symbol not found or auth error
+            error_code = getattr(payload, 'errorCode', 'UNKNOWN')
+            description = getattr(payload, 'description', '')
+            logger.warning(
+                "Symbol details error for symbol_id=%d: %s — %s",
+                symbol_id, error_code, description,
+            )
+            return None
         if not hasattr(payload, 'symbol') or not payload.symbol:
             return None
 

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
-from .market_data_feed import LiveMarketDataFeed, Tick
+from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
 from .models import cTraderCredentials
 from .order_manager import PositionSizeConfig
@@ -365,14 +365,10 @@ class ForwardTestEngine:
     def _start_market_feed(self) -> bool:
         cfg = self._config
 
-        if getattr(cfg, 'use_openapi_feed', False):
+        # Use OpenAPI feed by default (FIX feed archived)
+        use_fix = getattr(cfg, 'use_fix_feed', False)
+        if not use_fix:
             return self._start_openapi_feed()
-
-        # Always use quote credentials for market data — never the trade credentials
-        creds = self._build_quote_credentials()
-
-        self._market_feed = LiveMarketDataFeed(creds)
-        self._wire_callbacks()
 
         # multi-symbol routing — candidate for extraction if complexity grows
         subscribe_names = []
@@ -809,7 +805,10 @@ class ForwardTestEngine:
                 attempts,
                 self._config.max_reconnect_attempts,
             )
-            self.stop()
+            # Set running=False directly instead of calling stop() to avoid
+            # self-join deadlock (stop() calls _health_monitor_thread.join() which
+            # is the current thread when called from _health_monitor_loop).
+            self._running = False
             return
 
         logger.info(
