@@ -528,6 +528,7 @@ def main():
     # 5. Build engine config with strategy_timeframes and multi-symbol
     config = ForwardTestConfig(
         symbol=symbols[0],
+        symbols=symbols,
         starting_balance=10_000.0,
         min_confidence=0.50,
         max_bars_per_symbol=500,
