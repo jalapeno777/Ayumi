@@ -169,6 +169,20 @@ class OpenApiSpotFeed:
         self._running = True
 
         if auto_subscribe:
+            # Pre-fetch details for ALL symbols before subscribing any.
+            # _subscribe_by_id() tries to fetch details lazily, but if that fails
+            # the symbol is still subscribed without digits — causing USDJPY to
+            # never enter the working symbol map. By fetching all first we avoid
+            # racing between subscription and detail resolution.
+            for symbol_name in auto_subscribe:
+                symbol_id = self._resolve_name_to_id(symbol_name)
+                if symbol_id is None:
+                    logger.warning("Cannot resolve '%s' to a symbol ID — skipping", symbol_name)
+                    continue
+                if symbol_id not in self._symbol_digits:
+                    logger.info("Pre-fetching details for %s (id=%d)", symbol_name, symbol_id)
+                    self._fetch_symbol_details(symbol_id)
+
             for symbol_name in auto_subscribe:
                 if not self.subscribe(symbol_name):
                     logger.warning("Failed to auto-subscribe to %s", symbol_name)
@@ -430,6 +444,17 @@ class OpenApiSpotFeed:
         'digits'. We store name→ID mappings here and fetch full details
         (including digits) via ProtoOASymbolByIdReq when subscribing.
         """
+        # Guard: ProtoOAErrorRes (msg type 2142) has no 'symbol' attribute
+        if not hasattr(message, 'symbol'):
+            error_code = getattr(message, 'errorCode', 'UNKNOWN')
+            description = getattr(message, 'description', '')
+            logger.error(
+                "Symbol list request failed with error: %s — %s",
+                error_code,
+                description,
+            )
+            return
+
         for sym in message.symbol:
             symbol_id = sym.symbolId
             name = sym.symbolName  # broker's name, e.g. "EUR/USD"

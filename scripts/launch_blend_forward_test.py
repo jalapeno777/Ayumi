@@ -420,7 +420,7 @@ def build_blend_runner() -> BlendForwardTestRunner:
         "daily_risk_cap_pct": 0.05,
         "max_sniper": 3,
         "max_swarm": 5,
-        "spread_pips": {"GBPUSD": 1.2, "EURUSD": 0.8},
+        "spread_pips": {"GBPUSD": 2.0, "EURUSD": 0.8},
         "atr_cache_path": "data/atr_cache.json",
         "state_path": "data/risk_state_blend.json",
         "log_level": "INFO",
