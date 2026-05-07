@@ -49,8 +49,9 @@ class cTraderSignalAdapter:
             return None
 
         if signal.confidence < self._min_confidence:
-            logger.debug(
-                f"Signal confidence {signal.confidence:.2f} below minimum {self._min_confidence:.2f}"
+            logger.info(
+                "Signal rejected: strategy=%s symbol=%s reason=confidence_threshold raw_confidence=%.3f threshold=%.2f",
+                self._strategy.name, self._symbol, signal.confidence, self._min_confidence,
             )
             return None
 
