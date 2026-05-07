@@ -28,6 +28,7 @@ from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
 from .market_data_feed import LiveMarketDataFeed, Tick
+from .open_api_spot_feed import OpenApiSpotFeed
 from .models import cTraderCredentials
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
@@ -35,10 +36,10 @@ from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ayumi.forward_test")
 
 _DEFAULT_RECONNECT_DELAY_SEC = 5.0
-_DEFAULT_MAX_RECONNECT_DELAY_SEC = 60.0
+_DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
 
@@ -71,6 +72,7 @@ def _is_forex_market_closed() -> bool:
 @dataclass
 class ForwardTestConfig:
     symbol: str = "GBPUSD"
+    symbols: list[str] = None  # multi-symbol support; if None, defaults to [symbol]
     starting_balance: float = 100_000.0
     min_confidence: float = 0.50
     max_bars_per_symbol: int = 500
@@ -87,13 +89,23 @@ class ForwardTestConfig:
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
     bar_period_minutes: int = 60
-    stale_tick_threshold_sec: float = _DEFAULT_STALE_TICK_THRESHOLD_SEC
+    stale_tick_threshold_sec: float = 900.0  # Increased from 400.0 to reduce stale-tick warnings during quiet periods
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
-    health_monitor_interval_sec: float = 5.0
+    health_monitor_interval_sec: float = 10.0  # Reduced from 5.0 to decrease CPU load
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
+    strategy_timeframes: dict[str, int] = None  # strategy_name -> period_minutes; empty/None = all use bar_period_minutes
+    use_openapi_feed: bool = False  # True = Open API spot feed, False = FIX feed
+    openapi_host: str = "demo.ctraderapi.com"
+    openapi_port: int = 5035
+
+    def __post_init__(self):
+        if self.strategy_timeframes is None:
+            self.strategy_timeframes = {}
+        if self.symbols is None:
+            self.symbols = [self.symbol]
 
 
 @dataclass
@@ -113,6 +125,13 @@ class ForwardTestHealth:
 
 
 class ForwardTestEngine:
+    # Allowed timeframe whitelist
+    _ALLOWED_TIMEFRAMES = {15, 60, 240}
+
+    @staticmethod
+    def _bar_key(symbol: str, period_minutes: int) -> str:
+        return f"{symbol}:{period_minutes}"
+
     def __init__(
         self,
         config: ForwardTestConfig,
@@ -120,17 +139,42 @@ class ForwardTestEngine:
         ftmo_config: Optional[FTMOConfig] = None,
         position_config: Optional[PositionSizeConfig] = None,
         credentials: Optional[cTraderCredentials] = None,
+        *,
+        blend_mode: bool = False,
     ):
         self._config = config
         self._strategies = strategies
         self._ftmo_config = ftmo_config
         self._position_config = position_config
+        self._blend_mode = blend_mode
         self._running = False
         self._lock = threading.RLock()
         self._eval_semaphore = threading.Semaphore(1)
 
-        self._bars: dict[str, list[Bar]] = {}
-        self._current_bar: dict[str, Optional[Bar]] = {}
+        # Derive required timeframes
+        self._strategy_timeframes: dict[str, int] = config.strategy_timeframes or {}
+        self._required_timeframes: set[int] = (
+            set(self._strategy_timeframes.values()) if self._strategy_timeframes
+            else {config.bar_period_minutes}
+        )
+
+        # Startup assertion: whitelist check
+        for tf in self._required_timeframes:
+            assert tf in self._ALLOWED_TIMEFRAMES, (
+                f"Timeframe {tf} not in allowed whitelist {self._ALLOWED_TIMEFRAMES}"
+            )
+
+        # Startup assertion: every key in strategy_timeframes must match a registered strategy .name
+        if self._strategy_timeframes:
+            registered_names = {s.name for s in strategies}
+            for stg_name in self._strategy_timeframes:
+                assert stg_name in registered_names, (
+                    f"strategy_timeframes key '{stg_name}' does not match any registered "
+                    f"strategy .name property. Registered: {sorted(registered_names)}"
+                )
+
+        self._bars: dict[str, list[Bar]] = {}  # key = _bar_key(symbol, period_minutes)
+        self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
         self._paper_trader: Optional[PaperTrader] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
@@ -221,8 +265,8 @@ class ForwardTestEngine:
             )
 
         logger.info(
-            "Forward test started: symbol=%s strategies=%s mode=%s eval_interval=%.1fs bar_period=%dm",
-            self._config.symbol,
+            "Forward test started: symbols=%s strategies=%s mode=%s eval_interval=%.1fs bar_period=%dm",
+            self._config.symbols,
             [s.name for s in self._strategies],
             "LIVE" if self._config.live_mode else "PAPER",
             self._config.evaluation_interval_sec,
@@ -242,8 +286,8 @@ class ForwardTestEngine:
             self._health_monitor_thread = None
 
         with self._lock:
-            for symbol in list(self._current_bar.keys()):
-                self._finalize_and_store_bar(symbol)
+            for key in list(self._current_bar.keys()):
+                self._finalize_and_store_bar(key)
 
         if self._market_feed:
             self._market_feed.stop()
@@ -264,7 +308,8 @@ class ForwardTestEngine:
         self._callbacks.append((event, callback))
 
     def _validate_credentials(self) -> bool:
-        creds = self._credentials or self._build_quote_credentials()
+        # Validate quote credentials (used for market data)
+        creds = self._build_quote_credentials()
         if not creds.host:
             logger.error("Credential validation: host is empty")
             return False
@@ -294,7 +339,8 @@ class ForwardTestEngine:
         self._live_adapter = cTraderLiveAdapter(
             paper_trader=self._paper_trader,
             strategies=self._strategies,
-            symbols=[cfg.symbol],
+            symbols=cfg.symbols,
+            blend_mode=self._blend_mode,
         )
 
         strategy_names = "+".join(s.name for s in self._strategies)
@@ -318,21 +364,29 @@ class ForwardTestEngine:
 
     def _start_market_feed(self) -> bool:
         cfg = self._config
-        creds = self._credentials or self._build_quote_credentials()
+
+        if getattr(cfg, 'use_openapi_feed', False):
+            return self._start_openapi_feed()
+
+        # Always use quote credentials for market data — never the trade credentials
+        creds = self._build_quote_credentials()
 
         self._market_feed = LiveMarketDataFeed(creds)
         self._wire_callbacks()
 
-        symbol_key = cfg.symbol.upper().replace("/", "")
-        subscribe_name = self._resolve_feed_symbol_name(symbol_key)
+        # multi-symbol routing — candidate for extraction if complexity grows
+        subscribe_names = []
+        for sym in cfg.symbols:
+            symbol_key = sym.upper().replace("/", "")
+            subscribe_name = self._resolve_feed_symbol_name(symbol_key)
+            if subscribe_name is None:
+                logger.error("Cannot resolve symbol %s for market data feed", sym)
+                return False
+            subscribe_names.append(subscribe_name)
 
-        if subscribe_name is None:
-            logger.error("Cannot resolve symbol %s for market data feed", cfg.symbol)
-            return False
-
-        success = self._market_feed.start(auto_subscribe=[subscribe_name])
+        success = self._market_feed.start(auto_subscribe=subscribe_names)
         if success:
-            logger.info("Market data feed connected for %s", cfg.symbol)
+            logger.info("Market data feed connected for %s", cfg.symbols)
         return success
 
     def _resolve_feed_symbol_name(self, symbol_key: str) -> Optional[str]:
@@ -353,6 +407,65 @@ class ForwardTestEngine:
         )
         return None
 
+    def _start_openapi_feed(self) -> bool:
+        """Start the Open API spot feed instead of the FIX feed."""
+        import os
+        from dotenv import load_dotenv
+        from pathlib import Path
+
+        env_path = Path(__file__).resolve().parents[4] / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
+
+        client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")
+        client_secret = os.environ.get("CTRADER_OPENAPI_CLIENT_SECRET", "")
+        access_token = os.environ.get("CTRADER_OPENAPI_ACCESS_TOKEN", "")
+
+        if not all([client_id, client_secret, access_token]):
+            logger.error("Missing Open API credentials in env")
+            return False
+
+        # Resolve account ID
+        account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID", "")
+        trader_login_str = os.environ.get("CTRADER_OPENAPI_TRADER_LOGIN", "")
+
+        if account_id_str:
+            ctid_account_id = int(account_id_str)
+        elif trader_login_str:
+            ctid_account_id = OpenApiSpotFeed.resolve_account_id(
+                client_id=client_id,
+                client_secret=client_secret,
+                access_token=access_token,
+                trader_login=int(trader_login_str),
+                host=self._config.openapi_host,
+                port=self._config.openapi_port,
+            )
+            if ctid_account_id is None:
+                logger.error("Failed to resolve Open API account ID")
+                return False
+        else:
+            logger.error("No CTRADER_OPENAPI_ACCOUNT_ID or CTRADER_OPENAPI_TRADER_LOGIN in env")
+            return False
+
+        self._market_feed = OpenApiSpotFeed(
+            ctid_account_id=ctid_account_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            access_token=access_token,
+            host=self._config.openapi_host,
+            port=self._config.openapi_port,
+        )
+        self._wire_callbacks()
+
+        subscribe_names = []
+        for sym in self._config.symbols:
+            subscribe_names.append(sym.upper().replace("/", ""))
+
+        success = self._market_feed.start(auto_subscribe=subscribe_names)
+        if success:
+            logger.info("Open API spot feed connected for %s", self._config.symbols)
+        return success
+
     def _build_quote_credentials(self) -> cTraderCredentials:
         from dotenv import load_dotenv
         import os
@@ -360,21 +473,16 @@ class ForwardTestEngine:
 
         env_path = Path(__file__).resolve().parents[4] / ".env"
         if env_path.exists():
-            load_dotenv(env_path)
+            load_dotenv(env_path, override=True)
 
         host = os.environ.get("CTRADER_HOST", self._config.quote_host)
         port = int(
             os.environ.get("CTRADER_READONLY_SSL_PORT", str(self._config.quote_port))
         )
 
-        quote_sender_sub_id = os.environ.get(
-            "CTRADER_QUOTE_SENDER_SUB_ID",
-            self._config.quote_sender_sub_id,
-        )
-        quote_target_sub_id = os.environ.get(
-            "CTRADER_QUOTE_TARGET_SUB_ID",
-            self._config.quote_target_sub_id or quote_sender_sub_id,
-        )
+        quote_sender_sub_id = os.environ.get("CTRADER_QUOTE_SENDER_SUB_ID") or self._config.quote_sender_sub_id
+        _raw_target = os.environ.get("CTRADER_QUOTE_TARGET_SUB_ID")
+        quote_target_sub_id = _raw_target or self._config.quote_target_sub_id or quote_sender_sub_id
 
         return cTraderCredentials(
             host=host,
@@ -388,14 +496,14 @@ class ForwardTestEngine:
             password=os.environ.get("CTRADER_PASSWORD", ""),
         )
 
-    def _bar_period_start(self, ts: datetime) -> datetime:
-        minutes = self._config.bar_period_minutes
+    def _bar_period_start(self, ts: datetime, period_minutes: int = 0) -> datetime:
+        minutes = period_minutes or self._config.bar_period_minutes
         return ts.replace(second=0, microsecond=0) - timedelta(
             minutes=ts.minute % minutes
         )
 
-    def _finalize_current_bar(self, symbol: str) -> Optional[Bar]:
-        current = self._current_bar.get(symbol)
+    def _finalize_current_bar(self, key: str) -> Optional[Bar]:
+        current = self._current_bar.get(key)
         if current is None:
             return None
         finalized = Bar(
@@ -406,25 +514,35 @@ class ForwardTestEngine:
             close=current.close,
             volume=current.volume,
         )
-        self._current_bar[symbol] = None
+        self._current_bar[key] = None
         return finalized
 
-    def _store_bar(self, symbol: str, bar: Bar):
-        if symbol not in self._bars:
-            self._bars[symbol] = []
-        self._bars[symbol].append(bar)
+    def _assert_bar_integrity(self, bar: Bar):
+        """Verify bar OHLC integrity."""
+        assert bar.high >= max(bar.open, bar.close), (
+            f"Bar integrity fail: high={bar.high} < max(open={bar.open}, close={bar.close})"
+        )
+        assert bar.low <= min(bar.open, bar.close), (
+            f"Bar integrity fail: low={bar.low} > min(open={bar.open}, close={bar.close})"
+        )
+
+    def _store_bar(self, key: str, bar: Bar):
+        self._assert_bar_integrity(bar)
+        if key not in self._bars:
+            self._bars[key] = []
+        self._bars[key].append(bar)
         self._health.bars_built += 1
-        if len(self._bars[symbol]) > self._config.max_bars_per_symbol:
-            self._bars[symbol] = self._bars[symbol][-self._config.max_bars_per_symbol :]
+        if len(self._bars[key]) > self._config.max_bars_per_symbol:
+            self._bars[key] = self._bars[key][-self._config.max_bars_per_symbol :]
 
-    def _finalize_and_store_bar(self, symbol: str) -> Optional[Bar]:
-        finalized = self._finalize_current_bar(symbol)
+    def _finalize_and_store_bar(self, key: str) -> Optional[Bar]:
+        finalized = self._finalize_current_bar(key)
         if finalized is not None:
-            self._store_bar(symbol, finalized)
+            self._store_bar(key, finalized)
         return finalized
 
-    def _update_current_bar(self, tick: Tick, symbol: str, bar_time: datetime) -> Bar:
-        current = self._current_bar.get(symbol)
+    def _update_current_bar(self, tick: Tick, key: str, bar_time: datetime) -> Bar:
+        current = self._current_bar.get(key)
 
         if current is not None and current.time == bar_time:
             mid = tick.mid
@@ -436,10 +554,10 @@ class ForwardTestEngine:
                 close=mid,
                 volume=current.volume + 1,
             )
-            self._current_bar[symbol] = updated
+            self._current_bar[key] = updated
             return updated
 
-        self._finalize_and_store_bar(symbol)
+        self._finalize_and_store_bar(key)
 
         new_bar = Bar(
             time=bar_time,
@@ -449,7 +567,7 @@ class ForwardTestEngine:
             close=tick.mid,
             volume=1,
         )
-        self._current_bar[symbol] = new_bar
+        self._current_bar[key] = new_bar
         return new_bar
 
     def _on_tick(self, tick: Tick):
@@ -473,18 +591,26 @@ class ForwardTestEngine:
                 )
 
         symbol_name = self._resolve_symbol_name(tick)
-        if symbol_name is None or symbol_name != self._config.symbol:
+        if symbol_name is None or symbol_name not in self._config.symbols:
             return
 
-        bar_time = self._bar_period_start(tick.timestamp)
-
+        # Build bars for ALL required timeframes from this tick
         with self._lock:
-            self._update_current_bar(tick, symbol_name, bar_time)
-            bar_count = len(self._bars.get(symbol_name, []))
-            current_bar = self._current_bar.get(symbol_name)
-            total_bars = bar_count + (1 if current_bar else 0)
+            for tf in self._required_timeframes:
+                bar_time = self._bar_period_start(tick.timestamp, period_minutes=tf)
+                key = self._bar_key(symbol_name, tf)
+                self._update_current_bar(tick, key, bar_time)
+
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
+
+        # Evaluation throttle check remains OUTSIDE bar-building lock (Kaito #4)
+        # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
+        primary_key = self._bar_key(symbol_name, self._config.bar_period_minutes)
+        with self._lock:
+            bar_count = len(self._bars.get(primary_key, []))
+            current_bar = self._current_bar.get(primary_key)
+            total_bars = bar_count + (1 if current_bar else 0)
 
         if total_bars < self._config.min_bars_for_evaluation:
             return
@@ -506,10 +632,10 @@ class ForwardTestEngine:
 
         feed_name = symbol_info.name
         no_slash = feed_name.replace("/", "")
-        cfg_normalized = self._config.symbol.upper().replace("/", "")
+        cfg_symbols = {s.upper().replace("/", "") for s in self._config.symbols}
 
-        if no_slash == cfg_normalized:
-            return cfg_normalized
+        if no_slash in cfg_symbols:
+            return no_slash
         return None
 
     def _update_paper_trader_prices(self, tick: Tick, symbol_name: str):
@@ -532,46 +658,72 @@ class ForwardTestEngine:
             return
 
         try:
+            # Build per-timeframe bar snapshots
+            tf_bars: dict[int, list[Bar]] = {}
             with self._lock:
-                bars = list(self._bars.get(symbol, []))
-                current = self._current_bar.get(symbol)
-                if current is not None:
-                    bars.append(current)
+                for tf in self._required_timeframes:
+                    key = self._bar_key(symbol, tf)
+                    bars = list(self._bars.get(key, []))
+                    current = self._current_bar.get(key)
+                    if current is not None:
+                        bars.append(current)
+                    tf_bars[tf] = bars
 
-            if not bars:
+            if not any(tf_bars.values()):
                 return
 
-            state = MarketState(bars=bars)
-
-            signals = self._live_adapter.evaluate_all_strategies(
-                {symbol: state}, spread=self._current_spread
-            )
-
-            with self._lock:
-                self._health.signals_generated += len(signals)
-
-            for s in signals:
-                with self._lock:
-                    self._health.signals_traded += 1
-
-                logger.info(
-                    "Signal traded: %s %s %s @ %.5f conf=%.2f",
-                    s.direction.value,
-                    s.volume,
-                    s.symbol,
-                    s.entry_price,
-                    s.confidence,
+            # Resolve each strategy's timeframe
+            strategy_tf_map: dict[str, int] = {}
+            for s in self._strategies:
+                strategy_tf_map[s.name] = (
+                    self._strategy_timeframes.get(s.name, self._config.bar_period_minutes)
                 )
 
-                self._trigger_callback("on_signal_traded", s)
+            # Per-strategy evaluation with correct timeframe bars
+            for strategy in self._strategies:
+                tf = strategy_tf_map[strategy.name]
+                bars = tf_bars.get(tf, [])
+
+                # Per-timeframe evaluation threshold (Rei #7)
+                if len(bars) < self._config.min_bars_for_evaluation:
+                    continue
+
+                state = MarketState(bars=bars)
+
+                try:
+                    signals = self._live_adapter.evaluate_all_strategies(
+                        {symbol: state}, spread=self._current_spread
+                    )
+                except Exception as exc:
+                    with self._lock:
+                        self._health.evaluation_errors += 1
+                    logger.error(
+                        "Strategy %s evaluation error (total=%d): %s",
+                        strategy.name, self._health.evaluation_errors, exc, exc_info=True,
+                    )
+                    continue
+
+                with self._lock:
+                    self._health.signals_generated += len(signals)
+
+                for s in signals:
+                    with self._lock:
+                        self._health.signals_traded += 1
+                    logger.info(
+                        "Signal traded: %s %s %s @ %.5f conf=%.2f",
+                        s.direction.value,
+                        s.volume,
+                        s.symbol,
+                        s.entry_price,
+                        s.confidence,
+                    )
+                    self._trigger_callback("on_signal_traded", s)
         except Exception as exc:
             with self._lock:
                 self._health.evaluation_errors += 1
             logger.error(
-                "Strategy evaluation error (total=%d): %s",
-                self._health.evaluation_errors,
-                exc,
-                exc_info=True,
+                "Strategy evaluation outer error (total=%d): %s",
+                self._health.evaluation_errors, exc, exc_info=True,
             )
         finally:
             self._eval_semaphore.release()
@@ -614,6 +766,10 @@ class ForwardTestEngine:
                         self._health.reconnection_attempts,
                     )
                     self._health.reconnection_attempts = 0
+            return
+
+        if feed_connected and last_tick is None:
+            # No ticks received yet — skip reconnect (feed still initializing)
             return
 
         if feed_connected and _is_forex_market_closed():
@@ -712,6 +868,21 @@ class ForwardTestEngine:
     def _on_shutdown(self, signum, frame):
         logger.info("Shutdown signal received (sig=%d)", signum)
         self.stop()
+
+    def preload_bars(self, symbol: str, period_minutes: int, bars: list[Bar]):
+        """Preload historical bars for a specific symbol+timeframe."""
+        key = self._bar_key(symbol, period_minutes)
+        self._bars[key] = bars[-self._config.max_bars_per_symbol :]
+        logger.info("Preloaded %d bars into key '%s'", len(self._bars[key]), key)
+
+    def get_bars_for_timeframe(self, symbol: str, period_minutes: int) -> list[Bar]:
+        """Get current bars for a specific symbol+timeframe."""
+        key = self._bar_key(symbol, period_minutes)
+        bars = list(self._bars.get(key, []))
+        current = self._current_bar.get(key)
+        if current is not None:
+            bars.append(current)
+        return bars
 
     def get_stats(self) -> dict:
         self._update_health()

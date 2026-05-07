@@ -247,7 +247,7 @@ class CTraderOpenApiClient:
             return None
 
         payload = Protobuf.extract(response)
-        if not payload.symbol:
+        if not hasattr(payload, 'symbol') or not payload.symbol:
             return None
 
         s = payload.symbol[0]
@@ -318,9 +318,13 @@ class CTraderOpenApiClient:
             return []
 
         payload = Protobuf.extract(response)
-        bars = []
+        trendbars = getattr(payload, 'trendbar', None)
+        if not trendbars:
+            logger.warning(f"No trendbar data in response for symbol {symbol_id}")
+            return []
 
-        for tb in payload.trendbar:
+        bars = []
+        for tb in trendbars:
             # cTrader returns relative prices:
             # low is the base, divided by 100000
             # open/high/close are low + delta, also divided by 100000

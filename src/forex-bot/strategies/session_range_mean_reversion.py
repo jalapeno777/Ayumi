@@ -47,11 +47,13 @@ _NY_CLOSE_START = SessionRangeHours.NY_CLOSE_START
 _NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
 
 _DEFAULT_PIP = 0.0001
+_JPY_PIP = 0.01
+_MIN_SL_PIPS = 5.0
 
 
 def _pip_value_for_price(price: float) -> float:
     if price >= 50:
-        return 0.01
+        return _JPY_PIP
     return _DEFAULT_PIP
 
 
@@ -189,6 +191,11 @@ def _build_signal(
 
     if sl_distance <= 0:
         return None
+
+    # Enforce minimum SL distance (5 pips) to prevent tiny stops
+    min_sl = _MIN_SL_PIPS * pip_value
+    if sl_distance < min_sl:
+        sl_distance = min_sl
 
     sl = (
         entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance

@@ -3,6 +3,7 @@ import socket
 import ssl
 import threading
 import time
+import traceback
 from collections.abc import Callable
 from datetime import datetime, timezone
 from enum import Enum
@@ -309,6 +310,7 @@ class FIXClient:
         self._pending_orders: dict[str, Order] = {}
         self._positions: dict[str, Position] = {}
         self._lock = threading.RLock()
+        self._send_lock = threading.Lock()
         self._logged_in = False
 
     def connect(self) -> bool:
@@ -321,8 +323,11 @@ class FIXClient:
 
             if self.credentials.use_ssl:
                 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.minimum_version = ssl.TLSVersion.TLSv1_2
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
+                # Restrict to cTrader-compatible ciphers
+                ctx.set_ciphers('DEFAULT@SECLEVEL=1')
                 self._socket = ctx.wrap_socket(self._socket, server_hostname=host)
 
             self._socket.connect((host, port))
@@ -334,6 +339,7 @@ class FIXClient:
 
             if self._send_logon():
                 logger.info(f"Connected to cTrader at {host}:{port}")
+                self._start_heartbeat_timer()
                 return True
 
             return False
@@ -344,6 +350,7 @@ class FIXClient:
 
     def disconnect(self):
         self._running = False
+        self._stop_heartbeat_timer()
         if self._logged_in:
             self._send_logout()
         if self._socket:
@@ -353,44 +360,94 @@ class FIXClient:
                 logger.debug("Error during socket close", exc_info=True)
         logger.info("Disconnected from cTrader")
 
+    def _start_heartbeat_timer(self):
+        """Start a background timer that sends periodic FIX heartbeats.
+
+        This is separate from _check_heartbeat() (which only fires on incoming
+        messages) to ensure heartbeats are sent even during market data gaps.
+        """
+        self._heartbeat_timer_stop = threading.Event()
+
+        def _timer_loop():
+            interval = max(self._heartbeat_interval / 2, 5)  # send at half the negotiated interval
+            while not self._heartbeat_timer_stop.wait(interval):
+                if self._logged_in and self._running:
+                    self._send_heartbeat()
+
+        t = threading.Thread(target=_timer_loop, daemon=True, name="fix-heartbeat-timer")
+        t.start()
+        self._heartbeat_timer_thread = t
+
+    def _stop_heartbeat_timer(self):
+        stop_event = getattr(self, '_heartbeat_timer_stop', None)
+        if stop_event:
+            stop_event.set()
+
     def _recv_loop(self):
         buffer = b""
         sock = self._socket
         assert sock is not None
         sock.settimeout(3)
+        last_recv_log = time.time()
         while self._running:
             try:
                 data = sock.recv(4096)
                 if not data:
+                    elapsed = time.time() - last_recv_log
+                    logger.warning(
+                        "FIX recv loop: connection closed by server (empty recv, last data %.1fs ago)",
+                        elapsed,
+                    )
                     break
+                last_recv_log = time.time()
                 buffer += data
                 buffer = self._process_buffer(buffer)
             except TimeoutError:
                 continue
+            except ConnectionResetError as e:
+                logger.error("FIX recv loop: connection reset: %s", e)
+                break
+            except ssl.SSLError as e:
+                logger.error("FIX recv loop: SSL error: %s (last data %.1fs ago)", e, time.time() - last_recv_log)
+                break
+            except OSError as e:
+                logger.error("FIX recv loop: OS error: %s", e)
+                break
             except Exception as e:
                 if self._running:
-                    logger.error(f"Receive error: {e}")
+                    logger.error("FIX recv loop error: %s\n%s", e, traceback.format_exc())
                 break
         self._logged_in = False
+        logger.info("FIX recv loop exited — session no longer active")
 
     def _process_buffer(self, buffer: bytes) -> bytes:
         """Parse complete FIX messages from the receive buffer.
 
         Messages are terminated by tag 10 (checksum) followed by SOH.
+        We find the LAST occurrence of '10=' preceded by SOH (a real tag-10)
+        to avoid false matches on '10=' inside field values.
         """
         text = buffer.decode("latin-1", errors="replace")
+
         while True:
-            # Find end of message: 10=XXX\x01
-            idx = text.find("10=")
+            # Find the last '10=' that's a real tag (preceded by SOH or at position 0)
+            idx = -1
+            search_from = 0
+            while True:
+                pos = text.find("10=", search_from)
+                if pos == -1:
+                    break
+                if pos == 0 or text[pos - 1] == SOH:
+                    idx = pos
+                search_from = pos + 1
             if idx == -1:
                 break
-            # Find the SOH after checksum
+            # Find the SOH after checksum value (3 digits + SOH)
             end = text.find(SOH, idx + 4)
             if end == -1:
                 break
             msg_str = text[: end + 1]
             text = text[end + 1 :]
-
             try:
                 msg = FIXMessage.from_wire(msg_str)
                 self._handle_message(msg)
@@ -400,10 +457,17 @@ class FIXClient:
 
     def _handle_message(self, msg: FIXMessage):
         msg_type = msg.msg_type
-
         with self._lock:
             if msg_type == self.MSG_TYPE_LOGON:
                 self._logged_in = True
+                # Use server's HeartBtInt if provided, otherwise keep our default
+                server_hbt = msg.get_field(108)
+                if server_hbt:
+                    try:
+                        self._heartbeat_interval = int(server_hbt)
+                        logger.info(f"Server HeartBtInt: {self._heartbeat_interval}s")
+                    except ValueError:
+                        pass
                 logger.info("Logon successful")
                 self._trigger_callback("on_logon", msg)
 
@@ -418,7 +482,18 @@ class FIXClient:
                 self._trigger_callback("on_heartbeat", msg)
 
             elif msg_type == self.MSG_TYPE_TEST_REQUEST:
-                self._send_heartbeat()
+                # Respond with heartbeat echoing the TestReqID (tag 112)
+                test_req_id = msg.get_field(112)
+                resp = FIXMessage(msg_type=self.MSG_TYPE_HEARTBEAT)
+                resp.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
+                resp.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
+                resp.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
+                resp.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
+                resp.set_field(34, str(self._next_outgoing_seq))
+                if test_req_id:
+                    resp.set_body_field(112, test_req_id)
+                self._next_outgoing_seq += 1
+                self._send_raw(resp.to_wire())
 
             elif msg_type == self.MSG_TYPE_EXECUTION_REPORT:
                 self._handle_execution_report(msg)
@@ -609,43 +684,54 @@ class FIXClient:
         self._send_raw(msg.to_wire())
 
     def _send_heartbeat(self):
-        msg = FIXMessage(msg_type=self.MSG_TYPE_HEARTBEAT)
-        msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
-        msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
-        msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
-        msg.set_field(34, str(self._next_outgoing_seq))
-        self._next_outgoing_seq += 1
-        self._send_raw(msg.to_wire())
+        with self._send_lock:
+            msg = FIXMessage(msg_type=self.MSG_TYPE_HEARTBEAT)
+            msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
+            msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
+            msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
+            msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
+            msg.set_field(34, str(self._next_outgoing_seq))
+            self._next_outgoing_seq += 1
+        wire = msg.to_wire()
+        self._send_raw(wire)
 
     def _send_message(self, msg: FIXMessage) -> bool:
         """Send a FIX message with automatic header/footer fields."""
-        msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
-        msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
-        msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
-        msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
-        msg.set_field(34, str(self._next_outgoing_seq))
-        self._next_outgoing_seq += 1
-
-        wire = msg.to_wire()
+        with self._send_lock:
+            msg.set_field(self.TAG_SENDER_COMP_ID, self.credentials.sender_comp_id)
+            msg.set_field(self.TAG_TARGET_COMP_ID, self.credentials.target_comp_id)
+            msg.set_field(self.TAG_SENDER_SUB_ID, self.credentials.sender_sub_id)
+            msg.set_field(self.TAG_TARGET_SUB_ID, self.credentials.target_sub_id)
+            msg.set_field(34, str(self._next_outgoing_seq))
+            self._next_outgoing_seq += 1
+            wire = msg.to_wire()
         return self._send_raw(wire)
 
     def _send_raw(self, wire: str) -> bool:
-        """Send a raw FIX wire-format string."""
-        try:
-            if not self._socket:
+        """Send a raw FIX wire-format string. Thread-safe via _send_lock."""
+        with self._send_lock:
+            try:
+                if not self._socket:
+                    return False
+                self._socket.send(wire.encode("ascii"))
+                self._last_heartbeat_sent = time.time()
+                return True
+            except Exception as e:
+                logger.error(f"Failed to send message: {e}")
                 return False
-            self._socket.send(wire.encode("ascii"))
-            self._last_heartbeat_sent = time.time()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to send message: {e}")
-            return False
 
     def _check_heartbeat(self):
         now = time.time()
-        if now - self._last_heartbeat_sent > self._heartbeat_interval:
+        with self._send_lock:
+            need_heartbeat = now - self._last_heartbeat_sent > self._heartbeat_interval
+            hb_timeout = (
+                self._last_heartbeat_received > 0
+                and now - self._last_heartbeat_received > self._heartbeat_interval * 3
+            )
+        if need_heartbeat:
             self._send_heartbeat()
+        if hb_timeout:
+            logger.warning("Heartbeat timeout — connection may be lost")
         if (
             self._last_heartbeat_received > 0
             and now - self._last_heartbeat_received > self._heartbeat_interval * 3
