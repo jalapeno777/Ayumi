@@ -45,7 +45,19 @@ _ASIAN_END_HOUR = 7
 _LONDON_START_HOUR = 7
 _LONDON_END_HOUR = 12
 
-_PIP = 0.0001
+_DEFAULT_PIP = 0.0001
+_JPY_PIP = 0.01
+_MIN_SL_PIPS = 5.0
+
+
+def _pip_for_price(price: float) -> float:
+    if price >= 50:
+        return _JPY_PIP
+    return _DEFAULT_PIP
+
+
+# Keep _PIP as deprecated alias for backward compat
+_PIP = _DEFAULT_PIP
 
 
 def _get_bar_session(bar_time: datetime) -> SessionType:
@@ -301,6 +313,7 @@ class KillzoneMomentumStrategy:
             return None
 
         latest = state.latest_bar
+        pip = _pip_for_price(latest.close)
         current_day = latest.time.date()
 
         atr = _calculate_atr(state.bars, self.config.atr_period)
@@ -322,7 +335,7 @@ class KillzoneMomentumStrategy:
                 return None
             prior_session_range_high = high
             prior_session_range_low = low
-            session_range_width = (high - low) / _PIP
+            session_range_width = (high - low) / pip
 
         elif kz_name == "ny_open":
             high, low, _ = _calculate_session_range(
@@ -339,7 +352,7 @@ class KillzoneMomentumStrategy:
                     return None
             prior_session_range_high = high
             prior_session_range_low = low
-            session_range_width = (high - low) / _PIP
+            session_range_width = (high - low) / pip
 
         elif kz_name == "overlap":
             high_london, low_london, _ = _calculate_session_range(
@@ -354,7 +367,7 @@ class KillzoneMomentumStrategy:
                 )
             prior_session_range_high = high_london
             prior_session_range_low = low_london
-            session_range_width = (high_london - low_london) / _PIP
+            session_range_width = (high_london - low_london) / pip
 
         if session_range_width < self.config.min_session_range_pips:
             return None
@@ -423,11 +436,16 @@ class KillzoneMomentumStrategy:
         entry = price
         sl_distance = min(
             atr * self.config.atr_sl_multiplier,
-            self.config.hard_cap_sl_pips * _PIP,
+            self.config.hard_cap_sl_pips * pip,
         )
 
         if sl_distance <= 0:
             return None
+
+        # Enforce minimum SL distance (5 pips) to prevent tiny stops
+        min_sl = _MIN_SL_PIPS * pip
+        if sl_distance < min_sl:
+            sl_distance = min_sl
 
         sl = (
             entry - sl_distance

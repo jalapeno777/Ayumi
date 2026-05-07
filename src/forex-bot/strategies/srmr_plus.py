@@ -27,7 +27,7 @@ class SRMRPlusConfig:
     session_range_min_pips: float = 15.0
     entry_near_extreme_pips: float = 15.0
     hard_cap_sl_pips: float = 25.0
-    tp1_rr: float = 1.0
+    tp1_rr: float = 1.5  # was 1.0; raised to pass min_risk_reward=1.5 gate
     tp2_rr: float = 1.5
     ema_trend_period: int = 50
     use_same_day_range: bool = False
@@ -44,11 +44,13 @@ _NY_CLOSE_START = SessionRangeHours.NY_CLOSE_START
 _NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
 
 _DEFAULT_PIP = 0.0001
+_JPY_PIP = 0.01
+_MIN_SL_PIPS = 5.0  # Minimum SL distance in pips
 
 
 def _pip_value_for_price(price: float) -> float:
     if price >= 50:
-        return 0.01
+        return _JPY_PIP
     return _DEFAULT_PIP
 
 
@@ -278,6 +280,11 @@ def _build_signal(
         session_range_price * 0.6,
         config.hard_cap_sl_pips * pip,
     )
+
+    # Enforce minimum SL distance (5 pips) to prevent tiny stops
+    min_sl = _MIN_SL_PIPS * pip
+    if sl_distance < min_sl:
+        sl_distance = min_sl
 
     if sl_distance <= 0:
         return None

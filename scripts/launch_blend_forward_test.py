@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import sys
 import argparse
-import fcntl
 import signal as sig_module
 import time
 import logging
@@ -44,65 +43,13 @@ from core.types import Bar, BarPeriod
 logger = logging.getLogger("ayumi.blend_launcher")
 
 
-# ── PID Lock ────────────────────────────────────────────────────────────────
-
-class PIDLock:
-    """Context manager ensuring only one instance of the forward test runs."""
-
-    def __init__(self, lockfile: str):
-        self._lockfile = Path(lockfile)
-        self._fd = None
-
-    def __enter__(self):
-        self._lockfile.parent.mkdir(parents=True, exist_ok=True)
-        # Use 'a' mode to avoid truncating before lock is acquired.
-        # With 'w', truncation happens immediately — if the lock then fails,
-        # reading the file back yields empty PID ("PID , lock: ...").
-        self._fd = open(self._lockfile, "a+")
-        try:
-            fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self._fd.seek(0)
-            self._fd.truncate()
-            self._fd.write(str(os.getpid()))
-            self._fd.flush()
-        except (IOError, OSError):
-            # Stale lock detection: check if PID is still alive
-            try:
-                old_pid = self._lockfile.read_text().strip()
-                if old_pid:
-                    os.kill(int(old_pid), 0)  # raises if dead
-                # PID is alive — genuine conflict
-                raise RuntimeError(
-                    f"Another instance is running (PID {old_pid}, lock: {self._lockfile})"
-                )
-            except (ProcessLookupError, ValueError, FileNotFoundError):
-                # PID is dead — force acquire
-                self._fd.close()
-                self._fd = open(self._lockfile, "a+")
-                fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                self._fd.seek(0)
-                self._fd.truncate()
-                self._fd.write(str(os.getpid()))
-                self._fd.flush()
-        return self
-
-    def __exit__(self, *args):
-        if self._fd:
-            # fcntl lock releases on fd close; no unlink needed
-            self._fd.close()
-
-
 # ── Correlation Gate ──────────────────────────────────────────────────────────
 
 class CorrelationGate:
     """Blocks duplicate symbol-direction signals — max 1 position per (symbol, direction)."""
 
-    DEFAULT_TIMEOUT_MINUTES = 1440  # 24 hours
-
-    def __init__(self, timeout_minutes: int = DEFAULT_TIMEOUT_MINUTES):
+    def __init__(self):
         self._active: dict[tuple[str, str], str] = {}  # (symbol, direction) -> strategy_id
-        self._acquired_at: dict[tuple[str, str], datetime] = {}  # (symbol, direction) -> when acquired
-        self._timeout_minutes = timeout_minutes
         self._lock = threading.Lock()
 
     def check(self, symbol: str, direction: str, strategy_id: str) -> tuple[bool, str]:
@@ -113,51 +60,12 @@ class CorrelationGate:
             if existing:
                 return False, f"correlation_block: {existing} already holds {symbol}/{direction}"
             self._active[key] = strategy_id
-            self._acquired_at[key] = datetime.now(timezone.utc)
             return True, ""
 
     def release(self, symbol: str, direction: str):
         key = (symbol.upper(), direction.upper())
         with self._lock:
             self._active.pop(key, None)
-            self._acquired_at.pop(key, None)
-
-    def release_stale_slots(self, paper_trader=None):
-        """Release timed-out slots only when no paper position exists for that (symbol, direction)."""
-        now = datetime.now(timezone.utc)
-        released = []
-        with self._lock:
-            for key, strategy_id in list(self._active.items()):
-                acquired = self._acquired_at.get(key)
-                if acquired is None:
-                    continue
-                age_minutes = (now - acquired).total_seconds() / 60.0
-                if age_minutes < self._timeout_minutes:
-                    continue
-
-                symbol, direction = key
-                # Check if paper trader has an active position for this (symbol, direction)
-                if paper_trader is not None:
-                    try:
-                        has_position = paper_trader.has_open_position(symbol, direction)
-                        if has_position:
-                            logger.warning(
-                                "Correlation gate: slot %s/%s held by %s is stale (%.0f min) "
-                                "but paper position exists — NOT releasing",
-                                symbol, direction, strategy_id, age_minutes,
-                            )
-                            continue
-                    except Exception as exc:
-                        logger.warning("Correlation gate: error checking paper position for %s/%s: %s", symbol, direction, exc)
-
-                logger.warning(
-                    "Correlation gate: releasing stale slot %s/%s held by %s (age=%.0f min, no position)",
-                    symbol, direction, strategy_id, age_minutes,
-                )
-                del self._active[key]
-                del self._acquired_at[key]
-                released.append(key)
-        return released
 
     @property
     def active_count(self) -> int:
@@ -221,7 +129,7 @@ def build_symbol_id_lookup(client) -> dict[str, int]:
     """Build symbol name → symbol_id mapping from OpenAPI."""
     lookup = dict(SYMBOL_IDS)  # start with known IDs
     try:
-        symbols = client.get_all_symbols()
+        symbols = client.get_symbols()
         for sym in symbols:
             name = sym.get("name", "").upper().replace("/", "")
             if name and name not in lookup:
@@ -314,84 +222,6 @@ class BlendForwardTestEngine(ForwardTestEngine):
         self._heartbeat = heartbeat or HeartbeatTracker()
         self._strategy_id_map = strategy_id_map or {}  # strategy_name -> strategy_id
 
-    def _build_components(self):
-        super()._build_components()
-        # Parent only wires cfg.symbol (first symbol). Rebuild with ALL configured
-        # symbols so every strategy gets an adapter for every symbol.
-        self._live_adapter = cTraderLiveAdapter(
-            paper_trader=self._paper_trader,
-            strategies=self._strategies,
-            symbols=self._config.symbols,
-        )
-
-    def _on_tick(self, tick):
-        """Override: build multi-TF bars from each tick, then evaluate.
-
-        Does NOT call super()._on_tick() — this owns the full pipeline.
-        Stores bars under _bar_key(symbol, tf) so preload_bars() and
-        _evaluate_strategies() share the same key namespace.
-        """
-        if self._health.ticks_received == 0:
-            logger.info("FIRST TICK RECEIVED: symbol_id=%d bid=%.5f ask=%.5f", tick.symbol_id, tick.bid, tick.ask)
-        with self._lock:
-            self._health.ticks_received += 1
-            now = datetime.now(timezone.utc)
-            self._health.last_tick_at = now
-
-            self._tick_timestamps.append(now)
-            cutoff = now.timestamp() - self._tick_rate_window_sec
-            self._tick_timestamps = [
-                t for t in self._tick_timestamps if t.timestamp() > cutoff
-            ]
-            if self._tick_timestamps:
-                window = (
-                    self._tick_timestamps[-1].timestamp()
-                    - self._tick_timestamps[0].timestamp()
-                )
-                self._health.ticks_per_second = (
-                    len(self._tick_timestamps) / window if window > 0 else 0.0
-                )
-
-        symbol_name = self._resolve_symbol_name(tick)
-        if symbol_name is None:
-            return
-        if symbol_name.upper() not in [s.upper().replace("/", "") for s in self._config.symbols]:
-            return
-
-        # Ensure tick timestamp is UTC-aware for bar_time computation
-        ts = tick.timestamp
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-
-        with self._lock:
-            # Build/update bars for ALL required timeframes
-            for tf in self._required_timeframes:
-                bar_time = ts.replace(second=0, microsecond=0) - timedelta(minutes=ts.minute % tf)
-                key = self._bar_key(symbol_name, tf)
-                self._update_current_bar(tick, key, bar_time)
-
-            # CRITICAL: paper trader uses PLAIN symbol name, never _bar_key() output
-            self._update_paper_trader_prices(tick, symbol_name)
-            self._current_spread = tick.spread
-
-            # Check if we have enough bars for evaluation
-            total_bars = 0
-            for tf in self._required_timeframes:
-                key = self._bar_key(symbol_name, tf)
-                bar_count = len(self._bars.get(key, []))
-                current = self._current_bar.get(key)
-                total_bars = max(total_bars, bar_count + (1 if current else 0))
-
-        if total_bars < self._config.min_bars_for_evaluation:
-            return
-
-        now_ts = time.monotonic()
-        if now_ts - self._last_evaluation_at < self._config.evaluation_interval_sec:
-            return
-
-        self._last_evaluation_at = now_ts
-        self._evaluate_strategies(symbol_name)
-
     def _evaluate_strategies(self, symbol: str):
         """Override: route signals through blend pipeline with multi-TF support."""
         if self._live_adapter is None:
@@ -458,14 +288,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
 
     def _route_signal(self, signal: TradeSignal, strategy_name: str):
         """Route a single signal through correlation gate → blend runner."""
-        # Fail-safe: drop signals from unknown strategy names (no silent fallback)
-        if strategy_name not in self._strategy_id_map:
-            logger.error(
-                "Strategy name '%s' not in strategy_id_map — signal dropped. Known: %s",
-                strategy_name, list(self._strategy_id_map.keys()),
-            )
-            return
-        strategy_id = self._strategy_id_map[strategy_name]
+        strategy_id = self._strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
 
         direction_str = signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction)
 
@@ -617,15 +440,6 @@ def main():
     logger.info("=== Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===")
     logger.info("Symbols: %s", symbols)
 
-    # PID lock — prevent duplicate instances
-    lock_path = str(Path(PROJECT_ROOT) / "data" / "ayumi" / "blend_forward_test.pid")
-    try:
-        pid_lock = PIDLock(lock_path)
-        pid_lock.__enter__()
-    except RuntimeError as exc:
-        logger.warning("PID lock failed: %s", exc)
-        sys.exit(1)
-
     # 1. Fetch historical bars — per symbol, H1 and M15 in a SINGLE OpenAPI connection
     client = CTraderOpenApiClient(
         client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
@@ -700,23 +514,11 @@ def main():
     ]
     logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
 
-    # Startup validation: every strategy .name must be in both maps
+    # Verify .name properties match STRATEGY_ID_MAP keys
     for s in strategies:
-        if s.name not in STRATEGY_ID_MAP:
-            logger.error("Strategy .name '%s' not in STRATEGY_ID_MAP — aborting", s.name)
-            sys.exit(1)
-        if s.name not in STRATEGY_TIMEFRAMES:
-            logger.error("Strategy .name '%s' not in STRATEGY_TIMEFRAMES — aborting", s.name)
-            sys.exit(1)
-
-    # Verify STRATEGY_ID_MAP values are unique
-    id_values = list(STRATEGY_ID_MAP.values())
-    if len(id_values) != len(set(id_values)):
-        duplicates = [v for v in id_values if id_values.count(v) > 1]
-        logger.error("STRATEGY_ID_MAP has duplicate IDs: %s — aborting", set(duplicates))
-        sys.exit(1)
-
-    logger.info("All strategy .name properties verified against maps (IDs unique)")
+        assert s.name in STRATEGY_ID_MAP, f"Strategy .name '{s.name}' not in STRATEGY_ID_MAP"
+        assert s.name in STRATEGY_TIMEFRAMES, f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
+    logger.info("All strategy .name properties verified against maps")
 
     # 4. Build blend runner
     blend_runner = build_blend_runner()
@@ -726,13 +528,10 @@ def main():
     # 5. Build engine config with strategy_timeframes and multi-symbol
     config = ForwardTestConfig(
         symbol=symbols[0],
-        symbols=symbols,
         starting_balance=10_000.0,
         min_confidence=0.50,
         max_bars_per_symbol=500,
         min_bars_for_evaluation=50,
-        strategy_timeframes=STRATEGY_TIMEFRAMES,
-        use_openapi_feed=True,
     )
 
     # 6. Create blend-aware engine
@@ -751,22 +550,11 @@ def main():
     # Release correlation slots when paper positions close.
     engine.register_callback("on_position_closed", engine.on_position_closed_release)
 
-    # Preload fetched bars into engine for all symbols
-    total_bars = 0
-    for sym, tf_bars in symbol_bars.items():
-        for tf_minutes, bars in tf_bars.items():
-            if bars:
-                engine.preload_bars(sym, tf_minutes, bars)
-                total_bars += len(bars)
-                logger.info("Preloaded %d bars for %s:%d", len(bars), sym, tf_minutes)
-    logger.info("Total bars preloaded: %d across %d symbols", total_bars, len(symbol_bars))
-
     # 8. Shutdown handler
     def shutdown(signum, frame):
         logger.info("Shutdown signal — stopping engine...")
         engine.stop()
         blend_runner.stop()
-        pid_lock.__exit__(None, None, None)
         sys.exit(0)
 
     sig_module.signal(sig_module.SIGINT, shutdown)
@@ -780,37 +568,6 @@ def main():
         logger.error("Verify: CTRADER_ACCOUNT, CTRADER_PASSWORD, CTRADER_HOST, CTRADER_READONLY_SSL_PORT in .env")
         blend_runner.stop()
         sys.exit(1)
-
-    # Health check: verify ticks are flowing within 15s of start
-    logger.info("Waiting 15s for tick flow validation...")
-    time.sleep(15)
-    health = engine.health
-    if health.ticks_received == 0:
-        logger.warning(
-            "No ticks received after 15s — market may be closed (weekend/holiday). "
-            "Engine is running and will pick up ticks when market opens."
-        )
-    else:
-        logger.info(
-            "Tick flow OK: %d ticks in first 15s (%.1f ticks/sec)",
-            health.ticks_received, health.ticks_per_second,
-        )
-
-    # Periodic health summary every 60s
-    def health_summary_loop():
-        while engine.is_running:
-            time.sleep(60)
-            if not engine.is_running:
-                break
-            h = engine.health
-            logger.info(
-                "Health: ticks=%d tps=%.2f signals=%d traded=%d rejected=%d errors=%d uptime=%.0fs",
-                h.ticks_received, h.ticks_per_second, h.signals_generated,
-                h.signals_traded, h.signals_rejected, h.evaluation_errors, h.uptime_sec,
-            )
-
-    health_thread = threading.Thread(target=health_summary_loop, name="health-summary", daemon=True)
-    health_thread.start()
 
     try:
         while True:

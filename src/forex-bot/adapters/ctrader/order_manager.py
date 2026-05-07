@@ -2,9 +2,9 @@ import logging
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from .models import (
     Order,
@@ -14,6 +14,9 @@ from .models import (
     PositionStatus,
     TradeDirection,
 )
+
+if TYPE_CHECKING:
+    from .api_client import cTraderAPIClient
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,12 @@ class PositionSizeConfig:
     max_lot_size: float = 1.0
     min_lot_size: float = 0.01
     default_lot_size: float = 0.1
+
+
+@dataclass
+class PendingOrderTimeoutConfig:
+    timeout_seconds: float = 60.0
+    check_interval_seconds: float = 30.0
 
 
 @dataclass
@@ -65,15 +74,20 @@ class OrderManager:
     def __init__(
         self,
         position_config: PositionSizeConfig | None = None,
-        api_client: Optional[Any] = None,  # deprecated: ignored, kept for caller compat
+        api_client: Optional["cTraderAPIClient"] = None,
+        pending_timeout_config: PendingOrderTimeoutConfig | None = None,
     ):
-        if api_client is not None:
-            logger.warning("api_client param is deprecated and ignored (FIX archived)")
         self._positions: dict[str, Position] = {}
         self._orders: dict[str, Order] = {}
         self._position_config = position_config or PositionSizeConfig()
+        self._api_client = api_client
         self._slippage_model = SlippageModel()
         self._lock = Lock()
+        self._locally_filled_order_ids: set = set()
+        self._pending_timeout_config = (
+            pending_timeout_config or PendingOrderTimeoutConfig()
+        )
+        self._pending_order_timestamps: dict[str, datetime] = {}
         self._callbacks: dict[str, list[Callable]] = {
             "on_order_placed": [],
             "on_order_filled": [],
@@ -83,7 +97,10 @@ class OrderManager:
             "on_position_closed": [],
             "on_order_new": [],
             "on_order_partial_fill": [],
+            "on_order_timeout": [],
         }
+        if self._api_client and not self._api_client.is_paper_mode:
+            self._wire_live_callbacks()
 
     def calculate_position_size(
         self,
@@ -216,19 +233,162 @@ class OrderManager:
         )
 
     def execute_live_order(
-        self, *args, **kwargs,
+        self,
+        symbol: str,
+        direction: TradeDirection,
+        volume: float,
+        order_type: OrderType = OrderType.MARKET,
+        price: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        comment: str = "",
     ) -> OrderExecutionResult:
-        """Deprecated: FIX live execution removed (api_client.py archived in Sprint 2)."""
-        logger.warning("execute_live_order() is no-op — FIX live execution was archived")
-        return OrderExecutionResult(
-            success=False,
-            error_message="Live FIX execution removed (api_client.py archived)",
-            rejection_reason="no_live_client",
+        if not symbol or not symbol.strip():
+            return OrderExecutionResult(
+                success=False,
+                error_message="Symbol is required",
+                rejection_reason="validation_error",
+            )
+
+        if not volume or volume <= 0:
+            return OrderExecutionResult(
+                success=False,
+                error_message=f"Volume must be positive, got {volume}",
+                rejection_reason="validation_error",
+            )
+
+        if order_type in (OrderType.LIMIT, OrderType.STOP) and not price:
+            return OrderExecutionResult(
+                success=False,
+                error_message=f"Price is required for {order_type.value} orders",
+                rejection_reason="validation_error",
+            )
+
+        if not self._api_client or self._api_client.is_paper_mode:
+            return OrderExecutionResult(
+                success=False,
+                error_message="No live API client connected or paper mode is active",
+                rejection_reason="no_live_client",
+            )
+
+        if not self._api_client.is_connected:
+            return OrderExecutionResult(
+                success=False,
+                error_message="FIX connection not established",
+                rejection_reason="not_connected",
+            )
+
+        order = self._api_client.send_order(
+            symbol=symbol,
+            direction=direction,
+            order_type=order_type,
+            volume=volume,
+            price=price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            comment=comment,
         )
 
-    def set_api_client(self, api_client: Optional[Any]):
-        """Deprecated: FIX live execution removed (api_client.py archived in Sprint 2)."""
-        logger.warning("set_api_client() is no-op — FIX live execution was archived")
+        if order is None:
+            return OrderExecutionResult(
+                success=False,
+                error_message="Failed to send order via FIX",
+                rejection_reason="send_failed",
+            )
+
+        with self._lock:
+            self._orders[order.order_id] = order
+
+        self._trigger_callback("on_order_placed", order)
+
+        if order.status == OrderStatus.FILLED:
+            position = self._create_position_from_order(order)
+            if position:
+                with self._lock:
+                    self._positions[position.position_id] = position
+                self._trigger_callback("on_position_opened", position)
+            self._trigger_callback("on_order_filled", order)
+            with self._lock:
+                self._locally_filled_order_ids.add(order.order_id)
+            return OrderExecutionResult(
+                success=True,
+                order=order,
+                position=position,
+            )
+
+        if order.status == OrderStatus.REJECTED:
+            self._trigger_callback("on_order_rejected", order)
+            return OrderExecutionResult(
+                success=False,
+                order=order,
+                error_message=order.comment or "Order rejected by broker",
+                rejection_reason="broker_rejected",
+            )
+
+        with self._lock:
+            self._pending_order_timestamps[order.order_id] = datetime.utcnow()
+
+        return OrderExecutionResult(
+            success=True,
+            order=order,
+            error_message="Order sent, awaiting execution report",
+        )
+
+    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
+        self._api_client = api_client
+        if self._api_client and not self._api_client.is_paper_mode:
+            if not self._api_client.is_connected:
+                logger.warning(
+                    "cTraderAPIClient not connected — live callbacks will be "
+                    "wired on connect. Call connect() before trading."
+                )
+            self._wire_live_callbacks()
+
+    def _wire_live_callbacks(self):
+        if not self._api_client:
+            return
+
+        if not self._api_client.is_connected:
+            logger.warning("Cannot wire live callbacks: FIX client not connected")
+            return
+
+        api = self._api_client
+
+        def on_filled(order, msg, *args):
+            if not order:
+                return
+            with self._lock:
+                if order.order_id in self._locally_filled_order_ids:
+                    self._locally_filled_order_ids.discard(order.order_id)
+                    return
+            if order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                self._pending_order_timestamps.pop(order.order_id, None)
+                position = self._create_position_from_order(order)
+                if position:
+                    with self._lock:
+                        self._positions[position.position_id] = position
+                    self._trigger_callback("on_position_opened", position)
+                self._trigger_callback("on_order_filled", order)
+
+        def on_rejected(order, msg, reject_msg, *args):
+            if order and order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                self._pending_order_timestamps.pop(order.order_id, None)
+                self._trigger_callback("on_order_rejected", order)
+
+        def on_cancelled(order, msg, *args):
+            if order and order.order_id in self._orders:
+                with self._lock:
+                    self._orders[order.order_id] = order
+                self._pending_order_timestamps.pop(order.order_id, None)
+                self._trigger_callback("on_order_cancelled", order)
+
+        api.register_callback("on_order_filled", on_filled)
+        api.register_callback("on_order_rejected", on_rejected)
+        api.register_callback("on_order_cancelled", on_cancelled)
 
     def _create_position_from_order(self, order: Order) -> Position | None:
         if order.status != OrderStatus.FILLED:
@@ -380,6 +540,36 @@ class OrderManager:
                 for p in self._positions.values()
                 if p.status == PositionStatus.CLOSED
             )
+
+    def get_pending_orders(self) -> list[Order]:
+        with self._lock:
+            return [o for o in self._orders.values() if o.status == OrderStatus.PENDING]
+
+    def check_pending_orders_timeout(self) -> list[Order]:
+        expired_orders = []
+        now = datetime.now(timezone.utc)
+        timeout = self._pending_timeout_config.timeout_seconds
+
+        with self._lock:
+            for order_id, placed_at in list(self._pending_order_timestamps.items()):
+                if (now - placed_at).total_seconds() > timeout:
+                    if order_id in self._orders:
+                        order = self._orders[order_id]
+                        if order.status == OrderStatus.PENDING:
+                            order.status = OrderStatus.CANCELLED
+                            order.comment = f"Timeout: order pending > {timeout}s"
+                            expired_orders.append(order)
+                            logger.warning(
+                                f"Order {order_id} timed out after {timeout}s in PENDING state"
+                            )
+
+            for order in expired_orders:
+                self._pending_order_timestamps.pop(order.order_id, None)
+
+        for order in expired_orders:
+            self._trigger_callback("on_order_timeout", order)
+
+        return expired_orders
 
     def register_callback(self, event: str, callback: Callable):
         if event in self._callbacks:

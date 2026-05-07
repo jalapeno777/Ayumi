@@ -227,13 +227,29 @@ class RiskGuard:
                 limit_value=float(self._config.max_trades_per_day),
             )
 
-        position_size_pct = volume * 100000 / self._current_balance
-        if position_size_pct > self._config.max_position_size_pct:
+        # Risk-based position size check: SL hit cost as % of balance.
+        # Notional exposure (volume * 100k) is not meaningful for FTMO rules —
+        # what matters is how much you lose if SL is hit.
+        sl_distance = abs(entry_price - stop_loss)
+        # Calculate pip value from the actual price level, not hardcoded approximations.
+        # For JPY pairs (price > 50): pip_size = 0.01, pip_value ≈ $6.50/lot
+        # For non-JPY pairs (price < 50): pip_size = 0.0001, pip_value ≈ $10.00/lot
+        # TODO: Accept pip_value_per_lot as parameter from SLPositionSizer for exact calc
+        is_jpy_pair = abs(entry_price) > 50
+        pip_value_per_lot = 6.5 if is_jpy_pair else 10.0
+        pip_size = 0.01 if is_jpy_pair else 0.0001
+        sl_pips = sl_distance / pip_size if pip_size > 0 else 0
+        risk_amount = volume * sl_pips * pip_value_per_lot
+        risk_pct = risk_amount / self._current_balance if self._current_balance > 0 else float('inf')
+        # Use >= with epsilon tolerance to avoid false rejections when risk
+        # lands exactly at the limit due to rounding/approximation.
+        epsilon = 0.0001  # 0.01% tolerance
+        if risk_pct > self._config.max_position_size_pct + epsilon:
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.POSITION_SIZE,
-                message=f"Position size {position_size_pct * 100:.2f}% > max {self._config.max_position_size_pct * 100}%",
-                current_value=position_size_pct,
+                message=f"Position risk {risk_pct * 100:.2f}% > max {self._config.max_position_size_pct * 100}%",
+                current_value=risk_pct,
                 limit_value=self._config.max_position_size_pct,
             )
 

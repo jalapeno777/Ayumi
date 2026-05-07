@@ -159,13 +159,15 @@ class TestRiskGuard:
         assert result.allowed is True
 
     def test_trade_allowed_position_size_exceeds_limit(self):
+        # 10.6 lot trade with 20-pip SL risks ~$2,120 (2.12%) on $100k — should be rejected.
+        # Note: epsilon=0.0001 tolerance means threshold is 2.1%, so 2.12% exceeds it.
         config = FTMOConfig(max_position_size_pct=0.02)
         guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
         result = guard.check_trade_allowed(
             direction=TradeDirection.LONG,
-            volume=0.1,
+            volume=10.6,
             entry_price=1.1000,
-            stop_loss=1.0950,
+            stop_loss=1.0980,
             take_profit=1.1100,
         )
         assert result.allowed is False

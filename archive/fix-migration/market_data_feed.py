@@ -141,7 +141,10 @@ class LiveMarketDataFeed:
 
     @property
     def is_running(self) -> bool:
-        return self._running
+        """True only if the feed was started AND the underlying FIX session is alive."""
+        if self._client is None:
+            return False
+        return self._running and self._client.is_connected
 
     @property
     def name_to_id(self) -> dict[str, int]:
@@ -163,6 +166,7 @@ class LiveMarketDataFeed:
         if not self._client.connect():
             logger.error("Failed to connect MD feed")
             return False
+
 
         self._running = True
 
@@ -298,17 +302,17 @@ class LiveMarketDataFeed:
             bid = None
             ask = None
             # Group fields by their position in the repeating group
-            current_type = None
+            last_269_value: str | None = None  # Track last seen MDEntryType
             for tag, value in raw_fields:
                 if tag == 269:
-                    current_type = value
-                elif tag == 270 and current_type is not None:
+                    last_269_value = value
+                elif tag == 270 and last_269_value is not None:
                     px = float(value)
-                    if current_type == "0":
+                    if last_269_value == "0":
                         bid = px
-                    elif current_type == "1":
+                    elif last_269_value == "1":
                         ask = px
-                    current_type = None  # reset for next entry
+                    last_269_value = None  # reset for next entry
 
         if bid is None or ask is None:
             logger.debug(
@@ -333,7 +337,13 @@ class LiveMarketDataFeed:
 
         with self._lock:
             self._ticks[symbol_id] = tick
-            self._order_book.pop(symbol_id, None)
+            # Reset order book on snapshot — snapshot IS the authoritative state.
+            # Incremental entries will rebuild the book from here.
+            # Use sentinel keys to avoid collision with order_id keys from incrementals.
+            self._order_book[symbol_id] = {
+                "bids": {"__snapshot__": bid},
+                "asks": {"__snapshot__": ask},
+            }
 
         for cb in self._tick_callbacks:
             try:
@@ -368,17 +378,24 @@ class LiveMarketDataFeed:
 
         entries: list[dict] = []
         current_entry: dict | None = None
+        last_269_value: str | None = None  # Track last seen MDEntryType
         for tag, value in raw_fields:
             if tag == 279:
                 if current_entry is not None:
                     entries.append(current_entry)
                 current_entry = {"action": value}
+                last_269_value = None  # Reset for new entry
             elif current_entry is not None:
                 if tag == 269:
                     current_entry["entry_type"] = value
+                    last_269_value = value
                 elif tag == 270:
                     try:
-                        current_entry["price"] = float(value)
+                        price = float(value)
+                        # Use the last seen entry_type (269)
+                        if last_269_value is not None:
+                            current_entry["entry_type"] = last_269_value
+                            current_entry["price"] = price
                     except ValueError:
                         pass
                 elif tag == 278:
@@ -393,6 +410,7 @@ class LiveMarketDataFeed:
 
         if not entries:
             return
+
 
         timestamp_str = msg.get_field(52)
         if timestamp_str:
@@ -445,8 +463,11 @@ class LiveMarketDataFeed:
                 if action in ("0", "1"):
                     if price is not None:
                         book[side][order_id] = price
+                        # Clear snapshot sentinel once real entries arrive
+                        book[side].pop("__snapshot__", None)
                 elif action == "2":
                     book[side].pop(order_id, None)
+                    book[side].pop("__snapshot__", None)
 
                 updated_symbols.add(entry_symbol)
 
@@ -464,7 +485,8 @@ class LiveMarketDataFeed:
                 best_bid = max(bids.values())
                 best_ask = min(asks.values())
 
-                if best_bid >= best_ask:
+
+                if best_bid > best_ask + 1e-7:
                     logger.debug(
                         f"Inverted spread for symbol {sym_id}: "
                         f"bid={best_bid} >= ask={best_ask}, skipping tick"

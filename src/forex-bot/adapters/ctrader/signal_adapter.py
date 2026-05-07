@@ -18,6 +18,8 @@ class cTraderSignalAdapter:
         paper_trader: PaperTrader,
         strategy: ISignalStrategy,
         symbol: str = "EURUSD",
+        *,
+        blend_mode: bool = False,
     ):
         self._paper_trader = paper_trader
         self._strategy = strategy
@@ -26,6 +28,9 @@ class cTraderSignalAdapter:
         self._last_signal_time: datetime | None = None
         self._current_spread: float = 0.0
         self._callbacks: list[tuple[str, Callable]] = []
+        # In blend mode, signal routing and sizing is handled by BlendForwardTestRunner.
+        # The adapter should return signals without executing through paper_trader.
+        self._blend_mode = blend_mode
 
     def set_min_confidence(self, confidence: float):
         self._min_confidence = confidence
@@ -59,10 +64,23 @@ class cTraderSignalAdapter:
             take_profit_1=signal.take_profit_1,
             take_profit_2=signal.take_profit_2,
             take_profit_3=signal.take_profit_3,
-            volume=0.1,
+            volume=0.0,  # Sized by orchestrator/blend runner, not here
             confidence=signal.confidence,
             rationale=signal.rationale,
         )
+
+        logger.info(
+            "Signal adapted: %s %s %s entry=%.5f sl=%.5f sl_dist=%.6f conf=%.2f",
+            trade_direction.value, self._symbol, self._strategy.name,
+            signal.entry_price, signal.stop_loss,
+            abs(signal.entry_price - signal.stop_loss),
+            signal.confidence,
+        )
+
+        if self._blend_mode:
+            # In blend mode, sizing and execution are handled by the blend runner.
+            # Return the signal without executing through paper_trader.
+            return trade_signal
 
         result = self._paper_trader.process_signal(
             trade_signal, spread=self._current_spread
@@ -118,6 +136,8 @@ class cTraderLiveAdapter:
         paper_trader: PaperTrader,
         strategies: list[ISignalStrategy],
         symbols: list[str],
+        *,
+        blend_mode: bool = False,
     ):
         self._paper_trader = paper_trader
         self._strategies = {s.name: s for s in strategies}
@@ -127,11 +147,16 @@ class cTraderLiveAdapter:
 
         for symbol in symbols:
             for strategy in strategies:
+                # Strategy-pair matching: only create adapter if strategy is registered for this symbol
+                if hasattr(strategy, 'symbols') and strategy.symbols:
+                    if symbol.upper().replace("/", "") not in {s.upper().replace("/", "") for s in strategy.symbols}:
+                        continue
                 key = f"{strategy.name}_{symbol}"
                 self._adapters[key] = cTraderSignalAdapter(
                     paper_trader=paper_trader,
                     strategy=strategy,
                     symbol=symbol,
+                    blend_mode=blend_mode,
                 )
 
     def evaluate_all_strategies(
