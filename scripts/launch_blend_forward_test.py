@@ -551,6 +551,12 @@ def main():
     # Release correlation slots when paper positions close.
     engine.register_callback("on_position_closed", engine.on_position_closed_release)
 
+    # Preload historical bars into engine (after engine creation, before start)
+    for sym, timeframes in symbol_bars.items():
+        for period_minutes, bars in timeframes.items():
+            engine.preload_bars(sym, period_minutes, bars)
+            logger.info("Preloaded %d %dmin bars for %s into engine", len(bars), period_minutes, sym)
+
     # 8. Shutdown handler
     def shutdown(signum, frame):
         logger.info("Shutdown signal — stopping engine...")
