@@ -416,6 +416,7 @@ class ForwardTestEngine:
         client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")
         client_secret = os.environ.get("CTRADER_OPENAPI_CLIENT_SECRET", "")
         access_token = os.environ.get("CTRADER_OPENAPI_ACCESS_TOKEN", "")
+        refresh_token = os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")
 
         if not all([client_id, client_secret, access_token]):
             logger.error("Missing Open API credentials in env")
@@ -448,6 +449,7 @@ class ForwardTestEngine:
             client_id=client_id,
             client_secret=client_secret,
             access_token=access_token,
+            refresh_token=refresh_token or None,
             host=self._config.openapi_host,
             port=self._config.openapi_port,
         )
