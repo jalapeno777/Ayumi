@@ -19,6 +19,7 @@ import threading
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from twisted.internet import reactor
@@ -32,6 +33,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOASubscribeSpotsReq,
     ProtoOAUnsubscribeSpotsReq,
     ProtoOASymbolByIdReq,
+    ProtoOAAccountAuthRes,
 )
 from .market_data_feed import Tick, SymbolInfo, DEFAULT_SYMBOLS
 from .reactor_manager import ReactorManager
@@ -68,6 +70,7 @@ class OpenApiSpotFeed:
         client_id: str,
         client_secret: str,
         access_token: str,
+        refresh_token: str | None = None,
         host: str = "live.ctraderapi.com",
         port: int = 5035,
     ):
@@ -75,6 +78,7 @@ class OpenApiSpotFeed:
         self._client_id = client_id
         self._client_secret = client_secret
         self._access_token = access_token
+        self._refresh_token = refresh_token  # needed for proactive token refresh
         self._host = host
         self._port = port
 
@@ -109,6 +113,14 @@ class OpenApiSpotFeed:
 
         # Tick count tracking (Liora condition 4)
         self._tick_counts: dict[str, int] = {}  # normalized name → count
+
+        # Proactive token refresh (Kaito #2)
+        # Store token expiry so we can proactively refresh before it expires.
+        # _token_expires_at: Unix timestamp; refreshed at ~80% of token lifetime.
+        self._token_expires_at: float | None = None
+        self._refresh_timer: threading.Timer | None = None
+        self._refresh_in_progress = False  # guard against concurrent refresh attempts
+        self._refresh_lock = threading.Lock()
 
         # Reconnection state
         self._reconnect_attempts: int = 0
@@ -201,6 +213,11 @@ class OpenApiSpotFeed:
 
         self._running = False
         self._stop_event.set()
+
+        # Cancel any pending proactive refresh timer
+        if self._refresh_timer is not None:
+            self._refresh_timer.cancel()
+            self._refresh_timer = None
 
         # Unsubscribe all
         for symbol_id in list(self._subscribed_symbol_ids):
@@ -348,6 +365,23 @@ class OpenApiSpotFeed:
         if acct_res is None:
             logger.error("Account auth failed")
             return False
+
+        # Store token expiry from account auth response (ProtoOAAccountAuthRes)
+        # so we can schedule a proactive refresh before the token expires.
+        payload = Protobuf.extract(acct_res)
+        expires_in = getattr(payload, 'expiresIn', None)
+        if expires_in is not None and expires_in > 0:
+            self._token_expires_at = time.monotonic() + expires_in
+            logger.info("Token lifetime captured: %ds — scheduling proactive refresh at ~80%%", expires_in)
+            self._schedule_proactive_refresh(expires_in)
+        else:
+            # Default to 24 hours if server didn't provide an expiry.
+            # This is a safety net for demo/sandbox tokens where expiresIn may be absent.
+            default_lifetime = 86400
+            self._token_expires_at = time.monotonic() + default_lifetime
+            logger.info("No token lifetime from server — defaulting to %ds", default_lifetime)
+            self._schedule_proactive_refresh(default_lifetime)
+
         logger.info("Account authenticated")
 
         # Now set persistent message callback for streaming events
@@ -562,16 +596,37 @@ class OpenApiSpotFeed:
         logger.error("API error: %s — %s", error_code, description)
 
         # Detect auth failure — trigger token refresh (Kaito condition 2)
-        auth_errors = {"CH_OAUTH_TOKEN_EXPIRED", "CH_INVALID_TOKEN"}
+        auth_errors = {
+            "CH_OAUTH_TOKEN_EXPIRED",
+            "CH_INVALID_TOKEN",
+            "ALREADY_LOGGED_IN",      # token expired → server reports as session conflict
+            "SESSION_EXPIRED",         # explicit session expiry
+        }
         if error_code in auth_errors:
-            logger.info("Auth failure detected, attempting token refresh")
+            logger.info("Auth failure detected (error=%s), attempting token refresh", error_code)
             self._refresh_token_and_reauth()
 
-    def _refresh_token_and_reauth(self):
-        """Refresh OAuth token and re-authenticate (Kaito condition 2).
+    def _refresh_token_and_reauth(self, proactive: bool = False):
+        """Refresh OAuth token and re-authenticate.
 
-        Pattern from ctrader_client.py._refresh_oauth_token().
+        Called in two scenarios:
+        - Proactive: scheduled timer fires before token expiry (preferred path)
+        - Reactive: error handler detects auth failure after the fact
+
+        Args:
+            proactive: True if this was a scheduled proactive refresh.
         """
+        with self._refresh_lock:
+            if proactive and self._refresh_in_progress:
+                logger.debug("Proactive refresh already in progress — skipping duplicate")
+                return
+            self._refresh_in_progress = True
+
+        if not self._refresh_token:
+            logger.error("Cannot refresh token: refresh_token is not set")
+            self._refresh_in_progress = False
+            return
+
         try:
             import requests
 
@@ -588,17 +643,44 @@ class OpenApiSpotFeed:
             data = resp.json()
             if data.get("errorCode"):
                 logger.error("Token refresh failed: %s", data.get("description", ""))
+                self._refresh_in_progress = False
                 return
 
-            self._access_token = data.get("accessToken") or data.get("access_token")
-            # Note: refresh_token may also rotate
+            new_access = data.get("accessToken") or data.get("access_token")
             new_refresh = data.get("refreshToken") or data.get("refresh_token")
+
+            if not new_access:
+                logger.error("Token refresh response missing accessToken")
+                self._refresh_in_progress = False
+                return
+
+            # Update tokens in memory
+            self._access_token = new_access
             if new_refresh:
                 self._refresh_token = new_refresh
 
+            # Update expiry (ProtoOARefreshTokenRes includes expiresIn)
+            expires_in = data.get("expiresIn") or data.get("expires_in")
+            if expires_in is not None and expires_in > 0:
+                self._token_expires_at = time.monotonic() + expires_in
+                logger.info(
+                    "Token refresh succeeded: new lifetime=%ds — rescheduling proactive refresh",
+                    expires_in,
+                )
+                self._schedule_proactive_refresh(expires_in)
+            else:
+                # Preserve existing expiry / default if server didn't provide one
+                default_lifetime = 86400
+                if self._token_expires_at is None:
+                    self._token_expires_at = time.monotonic() + default_lifetime
+                logger.info("Token refresh succeeded — preserving expiry schedule")
+
+            # Persist new tokens to .env so they survive restarts (Kaito #3)
+            self._persist_tokens(new_access, new_refresh or self._refresh_token)
+
             logger.info("OAuth token refreshed, re-authenticating")
 
-            # Re-auth
+            # Re-authenticate with new token
             acct_auth_req = ProtoOAAccountAuthReq()
             acct_auth_req.ctidTraderAccountId = self._ctid_account_id
             acct_auth_req.accessToken = self._access_token
@@ -606,6 +688,79 @@ class OpenApiSpotFeed:
 
         except Exception as exc:
             logger.error("Token refresh error: %s", exc, exc_info=True)
+        finally:
+            self._refresh_in_progress = False
+
+    def _schedule_proactive_refresh(self, expires_in: int):
+        """Schedule a proactive token refresh at ~80% of the token lifetime.
+
+        Args:
+            expires_in: Token lifetime in seconds (from expiresIn field).
+        """
+        # Cancel any pending timer
+        if self._refresh_timer is not None:
+            self._refresh_timer.cancel()
+            self._refresh_timer = None
+
+        refresh_in = expires_in * 0.8  # refresh at 80% of lifetime
+        # Minimum 60s to avoid scheduling a refresh in the past
+        refresh_in = max(refresh_in, 60.0)
+
+        logger.info(
+            "Scheduling proactive token refresh in %.0fs (token lifetime=%ds)",
+            refresh_in,
+            expires_in,
+        )
+        self._refresh_timer = threading.Timer(refresh_in, self._proactive_refresh_task)
+        self._refresh_timer.daemon = True
+        self._refresh_timer.start()
+
+    def _proactive_refresh_task(self):
+        """Timer callback: proactively refresh the OAuth token before it expires."""
+        if not self._running:
+            logger.debug("Proactive refresh skipped: feed not running")
+            return
+        logger.info("Proactive token refresh triggered — refreshing now")
+        self._refresh_token_and_reauth(proactive=True)
+
+    def _persist_tokens(self, access_token: str, refresh_token: str):
+        """Write updated tokens to .env so they survive process restarts.
+
+        Only writes the CTRADER_OPENAPI_ACCESS_TOKEN and
+        CTRADER_OPENAPI_REFRESH_TOKEN variables, leaving all other
+        .env values intact.
+        """
+        env_path = Path(__file__).resolve().parents[4] / ".env"
+        if not env_path.exists():
+            logger.warning("Cannot persist tokens: .env not found at %s", env_path)
+            return
+
+        try:
+            lines = env_path.read_text().splitlines()
+            new_lines = []
+            access_written = False
+            refresh_written = False
+
+            for line in lines:
+                if line.startswith("CTRADER_OPENAPI_ACCESS_TOKEN="):
+                    new_lines.append(f"CTRADER_OPENAPI_ACCESS_TOKEN={access_token}")
+                    access_written = True
+                elif line.startswith("CTRADER_OPENAPI_REFRESH_TOKEN="):
+                    new_lines.append(f"CTRADER_OPENAPI_REFRESH_TOKEN={refresh_token}")
+                    refresh_written = True
+                else:
+                    new_lines.append(line)
+
+            if not access_written:
+                new_lines.append(f"CTRADER_OPENAPI_ACCESS_TOKEN={access_token}")
+            if not refresh_written:
+                new_lines.append(f"CTRADER_OPENAPI_REFRESH_TOKEN={refresh_token}")
+
+            env_path.write_text("\n".join(new_lines) + "\n")
+            logger.info("Tokens persisted to %s", env_path)
+
+        except Exception as exc:
+            logger.error("Failed to persist tokens to .env: %s", exc, exc_info=True)
 
     # --- Internal: Subscription helpers ---
 

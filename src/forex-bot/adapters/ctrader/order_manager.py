@@ -17,6 +17,7 @@ from .models import (
 
 if TYPE_CHECKING:
     from .api_client import cTraderAPIClient
+    from .open_api_live_client import OpenApiLiveClient
 
 
 logger = logging.getLogger(__name__)
@@ -264,14 +265,14 @@ class OrderManager:
                 rejection_reason="validation_error",
             )
 
-        if not self._api_client or self._api_client.is_paper_mode:
+        if not self._api_client or getattr(self._api_client, "is_paper_mode", False):
             return OrderExecutionResult(
                 success=False,
                 error_message="No live API client connected or paper mode is active",
                 rejection_reason="no_live_client",
             )
 
-        if not self._api_client.is_connected:
+        if not getattr(self._api_client, "is_connected", False):
             return OrderExecutionResult(
                 success=False,
                 error_message="FIX connection not established",
@@ -334,10 +335,10 @@ class OrderManager:
             error_message="Order sent, awaiting execution report",
         )
 
-    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
+    def set_api_client(self, api_client: Optional["cTraderAPIClient | OpenApiLiveClient"]):
         self._api_client = api_client
-        if self._api_client and not self._api_client.is_paper_mode:
-            if not self._api_client.is_connected:
+        if self._api_client and not getattr(self._api_client, "is_paper_mode", False):
+            if not getattr(self._api_client, "is_connected", False):
                 logger.warning(
                     "cTraderAPIClient not connected — live callbacks will be "
                     "wired on connect. Call connect() before trading."
@@ -462,9 +463,13 @@ class OrderManager:
             return False
 
         if position.direction == TradeDirection.LONG:
-            return bid > 0 and bid <= position.stop_loss
+            # For long: SL triggers when price falls to SL level
+            fill_price = bid if bid > 0 else current_price
+            return fill_price <= position.stop_loss
         else:
-            return ask > 0 and ask >= position.stop_loss
+            # For short: SL triggers when price rises to SL level
+            fill_price = ask if ask > 0 else current_price
+            return fill_price >= position.stop_loss
 
     def _check_take_profit_hit(
         self, position: Position, current_price: float, bid: float, ask: float
@@ -473,9 +478,13 @@ class OrderManager:
             return False
 
         if position.direction == TradeDirection.LONG:
-            return ask > 0 and ask >= position.take_profit
+            # For long: TP triggers when price rises to TP level
+            fill_price = ask if ask > 0 else current_price
+            return fill_price >= position.take_profit
         else:
-            return bid > 0 and bid <= position.take_profit
+            # For short: TP triggers when price falls to TP level
+            fill_price = bid if bid > 0 else current_price
+            return fill_price <= position.take_profit
 
     def close_position(
         self,

@@ -12,7 +12,7 @@ from .amalgamation import (
     VotingMethod,
 )
 from .data_loader import CsvDataLoader
-from .engine import (
+from .types import (
     DEFAULT_SPREAD_PIPS,
     PAIR_SPREAD_PIPS,
     BacktestConfig,
