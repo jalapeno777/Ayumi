@@ -332,12 +332,11 @@ class OpenApiSpotFeed:
             logger.error("Cannot resolve symbol '%s' for trendbar fetch", symbol)
             return []
 
-        # cTrader period enum mapping (minutes → ProtoOATrendbarPeriod)
+        # cTrader period enum mapping (minutes → ProtoOATrendbarPeriod enum index)
         PERIOD_MAP = {
-            1: 60, 2: 120, 3: 180, 4: 240, 5: 300, 6: 360,
-            10: 600, 15: 900, 20: 1200, 30: 1800, 60: 3600,
-            120: 7200, 240: 14400, 360: 21600, 480: 28800,
-            720: 43200, 1440: 86400, 10080: 604800,
+            1: 1, 2: 2, 3: 3, 4: 4, 5: 5,  # M1–M5
+            10: 6, 15: 7, 30: 8, 60: 9,  # M10, M15, M30, H1
+            240: 10, 720: 11, 1440: 12, 10080: 13,  # H4, H12, D1, W1
         }
         period_enum = PERIOD_MAP.get(period_minutes)
         if period_enum is None:
