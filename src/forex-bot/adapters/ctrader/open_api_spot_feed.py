@@ -370,10 +370,10 @@ class OpenApiSpotFeed:
 
         bars = []
         for tb in getattr(payload, 'trendbar', []):
-            bar_time = datetime.fromtimestamp(tb.utcOpenTimestamp / 1000, tz=timezone.utc)
-            # Trendbar volume fields (protobuf int64 → Python int)
+            # ProtoOATrendbar uses utcTimestampInMinutes (unix minutes, not ms)
+            utc_min = getattr(tb, 'utcTimestampInMinutes', 0)
+            bar_time = datetime.fromtimestamp(utc_min * 60, tz=timezone.utc)
             vol = getattr(tb, 'volume', 0)
-            # OHLC are in raw integer format — need to decode based on symbol digits
             digits = self._symbol_digits.get(symbol_id, 5)
             divisor = 10 ** digits
 
