@@ -38,6 +38,9 @@ from .trade_logger import TradeLogger
 
 logger = logging.getLogger("ayumi.forward_test")
 
+# Lazy import — only needed when live_mode=True
+# from .open_api_live_client import OpenApiLiveClient
+
 _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
@@ -122,6 +125,7 @@ class ForwardTestHealth:
     reconnection_attempts: int = 0
     reconnection_successes: int = 0
     bars_built: int = 0
+    consecutive_risk_rejections: int = 0
 
 
 class ForwardTestEngine:
@@ -179,6 +183,8 @@ class ForwardTestEngine:
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
+        self._live_client = None  # OpenApiLiveClient when live_mode=True
+        self._preload_complete: bool = False  # T2: blocks evaluation until bars loaded
         self._credentials = credentials
 
         self._start_time: Optional[datetime] = None
@@ -189,6 +195,10 @@ class ForwardTestEngine:
         self._health = ForwardTestHealth()
 
         self._last_evaluation_at: float = 0.0
+
+        # Rejection circuit breaker (T5)
+        self._consecutive_risk_rejections: int = 0
+        self._rejection_cooldown_until: float = 0.0  # monotonic timestamp
         self._reconnect_delay: float = config.reconnect_delay_sec
         self._last_reconnect_attempt_at: float = 0.0
         self._health_monitor_thread: Optional[threading.Thread] = None
@@ -245,6 +255,33 @@ class ForwardTestEngine:
             logger.error("Failed to start market data feed")
             return False
 
+        # T1: Wire live client symbol map from feed + health check
+        if self._config.live_mode and self._live_client is not None:
+            # Transfer symbol map from the spot feed to the live client
+            if isinstance(self._market_feed, OpenApiSpotFeed):
+                self._live_client.set_symbol_map(self._market_feed.name_to_id)
+
+            # Health check: verify live client can connect
+            if not self._live_client.connect():
+                logger.critical(
+                    "Live mode enabled but OpenApiLiveClient cannot connect — aborting"
+                )
+                self._market_feed.stop()
+                return False
+            logger.info("OpenApiLiveClient connected — live mode active")
+        elif self._config.live_mode and self._live_client is None:
+            logger.critical(
+                "Live mode enabled but live client was not built (credential issue?) — aborting"
+            )
+            if self._market_feed:
+                self._market_feed.stop()
+            return False
+
+        # T2: Preload bars from API after feed is connected
+        self._preload_complete = False
+        if isinstance(self._market_feed, OpenApiSpotFeed):
+            self._preload_historical_bars()
+
         self._running = True
         self._start_time = datetime.now(timezone.utc)
 
@@ -272,6 +309,21 @@ class ForwardTestEngine:
             self._config.evaluation_interval_sec,
             self._config.bar_period_minutes,
         )
+
+        # B5: Startup diagnostic
+        logger.info("[B5 Startup] Strategy list: %s", [s.name for s in self._strategies])
+        logger.info("[B5 Startup] Symbols: %s", self._config.symbols)
+        logger.info("[B5 Startup] Bar period: %dm", self._config.bar_period_minutes)
+        logger.info("[B5 Startup] Min confidence: %.2f", self._config.min_confidence)
+        logger.info("[B5 Startup] Min bars for evaluation: %d", self._config.min_bars_for_evaluation)
+        logger.info(
+            "[B5 Startup] Strategy timeframes: %s",
+            self._strategy_timeframes or {s.name: self._config.bar_period_minutes for s in self._strategies},
+        )
+        logger.info(
+            "[B5 Startup] Required timeframes: %s",
+            sorted(self._required_timeframes),
+        )
         return True
 
     def stop(self):
@@ -291,6 +343,13 @@ class ForwardTestEngine:
 
         if self._market_feed:
             self._market_feed.stop()
+
+        # T1: Disconnect live client if present
+        if self._live_client is not None:
+            try:
+                self._live_client.disconnect()
+            except Exception as exc:
+                logger.warning("Error disconnecting live client: %s", exc)
 
         self._update_health()
         stats = self._paper_trader.get_stats() if self._paper_trader else None
@@ -325,15 +384,69 @@ class ForwardTestEngine:
             )
         return True
 
+    def _build_live_credentials(self) -> dict | None:
+        """Build kwargs dict for OpenApiLiveClient from env vars."""
+        import os
+        from dotenv import load_dotenv
+        from pathlib import Path
+
+        env_path = Path(__file__).resolve().parents[4] / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
+
+        client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")
+        client_secret = os.environ.get("CTRADER_OPENAPI_CLIENT_SECRET", "")
+        access_token = os.environ.get("CTRADER_OPENAPI_ACCESS_TOKEN", "")
+        refresh_token = os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")
+        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID", "")
+
+        if not all([client_id, client_secret, access_token, account_id]):
+            logger.error(
+                "Missing live client credentials: client_id=%s secret=%s token=%s account=%s",
+                bool(client_id), bool(client_secret), bool(access_token), bool(account_id),
+            )
+            return None
+
+        return {
+            "ctid_account_id": int(account_id),
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "access_token": access_token,
+            "refresh_token": refresh_token or None,
+            "host": self._config.openapi_host,
+            "port": self._config.openapi_port,
+        }
+
     def _build_components(self):
         cfg = self._config
         ftmo = self._ftmo_config or FTMOConfig()
         pos_cfg = self._position_config or PositionSizeConfig()
 
+        # T1: Construct live client when live_mode is enabled
+        if cfg.live_mode:
+            from .open_api_live_client import OpenApiLiveClient
+
+            import os
+            from dotenv import load_dotenv
+            from pathlib import Path
+
+            env_path = Path(__file__).resolve().parents[4] / ".env"
+            if env_path.exists():
+                load_dotenv(env_path, override=True)
+
+            live_creds = self._build_live_credentials()
+            if live_creds is None:
+                logger.error("Cannot build live client: missing credentials")
+                return
+
+            self._live_client = OpenApiLiveClient(**live_creds)
+            logger.info("OpenApiLiveClient constructed for live_mode")
+
         self._paper_trader = PaperTrader(
             ftmo_config=ftmo,
             position_config=pos_cfg,
             starting_balance=cfg.starting_balance,
+            api_client=self._live_client,
         )
 
         self._live_adapter = cTraderLiveAdapter(
@@ -647,8 +760,17 @@ class ForwardTestEngine:
             asks={symbol_name: tick.ask},
         )
 
+    # Rejection circuit breaker constants (T5)
+    _REJECTION_BREAKER_THRESHOLD = 5
+    _REJECTION_COOLDOWN_SEC = 60.0
+
     def _evaluate_strategies(self, symbol: str):
         if self._live_adapter is None:
+            return
+
+        # T5: Rejection circuit breaker — cooldown check
+        if time.monotonic() < self._rejection_cooldown_until:
+            logger.debug("Rejection cooldown active, skipping evaluation")
             return
 
         if not self._eval_semaphore.acquire(blocking=False):
@@ -688,6 +810,12 @@ class ForwardTestEngine:
 
                 state = MarketState(bars=bars)
 
+                # T5: Capture risk block count before evaluation
+                _pre_risk_blocks = (
+                    self._paper_trader.get_stats().signals_blocked_by_risk
+                    if self._paper_trader else 0
+                )
+
                 try:
                     signals = self._live_adapter.evaluate_all_strategies(
                         {symbol: state}, spread=self._current_spread
@@ -700,6 +828,52 @@ class ForwardTestEngine:
                         strategy.name, self._health.evaluation_errors, exc, exc_info=True,
                     )
                     continue
+
+                # T5: Check if risk guard blocked any signals (circuit breaker tracking)
+                _post_risk_blocks = (
+                    self._paper_trader.get_stats().signals_blocked_by_risk
+                    if self._paper_trader else 0
+                )
+                _new_risk_rejections = _post_risk_blocks - _pre_risk_blocks
+
+                if _new_risk_rejections > 0:
+                    # Actual RiskGuard rejections — track for circuit breaker
+                    self._consecutive_risk_rejections += _new_risk_rejections
+                    with self._lock:
+                        self._health.signals_rejected += _new_risk_rejections
+                        self._health.consecutive_risk_rejections = self._consecutive_risk_rejections
+                    logger.warning(
+                        "Risk guard rejected %d signal(s) (consecutive=%d/%d)",
+                        _new_risk_rejections, self._consecutive_risk_rejections,
+                        self._REJECTION_BREAKER_THRESHOLD,
+                    )
+                    if self._consecutive_risk_rejections >= self._REJECTION_BREAKER_THRESHOLD:
+                        self._rejection_cooldown_until = (
+                            time.monotonic() + self._REJECTION_COOLDOWN_SEC
+                        )
+                        logger.warning(
+                            "Rejection circuit breaker TRIPPED at %d consecutive — "
+                            "cooldown for %.0fs",
+                            self._consecutive_risk_rejections,
+                            self._REJECTION_COOLDOWN_SEC,
+                        )
+                        # Check if daily loss limit is the cause
+                        if self._paper_trader:
+                            stats = self._paper_trader.get_stats()
+                            drawdown_pct = abs(
+                                (stats.current_balance - stats.starting_balance)
+                                / stats.starting_balance
+                            ) if stats.starting_balance > 0 else 0
+                            if drawdown_pct > 0.03:
+                                logger.critical(
+                                    "Daily drawdown %.1f%% — possible daily loss limit breach",
+                                    drawdown_pct * 100,
+                                )
+                elif signals:
+                    # Signal passed risk — reset consecutive counter
+                    self._consecutive_risk_rejections = 0
+                    with self._lock:
+                        self._health.consecutive_risk_rejections = 0
 
                 with self._lock:
                     self._health.signals_generated += len(signals)
@@ -726,13 +900,72 @@ class ForwardTestEngine:
         finally:
             self._eval_semaphore.release()
 
+    def _preload_historical_bars(self):
+        """T2: Fetch historical bars from the API and preload them into the engine."""
+        if not isinstance(self._market_feed, OpenApiSpotFeed):
+            return
+
+        for sym in self._config.symbols:
+            for tf in self._required_timeframes:
+                try:
+                    bars = self._market_feed.fetch_trendbars(
+                        symbol=sym,
+                        period_minutes=tf,
+                        count=self._config.min_bars_for_evaluation,
+                    )
+                    if bars:
+                        self.preload_bars(sym, tf, bars)
+                        logger.info(
+                            "Preloaded %d bars for %s %dm",
+                            len(bars), sym, tf,
+                        )
+                    else:
+                        logger.warning(
+                            "No bars returned for %s %dm — evaluation may be delayed",
+                            sym, tf,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to preload bars for %s %dm: %s",
+                        sym, tf, exc,
+                    )
+
+        self._preload_complete = True
+        logger.info("Bar preloading complete")
+
     def _health_monitor_loop(self):
+        # B5: Periodic diagnostic tracking
+        _last_diagnostic_log = time.monotonic()
+        _diagnostic_interval = 60.0
+
         while not self._stop_health_monitor.wait(
             self._config.health_monitor_interval_sec
         ):
             try:
                 self._update_health()
                 self._check_connection_health()
+
+                # B5: Periodic health diagnostic log (every 60s)
+                now = time.monotonic()
+                if now - _last_diagnostic_log >= _diagnostic_interval:
+                    _last_diagnostic_log = now
+                    with self._lock:
+                        ticks = self._health.ticks_received
+                        bars = self._health.bars_built
+                        signals = self._health.signals_generated
+                        traded = self._health.signals_traded
+                        errors = self._health.evaluation_errors
+                    logger.info(
+                        "[B5 Periodic] ticks=%d bars_built=%d signals=%d traded=%d eval_errors=%d",
+                        ticks, bars, signals, traded, errors,
+                    )
+                    # B5 Amendment 4: tick-to-bar pipeline health
+                    if ticks > 0 and bars == 0:
+                        logger.warning(
+                            "[B5 Pipeline] %d ticks received but 0 bars built — "
+                            "tick-to-bar conversion may be stalled",
+                            ticks,
+                        )
             except Exception as exc:
                 logger.error("Health monitor error: %s", exc, exc_info=True)
 

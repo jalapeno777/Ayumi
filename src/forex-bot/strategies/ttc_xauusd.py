@@ -8,8 +8,12 @@ ttc_strategy_factory() in backtest/parameter_sweep/ttc_optimizer.py.
 
 from __future__ import annotations
 
+import logging
+
 from backtest.strategies.tts_strategy import TTSStrategy
 from backtest.strategy_legacy import ISignalStrategy
+
+logger = logging.getLogger(__name__)
 
 # Optuna best params for XAUUSD M15
 _XAUUSD_M15_PARAMS = {
@@ -68,4 +72,15 @@ class TTCXAUUSDStrategy(ISignalStrategy):
 
     # Delegate ISignalStrategy interface to the inner strategy
     def evaluate(self, state: object) -> object:
-        return self._strategy.evaluate(state)
+        result = self._strategy.evaluate(state)
+        if result is None:
+            bars = getattr(state, 'bars', [])
+            latest = getattr(state, 'latest_bar', None)
+            if latest:
+                logger.debug(
+                    "TTC XAUUSD M15: no signal (bars=%d, time=%s)",
+                    len(bars), getattr(latest, 'time', '?'),
+                )
+            else:
+                logger.debug("TTC XAUUSD M15: no signal (bars=%d, no latest bar)", len(bars))
+        return result

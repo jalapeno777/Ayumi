@@ -101,6 +101,13 @@ def main():
     logger.info("=== Ayumi Forward Test Launcher ===")
     logger.info("Time: %s UTC", datetime.now(timezone.utc).isoformat())
 
+    # ── Single-instance guard (B1) ─────────────────────────────────────────
+    from adapters.ctrader.pid_guard import acquire_pid_lock
+    _pid_path = PROJECT_ROOT / "data" / "forward_test.pid"
+    _pid_ctx = acquire_pid_lock(_pid_path)
+    _pid_guard = _pid_ctx.__enter__()
+    _pid_guard.write_pid()
+
     # Build all components
     credentials = build_credentials()
     ftmo_config = build_ftmo_config()

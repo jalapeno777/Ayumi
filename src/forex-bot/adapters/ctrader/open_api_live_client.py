@@ -108,6 +108,9 @@ class OpenApiLiveClient:
         self._reconnect_attempts = 0
         self._reconnect_delay = _INITIAL_RECONNECT_DELAY
 
+        # Symbol name → ID mapping (populated by set_symbol_map)
+        self._symbol_map: dict[str, int] = {}
+
     # ─── Properties ────────────────────────────────────────────────────────────
 
     @property
@@ -117,6 +120,42 @@ class OpenApiLiveClient:
     @property
     def is_live_mode(self) -> bool:
         return True  # This is ALWAYS live mode — paper mode uses OrderManager.execute_paper_order
+
+    @property
+    def is_paper_mode(self) -> bool:
+        """Always False — this is the live trading client, not paper."""
+        return False
+
+    # ─── Symbol Mapping ────────────────────────────────────────────────────────
+
+    def set_symbol_map(self, symbol_map: dict[str, int]):
+        """Store a mapping from normalized symbol name → cTrader numeric symbol ID.
+
+        Allows ``send_order`` to accept symbol names (e.g. "EURUSD")
+        instead of requiring numeric IDs.
+        """
+        self._symbol_map: dict[str, int] = {
+            _normalize_symbol_name(k): v for k, v in symbol_map.items()
+        }
+        logger.info(
+            "[OpenApiLiveClient] Symbol map set: %d entries",
+            len(self._symbol_map),
+        )
+
+    def resolve_symbol_id(self, name: str) -> int:
+        """Resolve a symbol name to its numeric cTrader symbol ID.
+
+        Raises ``ValueError`` if the symbol is not in the map — fail-fast
+        to prevent sending orders with unknown symbols.
+        """
+        normalized = _normalize_symbol_name(name)
+        symbol_id = self._symbol_map.get(normalized)
+        if symbol_id is None:
+            raise ValueError(
+                f"Symbol '{name}' (normalized: '{normalized}') not found in symbol map. "
+                f"Known symbols: {sorted(self._symbol_map.keys())}"
+            )
+        return symbol_id
 
     # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -362,23 +401,19 @@ class OpenApiLiveClient:
         SL/TP are sent in the ProtoOANewOrderReq itself — cTrader manages
         them server-side even if the script crashes.
         """
-        # Resolve symbol name to ID (use the broker's normalized name)
-        symbol_key = _normalize_symbol_name(symbol)
-        # Map from normalized name to cTrader symbol ID
-        # The OpenApiSpotFeed has _name_to_id; we store the symbol_id in symbol param
-        # If symbol is already a numeric ID string, use it directly
+        # Resolve symbol name to ID
         try:
             symbol_id = int(symbol)
         except (ValueError, TypeError):
-            # symbol is a name like "EURUSD" — we need to look up its ID
-            # This requires the symbol→ID mapping from the connected feed
-            # Store it on connect or accept that caller passes numeric ID
-            logger.error(
-                "[OpenApiLiveClient] Cannot send order: symbol '%s' is not a numeric ID. "
-                "Pass a numeric cTrader symbol ID instead.",
-                symbol,
-            )
-            return None
+            # symbol is a name like "EURUSD" — look up via symbol_map
+            try:
+                symbol_id = self.resolve_symbol_id(symbol)
+            except ValueError:
+                logger.error(
+                    "[OpenApiLiveClient] Cannot resolve symbol '%s' — not in symbol map",
+                    symbol,
+                )
+                return None
 
         # Map direction string to ProtoOATradeSide
         LONG_SIDE = 1  # ProtoOATradeSide.BUY

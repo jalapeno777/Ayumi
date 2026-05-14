@@ -152,10 +152,11 @@ class RiskGuard:
         stop_loss: float,
         take_profit: float,
         account_balance: float | None = None,
+        symbol: str | None = None,
     ) -> RiskLimitResult:
         with self._lock:
             return self._check_trade_allowed_internal(
-                direction, volume, entry_price, stop_loss, take_profit, account_balance
+                direction, volume, entry_price, stop_loss, take_profit, account_balance, symbol
             )
 
     def _check_trade_allowed_internal(
@@ -166,6 +167,7 @@ class RiskGuard:
         stop_loss: float,
         take_profit: float,
         account_balance: float | None = None,
+        symbol: str | None = None,
     ) -> RiskLimitResult:
         if account_balance:
             self._current_balance = account_balance
@@ -231,13 +233,25 @@ class RiskGuard:
         # Notional exposure (volume * 100k) is not meaningful for FTMO rules —
         # what matters is how much you lose if SL is hit.
         sl_distance = abs(entry_price - stop_loss)
-        # Calculate pip value from the actual price level, not hardcoded approximations.
-        # For JPY pairs (price > 50): pip_size = 0.01, pip_value ≈ $6.50/lot
-        # For non-JPY pairs (price < 50): pip_size = 0.0001, pip_value ≈ $10.00/lot
-        # TODO: Accept pip_value_per_lot as parameter from SLPositionSizer for exact calc
-        is_jpy_pair = abs(entry_price) > 50
-        pip_value_per_lot = 6.5 if is_jpy_pair else 10.0
-        pip_size = 0.01 if is_jpy_pair else 0.0001
+        # Use SymbolInfo metadata when symbol is available; fall back to price heuristic.
+        from .models import get_symbol_info
+        if symbol:
+            sym_info = get_symbol_info(symbol)
+            pip_size = sym_info.pip_size
+            pip_value_per_lot = sym_info.pip_value_per_lot
+        else:
+            # Heuristic fallback: infer from price level
+            is_jpy_pair = abs(entry_price) > 50
+            if is_jpy_pair:
+                if abs(entry_price) > 1000:
+                    pip_size = 0.01
+                    pip_value_per_lot = 1.0
+                else:
+                    pip_size = 0.01
+                    pip_value_per_lot = 6.5
+            else:
+                pip_size = 0.0001
+                pip_value_per_lot = 10.0
         sl_pips = sl_distance / pip_size if pip_size > 0 else 0
         risk_amount = volume * sl_pips * pip_value_per_lot
         risk_pct = risk_amount / self._current_balance if self._current_balance > 0 else float('inf')

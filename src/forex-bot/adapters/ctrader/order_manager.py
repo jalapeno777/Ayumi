@@ -110,6 +110,8 @@ class OrderManager:
         stop_loss: float,
         symbol: str = "EURUSD",
     ) -> float:
+        from .models import get_symbol_info
+
         risk_amount = account_balance * self._position_config.risk_per_trade_pct
         sl_distance = abs(entry_price - stop_loss)
 
@@ -117,14 +119,13 @@ class OrderManager:
             logger.warning("Stop loss distance is zero, using default lot size")
             return self._position_config.default_lot_size
 
-        is_jpy_pair = symbol.upper().endswith("JPY") or symbol.upper().startswith("JPY")
-        pip_value = 100.0 if is_jpy_pair else 10000.0
-        sl_pips = sl_distance * pip_value
+        sym_info = get_symbol_info(symbol)
+        sl_pips = sl_distance / sym_info.pip_size
 
         if sl_pips == 0:
             return self._position_config.default_lot_size
 
-        lot_size = risk_amount / (sl_pips * 10)
+        lot_size = risk_amount / (sl_pips * sym_info.pip_value_per_lot)
 
         lot_size = max(
             self._position_config.min_lot_size,

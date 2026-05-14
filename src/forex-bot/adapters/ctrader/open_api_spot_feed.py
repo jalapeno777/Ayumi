@@ -122,6 +122,17 @@ class OpenApiSpotFeed:
         self._refresh_in_progress = False  # guard against concurrent refresh attempts
         self._refresh_lock = threading.Lock()
 
+        # Auth error backoff & circuit breaker (B3)
+        self._auth_error_count: int = 0
+        self._auth_circuit_open: bool = False
+        self._last_reactive_refresh_time: float = 0.0  # B2: cooldown between reactive refreshes
+        self._last_successful_auth_time: float = 0.0   # B3: reset backoff after stable auth
+
+        # ALREADY_LOGGED_IN rate counter (Amendment 1)
+        self._already_logged_in_times: list[float] = []
+        self._ALREADY_LOGGED_IN_WINDOW = 60.0  # seconds
+        self._ALREADY_LOGGED_IN_THRESHOLD = 3
+
         # Reconnection state
         self._reconnect_attempts: int = 0
         self._reconnect_delay: float = _INITIAL_RECONNECT_DELAY
@@ -152,6 +163,16 @@ class OpenApiSpotFeed:
         """Tick counts per normalized symbol name for validation (Liora #4)."""
         with self._lock:
             return dict(self._tick_counts)
+
+    def get_health(self) -> dict:
+        """B3: Health endpoint reflecting circuit breaker state."""
+        return {
+            "auth_circuit_open": self._auth_circuit_open,
+            "auth_error_count": self._auth_error_count,
+            "refresh_in_progress": self._refresh_in_progress,
+            "connected": self._connected.is_set(),
+            "authed": self._authed.is_set(),
+        }
 
     # --- Lifecycle ---
 
@@ -277,6 +298,101 @@ class OpenApiSpotFeed:
         """Get the current spread for a symbol."""
         tick = self.get_tick(symbol_name)
         return tick.spread if tick else None
+
+    # ─── Trendbar (historical bars) ────────────────────────────────────────────
+
+    def fetch_trendbars(
+        self,
+        symbol: str,
+        period_minutes: int,
+        count: int,
+    ) -> list["Bar"]:
+        """Fetch historical trendbars from cTrader and convert to Bar objects.
+
+        Requires the feed to be connected and authenticated.
+
+        Args:
+            symbol: Symbol name (e.g. "EURUSD", "XAUUSD").
+            period_minutes: Bar period in minutes. Must match cTrader periods:
+                1, 2, 3, 4, 5, 6, 10, 15, 20, 30, 60, 120, 240, 360, 480, 720, 1440, 10080.
+            count: Maximum number of bars to fetch.
+
+        Returns:
+            List of Bar objects (oldest first), or empty list on failure.
+        """
+        from backtest.engine import Bar
+        from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAGetTrendbarsReq
+
+        if not self._connected.is_set():
+            logger.error("Cannot fetch trendbars: not connected")
+            return []
+
+        symbol_id = self._resolve_name_to_id(symbol)
+        if symbol_id is None:
+            logger.error("Cannot resolve symbol '%s' for trendbar fetch", symbol)
+            return []
+
+        # cTrader period enum mapping (minutes → ProtoOATrendbarPeriod)
+        PERIOD_MAP = {
+            1: 60, 2: 120, 3: 180, 4: 240, 5: 300, 6: 360,
+            10: 600, 15: 900, 20: 1200, 30: 1800, 60: 3600,
+            120: 7200, 240: 14400, 360: 21600, 480: 28800,
+            720: 43200, 1440: 86400, 10080: 604800,
+        }
+        period_enum = PERIOD_MAP.get(period_minutes)
+        if period_enum is None:
+            logger.error(
+                "Unsupported trendbar period: %dm — supported: %s",
+                period_minutes, sorted(PERIOD_MAP.keys()),
+            )
+            return []
+
+        req = ProtoOAGetTrendbarsReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.symbolId = symbol_id
+        req.period = period_enum
+        req.count = count
+
+        # Set time window (from now backwards)
+        from datetime import datetime, timezone
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        req.toTimestamp = now_ms
+        req.fromTimestamp = now_ms - (count * period_minutes * 60 * 1000)
+
+        response = self._send_and_wait(req, timeout=15)
+        if response is None:
+            logger.error("Trendbar request failed for %s %dm", symbol, period_minutes)
+            return []
+
+        payload = Protobuf.extract(response)
+        if payload is None:
+            logger.error("Failed to extract trendbar payload")
+            return []
+
+        bars = []
+        for tb in getattr(payload, 'trendbar', []):
+            bar_time = datetime.fromtimestamp(tb.utcOpenTimestamp / 1000, tz=timezone.utc)
+            # Trendbar volume fields (protobuf int64 → Python int)
+            vol = getattr(tb, 'volume', 0)
+            # OHLC are in raw integer format — need to decode based on symbol digits
+            digits = self._symbol_digits.get(symbol_id, 5)
+            divisor = 10 ** digits
+
+            bar = Bar(
+                time=bar_time,
+                open=tb.open / divisor,
+                high=tb.high / divisor,
+                low=tb.low / divisor,
+                close=tb.close / divisor,
+                volume=vol,
+            )
+            bars.append(bar)
+
+        logger.info(
+            "Fetched %d trendbars for %s %dm",
+            len(bars), symbol, period_minutes,
+        )
+        return bars
 
     # --- Internal: Connection & Auth ---
 
@@ -442,6 +558,15 @@ class OpenApiSpotFeed:
         if msg_type == 2101:  # ProtoOAAccountAuthRes
             self._authed.set()
             logger.info("Account authenticated")
+            # B3: Reset auth error state on successful auth
+            if self._auth_error_count > 0 or self._auth_circuit_open:
+                logger.info(
+                    "Auth recovered — resetting error_count (%d→0) and circuit_breaker (%s→False)",
+                    self._auth_error_count, self._auth_circuit_open,
+                )
+            self._auth_error_count = 0
+            self._auth_circuit_open = False
+            self._last_successful_auth_time = time.monotonic()
 
         # Symbol list response — handled by _send_and_wait, ignore here
 
@@ -595,15 +720,57 @@ class OpenApiSpotFeed:
         description = getattr(message, "description", "")
         logger.error("API error: %s — %s", error_code, description)
 
-        # Detect auth failure — trigger token refresh (Kaito condition 2)
+        # B2: ALREADY_LOGGED_IN is NOT an auth error — session is still active.
+        # Handle it explicitly: log, set authed event, and return without refresh.
+        if error_code == "ALREADY_LOGGED_IN":
+            logger.info("ALREADY_LOGGED_IN received — session is already active, no action needed")
+            self._authed.set()
+
+            # Amendment 1: rate counter for ALREADY_LOGGED_IN
+            now = time.monotonic()
+            self._already_logged_in_times = [
+                t for t in self._already_logged_in_times
+                if now - t < self._ALREADY_LOGGED_IN_WINDOW
+            ]
+            self._already_logged_in_times.append(now)
+            if len(self._already_logged_in_times) > self._ALREADY_LOGGED_IN_THRESHOLD:
+                logger.warning(
+                    "ALREADY_LOGGED_IN fired %d times in %.0fs — possible duplicate instance. "
+                    "Consider triggering reconnect.",
+                    len(self._already_logged_in_times),
+                    self._ALREADY_LOGGED_IN_WINDOW,
+                )
+            return
+
+        # B3: Check circuit breaker before any reactive refresh
+        if self._auth_circuit_open:
+            logger.warning("Auth circuit breaker is OPEN — skipping reactive refresh")
+            return
+
+        # Amendment 3: Check _refresh_in_progress guard for reactive path too
+        if self._refresh_in_progress:
+            logger.debug("Refresh already in progress — skipping reactive refresh from error handler")
+            return
+
+        # Detect auth failure — trigger token refresh
         auth_errors = {
             "CH_OAUTH_TOKEN_EXPIRED",
             "CH_INVALID_TOKEN",
-            "ALREADY_LOGGED_IN",      # token expired → server reports as session conflict
-            "SESSION_EXPIRED",         # explicit session expiry
+            "SESSION_EXPIRED",
         }
         if error_code in auth_errors:
+            # B2: Cooldown — minimum 60s between reactive refresh attempts
+            now = time.monotonic()
+            since_last = now - self._last_reactive_refresh_time
+            if since_last < 60.0:
+                logger.info(
+                    "Auth failure (error=%s) but reactive refresh cooldown active (%.1fs < 60s) — skipping",
+                    error_code, since_last,
+                )
+                return
+
             logger.info("Auth failure detected (error=%s), attempting token refresh", error_code)
+            self._last_reactive_refresh_time = now
             self._refresh_token_and_reauth()
 
     def _refresh_token_and_reauth(self, proactive: bool = False):
@@ -616,15 +783,31 @@ class OpenApiSpotFeed:
         Args:
             proactive: True if this was a scheduled proactive refresh.
         """
+        # B3: Check circuit breaker
+        if not proactive and self._auth_circuit_open:
+            logger.warning("Auth circuit breaker OPEN — refusing reactive refresh")
+            return
+
         with self._refresh_lock:
-            if proactive and self._refresh_in_progress:
-                logger.debug("Proactive refresh already in progress — skipping duplicate")
+            if self._refresh_in_progress:
+                logger.debug("Refresh already in progress — skipping duplicate")
                 return
             self._refresh_in_progress = True
+
+        # B3: Exponential backoff for reactive refreshes
+        if not proactive:
+            backoff = min(10 * (2 ** self._auth_error_count), 300)
+            logger.info(
+                "Applying reactive refresh backoff: %.1fs (error_count=%d)",
+                backoff, self._auth_error_count,
+            )
+            time.sleep(backoff)
 
         if not self._refresh_token:
             logger.error("Cannot refresh token: refresh_token is not set")
             self._refresh_in_progress = False
+            self._auth_error_count += 1
+            self._check_circuit_breaker()
             return
 
         try:
@@ -643,6 +826,8 @@ class OpenApiSpotFeed:
             data = resp.json()
             if data.get("errorCode"):
                 logger.error("Token refresh failed: %s", data.get("description", ""))
+                self._auth_error_count += 1
+                self._check_circuit_breaker()
                 self._refresh_in_progress = False
                 return
 
@@ -651,6 +836,8 @@ class OpenApiSpotFeed:
 
             if not new_access:
                 logger.error("Token refresh response missing accessToken")
+                self._auth_error_count += 1
+                self._check_circuit_breaker()
                 self._refresh_in_progress = False
                 return
 
@@ -686,10 +873,32 @@ class OpenApiSpotFeed:
             acct_auth_req.accessToken = self._access_token
             reactor.callFromThread(self._safe_send, acct_auth_req)
 
+            # B3: Reset error count on successful token refresh (auth confirmation
+            # happens asynchronously via _on_message → _authed.set())
+            # We'll reset _auth_error_count when _authed fires (see _on_message).
+            # For now, just clear the refresh_in_progress flag.
+
         except Exception as exc:
             logger.error("Token refresh error: %s", exc, exc_info=True)
+            self._auth_error_count += 1
+            self._check_circuit_breaker()
         finally:
             self._refresh_in_progress = False
+
+    def _check_circuit_breaker(self):
+        """B3: Check if auth error count exceeds threshold and trip circuit breaker."""
+        if self._auth_error_count >= 5:
+            self._auth_circuit_open = True
+            logger.critical(
+                "Auth circuit breaker TRIPPED: %d consecutive failures — "
+                "stopping all refresh attempts",
+                self._auth_error_count,
+            )
+        else:
+            logger.warning(
+                "Auth error count: %d/5 before circuit breaker",
+                self._auth_error_count,
+            )
 
     def _schedule_proactive_refresh(self, expires_in: int):
         """Schedule a proactive token refresh at ~80% of the token lifetime.
@@ -697,6 +906,11 @@ class OpenApiSpotFeed:
         Args:
             expires_in: Token lifetime in seconds (from expiresIn field).
         """
+        # B3: Don't schedule if circuit breaker is open
+        if self._auth_circuit_open:
+            logger.warning("Circuit breaker is OPEN — not scheduling proactive refresh")
+            return
+
         # Cancel any pending timer
         if self._refresh_timer is not None:
             self._refresh_timer.cancel()

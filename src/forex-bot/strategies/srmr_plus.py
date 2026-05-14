@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -42,6 +43,8 @@ _LONDON_NY_OVERLAP_START = SessionRangeHours.LONDON_NY_OVERLAP_START
 _LONDON_NY_OVERLAP_END = SessionRangeHours.LONDON_NY_OVERLAP_END
 _NY_CLOSE_START = SessionRangeHours.NY_CLOSE_START
 _NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_PIP = 0.0001
 _JPY_PIP = 0.01
@@ -274,6 +277,7 @@ def _build_signal(
     pip: float,
 ) -> StrategySignal | None:
     if atr <= 0:
+        logger.debug("SRMR+ _build_signal: ATR is zero or negative")
         return None
 
     sl_distance = min(
@@ -287,6 +291,7 @@ def _build_signal(
         sl_distance = min_sl
 
     if sl_distance <= 0:
+        logger.debug("SRMR+ _build_signal: SL distance is zero or negative")
         return None
 
     sl = (
@@ -335,10 +340,12 @@ class SRMRPlusStrategy(ISignalStrategy):
             self.config.ema_trend_period + 1,
         )
         if len(state.bars) < min_required:
+            logger.debug("SRMR+ %s: insufficient bars (have=%d, need=%d)", state.bars[-1].symbol if state.bars else '?', len(state.bars), min_required)
             return None
 
         latest = state.latest_bar
         if not _is_trading_session(latest.time):
+            logger.info("SRMR+ %s: outside trading hours (hour=%d)", getattr(latest, 'symbol', '?'), latest.time.hour)
             return None
 
         current_session = _get_bar_session_type(latest.time)
@@ -348,6 +355,7 @@ class SRMRPlusStrategy(ISignalStrategy):
             state.bars, current_day, current_session
         )
         if session_high == 0:
+            logger.debug("SRMR+ %s: no previous session range (day=%s session=%s)", getattr(latest, 'symbol', '?'), current_day, current_session)
             return None
 
         session_range_price = session_high - session_low
@@ -358,18 +366,22 @@ class SRMRPlusStrategy(ISignalStrategy):
         )
         session_range_width = session_range_price / pip
         if session_range_width < self.config.session_range_min_pips:
+            logger.debug("SRMR+ %s: session range too narrow (%.1f pips < %.1f min)", getattr(latest, 'symbol', '?'), session_range_width, self.config.session_range_min_pips)
             return None
 
         adx = _calculate_adx(state.bars, self.config.adx_period)
         if adx > self.config.adx_max_threshold:
+            logger.debug("SRMR+ %s: ADX too high (%.1f > %.1f)", getattr(latest, 'symbol', '?'), adx, self.config.adx_max_threshold)
             return None
 
         atr = _calculate_atr(state.bars, self.config.atr_period)
         if atr <= 0:
+            logger.debug("SRMR+ %s: ATR is zero or negative (%.6f)", getattr(latest, 'symbol', '?'), atr)
             return None
 
         rsi = _calculate_rsi(state.bars, self.config.rsi_period)
         if rsi is None:
+            logger.debug("SRMR+ %s: RSI calculation returned None (bars=%d, period=%d)", getattr(latest, 'symbol', '?'), len(state.bars), self.config.rsi_period)
             return None
 
         price = latest.close
@@ -417,4 +429,5 @@ class SRMRPlusStrategy(ISignalStrategy):
                 pip,
             )
 
+        logger.debug("SRMR+ %s: no signal condition met (price=%.5f session_low=%.5f session_high=%.5f rsi=%.1f)", getattr(latest, 'symbol', '?'), price, session_low, session_high, rsi)
         return None
