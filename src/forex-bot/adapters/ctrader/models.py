@@ -118,3 +118,37 @@ class MarketDataSnapshot:
     @property
     def mid(self) -> float:
         return (self.bid + self.ask) / 2
+
+
+@dataclass(frozen=True)
+class SymbolInfo:
+    """Metadata for a trading symbol used by OrderManager and RiskGuard."""
+    pip_size: float              # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
+    pip_value_per_lot: float     # USD value of 1 pip per standard lot
+    lot_size: int = 100_000      # contract size per lot
+    contract_size: float = 100_000.0  # same as lot_size but as float for some calcs
+
+
+# Canonical symbol metadata — replace hardcoded pip heuristics throughout the codebase.
+SYMBOL_METADATA: dict[str, SymbolInfo] = {
+    "EURUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "GBPUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "USDJPY": SymbolInfo(pip_size=0.01, pip_value_per_lot=6.5),
+    "XAUUSD": SymbolInfo(pip_size=0.01, pip_value_per_lot=1.0, lot_size=100, contract_size=100.0),
+}
+
+# Default for unknown FX pairs
+_DEFAULT_SYMBOL_INFO = SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0)
+
+
+def get_symbol_info(symbol: str) -> SymbolInfo:
+    """Look up symbol metadata with fallback and warning for unknown symbols."""
+    import logging
+    info = SYMBOL_METADATA.get(symbol.upper())
+    if info is not None:
+        return info
+    logging.getLogger(__name__).warning(
+        "Unknown symbol '%s' — falling back to FX defaults (pip_size=0.0001, pip_value=10.0/lot)",
+        symbol,
+    )
+    return _DEFAULT_SYMBOL_INFO

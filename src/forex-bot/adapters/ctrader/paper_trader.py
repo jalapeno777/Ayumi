@@ -102,6 +102,7 @@ class PaperTrader:
                 stop_loss=signal.stop_loss,
                 take_profit=signal.take_profit_1,
                 account_balance=self._current_balance,
+                symbol=signal.symbol,
             )
             if not trade_check.allowed:
                 self._stats.signals_blocked_by_risk += 1

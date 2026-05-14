@@ -436,7 +436,16 @@ def main():
     args = parser.parse_args()
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
 
+    # ── Single-instance guard (B1) ─────────────────────────────────────────
+    from adapters.ctrader.pid_guard import acquire_pid_lock
+    _pid_path = PROJECT_ROOT / "data" / "forward_test.pid"
+    # Guard must be acquired BEFORE logging setup floods, but we need logging
+    # for the guard's own messages, so set up basic logging first.
     setup_logging(level="INFO")
+    _pid_ctx = acquire_pid_lock(_pid_path)
+    _pid_guard = _pid_ctx.__enter__()  # acquire lock, exit(1) if duplicate
+    _pid_guard.write_pid()
+
     logger.info("=== Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===")
     logger.info("Symbols: %s", symbols)
 
@@ -567,8 +576,13 @@ def main():
     sig_module.signal(sig_module.SIGINT, shutdown)
     sig_module.signal(sig_module.SIGTERM, shutdown)
 
+    # ── Startup diagnostics (B5) ──────────────────────────────────────────
     logger.info("=== STARTING MULTI-STRATEGY FORWARD TEST ===")
     logger.info("Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → Paper")
+    logger.info("Startup diagnostic: strategies=%s", [s.name for s in strategies])
+    logger.info("Startup diagnostic: symbols=%s", symbols)
+    logger.info("Startup diagnostic: bar_period=%dm, min_confidence=%.2f", config.bar_period_minutes, config.min_confidence)
+    logger.info("Startup diagnostic: strategy_timeframes=%s", STRATEGY_TIMEFRAMES)
     started = engine.start()
     if not started:
         logger.error("Engine failed to start — FIX connection likely rejected. Check console output for details.")
@@ -576,11 +590,47 @@ def main():
         blend_runner.stop()
         sys.exit(1)
 
+    # ── Periodic health loop (B5) ─────────────────────────────────────────
     try:
+        _health_interval = 60.0
+        _last_health_log = time.monotonic()
         while True:
             time.sleep(1)
+            now = time.monotonic()
+            if now - _last_health_log >= _health_interval:
+                _last_health_log = now
+                try:
+                    stats = engine.get_stats()
+                    h = stats.get("health", {})
+                    t = stats.get("trading", {})
+                    logger.info(
+                        "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d trades=%d "
+                        "balance=%.2f uptime=%.0fs",
+                        h.get("ticks_received", 0),
+                        h.get("ticks_per_second", 0.0),
+                        engine.health.bars_built,
+                        engine.health.signals_generated,
+                        t.get("trades_executed", 0),
+                        t.get("current_balance", 0),
+                        h.get("uptime_sec", 0),
+                    )
+                    # Tick-to-bar pipeline health (Amendment 4)
+                    if h.get("ticks_received", 0) > 0 and engine.health.bars_built == 0:
+                        logger.warning(
+                            "[B5 Pipeline] Ticks received (%d) but zero bars built — "
+                            "tick-to-bar pipeline may be stalled",
+                            h.get("ticks_received", 0),
+                        )
+                except Exception as exc:
+                    logger.warning("[B5 Health] Error logging health: %s", exc)
     except KeyboardInterrupt:
         shutdown(None, None)
+    finally:
+        # Release PID lock on exit
+        try:
+            _pid_ctx.__exit__(None, None, None)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
