@@ -370,19 +370,28 @@ class OpenApiSpotFeed:
 
         bars = []
         for tb in getattr(payload, 'trendbar', []):
-            # ProtoOATrendbar uses utcTimestampInMinutes (unix minutes, not ms)
+            # ProtoOATrendbar uses delta encoding: low is base, others are deltas
+            # timestamp is in unix minutes, not milliseconds
             utc_min = getattr(tb, 'utcTimestampInMinutes', 0)
             bar_time = datetime.fromtimestamp(utc_min * 60, tz=timezone.utc)
             vol = getattr(tb, 'volume', 0)
             digits = self._symbol_digits.get(symbol_id, 5)
             divisor = 10 ** digits
 
+            low_raw = getattr(tb, 'low', 0)
+            # OHLC encoded as low + delta, all divided by 100000 (fixed cTrader encoding)
+            ctrader_divisor = 100000.0
+            open_price = (low_raw + getattr(tb, 'deltaOpen', 0)) / ctrader_divisor
+            high_price = (low_raw + getattr(tb, 'deltaHigh', 0)) / ctrader_divisor
+            low_price = low_raw / ctrader_divisor
+            close_price = (low_raw + getattr(tb, 'deltaClose', 0)) / ctrader_divisor
+
             bar = Bar(
                 time=bar_time,
-                open=tb.open / divisor,
-                high=tb.high / divisor,
-                low=tb.low / divisor,
-                close=tb.close / divisor,
+                open=round(open_price, digits),
+                high=round(high_price, digits),
+                low=round(low_price, digits),
+                close=round(close_price, digits),
                 volume=vol,
             )
             bars.append(bar)
