@@ -175,8 +175,8 @@ class OpenApiLiveClient:
             connected_event.set()
             self._connected.set()
 
-        def on_disconnected(_):
-            logger.warning("[OpenApiLiveClient] TCP disconnected")
+        def on_disconnected(_, reason):
+            logger.warning("[OpenApiLiveClient] TCP disconnected: %s", reason)
             self._connected.clear()
             self._trigger_callback("on_disconnected")
 
