@@ -433,6 +433,8 @@ def build_blend_runner() -> BlendForwardTestRunner:
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
+    parser.add_argument("--live", action="store_true", help="Send real orders to FTMO demo account (default: paper-only)")
+    parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
     args = parser.parse_args()
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
 
@@ -542,6 +544,7 @@ def main():
         min_confidence=0.50,
         max_bars_per_symbol=500,
         min_bars_for_evaluation=50,
+        live_mode=args.live,
     )
 
     # 6. Create blend-aware engine
