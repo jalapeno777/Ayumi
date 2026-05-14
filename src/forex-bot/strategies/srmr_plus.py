@@ -340,7 +340,7 @@ class SRMRPlusStrategy(ISignalStrategy):
             self.config.ema_trend_period + 1,
         )
         if len(state.bars) < min_required:
-            logger.debug("SRMR+ %s: insufficient bars (have=%d, need=%d)", state.bars[-1].symbol if state.bars else '?', len(state.bars), min_required)
+            logger.debug("SRMR+ %s: insufficient bars (have=%d, need=%d)", getattr(state.bars[-1], 'symbol', '?') if state.bars else '?', len(state.bars), min_required)
             return None
 
         latest = state.latest_bar
