@@ -123,6 +123,30 @@ def default_registry() -> StrategyRegistry:
             timeframes=["H1", "M15"],
             typical_confidence_range=(0.40, 0.75),
         ),
+        StrategyConfig(
+            strategy_id="session_breakout_london",
+            name="Session Breakout London",
+            strategy_type="breakout",
+            symbols=["GBPUSD", "EURUSD"],
+            timeframes=["M15"],
+            typical_confidence_range=(0.55, 0.90),
+        ),
+        StrategyConfig(
+            strategy_id="session_breakout_ny",
+            name="Session Breakout NY",
+            strategy_type="breakout",
+            symbols=["GBPUSD", "EURUSD"],
+            timeframes=["M15"],
+            typical_confidence_range=(0.55, 0.90),
+        ),
+        StrategyConfig(
+            strategy_id="session_breakout_asian",
+            name="Session Breakout Asian",
+            strategy_type="breakout",
+            symbols=["USDJPY"],
+            timeframes=["M15"],
+            typical_confidence_range=(0.55, 0.90),
+        ),
     ]
 
     for s in strategies:

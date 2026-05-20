@@ -1,0 +1,123 @@
+2026-05-10 22:50:35 | INFO     | ayumi.blend_launcher | === Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===
+2026-05-10 22:50:35 | INFO     | ayumi.blend_launcher | Symbols: ['GBPUSD', 'USDJPY']
+2026-05-10 22:50:38 | WARNING  | ayumi.blend_launcher | Could not fetch symbol list from OpenAPI: 'CTraderOpenApiClient' object has no attribute 'get_symbols' — using static mapping
+2026-05-10 22:50:38 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for GBPUSD (id=2)...
+2026-05-10 22:50:40 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for GBPUSD
+2026-05-10 22:50:40 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for GBPUSD (id=2)...
+2026-05-10 22:50:42 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for GBPUSD
+2026-05-10 22:50:42 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for USDJPY (id=4)...
+2026-05-10 22:50:44 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for USDJPY
+2026-05-10 22:50:44 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for USDJPY (id=4)...
+2026-05-10 22:50:46 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for USDJPY
+2026-05-10 22:50:46 | INFO     | ayumi.blend_launcher | Registered 5 strategies: ['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion']
+2026-05-10 22:50:46 | INFO     | ayumi.blend_launcher | All strategy .name properties verified against maps
+2026-05-10 22:50:46 | INFO     | ayumi.risk | Restored risk state from data/risk_state_blend.json
+2026-05-10 22:50:46 | INFO     | ayumi.forward_test | BlendForwardTestRunner started — balance=$10000.00
+2026-05-10 22:50:46 | INFO     | ayumi.blend_launcher | === STARTING MULTI-STRATEGY FORWARD TEST ===
+2026-05-10 22:50:46 | INFO     | ayumi.blend_launcher | Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → Paper
+2026-05-10 22:50:46 | WARNING  | ayumi.forward_test | Credential validation: sender_comp_id is empty — may cause FIX logon failure
+2026-05-10 22:50:46 | INFO     | ayumi.openapi_spot_feed | Connected to demo.ctraderapi.com:5035
+2026-05-10 22:50:47 | INFO     | ayumi.openapi_spot_feed | Application authenticated
+2026-05-10 22:50:48 | INFO     | ayumi.openapi_spot_feed | No token lifetime from server — defaulting to 86400s
+2026-05-10 22:50:48 | INFO     | ayumi.openapi_spot_feed | Scheduling proactive token refresh in 69120s (token lifetime=86400s)
+2026-05-10 22:50:48 | INFO     | ayumi.openapi_spot_feed | Account authenticated
+2026-05-10 22:50:48 | INFO     | ayumi.openapi_spot_feed | Requesting symbol list for account 46877902
+2026-05-10 22:50:49 | INFO     | ayumi.openapi_spot_feed | Loaded 830 symbol name mappings from API
+2026-05-10 22:50:49 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for GBPUSD (id=2)
+2026-05-10 22:50:50 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=2 digits=5
+2026-05-10 22:50:50 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for USDJPY (id=4)
+2026-05-10 22:50:51 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=4 digits=3
+2026-05-10 22:50:51 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=2
+2026-05-10 22:50:51 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=4
+2026-05-10 22:50:51 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed started: account=46877902 symbols_loaded=2
+2026-05-10 22:50:51 | INFO     | ayumi.forward_test | Open API spot feed connected for ['GBPUSD', 'USDJPY']
+2026-05-10 22:50:51 | INFO     | ayumi.forward_test | Forward test started: symbols=['GBPUSD', 'USDJPY'] strategies=['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion'] mode=PAPER eval_interval=1.0s bar_period=60m
+2026-05-10 22:56:59 | INFO     | ayumi.forward_test | Shutdown signal received (sig=15)
+2026-05-10 22:56:59 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=2
+2026-05-10 22:56:59 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=4
+2026-05-10 22:56:59 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed stopped
+2026-05-10 22:56:59 | INFO     | ayumi.forward_test | Forward test stopped: balance=10000.00 trades=0 pnl=0.00 errors=0 reconnects=0
+2026-05-10 22:56:59 | WARNING  | ayumi.openapi_spot_feed | Disconnected: [Failure instance: Traceback (failure with no frames): <class 'twisted.internet.error.ConnectionDone'>: Connection was closed cleanly.
+]
+2026-05-10 22:57:16 | INFO     | ayumi.blend_launcher | === Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===
+2026-05-10 22:57:16 | INFO     | ayumi.blend_launcher | Symbols: ['GBPUSD', 'USDJPY']
+2026-05-10 22:57:18 | WARNING  | ayumi.blend_launcher | Could not fetch symbol list from OpenAPI: 'CTraderOpenApiClient' object has no attribute 'get_symbols' — using static mapping
+2026-05-10 22:57:18 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for GBPUSD (id=2)...
+2026-05-10 22:57:20 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for GBPUSD
+2026-05-10 22:57:20 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for GBPUSD (id=2)...
+2026-05-10 22:57:22 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for GBPUSD
+2026-05-10 22:57:22 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for USDJPY (id=4)...
+2026-05-10 22:57:24 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for USDJPY
+2026-05-10 22:57:24 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for USDJPY (id=4)...
+2026-05-10 22:57:26 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for USDJPY
+2026-05-10 22:57:26 | INFO     | ayumi.blend_launcher | Registered 5 strategies: ['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion']
+2026-05-10 22:57:26 | INFO     | ayumi.blend_launcher | All strategy .name properties verified against maps
+2026-05-10 22:57:26 | INFO     | ayumi.risk | Restored risk state from data/risk_state_blend.json
+2026-05-10 22:57:26 | INFO     | ayumi.forward_test | BlendForwardTestRunner started — balance=$10000.00
+2026-05-10 22:57:26 | INFO     | ayumi.blend_launcher | === STARTING MULTI-STRATEGY FORWARD TEST ===
+2026-05-10 22:57:26 | INFO     | ayumi.blend_launcher | Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → Paper
+2026-05-10 22:57:26 | WARNING  | ayumi.forward_test | Credential validation: sender_comp_id is empty — may cause FIX logon failure
+2026-05-10 22:57:26 | INFO     | ayumi.openapi_spot_feed | Connected to demo.ctraderapi.com:5035
+2026-05-10 22:57:27 | INFO     | ayumi.openapi_spot_feed | Application authenticated
+2026-05-10 22:57:28 | INFO     | ayumi.openapi_spot_feed | No token lifetime from server — defaulting to 86400s
+2026-05-10 22:57:28 | INFO     | ayumi.openapi_spot_feed | Scheduling proactive token refresh in 69120s (token lifetime=86400s)
+2026-05-10 22:57:28 | INFO     | ayumi.openapi_spot_feed | Account authenticated
+2026-05-10 22:57:28 | INFO     | ayumi.openapi_spot_feed | Requesting symbol list for account 46877902
+2026-05-10 22:57:29 | INFO     | ayumi.openapi_spot_feed | Loaded 830 symbol name mappings from API
+2026-05-10 22:57:29 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for GBPUSD (id=2)
+2026-05-10 22:57:30 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=2 digits=5
+2026-05-10 22:57:30 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for USDJPY (id=4)
+2026-05-10 22:57:31 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=4 digits=3
+2026-05-10 22:57:31 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=2
+2026-05-10 22:57:31 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=4
+2026-05-10 22:57:31 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed started: account=46877902 symbols_loaded=2
+2026-05-10 22:57:31 | INFO     | ayumi.forward_test | Open API spot feed connected for ['GBPUSD', 'USDJPY']
+2026-05-10 22:57:31 | INFO     | ayumi.forward_test | Forward test started: symbols=['GBPUSD', 'USDJPY'] strategies=['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion'] mode=PAPER eval_interval=1.0s bar_period=60m
+2026-05-10 22:57:35 | INFO     | ayumi.blend_launcher | === Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===
+2026-05-10 22:57:35 | INFO     | ayumi.blend_launcher | Symbols: ['GBPUSD', 'USDJPY']
+2026-05-10 22:57:38 | WARNING  | ayumi.blend_launcher | Could not fetch symbol list from OpenAPI: 'CTraderOpenApiClient' object has no attribute 'get_symbols' — using static mapping
+2026-05-10 22:57:38 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for GBPUSD (id=2)...
+2026-05-10 22:57:40 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for GBPUSD
+2026-05-10 22:57:40 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for GBPUSD (id=2)...
+2026-05-10 22:57:42 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for GBPUSD
+2026-05-10 22:57:42 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars for USDJPY (id=4)...
+2026-05-10 22:57:44 | INFO     | ayumi.blend_launcher | Fetched 99 H1 bars for USDJPY
+2026-05-10 22:57:44 | INFO     | ayumi.blend_launcher | Fetching 200 M15 bars for USDJPY (id=4)...
+2026-05-10 22:57:46 | INFO     | ayumi.blend_launcher | Fetched 199 M15 bars for USDJPY
+2026-05-10 22:57:46 | INFO     | ayumi.blend_launcher | Registered 5 strategies: ['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion']
+2026-05-10 22:57:46 | INFO     | ayumi.blend_launcher | All strategy .name properties verified against maps
+2026-05-10 22:57:46 | INFO     | ayumi.risk | Restored risk state from data/risk_state_blend.json
+2026-05-10 22:57:46 | INFO     | ayumi.forward_test | BlendForwardTestRunner started — balance=$10000.00
+2026-05-10 22:57:46 | INFO     | ayumi.blend_launcher | === STARTING MULTI-STRATEGY FORWARD TEST ===
+2026-05-10 22:57:46 | INFO     | ayumi.blend_launcher | Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → Paper
+2026-05-10 22:57:46 | WARNING  | ayumi.forward_test | Credential validation: sender_comp_id is empty — may cause FIX logon failure
+2026-05-10 22:57:46 | INFO     | ayumi.openapi_spot_feed | Connected to demo.ctraderapi.com:5035
+2026-05-10 22:57:47 | INFO     | ayumi.openapi_spot_feed | Application authenticated
+2026-05-10 22:57:48 | INFO     | ayumi.openapi_spot_feed | No token lifetime from server — defaulting to 86400s
+2026-05-10 22:57:48 | INFO     | ayumi.openapi_spot_feed | Scheduling proactive token refresh in 69120s (token lifetime=86400s)
+2026-05-10 22:57:48 | INFO     | ayumi.openapi_spot_feed | Account authenticated
+2026-05-10 22:57:48 | INFO     | ayumi.openapi_spot_feed | Requesting symbol list for account 46877902
+2026-05-10 22:57:49 | INFO     | ayumi.openapi_spot_feed | Loaded 830 symbol name mappings from API
+2026-05-10 22:57:49 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for GBPUSD (id=2)
+2026-05-10 22:57:50 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=2 digits=5
+2026-05-10 22:57:50 | INFO     | ayumi.openapi_spot_feed | Pre-fetching details for USDJPY (id=4)
+2026-05-10 22:57:51 | INFO     | ayumi.openapi_spot_feed | Fetched symbol details: id=4 digits=3
+2026-05-10 22:57:51 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=2
+2026-05-10 22:57:51 | INFO     | ayumi.openapi_spot_feed | Subscribed to spot events for symbol_id=4
+2026-05-10 22:57:51 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed started: account=46877902 symbols_loaded=2
+2026-05-10 22:57:51 | INFO     | ayumi.forward_test | Open API spot feed connected for ['GBPUSD', 'USDJPY']
+2026-05-10 22:57:51 | INFO     | ayumi.forward_test | Forward test started: symbols=['GBPUSD', 'USDJPY'] strategies=['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout', 'Session-Range Mean Reversion', 'BB+RSI Mean Reversion'] mode=PAPER eval_interval=1.0s bar_period=60m
+2026-05-10 23:27:14 | INFO     | ayumi.forward_test | Shutdown signal received (sig=15)
+2026-05-10 23:27:14 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=2
+2026-05-10 23:27:14 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=4
+2026-05-10 23:27:14 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed stopped
+2026-05-10 23:27:14 | INFO     | ayumi.forward_test | Forward test stopped: balance=10000.00 trades=0 pnl=0.00 errors=0 reconnects=0
+2026-05-10 23:27:14 | WARNING  | ayumi.openapi_spot_feed | Disconnected: [Failure instance: Traceback (failure with no frames): <class 'twisted.internet.error.ConnectionDone'>: Connection was closed cleanly.
+]
+2026-05-11 12:53:35 | INFO     | ayumi.forward_test | Shutdown signal received (sig=15)
+2026-05-11 12:53:35 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=2
+2026-05-11 12:53:35 | INFO     | ayumi.openapi_spot_feed | Unsubscribed from spot events for symbol_id=4
+2026-05-11 12:53:35 | INFO     | ayumi.openapi_spot_feed | OpenApiSpotFeed stopped
+2026-05-11 12:53:35 | INFO     | ayumi.forward_test | Forward test stopped: balance=10000.00 trades=0 pnl=0.00 errors=0 reconnects=0
+2026-05-11 12:53:35 | WARNING  | ayumi.openapi_spot_feed | Disconnected: [Failure instance: Traceback (failure with no frames): <class 'twisted.internet.error.ConnectionDone'>: Connection was closed cleanly.
+]

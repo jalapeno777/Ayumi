@@ -24,7 +24,7 @@ class SRMRPlusConfig:
     rsi_long_level: float = 35.0
     rsi_short_level: float = 65.0
     adx_period: int = 14
-    adx_max_threshold: float = 20.0
+    adx_max_threshold: float = 25.0
     session_range_min_pips: float = 15.0
     entry_near_extreme_pips: float = 15.0
     hard_cap_sl_pips: float = 25.0
@@ -340,7 +340,7 @@ class SRMRPlusStrategy(ISignalStrategy):
             self.config.ema_trend_period + 1,
         )
         if len(state.bars) < min_required:
-            logger.debug("SRMR+ %s: insufficient bars (have=%d, need=%d)", getattr(state.bars[-1], 'symbol', '?') if state.bars else '?', len(state.bars), min_required)
+            logger.info("SRMR+ %s: insufficient bars (have=%d, need=%d)", getattr(state.bars[-1], 'symbol', '?') if state.bars else '?', len(state.bars), min_required)
             return None
 
         latest = state.latest_bar

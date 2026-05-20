@@ -153,7 +153,7 @@ class TestKillzoneMomentumStrategy(unittest.TestCase):
         self.assertEqual(config.atr_breakout_multiplier, 0.5)
         self.assertEqual(config.ema_trend_period, 50)
         self.assertEqual(config.rsi_period, 14)
-        self.assertEqual(config.min_session_range_pips, 20.0)
+        self.assertEqual(config.min_session_range_pips, 12.0)
         self.assertEqual(config.hard_cap_sl_pips, 35.0)
         self.assertEqual(config.atr_sl_multiplier, 1.5)
         self.assertEqual(config.tp1_rr, 1.0)

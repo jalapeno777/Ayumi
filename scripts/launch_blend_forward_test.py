@@ -401,6 +401,9 @@ STRATEGY_ID_MAP = {
     "Donchian Channel Breakout": "momentum",
     "Session-Range Mean Reversion": "session_range_mr",
     "BB+RSI Mean Reversion": "bb_rsi_reversion",
+    "Session Breakout London": "session_breakout_london",
+    "Session Breakout NY": "session_breakout_ny",
+    "Session Breakout Asian": "session_breakout_asian",
 }
 
 # Strategy -> bar period minutes mapping
@@ -410,6 +413,9 @@ STRATEGY_TIMEFRAMES = {
     "Donchian Channel Breakout": 15,
     "Session-Range Mean Reversion": 60,
     "BB+RSI Mean Reversion": 60,
+    "Session Breakout London": 15,
+    "Session Breakout NY": 15,
+    "Session Breakout Asian": 15,
 }
 
 
@@ -433,7 +439,7 @@ def build_blend_runner() -> BlendForwardTestRunner:
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
-    parser.add_argument("--live", action="store_true", help="Send real orders to FTMO demo account (default: paper-only)")
+    parser.add_argument("--live", action="store_true", help="Send real orders to cTrader demo account 5795523 (default: paper-only)")
     parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
     args = parser.parse_args()
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
@@ -516,12 +522,38 @@ def main():
     )
 
     # 3. Instantiate strategies (T3)
+    from strategies.session_breakout import SessionBreakoutStrategy
+
     strategies = [
         SRMRPlusStrategy(config=SRMRPlusConfig()),
         KillzoneMomentumStrategy(config=KillzoneMomentumConfig()),
         DonchianBreakoutStrategy(momentum=MomentumConfig()),
         SessionRangeMeanReversionStrategy(config=SessionRangeMRConfig()),
         BBRSIMeanReversion(config=BBRSIConfig()),
+        SessionBreakoutStrategy({
+            "name": "Session Breakout London",
+            "range_start_hour": 0, "range_end_hour": 8,
+            "trade_start_hour": 8, "trade_end_hour": 12,
+            "min_range_pips": 30, "max_range_pips": 80,
+            "buffer_pips": 3, "sl_atr_multiplier": 2.0,
+            "atr_period": 14, "min_range_bars": 20,
+        }),
+        SessionBreakoutStrategy({
+            "name": "Session Breakout NY",
+            "range_start_hour": 8, "range_end_hour": 13,
+            "trade_start_hour": 13, "trade_end_hour": 17,
+            "min_range_pips": 25, "max_range_pips": 70,
+            "buffer_pips": 3, "sl_atr_multiplier": 1.8,
+            "atr_period": 14, "min_range_bars": 20,
+        }),
+        SessionBreakoutStrategy({
+            "name": "Session Breakout Asian",
+            "range_start_hour": 21, "range_end_hour": 0,
+            "trade_start_hour": 0, "trade_end_hour": 6,
+            "min_range_pips": 20, "max_range_pips": 60,
+            "buffer_pips": 3, "sl_atr_multiplier": 1.5,
+            "atr_period": 14, "min_range_bars": 20,
+        }),
     ]
     logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
 
@@ -543,8 +575,9 @@ def main():
         starting_balance=10_000.0,
         min_confidence=0.50,
         max_bars_per_symbol=500,
-        min_bars_for_evaluation=50,
+        min_bars_for_evaluation=55,
         live_mode=args.live,
+        strategy_timeframes=STRATEGY_TIMEFRAMES,
     )
 
     # 6. Create blend-aware engine

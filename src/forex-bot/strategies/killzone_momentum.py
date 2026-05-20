@@ -20,7 +20,7 @@ class KillzoneMomentumConfig:
     atr_breakout_multiplier: float = 0.5
     ema_trend_period: int = 50
     rsi_period: int = 14
-    min_session_range_pips: float = 20.0
+    min_session_range_pips: float = 12.0
     hard_cap_sl_pips: float = 35.0
     atr_sl_multiplier: float = 1.5
     retest_tolerance_atr: float = 0.5

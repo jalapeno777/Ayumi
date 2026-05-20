@@ -40,12 +40,13 @@ PERIOD_MAP = {
     "H1":  ProtoOATrendbarPeriod.H1,
     "H4":  ProtoOATrendbarPeriod.H4,
     "D1":  ProtoOATrendbarPeriod.D1,
+    "W1":  ProtoOATrendbarPeriod.W1,
 }
 
 # Period string → bar duration in seconds
 PERIOD_SECONDS = {
     "M1": 60, "M5": 300, "M15": 900, "M30": 1800,
-    "H1": 3600, "H4": 14400, "D1": 86400,
+    "H1": 3600, "H4": 14400, "D1": 86400, "W1": 604800,
 }
 
 # Max bars per single API request per period
@@ -76,6 +77,7 @@ class CTraderOpenApiClient:
         self._client: Client | None = None
         self._reactor_thread: threading.Thread | None = None
         self._connected = False
+        self._symbol_digits_cache: dict[int, int] = {}
 
     # --- Connection lifecycle ---
 
@@ -303,12 +305,18 @@ class CTraderOpenApiClient:
             max_bars = MAX_BARS.get(period, 5760)
 
         period_enum = PERIOD_MAP[period]
-        digits = 5  # default; could look up from symbol details
 
-        # Try to get symbol details for accurate digit count
-        details = self.get_symbol_details(symbol_id)
-        if details:
-            digits = details["digits"]
+        # Use cached symbol digits for rounding precision
+        if symbol_id not in self._symbol_digits_cache:
+            details = self.get_symbol_details(symbol_id)
+            if details:
+                self._symbol_digits_cache[symbol_id] = details["digits"]
+            else:
+                self._symbol_digits_cache[symbol_id] = 5  # default
+        digits = self._symbol_digits_cache[symbol_id]
+
+        # cTrader encodes all raw prices with 5 decimal places (int units of 1e-5)
+        divisor = 100000.0
 
         response = self._send_and_wait(
             ProtoOAGetTrendbarsReq(
@@ -342,7 +350,7 @@ class CTraderOpenApiClient:
             high_raw = low_raw + tb.deltaHigh
             close_raw = low_raw + tb.deltaClose
 
-            divisor = 100000.0
+            # divisor is set above (always 100000.0 for cTrader raw encoding)
 
             bars.append({
                 "timestamp": tb.utcTimestampInMinutes * 60 * 1000,  # to ms
