@@ -77,6 +77,7 @@ class OpenApiLiveClient:
         refresh_token: str | None = None,
         host: str = "live.ctraderapi.com",
         port: int = 5035,
+        spot_feed: "OpenApiSpotFeed | None" = None,
     ):
         self._ctid_account_id = ctid_account_id
         self._client_id = client_id
@@ -87,6 +88,7 @@ class OpenApiLiveClient:
         self._port = port
 
         self._client: Client | None = None
+        self._spot_feed = spot_feed  # Use spot feed's authenticated client for sending
         self._connected = threading.Event()
         self._running = False
         self._lock = threading.Lock()
@@ -160,10 +162,39 @@ class OpenApiLiveClient:
     # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
     def connect(self) -> bool:
-        """Connect to cTrader Open API and authenticate."""
+        """Connect to cTrader Open API and authenticate.
+
+        When a ``spot_feed`` is provided, rides on its already-authenticated
+        TCP connection — no separate auth needed.  This avoids cTrader's
+        rejection of simultaneous sessions with the same app credentials.
+        """
         if self._running and self._connected.is_set():
             return True
 
+        # ── Spot-feed path: use the already-authenticated connection ──
+        if self._spot_feed is not None and self._spot_feed._client is not None and self._spot_feed._client.isConnected:
+            self._client = self._spot_feed._client
+            # Chain our message handler with the spot feed's existing handler
+            # to avoid overwriting it (which would kill tick processing)
+            existing_handler = self._spot_feed._on_message
+            live_handler = self._on_message
+            def _chained_handler(client, message):
+                try:
+                    existing_handler(client, message)
+                except Exception:
+                    pass
+                try:
+                    live_handler(client, message)
+                except Exception:
+                    pass
+            self._client.setMessageReceivedCallback(_chained_handler)
+            self._running = True
+            self._connected.set()
+            logger.info("[OpenApiLiveClient] Riding on spot feed's authenticated connection")
+            self._trigger_callback("on_connected")
+            return True
+
+        # ── Own-connection path (fallback) ──
         ReactorManager().ensure_running()
 
         self._client = Client(self._host, self._port, TcpProtocol)
@@ -201,9 +232,17 @@ class OpenApiLiveClient:
         return True
 
     def disconnect(self):
-        """Disconnect the client."""
+        """Disconnect the client.
+
+        If riding on the spot feed's connection, just detach without stopping
+        the shared TCP client.
+        """
         self._running = False
-        if self._client:
+        if self._spot_feed is not None and self._client is self._spot_feed._client:
+            # Don't kill the spot feed's connection
+            logger.info("[OpenApiLiveClient] Detached from spot feed connection")
+            self._client = None
+        elif self._client:
             try:
                 reactor.callFromThread(self._client.stopService)
             except Exception:

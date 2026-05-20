@@ -140,7 +140,7 @@ class SRMRPlusForwardTest:
                 starting_balance=10_000.0,
                 min_confidence=pair["min_confidence"],
                 bar_period_minutes=60,
-                min_bars_for_evaluation=50,
+                min_bars_for_evaluation=55,
                 max_bars_per_symbol=500,
                 stats_interval_sec=STATUS_INTERVAL_S,
                 live_mode=not self._paper_only,

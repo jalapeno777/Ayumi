@@ -199,9 +199,7 @@ class ForwardTestEngine:
         # Bar-completion flags: set when a bar is finalized for a timeframe
         # key = _bar_key(symbol, timeframe), value = True when new bar completed
         self._bar_completed: dict[str, bool] = {}
-        # Safety-net throttle: prevents complete starvation if bars don't complete
-        self._safety_net_interval_sec: float = 30.0
-        self._last_safety_net_at: float = 0.0
+
 
         # Rejection circuit breaker (T5)
         self._consecutive_risk_rejections: int = 0
@@ -726,7 +724,7 @@ class ForwardTestEngine:
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
 
-        # Evaluation trigger: bar-completion-based with safety-net fallback
+        # Evaluation trigger: purely event-driven — only on bar completion
         # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
         primary_key = self._bar_key(symbol_name, self._config.bar_period_minutes)
         with self._lock:
@@ -737,8 +735,6 @@ class ForwardTestEngine:
         if total_bars < self._config.min_bars_for_evaluation:
             return
 
-        now_ts = time.monotonic()
-
         # Check if any required timeframe has a new completed bar
         has_new_bar = False
         with self._lock:
@@ -748,12 +744,7 @@ class ForwardTestEngine:
                     has_new_bar = True
                     break
 
-        # Safety-net: evaluate if no bar completion detected in 30s
-        safety_net_due = (
-            now_ts - self._last_evaluation_at >= self._safety_net_interval_sec
-        )
-
-        if not has_new_bar and not safety_net_due:
+        if not has_new_bar:
             return
 
         # Consume the completion flags
@@ -762,13 +753,8 @@ class ForwardTestEngine:
                 key = self._bar_key(symbol_name, tf)
                 self._bar_completed[key] = False
 
-        if has_new_bar:
-            logger.debug("Evaluating on bar completion for %s", symbol_name)
-        else:
-            logger.debug("Safety-net evaluation for %s (no bar completion in %.0fs)",
-                         symbol_name, self._safety_net_interval_sec)
-
-        self._last_evaluation_at = now_ts
+        logger.debug("Evaluating on bar completion for %s", symbol_name)
+        self._last_evaluation_at = time.monotonic()
         self._evaluate_strategies(symbol_name)
 
     def _resolve_symbol_name(self, tick: Tick) -> Optional[str]:
