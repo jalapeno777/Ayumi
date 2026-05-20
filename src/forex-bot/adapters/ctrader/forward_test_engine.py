@@ -260,6 +260,8 @@ class ForwardTestEngine:
             # Transfer symbol map from the spot feed to the live client
             if isinstance(self._market_feed, OpenApiSpotFeed):
                 self._live_client.set_symbol_map(self._market_feed.name_to_id)
+                # Give live client a reference to the spot feed for riding its connection
+                self._live_client._spot_feed = self._market_feed
 
             # Health check: verify live client can connect
             if not self._live_client.connect():
@@ -907,6 +909,11 @@ class ForwardTestEngine:
 
         for sym in self._config.symbols:
             for tf in self._required_timeframes:
+                # Skip if already preloaded by launcher
+                key = self._bar_key(sym, tf)
+                if key in self._bars and len(self._bars[key]) >= self._config.min_bars_for_evaluation:
+                    logger.info("Skipping preload for %s %dm — already has %d bars", sym, tf, len(self._bars[key]))
+                    continue
                 try:
                     bars = self._market_feed.fetch_trendbars(
                         symbol=sym,

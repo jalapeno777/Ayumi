@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from twisted.internet import reactor
+from twisted.application.internet import backoffPolicy
 from ctrader_open_api import Client, TcpProtocol
 from ctrader_open_api.protobuf import Protobuf
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
@@ -43,10 +44,7 @@ logger = logging.getLogger("ayumi.openapi_spot_feed")
 # Spread sanity threshold: 100 pips for forex majors (0.0100 for 5-digit pairs)
 _MAX_SPREAD_PIPS = 100
 _PIP_SIZE_5DIGIT = 0.0001
-_MAX_RECONNECT_ATTEMPTS = 20
-_INITIAL_RECONNECT_DELAY = 5.0
-_MAX_RECONNECT_DELAY = 120.0
-_STABLE_CONNECTION_SECONDS = 30  # connection must stay up this long before backoff resets
+
 
 
 def _normalize_symbol_name(name: str) -> str:
@@ -134,10 +132,9 @@ class OpenApiSpotFeed:
         self._ALREADY_LOGGED_IN_THRESHOLD = 3
 
         # Reconnection state
-        self._reconnect_attempts: int = 0
-        self._reconnect_delay: float = _INITIAL_RECONNECT_DELAY
         self._connected_at: float | None = None  # timestamp of last successful connect
         self._stop_event: threading.Event = threading.Event()
+        self._reauth_in_progress: threading.Event = threading.Event()  # guard for reconnect_restore
 
     # --- Properties ---
 
@@ -407,7 +404,10 @@ class OpenApiSpotFeed:
     def _connect(self) -> bool:
         """Create the Client and establish TCP connection."""
         self._connected.clear()
-        self._client = Client(self._host, self._port, TcpProtocol)
+        self._client = Client(
+            self._host, self._port, TcpProtocol,
+            retryPolicy=backoffPolicy(initialDelay=5.0, maxDelay=120.0),
+        )
 
         self._client.setConnectedCallback(self._on_connected)
         self._client.setDisconnectedCallback(self._on_disconnected)
@@ -427,15 +427,19 @@ class OpenApiSpotFeed:
         self._connected_at = time.monotonic()
         self._connected.set()
 
+        # Spawn re-auth thread (handles both initial connect and reconnects)
+        if not self._reauth_in_progress.is_set():
+            self._reauth_in_progress.set()
+            t = threading.Thread(target=self._reconnect_restore, daemon=True)
+            t.start()
+
     def _on_disconnected(self, client, reason):
         """Callback: TCP connection lost."""
         logger.warning("Disconnected: %s", reason)
         self._connected.clear()
         self._authed.clear()
         self._app_authed.clear()
-
-        if self._running and not self._stop_event.is_set():
-            self._schedule_reconnect()
+        self._reauth_in_progress.clear()  # allow next reconnect to attempt auth
 
     def _send_and_wait(self, message, timeout: float = 10):
         """Send a protobuf message and wait for response via Deferred (library pattern)."""
@@ -703,7 +707,10 @@ class OpenApiSpotFeed:
             return
 
         # Build Tick
-        timestamp = datetime.fromtimestamp(message.timestamp / 1000, tz=timezone.utc)
+        ts_raw = message.timestamp / 1000
+        if ts_raw <= 0:
+            ts_raw = datetime.now(timezone.utc).timestamp()
+        timestamp = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
         tick = Tick(symbol_id=symbol_id, bid=bid, ask=ask, timestamp=timestamp)
 
         # Resolve symbol name
@@ -1007,6 +1014,7 @@ class OpenApiSpotFeed:
         req = ProtoOASubscribeSpotsReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.symbolId.append(symbol_id)
+        req.subscribeToSpotTimestamp = True
 
         reactor.callFromThread(self._safe_send, req)
         self._subscribed_symbol_ids.add(symbol_id)
@@ -1074,69 +1082,77 @@ class OpenApiSpotFeed:
 
     # --- Internal: Reconnection ---
 
-    def _schedule_reconnect(self):
-        """Schedule a reconnection attempt with exponential backoff + jitter."""
-        if self._stop_event.is_set():
-            return
+    def _reconnect_restore(self):
+        """Re-authenticate and re-subscribe after a TCP reconnect.
 
-        self._reconnect_attempts += 1
+        Called in a daemon thread from _on_connected. Guarded by _reauth_in_progress
+        to prevent concurrent re-auth attempts. On failure, Twisted's ClientService
+        retryPolicy will handle TCP reconnection and _on_connected will fire again.
+        """
+        try:
+            if not self._connected.is_set():
+                logger.debug("_reconnect_restore: connection lost before auth started — aborting")
+                return
 
-        if self._reconnect_attempts > _MAX_RECONNECT_ATTEMPTS:
-            logger.critical(
-                "Reconnect circuit-breaker tripped: %d attempts (max=%d)",
-                self._reconnect_attempts,
-                _MAX_RECONNECT_ATTEMPTS,
+            logger.info("Reconnect restore: starting re-authentication...")
+
+            # Step 1: Application auth
+            app_res = self._send_and_wait(
+                ProtoOAApplicationAuthReq(
+                    clientId=self._client_id,
+                    clientSecret=self._client_secret,
+                ),
+                timeout=10,
             )
-            self._running = False
-            return
+            if app_res is None:
+                logger.error("Reconnect restore: application auth failed")
+                return
+            self._app_authed.set()
+            logger.info("Reconnect restore: application authenticated")
 
-        jitter = random.uniform(0, self._reconnect_delay * 0.3)
-        delay = self._reconnect_delay + jitter
-        self._reconnect_delay = min(self._reconnect_delay * 2, _MAX_RECONNECT_DELAY)
+            if not self._connected.is_set():
+                logger.debug("_reconnect_restore: connection lost during app auth — aborting")
+                return
 
-        logger.info(
-            "Reconnect scheduled in %.1fs (attempt %d)",
-            delay,
-            self._reconnect_attempts,
-        )
+            # Step 2: Account auth
+            acct_res = self._send_and_wait(
+                ProtoOAAccountAuthReq(
+                    ctidTraderAccountId=self._ctid_account_id,
+                    accessToken=self._access_token,
+                ),
+                timeout=10,
+            )
+            if acct_res is None:
+                logger.error("Reconnect restore: account auth failed")
+                return
+            self._authed.set()
+            logger.info("Reconnect restore: account authenticated")
 
-        timer = threading.Timer(delay, self._do_reconnect)
-        timer.daemon = True
-        timer.start()
+            # Persist message callback for streaming events
+            self._client.setMessageReceivedCallback(self._on_message)
 
-    def _do_reconnect(self):
-        """Execute a reconnection attempt."""
-        if self._stop_event.is_set() or not self._running:
-            return
+            if not self._connected.is_set():
+                logger.debug("_reconnect_restore: connection lost during account auth — aborting")
+                return
 
-        logger.info("Attempting reconnection...")
+            # Step 3: Re-subscribe to all previously subscribed symbols
+            symbol_ids = list(self._subscribed_symbol_ids)
+            if symbol_ids:
+                logger.info("Reconnect restore: re-subscribing to %d symbols", len(symbol_ids))
+                for symbol_id in symbol_ids:
+                    self._subscribe_by_id(symbol_id)
 
-        # Disconnect old client
-        if self._client:
-            try:
-                reactor.callFromThread(self._client.stopService)
-            except Exception:
-                pass
+            # Schedule proactive token refresh if we know the expiry
+            if self._token_expires_at is not None:
+                remaining = self._token_expires_at - time.monotonic()
+                if remaining > 60:
+                    self._schedule_proactive_refresh(int(remaining))
 
-        if not self._connect():
-            self._schedule_reconnect()
-            return
+            logger.info("Reconnect restore: completed successfully")
 
-        if not self._auth():
-            self._schedule_reconnect()
-            return
-
-        # Re-subscribe to all previously subscribed symbols
-        for symbol_id in list(self._subscribed_symbol_ids):
-            self._subscribe_by_id(symbol_id)
-
-        # Reset backoff only if connection was stable long enough
-        if self._connected_at and (time.monotonic() - self._connected_at >= _STABLE_CONNECTION_SECONDS):
-            self._reconnect_attempts = 0
-            self._reconnect_delay = _INITIAL_RECONNECT_DELAY
-            logger.info("Reconnection successful (stable)")
-        else:
-            logger.info("Reconnection successful (not yet stable — keeping backoff at %.1fs, attempt %d)",
-                        self._reconnect_delay, self._reconnect_attempts)
+        except Exception as exc:
+            logger.error("Reconnect restore failed: %s", exc, exc_info=True)
+        finally:
+            self._reauth_in_progress.clear()
 
 
