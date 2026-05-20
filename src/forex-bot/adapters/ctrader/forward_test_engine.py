@@ -196,6 +196,13 @@ class ForwardTestEngine:
 
         self._last_evaluation_at: float = 0.0
 
+        # Bar-completion flags: set when a bar is finalized for a timeframe
+        # key = _bar_key(symbol, timeframe), value = True when new bar completed
+        self._bar_completed: dict[str, bool] = {}
+        # Safety-net throttle: prevents complete starvation if bars don't complete
+        self._safety_net_interval_sec: float = 30.0
+        self._last_safety_net_at: float = 0.0
+
         # Rejection circuit breaker (T5)
         self._consecutive_risk_rejections: int = 0
         self._rejection_cooldown_until: float = 0.0  # monotonic timestamp
@@ -652,6 +659,8 @@ class ForwardTestEngine:
         finalized = self._finalize_current_bar(key)
         if finalized is not None:
             self._store_bar(key, finalized)
+            # Mark this timeframe as having a new completed bar
+            self._bar_completed[key] = True
         return finalized
 
     def _update_current_bar(self, tick: Tick, key: str, bar_time: datetime) -> Bar:
@@ -717,7 +726,7 @@ class ForwardTestEngine:
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
 
-        # Evaluation throttle check remains OUTSIDE bar-building lock (Kaito #4)
+        # Evaluation trigger: bar-completion-based with safety-net fallback
         # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
         primary_key = self._bar_key(symbol_name, self._config.bar_period_minutes)
         with self._lock:
@@ -729,8 +738,35 @@ class ForwardTestEngine:
             return
 
         now_ts = time.monotonic()
-        if now_ts - self._last_evaluation_at < self._config.evaluation_interval_sec:
+
+        # Check if any required timeframe has a new completed bar
+        has_new_bar = False
+        with self._lock:
+            for tf in self._required_timeframes:
+                key = self._bar_key(symbol_name, tf)
+                if self._bar_completed.get(key, False):
+                    has_new_bar = True
+                    break
+
+        # Safety-net: evaluate if no bar completion detected in 30s
+        safety_net_due = (
+            now_ts - self._last_evaluation_at >= self._safety_net_interval_sec
+        )
+
+        if not has_new_bar and not safety_net_due:
             return
+
+        # Consume the completion flags
+        with self._lock:
+            for tf in self._required_timeframes:
+                key = self._bar_key(symbol_name, tf)
+                self._bar_completed[key] = False
+
+        if has_new_bar:
+            logger.debug("Evaluating on bar completion for %s", symbol_name)
+        else:
+            logger.debug("Safety-net evaluation for %s (no bar completion in %.0fs)",
+                         symbol_name, self._safety_net_interval_sec)
 
         self._last_evaluation_at = now_ts
         self._evaluate_strategies(symbol_name)
