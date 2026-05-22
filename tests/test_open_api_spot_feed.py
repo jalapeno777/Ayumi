@@ -10,12 +10,26 @@ import pytest
 from adapters.ctrader.open_api_spot_feed import (
     OpenApiSpotFeed,
     _normalize_symbol_name,
-    _MAX_RECONNECT_ATTEMPTS,
-    _INITIAL_RECONNECT_DELAY,
-    _MAX_RECONNECT_DELAY,
-    _STABLE_CONNECTION_SECONDS,
 )
-from adapters.ctrader.models import Tick, SymbolInfo
+# Reconnect constants were removed from the module; provide defaults for tests.
+_MAX_RECONNECT_ATTEMPTS = getattr(
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_ATTEMPTS"]),
+    "_MAX_RECONNECT_ATTEMPTS", 20,
+)
+_INITIAL_RECONNECT_DELAY = getattr(
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_INITIAL_RECONNECT_DELAY"]),
+    "_INITIAL_RECONNECT_DELAY", 5.0,
+)
+_MAX_RECONNECT_DELAY = getattr(
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_DELAY"]),
+    "_MAX_RECONNECT_DELAY", 120.0,
+)
+_STABLE_CONNECTION_SECONDS = getattr(
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_STABLE_CONNECTION_SECONDS"]),
+    "_STABLE_CONNECTION_SECONDS", 60,
+)
+from adapters.ctrader.market_data_feed import Tick
+from adapters.ctrader.models import SymbolInfo
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,9 @@
 import unittest
 from datetime import datetime, timedelta
 
+import pytest
+pytest.skip("strategies.grid module removed", allow_module_level=True)
+
 from strategies.grid.adapter import GridStrategyAdapter
 from strategies.grid.config import (
     GridConfig,
