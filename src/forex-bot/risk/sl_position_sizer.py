@@ -182,6 +182,21 @@ class SLPositionSizer:
         """Track risk of an open position."""
         self._open_risk += risk_amount
 
+    def cancel_position(self, risk_amount: float):
+        """Cancel an open position that was sized but never executed.
+
+        Frees risk budget when a downstream component (e.g. PaperTrader)
+        rejects an order after the sizer already registered open risk.
+        """
+        if risk_amount > self._open_risk + 1e-9:
+            logger.warning(
+                "cancel_position overshoot: risk_amount=$%.2f > open_risk=$%.2f "
+                "— clamping to zero (possible double-cancel or sizing mismatch)",
+                risk_amount, self._open_risk,
+            )
+        self._open_risk -= risk_amount
+        self._open_risk = max(0.0, self._open_risk)
+
     def close_position(self, pnl: float, risk_amount: float, win: bool):
         """Handle position close — update daily risk and record trade."""
         # Remove from open risk (this is the recycling — budget is freed)

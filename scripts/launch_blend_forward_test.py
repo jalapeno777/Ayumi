@@ -341,9 +341,14 @@ class BlendForwardTestEngine(ForwardTestEngine):
                             logger.info("Trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
                         else:
                             logger.warning("Trade execution failed: %s", exec_result.rejection_reason)
+                            # Free risk budget: sizer registered open risk but
+                            # PaperTrader rejected the order downstream.
+                            self._blend_runner.cancel_risk(order.risk_amount)
                             self._correlation_gate.release(signal.symbol, direction_str)
                     except Exception as exec_err:
                         logger.error("Trade execution error: %s", exec_err, exc_info=True)
+                        # Free risk budget on execution error too
+                        self._blend_runner.cancel_risk(order.risk_amount)
                         self._correlation_gate.release(signal.symbol, direction_str)
 
                     # Write last_signal.txt for watchdog health check
@@ -584,7 +589,7 @@ def main():
     engine = BlendForwardTestEngine(
         config=config,
         strategies=strategies,
-        ftmo_config=FTMOConfig(),
+        ftmo_config=FTMOConfig(min_risk_reward=0.0),
         credentials=credentials,
         blend_runner=blend_runner,
         correlation_gate=correlation_gate,
@@ -632,6 +637,9 @@ def main():
         _last_health_log = time.monotonic()
         while True:
             time.sleep(1)
+            if not engine.is_running:
+                logger.warning("Engine is no longer running — exiting health loop")
+                break
             now = time.monotonic()
             if now - _last_health_log >= _health_interval:
                 _last_health_log = now
