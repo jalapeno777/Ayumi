@@ -1,3 +1,6 @@
+import pytest
+pytest.skip("adapters.ctrader.api_client module removed", allow_module_level=True)
+
 from adapters.ctrader.api_client import SOH, FIXClient, FIXMessage
 
 
