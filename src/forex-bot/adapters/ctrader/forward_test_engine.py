@@ -808,9 +808,6 @@ class ForwardTestEngine:
                 for tf in self._required_timeframes:
                     key = self._bar_key(symbol, tf)
                     bars = list(self._bars.get(key, []))
-                    current = self._current_bar.get(key)
-                    if current is not None:
-                        bars.append(current)
                     tf_bars[tf] = bars
 
             if not any(tf_bars.values()):
