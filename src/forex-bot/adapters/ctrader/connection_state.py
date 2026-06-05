@@ -60,11 +60,13 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.RECONNECTING): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.DISCONNECTED): True,
+    (ConnectionState.AUTHENTICATED, ConnectionState.FAILED): True,
 
     # Degraded transitions
     (ConnectionState.DEGRADED, ConnectionState.AUTHENTICATED): True,
     (ConnectionState.DEGRADED, ConnectionState.RECONNECTING): True,
     (ConnectionState.DEGRADED, ConnectionState.DISCONNECTED): True,
+    (ConnectionState.DEGRADED, ConnectionState.FAILED): True,
 
     # Reconnecting transitions
     (ConnectionState.RECONNECTING, ConnectionState.CONNECTING): True,

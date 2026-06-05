@@ -38,12 +38,21 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 )
 from .market_data_feed import Tick, SymbolInfo, DEFAULT_SYMBOLS
 from .reactor_manager import ReactorManager
+from .connection_state import ConnectionState, ConnectionStateManager
 
 logger = logging.getLogger("ayumi.openapi_spot_feed")
 
 # Spread sanity threshold: 100 pips for forex majors (0.0100 for 5-digit pairs)
 _MAX_SPREAD_PIPS = 100
 _PIP_SIZE_5DIGIT = 0.0001
+
+# Heartbeat monitoring thresholds (seconds)
+_HEARTBEAT_DEGRADED_SEC = 35.0   # No heartbeat → DEGRADED
+_HEARTBEAT_RECONNECT_SEC = 60.0  # No heartbeat → force reconnect
+
+# Stale tick thresholds (seconds during market hours)
+_STALE_TICK_WARN_SEC = 60.0      # No tick → log warning
+_STALE_TICK_FREEZE_SEC = 120.0   # No tick → kill switch FREEZE
 
 
 
@@ -136,6 +145,45 @@ class OpenApiSpotFeed:
         self._stop_event: threading.Event = threading.Event()
         self._reauth_in_progress: threading.Event = threading.Event()  # guard for reconnect_restore
 
+        # ── Phase 1B: Connection Self-Healing ────────────────────────────────
+
+        # Formal state machine (additive — informal flags kept as fallback)
+        self._state_mgr = ConnectionStateManager(name="spot_feed")
+
+        # Heartbeat monitoring
+        self._last_heartbeat_recv: float = time.monotonic()  # last server heartbeat
+        self._health_check_interval: float = 10.0  # how often to run health checks
+        self._health_timer: threading.Timer | None = None
+
+        # Stale tick detection
+        self._last_tick_recv_monotonic: float = time.monotonic()
+
+        # Reconnection tracking
+        self._disconnect_at: float | None = None  # monotonic timestamp of disconnect
+        self._on_reconnected_callbacks: list[Callable[[float], None]] = []
+
+        # Kill switch reference (optional — set externally)
+        self._kill_switch: Optional[object] = None
+
+        # Market hours check: skip stale detection on weekends
+        # Forex market opens ~Sunday 17:00 ET → Friday 17:00 ET
+
+    def set_kill_switch(self, kill_switch) -> None:
+        """Set the kill switch manager for FREEZE on FAILED state."""
+        self._kill_switch = kill_switch
+
+    def on_reconnected(self, callback: Callable[[float], None]) -> None:
+        """Register a callback fired after successful reconnect.
+
+        Callback signature: ``callback(outage_duration_sec: float)``
+        """
+        self._on_reconnected_callbacks.append(callback)
+
+    @property
+    def state_manager(self) -> ConnectionStateManager:
+        """Expose the state manager for external health queries."""
+        return self._state_mgr
+
     # --- Properties ---
 
     @property
@@ -162,13 +210,18 @@ class OpenApiSpotFeed:
             return dict(self._tick_counts)
 
     def get_health(self) -> dict:
-        """B3: Health endpoint reflecting circuit breaker state."""
+        """B3: Health endpoint reflecting circuit breaker and state machine state."""
         return {
             "auth_circuit_open": self._auth_circuit_open,
             "auth_error_count": self._auth_error_count,
             "refresh_in_progress": self._refresh_in_progress,
             "connected": self._connected.is_set(),
             "authed": self._authed.is_set(),
+            # Phase 1B: State machine status
+            "state": self._state_mgr.state.value,
+            "is_operational": self._state_mgr.is_operational,
+            "last_heartbeat_age": time.monotonic() - self._last_heartbeat_recv,
+            "last_tick_age": time.monotonic() - self._last_tick_recv_monotonic,
         }
 
     # --- Lifecycle ---
@@ -180,6 +233,9 @@ class OpenApiSpotFeed:
             return True
 
         self._stop_event.clear()
+
+        # Start the health check loop
+        self._start_health_check()
 
         # Ensure shared reactor is running
         self._reactor_manager.ensure_running()
@@ -231,6 +287,11 @@ class OpenApiSpotFeed:
 
         self._running = False
         self._stop_event.set()
+
+        # Cancel health check timer
+        if self._health_timer is not None:
+            self._health_timer.cancel()
+            self._health_timer = None
 
         # Cancel any pending proactive refresh timer
         if self._refresh_timer is not None:
@@ -404,6 +465,9 @@ class OpenApiSpotFeed:
     def _connect(self) -> bool:
         """Create the Client and establish TCP connection."""
         self._connected.clear()
+        self._state_mgr.transition_to(
+            ConnectionState.CONNECTING, reason="tcp_connect_initiated",
+        )
         self._client = Client(
             self._host, self._port, TcpProtocol,
             retryPolicy=backoffPolicy(initialDelay=5.0, maxDelay=120.0),
@@ -426,6 +490,10 @@ class OpenApiSpotFeed:
         logger.info("Connected to %s:%d", self._host, self._port)
         self._connected_at = time.monotonic()
         self._connected.set()
+        self._last_heartbeat_recv = time.monotonic()
+        self._state_mgr.transition_to(
+            ConnectionState.CONNECTED, reason="tcp_connected",
+        )
 
         # Spawn re-auth thread (handles both initial connect and reconnects)
         if not self._reauth_in_progress.is_set():
@@ -440,6 +508,11 @@ class OpenApiSpotFeed:
         self._authed.clear()
         self._app_authed.clear()
         self._reauth_in_progress.clear()  # allow next reconnect to attempt auth
+        self._disconnect_at = time.monotonic()
+        self._state_mgr.transition_to(
+            ConnectionState.RECONNECTING,
+            reason=f"disconnected: {reason}",
+        )
 
     def _send_and_wait(self, message, timeout: float = 10):
         """Send a protobuf message and wait for response via Deferred (library pattern)."""
@@ -470,6 +543,9 @@ class OpenApiSpotFeed:
     def _auth(self) -> bool:
         """Two-step authentication using the library's Deferred pattern."""
         # Step 1: Application auth
+        self._state_mgr.transition_to(
+            ConnectionState.APP_AUTHENTICATING, reason="app_auth_sending",
+        )
         app_res = self._send_and_wait(
             ProtoOAApplicationAuthReq(
                 clientId=self._client_id,
@@ -479,10 +555,14 @@ class OpenApiSpotFeed:
         )
         if app_res is None:
             logger.error("Application auth failed")
+            self._handle_auth_failure("initial_app_auth")
             return False
         logger.info("Application authenticated")
 
         # Step 2: Account auth
+        self._state_mgr.transition_to(
+            ConnectionState.ACCT_AUTHENTICATING, reason="acct_auth_sending",
+        )
         acct_res = self._send_and_wait(
             ProtoOAAccountAuthReq(
                 ctidTraderAccountId=self._ctid_account_id,
@@ -492,6 +572,7 @@ class OpenApiSpotFeed:
         )
         if acct_res is None:
             logger.error("Account auth failed")
+            self._handle_auth_failure("initial_acct_auth")
             return False
 
         # Store token expiry from account auth response (ProtoOAAccountAuthRes)
@@ -511,6 +592,10 @@ class OpenApiSpotFeed:
             self._schedule_proactive_refresh(default_lifetime)
 
         logger.info("Account authenticated")
+
+        self._state_mgr.transition_to(
+            ConnectionState.AUTHENTICATED, reason="initial_auth_complete",
+        )
 
         # Now set persistent message callback for streaming events
         self._client.setMessageReceivedCallback(self._on_message)
@@ -565,6 +650,9 @@ class OpenApiSpotFeed:
         """Route incoming protobuf messages."""
         msg_type = message.payloadType
         logger.debug("Received message type=%d", msg_type)
+
+        # Update heartbeat timestamp on ANY incoming message (server is alive)
+        self._last_heartbeat_recv = time.monotonic()
 
         # Account auth response
         if msg_type == 2101:  # ProtoOAAccountAuthRes
@@ -712,6 +800,9 @@ class OpenApiSpotFeed:
             ts_raw = datetime.now(timezone.utc).timestamp()
         timestamp = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
         tick = Tick(symbol_id=symbol_id, bid=bid, ask=ask, timestamp=timestamp)
+
+        # Update stale tick tracker
+        self._last_tick_recv_monotonic = time.monotonic()
 
         # Resolve symbol name
         broker_name = self._id_to_name.get(symbol_id, str(symbol_id))
@@ -901,12 +992,35 @@ class OpenApiSpotFeed:
             self._refresh_in_progress = False
 
     def _check_circuit_breaker(self):
-        """B3: Check if auth error count exceeds threshold and trip circuit breaker."""
+        """B3: Check if auth error count exceeds threshold and escalate.
+
+        Phase 1B: Now integrates with ConnectionStateManager:
+        - Errors 3-4: transition to DEGRADED
+        - Errors >=5: transition to FAILED, activate kill switch FREEZE
+        """
         if self._auth_error_count >= 5:
             self._auth_circuit_open = True
             logger.critical(
                 "Auth circuit breaker TRIPPED: %d consecutive failures — "
                 "stopping all refresh attempts",
+                self._auth_error_count,
+            )
+            # Phase 1B: Transition to FAILED and activate kill switch
+            self._state_mgr.transition_to(
+                ConnectionState.FAILED,
+                reason=f"auth_errors_exceeded:{self._auth_error_count}",
+            )
+            self._activate_kill_switch_freeze(
+                f"auth_failure:{self._auth_error_count}_errors",
+            )
+        elif self._auth_error_count >= 3:
+            # Phase 1B: Transition to DEGRADED
+            self._state_mgr.transition_to(
+                ConnectionState.DEGRADED,
+                reason=f"auth_errors_degraded:{self._auth_error_count}",
+            )
+            logger.warning(
+                "Auth errors at %d — transitioning to DEGRADED",
                 self._auth_error_count,
             )
         else:
@@ -1097,6 +1211,10 @@ class OpenApiSpotFeed:
             logger.info("Reconnect restore: starting re-authentication...")
 
             # Step 1: Application auth
+            self._state_mgr.transition_to(
+                ConnectionState.APP_AUTHENTICATING,
+                reason="reconnect_app_auth",
+            )
             app_res = self._send_and_wait(
                 ProtoOAApplicationAuthReq(
                     clientId=self._client_id,
@@ -1106,6 +1224,7 @@ class OpenApiSpotFeed:
             )
             if app_res is None:
                 logger.error("Reconnect restore: application auth failed")
+                self._handle_auth_failure("reconnect_app_auth")
                 return
             self._app_authed.set()
             logger.info("Reconnect restore: application authenticated")
@@ -1115,6 +1234,10 @@ class OpenApiSpotFeed:
                 return
 
             # Step 2: Account auth
+            self._state_mgr.transition_to(
+                ConnectionState.ACCT_AUTHENTICATING,
+                reason="reconnect_acct_auth",
+            )
             acct_res = self._send_and_wait(
                 ProtoOAAccountAuthReq(
                     ctidTraderAccountId=self._ctid_account_id,
@@ -1124,6 +1247,7 @@ class OpenApiSpotFeed:
             )
             if acct_res is None:
                 logger.error("Reconnect restore: account auth failed")
+                self._handle_auth_failure("reconnect_acct_auth")
                 return
             self._authed.set()
             logger.info("Reconnect restore: account authenticated")
@@ -1148,6 +1272,15 @@ class OpenApiSpotFeed:
                 if remaining > 60:
                     self._schedule_proactive_refresh(int(remaining))
 
+            # Step 4: Transition to AUTHENTICATED and reconcile
+            self._state_mgr.transition_to(
+                ConnectionState.AUTHENTICATED,
+                reason="reconnect_auth_complete",
+            )
+
+            # Fire reconciliation callbacks
+            self._fire_reconnect_reconciliation()
+
             logger.info("Reconnect restore: completed successfully")
 
         except Exception as exc:
@@ -1155,4 +1288,181 @@ class OpenApiSpotFeed:
         finally:
             self._reauth_in_progress.clear()
 
+    # ── Phase 1B: Health Monitoring & Self-Healing ────────────────────────────
+
+    def _start_health_check(self) -> None:
+        """Start the periodic health check timer."""
+        if self._health_timer is not None:
+            self._health_timer.cancel()
+        self._health_timer = threading.Timer(
+            self._health_check_interval, self._health_check_loop,
+        )
+        self._health_timer.daemon = True
+        self._health_timer.start()
+
+    def _health_check_loop(self) -> None:
+        """Periodic health check: heartbeat, stale ticks, state transitions."""
+        if not self._running:
+            return
+
+        try:
+            self._check_heartbeat_health()
+            self._check_stale_ticks()
+        except Exception as exc:
+            logger.error("Health check error: %s", exc, exc_info=True)
+
+        # Schedule next check
+        self._start_health_check()
+
+    def _check_heartbeat_health(self) -> None:
+        """Check if server heartbeats are arriving within thresholds.
+
+        - No heartbeat for 35s → transition to DEGRADED, log warning
+        - No heartbeat for 60s → transition to RECONNECTING, force disconnect + reconnect
+        """
+        # Only monitor when we expect to be connected
+        current_state = self._state_mgr.state
+        if current_state in (
+            ConnectionState.DISCONNECTED,
+            ConnectionState.CONNECTING,
+            ConnectionState.RECONNECTING,
+            ConnectionState.FAILED,
+        ):
+            return
+
+        now = time.monotonic()
+        elapsed = now - self._last_heartbeat_recv
+
+        if elapsed >= _HEARTBEAT_RECONNECT_SEC:
+            logger.warning(
+                "No heartbeat for %.1fs (threshold: %.0fs) — forcing reconnect",
+                elapsed, _HEARTBEAT_RECONNECT_SEC,
+            )
+            self._state_mgr.transition_to(
+                ConnectionState.RECONNECTING,
+                reason=f"heartbeat_timeout:{elapsed:.0f}s",
+            )
+            # Force disconnect to trigger Twisted's reconnect cycle
+            if self._client:
+                try:
+                    reactor.callFromThread(self._client.stopService)
+                except Exception:
+                    pass
+
+        elif elapsed >= _HEARTBEAT_DEGRADED_SEC:
+            logger.warning(
+                "No heartbeat for %.1fs (threshold: %.0fs) — transitioning to DEGRADED",
+                elapsed, _HEARTBEAT_DEGRADED_SEC,
+            )
+            self._state_mgr.transition_to(
+                ConnectionState.DEGRADED,
+                reason=f"heartbeat_stale:{elapsed:.0f}s",
+            )
+
+    def _check_stale_ticks(self) -> None:
+        """Detect stale ticks during market hours.
+
+        - No tick for 60s during market hours → log warning
+        - No tick for 120s during market hours → activate kill switch FREEZE
+        - Skip on weekends (forex market closed)
+        """
+        # Only check when authenticated or degraded
+        current_state = self._state_mgr.state
+        if current_state not in (
+            ConnectionState.AUTHENTICATED,
+            ConnectionState.DEGRADED,
+        ):
+            return
+
+        # Skip on weekends (Saturday=5, Sunday=6)
+        now_dt = datetime.now(timezone.utc)
+        if now_dt.weekday() >= 5:
+            return
+
+        now = time.monotonic()
+        elapsed = now - self._last_tick_recv_monotonic
+
+        if elapsed >= _STALE_TICK_FREEZE_SEC:
+            logger.critical(
+                "No ticks for %.1fs (threshold: %.0fs) — activating kill switch FREEZE",
+                elapsed, _STALE_TICK_FREEZE_SEC,
+            )
+            self._activate_kill_switch_freeze(
+                f"stale_ticks:{elapsed:.0f}s",
+            )
+
+        elif elapsed >= _STALE_TICK_WARN_SEC:
+            logger.warning(
+                "No ticks for %.1fs during market hours — data feed may be stale",
+                elapsed,
+            )
+
+    def _is_market_hours(self) -> bool:
+        """Check if forex market is likely open.
+
+        Simple heuristic: not weekend (UTC). Real production would use
+        session calendars, but this is sufficient for stale tick gating.
+        """
+        now_dt = datetime.now(timezone.utc)
+        return now_dt.weekday() < 5  # Mon-Fri
+
+    def _handle_auth_failure(self, context: str) -> None:
+        """Handle an auth failure during initial or reconnect auth.
+
+        Increments auth error count and triggers escalation via the
+        circuit breaker.
+        """
+        self._auth_error_count += 1
+        logger.error(
+            "Auth failure in %s (error_count=%d)",
+            context, self._auth_error_count,
+        )
+        self._check_circuit_breaker()
+
+    def _activate_kill_switch_freeze(self, reason: str) -> None:
+        """Activate kill switch FREEZE if a kill switch manager is registered."""
+        if self._kill_switch is not None:
+            try:
+                self._kill_switch.activate_global_freeze(
+                    reason=reason,
+                    triggered_by="spot_feed_self_healing",
+                )
+                logger.critical("Kill switch FREEZE activated: %s", reason)
+            except Exception as exc:
+                logger.error(
+                    "Failed to activate kill switch FREEZE: %s", exc,
+                    exc_info=True,
+                )
+        else:
+            logger.warning(
+                "Kill switch FREEZE requested but no kill switch manager registered: %s",
+                reason,
+            )
+
+    def _fire_reconnect_reconciliation(self) -> None:
+        """Fire on_reconnected callbacks after a successful reconnect.
+
+        Computes outage duration from _disconnect_at and notifies all
+        registered callbacks. Does NOT replay missed signals.
+        """
+        if self._disconnect_at is None:
+            logger.debug("Reconnect reconciliation: no disconnect_at recorded — skipping")
+            return
+
+        outage_duration = time.monotonic() - self._disconnect_at
+        logger.warning(
+            "Connection restored after %.1fs outage — firing reconciliation callbacks",
+            outage_duration,
+        )
+
+        for callback in self._on_reconnected_callbacks:
+            try:
+                callback(outage_duration)
+            except Exception as exc:
+                logger.error(
+                    "Reconciliation callback error: %s", exc, exc_info=True,
+                )
+
+        # Reset disconnect tracker
+        self._disconnect_at = None
 
