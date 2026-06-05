@@ -290,7 +290,7 @@ class PaperTrader:
                     position.position_id, exit_price, "synthetic_cleanup"
                 )
                 closed = self._order_manager.get_position(position.position_id)
-                if closed and closed.status == PositionStatus.CLOSED:
+                if closed and closed.status.is_closed:
                     self._stats.realized_pnl += closed.closed_pnl
             self._current_balance = self._starting_balance + self._stats.realized_pnl
             self._stats.current_balance = self._current_balance
