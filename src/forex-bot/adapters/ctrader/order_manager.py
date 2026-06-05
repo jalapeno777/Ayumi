@@ -548,7 +548,7 @@ class OrderManager:
             return sum(
                 p.closed_pnl
                 for p in self._positions.values()
-                if p.status == PositionStatus.CLOSED
+                if p.status.is_closed
             )
 
     def get_pending_orders(self) -> list[Order]:

@@ -38,6 +38,7 @@ from .open_api_spot_feed import OpenApiSpotFeed
 from .models import cTraderCredentials
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
+from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
@@ -194,6 +195,7 @@ class ForwardTestEngine:
         self._bars: dict[str, list[Bar]] = {}  # key = _bar_key(symbol, period_minutes)
         self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
         self._paper_trader: Optional[PaperTrader] = None
+        self._position_monitor: Optional[PositionMonitor] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
@@ -516,6 +518,13 @@ class ForwardTestEngine:
             "on_position_closed", self._on_position_closed
         )
 
+        # Position monitor — centralized lifecycle tracking
+        self._position_monitor = PositionMonitor(
+            order_manager=self._paper_trader._order_manager,
+            risk_guard=self._paper_trader._risk_guard,
+            kill_switch=self._kill_switch,
+        )
+
     def _wire_callbacks(self):
         if self._market_feed is None:
             return
@@ -763,6 +772,14 @@ class ForwardTestEngine:
 
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
+
+            # Phase 1D: Update position monitor (MAE/MFE, water marks, time tracking)
+            if self._position_monitor is not None:
+                self._position_monitor.update_positions(
+                    prices={symbol_name: tick.mid},
+                    bids={symbol_name: tick.bid},
+                    asks={symbol_name: tick.ask},
+                )
 
         # Evaluation trigger: purely event-driven — only on bar completion
         # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
@@ -1162,6 +1179,21 @@ class ForwardTestEngine:
                             "tick-to-bar conversion may be stalled",
                             ticks,
                         )
+
+                    # Phase 1D: Portfolio summary from position monitor
+                    if self._position_monitor is not None:
+                        summary = self._position_monitor.get_portfolio_summary()
+                        if summary["position_count"] > 0:
+                            logger.info(
+                                "[Portfolio] positions=%d unrealized_pnl=%.2f "
+                                "notional=%.2f symbols=%s mfe=%.2f mae=%.2f",
+                                summary["position_count"],
+                                summary["total_unrealized_pnl"],
+                                summary["total_notional_exposure"],
+                                summary["positions_by_symbol"],
+                                summary["total_mfe"],
+                                summary["total_mae"],
+                            )
             except Exception as exc:
                 logger.error("Health monitor error: %s", exc, exc_info=True)
 
