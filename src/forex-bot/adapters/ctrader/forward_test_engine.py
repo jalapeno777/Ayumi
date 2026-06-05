@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
+from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
 from .models import cTraderCredentials
@@ -209,6 +210,14 @@ class ForwardTestEngine:
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
+
+        # Kill switch — global safety system
+        self._kill_switch = KillSwitchManager()
+        if self._kill_switch.is_globally_killed():
+            logger.critical(
+                "STARTUP: Kill switch is ACTIVE (%s) — trading will be blocked",
+                self._kill_switch.get_status().get('reason', 'unknown'),
+            )
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -790,6 +799,11 @@ class ForwardTestEngine:
 
     def _evaluate_strategies(self, symbol: str):
         if self._live_adapter is None:
+            return
+
+        # Kill switch gate — checked before any strategy evaluation
+        if self._kill_switch.is_globally_killed():
+            logger.debug("Kill switch active — skipping strategy evaluation")
             return
 
         # T5: Rejection circuit breaker — cooldown check

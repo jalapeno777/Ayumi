@@ -5,6 +5,7 @@ from datetime import datetime
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
+from .kill_switch import KillSwitchManager
 from .models import Order, Position, PositionStatus, TradeSignal
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
 from .risk_guard import FTMOConfig, RiskGuard
@@ -66,6 +67,7 @@ class PaperTrader:
         self._callbacks: list[tuple[str, Callable]] = []
         self._running = False
         self._last_update: datetime | None = None
+        self._kill_switch = KillSwitchManager()
 
     @property
     def is_live_mode(self) -> bool:
@@ -112,6 +114,15 @@ class PaperTrader:
                     signal=signal,
                     rejection_reason=trade_check.message,
                     risk_guard_result=trade_check,
+                )
+
+            # Kill switch second gate — blocks order execution even if signal passed evaluation
+            if self._kill_switch.is_globally_killed():
+                logger.warning("Order blocked by kill switch: %s", self._kill_switch.get_status().get('reason', 'active'))
+                return PaperTradeResult(
+                    success=False,
+                    signal=signal,
+                    rejection_reason="kill_switch_active",
                 )
 
             trade_result = self._execute_order(
