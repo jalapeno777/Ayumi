@@ -31,6 +31,8 @@ class ConnectionState(Enum):
     APP_AUTHENTICATING = "app_authenticating"
     ACCT_AUTHENTICATING = "acct_authenticating"
     AUTHENTICATED = "authenticated"
+    SUSPENDED = "suspended"
+    SUBSCRIBING = "subscribing"
     DEGRADED = "degraded"
     RECONNECTING = "reconnecting"
     FAILED = "failed"
@@ -61,6 +63,16 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.AUTHENTICATED, ConnectionState.RECONNECTING): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.DISCONNECTED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.FAILED): True,
+    (ConnectionState.AUTHENTICATED, ConnectionState.SUSPENDED): True,
+    (ConnectionState.AUTHENTICATED, ConnectionState.SUBSCRIBING): True,
+
+    # Suspended transitions
+    (ConnectionState.SUSPENDED, ConnectionState.CONNECTING): True,
+    (ConnectionState.SUSPENDED, ConnectionState.DISCONNECTED): True,
+
+    # Subscription replay transitions
+    (ConnectionState.SUBSCRIBING, ConnectionState.AUTHENTICATED): True,
+    (ConnectionState.SUBSCRIBING, ConnectionState.RECONNECTING): True,
 
     # Degraded transitions
     (ConnectionState.DEGRADED, ConnectionState.AUTHENTICATED): True,
@@ -82,6 +94,8 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.CONNECTING, ConnectionState.CONNECTING): True,
     (ConnectionState.CONNECTED, ConnectionState.CONNECTED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.AUTHENTICATED): True,
+    (ConnectionState.SUSPENDED, ConnectionState.SUSPENDED): True,
+    (ConnectionState.SUBSCRIBING, ConnectionState.SUBSCRIBING): True,
     (ConnectionState.DEGRADED, ConnectionState.DEGRADED): True,
     (ConnectionState.RECONNECTING, ConnectionState.RECONNECTING): True,
     (ConnectionState.FAILED, ConnectionState.FAILED): True,

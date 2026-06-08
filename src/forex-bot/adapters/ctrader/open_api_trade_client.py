@@ -754,21 +754,21 @@ class OpenApiTradeClient:
 
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.symbolId.append(symbol_id)
+        req.symbolId = symbol_id
         req.orderType = ProtoOAOrderType.MARKET
         req.tradeSide = trade_side
-        req.volume.append(_lots_to_units(volume))
+        req.volume = _lots_to_units(volume)
         req.timeInForce = ProtoOATimeInForce.GOOD_TILL_CANCEL
 
         if stop_loss is not None:
-            req.stopLoss.append(stop_loss)
+            req.stopLoss = stop_loss
         if take_profit is not None:
-            req.takeProfit.append(take_profit)
+            req.takeProfit = take_profit
         if comment:
-            req.comment.append(comment)
+            req.comment = comment
 
         label = f"tc_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
-        req.label.append(label)
+        req.label = label
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         if res is None:
@@ -813,24 +813,24 @@ class OpenApiTradeClient:
 
         req = ProtoOANewOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.symbolId.append(symbol_id)
+        req.symbolId = symbol_id
         req.orderType = ProtoOAOrderType.LIMIT
         req.tradeSide = trade_side
-        req.volume.append(_lots_to_units(volume))
+        req.volume = _lots_to_units(volume)
         req.timeInForce = ProtoOATimeInForce.GOOD_TILL_CANCEL
 
         # Limit price
-        req.requestedPrice.append(price)
+        req.limitPrice = price
 
         if stop_loss is not None:
-            req.stopLoss.append(stop_loss)
+            req.stopLoss = stop_loss
         if take_profit is not None:
-            req.takeProfit.append(take_profit)
+            req.takeProfit = take_profit
         if comment:
-            req.comment.append(comment)
+            req.comment = comment
 
         label = f"tc_lim_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
-        req.label.append(label)
+        req.label = label
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         if res is None:
@@ -861,14 +861,14 @@ class OpenApiTradeClient:
 
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.orderId.append(order_id)
+        req.orderId = order_id
 
         if new_price is not None:
-            req.requestedPrice.append(new_price)
+            req.limitPrice = new_price
         if new_sl is not None:
-            req.stopLoss.append(new_sl)
+            req.stopLoss = new_sl
         if new_tp is not None:
-            req.takeProfit.append(new_tp)
+            req.takeProfit = new_tp
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         if res is None:
@@ -883,7 +883,7 @@ class OpenApiTradeClient:
 
         req = ProtoOACancelOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.orderId.append(order_id)
+        req.orderId = order_id
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         if res is None:
@@ -902,10 +902,10 @@ class OpenApiTradeClient:
 
         req = ProtoOAClosePositionReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.positionId.append(position_id)
+        req.positionId = position_id
 
         if volume is not None:
-            req.volume.append(_lots_to_units(volume))
+            req.volume = _lots_to_units(volume)
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         if res is None:
@@ -1036,12 +1036,12 @@ class OpenApiTradeClient:
 
         req = ProtoOAAmendPositionSLTPReq()
         req.ctidTraderAccountId = self._ctid_account_id
-        req.positionId.append(position_id)
+        req.positionId = position_id
 
         if stop_loss is not None:
-            req.stopLoss.append(stop_loss)
+            req.stopLoss = stop_loss
         if take_profit is not None:
-            req.takeProfit.append(take_profit)
+            req.takeProfit = take_profit
 
         res = self._send_and_wait(req, timeout=_ORDER_TIMEOUT_SEC)
         return res is not None
