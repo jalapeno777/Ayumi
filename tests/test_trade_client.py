@@ -27,11 +27,11 @@ from adapters.ctrader.connection_state import (
 
 
 class TestConnectionStateEnum:
-    def test_nine_states_exist(self):
+    def test_phase_2_states_exist(self):
         expected = {
             "disconnected", "connecting", "connected",
             "app_authenticating", "acct_authenticating", "authenticated",
-            "degraded", "reconnecting", "failed",
+            "suspended", "subscribing", "degraded", "reconnecting", "failed",
         }
         actual = {s.value for s in ConnectionState}
         assert actual == expected

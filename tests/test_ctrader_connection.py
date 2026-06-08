@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
+from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager, is_valid_transition
 from ctrader_fix.connection import (
     SOH,
     CTraderConnection,
@@ -244,6 +245,34 @@ class TestCTraderConnection(unittest.TestCase):
             mock_ssl_socket.sendall.assert_called_once()
             sent_data = mock_ssl_socket.sendall.call_args[0][0]
             self.assertIn(b"35=A", sent_data)
+
+
+class TestConnectionStatePhase2(unittest.TestCase):
+    def test_suspended_and_subscribing_are_defined(self):
+        self.assertEqual(ConnectionState.SUSPENDED.value, "suspended")
+        self.assertEqual(ConnectionState.SUBSCRIBING.value, "subscribing")
+
+    def test_suspended_transitions(self):
+        self.assertTrue(is_valid_transition(ConnectionState.AUTHENTICATED, ConnectionState.SUSPENDED))
+        self.assertTrue(is_valid_transition(ConnectionState.SUSPENDED, ConnectionState.CONNECTING))
+        self.assertTrue(is_valid_transition(ConnectionState.SUSPENDED, ConnectionState.DISCONNECTED))
+        self.assertFalse(is_valid_transition(ConnectionState.SUSPENDED, ConnectionState.AUTHENTICATED))
+
+    def test_subscribing_transitions(self):
+        self.assertTrue(is_valid_transition(ConnectionState.AUTHENTICATED, ConnectionState.SUBSCRIBING))
+        self.assertTrue(is_valid_transition(ConnectionState.SUBSCRIBING, ConnectionState.AUTHENTICATED))
+        self.assertTrue(is_valid_transition(ConnectionState.SUBSCRIBING, ConnectionState.RECONNECTING))
+        self.assertFalse(is_valid_transition(ConnectionState.SUBSCRIBING, ConnectionState.DEGRADED))
+
+    def test_suspended_is_not_operational(self):
+        mgr = ConnectionStateManager(name="market_data")
+        mgr._state = ConnectionState.SUSPENDED
+        self.assertFalse(mgr.is_operational)
+
+    def test_subscribing_is_not_operational(self):
+        mgr = ConnectionStateManager(name="market_data")
+        mgr._state = ConnectionState.SUBSCRIBING
+        self.assertFalse(mgr.is_operational)
 
     def test_connect_rejects_non_logon_response(self):
         conn = CTraderConnection(credentials=SAMPLE_CREDS)
