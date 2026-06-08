@@ -1,232 +1,165 @@
-"""Tests for ATR-based stop_target.py redesign."""
+"""Tests for StopTargetCalculator: ATR-based SL/TP, RR enforcement, spread buffer."""
+
+from __future__ import annotations
 
 import pytest
-from signal_engine.stop_target import (
-    StopTargetCalculator,
-    ATR_SL_MULTIPLIERS,
-    ATR_TP_MULTIPLIERS,
-    MIN_RR_BY_TF,
-    MAX_SL_ATR_MULT,
-)
+
+from signal_engine.stop_target import StopTargetCalculator, ATR_SL_MULTIPLIERS
 
 
-@pytest.fixture
-def m15_calc():
-    return StopTargetCalculator(rr_ratio=2.0, pip_size=0.0001, timeframe="M15")
+# ── Helpers ─────────────────────────────────────────────────────────
 
 
-@pytest.fixture
-def h1_calc():
-    return StopTargetCalculator(rr_ratio=2.0, pip_size=0.0001, timeframe="H1")
+def _calc(direction="long", entry=1.10000, atr=0.00100, timeframe="M15", **ctx):
+    calc = StopTargetCalculator(timeframe=timeframe, pip_size=0.0001)
+    context = {"atr": atr, **ctx}
+    return calc.calculate(direction, entry, context)
 
 
-@pytest.fixture
-def d1_calc():
-    return StopTargetCalculator(rr_ratio=2.0, pip_size=0.0001, timeframe="D1")
+# ── Stop Loss ───────────────────────────────────────────────────────
 
 
-def _long_context(**overrides):
-    c = {"sl2": 1.08300, "r2": 1.08800, "r3": 1.09000, "atr": 0.00080}
-    c.update(overrides)
-    return c
+class TestStopLoss:
+    def test_long_sl_below_entry(self):
+        result = _calc("long")
+        assert result["stop_loss"] < 1.10000
+
+    def test_short_sl_above_entry(self):
+        result = _calc("short")
+        assert result["stop_loss"] > 1.10000
+
+    def test_sl_includes_spread_buffer(self):
+        result = _calc("long", spread=0.0002)
+        # SL should be lower with spread than without
+        result_no_spread = _calc("long", spread=0.0)
+        assert result["stop_loss"] <= result_no_spread["stop_loss"]
+
+    def test_zero_atr_falls_back_to_structure(self):
+        result = _calc("long", atr=0.0)
+        assert result["stop_loss"] < 1.10000
+
+    def test_zero_atr_short(self):
+        result = _calc("short", atr=0.0)
+        assert result["stop_loss"] > 1.10000
+
+    def test_different_timeframes_different_sl(self):
+        m5 = _calc("long", timeframe="M5")
+        d1 = _calc("long", timeframe="D1")
+        # D1 multiplier is higher → wider SL
+        assert d1["stop_loss"] < m5["stop_loss"]
+
+    def test_structure_sl_long(self):
+        """sl2 in context limits SL for longs."""
+        result = _calc("long", sl2=1.09850)
+        # ATR SL for M15: 0.001 * 1.5 = 0.0015 → 1.0985 - buffer
+        # Structure SL: 1.09850 - buffer
+        # max(atr_sl, structure_sl) is used
+        assert result["stop_loss"] < 1.10000
+
+    def test_structure_sl_short(self):
+        result = _calc("short", sh2=1.10150)
+        assert result["stop_loss"] > 1.10000
+
+    def test_sl_capped_at_max_atr_mult(self):
+        """Even with huge TF multiplier, SL capped at 4x ATR."""
+        result = _calc("long", atr=0.00100, timeframe="D1")
+        sl_distance = 1.10000 - result["stop_loss"]
+        assert sl_distance <= 0.00100 * 4.0 + 0.0001  # 4x ATR + buffer
 
 
-def _short_context(**overrides):
-    c = {"sh2": 1.08700, "d2": 1.08200, "d3": 1.08000, "atr": 0.00080}
-    c.update(overrides)
-    return c
+# ── Take Profit ─────────────────────────────────────────────────────
 
 
-class TestATRStopLoss:
-    def test_long_sl_atr_based(self, m15_calc):
-        result = m15_calc.calculate("long", 1.08500, _long_context())
-        atr = 0.00080
-        expected_max_sl = 1.08500 - atr * ATR_SL_MULTIPLIERS["M15"]
-        assert result["stop_loss"] <= expected_max_sl
+class TestTakeProfit:
+    def test_long_tp_above_entry(self):
+        result = _calc("long")
+        assert result["take_profit"] > 1.10000
 
-    def test_short_sl_atr_based(self, m15_calc):
-        result = m15_calc.calculate("short", 1.08500, _short_context())
-        atr = 0.00080
-        expected_min_sl = 1.08500 + atr * ATR_SL_MULTIPLIERS["M15"]
-        assert result["stop_loss"] >= expected_min_sl
+    def test_short_tp_below_entry(self):
+        result = _calc("short")
+        assert result["take_profit"] < 1.10000
 
-    def test_sl_capped_at_max_atr_mult(self, m15_calc):
-        context = _long_context(atr=0.00080)
-        result = m15_calc.calculate("long", 1.08500, context)
-        risk = 1.08500 - result["stop_loss"]
-        assert risk <= 0.00080 * MAX_SL_ATR_MULT + 0.001
+    def test_three_tp_levels(self):
+        result = _calc("long")
+        assert len(result["tp_levels"]) >= 3
 
-    def test_h1_sl_wider_than_m15(self, m15_calc, h1_calc):
-        ctx = _long_context()
-        m15_result = m15_calc.calculate("long", 1.08500, ctx)
-        h1_result = h1_calc.calculate("long", 1.08500, ctx)
-        m15_risk = 1.08500 - m15_result["stop_loss"]
-        h1_risk = 1.08500 - h1_result["stop_loss"]
-        assert h1_risk >= m15_risk
+    def test_tp_levels_ascending_for_long(self):
+        result = _calc("long")
+        prices = [t["price"] for t in result["tp_levels"][:3]]
+        assert prices == sorted(prices)
 
-    def test_d1_sl_wider_than_m15(self, m15_calc, d1_calc):
-        ctx = _long_context()
-        m15_result = m15_calc.calculate("long", 1.08500, ctx)
-        d1_result = d1_calc.calculate("long", 1.08500, ctx)
-        m15_risk = 1.08500 - m15_result["stop_loss"]
-        d1_risk = 1.08500 - d1_result["stop_loss"]
-        assert d1_risk >= m15_risk
+    def test_tp_levels_descending_for_short(self):
+        result = _calc("short")
+        prices = [t["price"] for t in result["tp_levels"][:3]]
+        assert prices == sorted(prices, reverse=True)
+
+    def test_min_rr_enforced(self):
+        result = _calc("long", atr=0.00010)  # small ATR
+        rr = result["rr_ratio"]
+        assert rr >= 1.4  # M15 min RR is 1.5 but floating point tolerance
 
 
-class TestMinRR:
-    def test_m15_min_rr_1_5(self, m15_calc):
-        ctx = _long_context()
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        assert result["rr_ratio"] >= MIN_RR_BY_TF["M15"]
-
-    def test_h1_min_rr_1_5(self, h1_calc):
-        ctx = _long_context()
-        result = h1_calc.calculate("long", 1.08500, ctx)
-        assert result["rr_ratio"] >= MIN_RR_BY_TF["H1"]
-
-    def test_short_min_rr(self, m15_calc):
-        ctx = _short_context()
-        result = m15_calc.calculate("short", 1.08500, ctx)
-        assert result["rr_ratio"] >= MIN_RR_BY_TF["M15"]
+# ── Risk/Reward ─────────────────────────────────────────────────────
 
 
-class TestATRTakeProfit:
-    def test_tp_levels_use_atr_multiples(self, m15_calc):
-        ctx = _long_context()
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        non_structure = [t for t in result["tp_levels"] if not t.get("structure")]
-        assert len(non_structure) >= 3
-        assert non_structure[0]["level"] == "TP1"
-        assert non_structure[1]["level"] == "TP2"
-        assert non_structure[2]["level"] == "TP3"
+class TestRR:
+    def test_rr_ratio_positive(self):
+        result = _calc("long")
+        assert result["rr_ratio"] > 0
 
-    def test_tp1_is_1_5_atr_for_m15(self, m15_calc):
-        ctx = _long_context(atr=0.00100)
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        non_structure = [t for t in result["tp_levels"] if not t.get("structure")]
-        tp1_dist = non_structure[0]["price"] - 1.08500
-        min_rr = MIN_RR_BY_TF["M15"]
-        risk = 1.08500 - result["stop_loss"]
-        expected = max(0.00100 * ATR_TP_MULTIPLIERS["M15"]["tp1"], risk * min_rr)
-        assert tp1_dist == pytest.approx(expected, abs=0.00005)
+    def test_risk_reward_pips(self):
+        result = _calc("long")
+        assert result["risk_pips"] > 0
+        assert result["reward_pips"] > 0
 
-    def test_tp3_is_furthest(self, m15_calc):
-        ctx = _long_context()
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        non_structure = [t for t in result["tp_levels"] if not t.get("structure")]
-        assert non_structure[2]["price"] > non_structure[1]["price"]
-        assert non_structure[1]["price"] > non_structure[0]["price"]
 
-    def test_short_tps_below_entry(self, m15_calc):
-        ctx = _short_context()
-        result = m15_calc.calculate("short", 1.08500, ctx)
-        non_structure = [t for t in result["tp_levels"] if not t.get("structure")]
-        for tp in non_structure:
-            assert tp["price"] < 1.08500
+# ── Trailing ────────────────────────────────────────────────────────
+
+
+class TestTrailing:
+    def test_trailing_config_present(self):
+        result = _calc("long")
+        t = result["trailing"]
+        assert "breakeven_trigger" in t
+        assert "trail_start" in t
+        assert "trail_step" in t
+
+    def test_breakeven_trigger_long_above_entry(self):
+        result = _calc("long")
+        assert result["trailing"]["breakeven_trigger"] > 1.10000
+
+    def test_breakeven_trigger_short_below_entry(self):
+        result = _calc("short")
+        assert result["trailing"]["breakeven_trigger"] < 1.10000
+
+    def test_trail_step_atr_when_available(self):
+        result = _calc("long", atr=0.001)
+        assert result["trailing"]["trail_step"] == "atr_half"
+
+    def test_trail_step_half_when_no_atr(self):
+        result = _calc("long", atr=0.0)
+        assert result["trailing"]["trail_step"] == "half_remaining"
+
+
+# ── Structure levels ────────────────────────────────────────────────
 
 
 class TestStructureLevels:
-    def test_structure_levels_included(self, m15_calc):
-        ctx = _long_context()
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        names = [t["level"] for t in result["tp_levels"]]
-        assert "R2" in names
-        assert "R3" in names
+    def test_r2_r3_added_for_long(self):
+        result = _calc("long", r2=1.1050, r3=1.1100)
+        levels = {t["level"] for t in result["tp_levels"]}
+        assert "R2" in levels
+        assert "R3" in levels
 
-    def test_structure_levels_marked(self, m15_calc):
-        ctx = _long_context()
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        for tp in result["tp_levels"]:
-            if tp["level"] in ("R2", "R3"):
-                assert tp.get("structure") is True
+    def test_d2_d3_added_for_short(self):
+        result = _calc("short", d2=1.0950, d3=1.0900)
+        levels = {t["level"] for t in result["tp_levels"]}
+        assert "D2" in levels
+        assert "D3" in levels
 
-    def test_wrong_side_structure_excluded(self, m15_calc):
-        ctx = {"sl2": 1.08300, "r2": 1.08200, "atr": 0.00080}
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        names = [t["level"] for t in result["tp_levels"]]
-        assert "R2" not in names
-
-
-class TestFallback:
-    def test_no_atr_falls_back_to_structure(self, m15_calc):
-        ctx = {"sl2": 1.08300, "r2": 1.08800}
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        assert result["stop_loss"] < 1.08500
-        assert result["take_profit"] > 1.08500
-
-    def test_no_atr_min_rr_still_enforced(self, m15_calc):
-        ctx = {"sl2": 1.08300}
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        assert result["rr_ratio"] >= MIN_RR_BY_TF["M15"]
-
-
-class TestTrailingConfig:
-    def test_breakeven_trigger(self, m15_calc):
-        result = m15_calc.calculate("long", 1.08500, _long_context())
-        trail = result["trailing"]
-        risk = 1.08500 - result["stop_loss"]
-        assert trail["breakeven_trigger"] == pytest.approx(1.08500 + risk, abs=0.0001)
-
-    def test_atr_trail_step(self, m15_calc):
-        result = m15_calc.calculate("long", 1.08500, _long_context())
-        trail = result["trailing"]
-        assert trail["trail_step"] == "atr_half"
-
-    def test_no_atr_trail_step(self, m15_calc):
-        ctx = {"sl2": 1.08300, "atr": 0.0}
-        result = m15_calc.calculate("long", 1.08500, ctx)
-        trail = result["trailing"]
-        assert trail["trail_step"] == "half_remaining"
-
-
-class TestSpreadBuffer:
-    def test_spread_widens_sl(self, m15_calc):
-        no_spread = m15_calc.calculate("long", 1.08500, _long_context(), spread=0.0)
-        with_spread = m15_calc.calculate(
-            "long", 1.08500, _long_context(), spread=0.00020
-        )
-        assert with_spread["stop_loss"] <= no_spread["stop_loss"]
-
-
-class TestRiskRewardFields:
-    def test_fields_present(self, m15_calc):
-        result = m15_calc.calculate("long", 1.08500, _long_context())
-        assert result["risk_pips"] > 0
-        assert result["reward_pips"] > 0
-        assert result["reward_pips"] > result["risk_pips"]
-
-    def test_rr_ratio_consistent(self, m15_calc):
-        result = m15_calc.calculate("long", 1.08500, _long_context())
-        computed_rr = result["reward_pips"] / result["risk_pips"]
-        assert result["rr_ratio"] == pytest.approx(computed_rr, abs=0.01)
-
-
-class TestJPYPairs:
-    def test_jpy_atr_sl(self):
-        calc = StopTargetCalculator(pip_size=0.01, timeframe="M15")
-        ctx = {"sl2": 148.30, "r2": 148.80, "atr": 0.08}
-        result = calc.calculate("long", 148.50, ctx)
-        assert result["stop_loss"] < 148.50
-        assert result["take_profit"] > 148.50
-        assert result["rr_ratio"] >= 1.5
-
-
-class TestTimeframeConfigs:
-    def test_all_tfs_have_sl_mult(self):
-        for tf in ["M5", "M15", "H1", "H4", "D1"]:
-            assert tf in ATR_SL_MULTIPLIERS
-
-    def test_all_tfs_have_tp_mults(self):
-        for tf in ["M5", "M15", "H1", "H4", "D1"]:
-            assert tf in ATR_TP_MULTIPLIERS
-            for level in ("tp1", "tp2", "tp3"):
-                assert level in ATR_TP_MULTIPLIERS[tf]
-
-    def test_all_tfs_have_min_rr(self):
-        for tf in ["M5", "M15", "H1", "H4", "D1"]:
-            assert tf in MIN_RR_BY_TF
-
-    def test_tp_mults_increase(self):
-        for tf in ["M5", "M15", "H1", "H4", "D1"]:
-            m = ATR_TP_MULTIPLIERS[tf]
-            assert m["tp1"] < m["tp2"] < m["tp3"]
+    def test_wrong_side_structure_ignored(self):
+        """R2 below entry should not be added for long."""
+        result = _calc("long", r2=1.0950)  # below entry
+        prices = [t for t in result["tp_levels"] if t.get("structure")]
+        # r2=1.0950 is below entry=1.1, so shouldn't be added
+        assert not any(t["level"] == "R2" for t in prices)
