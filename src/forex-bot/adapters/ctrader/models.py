@@ -98,6 +98,7 @@ class TradeSignal:
     confidence: float
     rationale: str
     timestamp: datetime = field(default_factory=datetime.utcnow)
+    strategy_id: str = ""
 
 
 @dataclass
