@@ -225,6 +225,8 @@ class ForwardTestEngine:
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
+        self._current_bid: float = 0.0
+        self._current_ask: float = 0.0
 
         # Kill switch — global safety system
         self._kill_switch = KillSwitchManager()
@@ -772,6 +774,8 @@ class ForwardTestEngine:
 
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
+            self._current_bid = tick.bid
+            self._current_ask = tick.ask
 
             # Phase 1D: Update position monitor (MAE/MFE, water marks, time tracking)
             if self._position_monitor is not None:
@@ -904,7 +908,10 @@ class ForwardTestEngine:
 
                 try:
                     signals = self._live_adapter.evaluate_all_strategies(
-                        {symbol: state}, spread=self._current_spread
+                        {symbol: state},
+                        spread=self._current_spread,
+                        bid=self._current_bid,
+                        ask=self._current_ask,
                     )
                 except Exception as exc:
                     with self._lock:

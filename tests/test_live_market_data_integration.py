@@ -165,6 +165,32 @@ class TestPaperTraderSpreadPassthrough:
         assert result.success
         assert isinstance(result.slippage_applied, float)
 
+    def test_process_signal_with_real_bid_ask_uses_ask_for_long(self):
+        trader = self._make_trader()
+        signal = _make_signal(entry=1.26000)
+        result = trader.process_signal(signal, bid=1.26100, ask=1.26120)
+        assert result.success
+        assert result.position is not None
+        assert result.position.entry_price >= 1.26120
+
+    def test_process_signal_with_real_bid_ask_uses_bid_for_short(self):
+        trader = self._make_trader()
+        signal = _make_signal(
+            direction=TradeDirection.SHORT, entry=1.26000, sl=1.26450, tp=1.25100
+        )
+        result = trader.process_signal(signal, bid=1.25980, ask=1.26000)
+        assert result.success
+        assert result.position is not None
+        assert result.position.entry_price <= 1.25980
+
+    def test_process_signal_without_bid_ask_falls_back(self):
+        trader = self._make_trader()
+        signal = _make_signal(entry=1.26000)
+        result = trader.process_signal(signal)
+        assert result.success
+        assert result.position is not None
+        assert result.position.entry_price >= 1.26000
+
 
 class TestClearStuckPositions:
     def _make_trader_with_positions(self, count=3):
