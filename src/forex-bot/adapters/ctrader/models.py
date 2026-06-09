@@ -23,8 +23,24 @@ class OrderStatus(Enum):
 
 
 class PositionStatus(Enum):
-    OPEN = "open"
-    CLOSED = "closed"
+    ENTRY_PENDING = "entry_pending"   # Order sent, not yet filled
+    OPEN = "open"                     # Position is open
+    TP_HIT = "tp_hit"                # Closed by take profit
+    SL_HIT = "sl_hit"                # Closed by stop loss
+    TIMEOUT_CLOSE = "timeout_close"  # Closed by time limit
+    MANUAL_CLOSE = "manual_close"    # Closed manually
+    CLOSED = "closed"                # Generic closed (backward compat)
+
+    @property
+    def is_closed(self) -> bool:
+        """True for any terminal (closed) status."""
+        return self in (
+            PositionStatus.TP_HIT,
+            PositionStatus.SL_HIT,
+            PositionStatus.TIMEOUT_CLOSE,
+            PositionStatus.MANUAL_CLOSE,
+            PositionStatus.CLOSED,
+        )
 
 
 @dataclass
@@ -61,6 +77,12 @@ class Position:
     closed_price: float | None = None
     closed_pnl: float = 0.0
     comment: str = ""
+    # ── Phase 1D: Position monitoring fields ──────────────────────────────
+    max_favorable_excursion: float = 0.0   # MFE — best unrealized PnL reached
+    max_adverse_excursion: float = 0.0     # MAE — worst unrealized PnL reached
+    time_in_trade_sec: float = 0.0          # Seconds since position opened
+    high_water_mark: float = 0.0            # Best price seen (for long: highest, for short: lowest)
+    low_water_mark: float = 0.0             # Worst price seen (for long: lowest, for short: highest)
 
 
 @dataclass

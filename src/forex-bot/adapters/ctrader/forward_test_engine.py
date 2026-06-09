@@ -12,13 +12,18 @@ Usage::
     engine.stop()
 """
 
+import json
 import logging
+import os
 import signal as sig_module
+import tempfile
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -27,11 +32,13 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
+from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
 from .models import cTraderCredentials
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
+from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
@@ -45,6 +52,14 @@ _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
+
+# Heartbeat writer defaults
+_HEARTBEAT_FILE = "data/heartbeat_trading.json"
+_HEARTBEAT_INTERVAL_SEC = 5.0  # piggybacks on health monitor loop
+
+# Error rate monitor defaults
+_ERROR_RATE_WINDOW_SEC = 60.0
+_ERROR_RATE_THRESHOLD_PCT = 0.50  # >50% error rate in 60s window → freeze
 
 _WEEKEND_CLOSE_HOUR_UTC = 21
 _WEEKEND_CLOSE_MINUTE_UTC = 55
@@ -96,7 +111,7 @@ class ForwardTestConfig:
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
-    health_monitor_interval_sec: float = 10.0  # Reduced from 5.0 to decrease CPU load
+    health_monitor_interval_sec: float = 5.0  # Runs every 5s for heartbeat + error monitoring
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
     strategy_timeframes: dict[str, int] = None  # strategy_name -> period_minutes; empty/None = all use bar_period_minutes
@@ -180,6 +195,7 @@ class ForwardTestEngine:
         self._bars: dict[str, list[Bar]] = {}  # key = _bar_key(symbol, period_minutes)
         self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
         self._paper_trader: Optional[PaperTrader] = None
+        self._position_monitor: Optional[PositionMonitor] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
@@ -209,6 +225,23 @@ class ForwardTestEngine:
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
+
+        # Kill switch — global safety system
+        self._kill_switch = KillSwitchManager()
+        if self._kill_switch.is_globally_killed():
+            logger.critical(
+                "STARTUP: Kill switch is ACTIVE (%s) — trading will be blocked",
+                self._kill_switch.get_status().get('reason', 'unknown'),
+            )
+
+        # Heartbeat writer
+        self._heartbeat_file = _HEARTBEAT_FILE
+        self._heartbeat_pid = os.getpid()
+
+        # Error rate monitor — rolling 60s window
+        self._eval_timestamps: deque[float] = deque()  # monotonic timestamps of evaluations
+        self._eval_errors: deque[float] = deque()  # monotonic timestamps of errors
+        self._feed_disconnect_frozen = False  # track if we already froze for feed disconnect
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -261,28 +294,32 @@ class ForwardTestEngine:
             return False
 
         # T1: Wire live client symbol map from feed + health check
+        # The new OpenApiTradeClient uses its own independent TCP connection —
+        # NO spot_feed reference is passed (that was the bug source).
         if self._config.live_mode and self._live_client is not None:
-            # Transfer symbol map from the spot feed to the live client
+            # Transfer symbol map from the spot feed to the trade client
             if isinstance(self._market_feed, OpenApiSpotFeed):
                 self._live_client.set_symbol_map(self._market_feed.name_to_id)
-                # Give live client a reference to the spot feed for riding its connection
-                self._live_client._spot_feed = self._market_feed
 
-            # Health check: verify live client can connect
+            # Share the kill switch with the trade client
+            self._live_client.set_kill_switch(self._kill_switch)
+
+            # Health check: verify trade client can connect independently
             if not self._live_client.connect():
-                logger.critical(
-                    "Live mode enabled but OpenApiLiveClient cannot connect — aborting"
+                logger.warning(
+                    "Live mode enabled but trade client cannot connect — "
+                    "falling back to paper-only mode"
                 )
-                self._market_feed.stop()
-                return False
-            logger.info("OpenApiLiveClient connected — live mode active")
+                self._live_client = None
+                # Don't abort — continue in paper mode
+            else:
+                logger.info("OpenApiTradeClient connected on independent connection — live mode active")
         elif self._config.live_mode and self._live_client is None:
-            logger.critical(
-                "Live mode enabled but live client was not built (credential issue?) — aborting"
+            logger.warning(
+                "Live mode enabled but trade client was not built (credential issue?) — "
+                "falling back to paper-only mode"
             )
-            if self._market_feed:
-                self._market_feed.stop()
-            return False
+            # Don't abort — continue in paper mode
 
         # T2: Preload bars from API after feed is connected
         self._preload_complete = False
@@ -350,6 +387,9 @@ class ForwardTestEngine:
 
         if self._market_feed:
             self._market_feed.stop()
+
+        # Write final heartbeat with engine_running=false (clean shutdown signal)
+        self._write_heartbeat()
 
         # T1: Disconnect live client if present
         if self._live_client is not None:
@@ -429,9 +469,11 @@ class ForwardTestEngine:
         ftmo = self._ftmo_config or FTMOConfig()
         pos_cfg = self._position_config or PositionSizeConfig()
 
-        # T1: Construct live client when live_mode is enabled
+        # T1: Construct trade client when live_mode is enabled
+        # Uses OpenApiTradeClient with its own independent TCP connection
+        # (replaces the old OpenApiLiveClient that rode the spot feed)
         if cfg.live_mode:
-            from .open_api_live_client import OpenApiLiveClient
+            from .open_api_trade_client import OpenApiTradeClient
 
             import os
             from dotenv import load_dotenv
@@ -443,11 +485,11 @@ class ForwardTestEngine:
 
             live_creds = self._build_live_credentials()
             if live_creds is None:
-                logger.error("Cannot build live client: missing credentials")
+                logger.error("Cannot build trade client: missing credentials")
                 return
 
-            self._live_client = OpenApiLiveClient(**live_creds)
-            logger.info("OpenApiLiveClient constructed for live_mode")
+            self._live_client = OpenApiTradeClient(**live_creds)
+            logger.info("OpenApiTradeClient constructed for live_mode (independent connection)")
 
         self._paper_trader = PaperTrader(
             ftmo_config=ftmo,
@@ -474,6 +516,13 @@ class ForwardTestEngine:
         )
         self._paper_trader.register_callback(
             "on_position_closed", self._on_position_closed
+        )
+
+        # Position monitor — centralized lifecycle tracking
+        self._position_monitor = PositionMonitor(
+            order_manager=self._paper_trader._order_manager,
+            risk_guard=self._paper_trader._risk_guard,
+            kill_switch=self._kill_switch,
         )
 
     def _wire_callbacks(self):
@@ -724,6 +773,14 @@ class ForwardTestEngine:
             self._update_paper_trader_prices(tick, symbol_name)
             self._current_spread = tick.spread
 
+            # Phase 1D: Update position monitor (MAE/MFE, water marks, time tracking)
+            if self._position_monitor is not None:
+                self._position_monitor.update_positions(
+                    prices={symbol_name: tick.mid},
+                    bids={symbol_name: tick.bid},
+                    asks={symbol_name: tick.ask},
+                )
+
         # Evaluation trigger: purely event-driven — only on bar completion
         # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
         primary_key = self._bar_key(symbol_name, self._config.bar_period_minutes)
@@ -792,6 +849,11 @@ class ForwardTestEngine:
         if self._live_adapter is None:
             return
 
+        # Kill switch gate — checked before any strategy evaluation
+        if self._kill_switch.is_globally_killed():
+            logger.debug("Kill switch active — skipping strategy evaluation")
+            return
+
         # T5: Rejection circuit breaker — cooldown check
         if time.monotonic() < self._rejection_cooldown_until:
             logger.debug("Rejection cooldown active, skipping evaluation")
@@ -815,6 +877,9 @@ class ForwardTestEngine:
 
             if not any(tf_bars.values()):
                 return
+
+            # Record evaluation attempt for error-rate monitor
+            self._eval_timestamps.append(time.monotonic())
 
             # Resolve each strategy's timeframe
             strategy_tf_map: dict[str, int] = {}
@@ -847,6 +912,7 @@ class ForwardTestEngine:
                 except Exception as exc:
                     with self._lock:
                         self._health.evaluation_errors += 1
+                    self._eval_errors.append(time.monotonic())
                     logger.error(
                         "Strategy %s evaluation error (total=%d): %s",
                         strategy.name, self._health.evaluation_errors, exc, exc_info=True,
@@ -917,6 +983,7 @@ class ForwardTestEngine:
         except Exception as exc:
             with self._lock:
                 self._health.evaluation_errors += 1
+            self._eval_errors.append(time.monotonic())
             logger.error(
                 "Strategy evaluation outer error (total=%d): %s",
                 self._health.evaluation_errors, exc, exc_info=True,
@@ -962,6 +1029,113 @@ class ForwardTestEngine:
         self._preload_complete = True
         logger.info("Bar preloading complete")
 
+    def _write_heartbeat(self):
+        """Atomically write the trading heartbeat file.
+
+        Uses temp + rename to guarantee no partial reads by the watchdog.
+        """
+        try:
+            heartbeat = {
+                "last_beat": datetime.now(timezone.utc).isoformat(),
+                "pid": self._heartbeat_pid,
+                "ticks_received": self._health.ticks_received,
+                "engine_running": self._running,
+            }
+            json_str = json.dumps(heartbeat, indent=2)
+
+            filepath = Path(self._heartbeat_file)
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+
+            fd, tmp_path = tempfile.mkstemp(
+                dir=str(filepath.parent),
+                prefix=".heartbeat_trading.",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(json_str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path, str(filepath))
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+        except Exception as exc:
+            logger.warning("Failed to write heartbeat: %s", exc)
+
+    def _check_error_rate(self):
+        """Check evaluation error rate in rolling 60s window.
+
+        If error rate exceeds 50%, activate GLOBAL FREEZE.
+        Resets counters on successful evaluation (called when no error).
+        """
+        now_mono = time.monotonic()
+        cutoff = now_mono - _ERROR_RATE_WINDOW_SEC
+
+        # Prune old entries
+        while self._eval_timestamps and self._eval_timestamps[0] < cutoff:
+            self._eval_timestamps.popleft()
+        while self._eval_errors and self._eval_errors[0] < cutoff:
+            self._eval_errors.popleft()
+
+        total_evals = len(self._eval_timestamps)
+        if total_evals < 5:
+            return  # not enough data to judge
+
+        error_count = len(self._eval_errors)
+        error_rate = error_count / total_evals
+
+        if error_rate > _ERROR_RATE_THRESHOLD_PCT:
+            logger.critical(
+                "Error rate %.1f%% (%d/%d) in 60s window — ACTIVATING GLOBAL FREEZE",
+                error_rate * 100,
+                error_count,
+                total_evals,
+            )
+            self._kill_switch.activate_global_freeze(
+                reason="high_error_rate",
+                triggered_by="error_monitor",
+            )
+            # Clear to prevent re-trigger every cycle
+            self._eval_timestamps.clear()
+            self._eval_errors.clear()
+
+    def _check_feed_health_kill_switch(self):
+        """Check feed disconnect and activate FREEZE if needed.
+
+        On feed disconnect: activate GLOBAL FREEZE (not kill — positions
+        have broker-side SL/TP).
+        On feed reconnect: log info but do NOT auto-recover.
+        """
+        with self._lock:
+            feed_connected = (
+                self._market_feed.is_running if self._market_feed else False
+            )
+            last_tick = self._health.last_tick_at
+
+        # Only freeze if feed is actually disconnected.
+        # "feed connected but no tick yet" = still initializing, not a disconnect.
+        if not feed_connected:
+            if not self._feed_disconnect_frozen and not self._kill_switch.is_active():
+                logger.warning(
+                    "Feed disconnect detected — activating GLOBAL FREEZE"
+                )
+                self._kill_switch.activate_global_freeze(
+                    reason="feed_disconnect",
+                    triggered_by="feed_health_monitor",
+                )
+                self._feed_disconnect_frozen = True
+        elif last_tick is not None and self._feed_disconnect_frozen:
+            logger.info(
+                "Feed reconnected — kill switch remains active "
+                "(manual recovery required)"
+            )
+            # Do NOT auto-recover. Manual recovery required.
+            self._feed_disconnect_frozen = True
+
     def _health_monitor_loop(self):
         # B5: Periodic diagnostic tracking
         _last_diagnostic_log = time.monotonic()
@@ -973,6 +1147,16 @@ class ForwardTestEngine:
             try:
                 self._update_health()
                 self._check_connection_health()
+
+                # Write heartbeat (atomic)
+                if self._running:
+                    self._write_heartbeat()
+
+                # Feed health → kill switch
+                self._check_feed_health_kill_switch()
+
+                # Error rate monitor
+                self._check_error_rate()
 
                 # B5: Periodic health diagnostic log (every 60s)
                 now = time.monotonic()
@@ -995,6 +1179,21 @@ class ForwardTestEngine:
                             "tick-to-bar conversion may be stalled",
                             ticks,
                         )
+
+                    # Phase 1D: Portfolio summary from position monitor
+                    if self._position_monitor is not None:
+                        summary = self._position_monitor.get_portfolio_summary()
+                        if summary["position_count"] > 0:
+                            logger.info(
+                                "[Portfolio] positions=%d unrealized_pnl=%.2f "
+                                "notional=%.2f symbols=%s mfe=%.2f mae=%.2f",
+                                summary["position_count"],
+                                summary["total_unrealized_pnl"],
+                                summary["total_notional_exposure"],
+                                summary["positions_by_symbol"],
+                                summary["total_mfe"],
+                                summary["total_mae"],
+                            )
             except Exception as exc:
                 logger.error("Health monitor error: %s", exc, exc_info=True)
 
