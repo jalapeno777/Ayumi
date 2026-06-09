@@ -188,9 +188,21 @@ class OrderManager:
         take_profit: float | None = None,
         comment: str = "",
         spread: float = 0.0,
+        bid: float = 0.0,
+        ask: float = 0.0,
     ) -> OrderExecutionResult:
         slippage_model = self._slippage_model
-        fill_price = slippage_model.apply_with_spread(entry_price, direction, spread)
+
+        if bid > 0 and ask > 0:
+            if direction == TradeDirection.LONG:
+                fill_price = slippage_model.apply(ask, direction)
+            else:
+                fill_price = slippage_model.apply(bid, direction)
+        else:
+            fill_price = slippage_model.apply_with_spread(
+                entry_price, direction, spread
+            )
+
         slippage_amount = abs(fill_price - entry_price)
 
         logger.info(
