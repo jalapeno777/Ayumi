@@ -128,6 +128,14 @@ class BlendForwardTestRunner:
 
         return order
 
+    def cancel_risk(self, risk_amount: float) -> None:
+        """Free risk budget when a sized order is rejected downstream."""
+        self._sizer.cancel_position(risk_amount)
+        logger.info(
+            "Risk cancelled: $%.2f freed, daily remaining=$%.2f",
+            risk_amount, self._sizer.daily_risk_remaining,
+        )
+
     def on_fill(self, order_id: str, fill_price: float, pnl: float) -> None:
         """Handle position fill/close — update sizer state and persist."""
         pos = self._open_positions.pop(order_id, None)

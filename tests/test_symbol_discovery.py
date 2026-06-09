@@ -1,5 +1,8 @@
 """Tests for symbol_discovery module."""
 
+import pytest
+pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
+
 import json
 import tempfile
 from pathlib import Path
