@@ -1,0 +1,217 @@
+{
+  "strategy": "SRMR+",
+  "timeframe": "M15",
+  "success_criteria": "WR >= 40%, PF >= 1.0 for at least 2/3 pairs",
+  "pairs_passing": 1,
+  "total_pairs": 3,
+  "overall_pass": false,
+  "results": {
+    "EURUSD": {
+      "pair": "EURUSD",
+      "timeframe": "M15",
+      "go_nogo": false,
+      "windows": [
+        {
+          "index": 0,
+          "win_rate": 0.38095238095238093,
+          "profit_factor": 0.5136918275456587,
+          "max_drawdown": 0.041377683838177734,
+          "sharpe_ratio": -4.942241707806721,
+          "trade_count": 21,
+          "total_pnl": -316.6696953373471,
+          "passed": false
+        },
+        {
+          "index": 1,
+          "win_rate": 0.5,
+          "profit_factor": 0.6696799387987402,
+          "max_drawdown": 0.013854134832703858,
+          "sharpe_ratio": -2.936351141826552,
+          "trade_count": 8,
+          "total_pnl": -78.18325343644625,
+          "passed": false
+        },
+        {
+          "index": 2,
+          "win_rate": 0.5,
+          "profit_factor": 0.8033604878642119,
+          "max_drawdown": 0.019031628849381733,
+          "sharpe_ratio": -1.625688106313376,
+          "trade_count": 18,
+          "total_pnl": -92.4733471884257,
+          "passed": false
+        },
+        {
+          "index": 3,
+          "win_rate": 0.375,
+          "profit_factor": 0.6764704656162125,
+          "max_drawdown": 0.025228737318794096,
+          "sharpe_ratio": -2.738969511160783,
+          "trade_count": 16,
+          "total_pnl": -129.73525024668172,
+          "passed": false
+        },
+        {
+          "index": 4,
+          "win_rate": 0.2,
+          "profit_factor": 0.23849212751058088,
+          "max_drawdown": 0.028807767086233796,
+          "sharpe_ratio": -10.051922802362865,
+          "trade_count": 10,
+          "total_pnl": -266.9225101540561,
+          "passed": false
+        }
+      ],
+      "aggregated": {
+        "mean_win_rate": 0.3911904761904762,
+        "std_win_rate": 0.12308510596598435,
+        "mean_profit_factor": 0.5803389694670809,
+        "std_profit_factor": 0.2169462928371209,
+        "mean_max_drawdown": 0.025659990385058246,
+        "mean_sharpe_ratio": -4.45903465389406,
+        "mean_trade_count": 14.6,
+        "mean_total_pnl": -176.79681127259136,
+        "windows_passed": 0,
+        "total_windows": 5
+      }
+    },
+    "USDJPY": {
+      "pair": "USDJPY",
+      "timeframe": "M15",
+      "go_nogo": false,
+      "windows": [
+        {
+          "index": 0,
+          "win_rate": 0.3333333333333333,
+          "profit_factor": 0.5371958438742646,
+          "max_drawdown": 0.03188371440118238,
+          "sharpe_ratio": -4.419705647853624,
+          "trade_count": 18,
+          "total_pnl": -232.3388165691831,
+          "passed": false
+        },
+        {
+          "index": 1,
+          "win_rate": 0.4230769230769231,
+          "profit_factor": 0.6580655519529942,
+          "max_drawdown": 0.032183579681537684,
+          "sharpe_ratio": -3.1359225105308015,
+          "trade_count": 26,
+          "total_pnl": -251.82100195778898,
+          "passed": false
+        },
+        {
+          "index": 2,
+          "win_rate": 0.08333333333333333,
+          "profit_factor": 0.10748250922844915,
+          "max_drawdown": 0.04301431425523776,
+          "sharpe_ratio": -15.040729744046281,
+          "trade_count": 12,
+          "total_pnl": -386.90078735631715,
+          "passed": false
+        },
+        {
+          "index": 3,
+          "win_rate": 0.6363636363636364,
+          "profit_factor": 1.4983741632548342,
+          "max_drawdown": 0.010737454249878903,
+          "sharpe_ratio": 3.071829551189985,
+          "trade_count": 11,
+          "total_pnl": 107.98245672386058,
+          "passed": true
+        },
+        {
+          "index": 4,
+          "win_rate": 0.35714285714285715,
+          "profit_factor": 0.4589271738563255,
+          "max_drawdown": 0.030985341481869228,
+          "sharpe_ratio": -6.078179706436066,
+          "trade_count": 14,
+          "total_pnl": -265.95763904175067,
+          "passed": false
+        }
+      ],
+      "aggregated": {
+        "mean_win_rate": 0.3666500166500167,
+        "std_win_rate": 0.1983671866404689,
+        "mean_profit_factor": 0.6520090484333736,
+        "std_profit_factor": 0.5155924802960761,
+        "mean_max_drawdown": 0.029760880813941192,
+        "mean_sharpe_ratio": -5.120541611535357,
+        "mean_trade_count": 16.2,
+        "mean_total_pnl": -205.80715764023586,
+        "windows_passed": 1,
+        "total_windows": 5
+      }
+    },
+    "XAUUSD": {
+      "pair": "XAUUSD",
+      "timeframe": "M15",
+      "go_nogo": true,
+      "windows": [
+        {
+          "index": 0,
+          "win_rate": 0.75,
+          "profit_factor": 2.4144783150134956,
+          "max_drawdown": 0.016453956896185767,
+          "sharpe_ratio": 7.069788646045614,
+          "trade_count": 32,
+          "total_pnl": 626.9759999997207,
+          "passed": true
+        },
+        {
+          "index": 1,
+          "win_rate": 0.7058823529411765,
+          "profit_factor": 3.0925304129224163,
+          "max_drawdown": 0.005443601393229538,
+          "sharpe_ratio": 8.488697793641549,
+          "trade_count": 17,
+          "total_pnl": 362.0809999999389,
+          "passed": true
+        },
+        {
+          "index": 2,
+          "win_rate": 0.896551724137931,
+          "profit_factor": 10.15065530856804,
+          "max_drawdown": 0.00540517887710189,
+          "sharpe_ratio": 21.31006270327307,
+          "trade_count": 29,
+          "total_pnl": 1045.1969999997905,
+          "passed": true
+        },
+        {
+          "index": 3,
+          "win_rate": 0.8888888888888888,
+          "profit_factor": 6.438608840035988,
+          "max_drawdown": 0.00539631721583736,
+          "sharpe_ratio": 16.435992912435626,
+          "trade_count": 18,
+          "total_pnl": 602.6739999998429,
+          "passed": true
+        },
+        {
+          "index": 4,
+          "win_rate": 0.875,
+          "profit_factor": 5.633782735031489,
+          "max_drawdown": 0.011496346449607887,
+          "sharpe_ratio": 15.080295464581466,
+          "trade_count": 24,
+          "total_pnl": 770.2319999997906,
+          "passed": true
+        }
+      ],
+      "aggregated": {
+        "mean_win_rate": 0.8232645931935993,
+        "std_win_rate": 0.0887417531485029,
+        "mean_profit_factor": 5.546011122314286,
+        "std_profit_factor": 3.0754368770241682,
+        "mean_max_drawdown": 0.008839080166392487,
+        "mean_sharpe_ratio": 13.676967503995465,
+        "mean_trade_count": 24.0,
+        "mean_total_pnl": 681.4319999998168,
+        "windows_passed": 5,
+        "total_windows": 5
+      }
+    }
+  }
+}
