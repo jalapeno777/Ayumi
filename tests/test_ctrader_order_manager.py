@@ -419,3 +419,75 @@ class TestOrderManagerPendingTimeout:
 
         pending = manager.get_pending_orders()
         assert pending == []
+    def test_paper_fill_long_uses_real_ask_with_slippage(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            bid=1.10500,
+            ask=1.10520,
+        )
+        assert result.success
+        assert result.order.filled_price >= 1.10520
+        assert result.order.filled_price < 1.10520 + 0.0003
+
+    def test_paper_fill_short_uses_real_bid_with_slippage(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.SHORT,
+            volume=0.1,
+            entry_price=1.1100,
+            stop_loss=1.1150,
+            take_profit=1.1000,
+            bid=1.10980,
+            ask=1.11000,
+        )
+        assert result.success
+        assert result.order.filled_price <= 1.10980
+        assert result.order.filled_price > 1.10980 - 0.0003
+
+    def test_paper_fill_without_bid_ask_falls_back_to_signal_price(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+        )
+        assert result.success
+        assert result.order.filled_price >= 1.1000
+
+    def test_paper_fill_zero_bid_ask_falls_back_to_signal_price(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            bid=0.0,
+            ask=0.0,
+        )
+        assert result.success
+        assert result.order.filled_price >= 1.1000
+
+    def test_paper_fill_real_ask_ignores_stale_signal_price(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.0900,
+            stop_loss=1.0850,
+            bid=1.10500,
+            ask=1.10520,
+        )
+        assert result.success
+        assert result.order.filled_price > 1.10500
+        assert result.order.filled_price < 1.10520 + 0.0003
