@@ -4,7 +4,7 @@ import logging
 import signal as sig_module
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
@@ -12,6 +12,7 @@ from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from adapters.ctrader.api_client import cTraderAPIClient
 
+from .health_monitor import HealthMonitor, HealthMonitorConfig
 from .protocol import CanonicalSignal
 from .signal_router import RouteResult
 from .strategy_executor import StrategyExecutor
@@ -37,7 +38,7 @@ _DEFAULT_STALE_TICK_SEC = 300.0
 @dataclass
 class OrchestratorStatus:
     running: bool = False
-    strategies: list[str] = None
+    strategies: list[str] = field(default_factory=list)
     connected: bool = False
     last_tick_at: Optional[datetime] = None
     ticks_received: int = 0
@@ -46,6 +47,8 @@ class OrchestratorStatus:
     signals_rejected: int = 0
     evaluation_errors: int = 0
     uptime_sec: float = 0.0
+    health_healthy: bool = True
+    health_alerts: list[str] = field(default_factory=list)
 
 
 class MultiStrategyOrchestrator:
@@ -56,6 +59,7 @@ class MultiStrategyOrchestrator:
         log_dir: str = "logs/forward_test",
         live_mode: bool = False,
         api_client: Optional[cTraderAPIClient] = None,
+        health_config: Optional[HealthMonitorConfig] = None,
     ):
         self._config_path = config_path
         self._credentials = credentials
@@ -78,21 +82,29 @@ class MultiStrategyOrchestrator:
 
         self._start_time: Optional[datetime] = None
         self._last_tick_at: Optional[datetime] = None
+        self._current_spread = 0.0
+        self._last_eval_at = 0.0
+        self._stats_lock = threading.Lock()
         self._ticks_received = 0
         self._signals_generated = 0
         self._signals_executed = 0
         self._signals_rejected = 0
         self._evaluation_errors = 0
-        self._current_spread = 0.0
-        self._last_eval_at = 0.0
+        self._last_known_position_ids: set[str] = set()
 
         self._health_thread: Optional[threading.Thread] = None
         self._stop_health = threading.Event()
         self._callbacks: list[tuple[str, callable]] = []
 
+        self._health_monitor = HealthMonitor(config=health_config)
+
     @property
     def is_running(self) -> bool:
         return self._running
+
+    @property
+    def health_monitor(self) -> HealthMonitor:
+        return self._health_monitor
 
     def start(self) -> bool:
         if self._running:
@@ -113,6 +125,7 @@ class MultiStrategyOrchestrator:
         self._start_time = datetime.now(timezone.utc)
 
         self._stop_health.clear()
+        self._health_monitor.start()
         self._health_thread = threading.Thread(
             target=self._health_monitor_loop,
             name="orchestrator-health",
@@ -141,6 +154,7 @@ class MultiStrategyOrchestrator:
         self._running = False
         self._shutdown = True
         self._stop_health.set()
+        self._health_monitor.stop()
 
         if self._health_thread:
             self._health_thread.join(timeout=10.0)
@@ -161,22 +175,26 @@ class MultiStrategyOrchestrator:
             )
 
     def get_status(self) -> OrchestratorStatus:
-        return OrchestratorStatus(
-            running=self._running,
-            strategies=[ex.slot_id for ex in self._executors],
-            connected=self._market_feed.is_running if self._market_feed else False,
-            last_tick_at=self._last_tick_at,
-            ticks_received=self._ticks_received,
-            signals_generated=self._signals_generated,
-            signals_executed=self._signals_executed,
-            signals_rejected=self._signals_rejected,
-            evaluation_errors=self._evaluation_errors,
-            uptime_sec=(
-                (datetime.now(timezone.utc) - self._start_time).total_seconds()
-                if self._start_time
-                else 0.0
-            ),
-        )
+        health_snap = self._health_monitor.get_snapshot()
+        with self._stats_lock:
+            return OrchestratorStatus(
+                running=self._running,
+                strategies=[ex.slot_id for ex in self._executors],
+                connected=self._market_feed.is_running if self._market_feed else False,
+                last_tick_at=self._last_tick_at,
+                ticks_received=self._ticks_received,
+                signals_generated=self._signals_generated,
+                signals_executed=self._signals_executed,
+                signals_rejected=self._signals_rejected,
+                evaluation_errors=self._evaluation_errors,
+                uptime_sec=(
+                    (datetime.now(timezone.utc) - self._start_time).total_seconds()
+                    if self._start_time
+                    else 0.0
+                ),
+                health_healthy=health_snap.healthy,
+                health_alerts=[a.message for a in health_snap.alerts],
+            )
 
     def register_callback(self, event: str, callback: callable):
         self._callbacks.append((event, callback))
@@ -256,9 +274,11 @@ class MultiStrategyOrchestrator:
         if not self._running:
             return
 
-        self._ticks_received += 1
+        with self._stats_lock:
+            self._ticks_received += 1
         self._last_tick_at = datetime.now(timezone.utc)
         self._current_spread = tick.spread
+        self._health_monitor.record_tick()
 
         symbol_name = self._resolve_symbol_name(tick)
         if symbol_name is None:
@@ -276,16 +296,21 @@ class MultiStrategyOrchestrator:
             return
         self._last_eval_at = now
 
+        self._detect_closed_positions()
+
         for executor in executors:
             try:
                 signal = executor.try_evaluate()
                 if signal is None:
                     continue
-                self._signals_generated += 1
+                with self._stats_lock:
+                    self._signals_generated += 1
+                self._health_monitor.record_signal()
                 if self._router:
                     result = self._router.route(signal, spread=self._current_spread)
                     if result.action == "executed":
-                        self._signals_executed += 1
+                        with self._stats_lock:
+                            self._signals_executed += 1
                         if result.order and result.position:
                             self._journal.log_open(
                                 strategy_id=signal.strategy_id,
@@ -296,29 +321,50 @@ class MultiStrategyOrchestrator:
                                 position=result.position,
                             )
                     else:
-                        self._signals_rejected += 1
+                        with self._stats_lock:
+                            self._signals_rejected += 1
             except Exception as exc:
-                self._evaluation_errors += 1
+                with self._stats_lock:
+                    self._evaluation_errors += 1
                 logger.error(
                     "Evaluation error [%s]: %s", executor.slot_id, exc, exc_info=True
                 )
 
         self._update_open_positions()
 
+    def _detect_closed_positions(self):
+        if not self._order_manager or not self._portfolio_risk:
+            return
+        current_ids = set()
+        for pos in self._order_manager.get_open_positions():
+            current_ids.add(pos.position_id)
+        closed_ids = self._last_known_position_ids - current_ids
+        if not closed_ids:
+            return
+        self._last_known_position_ids = current_ids
+        for pos_id in closed_ids:
+            pos = self._order_manager.get_position(pos_id)
+            if pos and pos.status.value == "closed":
+                is_win = pos.closed_pnl > 0
+                strategy_id = pos.comment
+                if strategy_id and "[" in strategy_id:
+                    strategy_id = strategy_id.split("]")[0].strip().lstrip("[")
+                self._portfolio_risk.record_trade(
+                    strategy_id or "unknown", pos.closed_pnl, is_win
+                )
+                self._journal.log_close(pos, strategy_id=strategy_id or "")
+                self._health_monitor.record_trade_pnl(pos.closed_pnl)
+
     def _update_open_positions(self):
         if not self._order_manager or not self._portfolio_risk:
             return
         positions = self._order_manager.get_open_positions()
+        self._last_known_position_ids = {pos.position_id for pos in positions}
         total_unrealized = 0.0
         for pos in positions:
             total_unrealized += pos.unrealized_pnl
-        guard_stats = self._portfolio_risk.get_portfolio_state()
-        realized = (
-            guard_stats["current_balance"]
-            - total_unrealized
-            - self._registry.account_balance
-        )
-        new_balance = self._registry.account_balance + realized + total_unrealized
+        realized_pnl = self._portfolio_risk.get_portfolio_state().get("total_pnl", 0.0)
+        new_balance = self._registry.account_balance + realized_pnl + total_unrealized
         self._portfolio_risk.update_balance(new_balance)
 
     def _resolve_symbol_name(self, tick: Tick) -> Optional[str]:
@@ -366,6 +412,7 @@ class MultiStrategyOrchestrator:
                     "Feed disconnected for %.0fs — market may be closed or reconnecting",
                     staleness,
                 )
+        self._health_monitor.check()
 
     def _on_shutdown(self, signum=None, frame=None):
         logger.info("Shutdown signal received (sig=%s)", signum)
