@@ -338,6 +338,24 @@ class RiskGuard:
         logger.critical(
             f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current * 100:.2f}% >= {limit * 100:.2f}%"
         )
+
+        # Activate kill switch based on breach type
+        try:
+            from .kill_switch import KillSwitchManager
+            ks = KillSwitchManager()
+            if limit_type == RiskLimitType.DAILY_LOSS:
+                ks.activate_global_kill(
+                    "ftmo_daily_loss_limit", "risk_guard", close_positions=True
+                )
+            elif limit_type == RiskLimitType.TOTAL_DRAWDOWN:
+                ks.activate_global_kill(
+                    "ftmo_total_drawdown", "risk_guard", close_positions=True
+                )
+        except Exception:
+            logger.error(
+                "Failed to activate kill switch from risk guard", exc_info=True
+            )
+
         for callback in self._callbacks:
             try:
                 callback(limit_type, current, limit)
