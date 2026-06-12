@@ -9,9 +9,11 @@ from quant.walk_forward import (
     AggregatedMetrics,
     WalkForwardResults,
     WalkForwardValidator,
+    WindowMetrics,
     _compute_metrics,
     _mean,
     _std,
+    detect_regime_for_window,
 )
 
 from .engine import BacktestConfig, Bar, get_spread_for_pair
@@ -120,6 +122,24 @@ def run_strategy_walk_forward(
             raise
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
+
+        # Regime detection on training window (BQ-508)
+        regime = detect_regime_for_window(train_bars)
+        window_metrics = WindowMetrics(
+            window_index=window_metrics.window_index,
+            win_rate=window_metrics.win_rate,
+            profit_factor=window_metrics.profit_factor,
+            max_drawdown=window_metrics.max_drawdown,
+            sharpe_ratio=window_metrics.sharpe_ratio,
+            trade_count=window_metrics.trade_count,
+            total_pnl=window_metrics.total_pnl,
+            passed_go_nogo=window_metrics.passed_go_nogo,
+            regime_volatility=regime["regime_volatility"],
+            regime_trend=regime["regime_trend"],
+            regime_session=regime["regime_session"],
+            regime_combined=regime["regime_combined"],
+            regime_quality=regime["regime_quality"],
+        )
         per_window.append(window_metrics)
 
     aggregated = None
@@ -247,6 +267,24 @@ def run_multi_strategy_walk_forward(
             raise
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
+
+        # Regime detection on training window (BQ-508)
+        regime = detect_regime_for_window(train_bars)
+        window_metrics = WindowMetrics(
+            window_index=window_metrics.window_index,
+            win_rate=window_metrics.win_rate,
+            profit_factor=window_metrics.profit_factor,
+            max_drawdown=window_metrics.max_drawdown,
+            sharpe_ratio=window_metrics.sharpe_ratio,
+            trade_count=window_metrics.trade_count,
+            total_pnl=window_metrics.total_pnl,
+            passed_go_nogo=window_metrics.passed_go_nogo,
+            regime_volatility=regime["regime_volatility"],
+            regime_trend=regime["regime_trend"],
+            regime_session=regime["regime_session"],
+            regime_combined=regime["regime_combined"],
+            regime_quality=regime["regime_quality"],
+        )
         per_window.append(window_metrics)
 
     aggregated = None

@@ -45,9 +45,6 @@ from .trade_logger import TradeLogger
 
 logger = logging.getLogger("ayumi.forward_test")
 
-# Lazy import — only needed when live_mode=True
-# from .open_api_live_client import OpenApiLiveClient
-
 _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
@@ -144,6 +141,12 @@ class ForwardTestHealth:
 
 
 class ForwardTestEngine:
+    # INVARIANT: Strategy evaluation only occurs on CLOSED bars.
+    # - self._bars contains finalized bars only
+    # - self._current_bar contains the FORMING bar (excluded from evaluation)
+    # - Evaluation triggers ONLY when _bar_completed flag is set (bar just finalized)
+    # - Never pass self._current_bar into MarketState or strategy evaluation
+
     # Allowed timeframe whitelist
     _ALLOWED_TIMEFRAMES = {15, 60, 240}
 
@@ -199,7 +202,7 @@ class ForwardTestEngine:
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
-        self._live_client = None  # OpenApiLiveClient when live_mode=True
+        self._live_client = None
         self._preload_complete: bool = False  # T2: blocks evaluation until bars loaded
         self._credentials = credentials
 
@@ -244,6 +247,11 @@ class ForwardTestEngine:
         self._eval_timestamps: deque[float] = deque()  # monotonic timestamps of evaluations
         self._eval_errors: deque[float] = deque()  # monotonic timestamps of errors
         self._feed_disconnect_frozen = False  # track if we already froze for feed disconnect
+
+        # S1: Per-strategy diagnostic counters
+        self._strategy_eval_counts: dict[str, int] = {s.name: 0 for s in strategies}
+        self._strategy_no_signal_counts: dict[str, int] = {s.name: 0 for s in strategies}
+        self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -294,34 +302,6 @@ class ForwardTestEngine:
         if not self._start_market_feed():
             logger.error("Failed to start market data feed")
             return False
-
-        # T1: Wire live client symbol map from feed + health check
-        # The new OpenApiTradeClient uses its own independent TCP connection —
-        # NO spot_feed reference is passed (that was the bug source).
-        if self._config.live_mode and self._live_client is not None:
-            # Transfer symbol map from the spot feed to the trade client
-            if isinstance(self._market_feed, OpenApiSpotFeed):
-                self._live_client.set_symbol_map(self._market_feed.name_to_id)
-
-            # Share the kill switch with the trade client
-            self._live_client.set_kill_switch(self._kill_switch)
-
-            # Health check: verify trade client can connect independently
-            if not self._live_client.connect():
-                logger.warning(
-                    "Live mode enabled but trade client cannot connect — "
-                    "falling back to paper-only mode"
-                )
-                self._live_client = None
-                # Don't abort — continue in paper mode
-            else:
-                logger.info("OpenApiTradeClient connected on independent connection — live mode active")
-        elif self._config.live_mode and self._live_client is None:
-            logger.warning(
-                "Live mode enabled but trade client was not built (credential issue?) — "
-                "falling back to paper-only mode"
-            )
-            # Don't abort — continue in paper mode
 
         # T2: Preload bars from API after feed is connected
         self._preload_complete = False
@@ -393,13 +373,6 @@ class ForwardTestEngine:
         # Write final heartbeat with engine_running=false (clean shutdown signal)
         self._write_heartbeat()
 
-        # T1: Disconnect live client if present
-        if self._live_client is not None:
-            try:
-                self._live_client.disconnect()
-            except Exception as exc:
-                logger.warning("Error disconnecting live client: %s", exc)
-
         self._update_health()
         stats = self._paper_trader.get_stats() if self._paper_trader else None
         if stats:
@@ -434,7 +407,7 @@ class ForwardTestEngine:
         return True
 
     def _build_live_credentials(self) -> dict | None:
-        """Build kwargs dict for OpenApiLiveClient from env vars."""
+        """Build kwargs dict for the cTrader Open API spot feed from env vars."""
         import os
         from dotenv import load_dotenv
         from pathlib import Path
@@ -471,33 +444,21 @@ class ForwardTestEngine:
         ftmo = self._ftmo_config or FTMOConfig()
         pos_cfg = self._position_config or PositionSizeConfig()
 
-        # T1: Construct trade client when live_mode is enabled
-        # Uses OpenApiTradeClient with its own independent TCP connection
-        # (replaces the old OpenApiLiveClient that rode the spot feed)
         if cfg.live_mode:
-            from .open_api_trade_client import OpenApiTradeClient
-
-            import os
-            from dotenv import load_dotenv
-            from pathlib import Path
-
-            env_path = Path(__file__).resolve().parents[4] / ".env"
-            if env_path.exists():
-                load_dotenv(env_path, override=True)
-
             live_creds = self._build_live_credentials()
             if live_creds is None:
-                logger.error("Cannot build trade client: missing credentials")
+                logger.error("Cannot build live spot feed: missing credentials")
                 return
 
-            self._live_client = OpenApiTradeClient(**live_creds)
-            logger.info("OpenApiTradeClient constructed for live_mode (independent connection)")
+            self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.set_kill_switch(self._kill_switch)
+            logger.info("OpenApiSpotFeed constructed for live_mode")
 
         self._paper_trader = PaperTrader(
             ftmo_config=ftmo,
             position_config=pos_cfg,
             starting_balance=cfg.starting_balance,
-            api_client=self._live_client,
+            api_client=self._market_feed,
         )
 
         self._live_adapter = cTraderLiveAdapter(
@@ -526,6 +487,11 @@ class ForwardTestEngine:
             risk_guard=self._paper_trader._risk_guard,
             kill_switch=self._kill_switch,
         )
+
+        # Share kill switch with risk guard so circuit breaker uses
+        # the same instance (avoids creating a new KillSwitchManager
+        # that writes to production state from tests)
+        self._paper_trader._risk_guard.set_kill_switch(self._kill_switch)
 
     def _wire_callbacks(self):
         if self._market_feed is None:
@@ -576,55 +542,15 @@ class ForwardTestEngine:
 
     def _start_openapi_feed(self) -> bool:
         """Start the Open API spot feed instead of the FIX feed."""
-        import os
-        from dotenv import load_dotenv
-        from pathlib import Path
-
-        env_path = Path(__file__).resolve().parents[4] / ".env"
-        if env_path.exists():
-            load_dotenv(env_path, override=True)
-
-        client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")
-        client_secret = os.environ.get("CTRADER_OPENAPI_CLIENT_SECRET", "")
-        access_token = os.environ.get("CTRADER_OPENAPI_ACCESS_TOKEN", "")
-        refresh_token = os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")
-
-        if not all([client_id, client_secret, access_token]):
-            logger.error("Missing Open API credentials in env")
-            return False
-
-        # Resolve account ID
-        account_id_str = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID", "")
-        trader_login_str = os.environ.get("CTRADER_OPENAPI_TRADER_LOGIN", "")
-
-        if account_id_str:
-            ctid_account_id = int(account_id_str)
-        elif trader_login_str:
-            ctid_account_id = OpenApiSpotFeed.resolve_account_id(
-                client_id=client_id,
-                client_secret=client_secret,
-                access_token=access_token,
-                trader_login=int(trader_login_str),
-                host=self._config.openapi_host,
-                port=self._config.openapi_port,
-            )
-            if ctid_account_id is None:
-                logger.error("Failed to resolve Open API account ID")
+        if self._market_feed is None:
+            live_creds = self._build_live_credentials()
+            if live_creds is None:
+                logger.error("Missing Open API credentials in env")
                 return False
-        else:
-            logger.error("No CTRADER_OPENAPI_ACCOUNT_ID or CTRADER_OPENAPI_TRADER_LOGIN in env")
-            return False
 
-        self._market_feed = OpenApiSpotFeed(
-            ctid_account_id=ctid_account_id,
-            client_id=client_id,
-            client_secret=client_secret,
-            access_token=access_token,
-            refresh_token=refresh_token or None,
-            host=self._config.openapi_host,
-            port=self._config.openapi_port,
-        )
-        self._wire_callbacks()
+            self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.set_kill_switch(self._kill_switch)
+            self._wire_callbacks()
 
         subscribe_names = []
         for sym in self._config.symbols:
@@ -876,8 +802,24 @@ class ForwardTestEngine:
                     bars = list(self._bars.get(key, []))
                     tf_bars[tf] = bars
 
+            # Defensive: verify no forming bars leaked into evaluation
+            for tf_key in tf_bars:
+                forming = self._current_bar.get(tf_key)
+                if forming is not None and tf_bars[tf_key]:
+                    if forming.time == tf_bars[tf_key][-1].time:
+                        logger.error("Bar-close invariant violated: forming bar leaked into evaluation for %s", tf_key)
+                        tf_bars[tf_key] = tf_bars[tf_key][:-1]  # remove the leaked bar
+
             if not any(tf_bars.values()):
                 return
+
+            # S1: Bar eval triggered — confirm evaluation IS being called
+            logger.info(
+                "[S1] Bar eval triggered: symbol=%s bars_15m=%d bars_60m=%d",
+                symbol,
+                len(tf_bars.get(15, [])),
+                len(tf_bars.get(60, [])),
+            )
 
             # Record evaluation attempt for error-rate monitor
             self._eval_timestamps.append(time.monotonic())
@@ -922,6 +864,21 @@ class ForwardTestEngine:
                         strategy.name, self._health.evaluation_errors, exc, exc_info=True,
                     )
                     continue
+
+                # S1: Per-strategy diagnostic counters
+                self._strategy_eval_counts[strategy.name] += 1
+                if not signals:
+                    self._strategy_no_signal_counts[strategy.name] += 1
+                self._strategy_last_eval[strategy.name] = time.monotonic()
+
+                # S1: INFO-level per-strategy eval log
+                logger.info(
+                    "[S1] Strategy %s: eval #%d, signals=%d, total_no_signal=%d",
+                    strategy.name,
+                    self._strategy_eval_counts[strategy.name],
+                    len(signals),
+                    self._strategy_no_signal_counts[strategy.name],
+                )
 
                 # T5: Check if risk guard blocked any signals (circuit breaker tracking)
                 _post_risk_blocks = (
@@ -1198,6 +1155,17 @@ class ForwardTestEngine:
                                 summary["total_mfe"],
                                 summary["total_mae"],
                             )
+
+                    # S1: Per-strategy diagnostic in B5 Periodic health
+                    for sname in sorted(self._strategy_eval_counts):
+                        last_eval_ago = time.monotonic() - self._strategy_last_eval.get(sname, 0)
+                        logger.info(
+                            "[S1 Health] %s: evals=%d no_signal=%d last=%.0fs ago",
+                            sname,
+                            self._strategy_eval_counts[sname],
+                            self._strategy_no_signal_counts[sname],
+                            last_eval_ago,
+                        )
             except Exception as exc:
                 logger.error("Health monitor error: %s", exc, exc_info=True)
 
@@ -1341,8 +1309,12 @@ class ForwardTestEngine:
         self._bars[key] = bars[-self._config.max_bars_per_symbol :]
         logger.info("Preloaded %d bars into key '%s'", len(self._bars[key]), key)
 
-    def get_bars_for_timeframe(self, symbol: str, period_minutes: int) -> list[Bar]:
-        """Get current bars for a specific symbol+timeframe."""
+    def get_bars_including_forming(self, symbol: str, period_minutes: int) -> list[Bar]:
+        """Get bars for a symbol+timeframe.
+
+        WARNING: Includes the current FORMING bar as the last element if one exists.
+        Do NOT use this for strategy evaluation — use self._bars directly instead.
+        """
         key = self._bar_key(symbol, period_minutes)
         bars = list(self._bars.get(key, []))
         current = self._current_bar.get(key)
@@ -1374,5 +1346,16 @@ class ForwardTestEngine:
                 else 0,
                 "realized_pnl": stats.realized_pnl if stats else 0,
                 "unrealized_pnl": stats.unrealized_pnl if stats else 0,
+            },
+            # S1: Per-strategy diagnostic stats
+            "strategy_stats": {
+                sname: {
+                    "evals": self._strategy_eval_counts.get(sname, 0),
+                    "no_signal": self._strategy_no_signal_counts.get(sname, 0),
+                    "last_eval_ago_sec": round(
+                        time.monotonic() - self._strategy_last_eval.get(sname, 0), 1
+                    ),
+                }
+                for sname in sorted(self._strategy_eval_counts)
             },
         }

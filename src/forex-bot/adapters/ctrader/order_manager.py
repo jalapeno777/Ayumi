@@ -17,7 +17,6 @@ from .models import (
 
 if TYPE_CHECKING:
     from .api_client import cTraderAPIClient
-    from .open_api_live_client import OpenApiLiveClient
 
 
 logger = logging.getLogger(__name__)
@@ -288,7 +287,7 @@ class OrderManager:
         if not getattr(self._api_client, "is_connected", False):
             return OrderExecutionResult(
                 success=False,
-                error_message="FIX connection not established",
+                error_message="cTrader connection not established",
                 rejection_reason="not_connected",
             )
 
@@ -306,7 +305,7 @@ class OrderManager:
         if order is None:
             return OrderExecutionResult(
                 success=False,
-                error_message="Failed to send order via FIX",
+                error_message="Failed to send order via cTrader connection",
                 rejection_reason="send_failed",
             )
 
@@ -348,7 +347,7 @@ class OrderManager:
             error_message="Order sent, awaiting execution report",
         )
 
-    def set_api_client(self, api_client: Optional["cTraderAPIClient | OpenApiLiveClient"]):
+    def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
         self._api_client = api_client
         if self._api_client and not getattr(self._api_client, "is_paper_mode", False):
             if not getattr(self._api_client, "is_connected", False):
@@ -360,10 +359,6 @@ class OrderManager:
 
     def _wire_live_callbacks(self):
         if not self._api_client:
-            return
-
-        if not self._api_client.is_connected:
-            logger.warning("Cannot wire live callbacks: FIX client not connected")
             return
 
         api = self._api_client

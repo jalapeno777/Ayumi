@@ -56,6 +56,7 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 from .market_data_feed import Tick, SymbolInfo, DEFAULT_SYMBOLS
 from .reactor_manager import ReactorManager
 from .connection_state import ConnectionState, ConnectionStateManager
+from .token_manager import TokenManager, TokenStatus
 from .models import (
     Order,
     OrderStatus,
@@ -124,6 +125,12 @@ class OpenApiSpotFeed:
         self._refresh_token = refresh_token if refresh_token is not None else os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")  # needed for proactive token refresh
         self._host = host
         self._port = port
+
+        # TokenManager (BQ-681): lightweight wrapper for token lifecycle
+        self._token_mgr = TokenManager(
+            token_path=Path(__file__).resolve().parents[4] / "data" / "token_state.json",
+            env_path=Path(__file__).resolve().parents[4] / ".env",
+        )
 
         # Reactor lifecycle
         self._reactor_manager = ReactorManager()
@@ -292,18 +299,45 @@ class OpenApiSpotFeed:
 
         # Pre-flight: validate tokens are not placeholders or empty
         _PLACEHOLDER_VALUES = {"***", "new-access", "new-refresh", "", "none", "null", "todo", "changeme"}
+
+        # BQ-681: TokenManager startup validation BEFORE preloader client creation (K-3)
+        startup_status = self._token_mgr.validate_on_startup(self._access_token)
+        if startup_status["status"] in (TokenStatus.PLACEHOLDER, TokenStatus.MISSING):
+            logger.warning(
+                "Token validation: %s — will attempt refresh on connect. %s",
+                startup_status["status"], startup_status["message"],
+            )
+        elif startup_status["status"] == TokenStatus.EXPIRED:
+            logger.critical(
+                "STARTUP ABORTED: Token expired: %s",
+                startup_status["message"],
+            )
+            return False
+        if startup_status["status"] == TokenStatus.CRITICAL:
+            logger.warning(
+                "Token critical: %s — attempting proactive refresh before startup",
+                startup_status["message"],
+            )
+            new_token = self._token_mgr.refresh_if_needed(
+                self._client_id, self._client_secret, self._refresh_token, warning_days=0,
+            )
+            if new_token:
+                self._access_token = new_token
+                logger.info("Startup token refreshed successfully")
+            else:
+                logger.critical("Startup token refresh failed — aborting")
+                return False
+        elif startup_status["status"] == TokenStatus.WARNING:
+            logger.warning("Token warning: %s", startup_status["message"])
+
         if not self._access_token or self._access_token.lower() in _PLACEHOLDER_VALUES:
-            logger.critical(
-                "STARTUP ABORTED: CTRADER_OPENAPI_ACCESS_TOKEN is missing or a placeholder. "
-                "Set a valid token in .env before starting.",
+            logger.warning(
+                "CTRADER_OPENAPI_ACCESS_TOKEN is missing or placeholder — will attempt refresh on connect",
             )
-            return False
         if not self._refresh_token or self._refresh_token.lower() in _PLACEHOLDER_VALUES:
-            logger.critical(
-                "STARTUP ABORTED: CTRADER_OPENAPI_REFRESH_TOKEN is missing or a placeholder. "
-                "Set a valid token in .env before starting.",
+            logger.warning(
+                "CTRADER_OPENAPI_REFRESH_TOKEN is missing or placeholder — will attempt refresh on connect",
             )
-            return False
 
         if getattr(self._callback_executor, "_shutdown", False):
             self._callback_executor = ThreadPoolExecutor(
@@ -765,6 +799,9 @@ class OpenApiSpotFeed:
             self._token_expires_at = time.monotonic() + default_lifetime
             logger.info("No token lifetime from server — defaulting to %ds", default_lifetime)
             self._schedule_proactive_refresh(default_lifetime)
+
+        # BQ-681: Track token in TokenManager after successful auth
+        self._token_mgr.track_token(self._access_token, expires_in or default_lifetime)
 
         logger.info("Account authenticated")
 
@@ -1282,7 +1319,9 @@ class OpenApiSpotFeed:
                 logger.info("Token refresh succeeded — preserving expiry schedule")
 
             # Persist new tokens to .env so they survive restarts (Kaito #3)
-            self._persist_tokens(new_access, new_refresh or self._refresh_token)
+            # BQ-681: Delegate to TokenManager for atomic .env writes + state tracking
+            self._token_mgr.track_token(self._access_token, expires_in or default_lifetime)
+            self._token_mgr._atomic_env_write(self._access_token, self._refresh_token)
 
             logger.info("OAuth token refreshed, re-authenticating")
 
@@ -1379,13 +1418,20 @@ class OpenApiSpotFeed:
         logger.info("Proactive token refresh triggered — refreshing now")
         self._refresh_token_and_reauth(proactive=True)
 
+    # BQ-681: _persist_tokens replaced by TokenManager._atomic_env_write()
+    # The inline method is kept as a thin fallback for backward compatibility
+    # if TokenManager is unavailable, but the feed now delegates to TokenManager.
     def _persist_tokens(self, access_token: str, refresh_token: str):
         """Write updated tokens to .env so they survive process restarts.
 
-        Only writes the CTRADER_OPENAPI_ACCESS_TOKEN and
-        CTRADER_OPENAPI_REFRESH_TOKEN variables, leaving all other
-        .env values intact.
+        DEPRECATED — use TokenManager._atomic_env_write() instead.
+        Kept for backward compatibility.
         """
+        if hasattr(self, "_token_mgr") and self._token_mgr is not None:
+            self._token_mgr._atomic_env_write(access_token, refresh_token)
+            return
+
+        # Fallback inline implementation (non-atomic — should not be reached)
         env_path = Path(__file__).resolve().parents[4] / ".env"
         if not env_path.exists():
             logger.warning("Cannot persist tokens: .env not found at %s", env_path)

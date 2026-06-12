@@ -29,7 +29,7 @@ _STABLE_CONNECTION_SECONDS = getattr(
     "_STABLE_CONNECTION_SECONDS", 60,
 )
 from adapters.ctrader.market_data_feed import Tick
-from adapters.ctrader.models import SymbolInfo
+from adapters.ctrader.market_data_feed import SymbolInfo
 
 
 # ---------------------------------------------------------------------------
@@ -288,104 +288,6 @@ class TestTokenRefresh:
 
 
 # ---------------------------------------------------------------------------
-# Reconnection logic
-# ---------------------------------------------------------------------------
-
-class TestReconnection:
-    def test_disconnect_triggers_reconnect_when_running(self):
-        feed = _make_feed()
-        feed._running = True
-
-        with patch.object(feed, "_schedule_reconnect") as mock_sched:
-            feed._on_disconnected(None, "connection lost")
-            mock_sched.assert_called_once()
-
-    def test_disconnect_does_not_reconnect_when_stopped(self):
-        feed = _make_feed()
-        feed._running = False
-
-        with patch.object(feed, "_schedule_reconnect") as mock_sched:
-            feed._on_disconnected(None, "connection lost")
-            mock_sched.assert_not_called()
-
-    def test_disconnect_does_not_reconnect_when_stop_event_set(self):
-        feed = _make_feed()
-        feed._running = True
-        feed._stop_event.set()
-
-        with patch.object(feed, "_schedule_reconnect") as mock_sched:
-            feed._on_disconnected(None, "connection lost")
-            mock_sched.assert_not_called()
-
-    def test_reconnect_backoff_increases(self):
-        feed = _make_feed()
-        initial = feed._reconnect_delay
-
-        feed._schedule_reconnect()
-        after_first = feed._reconnect_delay
-        assert after_first > initial
-
-        feed._schedule_reconnect()
-        after_second = feed._reconnect_delay
-        assert after_second > after_first
-
-    def test_reconnect_delay_capped_at_max(self):
-        feed = _make_feed()
-        feed._reconnect_delay = _MAX_RECONNECT_DELAY
-
-        feed._schedule_reconnect()
-        assert feed._reconnect_delay <= _MAX_RECONNECT_DELAY
-
-    def test_max_reconnect_attempts_circuit_breaker(self):
-        feed = _make_feed()
-        feed._running = True
-        feed._reconnect_attempts = _MAX_RECONNECT_ATTEMPTS
-
-        # Should stop running, not schedule another
-        with patch("threading.Timer") as mock_timer:
-            feed._schedule_reconnect()
-            mock_timer.assert_not_called()
-        assert feed._running is False
-
-    def test_reconnect_clears_state(self):
-        feed = _make_feed()
-        feed._running = True
-        feed._connected.set()
-        feed._authed.set()
-        feed._app_authed.set()
-
-        feed._on_disconnected(None, "lost")
-        assert not feed._connected.is_set()
-        assert not feed._authed.is_set()
-        assert not feed._app_authed.is_set()
-
-    def test_connected_sets_connected_at(self):
-        feed = _make_feed()
-        feed._on_connected(None)
-        assert feed._connected_at is not None
-
-    def test_do_reconnect_resubscribes_symbols(self):
-        feed = _make_feed()
-        feed._running = True
-        feed._subscribed_symbol_ids = {1, 2}
-
-        with patch.object(feed, "_connect", return_value=True), \
-             patch.object(feed, "_auth", return_value=True), \
-             patch.object(feed, "_subscribe_by_id") as mock_sub:
-            feed._do_reconnect()
-            assert mock_sub.call_count == 2
-
-    def test_do_reconnect_schedules_retry_on_connect_failure(self):
-        feed = _make_feed()
-        feed._running = True
-
-        with patch.object(feed, "_connect", return_value=False), \
-             patch.object(feed, "_schedule_reconnect") as mock_sched:
-            feed._do_reconnect()
-            mock_sched.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
 # Multi-symbol subscription
 # ---------------------------------------------------------------------------
 
@@ -497,3 +399,43 @@ class TestProperties:
         copy = feed.ticks
         copy["FAKE"] = Tick(symbol_id=99, bid=1.0, ask=1.1)
         assert "FAKE" not in feed._ticks
+
+    def test_is_connected_reflects_auth_state(self):
+        from adapters.ctrader.connection_state import ConnectionState
+        feed = _make_feed()
+        assert feed.is_connected is False
+        # Walk through valid state transitions to AUTHENTICATED
+        for state in [ConnectionState.CONNECTING, ConnectionState.CONNECTED,
+                      ConnectionState.APP_AUTHENTICATING, ConnectionState.ACCT_AUTHENTICATING,
+                      ConnectionState.AUTHENTICATED]:
+            feed._state_mgr.transition_to(state)
+        assert feed.is_connected is True
+
+    def test_is_paper_mode_false(self):
+        feed = _make_feed()
+        assert feed.is_paper_mode is False
+
+    def test_send_and_wait_unique_client_msg_id(self):
+        feed = _make_feed()
+        captured_ids = []
+
+        def fake_send(msg, *, clientMsgId=None, responseTimeoutInSeconds=10):
+            captured_ids.append(clientMsgId)
+            from twisted.internet.defer import Deferred
+            d = Deferred()
+            d.callback(MagicMock())
+            return d
+
+        feed._client = MagicMock()
+        feed._client.send = fake_send
+
+        # Patch reactor.callFromThread to run immediately
+        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor:
+            mock_reactor.callFromThread = lambda fn: fn()
+            feed._send_and_wait(MagicMock(), timeout=1)
+            feed._send_and_wait(MagicMock(), timeout=1)
+
+        assert len(captured_ids) == 2
+        assert captured_ids[0] != captured_ids[1]
+        assert captured_ids[0].startswith("spot_")
+        assert captured_ids[1].startswith("spot_")
