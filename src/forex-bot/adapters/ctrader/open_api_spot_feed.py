@@ -57,6 +57,7 @@ from .market_data_feed import Tick, SymbolInfo, DEFAULT_SYMBOLS
 from .reactor_manager import ReactorManager
 from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
+from .auth import CTraderAuth
 from .models import (
     Order,
     OrderStatus,
@@ -122,7 +123,7 @@ class OpenApiSpotFeed:
         self._client_id = client_id
         self._client_secret = client_secret
         self._access_token = access_token
-        self._refresh_token = refresh_token if refresh_token is not None else os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")  # needed for proactive token refresh
+        self._refresh_token = refresh_token if refresh_token is not None else ""  # B2: callers should pass via CTraderAuth; no more .env reads here
         self._host = host
         self._port = port
 

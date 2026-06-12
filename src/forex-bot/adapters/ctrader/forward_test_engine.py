@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
+from .auth import CTraderAuth
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
@@ -407,34 +408,24 @@ class ForwardTestEngine:
         return True
 
     def _build_live_credentials(self) -> dict | None:
-        """Build kwargs dict for the cTrader Open API spot feed from env vars."""
-        import os
-        from dotenv import load_dotenv
-        from pathlib import Path
+        """Build kwargs dict for the cTrader Open API spot feed via CTraderAuth."""
+        try:
+            auth = CTraderAuth.create()
+        except Exception as exc:
+            logger.error("Failed to load cTrader credentials via CTraderAuth: %s", exc)
+            return None
 
-        env_path = Path(__file__).resolve().parents[4] / ".env"
-        if env_path.exists():
-            load_dotenv(env_path, override=True)
-
-        client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")
-        client_secret = os.environ.get("CTRADER_OPENAPI_CLIENT_SECRET", "")
-        access_token = os.environ.get("CTRADER_OPENAPI_ACCESS_TOKEN", "")
-        refresh_token = os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")
-        account_id = os.environ.get("CTRADER_OPENAPI_ACCOUNT_ID", "")
-
-        if not all([client_id, client_secret, access_token, account_id]):
-            logger.error(
-                "Missing live client credentials: client_id=%s secret=%s token=%s account=%s",
-                bool(client_id), bool(client_secret), bool(access_token), bool(account_id),
-            )
+        access_token = auth.access_token
+        if not access_token:
+            logger.error("cTrader access token is empty after CTraderAuth.load_credentials()")
             return None
 
         return {
-            "ctid_account_id": int(account_id),
-            "client_id": client_id,
-            "client_secret": client_secret,
+            "ctid_account_id": auth.account_id,
+            "client_id": auth.client_id,
+            "client_secret": auth.client_secret,
             "access_token": access_token,
-            "refresh_token": refresh_token or None,
+            "refresh_token": auth.refresh_token or None,
             "host": self._config.openapi_host,
             "port": self._config.openapi_port,
         }

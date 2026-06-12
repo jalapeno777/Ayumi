@@ -210,8 +210,10 @@ class TestOnTickCallback:
 
 class TestTokenRefresh:
     def test_refresh_token_read_from_env(self):
+        # B2: refresh_token is now passed explicitly by the caller via CTraderAuth,
+        # not read from os.environ inside OpenApiSpotFeed.
         with patch.dict("os.environ", {"CTRADER_OPENAPI_REFRESH_TOKEN": "env-token"}):
-            feed = _make_feed()
+            feed = _make_feed(refresh_token="env-token")
         assert feed._refresh_token == "env-token"
 
     def test_refresh_token_defaults_empty(self):
