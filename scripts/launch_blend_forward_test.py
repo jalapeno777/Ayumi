@@ -141,10 +141,13 @@ def build_symbol_id_lookup(client) -> dict[str, int]:
 
 def fetch_bars(symbol_id: int = GBPUSD_SYMBOL_ID, period: str = "H1", count: int = 100) -> list[dict]:
     """Fetch bars via OpenAPI for any period."""
+    account_id = int(os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "0"))
+    if not account_id:
+        raise RuntimeError("CTRADER_OPENAPI_ACCOUNT_ID is required in .env")
     client = CTraderOpenApiClient(
         client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
         client_secret=os.getenv("CTRADER_OPENAPI_CLIENT_SECRET"),
-        account_id=46877902,
+        account_id=account_id,
         access_token=os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN"),
     )
     client.connect()
@@ -444,7 +447,7 @@ def build_blend_runner() -> BlendForwardTestRunner:
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
-    parser.add_argument("--live", action="store_true", help="Send real orders to cTrader demo account 5795523 (default: paper-only)")
+    parser.add_argument("--live", action="store_true", help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)")
     parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
     args = parser.parse_args()
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
@@ -463,10 +466,13 @@ def main():
     logger.info("Symbols: %s", symbols)
 
     # 1. Fetch historical bars — per symbol, H1 and M15 in a SINGLE OpenAPI connection
+    account_id = int(os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "0"))
+    if not account_id:
+        raise RuntimeError("CTRADER_OPENAPI_ACCOUNT_ID is required in .env")
     client = CTraderOpenApiClient(
         client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
         client_secret=os.getenv("CTRADER_OPENAPI_CLIENT_SECRET"),
-        account_id=46877902,
+        account_id=account_id,
         access_token=os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN"),
     )
     client.connect()
@@ -505,6 +511,14 @@ def main():
         logger.info("Fetched %d M15 bars for %s", len(raw_m15), sym)
 
     client.disconnect()
+
+    # Critical: give the Twisted reactor time to fully process the TCP
+    # disconnect and clean up all protocol state before the spot feed
+    # opens a new connection on the same reactor. Without this sleep,
+    # the old connection's teardown races with the new connection's
+    # setup, causing CH_CLIENT_AUTH_FAILURE on the spot feed.
+    import time as _time
+    _time.sleep(3)
 
     if not any(symbol_bars.values()):
         logger.error("Failed to fetch any bars — aborting")
@@ -626,8 +640,12 @@ def main():
     logger.info("Startup diagnostic: strategy_timeframes=%s", STRATEGY_TIMEFRAMES)
     started = engine.start()
     if not started:
-        logger.error("Engine failed to start — FIX connection likely rejected. Check console output for details.")
-        logger.error("Verify: CTRADER_ACCOUNT, CTRADER_PASSWORD, CTRADER_HOST, CTRADER_READONLY_SSL_PORT in .env")
+        logger.error("Engine failed to start. See logs above for the specific failure reason.")
+        logger.error(
+            "For live mode, verify: CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, "
+            "CTRADER_OPENAPI_ACCESS_TOKEN, CTRADER_OPENAPI_REFRESH_TOKEN, "
+            "CTRADER_OPENAPI_ACCOUNT_ID, CTRADER_OPENAPI_TRADER_LOGIN in .env"
+        )
         blend_runner.stop()
         sys.exit(1)
 
