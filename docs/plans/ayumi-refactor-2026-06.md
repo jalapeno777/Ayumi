@@ -291,6 +291,23 @@ find src/ tests/ -user root | wc -l  # must be 0
 
 ---
 
+## BQ: Test Suite Refactor
+
+**Problem:** Current e2e/integration tests run as monolithic one-shot methods that consume all server memory. Tests for the refactored modules need to be lightweight, modular, and memory-safe.
+
+**Scope:**
+- Replace one-shot e2e test methods with per-module unit + integration tests
+- Each module (`auth`, `connection`, `bar_builder`, `feed`) gets its own test file
+- Mock all external dependencies (TCP, Proto, cTrader API)
+- Memory budget: no single test should exceed 100MB RSS
+- Fixture-based setup instead of full engine bootstraps
+- Kill switch / risk guard tests use DI mocks exclusively (no production state writes)
+- Add memory profiling to CI: `pytest --memray` or similar
+
+**Estimated SP:** 3
+
+---
+
 ## Open Questions
 
 - Should builders run as TacoPants instead of root? (Requires sudo config)
