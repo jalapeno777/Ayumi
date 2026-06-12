@@ -189,10 +189,16 @@ class RiskGuard:
 
         self._update_daily_tracking()
 
-        daily_loss_pct = (
-            self._daily_start_balance - self._current_balance
-        ) / self._daily_start_balance
-        if daily_loss_pct >= self._config.daily_loss_limit_pct:
+        # Only enforce daily loss limit when trades have actually occurred.
+        # Without this guard, an externally-updated balance (e.g. from a
+        # broker snapshot) can falsely trigger the circuit breaker when
+        # no trades have been placed today.
+        daily_loss_pct = 0.0
+        if self._daily_trade_count > 0:
+            daily_loss_pct = (
+                self._daily_start_balance - self._current_balance
+            ) / self._daily_start_balance
+        if self._daily_trade_count > 0 and daily_loss_pct >= self._config.daily_loss_limit_pct:
             self._trigger_circuit_breaker(
                 RiskLimitType.DAILY_LOSS,
                 daily_loss_pct,

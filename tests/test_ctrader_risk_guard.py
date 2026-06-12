@@ -200,6 +200,7 @@ class TestRiskGuard:
         guard._current_day = date.today()
         guard._daily_start_balance = 100000.0
         guard._current_balance = 94000.0
+        guard._daily_trade_count = 1  # A trade occurred → daily loss check is active
 
         result = guard.check_trade_allowed(
             direction=TradeDirection.LONG,
@@ -218,6 +219,7 @@ class TestRiskGuard:
         guard._current_day = date.today()
         guard._daily_start_balance = 100000.0
         guard._current_balance = 94000.0
+        guard._daily_trade_count = 1  # A trade occurred → daily loss check is active
 
         guard.check_trade_allowed(
             direction=TradeDirection.LONG,
@@ -238,6 +240,72 @@ class TestRiskGuard:
         assert "daily_trades" in stats
         assert "current_balance" in stats
         assert "is_blocked" in stats
+
+
+class TestDailyLossNoTradesGuard:
+    """B1 fix: daily loss limit must NOT trigger when no trades occurred today."""
+
+    def test_no_trades_balance_drop_does_not_trigger(self):
+        """Even if balance drops (e.g. broker sync), 0 trades → no daily loss check."""
+        config = FTMOConfig(daily_loss_limit_pct=0.05)
+        guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
+        guard._current_day = date.today()
+        guard._daily_start_balance = 100000.0
+        # Simulate balance sync that shows a 7% drop — but no trades happened
+        guard._current_balance = 93000.0
+        assert guard.daily_trade_count == 0
+
+        result = guard.check_trade_allowed(
+            direction=TradeDirection.LONG,
+            volume=0.01,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        assert result.allowed is True, (
+            f"Daily loss should be skipped with 0 trades, got: {result.message}"
+        )
+        assert not guard.is_blocked
+
+    def test_daily_loss_still_triggers_after_trades(self):
+        """When trades HAVE occurred, daily loss limit must still work."""
+        config = FTMOConfig(daily_loss_limit_pct=0.05)
+        guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
+        guard._current_day = date.today()
+        guard._daily_start_balance = 100000.0
+        # Record one trade with a loss
+        guard.record_trade(pnl=-6000.0, is_win=False, trade_count_increment=1)
+        assert guard.daily_trade_count == 1
+        assert guard._current_balance == 94000.0  # 6% loss > 5% limit
+
+        result = guard.check_trade_allowed(
+            direction=TradeDirection.LONG,
+            volume=0.01,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        assert result.allowed is False
+        assert result.limit_type == RiskLimitType.DAILY_LOSS
+
+    def test_daily_loss_within_limit_with_trades(self):
+        """Trades occurred but loss is within limit — should be allowed."""
+        config = FTMOConfig(daily_loss_limit_pct=0.05)
+        guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
+        guard._current_day = date.today()
+        guard._daily_start_balance = 100000.0
+        # Small loss, within 5% limit
+        guard.record_trade(pnl=-1000.0, is_win=False, trade_count_increment=1)
+
+        result = guard.check_trade_allowed(
+            direction=TradeDirection.LONG,
+            volume=0.01,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        # 1% loss < 5% limit — should pass daily loss check
+        assert result.limit_type != RiskLimitType.DAILY_LOSS
 
 
 class TestRiskLimitResult:

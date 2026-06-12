@@ -9,6 +9,7 @@ secrets/
 *.jks
 credentials.json
 api-keys.*
+data/.credentials
 
 # Python
 __pycache__/
