@@ -29,6 +29,10 @@ from .credentials import (
 )
 from .token_manager import TokenManager
 
+
+class DualSourceError(Exception):
+    """Raised when cTrader credentials exist in both .env and data/.credentials."""
+
 logger = logging.getLogger("ayumi.ctrader_auth")
 
 # ── Project root detection ─────────────────────────────────────────────────
