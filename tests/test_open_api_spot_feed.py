@@ -45,8 +45,7 @@ def _make_feed(**kwargs) -> OpenApiSpotFeed:
         access_token="test-access-token",
     )
     defaults.update(kwargs)
-    with patch("adapters.ctrader.open_api_spot_feed.ReactorManager"):
-        feed = OpenApiSpotFeed(**defaults)
+    feed = OpenApiSpotFeed(**defaults)
     # Replace reactor references with a mock so callFromThread is safe
     feed._reactor_manager = MagicMock()
     return feed
