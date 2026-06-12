@@ -345,7 +345,8 @@ class CredentialManager:
                         continue
                     if "=" in line:
                         key, _, val = line.partition("=")
-                        result[key.strip()] = val.strip()
+                        val = val.split("#")[0].strip()  # strip inline comments
+                        result[key.strip()] = val
         except OSError:
             pass
         return result
