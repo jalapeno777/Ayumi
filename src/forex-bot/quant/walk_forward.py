@@ -23,6 +23,12 @@ class WindowMetrics:
     trade_count: int
     total_pnl: float
     passed_go_nogo: bool
+    # Regime labels
+    regime_volatility: str = "unknown"
+    regime_trend: str = "unknown"
+    regime_session: str = "unknown"
+    regime_combined: str = "unknown"
+    regime_quality: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -394,6 +400,149 @@ def _run_strategy_window(
         trades.append({"pnl": 0.0})
 
     return trades
+
+
+def _compute_atr_series(bars: list[Bar], period: int = 14) -> list[float]:
+    """Compute rolling ATR series from bars."""
+    if len(bars) < 2:
+        return []
+    true_ranges: list[float] = []
+    for i in range(1, len(bars)):
+        tr = max(
+            bars[i].high - bars[i].low,
+            abs(bars[i].high - bars[i - 1].close),
+            abs(bars[i].low - bars[i - 1].close),
+        )
+        true_ranges.append(tr)
+    if not true_ranges:
+        return []
+    # Simple rolling average of TR for ATR
+    atr_series: list[float] = []
+    for i in range(len(true_ranges)):
+        start = max(0, i - period + 1)
+        window = true_ranges[start : i + 1]
+        atr_series.append(sum(window) / len(window))
+    return atr_series
+
+
+def _median(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    if n % 2 == 0:
+        return (s[n // 2 - 1] + s[n // 2]) / 2.0
+    return s[n // 2]
+
+
+def detect_regime_for_window(
+    bars: list[Bar],
+) -> dict[str, Any]:
+    """Detect regime for a walk-forward window. Returns regime label dict.
+
+    Short-window guard: <14 bars returns all defaults.
+    ATR percentile guard: <30 data points uses median instead of percentile.
+    """
+    from quant.regime import (
+        VolatilityRegime,
+        TrendDirection,
+        SessionName,
+        combined_regime,
+        session_regime,
+        trend_regime,
+        volatility_regime,
+        VolatilityThresholds,
+    )
+
+    default = {
+        "regime_volatility": "unknown",
+        "regime_trend": "unknown",
+        "regime_session": "unknown",
+        "regime_combined": "unknown",
+        "regime_quality": 0.0,
+    }
+
+    # Short-window guard (council amendment K-3)
+    if len(bars) < 14:
+        return default
+
+    # Compute ATR series for volatility regime
+    atr_series = _compute_atr_series(bars)
+
+    # ATR percentile guard for small samples (council amendment L-2)
+    if len(atr_series) < 30:
+        # Use median-based classification instead of percentile
+        if atr_series:
+            current_atr = atr_series[-1]
+            med = _median(atr_series)
+            if med > 0:
+                ratio = current_atr / med
+                if ratio < 0.7:
+                    vol_label = "low"
+                elif ratio < 1.3:
+                    vol_label = "normal"
+                elif ratio < 1.8:
+                    vol_label = "high"
+                else:
+                    vol_label = "extreme"
+            else:
+                vol_label = "normal"
+        else:
+            vol_label = "unknown"
+        vol_result = None  # skip combined_regime volatility component
+    else:
+        vol_result = volatility_regime(atr_series)
+        vol_label = vol_result.regime.value
+
+    # Trend regime
+    highs = [b.high for b in bars]
+    lows = [b.low for b in bars]
+    closes = [b.close for b in bars]
+    trend_result = trend_regime(highs, lows, closes)
+
+    # Map trend direction to required labels
+    _trend_map = {
+        TrendDirection.TRENDING: "trending",
+        TrendDirection.RANGING: "ranging",
+        TrendDirection.NEUTRAL: "neutral",
+    }
+    # Determine up/down from MA slope
+    if trend_result.direction == TrendDirection.TRENDING:
+        trend_label = "trending_up" if trend_result.ma_slope > 0 else "trending_down"
+    else:
+        trend_label = _trend_map.get(trend_result.direction, "unknown")
+
+    # Session regime (use last bar's time)
+    last_bar = bars[-1]
+    hour = last_bar.time.hour
+    day_of_week = last_bar.time.weekday()
+    sess_result = session_regime(hour, day_of_week)
+
+    _session_map = {
+        SessionName.ASIA: "asian",
+        SessionName.LONDON: "london",
+        SessionName.NEW_YORK: "new_york",
+        SessionName.CLOSE: "off_hours",
+    }
+    session_label = _session_map.get(sess_result.session, "unknown")
+
+    # Combined regime with confidence
+    if vol_result is not None:
+        combined = combined_regime(vol_result, trend_result, sess_result)
+        quality = combined.confidence
+        combined_label = f"{vol_label}_{trend_label}_{session_label}"
+    else:
+        # Small sample: estimate quality conservatively
+        quality = 0.3
+        combined_label = f"{vol_label}_{trend_label}_{session_label}"
+
+    return {
+        "regime_volatility": vol_label,
+        "regime_trend": trend_label,
+        "regime_session": session_label,
+        "regime_combined": combined_label,
+        "regime_quality": quality,
+    }
 
 
 def go_nogo_criteria(results: WalkForwardResults) -> bool:

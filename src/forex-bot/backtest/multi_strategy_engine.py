@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .engine import (
     BacktestConfig,
@@ -15,6 +15,22 @@ from .engine import (
 )
 from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
+from quant.position_sizing import kelly_criterion
+
+
+@dataclass
+class KellyConfig:
+    """Kelly Criterion overlay for backtest position sizing.
+
+    In combined-strategy mode the blended edge from multiple signals is used
+    to compute a Half-Kelly fraction which acts as a conservative diminisher
+    on the lot size produced by the confidence sizer.  Kelly never increases
+    position size — it only maintains or reduces it.
+    """
+
+    enabled: bool = True
+    min_trades: int = 20       # minimum closed trades before Kelly activates
+    rolling_window: int = 50   # recent trades used for edge estimation
 
 
 @dataclass
@@ -42,6 +58,7 @@ class MultiStrategyBacktestEngine:
         strategies: list[ISignalStrategy],
         multi_config: MultiStrategyConfig | None = None,
         risk_sizer: ConfidencePositionSizer | None = None,
+        kelly_config: KellyConfig | None = None,
     ):
         self.config = config
         self.strategies = strategies
@@ -49,6 +66,7 @@ class MultiStrategyBacktestEngine:
         self.risk_sizer = risk_sizer or ConfidencePositionSizer(
             account_size=config.starting_balance
         )
+        self._kelly_config = kelly_config or KellyConfig()
         self.balance = config.starting_balance
         self.peak_balance = config.starting_balance
         self.max_drawdown = 0.0
@@ -57,6 +75,8 @@ class MultiStrategyBacktestEngine:
         self.max_daily_loss = 0.0
         self.total_spread_cost = 0.0
         self.total_commission_cost = 0.0
+        self._kelly_closed_trades: list[SimulatedTrade] = []
+        self._kelly_skips: int = 0
 
     def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
         results = {}
@@ -240,6 +260,8 @@ class MultiStrategyBacktestEngine:
         self.daily_start_balance = self.config.starting_balance
         self.total_spread_cost = 0.0
         self.total_commission_cost = 0.0
+        self._kelly_closed_trades = []
+        self._kelly_skips = 0
 
     def _update_daily_tracking(self, bar_time):
         day = bar_time.date()
@@ -283,6 +305,8 @@ class MultiStrategyBacktestEngine:
                 equity_curve.append(self.balance)
         for t in to_close:
             open_trades.remove(t)
+            # Track closed trades for Kelly overlay
+            self._kelly_closed_trades.append(t)
 
     def _progressive_sl_update(self, trade: SimulatedTrade, bar: Bar) -> None:
         """Move SL progressively as TP levels are approached/hit.
@@ -433,6 +457,31 @@ class MultiStrategyBacktestEngine:
     def _passes_filters(self, signal: StrategySignal) -> bool:
         return signal.confidence >= self.config.min_confidence
 
+    def _compute_kelly_multiplier(self, closed_trades: list[SimulatedTrade]) -> float:
+        """Compute a Kelly-based position multiplier from recent closed trades.
+
+        Returns a value in [0.0, 1.0] where 1.0 means full confidence size
+        (strong edge) and 0.0 means no edge — skip the trade.
+        """
+        recent = closed_trades[-self._kelly_config.rolling_window:]
+        wins = [t for t in recent if t.outcome == TradeOutcome.WIN]
+        losses = [t for t in recent if t.outcome == TradeOutcome.LOSS]
+
+        n = len(recent)
+        win_rate = len(wins) / n if n > 0 else 0.0
+        avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
+        avg_loss = abs(sum(t.profit_loss for t in losses) / len(losses)) if losses else 0.0
+
+        # Guard: if avg_win == 0, kelly_criterion would divide by zero;
+        # there's no edge anyway, so return 0.0 directly.
+        if avg_win <= 0.0 or win_rate <= 0.0:
+            return 0.0
+        kelly_frac = kelly_criterion(win_rate, avg_win, avg_loss)
+        if kelly_frac <= 0.0:
+            return 0.0
+        # Normalize: kelly_criterion returns [0.0, 0.5].  Map to [0.0, 1.0].
+        return min(kelly_frac / 0.5, 1.0)
+
     def _open_trade(
         self, signal: StrategySignal, bar: Bar, bar_index: int
     ) -> SimulatedTrade | None:
@@ -472,6 +521,17 @@ class MultiStrategyBacktestEngine:
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:
             return None
+
+        # Kelly overlay — diminish lot size based on estimated edge
+        if (
+            self._kelly_config.enabled
+            and len(self._kelly_closed_trades) >= self._kelly_config.min_trades
+        ):
+            kelly_mult = self._compute_kelly_multiplier(self._kelly_closed_trades)
+            if kelly_mult <= 0.0:
+                self._kelly_skips += 1
+                return None  # Kelly says no edge, skip trade
+            lot_size *= kelly_mult
 
         max_lot_size = self.balance * self.config.leverage / effective_entry
         lot_size = min(lot_size, max_lot_size)

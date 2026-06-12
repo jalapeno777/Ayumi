@@ -124,8 +124,8 @@ class TestPerTFEvaluationThreshold:
             key = engine._bar_key("GBPUSD", 15)
             engine._bars.setdefault(key, []).append(bar)
 
-        h1_bars = engine.get_bars_for_timeframe("GBPUSD", 60)
-        m15_bars = engine.get_bars_for_timeframe("GBPUSD", 15)
+        h1_bars = engine.get_bars_including_forming("GBPUSD", 60)
+        m15_bars = engine.get_bars_including_forming("GBPUSD", 15)
         assert len(h1_bars) >= 10
         assert len(m15_bars) < 10
 
@@ -158,7 +158,7 @@ class TestBackwardCompatibility:
         bars = [make_bar(datetime(2026, 4, 28, i, 0, tzinfo=timezone.utc)) for i in range(10)]
         engine.preload_bars("GBPUSD", 60, bars)
 
-        loaded = engine.get_bars_for_timeframe("GBPUSD", 60)
+        loaded = engine.get_bars_including_forming("GBPUSD", 60)
         assert len(loaded) == 10
 
 

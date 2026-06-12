@@ -341,9 +341,13 @@ class RiskGuard:
         )
 
         # Activate kill switch based on breach type
+        # Uses injected kill_switch if available, otherwise creates one.
+        # Tests should inject a mock to avoid writing to production state.
         try:
-            from .kill_switch import KillSwitchManager
-            ks = KillSwitchManager()
+            ks = getattr(self, '_kill_switch', None)
+            if ks is None:
+                from .kill_switch import KillSwitchManager
+                ks = KillSwitchManager()
             if limit_type == RiskLimitType.DAILY_LOSS:
                 ks.activate_global_kill(
                     "ftmo_daily_loss_limit", "risk_guard", close_positions=True
@@ -384,6 +388,10 @@ class RiskGuard:
             self._per_strategy_pnl[strategy_id] = (
                 self._per_strategy_pnl.get(strategy_id, 0.0) + pnl
             )
+
+    def set_kill_switch(self, kill_switch):
+        """Inject a kill switch instance (used by ForwardTestEngine to share state)."""
+        self._kill_switch = kill_switch
 
     def update_balance(self, new_balance: float):
         with self._lock:
