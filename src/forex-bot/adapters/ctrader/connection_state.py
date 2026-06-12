@@ -82,6 +82,8 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
 
     # Reconnecting transitions
     (ConnectionState.RECONNECTING, ConnectionState.CONNECTING): True,
+    (ConnectionState.RECONNECTING, ConnectionState.CONNECTED): True,
+    (ConnectionState.RECONNECTING, ConnectionState.APP_AUTHENTICATING): True,
     (ConnectionState.RECONNECTING, ConnectionState.FAILED): True,
     (ConnectionState.RECONNECTING, ConnectionState.DISCONNECTED): True,
 

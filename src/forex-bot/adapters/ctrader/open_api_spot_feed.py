@@ -14,9 +14,12 @@ Threading model:
 """
 
 import logging
+import os
 import random
 import threading
 import time
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,10 +38,32 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAUnsubscribeSpotsReq,
     ProtoOASymbolByIdReq,
     ProtoOAAccountAuthRes,
+    ProtoOANewOrderReq,
+    ProtoOAClosePositionReq,
+    ProtoOAAmendOrderReq,
+    ProtoOACancelOrderReq,
+    ProtoOAReconcileReq,
+    ProtoOAAmendPositionSLTPReq,
+    ProtoOAExecutionEvent,
+    ProtoOAOrderErrorEvent,
+)
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+    ProtoOAOrderType,
+    ProtoOATradeSide,
+    ProtoOATimeInForce,
+    ProtoOAExecutionType,
 )
 from .market_data_feed import Tick, SymbolInfo, DEFAULT_SYMBOLS
 from .reactor_manager import ReactorManager
 from .connection_state import ConnectionState, ConnectionStateManager
+from .models import (
+    Order,
+    OrderStatus,
+    OrderType,
+    Position,
+    PositionStatus,
+    TradeDirection,
+)
 
 logger = logging.getLogger("ayumi.openapi_spot_feed")
 
@@ -53,7 +78,18 @@ _HEARTBEAT_RECONNECT_SEC = 60.0  # No heartbeat → force reconnect
 # Stale tick thresholds (seconds during market hours)
 _STALE_TICK_WARN_SEC = 60.0      # No tick → log warning
 _STALE_TICK_FREEZE_SEC = 120.0   # No tick → kill switch FREEZE
+_APP_AUTH_RES_PAYLOAD_TYPE = 2101
+_ACCT_AUTH_RES_PAYLOAD_TYPE = 2103
+_ERROR_RES_PAYLOAD_TYPE = 2142
+_EXECUTION_EVENT_PAYLOAD_TYPES = {2126, 2151}
+_ORDER_ERROR_EVENT_PAYLOAD_TYPE = 2132
+_ORDER_TIMEOUT_SEC = 10.0
+_RECONCILE_TIMEOUT_SEC = 10.0
 
+
+def _lots_to_units(lots: float) -> int:
+    """Convert lots to cTrader units (1 standard lot = 100,000 units)."""
+    return int(round(lots * 100_000))
 
 
 def _normalize_symbol_name(name: str) -> str:
@@ -85,7 +121,7 @@ class OpenApiSpotFeed:
         self._client_id = client_id
         self._client_secret = client_secret
         self._access_token = access_token
-        self._refresh_token = refresh_token  # needed for proactive token refresh
+        self._refresh_token = refresh_token if refresh_token is not None else os.environ.get("CTRADER_OPENAPI_REFRESH_TOKEN", "")  # needed for proactive token refresh
         self._host = host
         self._port = port
 
@@ -165,6 +201,20 @@ class OpenApiSpotFeed:
         # Kill switch reference (optional — set externally)
         self._kill_switch: Optional[object] = None
 
+        # Order execution state
+        self._pending_orders: dict[str, tuple[threading.Event, Order]] = {}
+        self._pending_client_msg_ids: dict[str, str] = {}
+        self._disconnected_pending_orders: list[Order] = []
+        self._callbacks: dict[str, list[Callable]] = {
+            "on_order_filled": [],
+            "on_order_rejected": [],
+            "on_order_cancelled": [],
+        }
+        self._callback_executor = ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix="openapi-spot-callback",
+        )
+
         # Market hours check: skip stale detection on weekends
         # Forex market opens ~Sunday 17:00 ET → Friday 17:00 ET
 
@@ -189,6 +239,14 @@ class OpenApiSpotFeed:
     @property
     def is_running(self) -> bool:
         return self._running
+
+    @property
+    def is_connected(self) -> bool:
+        return self._state_mgr.is_authenticated
+
+    @property
+    def is_paper_mode(self) -> bool:
+        return False
 
     @property
     def symbols(self) -> dict[int, SymbolInfo]:
@@ -231,6 +289,27 @@ class OpenApiSpotFeed:
         if self._running:
             logger.warning("OpenApiSpotFeed already running")
             return True
+
+        # Pre-flight: validate tokens are not placeholders or empty
+        _PLACEHOLDER_VALUES = {"***", "new-access", "new-refresh", "", "none", "null", "todo", "changeme"}
+        if not self._access_token or self._access_token.lower() in _PLACEHOLDER_VALUES:
+            logger.critical(
+                "STARTUP ABORTED: CTRADER_OPENAPI_ACCESS_TOKEN is missing or a placeholder. "
+                "Set a valid token in .env before starting.",
+            )
+            return False
+        if not self._refresh_token or self._refresh_token.lower() in _PLACEHOLDER_VALUES:
+            logger.critical(
+                "STARTUP ABORTED: CTRADER_OPENAPI_REFRESH_TOKEN is missing or a placeholder. "
+                "Set a valid token in .env before starting.",
+            )
+            return False
+
+        if getattr(self._callback_executor, "_shutdown", False):
+            self._callback_executor = ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="openapi-spot-callback",
+            )
 
         self._stop_event.clear()
 
@@ -310,6 +389,15 @@ class OpenApiSpotFeed:
                 pass
             self._client = None
 
+        for _, (event, order) in list(self._pending_orders.items()):
+            order.status = OrderStatus.PENDING
+            order.comment = order.comment or "connection_lost_during_order"
+            setattr(order, "reason", "connection_lost_during_order")
+            event.set()
+        self._pending_orders.clear()
+        self._pending_client_msg_ids.clear()
+        self._callback_executor.shutdown(wait=False, cancel_futures=True)
+
         logger.info("OpenApiSpotFeed stopped")
 
 
@@ -324,6 +412,11 @@ class OpenApiSpotFeed:
             return False
         return self._subscribe_by_id(symbol_id)
 
+    def subscribe_spots(self, symbol_ids: list[int]) -> None:
+        """Subscribe to spot events for already-resolved symbol IDs."""
+        for symbol_id in symbol_ids:
+            self._subscribe_by_id(symbol_id)
+
     def unsubscribe(self, symbol_name: str) -> bool:
         """Unsubscribe from spot events."""
         symbol_id = self._resolve_name_to_id(symbol_name)
@@ -335,6 +428,22 @@ class OpenApiSpotFeed:
     def on_tick(self, callback: Callable[[Tick], None]):
         """Register a callback to be invoked on every new tick."""
         self._tick_callbacks.append(callback)
+
+    def register_callback(self, event_name: str, fn: Callable) -> None:
+        """Register an order-event callback."""
+        callbacks = self._callbacks.setdefault(event_name, [])
+        if fn not in callbacks:
+            callbacks.append(fn)
+
+    def _trigger_callback(self, event_name: str, *args) -> None:
+        """Dispatch order callbacks off the reactor thread."""
+        for callback in list(self._callbacks.get(event_name, [])):
+            try:
+                self._callback_executor.submit(callback, *args)
+            except RuntimeError:
+                logger.debug("Callback executor closed; dropping %s", event_name)
+            except Exception as exc:
+                logger.error("Callback dispatch error for %s: %s", event_name, exc)
 
     def get_tick(self, symbol_name: str) -> Optional[Tick]:
         """Get the latest tick for a symbol (by name)."""
@@ -470,7 +579,11 @@ class OpenApiSpotFeed:
         )
         self._client = Client(
             self._host, self._port, TcpProtocol,
-            retryPolicy=backoffPolicy(initialDelay=5.0, maxDelay=120.0),
+            # NOTE: No retryPolicy — we handle reconnection ourselves via
+            # _on_disconnected -> state machine -> _reconnect_restore.
+            # Using backoffPolicy creates a ClientService that conflicts
+            # with other Client instances sharing the same Twisted reactor
+            # (e.g., the pre-fetch bar client in launch_blend_forward_test.py).
         )
 
         self._client.setConnectedCallback(self._on_connected)
@@ -495,7 +608,23 @@ class OpenApiSpotFeed:
             ConnectionState.CONNECTED, reason="tcp_connected",
         )
 
-        # Spawn re-auth thread (handles both initial connect and reconnects)
+        # Spawn re-auth thread (handles RECONNECTS only).
+        #
+        # On the INITIAL connect, start() handles auth via _auth() in the
+        # main thread. If we also spawned _reconnect_restore() here, both
+        # paths would race on the same TCP connection — one would get
+        # ALREADY_LOGGED_IN or time out. The previous "race patch" only
+        # handled the narrow case where _reauth_in_progress happened to
+        # still be set when _auth() ran, which is not the common case
+        # (reconnect_restore typically completes in ~1s, well before
+        # _auth() is invoked from the start() path).
+        #
+        # self._running is set to True by start() AFTER _auth() succeeds,
+        # so it is False for the initial connect and True on every
+        # reconnect. Use that as the gate.
+        if not self._running:
+            logger.debug("Initial connect — _auth() will handle auth, skipping reconnect_restore")
+            return
         if not self._reauth_in_progress.is_set():
             self._reauth_in_progress.set()
             t = threading.Thread(target=self._reconnect_restore, daemon=True)
@@ -513,13 +642,28 @@ class OpenApiSpotFeed:
             ConnectionState.RECONNECTING,
             reason=f"disconnected: {reason}",
         )
+        for _, (event, order) in list(self._pending_orders.items()):
+            order.status = OrderStatus.PENDING
+            order.comment = order.comment or "connection_lost_during_order"
+            setattr(order, "reason", "connection_lost_during_order")
+            event.set()
+            self._disconnected_pending_orders.append(order)
+        self._pending_orders.clear()
+        self._pending_client_msg_ids.clear()
 
-    def _send_and_wait(self, message, timeout: float = 10):
+    def _send_and_wait(
+        self,
+        message,
+        timeout: float = 10,
+        *,
+        prefix: str = "spot",
+        clientMsgId: str | None = None,
+    ):
         """Send a protobuf message and wait for response via Deferred (library pattern)."""
         event = threading.Event()
         result = [None]
 
-        client_msg_id = f"{id(message)}_{time.monotonic()}"
+        client_msg_id = clientMsgId or f"{prefix}_{uuid.uuid4().hex}"
 
         def on_success(proto_res):
             result[0] = proto_res
@@ -529,8 +673,13 @@ class OpenApiSpotFeed:
             logger.error("Send-and-wait failed: %s", failure)
             event.set()
 
+        # Pass the raw protobuf message through. TcpProtocol.send() handles
+        # wrapping in ProtoMessage. Pre-serialization was causing issues where
+        # the wrapped message was subtly different from what cTrader expects.
+        _pre_serialized = message
+
         def do_send():
-            d = self._client.send(message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
+            d = self._client.send(_pre_serialized, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
             d.addCallbacks(on_success, on_error)
 
         reactor.callFromThread(do_send)
@@ -542,6 +691,24 @@ class OpenApiSpotFeed:
 
     def _auth(self) -> bool:
         """Two-step authentication using the library's Deferred pattern."""
+
+        # If the reconnect_restore thread (triggered by _on_connected) is
+        # already performing the initial auth, wait for it to finish instead
+        # of racing a second auth request on the same connection.
+        if self._reauth_in_progress.is_set():
+            # Wait for the full auth (app + account) to complete via reconnect path.
+            if self._authed.wait(timeout=20):
+                logger.info("_auth: reconnect_restore already completed full auth")
+                return True
+            # App auth may have completed but account auth still pending.
+            if self._app_authed.wait(timeout=15):
+                logger.info("_auth: reconnect_restore completed app auth; doing account auth")
+                # Fall through to do account auth only (below) — but we still
+                # need to send a request, so let the normal path handle it.
+            else:
+                logger.error("_auth: timed out waiting for reconnect_restore app auth")
+                return False
+
         # Step 1: Application auth
         self._state_mgr.transition_to(
             ConnectionState.APP_AUTHENTICATING, reason="app_auth_sending",
@@ -553,7 +720,11 @@ class OpenApiSpotFeed:
             ),
             timeout=10,
         )
-        if app_res is None:
+        if app_res is None or not self._is_expected_auth_response(
+            app_res,
+            expected_payload_type=_APP_AUTH_RES_PAYLOAD_TYPE,
+            stage="app",
+        ):
             logger.error("Application auth failed")
             self._handle_auth_failure("initial_app_auth")
             return False
@@ -570,7 +741,11 @@ class OpenApiSpotFeed:
             ),
             timeout=10,
         )
-        if acct_res is None:
+        if acct_res is None or not self._is_expected_auth_response(
+            acct_res,
+            expected_payload_type=_ACCT_AUTH_RES_PAYLOAD_TYPE,
+            stage="account",
+        ):
             logger.error("Account auth failed")
             self._handle_auth_failure("initial_acct_auth")
             return False
@@ -597,9 +772,60 @@ class OpenApiSpotFeed:
             ConnectionState.AUTHENTICATED, reason="initial_auth_complete",
         )
 
+        # Auto-clear stale kill switch on successful fresh auth.
+        # If the kill switch was left in FREEZE from a previous crashed run,
+        # and we just authenticated successfully, clear it — the freeze is stale.
+        if self._kill_switch is not None:
+            try:
+                if self._kill_switch.is_active:
+                    logger.info(
+                        "Kill switch was active — clearing after successful auth (stale from previous run)",
+                    )
+                    self._kill_switch.deactivate(reason="auto_cleared_on_successful_auth")
+            except Exception as exc:
+                logger.warning("Failed to auto-clear kill switch: %s", exc)
+
         # Now set persistent message callback for streaming events
         self._client.setMessageReceivedCallback(self._on_message)
         return True
+
+    def _is_expected_auth_response(
+        self,
+        response,
+        expected_payload_type: int,
+        stage: str,
+    ) -> bool:
+        """Validate that auth requests returned the expected success payload."""
+        payload_type = getattr(response, "payloadType", None)
+        if payload_type == expected_payload_type:
+            return True
+        if payload_type == _ERROR_RES_PAYLOAD_TYPE:
+            try:
+                payload = Protobuf.extract(response)
+                error_code = getattr(payload, "errorCode", "UNKNOWN")
+                description = getattr(payload, "description", "")
+            except Exception as exc:
+                error_code = "UNKNOWN"
+                description = f"failed to parse error payload: {exc}"
+            # ALREADY_LOGGED_IN means a concurrent reconnect_restore thread
+            # already authenticated this client_id on this connection. The
+            # auth is functionally complete — treat as success.
+            if error_code == "ALREADY_LOGGED_IN" and self._app_authed.is_set():
+                logger.info(
+                    "%s auth: %s — concurrent auth already succeeded, accepting",
+                    stage, error_code,
+                )
+                return True
+            logger.error(
+                "%s auth rejected: code=%s desc=%s",
+                stage, error_code, description,
+            )
+            return False
+        logger.error(
+            "%s auth returned unexpected payloadType=%s",
+            stage, payload_type,
+        )
+        return False
 
     def _populate_static_symbols(self):
         """Fallback: populate symbol caches from known static mapping."""
@@ -675,6 +901,16 @@ class OpenApiSpotFeed:
             payload = Protobuf.extract(message)
             self._handle_spot_event(payload)
 
+        # Execution event (payload type differs across cTrader docs/SDK builds)
+        elif msg_type in _EXECUTION_EVENT_PAYLOAD_TYPES:
+            payload = Protobuf.extract(message)
+            self._handle_execution_event(payload)
+
+        # Order-specific error event
+        elif msg_type == _ORDER_ERROR_EVENT_PAYLOAD_TYPE:
+            payload = Protobuf.extract(message)
+            self._handle_order_error_event(payload, message)
+
         # Subscribe spots response
         elif msg_type == 2128:  # ProtoOASubscribeSpotsRes
             pass  # Subscription confirmed
@@ -686,6 +922,8 @@ class OpenApiSpotFeed:
         # Error response
         elif msg_type == 2142:  # ProtoOAErrorRes
             payload = Protobuf.extract(message)
+            if self._handle_pending_order_error(payload, message):
+                return
             self._handle_error(payload)
 
         # Application auth response
@@ -695,6 +933,81 @@ class OpenApiSpotFeed:
 
         else:
             logger.debug("Unhandled message type: %d", msg_type)
+
+    def _handle_execution_event(self, message: ProtoOAExecutionEvent) -> None:
+        order_payload = getattr(message, "order", None)
+        client_order_id = getattr(order_payload, "clientOrderId", "") if order_payload else ""
+        if not client_order_id or client_order_id not in self._pending_orders:
+            return
+
+        event, order = self._pending_orders.pop(client_order_id)
+        self._drop_pending_client_msg_id(client_order_id)
+
+        execution_type = getattr(message, "executionType", None)
+        if execution_type == ProtoOAExecutionType.ORDER_CANCELLED:
+            order.status = OrderStatus.CANCELLED
+            setattr(order, "reason", "order_cancelled")
+            event.set()
+            self._trigger_callback("on_order_cancelled", order, message)
+            return
+
+        if execution_type == ProtoOAExecutionType.ORDER_REJECTED:
+            reason = getattr(message, "errorCode", "") or "order_rejected"
+            order.status = OrderStatus.REJECTED
+            order.comment = reason
+            setattr(order, "reason", reason)
+            event.set()
+            self._trigger_callback("on_order_rejected", order, message, reason)
+            return
+
+        order.status = OrderStatus.FILLED
+        order.filled_at = datetime.utcnow()
+        fill_price = (
+            getattr(order_payload, "executionPrice", None)
+            or getattr(getattr(message, "deal", None), "executionPrice", None)
+            or getattr(getattr(message, "position", None), "price", None)
+            or order.price
+        )
+        order.filled_price = fill_price
+        executed_volume = getattr(order_payload, "executedVolume", 0)
+        if executed_volume:
+            order.volume = executed_volume / 100_000.0
+        setattr(order, "reason", "order_filled")
+        event.set()
+        self._trigger_callback("on_order_filled", order, message)
+
+    def _handle_order_error_event(
+        self,
+        message: ProtoOAOrderErrorEvent,
+        envelope,
+    ) -> None:
+        self._handle_pending_order_error(message, envelope)
+
+    def _handle_pending_order_error(self, message, envelope) -> bool:
+        client_order_id = getattr(message, "clientOrderId", "")
+        client_msg_id = getattr(envelope, "clientMsgId", "")
+        if not client_order_id and client_msg_id:
+            client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
+
+        if not client_order_id or client_order_id not in self._pending_orders:
+            return False
+
+        event, order = self._pending_orders.pop(client_order_id)
+        self._drop_pending_client_msg_id(client_order_id)
+        error_code = getattr(message, "errorCode", "UNKNOWN")
+        description = getattr(message, "description", "")
+        reason = f"{error_code}: {description}".strip(": ")
+        order.status = OrderStatus.REJECTED
+        order.comment = reason
+        setattr(order, "reason", reason)
+        event.set()
+        self._trigger_callback("on_order_rejected", order, message, reason)
+        return True
+
+    def _drop_pending_client_msg_id(self, request_id: str) -> None:
+        for client_msg_id, pending_request_id in list(self._pending_client_msg_ids.items()):
+            if pending_request_id == request_id:
+                self._pending_client_msg_ids.pop(client_msg_id, None)
 
     def _handle_symbol_list(self, message):
         """Process light symbol list response, populate name↔ID caches.
@@ -1194,6 +1507,281 @@ class OpenApiSpotFeed:
         normalized = _normalize_symbol_name(symbol_name)
         return self._name_to_id.get(normalized)
 
+    def resolve_symbol_id(self, name: str) -> int:
+        """Resolve a symbol name to its numeric cTrader ID."""
+        symbol_id = self._resolve_name_to_id(name)
+        if symbol_id is None:
+            raise ValueError(
+                f"Symbol '{name}' not found in symbol map. "
+                f"Known symbols: {sorted(self._name_to_id.keys())}"
+            )
+        return symbol_id
+
+    # --- Order execution ---
+
+    def _refresh_is_active(self) -> bool:
+        if hasattr(self._refresh_in_progress, "is_set"):
+            return self._refresh_in_progress.is_set()
+        return bool(self._refresh_in_progress)
+
+    def _symbol_name_for_id(self, symbol_id: int) -> str:
+        return _normalize_symbol_name(self._id_to_name.get(symbol_id, str(symbol_id)))
+
+    def _order_from_request(
+        self,
+        request_id: str,
+        symbol_id: int,
+        side: ProtoOATradeSide,
+        volume: int,
+        order_type: ProtoOAOrderType,
+        price: float | None,
+        sl: float | None,
+        tp: float | None,
+        comment: str,
+    ) -> Order:
+        return Order(
+            order_id=request_id,
+            symbol=self._symbol_name_for_id(symbol_id),
+            direction=(
+                TradeDirection.LONG
+                if side == ProtoOATradeSide.BUY
+                else TradeDirection.SHORT
+            ),
+            order_type=(
+                OrderType.LIMIT
+                if order_type == ProtoOAOrderType.LIMIT
+                else OrderType.STOP
+                if order_type == ProtoOAOrderType.STOP
+                else OrderType.MARKET
+            ),
+            volume=volume / 100_000.0,
+            price=price,
+            stop_loss=sl,
+            take_profit=tp,
+            status=OrderStatus.PENDING,
+            comment=comment,
+        )
+
+    def _send_order_message(self, message, client_msg_id: str, timeout: float) -> bool:
+        if self._client is None:
+            return False
+        sent = threading.Event()
+        ok = [False]
+
+        def do_send():
+            try:
+                d = self._client.send(
+                    message,
+                    clientMsgId=client_msg_id,
+                    responseTimeoutInSeconds=timeout,
+                )
+                d.addErrback(lambda failure: logger.debug("Order send errback: %s", failure))
+                ok[0] = True
+            except Exception as exc:
+                logger.error("Order send failed: %s", exc)
+            finally:
+                sent.set()
+
+        reactor.callFromThread(do_send)
+        sent.wait(timeout=5)
+        return ok[0]
+
+    def new_order(
+        self,
+        symbol_id: int,
+        side: ProtoOATradeSide,
+        volume: int,
+        *,
+        order_type: ProtoOAOrderType = ProtoOAOrderType.MARKET,
+        price: float | None = None,
+        sl: float | None = None,
+        tp: float | None = None,
+        time_in_force: ProtoOATimeInForce = ProtoOATimeInForce.GOOD_TILL_CANCEL,
+        comment: str = "",
+        timeout: float = _ORDER_TIMEOUT_SEC,
+    ) -> Order:
+        request_id = uuid.uuid4().hex
+        order = self._order_from_request(
+            request_id, symbol_id, side, volume, order_type, price, sl, tp, comment,
+        )
+
+        if self._refresh_is_active():
+            setattr(order, "reason", "refresh_in_progress")
+            threading.Thread(target=self.reconcile, daemon=True).start()
+            return order
+
+        if not self._state_mgr.is_operational:
+            setattr(order, "reason", "not_connected")
+            return order
+
+        req = ProtoOANewOrderReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.symbolId = symbol_id
+        req.orderType = order_type
+        req.tradeSide = side
+        req.volume = volume
+        req.timeInForce = time_in_force
+        req.clientOrderId = request_id
+        if order_type == ProtoOAOrderType.LIMIT and price is not None:
+            req.limitPrice = price
+        elif order_type == ProtoOAOrderType.STOP and price is not None:
+            req.stopPrice = price
+        if sl is not None:
+            req.stopLoss = sl
+        if tp is not None:
+            req.takeProfit = tp
+        if comment:
+            req.comment = comment
+
+        event = threading.Event()
+        client_msg_id = f"order_{uuid.uuid4().hex}"
+        self._pending_orders[request_id] = (event, order)
+        self._pending_client_msg_ids[client_msg_id] = request_id
+
+        if not self._send_order_message(req, client_msg_id, timeout):
+            self._pending_orders.pop(request_id, None)
+            self._drop_pending_client_msg_id(request_id)
+            order.status = OrderStatus.REJECTED
+            order.comment = "send_failed"
+            setattr(order, "reason", "send_failed")
+            return order
+
+        if not event.wait(timeout=timeout):
+            if request_id in self._pending_orders:
+                self._pending_orders.pop(request_id, None)
+                self._drop_pending_client_msg_id(request_id)
+                order.status = OrderStatus.PENDING
+                order.comment = order.comment or "timeout_awaiting_event"
+                setattr(order, "reason", "timeout_awaiting_event")
+        return order
+
+    def cancel_order(self, order_id: int, *, timeout: float = _ORDER_TIMEOUT_SEC) -> bool:
+        req = ProtoOACancelOrderReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.orderId = order_id
+        return self._send_and_wait(req, timeout=timeout, prefix="order") is not None
+
+    def amend_order(
+        self,
+        order_id: int,
+        *,
+        price: float | None = None,
+        sl: float | None = None,
+        tp: float | None = None,
+        timeout: float = _ORDER_TIMEOUT_SEC,
+    ) -> bool:
+        req = ProtoOAAmendOrderReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.orderId = order_id
+        if price is not None:
+            req.limitPrice = price
+        if sl is not None:
+            req.stopLoss = sl
+        if tp is not None:
+            req.takeProfit = tp
+        return self._send_and_wait(req, timeout=timeout, prefix="order") is not None
+
+    def amend_sl_tp(
+        self,
+        position_id: int,
+        sl: float,
+        tp: float,
+        *,
+        timeout: float = _ORDER_TIMEOUT_SEC,
+    ) -> bool:
+        req = ProtoOAAmendPositionSLTPReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.positionId = position_id
+        req.stopLoss = sl
+        req.takeProfit = tp
+        return self._send_and_wait(req, timeout=timeout, prefix="order") is not None
+
+    def close_position(
+        self,
+        position_id: int,
+        volume: int,
+        *,
+        timeout: float = _ORDER_TIMEOUT_SEC,
+    ) -> bool:
+        req = ProtoOAClosePositionReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        req.positionId = position_id
+        req.volume = volume
+        return self._send_and_wait(req, timeout=timeout, prefix="order") is not None
+
+    def reconcile(self, timeout: float = _RECONCILE_TIMEOUT_SEC) -> list[Position]:
+        if not self._state_mgr.is_operational:
+            return []
+
+        req = ProtoOAReconcileReq()
+        req.ctidTraderAccountId = self._ctid_account_id
+        res = self._send_and_wait(req, timeout=timeout, prefix="qry")
+        if res is None:
+            return []
+
+        payload = Protobuf.extract(res) if hasattr(res, "payloadType") else res
+        positions: list[Position] = []
+        for raw_position in getattr(payload, "position", []):
+            try:
+                trade_data = getattr(raw_position, "tradeData", None)
+                symbol_id = getattr(trade_data, "symbolId", 0)
+                trade_side = getattr(trade_data, "tradeSide", 0)
+                volume = getattr(trade_data, "volume", 0) / 100_000.0
+                price = getattr(raw_position, "price", 0.0)
+                positions.append(
+                    Position(
+                        position_id=str(getattr(raw_position, "positionId", "")),
+                        symbol=self._symbol_name_for_id(symbol_id),
+                        direction=(
+                            TradeDirection.LONG
+                            if trade_side == ProtoOATradeSide.BUY
+                            else TradeDirection.SHORT
+                        ),
+                        volume=volume,
+                        entry_price=price,
+                        current_price=price,
+                        stop_loss=getattr(raw_position, "stopLoss", None) or None,
+                        take_profit=getattr(raw_position, "takeProfit", None) or None,
+                        status=PositionStatus.OPEN,
+                    )
+                )
+            except Exception as exc:
+                logger.warning("Reconcile parse error: %s", exc)
+        return positions
+
+    def send_order(
+        self,
+        symbol: str,
+        direction: TradeDirection,
+        order_type: OrderType,
+        volume: float,
+        price: float | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        comment: str = "",
+    ) -> Order:
+        symbol_id = self.resolve_symbol_id(symbol)
+        trade_side = (
+            ProtoOATradeSide.BUY
+            if direction == TradeDirection.LONG
+            else ProtoOATradeSide.SELL
+        )
+        proto_order_type = {
+            OrderType.MARKET: ProtoOAOrderType.MARKET,
+            OrderType.LIMIT: ProtoOAOrderType.LIMIT,
+            OrderType.STOP: ProtoOAOrderType.STOP,
+        }.get(order_type, ProtoOAOrderType.MARKET)
+        return self.new_order(
+            symbol_id=symbol_id,
+            side=trade_side,
+            volume=_lots_to_units(volume),
+            order_type=proto_order_type,
+            price=price,
+            sl=stop_loss,
+            tp=take_profit,
+            comment=comment,
+        )
+
     # --- Internal: Reconnection ---
 
     def _reconnect_restore(self):
@@ -1222,7 +1810,11 @@ class OpenApiSpotFeed:
                 ),
                 timeout=10,
             )
-            if app_res is None:
+            if app_res is None or not self._is_expected_auth_response(
+                app_res,
+                expected_payload_type=_APP_AUTH_RES_PAYLOAD_TYPE,
+                stage="reconnect_app",
+            ):
                 logger.error("Reconnect restore: application auth failed")
                 self._handle_auth_failure("reconnect_app_auth")
                 return
@@ -1245,7 +1837,11 @@ class OpenApiSpotFeed:
                 ),
                 timeout=10,
             )
-            if acct_res is None:
+            if acct_res is None or not self._is_expected_auth_response(
+                acct_res,
+                expected_payload_type=_ACCT_AUTH_RES_PAYLOAD_TYPE,
+                stage="reconnect_account",
+            ):
                 logger.error("Reconnect restore: account auth failed")
                 self._handle_auth_failure("reconnect_acct_auth")
                 return
@@ -1278,6 +1874,9 @@ class OpenApiSpotFeed:
                 reason="reconnect_auth_complete",
             )
 
+            positions = self.reconcile()
+            self._resolve_disconnected_pending_orders(positions)
+
             # Fire reconciliation callbacks
             self._fire_reconnect_reconciliation()
 
@@ -1287,6 +1886,35 @@ class OpenApiSpotFeed:
             logger.error("Reconnect restore failed: %s", exc, exc_info=True)
         finally:
             self._reauth_in_progress.clear()
+
+    def _resolve_disconnected_pending_orders(self, positions: list[Position]) -> None:
+        if not self._disconnected_pending_orders:
+            return
+
+        unresolved: list[Order] = []
+        available_positions = list(positions)
+        for order in self._disconnected_pending_orders:
+            match = next(
+                (
+                    position
+                    for position in available_positions
+                    if position.symbol == order.symbol
+                    and position.direction == order.direction
+                    and abs(position.volume - order.volume) < 0.000001
+                ),
+                None,
+            )
+            if match is None:
+                unresolved.append(order)
+                continue
+            available_positions.remove(match)
+            order.status = OrderStatus.FILLED
+            order.filled_at = datetime.utcnow()
+            order.filled_price = match.entry_price
+            setattr(order, "reason", "resolved_by_reconcile")
+            self._trigger_callback("on_order_filled", order, match)
+
+        self._disconnected_pending_orders = unresolved
 
     # ── Phase 1B: Health Monitoring & Self-Healing ────────────────────────────
 
@@ -1465,4 +2093,3 @@ class OpenApiSpotFeed:
 
         # Reset disconnect tracker
         self._disconnect_at = None
-
