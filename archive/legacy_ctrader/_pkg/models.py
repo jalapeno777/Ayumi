@@ -1,0 +1,177 @@
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+
+
+class TradeDirection(Enum):
+    LONG = "long"
+    SHORT = "short"
+    NEUTRAL = "neutral"
+
+
+class OrderType(Enum):
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP = "stop"
+
+
+class OrderStatus(Enum):
+    PENDING = "pending"
+    FILLED = "filled"
+    CANCELLED = "cancelled"
+    REJECTED = "rejected"
+
+
+class PositionStatus(Enum):
+    ENTRY_PENDING = "entry_pending"   # Order sent, not yet filled
+    OPEN = "open"                     # Position is open
+    TP_HIT = "tp_hit"                # Closed by take profit
+    SL_HIT = "sl_hit"                # Closed by stop loss
+    TIMEOUT_CLOSE = "timeout_close"  # Closed by time limit
+    MANUAL_CLOSE = "manual_close"    # Closed manually
+    CLOSED = "closed"                # Generic closed (backward compat)
+
+    @property
+    def is_closed(self) -> bool:
+        """True for any terminal (closed) status."""
+        return self in (
+            PositionStatus.TP_HIT,
+            PositionStatus.SL_HIT,
+            PositionStatus.TIMEOUT_CLOSE,
+            PositionStatus.MANUAL_CLOSE,
+            PositionStatus.CLOSED,
+        )
+
+
+@dataclass
+class Order:
+    order_id: str
+    symbol: str
+    direction: TradeDirection
+    order_type: OrderType
+    volume: float
+    price: float | None = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    status: OrderStatus = OrderStatus.PENDING
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    filled_at: datetime | None = None
+    filled_price: float | None = None
+    comment: str = ""
+
+
+@dataclass
+class Position:
+    position_id: str
+    symbol: str
+    direction: TradeDirection
+    volume: float
+    entry_price: float
+    current_price: float
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    unrealized_pnl: float = 0.0
+    status: PositionStatus = PositionStatus.OPEN
+    opened_at: datetime = field(default_factory=datetime.utcnow)
+    closed_at: datetime | None = None
+    closed_price: float | None = None
+    closed_pnl: float = 0.0
+    comment: str = ""
+    # ── Phase 1D: Position monitoring fields ──────────────────────────────
+    max_favorable_excursion: float = 0.0   # MFE — best unrealized PnL reached
+    max_adverse_excursion: float = 0.0     # MAE — worst unrealized PnL reached
+    time_in_trade_sec: float = 0.0          # Seconds since position opened
+    high_water_mark: float = 0.0            # Best price seen (for long: highest, for short: lowest)
+    low_water_mark: float = 0.0             # Worst price seen (for long: lowest, for short: highest)
+
+
+@dataclass
+class TradeSignal:
+    symbol: str
+    direction: TradeDirection
+    entry_price: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    take_profit_3: float
+    volume: float
+    confidence: float
+    rationale: str
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    strategy_id: str = ""
+
+
+@dataclass
+class cTraderCredentials:
+    host: str
+    port: int
+    use_ssl: bool = True
+    sender_comp_id: str = ""
+    target_comp_id: str = "cServer"
+    sender_sub_id: str = "TRADE"
+    target_sub_id: str = "TRADE"
+    username: str = ""  # Account number for FIX logon (tag 553)
+    password: str = ""
+
+
+@dataclass
+class AccountInfo:
+    account_id: str
+    balance: float
+    equity: float
+    margin_used: float
+    margin_available: float
+    unrealized_pnl: float = 0.0
+    daily_pnl: float = 0.0
+    is_demo: bool = True
+
+
+@dataclass
+class MarketDataSnapshot:
+    symbol: str
+    bid: float
+    ask: float
+    last: float
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+
+    @property
+    def spread(self) -> float:
+        return self.ask - self.bid
+
+    @property
+    def mid(self) -> float:
+        return (self.bid + self.ask) / 2
+
+
+@dataclass(frozen=True)
+class SymbolInfo:
+    """Metadata for a trading symbol used by OrderManager and RiskGuard."""
+    pip_size: float              # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
+    pip_value_per_lot: float     # USD value of 1 pip per standard lot
+    lot_size: int = 100_000      # contract size per lot
+    contract_size: float = 100_000.0  # same as lot_size but as float for some calcs
+
+
+# Canonical symbol metadata — replace hardcoded pip heuristics throughout the codebase.
+SYMBOL_METADATA: dict[str, SymbolInfo] = {
+    "EURUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "GBPUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "USDJPY": SymbolInfo(pip_size=0.01, pip_value_per_lot=6.5),
+    "XAUUSD": SymbolInfo(pip_size=0.01, pip_value_per_lot=1.0, lot_size=100, contract_size=100.0),
+}
+
+# Default for unknown FX pairs
+_DEFAULT_SYMBOL_INFO = SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0)
+
+
+def get_symbol_info(symbol: str) -> SymbolInfo:
+    """Look up symbol metadata with fallback and warning for unknown symbols."""
+    import logging
+    info = SYMBOL_METADATA.get(symbol.upper())
+    if info is not None:
+        return info
+    logging.getLogger(__name__).warning(
+        "Unknown symbol '%s' — falling back to FX defaults (pip_size=0.0001, pip_value=10.0/lot)",
+        symbol,
+    )
+    return _DEFAULT_SYMBOL_INFO

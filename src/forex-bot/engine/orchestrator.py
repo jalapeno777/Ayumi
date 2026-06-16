@@ -12,7 +12,7 @@ from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from adapters.ctrader.api_client import cTraderAPIClient
 
-from .health_monitor import HealthMonitor, HealthMonitorConfig
+from .anomaly_monitor import HealthMonitor, HealthMonitorConfig
 from .protocol import CanonicalSignal
 from .signal_router import RouteResult
 from .strategy_executor import StrategyExecutor
