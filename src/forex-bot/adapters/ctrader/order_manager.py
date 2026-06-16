@@ -338,6 +338,17 @@ class OrderManager:
                 rejection_reason="broker_rejected",
             )
 
+        # Check for timeout — the spot feed sets reason="timeout_awaiting_event"
+        # when the deferred event never fires within the timeout window.
+        if order.status == OrderStatus.PENDING and getattr(order, "reason", "") == "timeout_awaiting_event":
+            logger.warning("[ORDER_MGR] Live order timed out — not counting as success")
+            return OrderExecutionResult(
+                success=False,
+                order=order,
+                error_message="Order timed out awaiting cTrader execution event",
+                rejection_reason="timeout",
+            )
+
         with self._lock:
             self._pending_order_timestamps[order.order_id] = datetime.utcnow()
 

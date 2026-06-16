@@ -719,16 +719,27 @@ class OpenApiSpotFeed:
 
         def do_send():
             d = client.send(req, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
-            d.addErrback(lambda f: logger.debug("Order send errback: %s", f))
+
+            def on_error(failure):
+                logger.warning("Order send deferred error: %s", failure)
+                # The error event handler (_handle_pending_order_error) will
+                # set order status. But set the event so the calling thread
+                # doesn't block until timeout.
+                event.set()
+
+            d.addCallbacks(lambda _: None, on_error)
         reactor.callFromThread(do_send)
 
         if not event.wait(timeout=timeout):
-            if request_id in self._pending_orders:
+            # Don't immediately purge — keep entries for 60s grace period
+            # so late error events can still be matched/logged
+            def _delayed_cleanup():
                 self._pending_orders.pop(request_id, None)
                 self._pending_client_msg_ids.pop(client_msg_id, None)
-                order.status = OrderStatus.PENDING
-                order.comment = "timeout_awaiting_event"
-                setattr(order, "reason", "timeout_awaiting_event")
+            reactor.callFromThread(lambda: reactor.callLater(60.0, _delayed_cleanup))
+            order.status = OrderStatus.PENDING
+            order.comment = "timeout_awaiting_event"
+            setattr(order, "reason", "timeout_awaiting_event")
         return order
 
     def send_order(self, symbol, direction, order_type, volume, price=None,
@@ -808,8 +819,15 @@ class OpenApiSpotFeed:
                      client_order_id, etype, order_payload is not None,
                      list(self._pending_orders.keys()) if self._pending_orders else "[]")
         if not client_order_id or client_order_id not in self._pending_orders:
-            logger.warning("[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s)",
-                           client_order_id, list(self._pending_orders.keys()) if self._pending_orders else "[]")
+            error_code = getattr(message, "errorCode", "UNKNOWN")
+            description = getattr(message, "description", "")
+            logger.warning(
+                "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
+                "errorCode=%r description=%r",
+                client_order_id,
+                list(self._pending_orders.keys()) if self._pending_orders else "[]",
+                error_code, description,
+            )
             return
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
@@ -857,8 +875,13 @@ class OpenApiSpotFeed:
         if not client_order_id and client_msg_id:
             client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
         if not client_order_id or client_order_id not in self._pending_orders:
-            logger.warning("[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r",
-                           client_order_id, client_msg_id)
+            error_code = getattr(message, "errorCode", "UNKNOWN")
+            description = getattr(message, "description", "")
+            logger.warning(
+                "[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r "
+                "errorCode=%r description=%r",
+                client_order_id, client_msg_id, error_code, description,
+            )
             return False
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
