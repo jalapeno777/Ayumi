@@ -713,17 +713,35 @@ def main():
                     stats = engine.get_stats()
                     h = stats.get("health", {})
                     t = stats.get("trading", {})
+                    # Determine live execution status (BQ-1042: prevent false trade claims)
+                    _live_fills = getattr(engine, "_live_fill_count", 0)
+                    _live_balance = getattr(engine, "_live_balance", None)
+                    _paper_trades = t.get("trades_executed", 0)
+                    _paper_balance = t.get("current_balance", 0.0)
+                    _live_mode = getattr(engine, "_live_adapter", None) is not None
+                    _balance_str = (
+                        f"paper=${_paper_balance:.2f}"
+                        + (f" live=${_live_balance:.2f}" if _live_balance is not None else " live=N/A")
+                    ) if _live_mode else f"balance=${_paper_balance:.2f}"
                     logger.info(
-                        "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d trades=%d "
-                        "balance=%.2f uptime=%.0fs",
+                        "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
+                        "paper_trades=%d live_fills=%d %s uptime=%.0fs",
                         h.get("ticks_received", 0),
                         h.get("ticks_per_second", 0.0),
                         engine.health.bars_built,
                         engine.health.signals_generated,
-                        t.get("trades_executed", 0),
-                        t.get("current_balance", 0),
+                        _paper_trades,
+                        _live_fills,
+                        _balance_str,
                         h.get("uptime_sec", 0),
                     )
+                    # Alert if live mode has zero fills despite paper trades
+                    if _live_mode and _paper_trades > 0 and _live_fills == 0:
+                        logger.warning(
+                            "[B5 Health] ⚠️  live_fills=0 but paper_trades=%d — "
+                            "orders may not be reaching cTrader",
+                            _paper_trades,
+                        )
                     # Tick-to-bar pipeline health (Amendment 4)
                     if h.get("ticks_received", 0) > 0 and engine.health.bars_built == 0:
                         logger.warning(
