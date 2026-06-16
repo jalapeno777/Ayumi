@@ -70,3 +70,21 @@ src/reports/
 # Generated data files
 data/forex/historical/*.csv
 data/forex/historical/*.pkl
+
+# Workspace-internal BQ drafts (generated outside the repo)
+build_queue/
+data/forward_test.pid
+data/heartbeat_trading.json
+data/kill_switches/
+data/ops/
+data/token_state.json
+data/risk_state_blend.json
+data/risk_state_*.json
+
+# Forward test logs (per-day)
+logs/forward_test-stderr.log
+logs/forward_test-stdout.log
+logs/forward_test_*.log
+logs/ayumi_*.log
+logs/blend_forward_test.log
+logs/ctp_*.log
