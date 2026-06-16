@@ -478,10 +478,12 @@ def wire_connection_reliability(connection_manager):
     Called after connection manager is constructed, before engine start.
     """
     connection_manager.start_watchdog()
-    try:
-        connection_manager.refresh_oauth_if_needed()
-    except Exception as exc:
-        logger.warning("OAuth refresh failed on startup: %s", exc)
+    # NOTE: refresh_oauth_if_needed() disabled until BQ-978-RECONCILE resolves
+    # the two-token-path conflict. The existing token_manager handles refresh.
+    # try:
+    #     connection_manager.refresh_oauth_if_needed()
+    # except Exception as exc:
+    #     logger.warning("OAuth refresh failed on startup: %s", exc)
 
 
 def main():
