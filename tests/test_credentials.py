@@ -170,15 +170,19 @@ class TestMigration:
         loaded = cred_mgr.load()
         assert loaded["access_token"] == "real_access_token_abc123"
 
-    def test_migrate_empties_env_tokens(self, cred_mgr, sample_env_content):
+    def test_migrate_preserves_env_tokens(self, cred_mgr, sample_env_content):
+        """BQ-1036: Migration must NOT empty .env token values."""
         cred_mgr._env_path.write_text(sample_env_content)
         cred_mgr.migrate_from_env()
 
         env_text = cred_mgr._env_path.read_text()
-        assert "real_access_token_abc123" not in env_text
-        assert "migrated to data/.credentials" in env_text
+        # Tokens should STILL be in .env (backup)
+        assert "real_access_token_abc123" in env_text
         # Other vars should remain intact
         assert "SOME_OTHER_VAR=keep_me" in env_text
+        # Credentials file should have the values
+        loaded = cred_mgr.load()
+        assert loaded["access_token"] == "real_access_token_abc123"
 
     def test_migrate_no_real_credentials_raises(self, cred_mgr):
         env = (

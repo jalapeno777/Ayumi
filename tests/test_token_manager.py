@@ -279,21 +279,21 @@ class TestGetStatus:
         assert isinstance(status["age_seconds"], float)
 
 
-# ─── atomic .env write ──────────────────────────────────────────────────────
+# ─── in-place .env update (BQ-1036) ────────────────────────────────────────
 
 
-class TestAtomicEnvWrite:
-    def test_env_updated_atomically(self, tm: TokenManager, tmp_env_path: Path) -> None:
-        tm._atomic_env_write("updated_access", "updated_refresh")
+class TestUpdateEnvTokens:
+    def test_env_updated_in_place(self, tm: TokenManager, tmp_env_path: Path) -> None:
+        tm._update_env_tokens("updated_access", "updated_refresh")
         lines = tmp_env_path.read_text().splitlines()
         assert any("CTRADER_OPENAPI_ACCESS_TOKEN=updated_access" in line for line in lines)
         assert any("CTRADER_OPENAPI_REFRESH_TOKEN=updated_refresh" in line for line in lines)
 
-    def test_env_created_if_keys_missing(self, tm: TokenManager, tmp_path: Path) -> None:
+    def test_env_appends_if_keys_missing(self, tm: TokenManager, tmp_path: Path) -> None:
         bare_env = tmp_path / "bare.env"
         bare_env.write_text("OTHER_KEY=value\n")
         tm_bare = TokenManager(token_path=str(tmp_path / "token_state.json"), env_path=str(bare_env))
-        tm_bare._atomic_env_write("new_access", "new_refresh")
+        tm_bare._update_env_tokens("new_access", "new_refresh")
         lines = bare_env.read_text().splitlines()
         assert any("CTRADER_OPENAPI_ACCESS_TOKEN=new_access" in line for line in lines)
         assert any("CTRADER_OPENAPI_REFRESH_TOKEN=new_refresh" in line for line in lines)
