@@ -29,11 +29,9 @@ maxVolume = 1,000,000,000
 | 0.10 | 1,000,000 | `0.10 × lotSize / 100` |
 | 1.00 | 10,000,000 | `1.00 × lotSize / 100` |
 
-**Formula:** `raw_volume = lots_in_cents × (lotSize / 100)`
+**Formula:** `raw_volume = lots × lotSize`
 
-Or more simply: `raw_volume = lots × lotSize / 100`
-
-**For this demo account (lotSize=10M):** `0.01 lots = raw_volume 100,000`
+**For this demo account (lotSize=10M):** `0.01 lots = 0.01 × 10,000,000 = 100,000`
 
 ### Why the Old Code Failed
 ```python
