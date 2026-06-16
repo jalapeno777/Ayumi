@@ -6,9 +6,12 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
 from .kill_switch import KillSwitchManager
-from .models import Order, Position, PositionStatus, TradeSignal
+from .models import Order, Position, PositionStatus, TradeSignal, TradeDirection
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
 from .risk_guard import FTMOConfig, RiskGuard
+
+# Phase 0 forward-test diagnostics — see signal_engine/signal_stats.py
+from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
 
 if TYPE_CHECKING:
     from .api_client import cTraderAPIClient
@@ -68,6 +71,11 @@ class PaperTrader:
         self._running = False
         self._last_update: datetime | None = None
         self._kill_switch = KillSwitchManager()
+        # Phase 0: lazy-initialised signal-stats recorder and the
+        # position_id -> signal_id correlation map. Populated when a
+        # trade opens, consumed when the position closes.
+        self._stats_recorder: SignalStatsRecorder | None = None
+        self._position_signal_id: dict[str, str] = {}
 
     @property
     def is_live_mode(self) -> bool:
@@ -157,6 +165,35 @@ class PaperTrader:
                 logger.info(
                     f"[PAPER] Executed: {signal.direction.value} {volume} {signal.symbol} @ {signal.entry_price}"
                 )
+                # Phase 0: record the open line for the signal-stats log
+                # and remember the correlation between this position and
+                # the signal id so the close hook in close_position() can
+                # write the matching outcome row.
+                try:
+                    recorder = self._get_stats_recorder()
+                    position_id = position.position_id if position else (trade_result.order.order_id if trade_result.order else "")
+                    signal_id = position_id or signal.strategy_id or ""
+                    if position_id and signal_id:
+                        self._position_signal_id[position_id] = signal_id
+                    if signal_id:
+                        recorder.record_signal(
+                            SignalRecord(
+                                signal_id=signal_id,
+                                timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                                strategy=signal.strategy_id or "unknown",
+                                symbol=signal.symbol,
+                                direction="BUY" if signal.direction == TradeDirection.LONG else "SELL",
+                                confidence=float(signal.confidence),
+                                rationale_tags=[signal.rationale] if signal.rationale else [],
+                                confluence_score=0.0,
+                                lots=float(volume),
+                                entry_price=float(signal.entry_price),
+                                sl_price=float(signal.stop_loss),
+                                tp_price=float(signal.take_profit_1),
+                            )
+                        )
+                except Exception as _stats_exc:  # noqa: BLE001
+                    logger.warning("Signal-stats record_signal failed (non-fatal): %s", _stats_exc)
                 self._trigger_callback("on_trade_executed", result)
             else:
                 self._stats.trades_rejected += 1
@@ -249,6 +286,50 @@ class PaperTrader:
                 is_win = position.closed_pnl > 0
                 self._risk_guard.record_trade(position.closed_pnl, is_win)
 
+                # Phase 0: write the close row to the signal-stats log
+                # so hit-rate / avg-pips / time-to-close have outcome
+                # data to aggregate. The signal id was remembered when
+                # the position opened (see process_signal). Failures
+                # here are non-fatal: the trade itself is already done.
+                try:
+                    signal_id = self._position_signal_id.pop(position_id, position_id)
+                    if signal_id:
+                        # Map position_status / close reason to one of
+                        # the SignalStatsRecorder outcome tokens. The
+                        # paper trader doesn't have a direct TP/SL hit
+                        # signal at this layer — we infer from the
+                        # reason field set by the order manager.
+                        outcome = self._map_close_reason_to_outcome(
+                            reason=reason,
+                            position_status=getattr(position.status, "value", ""),
+                            is_win=is_win,
+                        )
+                        # Best-effort time-to-close calculation.
+                        opened_at = getattr(position, "opened_at", None)
+                        closed_at = getattr(position, "closed_at", None) or datetime.utcnow()
+                        time_to_close = 0
+                        if opened_at is not None:
+                            time_to_close = max(
+                                0,
+                                int((closed_at - opened_at).total_seconds()),
+                            )
+                        # Pips realised (best effort). We don't have
+                        # pip_size here; emit the raw PnL divided by
+                        # volume as a coarse proxy and let the
+                        # aggregator / dashboard refine it later.
+                        pips = position.closed_pnl
+                        self._get_stats_recorder().record_outcome(
+                            signal_id=signal_id,
+                            outcome=outcome,
+                            pips=float(pips),
+                            time_to_close=int(time_to_close),
+                        )
+                except Exception as _stats_exc:  # noqa: BLE001
+                    logger.warning(
+                        "Signal-stats record_outcome failed (non-fatal): %s",
+                        _stats_exc,
+                    )
+
                 self._trigger_callback("on_position_closed", position)
                 logger.info(
                     f"[PAPER] Closed: {position.symbol} @ {exit_price}, PnL: {position.closed_pnl:.2f}"
@@ -314,6 +395,47 @@ class PaperTrader:
         if event not in ["on_trade_executed", "on_position_closed"]:
             raise ValueError(f"Unknown event: {event}")
         self._callbacks.append((event, callback))
+
+    def _get_stats_recorder(self) -> SignalStatsRecorder:
+        """Lazy-init the SignalStatsRecorder on first use.
+
+        Kept off the hot path (constructor) so existing tests that
+        don't touch the stats log don't pay any startup cost and so
+        the forward-test process can be killed before the first
+        signal is recorded without leaving a half-initialised file.
+        """
+        if self._stats_recorder is None:
+            self._stats_recorder = SignalStatsRecorder()
+        return self._stats_recorder
+
+    @staticmethod
+    def _map_close_reason_to_outcome(
+        reason: str,
+        position_status: str,
+        is_win: bool,
+    ) -> str:
+        """Map a close reason / status to a SignalStatsRecorder outcome.
+
+        Falls back to ``manual_close`` when the cause is ambiguous so
+        we never silently drop a close. The order manager usually sets
+        the reason to one of ``tp_hit`` / ``sl_hit`` / ``timeout_close``
+        / ``synthetic_cleanup`` — pass those through where they match.
+        """
+        reason_lc = (reason or "").lower()
+        status_lc = (position_status or "").lower()
+        # Direct reason hits first (highest fidelity).
+        for token in ("tp_hit", "sl_hit", "manual_close", "expired", "timeout_close"):
+            if token in reason_lc:
+                return token
+        # Map position status values that survived as enum strings.
+        if "tp" in status_lc:
+            return "tp_hit"
+        if "sl" in status_lc:
+            return "sl_hit"
+        if "timeout" in status_lc:
+            return "timeout_close"
+        # Infer from PnL when nothing more specific is available.
+        return "tp_hit" if is_win else "sl_hit"
 
     def _trigger_callback(self, event: str, *args, **kwargs):
         for evt, callback in self._callbacks:

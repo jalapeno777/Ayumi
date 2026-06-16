@@ -44,6 +44,9 @@ from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
 
+# Phase 0 forward-test diagnostics — see signal_engine/signal_stats.py
+from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
+
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAOrderType,
     ProtoOATradeSide,
@@ -830,6 +833,26 @@ class ForwardTestEngine:
             volume_lots,
             volume_raw,
             order.status.value if order.status else "unknown",
+        )
+        # Phase 0 signal-stats hook: record the open line for this signal
+        # so per-strategy / per-symbol diagnostics land in the JSONL log.
+        # Lazy-init so the recorder path is testable in isolation.
+        self._stats_recorder = getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
+        self._stats_recorder.record_signal(
+            SignalRecord(
+                signal_id=order.order_id if order and order.order_id else signal.strategy_id,
+                timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                strategy=signal.strategy_id or "unknown",
+                symbol=signal.symbol,
+                direction="BUY" if signal.direction == TradeDirection.LONG else "SELL",
+                confidence=float(signal.confidence),
+                rationale_tags=[signal.rationale] if signal.rationale else [],
+                confluence_score=0.0,
+                lots=float(volume_lots),
+                entry_price=float(signal.entry_price),
+                sl_price=float(signal.stop_loss),
+                tp_price=float(signal.take_profit_1),
+            )
         )
         return order
 

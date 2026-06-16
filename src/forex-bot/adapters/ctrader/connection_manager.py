@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Optional
 
 from .connection_state import ConnectionState, ConnectionStateManager
-from .error_classifier import ErrorTier
+from .error_classifier import ErrorTier, classify_error
+from .oauth_refresh import OAuthRefreshManager, OAuthToken
+from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction
 
 
 # ── Decision context ──────────────────────────────────────────────────────────
@@ -245,6 +247,13 @@ class ConnectionManager:
                 daemon=True,
             )
             self._metrics_thread.start()
+
+        # Connection reliability wiring (BQ-716)
+        self._watchdog = None  # ConnectionWatchdog — lazy import to avoid circular
+        self._oauth_manager: Optional[OAuthRefreshManager] = None
+        self._reconnect_strategy = ReconnectStrategy()
+        self._auth_token: Optional[str] = None
+        self._reconnect_attempt = 0
 
     def register(
         self,
@@ -496,3 +505,195 @@ class ConnectionManager:
             f"reconnects: {health.trade_execution.reconnect_count_1h})",
         ]
         return "\n".join(lines)
+
+    # ─── Connection reliability (BQ-716) ───────────────────────────────────────
+
+    def start_watchdog(
+        self,
+        *,
+        degraded_threshold: float = 30.0,
+        failed_threshold: float = 90.0,
+        poll_interval: float = 5.0,
+    ) -> None:
+        """Start the heartbeat watchdog for all registered connections.
+
+        Creates a ``ConnectionWatchdog``, registers all current connections,
+        and starts the daemon thread.  Idempotent — calling again while running
+        is a no-op.
+
+        Args:
+            degraded_threshold: Seconds of silence before DEGRADED.
+            failed_threshold: Seconds of silence before FAILED.
+            poll_interval: Watchdog poll interval in seconds.
+        """
+        # Lazy import to avoid circular dependency (watchdog imports ConnectionManager)
+        from .connection_watchdog import ConnectionWatchdog
+
+        if self._watchdog is not None and self._watchdog.is_running:
+            logger.debug("[ConnectionManager] Watchdog already running")
+            return
+
+        self._watchdog = ConnectionWatchdog(
+            self,
+            degraded_threshold=degraded_threshold,
+            failed_threshold=failed_threshold,
+            poll_interval=poll_interval,
+        )
+
+        # Register all existing connections with the watchdog
+        with self._lock:
+            for role, state_mgr in self._connections.items():
+                self._watchdog.register(role, state_mgr)
+
+        self._watchdog.start()
+        logger.info("[ConnectionManager] Watchdog started")
+
+    def stop_watchdog(self) -> None:
+        """Stop the heartbeat watchdog (idempotent)."""
+        if self._watchdog is not None:
+            self._watchdog.stop()
+            logger.info("[ConnectionManager] Watchdog stopped")
+
+    def handle_disconnect(self, role: str | ConnectionRole) -> None:
+        """Handle a connection that has transitioned to FAILED.
+
+        Called by the watchdog when heartbeat silence exceeds the FAILED
+        threshold.  The state transition to FAILED is already handled by the
+        watchdog calling ``state_mgr.transition_to()`` directly; this method
+        provides the hook for additional reconnect / alert logic.
+        """
+        if isinstance(role, str):
+            role = ConnectionRole(role)
+
+        logger.warning(
+            "[ConnectionManager] %s disconnected — evaluating reconnect strategy",
+            role.value,
+        )
+
+    def handle_token_refresh(self, new_token: OAuthToken) -> None:
+        """Update internal auth state after a successful token refresh.
+
+        Args:
+            new_token: The refreshed OAuth token.
+        """
+        self._auth_token = new_token.access_token
+        logger.info(
+            "[ConnectionManager] Auth token updated (access=%s…)",
+            new_token.access_token[:8] if new_token.access_token else "????????",
+        )
+
+    def refresh_oauth_if_needed(
+        self,
+        credentials_path: str | Path | None = None,
+    ) -> None:
+        """Check and refresh the OAuth token if needed.
+
+        Uses :class:`OAuthRefreshManager` to proactively refresh the token
+        before expiry.  On success, updates the internal auth state via
+        :meth:`handle_token_refresh`.
+
+        Args:
+            credentials_path: Override path to credentials JSON file.
+        """
+        oauth_logger = logging.getLogger("ayumi.connection.oauth")
+
+        if credentials_path is None:
+            credentials_path = Path("data/.credentials")
+
+        if (
+            self._oauth_manager is None
+            or str(getattr(self._oauth_manager, "_path", "")) != str(credentials_path)
+        ):
+            try:
+                self._oauth_manager = OAuthRefreshManager(credentials_path)
+            except Exception as exc:
+                oauth_logger.warning("[OAuth] Failed to initialize refresh manager: %s", exc)
+                return
+
+        try:
+            token = self._oauth_manager.refresh_if_needed()
+            self.handle_token_refresh(token)
+            oauth_logger.debug(
+                "[OAuth] Token is current (access=%s…)",
+                token.access_token[:8],
+            )
+        except Exception as exc:
+            oauth_logger.warning("[OAuth] Token refresh failed: %s", exc)
+
+    def decide_reconnect(
+        self,
+        error: Exception,
+        attempt: int | None = None,
+    ) -> ReconnectDecision:
+        """Classify an error and decide reconnection strategy.
+
+        Maps the exception to a cTrader error code, classifies it into a
+        recovery tier, and uses :class:`ReconnectStrategy` to decide whether
+        to retry, skip, or halt.
+
+        Args:
+            error: The exception that caused the connection failure.
+            attempt: Override the attempt counter.  If ``None``, uses and
+                increments the internal counter.
+
+        Returns:
+            :class:`ReconnectDecision` with action and sleep duration.
+        """
+        if attempt is None:
+            self._reconnect_attempt += 1
+            attempt = self._reconnect_attempt
+
+        error_code = self._exception_to_error_code(error)
+        error_msg = str(error) or type(error).__name__
+
+        classified = classify_error(error_code, error_msg)
+        decision = self._reconnect_strategy.decide(classified, attempt=attempt)
+
+        # Record the error tier for metrics
+        self.observe_error(classified.tier)
+
+        return decision
+
+    @staticmethod
+    def _exception_to_error_code(error: Exception) -> str:
+        """Map a Python exception to a cTrader error code string.
+
+        Checks for explicit ``code`` / ``error_code`` attributes first,
+        then falls back to type-name pattern matching.
+        """
+        # Check for explicit code attribute
+        code = getattr(error, "code", None) or getattr(error, "error_code", None)
+        if code:
+            return str(code).upper()
+
+        exc_name = type(error).__name__.upper()
+
+        _DIRECT = {
+            "TIMEOUTERROR": "HEARTBEAT_TIMEOUT",
+            "CONNECTIONERROR": "CONNECTION_LOST",
+            "CONNECTIONRESETERROR": "TCP_RESET",
+            "CONNECTIONREFUSEDERROR": "CONNECTION_LOST",
+            "CONNECTIONABORTEDERROR": "TCP_RESET",
+            "OSERROR": "CONNECTION_LOST",
+        }
+
+        if exc_name in _DIRECT:
+            return _DIRECT[exc_name]
+
+        # Pattern matching on exception name
+        if "AUTH" in exc_name or "TOKEN" in exc_name or "PERMISSION" in exc_name:
+            return "AUTH_EXPIRED"
+        if "TIMEOUT" in exc_name:
+            return "REQUEST_TIMEOUT"
+        if "CONNECTION" in exc_name or "SOCKET" in exc_name:
+            return "CONNECTION_LOST"
+
+        return "UNKNOWN"
+
+    def reset_reconnect_state(self) -> None:
+        """Reset the reconnect attempt counter and jitter state.
+
+        Call after a successful reconnection to reset backoff.
+        """
+        self._reconnect_attempt = 0
+        self._reconnect_strategy.reset()
