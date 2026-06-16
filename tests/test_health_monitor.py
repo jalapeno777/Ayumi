@@ -1,207 +1,166 @@
+"""Tests for the structured health-reporting HealthMonitor."""
+
 from __future__ import annotations
 
-import threading
+import logging
 import time
-from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from engine.health_monitor import (
-    HealthAlert,
-    HealthAlertKind,
-    HealthMonitor,
-    HealthMonitorConfig,
-    HealthSnapshot,
-)
+from engine.health_monitor import HealthMonitor
 
 
-def _make_config(**overrides) -> HealthMonitorConfig:
-    defaults = dict(
-        data_silence_threshold_sec=5.0,
-        zero_signal_tick_threshold=10,
-        zero_pnl_variance_trade_threshold=5,
-        check_interval_sec=0.1,
-        min_uptime_before_alerts_sec=0.0,
-    )
-    defaults.update(overrides)
-    return HealthMonitorConfig(**defaults)
+# --------------------------------------------------------------------- #
+# Test capture handler
+# --------------------------------------------------------------------- #
+
+class _LogCapture:
+    """Minimal logging handler that stores records for assertions."""
+
+    def __init__(self):
+        self.records: list[logging.LogRecord] = []
+
+    def __call__(self, record: logging.LogRecord):
+        self.records.append(record)
 
 
-class TestHealthMonitorDataSilence:
-    def test_healthy_with_recent_ticks(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick()
-        alerts = mon.check()
-        assert alerts == []
-        assert mon.healthy is True
-
-    def test_alerts_on_no_ticks_past_threshold(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick(tick_at=datetime.now(timezone.utc) - timedelta(seconds=10))
-        alerts = mon.check()
-        assert len(alerts) == 1
-        assert alerts[0].kind == HealthAlertKind.DATA_SILENCE
-        assert mon.healthy is False
-
-    def test_no_alert_below_min_uptime(self):
-        mon = HealthMonitor(config=_make_config(min_uptime_before_alerts_sec=120.0))
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        alerts = mon.check()
-        silence_alerts = [a for a in alerts if a.kind == HealthAlertKind.DATA_SILENCE]
-        assert silence_alerts == []
-
-    def test_no_ticks_at_all_past_threshold(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        alerts = mon.check()
-        assert any(a.kind == HealthAlertKind.DATA_SILENCE for a in alerts)
-
-    def test_alert_callback_fired(self):
-        collected = []
-        mon = HealthMonitor(config=_make_config(), on_alert=collected.append)
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick(tick_at=datetime.now(timezone.utc) - timedelta(seconds=10))
-        mon.check()
-        assert len(collected) == 1
-        assert collected[0].kind == HealthAlertKind.DATA_SILENCE
+@pytest.fixture()
+def capture_logger():
+    """Attach a capture handler to the health-monitor logger."""
+    cap = _LogCapture()
+    handler = logging.Handler()
+    handler.emit = cap
+    logger = logging.getLogger("ayumi.forward_test")
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    yield cap
+    logger.removeHandler(handler)
 
 
-class TestHealthMonitorZeroSignals:
-    def test_healthy_when_ticks_below_threshold(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        for _ in range(5):
-            mon.record_tick()
-        alerts = mon.check()
-        signal_alerts = [a for a in alerts if a.kind == HealthAlertKind.ZERO_SIGNALS]
-        assert signal_alerts == []
+# --------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------- #
 
-    def test_alerts_on_zero_signals_after_threshold_ticks(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        for _ in range(10):
-            mon.record_tick()
-        alerts = mon.check()
-        assert any(a.kind == HealthAlertKind.ZERO_SIGNALS for a in alerts)
-
-    def test_no_alert_when_signals_exist(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        for _ in range(10):
-            mon.record_tick()
-        mon.record_signal()
-        alerts = mon.check()
-        signal_alerts = [a for a in alerts if a.kind == HealthAlertKind.ZERO_SIGNALS]
-        assert signal_alerts == []
+def _make_mock(**kwattrs):
+    """Create a MagicMock with the given attribute values."""
+    m = MagicMock()
+    for k, v in kwattrs.items():
+        setattr(m, k, v)
+    return m
 
 
-class TestHealthMonitorZeroPnLVariance:
-    def test_healthy_when_fewer_trades_than_threshold(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        for _ in range(3):
-            mon.record_trade_pnl(0.0)
-        alerts = mon.check()
-        pnl_alerts = [a for a in alerts if a.kind == HealthAlertKind.ZERO_PNL_VARIANCE]
-        assert pnl_alerts == []
-
-    def test_alerts_on_zero_variance(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        for _ in range(5):
-            mon.record_trade_pnl(0.0)
-        alerts = mon.check()
-        assert any(a.kind == HealthAlertKind.ZERO_PNL_VARIANCE for a in alerts)
-        assert mon.healthy is False
-
-    def test_no_alert_with_varying_pnl(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_trade_pnl(10.0)
-        mon.record_trade_pnl(-5.0)
-        mon.record_trade_pnl(20.0)
-        mon.record_trade_pnl(-3.0)
-        mon.record_trade_pnl(7.0)
-        alerts = mon.check()
-        pnl_alerts = [a for a in alerts if a.kind == HealthAlertKind.ZERO_PNL_VARIANCE]
-        assert pnl_alerts == []
+# --------------------------------------------------------------------- #
+# Tests
+# --------------------------------------------------------------------- #
 
 
-class TestHealthMonitorSnapshot:
-    def test_snapshot_reflects_state(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick()
-        mon.record_signal()
-        mon.record_trade_pnl(5.0)
-        snap = mon.get_snapshot()
-        assert snap.ticks_received == 1
-        assert snap.signals_generated == 1
-        assert snap.trades_completed == 1
+class TestHealthMonitorEmit:
+    def test_emit_health_logs_b5_format(self, capture_logger):
+        """_emit_health must produce a [B5 Health] INFO line."""
+        mon = HealthMonitor(interval_seconds=999)
+        mon._start_time = time.monotonic()
+        mon._market_data_feed = _make_mock(
+            ticks_received=100, ticks_per_second=2.5,
+            bars_built=10, signals_generated=5,
+            paper_trades=3, balance=10000.0,
+        )
+        mon._order_gateway = _make_mock(live_fills=2)
 
-    def test_reset_clears_alerts(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick(tick_at=datetime.now(timezone.utc) - timedelta(seconds=10))
-        mon.check()
-        assert mon.healthy is False
-        mon.reset_alerts()
-        assert mon.healthy is True
-        assert mon.get_snapshot().alerts == []
+        mon._emit_health()
 
-
-class TestHealthMonitorThreadSafety:
-    def test_concurrent_recording(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-
-        def record_ticks(n):
-            for _ in range(n):
-                mon.record_tick()
-
-        threads = [
-            threading.Thread(target=record_ticks, args=(100,)) for _ in range(10)
+        b5_lines = [
+            r for r in capture_logger.records
+            if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO
         ]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+        assert len(b5_lines) >= 1
+        msg = b5_lines[0].getMessage()
+        # Verify the expected field names are present
+        assert "ticks=" in msg
+        assert "tps=" in msg
+        assert "bars=" in msg
+        assert "signals=" in msg
+        assert "uptime=" in msg
 
-        snap = mon.get_snapshot()
-        assert snap.ticks_received == 1000
+    def test_emit_health_includes_paper_and_live_counts(self, capture_logger):
+        """paper_trades and live_fills must be separate fields."""
+        mon = HealthMonitor(interval_seconds=999)
+        mon._start_time = time.monotonic()
+        mon._market_data_feed = _make_mock(
+            ticks_received=200, ticks_per_second=1.0,
+            bars_built=20, signals_generated=8,
+            paper_trades=15, balance=5000.0,
+        )
+        mon._order_gateway = _make_mock(live_fills=7)
 
-    def test_start_stop_lifecycle(self):
-        mon = HealthMonitor(config=_make_config(check_interval_sec=0.05))
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick()
+        mon._emit_health()
+
+        b5_info = [
+            r for r in capture_logger.records
+            if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO
+        ][0]
+        msg = b5_info.getMessage()
+        assert "paper_trades=15" in msg
+        assert "live_fills=7" in msg
+
+
+class TestHealthMonitorWarnings:
+    def test_warning_when_session_not_subscribed(self, capture_logger):
+        """If session_state != SUBSCRIBED and uptime > 60s, emit WARNING."""
+        mon = HealthMonitor(interval_seconds=999)
+        # Set start_time far enough back to exceed the 60s grace period
+        mon._start_time = time.monotonic() - 120.0
+        mon._session = _make_mock(state="SessionState.CONNECTING")
+
+        mon._emit_health()
+
+        warnings = [
+            r for r in capture_logger.records
+            if r.levelno == logging.WARNING and "session_state" in r.getMessage()
+        ]
+        assert len(warnings) == 1
+        assert "CONNECTING" in warnings[0].getMessage()
+
+
+class TestHealthMonitorLifecycle:
+    def test_start_stop_idempotent(self):
+        """Calling start()/stop() multiple times must not crash."""
+        mon = HealthMonitor(interval_seconds=999)
+
+        # Double-start — second call is a no-op
         mon.start()
-        time.sleep(0.15)
-        snap = mon.get_snapshot()
-        assert snap.last_check_at is not None
+        mon.start()
+        assert mon._thread is not None
+
+        # Double-stop — second call is a no-op
+        mon.stop()
         mon.stop()
         assert mon._thread is None
 
 
-class TestHealthMonitorFailSafe:
-    def test_check_exception_does_not_propagate(self):
-        mon = HealthMonitor(config=_make_config())
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+class TestHealthMonitorStrategies:
+    def test_per_strategy_health(self, capture_logger):
+        """Attached strategies produce [S1 Health] lines."""
+        mon = HealthMonitor(interval_seconds=999)
+        mon._start_time = time.monotonic()
+        mon._strategies = {
+            "ICT_Killzone": {"evals": 10, "no_signal": 3, "last_eval_monotonic": time.monotonic() - 5.0},
+            "SMC_FVG": {"evals": 8, "no_signal": 1, "last_eval_monotonic": time.monotonic() - 12.0},
+        }
 
-        original = mon._check_data_silence
-        mon._check_data_silence = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+        mon._emit_health()
 
-        alerts = mon.check()
-        assert isinstance(alerts, list)
+        s1_lines = [
+            r for r in capture_logger.records
+            if "[S1 Health]" in r.getMessage()
+        ]
+        assert len(s1_lines) == 2  # one per strategy
 
-    def test_callback_exception_does_not_propagate(self):
-        def bad_callback(alert):
-            raise RuntimeError("callback boom")
-
-        mon = HealthMonitor(config=_make_config(), on_alert=bad_callback)
-        mon._start_time = datetime.now(timezone.utc) - timedelta(seconds=60)
-        mon.record_tick(tick_at=datetime.now(timezone.utc) - timedelta(seconds=10))
-        alerts = mon.check()
-        assert len(alerts) == 1
+        # Verify sorted order (ICT_Killzone before SMC_FVG)
+        first = s1_lines[0].getMessage()
+        second = s1_lines[1].getMessage()
+        assert "ICT_Killzone" in first
+        assert "SMC_FVG" in second
+        assert "evals=10" in first
+        assert "no_signal=3" in first
+        assert "evals=8" in second
