@@ -1,257 +1,206 @@
+"""Health monitor — structured health reporting for the forward test.
+
+Emits [B5 Health] and [S1 Health] log entries on a timer.
+Keeps the same tag convention as the old code (Amendment A6)
+so existing log parsers keep working.
+"""
+
 from __future__ import annotations
 
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Callable, Optional
+from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ayumi.forward_test")
 
-_DEFAULT_DATA_SILENCE_SEC = 30.0
-_DEFAULT_ZERO_SIGNAL_TICKS = 100
-_DEFAULT_ZERO_PNL_VARIANCE_TRADES = 10
-_DEFAULT_CHECK_INTERVAL_SEC = 5.0
-_DEFAULT_MIN_UPTIME_SEC = 60.0
-
-
-class HealthAlertKind(Enum):
-    DATA_SILENCE = "data_silence"
-    ZERO_SIGNALS = "zero_signals"
-    ZERO_PNL_VARIANCE = "zero_pnl_variance"
-
-
-@dataclass
-class HealthAlert:
-    kind: HealthAlertKind
-    message: str
-    detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    context: dict = field(default_factory=dict)
-
-
-@dataclass
-class HealthMonitorConfig:
-    data_silence_threshold_sec: float = _DEFAULT_DATA_SILENCE_SEC
-    zero_signal_tick_threshold: int = _DEFAULT_ZERO_SIGNAL_TICKS
-    zero_pnl_variance_trade_threshold: int = _DEFAULT_ZERO_PNL_VARIANCE_TRADES
-    check_interval_sec: float = _DEFAULT_CHECK_INTERVAL_SEC
-    min_uptime_before_alerts_sec: float = _DEFAULT_MIN_UPTIME_SEC
-
-
-@dataclass
-class HealthSnapshot:
-    healthy: bool = True
-    alerts: list[HealthAlert] = field(default_factory=list)
-    last_tick_at: Optional[datetime] = None
-    ticks_received: int = 0
-    signals_generated: int = 0
-    trades_completed: int = 0
-    last_check_at: Optional[datetime] = None
+_DEFAULT_INTERVAL_SEC = 60
 
 
 class HealthMonitor:
-    """Read-only health monitor for forward-test engines.
+    """Structured health reporting for the forward test.
 
-    Detects three failure modes from post-mortem patterns (AYUAA-778, AYUAA-807):
-      1. Data silence -- no ticks received within threshold
-      2. Zero signals -- N ticks processed but zero signals generated
-      3. Zero P&L variance -- N trades completed but all have identical P&L
+    Replaces the inline health-logging loop that previously lived in
+    ``scripts/launch_blend_forward_test.py``.
 
-    Design constraints:
-      - Read-only: never modifies trading state
-      - Fail-safe: exceptions in monitoring never propagate to callers
-      - Composable: accepts counters via record_tick / record_signal /
-        record_trade_pnl so any engine can feed it
+    Attach subsystems via :meth:`attach`, then call :meth:`start` to begin
+    periodic ``[B5 Health]`` and ``[S1 Health]`` logging on a daemon thread.
     """
 
-    def __init__(
-        self,
-        config: Optional[HealthMonitorConfig] = None,
-        on_alert: Optional[Callable[[HealthAlert], None]] = None,
-    ):
-        self._config = config or HealthMonitorConfig()
-        self._on_alert = on_alert
+    def __init__(self, interval_seconds: int = _DEFAULT_INTERVAL_SEC):
+        self._interval = interval_seconds
+        self._session: Any = None
+        self._market_data_feed: Any = None
+        self._order_gateway: Any = None
+        self._position_tracker: Any = None
+        self._strategies: dict[str, Any] | None = None
 
-        self._lock = threading.Lock()
-        self._last_tick_at: Optional[datetime] = None
-        self._ticks_received: int = 0
-        self._signals_generated: int = 0
-        self._trade_pnls: list[float] = []
-        self._trades_completed: int = 0
-        self._alerts: list[HealthAlert] = []
-        self._healthy: bool = True
-        self._last_check_at: Optional[datetime] = None
-
-        self._start_time: Optional[datetime] = None
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        self._start_time: float = 0.0
 
-    @property
-    def healthy(self) -> bool:
-        with self._lock:
-            return self._healthy
+    # ------------------------------------------------------------------
+    # Wiring
+    # ------------------------------------------------------------------
 
-    def start(self):
+    def attach(
+        self,
+        session: Any = None,
+        market_data_feed: Any = None,
+        order_gateway: Any = None,
+        position_tracker: Any = None,
+        strategies: dict[str, Any] | None = None,
+    ) -> "HealthMonitor":
+        """Attach subsystems to monitor.  Returns *self* for chaining."""
+        if session is not None:
+            self._session = session
+        if market_data_feed is not None:
+            self._market_data_feed = market_data_feed
+        if order_gateway is not None:
+            self._order_gateway = order_gateway
+        if position_tracker is not None:
+            self._position_tracker = position_tracker
+        if strategies is not None:
+            self._strategies = strategies
+        return self
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def start(self) -> None:
+        """Start the daemon thread (idempotent)."""
         if self._thread is not None:
             return
-        self._start_time = datetime.now(timezone.utc)
+        self._start_time = time.monotonic()
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._loop,
-            name="health-monitor",
+            name="b5-health-monitor",
             daemon=True,
         )
         self._thread.start()
+        logger.info("[B5 Health] Health monitor started (interval=%ds)", self._interval)
 
-    def stop(self):
+    def stop(self) -> None:
+        """Stop the daemon thread (idempotent)."""
         self._stop_event.set()
-        if self._thread:
+        if self._thread is not None:
             self._thread.join(timeout=10.0)
             self._thread = None
+        logger.info("[B5 Health] Health monitor stopped")
 
-    def record_tick(self, tick_at: Optional[datetime] = None):
-        with self._lock:
-            self._ticks_received += 1
-            self._last_tick_at = tick_at or datetime.now(timezone.utc)
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
 
-    def record_signal(self):
-        with self._lock:
-            self._signals_generated += 1
+    def _loop(self) -> None:
+        while not self._stop_event.wait(self._interval):
+            try:
+                self._emit_health()
+            except Exception as exc:
+                logger.warning("[B5 Health] Error logging health: %s", exc)
 
-    def record_trade_pnl(self, pnl: float):
-        with self._lock:
-            self._trade_pnls.append(pnl)
-            self._trades_completed += 1
+    def _emit_health(self) -> None:
+        """Emit one round of [B5 Health] + [S1 Health] log lines."""
+        uptime = time.monotonic() - self._start_time
 
-    def get_snapshot(self) -> HealthSnapshot:
-        with self._lock:
-            return HealthSnapshot(
-                healthy=self._healthy,
-                alerts=list(self._alerts),
-                last_tick_at=self._last_tick_at,
-                ticks_received=self._ticks_received,
-                signals_generated=self._signals_generated,
-                trades_completed=self._trades_completed,
-                last_check_at=self._last_check_at,
+        # -- Gather counters ------------------------------------------------
+        ticks = self._safe_attr(self._market_data_feed, "ticks_received", 0)
+        tps = self._safe_attr(self._market_data_feed, "ticks_per_second", 0.0)
+        bars = self._safe_attr(self._market_data_feed, "bars_built", 0)
+        signals = self._safe_attr(self._market_data_feed, "signals_generated", 0)
+
+        paper_trades = self._safe_attr(self._market_data_feed, "paper_trades", 0)
+        live_fills = self._safe_attr(self._order_gateway, "live_fills", 0)
+        balance = self._safe_attr(self._market_data_feed, "balance", 0.0)
+
+        # -- Core [B5 Health] line (Amendment A6 format) -------------------
+        logger.info(
+            "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
+            "paper_trades=%d live_fills=%d balance=%.2f uptime=%.0fs",
+            ticks,
+            tps,
+            bars,
+            signals,
+            paper_trades,
+            live_fills,
+            balance,
+            uptime,
+        )
+
+        # -- Additional subsystem checks (NEW) ------------------------------
+        extras: list[str] = []
+
+        if self._order_gateway is not None:
+            pending = self._safe_attr(self._order_gateway, "pending_orders", 0)
+            extras.append(f"pending_orders={pending}")
+
+        session_state = None
+        if self._session is not None:
+            session_state = self._safe_attr(self._session, "state", None)
+            if session_state is not None:
+                extras.append(f"session_state={session_state}")
+
+        if self._position_tracker is not None:
+            open_positions = self._safe_attr(self._position_tracker, "open_positions", 0)
+            extras.append(f"open_positions={open_positions}")
+
+        if extras:
+            logger.info("[B5 Health] %s", " ".join(extras))
+
+        # -- Warning: session not subscribed after grace period -------------
+        if (
+            session_state is not None
+            and str(session_state) != "SessionState.SUBSCRIBED"
+            and uptime > 60.0
+        ):
+            logger.warning(
+                "[B5 Health] session_state=%s after %.0fs — "
+                "expected SUBSCRIBED",
+                session_state,
+                uptime,
             )
 
-    def reset_alerts(self):
-        with self._lock:
-            self._alerts.clear()
-            self._healthy = True
+        # -- Per-strategy [S1 Health] lines --------------------------------
+        if self._strategies:
+            now = time.monotonic()
+            for sname in sorted(self._strategies):
+                info = self._strategies[sname]
+                evals = self._safe_val(info, "evals", 0)
+                no_signal = self._safe_val(info, "no_signal", 0)
+                last_eval_monotonic = self._safe_val(info, "last_eval_monotonic", now)
+                last_ago = max(0.0, now - last_eval_monotonic)
+                logger.info(
+                    "[S1 Health] %s: evals=%d no_signal=%d last=%.0fs ago",
+                    sname,
+                    evals,
+                    no_signal,
+                    last_ago,
+                )
 
-    def check(self) -> list[HealthAlert]:
-        """Run all checks and return any new alerts."""
-        new_alerts: list[HealthAlert] = []
+    # ------------------------------------------------------------------
+    # Small helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _safe_attr(obj: Any, attr: str, default: Any) -> Any:
+        """Read *attr* from *obj* safely — returns *default* on any failure."""
+        if obj is None:
+            return default
         try:
-            new_alerts.extend(self._check_data_silence())
-            new_alerts.extend(self._check_zero_signals())
-            new_alerts.extend(self._check_zero_pnl_variance())
-        except Exception as exc:
-            logger.error("HealthMonitor check error: %s", exc, exc_info=True)
+            return getattr(obj, attr, default)
+        except Exception:
+            return default
 
-        with self._lock:
-            self._last_check_at = datetime.now(timezone.utc)
-            if new_alerts:
-                self._alerts.extend(new_alerts)
-                self._healthy = False
-
-        for alert in new_alerts:
-            logger.warning("Health alert [%s]: %s", alert.kind.value, alert.message)
-            if self._on_alert:
-                try:
-                    self._on_alert(alert)
-                except Exception as exc:
-                    logger.error("Health alert callback error: %s", exc, exc_info=True)
-
-        return new_alerts
-
-    def _uptime_sec(self) -> float:
-        if self._start_time is None:
-            return 0.0
-        return (datetime.now(timezone.utc) - self._start_time).total_seconds()
-
-    def _check_data_silence(self) -> list[HealthAlert]:
-        cfg = self._config
-        if self._uptime_sec() < cfg.min_uptime_before_alerts_sec:
-            return []
-        with self._lock:
-            last_tick = self._last_tick_at
-        if last_tick is None:
-            if self._uptime_sec() >= cfg.data_silence_threshold_sec:
-                return [
-                    HealthAlert(
-                        kind=HealthAlertKind.DATA_SILENCE,
-                        message=(
-                            "No ticks received since startup "
-                            f"({self._uptime_sec():.0f}s ago)"
-                        ),
-                        context={"uptime_sec": self._uptime_sec()},
-                    )
-                ]
-            return []
-        staleness = (datetime.now(timezone.utc) - last_tick).total_seconds()
-        if staleness >= cfg.data_silence_threshold_sec:
-            return [
-                HealthAlert(
-                    kind=HealthAlertKind.DATA_SILENCE,
-                    message=f"No ticks received for {staleness:.0f}s",
-                    context={"staleness_sec": staleness},
-                )
-            ]
-        return []
-
-    def _check_zero_signals(self) -> list[HealthAlert]:
-        cfg = self._config
-        with self._lock:
-            ticks = self._ticks_received
-            signals = self._signals_generated
-        if ticks >= cfg.zero_signal_tick_threshold and signals == 0:
-            return [
-                HealthAlert(
-                    kind=HealthAlertKind.ZERO_SIGNALS,
-                    message=(
-                        f"Zero signals generated after {ticks} ticks -- "
-                        "check strategy thresholds and session windows"
-                    ),
-                    context={"ticks_received": ticks},
-                )
-            ]
-        return []
-
-    def _check_zero_pnl_variance(self) -> list[HealthAlert]:
-        cfg = self._config
-        with self._lock:
-            pnls = list(self._trade_pnls)
-            trades = self._trades_completed
-        if trades < cfg.zero_pnl_variance_trade_threshold:
-            return []
-        if len(pnls) < 2:
-            return []
-        mean = sum(pnls) / len(pnls)
-        variance = sum((p - mean) ** 2 for p in pnls) / len(pnls)
-        if variance == 0.0:
-            return [
-                HealthAlert(
-                    kind=HealthAlertKind.ZERO_PNL_VARIANCE,
-                    message=(
-                        f"Zero P&L variance across {trades} trades "
-                        f"(all P&L = {pnls[0]:.2f}) -- "
-                        "trades may not be executing"
-                    ),
-                    context={
-                        "trades_completed": trades,
-                        "pnl_value": pnls[0],
-                    },
-                )
-            ]
-        return []
-
-    def _loop(self):
-        while not self._stop_event.wait(self._config.check_interval_sec):
-            try:
-                self.check()
-            except Exception as exc:
-                logger.error("HealthMonitor loop error: %s", exc, exc_info=True)
+    @staticmethod
+    def _safe_val(obj: Any, key: str, default: Any) -> Any:
+        """Read *key* from a dict or object — returns *default* on failure."""
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        try:
+            return getattr(obj, key, default)
+        except Exception:
+            return default
