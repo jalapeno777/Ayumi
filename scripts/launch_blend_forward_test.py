@@ -471,6 +471,19 @@ def build_blend_runner() -> BlendForwardTestRunner:
     return runner
 
 
+def wire_connection_reliability(connection_manager):
+    """Wire connection reliability modules (watchdog, OAuth refresh).
+
+    BQ-716 Phase 2: Activates heartbeat watchdog and proactive OAuth refresh.
+    Called after connection manager is constructed, before engine start.
+    """
+    connection_manager.start_watchdog()
+    try:
+        connection_manager.refresh_oauth_if_needed()
+    except Exception as exc:
+        logger.warning("OAuth refresh failed on startup: %s", exc)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
@@ -660,6 +673,11 @@ def main():
 
     sig_module.signal(sig_module.SIGINT, shutdown)
     sig_module.signal(sig_module.SIGTERM, shutdown)
+
+    # ── Connection reliability wiring (BQ-716) ──────────────────────────
+    from adapters.ctrader.connection_manager import ConnectionManager as _ConnectionManager
+    _connection_mgr = _ConnectionManager()
+    wire_connection_reliability(_connection_mgr)
 
     # ── Startup diagnostics (B5) ──────────────────────────────────────────
     logger.info("=== STARTING MULTI-STRATEGY FORWARD TEST ===")

@@ -856,3 +856,17 @@ Before Phase 3E cleanup (deleting old engines), all of the following must pass:
 4. **Minimum trade count for walk-forward** — Strategy assessment recommends >=15 trades/window. Current walk-forward uses >=5. Confirm raising to 15 is acceptable (may cause more NO-GO results).
 
 5. **ICT/SMC confluence weight fix** — Current weights sum to 1.15 (TD-08). Proposed fix: redistribute to sum to 1.0. This will change ICT strategy signals. Confirm this is acceptable.
+
+## 10. Incident Postmortem — 2026-06-16 Zero-Eval
+
+**Symptom.** The forward test had been running for hours with thousands of ticks and a handful of bars built, but every one of the nine registered strategies reported `evals=0` and `last=N days ago` in the heartbeat JSON. With market data flowing and bars finalising, no strategy was ever invoked.
+
+**Root cause.** The bug lived in the launcher, not the base engine. `BlendForwardTestEngine._evaluate_strategies` in `scripts/launch_blend_forward_test.py` (line 229) overrode the base class method from `src/forex-bot/adapters/ctrader/forward_test_engine.py:836` to add blend-aware signal routing, but the override never incremented the per-strategy health counters. The base class increments `_strategy_eval_counts[name]`, `_strategy_no_signal_counts[name]`, and `_strategy_last_eval[name]` explicitly inside its evaluation loop; the subclass assumed that bookkeeping happened implicitly elsewhere. It does not.
+
+**Why it existed.** The subclass predates the health-counter instrumentation. When the per-strategy health fields were added to the base engine in an earlier refactor, the launcher override was not re-audited. The override's only intentional divergence was blend-routing — counters were an accidental casualty of the assumption that "the base loop is still doing its job." It is not, once you replace the method.
+
+**Fix.** Commit `47e4a0c` (BQ-1037) added explicit counter increments to the launcher override at line 282–289, mirroring the base class pattern: increment on every strategy invocation, increment the no-signal counter on a `None` return, stamp `time.monotonic()` into `_strategy_last_eval`. The counter block is now the first thing inside the per-strategy `try` so it fires even if downstream signal processing throws.
+
+**Verification.** Forward test restart at 10:30 EDT showed all nine strategies at `evals=18` within minutes (heartbeat `data/heartbeat_trading.json`), and at least one signal was routed to the paper trader within the same window.
+
+**Lesson.** A subclass that overrides a method which mutates `self` is not free — the override inherits the base class's contract, including its side effects. Whenever an engine method increments counters, caches, or health fields, any subclass override must either (a) call the base method, (b) re-implement the increments, or (c) be reviewed against the base. None of the three was done here. Add a CI check or a code-review checklist item: "if you override `_evaluate_strategies`, `_on_tick`, or `_bar_completed`, grep the base for `self._strategy_` and confirm those lines are preserved."
