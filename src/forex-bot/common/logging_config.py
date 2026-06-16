@@ -1,47 +1,78 @@
-"""Structured logging configuration for Ayumi modules."""
+"""Structured logging configuration for Ayumi.
+
+Replaces nohup/shell-redirect logging with a proper Python logging setup.
+Logs rotate daily, keeping 7 days of history.
+
+Usage (at the START of main()):
+    from common.logging_config import setup_logging
+    setup_logging(log_dir="logs", level="INFO")
+"""
 
 import logging
-import os
-from datetime import datetime
-from logging.handlers import RotatingFileHandler
+import logging.handlers
+import sys
+from pathlib import Path
 
 
-def setup_logging(level: str = "INFO", log_dir: str = "logs") -> None:
-    """Configure structured logging for all Ayumi modules.
+DEFAULT_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-    Sets up:
-    - Console handler with formatted output
-    - Rotating file handler (10MB, keep 5) at logs/ayumi_{date}.log
-    - Logger hierarchy under 'ayumi'
+
+def setup_logging(
+    log_dir: str = "logs",
+    level: str = "INFO",
+    log_name: str = "forward_test",
+    backup_count: int = 7,
+    console: bool = True,
+) -> logging.Logger:
+    """Configure root logger with file rotation and optional console output.
+
+    Call this at the VERY START of main(). Idempotent — safe to call multiple times.
+
+    Args:
+        log_dir: Directory for log files (created if missing)
+        level: Logging level (DEBUG, INFO, WARNING, ERROR)
+        log_name: Base name for log file (e.g., "forward_test" → forward_test.log)
+        backup_count: Number of daily backups to keep
+        console: Also log to stderr (for interactive use)
+
+    Returns:
+        The root logger, configured.
     """
-    os.makedirs(log_dir, exist_ok=True)
-    log_level = getattr(logging, level.upper(), logging.INFO)
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
 
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+    formatter = logging.Formatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATE_FORMAT)
+
+    # File handler — daily rotation
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        filename=str(log_path / f"{log_name}.log"),
+        when="midnight",
+        backupCount=backup_count,
+        encoding="utf-8",
     )
-
-    # Root ayumi logger
-    root = logging.getLogger("ayumi")
-    root.setLevel(log_level)
-    root.handlers.clear()
-
-    # Console handler
-    console = logging.StreamHandler()
-    console.setLevel(log_level)
-    console.setFormatter(formatter)
-    root.addHandler(console)
-
-    # Rotating file handler
-    today = datetime.now().strftime("%Y-%m-%d")
-    file_path = os.path.join(log_dir, f"ayumi_{today}.log")
-    file_handler = RotatingFileHandler(
-        file_path, maxBytes=10 * 1024 * 1024, backupCount=5,
-    )
-    file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
+    file_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # Root logger
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # Remove existing handlers (idempotent)
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
     root.addHandler(file_handler)
 
-    # Prevent double-propagation
-    root.propagate = False
+    if console:
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(getattr(logging, level.upper(), logging.INFO))
+        root.addHandler(console_handler)
+
+    # Quiet down noisy libraries
+    logging.getLogger("twisted").setLevel(logging.WARNING)
+    logging.getLogger("ctrader_open_api").setLevel(logging.WARNING)
+
+    logging.info("Logging initialized: %s/%s.log (level=%s)", log_dir, log_name, level)
+    return root
