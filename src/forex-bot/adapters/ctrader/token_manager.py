@@ -348,8 +348,8 @@ class TokenManager:
             if prev_hash in tokens:
                 tokens[prev_hash]["refresh_count"] = tokens[prev_hash].get("refresh_count", 0) + 1
 
-        # Persist new tokens to .env atomically (K-2)
-        self._atomic_env_write(new_access, new_refresh or refresh_token)
+        # Persist new tokens to .env in-place (BQ-1036: no atomic write)
+        self._update_env_tokens(new_access, new_refresh or refresh_token)
 
         # Record success
         self._append_refresh_history(success=True, error=None)
@@ -413,8 +413,14 @@ class TokenManager:
                 pass
             raise
 
-    def _atomic_env_write(self, access_token: str, refresh_token: str) -> None:
-        """Rewrite .env with updated tokens using temp-file + rename (K-2)."""
+    def _update_env_tokens(self, access_token: str, refresh_token: str) -> None:
+        """Update token values in .env using simple in-place write.
+
+        BQ-1036: Replaces the previous atomic temp+rename approach.
+        Reads .env line by line, replaces token values, writes back directly.
+        For a <1KB config file this is safe and avoids the temp-file race
+        conditions that were clobbering values.
+        """
         if not self._env_path.exists():
             logger.warning("Cannot persist tokens: .env not found at %s", self._env_path)
             return
@@ -446,23 +452,12 @@ class TokenManager:
             new_lines.append(f"CTRADER_OPENAPI_REFRESH_TOKEN={refresh_token}")
 
         content = "\n".join(new_lines) + "\n"
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            dir=self._env_path.parent,
-            prefix=".env_tmp_",
-        )
         try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            with open(self._env_path, "w", encoding="utf-8") as f:
                 f.write(content)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, self._env_path)
             logger.info("Tokens persisted to %s", self._env_path)
-        except Exception:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        except OSError as exc:
+            logger.error("Failed to write tokens to .env: %s", exc)
 
     @staticmethod
     def _parse_iso(iso_str: str | None) -> datetime | None:

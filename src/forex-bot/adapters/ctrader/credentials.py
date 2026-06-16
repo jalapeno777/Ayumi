@@ -352,53 +352,16 @@ class CredentialManager:
         return result
 
     def _migrate_env_tokens(self, env_data: dict[str, str]) -> None:
-        """Rewrite .env with cTrader token values replaced by migration comments."""
+        """Mark tokens as migrated in .env WITHOUT removing the values.
+
+        BQ-1036: Previous behaviour emptied token values during migration,
+        causing repeated placeholder regressions. Tokens are now left intact
+        so .env remains a reliable backup source.
+        """
         if not self._env_path.exists():
             return
 
-        token_keys = {
-            "CTRADER_OPENAPI_ACCESS_TOKEN",
-            "CTRADER_OPENAPI_REFRESH_TOKEN",
-        }
-
-        try:
-            with open(self._env_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-        except OSError as exc:
-            logger.error("Failed to read .env for migration: %s", exc)
-            return
-
-        new_lines: list[str] = []
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                new_lines.append(line)
-                continue
-
-            if "=" in stripped:
-                key, _, _ = stripped.partition("=")
-                key = key.strip()
-                if key in token_keys:
-                    new_lines.append(f"{key}=  # migrated to data/.credentials\n")
-                    continue
-
-            new_lines.append(line)
-
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            dir=self._env_path.parent,
-            prefix=".env_migrate_tmp_",
+        logger.info(
+            "Credentials migrated to data/.credentials. "
+            "Token values preserved in .env as backup."
         )
-        try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, self._env_path)
-        except Exception:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-
-        logger.info("Token values emptied in .env (migrated to data/.credentials)")
