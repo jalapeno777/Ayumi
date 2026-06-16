@@ -36,13 +36,18 @@ from .auth import CTraderAuth
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
-from .models import cTraderCredentials
+from .models import cTraderCredentials, TradeSignal, TradeDirection
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
+
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+    ProtoOAOrderType,
+    ProtoOATradeSide,
+)
 
 logger = logging.getLogger("ayumi.forward_test")
 
@@ -456,7 +461,10 @@ class ForwardTestEngine:
             paper_trader=self._paper_trader,
             strategies=self._strategies,
             symbols=cfg.symbols,
-            blend_mode=self._blend_mode,
+            # In live mode we return signals from the adapter and execute them
+            # directly against the OpenApiSpotFeed so the engine controls real
+            # order placement instead of relying on the paper-trader chain.
+            blend_mode=self._blend_mode or cfg.live_mode,
         )
 
         strategy_names = "+".join(s.name for s in self._strategies)
@@ -766,6 +774,65 @@ class ForwardTestEngine:
     _REJECTION_BREAKER_THRESHOLD = 5
     _REJECTION_COOLDOWN_SEC = 60.0
 
+    def _execute_signal_live(self, signal: TradeSignal):
+        """Place a real cTrader order via the OpenApiSpotFeed.
+
+        In live mode the signal adapter runs in blend mode so it returns signals
+        without calling ``paper_trader.process_signal()``.  This method performs
+        the actual order placement using ``OpenApiSpotFeed.new_order()``.
+        """
+        if self._market_feed is None or not isinstance(self._market_feed, OpenApiSpotFeed):
+            logger.warning("Cannot execute live order: no OpenApiSpotFeed available")
+            return None
+
+        try:
+            symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
+        except Exception as exc:
+            logger.warning("Live order rejected: unknown symbol %s (%s)", signal.symbol, exc)
+            return None
+
+        side = ProtoOATradeSide.BUY if signal.direction == TradeDirection.LONG else ProtoOATradeSide.SELL
+
+        # Size the order using the same position-sizing logic as the paper trader.
+        balance = (
+            self._paper_trader.balance
+            if self._paper_trader else self._config.starting_balance
+        )
+        volume_lots = 0.0
+        if self._paper_trader is not None:
+            volume_lots = self._paper_trader._order_manager.calculate_position_size(
+                account_balance=balance,
+                entry_price=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                symbol=signal.symbol,
+            )
+        if volume_lots <= 0.0:
+            logger.warning("Live order rejected: calculated volume is zero for %s", signal.symbol)
+            return None
+
+        volume_raw = int(round(volume_lots * 100_000))
+
+        order = self._market_feed.new_order(
+            symbol_id=symbol_id,
+            side=side,
+            volume=volume_raw,
+            order_type=ProtoOAOrderType.MARKET,
+            sl=signal.stop_loss,
+            tp=signal.take_profit_1,
+            comment=signal.rationale,
+        )
+
+        logger.info(
+            "Live order placed: %s %s %s lots=%.2f raw_volume=%d status=%s",
+            signal.direction.value,
+            signal.symbol,
+            signal.rationale,
+            volume_lots,
+            volume_raw,
+            order.status.value if order.status else "unknown",
+        )
+        return order
+
     def _evaluate_strategies(self, symbol: str):
         if self._live_adapter is None:
             return
@@ -931,6 +998,8 @@ class ForwardTestEngine:
                         s.entry_price,
                         s.confidence,
                     )
+                    if self._config.live_mode:
+                        self._execute_signal_live(s)
                     self._trigger_callback("on_signal_traded", s)
         except Exception as exc:
             with self._lock:
