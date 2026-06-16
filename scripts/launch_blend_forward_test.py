@@ -268,12 +268,36 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     if not adapter:
                         continue
                     s = adapter.evaluate_and_trade(state, spread=self._current_spread)
-                    if s is None:
-                        continue
                 except Exception as exc:
                     logger.error("Strategy %s evaluation error: %s", strategy_name, exc, exc_info=True)
                     with self._lock:
                         self._health.evaluation_errors += 1
+                    continue
+
+                # S1: Per-strategy diagnostic counters (mirrors base class pattern)
+                # Bump counters for every strategy that passes the bar threshold,
+                # regardless of whether a signal was generated. This is what makes
+                # the [S1 Health] log show non-zero evals. (BQ-1037)
+                with self._lock:
+                    self._strategy_eval_counts[strategy_name] = (
+                        self._strategy_eval_counts.get(strategy_name, 0) + 1
+                    )
+                    if s is None:
+                        self._strategy_no_signal_counts[strategy_name] = (
+                            self._strategy_no_signal_counts.get(strategy_name, 0) + 1
+                        )
+                    self._strategy_last_eval[strategy_name] = time.monotonic()
+
+                # S1: INFO-level per-strategy eval log
+                logger.info(
+                    "[S1] Strategy %s: eval #%d, signals=%d, total_no_signal=%d",
+                    strategy_name,
+                    self._strategy_eval_counts[strategy_name],
+                    1 if s is not None else 0,
+                    self._strategy_no_signal_counts[strategy_name],
+                )
+
+                if s is None:
                     continue
 
                 generated += 1
@@ -460,7 +484,9 @@ def main():
     _pid_path = PROJECT_ROOT / "data" / "forward_test.pid"
     # Guard must be acquired BEFORE logging setup floods, but we need logging
     # for the guard's own messages, so set up basic logging first.
-    setup_logging(level="INFO")
+    setup_logging(level="DEBUG")
+    # Specifically enable the spot feed and execution event loggers
+    logging.getLogger("ayumi.openapi_spot_feed").setLevel(logging.DEBUG)
     _pid_ctx = acquire_pid_lock(_pid_path)
     _pid_guard = _pid_ctx.__enter__()  # acquire lock, exit(1) if duplicate
     _pid_guard.write_pid()
