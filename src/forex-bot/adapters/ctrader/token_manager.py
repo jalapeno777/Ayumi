@@ -214,6 +214,7 @@ class TokenManager:
         client_secret: str,
         refresh_token: str,
         warning_days: int = 7,
+        force: bool = False,
     ) -> str | None:
         """Perform OAuth refresh if token is within *warning_days* of expiry.
 
@@ -222,12 +223,13 @@ class TokenManager:
             client_secret: OAuth client secret.
             refresh_token: The refresh token.
             warning_days: Threshold in days for proactive refresh.
+            force: If True, always refresh regardless of expiry threshold.
 
         Returns:
             The new access token string, or None if refresh was not needed
             or failed.
         """
-        if not self.needs_refresh(warning_days):
+        if not force and not self.needs_refresh(warning_days):
             logger.debug("Token refresh not needed")
             return None
 
