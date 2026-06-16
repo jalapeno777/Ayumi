@@ -1,29 +1,18 @@
 """Tests for live execution wiring (T1) — OpenApiSpotFeed properties.
 
 Validates that OpenApiSpotFeed exposes the correct properties for live trading mode.
+
+(BQ-1037: previous version polluted sys.modules with MagicMock at import time,
+breaking collection of other test files that needed the real ctrader_open_api
+package. Fixed by importing the real module — ctrader_open_api is installed
+and the import works fine.)
 """
+import os
 import sys
 import pytest
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, "src/forex-bot")
-
-# Mock ctrader_open_api before any import
-mock_modules = {
-    'ctrader_open_api': MagicMock(),
-    'ctrader_open_api.client': MagicMock(),
-    'ctrader_open_api.messages': MagicMock(),
-    'ctrader_open_api.messages.OpenApiMessages_pb2': MagicMock(),
-    'ctrader_open_api.messages.OpenApiModelMessages_pb2': MagicMock(),
-    'ctrader_open_api.protobuf': MagicMock(),
-    'ctrader_open_api.tcpProtocol': MagicMock(),
-    'twisted.internet': MagicMock(),
-    'twisted.internet.reactor': MagicMock(),
-    'twisted.application': MagicMock(),
-    'twisted.application.internet': MagicMock(),
-}
-for mod_name, mod_obj in mock_modules.items():
-    sys.modules.setdefault(mod_name, mod_obj)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 
 class TestOpenApiSpotFeedLiveProperties:
@@ -37,8 +26,8 @@ class TestOpenApiSpotFeedLiveProperties:
             feed = OpenApiSpotFeed(
                 ctid_account_id=12345,
                 client_id="test",
-                client_secret="test",
-                access_token="test",
+                client_secret="***",
+                access_token="***",
             )
         feed._reactor_manager = MagicMock()
         return feed

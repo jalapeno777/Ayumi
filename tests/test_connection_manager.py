@@ -3,27 +3,11 @@
 import json
 import os
 import sys
-import unittest
 import time
-import threading
+import unittest
 from tempfile import TemporaryDirectory
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
-
-from unittest import mock
-mock_modules = {
-    'ctrader_open_api': mock.MagicMock(),
-    'ctrader_open_api.client': mock.MagicMock(),
-    'ctrader_open_api.messages': mock.MagicMock(),
-    'ctrader_open_api.messages.OpenApiMessages_pb2': mock.MagicMock(),
-    'ctrader_open_api.messages.OpenApiModelMessages_pb2': mock.MagicMock(),
-    'ctrader_open_api.protobuf': mock.MagicMock(),
-    'ctrader_open_api.tcpProtocol': mock.MagicMock(),
-    'twisted.internet': mock.MagicMock(),
-    'twisted.internet.reactor': mock.MagicMock(),
-}
-for mod_name, mod_obj in mock_modules.items():
-    sys.modules.setdefault(mod_name, mod_obj)
 
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.connection_manager import (
