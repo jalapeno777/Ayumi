@@ -255,8 +255,11 @@ class OpenApiSpotFeed:
             logger.critical("STARTUP ABORTED: Token expired: %s", startup_status["message"])
             return False
         if startup_status["status"] == TokenStatus.CRITICAL:
+            # CRITICAL means < 1 day remaining — always force a refresh
+            # regardless of the warning_days threshold inside refresh_if_needed
             new_token = self._token_mgr.refresh_if_needed(
-                self._client_id, self._client_secret, self._refresh_token, warning_days=0,
+                self._client_id, self._client_secret, self._refresh_token,
+                warning_days=0, force=True,
             )
             if new_token:
                 self._access_token = new_token
@@ -437,6 +440,10 @@ class OpenApiSpotFeed:
     def _on_message(self, client, message):
         msg_type = message.payloadType
         self._conn.notify_heartbeat()
+
+        # Diagnostic: log all non-heartbeat message types
+        if msg_type not in (2131,):
+            logger.debug("[MSG] payloadType=%s pending_orders=%d", msg_type, len(self._pending_orders))
 
         if msg_type == 2101:
             self._authed.set()
@@ -796,7 +803,13 @@ class OpenApiSpotFeed:
     def _handle_execution_event(self, message) -> None:
         order_payload = getattr(message, "order", None)
         client_order_id = getattr(order_payload, "clientOrderId", "") if order_payload else ""
+        etype = getattr(message, "executionType", None)
+        logger.info("[EXEC_EVENT] clientOrderId=%r execType=%s has_order=%s pending_keys=%s",
+                     client_order_id, etype, order_payload is not None,
+                     list(self._pending_orders.keys()) if self._pending_orders else "[]")
         if not client_order_id or client_order_id not in self._pending_orders:
+            logger.warning("[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s)",
+                           client_order_id, list(self._pending_orders.keys()) if self._pending_orders else "[]")
             return
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
@@ -838,9 +851,14 @@ class OpenApiSpotFeed:
     def _handle_pending_order_error(self, message, envelope) -> bool:
         client_order_id = getattr(message, "clientOrderId", "")
         client_msg_id = getattr(envelope, "clientMsgId", "")
+        logger.info("[ORDER_ERROR] clientOrderId=%r clientMsgId=%r pending_keys=%s",
+                     client_order_id, client_msg_id,
+                     list(self._pending_orders.keys()) if self._pending_orders else "[]")
         if not client_order_id and client_msg_id:
             client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
         if not client_order_id or client_order_id not in self._pending_orders:
+            logger.warning("[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r",
+                           client_order_id, client_msg_id)
             return False
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
