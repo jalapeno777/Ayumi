@@ -870,3 +870,28 @@ Before Phase 3E cleanup (deleting old engines), all of the following must pass:
 **Verification.** Forward test restart at 10:30 EDT showed all nine strategies at `evals=18` within minutes (heartbeat `data/heartbeat_trading.json`), and at least one signal was routed to the paper trader within the same window.
 
 **Lesson.** A subclass that overrides a method which mutates `self` is not free — the override inherits the base class's contract, including its side effects. Whenever an engine method increments counters, caches, or health fields, any subclass override must either (a) call the base method, (b) re-implement the increments, or (c) be reviewed against the base. None of the three was done here. Add a CI check or a code-review checklist item: "if you override `_evaluate_strategies`, `_on_tick`, or `_bar_completed`, grep the base for `self._strategy_` and confirm those lines are preserved."
+
+## 11. BQ-1043 Infrastructure Rebuild (2026-06-16)
+
+**Scope.** Full rebuild of the cTrader adapter layer. Replaced 5 legacy modules with a clean, testable infrastructure spanning session, credentials, token lifecycle, market data, order gateway, position tracking, and event handling.
+
+**New modules (`src/forex-bot/adapters/ctrader/`):**
+- `session.py` — `cTraderSession` state machine (replaces `auth.py`)
+- `credential_store.py` — atomic credential persistence (replaces `credentials.py`)
+- `token_lifecycle.py` — token rotation and validation (replaces `token_manager.py`, `oauth_refresh.py`)
+- `market_data_feed.py` — spot feed abstraction (replaces `open_api_spot_feed.py`)
+- `order_gateway.py` — order placement with error classification
+- `position_tracker.py` — position reconciliation against cTrader
+- `execution_event_handler.py` — execution event routing
+- `connection_watchdog.py`, `reconnect_strategy.py`, `error_classifier.py`, `kill_switch.py` — resilience layer
+
+**Archived (with compatibility shims) in `archive/legacy_ctrader/`:**
+- `open_api_spot_feed.py`, `token_manager.py`, `oauth_refresh.py`, `credentials.py`, `auth.py`
+
+**Volume fix.** cTrader volume is in centi-lots. The base unit `lotSize = 100_000_000` (1 standard lot = 100M volume units). Conversion: `volume_in_units = lots × lotSize`. For 0.01 lots, send `volume = 1_000_000` (10^6). Confirmed empirically — initial attempts using `lots × 100_000` were 1000x too small.
+
+**First verified trade cycle.** Position 266374347 (GBPUSD, 0.01 lots) opened, tracked through `position_tracker.py`, closed cleanly via the order gateway. Confirms end-to-end pipeline works.
+
+**Shim strategy.** 5 compatibility shims (`auth.py`, `credentials.py`, `oauth_refresh.py`, `open_api_spot_feed.py`, `token_manager.py`) re-export from `archive.legacy_ctrader._pkg/` so the legacy launcher and its tests continue to function. Remove shims once the v2 launcher is the sole entry point.
+
+**Verification.** 3504 tests collected, 0 collection errors after archive + shim.
