@@ -80,6 +80,7 @@ from .connection import (
     _HEARTBEAT_DEGRADED_SEC,
     _HEARTBEAT_RECONNECT_SEC,
 )
+from .market_hours import is_forex_market_closed
 
 # Stale tick thresholds (seconds during market hours)
 _STALE_TICK_WARN_SEC = 60.0
@@ -351,6 +352,9 @@ class OpenApiSpotFeed:
 
     def _on_conn_feed_dead(self, conn: CTraderConnection) -> None:
         """CTraderConnection exhausted reconnect attempts — escalate."""
+        if is_forex_market_closed():
+            logger.debug("Feed dead during market close — not activating kill switch")
+            return
         logger.critical("Feed declared dead by CTraderConnection — activating kill switch")
         self._activate_kill_switch_freeze("feed_dead:reconnect_exhausted")
 
@@ -956,6 +960,11 @@ class OpenApiSpotFeed:
             self._refresh_token_and_reauth(proactive=True)
 
     def _activate_kill_switch_freeze(self, reason: str) -> None:
+        # During forex market close, feed health checks are unreliable.
+        # Don't activate kill switch based on stale-data triggers.
+        if is_forex_market_closed():
+            logger.debug("Skipping kill switch activation during market close: %s", reason)
+            return
         if self._kill_switch is not None:
             try:
                 self._kill_switch.activate_global_freeze(reason=reason, triggered_by="spot_feed")

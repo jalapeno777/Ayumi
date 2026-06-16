@@ -37,6 +37,7 @@ from strategies.killzone_momentum import KillzoneMomentumStrategy, KillzoneMomen
 from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
 from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy, SessionRangeMRConfig
 from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
+from strategies.rsi_threshold import SimpleRSIThresholdStrategy, RSIThresholdConfig
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
 
@@ -412,6 +413,7 @@ STRATEGY_ID_MAP = {
     "Session Breakout London": "session_breakout_london",
     "Session Breakout NY": "session_breakout_ny",
     "Session Breakout Asian": "session_breakout_asian",
+    "Simple RSI Threshold": "rsi_threshold",
 }
 
 # Strategy -> bar period minutes mapping
@@ -424,6 +426,7 @@ STRATEGY_TIMEFRAMES = {
     "Session Breakout London": 15,
     "Session Breakout NY": 15,
     "Session Breakout Asian": 15,
+    "Simple RSI Threshold": 15,
 }
 
 
@@ -573,6 +576,7 @@ def main():
             "buffer_pips": 3, "sl_atr_multiplier": 1.5,
             "atr_period": 14, "min_range_bars": 20,
         }),
+        SimpleRSIThresholdStrategy(config=RSIThresholdConfig()),
     ]
     logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
 

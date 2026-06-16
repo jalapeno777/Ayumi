@@ -23,6 +23,7 @@ from ctrader_open_api.protobuf import Protobuf
 
 from .connection_state import ConnectionState, ConnectionStateManager
 from .reactor_manager import ReactorManager
+from .market_hours import is_forex_market_closed
 
 logger = logging.getLogger("ayumi.ctrader_connection")
 
@@ -392,6 +393,11 @@ class CTraderConnection:
             return
 
         elapsed = time.monotonic() - self._last_heartbeat_recv
+
+        # During forex market close (Fri 21:55 UTC - Sun 21:00 UTC), no ticks arrive.
+        # Don't trigger heartbeat-based reconnects when the market is closed.
+        if is_forex_market_closed():
+            return
 
         if elapsed >= self._heartbeat_timeout_sec:
             logger.warning(
