@@ -22,9 +22,9 @@ logger = logging.getLogger("ayumi.token_lifecycle")
 # ── Constants ──────────────────────────────────────────────────────────────
 
 OAUTH_URL = "https://openapi.ctrader.com/apps/token"
-REFRESH_BUFFER = timedelta(minutes=5)  # refresh when < 5min remaining
+REFRESH_BUFFER = timedelta(days=5)  # refresh when < 5 days remaining (token TTL is 30 days)
 REQUEST_TIMEOUT = 10  # seconds
-PROACTIVE_CHECK_INTERVAL = 60  # seconds between proactive timer checks
+PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min — no need to hammer with 30-day tokens)
 
 
 # ── Exceptions ─────────────────────────────────────────────────────────────

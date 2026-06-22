@@ -1,6 +1,9 @@
 """Backtest strategies package."""
 
-# Load ISignalStrategy + legacy strategies FIRST (no circular deps with tts_strategy)
+# Import the formal ABC first (no circular deps)
+from .isignal_strategy import ISignalStrategy, Tick, StrategyConfig
+
+# Load legacy strategies (ISignalStrategy re-exported from here)
 from ..strategy_legacy import (
     ISignalStrategy,
     MACrossStrategy,
@@ -25,9 +28,11 @@ from .tts_strategy import TTSStrategy
 from .scalper_strategy import ScalperStrategy
 
 __all__ = [
+    "ISignalStrategy",
+    "Tick",
+    "StrategyConfig",
     "TTSStrategy",
     "ScalperStrategy",
-    "ISignalStrategy",
     "MACrossStrategy",
     "BBStrategy",
     "RSIStrategy",

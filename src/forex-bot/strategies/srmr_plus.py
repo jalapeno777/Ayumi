@@ -326,12 +326,31 @@ def _build_signal(
 
 
 class SRMRPlusStrategy(ISignalStrategy):
-    def __init__(self, config: SRMRPlusConfig | None = None):
+    def __init__(self, config: SRMRPlusConfig | None = None) -> None:
+        super().__init__()
         self.config = config or SRMRPlusConfig()
 
     @property
     def name(self) -> str:
         return "SRMR+"
+
+    def initialize(self, config: dict | None = None) -> None:
+        """Initialize the SRMR+ strategy."""
+        super().initialize(config)
+        logger.info(
+            "SRMRPlusStrategy initialized: rsi_long=%.1f rsi_short=%.1f adx_max=%.1f",
+            self.config.rsi_long_level,
+            self.config.rsi_short_level,
+            self.config.adx_max_threshold,
+        )
+
+    def shutdown(self) -> None:
+        """Clean up after SRMR+ run."""
+        logger.info(
+            "SRMRPlusStrategy shutdown (processed %d bars)",
+            self._bars_processed,
+        )
+        super().shutdown()
 
     def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = max(

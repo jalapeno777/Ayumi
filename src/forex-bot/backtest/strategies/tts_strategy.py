@@ -11,6 +11,7 @@ Enhanced with:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -36,6 +37,8 @@ from signal_engine.htf_analyzer import HTFAnalyzer
 from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # ── Confidence Cascade Constants ─────────────────────────────────
@@ -248,6 +251,21 @@ class TTSStrategy(ISignalStrategy):
     def name(self) -> str:
         return f"TTC/TBD {self.symbol}"
 
+    def initialize(self, config: dict | None = None) -> None:
+        """Initialize strategy components.
+
+        Called once before the first bar. TTSStrategy sets up all
+        detection components in __init__, so this is mainly for
+        logging and state validation.
+        """
+        super().initialize(config)
+        logger.info(
+            "TTSStrategy initialized: symbol=%s timeframe=%s min_confidence=%.2f",
+            self.symbol,
+            self.timeframe,
+            self.min_confidence,
+        )
+
     def reset(self) -> None:
         """Reset cached state between backtest runs."""
         self._swing_highs = []
@@ -258,6 +276,15 @@ class TTSStrategy(ISignalStrategy):
         self._last_signal_bar = -1
         self._swing_detector = SwingDetector(lookback=5)
         self._level_counter = LevelCounter()
+
+    def shutdown(self) -> None:
+        """Clean up strategy resources after backtest/run completes."""
+        logger.info(
+            "TTSStrategy shutdown: %s (processed %d bars)",
+            self.symbol,
+            self._bars_processed,
+        )
+        super().shutdown()
 
     def evaluate(self, state: MarketState) -> StrategySignal | None:
         """Evaluate current bar for a trading signal.

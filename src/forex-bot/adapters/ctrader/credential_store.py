@@ -1,15 +1,19 @@
 """Single source of truth for cTrader credentials.
 
-No other module should read credential files. Token refresh writes here
-via update_tokens(). All reads go through get().
+Reads from .env on startup. Writes refreshed tokens back to .env.
+No separate credential file. No migration. No drift.
 
-Migration: on first load, if data/.credentials is missing or has no
-expires_at, reads from .env and initializes.
+.env keys:
+    CTRADER_OPENAPI_CLIENT_ID
+    CTRADER_OPENAPI_CLIENT_SECRET
+    CTRADER_OPENAPI_ACCESS_TOKEN
+    CTRADER_OPENAPI_REFRESH_TOKEN
+    CTRADER_OPENAPI_ACCOUNT_ID
+    CTRADER_OPENAPI_TRADER_LOGIN
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import threading
@@ -20,8 +24,8 @@ from typing import Optional
 
 logger = logging.getLogger("ayumi.credentials")
 
-# Environment variable mapping for migration path
-_ENV_MAPPING = {
+# .env key → field name mapping
+_ENV_KEYS = {
     "CTRADER_OPENAPI_CLIENT_ID": "client_id",
     "CTRADER_OPENAPI_CLIENT_SECRET": "client_secret",
     "CTRADER_OPENAPI_ACCESS_TOKEN": "access_token",
@@ -40,50 +44,30 @@ class Credentials:
     refresh_token: str
     account_id: int
     trader_login: int
-    expires_at: Optional[datetime] = None  # ISO-8601, computed from OAuth expires_in
+    expires_at: Optional[datetime] = None
 
 
 class CredentialStore:
-    """Thread-safe credential store with atomic writes.
+    """Thread-safe credential store backed by .env.
 
-    Single source of truth — no other module reads credential files.
+    .env is the ONLY credential source. No migration, no separate file.
+    Refreshed tokens are written back to .env atomically.
     """
 
-    def __init__(self, credentials_path: str | Path = "data/.credentials"):
-        self._path = Path(credentials_path)
+    def __init__(self, env_path: str | Path = ".env"):
+        self._path = Path(env_path)
         self._lock = threading.Lock()
         self._cached: Credentials | None = None
 
     def load(self) -> Credentials:
-        """Load credentials from file, with .env fallback for initial migration."""
+        """Load credentials from .env. Caches in memory."""
         with self._lock:
             if self._cached is not None:
                 return self._cached
-
-            if self._path.exists():
-                data = json.loads(self._path.read_text())
-                # Valid credentials file with expires_at — use directly
-                if data.get("access_token") and data.get("expires_at") is not None:
-                    self._cached = self._dict_to_credentials(data)
-                    return self._cached
-
-            # Migration path: read from .env
-            env_data = self._read_env()
-            if env_data:
-                logger.info(
-                    "Migrating credentials from .env to %s", self._path
-                )
-                creds = self._dict_to_credentials(env_data)
-                self._write_atomic(env_data)
-                self._cached = creds
-                return creds
-
-            raise RuntimeError(
-                "No credentials found in data/.credentials or .env"
-            )
+            return self._load_unsafe()
 
     def get(self) -> Credentials:
-        """Get cached credentials (thread-safe)."""
+        """Get cached credentials (loads if needed)."""
         if self._cached is None:
             return self.load()
         return self._cached
@@ -91,55 +75,83 @@ class CredentialStore:
     def update_tokens(
         self, access_token: str, refresh_token: str, expires_in: int
     ) -> None:
-        """Update tokens atomically. Called ONLY by token_lifecycle.
+        """Update tokens in .env. Called ONLY by token_lifecycle.
 
-        Args:
-            access_token: New access token from OAuth
-            refresh_token: New refresh token (may be same as old)
-            expires_in: Seconds until access_token expires
+        Writes the new access_token, refresh_token, and computed expires_at
+        back to .env atomically. Other keys are preserved.
         """
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         with self._lock:
-            current = self._cached or self._load_unsafe()
-            new_data = {
-                "version": 1,
-                "client_id": current.client_id,
-                "client_secret": current.client_secret,
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "account_id": str(current.account_id),
-                "trader_login": str(current.trader_login),
-                "expires_at": expires_at.isoformat(),
-                "last_refreshed": datetime.now(timezone.utc).isoformat(),
-            }
-            self._write_atomic(new_data)
-            self._cached = self._dict_to_credentials(new_data)
-            logger.info("Tokens updated, expires_at=%s", expires_at.isoformat())
+            # Read current .env, update only the token lines
+            lines = self._path.read_text().splitlines() if self._path.exists() else []
 
-    # ── Internal helpers ───────────────────────────────────────────────────
+            # Track what we've updated
+            updated = set()
+            new_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith("#") or "=" not in stripped:
+                    new_lines.append(line)
+                    continue
+                key, _, _ = stripped.partition("=")
+                key = key.strip()
+                if key == "CTRADER_OPENAPI_ACCESS_TOKEN":
+                    new_lines.append(f"{key}={access_token}")
+                    updated.add(key)
+                elif key == "CTRADER_OPENAPI_REFRESH_TOKEN":
+                    new_lines.append(f"{key}={refresh_token}")
+                    updated.add(key)
+                else:
+                    new_lines.append(line)
+
+            # Add any token keys that weren't in .env
+            if "CTRADER_OPENAPI_ACCESS_TOKEN" not in updated:
+                new_lines.append(f"CTRADER_OPENAPI_ACCESS_TOKEN={access_token}")
+            if "CTRADER_OPENAPI_REFRESH_TOKEN" not in updated:
+                new_lines.append(f"CTRADER_OPENAPI_REFRESH_TOKEN={refresh_token}")
+
+            # Atomic write
+            tmp = self._path.with_suffix(".env.tmp")
+            tmp.write_text("\n".join(new_lines) + "\n")
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, self._path)
+
+            # Update cache
+            current = self._cached or self._load_unsafe()
+            self._cached = Credentials(
+                client_id=current.client_id,
+                client_secret=current.client_secret,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                account_id=current.account_id,
+                trader_login=current.trader_login,
+                expires_at=expires_at,
+            )
+            logger.info("Tokens written to .env, expires_at=%s", expires_at.isoformat())
+
+    # ── Internal ───────────────────────────────────────────────────────────
 
     def _load_unsafe(self) -> Credentials:
-        """Load without lock (caller must hold lock)."""
-        if self._path.exists():
-            data = json.loads(self._path.read_text())
-            return self._dict_to_credentials(data)
-        env_data = self._read_env()
-        if env_data:
-            creds = self._dict_to_credentials(env_data)
-            self._write_atomic(env_data)
-            return creds
-        raise RuntimeError("No credentials found")
+        """Load from .env (caller must hold lock)."""
+        if not self._path.exists():
+            raise RuntimeError(f"No .env found at {self._path}")
 
-    def _read_env(self) -> dict | None:
-        """Read credentials from .env file (migration path only)."""
-        env_path = Path(".env")
-        if not env_path.exists():
-            return None
+        env_data = self._read_env_file()
+        if "access_token" not in env_data or not env_data["access_token"]:
+            raise RuntimeError(
+                "No CTRADER_OPENAPI_ACCESS_TOKEN in .env — run OAuth setup first"
+            )
 
-        creds: dict[str, str | int] = {}
-        for line in env_path.read_text().splitlines():
+        creds = self._dict_to_credentials(env_data)
+        self._cached = creds
+        return creds
+
+    def _read_env_file(self) -> dict:
+        """Parse .env into a dict."""
+        data: dict[str, str | int] = {}
+        for line in self._path.read_text().splitlines():
             line = line.strip()
-            if line.startswith("#") or "=" not in line:
+            if not line or line.startswith("#") or "=" not in line:
                 continue
             key, _, value = line.partition("=")
             key = key.strip()
@@ -148,33 +160,18 @@ class CredentialStore:
             if " #" in value:
                 value = value.split(" #")[0].strip()
 
-            if key in _ENV_MAPPING:
-                field = _ENV_MAPPING[key]
+            if key in _ENV_KEYS:
+                field = _ENV_KEYS[key]
                 if field in ("account_id", "trader_login"):
-                    creds[field] = int(value) if value else 0
+                    data[field] = int(value) if value else 0
                 else:
-                    creds[field] = value
+                    data[field] = value
 
-        if "access_token" not in creds:
-            return None
-
-        creds.setdefault("version", 1)
-        return creds
+        data.setdefault("version", 1)
+        return data
 
     def _dict_to_credentials(self, data: dict) -> Credentials:
-        """Convert dict to Credentials dataclass.
-
-        Handles string-or-int for account_id / trader_login (the on-disk
-        JSON stores them as strings for portability).
-        """
-        expires_at = None
-        ea = data.get("expires_at")
-        if ea:
-            try:
-                expires_at = datetime.fromisoformat(ea)
-            except (ValueError, TypeError):
-                pass
-
+        """Convert dict to Credentials dataclass."""
         return Credentials(
             client_id=str(data.get("client_id", "")),
             client_secret=str(data.get("client_secret", "")),
@@ -182,13 +179,5 @@ class CredentialStore:
             refresh_token=str(data.get("refresh_token", "")),
             account_id=int(data.get("account_id", 0)),
             trader_login=int(data.get("trader_login", 0)),
-            expires_at=expires_at,
+            expires_at=None,  # Not persisted in .env — managed in-memory by TokenLifecycle
         )
-
-    def _write_atomic(self, data: dict) -> None:
-        """Write JSON atomically (.tmp + rename) with chmod 600."""
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self._path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2))
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, self._path)

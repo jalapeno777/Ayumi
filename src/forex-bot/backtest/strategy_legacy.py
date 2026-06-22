@@ -1,7 +1,32 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
+from .strategies.isignal_strategy import ISignalStrategy, Tick, StrategyConfig
+
+# Re-export for backward compatibility — all existing imports of
+# ISignalStrategy from strategy_legacy continue to work.
+__all__ = [
+    "ISignalStrategy",
+    "Tick",
+    "StrategyConfig",
+    "MACrossStrategy",
+    "BBStrategy",
+    "RSIStrategy",
+    "SRBreakoutStrategy",
+    "ROCMStrategy",
+    "MomentumBreakoutStrategy",
+    "CommodityTrendStrategy",
+    "CommodityMeanReversionStrategy",
+    "SupertrendRSIBlendStrategy",
+    "KeltnerChannelBreakoutStrategy",
+    "HighConvictionStrategy",
+    "RegimeSwitchingRouter",
+    "RegimeRouterConfig",
+    "DEFAULT_LOD_HOD_STOP_BUFFER_PIPS",
+    "apply_lod_hod_stop_buffer",
+]
 
 DEFAULT_LOD_HOD_STOP_BUFFER_PIPS = 8.0
 
@@ -56,13 +81,9 @@ def apply_lod_hod_stop_buffer(
     return stop_loss
 
 
-class ISignalStrategy:
-    @property
-    def name(self) -> str:
-        raise NotImplementedError
-
-    def evaluate(self, state: MarketState) -> StrategySignal | None:
-        raise NotImplementedError
+# ISignalStrategy is now imported from .strategies.isignal_strategy
+# This replaces the old duck-type class with a formal ABC that includes
+# lifecycle hooks: initialize(), on_bar(), on_tick(), generate_signal(), shutdown()
 
 
 class MACrossStrategy(ISignalStrategy):

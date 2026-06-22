@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+from collections import defaultdict
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -22,6 +23,52 @@ from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
 
 logger = logging.getLogger(__name__)
+
+
+def _reliability_flag(n: int) -> str:
+    """Classify sample reliability for regime aggregation (BQ-508).
+
+    - < 3 samples  → "exploratory"
+    - 3-9 samples   → "tentative"
+    - ≥ 10 samples  → "robust"
+    """
+    if n < 3:
+        return "exploratory"
+    elif n < 10:
+        return "tentative"
+    else:
+        return "robust"
+
+
+def aggregate_by_regime(
+    per_window: list[WindowMetrics],
+) -> dict[str, dict[str, Any]]:
+    """Group windows by ``regime_combined`` and compute per-regime stats.
+
+    Returns a dict keyed by regime string, each value containing mean
+    win_rate, profit_factor, sharpe_ratio, max_drawdown, sample count,
+    and a reliability flag.
+    """
+    groups: dict[str, list[WindowMetrics]] = defaultdict(list)
+    for m in per_window:
+        groups[m.regime_combined].append(m)
+
+    result: dict[str, dict[str, Any]] = {}
+    for regime, windows in groups.items():
+        n = len(windows)
+        wr = _mean([w.win_rate for w in windows])
+        pf = _mean([w.profit_factor for w in windows])
+        sr = _mean([w.sharpe_ratio for w in windows])
+        dd = _mean([w.max_drawdown for w in windows])
+        result[regime] = {
+            "sample_count": n,
+            "reliability": _reliability_flag(n),
+            "mean_win_rate": round(wr, 6),
+            "mean_profit_factor": round(pf, 6),
+            "mean_sharpe_ratio": round(sr, 6),
+            "mean_max_drawdown": round(dd, 6),
+        }
+    return result
 
 
 class SupportsTrain(Protocol):
@@ -139,6 +186,7 @@ def run_strategy_walk_forward(
             regime_session=regime["regime_session"],
             regime_combined=regime["regime_combined"],
             regime_quality=regime["regime_quality"],
+            btc_regime=regime.get("btc_regime", "unknown"),
         )
         per_window.append(window_metrics)
 
@@ -179,12 +227,16 @@ def run_strategy_walk_forward(
     total = len(per_window)
     go_nogo = total >= 3 and windows_passed >= 2
 
+    # Per-regime aggregation (BQ-508)
+    regime_breakdown = aggregate_by_regime(per_window)
+
     result = WalkForwardResults(
         per_window=per_window,
         aggregated=aggregated,
         go_nogo=go_nogo,
     )
     result._trade_records = all_trade_records  # type: ignore[attr-defined]
+    result._regime_breakdown = regime_breakdown  # type: ignore[attr-defined]
     return result
 
 
@@ -284,6 +336,7 @@ def run_multi_strategy_walk_forward(
             regime_session=regime["regime_session"],
             regime_combined=regime["regime_combined"],
             regime_quality=regime["regime_quality"],
+            btc_regime=regime.get("btc_regime", "unknown"),
         )
         per_window.append(window_metrics)
 
@@ -324,12 +377,16 @@ def run_multi_strategy_walk_forward(
     total = len(per_window)
     go_nogo = total >= 3 and windows_passed >= 2
 
+    # Per-regime aggregation (BQ-508)
+    regime_breakdown = aggregate_by_regime(per_window)
+
     result = WalkForwardResults(
         per_window=per_window,
         aggregated=aggregated,
         go_nogo=go_nogo,
     )
     result._trade_records = all_trade_records  # type: ignore[attr-defined]
+    result._regime_breakdown = regime_breakdown  # type: ignore[attr-defined]
     return result
 
 

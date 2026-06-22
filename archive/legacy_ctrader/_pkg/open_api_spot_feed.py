@@ -121,8 +121,8 @@ class OpenApiSpotFeed:
         self._port = port
 
         self._token_mgr = TokenManager(
-            token_path=Path(__file__).resolve().parents[4] / "data" / "token_state.json",
-            env_path=Path(__file__).resolve().parents[4] / ".env",
+            token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
+            env_path=Path(__file__).resolve().parents[3] / ".env",
         )
 
         # Connection (extracted module)
