@@ -1,9 +1,0 @@
-2026-04-27 06:13:34 | INFO     | ayumi.blend_launcher | === Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===
-2026-04-27 06:13:37 | INFO     | ayumi.blend_launcher | Fetching 100 H1 bars (symbol_id=2) from OpenAPI...
-2026-04-27 06:13:39 | INFO     | ayumi.blend_launcher | Fetched 99 bars
-2026-04-27 06:13:39 | INFO     | ayumi.blend_launcher | Registered 3 strategies: ['SRMR+', 'Killzone Momentum', 'Donchian Channel Breakout']
-2026-04-27 06:13:39 | WARNING  | ayumi.risk | No state file at data/risk_state_blend.json — starting fresh
-2026-04-27 06:13:39 | INFO     | ayumi.forward_test | BlendForwardTestRunner started — balance=$100000.00
-2026-04-27 06:13:39 | INFO     | ayumi.blend_launcher | Preloaded 99 H1 bars into engine._bars['GBPUSD']
-2026-04-27 06:13:39 | INFO     | ayumi.blend_launcher | === STARTING MULTI-STRATEGY FORWARD TEST ===
-2026-04-27 06:13:39 | INFO     | ayumi.blend_launcher | Pipeline: SRMR+ + Killzone + Momentum → Correlation Gate → Blend Runner → Paper
