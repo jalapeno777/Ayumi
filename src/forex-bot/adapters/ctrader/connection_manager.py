@@ -3,6 +3,13 @@
 Owns both the market data (spot feed) and trade execution connections,
 providing a single health gate (SplitBrainGate) and unified metrics.
 
+Concurrent session lifecycle (BQ-1329):
+-----------------------------------------
+When operating the spot feed + historical-data client simultaneously,
+only one metrics/health thread set is needed.  Call ``stop()`` before
+dropping the manager to terminate the background metrics emitter and avoid
+thread leaks in tests or short-lived processes.
+
 BQ-716 Phase 1.
 """
 
@@ -227,7 +234,7 @@ class ConnectionManager:
         metrics_log_path: str | Path | None = None,
         emit_interval: float = 60.0,
     ):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # BQ-1329: RLock needed because get_decision_context() calls properties that also acquire lock
         self._connections: dict[ConnectionRole, ConnectionStateManager] = {}
         self._metrics: dict[ConnectionRole, ConnectionMetrics] = {}
         self._callbacks: list[callable] = []
@@ -256,6 +263,25 @@ class ConnectionManager:
         self._reconnect_strategy = ReconnectStrategy()
         self._auth_token: Optional[str] = None
         self._reconnect_attempt = 0
+
+    def stop(self) -> None:
+        """Stop background threads and release resources.
+
+        BQ-1329: Idempotent teardown for the metrics emitter thread.
+        Safe to call multiple times.
+        """
+        self._stop_event.set()
+        if self._metrics_thread is not None:
+            if self._metrics_thread.is_alive() and self._metrics_thread is not threading.current_thread():
+                self._metrics_thread.join(timeout=2.0)
+            self._metrics_thread = None
+        logger.info("[ConnectionManager] Stopped")
+
+    def __enter__(self) -> "ConnectionManager":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.stop()
 
     def register(
         self,
