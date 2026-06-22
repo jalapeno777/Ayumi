@@ -84,12 +84,30 @@ class ScalperStrategy(ISignalStrategy):
     def name(self) -> str:
         return f"Scalper {self.symbol}"
 
+    def initialize(self, config: dict | None = None) -> None:
+        """Initialize the scalper strategy."""
+        super().initialize(config)
+        logger.info(
+            "ScalperStrategy initialized: symbol=%s timeframe=%s",
+            self.symbol,
+            self.timeframe,
+        )
+
     def reset(self) -> None:
         self._last_signal_bar = -999
 
         self._ema_values = None
         self._prev_close_above_vwap = None
         self._prev_close_below_vwap = None
+
+    def shutdown(self) -> None:
+        """Clean up after scalper run."""
+        logger.info(
+            "ScalperStrategy shutdown: %s (processed %d bars)",
+            self.symbol,
+            self._bars_processed,
+        )
+        super().shutdown()
 
     def evaluate(self, state: MarketState) -> StrategySignal | None:
         bars = state.bars

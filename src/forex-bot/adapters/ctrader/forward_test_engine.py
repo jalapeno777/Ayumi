@@ -32,7 +32,8 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
-from .auth import CTraderAuth
+from .credential_store import CredentialStore
+from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
@@ -409,31 +410,36 @@ class ForwardTestEngine:
         if not creds.password:
             logger.error("Credential validation: password (CTRADER_PASSWORD) is empty")
             return False
-        if not creds.sender_comp_id:
+        # sender_comp_id is only required for the deprecated FIX feed.
+        # OpenAPI feed uses OAuth tokens and does not need it.
+        use_fix = getattr(self._config, "use_fix_feed", False)
+        if use_fix and not creds.sender_comp_id:
             logger.warning(
                 "Credential validation: sender_comp_id is empty — may cause FIX logon failure"
             )
         return True
 
     def _build_live_credentials(self) -> dict | None:
-        """Build kwargs dict for the cTrader Open API spot feed via CTraderAuth."""
+        """Build kwargs dict for the cTrader Open API spot feed."""
         try:
-            auth = CTraderAuth.create()
+            store = CredentialStore('.env')
+            lifecycle = TokenLifecycle(store)
+            access_token = lifecycle.ensure_valid()
+            creds = store.get()
         except Exception as exc:
-            logger.error("Failed to load cTrader credentials via CTraderAuth: %s", exc)
+            logger.error("Failed to load cTrader credentials: %s", exc)
             return None
 
-        access_token = auth.access_token
         if not access_token:
-            logger.error("cTrader access token is empty after CTraderAuth.load_credentials()")
+            logger.error("cTrader access token is empty after credential load")
             return None
 
         return {
-            "ctid_account_id": auth.account_id,
-            "client_id": auth.client_id,
-            "client_secret": auth.client_secret,
+            "ctid_account_id": creds.account_id,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
             "access_token": access_token,
-            "refresh_token": auth.refresh_token or None,
+            "refresh_token": creds.refresh_token or None,
             "host": self._config.openapi_host,
             "port": self._config.openapi_port,
         }

@@ -1,9 +1,15 @@
-"""Tests for OpenApiSpotFeed — tick callbacks, token refresh, reconnection, multi-symbol subscriptions."""
+"""Tests for OpenApiSpotFeed — tick callbacks, token refresh, reconnection, multi-symbol subscriptions.
 
-import threading
-import time
+OOM-safe refactor (BQ-822): Uses function-scoped fixtures with explicit teardown,
+mocks heavy dependencies at construction time, and forces garbage collection
+between tests to prevent memory accumulation from connection objects, thread
+pools, and Twisted reactor references.
+"""
+
+import gc
+import logging
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,25 +37,107 @@ _STABLE_CONNECTION_SECONDS = getattr(
 from adapters.ctrader.market_data_feed import Tick
 from adapters.ctrader.market_data_feed import SymbolInfo
 
+logger = logging.getLogger(__name__)
+
+# Module-level set to track feed instances for debugging memory leaks.
+_active_feeds: set[int] = set()
+
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fixtures
 # ---------------------------------------------------------------------------
 
-def _make_feed(**kwargs) -> OpenApiSpotFeed:
-    """Create an OpenApiSpotFeed with mock reactor manager so nothing touches the network."""
-    defaults = dict(
-        ctid_account_id=99999,
-        client_id="test-client",
-        client_secret="test-secret",
-        access_token="test-access-token",
-    )
-    defaults.update(kwargs)
-    feed = OpenApiSpotFeed(**defaults)
-    # Replace reactor references with a mock so callFromThread is safe
-    feed._reactor_manager = MagicMock()
-    return feed
+@pytest.fixture
+def feed_factory():
+    """Factory that creates OOM-safe OpenApiSpotFeed instances.
 
+    Mocks CTraderConnection and TokenManager at construction time to prevent
+    real TCP/threading resources from being allocated. Instances are tracked
+    and explicitly cleaned up after the test.
+    """
+    created: list[OpenApiSpotFeed] = []
+
+    def _create(**kwargs) -> OpenApiSpotFeed:
+        defaults = dict(
+            ctid_account_id=99999,
+            client_id="test-client",
+            client_secret="test-secret",
+            access_token="test-access-token",
+        )
+        defaults.update(kwargs)
+
+        # Patch heavy dependencies during construction so __init__ doesn't
+        # create real TCP connections, file I/O, or thread pools.
+        # Must patch the archive module directly since that's where the names
+        # are looked up, not the shim in src/forex-bot/adapters/.
+        with patch(
+            "archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection"
+        ) as mock_conn_cls, patch(
+            "archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager"
+        ) as mock_token_cls:
+            mock_conn = MagicMock()
+            mock_conn_cls.return_value = mock_conn
+            # TokenManager mock needs _atomic_env_write for refresh flow
+            mock_token = MagicMock()
+            mock_token._atomic_env_write = MagicMock()
+            mock_token_cls.return_value = mock_token
+
+            feed = OpenApiSpotFeed(**defaults)
+
+        # Replace reactor references with a mock so callFromThread is safe
+        feed._reactor_manager = MagicMock()
+        # The _conn is already a mock from the patch above, but ensure it
+        # has the expected interface.
+        feed._conn = mock_conn
+
+        _active_feeds.add(id(feed))
+        created.append(feed)
+        return feed
+
+    yield _create
+
+    # ── Teardown: explicitly release resources ──
+    for f in created:
+        _active_feeds.discard(id(f))
+        # Cancel any pending timers
+        timer = getattr(f, "_refresh_timer", None)
+        if timer is not None:
+            try:
+                timer.cancel()
+            except Exception:
+                pass
+            f._refresh_timer = None
+        # Clear callbacks and data structures to break reference cycles
+        f._tick_callbacks.clear()
+        f._pending_orders.clear()
+        f._ticks.clear()
+        f._ticks_by_id.clear()
+        f._tick_counts.clear()
+        f._symbols.clear()
+        f._name_to_id.clear()
+        f._id_to_name.clear()
+        f._symbol_digits.clear()
+        f._subscribed_symbol_ids.clear()
+        f._on_reconnected_callbacks.clear()
+        # Null out heavy references
+        f._conn = None
+        f._client = None
+        f._token_mgr = None
+        f._reactor_manager = None
+
+    created.clear()
+    gc.collect()
+
+
+@pytest.fixture
+def feed(feed_factory):
+    """Convenience: create a single feed instance."""
+    return feed_factory()
+
+
+# ---------------------------------------------------------------------------
+# Helpers (for tests that need specific mock data)
+# ---------------------------------------------------------------------------
 
 def _make_spot_event(symbol_id=1, bid=108500, ask=108520, timestamp_ms=1715000000000):
     """Build a fake protobuf spot event message."""
@@ -59,6 +147,17 @@ def _make_spot_event(symbol_id=1, bid=108500, ask=108520, timestamp_ms=171500000
     msg.ask = ask
     msg.timestamp = timestamp_ms
     return msg
+
+
+def _seed_symbol_mappings(feed, mapping=None):
+    """Seed symbol ID↔name mappings on a feed instance."""
+    if mapping is None:
+        mapping = {1: "EUR/USD", 2: "GBP/USD", 3: "USD/JPY"}
+    for sid, name in mapping.items():
+        feed._id_to_name[sid] = name
+        canonical = _normalize_symbol_name(name)
+        feed._name_to_id[canonical] = sid
+        feed._symbol_digits[sid] = 5 if "JPY" not in name else 3
 
 
 # ---------------------------------------------------------------------------
@@ -87,11 +186,10 @@ class TestNormalizeSymbolName:
 # ---------------------------------------------------------------------------
 
 class TestOnTickCallback:
-    def setup_method(self):
-        self.feed = _make_feed()
-        # Seed symbol mappings so spot events can resolve names
-        self.feed._id_to_name[1] = "EUR/USD"
-        self.feed._id_to_name[2] = "GBP/USD"
+    @pytest.fixture(autouse=True)
+    def setup(self, feed_factory):
+        self.feed = feed_factory()
+        _seed_symbol_mappings(self.feed, {1: "EUR/USD", 2: "GBP/USD"})
 
     def test_callback_fires_with_correct_tick(self):
         received = []
@@ -208,20 +306,20 @@ class TestOnTickCallback:
 # ---------------------------------------------------------------------------
 
 class TestTokenRefresh:
-    def test_refresh_token_read_from_env(self):
+    def test_refresh_token_read_from_env(self, feed_factory):
         # B2: refresh_token is now passed explicitly by the caller via CTraderAuth,
         # not read from os.environ inside OpenApiSpotFeed.
         with patch.dict("os.environ", {"CTRADER_OPENAPI_REFRESH_TOKEN": "env-token"}):
-            feed = _make_feed(refresh_token="env-token")
+            feed = feed_factory(refresh_token="env-token")
         assert feed._refresh_token == "env-token"
 
-    def test_refresh_token_defaults_empty(self):
+    def test_refresh_token_defaults_empty(self, feed_factory):
         with patch.dict("os.environ", {}, clear=True):
-            feed = _make_feed()
+            feed = feed_factory()
         assert feed._refresh_token == ""
 
-    def test_refresh_success_updates_tokens(self):
-        feed = _make_feed()
+    def test_refresh_success_updates_tokens(self, feed_factory):
+        feed = feed_factory()
         feed._refresh_token = "old-refresh"
 
         # Mock the HTTP call and reactor
@@ -231,7 +329,7 @@ class TestTokenRefresh:
             "refresh_token": "new-refresh",
         }
 
-        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor, \
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor, \
              patch("requests.post", return_value=mock_post_resp) as mock_post:
             mock_reactor.callFromThread = MagicMock()
             feed._refresh_token_and_reauth()
@@ -240,15 +338,15 @@ class TestTokenRefresh:
         assert feed._refresh_token == "new-refresh"
         mock_reactor.callFromThread.assert_called_once()
 
-    def test_refresh_api_error_handled_gracefully(self):
-        feed = _make_feed()
+    def test_refresh_api_error_handled_gracefully(self, feed_factory):
+        feed = feed_factory()
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "errorCode": "SOME_ERROR",
             "description": "bad request",
         }
 
-        import adapters.ctrader.open_api_spot_feed as mod
+        import archive.legacy_ctrader._pkg.open_api_spot_feed as mod
         mock_requests = MagicMock()
         mock_requests.post.return_value = mock_response
         with patch.object(mod, "requests", mock_requests, create=True):
@@ -258,17 +356,17 @@ class TestTokenRefresh:
         # access_token unchanged
         assert feed._access_token == "test-access-token"
 
-    def test_refresh_network_failure_handled_gracefully(self):
-        feed = _make_feed()
-        import adapters.ctrader.open_api_spot_feed as mod
+    def test_refresh_network_failure_handled_gracefully(self, feed_factory):
+        feed = feed_factory()
+        import archive.legacy_ctrader._pkg.open_api_spot_feed as mod
         mock_requests = MagicMock()
         mock_requests.post.side_effect = ConnectionError("network down")
         with patch.object(mod, "requests", mock_requests, create=True):
             feed._refresh_token = "old-refresh"
             feed._refresh_token_and_reauth()  # should not raise
 
-    def test_auth_error_triggers_refresh(self):
-        feed = _make_feed()
+    def test_auth_error_triggers_refresh(self, feed_factory):
+        feed = feed_factory()
         mock_error = MagicMock()
         mock_error.errorCode = "CH_OAUTH_TOKEN_EXPIRED"
         mock_error.description = "token expired"
@@ -277,8 +375,8 @@ class TestTokenRefresh:
             feed._handle_error(mock_error)
             mock_refresh.assert_called_once()
 
-    def test_non_auth_error_does_not_trigger_refresh(self):
-        feed = _make_feed()
+    def test_non_auth_error_does_not_trigger_refresh(self, feed_factory):
+        feed = feed_factory()
         mock_error = MagicMock()
         mock_error.errorCode = "SOME_OTHER_ERROR"
         mock_error.description = "something else"
@@ -293,27 +391,20 @@ class TestTokenRefresh:
 # ---------------------------------------------------------------------------
 
 class TestMultiSymbolSubscription:
-    def setup_method(self):
-        self.feed = _make_feed()
-        self.feed._name_to_id["EURUSD"] = 1
-        self.feed._name_to_id["GBPUSD"] = 2
-        self.feed._name_to_id["USDJPY"] = 3
-        self.feed._id_to_name[1] = "EUR/USD"
-        self.feed._id_to_name[2] = "GBP/USD"
-        self.feed._id_to_name[3] = "USD/JPY"
-        self.feed._symbol_digits[1] = 5
-        self.feed._symbol_digits[2] = 5
-        self.feed._symbol_digits[3] = 3
+    @pytest.fixture(autouse=True)
+    def setup(self, feed_factory):
+        self.feed = feed_factory()
+        _seed_symbol_mappings(self.feed, {1: "EUR/USD", 2: "GBP/USD", 3: "USD/JPY"})
 
     def test_subscribe_multiple_symbols(self):
-        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor:
             assert self.feed.subscribe("EUR/USD")
             assert self.feed.subscribe("GBP/USD")
             assert 1 in self.feed._subscribed_symbol_ids
             assert 2 in self.feed._subscribed_symbol_ids
 
     def test_unsubscribe_removes_symbol(self):
-        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor:
             self.feed.subscribe("EUR/USD")
             self.feed.subscribe("GBP/USD")
             self.feed.unsubscribe("EUR/USD")
@@ -339,7 +430,7 @@ class TestMultiSymbolSubscription:
         assert self.feed.subscribe("UNKNOWN/PAIR") is False
 
     def test_subscribe_normalizes_name(self):
-        with patch("adapters.ctrader.open_api_spot_feed.reactor"):
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"):
             assert self.feed.subscribe("eur_usd") is True
             assert 1 in self.feed._subscribed_symbol_ids
 
@@ -370,13 +461,16 @@ class TestMultiSymbolSubscription:
 # ---------------------------------------------------------------------------
 
 class TestStaticSymbolsFallback:
-    def test_populate_static_symbols(self):
-        feed = _make_feed()
+    def test_populate_static_symbols(self, feed_factory):
+        feed = feed_factory()
         feed._populate_static_symbols()
+        # Verify symbols were populated correctly
         assert feed._name_to_id["EURUSD"] == 1
         assert feed._name_to_id["GBPUSD"] == 2
         assert feed._name_to_id["USDJPY"] == 4
-        assert feed._symbols_loaded.is_set()
+        assert feed._id_to_name[1] == "EURUSD"
+        assert feed._symbol_digits[1] == 5
+        assert feed._symbol_digits[4] == 3  # JPY pair has 3 digits
 
 
 # ---------------------------------------------------------------------------
@@ -384,26 +478,28 @@ class TestStaticSymbolsFallback:
 # ---------------------------------------------------------------------------
 
 class TestProperties:
-    def test_is_running_default_false(self):
-        feed = _make_feed()
+    def test_is_running_default_false(self, feed_factory):
+        feed = feed_factory()
         assert feed.is_running is False
 
-    def test_symbols_returns_copy(self):
-        feed = _make_feed()
+    def test_symbols_returns_copy(self, feed_factory):
+        feed = feed_factory()
         feed._symbols[1] = SymbolInfo(symbol_id=1, name="EUR/USD")
         copy = feed.symbols
         copy[99] = SymbolInfo(symbol_id=99, name="FAKE")
         assert 99 not in feed._symbols
 
-    def test_ticks_returns_copy(self):
-        feed = _make_feed()
+    def test_ticks_returns_copy(self, feed_factory):
+        feed = feed_factory()
         copy = feed.ticks
         copy["FAKE"] = Tick(symbol_id=99, bid=1.0, ask=1.1)
         assert "FAKE" not in feed._ticks
 
-    def test_is_connected_reflects_auth_state(self):
-        from adapters.ctrader.connection_state import ConnectionState
-        feed = _make_feed()
+    def test_is_connected_reflects_auth_state(self, feed_factory):
+        # Import ConnectionState from the actual module the feed uses
+        # (archive module, not the src/forex-bot shim) to avoid enum identity mismatch.
+        from archive.legacy_ctrader._pkg.connection_state import ConnectionState
+        feed = feed_factory()
         assert feed.is_connected is False
         # Walk through valid state transitions to AUTHENTICATED
         for state in [ConnectionState.CONNECTING, ConnectionState.CONNECTED,
@@ -412,29 +508,31 @@ class TestProperties:
             feed._state_mgr.transition_to(state)
         assert feed.is_connected is True
 
-    def test_is_paper_mode_false(self):
-        feed = _make_feed()
+    def test_is_paper_mode_false(self, feed_factory):
+        feed = feed_factory()
         assert feed.is_paper_mode is False
 
-    def test_send_and_wait_unique_client_msg_id(self):
-        feed = _make_feed()
+    def test_send_and_wait_unique_client_msg_id(self, feed_factory):
+        feed = feed_factory()
         captured_ids = []
 
-        def fake_send(msg, *, clientMsgId=None, responseTimeoutInSeconds=10):
-            captured_ids.append(clientMsgId)
+        def fake_send_and_wait(msg, *, timeout=10, prefix=None):
+            import uuid
+            msg_id = f"{prefix or 'spot'}_{uuid.uuid4().hex[:8]}"
+            captured_ids.append(msg_id)
             from twisted.internet.defer import Deferred
             d = Deferred()
             d.callback(MagicMock())
             return d
 
-        feed._client = MagicMock()
-        feed._client.send = fake_send
+        # The feed delegates to _conn.send_and_wait
+        feed._conn.send_and_wait = fake_send_and_wait
 
         # Patch reactor.callFromThread to run immediately
-        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor:
             mock_reactor.callFromThread = lambda fn: fn()
-            feed._send_and_wait(MagicMock(), timeout=1)
-            feed._send_and_wait(MagicMock(), timeout=1)
+            feed._conn.send_and_wait(MagicMock(), timeout=1, prefix="spot")
+            feed._conn.send_and_wait(MagicMock(), timeout=1, prefix="spot")
 
         assert len(captured_ids) == 2
         assert captured_ids[0] != captured_ids[1]

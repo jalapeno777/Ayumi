@@ -29,6 +29,8 @@ class WindowMetrics:
     regime_session: str = "unknown"
     regime_combined: str = "unknown"
     regime_quality: float = 0.0
+    # BTC macro regime overlay (BQ-508)
+    btc_regime: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -437,11 +439,15 @@ def _median(values: list[float]) -> float:
 
 def detect_regime_for_window(
     bars: list[Bar],
+    btc_bars: list[Bar] | None = None,
 ) -> dict[str, Any]:
     """Detect regime for a walk-forward window. Returns regime label dict.
 
     Short-window guard: <14 bars returns all defaults.
     ATR percentile guard: <30 data points uses median instead of percentile.
+
+    If ``btc_bars`` is provided, also computes the BTC macro regime overlay
+    via :class:`~quant.btc_regime_overlay.BtcRegimeOverlay`.
     """
     from quant.regime import (
         VolatilityRegime,
@@ -460,6 +466,7 @@ def detect_regime_for_window(
         "regime_session": "unknown",
         "regime_combined": "unknown",
         "regime_quality": 0.0,
+        "btc_regime": "unknown",
     }
 
     # Short-window guard (council amendment K-3)
@@ -536,12 +543,24 @@ def detect_regime_for_window(
         quality = 0.3
         combined_label = f"{vol_label}_{trend_label}_{session_label}"
 
+    # BTC macro regime overlay (BQ-508)
+    btc_regime_label = "unknown"
+    if btc_bars is not None:
+        try:
+            from quant.btc_regime_overlay import BtcRegimeOverlay
+
+            overlay = BtcRegimeOverlay()
+            btc_regime_label = overlay.regime_for_bars(btc_bars)
+        except Exception:
+            btc_regime_label = "neutral"
+
     return {
         "regime_volatility": vol_label,
         "regime_trend": trend_label,
         "regime_session": session_label,
         "regime_combined": combined_label,
         "regime_quality": quality,
+        "btc_regime": btc_regime_label,
     }
 
 

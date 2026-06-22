@@ -38,8 +38,13 @@ logger = logging.getLogger("ayumi.ctrader_auth")
 # ── Project root detection ─────────────────────────────────────────────────
 
 def _project_root() -> Path:
-    """Return the project root (4 levels up from this file)."""
-    return Path(__file__).resolve().parents[4]
+    """Return the project root (3 levels up from this file).
+
+    Note: archived module is at archive/legacy_ctrader/_pkg/, so the project
+    root is parents[3]. (Originally parents[4] when the module lived at
+    src/forex-bot/adapters/ctrader/auth.py pre-archive on 2026-06-16.)
+    """
+    return Path(__file__).resolve().parents[3]
 
 
 # ── CTraderAuth ────────────────────────────────────────────────────────────

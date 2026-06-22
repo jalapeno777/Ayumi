@@ -19,7 +19,8 @@ from typing import Optional
 
 from .connection_state import ConnectionState, ConnectionStateManager
 from .error_classifier import ErrorTier, classify_error
-from .oauth_refresh import OAuthRefreshManager, OAuthToken
+from .credential_store import CredentialStore
+from .token_lifecycle import TokenLifecycle
 from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction
 
 
@@ -250,7 +251,8 @@ class ConnectionManager:
 
         # Connection reliability wiring (BQ-716)
         self._watchdog = None  # ConnectionWatchdog — lazy import to avoid circular
-        self._oauth_manager: Optional[OAuthRefreshManager] = None
+        self._token_lifecycle: Optional[TokenLifecycle] = None
+        self._cred_store: Optional[CredentialStore] = None
         self._reconnect_strategy = ReconnectStrategy()
         self._auth_token: Optional[str] = None
         self._reconnect_attempt = 0
@@ -570,16 +572,16 @@ class ConnectionManager:
             role.value,
         )
 
-    def handle_token_refresh(self, new_token: OAuthToken) -> None:
+    def handle_token_refresh(self, access_token: str) -> None:
         """Update internal auth state after a successful token refresh.
 
         Args:
-            new_token: The refreshed OAuth token.
+            access_token: The refreshed access token string.
         """
-        self._auth_token = new_token.access_token
+        self._auth_token = access_token
         logger.info(
             "[ConnectionManager] Auth token updated (access=%s…)",
-            new_token.access_token[:8] if new_token.access_token else "????????",
+            access_token[:8] if access_token else "????????",
         )
 
     def refresh_oauth_if_needed(
@@ -588,34 +590,26 @@ class ConnectionManager:
     ) -> None:
         """Check and refresh the OAuth token if needed.
 
-        Uses :class:`OAuthRefreshManager` to proactively refresh the token
-        before expiry.  On success, updates the internal auth state via
-        :meth:`handle_token_refresh`.
+        Uses :class:`TokenLifecycle` to ensure the token is valid,
+        refreshing if within the 5-day buffer before expiry.
 
         Args:
-            credentials_path: Override path to credentials JSON file.
+            credentials_path: Unused — kept for API compatibility.
+                              Tokens come from .env via CredentialStore.
         """
         oauth_logger = logging.getLogger("ayumi.connection.oauth")
 
-        if credentials_path is None:
-            credentials_path = Path("data/.credentials")
-
-        if (
-            self._oauth_manager is None
-            or str(getattr(self._oauth_manager, "_path", "")) != str(credentials_path)
-        ):
-            try:
-                self._oauth_manager = OAuthRefreshManager(credentials_path)
-            except Exception as exc:
-                oauth_logger.warning("[OAuth] Failed to initialize refresh manager: %s", exc)
-                return
+        if self._cred_store is None:
+            self._cred_store = CredentialStore('.env')
+        if self._token_lifecycle is None:
+            self._token_lifecycle = TokenLifecycle(self._cred_store)
 
         try:
-            token = self._oauth_manager.refresh_if_needed()
+            token = self._token_lifecycle.ensure_valid()
             self.handle_token_refresh(token)
             oauth_logger.debug(
                 "[OAuth] Token is current (access=%s…)",
-                token.access_token[:8],
+                token[:8],
             )
         except Exception as exc:
             oauth_logger.warning("[OAuth] Token refresh failed: %s", exc)
