@@ -308,8 +308,101 @@ find src/ tests/ -user root | wc -l  # must be 0
 
 ---
 
+## Post-Mortem: Dual Token Manager Race (BQ-1327, 2026-06-22)
+
+### Summary
+
+The BQ-1036 rename of `_atomic_env_write()` → `_update_env_tokens()` in
+`TokenManager` was not propagated to the legacy `open_api_spot_feed.py`, which
+still called the old method name. The call failed silently inside a
+`try/except Exception` block, causing OAuth refresh successes to update
+`token_state.json` (via `track_token()`) but **never write back to `.env`**.
+
+This created a dual-token-manager race:
+
+1. **Legacy path** (`open_api_spot_feed.py` → `TokenManager`): Successfully
+   refreshed tokens, wrote metadata to `data/token_state.json`, but the
+   `_atomic_env_write()` call silently failed → `.env` never updated.
+2. **New path** (`credential_store.py` → `token_lifecycle.py`): Read tokens
+   from `.env`, which now held a **dead refresh token** (invalidated by the
+   legacy refresh succeeding).
+
+Result: the live forward test authenticated at startup but could never refresh
+after the initial token expired (24h TTL). Auth failures cascaded into kill
+switch contamination from stress-test entries.
+
+### Root Cause
+
+- **Method rename without grep coverage.** BQ-1036 renamed the method in
+  `token_manager.py` but missed 2 call sites in `open_api_spot_feed.py` (both
+  `archive/` and `_pkg/`).
+- **Silent failure.** The refresh flow wrapped everything in
+  `except Exception` which swallowed the `AttributeError`.
+- **Dual persistence paths.** Two systems (`TokenManager` → `token_state.json`
+  and `CredentialStore` → `.env`) were both active, with no mutual exclusion.
+
+### Fix Applied (commit `23b7ef8`)
+
+1. **Renamed all call sites** from `_atomic_env_write` → `_update_env_tokens`
+   (4 files: `_pkg/open_api_spot_feed.py`, `open_api_spot_feed.py`,
+   `_pkg/token_manager.py`, `tests/test_open_api_spot_feed.py`).
+2. **Disabled `token_state.json` writes permanently.** `_save_state()` and
+   `track_token()` are now no-ops. The file will never be created again.
+3. **Deleted `data/token_state.json`** from disk.
+4. **CredentialStore (`.env`) is the single source of truth** for token
+   persistence. `token_lifecycle.py` is the only module that calls the cTrader
+   OAuth endpoint.
+
+### Prevention Rules
+
+1. **Never have two token persistence paths.** CredentialStore (`.env`) is
+   the only writer. Any new token storage must go through `CredentialStore.
+   update_tokens()`.
+2. **`token_state.json` must never exist.** If it appears, something is
+   writing through the disabled legacy path — investigate immediately.
+3. **Method renames require full grep coverage** across `src/`, `scripts/`,
+   `tests/`, and `archive/`. The archive is still live code (imported via
+   compatibility shims).
+4. **No bare `except Exception`** in token refresh flows. Log and re-raise,
+   or at minimum log the exception class and message.
+5. **Token refresh end-to-end test:** After any auth code change, verify that
+   a refresh cycle updates `.env` by reading it back independently:
+   ```python
+   store = CredentialStore('.env')
+   store.update_tokens('TEST', 'TEST', 86400)
+   # Read .env with a DIFFERENT parser (not CredentialStore)
+   # Confirm tokens are present
+   ```
+
+### Timeline
+
+| Time (EDT) | Event |
+|---|---|
+| 2026-06-21 21:35 | Forward test started with fresh tokens (`FsbP8_-J`) |
+| 2026-06-22 17:27 | Process still running, 0 live fills in ~24h |
+| 2026-06-22 17:50 | Craig requests standup; Ava investigates |
+| 2026-06-22 17:57 | Kill switch contamination found (stress test entries) |
+| 2026-06-22 19:15 | Craig points out tokens should last 30 days |
+| 2026-06-22 19:17 | `token_state.json` discovered with second token (`2OKAzzOj`) |
+| 2026-06-22 19:20 | Root cause identified: `_atomic_env_write` AttributeError |
+| 2026-06-22 19:24 | Craig provides fresh tokens |
+| 2026-06-22 19:27 | Fix committed (`23b7ef8`), tokens verified, live trading restored |
+
+### Files Touched
+
+- `archive/legacy_ctrader/_pkg/open_api_spot_feed.py` — call site fix
+- `archive/legacy_ctrader/_pkg/token_manager.py` — `_save_state` + `track_token` disabled
+- `archive/legacy_ctrader/open_api_spot_feed.py` — call site fix
+- `tests/test_open_api_spot_feed.py` — mock method name fix
+- `data/token_state.json` — deleted
+- `data/kill_switches/global.state` — reset (contamination cleanup)
+- `data/risk_state_blend.json` — circuit breaker reset
+
+---
+
 ## Open Questions
 
 - Should builders run as TacoPants instead of root? (Requires sudo config)
 - Should `data/.credentials` be encrypted at rest? (Overkill for now?)
 - Walk-forward period for signal validation — 6 months or 1 year?
+- **(Resolved 2026-06-22)** Should `token_state.json` exist? **No.** Disabled permanently.
