@@ -12,6 +12,7 @@ are synchronous from the caller's perspective.
 import logging
 import threading
 import time
+import typing
 from datetime import datetime, timedelta, timezone
 
 from ctrader_open_api.client import Client
@@ -30,6 +31,11 @@ from twisted.internet import reactor
 from .reactor_manager import ReactorManager
 
 logger = logging.getLogger(__name__)
+
+# BQ-1327: Auth response payload type constants (mirrored from archived
+# open_api_spot_feed.py to enable response validation in the live client).
+_APP_AUTH_RES_PAYLOAD_TYPE = 2101
+_ACCT_AUTH_RES_PAYLOAD_TYPE = 2103
 
 # Period string → ProtoOATrendbarPeriod enum value
 PERIOD_MAP = {
@@ -77,15 +83,40 @@ class CTraderOpenApiClient:
         self._client: Client | None = None
         self._reactor_thread: threading.Thread | None = None
         self._connected = False
+        # BQ-1327: Guard to prevent concurrent reconnection/auth races,
+        # mirroring the archived spot feed's _reauth_in_progress pattern.
+        self._reauth_in_progress = threading.Event()
+        # BQ-1327: External callback for unexpected disconnects.
+        self._on_disconnected: typing.Callable | None = None
         self._symbol_digits_cache: dict[int, int] = {}
 
     # --- Connection lifecycle ---
 
     def connect(self) -> bool:
-        """Connect to cTrader Open API, authenticate, and return True on success."""
+        """Connect to cTrader Open API, authenticate, and return True on success.
+
+        BQ-1327: Uses _reauth_in_progress guard to prevent concurrent
+        connect/reconnect attempts from racing each other.
+        """
         if self._connected:
             return True
 
+        # BQ-1327: If a connect/reauth is already underway, wait for it.
+        if self._reauth_in_progress.is_set():
+            logger.debug("Reauth already in progress — waiting")
+            if not self._reauth_in_progress.wait(timeout=20):
+                logger.error("Timeout waiting for concurrent reauth")
+                return False
+            return self._connected
+
+        self._reauth_in_progress.set()
+        try:
+            return self._do_connect()
+        finally:
+            self._reauth_in_progress.clear()
+
+    def _do_connect(self) -> bool:
+        """Internal connect logic, called under the _reauth_in_progress guard."""
         # Ensure shared reactor is running
         ReactorManager().ensure_running()
         time.sleep(0.3)  # brief pause for reactor readiness
@@ -98,6 +129,10 @@ class CTraderOpenApiClient:
         def on_connected(_):
             connected_event.set()
 
+        # BQ-1327: Wire disconnected callback so the client cleans up state
+        # when the TCP connection drops unexpectedly (mirrors archived
+        # spot feed's setDisconnectedCallback pattern).
+        self._client.setDisconnectedCallback(self._on_tcp_disconnected)
         self._client.setConnectedCallback(on_connected)
         self._client.startService()
 
@@ -117,6 +152,9 @@ class CTraderOpenApiClient:
             if app_auth_res is None:
                 logger.error("Application auth failed — no response")
                 return False
+            # BQ-1327: Validate payload type matches expected app auth response
+            if not self._is_valid_auth_response(app_auth_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"):
+                return False
         except Exception as e:
             logger.error(f"Application auth failed: {e}")
             return False
@@ -134,6 +172,9 @@ class CTraderOpenApiClient:
             if account_auth_res is None:
                 logger.error("Account auth failed — no response")
                 return False
+            # BQ-1327: Validate payload type matches expected account auth response
+            if not self._is_valid_auth_response(account_auth_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"):
+                return False
         except Exception as e:
             logger.error(f"Account auth failed: {e}")
             return False
@@ -150,7 +191,49 @@ class CTraderOpenApiClient:
             except Exception:
                 pass
         self._connected = False
+        self._reauth_in_progress.clear()
         logger.info("cTrader Open API disconnected")
+
+    def setDisconnectedCallback(self, callback: typing.Callable) -> None:
+        """Register a callback invoked when the TCP connection drops.
+
+        BQ-1327: Mirrors the setDisconnectedCallback pattern from the archived
+        spot feed so callers can react to unexpected disconnects.
+        """
+        self._on_disconnected = callback
+
+    def _on_tcp_disconnected(self, _: object) -> None:
+        """Internal handler for TCP disconnect events (BQ-1327)."""
+        was_connected = self._connected
+        self._connected = False
+        self._reauth_in_progress.clear()
+        if was_connected and self._on_disconnected is not None:
+            try:
+                self._on_disconnected(self)
+            except Exception as exc:
+                logger.warning("Disconnected callback error: %s", exc)
+
+    def _is_valid_auth_response(self, response, expected_payload_type: int, stage: str) -> bool:
+        """Validate that an auth response has the expected payload type.
+
+        BQ-1327: Mirrors the _is_expected_auth_response check from the
+        archived spot feed.  Rejects mismatched payload types and surfaces
+        error responses with their errorCode for diagnostics.
+        """
+        payload_type = getattr(response, "payloadType", None)
+        if payload_type == expected_payload_type:
+            return True
+        # Error response (payload type 2142)
+        if payload_type == 2142:
+            payload = Protobuf.extract(response)
+            error_code = getattr(payload, "errorCode", "UNKNOWN")
+            logger.error("%s auth rejected: %s", stage, error_code)
+            return False
+        logger.error(
+            "%s auth unexpected payloadType=%s (expected %s)",
+            stage, payload_type, expected_payload_type,
+        )
+        return False
 
     def _send_and_wait(self, message, timeout: float = 10):
         """Send a protobuf message and wait for the response synchronously."""
