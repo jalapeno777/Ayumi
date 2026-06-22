@@ -77,9 +77,9 @@ def feed_factory():
         ) as mock_token_cls:
             mock_conn = MagicMock()
             mock_conn_cls.return_value = mock_conn
-            # TokenManager mock needs _atomic_env_write for refresh flow
+            # TokenManager mock needs _update_env_tokens for refresh flow
             mock_token = MagicMock()
-            mock_token._atomic_env_write = MagicMock()
+            mock_token._update_env_tokens = MagicMock()
             mock_token_cls.return_value = mock_token
 
             feed = OpenApiSpotFeed(**defaults)

@@ -961,7 +961,7 @@ class OpenApiSpotFeed:
                 self._schedule_proactive_refresh(expires_in)
 
             self._token_mgr.track_token(self._access_token, expires_in)
-            self._token_mgr._atomic_env_write(self._access_token, self._refresh_token)
+            self._token_mgr._update_env_tokens(self._access_token, self._refresh_token)
 
             req = ProtoOAAccountAuthReq()
             req.ctidTraderAccountId = self._ctid_account_id
