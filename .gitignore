@@ -68,8 +68,16 @@ tests/test_raw_fix.py
 tests/test_flatten.py
 src/reports/
 # Generated data files
-data/forex/historical/*.csv
-data/forex/historical/*.pkl
+data/forex/historical/
+data/forex/parquet/
+data/forex/phase2d_results.json
+
+# DB files
+data/crypto/copy_trading.db
+data/trading.db
+
+# Signal data
+data/signals/
 
 # Workspace-internal BQ drafts (generated outside the repo)
 build_queue/
@@ -82,9 +90,13 @@ data/risk_state_blend.json
 data/risk_state_*.json
 
 # Forward test logs (per-day)
-logs/forward_test-stderr.log
-logs/forward_test-stdout.log
+logs/forward_test-stderr.log*
+logs/forward_test-stdout.log*
 logs/forward_test_*.log
-logs/ayumi_*.log
+logs/forward_test.log*
+logs/forward_test_nohup.log
+logs/ayumi_*.log*
 logs/blend_forward_test.log
 logs/ctp_*.log
+logs/live_paper.log
+logs/paper_mvp.log
