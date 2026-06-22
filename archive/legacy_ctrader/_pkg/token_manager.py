@@ -165,24 +165,12 @@ class TokenManager:
     def track_token(self, access_token: str, expires_in: int) -> None:
         """Record a newly-issued token's metadata.
 
-        Args:
-            access_token: The raw access token string.
-            expires_in: TTL in seconds (from OAuth response).
+        BQ-1327 HARDENING: No-op for token_state.json. Token persistence is
+        handled exclusively by CredentialStore (.env) via _update_env_tokens().
+        This method is kept for backward compatibility but does not write state.
         """
         token_hash = access_token[:8]
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        self._state.setdefault("version", TOKEN_STATE_VERSION)
-        self._state.setdefault("tokens", {})
-
-        self._state["tokens"][token_hash] = {
-            "issued_at": now_iso,
-            "expires_in": expires_in,
-            "last_refreshed": now_iso,
-            "refresh_count": 0,
-        }
-        self._save_state(self._state)
-        logger.debug("Tracked token %s… (expires_in=%ds)", token_hash, expires_in)
+        logger.debug("Tracked token %s… (expires_in=%ds) [state write disabled]", token_hash, expires_in)
 
     def needs_refresh(self, warning_days: int = 7) -> bool:
         """Return True if the current token expires within *warning_days*.
@@ -395,25 +383,11 @@ class TokenManager:
         return self._state
 
     def _save_state(self, state: dict) -> None:
-        """Atomically write state JSON to disk (temp + rename)."""
-        self._token_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            dir=self._token_path.parent,
-            prefix=".token_state_tmp_",
-        )
-        try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-                json.dump(state, f, indent=2)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, self._token_path)
-        except Exception:
-            # Clean up temp file on failure
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+        """BQ-1327 HARDENING: Disabled. token_state.json is no longer used.
+        CredentialStore (.env) is the single source of truth for tokens.
+        This method is kept for backward compatibility but is a no-op.
+        """
+        return
 
     def _update_env_tokens(self, access_token: str, refresh_token: str) -> None:
         """Update token values in .env using simple in-place write.
