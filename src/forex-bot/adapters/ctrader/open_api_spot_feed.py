@@ -3,6 +3,18 @@
 The old launcher (launch_blend_forward_test.py) and its tests import OpenApiSpotFeed from here.
 The new infrastructure uses `market_data_feed.py` instead.
 
+Concurrent session note (BQ-1329):
+------------------------------------
+This module re-exports the live spot feed / order execution class from the
+archive.  It authenticates with the primary OpenAPI app credentials
+(``CTRADER_OPENAPI_CLIENT_ID`` / ``CTRADER_OPENAPI_CLIENT_SECRET``).
+To avoid cTrader's single-session rule, the historical-data client
+(``CTraderOpenApiClient`` in ``open_api_client.py``) can authenticate with a
+*second* OpenAPI app via ``CTRADER_TRADE_APP_ID`` / ``CTRADER_TRADE_SECRET``.
+A fully shared TCP socket was deferred because it requires invasive changes
+to the archived feed implementation; the second-app approach is the
+Phase-5 pragmatic fallback.
+
 To be removed when the old launcher is retired.
 Archived: 2026-06-16 (BQ-1043 Phase 5)
 """

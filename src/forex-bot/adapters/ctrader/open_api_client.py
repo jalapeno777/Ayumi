@@ -7,9 +7,30 @@ Uses the ctrader_open_api package (Twisted-based protobuf client) to:
 
 The Twisted reactor runs in a background thread so all public methods
 are synchronous from the caller's perspective.
+
+Concurrent session strategy (BQ-1329)
+-------------------------------------
+cTrader OpenAPI enforces a single-session rule for the same
+(app_id, account_id) pair.  When ``OpenApiSpotFeed`` (spot prices +
+order execution) is authenticated, a second connection from this client
+using the same app credentials gets rejected with
+``Trading account is not authorized``.
+
+Judgment call: a fully shared TCP socket would require deep changes to
+the archived ``OpenApiSpotFeed`` shim.  The safer, ops-simple fallback
+implemented here is a *second OpenAPI app*: this client can authenticate
+with a separate app_id/secret while still using the same trading account
+and access token.  Set ``CTRADER_TRADE_APP_ID`` / ``CTRADER_TRADE_SECRET``
+in the environment (or pass ``trade_client_id`` / ``trade_client_secret``
+to the constructor) to use the alternate app for historical-data fetches.
+
+If both primary and trade credentials are absent, the client falls back
+to the primary credentials and logs a warning that concurrent operation
+with the spot feed may fail.
 """
 
 import logging
+import os
 import threading
 import time
 import typing
@@ -73,6 +94,8 @@ class CTraderOpenApiClient:
         access_token: str | None = None,
         host: str | None = None,
         port: int = 5035,
+        trade_client_id: str | None = None,
+        trade_client_secret: str | None = None,
     ):
         self._client_id = client_id
         self._client_secret = client_secret
@@ -89,6 +112,45 @@ class CTraderOpenApiClient:
         # BQ-1327: External callback for unexpected disconnects.
         self._on_disconnected: typing.Callable | None = None
         self._symbol_digits_cache: dict[int, int] = {}
+
+        # BQ-1329: Optional second-app credentials for concurrent sessions.
+        # Environment variables take precedence when constructor args are None.
+        self._trade_client_id = (
+            trade_client_id
+            or os.environ.get("CTRADER_TRADE_APP_ID")
+            or os.environ.get("CTRADER_OPENAPI_TRADE_CLIENT_ID")
+        )
+        self._trade_client_secret = (
+            trade_client_secret
+            or os.environ.get("CTRADER_TRADE_SECRET")
+            or os.environ.get("CTRADER_OPENAPI_TRADE_CLIENT_SECRET")
+        )
+        self._using_trade_app = bool(self._trade_client_id and self._trade_client_secret)
+        if self._using_trade_app:
+            logger.info(
+                "BQ-1329: Using separate OpenAPI app for historical-data client: %s...",
+                self._trade_client_id[:8],
+            )
+        elif trade_client_id is not None or trade_client_secret is not None:
+            logger.warning(
+                "BQ-1329: Incomplete trade-app credentials provided; "
+                "falling back to primary app. Concurrent operation with the spot feed may fail."
+            )
+
+    @property
+    def using_trade_app(self) -> bool:
+        """True when this client authenticates with the alternate trade app."""
+        return self._using_trade_app
+
+    @property
+    def app_client_id(self) -> str:
+        """Return the app client_id used for application authentication."""
+        return self._trade_client_id if self._using_trade_app else self._client_id
+
+    @property
+    def app_client_secret(self) -> str:
+        """Return the app client_secret used for application authentication."""
+        return self._trade_client_secret if self._using_trade_app else self._client_secret
 
     # --- Connection lifecycle ---
 
@@ -141,11 +203,16 @@ class CTraderOpenApiClient:
             return False
 
         # Step 1: Application auth
+        # BQ-1329: Use the alternate trade-app credentials when configured so
+        # this historical-data connection does not collide with the spot feed's
+        # primary-app session on cTrader's single-session rule.
+        app_id = self.app_client_id
+        app_secret = self.app_client_secret
         try:
             app_auth_res = self._send_and_wait(
                 ProtoOAApplicationAuthReq(
-                    clientId=self._client_id,
-                    clientSecret=self._client_secret,
+                    clientId=app_id,
+                    clientSecret=app_secret,
                 ),
                 timeout=10,
             )
