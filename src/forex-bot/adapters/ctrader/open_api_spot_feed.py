@@ -24,10 +24,17 @@ _STALE_TICK_FREEZE_SEC = _archive_mod._STALE_TICK_FREEZE_SEC
 _normalize_symbol_name = _archive_mod._normalize_symbol_name
 _lots_to_units = _archive_mod._lots_to_units
 
+# BQ-1327: Explicitly re-export auth payload type constants so consumers
+# of the live shim can validate auth responses without importing from
+# the archive directly.
+_APP_AUTH_RES_PAYLOAD_TYPE = _archive_mod._APP_AUTH_RES_PAYLOAD_TYPE
+_ACCT_AUTH_RES_PAYLOAD_TYPE = _archive_mod._ACCT_AUTH_RES_PAYLOAD_TYPE
+
 from archive.legacy_ctrader._pkg.open_api_spot_feed import *  # noqa: F401,F403,E402
 
 __all__ = [n for n in dir(_archive_mod) if not n.startswith("__") or n in {
     "_HEARTBEAT_DEGRADED_SEC", "_HEARTBEAT_RECONNECT_SEC",
     "_STALE_TICK_WARN_SEC", "_STALE_TICK_FREEZE_SEC",
     "_normalize_symbol_name", "_lots_to_units",
+    "_APP_AUTH_RES_PAYLOAD_TYPE", "_ACCT_AUTH_RES_PAYLOAD_TYPE",
 }]
