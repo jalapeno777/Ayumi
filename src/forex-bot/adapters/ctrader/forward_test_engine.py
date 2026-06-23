@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 from backtest.engine import Bar, MarketState
 from backtest.strategies import ISignalStrategy
 
+from .connection_state import ConnectionState
 from .credential_store import CredentialStore
 from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
@@ -114,7 +115,10 @@ class ForwardTestConfig:
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
     bar_period_minutes: int = 60
-    stale_tick_threshold_sec: float = 900.0  # Increased from 400.0 to reduce stale-tick warnings during quiet periods
+    # BQ-1335: Lowered from 900.0 to 60.0 so a stuck connection (no ticks) triggers reconnect
+    # within 1 minute instead of 15 minutes. False reconnects during quiet markets are
+    # acceptable trade-off — better than letting a connection stay dead for 15+ minutes.
+    stale_tick_threshold_sec: float = 60.0
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
@@ -235,6 +239,12 @@ class ForwardTestEngine:
         self._rejection_cooldown_until: float = 0.0  # monotonic timestamp
         self._reconnect_delay: float = config.reconnect_delay_sec
         self._last_reconnect_attempt_at: float = 0.0
+        # BQ-1335: Track when spot feed entered a stuck non-operational state.
+        # When the feed has been RECONNECTING/FAILED for >60s, force a reconnect
+        # regardless of backoff or tick freshness, so a stuck connection doesn't
+        # persist for hours (the previous behavior with stale_tick_threshold=900s).
+        self._reconnect_stuck_at: Optional[float] = None
+        self._stuck_reconnect_threshold_sec: float = 60.0
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
@@ -1262,6 +1272,49 @@ class ForwardTestEngine:
         if not self._running:
             return
 
+        # BQ-1335: Stuck-state detection — if the spot feed is reporting
+        # RECONNECTING/FAILED for longer than 60s, force a reconnect regardless
+        # of tick freshness or backoff gate. Without this, a connection that
+        # silently enters RECONNECTING (e.g. server-side hangup) can stay
+        # stuck indefinitely because ticks never become stale (no ticks = no
+        # staleness) and the backoff gate keeps skipping reconnect attempts.
+        feed_state_mgr = (
+            getattr(self._market_feed, "state_manager", None)
+            if self._market_feed is not None
+            else None
+        )
+        feed_state = feed_state_mgr.state if feed_state_mgr is not None else None
+        is_stuck_state = (
+            feed_state in (ConnectionState.RECONNECTING, ConnectionState.FAILED)
+            if feed_state is not None
+            else False
+        )
+
+        now_mono = time.monotonic()
+        if is_stuck_state:
+            if self._reconnect_stuck_at is None:
+                self._reconnect_stuck_at = now_mono
+            stuck_for = now_mono - self._reconnect_stuck_at
+            if stuck_for >= self._stuck_reconnect_threshold_sec:
+                # Don't trigger reconnect during forex market close — the
+                # server intentionally drops sessions outside market hours.
+                if _is_forex_market_closed():
+                    return
+                logger.warning(
+                    "Spot feed stuck in %s for %.1fs (>= %.1fs) — forcing reconnect",
+                    feed_state.value if feed_state is not None else "?",
+                    stuck_for,
+                    self._stuck_reconnect_threshold_sec,
+                )
+                # Bypass backoff gate so this forced attempt happens immediately.
+                self._last_reconnect_attempt_at = 0.0
+                self._attempt_reconnect()
+                return
+        else:
+            # State is no longer stuck — clear the timer.
+            if self._reconnect_stuck_at is not None:
+                self._reconnect_stuck_at = None
+
         with self._lock:
             feed_connected = (
                 self._market_feed.is_running if self._market_feed else False
@@ -1353,6 +1406,8 @@ class ForwardTestEngine:
                 self._health.reconnection_successes += 1
                 self._health.reconnection_attempts = 0
             self._reconnect_delay = self._config.reconnect_delay_sec
+            # BQ-1335: Clear the stuck-state timer now that we've recovered.
+            self._reconnect_stuck_at = None
             logger.info("Reconnection successful — reset consecutive failure counter")
         else:
             self._reconnect_delay = min(
