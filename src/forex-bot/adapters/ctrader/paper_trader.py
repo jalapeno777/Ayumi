@@ -200,8 +200,16 @@ class PaperTrader:
                 result = PaperTradeResult(
                     success=False,
                     signal=signal,
-                    rejection_reason="Order execution failed",
+                    rejection_reason=trade_result.rejection_reason or trade_result.error_message or "Order execution failed",
                     risk_guard_result=risk_result,
+                )
+                logger.warning(
+                    "PaperTrader rejected %s %s %s: rejection_reason=%s error=%s",
+                    signal.symbol,
+                    signal.direction.value,
+                    volume,
+                    trade_result.rejection_reason,
+                    trade_result.error_message,
                 )
                 self._trade_history.append(result)
 

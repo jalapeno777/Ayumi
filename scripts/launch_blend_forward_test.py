@@ -30,7 +30,6 @@ load_dotenv(PROJECT_ROOT / ".env")
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 from adapters.ctrader.models import cTraderCredentials, TradeSignal
 from adapters.ctrader.risk_guard import FTMOConfig
-from adapters.ctrader.open_api_client import CTraderOpenApiClient
 from forward_test.blend_runner import BlendForwardTestRunner
 from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
 from strategies.killzone_momentum import KillzoneMomentumStrategy, KillzoneMomentumConfig
@@ -113,67 +112,17 @@ class HeartbeatTracker:
         )
 
 
-# ── Bar Fetcher ───────────────────────────────────────────────────────────────
+# ── Bar Fetcher (now handled by single-connection spot feed) ───────────────
 
 GBPUSD_SYMBOL_ID = 2
 USDJPY_SYMBOL_ID = 4
 
-# Symbol name → OpenAPI symbol_id mapping
+# Symbol name → OpenAPI symbol_id mapping (static fallback)
 SYMBOL_IDS = {
     "GBPUSD": 2,
     "USDJPY": 4,
     "EURUSD": 1,
 }
-
-
-def build_symbol_id_lookup(client) -> dict[str, int]:
-    """Build symbol name → symbol_id mapping from OpenAPI."""
-    lookup = dict(SYMBOL_IDS)  # start with known IDs
-    try:
-        symbols = client.get_symbols()
-        for sym in symbols:
-            name = sym.get("name", "").upper().replace("/", "")
-            if name and name not in lookup:
-                lookup[name] = sym.get("id")
-    except Exception as exc:
-        logger.warning("Could not fetch symbol list from OpenAPI: %s — using static mapping", exc)
-    return lookup
-
-
-def fetch_bars(symbol_id: int = GBPUSD_SYMBOL_ID, period: str = "H1", count: int = 100) -> list[dict]:
-    """Fetch bars via OpenAPI for any period."""
-    account_id = int(os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "0"))
-    if not account_id:
-        raise RuntimeError("CTRADER_OPENAPI_ACCOUNT_ID is required in .env")
-    client = CTraderOpenApiClient(
-        client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
-        client_secret=os.getenv("CTRADER_OPENAPI_CLIENT_SECRET"),
-        account_id=account_id,
-        access_token=os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN"),
-    )
-    client.connect()
-
-    period_seconds = {"M15": 900, "H1": 3600, "H4": 14400, "D1": 86400}
-    sec = period_seconds.get(period, 3600)
-    to_ts = int(datetime.now(timezone.utc).timestamp() * 1000)
-    from_ts = to_ts - (count * sec * 1000) + sec * 1000
-
-    logger.info("Fetching %d %s bars (symbol_id=%d) from OpenAPI...", count, period, symbol_id)
-    bars = client.get_trendbars(
-        symbol_id=symbol_id,
-        period=period,
-        from_ts=from_ts,
-        to_ts=to_ts,
-        max_bars=count,
-    )
-    client.disconnect()
-    logger.info("Fetched %d %s bars", len(bars), period)
-    return bars
-
-
-def fetch_h1_bars(symbol_id: int = GBPUSD_SYMBOL_ID, count: int = 100) -> list[dict]:
-    """Backward-compatible wrapper."""
-    return fetch_bars(symbol_id, period="H1", count=count)
 
 
 def raw_bars_to_bar_objects(raw_bars: list[dict], period: BarPeriod | None = None) -> list[Bar]:
@@ -348,7 +297,8 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         self._health.signals_traded += 1
                     self._heartbeat.record_signal(accepted=True)
 
-                    # Execute through paper trader using blend runner's sized lots
+                    # Execute directly: live → cTrader, paper → PaperTrader
+                    # Single-connection architecture: no dual execution path.
                     try:
                         exec_signal = TradeSignal(
                             symbol=signal.symbol,
@@ -362,17 +312,32 @@ class BlendForwardTestEngine(ForwardTestEngine):
                             confidence=signal.confidence,
                             rationale=getattr(signal, 'rationale', ''),
                         )
-                        exec_result = self._paper_trader.process_signal(
-                            exec_signal, spread=self._current_spread
-                        )
-                        if exec_result.success:
-                            logger.info("Trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
+                        if self._config.live_mode:
+                            # Direct cTrader execution — skip paper trader entirely
+                            live_order = self._execute_signal_live(exec_signal)
+                            if live_order is not None:
+                                self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
+                                logger.info("Live trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
+                            else:
+                                logger.warning(
+                                    "Live execution failed: %s %s %.4f lots",
+                                    strategy_id,
+                                    direction_str,
+                                    order.lots,
+                                )
+                                self._blend_runner.cancel_risk(order.risk_amount)
+                                self._correlation_gate.release(signal.symbol, direction_str)
                         else:
-                            logger.warning("Trade execution failed: %s", exec_result.rejection_reason)
-                            # Free risk budget: sizer registered open risk but
-                            # PaperTrader rejected the order downstream.
-                            self._blend_runner.cancel_risk(order.risk_amount)
-                            self._correlation_gate.release(signal.symbol, direction_str)
+                            # Paper mode: execute through paper trader
+                            exec_result = self._paper_trader.process_signal(
+                                exec_signal, spread=self._current_spread
+                            )
+                            if exec_result.success:
+                                logger.info("Paper trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
+                            else:
+                                logger.warning("Trade execution failed: %s", exec_result.rejection_reason)
+                                self._blend_runner.cancel_risk(order.risk_amount)
+                                self._correlation_gate.release(signal.symbol, direction_str)
                     except Exception as exec_err:
                         logger.error("Trade execution error: %s", exec_err, exc_info=True)
                         # Free risk budget on execution error too
@@ -509,70 +474,15 @@ def main():
     logger.info("=== Ayumi Multi-Strategy Forward Test (Blend Pipeline) ===")
     logger.info("Symbols: %s", symbols)
 
-    # 1. Fetch historical bars — per symbol, H1 and M15 in a SINGLE OpenAPI connection
-    account_id = int(os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "0"))
-    if not account_id:
-        raise RuntimeError("CTRADER_OPENAPI_ACCOUNT_ID is required in .env")
-    client = CTraderOpenApiClient(
-        client_id=os.getenv("CTRADER_OPENAPI_CLIENT_ID"),
-        client_secret=os.getenv("CTRADER_OPENAPI_CLIENT_SECRET"),
-        account_id=account_id,
-        access_token=os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN"),
-    )
-    client.connect()
+    # ── Single-Connection Architecture ────────────────────────────────────
+    # The old architecture created a separate CTraderOpenApiClient to fetch
+    # historical bars, disconnected, slept 3s, then connected the spot feed
+    # with the same credentials → cTrader's single-session rule caused a
+    # death loop. Now the spot feed connects ONCE and historical bars are
+    # fetched through the same authenticated connection by the engine's
+    # _preload_historical_bars() after start().
 
-    symbol_id_lookup = build_symbol_id_lookup(client)
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-
-    # Fetch bars per symbol
-    symbol_bars: dict[str, dict[int, list[Bar]]] = {}  # symbol -> tf -> bars
-    for sym in symbols:
-        sym_id = symbol_id_lookup.get(sym)
-        if sym_id is None:
-            logger.warning("No symbol_id for %s — skipping bar preload", sym)
-            continue
-
-        # H1 bars
-        h1_count = 100
-        h1_from = now_ms - (h1_count * 3600 * 1000) + 3600 * 1000
-        logger.info("Fetching %d H1 bars for %s (id=%d)...", h1_count, sym, sym_id)
-        raw_h1 = client.get_trendbars(
-            symbol_id=sym_id, period="H1",
-            from_ts=h1_from, to_ts=now_ms, max_bars=h1_count,
-        )
-        symbol_bars.setdefault(sym, {})[60] = raw_bars_to_bar_objects(raw_h1, period=BarPeriod.H1())
-        logger.info("Fetched %d H1 bars for %s", len(raw_h1), sym)
-
-        # M15 bars
-        m15_count = 200
-        m15_from = now_ms - (m15_count * 900 * 1000) + 900 * 1000
-        logger.info("Fetching %d M15 bars for %s (id=%d)...", m15_count, sym, sym_id)
-        raw_m15 = client.get_trendbars(
-            symbol_id=sym_id, period="M15",
-            from_ts=m15_from, to_ts=now_ms, max_bars=m15_count,
-        )
-        symbol_bars.setdefault(sym, {})[15] = raw_bars_to_bar_objects(raw_m15, period=BarPeriod.M15())
-        logger.info("Fetched %d M15 bars for %s", len(raw_m15), sym)
-
-    client.disconnect()
-
-    # Critical: give the Twisted reactor time to fully process the TCP
-    # disconnect and clean up all protocol state before the spot feed
-    # opens a new connection on the same reactor. Without this sleep,
-    # the old connection's teardown races with the new connection's
-    # setup, causing CH_CLIENT_AUTH_FAILURE on the spot feed.
-    import time as _time
-    _time.sleep(3)
-
-    if not any(symbol_bars.values()):
-        logger.error("Failed to fetch any bars — aborting")
-        sys.exit(1)
-
-    # Use first symbol's H1 bars as primary for backward compat checks
-    primary_symbol = symbols[0]
-    raw_h1 = symbol_bars.get(primary_symbol, {}).get(60, [])
-
-    # 2. Build credentials
+    # 1. Build credentials
     credentials = cTraderCredentials(
         host=os.getenv("CTRADER_HOST", "demo-uk-eqx-01.p.c-trader.com"),
         port=int(os.getenv("CTRADER_SSL_PORT", "5212")),
@@ -642,6 +552,7 @@ def main():
         min_bars_for_evaluation=55,
         live_mode=args.live,
         strategy_timeframes=STRATEGY_TIMEFRAMES,
+        preload_bar_count=200,  # bars per symbol/timeframe fetched through spot feed
     )
 
     # 6. Create blend-aware engine
@@ -660,11 +571,9 @@ def main():
     # Release correlation slots when paper positions close.
     engine.register_callback("on_position_closed", engine.on_position_closed_release)
 
-    # Preload historical bars into engine (after engine creation, before start)
-    for sym, timeframes in symbol_bars.items():
-        for period_minutes, bars in timeframes.items():
-            engine.preload_bars(sym, period_minutes, bars)
-            logger.info("Preloaded %d %dmin bars for %s into engine", len(bars), period_minutes, sym)
+    # Historical bars are fetched automatically by engine.start() through
+    # the single spot feed connection (_preload_historical_bars). No separate
+    # client connection needed.
 
     # 8. Shutdown handler
     def shutdown(signum, frame):
@@ -682,8 +591,8 @@ def main():
     wire_connection_reliability(_connection_mgr)
 
     # ── Startup diagnostics (B5) ──────────────────────────────────────────
-    logger.info("=== STARTING MULTI-STRATEGY FORWARD TEST ===")
-    logger.info("Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → Paper")
+    logger.info("=== STARTING MULTI-STRATEGY FORWARD TEST (Single-Connection) ===")
+    logger.info("Pipeline: SRMR+ + Killzone + Momentum + SessionRangeMR → Correlation Gate → Blend Runner → cTrader")
     logger.info("Startup diagnostic: strategies=%s", [s.name for s in strategies])
     logger.info("Startup diagnostic: symbols=%s", symbols)
     logger.info("Startup diagnostic: bar_period=%dm, min_confidence=%.2f", config.bar_period_minutes, config.min_confidence)
@@ -720,14 +629,14 @@ def main():
                     _live_balance = getattr(engine, "_live_balance", None)
                     _paper_trades = t.get("trades_executed", 0)
                     _paper_balance = t.get("current_balance", 0.0)
-                    _live_mode = getattr(engine, "_live_adapter", None) is not None
+                    _live_mode = args.live
                     _balance_str = (
                         f"paper=${_paper_balance:.2f}"
                         + (f" live=${_live_balance:.2f}" if _live_balance is not None else " live=N/A")
                     ) if _live_mode else f"balance=${_paper_balance:.2f}"
                     logger.info(
                         "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
-                        "paper_trades=%d live_fills=%d %s uptime=%.0fs",
+                        "trades=%d live_fills=%d %s uptime=%.0fs",
                         h.get("ticks_received", 0),
                         h.get("ticks_per_second", 0.0),
                         engine.health.bars_built,
@@ -737,12 +646,12 @@ def main():
                         _balance_str,
                         h.get("uptime_sec", 0),
                     )
-                    # Alert if live mode has zero fills despite paper trades
-                    if _live_mode and _paper_trades > 0 and _live_fills == 0:
+                    # Alert if live mode has zero fills despite signals
+                    if _live_mode and engine.health.signals_generated > 0 and _live_fills == 0:
                         logger.warning(
-                            "[B5 Health] ⚠️  live_fills=0 but paper_trades=%d — "
+                            "[B5 Health] ⚠️  live_fills=0 but signals_generated=%d — "
                             "orders may not be reaching cTrader",
-                            _paper_trades,
+                            engine.health.signals_generated,
                         )
                     # Tick-to-bar pipeline health (Amendment 4)
                     if h.get("ticks_received", 0) > 0 and engine.health.bars_built == 0:

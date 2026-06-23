@@ -620,7 +620,27 @@ class OpenApiSpotFeed:
             self._id_to_name[sid] = name
             self._name_to_id[_normalize_symbol_name(name)] = sid
 
-    # ── Trendbars ──────────────────────────────────────────────────────────
+    # ── Trendbars / Historical Bars ────────────────────────────────────────
+
+    def fetch_historical_bars(self, symbol: str, timeframe: str, count: int) -> list:
+        """Fetch historical bars through the existing authenticated connection.
+
+        Single-connection replacement for CTraderOpenApiClient.get_trendbars().
+        Uses the same TCP session that powers spot ticks and order execution.
+
+        Args:
+            symbol: Normalized symbol name, e.g. "GBPUSD"
+            timeframe: "M15", "H1", etc. (same codes as CTraderOpenApiClient)
+            count: Number of bars to fetch
+
+        Returns list of Bar objects.
+        """
+        _TF_MAP = {"M1": 1, "M5": 5, "M15": 15, "M30": 30,
+                   "H1": 60, "H4": 240, "D1": 1440}
+        period_minutes = _TF_MAP.get(timeframe.upper())
+        if period_minutes is None:
+            raise ValueError(f"Unknown timeframe '{timeframe}'. Valid: {list(_TF_MAP.keys())}")
+        return self.fetch_trendbars(symbol, period_minutes, count)
 
     def fetch_trendbars(self, symbol: str, period_minutes: int, count: int) -> list:
         from backtest.engine import Bar
