@@ -3,12 +3,6 @@
 import sys
 import types
 
-if "ctrader_open_api" not in sys.modules:
-    _ct = types.ModuleType("ctrader_open_api")
-    _ct.Client = type("Client", (), {})
-    _ct.TcpProtocol = None
-    sys.modules["ctrader_open_api"] = _ct
-
 from datetime import datetime, timezone
 
 import pytest
@@ -20,6 +14,15 @@ from hybrid.trade_rules import (
     TradeRulesEngine,
     PositionLimitConfig,
 )
+
+
+@pytest.fixture(autouse=True)
+def _mock_ctrader(monkeypatch):
+    """Stub ctrader_open_api per-test (auto-restored by monkeypatch)."""
+    _ct = types.ModuleType("ctrader_open_api")
+    _ct.Client = type("Client", (), {})
+    _ct.TcpProtocol = None
+    monkeypatch.setitem(sys.modules, "ctrader_open_api", _ct)
 
 
 def _signal(st=SignalType.BUY, pair="EURUSD", price=1.1000, sl=1.0950, tp=1.1120):

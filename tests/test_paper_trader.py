@@ -3,13 +3,6 @@
 import sys
 import types
 
-# Stub ctrader_open_api so imports in the dependency chain don't blow up
-if "ctrader_open_api" not in sys.modules:
-    _ct = types.ModuleType("ctrader_open_api")
-    _ct.Client = type("Client", (), {})
-    _ct.TcpProtocol = None
-    sys.modules["ctrader_open_api"] = _ct
-
 from datetime import datetime, timezone
 
 import pytest
@@ -17,6 +10,15 @@ import pytest
 from hybrid.paper_trader import CloseReason, HybridPaperTrader, PaperTradeResult
 from hybrid.signal import HumanSignal, SignalType
 from hybrid.trade_rules import TradeRulesConfig, PositionLimitConfig
+
+
+@pytest.fixture(autouse=True)
+def _mock_ctrader(monkeypatch):
+    """Stub ctrader_open_api per-test (auto-restored by monkeypatch)."""
+    _ct = types.ModuleType("ctrader_open_api")
+    _ct.Client = type("Client", (), {})
+    _ct.TcpProtocol = None
+    monkeypatch.setitem(sys.modules, "ctrader_open_api", _ct)
 
 
 def _buy_signal(pair="EURUSD", price=1.1000, sl=1.0950, tp=1.1120, ts=None):

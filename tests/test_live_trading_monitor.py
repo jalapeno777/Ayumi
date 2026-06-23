@@ -11,7 +11,13 @@ SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "live_trading_monitor.p
 spec = importlib.util.spec_from_file_location("live_trading_monitor", SCRIPT_PATH)
 live_trading_monitor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(live_trading_monitor)
-sys.modules["scripts.live_trading_monitor"] = live_trading_monitor
+
+
+@pytest.fixture(autouse=True)
+def _register_live_trading_monitor(monkeypatch):
+    """Register live_trading_monitor in sys.modules via monkeypatch (auto-restored)."""
+    monkeypatch.setitem(sys.modules, "scripts.live_trading_monitor", live_trading_monitor)
+
 
 TradingState = live_trading_monitor.TradingState
 Alert = live_trading_monitor.Alert

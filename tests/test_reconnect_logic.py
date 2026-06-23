@@ -20,21 +20,31 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
-# ── Stub ctrader_open_api BEFORE any adapter imports ─────────────────────────
-def _install_ctrader_stubs():
+import pytest
+
+# Ensure src/forex-bot is importable (matches existing test convention).
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
+
+from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+
+
+@pytest.fixture(autouse=True)
+def _ctrader_stubs(monkeypatch):
+    """Install ctrader_open_api stubs per-test (auto-restored by monkeypatch)."""
     pkg = types.ModuleType("ctrader_open_api")
     pkg.__path__ = []
     pkg.Client = MagicMock
     pkg.TcpProtocol = MagicMock
-    sys.modules["ctrader_open_api"] = pkg
+    monkeypatch.setitem(sys.modules, "ctrader_open_api", pkg)
 
     client_mod = types.ModuleType("ctrader_open_api.client")
     client_mod.Client = MagicMock
-    sys.modules["ctrader_open_api.client"] = client_mod
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.client", client_mod)
 
     msgs_pkg = types.ModuleType("ctrader_open_api.messages")
     msgs_pkg.__path__ = []
-    sys.modules["ctrader_open_api.messages"] = msgs_pkg
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages", msgs_pkg)
 
     pb_mod = types.ModuleType("ctrader_open_api.protobuf")
     class _Pb:
@@ -42,7 +52,7 @@ def _install_ctrader_stubs():
         def extract(msg):
             return msg
     pb_mod.Protobuf = _Pb
-    sys.modules["ctrader_open_api.protobuf"] = pb_mod
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.protobuf", pb_mod)
 
     msgs_mod = types.ModuleType("ctrader_open_api.messages.OpenApiMessages_pb2")
     for _name in [
@@ -56,7 +66,7 @@ def _install_ctrader_stubs():
         "ProtoOAGetTrendbarsReq",
     ]:
         setattr(msgs_mod, _name, type(_name, (), {"__init__": lambda self, **kw: None}))
-    sys.modules["ctrader_open_api.messages.OpenApiMessages_pb2"] = msgs_mod
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
 
     model_mod = types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
     class _OT: MARKET = 0; LIMIT = 1; STOP = 2
@@ -67,15 +77,7 @@ def _install_ctrader_stubs():
     model_mod.ProtoOATradeSide = _TS
     model_mod.ProtoOATimeInForce = _TIF
     model_mod.ProtoOAExecutionType = _ET
-    sys.modules["ctrader_open_api.messages.OpenApiModelMessages_pb2"] = model_mod
-
-_install_ctrader_stubs()
-
-# Ensure src/forex-bot is importable (matches existing test convention).
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
-
-from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
 
 
 def _drive_to_state(state_mgr: ConnectionStateManager, target: ConnectionState) -> None:

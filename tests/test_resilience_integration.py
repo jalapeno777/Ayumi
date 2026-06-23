@@ -33,21 +33,13 @@ _pandas = _types.ModuleType("pandas")
 _pandas.DataFrame = _FakeDataFrame
 _pandas.Series = _FakeSeries
 _pandas.DatetimeIndex = _FakeDatetimeIndex
-_sys.modules.setdefault("pandas", _pandas)
 
 # signal_engine stub
 _signal_engine = _types.ModuleType("signal_engine")
 _signal_stats = _types.ModuleType("signal_engine.signal_stats")
-class _SignalRecord: pass
-class _SignalStatsRecorder: pass
-_signal_stats.SignalRecord = _SignalRecord
-_signal_stats.SignalStatsRecorder = _SignalStatsRecorder
-_sys.modules.setdefault("signal_engine", _signal_engine)
-_sys.modules.setdefault("signal_engine.signal_stats", _signal_stats)
 _swing_detector = _types.ModuleType("signal_engine.swing_detector")
 class _SwingDetector: pass
 _swing_detector.SwingDetector = _SwingDetector
-_sys.modules.setdefault("signal_engine.swing_detector", _swing_detector)
 
 # backtest stub
 _backtest = _types.ModuleType("backtest")
@@ -72,9 +64,6 @@ _backtest_engine.Bar = _Bar
 _backtest_engine.MarketState = _MarketState
 _backtest_engine.TradeDirection = _TradeDirection
 _backtest_strategies.ISignalStrategy = _ISignalStrategy
-_sys.modules.setdefault("backtest", _backtest)
-_sys.modules.setdefault("backtest.engine", _backtest_engine)
-_sys.modules.setdefault("backtest.strategies", _backtest_strategies)
 
 # ctrader_open_api stub
 _ctrader = _types.ModuleType("ctrader_open_api")
@@ -88,15 +77,12 @@ class _Client:
 class _TcpProtocol: pass
 _ctrader.Client = _Client
 _ctrader.TcpProtocol = _TcpProtocol
-_sys.modules.setdefault("ctrader_open_api", _ctrader)
 _protobuf_mod = _types.ModuleType("ctrader_open_api.protobuf")
 class _Protobuf:
     @staticmethod
     def extract(msg): return msg
 _protobuf_mod.Protobuf = _Protobuf
-_sys.modules.setdefault("ctrader_open_api.protobuf", _protobuf_mod)
 _messages_mod = _types.ModuleType("ctrader_open_api.messages")
-_sys.modules.setdefault("ctrader_open_api.messages", _messages_mod)
 _msg_names = [
     "ProtoOAAccountAuthReq", "ProtoOAAmendOrderReq", "ProtoOAAmendPositionSLTPReq",
     "ProtoOAApplicationAuthReq", "ProtoOACancelOrderReq", "ProtoOAClosePositionReq",
@@ -108,7 +94,6 @@ _openapi_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiMessages_pb2
 for _name in _msg_names:
     _cls = type(_name, (), {"__init__": lambda self, **kw: None})
     setattr(_openapi_msgs, _name, _cls)
-_sys.modules.setdefault("ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
 _model_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
 class _ProtoOAOrderType:
     MARKET = 0; LIMIT = 1; STOP = 2
@@ -122,7 +107,6 @@ _model_msgs.ProtoOAOrderType = _ProtoOAOrderType
 _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
-_sys.modules.setdefault("ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
 
 import pytest
 import threading
@@ -143,6 +127,23 @@ from adapters.ctrader.open_api_spot_feed import (
     _HEARTBEAT_DEGRADED_SEC,
     _HEARTBEAT_RECONNECT_SEC,
 )
+
+
+@pytest.fixture(autouse=True)
+def _install_mock_stubs(monkeypatch):
+    """BQ-1328: Install dependency stubs per-test via monkeypatch (auto-restored)."""
+    monkeypatch.setitem(_sys.modules, "pandas", _pandas)
+    monkeypatch.setitem(_sys.modules, "signal_engine", _signal_engine)
+    monkeypatch.setitem(_sys.modules, "signal_engine.signal_stats", _signal_stats)
+    monkeypatch.setitem(_sys.modules, "signal_engine.swing_detector", _swing_detector)
+    monkeypatch.setitem(_sys.modules, "backtest", _backtest)
+    monkeypatch.setitem(_sys.modules, "backtest.engine", _backtest_engine)
+    monkeypatch.setitem(_sys.modules, "backtest.strategies", _backtest_strategies)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api", _ctrader)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.protobuf", _protobuf_mod)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages", _messages_mod)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
 
 
 # ---------------------------------------------------------------------------

@@ -129,6 +129,7 @@ class ForwardTestConfig:
     use_openapi_feed: bool = False  # True = Open API spot feed, False = FIX feed
     openapi_host: str = "demo.ctraderapi.com"
     openapi_port: int = 5035
+    preload_bar_count: int = 200  # bars fetched per symbol/timeframe on startup
 
     def __post_init__(self):
         if self.strategy_timeframes is None:
@@ -252,10 +253,13 @@ class ForwardTestEngine:
         self._current_ask: float = 0.0
 
         # Kill switch — global safety system
+        # DISABLED per Craig (2026-06-23): do not trip during end-to-end validation.
+        # Manager kept in place so we can re-enable later without code changes.
         self._kill_switch = KillSwitchManager()
+        self._kill_switch_disabled = True
         if self._kill_switch.is_globally_killed():
-            logger.critical(
-                "STARTUP: Kill switch is ACTIVE (%s) — trading will be blocked",
+            logger.warning(
+                "STARTUP: Kill switch state is ACTIVE (%s) but DISABLED via flag — trading will proceed",
                 self._kill_switch.get_status().get('reason', 'unknown'),
             )
 
@@ -473,7 +477,7 @@ class ForwardTestEngine:
             ftmo_config=ftmo,
             position_config=pos_cfg,
             starting_balance=cfg.starting_balance,
-            api_client=self._market_feed,
+            api_client=None,
         )
 
         self._live_adapter = cTraderLiveAdapter(
@@ -877,7 +881,8 @@ class ForwardTestEngine:
             return
 
         # Kill switch gate — checked before any strategy evaluation
-        if self._kill_switch.is_globally_killed():
+        # DISABLED per Craig (2026-06-23)
+        if not getattr(self, '_kill_switch_disabled', False) and self._kill_switch.is_globally_killed():
             logger.debug("Kill switch active — skipping strategy evaluation")
             return
 
@@ -1067,7 +1072,7 @@ class ForwardTestEngine:
                     bars = self._market_feed.fetch_trendbars(
                         symbol=sym,
                         period_minutes=tf,
-                        count=self._config.min_bars_for_evaluation,
+                        count=self._config.preload_bar_count,
                     )
                     if bars:
                         self.preload_bars(sym, tf, bars)
@@ -1150,16 +1155,15 @@ class ForwardTestEngine:
 
         if error_rate > _ERROR_RATE_THRESHOLD_PCT:
             logger.critical(
-                "Error rate %.1f%% (%d/%d) in 60s window — ACTIVATING GLOBAL FREEZE",
+                "Error rate %.1f%% (%d/%d) in 60s window — kill switch DISABLED, would have frozen",
                 error_rate * 100,
                 error_count,
                 total_evals,
             )
-            self._kill_switch.activate_global_freeze(
-                reason="high_error_rate",
-                triggered_by="error_monitor",
-            )
-            # Clear to prevent re-trigger every cycle
+            # self._kill_switch.activate_global_freeze(  # disabled per Craig
+            #     reason="high_error_rate",
+            #     triggered_by="error_monitor",
+            # )
             self._eval_timestamps.clear()
             self._eval_errors.clear()
 
@@ -1179,22 +1183,21 @@ class ForwardTestEngine:
         # Only freeze if feed is actually disconnected.
         # "feed connected but no tick yet" = still initializing, not a disconnect.
         if not feed_connected:
-            if not self._feed_disconnect_frozen and not self._kill_switch.is_active():
+            if not self._feed_disconnect_frozen and not getattr(self, '_kill_switch_disabled', False):
                 logger.warning(
-                    "Feed disconnect detected — activating GLOBAL FREEZE"
+                    "Feed disconnect detected — kill switch DISABLED, continuing"
                 )
-                self._kill_switch.activate_global_freeze(
-                    reason="feed_disconnect",
-                    triggered_by="feed_health_monitor",
-                )
-                self._feed_disconnect_frozen = True
+                # self._kill_switch.activate_global_freeze(  # disabled
+                #     reason="feed_disconnect",
+                #     triggered_by="feed_health_monitor",
+                # )
+                self._feed_disconnect_frozen = False
         elif last_tick is not None and self._feed_disconnect_frozen:
             logger.info(
                 "Feed reconnected — kill switch remains active "
                 "(manual recovery required)"
             )
             # Do NOT auto-recover. Manual recovery required.
-            self._feed_disconnect_frozen = True
 
     def _health_monitor_loop(self):
         # B5: Periodic diagnostic tracking

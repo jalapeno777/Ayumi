@@ -13,8 +13,6 @@ Related BQ: BQ-133 (Spread Regime Classifier Feature)
 
 from __future__ import annotations
 
-import sys
-import types
 import pytest
 
 # TODO: spread_classifier not yet implemented — re-enable when BQ-133 ships
@@ -23,29 +21,29 @@ pytestmark = pytest.mark.skip(
 )
 
 
-# Stub the missing module so the import below doesn't fail collection.
-# The skip marker above prevents these tests from running, but pytest still
-# needs to be able to import this file at collection time.
-_spread_classifier_stub = types.ModuleType("signal_engine.spread_classifier")
-_spread_classifier_stub.SpreadRegime = None
-_spread_classifier_stub.SpreadRegimeClassifier = None
-_spread_classifier_stub._DEFAULT_PENALTIES = {}
-_spread_classifier_stub.TIMEFRAME_WINDOW = {}
-_spread_classifier_stub.DEFAULT_WINDOW = 0
-sys.modules.setdefault("signal_engine.spread_classifier", _spread_classifier_stub)
+# Since the entire module is skipped, we guard the import with try/except.
+# This avoids sys.modules pollution (BQ-1037 Phase 1b) while keeping
+# collection clean. When BQ-133 ships, remove the skip and the try/except.
+
+try:
+    from signal_engine.spread_classifier import (  # noqa: E402, F401
+        SpreadRegime,
+        SpreadRegimeClassifier,
+        _DEFAULT_PENALTIES,
+        TIMEFRAME_WINDOW,
+        DEFAULT_WINDOW,
+    )
+except ImportError:
+    SpreadRegime = None  # type: ignore[assignment]
+    SpreadRegimeClassifier = None  # type: ignore[assignment]
+    _DEFAULT_PENALTIES = {}  # type: ignore[assignment]
+    TIMEFRAME_WINDOW = {}  # type: ignore[assignment]
+    DEFAULT_WINDOW = 0  # type: ignore[assignment]
 
 
 # Original test code preserved below, gated by the skip above.
 
 from types import SimpleNamespace  # noqa: E402
-
-from signal_engine.spread_classifier import (  # noqa: E402, F401
-    SpreadRegime,
-    SpreadRegimeClassifier,
-    _DEFAULT_PENALTIES,
-    TIMEFRAME_WINDOW,
-    DEFAULT_WINDOW,
-)
 
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────

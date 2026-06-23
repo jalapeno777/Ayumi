@@ -18,38 +18,48 @@ import unittest
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
-# ── Stub ctrader_open_api BEFORE any adapter imports ──────────────────────────
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
+
+
+# ── Stub ctrader_open_api via autouse fixture ─────────────────────────────────
 # The cTrader SDK is not installed in the test environment.
 # We install real module objects (not MagicMock) so that `from X import Y`
 # works correctly, including enum-like attribute access.
+# Using monkeypatch.setitem ensures auto-restore after each test.
 
-
-def _install_ctrader_stubs():
-    """Install minimal ctrader_open_api stubs into sys.modules."""
+@pytest.fixture(autouse=True)
+def _install_ctrader_stubs(monkeypatch):
+    """Install minimal ctrader_open_api + twisted stubs into sys.modules."""
 
     def _mkmod(name):
         mod = types.ModuleType(name)
-        sys.modules[name] = mod
         return mod
 
     pkg = _mkmod("ctrader_open_api")
     pkg.__path__ = []  # mark as package
     pkg.Client = MagicMock  # constructor used by code
     pkg.__getattr__ = lambda name: MagicMock()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ctrader_open_api", pkg)
 
     client_mod = _mkmod("ctrader_open_api.client")
     client_mod.Client = MagicMock  # used as constructor
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.client", client_mod)
 
     endpoints_mod = _mkmod("ctrader_open_api.endpoints")
     endpoints_mod.EndPoints = MagicMock()
     endpoints_mod.EndPoints.PROTOBUF_DEMO_HOST = "demo.ctrader.com"
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.endpoints", endpoints_mod)
 
     msgs_pkg = _mkmod("ctrader_open_api.messages")
     msgs_pkg.__path__ = []
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages", msgs_pkg)
 
     msgs_mod = _mkmod("ctrader_open_api.messages.OpenApiMessages_pb2")
     # Auto-generate any ProtoOA* attribute on access (there are dozens)
     msgs_mod.__getattr__ = lambda name: MagicMock()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
 
     model_mod = _mkmod("ctrader_open_api.messages.OpenApiModelMessages_pb2")
     # ProtoOATrendbarPeriod needs real int-like attributes
@@ -58,27 +68,27 @@ def _install_ctrader_stubs():
     )
     _model_cache = {"ProtoOATrendbarPeriod": _period_ns}
     model_mod.__getattr__ = lambda name: _model_cache.get(name, MagicMock())  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
 
     proto_mod = _mkmod("ctrader_open_api.protobuf")
     proto_mod.Protobuf = MagicMock
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.protobuf", proto_mod)
 
     tcp_mod = _mkmod("ctrader_open_api.tcpProtocol")
     tcp_mod.TcpProtocol = MagicMock
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.tcpProtocol", tcp_mod)
 
+    # Mock twisted.internet.reactor (needed by open_api_client.py)
+    twisted_mod = _mkmod("twisted")
+    twisted_mod.__path__ = []
+    monkeypatch.setitem(sys.modules, "twisted", twisted_mod)
 
-_install_ctrader_stubs()
+    twisted_inet = _mkmod("twisted.internet")
+    twisted_inet.__path__ = []
+    monkeypatch.setitem(sys.modules, "twisted.internet", twisted_inet)
 
-# Mock twisted.internet.reactor (needed by open_api_client.py)
-for _tmod in ("twisted", "twisted.internet"):
-    if _tmod not in sys.modules:
-        sys.modules[_tmod] = types.ModuleType(_tmod)
-        sys.modules[_tmod].__path__ = []
-if "twisted.internet.reactor" not in sys.modules:
-    sys.modules["twisted.internet.reactor"] = MagicMock()
-if "twisted.internet.threads" not in sys.modules:
-    sys.modules["twisted.internet.threads"] = MagicMock()
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
+    monkeypatch.setitem(sys.modules, "twisted.internet.reactor", MagicMock())
+    monkeypatch.setitem(sys.modules, "twisted.internet.threads", MagicMock())
 
 
 # ── Test Classes ──────────────────────────────────────────────────────────────
