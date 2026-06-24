@@ -453,7 +453,7 @@ class OpenApiSpotFeed:
         elif msg_type == 2131:
             self._handle_spot_event(Protobuf.extract(message))
         elif msg_type in _EXECUTION_EVENT_PAYLOAD_TYPES:
-            self._handle_execution_event(Protobuf.extract(message))
+            self._handle_execution_event(Protobuf.extract(message), message)
         elif msg_type == _ORDER_ERROR_EVENT_PAYLOAD_TYPE:
             self._handle_order_error_event(Protobuf.extract(message), message)
         elif msg_type == 2142:
@@ -831,7 +831,7 @@ class OpenApiSpotFeed:
 
     # ── Execution event handlers ───────────────────────────────────────────
 
-    def _handle_execution_event(self, message) -> None:
+    def _handle_execution_event(self, message, envelope=None) -> None:
         order_payload = getattr(message, "order", None)
         client_order_id = getattr(order_payload, "clientOrderId", "") if order_payload else ""
         etype = getattr(message, "executionType", None)
@@ -839,16 +839,24 @@ class OpenApiSpotFeed:
                      client_order_id, etype, order_payload is not None,
                      list(self._pending_orders.keys()) if self._pending_orders else "[]")
         if not client_order_id or client_order_id not in self._pending_orders:
-            error_code = getattr(message, "errorCode", "UNKNOWN")
-            description = getattr(message, "description", "")
-            logger.warning(
-                "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
-                "errorCode=%r description=%r",
-                client_order_id,
-                list(self._pending_orders.keys()) if self._pending_orders else "[]",
-                error_code, description,
-            )
-            return
+            # Fallback: try matching by envelope clientMsgId (same pattern as
+            # _handle_pending_order_error). When cTrader acks with empty
+            # clientOrderId, the clientMsgId from the envelope is the only
+            # way to correlate the fill back to the pending order.
+            client_msg_id = getattr(envelope, "clientMsgId", "") if envelope else ""
+            if client_msg_id:
+                client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
+            if not client_order_id or client_order_id not in self._pending_orders:
+                error_code = getattr(message, "errorCode", "UNKNOWN")
+                description = getattr(message, "description", "")
+                logger.warning(
+                    "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
+                    "errorCode=%r description=%r",
+                    client_order_id,
+                    list(self._pending_orders.keys()) if self._pending_orders else "[]",
+                    error_code, description,
+                )
+                return
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
 
