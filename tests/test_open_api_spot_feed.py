@@ -477,6 +477,118 @@ class TestStaticSymbolsFallback:
 # Properties
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Execution event: clientMsgId fallback (BQ order key mismatch fix)
+# ---------------------------------------------------------------------------
+
+class TestExecutionEventClientMsgIdFallback:
+    """When cTrader acks with empty clientOrderId, _handle_execution_event
+    should fall back to matching by envelope clientMsgId."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, feed_factory):
+        from adapters.ctrader.open_api_spot_feed import (
+            Order, OrderStatus, OrderType, TradeDirection,
+        )
+        self.OrderStatus = OrderStatus
+        self.feed = feed_factory()
+        # Seed a pending order as if new_order() had registered it
+        import threading
+        self.request_id = "abc123def456"
+        self.client_msg_id = "order_abc123def456"
+        self.event = threading.Event()
+        self.order = Order(
+            order_id=self.request_id,
+            symbol="GBPUSD",
+            direction=TradeDirection.SHORT,
+            order_type=OrderType.MARKET,
+            volume=0.99,
+            status=OrderStatus.PENDING,
+        )
+        self.feed._pending_orders[self.request_id] = (self.event, self.order)
+        self.feed._pending_client_msg_ids[self.client_msg_id] = self.request_id
+
+    def _make_exec_event(self, client_order_id="", execution_type=3):
+        """Build a fake execution event with an order payload."""
+        order_payload = MagicMock()
+        order_payload.clientOrderId = client_order_id
+        order_payload.executionPrice = 1.31997
+        order_payload.executedVolume = 99000
+        order_payload.orderId = 42
+
+        msg = MagicMock()
+        msg.payloadType = 2126
+        msg.executionType = execution_type
+        msg.order = order_payload
+        msg.errorCode = ""
+        msg.deal = None
+        msg.position = None
+        return msg
+
+    def _make_envelope(self, client_msg_id=""):
+        """Build a fake SDK envelope with clientMsgId."""
+        env = MagicMock()
+        env.clientMsgId = client_msg_id
+        return env
+
+    def test_empty_client_order_id_falls_back_to_client_msg_id(self):
+        """Ack with empty clientOrderId + valid clientMsgId should resolve."""
+        msg = self._make_exec_event(client_order_id="")
+        env = self._make_envelope(client_msg_id=self.client_msg_id)
+
+        self.feed._handle_execution_event(msg, env)
+
+        assert self.order.status == self.OrderStatus.FILLED
+        assert self.event.is_set()
+        # Pending entry should be cleaned up
+        assert self.request_id not in self.feed._pending_orders
+
+    def test_no_envelope_no_fallback(self):
+        """Without envelope, empty clientOrderId should still DROP."""
+        msg = self._make_exec_event(client_order_id="")
+
+        self.feed._handle_execution_event(msg)  # no envelope
+
+        assert not self.event.is_set()
+        assert self.request_id in self.feed._pending_orders  # still pending
+
+    def test_envelope_wrong_client_msg_id_still_drops(self):
+        """Envelope with unknown clientMsgId should still DROP."""
+        msg = self._make_exec_event(client_order_id="")
+        env = self._make_envelope(client_msg_id="order_UNKNOWN")
+
+        self.feed._handle_execution_event(msg, env)
+
+        assert not self.event.is_set()
+        assert self.request_id in self.feed._pending_orders
+
+    def test_direct_client_order_id_match_still_works(self):
+        """When clientOrderId is present and matches, no fallback needed."""
+        msg = self._make_exec_event(client_order_id=self.request_id)
+        env = self._make_envelope(client_msg_id="")  # irrelevant
+
+        self.feed._handle_execution_event(msg, env)
+
+        assert self.order.status == self.OrderStatus.FILLED
+        assert self.event.is_set()
+
+    def test_neither_matches_logs_drop(self, caplog):
+        """Both clientOrderId and clientMsgId unknown → DROP warning."""
+        import logging as stdlog
+        msg = self._make_exec_event(client_order_id="")
+        env = self._make_envelope(client_msg_id="order_NOPE")
+
+        with caplog.at_level(stdlog.WARNING, logger="ayumi.openapi_spot_feed"):
+            self.feed._handle_execution_event(msg, env)
+
+        assert any("DROP" in r.message for r in caplog.records)
+        assert not self.event.is_set()
+
+
+# ---------------------------------------------------------------------------
+# Properties
+# ---------------------------------------------------------------------------
+
 class TestProperties:
     def test_is_running_default_false(self, feed_factory):
         feed = feed_factory()
