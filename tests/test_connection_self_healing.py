@@ -117,13 +117,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
-# BQ-1328: OpenApiSpotFeed is the archived adapter; its ConnectionStateManager
-# uses a separate enum instance loaded from archive.legacy_ctrader._pkg.
-# Its _VALID_TRANSITIONS dict is keyed by archived enum members, so the
-# test MUST call transition_to() with the archived enum (identity-based
-# dict lookup) and assert by .value (enum identity does not match across
-# the two modules even though values are equal).
-from archive.legacy_ctrader._pkg.connection_state import ConnectionState as ArchiveConnectionState
+# Sprint 1A.1: The orchestrator at adapters.ctrader.open_api_spot_feed uses
+# ConnectionStateManager from adapters.ctrader.connection_state (ModernCS).
+# Its _VALID_TRANSITIONS dict is keyed by ModernCS enum members, so the
+# test MUST call transition_to() with the ModernCS enum (identity-based
+# dict lookup). Assert by .value to stay enum-identity-agnostic.
 from adapters.ctrader.open_api_spot_feed import (
     OpenApiSpotFeed,
     _HEARTBEAT_DEGRADED_SEC,
@@ -156,9 +154,9 @@ def _state_value(state):
     """Return the string value of a ConnectionState (modern or archived)."""
     return state.value if hasattr(state, "value") else state
 
-# Alias: tests below call transition_to() with this so the archived
-# _VALID_TRANSITIONS dict (keyed by archived enum members) actually hits.
-CS = ArchiveConnectionState
+# Alias: tests below call transition_to() with this so the modern
+# _VALID_TRANSITIONS dict (keyed by ModernCS enum members) actually hits.
+CS = ConnectionState
 
 
 @pytest.fixture

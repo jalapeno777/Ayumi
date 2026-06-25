@@ -14,6 +14,27 @@ This module handles:
 
 Symbol name normalization (canonical format):
     Strip '/' and '_' characters, uppercase. Example: "EUR/USD" → "EURUSD".
+
+Historical context (preserved for grep-ability and design intent):
+
+BQ-1327 — dual-token-manager race condition fix. The orchestrator coordinates
+a single ``TokenManager`` instance (see ``self._token_mgr``) and serializes
+all token refreshes through ``self._refresh_lock``. Before this fix, the
+auth shim and the spot feed each ran their own token refresh loop, racing on
+the same refresh token and clobbering ``.env``. The fix consolidates refresh
+into this orchestrator and exposes ``_handle_auth_failure`` /
+``_check_circuit_breaker`` for the single-state auth-error escalation path.
+
+BQ-1329 — concurrent-session conflict (second-app strategy). cTrader enforces
+a single-session rule (one live TCP session per OpenAPI app). To run both
+the live spot feed (``OpenApiSpotFeed``) and historical bar requests
+(``CTraderOpenApiClient``) without one evicting the other, they authenticate
+with separate OpenAPI apps: the spot feed uses ``CTRADER_OPENAPI_CLIENT_ID``
+/ ``CTRADER_OPENAPI_CLIENT_SECRET`` (primary), while the historical client
+uses ``CTRADER_TRADE_APP_ID`` / ``CTRADER_TRADE_SECRET`` (secondary). A fully
+shared TCP socket was deferred because it requires invasive changes to the
+archived feed implementation; the second-app approach is the Phase-5
+pragmatic fallback.
 """
 
 import logging
