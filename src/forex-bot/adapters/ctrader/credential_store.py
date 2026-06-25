@@ -10,12 +10,14 @@ No separate credential file. No migration. No drift.
     CTRADER_OPENAPI_REFRESH_TOKEN
     CTRADER_OPENAPI_ACCOUNT_ID
     CTRADER_OPENAPI_TRADER_LOGIN
+    CTRADER_OPENAPI_TOKEN_EXPIRES_AT   (ISO-8601 UTC, written by update_tokens)
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import shutil
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -32,6 +34,7 @@ _ENV_KEYS = {
     "CTRADER_OPENAPI_REFRESH_TOKEN": "refresh_token",
     "CTRADER_OPENAPI_ACCOUNT_ID": "account_id",
     "CTRADER_OPENAPI_TRADER_LOGIN": "trader_login",
+    "CTRADER_OPENAPI_TOKEN_EXPIRES_AT": "expires_at",
 }
 
 
@@ -78,10 +81,18 @@ class CredentialStore:
         """Update tokens in .env. Called ONLY by token_lifecycle.
 
         Writes the new access_token, refresh_token, and computed expires_at
-        back to .env atomically. Other keys are preserved.
+        back to .env atomically. Creates a backup of the previous .env first.
+        Other keys are preserved.
         """
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        expires_at_str = expires_at.isoformat()
         with self._lock:
+            # Backup current .env before overwriting
+            if self._path.exists():
+                backup_path = self._path.with_suffix(".env.token_backup")
+                shutil.copy2(str(self._path), str(backup_path))
+                logger.debug("Token backup written to %s", backup_path)
+
             # Read current .env, update only the token lines
             lines = self._path.read_text().splitlines() if self._path.exists() else []
 
@@ -101,6 +112,9 @@ class CredentialStore:
                 elif key == "CTRADER_OPENAPI_REFRESH_TOKEN":
                     new_lines.append(f"{key}={refresh_token}")
                     updated.add(key)
+                elif key == "CTRADER_OPENAPI_TOKEN_EXPIRES_AT":
+                    new_lines.append(f"{key}={expires_at_str}")
+                    updated.add(key)
                 else:
                     new_lines.append(line)
 
@@ -109,6 +123,8 @@ class CredentialStore:
                 new_lines.append(f"CTRADER_OPENAPI_ACCESS_TOKEN={access_token}")
             if "CTRADER_OPENAPI_REFRESH_TOKEN" not in updated:
                 new_lines.append(f"CTRADER_OPENAPI_REFRESH_TOKEN={refresh_token}")
+            if "CTRADER_OPENAPI_TOKEN_EXPIRES_AT" not in updated:
+                new_lines.append(f"CTRADER_OPENAPI_TOKEN_EXPIRES_AT={expires_at_str}")
 
             # Atomic write
             tmp = self._path.with_suffix(".env.tmp")
@@ -164,6 +180,16 @@ class CredentialStore:
                 field = _ENV_KEYS[key]
                 if field in ("account_id", "trader_login"):
                     data[field] = int(value) if value else 0
+                elif field == "expires_at":
+                    # Parse ISO-8601 datetime; store as datetime object
+                    if value:
+                        try:
+                            data[field] = datetime.fromisoformat(value)
+                        except ValueError:
+                            logger.warning(
+                                "Unparseable CTRADER_OPENAPI_TOKEN_EXPIRES_AT=%r — ignoring",
+                                value,
+                            )
                 else:
                     data[field] = value
 
@@ -172,6 +198,10 @@ class CredentialStore:
 
     def _dict_to_credentials(self, data: dict) -> Credentials:
         """Convert dict to Credentials dataclass."""
+        expires_at = data.get("expires_at")
+        # Ensure timezone-aware if present
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
         return Credentials(
             client_id=str(data.get("client_id", "")),
             client_secret=str(data.get("client_secret", "")),
@@ -179,5 +209,5 @@ class CredentialStore:
             refresh_token=str(data.get("refresh_token", "")),
             account_id=int(data.get("account_id", 0)),
             trader_login=int(data.get("trader_login", 0)),
-            expires_at=None,  # Not persisted in .env — managed in-memory by TokenLifecycle
+            expires_at=expires_at,
         )

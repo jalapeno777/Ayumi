@@ -2,15 +2,19 @@
 
 Proactive refresh: refreshes when expires_at < now + 5 days
 Reactive refresh: called by session on AUTH_EXPIRED error
-Thread-safe: uses a lock to prevent concurrent refreshes
+Thread-safe: uses a lock to prevent concurrent refreshes within a process
+Process-safe: uses a file lock to prevent concurrent refreshes across processes
 """
 
 from __future__ import annotations
 
+import fcntl
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable, Optional
 
 import requests
@@ -24,7 +28,16 @@ logger = logging.getLogger("ayumi.token_lifecycle")
 OAUTH_URL = "https://openapi.ctrader.com/apps/token"
 REFRESH_BUFFER = timedelta(days=5)  # refresh when < 5 days remaining (token TTL is 30 days)
 REQUEST_TIMEOUT = 10  # seconds
-PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min — no need to hammer with 30-day tokens)
+PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min)
+
+# Inter-process lock file path (relative to CWD or absolute)
+# Read dynamically so tests can override via monkeypatch
+_DEFAULT_LOCK_FILE = str(Path("data") / ".token_refresh.lock")
+
+
+def _get_lock_file_path() -> str:
+    """Return the current lock file path (checks env each call for testability)."""
+    return os.environ.get("AYUMI_TOKEN_LOCK_FILE", _DEFAULT_LOCK_FILE)
 
 
 # ── Exceptions ─────────────────────────────────────────────────────────────
@@ -121,8 +134,7 @@ class TokenLifecycle:
             TokenRefreshError: If the OAuth refresh fails.
         """
         with self._lock:
-            # If another thread just completed a refresh, check if token changed
-            return self._do_refresh()
+            return self._do_refresh(force=True)
 
     @property
     def expires_at(self) -> Optional[datetime]:
@@ -168,9 +180,19 @@ class TokenLifecycle:
     # ── Internal ───────────────────────────────────────────────────────────
 
     def _is_valid(self) -> bool:
-        """Check if the current token is still valid (with 5-day buffer)."""
+        """Check if the current token is still valid (with 5-day buffer).
+
+        If expires_at is None (Craig manually wrote fresh tokens to .env
+        without an expires_at), we ASSUME the token is fresh and return True.
+        This prevents the startup refresh that clobbers Craig's tokens.
+        Only refresh when expires_at is known AND within the buffer.
+        """
         if self._expires_at is None:
-            return False
+            # No expiry info — assume fresh (Craig just wrote it)
+            logger.debug(
+                "_is_valid: expires_at unknown — assuming token is fresh"
+            )
+            return True
         now = datetime.now(timezone.utc)
         return self._expires_at - now > REFRESH_BUFFER
 
@@ -180,16 +202,57 @@ class TokenLifecycle:
         self._access_token = creds.access_token
         self._expires_at = creds.expires_at
 
-    def _do_refresh(self) -> str:
+    def _do_refresh(self, force: bool = False) -> str:
         """Execute the OAuth refresh request.
 
         Caller must hold self._lock.
+        Acquires an inter-process file lock to prevent concurrent refreshes
+        across multiple processes (forward test, test scripts, subagents).
+
+        Args:
+            force: If True, skip the post-lock validity re-check (used by
+                   force_refresh which must always refresh).
 
         Returns:
             The new access token.
 
         Raises:
             TokenRefreshError: On any refresh failure.
+        """
+        # Inter-process lock
+        lock_path = Path(_get_lock_file_path())
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except OSError as exc:
+            logger.error("Cannot acquire inter-process token lock: %s", exc)
+            raise TokenRefreshError(
+                f"Cannot acquire inter-process lock: {exc}", retry=True
+            ) from exc
+
+        try:
+            if not force:
+                # After acquiring the file lock, re-check if the token was
+                # refreshed by another process while we were waiting
+                self._sync_from_store()
+                if self._is_valid():
+                    logger.info(
+                        "Token was refreshed by another process while waiting for lock"
+                    )
+                    return self._access_token
+
+            return self._do_refresh_inner()
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            os.close(lock_fd)
+
+    def _do_refresh_inner(self) -> str:
+        """Inner refresh logic — no locking, caller handles all locks.
+
+        After a successful OAuth exchange, validates the new token by
+        making a lightweight API call before committing it to .env.
         """
         # Get current refresh token from the store
         creds = self._store.get()
@@ -274,6 +337,17 @@ class TokenLifecycle:
         if not new_refresh:
             new_refresh = refresh_token
 
+        # Validate the refreshed token before committing to .env.
+        # If validation fails, keep the old tokens and raise.
+        if not self._validate_token(new_access):
+            logger.error(
+                "Refreshed token failed validation — keeping old tokens"
+            )
+            raise TokenRefreshError(
+                "Refreshed token failed validation — old tokens retained",
+                retry=False,
+            )
+
         # Persist to credential store (computes expires_at internally)
         self._store.update_tokens(new_access, new_refresh, expires_in)
 
@@ -285,6 +359,47 @@ class TokenLifecycle:
         logger.info("Token refreshed — new expires_at=%s", self._expires_at)
 
         return self._access_token
+
+    def _validate_token(self, access_token: str) -> bool:
+        """Lightweight validation that a token works.
+
+        Makes a simple cTrader API call to verify the token is accepted.
+        Returns True if valid, False otherwise.
+
+        On network errors, returns True (optimistic — don't reject a
+        token just because the validation endpoint is unreachable).
+        """
+        validation_url = (
+            "https://openapi.ctrader.com/apps/metadata/account-list"
+        )
+        try:
+            resp = requests.get(
+                validation_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                logger.debug("Token validation succeeded")
+                return True
+            elif resp.status_code in (401, 403):
+                logger.error(
+                    "Token validation failed — HTTP %d: %s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return False
+            else:
+                # Unexpected status — be optimistic
+                logger.warning(
+                    "Token validation got unexpected HTTP %d — assuming valid",
+                    resp.status_code,
+                )
+                return True
+        except requests.RequestException as exc:
+            logger.warning(
+                "Token validation network error — assuming valid: %s", exc
+            )
+            return True
 
     def _timer_loop(
         self, on_refreshed: Optional[Callable[[str], None]]
