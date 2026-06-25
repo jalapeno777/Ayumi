@@ -21,25 +21,21 @@ from adapters.ctrader.token_lifecycle import (
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
-VALID_CREDS = {
-    "version": 1,
-    "client_id": "test_client_id",
-    "client_secret": "test_secret",
-    "access_token": "test_access_token",
-    "refresh_token": "test_refresh_token",
-    "account_id": "12345678",
-    "trader_login": "5795523",
-    "expires_at": "2026-12-31T23:59:59+00:00",
-    "last_refreshed": "2026-06-16T12:00:00+00:00",
-}
+VALID_ENV = """\
+CTRADER_OPENAPI_CLIENT_ID="test_client_id"
+CTRADER_OPENAPI_CLIENT_SECRET="test_secret"
+CTRADER_OPENAPI_ACCESS_TOKEN="test_access_token"
+CTRADER_OPENAPI_REFRESH_TOKEN="test_refresh_token"
+CTRADER_OPENAPI_ACCOUNT_ID=12345678
+CTRADER_OPENAPI_TRADER_LOGIN=5795523
+"""
 
 
 def _make_store(tmp_path) -> CredentialStore:
-    """Build a CredentialStore with valid creds on disk."""
-    cred_path = tmp_path / "data" / ".credentials"
-    cred_path.parent.mkdir(parents=True)
-    cred_path.write_text(json.dumps(VALID_CREDS))
-    store = CredentialStore(credentials_path=str(cred_path))
+    """Build a CredentialStore with valid creds on disk (.env format)."""
+    env_path = tmp_path / ".env"
+    env_path.write_text(VALID_ENV)
+    store = CredentialStore(env_path=str(env_path))
     store.load()
     return store
 
@@ -67,16 +63,26 @@ def _mock_oauth_response(
     return resp
 
 
+def _mock_validation_response(status_code=200):
+    """Build a mock validation response for token validation."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.text = '{"ok": true}' if status_code == 200 else '{"error": "invalid"}'
+    return resp
+
+
 def _make_expiring_store(tmp_path, minutes_to_expiry: int) -> CredentialStore:
-    """Build a store whose token expires in N minutes."""
-    creds = dict(VALID_CREDS)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=minutes_to_expiry)
-    creds["expires_at"] = expires_at.isoformat()
-    cred_path = tmp_path / "data" / ".credentials"
-    cred_path.parent.mkdir(parents=True)
-    cred_path.write_text(json.dumps(creds))
-    store = CredentialStore(credentials_path=str(cred_path))
-    store.load()
+    """Build a store whose token expires in N minutes.
+
+    CredentialStore.load() from .env sets expires_at via _read_env_file
+    (if CTRADER_OPENAPI_TOKEN_EXPIRES_AT is present). We inject an expiry
+    via update_tokens() (the production path used by TokenLifecycle).
+    """
+    store = _make_store(tmp_path)
+    expires_in = max(minutes_to_expiry * 60, 1)  # at least 1 second
+    store.update_tokens(
+        "test_access_token", "test_refresh_token", expires_in=expires_in
+    )
     return store
 
 
@@ -84,8 +90,8 @@ def _make_expiring_store(tmp_path, minutes_to_expiry: int) -> CredentialStore:
 
 
 def test_ensure_valid_returns_cached_token(tmp_path):
-    """Token expires in 1h — ensure_valid returns it without refresh."""
-    store = _make_expiring_store(tmp_path, minutes_to_expiry=60)
+    """Token expires in 30 days (> 5-day buffer) — ensure_valid returns it without refresh."""
+    store = _make_expiring_store(tmp_path, minutes_to_expiry=60 * 24 * 30)
     tl = TokenLifecycle(credential_store=store)
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
@@ -97,7 +103,7 @@ def test_ensure_valid_returns_cached_token(tmp_path):
 
 
 def test_ensure_valid_refreshes_when_expiring_soon(tmp_path):
-    """Token expires in 2min (< 5min buffer) — triggers refresh."""
+    """Token expires in 2min (< 5-day buffer) — triggers refresh."""
     store = _make_expiring_store(tmp_path, minutes_to_expiry=2)
     tl = TokenLifecycle(credential_store=store)
 
@@ -105,6 +111,7 @@ def test_ensure_valid_refreshes_when_expiring_soon(tmp_path):
         mock_req.post.return_value = _mock_oauth_response(
             access_token="refreshed_token", expires_in=3600
         )
+        mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception  # needed for except clause
 
         token = tl.ensure_valid()
@@ -132,6 +139,7 @@ def test_force_refresh_updates_credential_store(tmp_path):
             refresh_token="forced_new_refresh",
             expires_in=7200,
         )
+        mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception
 
         token = tl.force_refresh()
@@ -192,12 +200,14 @@ def test_concurrent_refresh_is_serialized(tmp_path):
             call_count += 1
         # Simulate small network latency
         time.sleep(0.05)
+        # Use 30-day expiry so other threads see token as valid (> 5-day buffer)
         return _mock_oauth_response(
-            access_token="concurrent_token", expires_in=3600
+            access_token="concurrent_token", expires_in=2592000
         )
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.side_effect = fake_post
+        mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception
 
         results: list[str] = []
@@ -239,6 +249,7 @@ def test_proactive_timer_refreshes_before_expiry(tmp_path):
         mock_req.post.return_value = _mock_oauth_response(
             access_token="timer_refreshed_token", expires_in=3600
         )
+        mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception
 
         tl.start_proactive_timer(on_refreshed=on_refreshed)
