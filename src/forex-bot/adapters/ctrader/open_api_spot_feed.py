@@ -960,68 +960,9 @@ class OpenApiSpotFeed:
             self._refresh_token_and_reauth()
 
     def _refresh_token_and_reauth(self, proactive: bool = False) -> None:
-        if not proactive and self._auth_circuit_open:
-            return
-        with self._refresh_lock:
-            if self._refresh_in_progress:
-                return
-            self._refresh_in_progress = True
-
-        if not proactive:
-            backoff = min(10 * (2 ** self._auth_error_count), 300)
-            time.sleep(backoff)
-
-        if not self._refresh_token:
-            self._auth_error_count += 1
-            self._check_circuit_breaker()
-            self._refresh_in_progress = False
-            return
-
-        try:
-            import requests
-            from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
-
-            resp = requests.post("https://openapi.ctrader.com/apps/token", data={
-                "grant_type": "refresh_token", "refresh_token": self._refresh_token,
-                "client_id": self._client_id, "client_secret": self._client_secret,
-            }, timeout=10)
-            data = resp.json()
-            if data.get("errorCode"):
-                self._auth_error_count += 1
-                self._check_circuit_breaker()
-                self._refresh_in_progress = False
-                return
-
-            new_access = data.get("accessToken") or data.get("access_token")
-            new_refresh = data.get("refreshToken") or data.get("refresh_token")
-            if not new_access:
-                self._auth_error_count += 1
-                self._check_circuit_breaker()
-                self._refresh_in_progress = False
-                return
-
-            self._access_token = new_access
-            if new_refresh:
-                self._refresh_token = new_refresh
-
-            expires_in = data.get("expiresIn") or data.get("expires_in") or 86400
-            if expires_in > 0:
-                self._token_expires_at = time.monotonic() + expires_in
-                self._schedule_proactive_refresh(expires_in)
-
-            self._token_mgr.track_token(self._access_token, expires_in)
-            self._token_mgr._update_env_tokens(self._access_token, self._refresh_token)
-
-            req = ProtoOAAccountAuthReq()
-            req.ctidTraderAccountId = self._ctid_account_id
-            req.accessToken = self._access_token
-            reactor.callFromThread(self._conn.send, req)
-        except Exception as exc:
-            logger.error("Token refresh error: %s", exc)
-            self._auth_error_count += 1
-            self._check_circuit_breaker()
-        finally:
-            self._refresh_in_progress = False
+        # Phase 4 migration guard — all refresh delegated to TokenLifecycle
+        logger.debug("Refresh disarmed during P4 migration (proactive=%s); TokenLifecycle handles all refresh", proactive)
+        return
 
     def _handle_auth_failure(self, context: str) -> None:
         self._auth_error_count += 1
