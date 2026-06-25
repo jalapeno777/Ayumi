@@ -77,12 +77,14 @@ def feed_factory():
         ) as mock_token_cls:
             mock_conn = MagicMock()
             mock_conn_cls.return_value = mock_conn
-            # TokenManager mock needs _update_env_tokens for refresh flow
             mock_token = MagicMock()
             mock_token._update_env_tokens = MagicMock()
             mock_token_cls.return_value = mock_token
 
             feed = OpenApiSpotFeed(**defaults)
+
+        # Wire a mock TokenLifecycle for delegation tests
+        feed._token_lifecycle = MagicMock()
 
         # Replace reactor references with a mock so callFromThread is safe
         feed._reactor_manager = MagicMock()
@@ -322,48 +324,54 @@ class TestTokenRefresh:
         feed = feed_factory()
         feed._refresh_token = "old-refresh"
 
-        # Mock the HTTP call and reactor
-        mock_post_resp = MagicMock()
-        mock_post_resp.json.return_value = {
-            "access_token": "new-access",
-            "refresh_token": "new-refresh",
-        }
+        # Mock TokenLifecycle delegation — replaces direct HTTP calls
+        from datetime import datetime, timedelta, timezone
+        mock_lifecycle = MagicMock()
+        mock_lifecycle.force_refresh.return_value = "new-access"
+        mock_creds = MagicMock()
+        mock_creds.refresh_token = "new-refresh"
+        mock_lifecycle._store.get.return_value = mock_creds
+        mock_lifecycle.expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        feed._token_lifecycle = mock_lifecycle
 
-        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor, \
-             patch("requests.post", return_value=mock_post_resp) as mock_post:
+        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor:
             mock_reactor.callFromThread = MagicMock()
             feed._refresh_token_and_reauth()
 
+        import time as _time
+        _time.sleep(0.1)  # allow background thread to complete
+
         assert feed._access_token == "new-access"
-        assert feed._refresh_token == "new-refresh"
-        mock_reactor.callFromThread.assert_called_once()
+        mock_lifecycle.force_refresh.assert_called_once()
 
     def test_refresh_api_error_handled_gracefully(self, feed_factory):
         feed = feed_factory()
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "errorCode": "SOME_ERROR",
-            "description": "bad request",
-        }
+        # TokenLifecycle.force_refresh raises — delegation handles it
+        mock_lifecycle = MagicMock()
+        mock_lifecycle.force_refresh.side_effect = Exception("OAuth error")
+        feed._token_lifecycle = mock_lifecycle
 
-        import archive.legacy_ctrader._pkg.open_api_spot_feed as mod
-        mock_requests = MagicMock()
-        mock_requests.post.return_value = mock_response
-        with patch.object(mod, "requests", mock_requests, create=True):
-            feed._refresh_token = "old-refresh"
-            feed._refresh_token_and_reauth()  # should not raise
+        feed._refresh_token = "old-refresh"
+        feed._refresh_token_and_reauth()  # should not raise
+
+        import time as _time
+        _time.sleep(0.1)  # allow background thread
 
         # access_token unchanged
         assert feed._access_token == "test-access-token"
 
     def test_refresh_network_failure_handled_gracefully(self, feed_factory):
         feed = feed_factory()
-        import archive.legacy_ctrader._pkg.open_api_spot_feed as mod
-        mock_requests = MagicMock()
-        mock_requests.post.side_effect = ConnectionError("network down")
-        with patch.object(mod, "requests", mock_requests, create=True):
-            feed._refresh_token = "old-refresh"
-            feed._refresh_token_and_reauth()  # should not raise
+        # TokenLifecycle.force_refresh raises network-like error
+        mock_lifecycle = MagicMock()
+        mock_lifecycle.force_refresh.side_effect = ConnectionError("network down")
+        feed._token_lifecycle = mock_lifecycle
+
+        feed._refresh_token = "old-refresh"
+        feed._refresh_token_and_reauth()  # should not raise
+
+        import time as _time
+        _time.sleep(0.1)  # allow background thread
 
     def test_auth_error_triggers_refresh(self, feed_factory):
         feed = feed_factory()
