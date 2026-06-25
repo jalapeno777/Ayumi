@@ -329,7 +329,7 @@ class TestTokenRefresh:
             "refresh_token": "new-refresh",
         }
 
-        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor, \
+        with patch("adapters.ctrader.open_api_spot_feed.reactor") as mock_reactor, \
              patch("requests.post", return_value=mock_post_resp) as mock_post:
             mock_reactor.callFromThread = MagicMock()
             feed._refresh_token_and_reauth()
@@ -608,9 +608,11 @@ class TestProperties:
         assert "FAKE" not in feed._ticks
 
     def test_is_connected_reflects_auth_state(self, feed_factory):
-        # Import ConnectionState from the actual module the feed uses
-        # (archive module, not the src/forex-bot shim) to avoid enum identity mismatch.
-        from archive.legacy_ctrader._pkg.connection_state import ConnectionState
+        # Sprint 1A.1: Orchestrator lives in adapters.ctrader.open_api_spot_feed
+        # and uses ConnectionState from adapters.ctrader.connection_state
+        # (ModernCS). Import from the modern module so identity matches the
+        # _VALID_TRANSITIONS dict keys.
+        from adapters.ctrader.connection_state import ConnectionState
         feed = feed_factory()
         assert feed.is_connected is False
         # Walk through valid state transitions to AUTHENTICATED
