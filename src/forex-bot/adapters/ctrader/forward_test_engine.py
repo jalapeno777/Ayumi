@@ -167,6 +167,7 @@ class ForwardTestHealth:
     signals_pending: int = 0
     signals_cancelled: int = 0
     signals_accepted: int = 0  # blend runner accepted the signal (T2)
+    symbol_resolution_failures: int = 0  # total failed symbol resolutions (Task 2)
 
 
 class LiveExecutionStatus(Enum):
@@ -358,6 +359,19 @@ class ForwardTestEngine:
         self._strategy_eval_counts: dict[str, int] = {s.name: 0 for s in strategies}
         self._strategy_no_signal_counts: dict[str, int] = {s.name: 0 for s in strategies}
         self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
+
+        # B5 Pipeline warning: rate-limit + grace period
+        self._last_pipeline_warning_time: float = 0.0
+        _PIPELINE_GRACE_SEC = 1200  # 20 minutes
+
+        # Symbol resolution diagnostics (Task 2)
+        self._symbol_resolution_failures: dict[int, int] = {}
+        self._symbol_resolution_last_warn: dict[int, float] = {}
+
+        # Precompute normalized config symbols for fast comparison (Task 3)
+        self._cfg_symbols_normalized: set[str] = {
+            s.upper().replace("/", "") for s in self._config.symbols
+        }
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -839,7 +853,10 @@ class ForwardTestEngine:
                 )
 
         symbol_name = self._resolve_symbol_name(tick)
-        if symbol_name is None or symbol_name not in self._config.symbols:
+        if symbol_name is None:
+            return
+        # Use precomputed normalized config symbols for comparison
+        if symbol_name not in self._cfg_symbols_normalized:
             return
 
         # Build bars for ALL required timeframes from this tick
@@ -901,14 +918,49 @@ class ForwardTestEngine:
 
         symbol_info = self._market_feed.symbols.get(tick.symbol_id)
         if symbol_info is None:
+            # Diagnostic: rate-limited WARNING per symbol_id (max 1/min)
+            sid = tick.symbol_id
+            self._symbol_resolution_failures[sid] = (
+                self._symbol_resolution_failures.get(sid, 0) + 1
+            )
+            self._health.symbol_resolution_failures += 1
+            now_mono = time.monotonic()
+            last_warn = self._symbol_resolution_last_warn.get(sid, 0.0)
+            if now_mono - last_warn >= 60.0:
+                self._symbol_resolution_last_warn[sid] = now_mono
+                known_ids = list(self._market_feed.symbols.keys())
+                logger.warning(
+                    "[Symbol Resolution] symbol_id=%d not found in feed symbols. "
+                    "known_ids=%s (failures for this id: %d)",
+                    sid, known_ids,
+                    self._symbol_resolution_failures[sid],
+                )
             return None
 
         feed_name = symbol_info.name
         no_slash = feed_name.replace("/", "")
-        cfg_symbols = {s.upper().replace("/", "") for s in self._config.symbols}
 
-        if no_slash in cfg_symbols:
+        if no_slash in self._cfg_symbols_normalized:
             return no_slash
+
+        # Diagnostic: normalized name not in config symbols
+        sid = tick.symbol_id
+        self._symbol_resolution_failures[sid] = (
+            self._symbol_resolution_failures.get(sid, 0) + 1
+        )
+        self._health.symbol_resolution_failures += 1
+        now_mono = time.monotonic()
+        last_warn = self._symbol_resolution_last_warn.get(sid, 0.0)
+        if now_mono - last_warn >= 60.0:
+            self._symbol_resolution_last_warn[sid] = now_mono
+            logger.warning(
+                "[Symbol Resolution] feed_name='%s' normalized='%s' "
+                "not in config symbols %s (symbol_id=%d, failures: %d)",
+                feed_name, no_slash,
+                sorted(self._cfg_symbols_normalized),
+                sid,
+                self._symbol_resolution_failures[sid],
+            )
         return None
 
     def _update_paper_trader_prices(self, tick: Tick, symbol_name: str):
@@ -1688,13 +1740,57 @@ class ForwardTestEngine:
                         "[B5 Periodic] ticks=%d bars_built=%d signals=%d traded=%d eval_errors=%d",
                         ticks, bars, signals, traded, errors,
                     )
-                    # B5 Amendment 4: tick-to-bar pipeline health
-                    if ticks > 0 and bars == 0:
-                        logger.warning(
-                            "[B5 Pipeline] %d ticks received but 0 bars built — "
-                            "tick-to-bar conversion may be stalled",
-                            ticks,
-                        )
+                    # B5 Amendment 4: tick-to-bar pipeline health (revised)
+                    # Count TOTAL bars across all keys + preloaded bars
+                    # to avoid false positives when bars_built counter hasn't
+                    # incremented yet (e.g. started mid-M15 interval).
+                    if ticks > 0:
+                        with self._lock:
+                            total_bars = sum(len(v) for v in self._bars.values())
+                            # Include current (forming) bars in the count
+                            total_bars += sum(1 for v in self._current_bar.values() if v is not None)
+                        uptime = self._health.uptime_sec
+                        in_grace = uptime < 1200  # 20-minute startup grace
+
+                        if total_bars == 0:
+                            if in_grace:
+                                logger.debug(
+                                    "[B5 Pipeline] %d ticks, 0 total bars — "
+                                    "within startup grace (%.0fs < 1200s)",
+                                    ticks, uptime,
+                                )
+                            else:
+                                # Rate-limit WARNING to once per 5 minutes
+                                if now - self._last_pipeline_warning_time >= 300:
+                                    self._last_pipeline_warning_time = now
+                                    # Gather diagnostics
+                                    with self._lock:
+                                        bar_keys = {
+                                            k: len(v) for k, v in self._bars.items()
+                                        }
+                                        current_keys = {
+                                            k for k, v in self._current_bar.items() if v is not None
+                                        }
+                                        last_tick = self._health.last_tick_at
+                                    cfg_symbols = list(self._cfg_symbols_normalized)
+                                    logger.warning(
+                                        "[B5 Pipeline] STALLED: %d ticks, 0 total bars "
+                                    "(uptime=%.0fs, grace_expired). "
+                                    "symbols=%s timeframes=%s "
+                                    "bar_keys=%s current_forming=%s "
+                                    "last_tick=%s",
+                                        ticks, uptime,
+                                        cfg_symbols,
+                                        sorted(self._required_timeframes),
+                                        bar_keys, current_keys,
+                                        last_tick.isoformat() if last_tick else "None",
+                                    )
+                                else:
+                                    logger.debug(
+                                        "[B5 Pipeline] Still stalled but rate-limited "
+                                        "(last warning %.0fs ago)",
+                                        now - self._last_pipeline_warning_time,
+                                    )
 
                     # Phase 1D: Portfolio summary from position monitor
                     if self._position_monitor is not None:
