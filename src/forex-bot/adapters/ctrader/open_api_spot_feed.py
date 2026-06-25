@@ -79,6 +79,14 @@ from .token_manager import TokenManager, TokenStatus
 from .token_lifecycle import TokenLifecycle
 from .credential_store import CredentialStore
 from .auth import CTraderAuth
+from .environment import (
+    Environment,
+    DEMO_HOSTS,
+    LIVE_HOSTS,
+    _infer_environment,
+    validate_endpoint_environment,
+    log_startup_environment,
+)
 from .models import (
     Order,
     OrderStatus,
@@ -279,6 +287,22 @@ class OpenApiSpotFeed:
     def start(self, auto_subscribe: list[str] | None = None) -> bool:
         if self._running:
             return True
+
+        # Environment validation — cross-check endpoint vs configured environment.
+        _env = _infer_environment(self._host)
+        try:
+            validate_endpoint_environment(self._host, _env)
+        except ValueError as e:
+            logger.critical("%s", e)
+            raise  # Fail closed — do not connect
+
+        log_startup_environment(
+            env=_env,
+            host=self._host,
+            account_id=str(self._ctid_account_id),
+            kill_switch_active=True,  # kill switch is always "active" conceptually
+            kill_switch_mode="freeze",
+        )
 
         # Token validation — placeholder check only.
         # TokenLifecycle.ensure_valid() (called by ForwardTestEngine) handles

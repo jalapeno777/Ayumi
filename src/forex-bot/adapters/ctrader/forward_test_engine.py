@@ -117,6 +117,7 @@ class ForwardTestConfig:
     log_dir: str = "logs/trades"
     stats_interval_sec: float = 60.0
     live_mode: bool = False
+    execution_mode: str = "paper"  # "paper" | "live" — must be explicit
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
@@ -138,6 +139,9 @@ class ForwardTestConfig:
     preload_bar_count: int = 200  # bars fetched per symbol/timeframe on startup
 
     def __post_init__(self):
+        # Consistency check: live_mode=True implies execution_mode="live"
+        if self.live_mode and self.execution_mode != "live":
+            self.execution_mode = "live"
         if self.strategy_timeframes is None:
             self.strategy_timeframes = {}
         if self.symbols is None:
