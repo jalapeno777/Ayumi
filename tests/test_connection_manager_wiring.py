@@ -185,7 +185,7 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
 # ── OAuth refresh wiring tests ───────────────────────────────────────────────
 
 
-@pytest.mark.deprecated_module
+@pytest.mark.skip(reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle")
 class TestOAuthRefreshWiring(unittest.TestCase):
     """Verify refresh_oauth_if_needed() updates manager auth state."""
 
