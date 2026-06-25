@@ -73,6 +73,7 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 )
 from .market_data_feed import Tick, SymbolInfo
 from .connection import CTraderConnection
+from .auth_error_types import get_policy, AuthFaultType
 from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
 from .token_lifecycle import TokenLifecycle
@@ -951,13 +952,29 @@ class OpenApiSpotFeed:
             return
         if self._auth_circuit_open or self._refresh_in_progress:
             return
-        auth_errors = {"CH_OAUTH_TOKEN_EXPIRED", "CH_INVALID_TOKEN", "SESSION_EXPIRED"}
-        if error_code in auth_errors:
+        # Centralized auth error classification
+        description = getattr(message, "description", "")
+        fault_type, policy = get_policy(error_code, description)
+        logger.warning(
+            "Auth error classified: code=%s fault_type=%s can_refresh=%s escalate=%s",
+            error_code, fault_type.value, policy.can_refresh, policy.requires_escalation,
+        )
+        if policy.activate_kill_switch:
+            logger.error(
+                "Kill switch recommended due to %s fault (code=%s)",
+                fault_type.value, error_code,
+            )
+        if policy.can_refresh:
             now = time.monotonic()
             if now - self._last_reactive_refresh_time < 60.0:
                 return
             self._last_reactive_refresh_time = now
             self._refresh_token_and_reauth()
+        elif policy.requires_escalation:
+            logger.error(
+                "Auth fault requires escalation: %s (%s) — failing closed",
+                fault_type.value, error_code,
+            )
 
     def _refresh_token_and_reauth(self, proactive: bool = False) -> None:
         """Delegate OAuth refresh to TokenLifecycle and re-auth on success.
