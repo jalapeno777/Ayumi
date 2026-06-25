@@ -308,6 +308,7 @@ class ForwardTestEngine:
 
         self._callbacks: list[tuple[str, "Callable"]] = []
         self._health = ForwardTestHealth()
+        self._stats_fail_count: int = 0  # non-fatal stats recording failure counter
 
         self._last_evaluation_at: float = 0.0
 
@@ -1097,26 +1098,37 @@ class ForwardTestEngine:
                 direction_str, signal.symbol, getattr(order, "order_id", ""),
             )
 
-        # Phase 0 signal-stats hook: record the open line for this signal
-        # so per-strategy / per-symbol diagnostics land in the JSONL log.
-        # Lazy-init so the recorder path is testable in isolation.
-        self._stats_recorder = getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
-        self._stats_recorder.record_signal(
-            SignalRecord(
-                signal_id=order.order_id if order and order.order_id else signal.strategy_id,
-                timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
-                strategy=signal.strategy_id or strategy_id or "unknown",
-                symbol=signal.symbol,
-                direction=direction_str.upper() if direction_str else "",
-                confidence=float(signal.confidence),
-                rationale_tags=[signal.rationale] if signal.rationale else [],
-                confluence_score=0.0,
-                lots=float(volume_lots),
-                entry_price=float(signal.entry_price),
-                sl_price=float(signal.stop_loss),
-                tp_price=float(signal.take_profit_1),
+        # Phase 0 signal-stats hook: record the open line for this signal.
+        # CRITICAL: stats recording must NEVER crash the execution path.
+        # The outcome has already been classified and the order sent — losing
+        # a stats line is acceptable; losing the outcome return is not.
+        try:
+            self._stats_recorder = (
+                getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
             )
-        )
+            self._stats_recorder.record_signal(
+                SignalRecord(
+                    signal_id=order.order_id if order and order.order_id else signal.strategy_id,
+                    timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                    strategy=signal.strategy_id or strategy_id or "unknown",
+                    symbol=signal.symbol,
+                    direction=direction_str.upper() if direction_str else "",
+                    confidence=float(signal.confidence),
+                    rationale_tags=[signal.rationale] if signal.rationale else [],
+                    confluence_score=0.0,
+                    lots=float(volume_lots),
+                    entry_price=float(signal.entry_price),
+                    sl_price=float(signal.stop_loss),
+                    tp_price=float(signal.take_profit_1),
+                )
+            )
+        except Exception as stats_err:
+            self._stats_fail_count = getattr(self, "_stats_fail_count", 0) + 1
+            logger.warning(
+                "Signal stats recording failed (non-fatal, count=%d): %s",
+                self._stats_fail_count, stats_err
+            )
+
         return outcome
 
     # Reason strings used by OpenApiSpotFeed when the order could not be sent.

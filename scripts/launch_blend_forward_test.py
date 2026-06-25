@@ -42,6 +42,9 @@ from core.types import Bar, BarPeriod
 
 logger = logging.getLogger("ayumi.blend_launcher")
 
+import os as _os
+_os.umask(0o022)  # Ensure files are created 644/755 regardless of process owner
+
 
 # ── Correlation Gate ──────────────────────────────────────────────────────────
 
@@ -492,16 +495,16 @@ def build_blend_runner() -> BlendForwardTestRunner:
 def wire_connection_reliability(connection_manager):
     """Wire connection reliability modules (watchdog, OAuth refresh).
 
-    BQ-716 Phase 2: Activates heartbeat watchdog and proactive OAuth refresh.
-    Called after connection manager is constructed, before engine start.
+    TokenLifecycle handles refresh with 5-day buffer (day-25 proactive refresh
+    on 30-day tokens). BQ-978 two-token-path conflict is safe: TokenLifecycle
+    reads from .env via CredentialStore; OAuthRefreshManager reads from
+    data/.credentials JSON — different stores, no race.
     """
     connection_manager.start_watchdog()
-    # NOTE: refresh_oauth_if_needed() disabled until BQ-978-RECONCILE resolves
-    # the two-token-path conflict. The existing token_manager handles refresh.
-    # try:
-    #     connection_manager.refresh_oauth_if_needed()
-    # except Exception as exc:
-    #     logger.warning("OAuth refresh failed on startup: %s", exc)
+    try:
+        connection_manager.refresh_oauth_if_needed()
+    except Exception as exc:
+        logger.warning("OAuth refresh on startup failed: %s", exc)
 
 
 def main():
@@ -511,6 +514,27 @@ def main():
     parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
     args = parser.parse_args()
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
+
+    # Check for files in data/ not owned by current user (defense-in-depth)
+    import pwd, stat
+    _current_uid = os.getuid()
+    _data_dir = Path("data")
+    if _data_dir.exists():
+        _foreign_files = []
+        for _f in _data_dir.rglob("*"):
+            if _f.is_file():
+                try:
+                    _st = _f.stat()
+                    if _st.st_uid != _current_uid:
+                        _owner = pwd.getpwuid(_st.st_uid).pw_name
+                        _foreign_files.append(f"{_f} (owned by {_owner})")
+                except (KeyError, OSError):
+                    pass
+        if _foreign_files:
+            logger.warning(
+                "Found %d file(s) in data/ not owned by current user: %s",
+                len(_foreign_files), ", ".join(_foreign_files[:5])
+            )
 
     # ── Single-instance guard (B1) ─────────────────────────────────────────
     from adapters.ctrader.pid_guard import acquire_pid_lock
@@ -687,15 +711,17 @@ def main():
                         f"paper=${_paper_balance:.2f}"
                         + (f" live=${_live_balance:.2f}" if _live_balance is not None else " live=N/A")
                     ) if _live_mode else f"balance=${_paper_balance:.2f}"
+                    _stats_fails = getattr(engine, "_stats_fail_count", 0)
                     logger.info(
                         "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
-                        "trades=%d live_fills=%d %s uptime=%.0fs",
+                        "trades=%d live_fills=%d stats_fails=%d %s uptime=%.0fs",
                         h.get("ticks_received", 0),
                         h.get("ticks_per_second", 0.0),
                         engine.health.bars_built,
                         engine.health.signals_generated,
                         _paper_trades,
                         _live_fills,
+                        _stats_fails,
                         _balance_str,
                         h.get("uptime_sec", 0),
                     )
