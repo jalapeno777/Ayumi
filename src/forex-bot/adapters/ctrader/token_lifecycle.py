@@ -189,8 +189,10 @@ class TokenLifecycle:
         """
         if self._expires_at is None:
             # No expiry info — assume fresh (Craig just wrote it)
-            logger.debug(
-                "_is_valid: expires_at unknown — assuming token is fresh"
+            # Phase 4 migration: first-run with no EXPIRES_AT in .env is treated
+            # as valid. The OAuth server will reject if actually expired.
+            logger.info(
+                "No EXPIRES_AT in credentials — treating as fresh (first-run migration)"
             )
             return True
         now = datetime.now(timezone.utc)
