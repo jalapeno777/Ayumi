@@ -75,6 +75,8 @@ from .market_data_feed import Tick, SymbolInfo
 from .connection import CTraderConnection
 from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
+from .token_lifecycle import TokenLifecycle
+from .credential_store import CredentialStore
 from .auth import CTraderAuth
 from .models import (
     Order,
@@ -132,6 +134,7 @@ class OpenApiSpotFeed:
         refresh_token: str | None = None,
         host: str = "live.ctraderapi.com",
         port: int = 5035,
+        token_lifecycle: Optional["TokenLifecycle"] = None,
     ):
         self._ctid_account_id = ctid_account_id
         self._client_id = client_id
@@ -145,6 +148,10 @@ class OpenApiSpotFeed:
             token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
             env_path=Path(__file__).resolve().parents[3] / ".env",
         )
+
+        # TokenLifecycle — the ONLY OAuth refresh owner.
+        # If not passed by caller, lazily construct from .env.
+        self._token_lifecycle: Optional[TokenLifecycle] = token_lifecycle
 
         # Connection (extracted module)
         self._state_mgr = ConnectionStateManager(name="spot_feed")
@@ -960,9 +967,50 @@ class OpenApiSpotFeed:
             self._refresh_token_and_reauth()
 
     def _refresh_token_and_reauth(self, proactive: bool = False) -> None:
-        # Phase 4 migration guard — all refresh delegated to TokenLifecycle
-        logger.debug("Refresh disarmed during P4 migration (proactive=%s); TokenLifecycle handles all refresh", proactive)
-        return
+        """Delegate OAuth refresh to TokenLifecycle and re-auth on success.
+
+        Runs the refresh in a background thread to avoid blocking the Twisted
+        reactor. The re-auth send is dispatched back to the reactor thread
+        via reactor.callFromThread().
+
+        If no TokenLifecycle is wired, falls back to no-op (migration safety).
+        """
+        if self._token_lifecycle is None:
+            logger.warning("_refresh_token_and_reauth: no TokenLifecycle wired — skipping")
+            return
+
+        if not proactive and self._auth_circuit_open:
+            return
+
+        def _do_refresh_offthread():
+            try:
+                new_token = self._token_lifecycle.force_refresh()
+                self._access_token = new_token
+                # Refresh the refresh token too
+                creds = self._token_lifecycle._store.get()
+                self._refresh_token = creds.refresh_token
+                # Update local expiry tracking
+                exp = self._token_lifecycle.expires_at
+                if exp is not None:
+                    self._token_expires_at = time.monotonic() + max(
+                        (exp - datetime.now(timezone.utc)).total_seconds(), 60.0
+                    )
+                else:
+                    self._token_expires_at = time.monotonic() + 86400
+                # Re-auth via reactor
+                from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
+                req = ProtoOAAccountAuthReq()
+                req.ctidTraderAccountId = self._ctid_account_id
+                req.accessToken = new_token
+                reactor.callFromThread(self._conn.send, req)
+                self._auth_error_count = 0
+                logger.info("Token refreshed via TokenLifecycle delegation")
+            except Exception as exc:
+                self._auth_error_count += 1
+                self._check_circuit_breaker()
+                logger.error("Token refresh delegation failed: %s", exc)
+
+        threading.Thread(target=_do_refresh_offthread, daemon=True).start()
 
     def _handle_auth_failure(self, context: str) -> None:
         self._auth_error_count += 1
