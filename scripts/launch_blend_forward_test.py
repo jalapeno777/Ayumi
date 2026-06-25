@@ -24,6 +24,26 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
+def _refuse_root():
+    """Refuse to run the trading service as root.
+
+    Ayumi must run as TacoPants to avoid file-ownership conflicts on
+    .env, PID files, lock files and runtime state.  This guard exits
+    *before* any broker connection or credential read so that a
+    mistaken root launch cannot create state that a subsequent
+    TacoPants launch cannot clean up.
+    """
+    if os.geteuid() == 0:
+        sys.exit(
+            "FATAL: Refusing to run Ayumi forward test as root.\n"
+            "Use 'systemctl start ayumi-forward-test.service' or run as TacoPants user.\n"
+            "This guard prevents permission conflicts and credential ownership issues."
+        )
+
+
+if __name__ == "__main__":
+    _refuse_root()
+
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
