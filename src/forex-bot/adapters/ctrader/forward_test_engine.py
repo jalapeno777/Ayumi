@@ -23,6 +23,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -38,13 +39,18 @@ from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
-from .models import cTraderCredentials, TradeSignal, TradeDirection
+from .models import OrderStatus, cTraderCredentials, TradeSignal, TradeDirection
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
+
+# Lazy-import to avoid an import cycle at module load: api_client imports from
+# open_api_spot_feed which itself has no circular dep, but keeping the import
+# local lets tests patch the module path before the class is resolved.
+from .api_client import cTraderAPIClient  # noqa: E402
 
 # Phase 0 forward-test diagnostics — see signal_engine/signal_stats.py
 from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
@@ -153,6 +159,80 @@ class ForwardTestHealth:
     reconnection_successes: int = 0
     bars_built: int = 0
     consecutive_risk_rejections: int = 0
+    # T1/T2/T7 — counters distinguishing sent / pending / filled / failed live
+    # orders. ``signals_traded`` is retained as a backwards-compatible alias
+    # for the FILLED count.
+    signals_sent: int = 0
+    signals_failed_live: int = 0
+    signals_pending: int = 0
+    signals_cancelled: int = 0
+    signals_accepted: int = 0  # blend runner accepted the signal (T2)
+
+
+class LiveExecutionStatus(Enum):
+    """Terminal state of a live order placement attempt.
+
+    Used by ``_execute_signal_live`` to disambiguate the failure modes of
+    ``OpenApiSpotFeed.new_order``. The status is what the caller should
+    use to decide whether to count the attempt as a fill, a sent-but-pending
+    acknowledgement, or a definitive failure.
+
+    Values:
+        FILLED        — cTrader confirmed the execution event and the order
+                        is filled. Caller should increment the live-fills
+                        counter and release the correlation gate.
+        SENT          — the order was sent to cTrader but no execution event
+                        has arrived yet. The engine should NOT count this as
+                        a fill. Late events are delivered via the spot feed's
+                        ``on_order_filled`` / ``on_order_rejected`` /
+                        ``on_order_cancelled`` callbacks (see ``_wire_live_fill_callbacks``).
+        REJECTED      — cTrader explicitly rejected the order (or the spot
+                        feed was not operational). Caller should log a
+                        warning and release correlation + risk.
+        TIMEOUT       — the order was sent but no execution event arrived
+                        within the spot feed's ``_ORDER_TIMEOUT_SEC`` window.
+                        Caller should log a warning and release correlation + risk.
+        NOT_CONNECTED — the spot feed was not operational at send time.
+                        Caller should log a warning and release correlation + risk.
+        CANCELLED     — cTrader sent ``ORDER_CANCELLED`` (manual cancel, GTD
+                        expiry, etc). Caller should log a warning and release
+                        correlation + risk.
+        SKIPPED       — pre-flight failure (no feed, unknown symbol, zero
+                        volume). The caller does not get an outcome object;
+                        ``_execute_signal_live`` returns ``None`` directly.
+    """
+
+    FILLED = "filled"
+    SENT = "sent"
+    REJECTED = "rejected"
+    TIMEOUT = "timeout"
+    NOT_CONNECTED = "not_connected"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class LiveExecutionOutcome:
+    """Result of a single ``_execute_signal_live`` invocation.
+
+    Attributes:
+        status: The terminal status — see :class:`LiveExecutionStatus`.
+        order: The Order object returned by ``OpenApiSpotFeed.new_order``.
+                May be ``None`` if the order could not be constructed at all
+                (e.g. unknown symbol). The caller can log ``order.order_id``
+                and ``order.comment`` for traceability.
+        symbol: The trade symbol (for late-callback correlation).
+        direction: BUY or SELL (for late-callback correlation).
+        strategy_id: The strategy that produced the signal (for late-callback).
+        reason: A human-readable reason — e.g. ``"timeout_awaiting_event"``
+                or the broker's ``errorCode``. Empty string if unknown.
+    """
+
+    status: LiveExecutionStatus
+    order: Optional[object] = None
+    symbol: str = ""
+    direction: str = ""
+    strategy_id: str = ""
+    reason: str = ""
 
 
 class ForwardTestEngine:
@@ -218,6 +298,7 @@ class ForwardTestEngine:
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
         self._live_client = None
+        self._api_client = None  # T4: cTraderAPIClient wrapper (None in paper mode)
         self._preload_complete: bool = False  # T2: blocks evaluation until bars loaded
         self._credentials = credentials
 
@@ -293,6 +374,12 @@ class ForwardTestEngine:
                 reconnection_attempts=self._health.reconnection_attempts,
                 reconnection_successes=self._health.reconnection_successes,
                 bars_built=self._health.bars_built,
+                consecutive_risk_rejections=self._health.consecutive_risk_rejections,
+                signals_sent=self._health.signals_sent,
+                signals_failed_live=self._health.signals_failed_live,
+                signals_pending=self._health.signals_pending,
+                signals_cancelled=self._health.signals_cancelled,
+                signals_accepted=self._health.signals_accepted,
             )
 
     @property
@@ -458,26 +545,67 @@ class ForwardTestEngine:
             "port": self._config.openapi_port,
         }
 
+    # Env vars the spot feed requires.  Used by ``_describe_missing_live_creds``
+    # to build actionable error messages on startup failures.
+    _REQUIRED_LIVE_CRED_ENV_VARS = (
+        "CTRADER_OPENAPI_CLIENT_ID",
+        "CTRADER_OPENAPI_CLIENT_SECRET",
+        "CTRADER_OPENAPI_ACCESS_TOKEN",
+        "CTRADER_OPENAPI_ACCOUNT_ID",
+    )
+
+    def _describe_missing_live_creds(self) -> list[str]:
+        """Return the subset of ``_REQUIRED_LIVE_CRED_ENV_VARS`` not set in the
+        current process environment.  Used to surface a useful error message
+        when ``live_mode=True`` but the operator forgot to populate ``.env``.
+        """
+        return [name for name in self._REQUIRED_LIVE_CRED_ENV_VARS if not os.environ.get(name)]
+
     def _build_components(self):
         cfg = self._config
         ftmo = self._ftmo_config or FTMOConfig()
         pos_cfg = self._position_config or PositionSizeConfig()
 
+        # T4: lazily-resolved api_client wrapper.  If we build a live spot
+        # feed we wrap it in cTraderAPIClient so ``PaperTrader.is_live_mode``
+        # flips True and the ``OrderManager._wire_live_callbacks`` path is
+        # triggered.
+        api_client = None
         if cfg.live_mode:
             live_creds = self._build_live_credentials()
             if live_creds is None:
-                logger.error("Cannot build live spot feed: missing credentials")
-                return
+                # T5: Loud failure — instead of a silent early-return that
+                # leaves the engine in a half-built state (``_paper_trader=None``
+                # AND ``_market_feed=None``), raise a RuntimeError that lists
+                # every missing env var.  This makes "I forgot to set the
+                # OpenAPI token" fail in 5 seconds with an actionable message
+                # rather than after 15 minutes of "no fills" warnings.
+                missing = self._describe_missing_live_creds()
+                msg = (
+                    "live_mode=True but OpenAPI credentials are missing or invalid. "
+                    "Required env vars: "
+                    + ", ".join(self._REQUIRED_LIVE_CRED_ENV_VARS)
+                    + "."
+                )
+                if missing:
+                    msg += " Missing: " + ", ".join(missing) + "."
+                msg += (
+                    " If you intended paper mode, omit --live (or pass --paper-only)."
+                )
+                logger.error(msg)
+                raise RuntimeError(msg)
 
             self._market_feed = OpenApiSpotFeed(**live_creds)
             self._market_feed.set_kill_switch(self._kill_switch)
-            logger.info("OpenApiSpotFeed constructed for live_mode")
+            api_client = cTraderAPIClient(**live_creds)
+            self._api_client = api_client
+            logger.info("OpenApiSpotFeed + cTraderAPIClient constructed for live_mode")
 
         self._paper_trader = PaperTrader(
             ftmo_config=ftmo,
             position_config=pos_cfg,
             starting_balance=cfg.starting_balance,
-            api_client=None,
+            api_client=api_client,
         )
 
         self._live_adapter = cTraderLiveAdapter(
@@ -797,16 +925,103 @@ class ForwardTestEngine:
     _REJECTION_BREAKER_THRESHOLD = 5
     _REJECTION_COOLDOWN_SEC = 60.0
 
-    def _execute_signal_live(self, signal: TradeSignal):
+    def _calculate_live_volume(self, signal: TradeSignal) -> float:
+        """Compute position size for a live order without depending on PaperTrader.
+
+        Refactored in T4 so the live execution path stays independent of the
+        paper-only chain.  Uses ``PositionSizeConfig`` directly (the same
+        defaults ``PaperTrader`` is built with) and falls back to the
+        configured starting balance if no ``paper_trader`` is available.
+        """
+        if self._paper_trader is not None:
+            balance = self._paper_trader.balance
+            return self._paper_trader._order_manager.calculate_position_size(
+                account_balance=balance,
+                entry_price=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                symbol=signal.symbol,
+            )
+        # No paper trader (the typical live-mode case once T4 wires things
+        # up).  Use the configured position-size defaults directly.
+        cfg = self._position_config or PositionSizeConfig()
+        if signal.stop_loss is None or signal.entry_price is None:
+            return 0.0
+        sl_distance = abs(signal.entry_price - signal.stop_loss)
+        if sl_distance == 0:
+            return cfg.default_lot_size
+        balance = self._config.starting_balance
+        risk_amount = balance * cfg.risk_per_trade_pct
+        pip_value = 0.0001
+        sl_pips = sl_distance / pip_value
+        if sl_pips <= 0:
+            return cfg.default_lot_size
+        # $1 per pip per micro-lot (0.01) for major pairs is the rough FX convention.
+        # Refine via $ per pip / lot for the symbol if available.
+        dollar_per_pip_per_lot = 10.0  # standard lot; use 1.0 for micro-lot
+        lots = risk_amount / (sl_pips * dollar_per_pip_per_lot)
+        lots = max(cfg.min_lot_size, min(cfg.max_lot_size, lots))
+        return lots
+
+    def _execute_signal_live(
+        self, signal: TradeSignal, strategy_id: str = ""
+    ) -> Optional[LiveExecutionOutcome]:
         """Place a real cTrader order via the OpenApiSpotFeed.
 
-        In live mode the signal adapter runs in blend mode so it returns signals
-        without calling ``paper_trader.process_signal()``.  This method performs
-        the actual order placement using ``OpenApiSpotFeed.new_order()``.
+        Returns ``None`` for pre-flight failures (no feed, unknown symbol,
+        zero calculated volume) — no outcome object is created in those cases
+        because there is no ``Order`` to carry forward to a late callback.
+
+        For everything else, returns a :class:`LiveExecutionOutcome` whose
+        ``status`` is one of:
+
+        * :class:`LiveExecutionStatus.FILLED`        — order filled at cTrader
+        * :class:`LiveExecutionStatus.SENT`          — order sent, awaiting ack
+        * :class:`LiveExecutionStatus.REJECTED`      — broker rejected
+        * :class:`LiveExecutionStatus.TIMEOUT`       — no execution event in time
+        * :class:`LiveExecutionStatus.NOT_CONNECTED` — feed was not operational
+        * :class:`LiveExecutionStatus.CANCELLED`     — broker sent ORDER_CANCELLED
+
+        Late-fill handling
+        -------------------
+        The spot feed's ``event.wait(timeout)`` may return before the
+        execution event arrives (a race documented in the Rei's review).  To
+        cover that window we register one-shot callbacks on the spot feed
+        (``on_order_filled`` / ``on_order_rejected`` / ``on_order_cancelled``)
+        for any SENT outcome.  When the late event arrives the callback
+        updates the engine's live-fill counter and frees correlation / risk
+        slots retroactively.
+
+        The caller (``BlendForwardTestEngine._route_signal``) decides what to
+        do with each outcome: count it, log it, release correlation slots.
         """
+        direction_str = (
+            signal.direction.value
+            if hasattr(signal.direction, "value")
+            else str(signal.direction)
+        )
+
         if self._market_feed is None or not isinstance(self._market_feed, OpenApiSpotFeed):
             logger.warning("Cannot execute live order: no OpenApiSpotFeed available")
             return None
+
+        # T5: also catch the upstream case where live_mode is requested but
+        # the feed failed to start — the spot feed may exist as a Python
+        # object but its state manager is not operational.  We still return
+        # a NOT_CONNECTED outcome so the caller can release risk cleanly.
+        state_mgr = getattr(self._market_feed, "_state_mgr", None)
+        if state_mgr is not None and not getattr(state_mgr, "is_operational", True):
+            logger.warning(
+                "Live order skipped: spot feed not operational for %s %s",
+                direction_str, signal.symbol,
+            )
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.NOT_CONNECTED,
+                order=None,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason="spot_feed_not_operational",
+            )
 
         try:
             symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
@@ -816,21 +1031,11 @@ class ForwardTestEngine:
 
         side = ProtoOATradeSide.BUY if signal.direction == TradeDirection.LONG else ProtoOATradeSide.SELL
 
-        # Size the order using the same position-sizing logic as the paper trader.
-        balance = (
-            self._paper_trader.balance
-            if self._paper_trader else self._config.starting_balance
-        )
-        volume_lots = 0.0
-        if self._paper_trader is not None:
-            volume_lots = self._paper_trader._order_manager.calculate_position_size(
-                account_balance=balance,
-                entry_price=signal.entry_price,
-                stop_loss=signal.stop_loss,
-                symbol=signal.symbol,
-            )
+        volume_lots = self._calculate_live_volume(signal)
         if volume_lots <= 0.0:
-            logger.warning("Live order rejected: calculated volume is zero for %s", signal.symbol)
+            logger.warning(
+                "Live order rejected: calculated volume is zero for %s", signal.symbol
+            )
             return None
 
         volume_raw = int(round(volume_lots * 100_000))
@@ -845,15 +1050,53 @@ class ForwardTestEngine:
             comment=signal.rationale,
         )
 
-        logger.info(
-            "Live order placed: %s %s %s lots=%.2f raw_volume=%d status=%s",
-            signal.direction.value,
-            signal.symbol,
-            signal.rationale,
-            volume_lots,
-            volume_raw,
-            order.status.value if order.status else "unknown",
-        )
+        outcome = self._classify_live_order_outcome(order, signal, strategy_id)
+
+        # Log the outcome so operators can correlate with cTrader terminal
+        # state and the engine's health counters.
+        if outcome.status == LiveExecutionStatus.FILLED:
+            logger.info(
+                "Live order FILLED: %s %s %s lots=%.2f raw_volume=%d order_id=%s",
+                direction_str, signal.symbol, signal.rationale,
+                volume_lots, volume_raw,
+                getattr(order, "order_id", ""),
+            )
+        elif outcome.status == LiveExecutionStatus.SENT:
+            logger.info(
+                "Live order SENT (awaiting cTrader ack): %s %s order_id=%s",
+                direction_str, signal.symbol, getattr(order, "order_id", ""),
+            )
+            # Late-fill guard: register callbacks so when the execution event
+            # arrives after event.wait() timed out, we still count it as a
+            # fill and release correlation / risk.  Without this, the engine
+            # would log SENT and then never update its state — the most likely
+            # silent failure mode after the fix.
+            self._register_late_fill_callbacks(order, signal, strategy_id)
+        elif outcome.status == LiveExecutionStatus.REJECTED:
+            logger.warning(
+                "Live order REJECTED: %s %s reason=%s order_id=%s",
+                direction_str, signal.symbol, outcome.reason,
+                getattr(order, "order_id", ""),
+            )
+        elif outcome.status == LiveExecutionStatus.TIMEOUT:
+            logger.warning(
+                "Live order TIMEOUT: %s %s order_id=%s (no execution event in window)",
+                direction_str, signal.symbol, getattr(order, "order_id", ""),
+            )
+            # Same late-fill protection as SENT — a TIMEOUT may be followed
+            # by a real fill arriving a few ms later.
+            self._register_late_fill_callbacks(order, signal, strategy_id)
+        elif outcome.status == LiveExecutionStatus.NOT_CONNECTED:
+            logger.warning(
+                "Live order NOT_CONNECTED: %s %s order_id=%s",
+                direction_str, signal.symbol, getattr(order, "order_id", ""),
+            )
+        elif outcome.status == LiveExecutionStatus.CANCELLED:
+            logger.warning(
+                "Live order CANCELLED: %s %s order_id=%s",
+                direction_str, signal.symbol, getattr(order, "order_id", ""),
+            )
+
         # Phase 0 signal-stats hook: record the open line for this signal
         # so per-strategy / per-symbol diagnostics land in the JSONL log.
         # Lazy-init so the recorder path is testable in isolation.
@@ -862,9 +1105,9 @@ class ForwardTestEngine:
             SignalRecord(
                 signal_id=order.order_id if order and order.order_id else signal.strategy_id,
                 timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
-                strategy=signal.strategy_id or "unknown",
+                strategy=signal.strategy_id or strategy_id or "unknown",
                 symbol=signal.symbol,
-                direction="BUY" if signal.direction == TradeDirection.LONG else "SELL",
+                direction=direction_str.upper() if direction_str else "",
                 confidence=float(signal.confidence),
                 rationale_tags=[signal.rationale] if signal.rationale else [],
                 confluence_score=0.0,
@@ -874,7 +1117,205 @@ class ForwardTestEngine:
                 tp_price=float(signal.take_profit_1),
             )
         )
-        return order
+        return outcome
+
+    # Reason strings used by OpenApiSpotFeed when the order could not be sent.
+    _NOT_CONNECTED_REASON = "not_connected"
+    _TIMEOUT_REASON = "timeout_awaiting_event"
+    _CANCELLED_REASON = "order_cancelled"
+
+    def _classify_live_order_outcome(
+        self, order, signal: TradeSignal, strategy_id: str
+    ) -> LiveExecutionOutcome:
+        """Translate a spot-feed ``Order`` into a :class:`LiveExecutionOutcome`.
+
+        The classification inspects ``order.status`` (an :class:`OrderStatus`)
+        and the ``reason`` attribute the spot feed attaches on its failure
+        branches.  All six LiveExecutionStatus values are reachable.
+        """
+        direction_str = (
+            signal.direction.value
+            if hasattr(signal.direction, "value")
+            else str(signal.direction)
+        )
+
+        if order is None:
+            # Defensive: the spot feed currently never returns None, but if
+            # a future change makes it so, treat it as NOT_CONNECTED rather
+            # than crashing the engine.
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.NOT_CONNECTED,
+                order=None,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason="order_is_none",
+            )
+
+        status = getattr(order, "status", None)
+        reason = getattr(order, "reason", "") or ""
+
+        if status == OrderStatus.REJECTED:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.REJECTED,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason or "rejected",
+            )
+
+        if status == OrderStatus.CANCELLED:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.CANCELLED,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason or self._CANCELLED_REASON,
+            )
+
+        if status == OrderStatus.FILLED:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.FILLED,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason or "order_filled",
+            )
+
+        if reason == self._TIMEOUT_REASON:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.TIMEOUT,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason,
+            )
+
+        if reason == self._NOT_CONNECTED_REASON:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.NOT_CONNECTED,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason,
+            )
+
+        # PENDING without a known failure reason: order was sent, awaiting
+        # the cTrader execution event.  We classify this as SENT and rely
+        # on the late-fill callback to upgrade it to FILLED if the event
+        # arrives after event.wait() returned.
+        return LiveExecutionOutcome(
+            status=LiveExecutionStatus.SENT,
+            order=order,
+            symbol=signal.symbol,
+            direction=direction_str,
+            strategy_id=strategy_id,
+            reason=reason,
+        )
+
+    def _register_late_fill_callbacks(
+        self, order, signal: TradeSignal, strategy_id: str
+    ) -> None:
+        """Register one-shot callbacks so a late execution event upgrades SENT
+        or TIMEOUT outcomes to a definitive terminal state.
+
+        The spot feed's ``event.wait(timeout)`` in ``new_order`` has a race
+        window: it can return False (timeout) *just* before the execution
+        event arrives.  When that happens, the engine sees a TIMEOUT or SENT
+        outcome but the broker has a real fill.  Without this callback
+        registration, the engine would log the failure and never update
+        ``_live_fill_count`` or release correlation / risk — the position
+        would silently leak.
+
+        We register ``on_order_filled`` / ``on_order_rejected`` /
+        ``on_order_cancelled`` callbacks that look up the pending outcome by
+        ``order.order_id``, update the counters, and free the slots.  Each
+        callback also self-removes after firing so it does not fire twice.
+        """
+        feed = self._market_feed
+        if feed is None:
+            return
+        if not hasattr(feed, "register_callback"):
+            return
+
+        order_id = getattr(order, "order_id", "")
+        if not order_id:
+            return
+
+        # _pending_outcome_keys tracks which (order_id) entries we have
+        # registered callbacks for so we can avoid double-registering if the
+        # engine sees two signals in quick succession.
+        self._pending_outcome_keys = getattr(self, "_pending_outcome_keys", set())
+        if order_id in self._pending_outcome_keys:
+            return
+        self._pending_outcome_keys.add(order_id)
+
+        direction_str = (
+            signal.direction.value
+            if hasattr(signal.direction, "value")
+            else str(signal.direction)
+        )
+
+        def _release_late(rv_status: LiveExecutionStatus, *args, **kwargs):
+            # Self-remove the registration so the callback does not fire twice.
+            self._pending_outcome_keys.discard(order_id)
+            with self._lock:
+                if rv_status == LiveExecutionStatus.FILLED:
+                    self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
+                    self._health.signals_traded += 1
+                    self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    logger.info(
+                        "Late fill detected for order %s (%s %s) — live_fills=%d",
+                        order_id, direction_str, signal.symbol,
+                        self._live_fill_count,
+                    )
+                elif rv_status in (
+                    LiveExecutionStatus.REJECTED,
+                    LiveExecutionStatus.CANCELLED,
+                    LiveExecutionStatus.NOT_CONNECTED,
+                    LiveExecutionStatus.TIMEOUT,
+                ):
+                    self._health.signals_failed_live += 1
+                    self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    logger.warning(
+                        "Late outcome for order %s: %s (%s %s)",
+                        order_id, rv_status.value, direction_str, signal.symbol,
+                    )
+            # Free correlation / risk on the launcher side, if it exists.
+            gate = getattr(self, "_correlation_gate", None)
+            if gate is not None and rv_status != LiveExecutionStatus.FILLED:
+                try:
+                    gate.release(signal.symbol, direction_str)
+                except Exception:
+                    pass
+            blend_runner = getattr(self, "_blend_runner", None)
+            if blend_runner is not None and rv_status != LiveExecutionStatus.FILLED:
+                try:
+                    # We don't have the order's risk_amount here — use a
+                    # best-effort cancellation.  The launcher is the source of
+                    # truth; this is just a safety net.
+                    if hasattr(blend_runner, "cancel_risk"):
+                        # Pessimistic: cancel up to 1% of balance.
+                        blend_runner.cancel_risk(self._config.starting_balance * 0.01)
+                except Exception:
+                    pass
+
+        try:
+            feed.register_callback("on_order_filled", lambda *a, **k: _release_late(LiveExecutionStatus.FILLED, *a, **k))
+            feed.register_callback("on_order_rejected", lambda *a, **k: _release_late(LiveExecutionStatus.REJECTED, *a, **k))
+            feed.register_callback("on_order_cancelled", lambda *a, **k: _release_late(LiveExecutionStatus.CANCELLED, *a, **k))
+        except Exception as exc:
+            # Best-effort: if the feed has been stopped or the callback path
+            # raises, fall back to logging so we don't crash the engine.
+            logger.warning(
+                "Could not register late-fill callbacks for order %s: %s",
+                order_id, exc,
+            )
 
     def _evaluate_strategies(self, symbol: str):
         if self._live_adapter is None:

@@ -293,8 +293,17 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     self._heartbeat.record_signal(accepted=False)
                 else:
                     logger.info("Signal accepted: %s %s %s @ %.5f conf=%.2f lots=%.4f", strategy_id, direction_str, signal.symbol, signal.entry_price, signal.confidence, order.lots)
+                    # T2: do NOT bump ``signals_traded`` here yet — that
+                    # counter now means "execution confirmed successful,"
+                    # not "blend runner accepted."  We bump it only after
+                    # the order reaches the broker with a FILLED outcome
+                    # (or after a paper-mode ``process_signal`` returns
+                    # success).  ``signals_accepted`` captures the blend-side
+                    # accept count for operators who want to see it.
                     with self._lock:
-                        self._health.signals_traded += 1
+                        self._health.signals_accepted = (
+                            getattr(self._health, "signals_accepted", 0) + 1
+                        )
                     self._heartbeat.record_signal(accepted=True)
 
                     # Execute directly: live → cTrader, paper → PaperTrader
@@ -314,16 +323,58 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         )
                         if self._config.live_mode:
                             # Direct cTrader execution — skip paper trader entirely
-                            live_order = self._execute_signal_live(exec_signal)
-                            if live_order is not None:
-                                self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
-                                logger.info("Live trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
-                            else:
+                            from adapters.ctrader.forward_test_engine import (
+                                LiveExecutionStatus,
+                            )
+                            outcome = self._execute_signal_live(
+                                exec_signal, strategy_id=strategy_id
+                            )
+                            if outcome is None:
                                 logger.warning(
-                                    "Live execution failed: %s %s %.4f lots",
+                                    "Live execution skipped (pre-flight): %s %s %.4f lots",
                                     strategy_id,
                                     direction_str,
                                     order.lots,
+                                )
+                                self._blend_runner.cancel_risk(order.risk_amount)
+                                self._correlation_gate.release(signal.symbol, direction_str)
+                            elif outcome.status == LiveExecutionStatus.FILLED:
+                                self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
+                                with self._lock:
+                                    self._health.signals_traded += 1
+                                logger.info(
+                                    "Live trade executed: %s %s %.4f lots order_id=%s",
+                                    strategy_id,
+                                    direction_str,
+                                    order.lots,
+                                    getattr(outcome.order, "order_id", ""),
+                                )
+                            elif outcome.status == LiveExecutionStatus.SENT:
+                                # Order sent to cTrader but no execution event
+                                # yet — bump signals_sent and signals_pending.
+                                # Do NOT count as a fill.  Late-fill callbacks
+                                # will upgrade it if the event arrives late.
+                                with self._lock:
+                                    self._health.signals_sent += 1
+                                    self._health.signals_pending += 1
+                                logger.info(
+                                    "Live order SENT, awaiting ack: %s %s %.4f lots order_id=%s",
+                                    strategy_id,
+                                    direction_str,
+                                    order.lots,
+                                    getattr(outcome.order, "order_id", ""),
+                                )
+                            else:
+                                # REJECTED / TIMEOUT / NOT_CONNECTED / CANCELLED
+                                with self._lock:
+                                    self._health.signals_failed_live += 1
+                                logger.warning(
+                                    "Live execution failed: %s %s %.4f lots status=%s reason=%s",
+                                    strategy_id,
+                                    direction_str,
+                                    order.lots,
+                                    outcome.status.value,
+                                    outcome.reason,
                                 )
                                 self._blend_runner.cancel_risk(order.risk_amount)
                                 self._correlation_gate.release(signal.symbol, direction_str)
@@ -333,6 +384,8 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 exec_signal, spread=self._current_spread
                             )
                             if exec_result.success:
+                                with self._lock:
+                                    self._health.signals_traded += 1
                                 logger.info("Paper trade executed: %s %s %.4f lots", strategy_id, direction_str, order.lots)
                             else:
                                 logger.warning("Trade execution failed: %s", exec_result.rejection_reason)
