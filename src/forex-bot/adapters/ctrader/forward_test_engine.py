@@ -299,6 +299,7 @@ class ForwardTestEngine:
         self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
         self._paper_trader: Optional[PaperTrader] = None
         self._position_monitor: Optional[PositionMonitor] = None
+        self._token_lifecycle: Optional[TokenLifecycle] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
@@ -554,6 +555,12 @@ class ForwardTestEngine:
             logger.error("cTrader access token is empty after credential load")
             return None
 
+        # Store lifecycle on the engine so it persists for the engine's lifetime.
+        self._token_lifecycle = lifecycle
+
+        # Ownership chain: OpenApiSpotFeed holds lifecycle via self._token_lifecycle.
+        # ForwardTestEngine holds it via self._token_lifecycle. CredentialStore is held
+        # by lifecycle._store. Neither will be GC'd while the engine is alive.
         return {
             "ctid_account_id": creds.account_id,
             "client_id": creds.client_id,
@@ -562,6 +569,7 @@ class ForwardTestEngine:
             "refresh_token": creds.refresh_token or None,
             "host": self._config.openapi_host,
             "port": self._config.openapi_port,
+            "token_lifecycle": lifecycle,
         }
 
     # Env vars the spot feed requires.  Used by ``_describe_missing_live_creds``
@@ -615,6 +623,7 @@ class ForwardTestEngine:
                 raise RuntimeError(msg)
 
             self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
             api_client = cTraderAPIClient(**live_creds)
             self._api_client = api_client
@@ -718,6 +727,7 @@ class ForwardTestEngine:
                 return False
 
             self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
             self._wire_callbacks()
 
