@@ -144,6 +144,9 @@ class OpenApiSpotFeed:
         self._host = host
         self._port = port
 
+        # TokenManager — DEPRECATED for OAuth operations.
+        # Kept for CTraderAuth compatibility. OAuth refresh is owned by
+        # TokenLifecycle (self._token_lifecycle). Do not add new OAuth calls here.
         self._token_mgr = TokenManager(
             token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
             env_path=Path(__file__).resolve().parents[3] / ".env",
@@ -276,24 +279,13 @@ class OpenApiSpotFeed:
         if self._running:
             return True
 
-        # Token validation
+        # Token validation — placeholder check only.
+        # TokenLifecycle.ensure_valid() (called by ForwardTestEngine) handles
+        # OAuth refresh. We keep a lightweight placeholder guard here.
         _PLACEHOLDER_VALUES = {"***", "new-access", "new-refresh", "", "none", "null", "todo", "changeme"}
-        startup_status = self._token_mgr.validate_on_startup(self._access_token)
-        if startup_status["status"] == TokenStatus.EXPIRED:
-            logger.critical("STARTUP ABORTED: Token expired: %s", startup_status["message"])
+        if self._access_token.lower() in _PLACEHOLDER_VALUES:
+            logger.critical("STARTUP ABORTED: Access token is a placeholder")
             return False
-        if startup_status["status"] == TokenStatus.CRITICAL:
-            # CRITICAL means < 1 day remaining — always force a refresh
-            # regardless of the warning_days threshold inside refresh_if_needed
-            new_token = self._token_mgr.refresh_if_needed(
-                self._client_id, self._client_secret, self._refresh_token,
-                warning_days=0, force=True,
-            )
-            if new_token:
-                self._access_token = new_token
-            else:
-                logger.critical("Startup token refresh failed — aborting")
-                return False
 
         if getattr(self._callback_executor, "_shutdown", False):
             self._callback_executor = ThreadPoolExecutor(
@@ -430,7 +422,8 @@ class OpenApiSpotFeed:
         if expires_in and expires_in > 0:
             self._token_expires_at = time.monotonic() + expires_in
             self._schedule_proactive_refresh(expires_in)
-        self._token_mgr.track_token(self._access_token, expires_in or 86400)
+        # Token tracking is handled by TokenLifecycle/CredentialStore.
+        # The old self._token_mgr.track_token() call is removed (BQ-1327 no-op).
 
         self._state_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="initial_auth_complete")
         self._set_message_callback()
