@@ -1,6 +1,6 @@
 """Token lifecycle management — the ONLY module that calls the cTrader OAuth endpoint.
 
-Proactive refresh: refreshes when expires_at < now + 5min
+Proactive refresh: refreshes when expires_at < now + 5 days
 Reactive refresh: called by session on AUTH_EXPIRED error
 Thread-safe: uses a lock to prevent concurrent refreshes
 """
@@ -87,7 +87,7 @@ class TokenLifecycle:
     def ensure_valid(self) -> str:
         """Return a valid access token, refreshing if needed.
 
-        If the token expires within REFRESH_BUFFER (5 min) or is already
+        If the token expires within REFRESH_BUFFER (5 days) or is already
         expired, a refresh is triggered. Thread-safe: concurrent callers
         block until the in-progress refresh finishes.
 
@@ -135,7 +135,7 @@ class TokenLifecycle:
         """Start a daemon thread that proactively refreshes before expiry.
 
         The thread checks expires_at every PROACTIVE_CHECK_INTERVAL (60s).
-        If the token expires within REFRESH_BUFFER (5min), it calls
+        If the token expires within REFRESH_BUFFER (5 days), it calls
         force_refresh(). On error, logs and continues (does not crash).
 
         Args:
@@ -168,7 +168,7 @@ class TokenLifecycle:
     # ── Internal ───────────────────────────────────────────────────────────
 
     def _is_valid(self) -> bool:
-        """Check if the current token is still valid (with 5min buffer)."""
+        """Check if the current token is still valid (with 5-day buffer)."""
         if self._expires_at is None:
             return False
         now = datetime.now(timezone.utc)
@@ -291,7 +291,7 @@ class TokenLifecycle:
     ) -> None:
         """Proactive timer loop — runs in a daemon thread.
 
-        Checks every 60s. If the token expires within 5min, calls
+        Checks every PROACTIVE_CHECK_INTERVAL (5min). If the token expires within 5 days, calls
         force_refresh(). On error, logs and continues.
         """
         while not self._timer_stop.is_set():
