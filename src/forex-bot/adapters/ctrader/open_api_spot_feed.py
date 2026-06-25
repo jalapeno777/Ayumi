@@ -233,6 +233,24 @@ class OpenApiSpotFeed:
     def set_kill_switch(self, kill_switch) -> None:
         self._kill_switch = kill_switch
 
+    def validate_wiring(self) -> None:
+        """Validate that required production dependencies are wired.
+
+        Called by ForwardTestEngine after construction, NOT in __init__.
+        This allows tests to construct OpenApiSpotFeed without a full
+        TokenLifecycle while ensuring production paths can't forget it.
+        """
+        if self._token_lifecycle is None:
+            raise RuntimeError(
+                "OpenApiSpotFeed.validate_wiring(): token_lifecycle is None. "
+                "Production runtime requires a TokenLifecycle instance for OAuth refresh delegation. "
+                "Pass token_lifecycle=<TokenLifecycle> when constructing for live/demo use."
+            )
+        logger.info(
+            "[Startup] refresh_owner=TokenLifecycle wired=%s",
+            self._token_lifecycle is not None,
+        )
+
     def on_reconnected(self, callback: Callable[[float], None]) -> None:
         self._on_reconnected_callbacks.append(callback)
 
@@ -302,6 +320,17 @@ class OpenApiSpotFeed:
             account_id=str(self._ctid_account_id),
             kill_switch_active=True,  # kill switch is always "active" conceptually
             kill_switch_mode="freeze",
+        )
+
+        logger.info(
+            "[Startup Diagnostics] environment=%s endpoint=%s account=%s "
+            "refresh_owner=%s execution_mode=%s kill_switch=%s",
+            _env.value,
+            self._host,
+            self._ctid_account_id,
+            "TokenLifecycle" if self._token_lifecycle is not None else "NONE",
+            "live" if getattr(self, '_is_live', False) else "demo",
+            "preserved",  # don't read kill switch state here — just note it's checked
         )
 
         # Token validation — placeholder check only.

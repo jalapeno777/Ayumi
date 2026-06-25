@@ -154,6 +154,9 @@ class TokenLifecycle:
             on_refreshed: Optional callback invoked with the new access
                           token after each successful proactive refresh.
         """
+        # NOTE: OpenApiSpotFeed manages its own proactive refresh via
+        # _schedule_proactive_refresh(). This method is not called in production
+        # today but is available for standalone TokenLifecycle usage.
         if self._timer_thread is not None and self._timer_thread.is_alive():
             logger.warning("Proactive timer already running")
             return

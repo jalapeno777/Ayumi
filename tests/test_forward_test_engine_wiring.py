@@ -51,6 +51,7 @@ def _live_creds_dict() -> dict:
         "refresh_token": None,
         "host": "demo.ctraderapi.com",
         "port": 5035,
+        "token_lifecycle": MagicMock(),
     }
 
 
