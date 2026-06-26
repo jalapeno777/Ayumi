@@ -1,4 +1,5 @@
 import pytest
+from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.models import TradeDirection, TradeSignal
 from adapters.ctrader.paper_trader import (
     PaperTrader,
@@ -6,6 +7,21 @@ from adapters.ctrader.paper_trader import (
     PaperTradingStats,
 )
 from adapters.ctrader.risk_guard import FTMOConfig
+
+
+@pytest.fixture(autouse=True)
+def _reset_kill_switch_state():
+    """Ensure kill switch is inactive before each test.
+
+    PaperTrader creates its own KillSwitchManager using the default
+    state dir (data/kill_switches).  If a prior test activated the
+    kill switch, the persisted state leaks into subsequent tests and
+    blocks order processing.
+    """
+    ks = KillSwitchManager()
+    if ks.is_active():
+        ks.deactivate(reason="test_isolation")
+    yield
 
 
 class TestPaperTradingStats:
