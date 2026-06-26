@@ -40,11 +40,21 @@ def test_new_order_allowed_when_policy_clear():
     feed.set_permission_policy(policy)
 
     # Without connection, we can't fully test order construction,
-    # but we can verify the policy check passes
+    # but we can verify the policy check passes (doesn't reject as DENY).
+    # Any exception must be connection-related, NOT policy-related.
     with patch.object(feed, '_state_mgr') as mock_state:
         mock_state.is_operational = True
-        # Will fail on connection but that's expected — just verify no policy block
         try:
-            feed.new_order(symbol_id=1, side="BUY", volume=1000)
-        except Exception:
-            pass  # Expected — no real connection
+            result = feed.new_order(symbol_id=1, side="BUY", volume=1000)
+            # If we got a result back, it must NOT be a policy rejection.
+            # "not_connected" is acceptable — we have no real broker connection.
+            # But "not_initialized" or explicit DENY is a policy bug.
+            if hasattr(result, 'status') and result.status.value == 'rejected':
+                reason = getattr(result, 'reason', '') or getattr(result, 'comment', '')
+                assert 'not_initialized' not in reason, \
+                    f"Policy incorrectly DENIED — kill switch was inactive but got: {reason}"
+        except Exception as e:
+            # Expected — no real connection. But must NOT be policy-related.
+            err_str = str(e).lower()
+            assert 'not_initialized' not in err_str, \
+                f"Policy blocked order despite inactive kill switch: {e}"
