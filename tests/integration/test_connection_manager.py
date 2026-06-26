@@ -1,6 +1,7 @@
 """Tests for BQ-716 ConnectionManager with SplitBrainGate."""
 
 import json
+import os
 import time
 import unittest
 from tempfile import TemporaryDirectory
