@@ -68,10 +68,15 @@ def _make_order(*, status: OrderStatus, reason: str | None = None,
 
 
 @pytest.fixture
-def engine():
-    """Build a forward test engine without calling start()."""
+def engine(tmp_path):
+    """Build a forward test engine without calling start(), with isolated kill switch state."""
+    from adapters.ctrader.kill_switch import KillSwitchManager
+    isolated_dir = tmp_path / "kill_switches"
+    isolated_dir.mkdir(parents=True, exist_ok=True)
     cfg = ForwardTestConfig(live_mode=True)
-    return ForwardTestEngine(config=cfg, strategies=[])
+    eng = ForwardTestEngine(config=cfg, strategies=[])
+    eng._kill_switch = KillSwitchManager(state_dir=str(isolated_dir))
+    return eng
 
 
 def _feed_mock_operational(operational: bool) -> MagicMock:
