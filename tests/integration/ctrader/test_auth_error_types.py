@@ -2,13 +2,6 @@
 
 import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
-import sys
-
-# Ensure src is importable
-SRC = Path(__file__).resolve().parents[3] / "src" / "forex-bot"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 from adapters.ctrader.auth_error_types import (
     AuthFaultType,

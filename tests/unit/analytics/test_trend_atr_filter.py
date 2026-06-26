@@ -13,16 +13,15 @@ import json
 import math
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 
+from _project_root import PROJECT_ROOT
+
 # Ensure scripts dir is on path for importing the validation module
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-for p in [str(SCRIPTS_DIR)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+for _p in (str(PROJECT_ROOT / "scripts"),):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from validate_trend_atr_filter import (  # noqa: E402
     atr,

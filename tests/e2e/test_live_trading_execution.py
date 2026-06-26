@@ -125,11 +125,6 @@ class TestSessionRangeMRStrategy:
 
 class TestLiveTradingExecutorConfig:
     def test_execution_config_defaults(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig
 
         config = ExecutionConfig()
@@ -141,11 +136,6 @@ class TestLiveTradingExecutorConfig:
         assert config.min_confidence == 0.55
 
     def test_execution_config_custom(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig
 
         config = ExecutionConfig(
@@ -162,11 +152,6 @@ class TestLiveTradingExecutorConfig:
 
 class TestLiveTradingExecutorUnit:
     def test_create_strategy_config_returns_valid_config(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -178,11 +163,6 @@ class TestLiveTradingExecutorUnit:
         assert config.rsi_short_level == 70.0
 
     def test_executor_initializes_with_defaults(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -192,11 +172,6 @@ class TestLiveTradingExecutorUnit:
         assert executor._last_signal_time is None
 
     def test_executor_calculate_atr(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -218,11 +193,6 @@ class TestLiveTradingExecutorUnit:
         assert isinstance(atr, float)
 
     def test_executor_calculate_atr_insufficient_bars(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -297,11 +267,6 @@ class TestTradeSignalCreation:
 
 class TestSignalEvaluation:
     def test_evaluate_strategy_returns_none_insufficient_bars(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -325,11 +290,6 @@ class TestSignalEvaluation:
         assert result is None
 
     def test_evaluate_strategy_handles_low_confidence(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from scripts.live_trading_execution import ExecutionConfig, LiveTradingExecutor
 
         executor = LiveTradingExecutor(ExecutionConfig())
@@ -375,11 +335,6 @@ class TestSignalEvaluation:
 
 class TestQuantPipelineIntegration:
     def test_pre_trade_check_accepts_valid_signal(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from quant.pipeline import QuantConfig, QuantPipeline, TradeAction
 
         pipeline = QuantPipeline(QuantConfig.disabled())
@@ -394,11 +349,6 @@ class TestQuantPipelineIntegration:
         assert decision.action == TradeAction.ACCEPT
 
     def test_pre_trade_check_with_ftmo_config(self):
-        import sys
-        from pathlib import Path
-
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
         from quant.config import QuantConfig
         from quant.pipeline import QuantPipeline, TradeAction
 

@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from _project_root import PROJECT_ROOT
+
 from src.forex_trading.services.backtest.engine_v2 import (
     BacktestEngine,
     WalkForwardConfig,
@@ -45,7 +47,9 @@ PROP_FIRM_CONFIG = PropFirmConfig(
 
 WF_CONFIG = WalkForwardConfig(train_bars=378, test_bars=756, step_bars=126)
 
-GOLDEN_DIR = Path(__file__).resolve().parent
+GOLDEN_DIR = PROJECT_ROOT / "tests" / "regression"
+
+DATA_DIR = PROJECT_ROOT / "data"
 
 
 def _make_strategy(cls, data):

@@ -14,20 +14,6 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-
-# ── Import the module under test ────────────────────────────────────────────
-# We import specific functions/classes to avoid importing the full launcher
-# (which triggers the dotenv and path setup at module level).
-
-# Patch sys.path before import
-import sys
-from pathlib import Path
-
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-for _p in [str(_PROJECT_ROOT / "src" / "forex-bot"), str(_PROJECT_ROOT / "src")]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
 from scripts.launch_forward_test_v2 import (
     lots_to_volume,
     CorrelationGate,

@@ -10,12 +10,9 @@ listing the missing env vars.
 from __future__ import annotations
 
 import os
-import sys
 from unittest.mock import patch
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,

@@ -27,15 +27,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
-# The cTrader connection lives in archive/legacy_ctrader/_pkg/, NOT in
-# src/forex-bot/adapters/. We add the project root to sys.path so that
-# ``archive.legacy_ctrader._pkg.open_api_spot_feed`` can be imported
-# the same way the rest of the codebase does.
-import sys
-from pathlib import Path
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_PROJECT_ROOT))
+from _project_root import PROJECT_ROOT
 
 from archive.legacy_ctrader._pkg.open_api_spot_feed import (  # noqa: E402
     OpenApiSpotFeed,

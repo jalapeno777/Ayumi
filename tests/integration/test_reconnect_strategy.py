@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import os
-import sys
 import unittest
 from unittest.mock import patch
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.error_classifier import ErrorTier, classify_error
 from adapters.ctrader.reconnect_strategy import (

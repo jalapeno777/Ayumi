@@ -20,8 +20,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
-
 
 # ── Stub ctrader_open_api via autouse fixture ─────────────────────────────────
 # The cTrader SDK is not installed in the test environment.

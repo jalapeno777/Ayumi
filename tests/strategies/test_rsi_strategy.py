@@ -16,13 +16,9 @@ Run with:
 
 from __future__ import annotations
 
-import os
-import sys
 import unittest
 from datetime import datetime, timedelta
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "src", "forex-bot"))
 
 from backtest.engine import Bar, MarketState, TradeDirection
 

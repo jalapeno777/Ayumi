@@ -19,13 +19,10 @@ After T4:
 from __future__ import annotations
 
 import os
-import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.forward_test_engine import (

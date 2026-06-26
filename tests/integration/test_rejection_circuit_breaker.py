@@ -1,10 +1,7 @@
 """Tests for rejection circuit breaker logic (T5)."""
-import sys
 import time
 import pytest
 from unittest.mock import MagicMock
-
-sys.path.insert(0, "src/forex-bot")
 
 
 class TestRejectionCircuitBreaker:

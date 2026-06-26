@@ -17,17 +17,12 @@ Tests cover:
 from __future__ import annotations
 
 import os
-import sys
 import time
 import threading
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
-
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
-)
 
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.forward_test_engine import (

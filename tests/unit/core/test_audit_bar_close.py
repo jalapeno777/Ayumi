@@ -16,15 +16,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import sys
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
-# Ensure the backtest module is importable
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
+from _project_root import PROJECT_ROOT
 
 from backtest.audit_bar_close import (
     AuditRecord,

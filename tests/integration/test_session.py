@@ -9,14 +9,10 @@ Reactor bridge pattern (Amendment A1):
 
 from __future__ import annotations
 
-import os
-import sys
 import threading
 from unittest.mock import MagicMock, patch, call
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.protocols import SessionState
 from adapters.ctrader.session import cTraderSession, SendError

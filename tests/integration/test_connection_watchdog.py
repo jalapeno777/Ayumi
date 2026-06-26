@@ -5,12 +5,8 @@ Uses fast thresholds (sub-second) so no test sleeps for real-world durations.
 
 from __future__ import annotations
 
-import os
-import sys
 import time
 import unittest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.connection_manager import ConnectionManager, ConnectionRole
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager

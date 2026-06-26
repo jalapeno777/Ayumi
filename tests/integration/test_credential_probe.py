@@ -7,7 +7,6 @@ Covers:
 
 from __future__ import annotations
 
-import os
 import sys
 import textwrap
 from pathlib import Path
@@ -15,14 +14,8 @@ from unittest.mock import patch
 
 import pytest
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS_DIR = PROJECT_ROOT / "scripts"
-LINTER_DIR = PROJECT_ROOT / ".github" / "linters"
+from _project_root import PROJECT_ROOT
 
-# Make scripts and linters importable
-for _p in (str(SCRIPTS_DIR), str(LINTER_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 
 # ===========================================================================

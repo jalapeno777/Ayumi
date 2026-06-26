@@ -11,14 +11,9 @@ surfaces so that enabling the kill switch produces a verifiable, minimal delta:
 The pre-enforcement baseline was captured in this file before any production
 changes and verified against P4.1 code.
 """
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from adapters.ctrader.forward_test_engine import ForwardTestEngine
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed

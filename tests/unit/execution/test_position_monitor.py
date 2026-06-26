@@ -14,17 +14,11 @@ Tests cover:
   - Kill switch FREEZE on portfolio drawdown breach
 """
 
-import sys
 import time as time_mod
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Ensure src path is available
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from adapters.ctrader.models import (
     Position,

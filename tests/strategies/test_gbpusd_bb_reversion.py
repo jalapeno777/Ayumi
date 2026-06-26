@@ -1,12 +1,8 @@
-import sys
-import os
 import unittest
 import dataclasses
 
 import pytest
 pytest.skip("strategies.gbpusd_bb_reversion module removed", allow_module_level=True)
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from datetime import datetime
 

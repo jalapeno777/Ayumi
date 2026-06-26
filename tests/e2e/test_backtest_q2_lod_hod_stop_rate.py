@@ -1,10 +1,4 @@
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src" / "forex-bot"))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtest.engine import Bar
 from scripts.backtest_q2_lod_hod_stop_rate import (
