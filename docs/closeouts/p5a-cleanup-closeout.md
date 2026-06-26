@@ -99,9 +99,9 @@ Not caused or worsened by P5A cleanup.
 |-----------|--------|--------|
 | Default deny on missing policy | Kaito | ✅ Verified in `test_policy_denies_when_kill_switch_none` |
 | Use `is_active()` not global check | Rei | ✅ Verified in `test_policy_uses_is_active_not_globally_killed` |
-| No monitor reactivation | Mika | ✅ 5 freeze xfails confirmed |
-| Two-layer enforcement | Mika | ✅ Engine + spot feed gates documented |
-| Document broker-mutating scope-outs | Rei | ✅ Phase 6 scope-outs in order-path proof |
+| No monitor reactivation | Mika | ✅ 5 freeze xfails confirmed (plus 5 xpass: stale-tick tests, not freeze suppression) |
+| Two-layer enforcement | Mika | ✅ Engine + spot feed gates documented. Dual-instance blind spot noted (see order-path proof) — Phase 6 fix |
+| Document broker-mutating scope-outs | Rei | ✅ Phase 6 scope-outs in order-path proof — includes live OpenApiSpotFeed methods + dual-instance note |
 | Document residual TOCTOU | Rei | ✅ Included in order-path proof |
 | Static proof of guarded paths | Kaito | ✅ `p5a-order-path-proof.md` |
 
