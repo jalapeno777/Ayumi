@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from strategies.grid import GridConfig, GridStrategyAdapter
+try:
+    from strategies.grid import GridConfig, GridStrategyAdapter
+except ImportError:
+    GridConfig = None  # type: ignore
+    GridStrategyAdapter = None  # type: ignore
+
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRWithRegimeFilter,
@@ -64,6 +69,8 @@ def _make_keltner() -> ISignalStrategy:
 
 
 def _make_grid(pair: str = "EURUSD") -> ISignalStrategy:
+    if GridStrategyAdapter is None or GridConfig is None:
+        raise ImportError("strategies.grid is not available")
     return GridStrategyAdapter(GridConfig.ftmo(pair))
 
 

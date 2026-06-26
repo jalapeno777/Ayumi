@@ -752,7 +752,7 @@ class ForwardTestEngine:
 
         env_path = Path(__file__).resolve().parents[4] / ".env"
         if env_path.exists():
-            load_dotenv(env_path, override=True)
+            load_dotenv(env_path, override=False)
 
         host = os.environ.get("CTRADER_HOST", self._config.quote_host)
         port = int(

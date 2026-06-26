@@ -473,7 +473,9 @@ class OpenApiSpotFeed:
         if raw_bid == 0 and raw_ask == 0:
             return
 
-        bid, ask = raw_bid / 100_000, raw_ask / 100_000
+        digits = self._symbol_digits[symbol_id]  # KeyError for unknown symbols
+        divisor = 10 ** digits
+        bid, ask = raw_bid / divisor, raw_ask / divisor
 
         if raw_bid == 0 or raw_ask == 0:
             last = self._ticks_by_id.get(symbol_id)
@@ -703,7 +705,7 @@ class OpenApiSpotFeed:
             symbol=self._symbol_name_for_id(symbol_id),
             direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
             order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
-            volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
+            volume=volume / (10 ** self._symbol_digits[symbol_id]), price=price, stop_loss=sl, take_profit=tp,
             status=OrderStatus.PENDING, comment=comment,
         )
         if not self._state_mgr.is_operational:

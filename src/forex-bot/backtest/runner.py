@@ -31,6 +31,7 @@ try:
 except ImportError:
     GridStrategyAdapter = None  # type: ignore
 
+
 from backtest import (
     AmalgamatedBacktestEngine,
     AmalgamationConfig,

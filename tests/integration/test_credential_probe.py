@@ -7,6 +7,8 @@ Covers:
 
 from __future__ import annotations
 
+import importlib.util
+import pathlib
 import sys
 import textwrap
 from pathlib import Path
@@ -15,6 +17,18 @@ from unittest.mock import patch
 import pytest
 
 from _project_root import PROJECT_ROOT
+
+# ---------------------------------------------------------------------------
+# Load check_sdk_callback_names from its actual location (.github/linters/)
+# ---------------------------------------------------------------------------
+_spec = importlib.util.spec_from_file_location(
+    "check_sdk_callback_names",
+    pathlib.Path(__file__).resolve().parents[2] / ".github" / "linters" / "check_sdk_callback_names.py",
+)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+find_callback_typos = _mod.find_callback_typos
+lint_directory = _mod.lint_directory
 
 
 
@@ -167,7 +181,6 @@ class TestFindCallbackTypos:
     """Tests for check_sdk_callback_names.find_callback_typos."""
 
     def test_detects_setConnectCallback(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = "client.setConnectCallback(lambda x: None)\n"
         v = find_callback_typos(source, "test.py")
@@ -176,7 +189,6 @@ class TestFindCallbackTypos:
         assert v[0]["suggestion"] == "setConnectedCallback"
 
     def test_detects_setDisconnectCallback(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = "obj.setDisconnectCallback(handler)\n"
         v = find_callback_typos(source, "test.py")
@@ -185,7 +197,6 @@ class TestFindCallbackTypos:
         assert v[0]["suggestion"] == "setDisconnectedCallback"
 
     def test_correct_names_not_flagged(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = textwrap.dedent("""\
             client.setConnectedCallback(handler)
@@ -194,7 +205,6 @@ class TestFindCallbackTypos:
         assert find_callback_typos(source, "ok.py") == []
 
     def test_unrelated_code_not_flagged(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = textwrap.dedent("""\
             obj.set_callback(fn)
@@ -204,7 +214,6 @@ class TestFindCallbackTypos:
         assert find_callback_typos(source, "misc.py") == []
 
     def test_multiple_violations(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = textwrap.dedent("""\
             a.setConnectCallback(f1)
@@ -218,13 +227,11 @@ class TestFindCallbackTypos:
         assert typos == {"setConnectCallback", "setDisconnectCallback"}
 
     def test_syntax_error_returns_empty(self):
-        from check_sdk_callback_names import find_callback_typos
 
         v = find_callback_typos("def broken(:\n", "bad.py")
         assert v == []
 
     def test_line_and_col_reported(self):
-        from check_sdk_callback_names import find_callback_typos
 
         source = "x = 1\nobj.setConnectCallback(fn)\n"
         v = find_callback_typos(source, "lined.py")
@@ -237,7 +244,6 @@ class TestLintDirectory:
     """Tests for check_sdk_callback_names.lint_directory."""
 
     def test_finds_violations_in_tree(self, tmp_path):
-        from check_sdk_callback_names import lint_directory
 
         (tmp_path / "bad.py").write_text("obj.setConnectCallback(fn)\n")
         (tmp_path / "good.py").write_text("obj.setConnectedCallback(fn)\n")
@@ -248,12 +254,10 @@ class TestLintDirectory:
         assert len(v) == 2
 
     def test_empty_dir_returns_empty(self, tmp_path):
-        from check_sdk_callback_names import lint_directory
 
         assert lint_directory(tmp_path) == []
 
     def test_non_python_files_ignored(self, tmp_path):
-        from check_sdk_callback_names import lint_directory
 
         (tmp_path / "readme.txt").write_text("setConnectCallback\n")
         (tmp_path / "data.json").write_text('{"call": "setConnectCallback"}\n')
