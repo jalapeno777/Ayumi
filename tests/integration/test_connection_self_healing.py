@@ -107,14 +107,9 @@ _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 import sys
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Ensure src path is available
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 # Sprint 1A.1: The orchestrator at adapters.ctrader.open_api_spot_feed uses

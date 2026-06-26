@@ -1,8 +1,4 @@
-import sys
-import os
 import unittest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from datetime import datetime
 from backtest.engine import Bar, MarketState, TradeDirection, SessionType

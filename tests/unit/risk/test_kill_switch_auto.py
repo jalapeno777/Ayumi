@@ -14,19 +14,13 @@ Tests cover:
 import json
 import logging
 import os
-import sys
 import tempfile
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Ensure src path is available
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.risk_guard import (

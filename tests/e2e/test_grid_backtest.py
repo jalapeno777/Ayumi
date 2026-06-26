@@ -1,10 +1,5 @@
 """Quick backtest test for grid strategy."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from backtest.data_loader import CsvDataLoader
 from backtest.engine import BacktestConfig
 from backtest.enhanced_engine import EnhancedBacktestEngine

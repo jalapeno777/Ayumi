@@ -9,7 +9,6 @@ All network calls are mocked.  No real HTTP requests or connections are made.
 from __future__ import annotations
 
 import json
-import os
 import sys
 import tempfile
 import time
@@ -17,8 +16,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.connection_manager import ConnectionManager, ConnectionRole
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager

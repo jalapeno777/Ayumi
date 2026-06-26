@@ -1,11 +1,8 @@
 import os
-import sys
 import tempfile
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from ml.features import (
     atr,

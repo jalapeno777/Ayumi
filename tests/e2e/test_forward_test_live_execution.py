@@ -8,11 +8,8 @@ package. Fixed by importing the real module — ctrader_open_api is installed
 and the import works fine.)
 """
 import os
-import sys
 import pytest
 from unittest.mock import MagicMock, patch
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 
 class TestOpenApiSpotFeedLiveProperties:

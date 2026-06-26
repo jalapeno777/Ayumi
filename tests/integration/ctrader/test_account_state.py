@@ -14,19 +14,11 @@ Reference: Account-state module (BQ-1043 follow-up).
 
 from __future__ import annotations
 
-import os
-import sys
 from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock, call
 
 import pytest
-
-# Mirror conftest.py: prepend src/forex-bot to sys.path so the bare
-# `adapters.ctrader.account_state` import works in any cwd.
-TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(TESTS_DIR, "..", "..", ".."))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "src", "forex-bot"))
 
 from adapters.ctrader.account_state import (  # noqa: E402
     AccountStateError,

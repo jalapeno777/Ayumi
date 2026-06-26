@@ -1,8 +1,5 @@
 """Tests for SymbolInfo metadata and XAUUSD pip calculation fix (T4)."""
-import sys
 import pytest
-
-sys.path.insert(0, "src/forex-bot")
 
 from adapters.ctrader.models import SymbolInfo, SYMBOL_METADATA, get_symbol_info
 

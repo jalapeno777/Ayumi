@@ -12,13 +12,9 @@ Coverage:
 - Symbol resolution
 """
 
-import os
 import threading
-import sys
 import unittest
 from unittest.mock import MagicMock, patch, PropertyMock
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _lots_to_units
 from adapters.ctrader.connection_state import ConnectionState

@@ -13,13 +13,9 @@ and verify the new class directly.
 
 from __future__ import annotations
 
-import os
-import sys
 from unittest.mock import patch
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed

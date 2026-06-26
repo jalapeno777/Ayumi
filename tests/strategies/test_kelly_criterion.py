@@ -10,11 +10,7 @@ Covers:
 from __future__ import annotations
 
 import pytest
-import sys
-from pathlib import Path
 from datetime import datetime
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "forex-bot"))
 
 from backtest.engine import Bar, ExitReason, SimulatedTrade, TradeDirection, TradeOutcome
 from backtest.multi_strategy_engine import KellyConfig, MultiStrategyBacktestEngine

@@ -5,13 +5,10 @@ from __future__ import annotations
 import json
 import math
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
+from _project_root import PROJECT_ROOT
 
 from scripts.categorize_losses import (  # noqa: E402
     ALL_CATEGORIES,

@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import os
-import sys
 import unittest
 from datetime import datetime, timedelta
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from backtest.engine import Bar, MarketState
 from backtest.strategies import MomentumBreakoutStrategy

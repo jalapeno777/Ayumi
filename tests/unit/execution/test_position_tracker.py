@@ -7,13 +7,9 @@ Reference: BQ-1043 Phase 3c.
 
 from __future__ import annotations
 
-import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.protocols import Position, PositionStatus
 from adapters.ctrader.position_tracker import PositionTracker

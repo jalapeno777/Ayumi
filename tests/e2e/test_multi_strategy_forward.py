@@ -4,12 +4,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timezone
 
-# We need the classes from the launcher
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src" / "forex-bot"))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
 from launch_blend_forward_test import CorrelationGate, HeartbeatTracker
 
 

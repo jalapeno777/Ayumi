@@ -1,10 +1,7 @@
 """Tests for strategy return-None logging (T3)."""
-import sys
 import logging
 import pytest
 from unittest.mock import MagicMock
-
-sys.path.insert(0, "src/forex-bot")
 
 
 class TestSRMRPlusLogging:

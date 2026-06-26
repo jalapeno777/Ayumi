@@ -1,13 +1,9 @@
 """Tests for BQ-716 ConnectionManager with SplitBrainGate."""
 
 import json
-import os
-import sys
 import time
 import unittest
 from tempfile import TemporaryDirectory
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.connection_manager import (

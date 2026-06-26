@@ -1,11 +1,7 @@
-import os
-import sys
 import unittest
 
 import pytest
 pytest.skip("strategies.usdjpy_d1_trend module removed", allow_module_level=True)
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from backtest.engine import Bar, MarketState, TradeDirection
 from strategies.usdjpy_d1_trend import USDJPYD1TrendStrategy

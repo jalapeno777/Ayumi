@@ -1,11 +1,7 @@
-import os
-import sys
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from backtest.engine import TradeDirection
 from backtest.ict_smc.models import ConfluenceSignal, SignalStrength

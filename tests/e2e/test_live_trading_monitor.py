@@ -7,7 +7,9 @@ from unittest.mock import patch
 
 import pytest
 
-SCRIPT_PATH = Path(__file__).parent.parent / "scripts" / "live_trading_monitor.py"
+from _project_root import PROJECT_ROOT
+
+SCRIPT_PATH = PROJECT_ROOT / "scripts" / "live_trading_monitor.py"
 spec = importlib.util.spec_from_file_location("live_trading_monitor", SCRIPT_PATH)
 live_trading_monitor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(live_trading_monitor)

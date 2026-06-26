@@ -6,11 +6,7 @@ Verifies that Wilder smoothing initialization is correct:
 - Subsequent DX values use Wilder smoothing: adx = (adx * (period-1) + dx) / period
 """
 
-import os
-import sys
 import unittest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 import numpy as np
 import pandas as pd

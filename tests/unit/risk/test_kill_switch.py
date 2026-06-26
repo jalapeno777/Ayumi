@@ -14,16 +14,12 @@ Tests cover:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
-# Ensure src path is available
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
+from _project_root import PROJECT_ROOT
 
 from adapters.ctrader.kill_switch import (
     GlobalKillState,

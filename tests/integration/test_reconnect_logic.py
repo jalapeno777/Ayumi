@@ -11,7 +11,6 @@ monkeypatching of time.monotonic / datetime.now.
 
 from __future__ import annotations
 
-import os
 import sys
 import threading
 import time
@@ -21,9 +20,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Ensure src/forex-bot is importable (matches existing test convention).
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine

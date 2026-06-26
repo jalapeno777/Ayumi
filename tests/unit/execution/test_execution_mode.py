@@ -5,15 +5,7 @@ plus fail-closed behavior for paper mode + live endpoint.
 """
 
 import pytest
-import sys
-from pathlib import Path
 from unittest.mock import patch, MagicMock
-
-# Ensure project root is on sys.path
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SRC_PATH = PROJECT_ROOT / "src" / "forex-bot"
-if str(SRC_PATH) not in sys.path:
-    sys.path.insert(0, str(SRC_PATH))
 
 
 class TestForwardTestConfigExecutionMode:

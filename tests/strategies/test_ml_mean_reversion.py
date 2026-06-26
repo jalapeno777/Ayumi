@@ -1,5 +1,4 @@
 import os
-import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -7,8 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from backtest.engine import Bar, MarketState
 from ml.mean_reversion import (
