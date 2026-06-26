@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any
 import math
 
+from core.types import ExitReason
+
 
 class TradeDirection(Enum):
     LONG = "long"
@@ -16,16 +18,6 @@ class TradeOutcome(Enum):
     LOSS = "loss"
     BREAKEVEN = "breakeven"
     OPEN = "open"
-
-
-class ExitReason(Enum):
-    TAKE_PROFIT_1 = "tp1"
-    TAKE_PROFIT_2 = "tp2"
-    TAKE_PROFIT_3 = "tp3"
-    STOP_LOSS = "sl"
-    SIGNAL_FLIP = "signal_flip"
-    END_OF_DATA = "end_of_data"
-    MAX_DAILY_LOSS = "max_daily_loss"
 
 
 @dataclass
