@@ -34,7 +34,7 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 ## What Was Deferred to P5B
 - 5 xfailed freeze activation tests (freeze code not yet activated)
 - ReactorManager mock for unit test isolation
-- tick-to-bar pipeline stall investigation (zero bars despite ticks — intermittent)
+- tick-to-bar pipeline stall investigation (bars building normally after restart — may have been transient)
 - File permission fix for `data/kill_switches/global.state` and `data/signal_stats.jsonl` (root/TacoPants ownership)
 - **Kill switch stale-state persistence bug** — `KillSwitchManager._load_state()` reads `global.state` on every startup and re-arms whatever was persisted. A kill switch tripped Jun 9 stayed active for 17 days across multiple restarts because the state file was never cleared. Risk guard's `daily_trade_count > 0` check is irrelevant when the switch is already active from disk. Fix options: (a) auto-expire after N hours of no live activity, (b) require re-confirmation on restart after 24h, (c) reset on new trading day. Also need a `clear_kill_switch` CLI/API endpoint so it can be cleared without editing the state file + restarting.
 
@@ -73,12 +73,21 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 | **Smoke test** | — | ✅ 28/28 passed | unit/risk + unit/ict |
 
 ## Forward Test Status
-- **Service:** `ayumi-forward-test.service` — active (PID 3356783, running as TacoPants)
-- **Uptime:** 3+ hours (started 13:37 UTC)
-- **Market data:** 19,458 ticks received, 30 bars built, 6 signals generated
-- **Execution:** 0 trades (kill switch active — correct behavior)
+- **Service:** `ayumi-forward-test.service` — active (running as TacoPants)
+- **Market data:** 6,375+ ticks received, 16+ bars built, 0 signals since restart
+- **Execution:** 0 trades (strategies evaluating, no signals generated yet)
 - **Paper account:** $10,000 (unchanged, no positions)
-- **Known issues:** PermissionError on signal_stats.jsonl (file ownership), Deferred.TimeoutError on order send (cTrader timeout — non-fatal)
+- **Kill switch:** Cleared (was stale from Jun 9 — root caused, logged to P5B)
+- **Permission issues:** RESOLVED — all root-owned files chowned to TacoPants
+- **stats_fails=0** — no PermissionError crashes
+
+## Test Debt Sprint (2026-06-26)
+- **Starting point:** 82 pre-existing test failures
+- **Fixed:** 68 (83%) across 10 batches, merged as `1a876e4`
+- **Remaining:** 14 (9 connection state guards, 2 API design decisions, 3 data-dependent)
+- **Test suite:** 3872 passed, 14 failed, 47 xfailed, 92 skipped (3 deselected = live)
+- **Plan:** `docs/plans/test-debt-fix-plan.md`
+- **Round 2 card:** `146fa9ef`
 
 ## Risk Register
 | Risk | Severity | Status |
