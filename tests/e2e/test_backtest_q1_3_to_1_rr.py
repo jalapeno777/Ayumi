@@ -1,6 +1,7 @@
 """Tests for BACKTEST Q1 3:1 R&R on EURUSD H1 M/W Formation"""
 
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,8 @@ from scripts.backtest_q1_3_to_1_rr import (  # noqa: E402
     evaluate_trade_outcome,
     find_mw_formations,
 )
+
+project_root = Path(__file__).resolve().parents[2]
 
 
 def _bar(hour: int, minute: int, high: float, low: float, close: float, **kw) -> Bar:
