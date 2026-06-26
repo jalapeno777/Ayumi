@@ -36,6 +36,7 @@ Phase 5A delivered cTrader adapter integration, two-layer kill switch enforcemen
 - ReactorManager mock for unit test isolation
 - tick-to-bar pipeline stall investigation (zero bars despite ticks — intermittent)
 - File permission fix for `data/kill_switches/global.state` and `data/signal_stats.jsonl` (root/TacoPants ownership)
+- **Kill switch stale-state persistence bug** — `KillSwitchManager._load_state()` reads `global.state` on every startup and re-arms whatever was persisted. A kill switch tripped Jun 9 stayed active for 17 days across multiple restarts because the state file was never cleared. Risk guard's `daily_trade_count > 0` check is irrelevant when the switch is already active from disk. Fix options: (a) auto-expire after N hours of no live activity, (b) require re-confirmation on restart after 24h, (c) reset on new trading day. Also need a `clear_kill_switch` CLI/API endpoint so it can be cleared without editing the state file + restarting.
 
 ## Council Decisions Implemented
 
