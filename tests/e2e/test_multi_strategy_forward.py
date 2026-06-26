@@ -129,7 +129,7 @@ class TestStrategyRegistration:
 
     def test_strategy_id_map_complete(self):
         from launch_blend_forward_test import STRATEGY_ID_MAP
-        assert len(STRATEGY_ID_MAP) == 3
+        assert len(STRATEGY_ID_MAP) == 9
         assert "srmr_plus" in STRATEGY_ID_MAP.values()
         assert "killzone_momentum" in STRATEGY_ID_MAP.values()
         assert "momentum" in STRATEGY_ID_MAP.values()

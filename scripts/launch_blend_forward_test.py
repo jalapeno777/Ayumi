@@ -107,7 +107,7 @@ class HeartbeatTracker:
         self._signals_generated = 0
         self._signals_accepted = 0
         self._signals_rejected = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def record_bar(self):
         with self._lock:
