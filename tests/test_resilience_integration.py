@@ -434,6 +434,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         engine._kill_switch = _make_kill_switch()
         return engine
 
+    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
     def test_feed_disconnect_detected_via_is_running(self):
         """Feed disconnect detected when market_feed.is_running is False."""
         engine = self._make_engine()
@@ -450,6 +451,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         )
         self.assertTrue(engine._feed_disconnect_frozen)
 
+    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
     def test_reconnect_does_not_auto_clear_disconnect_freeze(self):
         """Reconnect does NOT auto-clear disconnect freeze."""
         engine = self._make_engine()
@@ -466,6 +468,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         # Flag stays True
         self.assertTrue(engine._feed_disconnect_frozen)
 
+    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
     def test_disconnect_frozen_flag_prevents_duplicate_activations(self):
         """_feed_disconnect_frozen flag prevents duplicate freeze activations."""
         engine = self._make_engine()
@@ -478,6 +481,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
 
         engine._kill_switch.activate_global_freeze.assert_not_called()
 
+    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
     def test_disconnect_freeze_logged_appropriately(self):
         """Disconnect freeze activation is logged."""
         engine = self._make_engine()

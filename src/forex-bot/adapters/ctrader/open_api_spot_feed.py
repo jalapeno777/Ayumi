@@ -2,7 +2,7 @@
 
 Slim orchestrator that composes:
 - ``CTraderConnection`` — TCP connect/disconnect, reconnection, health monitoring
-- ``CTraderAuth`` — authentication (app + account level)
+- ``CTraderAuth`` — authentication (app + account level) [archived; re-exported via credential_store/token_lifecycle]
 - ``BarBuilder`` — tick → OHLCV aggregation (used by ForwardTestEngine)
 
 This module handles:
@@ -78,7 +78,7 @@ from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
 from .token_lifecycle import TokenLifecycle
 from .credential_store import CredentialStore
-from .auth import CTraderAuth
+from .execution_permission import ExecutionPermissionPolicy
 from .environment import (
     Environment,
     DEMO_HOSTS,
@@ -130,8 +130,8 @@ def _lots_to_units(lots: float) -> int:
 class OpenApiSpotFeed:
     """Live spot price feed via cTrader Open API.
 
-    Composes CTraderConnection (TCP), delegates auth to CTraderAuth,
-    routes ticks to callbacks, and manages order execution.
+    Composes CTraderConnection (TCP), routes ticks to callbacks,
+    and manages order execution.
     """
 
     def __init__(
@@ -154,8 +154,8 @@ class OpenApiSpotFeed:
         self._port = port
 
         # TokenManager — DEPRECATED for OAuth operations.
-        # Kept for CTraderAuth compatibility. OAuth refresh is owned by
-        # TokenLifecycle (self._token_lifecycle). Do not add new OAuth calls here.
+        # OAuth refresh is owned by TokenLifecycle (self._token_lifecycle).
+        # Do not add new OAuth calls here.
         self._token_mgr = TokenManager(
             token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
             env_path=Path(__file__).resolve().parents[3] / ".env",
@@ -214,6 +214,7 @@ class OpenApiSpotFeed:
 
         # Kill switch
         self._kill_switch: Optional[object] = None
+        self._permission_policy: Optional[ExecutionPermissionPolicy] = None
 
         # Order execution
         self._pending_orders: dict[str, tuple[threading.Event, Order]] = {}
@@ -232,6 +233,9 @@ class OpenApiSpotFeed:
 
     def set_kill_switch(self, kill_switch) -> None:
         self._kill_switch = kill_switch
+
+    def set_permission_policy(self, policy: ExecutionPermissionPolicy) -> None:
+        self._permission_policy = policy
 
     def validate_wiring(self) -> None:
         """Validate that required production dependencies are wired.
@@ -772,6 +776,24 @@ class OpenApiSpotFeed:
                   price=None, sl=None, tp=None,
                   time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
                   comment="", timeout=_ORDER_TIMEOUT_SEC) -> Order:
+        # P5A: defense-in-depth permission check. Must block before any broker
+        # mutation or reactor dispatch.
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_send_order()
+            if not allowed:
+                logger.warning("Order blocked by permission policy: %s", reason)
+                request_id = uuid.uuid4().hex
+                order = Order(
+                    order_id=request_id,
+                    symbol=self._symbol_name_for_id(symbol_id),
+                    direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
+                    order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
+                    volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
+                    status=OrderStatus.REJECTED, comment=comment,
+                )
+                setattr(order, "reason", reason)
+                return order
+
         request_id = uuid.uuid4().hex
         order = Order(
             order_id=request_id,

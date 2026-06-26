@@ -27,7 +27,7 @@ from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirectio
 
 def _make_spot_feed():
     """Create an OpenApiSpotFeed with mocked internals for testing."""
-    with patch("adapters.ctrader.open_api_spot_feed.ReactorManager"):
+    with patch("adapters.ctrader.connection.ReactorManager"):
         feed = OpenApiSpotFeed(
             ctid_account_id=12345,
             client_id="test_client",
@@ -38,7 +38,7 @@ def _make_spot_feed():
     feed._client = MagicMock()
     feed._client.isConnected = True
     feed._running = True
-    feed._connected.set()
+    feed._authed.set()
     feed._state_mgr._state = ConnectionState.AUTHENTICATED
     feed._name_to_id = {"EURUSD": 1, "GBPUSD": 2}
     return feed
@@ -192,32 +192,32 @@ class TestOrderManagement(unittest.TestCase):
         self.feed = _make_spot_feed()
 
     def test_amend_order_success(self):
-        self.feed._send_and_wait = MagicMock(return_value=MagicMock())
+        self.feed._conn.send_and_wait = MagicMock(return_value=MagicMock())
         result = self.feed.amend_order(order_id=123, price=1.0900, sl=1.0800)
         self.assertTrue(result)
 
     def test_amend_order_timeout(self):
-        self.feed._send_and_wait = MagicMock(return_value=None)
+        self.feed._conn.send_and_wait = MagicMock(return_value=None)
         result = self.feed.amend_order(order_id=123, price=1.0900)
         self.assertFalse(result)
 
     def test_cancel_order_success(self):
-        self.feed._send_and_wait = MagicMock(return_value=MagicMock())
+        self.feed._conn.send_and_wait = MagicMock(return_value=MagicMock())
         result = self.feed.cancel_order(order_id=456)
         self.assertTrue(result)
 
     def test_cancel_order_timeout(self):
-        self.feed._send_and_wait = MagicMock(return_value=None)
+        self.feed._conn.send_and_wait = MagicMock(return_value=None)
         result = self.feed.cancel_order(order_id=456)
         self.assertFalse(result)
 
     def test_close_position_success(self):
-        self.feed._send_and_wait = MagicMock(return_value=MagicMock())
+        self.feed._conn.send_and_wait = MagicMock(return_value=MagicMock())
         result = self.feed.close_position(position_id=789, volume=1000)
         self.assertTrue(result)
 
     def test_close_position_timeout(self):
-        self.feed._send_and_wait = MagicMock(return_value=None)
+        self.feed._conn.send_and_wait = MagicMock(return_value=None)
         result = self.feed.close_position(position_id=789, volume=1000)
         self.assertFalse(result)
 
@@ -343,12 +343,12 @@ class TestStateGuards(unittest.TestCase):
         self.assertEqual(getattr(result, "reason", ""), "not_connected")
 
     def test_amend_blocked_when_send_fails(self):
-        self.feed._send_and_wait = MagicMock(return_value=None)
+        self.feed._conn.send_and_wait = MagicMock(return_value=None)
         result = self.feed.amend_order(order_id=123, price=1.09)
         self.assertFalse(result)
 
     def test_cancel_blocked_when_send_fails(self):
-        self.feed._send_and_wait = MagicMock(return_value=None)
+        self.feed._conn.send_and_wait = MagicMock(return_value=None)
         result = self.feed.cancel_order(order_id=123)
         self.assertFalse(result)
 

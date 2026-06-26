@@ -341,15 +341,14 @@ class ForwardTestEngine:
         self._current_ask: float = 0.0
 
         # Kill switch — global safety system
-        # DISABLED per Craig (2026-06-23): do not trip during end-to-end validation.
-        # Manager kept in place so we can re-enable later without code changes.
         self._kill_switch = KillSwitchManager()
-        self._kill_switch_disabled = True
         if self._kill_switch.is_globally_killed():
             logger.warning(
-                "STARTUP: Kill switch state is ACTIVE (%s) but DISABLED via flag — trading will proceed",
+                "STARTUP: Kill switch ACTIVE (%s) — orders will be BLOCKED",
                 self._kill_switch.get_status().get('reason', 'unknown'),
             )
+        else:
+            logger.info("STARTUP: Kill switch CLEAR — enforcement active")
 
         # Heartbeat writer
         self._heartbeat_file = _HEARTBEAT_FILE
@@ -625,6 +624,9 @@ class ForwardTestEngine:
             self._market_feed = OpenApiSpotFeed(**live_creds)
             self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
+            from .execution_permission import ExecutionPermissionPolicy
+            policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
+            self._market_feed.set_permission_policy(policy)
             api_client = cTraderAPIClient(**live_creds)
             self._api_client = api_client
             logger.info("OpenApiSpotFeed + cTraderAPIClient constructed for live_mode")
@@ -729,6 +731,9 @@ class ForwardTestEngine:
             self._market_feed = OpenApiSpotFeed(**live_creds)
             self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
+            from .execution_permission import ExecutionPermissionPolicy
+            policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
+            self._market_feed.set_permission_policy(policy)
             self._wire_callbacks()
 
         subscribe_names = []
@@ -1035,32 +1040,19 @@ class ForwardTestEngine:
         """Place a real cTrader order via the OpenApiSpotFeed.
 
         Returns ``None`` for pre-flight failures (no feed, unknown symbol,
-        zero calculated volume) — no outcome object is created in those cases
-        because there is no ``Order`` to carry forward to a late callback.
-
-        For everything else, returns a :class:`LiveExecutionOutcome` whose
-        ``status`` is one of:
-
-        * :class:`LiveExecutionStatus.FILLED`        — order filled at cTrader
-        * :class:`LiveExecutionStatus.SENT`          — order sent, awaiting ack
-        * :class:`LiveExecutionStatus.REJECTED`      — broker rejected
-        * :class:`LiveExecutionStatus.TIMEOUT`       — no execution event in time
-        * :class:`LiveExecutionStatus.NOT_CONNECTED` — feed was not operational
-        * :class:`LiveExecutionStatus.CANCELLED`     — broker sent ORDER_CANCELLED
-
-        Late-fill handling
-        -------------------
-        The spot feed's ``event.wait(timeout)`` may return before the
-        execution event arrives (a race documented in the Rei's review).  To
-        cover that window we register one-shot callbacks on the spot feed
-        (``on_order_filled`` / ``on_order_rejected`` / ``on_order_cancelled``)
-        for any SENT outcome.  When the late event arrives the callback
-        updates the engine's live-fill counter and frees correlation / risk
-        slots retroactively.
-
-        The caller (``BlendForwardTestEngine._route_signal``) decides what to
-        do with each outcome: count it, log it, release correlation slots.
+        zero calculated volume, kill switch active) — no outcome object is created
+        in those cases because there is no ``Order`` to carry forward to a late callback.
         """
+        # P5A: primary permission gate — block before any broker interaction
+        # or volume/state mutation. This closes the TOCTOU window between
+        # _evaluate_strategies()'s kill-switch check and order dispatch.
+        from .execution_permission import ExecutionPermissionPolicy
+        policy = ExecutionPermissionPolicy(kill_switch=getattr(self, '_kill_switch', None))
+        allowed, reason = policy.can_send_order()
+        if not allowed:
+            logger.warning("_execute_signal_live blocked: %s", reason)
+            return None
+
         direction_str = (
             signal.direction.value
             if hasattr(signal.direction, "value")
@@ -1400,8 +1392,7 @@ class ForwardTestEngine:
             return
 
         # Kill switch gate — checked before any strategy evaluation
-        # DISABLED per Craig (2026-06-23)
-        if not getattr(self, '_kill_switch_disabled', False) and self._kill_switch.is_globally_killed():
+        if getattr(self, '_kill_switch', None) and self._kill_switch.is_globally_killed():
             logger.debug("Kill switch active — skipping strategy evaluation")
             return
 
@@ -1674,12 +1665,14 @@ class ForwardTestEngine:
 
         if error_rate > _ERROR_RATE_THRESHOLD_PCT:
             logger.critical(
-                "Error rate %.1f%% (%d/%d) in 60s window — kill switch DISABLED, would have frozen",
+                "Error rate %.1f%% (%d/%d) in 60s window — FREEZE activation is P6 scope",
                 error_rate * 100,
                 error_count,
                 total_evals,
             )
-            # self._kill_switch.activate_global_freeze(  # disabled per Craig
+            # P6 scope-out: freeze activation intentionally remains commented
+            # out per Phase 4 priority list. Tracked in P5A closeout.
+            # self._kill_switch.activate_global_freeze(
             #     reason="high_error_rate",
             #     triggered_by="error_monitor",
             # )
@@ -1702,11 +1695,13 @@ class ForwardTestEngine:
         # Only freeze if feed is actually disconnected.
         # "feed connected but no tick yet" = still initializing, not a disconnect.
         if not feed_connected:
-            if not self._feed_disconnect_frozen and not getattr(self, '_kill_switch_disabled', False):
+            if not self._feed_disconnect_frozen:
                 logger.warning(
-                    "Feed disconnect detected — kill switch DISABLED, continuing"
+                    "Feed disconnect detected — FREEZE activation is P6 scope, continuing"
                 )
-                # self._kill_switch.activate_global_freeze(  # disabled
+                # P6 scope-out: freeze activation intentionally remains commented
+                # out per Phase 4 priority list. Tracked in P5A closeout.
+                # self._kill_switch.activate_global_freeze(
                 #     reason="feed_disconnect",
                 #     triggered_by="feed_health_monitor",
                 # )
