@@ -13,6 +13,22 @@ from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig
 
 
+# BQ-822-C API drift: Phase 5 P5A (commit 183a996) wired the kill switch into
+# PaperTrader.process_signal. The kill-switch state file
+# (data/kill_switches/global.state) is shared with the live forward-test
+# pipeline and may be in KILL mode from previous sessions — which blocks these
+# paper-trader unit tests that pre-date the enforcement. Stub the kill-switch
+# check at the class level so these tests reflect the pre-P5A API contract.
+@pytest.fixture(autouse=True)
+def _disable_global_kill_switch(monkeypatch):
+    from adapters.ctrader.kill_switch import KillSwitchManager
+
+    monkeypatch.setattr(
+        KillSwitchManager, "is_globally_killed", lambda self: False
+    )
+    yield
+
+
 def _make_signal(
     symbol="GBPUSD",
     direction=TradeDirection.LONG,

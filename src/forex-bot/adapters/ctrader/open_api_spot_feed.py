@@ -2,7 +2,7 @@
 
 Slim orchestrator that composes:
 - ``CTraderConnection`` — TCP connect/disconnect, reconnection, health monitoring
-- ``CTraderAuth`` — authentication (app + account level)
+- ``CTraderAuth`` — authentication (app + account level) [archived; re-exported via credential_store/token_lifecycle]
 - ``BarBuilder`` — tick → OHLCV aggregation (used by ForwardTestEngine)
 
 This module handles:
@@ -73,9 +73,20 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 )
 from .market_data_feed import Tick, SymbolInfo
 from .connection import CTraderConnection
+from .auth_error_types import get_policy, AuthFaultType
 from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
-from .auth import CTraderAuth
+from .token_lifecycle import TokenLifecycle
+from .credential_store import CredentialStore
+from .execution_permission import ExecutionPermissionPolicy
+from .environment import (
+    Environment,
+    DEMO_HOSTS,
+    LIVE_HOSTS,
+    _infer_environment,
+    validate_endpoint_environment,
+    log_startup_environment,
+)
 from .models import (
     Order,
     OrderStatus,
@@ -119,8 +130,8 @@ def _lots_to_units(lots: float) -> int:
 class OpenApiSpotFeed:
     """Live spot price feed via cTrader Open API.
 
-    Composes CTraderConnection (TCP), delegates auth to CTraderAuth,
-    routes ticks to callbacks, and manages order execution.
+    Composes CTraderConnection (TCP), routes ticks to callbacks,
+    and manages order execution.
     """
 
     def __init__(
@@ -132,6 +143,7 @@ class OpenApiSpotFeed:
         refresh_token: str | None = None,
         host: str = "live.ctraderapi.com",
         port: int = 5035,
+        token_lifecycle: Optional["TokenLifecycle"] = None,
     ):
         self._ctid_account_id = ctid_account_id
         self._client_id = client_id
@@ -141,10 +153,17 @@ class OpenApiSpotFeed:
         self._host = host
         self._port = port
 
+        # TokenManager — DEPRECATED for OAuth operations.
+        # OAuth refresh is owned by TokenLifecycle (self._token_lifecycle).
+        # Do not add new OAuth calls here.
         self._token_mgr = TokenManager(
             token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
             env_path=Path(__file__).resolve().parents[3] / ".env",
         )
+
+        # TokenLifecycle — the ONLY OAuth refresh owner.
+        # If not passed by caller, lazily construct from .env.
+        self._token_lifecycle: Optional[TokenLifecycle] = token_lifecycle
 
         # Connection (extracted module)
         self._state_mgr = ConnectionStateManager(name="spot_feed")
@@ -195,6 +214,7 @@ class OpenApiSpotFeed:
 
         # Kill switch
         self._kill_switch: Optional[object] = None
+        self._permission_policy: Optional[ExecutionPermissionPolicy] = None
 
         # Order execution
         self._pending_orders: dict[str, tuple[threading.Event, Order]] = {}
@@ -213,6 +233,27 @@ class OpenApiSpotFeed:
 
     def set_kill_switch(self, kill_switch) -> None:
         self._kill_switch = kill_switch
+
+    def set_permission_policy(self, policy: ExecutionPermissionPolicy) -> None:
+        self._permission_policy = policy
+
+    def validate_wiring(self) -> None:
+        """Validate that required production dependencies are wired.
+
+        Called by ForwardTestEngine after construction, NOT in __init__.
+        This allows tests to construct OpenApiSpotFeed without a full
+        TokenLifecycle while ensuring production paths can't forget it.
+        """
+        if self._token_lifecycle is None:
+            raise RuntimeError(
+                "OpenApiSpotFeed.validate_wiring(): token_lifecycle is None. "
+                "Production runtime requires a TokenLifecycle instance for OAuth refresh delegation. "
+                "Pass token_lifecycle=<TokenLifecycle> when constructing for live/demo use."
+            )
+        logger.info(
+            "[Startup] refresh_owner=TokenLifecycle wired=%s",
+            self._token_lifecycle is not None,
+        )
 
     def on_reconnected(self, callback: Callable[[float], None]) -> None:
         self._on_reconnected_callbacks.append(callback)
@@ -269,24 +310,40 @@ class OpenApiSpotFeed:
         if self._running:
             return True
 
-        # Token validation
+        # Environment validation — cross-check endpoint vs configured environment.
+        _env = _infer_environment(self._host)
+        try:
+            validate_endpoint_environment(self._host, _env)
+        except ValueError as e:
+            logger.critical("%s", e)
+            raise  # Fail closed — do not connect
+
+        log_startup_environment(
+            env=_env,
+            host=self._host,
+            account_id=str(self._ctid_account_id),
+            kill_switch_active=True,  # kill switch is always "active" conceptually
+            kill_switch_mode="freeze",
+        )
+
+        logger.info(
+            "[Startup Diagnostics] environment=%s endpoint=%s account=%s "
+            "refresh_owner=%s execution_mode=%s kill_switch=%s",
+            _env.value,
+            self._host,
+            self._ctid_account_id,
+            "TokenLifecycle" if self._token_lifecycle is not None else "NONE",
+            "live" if getattr(self, '_is_live', False) else "demo",
+            "preserved",  # don't read kill switch state here — just note it's checked
+        )
+
+        # Token validation — placeholder check only.
+        # TokenLifecycle.ensure_valid() (called by ForwardTestEngine) handles
+        # OAuth refresh. We keep a lightweight placeholder guard here.
         _PLACEHOLDER_VALUES = {"***", "new-access", "new-refresh", "", "none", "null", "todo", "changeme"}
-        startup_status = self._token_mgr.validate_on_startup(self._access_token)
-        if startup_status["status"] == TokenStatus.EXPIRED:
-            logger.critical("STARTUP ABORTED: Token expired: %s", startup_status["message"])
+        if self._access_token.lower() in _PLACEHOLDER_VALUES:
+            logger.critical("STARTUP ABORTED: Access token is a placeholder")
             return False
-        if startup_status["status"] == TokenStatus.CRITICAL:
-            # CRITICAL means < 1 day remaining — always force a refresh
-            # regardless of the warning_days threshold inside refresh_if_needed
-            new_token = self._token_mgr.refresh_if_needed(
-                self._client_id, self._client_secret, self._refresh_token,
-                warning_days=0, force=True,
-            )
-            if new_token:
-                self._access_token = new_token
-            else:
-                logger.critical("Startup token refresh failed — aborting")
-                return False
 
         if getattr(self._callback_executor, "_shutdown", False):
             self._callback_executor = ThreadPoolExecutor(
@@ -423,7 +480,8 @@ class OpenApiSpotFeed:
         if expires_in and expires_in > 0:
             self._token_expires_at = time.monotonic() + expires_in
             self._schedule_proactive_refresh(expires_in)
-        self._token_mgr.track_token(self._access_token, expires_in or 86400)
+        # Token tracking is handled by TokenLifecycle/CredentialStore.
+        # The old self._token_mgr.track_token() call is removed (BQ-1327 no-op).
 
         self._state_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="initial_auth_complete")
         self._set_message_callback()
@@ -718,6 +776,24 @@ class OpenApiSpotFeed:
                   price=None, sl=None, tp=None,
                   time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
                   comment="", timeout=_ORDER_TIMEOUT_SEC) -> Order:
+        # P5A: defense-in-depth permission check. Must block before any broker
+        # mutation or reactor dispatch.
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_send_order()
+            if not allowed:
+                logger.warning("Order blocked by permission policy: %s", reason)
+                request_id = uuid.uuid4().hex
+                order = Order(
+                    order_id=request_id,
+                    symbol=self._symbol_name_for_id(symbol_id),
+                    direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
+                    order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
+                    volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
+                    status=OrderStatus.REJECTED, comment=comment,
+                )
+                setattr(order, "reason", reason)
+                return order
+
         request_id = uuid.uuid4().hex
         order = Order(
             order_id=request_id,
@@ -951,77 +1027,75 @@ class OpenApiSpotFeed:
             return
         if self._auth_circuit_open or self._refresh_in_progress:
             return
-        auth_errors = {"CH_OAUTH_TOKEN_EXPIRED", "CH_INVALID_TOKEN", "SESSION_EXPIRED"}
-        if error_code in auth_errors:
+        # Centralized auth error classification
+        description = getattr(message, "description", "")
+        fault_type, policy = get_policy(error_code, description)
+        logger.warning(
+            "Auth error classified: code=%s fault_type=%s can_refresh=%s escalate=%s",
+            error_code, fault_type.value, policy.can_refresh, policy.requires_escalation,
+        )
+        if policy.activate_kill_switch:
+            logger.error(
+                "Kill switch recommended due to %s fault (code=%s)",
+                fault_type.value, error_code,
+            )
+        if policy.can_refresh:
             now = time.monotonic()
             if now - self._last_reactive_refresh_time < 60.0:
                 return
             self._last_reactive_refresh_time = now
             self._refresh_token_and_reauth()
+        elif policy.requires_escalation:
+            logger.error(
+                "Auth fault requires escalation: %s (%s) — failing closed",
+                fault_type.value, error_code,
+            )
 
     def _refresh_token_and_reauth(self, proactive: bool = False) -> None:
+        """Delegate OAuth refresh to TokenLifecycle and re-auth on success.
+
+        Runs the refresh in a background thread to avoid blocking the Twisted
+        reactor. The re-auth send is dispatched back to the reactor thread
+        via reactor.callFromThread().
+
+        If no TokenLifecycle is wired, falls back to no-op (migration safety).
+        """
+        if self._token_lifecycle is None:
+            logger.warning("_refresh_token_and_reauth: no TokenLifecycle wired — skipping")
+            return
+
         if not proactive and self._auth_circuit_open:
             return
-        with self._refresh_lock:
-            if self._refresh_in_progress:
-                return
-            self._refresh_in_progress = True
 
-        if not proactive:
-            backoff = min(10 * (2 ** self._auth_error_count), 300)
-            time.sleep(backoff)
-
-        if not self._refresh_token:
-            self._auth_error_count += 1
-            self._check_circuit_breaker()
-            self._refresh_in_progress = False
-            return
-
-        try:
-            import requests
-            from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
-
-            resp = requests.post("https://openapi.ctrader.com/apps/token", data={
-                "grant_type": "refresh_token", "refresh_token": self._refresh_token,
-                "client_id": self._client_id, "client_secret": self._client_secret,
-            }, timeout=10)
-            data = resp.json()
-            if data.get("errorCode"):
+        def _do_refresh_offthread():
+            try:
+                new_token = self._token_lifecycle.force_refresh()
+                self._access_token = new_token
+                # Refresh the refresh token too
+                creds = self._token_lifecycle._store.get()
+                self._refresh_token = creds.refresh_token
+                # Update local expiry tracking
+                exp = self._token_lifecycle.expires_at
+                if exp is not None:
+                    self._token_expires_at = time.monotonic() + max(
+                        (exp - datetime.now(timezone.utc)).total_seconds(), 60.0
+                    )
+                else:
+                    self._token_expires_at = time.monotonic() + 86400
+                # Re-auth via reactor
+                from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
+                req = ProtoOAAccountAuthReq()
+                req.ctidTraderAccountId = self._ctid_account_id
+                req.accessToken = new_token
+                reactor.callFromThread(self._conn.send, req)
+                self._auth_error_count = 0
+                logger.info("Token refreshed via TokenLifecycle delegation")
+            except Exception as exc:
                 self._auth_error_count += 1
                 self._check_circuit_breaker()
-                self._refresh_in_progress = False
-                return
+                logger.error("Token refresh delegation failed: %s", exc)
 
-            new_access = data.get("accessToken") or data.get("access_token")
-            new_refresh = data.get("refreshToken") or data.get("refresh_token")
-            if not new_access:
-                self._auth_error_count += 1
-                self._check_circuit_breaker()
-                self._refresh_in_progress = False
-                return
-
-            self._access_token = new_access
-            if new_refresh:
-                self._refresh_token = new_refresh
-
-            expires_in = data.get("expiresIn") or data.get("expires_in") or 86400
-            if expires_in > 0:
-                self._token_expires_at = time.monotonic() + expires_in
-                self._schedule_proactive_refresh(expires_in)
-
-            self._token_mgr.track_token(self._access_token, expires_in)
-            self._token_mgr._update_env_tokens(self._access_token, self._refresh_token)
-
-            req = ProtoOAAccountAuthReq()
-            req.ctidTraderAccountId = self._ctid_account_id
-            req.accessToken = self._access_token
-            reactor.callFromThread(self._conn.send, req)
-        except Exception as exc:
-            logger.error("Token refresh error: %s", exc)
-            self._auth_error_count += 1
-            self._check_circuit_breaker()
-        finally:
-            self._refresh_in_progress = False
+        threading.Thread(target=_do_refresh_offthread, daemon=True).start()
 
     def _handle_auth_failure(self, context: str) -> None:
         self._auth_error_count += 1

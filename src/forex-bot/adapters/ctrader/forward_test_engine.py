@@ -117,6 +117,7 @@ class ForwardTestConfig:
     log_dir: str = "logs/trades"
     stats_interval_sec: float = 60.0
     live_mode: bool = False
+    execution_mode: str = "paper"  # "paper" | "live" — must be explicit
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
@@ -138,6 +139,9 @@ class ForwardTestConfig:
     preload_bar_count: int = 200  # bars fetched per symbol/timeframe on startup
 
     def __post_init__(self):
+        # Consistency check: live_mode=True implies execution_mode="live"
+        if self.live_mode and self.execution_mode != "live":
+            self.execution_mode = "live"
         if self.strategy_timeframes is None:
             self.strategy_timeframes = {}
         if self.symbols is None:
@@ -167,6 +171,7 @@ class ForwardTestHealth:
     signals_pending: int = 0
     signals_cancelled: int = 0
     signals_accepted: int = 0  # blend runner accepted the signal (T2)
+    symbol_resolution_failures: int = 0  # total failed symbol resolutions (Task 2)
 
 
 class LiveExecutionStatus(Enum):
@@ -294,6 +299,7 @@ class ForwardTestEngine:
         self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
         self._paper_trader: Optional[PaperTrader] = None
         self._position_monitor: Optional[PositionMonitor] = None
+        self._token_lifecycle: Optional[TokenLifecycle] = None
         self._market_feed: Optional[LiveMarketDataFeed] = None
         self._live_adapter: Optional[cTraderLiveAdapter] = None
         self._trade_logger: Optional[TradeLogger] = None
@@ -335,15 +341,14 @@ class ForwardTestEngine:
         self._current_ask: float = 0.0
 
         # Kill switch — global safety system
-        # DISABLED per Craig (2026-06-23): do not trip during end-to-end validation.
-        # Manager kept in place so we can re-enable later without code changes.
         self._kill_switch = KillSwitchManager()
-        self._kill_switch_disabled = True
         if self._kill_switch.is_globally_killed():
             logger.warning(
-                "STARTUP: Kill switch state is ACTIVE (%s) but DISABLED via flag — trading will proceed",
+                "STARTUP: Kill switch ACTIVE (%s) — orders will be BLOCKED",
                 self._kill_switch.get_status().get('reason', 'unknown'),
             )
+        else:
+            logger.info("STARTUP: Kill switch CLEAR — enforcement active")
 
         # Heartbeat writer
         self._heartbeat_file = _HEARTBEAT_FILE
@@ -358,6 +363,19 @@ class ForwardTestEngine:
         self._strategy_eval_counts: dict[str, int] = {s.name: 0 for s in strategies}
         self._strategy_no_signal_counts: dict[str, int] = {s.name: 0 for s in strategies}
         self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
+
+        # B5 Pipeline warning: rate-limit + grace period
+        self._last_pipeline_warning_time: float = 0.0
+        _PIPELINE_GRACE_SEC = 1200  # 20 minutes
+
+        # Symbol resolution diagnostics (Task 2)
+        self._symbol_resolution_failures: dict[int, int] = {}
+        self._symbol_resolution_last_warn: dict[int, float] = {}
+
+        # Precompute normalized config symbols for fast comparison (Task 3)
+        self._cfg_symbols_normalized: set[str] = {
+            s.upper().replace("/", "") for s in self._config.symbols
+        }
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -536,6 +554,12 @@ class ForwardTestEngine:
             logger.error("cTrader access token is empty after credential load")
             return None
 
+        # Store lifecycle on the engine so it persists for the engine's lifetime.
+        self._token_lifecycle = lifecycle
+
+        # Ownership chain: OpenApiSpotFeed holds lifecycle via self._token_lifecycle.
+        # ForwardTestEngine holds it via self._token_lifecycle. CredentialStore is held
+        # by lifecycle._store. Neither will be GC'd while the engine is alive.
         return {
             "ctid_account_id": creds.account_id,
             "client_id": creds.client_id,
@@ -544,6 +568,7 @@ class ForwardTestEngine:
             "refresh_token": creds.refresh_token or None,
             "host": self._config.openapi_host,
             "port": self._config.openapi_port,
+            "token_lifecycle": lifecycle,
         }
 
     # Env vars the spot feed requires.  Used by ``_describe_missing_live_creds``
@@ -597,7 +622,11 @@ class ForwardTestEngine:
                 raise RuntimeError(msg)
 
             self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
+            from .execution_permission import ExecutionPermissionPolicy
+            policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
+            self._market_feed.set_permission_policy(policy)
             api_client = cTraderAPIClient(**live_creds)
             self._api_client = api_client
             logger.info("OpenApiSpotFeed + cTraderAPIClient constructed for live_mode")
@@ -700,7 +729,11 @@ class ForwardTestEngine:
                 return False
 
             self._market_feed = OpenApiSpotFeed(**live_creds)
+            self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
+            from .execution_permission import ExecutionPermissionPolicy
+            policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
+            self._market_feed.set_permission_policy(policy)
             self._wire_callbacks()
 
         subscribe_names = []
@@ -839,7 +872,10 @@ class ForwardTestEngine:
                 )
 
         symbol_name = self._resolve_symbol_name(tick)
-        if symbol_name is None or symbol_name not in self._config.symbols:
+        if symbol_name is None:
+            return
+        # Use precomputed normalized config symbols for comparison
+        if symbol_name not in self._cfg_symbols_normalized:
             return
 
         # Build bars for ALL required timeframes from this tick
@@ -901,14 +937,49 @@ class ForwardTestEngine:
 
         symbol_info = self._market_feed.symbols.get(tick.symbol_id)
         if symbol_info is None:
+            # Diagnostic: rate-limited WARNING per symbol_id (max 1/min)
+            sid = tick.symbol_id
+            self._symbol_resolution_failures[sid] = (
+                self._symbol_resolution_failures.get(sid, 0) + 1
+            )
+            self._health.symbol_resolution_failures += 1
+            now_mono = time.monotonic()
+            last_warn = self._symbol_resolution_last_warn.get(sid, 0.0)
+            if now_mono - last_warn >= 60.0:
+                self._symbol_resolution_last_warn[sid] = now_mono
+                known_ids = list(self._market_feed.symbols.keys())
+                logger.warning(
+                    "[Symbol Resolution] symbol_id=%d not found in feed symbols. "
+                    "known_ids=%s (failures for this id: %d)",
+                    sid, known_ids,
+                    self._symbol_resolution_failures[sid],
+                )
             return None
 
         feed_name = symbol_info.name
         no_slash = feed_name.replace("/", "")
-        cfg_symbols = {s.upper().replace("/", "") for s in self._config.symbols}
 
-        if no_slash in cfg_symbols:
+        if no_slash in self._cfg_symbols_normalized:
             return no_slash
+
+        # Diagnostic: normalized name not in config symbols
+        sid = tick.symbol_id
+        self._symbol_resolution_failures[sid] = (
+            self._symbol_resolution_failures.get(sid, 0) + 1
+        )
+        self._health.symbol_resolution_failures += 1
+        now_mono = time.monotonic()
+        last_warn = self._symbol_resolution_last_warn.get(sid, 0.0)
+        if now_mono - last_warn >= 60.0:
+            self._symbol_resolution_last_warn[sid] = now_mono
+            logger.warning(
+                "[Symbol Resolution] feed_name='%s' normalized='%s' "
+                "not in config symbols %s (symbol_id=%d, failures: %d)",
+                feed_name, no_slash,
+                sorted(self._cfg_symbols_normalized),
+                sid,
+                self._symbol_resolution_failures[sid],
+            )
         return None
 
     def _update_paper_trader_prices(self, tick: Tick, symbol_name: str):
@@ -969,32 +1040,19 @@ class ForwardTestEngine:
         """Place a real cTrader order via the OpenApiSpotFeed.
 
         Returns ``None`` for pre-flight failures (no feed, unknown symbol,
-        zero calculated volume) — no outcome object is created in those cases
-        because there is no ``Order`` to carry forward to a late callback.
-
-        For everything else, returns a :class:`LiveExecutionOutcome` whose
-        ``status`` is one of:
-
-        * :class:`LiveExecutionStatus.FILLED`        — order filled at cTrader
-        * :class:`LiveExecutionStatus.SENT`          — order sent, awaiting ack
-        * :class:`LiveExecutionStatus.REJECTED`      — broker rejected
-        * :class:`LiveExecutionStatus.TIMEOUT`       — no execution event in time
-        * :class:`LiveExecutionStatus.NOT_CONNECTED` — feed was not operational
-        * :class:`LiveExecutionStatus.CANCELLED`     — broker sent ORDER_CANCELLED
-
-        Late-fill handling
-        -------------------
-        The spot feed's ``event.wait(timeout)`` may return before the
-        execution event arrives (a race documented in the Rei's review).  To
-        cover that window we register one-shot callbacks on the spot feed
-        (``on_order_filled`` / ``on_order_rejected`` / ``on_order_cancelled``)
-        for any SENT outcome.  When the late event arrives the callback
-        updates the engine's live-fill counter and frees correlation / risk
-        slots retroactively.
-
-        The caller (``BlendForwardTestEngine._route_signal``) decides what to
-        do with each outcome: count it, log it, release correlation slots.
+        zero calculated volume, kill switch active) — no outcome object is created
+        in those cases because there is no ``Order`` to carry forward to a late callback.
         """
+        # P5A: primary permission gate — block before any broker interaction
+        # or volume/state mutation. This closes the TOCTOU window between
+        # _evaluate_strategies()'s kill-switch check and order dispatch.
+        from .execution_permission import ExecutionPermissionPolicy
+        policy = ExecutionPermissionPolicy(kill_switch=getattr(self, '_kill_switch', None))
+        allowed, reason = policy.can_send_order()
+        if not allowed:
+            logger.warning("_execute_signal_live blocked: %s", reason)
+            return None
+
         direction_str = (
             signal.direction.value
             if hasattr(signal.direction, "value")
@@ -1334,8 +1392,7 @@ class ForwardTestEngine:
             return
 
         # Kill switch gate — checked before any strategy evaluation
-        # DISABLED per Craig (2026-06-23)
-        if not getattr(self, '_kill_switch_disabled', False) and self._kill_switch.is_globally_killed():
+        if getattr(self, '_kill_switch', None) and self._kill_switch.is_globally_killed():
             logger.debug("Kill switch active — skipping strategy evaluation")
             return
 
@@ -1608,12 +1665,14 @@ class ForwardTestEngine:
 
         if error_rate > _ERROR_RATE_THRESHOLD_PCT:
             logger.critical(
-                "Error rate %.1f%% (%d/%d) in 60s window — kill switch DISABLED, would have frozen",
+                "Error rate %.1f%% (%d/%d) in 60s window — FREEZE activation is P6 scope",
                 error_rate * 100,
                 error_count,
                 total_evals,
             )
-            # self._kill_switch.activate_global_freeze(  # disabled per Craig
+            # P6 scope-out: freeze activation intentionally remains commented
+            # out per Phase 4 priority list. Tracked in P5A closeout.
+            # self._kill_switch.activate_global_freeze(
             #     reason="high_error_rate",
             #     triggered_by="error_monitor",
             # )
@@ -1636,11 +1695,13 @@ class ForwardTestEngine:
         # Only freeze if feed is actually disconnected.
         # "feed connected but no tick yet" = still initializing, not a disconnect.
         if not feed_connected:
-            if not self._feed_disconnect_frozen and not getattr(self, '_kill_switch_disabled', False):
+            if not self._feed_disconnect_frozen:
                 logger.warning(
-                    "Feed disconnect detected — kill switch DISABLED, continuing"
+                    "Feed disconnect detected — FREEZE activation is P6 scope, continuing"
                 )
-                # self._kill_switch.activate_global_freeze(  # disabled
+                # P6 scope-out: freeze activation intentionally remains commented
+                # out per Phase 4 priority list. Tracked in P5A closeout.
+                # self._kill_switch.activate_global_freeze(
                 #     reason="feed_disconnect",
                 #     triggered_by="feed_health_monitor",
                 # )
@@ -1688,13 +1749,57 @@ class ForwardTestEngine:
                         "[B5 Periodic] ticks=%d bars_built=%d signals=%d traded=%d eval_errors=%d",
                         ticks, bars, signals, traded, errors,
                     )
-                    # B5 Amendment 4: tick-to-bar pipeline health
-                    if ticks > 0 and bars == 0:
-                        logger.warning(
-                            "[B5 Pipeline] %d ticks received but 0 bars built — "
-                            "tick-to-bar conversion may be stalled",
-                            ticks,
-                        )
+                    # B5 Amendment 4: tick-to-bar pipeline health (revised)
+                    # Count TOTAL bars across all keys + preloaded bars
+                    # to avoid false positives when bars_built counter hasn't
+                    # incremented yet (e.g. started mid-M15 interval).
+                    if ticks > 0:
+                        with self._lock:
+                            total_bars = sum(len(v) for v in self._bars.values())
+                            # Include current (forming) bars in the count
+                            total_bars += sum(1 for v in self._current_bar.values() if v is not None)
+                        uptime = self._health.uptime_sec
+                        in_grace = uptime < 1200  # 20-minute startup grace
+
+                        if total_bars == 0:
+                            if in_grace:
+                                logger.debug(
+                                    "[B5 Pipeline] %d ticks, 0 total bars — "
+                                    "within startup grace (%.0fs < 1200s)",
+                                    ticks, uptime,
+                                )
+                            else:
+                                # Rate-limit WARNING to once per 5 minutes
+                                if now - self._last_pipeline_warning_time >= 300:
+                                    self._last_pipeline_warning_time = now
+                                    # Gather diagnostics
+                                    with self._lock:
+                                        bar_keys = {
+                                            k: len(v) for k, v in self._bars.items()
+                                        }
+                                        current_keys = {
+                                            k for k, v in self._current_bar.items() if v is not None
+                                        }
+                                        last_tick = self._health.last_tick_at
+                                    cfg_symbols = list(self._cfg_symbols_normalized)
+                                    logger.warning(
+                                        "[B5 Pipeline] STALLED: %d ticks, 0 total bars "
+                                    "(uptime=%.0fs, grace_expired). "
+                                    "symbols=%s timeframes=%s "
+                                    "bar_keys=%s current_forming=%s "
+                                    "last_tick=%s",
+                                        ticks, uptime,
+                                        cfg_symbols,
+                                        sorted(self._required_timeframes),
+                                        bar_keys, current_keys,
+                                        last_tick.isoformat() if last_tick else "None",
+                                    )
+                                else:
+                                    logger.debug(
+                                        "[B5 Pipeline] Still stalled but rate-limited "
+                                        "(last warning %.0fs ago)",
+                                        now - self._last_pipeline_warning_time,
+                                    )
 
                     # Phase 1D: Portfolio summary from position monitor
                     if self._position_monitor is not None:

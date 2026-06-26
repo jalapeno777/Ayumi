@@ -6,6 +6,16 @@ from datetime import datetime, timezone
 
 from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 
+# ── Price / range sanity guards ────────────────────────────────────────────
+# These prevent corrupted signals (e.g. from upstream unit mismatches) from
+# being emitted. A range width of 4400 pips or a TP at 0.66 for a 1.32 entry
+# are clear signatures of data corruption, not legitimate market conditions.
+
+_FX_MIN_PRICE = 0.01       # Below any legitimate forex instrument
+_FX_MAX_PRICE = 500.0      # Above any legitimate forex instrument (covers XAUUSD, high JPY crosses)
+_MAX_RANGE_PIPS = 500      # Max 500 pips range width (catches unit-mismatch bugs)
+_MAX_TP_DISTANCE_PIPS = 1000  # Max 1000 pips from entry to TP
+
 
 def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     if len(bars) < period + 1:
@@ -241,14 +251,27 @@ class SessionBreakoutStrategy:
             take_profit_2 = entry - 2.0 * range_width
             take_profit_3 = entry - 3.0 * range_width
 
-        # 9. Confidence based on breakout strength
+        # 9. Price sanity guards (reject corrupted signals from unit mismatches)
+        range_width_pips = range_width / pip
+        if range_width_pips > _MAX_RANGE_PIPS:
+            return None
+
+        for tp in (take_profit_1, take_profit_2, take_profit_3):
+            if tp < _FX_MIN_PRICE or tp > _FX_MAX_PRICE:
+                return None
+
+        tp_distance_pips = abs(take_profit_3 - entry) / pip
+        if tp_distance_pips > _MAX_TP_DISTANCE_PIPS:
+            return None
+
+        # 10. Confidence based on breakout strength
         if bullish_breakout:
             penetration = (latest.close - range_high - buffer_price) / atr
         else:
             penetration = (range_low - buffer_price - latest.close) / atr
         confidence = min(0.90, 0.55 + min(penetration, 1.0) * 0.35)
 
-        # 10. Mark as fired
+        # 11. Mark as fired
         self._fired_signals[fired_key] = True
 
         direction_word = "bullish" if bullish_breakout else "bearish"

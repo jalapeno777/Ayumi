@@ -22,7 +22,7 @@ class TestOpenApiSpotFeedLiveProperties:
     def feed(self):
         """Create a minimal OpenApiSpotFeed without connecting."""
         from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
-        with patch("adapters.ctrader.open_api_spot_feed.ReactorManager"):
+        with patch("adapters.ctrader.connection.ReactorManager"):
             feed = OpenApiSpotFeed(
                 ctid_account_id=12345,
                 client_id="test",

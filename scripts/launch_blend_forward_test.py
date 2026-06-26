@@ -24,6 +24,26 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
+def _refuse_root():
+    """Refuse to run the trading service as root.
+
+    Ayumi must run as TacoPants to avoid file-ownership conflicts on
+    .env, PID files, lock files and runtime state.  This guard exits
+    *before* any broker connection or credential read so that a
+    mistaken root launch cannot create state that a subsequent
+    TacoPants launch cannot clean up.
+    """
+    if os.geteuid() == 0:
+        sys.exit(
+            "FATAL: Refusing to run Ayumi forward test as root.\n"
+            "Use 'systemctl start ayumi-forward-test.service' or run as TacoPants user.\n"
+            "This guard prevents permission conflicts and credential ownership issues."
+        )
+
+
+if __name__ == "__main__":
+    _refuse_root()
+
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -510,9 +530,30 @@ def wire_connection_reliability(connection_manager):
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
+    parser.add_argument("--mode", choices=["paper", "live"], default=None,
+                        help="Execution mode (paper/live). If not specified, derives from --live flag.")
     parser.add_argument("--live", action="store_true", help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)")
     parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
     args = parser.parse_args()
+
+    # Resolve execution mode: --mode takes priority, then fall back to --live
+    if args.mode:
+        execution_mode = args.mode
+    else:
+        execution_mode = "live" if args.live else "paper"
+
+    # Fail-closed: refuse paper mode on a live endpoint
+    from adapters.ctrader.environment import Environment, _infer_environment, DEMO_HOSTS, LIVE_HOSTS
+    _startup_host = os.getenv("CTRADER_HOST", "") or os.getenv("CTRADER_OPENAPI_HOST", "")
+    if _startup_host:
+        _startup_env = _infer_environment(_startup_host)
+        if execution_mode == "paper" and _startup_env == Environment.LIVE:
+            logger.error(
+                "Cannot start in paper mode on a live endpoint (%s). "
+            "Use --mode live or --live.",
+                _startup_host,
+            )
+            sys.exit(1)
     symbols = [s.strip().upper().replace("/", "") for s in args.symbols.split(",")]
 
     # Check for files in data/ not owned by current user (defense-in-depth)
@@ -627,7 +668,8 @@ def main():
         min_confidence=0.50,
         max_bars_per_symbol=500,
         min_bars_for_evaluation=55,
-        live_mode=args.live,
+        live_mode=(execution_mode == "live"),
+        execution_mode=execution_mode,
         strategy_timeframes=STRATEGY_TIMEFRAMES,
         preload_bar_count=200,  # bars per symbol/timeframe fetched through spot feed
     )
@@ -706,7 +748,7 @@ def main():
                     _live_balance = getattr(engine, "_live_balance", None)
                     _paper_trades = t.get("trades_executed", 0)
                     _paper_balance = t.get("current_balance", 0.0)
-                    _live_mode = args.live
+                    _live_mode = (execution_mode == "live")
                     _balance_str = (
                         f"paper=${_paper_balance:.2f}"
                         + (f" live=${_live_balance:.2f}" if _live_balance is not None else " live=N/A")

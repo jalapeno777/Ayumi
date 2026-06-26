@@ -51,6 +51,7 @@ def _live_creds_dict() -> dict:
         "refresh_token": None,
         "host": "demo.ctraderapi.com",
         "port": 5035,
+        "token_lifecycle": MagicMock(),
     }
 
 
@@ -72,10 +73,15 @@ def _make_signal() -> TradeSignal:
 
 
 @pytest.fixture
-def live_engine():
-    """Build a forward test engine with live mode and mocked live creds."""
+def live_engine(tmp_path):
+    """Build a forward test engine with live mode, mocked live creds, and isolated kill switch state."""
+    from adapters.ctrader.kill_switch import KillSwitchManager
+    isolated_dir = tmp_path / "kill_switches"
+    isolated_dir.mkdir(parents=True, exist_ok=True)
     cfg = ForwardTestConfig(live_mode=True, starting_balance=10000.0)
-    return ForwardTestEngine(config=cfg, strategies=[])
+    engine = ForwardTestEngine(config=cfg, strategies=[])
+    engine._kill_switch = KillSwitchManager(state_dir=str(isolated_dir))
+    return engine
 
 
 class TestOpenApiSpotFeedIsReachableFromPaperTrader:
