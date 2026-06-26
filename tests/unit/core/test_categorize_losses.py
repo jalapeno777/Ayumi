@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import subprocess
+import sys
 
 import pytest
 
