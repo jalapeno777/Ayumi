@@ -72,6 +72,7 @@ class cTraderSignalAdapter:
             volume=0.0,  # Sized by orchestrator/blend runner, not here
             confidence=signal.confidence,
             rationale=signal.rationale,
+            strategy_id=self._strategy.name,
         )
 
         logger.info(
