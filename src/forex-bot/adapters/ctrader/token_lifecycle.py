@@ -154,6 +154,9 @@ class TokenLifecycle:
             on_refreshed: Optional callback invoked with the new access
                           token after each successful proactive refresh.
         """
+        # NOTE: OpenApiSpotFeed manages its own proactive refresh via
+        # _schedule_proactive_refresh(). This method is not called in production
+        # today but is available for standalone TokenLifecycle usage.
         if self._timer_thread is not None and self._timer_thread.is_alive():
             logger.warning("Proactive timer already running")
             return
@@ -189,8 +192,10 @@ class TokenLifecycle:
         """
         if self._expires_at is None:
             # No expiry info — assume fresh (Craig just wrote it)
-            logger.debug(
-                "_is_valid: expires_at unknown — assuming token is fresh"
+            # Phase 4 migration: first-run with no EXPIRES_AT in .env is treated
+            # as valid. The OAuth server will reject if actually expired.
+            logger.info(
+                "No EXPIRES_AT in credentials — treating as fresh (first-run migration)"
             )
             return True
         now = datetime.now(timezone.utc)

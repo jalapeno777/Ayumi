@@ -16,6 +16,8 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
 from adapters.ctrader.connection_manager import ConnectionManager, ConnectionRole
@@ -183,6 +185,7 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
 # ── OAuth refresh wiring tests ───────────────────────────────────────────────
 
 
+@pytest.mark.skip(reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle")
 class TestOAuthRefreshWiring(unittest.TestCase):
     """Verify refresh_oauth_if_needed() updates manager auth state."""
 
