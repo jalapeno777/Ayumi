@@ -70,6 +70,7 @@ Already committed in `1cd0d94` (parent branch). No dirty changes. Not part of P5
 ```
 
 Freeze activation xfails: 5 confirmed (Mika's condition met).
+XPASS note: 5 tests marked xfail actually pass — these are resilience/stale-tick tests where the behavior moved elsewhere during refactoring (BQ-1328). Not freeze activation suppression; the xfail rationale is stale code paths, not frozen behavior.
 Kill switch state post-test: `active=true`, `mode=kill` (unchanged).
 
 ### Builder 3: Order-Path Proof

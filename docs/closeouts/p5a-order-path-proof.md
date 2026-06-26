@@ -35,16 +35,14 @@ grep -rn 'new_order\|send_order\|ProtoOANewOrderReq\|close_position\|cancel_orde
 - **File:** `open_api_spot_feed.py` — `send_order()` calls `new_order()`
 - **Coverage:** Inherits the `new_order()` policy gate
 
-## Delegated Paths (consume active paths)
+## Dead + Dangerous Paths
 
 ### 4. `OrderManager.place_order()` → `_api_client.send_order()`
 
 - **File:** `order_manager.py:294`
-- **Status:** Delegated. Current live path routes through `OpenApiSpotFeed.send_order() -> new_order()` which is guarded.
-- **Residual risk:** If a different `api_client` is injected that doesn't route through `OpenApiSpotFeed`, this path would be unguarded.
-- **Mitigation:** Document as Phase 6 audit item. Current wiring uses `OpenApiSpotFeed` exclusively.
-
-## Dead / Uninstantiated Paths
+- **Status:** **DEAD + DANGEROUS.** Zero production callers (`grep -rn 'place_order' src/forex-bot/ --include='*.py'` returns zero hits outside tests). AND if called, routes through `_api_client` (a `cTraderAPIClient` instance) that does NOT have `set_permission_policy()` called on it — see dual-instance issue below.
+- **Risk:** If `place_order()` is ever called, it bypasses the defense-in-depth policy gate entirely. The `_api_client` instance's `new_order()` guard evaluates `self._permission_policy` as `None`, so the check is skipped.
+- **Mitigation:** Phase 6 must either (a) wire policy into `_api_client` at construction in `_start_live_mode()`, or (b) remove `place_order()` as dead code.
 
 ### 5. `OrderGateway._create_request()` → `ProtoOANewOrderReq`
 
@@ -53,17 +51,31 @@ grep -rn 'new_order\|send_order\|ProtoOANewOrderReq\|close_position\|cancel_orde
 - **Risk:** None currently. If instantiated in future, it bypasses the policy.
 - **Mitigation:** Phase 6: either wire `OrderGateway` through the policy or remove it.
 
+### Dual-Instance Construction Blind Spot
+
+In `ForwardTestEngine._start_live_mode()` (line 624-632):
+- `_market_feed` = `OpenApiSpotFeed(...)` → gets `set_permission_policy(policy)` ✅
+- `_api_client` = `cTraderAPIClient(...)` → does NOT get `set_permission_policy()` ❌
+
+Since `cTraderAPIClient` inherits from `OpenApiSpotFeed`, it has the `new_order()` guard, but its `_permission_policy` is `None`, so the guard is a no-op. The live order path (`_execute_signal_live()`) uses `_market_feed` directly, so this is not exploitable today. But any future code routing through `_api_client` would be unguarded.
+
+**Phase 6 fix:** Inject policy into `_api_client` at construction, or pass `_market_feed` as the API client instead of creating a separate instance.
+
 ## Phase 6 Scope-Outs (broker-mutating, not new-order)
 
-Per Rei's review, these methods are broker-mutating but outside P5A's new-order scope:
+Per Rei's review, these methods are broker-mutating but outside P5A's new-order scope.
+They exist on BOTH the dead `OrderGateway` class AND the active `OpenApiSpotFeed` class:
 
-| Method | File | Risk |
-|--------|------|------|
-| `close_position()` | `order_gateway.py:255`, `protocols.py:262` | Can close real positions without policy gate |
-| `cancel_order()` | `order_gateway.py:192`, `protocols.py:249` | Can cancel working orders without policy gate |
-| `amend_sl_tp()` | (not found in current code) | N/A — no implementation yet |
+| Method | OrderGateway (dead) | OpenApiSpotFeed (active) | Risk |
+|--------|------|------|------|
+| `close_position()` | `order_gateway.py:255` | `open_api_spot_feed.py:894` | Can close real positions without policy gate |
+| `cancel_order()` | `order_gateway.py:192` | `open_api_spot_feed.py:871` | Can cancel working orders without policy gate |
+| `amend_order()` | — | `open_api_spot_feed.py:877` | Can amend working orders without policy gate |
+| `amend_sl_tp()` | — | `open_api_spot_feed.py:886` | Can amend SL/TP without policy gate |
 
-**Recommendation:** Phase 6 should extend `ExecutionPermissionPolicy` to cover all broker-mutating operations, not just new orders.
+**Note:** The `OpenApiSpotFeed` methods are live surface area on an instantiated class. They have zero callers today, but are reachable and ungated.
+
+**Recommendation:** Phase 6 should extend `ExecutionPermissionPolicy` to cover all broker-mutating operations on `OpenApiSpotFeed`, not just new orders.
 
 ## Residual TOCTOU Risk
 
