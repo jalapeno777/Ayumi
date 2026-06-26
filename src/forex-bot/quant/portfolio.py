@@ -410,13 +410,21 @@ def build_default_portfolio() -> StrategyPortfolio:
     from backtest.strategies import (
         RegimeSwitchingRouter,
     )
-    from strategies.grid.adapter import GridStrategyAdapter
-    from strategies.grid.config import GridConfig
     from strategies.momentum import MATrendFollowingStrategy, MomentumConfig
     from strategies.session_range_mean_reversion import (
         SessionRangeMeanReversionStrategy,
     )
     from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
+    try:
+        from strategies.grid.adapter import GridStrategyAdapter
+        from strategies.grid.config import GridConfig
+
+        _grid_available = True
+    except ImportError:
+        _grid_available = False
+        GridStrategyAdapter = None  # type: ignore
+        GridConfig = None  # type: ignore
 
     allocations = (
         StrategyAllocation(
@@ -556,11 +564,16 @@ def build_default_portfolio() -> StrategyPortfolio:
     )
     portfolio.add_strategy(ma_trend, allocations[5])
 
-    eurusd_grid = GridStrategyAdapter(GridConfig.eurusd())
-    portfolio.add_strategy(eurusd_grid, allocations[6])
+    if _grid_available:
+        eurusd_grid = GridStrategyAdapter(GridConfig.eurusd())
+        portfolio.add_strategy(eurusd_grid, allocations[6])
 
-    xauusd_grid = GridStrategyAdapter(GridConfig.xauusd())
-    portfolio.add_strategy(xauusd_grid, allocations[7])
+        xauusd_grid = GridStrategyAdapter(GridConfig.xauusd())
+        portfolio.add_strategy(xauusd_grid, allocations[7])
+    else:
+        logger.warning(
+            "strategies.grid is not available; grid strategies omitted from default portfolio"
+        )
 
     portfolio.set_correlation("EURUSD", "GBPUSD", 0.80)
     portfolio.set_correlation("EURUSD", "USDJPY", 0.30)

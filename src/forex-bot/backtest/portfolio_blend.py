@@ -843,7 +843,11 @@ def format_portfolio_report(
 
 
 def build_passing_strategy_specs(data_dir: str) -> list[StrategySpec]:
-    from strategies.grid import GridConfig, GridStrategyAdapter
+    try:
+        from strategies.grid import GridConfig, GridStrategyAdapter
+    except ImportError:
+        GridConfig = None  # type: ignore
+        GridStrategyAdapter = None  # type: ignore
     from strategies.session_range_mean_reversion import (
         SessionRangeMeanReversionStrategy,
     )
@@ -876,15 +880,16 @@ def build_passing_strategy_specs(data_dir: str) -> list[StrategySpec]:
         )
     )
 
-    specs.append(
-        StrategySpec(
-            name="Grid Trading",
-            factory=lambda: GridStrategyAdapter(GridConfig.ftmo("EURUSD")),
-            pair="EURUSD",
-            timeframe="M15",
-            data_path=f"{data_dir}/EURUSD_M15.csv",
+    if GridConfig is not None and GridStrategyAdapter is not None:
+        specs.append(
+            StrategySpec(
+                name="Grid Trading",
+                factory=lambda: GridStrategyAdapter(GridConfig.ftmo("EURUSD")),
+                pair="EURUSD",
+                timeframe="M15",
+                data_path=f"{data_dir}/EURUSD_M15.csv",
+            )
         )
-    )
 
     specs.append(
         StrategySpec(
