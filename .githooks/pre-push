@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Pre-push hook: secrets scan → tests → PR check
+# Exits 0 = push allowed, 1 = push blocked
+
+set -o pipefail
+
+VENV_PYTEST="/home/TacoPants/projects/Ayumi/.venv/bin/pytest"
+
+_fail() { echo "❌ $1"; exit 1; }
+
+# ── 1. Gitleaks ──────────────────────────────────────────────────────────────
+echo "📋 Scanning for secrets..."
+if command -v gitleaks &> /dev/null; then
+    # protect --staged scans what's staged; detect scans the working tree
+    if ! gitleaks protect --staged --verbose 2>&1 | tail -5; then
+        _fail "SECRETS DETECTED! Push blocked."
+    fi
+    echo "✅ No secrets found"
+else
+    echo "⚠️  gitleaks not installed, skipping"
+fi
+
+# ── 2. Pytest (scoped — collection gate) ─────────────────────────────────────
+# Pre-push runs collection on all categories to catch import/path breaks.
+# Full test runs are done manually via: bash scripts/run_test_scope.sh --unit
+# Actual test failures are tracked as separate workboard cards (test debt).
+VENV_PYTHON="/home/TacoPants/projects/Ayumi/.venv/bin/python3"
+
+if [ -f "$VENV_PYTHON" ]; then
+    echo "🧪 Running collection check (all categories)..."
+    _tmp=$(mktemp)
+    PYTEST_WARNINGS=0 "$VENV_PYTHON" -m pytest --collect-only -q -m "not live" > "$_tmp" 2>&1
+    _status=$?
+    if [ $_status -eq 0 ]; then
+        echo "✅ Collection passed — all categories importable"
+    else
+        echo "❌ COLLECTION ERROR — import/path break detected. Push blocked."
+        cat "$_tmp"
+        rm -f "$_tmp"
+        _fail "Collection failed — fix import/path errors before pushing."
+    fi
+    rm -f "$_tmp"
+else
+    echo "⚠️  python3 not available, skipping tests"
+fi
+
+# ── 3. PR creation check ────────────────────────────────────────────────────
+REMOTE_REF="$3"
+BRANCH_NAME="${REMOTE_REF#refs/heads/}"
+
+if [ "$BRANCH_NAME" != "main" ] && [ -n "$BRANCH_NAME" ]; then
+    # Check if gh is authenticated before trying
+    if ! gh auth status 2>&1 | grep -q "Logged in"; then
+        echo "⚠️  gh not authenticated — cannot verify PR status. Skipping PR check."
+    else
+        if ! gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number' 2>/dev/null | grep -q '[0-9]'; then
+            COMMITS_AHEAD=$(git rev-list --count "main..$BRANCH_NAME" 2>/dev/null || echo 0)
+            if [ "$COMMITS_AHEAD" -gt 0 ]; then
+                echo ""
+                echo "⚠️  No open PR found for branch '$BRANCH_NAME' ($COMMITS_AHEAD commits ahead of main)"
+                echo "You MUST create a PR before pushing:"
+                echo "  gh pr create --base main --title '<title>' --body 'Refs AYUAA-XXX: <desc>'"
+                echo ""
+                _fail "PUSH BLOCKED — create a PR first."
+            fi
+        fi
+    fi
+fi
+
+echo "✅ Pre-push checks passed! Pushing..."
