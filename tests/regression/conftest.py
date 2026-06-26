@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import os
 import pickle
 from pathlib import Path
 
 import pytest
 
-GOLDEN_DIR = Path(__file__).resolve().parent
+from _project_root import PROJECT_ROOT
+
+GOLDEN_DIR = PROJECT_ROOT / "tests" / "regression"
 
 HAS_GOLDEN_EURUSD = (GOLDEN_DIR / "golden_eurusd_h1.pkl").exists()
 HAS_GOLDEN_GBPUSD = (GOLDEN_DIR / "golden_gbpusd_h1.pkl").exists()
@@ -41,9 +42,7 @@ def golden_data(golden_eurusd, golden_gbpusd):
 def eurusd_h1_data():
     import pandas as pd
 
-    data_path = (
-        Path(__file__).resolve().parent.parent.parent / "data" / "EURUSD_1h.parquet"
-    )
+    data_path = PROJECT_ROOT / "data" / "EURUSD_1h.parquet"
     if not data_path.exists():
         pytest.skip("EURUSD H1 data not found")
     df = pd.read_parquet(data_path)
@@ -56,9 +55,7 @@ def eurusd_h1_data():
 def gbpusd_h1_data():
     import pandas as pd
 
-    data_path = (
-        Path(__file__).resolve().parent.parent.parent / "data" / "GBPUSD_1h.parquet"
-    )
+    data_path = PROJECT_ROOT / "data" / "GBPUSD_1h.parquet"
     if not data_path.exists():
         pytest.skip("GBPUSD H1 data not found")
     df = pd.read_parquet(data_path)

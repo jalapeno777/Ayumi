@@ -7,13 +7,12 @@ Usage: PYTHONPATH=src python tests/regression/generate_golden.py
 from __future__ import annotations
 
 import pickle
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from _project_root import PROJECT_ROOT
 
 from src.forex_trading.services.backtest.engine_v2 import (
     BacktestEngine,
@@ -33,7 +32,7 @@ from src.forex_trading.strategies.regime_switching_momentum import (
 )
 
 PAIRS = ["EURUSD", "GBPUSD"]
-OUTPUT_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = PROJECT_ROOT / "tests" / "regression"
 
 PROP_FIRM_CONFIG = PropFirmConfig(
     max_daily_drawdown_pct=0.05,
@@ -76,9 +75,7 @@ def extract_metrics(metrics) -> dict:
 
 
 def generate_for_pair(pair: str) -> dict:
-    data_path = (
-        Path(__file__).resolve().parent.parent.parent / "data" / f"{pair}_1h.parquet"
-    )
+    data_path = PROJECT_ROOT / "data" / f"{pair}_1h.parquet"
     print(f"Loading {pair} H1 data from {data_path}...")
     df = pd.read_parquet(data_path)
     print(f"  {len(df)} bars loaded")
