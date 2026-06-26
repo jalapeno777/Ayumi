@@ -481,6 +481,10 @@ class OrderManager:
         if position.stop_loss is None:
             return False
 
+        # No reliable market data — skip check to avoid false triggers
+        if bid <= 0 and ask <= 0:
+            return False
+
         if position.direction == TradeDirection.LONG:
             # For long: SL triggers when price falls to SL level
             fill_price = bid if bid > 0 else current_price
@@ -494,6 +498,10 @@ class OrderManager:
         self, position: Position, current_price: float, bid: float, ask: float
     ) -> bool:
         if position.take_profit is None:
+            return False
+
+        # No reliable market data — skip check to avoid false triggers
+        if bid <= 0 and ask <= 0:
             return False
 
         if position.direction == TradeDirection.LONG:
