@@ -73,7 +73,16 @@ class TokenLifecycle:
     Thread-safe: concurrent ensure_valid() / force_refresh() calls are
     serialized via a lock. If a refresh is already in progress, subsequent
     callers wait for it to complete and return the freshly-refreshed token.
+
+    ``_refresh_disabled`` is a class-level kill switch. When True (current
+    default), ALL refresh logic is bypassed: ``ensure_valid()`` always
+    returns the current token, ``force_refresh()`` logs and returns False,
+    and ``start_proactive_timer()`` is a no-op. The full refresh internals
+    are preserved unchanged for easy re-enablement — just set the flag to
+    False.
     """
+
+    _refresh_disabled: bool = True
 
     def __init__(self, credential_store: CredentialStore):
         """Initialize with a CredentialStore.
@@ -104,12 +113,19 @@ class TokenLifecycle:
         expired, a refresh is triggered. Thread-safe: concurrent callers
         block until the in-progress refresh finishes.
 
+        When ``_refresh_disabled`` is True, always returns the current
+        token without checking expiry or attempting refresh.
+
         Returns:
             A valid access token string.
 
         Raises:
             TokenRefreshError: If the OAuth refresh fails.
         """
+        if self._refresh_disabled:
+            logger.info("Token refresh disabled — returning current token as-is")
+            return self._access_token
+
         if self._is_valid():
             return self._access_token
 
@@ -127,14 +143,22 @@ class TokenLifecycle:
         Thread-safe: concurrent callers block until the in-progress refresh
         finishes, then return the new token.
 
+        When ``_refresh_disabled`` is True, logs a warning and returns the
+        current token without attempting refresh.
+
         Returns:
             The new access token string.
 
         Raises:
             TokenRefreshError: If the OAuth refresh fails.
         """
-        with self._lock:
-            return self._do_refresh(force=True)
+        if self._refresh_disabled:
+            logger.warning(
+                "force_refresh() called but token refresh is DISABLED "
+                "(_refresh_disabled=True). Returning current token as-is. "
+                "Manual token rotation required."
+            )
+            return self._access_token
 
     @property
     def expires_at(self) -> Optional[datetime]:
@@ -150,10 +174,16 @@ class TokenLifecycle:
         If the token expires within REFRESH_BUFFER (5 days), it calls
         force_refresh(). On error, logs and continues (does not crash).
 
+        When ``_refresh_disabled`` is True, this is a no-op.
+
         Args:
             on_refreshed: Optional callback invoked with the new access
                           token after each successful proactive refresh.
         """
+        if self._refresh_disabled:
+            logger.info("start_proactive_timer() skipped — refresh disabled (_refresh_disabled=True)")
+            return
+
         # NOTE: OpenApiSpotFeed manages its own proactive refresh via
         # _schedule_proactive_refresh(). This method is not called in production
         # today but is available for standalone TokenLifecycle usage.
