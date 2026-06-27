@@ -304,12 +304,35 @@ Tick = LegacyTick  # type: ignore[assignment,misc]
 
 @dataclass
 class SymbolInfo:
-    """Metadata about a tradable symbol (legacy)."""
+    """Unified symbol metadata for live trading and paper simulation.
+
+    Expanded (Sprint: Order System Modularization) to carry volume
+    fields so that VolumeCalculator and downstream modules can derive
+    contract size, validate constraints, and decode prices per-symbol
+    instead of hardcoding 100 000.
+    """
 
     symbol_id: int
     name: str
     pip_size: float = 0.0001
     digits: int = 5
+    lot_size: int = 100_000           # contract size per lot (100k FX, 100 crypto)
+    min_volume: int = 0               # minimum cTrader volume (0 = unspecified)
+    max_volume: int = 0               # maximum cTrader volume (0 = unlimited)
+    step_volume: int = 1              # volume step increment
+
+    @property
+    def contract_size(self) -> float:
+        """Alias for lot_size as float (backward compat with models.py consumers)."""
+        return float(self.lot_size)
+
+    @property
+    def pip_value_per_lot(self) -> float:
+        """Approximate pip value per standard lot (USD).
+
+        Standard forex default; override in SYMBOL_METADATA for non-FX.
+        """
+        return 10.0
 
 
 DEFAULT_SYMBOLS: dict[int, str] = {

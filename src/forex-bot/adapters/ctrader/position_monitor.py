@@ -30,12 +30,14 @@ class PositionMonitor:
         kill_switch=None,
         max_trade_duration_sec: float = 14400,   # 4 hours default
         check_interval_sec: float = 5.0,
+        contract_sizes: dict[str, float] | None = None,
     ):
         self._order_manager = order_manager
         self._risk_guard = risk_guard
         self._kill_switch = kill_switch
         self._max_trade_duration_sec = max_trade_duration_sec
         self._check_interval_sec = check_interval_sec
+        self._contract_sizes = contract_sizes or {}  # symbol name -> contract size
         self._lock = threading.RLock()
 
         # Background monitoring thread
@@ -48,6 +50,10 @@ class PositionMonitor:
             "on_drawdown_warning": [],
             "on_drawdown_critical": [],
         }
+
+    def _contract_size_for(self, symbol: str) -> float:
+        """Return contract size for a symbol, defaulting to forex 100k."""
+        return self._contract_sizes.get(symbol, 100_000.0)
 
     # ── Core: update_positions ─────────────────────────────────────────────
 
@@ -82,13 +88,14 @@ class PositionMonitor:
 
     def _update_excursions(self, position: Position, bid: float, ask: float):
         """Update Maximum Favorable / Adverse Excursion."""
+        cs = self._contract_size_for(position.symbol)
         # Calculate current unrealized PnL for this tick
         if position.direction == TradeDirection.LONG:
             exit_price = bid if bid > 0 else position.current_price
-            current_pnl = (exit_price - position.entry_price) * position.volume * 100000
+            current_pnl = (exit_price - position.entry_price) * position.volume * cs
         else:
             exit_price = ask if ask > 0 else position.current_price
-            current_pnl = (position.entry_price - exit_price) * position.volume * 100000
+            current_pnl = (position.entry_price - exit_price) * position.volume * cs
 
         if current_pnl > position.max_favorable_excursion:
             position.max_favorable_excursion = current_pnl
@@ -132,7 +139,7 @@ class PositionMonitor:
 
             total_unrealized_pnl = sum(p.unrealized_pnl for p in open_positions)
             total_notional = sum(
-                p.volume * 100000 for p in open_positions
+                p.volume * self._contract_size_for(p.symbol) for p in open_positions
             )
             positions_by_symbol: dict[str, int] = {}
             for p in open_positions:
@@ -141,7 +148,7 @@ class PositionMonitor:
                 )
 
             largest_position = max(
-                (p.volume * 100000 for p in open_positions), default=0.0
+                (p.volume * self._contract_size_for(p.symbol) for p in open_positions), default=0.0
             )
 
             total_mfe = sum(p.max_favorable_excursion for p in open_positions)
@@ -247,7 +254,7 @@ class PositionMonitor:
                     drawdown = 0.0
                     if position.max_adverse_excursion < 0:
                         # Express as fraction of notional
-                        notional = position.volume * 100000
+                        notional = position.volume * self._contract_size_for(position.symbol)
                         if notional > 0:
                             drawdown = abs(
                                 position.max_adverse_excursion
