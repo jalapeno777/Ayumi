@@ -77,7 +77,14 @@ class KillSwitchManager:
     Used by ForwardTestEngine, PaperTrader, and external interfaces.
 
     Thread-safe. File-persisted. Fail-safe.
+
+    When ``_disabled`` is True, all activation is suppressed and
+    ``is_active()`` always returns False. This is a safety hatch for
+    when the kill switch triggers on false positives and blocks the
+    system from operating. Set to False to re-enable.
     """
+
+    _disabled: bool = True  # Craig directive Jun 27: disabled until properly investigated
 
     # Kill levels
     LEVEL_GLOBAL = "global"
@@ -115,6 +122,8 @@ class KillSwitchManager:
 
         Target latency: < 0.01ms (single bool read, no I/O).
         """
+        if self._disabled:
+            return False
         return self._killed_cache
 
     def is_globally_frozen(self) -> bool:
@@ -122,10 +131,14 @@ class KillSwitchManager:
 
         Target latency: < 0.01ms (single bool read, no I/O).
         """
+        if self._disabled:
+            return False
         return self._frozen_cache
 
     def is_active(self) -> bool:
         """Is any kill switch active (kill or freeze)?"""
+        if self._disabled:
+            return False
         return self._state.active
 
     def get_status(self) -> dict:
@@ -147,8 +160,11 @@ class KillSwitchManager:
             reason: Human-readable reason for the kill.
             triggered_by: Who/what triggered the kill (e.g. "manual", "watchdog").
             close_positions: If True, signal that positions should be closed.
-                (Actual closing is done by the engine/paper_trader, not here.)
         """
+        if self._disabled:
+            logger.info("activate_global_kill suppressed (kill switch disabled): reason=%s by=%s", reason, triggered_by)
+            return
+
         with self._lock:
             now = datetime.now(timezone.utc).isoformat()
             was_active = self._state.active
@@ -194,11 +210,11 @@ class KillSwitchManager:
 
     def activate_global_freeze(self, reason: str, triggered_by: str) -> None:
         """Activate global FREEZE — stops new trades, holds existing positions.
-
-        Args:
-            reason: Human-readable reason for the freeze.
-            triggered_by: Who/what triggered the freeze.
         """
+        if self._disabled:
+            logger.info("activate_global_freeze suppressed (kill switch disabled): reason=%s by=%s", reason, triggered_by)
+            return
+
         with self._lock:
             now = datetime.now(timezone.utc).isoformat()
             was_active = self._state.active
