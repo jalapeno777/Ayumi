@@ -100,3 +100,11 @@ logs/blend_forward_test.log
 logs/ctp_*.log
 logs/live_paper.log
 logs/paper_mvp.log
+data/*.log
+data/*.jsonl
+data/*.bak*
+data/.token_refresh.lock
+data/audit/
+logs/
+data/signal_stats*
+data/risk_state*
