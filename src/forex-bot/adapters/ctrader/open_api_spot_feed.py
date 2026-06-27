@@ -1058,10 +1058,18 @@ class OpenApiSpotFeed:
         reactor. The re-auth send is dispatched back to the reactor thread
         via reactor.callFromThread().
 
-        If no TokenLifecycle is wired, falls back to no-op (migration safety).
+        If no TokenLifecycle is wired or refresh is disabled, falls back to
+        no-op (migration safety).
         """
         if self._token_lifecycle is None:
             logger.warning("_refresh_token_and_reauth: no TokenLifecycle wired — skipping")
+            return
+
+        if getattr(self._token_lifecycle, '_refresh_disabled', False):
+            logger.info(
+                "_refresh_token_and_reauth: token refresh DISABLED — skipping "
+                "(manual rotation required). proactive=%s", proactive
+            )
             return
 
         if not proactive and self._auth_circuit_open:
@@ -1111,6 +1119,9 @@ class OpenApiSpotFeed:
 
     def _schedule_proactive_refresh(self, expires_in: int) -> None:
         if self._auth_circuit_open:
+            return
+        if getattr(self._token_lifecycle, '_refresh_disabled', False):
+            logger.info("_schedule_proactive_refresh: skipped — token refresh DISABLED")
             return
         if self._refresh_timer is not None:
             self._refresh_timer.cancel()
