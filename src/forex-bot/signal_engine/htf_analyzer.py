@@ -19,6 +19,7 @@ class HTFAnalyzer:
     def analyze_phase(
         self,
         tf_data: dict,
+        bars_closed: bool = True,
     ) -> HTFState:
         """Evaluate HTF phase from a single timeframe's data.
 
@@ -29,10 +30,14 @@ class HTFAnalyzer:
                 - closes: array of close prices
                 - ema_50: optional array of 50 EMA values
                 - atr: optional float (ATR for volatility context)
+            bars_closed: if False, return neutral (bar still forming)
 
         Returns:
             HTFState with phase, alignment_score, ema_slope, range_size.
         """
+        if not bars_closed:
+            return HTFState(HTFPhase.NEUTRAL, 0.0, 0.0, 0.0)
+
         highs = np.asarray(tf_data.get("highs", []))
         lows = np.asarray(tf_data.get("lows", []))
         closes = np.asarray(tf_data.get("closes", []))

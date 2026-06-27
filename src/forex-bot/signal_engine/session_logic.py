@@ -165,8 +165,17 @@ class SessionAnalyzer:
         utc_dt: datetime,
         htf_phase: str = "neutral",
         price_action: Optional[dict] = None,
+        bar_closed: bool = True,
     ) -> dict:
         """Score with precise time for phase calculation."""
+        if not bar_closed:
+            return {
+                "phase_score": 0.0,
+                "kill_zone_active": self.is_kill_zone(utc_dt),
+                "directional_bias": None,
+                "bar_closed": False,
+            }
+
         result: dict = {
             "phase_score": 0.5,
             "kill_zone_active": self.is_kill_zone(utc_dt),
