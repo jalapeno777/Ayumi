@@ -443,6 +443,7 @@ class OrderManager:
         current_price: float,
         bid: float = 0,
         ask: float = 0,
+        contract_size: float = 100_000.0,
     ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
@@ -454,23 +455,25 @@ class OrderManager:
             if position.direction == TradeDirection.LONG:
                 exit_price = bid if bid > 0 else current_price
                 position.unrealized_pnl = (
-                    (exit_price - position.entry_price) * position.volume * 100000
+                    (exit_price - position.entry_price) * position.volume * contract_size
                 )
             else:
                 exit_price = ask if ask > 0 else current_price
                 position.unrealized_pnl = (
-                    (position.entry_price - exit_price) * position.volume * 100000
+                    (position.entry_price - exit_price) * position.volume * contract_size
                 )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
                 sl_fill = bid if position.direction == TradeDirection.LONG else ask
                 self._close_position(
-                    position, sl_fill if sl_fill > 0 else position.stop_loss
+                    position, sl_fill if sl_fill > 0 else position.stop_loss,
+                    contract_size=contract_size,
                 )
             elif self._check_take_profit_hit(position, current_price, bid, ask):
                 tp_fill = ask if position.direction == TradeDirection.LONG else bid
                 self._close_position(
-                    position, tp_fill if tp_fill > 0 else position.take_profit
+                    position, tp_fill if tp_fill > 0 else position.take_profit,
+                    contract_size=contract_size,
                 )
 
             return position
@@ -518,26 +521,29 @@ class OrderManager:
         position_id: str,
         exit_price: float | None = None,
         reason: str = "manual",
+        contract_size: float = 100_000.0,
     ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
                 return None
 
             position = self._positions[position_id]
-            return self._close_position(position, exit_price, reason)
+            return self._close_position(position, exit_price, reason, contract_size=contract_size)
 
     def _close_position(
         self,
         position: Position,
         exit_price: float | None = None,
         reason: str = "unknown",
+        *,
+        contract_size: float = 100_000.0,
     ) -> Position:
         exit_price = exit_price or position.current_price
 
         if position.direction == TradeDirection.LONG:
-            pnl = (exit_price - position.entry_price) * position.volume * 100000
+            pnl = (exit_price - position.entry_price) * position.volume * contract_size
         else:
-            pnl = (position.entry_price - exit_price) * position.volume * 100000
+            pnl = (position.entry_price - exit_price) * position.volume * contract_size
 
         position.status = PositionStatus.CLOSED
         position.closed_at = datetime.utcnow()

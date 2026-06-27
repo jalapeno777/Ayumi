@@ -1,0 +1,14 @@
+{
+  "account_balance": 10000.0,
+  "peak_balance": 10000.0,
+  "daily_risk_used": 0.0,
+  "open_risk": 0.0,
+  "circuit_breaker": {
+    "halted": false,
+    "halted_until": null,
+    "halt_reason": "",
+    "recent_trades": [],
+    "daily_dd_pct": 0.0,
+    "account_dd_pct": 0.0
+  }
+}

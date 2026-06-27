@@ -1023,13 +1023,26 @@ class ForwardTestEngine:
             return cfg.default_lot_size
         balance = self._config.starting_balance
         risk_amount = balance * cfg.risk_per_trade_pct
-        pip_value = 0.0001
+
+        # Determine pip size and pip value per lot from SymbolInfo when available
+        # so that crypto and other non-FX symbols calculate correct position sizes.
+        pip_value = 0.0001          # forex default (1 pip = 0.0001)
+        dollar_per_pip_per_lot = 10.0  # standard FX lot pip value in USD
+        if self._market_feed is not None:
+            sym_id = None
+            try:
+                sym_id = self._market_feed.resolve_symbol_id(signal.symbol)
+            except Exception:
+                pass
+            if sym_id is not None:
+                sym_info = self._market_feed.symbols.get(sym_id)
+                if sym_info is not None:
+                    pip_value = sym_info.pip_size
+                    dollar_per_pip_per_lot = sym_info.pip_value_per_lot
+
         sl_pips = sl_distance / pip_value
         if sl_pips <= 0:
             return cfg.default_lot_size
-        # $1 per pip per micro-lot (0.01) for major pairs is the rough FX convention.
-        # Refine via $ per pip / lot for the symbol if available.
-        dollar_per_pip_per_lot = 10.0  # standard lot; use 1.0 for micro-lot
         lots = risk_amount / (sl_pips * dollar_per_pip_per_lot)
         lots = max(cfg.min_lot_size, min(cfg.max_lot_size, lots))
         return lots
@@ -1097,7 +1110,7 @@ class ForwardTestEngine:
             )
             return None
 
-        volume_raw = int(round(volume_lots * 100_000))
+        volume_raw = self._market_feed.lots_to_volume(symbol_id, volume_lots)
 
         order = self._market_feed.new_order(
             symbol_id=symbol_id,

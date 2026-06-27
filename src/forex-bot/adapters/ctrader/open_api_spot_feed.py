@@ -72,6 +72,7 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAExecutionType,
 )
 from .market_data_feed import Tick, SymbolInfo
+from .volume_calculator import VolumeCalculator
 from .connection import CTraderConnection
 from .auth_error_types import get_policy, AuthFaultType
 from .connection_state import ConnectionState, ConnectionStateManager
@@ -124,6 +125,11 @@ def _normalize_symbol_name(name: str) -> str:
 
 
 def _lots_to_units(lots: float) -> int:
+    """Deprecated — use VolumeCalculator.lots_to_volume() instead.
+
+    Kept as a backward-compat alias for any external callers that haven't
+    migrated yet. All internal call sites now go through VolumeCalculator.
+    """
     return int(round(lots * 100_000))
 
 
@@ -229,6 +235,9 @@ class OpenApiSpotFeed:
             max_workers=1, thread_name_prefix="openapi-spot-callback",
         )
 
+        # Volume conversion (per-symbol, replaces hardcoded 100_000)
+        self._volume_calc = VolumeCalculator(self._symbols)
+
     # ── Properties ─────────────────────────────────────────────────────────
 
     def set_kill_switch(self, kill_switch) -> None:
@@ -291,6 +300,10 @@ class OpenApiSpotFeed:
     def tick_counts(self) -> dict[str, int]:
         with self._lock:
             return dict(self._tick_counts)
+
+    def lots_to_volume(self, symbol_id: int, lots: float) -> int:
+        """Public accessor for VolumeCalculator — used by Task 4 consumers."""
+        return self._volume_calc.lots_to_volume(symbol_id, lots)
 
     def get_health(self) -> dict:
         return {
@@ -552,7 +565,11 @@ class OpenApiSpotFeed:
         if raw_bid == 0 and raw_ask == 0:
             return
 
-        bid, ask = raw_bid / 100_000, raw_ask / 100_000
+        digits = self._symbol_digits.get(symbol_id, 5)
+        if symbol_id not in self._symbol_digits:
+            logger.warning("Tick decode: no digits for symbol_id=%s, using default 5", symbol_id)
+        divisor = 10 ** digits
+        bid, ask = raw_bid / divisor, raw_ask / divisor
 
         if raw_bid == 0 or raw_ask == 0:
             last = self._ticks_by_id.get(symbol_id)
@@ -688,13 +705,17 @@ class OpenApiSpotFeed:
             name=self._id_to_name.get(symbol_id, str(symbol_id)),
             pip_size=10 ** (-sym.digits),
             digits=sym.digits,
+            lot_size=sym.lotSize if sym.lotSize else 100_000,
+            min_volume=sym.minVolume if sym.minVolume else 0,
+            max_volume=sym.maxVolume if sym.maxVolume else 0,
+            step_volume=sym.stepVolume if sym.stepVolume else 1,
         )
         self._symbol_digits[symbol_id] = sym.digits
         return True
 
     def _populate_static_symbols(self):
         for sid, (name, digits) in {1: ("EURUSD", 5), 2: ("GBPUSD", 5), 4: ("USDJPY", 3)}.items():
-            self._symbols[sid] = SymbolInfo(sid, name, 10 ** (-digits), digits)
+            self._symbols[sid] = SymbolInfo(sid, name, 10 ** (-digits), digits, lot_size=100_000)
             self._symbol_digits[sid] = digits
             self._id_to_name[sid] = name
             self._name_to_id[_normalize_symbol_name(name)] = sid
@@ -756,7 +777,7 @@ class OpenApiSpotFeed:
         for tb in getattr(payload, 'trendbar', []):
             bar_time = datetime.fromtimestamp(getattr(tb, 'utcTimestampInMinutes', 0) * 60, tz=timezone.utc)
             low_raw = getattr(tb, 'low', 0)
-            d = 100000.0
+            d = float(10 ** self._symbol_digits.get(symbol_id, 5))
             bars.append(Bar(
                 time=bar_time,
                 open=round((low_raw + getattr(tb, 'deltaOpen', 0)) / d, 5),
@@ -788,7 +809,7 @@ class OpenApiSpotFeed:
                     symbol=self._symbol_name_for_id(symbol_id),
                     direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
                     order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
-                    volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
+                    volume=self._volume_calc.volume_to_lots(symbol_id, volume), price=price, stop_loss=sl, take_profit=tp,
                     status=OrderStatus.REJECTED, comment=comment,
                 )
                 setattr(order, "reason", reason)
@@ -800,7 +821,7 @@ class OpenApiSpotFeed:
             symbol=self._symbol_name_for_id(symbol_id),
             direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
             order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
-            volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
+            volume=self._volume_calc.volume_to_lots(symbol_id, volume), price=price, stop_loss=sl, take_profit=tp,
             status=OrderStatus.PENDING, comment=comment,
         )
         if not self._state_mgr.is_operational:
@@ -865,7 +886,7 @@ class OpenApiSpotFeed:
         side = ProtoOATradeSide.BUY if direction == TradeDirection.LONG else ProtoOATradeSide.SELL
         proto_type = {OrderType.MARKET: ProtoOAOrderType.MARKET, OrderType.LIMIT: ProtoOAOrderType.LIMIT,
                       OrderType.STOP: ProtoOAOrderType.STOP}.get(order_type, ProtoOAOrderType.MARKET)
-        return self.new_order(symbol_id, side, _lots_to_units(volume), order_type=proto_type,
+        return self.new_order(symbol_id, side, self._volume_calc.lots_to_volume(symbol_id, volume), order_type=proto_type,
                              price=price, sl=stop_loss, tp=take_profit, comment=comment)
 
     def cancel_order(self, order_id, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
@@ -915,7 +936,7 @@ class OpenApiSpotFeed:
                     position_id=str(getattr(raw, "positionId", "")),
                     symbol=self._symbol_name_for_id(getattr(td, "symbolId", 0)),
                     direction=TradeDirection.LONG if getattr(td, "tradeSide", 0) == ProtoOATradeSide.BUY else TradeDirection.SHORT,
-                    volume=getattr(td, "volume", 0) / 100_000.0,
+                    volume=self._volume_calc.volume_to_lots(getattr(td, "symbolId", 0), int(getattr(td, "volume", 0))),
                     entry_price=getattr(raw, "price", 0.0),
                     current_price=getattr(raw, "price", 0.0),
                     stop_loss=getattr(raw, "stopLoss", None) or None,
@@ -983,7 +1004,10 @@ class OpenApiSpotFeed:
         )
         ev = getattr(order_payload, "executedVolume", 0)
         if ev:
-            order.volume = ev / 100_000.0
+            ev_symbol_id = getattr(order_payload, "symbolId", None)
+            if ev_symbol_id is None:
+                ev_symbol_id = self._resolve_name_to_id(order.symbol) or 0
+            order.volume = self._volume_calc.volume_to_lots(ev_symbol_id, ev)
         setattr(order, "reason", "order_filled")
         event.set()
         self._trigger_callback("on_order_filled", order, message)

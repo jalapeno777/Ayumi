@@ -145,11 +145,37 @@ class MarketDataSnapshot:
 
 @dataclass(frozen=True)
 class SymbolInfo:
-    """Metadata for a trading symbol used by OrderManager and RiskGuard."""
+    """Metadata for a trading symbol used by OrderManager and RiskGuard.
+
+    Use ``from_live_symbol_info()`` to bridge from the live-trading
+    ``market_data_feed.SymbolInfo`` populated by ``_fetch_symbol_details``.
+    """
     pip_size: float              # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
     pip_value_per_lot: float     # USD value of 1 pip per standard lot
     lot_size: int = 100_000      # contract size per lot
     contract_size: float = 100_000.0  # same as lot_size but as float for some calcs
+
+    @classmethod
+    def from_live_symbol_info(
+        cls,
+        live: "SymbolInfo",  # type: ignore[assignment]  # forward ref to market_data_feed.SymbolInfo
+        pip_value_per_lot: float = 10.0,
+    ) -> "SymbolInfo":
+        """Bridge from the live-trading ``market_data_feed.SymbolInfo``.
+
+        Args:
+            live: A ``market_data_feed.SymbolInfo`` with populated volume fields.
+            pip_value_per_lot: Override for non-FX symbols (default 10.0 USD).
+
+        Returns:
+            A ``models.SymbolInfo`` suitable for OrderManager / RiskManager.
+        """
+        return cls(
+            pip_size=live.pip_size,
+            pip_value_per_lot=pip_value_per_lot,
+            lot_size=live.lot_size,
+            contract_size=live.contract_size,
+        )
 
 
 # Canonical symbol metadata — replace hardcoded pip heuristics throughout the codebase.
