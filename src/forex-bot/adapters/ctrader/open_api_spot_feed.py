@@ -1124,11 +1124,9 @@ class OpenApiSpotFeed:
             self._refresh_token_and_reauth(proactive=True)
 
     def _activate_kill_switch_freeze(self, reason: str) -> None:
-        # During forex market close, feed health checks are unreliable.
-        # Don't activate kill switch based on stale-data triggers.
-        if is_forex_market_closed():
-            logger.debug("Skipping kill switch activation during market close: %s", reason)
-            return
+        # Market-hours gating is handled by callers (e.g. _on_conn_feed_dead)
+        # that check is_forex_market_closed() before invoking this method.
+        # Auth-failure and other hard-error callers should fire unconditionally.
         if self._kill_switch is not None:
             try:
                 self._kill_switch.activate_global_freeze(reason=reason, triggered_by="spot_feed")
