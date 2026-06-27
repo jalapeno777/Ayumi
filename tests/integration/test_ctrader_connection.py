@@ -146,7 +146,8 @@ class TestHealthMonitor:
         conn.notify_heartbeat()
         assert conn._last_heartbeat_recv > before
 
-    def test_heartbeat_degraded_transition(self, conn, state_mgr):
+    @patch("adapters.ctrader.connection.is_forex_market_closed", return_value=False)
+    def test_heartbeat_degraded_transition(self, mock_market_closed, conn, state_mgr):
         # Set state to AUTHENTICATED so health check runs
         state_mgr._state = ConnectionState.AUTHENTICATED
         # Set heartbeat to be stale
@@ -154,7 +155,8 @@ class TestHealthMonitor:
         conn._check_heartbeat()
         assert state_mgr.state == ConnectionState.DEGRADED
 
-    def test_heartbeat_reconnect_transition(self, conn, state_mgr):
+    @patch("adapters.ctrader.connection.is_forex_market_closed", return_value=False)
+    def test_heartbeat_reconnect_transition(self, mock_market_closed, conn, state_mgr):
         state_mgr._state = ConnectionState.AUTHENTICATED
         conn._last_heartbeat_recv = time.monotonic() - 70  # past reconnect threshold
         conn._check_heartbeat()
