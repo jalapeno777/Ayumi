@@ -30,6 +30,10 @@ from .credential_store import CredentialStore
 from .token_lifecycle import TokenLifecycle
 from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction
 
+# BQ-1330a: Auth retry constants
+AUTH_RETRY_MAX_ATTEMPTS = 3
+AUTH_RETRY_BACKOFF_SECONDS = (1.0, 2.0, 4.0)
+
 
 # ── Decision context ──────────────────────────────────────────────────────────
 
@@ -717,3 +721,82 @@ class ConnectionManager:
         """
         self._reconnect_attempt = 0
         self._reconnect_strategy.reset()
+
+    # ─── Auth retry (BQ-1330a) ──────────────────────────────────────────────
+
+    def authenticate_with_retry(
+        self,
+        auth_fn: callable,
+        *,
+        max_attempts: int = AUTH_RETRY_MAX_ATTEMPTS,
+        backoff_seconds: tuple[float, ...] = AUTH_RETRY_BACKOFF_SECONDS,
+    ) -> bool:
+        """Attempt authentication with retry on failure.
+
+        BQ-1330a: Wraps any auth callable so the engine FSM survives
+        transient auth failures instead of permanently dying.  The existing
+        FSM states are NOT changed — this method simply retries the callable
+        and lets the caller handle state transitions.
+
+        After ``max_attempts`` failures, returns ``False`` so the caller can
+        decide whether to halt.  The engine dying after all retries are
+        exhausted is acceptable per spec.
+
+        Args:
+            auth_fn: Callable that returns ``True`` on success, ``False`` or
+                raises on failure.
+            max_attempts: Maximum number of attempts (default 3).
+            backoff_seconds: Exponential backoff schedule in seconds,
+                applied between attempts (default 1s, 2s, 4s).
+
+        Returns:
+            ``True`` if authentication eventually succeeded,
+            ``False`` if all attempts were exhausted.
+        """
+        last_error: Exception | None = None
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = auth_fn()
+                if result:
+                    if attempt > 1:
+                        logger.info(
+                            "[ConnectionManager] Auth succeeded on attempt %d/%d",
+                            attempt,
+                            max_attempts,
+                        )
+                    self.reset_reconnect_state()
+                    return True
+                # auth_fn returned False — treat as failure
+                logger.warning(
+                    "[ConnectionManager] Auth attempt %d/%d returned False",
+                    attempt,
+                    max_attempts,
+                )
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "[ConnectionManager] Auth attempt %d/%d failed: %s",
+                    attempt,
+                    max_attempts,
+                    exc,
+                )
+
+            # Sleep before next attempt (skip on last attempt)
+            if attempt < max_attempts:
+                sleep_idx = min(attempt - 1, len(backoff_seconds) - 1)
+                sleep_time = backoff_seconds[sleep_idx]
+                logger.info(
+                    "[ConnectionManager] Retrying auth in %.1fs (attempt %d/%d)",
+                    sleep_time,
+                    attempt + 1,
+                    max_attempts,
+                )
+                time.sleep(sleep_time)
+
+        logger.error(
+            "[ConnectionManager] Auth failed after %d attempts%s",
+            max_attempts,
+            f": {last_error}" if last_error else "",
+        )
+        return False
