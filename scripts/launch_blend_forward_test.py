@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import sys
 import argparse
+import json
 import signal as sig_module
 import time
 import logging
@@ -47,7 +48,11 @@ if __name__ == "__main__":
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+from adapters.ctrader.forward_test_engine import (
+    ForwardTestConfig,
+    ForwardTestEngine,
+    _is_forex_market_closed,
+)
 from adapters.ctrader.models import cTraderCredentials, TradeSignal
 from adapters.ctrader.risk_guard import FTMOConfig
 from forward_test.blend_runner import BlendForwardTestRunner
@@ -527,6 +532,51 @@ def wire_connection_reliability(connection_manager):
         logger.warning("OAuth refresh on startup failed: %s", exc)
 
 
+# ── Forward Test Health JSON Writer ──────────────────────────────────────────
+
+_HEALTH_JSON_PATH = PROJECT_ROOT / "data" / "forward_test_health.json"
+
+
+def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
+    """Atomically write forward-test health status to ``data/forward_test_health.json``.
+
+    Called on startup (immediately clears stale ``down`` state) and every 60s
+    from the periodic health loop.
+    """
+    try:
+        health = engine.health
+        stats = engine.get_stats()
+        trading = stats.get("trading", {})
+
+        # Connection state from the spot feed's state manager
+        feed = getattr(engine, "_market_feed", None)
+        state_mgr = getattr(feed, "_state_mgr", None)
+        connection_state = state_mgr.state.value if state_mgr else "unknown"
+
+        health_data = {
+            "service_status": "up" if engine.is_running else "down",
+            "ticks_received": health.ticks_received,
+            "bars_built": health.bars_built,
+            "signals_generated": health.signals_generated,
+            "trades_executed": trading.get("trades_executed", 0),
+            "last_tick_time": health.last_tick_at.isoformat() if health.last_tick_at else None,
+            "connection_state": connection_state,
+            "market_closed": _is_forex_market_closed(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        json_str = json.dumps(health_data, indent=2)
+        _HEALTH_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        tmp_path = _HEALTH_JSON_PATH.with_suffix(".json.tmp")
+        tmp_path.write_text(json_str)
+        os.replace(str(tmp_path), str(_HEALTH_JSON_PATH))
+    except Exception as exc:
+        logger.warning("Failed to write forward_test_health.json: %s", exc)
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
@@ -727,6 +777,10 @@ def main():
         blend_runner.stop()
         sys.exit(1)
 
+    # Write health JSON immediately on startup to clear any stale "down" state
+    write_forward_test_health_json(engine)
+    logger.info("Forward test health JSON written on startup")
+
     # ── Periodic health loop (B5) ─────────────────────────────────────────
     try:
         _health_interval = 60.0
@@ -781,6 +835,9 @@ def main():
                             "tick-to-bar pipeline may be stalled",
                             h.get("ticks_received", 0),
                         )
+
+                    # Write health JSON for external watchdogs / dashboards
+                    write_forward_test_health_json(engine)
                 except Exception as exc:
                     logger.warning("[B5 Health] Error logging health: %s", exc)
     except KeyboardInterrupt:

@@ -1984,12 +1984,17 @@ class ForwardTestEngine:
             self._reconnect_stuck_at = None
             logger.info("Reconnection successful — reset consecutive failure counter")
         else:
-            self._reconnect_delay = min(
-                self._reconnect_delay * 2,
-                self._config.max_reconnect_delay_sec,
-            )
+            # Full-jitter backoff per AWS recommendations
+            import random
+            base = self._config.reconnect_delay_sec  # 5.0
+            cap = self._config.max_reconnect_delay_sec  # 120.0
+            attempts = self._health.reconnection_attempts
+            exponent = min(attempts, 8)  # cap exponent to prevent overflow
+            backoff_cap = min(cap, base * (2 ** exponent))
+            self._reconnect_delay = random.uniform(0, backoff_cap)
             logger.warning(
-                "Reconnection failed — next attempt in %.1fs", self._reconnect_delay
+                "Reconnection failed — next attempt in %.1fs (full-jitter, attempt=%d)",
+                self._reconnect_delay, attempts,
             )
 
     def _on_trade_executed(self, result):

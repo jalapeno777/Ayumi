@@ -119,6 +119,24 @@ from .market_hours import is_forex_market_closed
 _STALE_TICK_WARN_SEC = 60.0
 _STALE_TICK_FREEZE_SEC = 120.0
 
+# Error tier classification per BQ-1382 §6
+_ERROR_TIERS = {
+    # Tier 1: Transient — auto-reconnect
+    "CH_OAUTH_TOKEN_EXPIRED": "transient",
+    "CH_INVALID_TOKEN": "transient",
+    "ALREADY_LOGGED_IN": "transient",
+    "SESSION_EXPIRED": "transient",
+
+    # Tier 2: Rate/Resource — back off
+    "SERVER_BUSY": "rate_resource",
+    "RATE_LIMIT_REACHED": "rate_resource",
+    "CH_ACCOUNT_NOT_LOGGED_IN": "transient",
+
+    # Tier 3: Critical — alert and halt
+    "CH_PERMISSION_DENIED": "critical",
+    "CH_SERVER_SECURITY_NOT_PASSED": "critical",
+}
+
 
 def _normalize_symbol_name(name: str) -> str:
     return name.replace("/", "").replace("_", "").upper()
@@ -1053,10 +1071,34 @@ class OpenApiSpotFeed:
             return
         # Centralized auth error classification
         description = getattr(message, "description", "")
+
+        # Tier classification (BQ-1382 §6)
+        tier = _ERROR_TIERS.get(error_code, "unknown")
+        logger.warning(
+            "cTrader error [%s] tier=%s: %s",
+            error_code, tier, description,
+        )
+
+        # Tier 3: Critical — halt auto-reconnect for permission/security errors
+        if tier == "critical":
+            logger.critical(
+                "Critical cTrader error [%s] — halting auto-reconnect: %s",
+                error_code, description,
+            )
+            return  # Don't attempt reconnect for permission/security errors
+
+        # Tier 2: Rate/Resource — extended backoff before reconnect
+        if tier == "rate_resource":
+            logger.warning(
+                "Rate/resource error [%s] — applying 10s extended backoff",
+                error_code,
+            )
+            time.sleep(10)
+
         fault_type, policy = get_policy(error_code, description)
         logger.warning(
-            "Auth error classified: code=%s fault_type=%s can_refresh=%s escalate=%s",
-            error_code, fault_type.value, policy.can_refresh, policy.requires_escalation,
+            "Auth error classified: code=%s fault_type=%s tier=%s can_refresh=%s escalate=%s",
+            error_code, fault_type.value, tier, policy.can_refresh, policy.requires_escalation,
         )
         if policy.activate_kill_switch:
             logger.error(
@@ -1200,6 +1242,11 @@ class OpenApiSpotFeed:
             self._authed.set()
             self._set_message_callback()
 
+            logger.info(
+                "Re-subscribing to %d symbols after reconnect: %s",
+                len(self._subscribed_symbol_ids),
+                list(self._subscribed_symbol_ids),
+            )
             for sid in list(self._subscribed_symbol_ids):
                 self._subscribe_by_id(sid)
 
