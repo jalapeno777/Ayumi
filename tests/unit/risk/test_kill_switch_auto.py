@@ -33,6 +33,19 @@ from adapters.ctrader.risk_guard import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _enable_kill_switch_for_tests():
+    """Enable kill switch in-process for testing.
+
+    Production has _disabled=True (Craig directive Jun 27). Tests need it
+    enabled to verify watchdog/audit logic. Restored after each test.
+    """
+    original = KillSwitchManager._disabled
+    KillSwitchManager._disabled = False
+    yield
+    KillSwitchManager._disabled = original
+
+
 @pytest.fixture
 def tmp_state_dir(tmp_path):
     """Provide a temporary kill switch state directory."""

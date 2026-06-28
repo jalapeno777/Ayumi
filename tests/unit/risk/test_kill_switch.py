@@ -30,6 +30,19 @@ from adapters.ctrader.kill_switch import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _enable_kill_switch_for_tests():
+    """Enable kill switch in-process for testing.
+
+    Production has _disabled=True (Craig directive Jun 27). Tests need it
+    enabled to verify activation/persistence logic. Restored after each test.
+    """
+    original = KillSwitchManager._disabled
+    KillSwitchManager._disabled = False
+    yield
+    KillSwitchManager._disabled = original
+
+
 @pytest.fixture
 def tmp_state_dir(tmp_path):
     """Provide a temporary state directory."""
@@ -360,6 +373,10 @@ class TestPerformance:
 
 # ── CLI Tool Integration ─────────────────────────────────────────────────────
 
+@pytest.mark.skipif(
+    KillSwitchManager._disabled,
+    reason="CLI tests require kill switch enabled, but production has _disabled=True (Craig directive)",
+)
 class TestCLI:
     @pytest.fixture
     def cli_env(self, tmp_state_dir):
