@@ -683,7 +683,7 @@ def main() -> None:
 
     # ── Step 2: Load credentials ───────────────────────────────────────────
     cred_store = CredentialStore(
-        credentials_path=str(PROJECT_ROOT / "data" / ".credentials")
+        env_path=str(PROJECT_ROOT / ".env")
     )
     try:
         creds = cred_store.load()
