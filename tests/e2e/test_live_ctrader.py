@@ -52,8 +52,8 @@ class _ConnectionHelper:
     def connect(self, timeout=15):
         _skip_if_no_creds()
         self.client = Client(CTRADER_HOST, 5035, TcpProtocol)
-        self.client.setConnectCallback(lambda _: self.connected.set())
-        self.client.setDisconnectCallback(lambda _, r: self.connected.clear())
+        self.client.setConnectedCallback(lambda _: self.connected.set())
+        self.client.setDisconnectedCallback(lambda _, r: self.connected.clear())
         self.client.setMessageReceivedCallback(self._on_msg)
         reactor.callFromThread(self.client.startService)
         assert self.connected.wait(timeout), "TCP connect timeout"

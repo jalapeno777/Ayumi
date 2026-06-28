@@ -203,6 +203,7 @@ class TestExecuteSignalLiveWorksWithoutPaperTrader:
         # branch in ``_execute_signal_live`` doesn't short-circuit.
         type(feed._state_mgr).is_operational = property(lambda self: True)
         feed.resolve_symbol_id = MagicMock(return_value=1)
+        feed.lots_to_volume = MagicMock(return_value=10000)
         feed.new_order = MagicMock(return_value=filled_order)
 
         outcome = live_engine._execute_signal_live(sig, strategy_id="test")
@@ -234,6 +235,7 @@ class TestExecuteSignalLiveWorksWithoutPaperTrader:
         feed = live_engine._market_feed
         type(feed._state_mgr).is_operational = property(lambda self: True)
         feed.resolve_symbol_id = MagicMock(return_value=1)
+        feed.lots_to_volume = MagicMock(return_value=10000)
         feed.new_order = MagicMock(return_value=pending_order)
 
         outcome = live_engine._execute_signal_live(sig, strategy_id="test")

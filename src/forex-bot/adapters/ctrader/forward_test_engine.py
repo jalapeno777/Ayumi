@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     pass
 
 from backtest.engine import Bar, MarketState
+from backtest.types import determine_session, SessionType
 from backtest.strategies import ISignalStrategy
 
 from .connection_state import ConnectionState
@@ -1465,7 +1466,9 @@ class ForwardTestEngine:
                 if len(bars) < self._config.min_bars_for_evaluation:
                     continue
 
-                state = MarketState(bars=bars)
+                _latest = bars[-1] if bars else None
+                _session = determine_session(_latest.time) if _latest else SessionType.OUTSIDE
+                state = MarketState(bars=bars, current_session=_session)
 
                 # T5: Capture risk block count before evaluation
                 _pre_risk_blocks = (

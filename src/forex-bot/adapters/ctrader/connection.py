@@ -377,11 +377,11 @@ class CTraderConnection:
             return
         try:
             # Send heartbeat to server (fire-and-forget)
-            if self._running and self._conn and self._conn.is_connected:
+            if self._running and self._client and self.is_connected:
                 try:
                     from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoHeartbeatEvent
                     from twisted.internet import reactor
-                    reactor.callFromThread(self._conn.send, ProtoHeartbeatEvent())
+                    reactor.callFromThread(self.send, ProtoHeartbeatEvent())
                 except Exception:
                     pass  # fire-and-forget, don't let heartbeat send failure crash health check
             self._check_heartbeat()
