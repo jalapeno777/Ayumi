@@ -108,3 +108,5 @@ data/audit/
 logs/
 data/signal_stats*
 data/risk_state*
+data/forward_test_health.json
+data/overseer_state.json
