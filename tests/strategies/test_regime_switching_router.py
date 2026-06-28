@@ -716,9 +716,17 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
         from backtest.walk_forward_runner import run_strategy_walk_forward
 
         loader = CsvDataLoader()
+        # Path resolution: tests/strategies/<file>.py → repo root needs two ".."
+        # (not one) to reach data/forex/historical/.
         bars = loader.load(
             os.path.join(
-                os.path.dirname(__file__), "..", "data", "forex", "historical", filename
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "data",
+                "forex",
+                "historical",
+                filename,
             )
         )
         if not bars:
