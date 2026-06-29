@@ -334,6 +334,8 @@ class OpenApiSpotFeed:
         return self._volume_calc.lots_to_volume(symbol_id, lots)
 
     def get_health(self) -> dict:
+        now = time.monotonic()
+        heartbeat_age = now - self._conn._last_heartbeat_recv if self._conn._last_heartbeat_recv else None
         return {
             "auth_circuit_open": self._auth_circuit_open,
             "auth_error_count": self._auth_error_count,
@@ -342,7 +344,8 @@ class OpenApiSpotFeed:
             "authed": self._authed.is_set(),
             "state": self._state_mgr.state.value,
             "is_operational": self._state_mgr.is_operational,
-            "last_tick_age": time.monotonic() - self._last_tick_recv_monotonic,
+            "last_tick_age": now - self._last_tick_recv_monotonic,
+            "last_heartbeat_age": heartbeat_age if heartbeat_age is not None else 999,
         }
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
@@ -384,6 +387,9 @@ class OpenApiSpotFeed:
         _PLACEHOLDER_VALUES = {"***", "new-access", "new-refresh", "", "none", "null", "todo", "changeme"}
         if self._access_token.lower() in _PLACEHOLDER_VALUES:
             logger.critical("STARTUP ABORTED: Access token is a placeholder")
+            return False
+        if self._refresh_token.lower() in _PLACEHOLDER_VALUES:
+            logger.critical("STARTUP ABORTED: Refresh token is a placeholder")
             return False
 
         if getattr(self._callback_executor, "_shutdown", False):
@@ -1210,6 +1216,59 @@ class OpenApiSpotFeed:
         if self._running:
             self._refresh_token_and_reauth(proactive=True)
 
+    # ── Health-check compatibility wrappers ─────────────────────────────
+    # These delegate to the data now owned by CTraderConnection so that
+    # legacy tests and monitoring scripts keep working after the archived
+    # refactor moved heartbeat/stale-tick state into CTraderConnection.
+
+    def _check_heartbeat_health(self) -> None:
+        """Compatibility wrapper — checks heartbeat health and transitions state.
+
+        Heartbeat data lives in CTraderConnection._last_heartbeat_recv.
+        This wrapper replicates the old health-check logic so tests and
+        monitoring code that call it keep working.
+        """
+        if not self._state_mgr.is_operational:
+            return  # Skip when DISCONNECTED/CONNECTING/RECONNECTING/FAILED
+
+        now = time.monotonic()
+        last_hb = self._conn._last_heartbeat_recv
+        if last_hb is None:
+            return
+        age = now - last_hb
+
+        if age >= _HEARTBEAT_RECONNECT_SEC:
+            logger.warning("Heartbeat stale (%.1fs) → RECONNECTING", age)
+            self._state_mgr.transition_to(
+                ConnectionState.RECONNECTING, reason="heartbeat_reconnect",
+            )
+        elif age >= _HEARTBEAT_DEGRADED_SEC:
+            logger.warning("Heartbeat degraded (%.1fs) → DEGRADED", age)
+            self._state_mgr.transition_to(
+                ConnectionState.DEGRADED, reason="heartbeat_degraded",
+            )
+
+    def _check_stale_ticks(self) -> None:
+        """Compatibility wrapper — checks for stale ticks during market hours.
+
+        Stale-tick detection was moved out of the feed during the archived
+        refactor. This wrapper restores the check so tests and monitoring
+        code keep working. Weekend and non-authenticated states are skipped.
+        """
+        if not self._state_mgr.is_authenticated and self._state_mgr.state != ConnectionState.DEGRADED:
+            return  # Only check when AUTHENTICATED or DEGRADED
+
+        now_dt = datetime.now(timezone.utc)
+        if now_dt.weekday() >= 5:
+            return  # Weekend — skip
+
+        age = time.monotonic() - self._last_tick_recv_monotonic
+        if age >= _STALE_TICK_FREEZE_SEC:
+            logger.warning("Stale ticks (%.1fs) → activating kill switch freeze", age)
+            self._activate_kill_switch_freeze(f"stale_ticks:{age:.0f}s")
+        elif age >= _STALE_TICK_WARN_SEC:
+            logger.warning("Stale ticks detected (%.1fs) — warning only", age)
+
     def _activate_kill_switch_freeze(self, reason: str) -> None:
         # Market-hours gating is handled by callers (e.g. _on_conn_feed_dead)
         # that check is_forex_market_closed() before invoking this method.
@@ -1230,6 +1289,9 @@ class OpenApiSpotFeed:
             if not self._conn.is_connected:
                 return
 
+            self._state_mgr.transition_to(
+                ConnectionState.APP_AUTHENTICATING, reason="reconnect_app_auth_sending",
+            )
             app_res = self._conn.send_and_wait(
                 ProtoOAApplicationAuthReq(clientId=self._client_id, clientSecret=self._client_secret),
                 timeout=10,
@@ -1239,6 +1301,9 @@ class OpenApiSpotFeed:
                 return
             self._app_authed.set()
 
+            self._state_mgr.transition_to(
+                ConnectionState.ACCT_AUTHENTICATING, reason="reconnect_acct_auth_sending",
+            )
             if not self._conn.is_connected:
                 return
 
