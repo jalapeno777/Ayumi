@@ -310,6 +310,16 @@ class OpenApiSpotFeed:
         return dict(self._name_to_id)
 
     @property
+    def connection(self):
+        """Expose the underlying CTraderConnection for account queries (balance, positions)."""
+        return self._conn
+
+    @property
+    def ctid_account_id(self) -> int:
+        """Expose the cTrader account ID for account-state queries."""
+        return self._ctid_account_id
+
+    @property
     def ticks(self) -> dict[str, Tick]:
         with self._lock:
             return dict(self._ticks)

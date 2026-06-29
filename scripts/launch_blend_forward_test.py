@@ -799,14 +799,28 @@ def main():
                     t = stats.get("trading", {})
                     # Determine live execution status (BQ-1042: prevent false trade claims)
                     _live_fills = getattr(engine, "_live_fill_count", 0)
-                    _live_balance = getattr(engine, "_live_balance", None)
                     _paper_trades = t.get("trades_executed", 0)
                     _paper_balance = t.get("current_balance", 0.0)
                     _live_mode = (execution_mode == "live")
-                    _balance_str = (
-                        f"paper=${_paper_balance:.2f}"
-                        + (f" live=${_live_balance:.2f}" if _live_balance is not None else " live=N/A")
-                    ) if _live_mode else f"balance=${_paper_balance:.2f}"
+
+                    # Fetch real cTrader balance in live mode
+                    _balance_str = f"balance=${_paper_balance:.2f}"
+                    if _live_mode and hasattr(engine, "_market_feed") and engine._market_feed is not None:
+                        try:
+                            from adapters.ctrader.account_state import get_balance as _get_balance
+                            _feed = engine._market_feed
+                            _real_balance = _get_balance(
+                                _feed.connection,
+                                _feed.ctid_account_id,
+                                timeout=5.0,
+                            )
+                            if _real_balance is not None:
+                                engine._live_balance = float(_real_balance)
+                                _balance_str = f"ctrader=${float(_real_balance):.2f}"
+                            else:
+                                _balance_str = f"ctrader=N/A (timeout)"
+                        except Exception as _bal_err:
+                            _balance_str = f"ctrader=ERR ({_bal_err})"
                     _stats_fails = getattr(engine, "_stats_fail_count", 0)
                     logger.info(
                         "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
