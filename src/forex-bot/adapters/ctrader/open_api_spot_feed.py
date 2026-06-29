@@ -1068,10 +1068,16 @@ class OpenApiSpotFeed:
             return False
         event, order = self._pending_orders.pop(client_order_id)
         self._pending_client_msg_ids.pop(client_order_id, None)
-        reason = f"{getattr(message, 'errorCode', 'UNKNOWN')}: {getattr(message, 'description', '')}".strip(": ")
+        error_code = getattr(message, 'errorCode', 'UNKNOWN')
+        description = getattr(message, 'description', '')
+        reason = f"{error_code}: {description}".strip(": ")
         order.status = OrderStatus.REJECTED
         order.comment = reason
         setattr(order, "reason", reason)
+        logger.warning(
+            "[ORDER_ERROR] MATCHED clientOrderId=%r errorCode=%r description=%r reason=%s",
+            client_order_id, error_code, description, reason,
+        )
         event.set()
         self._trigger_callback("on_order_rejected", order, message, reason)
         return True
