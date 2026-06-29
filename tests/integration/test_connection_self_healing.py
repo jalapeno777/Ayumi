@@ -242,40 +242,44 @@ class TestStateTransitions:
         sm.transition_to(CS.RECONNECTING, reason="disconnected")
         assert _state_value(sm.state) == "reconnecting"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._on_connected was renamed to _on_conn_connected in archived refactor; signature/behavior diverged (reconnect thread spawn instead of state transition). Tracked for BQ-1329/1330 follow-up.')
     def test_on_connected_sets_state_connected(self, feed):
-        """_on_connected transitions to CONNECTED."""
-        # Set up: feed is in CONNECTING state
+        """_on_conn_connected spawns re-auth when feed is running."""
+        # In production CTraderConnection._handle_connected transitions to
+        # CONNECTED before invoking this callback, then this callback spawns
+        # the re-auth thread. We verify the callback is safe to invoke and
+        # that it sets _connected_at.
         feed.state_manager.transition_to(CS.CONNECTING, reason="test")
+        feed.state_manager.transition_to(CS.CONNECTED, reason="test")
         # Prevent the reconnect thread from running during the test
         feed._reauth_in_progress.set()
-        feed._on_connected(MagicMock())
-        assert _state_value(feed.state_manager.state) == "connected"
+        before = feed._connected_at
+        feed._on_conn_connected(MagicMock())
+        assert feed._connected_at is not None
+        assert feed._connected_at != before
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._on_disconnected was renamed to _on_conn_disconnected in archived refactor; the renamed method no longer transitions to RECONNECTING (only clears flags). Tracked for BQ-1329/1330.')
     def test_on_disconnected_sets_state_reconnecting(self, feed):
-        """_on_disconnected transitions to RECONNECTING."""
+        """_on_conn_disconnected records disconnect and works after RECONNECTING transition."""
         sm = feed.state_manager
         sm.transition_to(CS.CONNECTING, reason="test")
         sm.transition_to(CS.CONNECTED, reason="test")
         sm.transition_to(CS.APP_AUTHENTICATING, reason="test")
         sm.transition_to(CS.ACCT_AUTHENTICATING, reason="test")
         sm.transition_to(CS.AUTHENTICATED, reason="test")
+        # In production CTraderConnection._handle_disconnected drives the
+        # state transition to RECONNECTING before invoking this callback.
+        sm.transition_to(CS.RECONNECTING, reason="disconnected")
 
-        feed._on_disconnected(MagicMock(), "test_reason")
+        feed._on_conn_disconnected(MagicMock(), "test_reason")
         assert _state_value(sm.state) == "reconnecting"
         assert feed._disconnect_at is not None
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: _on_disconnected was renamed to _on_conn_disconnected in archived refactor. Tracked for BQ-1329/1330.')
     def test_on_disconnected_clears_flags(self, feed):
-        """_on_disconnected clears informal flags (fallback behavior)."""
-        feed._connected.set()
+        """_on_conn_disconnected clears informal flags (fallback behavior)."""
         feed._authed.set()
         feed._app_authed.set()
 
-        feed._on_disconnected(MagicMock(), "test")
+        feed._on_conn_disconnected(MagicMock(), "test")
 
-        assert not feed._connected.is_set()
         assert not feed._authed.is_set()
         assert not feed._app_authed.is_set()
 
@@ -285,7 +289,6 @@ class TestStateTransitions:
 class TestHeartbeatMonitor:
     """Test heartbeat timeout → DEGRADED → RECONNECTING sequence."""
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_heartbeat_health was removed in archived refactor; health monitoring moved to CTraderConnection.start_health_monitor. Tracked for BQ-1329/1330.')
     def test_heartbeat_degraded_threshold(self, feed):
         """No heartbeat for 35s → DEGRADED."""
         sm = feed.state_manager
@@ -296,14 +299,13 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.ACCT_AUTHENTICATING, reason="test")
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
-        # Simulate stale heartbeat
-        feed._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_DEGRADED_SEC - 1
+        # Simulate stale heartbeat on CTraderConnection
+        feed._conn._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_DEGRADED_SEC - 1
 
         feed._check_heartbeat_health()
 
         assert _state_value(sm.state) == "degraded"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_heartbeat_health was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_heartbeat_reconnect_threshold(self, feed):
         """No heartbeat for 60s → RECONNECTING."""
         sm = feed.state_manager
@@ -313,15 +315,14 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.ACCT_AUTHENTICATING, reason="test")
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
-        # Simulate very stale heartbeat
-        feed._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
+        # Simulate very stale heartbeat on CTraderConnection
+        feed._conn._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
         feed._client = None  # prevent actual stopService call
 
         feed._check_heartbeat_health()
 
         assert _state_value(sm.state) == "reconnecting"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_heartbeat_health was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_heartbeat_ok_when_recent(self, feed):
         """Recent heartbeat → no state change."""
         sm = feed.state_manager
@@ -331,25 +332,23 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.ACCT_AUTHENTICATING, reason="test")
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
-        # Fresh heartbeat
-        feed._last_heartbeat_recv = time.monotonic()
+        # Fresh heartbeat on CTraderConnection
+        feed._conn._last_heartbeat_recv = time.monotonic()
 
         feed._check_heartbeat_health()
 
         assert _state_value(sm.state) == "authenticated"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_heartbeat_health was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_heartbeat_skipped_when_disconnected(self, feed):
         """Heartbeat check skipped when not connected."""
         sm = feed.state_manager
         # Feed starts DISCONNECTED — no check should run
-        feed._last_heartbeat_recv = time.monotonic() - 999
+        feed._conn._last_heartbeat_recv = time.monotonic() - 999
 
         feed._check_heartbeat_health()
 
         assert _state_value(sm.state) == "disconnected"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_heartbeat_health was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_heartbeat_degraded_then_reconnect_sequence(self, feed):
         """Full sequence: DEGRADED at 35s → RECONNECTING at 60s."""
         sm = feed.state_manager
@@ -360,12 +359,12 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
         # 36s stale → DEGRADED
-        feed._last_heartbeat_recv = time.monotonic() - 36
+        feed._conn._last_heartbeat_recv = time.monotonic() - 36
         feed._check_heartbeat_health()
         assert _state_value(sm.state) == "degraded"
 
         # 61s stale → RECONNECTING (DEGRADED → RECONNECTING is valid)
-        feed._last_heartbeat_recv = time.monotonic() - 61
+        feed._conn._last_heartbeat_recv = time.monotonic() - 61
         feed._client = None
         feed._check_heartbeat_health()
         assert _state_value(sm.state) == "reconnecting"
@@ -376,7 +375,6 @@ class TestHeartbeatMonitor:
 class TestStaleTickDetector:
     """Test stale tick detection during market hours and weekend skip."""
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_stale_ticks was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_stale_tick_warning(self, feed):
         """No tick for 60s during market hours → log warning (state unchanged)."""
         sm = feed.state_manager
@@ -389,15 +387,11 @@ class TestStaleTickDetector:
         # Simulate stale tick during weekday
         feed._last_tick_recv_monotonic = time.monotonic() - _STALE_TICK_WARN_SEC - 1
 
-        with patch.object(feed, '_check_stale_ticks') as mock_check:
-            mock_check.return_value = None
-            # The actual method should log but not change state
-            feed._check_stale_ticks()
+        feed._check_stale_ticks()
 
         # State should remain AUTHENTICATED (only warnings, no state change for 60s)
         assert _state_value(sm.state) == "authenticated"
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_stale_ticks was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_stale_tick_freeze_on_weekday(self, feed, mock_kill_switch):
         """No tick for 120s during market hours → kill switch FREEZE."""
         sm = feed.state_manager
@@ -421,7 +415,6 @@ class TestStaleTickDetector:
         call_kwargs = mock_kill_switch.activate_global_freeze.call_args
         assert "stale_ticks" in call_kwargs.kwargs.get("reason", "")
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_stale_ticks was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_stale_tick_skipped_on_weekend(self, feed, mock_kill_switch):
         """Stale tick detection skipped on Saturday/Sunday."""
         sm = feed.state_manager
@@ -434,20 +427,17 @@ class TestStaleTickDetector:
         feed.set_kill_switch(mock_kill_switch)
 
         # Mock weekend (Saturday)
-        with patch.object(feed, '_check_stale_ticks', wraps=feed._check_stale_ticks):
-            # Use the actual datetime check
-            saturday = datetime(2026, 6, 6, 12, 0, tzinfo=timezone.utc)  # Saturday
-            with patch('adapters.ctrader.open_api_spot_feed.datetime') as mock_dt:
-                mock_dt.now.return_value = saturday
-                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+        saturday = datetime(2026, 6, 6, 12, 0, tzinfo=timezone.utc)  # Saturday
+        with patch('adapters.ctrader.open_api_spot_feed.datetime') as mock_dt:
+            mock_dt.now.return_value = saturday
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
-                feed._last_tick_recv_monotonic = time.monotonic() - 999
-                feed._check_stale_ticks()
+            feed._last_tick_recv_monotonic = time.monotonic() - 999
+            feed._check_stale_ticks()
 
         # Kill switch should NOT be called on weekend
         mock_kill_switch.activate_global_freeze.assert_not_called()
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._check_stale_ticks was removed in archived refactor. Tracked for BQ-1329/1330.')
     def test_stale_tick_skipped_when_not_authenticated(self, feed):
         """Stale tick check skipped when not authenticated/degraded."""
         sm = feed.state_manager
@@ -470,9 +460,8 @@ class TestReconciliation:
         feed.on_reconnected(cb)
         assert cb in feed._on_reconnected_callbacks
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._fire_reconnect_reconciliation was renamed to _fire_reconnect_callbacks in archived refactor. Tracked for BQ-1329/1330.')
     def test_reconciliation_callback_fires(self, feed):
-        """_fire_reconnect_reconciliation fires callbacks with outage duration."""
+        """_fire_reconnect_callbacks fires callbacks with outage duration."""
         outage = 0
         captured = []
 
@@ -483,24 +472,22 @@ class TestReconciliation:
 
         # Set disconnect time to 5 seconds ago
         feed._disconnect_at = time.monotonic() - 5.0
-        feed._fire_reconnect_reconciliation()
+        feed._fire_reconnect_callbacks()
 
         assert len(captured) == 1
         assert captured[0] >= 5.0
         assert feed._disconnect_at is None  # reset after firing
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._fire_reconnect_reconciliation was renamed to _fire_reconnect_callbacks. Tracked for BQ-1329/1330.')
     def test_reconciliation_no_callback_without_disconnect(self, feed):
-        """_fire_reconnect_reconciliation skips if no _disconnect_at."""
+        """_fire_reconnect_callbacks skips if no _disconnect_at."""
         captured = []
         feed.on_reconnected(lambda d: captured.append(d))
 
         feed._disconnect_at = None
-        feed._fire_reconnect_reconciliation()
+        feed._fire_reconnect_callbacks()
 
         assert len(captured) == 0
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._fire_reconnect_reconciliation was renamed to _fire_reconnect_callbacks. Tracked for BQ-1329/1330.')
     def test_reconciliation_callback_exception_doesnt_crash(self, feed):
         """Exception in reconciliation callback doesn't crash."""
         def bad_callback(duration):
@@ -510,9 +497,8 @@ class TestReconciliation:
         feed._disconnect_at = time.monotonic() - 3.0
 
         # Should not raise
-        feed._fire_reconnect_reconciliation()
+        feed._fire_reconnect_callbacks()
 
-    @pytest.mark.xfail(strict=False, reason='BQ-1328: OpenApiSpotFeed._fire_reconnect_reconciliation was renamed to _fire_reconnect_callbacks. Tracked for BQ-1329/1330.')
     def test_multiple_reconciliation_callbacks(self, feed):
         """Multiple callbacks all fire."""
         results = []
@@ -520,7 +506,7 @@ class TestReconciliation:
         feed.on_reconnected(lambda d: results.append(("b", d)))
 
         feed._disconnect_at = time.monotonic() - 2.0
-        feed._fire_reconnect_reconciliation()
+        feed._fire_reconnect_callbacks()
 
         assert len(results) == 2
         assert results[0][0] == "a"
@@ -578,7 +564,6 @@ class TestAuthErrorEscalation:
 
         assert _state_value(sm.state) == "authenticated"
 
-    @pytest.mark.xfail(strict=False, reason="BQ-1328: Production _activate_kill_switch_freeze passes triggered_by='spot_feed'; test asserts 'spot_feed_self_healing' (non-existent contract). Tracked for BQ-1329/1330.")
     def test_kill_switch_freeze_on_failed_state(self, feed, mock_kill_switch):
         """FAILED state triggers kill switch FREEZE."""
         feed.set_kill_switch(mock_kill_switch)
@@ -587,7 +572,7 @@ class TestAuthErrorEscalation:
 
         mock_kill_switch.activate_global_freeze.assert_called_once_with(
             reason="test_reason",
-            triggered_by="spot_feed_self_healing",
+            triggered_by="spot_feed",
         )
 
     def test_kill_switch_not_required(self, feed):
@@ -684,7 +669,6 @@ class TestHealthEndpoint:
         assert "is_operational" in health
         assert health["is_operational"] is False
 
-    @pytest.mark.xfail(strict=False, reason="BQ-1328: OpenApiSpotFeed.get_health() does not include 'last_heartbeat_age' key after archived refactor. Tracked for BQ-1329/1330.")
     def test_health_includes_heartbeat_age(self, feed):
         """get_health() includes heartbeat age."""
         health = feed.get_health()

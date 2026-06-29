@@ -182,49 +182,42 @@ def _make_kill_switch():
 class TestStartupTokenValidation(unittest.TestCase):
     """Verify start() rejects invalid/placeholder tokens before any network."""
 
-    @pytest.mark.xfail(reason="BQ-1328: OpenApiSpotFeed archived refactor removed _connect; token rejection path now lives in CTraderConnection (BQ-1329/1330).")
     def test_empty_access_token_rejected(self):
         """start() rejects empty access_token → returns False."""
         feed = _make_feed(access_token="")
-        # Patch _connect so we never touch the network even on success path
-        with patch.object(feed, "_connect", return_value=True):
-            result = feed.start()
+        # start() checks placeholder tokens before any network call
+        result = feed.start()
         self.assertFalse(result)
 
-    @pytest.mark.xfail(reason="BQ-1328: OpenApiSpotFeed archived refactor removed _connect; placeholder rejection path now lives in CTraderConnection (BQ-1329/1330).")
     def test_placeholder_access_token_rejected(self):
         """start() rejects placeholder access_token values → returns False."""
         for bad in ["***", "new-access", "todo", "changeme", "none", "null"]:
             with self.subTest(token=bad):
                 feed = _make_feed(access_token=bad)
-                with patch.object(feed, "_connect", return_value=True):
-                    result = feed.start()
+                result = feed.start()
                 self.assertFalse(result)
 
-    @pytest.mark.xfail(reason="BQ-1328: OpenApiSpotFeed archived refactor removed _connect; token rejection path now lives in CTraderConnection (BQ-1329/1330).")
     def test_empty_refresh_token_rejected(self):
         """start() rejects empty refresh_token → returns False."""
         feed = _make_feed(refresh_token="")
-        with patch.object(feed, "_connect", return_value=True):
-            result = feed.start()
+        # start() checks refresh token placeholders before any network call
+        result = feed.start()
         self.assertFalse(result)
 
-    @pytest.mark.xfail(reason="BQ-1328: OpenApiSpotFeed archived refactor removed _connect/_auth; valid-token flow moved to CTraderConnection (BQ-1329/1330).")
     def test_valid_tokens_proceed_to_connect(self):
         """start() accepts valid tokens and attempts to connect."""
         feed = _make_feed()
-        with patch.object(feed, "_connect") as mock_connect, \
+        # Patch _conn.connect so token validation passes and connect is attempted
+        with patch.object(feed._conn, "connect", return_value=True) as mock_connect, \
              patch.object(feed, "_auth", return_value=False):
-            mock_connect.return_value = True
             feed.start()
-            # _connect was called, meaning token validation passed
+            # _conn.connect was called, meaning token validation passed
             mock_connect.assert_called_once()
 
-    @pytest.mark.xfail(reason="BQ-1328: OpenApiSpotFeed archived refactor removed _connect; token validation/network ordering moved to CTraderConnection (BQ-1329/1330).")
     def test_token_validation_before_network(self):
-        """Token validation runs before any network call (_connect)."""
+        """Token validation runs before any network call (_conn.connect)."""
         feed = _make_feed(access_token="")
-        with patch.object(feed, "_connect") as mock_connect:
+        with patch.object(feed._conn, "connect") as mock_connect:
             result = feed.start()
             self.assertFalse(result)
             mock_connect.assert_not_called()
@@ -237,7 +230,6 @@ class TestStartupTokenValidation(unittest.TestCase):
 class TestKillSwitchAutoClear(unittest.TestCase):
     """Verify successful auth auto-clears stale kill switch."""
 
-    @pytest.mark.xfail(reason="BQ-1328: auto-clear hook lives in production _auto_clear_kill_switch, but tests patch removed methods _connect/_send_and_wait.")
     def test_successful_auth_clears_active_freeze(self):
         """After successful auth, an active kill switch is deactivated."""
         feed = _make_feed()
@@ -251,8 +243,8 @@ class TestKillSwitchAutoClear(unittest.TestCase):
 
         mock_payload = MagicMock()
         mock_payload.expiresIn = 3600
-        with patch.object(feed, "_connect", return_value=True), \
-             patch.object(feed, "_send_and_wait", return_value=MagicMock()), \
+        with patch.object(feed._conn, "connect", return_value=True), \
+             patch.object(feed._conn, "send_and_wait", return_value=MagicMock()), \
              patch.object(feed, "_is_expected_auth_response", return_value=True), \
              patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=mock_payload), \
              patch.object(feed, "_fetch_symbol_list", return_value=True), \
@@ -261,7 +253,6 @@ class TestKillSwitchAutoClear(unittest.TestCase):
 
         ks.deactivate.assert_called_once_with(reason="auto_cleared_on_successful_auth")
 
-    @pytest.mark.xfail(reason="BQ-1328: auto-clear test patches removed methods _connect/_auth on archived OpenApiSpotFeed.")
     def test_no_clear_when_kill_switch_inactive(self):
         """If kill switch is not active, deactivate is NOT called."""
         feed = _make_feed()
@@ -269,14 +260,13 @@ class TestKillSwitchAutoClear(unittest.TestCase):
         ks.is_active.return_value = False
         feed.set_kill_switch(ks)
 
-        with patch.object(feed, "_connect", return_value=True), \
+        with patch.object(feed._conn, "connect", return_value=True), \
              patch.object(feed, "_auth", return_value=True), \
              patch.object(feed, "_fetch_symbol_list", return_value=True):
             feed.start()
 
         ks.deactivate.assert_not_called()
 
-    @pytest.mark.xfail(reason="BQ-1328: auto-clear test patches removed methods _connect/_send_and_wait on archived OpenApiSpotFeed.")
     def test_auth_failure_does_not_clear_kill_switch(self):
         """If auth fails, kill switch is NOT cleared."""
         feed = _make_feed()
@@ -284,8 +274,8 @@ class TestKillSwitchAutoClear(unittest.TestCase):
         ks.is_active.return_value = True
         feed.set_kill_switch(ks)
 
-        with patch.object(feed, "_connect", return_value=True), \
-             patch.object(feed, "_send_and_wait", return_value=None):
+        with patch.object(feed._conn, "connect", return_value=True), \
+             patch.object(feed._conn, "send_and_wait", return_value=None):
             result = feed.start()
 
         self.assertFalse(result)
@@ -306,7 +296,6 @@ class TestStaleTickFreeze(unittest.TestCase):
         feed._running = True
         return feed
 
-    @pytest.mark.xfail(reason="BQ-1328: _check_stale_ticks removed during archived refactor; stale-tick freeze now handled elsewhere (BQ-1329/1330).")
     def test_no_ticks_120s_triggers_freeze(self):
         """No ticks for 120s triggers kill switch FREEZE."""
         feed = self._setup_feed_for_stale_check()
@@ -327,7 +316,6 @@ class TestStaleTickFreeze(unittest.TestCase):
 
         ks.activate_global_freeze.assert_called_once()
 
-    @pytest.mark.xfail(reason="BQ-1328: _check_stale_ticks removed during archived refactor; stale-tick freeze now handled elsewhere (BQ-1329/1330).")
     def test_ticks_at_60s_triggers_warn_only(self):
         """No ticks for 60s triggers warning only, no FREEZE."""
         feed = self._setup_feed_for_stale_check()
@@ -347,7 +335,6 @@ class TestStaleTickFreeze(unittest.TestCase):
 
         ks.activate_global_freeze.assert_not_called()
 
-    @pytest.mark.xfail(reason="BQ-1328: _check_stale_ticks removed during archived refactor; stale-tick freeze now handled elsewhere (BQ-1329/1330).")
     def test_weekend_detection_skips_stale_check(self):
         """Stale check is skipped on weekends (weekday >= 5)."""
         feed = self._setup_feed_for_stale_check()
@@ -367,7 +354,6 @@ class TestStaleTickFreeze(unittest.TestCase):
 
         ks.activate_global_freeze.assert_not_called()
 
-    @pytest.mark.xfail(reason="BQ-1328: _check_stale_ticks removed during archived refactor; stale-tick freeze now handled elsewhere (BQ-1329/1330).")
     def test_stale_check_only_in_authenticated_or_degraded(self):
         """Stale check only runs in AUTHENTICATED or DEGRADED state."""
         feed = _make_feed()
@@ -389,7 +375,6 @@ class TestStaleTickFreeze(unittest.TestCase):
                     feed._check_stale_ticks()
                 ks.activate_global_freeze.assert_not_called()
 
-    @pytest.mark.xfail(reason="BQ-1328: _check_stale_ticks removed during archived refactor; stale-tick freeze now handled elsewhere (BQ-1329/1330).")
     def test_boundary_exactly_120s_triggers_freeze(self):
         """Exactly 120s triggers freeze (>= threshold)."""
         feed = self._setup_feed_for_stale_check()
@@ -434,7 +419,10 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         engine._kill_switch = _make_kill_switch()
         return engine
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    # BLOCKED: _check_feed_health_kill_switch freeze-activation code is intentionally
+    # commented out (P5A scope-out). Requires implementing feed-disconnect detection
+    # in ForwardTestEngine. Tracked in P5A closeout notes.
+    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out). Requires code change in production, not a test fix.")
     def test_feed_disconnect_detected_via_is_running(self):
         """Feed disconnect detected when market_feed.is_running is False."""
         engine = self._make_engine()
@@ -451,7 +439,8 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         )
         self.assertTrue(engine._feed_disconnect_frozen)
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
+    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
     def test_reconnect_does_not_auto_clear_disconnect_freeze(self):
         """Reconnect does NOT auto-clear disconnect freeze."""
         engine = self._make_engine()
@@ -468,7 +457,8 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         # Flag stays True
         self.assertTrue(engine._feed_disconnect_frozen)
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
+    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
     def test_disconnect_frozen_flag_prevents_duplicate_activations(self):
         """_feed_disconnect_frozen flag prevents duplicate freeze activations."""
         engine = self._make_engine()
@@ -481,7 +471,8 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
 
         engine._kill_switch.activate_global_freeze.assert_not_called()
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
+    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
     def test_disconnect_freeze_logged_appropriately(self):
         """Disconnect freeze activation is logged."""
         engine = self._make_engine()
@@ -613,12 +604,11 @@ class TestStateMachineTransitions(unittest.TestCase):
 class TestDisconnectRecovery(unittest.TestCase):
     """Verify reconnect restores state, circuit breaker, health, and tick flow."""
 
-    @pytest.mark.xfail(reason="BQ-1328: _send_and_wait was removed during archived refactor; reconnect auth flow moved into CTraderConnection (BQ-1329/1330).")
     def test_reconnect_restores_authenticated_state(self):
         """After reconnect_restore, state returns to AUTHENTICATED."""
         feed = _make_feed()
         feed._running = True
-        feed._connected.set()
+        feed._conn._connected.set()
         # Set state to CONNECTED (where _reconnect_restore expects to start from)
         feed._state_mgr._state = ConnectionState.CONNECTED
 
@@ -630,7 +620,7 @@ class TestDisconnectRecovery(unittest.TestCase):
             call_count[0] += 1
             return MagicMock()  # non-None = success
 
-        with patch.object(feed, "_send_and_wait", side_effect=fake_send_and_wait), \
+        with patch.object(feed._conn, "send_and_wait", side_effect=fake_send_and_wait), \
              patch.object(feed, "_is_expected_auth_response", return_value=True), \
              patch.object(feed, "_subscribe_by_id"), \
              patch.object(feed, "_schedule_proactive_refresh"), \
@@ -651,13 +641,12 @@ class TestDisconnectRecovery(unittest.TestCase):
         # No refresh attempt made — token unchanged
         self.assertEqual(feed._access_token, "valid_access_token_abc123")
 
-    @pytest.mark.xfail(reason="BQ-1328: get_health semantics changed in archived refactor; connected/operational flags moved to state manager / CTraderConnection (BQ-1329/1330).")
     def test_health_check_detects_connected_after_recovery(self):
         """Health endpoint reflects connected state after recovery."""
         feed = _make_feed()
         feed._running = True
         feed._state_mgr._state = ConnectionState.AUTHENTICATED
-        feed._connected.set()
+        feed._conn._connected.set()
         feed._authed.set()
 
         health = feed.get_health()
