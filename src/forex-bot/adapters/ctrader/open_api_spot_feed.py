@@ -968,10 +968,9 @@ class OpenApiSpotFeed:
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
-        # Fire-and-forget amend: position amends are idempotent so we don't
-        # need to wait for a response, and waiting blocks the connection when
-        # many amends queue up. The spot feed's send() returns immediately.
-        # We do still serialize and stagger to avoid overwhelming the broker.
+        # Wait-for-response amend: we need the actual broker outcome so callers
+        # can detect rejection (e.g. TRADING_BAD_STOPS) and react. Serialization
+        # via _amend_lock plus a 1s cooldown prevents back-to-back amend floods.
         with self._amend_lock:
             req = ProtoOAAmendPositionSLTPReq()
             req.ctidTraderAccountId = self._ctid_account_id
@@ -981,13 +980,43 @@ class OpenApiSpotFeed:
                 tp = self._round_price(symbol_id, tp)
             req.stopLoss = sl
             req.takeProfit = tp
-            self._conn.send(req)
-            # Register a fire-and-forget errback log so we still see broker-side rejections.
+
+            res = self._conn.send_and_wait(req, timeout=timeout, prefix="amend")
+            if res is None:
+                logger.warning(
+                    "Amend SL/TP timeout for position %s (sl=%s tp=%s): no response from broker",
+                    position_id, sl, tp,
+                )
+                return False
+
+            payload = Protobuf.extract(res) if hasattr(res, "payloadType") else res
+            error_code = getattr(payload, "errorCode", None)
+            description = getattr(payload, "description", "") or ""
+            if error_code:
+                # If the broker response also reports applied SL/TP values then
+                # the amend may have partially succeeded (one side applied, the
+                # other rejected). Log the partial state so operators can
+                # reconcile manually.
+                applied_sl = getattr(payload, "stopLoss", None)
+                applied_tp = getattr(payload, "takeProfit", None)
+                if applied_sl is not None or applied_tp is not None:
+                    logger.warning(
+                        "Partial amend SL/TP for position %s: errorCode=%r description=%r "
+                        "requested sl=%s tp=%s applied sl=%s tp=%s",
+                        position_id, error_code, description, sl, tp, applied_sl, applied_tp,
+                    )
+                else:
+                    logger.warning(
+                        "Amend SL/TP rejected for position %s: errorCode=%r description=%r "
+                        "sl=%s tp=%s",
+                        position_id, error_code, description, sl, tp,
+                    )
+                return False
+
+            # 1s cooldown so the next amend doesn't immediately re-saturate the
+            # connection. Held inside the lock to serialize spacing.
+            time.sleep(1.0)
             return True
-        # 1s cooldown so the next amend doesn't immediately re-saturate
-        # the connection. Acquired OUTSIDE the lock so other operations
-        # can proceed, but only one amend can be in-flight at a time.
-        time.sleep(1.0)
 
     def close_position(self, position_id, volume, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOAClosePositionReq()
