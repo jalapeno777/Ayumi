@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from common.logging_config import setup_logging
@@ -85,6 +85,11 @@ class BlendForwardTestRunner:
         self._open_positions: dict[str, dict] = {}
         self._current_day: Optional[str] = None
 
+        # Phase 6A: position_id → signal_id mapping for close() wiring.
+        # Populated by register_position_mapping() when the engine links
+        # a PaperTrader position_id to the blend_runner's signal_id.
+        self._position_id_to_signal_id: dict[str, str] = {}
+
     def start(self) -> None:
         """Initialize all components, restore state, start logging."""
         self._persistence.restore(self._sizer)
@@ -101,6 +106,24 @@ class BlendForwardTestRunner:
             self._sizer.reset_daily()
             logger.info("Daily risk cap reset — new day: %s", day_str)
         self._current_day = day_str
+
+    def daily_reset(self) -> None:
+        """Public daily reset — safe to call from engine scheduler.
+
+        Logs pre-reset and post-reset values so operators can verify
+        the daily counter was zeroed while open positions are carried over.
+        """
+        sizer = self._sizer
+        pre_daily = sizer._daily_risk_used
+        pre_open = sizer.open_risk
+        positions_carried = len(sizer.open_positions)
+        sizer.reset_daily()
+        now = datetime.now(timezone.utc)
+        self._current_day = now.strftime("%Y-%m-%d")
+        logger.info(
+            "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, positions_carried=%d",
+            pre_daily, pre_open, positions_carried,
+        )
 
     def on_signal(self, strategy_id: str, signal_data: dict) -> OrchestratedOrder:
         """Handle incoming strategy signal through full pipeline."""
@@ -136,26 +159,67 @@ class BlendForwardTestRunner:
             signal_id, risk_amount, self._sizer.daily_risk_remaining,
         )
 
+    def register_position_mapping(self, position_id: str, signal_id: str) -> None:
+        """Map a PaperTrader position_id to the blend_runner's signal_id.
+
+        Called by the engine when a trade is executed, so that
+        :meth:`close_position` can resolve the correct signal_id when
+        the PaperTrader fires ``on_position_closed`` with a position_id.
+        """
+        self._position_id_to_signal_id[position_id] = signal_id
+
     def on_fill(self, order_id: str, fill_price: float, pnl: float) -> None:
-        """Handle position fill/close — update sizer state and persist."""
+        """Handle position fill/close — update sizer state and persist.
+
+        Args:
+            order_id: The signal_id used when registering the position
+                      (``strategy_id + "_" + timestamp``).
+            fill_price: Closing price (used for logging only).
+            pnl: Realized PnL from the close.
+        """
         pos = self._open_positions.pop(order_id, None)
-        if pos is None:
-            logger.warning("on_fill: unknown order_id %s", order_id)
+
+        # Also clean up any position_id mapping pointing to this signal_id
+        self._position_id_to_signal_id.pop(order_id, None)
+
+        try:
+            self._sizer.close(order_id, pnl)
+        except KeyError:
+            if pos is not None:
+                # Restore the popped entry so a retry can find it
+                self._open_positions[order_id] = pos
+            logger.warning("on_fill: signal_id %s not registered in sizer", order_id)
             return
 
-        order = pos["order"]
-
-        self._sizer.close(order_id, pnl)
         self._balance = self._sizer.account_balance
         self._orchestrator.update_balance(self._balance)
 
+        symbol = pos["order"].signal.symbol if pos else "unknown"
         logger.info(
-            "Fill: %s pnl=$%.2f balance=$%.2f",
-            order.signal.symbol, pnl, self._balance,
+            "Position closed: signal_id=%s symbol=%s pnl=%.2f open_risk=%.2f",
+            order_id, symbol, pnl, self._sizer.open_risk,
         )
 
         # Persist state after fill
         self._persistence.save(self._sizer)
+
+    def close_position(self, position_id: str, pnl: float) -> None:
+        """Close a position by its position_id, resolving the signal_id.
+
+        This is the primary close entry point for the engine, which tracks
+        positions by their PaperTrader-assigned ``position_id``.  The
+        mapping from ``position_id`` to ``signal_id`` is established via
+        :meth:`register_position_mapping` when the trade is first opened.
+
+        Falls back to using ``position_id`` directly as the signal_id if
+        no mapping exists (backward-compat for tests / direct callers).
+        """
+        signal_id = self._position_id_to_signal_id.pop(position_id, None)
+        if signal_id is None:
+            # No mapping registered — fall back to using position_id as-is
+            signal_id = position_id
+
+        self.on_fill(signal_id, fill_price=0.0, pnl=pnl)
 
     def stop(self) -> None:
         """Persist state and shutdown cleanly."""
