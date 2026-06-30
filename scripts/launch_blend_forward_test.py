@@ -204,16 +204,14 @@ class BlendForwardTestEngine(ForwardTestEngine):
         self._heartbeat = heartbeat or HeartbeatTracker()
         self._strategy_id_map = strategy_id_map or {}  # strategy_name -> strategy_id
 
-    def _blend_signal_id(self, strategy_id: str, signal: TradeSignal) -> str:
-        """Build the signal_id used by BlendForwardTestRunner.on_signal.
+    def _blend_signal_id(self, signal: TradeSignal) -> str:
+        """Delegate to BlendForwardTestRunner.make_signal_id so we never
+        drift out of sync with the canonical id construction.
 
         Must match the pattern in blend_runner.on_signal:
-            order.signal.strategy_id + "_" + str(signal.timestamp.timestamp())
-
-        Used by all cancel_risk() error-path callers so they reference the
-        same identity that on_signal registered with the sizer.
+            signal.strategy_id + "_" + str(signal.timestamp.timestamp())
         """
-        return strategy_id + "_" + str(signal.timestamp.timestamp())
+        return self._blend_runner.make_signal_id(signal)
 
     def _evaluate_strategies(self, symbol: str):
         """Override: route signals through blend pipeline with multi-TF support."""
@@ -377,7 +375,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     order.lots,
                                 )
                                 self._blend_runner.cancel_risk(
-                                    self._blend_signal_id(strategy_id, signal),
+                                    self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
                                 self._correlation_gate.release(signal.symbol, direction_str)
@@ -420,7 +418,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     outcome.reason,
                                 )
                                 self._blend_runner.cancel_risk(
-                                    self._blend_signal_id(strategy_id, signal),
+                                    self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
                                 self._correlation_gate.release(signal.symbol, direction_str)
@@ -436,7 +434,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                             else:
                                 logger.warning("Trade execution failed: %s", exec_result.rejection_reason)
                                 self._blend_runner.cancel_risk(
-                                    self._blend_signal_id(strategy_id, signal),
+                                    self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
                                 self._correlation_gate.release(signal.symbol, direction_str)
@@ -444,7 +442,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         logger.error("Trade execution error: %s", exec_err, exc_info=True)
                         # Free risk budget on execution error too
                         self._blend_runner.cancel_risk(
-                            self._blend_signal_id(strategy_id, signal),
+                            self._blend_signal_id(signal),
                             order.risk_amount,
                         )
                         self._correlation_gate.release(signal.symbol, direction_str)

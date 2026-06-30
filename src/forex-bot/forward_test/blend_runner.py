@@ -125,6 +125,17 @@ class BlendForwardTestRunner:
             pre_daily, pre_open, positions_carried,
         )
 
+    def make_signal_id(self, signal: TradeSignal) -> str:
+        """Build the canonical signal_id used by on_signal() to register
+        a position with the sizer.
+
+        Public helper so callers (launcher, engine, scripts) can use
+        the SAME identity for cancel/close without duplicating the
+        construction pattern.  Previously each caller built the id
+        independently and could drift out of sync.
+        """
+        return signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+
     def on_signal(self, strategy_id: str, signal_data: dict) -> OrchestratedOrder:
         """Handle incoming strategy signal through full pipeline."""
         signal = self._adapter.adapt_signal(strategy_id, signal_data)
@@ -133,7 +144,7 @@ class BlendForwardTestRunner:
 
         if not order.rejected:
             # Register position tracking under a unique signal_id
-            signal_id = order.signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+            signal_id = self.make_signal_id(signal)
             self._open_positions[signal_id] = {
                 "order": order,
                 "risk_amount": order.risk_amount,
