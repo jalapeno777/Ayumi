@@ -106,6 +106,7 @@ _ERROR_RES_PAYLOAD_TYPE = 2142
 _EXECUTION_EVENT_PAYLOAD_TYPES = {2126, 2151}
 _ORDER_ERROR_EVENT_PAYLOAD_TYPE = 2132
 _ORDER_TIMEOUT_SEC = 10.0
+_AMEND_TIMEOUT_SEC = 30.0  # SL/TP amends are not time-critical — use a longer timeout
 _RECONCILE_TIMEOUT_SEC = 10.0
 
 # Re-exported from connection.py for backward compatibility
@@ -963,7 +964,7 @@ class OpenApiSpotFeed:
         if tp is not None: req.takeProfit = tp
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
-    def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+    def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
         req = ProtoOAAmendPositionSLTPReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.positionId = position_id
