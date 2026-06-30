@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    pass
+    from .market_data_feed import LiveMarketDataFeed
 
 from backtest.engine import Bar, MarketState
 from backtest.types import determine_session, SessionType
@@ -323,6 +323,14 @@ class ForwardTestEngine:
         # key = _bar_key(symbol, timeframe), value = True when new bar completed
         self._bar_completed: dict[str, bool] = {}
 
+        # Phase 6A: position_id → signal_id mapping for close() wiring.
+        # Populated in _on_trade_executed when PaperTrader creates a position
+        # from a blend_runner signal, consumed in _on_position_closed.
+        self._position_id_to_signal_id: dict[str, str] = {}
+
+        # Phase 6B: track last daily-reset date for day-boundary detection.
+        self._last_reset_date: Optional[str] = None
+
 
         # Rejection circuit breaker (T5)
         self._consecutive_risk_rejections: int = 0
@@ -441,6 +449,9 @@ class ForwardTestEngine:
 
         self._running = True
         self._start_time = datetime.now(timezone.utc)
+
+        # Phase 6B: Initialize daily reset tracker
+        self._last_reset_date = self._start_time.strftime("%Y-%m-%d")
 
         self._stop_health_monitor.clear()
         self._health_monitor_thread = threading.Thread(
@@ -1831,6 +1842,30 @@ class ForwardTestEngine:
                 self._update_health()
                 self._check_connection_health()
 
+                # Phase 6B: Daily risk reset check — detect day boundary
+                # and call reset_daily() on the sizer.  This runs in the
+                # health monitor loop so it fires even without new signals.
+                now_dt = datetime.now(timezone.utc)
+                day_str = now_dt.strftime("%Y-%m-%d")
+                if self._last_reset_date is not None and day_str != self._last_reset_date:
+                    blend_runner = getattr(self, "_blend_runner", None)
+                    if blend_runner is not None:
+                        if hasattr(blend_runner, "daily_reset"):
+                            blend_runner.daily_reset()
+                        else:
+                            sizer = getattr(blend_runner, "_sizer", None)
+                            if sizer is not None:
+                                pre_daily = sizer._daily_risk_used
+                                pre_open = sizer.open_risk
+                                positions_carried = len(sizer.open_positions)
+                                sizer.reset_daily()
+                                logger.info(
+                                    "Daily risk reset: daily_used=%.2f→0.00, "
+                                    "open_risk=%.2f, positions_carried=%d",
+                                    pre_daily, pre_open, positions_carried,
+                                )
+                self._last_reset_date = day_str
+
                 # Write heartbeat (atomic)
                 if self._running:
                     self._write_heartbeat()
@@ -2091,11 +2126,56 @@ class ForwardTestEngine:
             )
 
     def _on_trade_executed(self, result):
+        # Phase 6A: Map position_id → signal_id for close() wiring.
+        # The blend_runner registers risk under signal_id = strategy_id + "_" +
+        # timestamp.  PaperTrader creates a Position with position_id = "POS_...".
+        # We capture the mapping here so _on_position_closed can resolve it.
+        if (hasattr(result, "position") and result.position
+                and hasattr(result, "signal") and result.signal):
+            position_id = result.position.position_id
+            signal = result.signal
+            signal_id = (signal.strategy_id or "") + "_" + str(
+                signal.timestamp.timestamp() if signal.timestamp else ""
+            )
+            self._position_id_to_signal_id[position_id] = signal_id
+
+            blend_runner = getattr(self, "_blend_runner", None)
+            if blend_runner is not None and hasattr(blend_runner, "register_position_mapping"):
+                blend_runner.register_position_mapping(position_id, signal_id)
+
         if self._trade_logger and result.order:
             self._trade_logger.log_trade_opened(result.order, result.position)
         self._trigger_callback("on_trade_executed", result)
 
     def _on_position_closed(self, position):
+        # Phase 6A: Wire close() into blend_runner → sizer.
+        # When a position closes (SL hit, TP hit, or manual close), the
+        # reserved risk must be released and PnL recorded.
+        blend_runner = getattr(self, "_blend_runner", None)
+        if blend_runner is not None:
+            pnl = getattr(position, "closed_pnl", 0.0)
+            position_id = getattr(position, "position_id", "")
+
+            if hasattr(blend_runner, "close_position"):
+                blend_runner.close_position(position_id, pnl)
+            elif hasattr(blend_runner, "on_fill"):
+                # Backward-compat: resolve signal_id from engine mapping
+                signal_id = self._position_id_to_signal_id.pop(position_id, position_id)
+                close_price = (
+                    getattr(position, "closed_price", None)
+                    or getattr(position, "current_price", 0.0)
+                )
+                blend_runner.on_fill(signal_id, close_price, pnl)
+
+            # Log with signal_id, pnl, and remaining open_risk
+            sizer = getattr(blend_runner, "_sizer", None)
+            remaining_open_risk = sizer.open_risk if sizer is not None else 0.0
+            signal_id = self._position_id_to_signal_id.get(position_id, position_id)
+            logger.info(
+                "Position closed: signal_id=%s pnl=%.2f open_risk=%.2f",
+                signal_id, pnl, remaining_open_risk,
+            )
+
         if self._trade_logger:
             self._trade_logger.log_position_closed(position)
         self._trigger_callback("on_position_closed", position)
