@@ -1469,12 +1469,13 @@ class ForwardTestEngine:
             blend_runner = getattr(self, "_blend_runner", None)
             if blend_runner is not None and rv_status != LiveExecutionStatus.FILLED:
                 try:
-                    # We don't have the order's risk_amount here — use a
-                    # best-effort cancellation.  The launcher is the source of
-                    # truth; this is just a safety net.
+                    # Build signal_id the same way blend_runner.on_signal does.
+                    signal_id = strategy_id + "_" + str(signal.timestamp.timestamp())
                     if hasattr(blend_runner, "cancel_risk"):
-                        # Pessimistic: cancel up to 1% of balance.
-                        blend_runner.cancel_risk(self._config.starting_balance * 0.01)
+                        blend_runner.cancel_risk(
+                            signal_id,
+                            getattr(signal, "risk_amount", self._config.starting_balance * 0.01),
+                        )
                 except Exception:
                     pass
 

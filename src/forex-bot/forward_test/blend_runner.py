@@ -7,12 +7,11 @@ from datetime import datetime
 from typing import Optional
 
 from common.logging_config import setup_logging
-from confidence.engine import ConfidenceEngine, ConfidenceResult
+from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
     SignalOrchestrator,
-    TradeSignal,
 )
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
@@ -110,12 +109,13 @@ class BlendForwardTestRunner:
         order = self._orchestrator.process_signal(signal)
 
         if not order.rejected:
-            # Register position tracking
-            self._open_positions[order.signal.strategy_id + "_" + str(signal.timestamp.timestamp())] = {
+            # Register position tracking under a unique signal_id
+            signal_id = order.signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+            self._open_positions[signal_id] = {
                 "order": order,
                 "risk_amount": order.risk_amount,
             }
-            self._sizer.register_open_position(order.risk_amount)
+            self._sizer.register(signal_id, order.risk_amount)
             logger.info(
                 "Order accepted: %s %s %.4f lots risk=$%.2f",
                 signal.symbol, signal.direction, order.lots, order.risk_amount,
@@ -128,12 +128,12 @@ class BlendForwardTestRunner:
 
         return order
 
-    def cancel_risk(self, risk_amount: float) -> None:
+    def cancel_risk(self, signal_id: str, risk_amount: float) -> None:
         """Free risk budget when a sized order is rejected downstream."""
-        self._sizer.cancel_position(risk_amount)
+        self._sizer.cancel(signal_id)
         logger.info(
-            "Risk cancelled: $%.2f freed, daily remaining=$%.2f",
-            risk_amount, self._sizer.daily_risk_remaining,
+            "Risk cancelled: signal_id=%s risk=$%.2f freed, daily remaining=$%.2f",
+            signal_id, risk_amount, self._sizer.daily_risk_remaining,
         )
 
     def on_fill(self, order_id: str, fill_price: float, pnl: float) -> None:
@@ -144,10 +144,8 @@ class BlendForwardTestRunner:
             return
 
         order = pos["order"]
-        risk_amount = pos["risk_amount"]
-        win = pnl > 0
 
-        self._sizer.close_position(pnl, risk_amount, win)
+        self._sizer.close(order_id, pnl)
         self._balance = self._sizer.account_balance
         self._orchestrator.update_balance(self._balance)
 
