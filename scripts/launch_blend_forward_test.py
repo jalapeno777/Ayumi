@@ -62,6 +62,7 @@ from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
 from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy, SessionRangeMRConfig
 from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
 from strategies.rsi_threshold import SimpleRSIThresholdStrategy, RSIThresholdConfig
+from strategies.test_canary import TestCanaryStrategy
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
 
@@ -484,6 +485,7 @@ STRATEGY_ID_MAP = {
     "Session Breakout NY": "session_breakout_ny",
     "Session Breakout Asian": "session_breakout_asian",
     "Simple RSI Threshold": "rsi_threshold",
+    "Test Canary": "test_canary",
 }
 
 # Strategy -> bar period minutes mapping
@@ -497,6 +499,7 @@ STRATEGY_TIMEFRAMES = {
     "Session Breakout NY": 15,
     "Session Breakout Asian": 15,
     "Simple RSI Threshold": 15,
+    "Test Canary": 15,
 }
 
 
@@ -579,7 +582,7 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
-    parser.add_argument("--symbols", default="GBPUSD", help="Comma-separated symbols (default: GBPUSD)")
+    parser.add_argument("--symbols", default="GBPUSD,USDJPY,EURUSD", help="Comma-separated symbols (default: GBPUSD,USDJPY,EURUSD)")
     parser.add_argument("--mode", choices=["paper", "live"], default=None,
                         help="Execution mode (paper/live). If not specified, derives from --live flag.")
     parser.add_argument("--live", action="store_true", help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)")
@@ -696,6 +699,7 @@ def main():
             "atr_period": 14, "min_range_bars": 20,
         }),
         SimpleRSIThresholdStrategy(config=RSIThresholdConfig()),
+        TestCanaryStrategy(tp_sl_pct=0.05),  # EURUSD execution validation
     ]
     logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
 
