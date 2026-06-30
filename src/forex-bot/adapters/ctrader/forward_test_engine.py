@@ -1363,9 +1363,39 @@ class ForwardTestEngine:
             else str(signal.direction)
         )
 
+        fired = [False]  # mutable flag so closure can self-dedupe
+
         def _release_late(rv_status: LiveExecutionStatus, *args, **kwargs):
-            # Self-remove the registration so the callback does not fire twice.
+            # Dedupe: each late-fill closure can fire from any of the three
+            # registered events (filled/rejected/cancelled) for ANY order's
+            # execution event. Self-dedupe with a closure flag and only act
+            # if the incoming event actually matches our captured order_id.
+            if fired[0]:
+                return
+            if not args:
+                return
+            cb_order = args[0]
+            cb_order_id = getattr(cb_order, "order_id", "")
+            if cb_order_id and cb_order_id != order_id:
+                return
+            fired[0] = True
             self._pending_outcome_keys.discard(order_id)
+
+            # Extract cTrader's positionId from the execution event for the
+            # amend_sl_tp call. The proto execution event carries the real
+            # position ID on order.positionId / position.positionId / deal.positionId.
+            ctrader_position_id = None
+            message = args[1] if len(args) > 1 else None
+            if message is not None:
+                order_payload = getattr(message, "order", None)
+                position_payload = getattr(message, "position", None)
+                deal_payload = getattr(message, "deal", None)
+                for source in (order_payload, position_payload, deal_payload):
+                    pid = getattr(source, "positionId", None)
+                    if pid is not None and int(pid) != 0:
+                        ctrader_position_id = int(pid)
+                        break
+
             with self._lock:
                 if rv_status == LiveExecutionStatus.FILLED:
                     self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
@@ -1382,28 +1412,34 @@ class ForwardTestEngine:
                     # naked without risk protection.
                     if (signal.stop_loss is not None
                             and signal.take_profit_1 is not None
-                            and self._market_feed is not None):
+                            and self._market_feed is not None
+                            and ctrader_position_id is not None):
                         try:
                             symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
                             amended = self._market_feed.amend_sl_tp(
-                                order_id, signal.stop_loss, signal.take_profit_1,
+                                ctrader_position_id, signal.stop_loss, signal.take_profit_1,
                                 symbol_id=symbol_id,
                             )
                             if amended:
                                 logger.info(
-                                    "Late SL/TP attached to position %s: sl=%.5f tp=%.5f",
-                                    order_id, signal.stop_loss, signal.take_profit_1,
+                                    "Late SL/TP attached to position %s (order %s): sl=%.5f tp=%.5f",
+                                    ctrader_position_id, order_id, signal.stop_loss, signal.take_profit_1,
                                 )
                             else:
                                 logger.warning(
                                     "Late SL/TP amend returned False for position %s (non-fatal)",
-                                    order_id,
+                                    ctrader_position_id,
                                 )
                         except Exception as amend_err:
                             logger.warning(
-                                "Late SL/TP amend error for position %s: %s (non-fatal)",
-                                order_id, amend_err,
+                                "Late SL/TP amend error for position %s (order %s): %s (non-fatal)",
+                                ctrader_position_id, order_id, amend_err,
                             )
+                    elif rv_status == LiveExecutionStatus.FILLED and signal.stop_loss is not None:
+                        logger.warning(
+                            "Late fill for order %s but no cTrader positionId available — SL/TP not attached",
+                            order_id,
+                        )
                 elif rv_status in (
                     LiveExecutionStatus.REJECTED,
                     LiveExecutionStatus.CANCELLED,
