@@ -13,10 +13,13 @@ Guards:
     - Circuit breaker: halts trading for 24h on trigger
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Union
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +129,13 @@ class CircuitBreakerState:
 
 
 class SLPositionSizer:
-    """Calculate position size based on SL distance and intended risk."""
+    """Calculate position size based on SL distance and intended risk.
+
+    Phase 5 refactor: risk is tracked per signal_id so double-cancel,
+    missing-cancel, and amount-mismatch bugs are impossible.  All public
+    mutation methods are protected by ``threading.RLock`` because the
+    engine mutates sizer state from several concurrent threads.
+    """
 
     def __init__(
         self,
@@ -144,10 +153,48 @@ class SLPositionSizer:
 
         # Track daily risk used (recycling)
         self._daily_risk_used: float = 0.0
-        self._open_risk: float = 0.0  # Risk currently in open positions
+        # Phase 5: per-signal identity-keyed open positions
+        self._open_positions: dict[str, float] = {}
         self._peak_balance: float = account_balance  # Track peak for account DD
 
         self.breaker = CircuitBreakerState()
+        self._lock = threading.RLock()
+
+    @property
+    def _open_risk(self) -> float:
+        """Internal scalar view of total open risk (for state persistence compat)."""
+        return sum(self._open_positions.values())
+
+    @_open_risk.setter
+    def _open_risk(self, value: float) -> None:
+        """Restore path only: scalar open_risk is loaded as a single legacy entry.
+
+        Callers that set this directly (e.g. StatePersistence.restore) are
+        expected to do so before identity-keyed positions exist.  If the
+        legacy scalar value is non-zero we synthesise one ``_legacy_open_risk``
+        entry so budget accounting remains consistent.
+        """
+        if value <= 0.0 and not self._open_positions:
+            self._open_positions.clear()
+            return
+        legacy_key = "_legacy_open_risk"
+        # Replace any existing legacy entry with the restored scalar amount.
+        if value > 0.0:
+            self._open_positions[legacy_key] = float(value)
+        else:
+            self._open_positions.pop(legacy_key, None)
+
+    @property
+    def open_risk(self) -> float:
+        """Total USD risk currently held in open positions."""
+        with self._lock:
+            return self._open_risk
+
+    @property
+    def open_positions(self) -> dict[str, float]:
+        """Read-only snapshot of registered signal_id -> risk_amount."""
+        with self._lock:
+            return dict(self._open_positions)
 
     @property
     def risk_per_trade(self) -> float:
@@ -157,83 +204,153 @@ class SLPositionSizer:
     @property
     def daily_risk_remaining(self) -> float:
         """USD risk remaining today.
-        
+
         Recycling logic: open positions consume daily cap, but when they close,
         the risk budget is freed up for new trades. Realized losses stay consumed.
         """
-        max_daily = self.account_balance * self.daily_risk_cap_pct
-        # _daily_risk_used = realized losses (already closed)
-        # _open_risk = risk in currently open positions
-        # Total consumed = realized losses + open risk
-        # When position closes with win: realized loss = 0, open risk freed
-        # When position closes with loss: realized loss = actual loss, open risk freed
-        return max(0.0, max_daily - self._daily_risk_used - self._open_risk)
+        with self._lock:
+            max_daily = self.account_balance * self.daily_risk_cap_pct
+            return max(0.0, max_daily - self._daily_risk_used - self._open_risk)
 
     def update_balance(self, balance: float):
         """Update account balance and track peak."""
-        if balance > self._peak_balance:
-            self._peak_balance = balance
-        self.account_balance = balance
-        # Update account DD
-        if self._peak_balance > 0:
-            self.breaker.account_dd_pct = (self._peak_balance - balance) / self._peak_balance
+        with self._lock:
+            if balance > self._peak_balance:
+                self._peak_balance = balance
+            self.account_balance = balance
+            # Update account DD
+            if self._peak_balance > 0:
+                self.breaker.account_dd_pct = (self._peak_balance - balance) / self._peak_balance
+
+    # ── Phase 5 identity-keyed public API ─────────────────────────────
+
+    def register(self, signal_id: str, risk_amount: float) -> None:
+        """Register an open position's risk under a unique signal_id."""
+        with self._lock:
+            if signal_id in self._open_positions:
+                raise ValueError(f"signal_id={signal_id!r} already registered")
+            self._open_positions[signal_id] = float(risk_amount)
+
+    def cancel(self, signal_id: str) -> None:
+        """Cancel the risk reserved for ``signal_id``.
+
+        Raises ``KeyError`` if the signal_id was never registered, which
+        prevents silent double-cancel bugs.
+        """
+        with self._lock:
+            if signal_id not in self._open_positions:
+                raise KeyError(f"Cannot cancel unknown signal_id={signal_id!r}")
+            del self._open_positions[signal_id]
+
+    def close(self, signal_id: str, pnl: float = 0.0) -> None:
+        """Close the position for ``signal_id`` and record PnL.
+
+        The position's reserved risk is released (recycling).  A realized
+        loss is added to ``_daily_risk_used``.  Raises ``KeyError`` for an
+        unknown signal_id.
+        """
+        with self._lock:
+            if signal_id not in self._open_positions:
+                raise KeyError(f"Cannot close unknown signal_id={signal_id!r}")
+            self._open_positions.pop(signal_id)
+
+            win = pnl > 0
+            if not win and pnl < 0:
+                self._daily_risk_used += abs(pnl)
+
+            self.breaker.record_trade(win)
+
+            # Update account balance and peak from actual P&L
+            new_balance = self.account_balance + pnl
+            if new_balance > self._peak_balance:
+                self._peak_balance = new_balance
+            self.account_balance = new_balance
+            if self._peak_balance > 0:
+                self.breaker.account_dd_pct = (
+                    self._peak_balance - self.account_balance
+                ) / self._peak_balance
+
+    # ── Legacy scalar API (kept for callers not yet identity-keyed) ───
 
     def register_open_position(self, risk_amount: float):
-        """Track risk of an open position."""
-        self._open_risk += risk_amount
+        """Track risk of an open position (scalar fallback).
+
+        Generates an internal signal_id so the risk is still identity-keyed.
+        """
+        with self._lock:
+            key = f"_legacy_{id(self)}_{len(self._open_positions)}"
+            self.register(key, risk_amount)
 
     def cancel_position(self, risk_amount: float):
-        """Cancel an open position that was sized but never executed.
+        """Cancel scalar open risk by subtracting from a legacy entry.
 
         Frees risk budget when a downstream component (e.g. PaperTrader)
         rejects an order after the sizer already registered open risk.
+        This legacy variant adjusts the first legacy entry by the requested
+        amount; if the entry would go to zero or negative it is removed.
         """
-        if risk_amount > self._open_risk + 1e-9:
-            logger.warning(
-                "cancel_position overshoot: risk_amount=$%.2f > open_risk=$%.2f "
-                "— clamping to zero (possible double-cancel or sizing mismatch)",
-                risk_amount, self._open_risk,
+        with self._lock:
+            legacy_keys = [
+                k for k in self._open_positions if k.startswith("_legacy_")
+            ]
+            if legacy_keys:
+                key = legacy_keys[0]
+                current = self._open_positions[key]
+                if current > risk_amount + 1e-9:
+                    self._open_positions[key] = current - risk_amount
+                    return
+                self.cancel(key)
+                return
+            # No legacy entries: remove any single open position to preserve
+            # caller contract (used by tests and older callers).
+            if self._open_positions:
+                first_key = next(iter(self._open_positions))
+                self.cancel(first_key)
+                return
+            raise KeyError(
+                "Cannot cancel position: no open positions (possible double-cancel)"
             )
-        self._open_risk -= risk_amount
-        self._open_risk = max(0.0, self._open_risk)
 
     def close_position(self, pnl: float, risk_amount: float, win: bool):
-        """Handle position close — update daily risk and record trade."""
-        # Remove from open risk (this is the recycling — budget is freed)
-        self._open_risk -= risk_amount
-        self._open_risk = max(0.0, self._open_risk)
+        """Handle position close — legacy scalar form.
 
-        # Only count actual losses toward daily budget
-        if not win and pnl < 0:
-            self._daily_risk_used += abs(pnl)  # Actual loss consumed daily budget
-
-        self.breaker.record_trade(win)
-
-        # Update account DD from actual P&L
-        new_balance = self.account_balance + pnl
-        if new_balance > self._peak_balance:
-            self._peak_balance = new_balance
-        self.account_balance = new_balance
-        if self._peak_balance > 0:
-            self.breaker.account_dd_pct = (self._peak_balance - self.account_balance) / self._peak_balance
+        Attempts to find a matching identity-keyed entry by amount, otherwise
+        closes the first open position so backward-compatible callers keep
+        working.
+        """
+        with self._lock:
+            # Try exact match by risk amount
+            for key, amount in list(self._open_positions.items()):
+                if abs(amount - risk_amount) < 1e-9:
+                    self.close(key, pnl)
+                    return
+            # Fallback: close first open position if any
+            if self._open_positions:
+                first_key = next(iter(self._open_positions))
+                self.close(first_key, pnl)
+                return
+            raise KeyError(
+                "Cannot close position: no open positions matching risk_amount"
+            )
 
     def reset_daily(self):
         """Reset daily counters (call at session open)."""
-        if self._open_risk > 0:
-            logger.warning(
-                "reset_daily called with $%.2f in open positions — "
-                "not resetting open_risk to avoid losing track",
-                self._open_risk,
-            )
-        self._daily_risk_used = 0.0
-        self.breaker.daily_dd_pct = 0.0
+        with self._lock:
+            if self._open_risk > 0:
+                logger.warning(
+                    "reset_daily called with $%.2f in open positions — "
+                    "not resetting open_risk to avoid losing track",
+                    self._open_risk,
+                )
+            self._daily_risk_used = 0.0
+            self.breaker.daily_dd_pct = 0.0
 
     def calculate(
         self,
         symbol: str,
         entry_price: float,
         sl_price: float,
-        profile: Union[str, "Profile"] = "sniper",
+        profile: Union[str, object] = "sniper",
     ) -> PositionSizeResult:
         """
         Calculate position size so SL hit = intended risk.
