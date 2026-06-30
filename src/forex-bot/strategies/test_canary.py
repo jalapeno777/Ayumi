@@ -24,9 +24,14 @@ from backtest.types import Bar, MarketState, StrategySignal, TradeDirection
 
 
 class TestCanaryStrategy(ISignalStrategy):
-    """Fire a signal on every bar close to validate the execution pipeline."""
+    """Fire a signal on every bar close to validate the execution pipeline.
 
-    def __init__(self, tp_sl_pct: float = 0.005):  # 0.5% = ~57 pips on EURUSD
+    DISABLED as of 2026-06-29 22:20 EDT — see blended-strategies sprint.
+    Kept registered for re-enable later. Set tp_sl_pct=0.0 below to fully
+    disable without removing from the launcher.
+    """
+
+    def __init__(self, tp_sl_pct: float = 0.0):  # 0.0 = disabled (no signals)
         self.tp_sl_pct = tp_sl_pct
         self._bar_count = 0
 
@@ -34,7 +39,13 @@ class TestCanaryStrategy(ISignalStrategy):
     def name(self) -> str:
         return "Test Canary"
 
+    @property
+    def enabled(self) -> bool:
+        return self.tp_sl_pct > 0
+
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        if not self.enabled:
+            return None
         if not state.bars:
             return None
 
