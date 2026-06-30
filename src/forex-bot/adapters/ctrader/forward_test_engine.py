@@ -1392,9 +1392,15 @@ class ForwardTestEngine:
                 deal_payload = getattr(message, "deal", None)
                 for source in (order_payload, position_payload, deal_payload):
                     pid = getattr(source, "positionId", None)
-                    if pid is not None and int(pid) != 0:
-                        ctrader_position_id = int(pid)
-                        break
+                    if pid is not None:
+                        try:
+                            pid_int = int(pid)
+                            if pid_int != 0:
+                                ctrader_position_id = pid_int
+                                break
+                        except (ValueError, TypeError):
+                            # positionId is not an integer (e.g. UUID-like clientOrderId)
+                            continue
 
             with self._lock:
                 if rv_status == LiveExecutionStatus.FILLED:
@@ -1413,7 +1419,8 @@ class ForwardTestEngine:
                     if (signal.stop_loss is not None
                             and signal.take_profit_1 is not None
                             and self._market_feed is not None
-                            and ctrader_position_id is not None):
+                            and isinstance(ctrader_position_id, int)
+                            and ctrader_position_id != 0):
                         try:
                             symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
                             amended = self._market_feed.amend_sl_tp(
@@ -1437,7 +1444,7 @@ class ForwardTestEngine:
                             )
                     elif rv_status == LiveExecutionStatus.FILLED and signal.stop_loss is not None:
                         logger.warning(
-                            "Late fill for order %s but no cTrader positionId available — SL/TP not attached",
+                            "Late fill for order %s but no cTrader positionId — SL/TP skipped",
                             order_id,
                         )
                 elif rv_status in (
