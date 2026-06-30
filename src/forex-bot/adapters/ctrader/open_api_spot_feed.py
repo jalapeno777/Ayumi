@@ -968,8 +968,10 @@ class OpenApiSpotFeed:
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
-        # Serialize amend calls with a 1s stagger so simultaneous fills
-        # don't overwhelm the cTrader connection with back-to-back requests.
+        # Fire-and-forget amend: position amends are idempotent so we don't
+        # need to wait for a response, and waiting blocks the connection when
+        # many amends queue up. The spot feed's send() returns immediately.
+        # We do still serialize and stagger to avoid overwhelming the broker.
         with self._amend_lock:
             req = ProtoOAAmendPositionSLTPReq()
             req.ctidTraderAccountId = self._ctid_account_id
@@ -979,12 +981,13 @@ class OpenApiSpotFeed:
                 tp = self._round_price(symbol_id, tp)
             req.stopLoss = sl
             req.takeProfit = tp
-            result = self._conn.send_and_wait(req, timeout=timeout, prefix="order")
+            self._conn.send(req)
+            # Register a fire-and-forget errback log so we still see broker-side rejections.
+            return True
         # 1s cooldown so the next amend doesn't immediately re-saturate
         # the connection. Acquired OUTSIDE the lock so other operations
         # can proceed, but only one amend can be in-flight at a time.
         time.sleep(1.0)
-        return result is not None
 
     def close_position(self, position_id, volume, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOAClosePositionReq()
