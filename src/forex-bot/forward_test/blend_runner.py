@@ -12,6 +12,7 @@ from confidence.gates import GateConfig
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
     SignalOrchestrator,
+    TradeSignal,
 )
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
@@ -22,6 +23,14 @@ logger = logging.getLogger("ayumi.forward_test")
 
 
 class BlendForwardTestRunner:
+    """Production forward test runner wiring the full Ayumi signal pipeline.
+
+    Wires: confidence engine → profile router → position sizer → orchestrator.
+    Handles state persistence across restarts via StatePersistence.
+
+    Supports registering ISignalStrategy instances (e.g. TTCXAUUSDStrategy)
+    which are evaluated on each bar and routed through the blend pipeline.
+    """
     """Production forward test runner wiring the full Ayumi signal pipeline.
 
     Wires: confidence engine → profile router → position sizer → orchestrator.
@@ -81,6 +90,9 @@ class BlendForwardTestRunner:
             state_path=config.get("state_path", "data/risk_state.json"),
         )
 
+        # Registered strategies (ISignalStrategy instances)
+        self._strategies: list = []
+
         # Track open positions for fill handling
         self._open_positions: dict[str, dict] = {}
         self._current_day: Optional[str] = None
@@ -135,6 +147,97 @@ class BlendForwardTestRunner:
         independently and could drift out of sync.
         """
         return signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+
+    def register_strategy(self, strategy) -> None:
+        """Register an ISignalStrategy (e.g. TTCXAUUSDStrategy) for evaluation.
+
+        Registered strategies are evaluated on each bar via evaluate_bars().
+        When a strategy produces a signal, it is routed through on_signal().
+        """
+        self._strategies.append(strategy)
+        logger.info("Strategy registered: %s", getattr(strategy, 'name', type(strategy).__name__))
+
+    def evaluate_bars(self, bars: list, latest_bar=None) -> list:
+        """Evaluate all registered strategies on the latest bar data.
+
+        Args:
+            bars: List of bar objects (must have .time, .open, .high, .low, .close).
+            latest_bar: The most recent bar (optional, defaults to bars[-1]).
+
+        Returns:
+            List of OrchestratedOrder results for signals that were generated.
+        """
+        orders = []
+        if not self._strategies:
+            return orders
+
+        bar = latest_bar or (bars[-1] if bars else None)
+        if not bar:
+            return orders
+
+        # Build a simple state object that strategies can evaluate
+        state = type('BarState', (), {
+            'bars': bars,
+            'latest_bar': bar,
+            'symbol': getattr(bar, 'symbol', 'XAUUSD'),
+        })()
+
+        for strategy in self._strategies:
+            try:
+                result = strategy.evaluate(state)
+            except Exception as exc:
+                logger.warning(
+                    "Strategy %s raised during evaluate: %s",
+                    getattr(strategy, 'name', '?'), exc,
+                )
+                continue
+
+            if result is None:
+                continue
+
+            # Convert strategy result to signal_data dict for on_signal
+            signal_data = self._strategy_result_to_dict(result, bar)
+            if signal_data is None:
+                continue
+
+            strategy_id = getattr(strategy, 'name', strategy.__class__.__name__)
+            order = self.on_signal(strategy_id, signal_data)
+            orders.append(order)
+
+        return orders
+
+    @staticmethod
+    def _strategy_result_to_dict(result, bar) -> dict | None:
+        """Convert a strategy evaluate() result to a signal_data dict.
+
+        Handles common result types: dict, dataclass, or object with attributes.
+        """
+        if result is None:
+            return None
+
+        if isinstance(result, dict):
+            return result
+
+        # Try dataclass-style or object attribute access
+        as_dict = {}
+        for key in ('symbol', 'direction', 'entry_price', 'stop_loss',
+                     'take_profit', 'confidence'):
+            val = getattr(result, key, None)
+            if val is not None:
+                as_dict[key] = val
+
+        # Fall back to bar values for required fields
+        as_dict.setdefault('symbol', getattr(bar, 'symbol', 'XAUUSD'))
+        as_dict.setdefault('direction', getattr(result, 'direction', 'LONG'))
+        as_dict.setdefault('entry_price', getattr(bar, 'close', 0.0))
+        as_dict.setdefault('stop_loss', getattr(result, 'stop_loss', 0.0))
+        as_dict.setdefault('take_profit', getattr(result, 'take_profit', 0.0))
+        as_dict.setdefault('confidence', getattr(result, 'confidence', 0.5))
+
+        if not as_dict.get('entry_price') or not as_dict.get('stop_loss'):
+            return None
+
+        return as_dict
 
     def on_signal(self, strategy_id: str, signal_data: dict) -> OrchestratedOrder:
         """Handle incoming strategy signal through full pipeline."""

@@ -1,5 +1,7 @@
 """TTC/TBD Signal & Confidence Engine — Phase 1-4."""
 
+from .filters import TrendFilter, ATRFilter, FVGFilter, FilterChain
+
 from .swing_detector import SwingDetector
 from .level_counter import LevelCounter
 from .htf_analyzer import HTFAnalyzer
@@ -48,4 +50,9 @@ __all__ = [
     "LevelType",
     "SwingType",
     "HTFPhase",
+    # Filters
+    "TrendFilter",
+    "ATRFilter",
+    "FVGFilter",
+    "FilterChain",
 ]
