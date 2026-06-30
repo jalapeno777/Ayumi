@@ -17,10 +17,14 @@ in the order chain, not the signal layer.
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Optional
 
 from backtest.strategy_legacy import ISignalStrategy
 from backtest.types import Bar, MarketState, StrategySignal, TradeDirection
+
+logger = logging.getLogger("ayumi.test_canary")
 
 
 class TestCanaryStrategy(ISignalStrategy):
@@ -35,6 +39,18 @@ class TestCanaryStrategy(ISignalStrategy):
         self.tp_sl_pct = tp_sl_pct
         self._bar_count = 0
 
+    @classmethod
+    def from_env(cls, default_tp_sl_pct: float = 0.005) -> "TestCanaryStrategy":
+        """Construct from environment gating.
+
+        Re-enable requires explicit AYUMI_ENABLE_CANARY=1.
+        tp_sl_pct=0.0 by default unless env var is set.
+        """
+        enabled = os.getenv("AYUMI_ENABLE_CANARY", "0").strip() == "1"
+        if enabled:
+            return cls(tp_sl_pct=default_tp_sl_pct)
+        return cls(tp_sl_pct=0.0)
+
     @property
     def name(self) -> str:
         return "Test Canary"
@@ -48,6 +64,12 @@ class TestCanaryStrategy(ISignalStrategy):
             return None
         if not state.bars:
             return None
+
+        if self.enabled:
+            logger.warning(
+                "Test Canary is ENABLED (tp_sl_pct=%.4f) — emitting diagnostic signals",
+                self.tp_sl_pct,
+            )
 
         bar: Bar = state.bars[-1]
         entry = bar.close
