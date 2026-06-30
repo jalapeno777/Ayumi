@@ -40,7 +40,7 @@ from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
-from .models import OrderStatus, cTraderCredentials, TradeSignal, TradeDirection
+from .models import OrderStatus, cTraderCredentials, TradeSignal, TradeDirection, get_symbol_info
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
@@ -67,6 +67,10 @@ _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
+# Phase 7: live-mode validation gate.  Operator (Ava) creates this flag after
+# remediation is validated; the launcher refuses live mode if it is absent.
+_REMEDIATION_VALIDATED_FLAG = "data/ayumi/remediation_validated.flag"
+
 
 # Heartbeat writer defaults
 _HEARTBEAT_FILE = "data/heartbeat_trading.json"
@@ -423,6 +427,13 @@ class ForwardTestEngine:
             logger.warning("ForwardTestEngine already running")
             return True
 
+        # Phase 7B: live-mode hard block — refuse to start against real broker
+        # until remediation has been validated and the operator creates the flag.
+        if self._config.live_mode and not os.path.exists(_REMEDIATION_VALIDATED_FLAG):
+            raise RuntimeError(
+                "Refusing to start in live mode: remediation not validated"
+            )
+
         if not self._validate_credentials():
             logger.error("Invalid credentials — aborting start")
             return False
@@ -446,6 +457,16 @@ class ForwardTestEngine:
         self._preload_complete = False
         if isinstance(self._market_feed, OpenApiSpotFeed):
             self._preload_historical_bars()
+
+        # Phase 7A: preflight — reconcile open broker positions and seed risk.
+        # Only applies when running through the blend pipeline (has _blend_runner).
+        blend_runner = getattr(self, "_blend_runner", None)
+        if blend_runner is not None and isinstance(self._market_feed, OpenApiSpotFeed):
+            try:
+                positions = self._market_feed.reconcile()
+                self._seed_existing_positions(positions, blend_runner._sizer)
+            except Exception as exc:
+                logger.warning("Preflight reconcile failed: %s", exc)
 
         self._running = True
         self._start_time = datetime.now(timezone.utc)
@@ -1058,6 +1079,61 @@ class ForwardTestEngine:
         lots = risk_amount / (sl_pips * dollar_per_pip_per_lot)
         lots = max(cfg.min_lot_size, min(cfg.max_lot_size, lots))
         return lots
+
+    def _seed_existing_positions(self, positions: list, sizer) -> None:
+        """Seed the identity-keyed risk sizer with open cTrader positions.
+
+        Phase 7A: before the first strategy evaluation, reconcile with the
+        broker and register each existing open position's risk under a synthetic
+        ``seeded_{positionId}`` signal_id.  Seeded risk consumes ``open_risk``
+        budget (so the daily cap still works for new signals) but does NOT add
+        to ``daily_risk_used`` because these positions were not opened today.
+        """
+        total_seeded_risk = 0.0
+        seeded_count = 0
+
+        for pos in positions:
+            position_id = getattr(pos, "position_id", None)
+            if position_id is None:
+                continue
+            symbol = getattr(pos, "symbol", "")
+            lots = getattr(pos, "volume", 0.0) or 0.0
+            entry_price = getattr(pos, "entry_price", 0.0) or 0.0
+            sl_price = getattr(pos, "stop_loss", None) or None
+
+            sym_info = get_symbol_info(symbol)
+            pip_size = sym_info.pip_size
+            pip_value_per_lot = sym_info.pip_value_per_lot
+
+            if sl_price is not None and entry_price and lots:
+                price_distance = abs(entry_price - sl_price)
+                pips = price_distance / pip_size if pip_size else 0.0
+                risk_amount = pips * lots * pip_value_per_lot
+            else:
+                # Conservative fallback: assume $100 of risk per lot when broker
+                # position has no stop loss.
+                risk_amount = lots * 100.0
+                logger.warning(
+                    "Preflight: position %s (%s %.4f lots) has no stop loss — "
+                    "using conservative risk estimate $%.2f",
+                    position_id, symbol, lots, risk_amount,
+                )
+
+            signal_id = f"seeded_{position_id}"
+            try:
+                sizer.register(signal_id, float(risk_amount))
+                total_seeded_risk += float(risk_amount)
+                seeded_count += 1
+            except ValueError as exc:
+                logger.warning(
+                    "Preflight: could not seed position %s under %s: %s",
+                    position_id, signal_id, exc,
+                )
+
+        logger.info(
+            "Preflight: seeded %d open cTrader positions totaling $%.2f risk",
+            seeded_count, total_seeded_risk,
+        )
 
     def _execute_signal_live(
         self, signal: TradeSignal, strategy_id: str = ""
