@@ -827,6 +827,18 @@ class OpenApiSpotFeed:
     def _symbol_name_for_id(self, symbol_id: int) -> str:
         return _normalize_symbol_name(self._id_to_name.get(symbol_id, str(symbol_id)))
 
+    def _round_price(self, symbol_id, value):
+        """Round a price value to the symbol's allowed decimal places.
+
+        cTrader rejects orders whose SL/TP/limit/stop prices exceed the
+        symbol's digit precision (e.g. 5 digits for EURUSD, 3 for USDJPY).
+        This prevents INVALID_REQUEST rejections from floating-point noise.
+        """
+        if value is None:
+            return None
+        digits = self._symbol_digits.get(symbol_id, 5)
+        return round(float(value), digits)
+
     def new_order(self, symbol_id, side, volume, *, order_type=ProtoOAOrderType.MARKET,
                   price=None, sl=None, tp=None,
                   time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
@@ -870,6 +882,9 @@ class OpenApiSpotFeed:
         req.volume = volume
         req.timeInForce = time_in_force
         req.clientOrderId = request_id
+        price = self._round_price(symbol_id, price)
+        sl = self._round_price(symbol_id, sl)
+        tp = self._round_price(symbol_id, tp)
         if order_type == ProtoOAOrderType.LIMIT and price is not None:
             req.limitPrice = price
         elif order_type == ProtoOAOrderType.STOP and price is not None:
@@ -929,19 +944,26 @@ class OpenApiSpotFeed:
         req.orderId = order_id
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
-    def amend_order(self, order_id, *, price=None, sl=None, tp=None, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+    def amend_order(self, order_id, *, price=None, sl=None, tp=None, symbol_id=None, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.orderId = order_id
+        if symbol_id:
+            price = self._round_price(symbol_id, price)
+            sl = self._round_price(symbol_id, sl)
+            tp = self._round_price(symbol_id, tp)
         if price is not None: req.limitPrice = price
         if sl is not None: req.stopLoss = sl
         if tp is not None: req.takeProfit = tp
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
-    def amend_sl_tp(self, position_id, sl, tp, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+    def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOAAmendPositionSLTPReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.positionId = position_id
+        if symbol_id:
+            sl = self._round_price(symbol_id, sl)
+            tp = self._round_price(symbol_id, tp)
         req.stopLoss = sl
         req.takeProfit = tp
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
