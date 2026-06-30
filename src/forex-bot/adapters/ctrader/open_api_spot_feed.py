@@ -817,15 +817,36 @@ class OpenApiSpotFeed:
         if payload is None:
             return []
 
+        # Determine the correct divisor for trendbar protobuf values.
+        # cTrader encodes JPY-pair trendbar OHLC at 5-digit precision
+        # internally, even though the symbol's digits field reports 3.
+        # Using 10**3 for a 10**5-encoded payload leaves prices 100x inflated.
+        # Non-JPY 5-digit symbols (EURUSD/GBPUSD) are unaffected since
+        # digits=5 matches the protobuf encoding.
+        symbol_name = self._symbol_name_for_id(symbol_id)
+        digits = self._symbol_digits.get(symbol_id, 5)
+        is_jpy = "JPY" in symbol_name.upper()
+        tb_digits = 5 if (is_jpy and digits < 5) else digits
+        d = float(10 ** tb_digits)
+
         bars = []
         for tb in getattr(payload, 'trendbar', []):
             bar_time = datetime.fromtimestamp(getattr(tb, 'utcTimestampInMinutes', 0) * 60, tz=timezone.utc)
             low_raw = getattr(tb, 'low', 0)
-            d = float(10 ** self._symbol_digits.get(symbol_id, 5))
+            high_decoded = round((low_raw + getattr(tb, 'deltaHigh', 0)) / d, 5)
+
+            # Magnitude sanity guard for JPY pairs
+            if is_jpy and high_decoded > 1000:
+                logger.warning(
+                    "JPY pair %s trendbar high=%.5f exceeds 1000 after decode "
+                    "(raw low=%d, divisor=%.0f, digits=%d) — possible precision mismatch",
+                    symbol_name, high_decoded, low_raw, d, digits,
+                )
+
             bars.append(Bar(
                 time=bar_time,
                 open=round((low_raw + getattr(tb, 'deltaOpen', 0)) / d, 5),
-                high=round((low_raw + getattr(tb, 'deltaHigh', 0)) / d, 5),
+                high=high_decoded,
                 low=round(low_raw / d, 5),
                 close=round((low_raw + getattr(tb, 'deltaClose', 0)) / d, 5),
                 volume=getattr(tb, 'volume', 0),
