@@ -1113,17 +1113,35 @@ class ForwardTestEngine:
 
         volume_raw = self._market_feed.lots_to_volume(symbol_id, volume_lots)
 
+        # cTrader rejects absolute SL/TP on MARKET orders with INVALID_REQUEST.
+        # Send the market order naked, then attach SL/TP via position amend after fill.
         order = self._market_feed.new_order(
             symbol_id=symbol_id,
             side=side,
             volume=volume_raw,
             order_type=ProtoOAOrderType.MARKET,
-            sl=signal.stop_loss,
-            tp=signal.take_profit_1,
+            sl=None,
+            tp=None,
             comment=signal.rationale,
         )
 
         outcome = self._classify_live_order_outcome(order, signal, strategy_id)
+
+        # If the order filled, attach SL/TP to the resulting position.
+        if outcome.status == LiveExecutionStatus.FILLED and signal.stop_loss and signal.take_profit_1:
+            position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
+            try:
+                amended = self._market_feed.amend_sl_tp(
+                    position_id, signal.stop_loss, signal.take_profit_1,
+                    symbol_id=symbol_id,
+                )
+                if amended:
+                    logger.info("SL/TP attached to position %s: sl=%.5f tp=%.5f",
+                                position_id, signal.stop_loss, signal.take_profit_1)
+                else:
+                    logger.warning("Failed to attach SL/TP to position %s (non-fatal)", position_id)
+            except Exception as amend_err:
+                logger.warning("SL/TP amend error for position %s: %s (non-fatal)", position_id, amend_err)
 
         # Log the outcome so operators can correlate with cTrader terminal
         # state and the engine's health counters.
