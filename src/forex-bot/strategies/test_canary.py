@@ -26,7 +26,7 @@ from backtest.types import Bar, MarketState, StrategySignal, TradeDirection
 class TestCanaryStrategy(ISignalStrategy):
     """Fire a signal on every bar close to validate the execution pipeline."""
 
-    def __init__(self, tp_sl_pct: float = 0.05):
+    def __init__(self, tp_sl_pct: float = 0.005):  # 0.5% = ~57 pips on EURUSD
         self.tp_sl_pct = tp_sl_pct
         self._bar_count = 0
 

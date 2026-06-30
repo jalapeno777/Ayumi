@@ -699,7 +699,7 @@ def main():
             "atr_period": 14, "min_range_bars": 20,
         }),
         SimpleRSIThresholdStrategy(config=RSIThresholdConfig()),
-        TestCanaryStrategy(tp_sl_pct=0.05),  # EURUSD execution validation
+        TestCanaryStrategy(tp_sl_pct=0.005),  # 0.5% SL/TP — demo execution validation
     ]
     logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
 
