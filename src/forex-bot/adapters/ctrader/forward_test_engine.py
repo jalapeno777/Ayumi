@@ -1556,8 +1556,9 @@ class ForwardTestEngine:
             blend_runner = getattr(self, "_blend_runner", None)
             if blend_runner is not None and rv_status != LiveExecutionStatus.FILLED:
                 try:
-                    # Build signal_id the same way blend_runner.on_signal does.
-                    signal_id = strategy_id + "_" + str(signal.timestamp.timestamp())
+                    # Delegate to canonical helper — never construct the
+                    # id locally (Phase 5 regression fix).
+                    signal_id = blend_runner.make_signal_id(signal)
                     if hasattr(blend_runner, "cancel_risk"):
                         blend_runner.cancel_risk(
                             signal_id,

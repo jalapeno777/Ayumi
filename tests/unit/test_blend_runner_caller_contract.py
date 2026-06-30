@@ -144,10 +144,12 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     from adapters.ctrader.signal_adapter import TradeSignal
     from datetime import datetime, timezone
 
-    # Mock the blend_runner to capture cancel_risk calls.
+    # Mock the blend_runner to capture cancel_risk calls AND delegate
+    # the signal_id construction to the canonical helper.
     blend_runner = MagicMock()
-    # Real signal_id pattern mirrors blend_runner.on_signal:
-    # strategy_id + "_" + timestamp
+    blend_runner.make_signal_id.side_effect = lambda signal: (
+        signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+    )
     expected_signal_id = "session_breakout_ny_" + str(
         datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc).timestamp()
     )
@@ -181,6 +183,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
         confidence=0.9,
         rationale="test",
         timestamp=datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc),
+        strategy_id="session_breakout_ny",
     )
 
     # Mock blend_runner.on_signal to return a non-rejected order with risk_amount.
@@ -190,18 +193,8 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     order.risk_amount = 50.0
     blend_runner.on_signal.return_value = order
 
-    # Patch the order's risk_amount attribute so cancel_risk receives it.
-    # The mocked order above already has it.
-
-    # Drive the paper-mode cancel path: process_signal returns success=False,
-    # so the launcher calls cancel_risk(order.risk_amount).
-    # call _route_signal-like behaviour via direct invocation.  We use the
-    # public method if exposed; otherwise patch the bits we need.
-
-    # Minimal stand-in: directly invoke the cancel_risk logic by mimicking
-    # what _route_signal does in the paper-failure branch.  We test the
-    # helper that builds signal_id and the contract it upholds.
-    sig_id = engine._blend_signal_id("session_breakout_ny", sig)
+    # _blend_signal_id now delegates to blend_runner.make_signal_id.
+    sig_id = engine._blend_signal_id(sig)
     assert sig_id == expected_signal_id, (
         f"_blend_signal_id mismatch: got {sig_id!r}, expected {expected_signal_id!r}"
     )
@@ -209,6 +202,13 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     # Now invoke cancel_risk with both args — must NOT raise.
     blend_runner.cancel_risk(sig_id, 50.0)
     blend_runner.cancel_risk.assert_called_with(sig_id, 50.0)
+
+    # Verify the launcher actually delegated to the runner, not constructed
+    # the id locally — the runner's make_signal_id must have been called.
+    assert blend_runner.make_signal_id.called, (
+        "_blend_signal_id should delegate to blend_runner.make_signal_id — "
+        "if you construct the id locally you risk drift from on_signal()."
+    )
 
 
 def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
@@ -229,6 +229,14 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     from datetime import datetime, timezone
 
     engine = BlendForwardTestEngine.__new__(BlendForwardTestEngine)
+    # _blend_signal_id now delegates to blend_runner.make_signal_id; provide
+    # a blend_runner so the delegation succeeds.
+    blend_runner = MagicMock()
+    blend_runner.make_signal_id.side_effect = lambda signal: (
+        signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+    )
+    engine._blend_runner = blend_runner
+
     sig = TradeSignal(
         symbol="GBPUSD",
         direction="LONG",
@@ -241,12 +249,13 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
         confidence=0.9,
         rationale="test",
         timestamp=datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc),
+        strategy_id="session_breakout_ny",
     )
 
     # The helper must produce the same shape that blend_runner.on_signal
     # registered with the sizer.  That's the contract that protects the
     # 3 cancel_risk() callers in the launcher.
-    sig_id = engine._blend_signal_id("session_breakout_ny", sig)
+    sig_id = engine._blend_signal_id(sig)
 
     # Pattern: strategy_id + "_" + str(datetime.timestamp())
     expected = "session_breakout_ny_" + str(
