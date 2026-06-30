@@ -1376,6 +1376,34 @@ class ForwardTestEngine:
                         order_id, direction_str, signal.symbol,
                         self._live_fill_count,
                     )
+                    # Attach SL/TP via position amend. The synchronous FILLED
+                    # path does this in execute_live_order, but late fills
+                    # arrive via this callback path and were previously left
+                    # naked without risk protection.
+                    if (signal.stop_loss is not None
+                            and signal.take_profit_1 is not None
+                            and self._market_feed is not None):
+                        try:
+                            symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
+                            amended = self._market_feed.amend_sl_tp(
+                                order_id, signal.stop_loss, signal.take_profit_1,
+                                symbol_id=symbol_id,
+                            )
+                            if amended:
+                                logger.info(
+                                    "Late SL/TP attached to position %s: sl=%.5f tp=%.5f",
+                                    order_id, signal.stop_loss, signal.take_profit_1,
+                                )
+                            else:
+                                logger.warning(
+                                    "Late SL/TP amend returned False for position %s (non-fatal)",
+                                    order_id,
+                                )
+                        except Exception as amend_err:
+                            logger.warning(
+                                "Late SL/TP amend error for position %s: %s (non-fatal)",
+                                order_id, amend_err,
+                            )
                 elif rv_status in (
                     LiveExecutionStatus.REJECTED,
                     LiveExecutionStatus.CANCELLED,

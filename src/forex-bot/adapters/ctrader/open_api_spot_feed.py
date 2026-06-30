@@ -649,7 +649,13 @@ class OpenApiSpotFeed:
         self._tick_callbacks.append(callback)
 
     def register_callback(self, event_name: str, fn: Callable) -> None:
-        self._callbacks.setdefault(event_name, []).append(fn)
+        # Dedupe: if the same function is already registered for this event,
+        # don't append a second copy. Without this, multiple orders sharing
+        # the same callback function cause the callback to fire repeatedly
+        # for each subsequent registration.
+        existing = self._callbacks.setdefault(event_name, [])
+        if fn not in existing:
+            existing.append(fn)
 
     def _trigger_callback(self, event_name: str, *args) -> None:
         for cb in list(self._callbacks.get(event_name, [])):
