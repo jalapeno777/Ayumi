@@ -205,6 +205,9 @@ class OpenApiSpotFeed:
         self._app_authed: threading.Event = threading.Event()
         self._reauth_in_progress = threading.Event()
         self._lock = threading.Lock()
+        # Serializes amend_sl_tp calls so multiple simultaneous fills don't
+        # overwhelm the cTrader connection with back-to-back requests.
+        self._amend_lock = threading.Lock()
 
         # Symbol metadata
         self._symbols: dict[int, SymbolInfo] = {}
@@ -965,15 +968,23 @@ class OpenApiSpotFeed:
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
-        req = ProtoOAAmendPositionSLTPReq()
-        req.ctidTraderAccountId = self._ctid_account_id
-        req.positionId = position_id
-        if symbol_id:
-            sl = self._round_price(symbol_id, sl)
-            tp = self._round_price(symbol_id, tp)
-        req.stopLoss = sl
-        req.takeProfit = tp
-        return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
+        # Serialize amend calls with a 1s stagger so simultaneous fills
+        # don't overwhelm the cTrader connection with back-to-back requests.
+        with self._amend_lock:
+            req = ProtoOAAmendPositionSLTPReq()
+            req.ctidTraderAccountId = self._ctid_account_id
+            req.positionId = position_id
+            if symbol_id:
+                sl = self._round_price(symbol_id, sl)
+                tp = self._round_price(symbol_id, tp)
+            req.stopLoss = sl
+            req.takeProfit = tp
+            result = self._conn.send_and_wait(req, timeout=timeout, prefix="order")
+        # 1s cooldown so the next amend doesn't immediately re-saturate
+        # the connection. Acquired OUTSIDE the lock so other operations
+        # can proceed, but only one amend can be in-flight at a time.
+        time.sleep(1.0)
+        return result is not None
 
     def close_position(self, position_id, volume, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOAClosePositionReq()
