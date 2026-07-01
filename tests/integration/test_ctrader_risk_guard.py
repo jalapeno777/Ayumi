@@ -213,24 +213,24 @@ class TestRiskGuard:
         assert result.limit_type == RiskLimitType.DAILY_LOSS
 
     def test_reset_circuit_breaker(self):
+        """reset_circuit_breaker clears permanent (total drawdown) blocks.
+
+        Note: Daily loss blocks cannot be manually reset (R2/Kaito).
+        They expire automatically at UTC midnight.
+        """
+        from adapters.ctrader.risk_guard import RiskLimitType
         config = FTMOConfig(daily_loss_limit_pct=0.05)
         guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
 
-        guard._current_day = date.today()
-        guard._daily_start_balance = 100000.0
-        guard._current_balance = 94000.0
-        guard._daily_trade_count = 1  # A trade occurred → daily loss check is active
-
-        guard.check_trade_allowed(
-            direction=TradeDirection.LONG,
-            volume=0.01,
-            entry_price=1.1000,
-            stop_loss=1.0950,
-            take_profit=1.1100,
+        # Trigger permanent circuit breaker directly (total drawdown)
+        guard._trigger_circuit_breaker(
+            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
         )
         assert guard.is_blocked is True
+        assert guard._circuit_breaker_triggered is True
 
-        guard.reset_circuit_breaker()
+        result = guard.reset_circuit_breaker(reason="test")
+        assert result is True
         assert guard.is_blocked is False
 
     def test_get_stats(self):
