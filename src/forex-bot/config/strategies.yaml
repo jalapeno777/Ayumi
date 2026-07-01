@@ -3,7 +3,7 @@ forward_test:
   ftmo:
     daily_loss_limit_pct: 0.04
     total_drawdown_limit_pct: 0.07
-    max_positions: 5
+    max_positions: 3
     max_trades_per_day: 10
     min_risk_reward: 0.0
 
@@ -18,7 +18,7 @@ forward_test:
         session_range_min_pips: 25.0
         entry_near_extreme_pips: 15.0
         hard_cap_sl_pips: 25.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
 
     - id: srmr_eurusd_h1
@@ -31,7 +31,7 @@ forward_test:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
         hard_cap_sl_pips: 20.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
 
     - id: srmr_xauusd_h1
@@ -44,7 +44,7 @@ forward_test:
         session_range_min_pips: 200.0
         entry_near_extreme_pips: 150.0
         hard_cap_sl_pips: 300.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
         pip_value: 0.01
 
@@ -58,7 +58,7 @@ forward_test:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
         hard_cap_sl_pips: 20.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
         pip_value: 0.01
 
@@ -72,7 +72,7 @@ forward_test:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
         hard_cap_sl_pips: 20.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
 
     - id: srmr_usdchf_h1
@@ -85,7 +85,7 @@ forward_test:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
         hard_cap_sl_pips: 20.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
 
     - id: srmr_usdcad_h1
@@ -98,7 +98,7 @@ forward_test:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
         hard_cap_sl_pips: 20.0
-        tp1_rr: 1.0
+        tp1_rr: 1.5
         tp2_rr: 1.5
 
     - id: ttc_xauusd_h1
