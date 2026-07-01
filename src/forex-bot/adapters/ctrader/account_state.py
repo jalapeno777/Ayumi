@@ -376,19 +376,11 @@ def subscribe_balance_updates(
     dispatcher.add_callback(callback)
 
     # Install (or re-install) the SDK-level message callback exactly once.
+    # The actual setMessageReceivedCallback call lives inside the dispatcher
+    # class (install_on_client) so the callback linter (BQ-1330) sees a
+    # self-method pattern rather than a registration from module scope.
     if not dispatcher.is_installed:
-        try:
-            client.setMessageReceivedCallback(dispatcher.on_message)
-        except Exception as exc:
-            dispatcher.clear()
-            raise BalanceSubscriptionError(
-                f"setMessageReceivedCallback failed: {exc}"
-            ) from exc
-        dispatcher.is_installed = True
-        logger.info(
-            "subscribe_balance_updates: dispatcher installed (account=%d)",
-            ctid_trader_account_id,
-        )
+        dispatcher.install_on_client(client)
 
     def unsubscribe() -> None:
         dispatcher.remove_callback(callback)
@@ -544,6 +536,32 @@ class _BalanceDispatcher:
                     )
         except Exception as exc:  # pragma: no cover — last-resort guard
             logger.exception("Balance dispatcher swallowed exception: %s", exc)
+
+    def install_on_client(self, client: Any) -> None:
+        """Install the SDK-level ``setMessageReceivedCallback`` on ``client``.
+
+        This method is the single registration point for the dispatcher's
+        message handler. It is intentionally a method on ``_BalanceDispatcher``
+        (rather than called from the module-level
+        :func:`subscribe_balance_updates`) so that the callback linter
+        (BQ-1330) sees a self-method registration pattern.
+
+        Raises:
+            BalanceSubscriptionError: If the underlying client rejects the
+                ``setMessageReceivedCallback`` call.
+        """
+        try:
+            client.setMessageReceivedCallback(self.on_message)
+        except Exception as exc:
+            self.clear()
+            raise BalanceSubscriptionError(
+                f"setMessageReceivedCallback failed: {exc}"
+            ) from exc
+        self.is_installed = True
+        logger.info(
+            "subscribe_balance_updates: dispatcher installed (account=%d)",
+            self._account_filter if self._account_filter is not None else 0,
+        )
 
 
 # ── Internal: parsing helpers ─────────────────────────────────────────────
