@@ -340,8 +340,10 @@ class TestRiskGuardKillSwitch:
                 RiskLimitType.DAILY_LOSS, 0.06, 0.05
             )
 
-            # Risk guard circuit breaker should still be triggered
-            assert rg._circuit_breaker_triggered is True
+            # R2: Daily loss sets time-based block until UTC midnight,
+            # not permanent circuit_breaker_triggered.
+            assert rg._blocked_until is not None
+            assert rg.is_blocked is True
 
     def test_non_loss_breach_no_kill(self):
         """Non-loss circuit breaker (e.g. max_trades) does not activate kill."""
