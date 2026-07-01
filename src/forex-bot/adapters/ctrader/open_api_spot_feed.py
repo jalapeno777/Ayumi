@@ -1039,7 +1039,45 @@ class OpenApiSpotFeed:
             time.sleep(1.0)
             return True
 
-    def close_position(self, position_id, volume, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+    def close_position(
+        self,
+        position_id,
+        volume,
+        *,
+        symbol_id: int | None = None,
+        timeout: float = _ORDER_TIMEOUT_SEC,
+    ) -> bool:
+        """Close (fully or partially) an open position.
+
+        ``volume`` accepts either of:
+
+        * ``int``  — already-converted cTrader raw volume (lots × lot_size).
+          Passed through unchanged. This is the historical contract.
+        * ``float`` — lots. Converted to raw volume via the existing
+          :class:`VolumeCalculator` using ``symbol_id``. ``symbol_id``
+          is required when ``volume`` is a float (otherwise the
+          per-symbol lot_size is unknown and we cannot convert).
+
+        Args:
+            position_id: cTrader position ID.
+            volume: Volume to close, as either raw ``int`` (cents/units)
+                or ``float`` lots.
+            symbol_id: Symbol ID of the position. **Required** when
+                ``volume`` is a ``float``; ignored when ``volume`` is
+                an ``int``.
+            timeout: Per-request timeout in seconds.
+
+        Returns:
+            ``True`` if cTrader acknowledged the close request, else ``False``.
+        """
+        if isinstance(volume, float):
+            if symbol_id is None:
+                raise ValueError(
+                    "close_position: symbol_id is required when volume is "
+                    "a float (lots); pass the position's symbol_id to "
+                    "convert lots → raw volume via the per-symbol lot_size."
+                )
+            volume = self._volume_calc.lots_to_volume(symbol_id, volume)
         req = ProtoOAClosePositionReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.positionId = position_id

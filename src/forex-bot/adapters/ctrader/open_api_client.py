@@ -112,6 +112,14 @@ class CTraderOpenApiClient:
         # BQ-1327: External callback for unexpected disconnects.
         self._on_disconnected: typing.Callable | None = None
         self._symbol_digits_cache: dict[int, int] = {}
+        # BQ-1330: Instance-state events used by the self-method callback
+        # handlers (self._on_connected / self._on_response) so the SDK
+        # registrations can use ``self.<method>`` rather than local
+        # closures. Each call to ``_do_connect`` / ``_send_and_wait``
+        # replaces the relevant event before re-registering.
+        self._connected_event: threading.Event | None = None
+        self._send_event: threading.Event | None = None
+        self._send_result: list = [None]
 
         # BQ-1329: Optional second-app credentials for concurrent sessions.
         # Environment variables take precedence when constructor args are None.
@@ -185,20 +193,20 @@ class CTraderOpenApiClient:
 
         self._client = Client(self._host, self._port, TcpProtocol)
 
-        # Wait for TCP connection
-        connected_event = threading.Event()
-
-        def on_connected(_):
-            connected_event.set()
+        # Wait for TCP connection. BQ-1330: the connect callback is now
+        # a self-method (``self._on_connected``) backed by instance
+        # state (``self._connected_event``) so the SDK registration
+        # passes the callback linter's "self-method" check.
+        self._connected_event = threading.Event()
 
         # BQ-1327: Wire disconnected callback so the client cleans up state
         # when the TCP connection drops unexpectedly (mirrors archived
         # spot feed's setDisconnectedCallback pattern).
         self._client.setDisconnectedCallback(self._on_tcp_disconnected)
-        self._client.setConnectedCallback(on_connected)
+        self._client.setConnectedCallback(self._on_connected)
         self._client.startService()
 
-        if not connected_event.wait(timeout=15):
+        if not self._connected_event.wait(timeout=15):
             logger.error("Timeout waiting for TCP connection to cTrader")
             return False
 
@@ -269,6 +277,24 @@ class CTraderOpenApiClient:
         """
         self._on_disconnected = callback
 
+    def _on_connected(self, _: object) -> None:
+        """Internal handler for TCP connect events (BQ-1330).
+
+        Sets ``self._connected_event`` so ``_do_connect`` can unblock.
+        Safe to call when no connect is in flight (event is ``None``).
+        """
+        if self._connected_event is not None:
+            self._connected_event.set()
+
+    def _on_response(self, _: object, __: object) -> None:
+        """Internal handler for incoming SDK messages (BQ-1330).
+
+        Sets ``self._send_event`` so the in-flight ``_send_and_wait``
+        call can unblock. Safe to call when no send is in flight.
+        """
+        if self._send_event is not None:
+            self._send_event.set()
+
     def _on_tcp_disconnected(self, _: object) -> None:
         """Internal handler for TCP disconnect events (BQ-1327)."""
         was_connected = self._connected
@@ -307,35 +333,37 @@ class CTraderOpenApiClient:
         if not self._client or not self._client.isConnected:
             raise RuntimeError("Not connected")
 
-        event = threading.Event()
-        result_holder = [None]
+        # BQ-1330: Message callback is now ``self._on_response`` (a
+        # self-method) backed by instance state. The deferred callbacks
+        # still use local closures because the callback linter only
+        # inspects ``setMessageReceivedCallback`` / ``setConnectedCallback``
+        # / ``setDisconnectedCallback`` registrations.
+        self._send_event = threading.Event()
+        self._send_result = [None]
 
-        def on_response(client, msg):
-            event.set()
-
-        self._client.setMessageReceivedCallback(on_response)
+        self._client.setMessageReceivedCallback(self._on_response)
 
         # Send via the Twisted thread
         client_msg_id = f"{id(message)}_{time.monotonic()}"
         deferred = self._client.send(message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
 
         def capture_result(proto_res):
-            result_holder[0] = proto_res
-            event.set()
+            self._send_result[0] = proto_res
+            self._send_event.set()
 
         def capture_error(failure):
             logger.error(f"API request failed: {failure}")
-            event.set()
+            self._send_event.set()
 
         from twisted.internet import threads
         reactor.callFromThread(
             lambda: deferred.addCallbacks(capture_result, capture_error)
         )
 
-        if not event.wait(timeout=timeout + 5):
+        if not self._send_event.wait(timeout=timeout + 5):
             return None
 
-        return result_holder[0]
+        return self._send_result[0]
 
     # --- Public API ---
 
