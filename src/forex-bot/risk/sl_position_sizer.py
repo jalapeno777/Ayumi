@@ -234,12 +234,21 @@ class SLPositionSizer:
     def cancel(self, signal_id: str) -> None:
         """Cancel the risk reserved for ``signal_id``.
 
-        Raises ``KeyError`` if the signal_id was never registered, which
-        prevents silent double-cancel bugs.
+        Idempotent cancel — safe to call on unknown signal_id (race with
+        late fills).  If the signal_id was never registered or was already
+        cancelled/closed, the call logs a WARNING and returns gracefully
+        instead of raising ``KeyError``.  This prevents the timeout →
+        cancel → crash loop when a late fill arrives after the execution
+        window expires.
         """
         with self._lock:
             if signal_id not in self._open_positions:
-                raise KeyError(f"Cannot cancel unknown signal_id={signal_id!r}")
+                logger.warning(
+                    "cancel() called for unknown signal_id=%r — likely a "
+                    "race with a late fill (no-op, continuing)",
+                    signal_id,
+                )
+                return
             del self._open_positions[signal_id]
 
     def close(self, signal_id: str, pnl: float = 0.0) -> None:
