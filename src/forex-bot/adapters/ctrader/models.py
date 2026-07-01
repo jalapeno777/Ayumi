@@ -184,6 +184,9 @@ SYMBOL_METADATA: dict[str, SymbolInfo] = {
     "GBPUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDJPY": SymbolInfo(pip_size=0.01, pip_value_per_lot=6.5),
     "XAUUSD": SymbolInfo(pip_size=0.01, pip_value_per_lot=1.0, lot_size=100, contract_size=100.0),
+    "AUDUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "USDCHF": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
+    "USDCAD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
 }
 
 # Default for unknown FX pairs
