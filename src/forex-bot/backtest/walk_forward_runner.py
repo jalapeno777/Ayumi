@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any, Protocol
@@ -24,13 +25,50 @@ from signal_engine.risk_sizer import ConfidencePositionSizer
 
 logger = logging.getLogger(__name__)
 
+# --- PF sanitisation & trade-count guardrail (T6) ---
+
+PF_CAP = 99.0
+MIN_TRADES_WARNING = 15
+
+
+def _sanitize_profit_factor(pf: float) -> float:
+    """Return a finite profit factor, capping Infinity and replacing NaN.
+
+    When ``gross_loss == 0`` and ``gross_profit > 0`` the raw division yields
+    ``Infinity``.  We cap to :data:`PF_CAP` (99.0) so downstream aggregations
+    (mean, std) remain meaningful instead of propagating ``inf``.
+    """
+    if math.isnan(pf):
+        return 0.0
+    if math.isinf(pf):
+        return PF_CAP
+    return pf
+
+
+def _check_trade_count_warning(window_idx: int, trade_count: int) -> bool:
+    """``True`` when a walk-forward window has fewer than 15 trades.
+
+    Logs a ``WARNING`` but does **not** fail the window - statistical
+    significance is informational only.
+    """
+    if trade_count < MIN_TRADES_WARNING:
+        logger.warning(
+            "[WARNING] Window %d: only %d trades (minimum %d recommended "
+            "for statistical significance)",
+            window_idx,
+            trade_count,
+            MIN_TRADES_WARNING,
+        )
+        return True
+    return False
+
 
 def _reliability_flag(n: int) -> str:
     """Classify sample reliability for regime aggregation (BQ-508).
 
-    - < 3 samples  → "exploratory"
-    - 3-9 samples   → "tentative"
-    - ≥ 10 samples  → "robust"
+    - < 3 samples  -> "exploratory"
+    - 3-9 samples   -> "tentative"
+    - >= 10 samples  -> "robust"
     """
     if n < 3:
         return "exploratory"
@@ -170,12 +208,16 @@ def run_strategy_walk_forward(
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
 
+        # T6: Sanitise PF (no Infinity) and warn on low trade count
+        _check_trade_count_warning(idx, window_metrics.trade_count)
+        sanitized_pf = _sanitize_profit_factor(window_metrics.profit_factor)
+
         # Regime detection on training window (BQ-508)
         regime = detect_regime_for_window(train_bars)
         window_metrics = WindowMetrics(
             window_index=window_metrics.window_index,
             win_rate=window_metrics.win_rate,
-            profit_factor=window_metrics.profit_factor,
+            profit_factor=sanitized_pf,
             max_drawdown=window_metrics.max_drawdown,
             sharpe_ratio=window_metrics.sharpe_ratio,
             trade_count=window_metrics.trade_count,
@@ -320,12 +362,16 @@ def run_multi_strategy_walk_forward(
 
         window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
 
+        # T6: Sanitise PF (no Infinity) and warn on low trade count
+        _check_trade_count_warning(idx, window_metrics.trade_count)
+        sanitized_pf = _sanitize_profit_factor(window_metrics.profit_factor)
+
         # Regime detection on training window (BQ-508)
         regime = detect_regime_for_window(train_bars)
         window_metrics = WindowMetrics(
             window_index=window_metrics.window_index,
             win_rate=window_metrics.win_rate,
-            profit_factor=window_metrics.profit_factor,
+            profit_factor=sanitized_pf,
             max_drawdown=window_metrics.max_drawdown,
             sharpe_ratio=window_metrics.sharpe_ratio,
             trade_count=window_metrics.trade_count,
