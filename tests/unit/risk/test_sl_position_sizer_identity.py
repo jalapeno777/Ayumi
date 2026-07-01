@@ -47,16 +47,17 @@ class TestIdentityKeyedRiskSizer:
         assert "sig-1" not in self.sizer.open_positions
         assert "sig-2" in self.sizer.open_positions
 
-    def test_cancel_unknown_raises_key_error(self):
-        with pytest.raises(KeyError, match="Cannot cancel unknown signal_id='missing'"):
-            self.sizer.cancel("missing")
+    def test_cancel_unknown_is_idempotent(self):
+        """Cancel on unknown signal_id should log warning and return gracefully."""
+        # Should NOT raise — idempotent cancel prevents timeout/crash race.
+        self.sizer.cancel("missing")
+        assert self.sizer.open_risk == pytest.approx(0.0)
 
-    def test_double_cancel_raises_key_error(self):
-        """Second cancel for the same signal_id must raise, not silently clamp."""
+    def test_double_cancel_is_idempotent(self):
+        """Second cancel for the same signal_id must be a no-op, not raise."""
         self.sizer.register("sig-1", 100.0)
         self.sizer.cancel("sig-1")
-        with pytest.raises(KeyError, match="Cannot cancel unknown signal_id='sig-1'"):
-            self.sizer.cancel("sig-1")
+        self.sizer.cancel("sig-1")  # Should not raise
         assert self.sizer.open_risk == pytest.approx(0.0)
 
     # ── Close ──────────────────────────────────────────────────────────
