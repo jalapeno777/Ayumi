@@ -147,6 +147,14 @@ def default_registry() -> StrategyRegistry:
             timeframes=["M15"],
             typical_confidence_range=(0.55, 0.90),
         ),
+        StrategyConfig(
+            strategy_id="ttc_xauusd",
+            name="TTC XAUUSD M15",
+            strategy_type="momentum",
+            symbols=["XAUUSD"],
+            timeframes=["M15"],
+            typical_confidence_range=(0.45, 0.80),
+        ),
     ]
 
     for s in strategies:
