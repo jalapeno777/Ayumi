@@ -105,7 +105,9 @@ _ACCT_AUTH_RES_PAYLOAD_TYPE = 2103
 _ERROR_RES_PAYLOAD_TYPE = 2142
 _EXECUTION_EVENT_PAYLOAD_TYPES = {2126, 2151}
 _ORDER_ERROR_EVENT_PAYLOAD_TYPE = 2132
-_ORDER_TIMEOUT_SEC = 10.0
+# 20s — cTrader demo can be slow; 10s was too tight and caused
+# timeout → cancel → crash race conditions when fills arrived 1-2s late.
+_ORDER_TIMEOUT_SEC = 20.0
 _AMEND_TIMEOUT_SEC = 30.0  # SL/TP amends are not time-critical — use a longer timeout
 _RECONCILE_TIMEOUT_SEC = 10.0
 
