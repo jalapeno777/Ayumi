@@ -847,9 +847,29 @@ def main():
                         except Exception as _bal_err:
                             _balance_str = f"ctrader=ERR ({_bal_err})"
                     _stats_fails = getattr(engine, "_stats_fail_count", 0)
+                    # Risk guard status (B5 health extension — A6)
+                    _rg = getattr(engine._paper_trader, "_risk_guard", None)
+                    if _rg is not None:
+                        _peak = _rg._peak_balance
+                        _bal = _rg._current_balance
+                        _daily_pnl = _bal - _rg._daily_start_balance
+                        _dd_pct = (_peak - _bal) / _peak * 100 if _peak > 0 else 0.0
+                        _breaker = "ON" if _rg._circuit_breaker_triggered else "OFF"
+                        _halt = "NONE"
+                        if _rg._blocked_until is not None:
+                            _halt = f"until {_rg._blocked_until.isoformat()}"
+                        _risk_str = (
+                            f"risk: peak=${_peak:.2f} balance=${_bal:.2f} "
+                            f"daily_pnl=${_daily_pnl:.2f} dd={_dd_pct:.2f}% "
+                            f"dd_breaker={_breaker} halt={_halt}"
+                        )
+                    else:
+                        _risk_str = "risk: N/A"
+
                     logger.info(
                         "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
-                        "trades=%d live_fills=%d stats_fails=%d %s uptime=%.0fs",
+                        "trades=%d live_fills=%d stats_fails=%d %s "
+                        "%s uptime=%.0fs",
                         h.get("ticks_received", 0),
                         h.get("ticks_per_second", 0.0),
                         engine.health.bars_built,
@@ -858,6 +878,7 @@ def main():
                         _live_fills,
                         _stats_fails,
                         _balance_str,
+                        _risk_str,
                         h.get("uptime_sec", 0),
                     )
                     # Alert if live mode has zero fills despite signals
