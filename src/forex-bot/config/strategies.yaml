@@ -1,5 +1,5 @@
 forward_test:
-  account_balance: 100000
+  account_balance: 10000
   ftmo:
     daily_loss_limit_pct: 0.04
     total_drawdown_limit_pct: 0.07
@@ -47,6 +47,59 @@ forward_test:
         tp1_rr: 1.0
         tp2_rr: 1.5
         pip_value: 0.01
+
+    - id: srmr_usdjpy_h1
+      type: srmr_plus
+      symbol: USDJPY
+      timeframe: H1
+      min_confidence: 0.40
+      enabled: true
+      params:
+        session_range_min_pips: 15.0
+        entry_near_extreme_pips: 12.0
+        hard_cap_sl_pips: 20.0
+        tp1_rr: 1.0
+        tp2_rr: 1.5
+        pip_value: 0.01
+
+    - id: srmr_audusd_h1
+      type: srmr_plus
+      symbol: AUDUSD
+      timeframe: H1
+      min_confidence: 0.40
+      enabled: true
+      params:
+        session_range_min_pips: 15.0
+        entry_near_extreme_pips: 12.0
+        hard_cap_sl_pips: 20.0
+        tp1_rr: 1.0
+        tp2_rr: 1.5
+
+    - id: srmr_usdchf_h1
+      type: srmr_plus
+      symbol: USDCHF
+      timeframe: H1
+      min_confidence: 0.40
+      enabled: true
+      params:
+        session_range_min_pips: 15.0
+        entry_near_extreme_pips: 12.0
+        hard_cap_sl_pips: 20.0
+        tp1_rr: 1.0
+        tp2_rr: 1.5
+
+    - id: srmr_usdcad_h1
+      type: srmr_plus
+      symbol: USDCAD
+      timeframe: H1
+      min_confidence: 0.40
+      enabled: true
+      params:
+        session_range_min_pips: 15.0
+        entry_near_extreme_pips: 12.0
+        hard_cap_sl_pips: 20.0
+        tp1_rr: 1.0
+        tp2_rr: 1.5
 
     - id: ttc_xauusd_h1
       type: ttc
