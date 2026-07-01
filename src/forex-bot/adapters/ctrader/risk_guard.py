@@ -361,11 +361,14 @@ class RiskGuard:
                 f"{current * 100:.2f}% >= {limit * 100:.2f}%"
             )
         else:
-            # Total drawdown or other breaches: permanent circuit breaker
+            # Total drawdown or other breaches: PERMANENT circuit breaker.
+            # R2 (Kaito): No auto-recovery, no _blocked_until expiry.
+            # Requires explicit reset_circuit_breaker() call.
             self._circuit_breaker_triggered = True
-            self._blocked_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+            self._blocked_until = None  # permanent — no time-based expiry
             logger.critical(
-                f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = "
+                f"MAX DRAWDOWN BREACH: permanent block until manual reset "
+                f"— {limit_type.value} = "
                 f"{current * 100:.2f}% >= {limit * 100:.2f}%"
             )
 
@@ -436,12 +439,29 @@ class RiskGuard:
             self._daily_start_balance = self._current_balance
             self._daily_trade_count = 0
 
-    def reset_circuit_breaker(self):
+    def reset_circuit_breaker(self, reason: str = "manual reset") -> bool:
+        """Manually clear circuit breaker state.
+
+        Only works for permanent (total drawdown) blocks, not daily loss
+        time-based blocks.  Daily loss blocks expire automatically at UTC
+        midnight and cannot be manually cleared.
+
+        Returns True if the permanent block was cleared, False otherwise.
+        """
         with self._lock:
+            if self._blocked_until is not None:
+                logger.warning(
+                    "Cannot reset time-based block (daily loss). "
+                    "Wait for UTC midnight."
+                )
+                return False
+            if not self._circuit_breaker_triggered:
+                logger.info("Circuit breaker not triggered — nothing to reset.")
+                return True
             self._circuit_breaker_triggered = False
-            self._blocked_until = None
-            logger.info("Circuit breaker reset")
+            logger.info("Circuit breaker manually reset: %s", reason)
             self._save_state()
+            return True
 
     def _save_state(self) -> None:
         """Persist RiskGuard state atomically to JSON (R1)."""
