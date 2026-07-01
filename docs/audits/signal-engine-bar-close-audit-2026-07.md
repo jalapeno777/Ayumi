@@ -207,3 +207,8 @@ No source code modified. No tests modified. Audit is read-only on the runtime pa
 
 Bar-close contract is intact. No code changes required for BQ-345.
 Recommendation: close the card as COMPLETE.
+## Coverage
+- **Inventory total:** Signal engine module + 10 active strategies (SRMR+, Killzone Momentum, Donchian Channel Breakout, Session-Range Mean Reversion, BB+RSI Mean Reversion, Session Breakout London/NY/Asian, Simple RSI Threshold, Test Canary) + orchestrator.
+- **Examined:** All 10 strategies (via `audit_bar_close.py` runtime audit + static review of `signal_engine/` + `strategies/`); orchestrator entry point `TradingOrchestrator.on_bar_close`; serialisation primitives (`_eval_semaphore`, `bar_close_evaluation_only`).
+- **Skipped:** Spot-feed layer (downstream of bar-close gate, not in scope); execution adapter (post-decision, not in scope).
+- **Known gaps:** `audit_bar_close.py` synthetic data lacks session-boundary injection — flagged as [FINDING] 5.1. Audit script not wired into CI — flagged as [FOLLOW-UP] 5.2.
