@@ -1,8 +1,12 @@
+import json
 import logging
+import os
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
+from pathlib import Path
 from threading import Lock
 
 from .models import TradeDirection, TradeSignal
@@ -92,6 +96,7 @@ class RiskGuard:
         self,
         ftmo_config: FTMOConfig | None = None,
         starting_balance: float = 100000.0,
+        state_path: str = "data/state/risk_guard_state.json",
     ):
         self._config = ftmo_config or FTMOConfig()
         self._starting_balance = starting_balance
@@ -107,6 +112,8 @@ class RiskGuard:
         self._blocked_until: datetime | None = None
         self._circuit_breaker_triggered = False
         self._per_strategy_pnl: dict[str, float] = {}
+        self._state_path = state_path
+        self._restore_state()
 
     def check_signal(self, signal: TradeSignal) -> RiskLimitResult:
         with self._lock:
@@ -297,7 +304,7 @@ class RiskGuard:
         return reward / risk
 
     def _update_daily_tracking(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         if self._current_day is None:
             self._current_day = today
             self._daily_start_balance = self._current_balance
@@ -340,11 +347,29 @@ class RiskGuard:
     def _trigger_circuit_breaker(
         self, limit_type: RiskLimitType, current: float, limit: float
     ):
-        self._circuit_breaker_triggered = True
-        self._blocked_until = datetime.now(timezone.utc) + timedelta(minutes=5)
-        logger.critical(
-            f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = {current * 100:.2f}% >= {limit * 100:.2f}%"
-        )
+        if limit_type == RiskLimitType.DAILY_LOSS:
+            # R2: Daily loss = block until UTC midnight (NOT 5 min)
+            next_midnight = (
+                datetime.now(timezone.utc) + timedelta(days=1)
+            ).replace(hour=0, minute=0, second=0, microsecond=0)
+            self._blocked_until = next_midnight
+            # Do NOT set _circuit_breaker_triggered for daily loss —
+            # this allows auto-recovery at UTC midnight without manual reset.
+            logger.critical(
+                f"DAILY LOSS HALT: blocking until UTC midnight "
+                f"({next_midnight.isoformat()}) — {limit_type.value} = "
+                f"{current * 100:.2f}% >= {limit * 100:.2f}%"
+            )
+        else:
+            # Total drawdown or other breaches: permanent circuit breaker
+            self._circuit_breaker_triggered = True
+            self._blocked_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+            logger.critical(
+                f"CIRCUIT BREAKER TRIGGERED: {limit_type.value} = "
+                f"{current * 100:.2f}% >= {limit * 100:.2f}%"
+            )
+
+        self._save_state()
 
         # Activate kill switch based on breach type
         # Uses injected kill_switch if available, otherwise creates one.
@@ -388,6 +413,7 @@ class RiskGuard:
                 self._peak_balance = self._current_balance
 
             self._update_daily_tracking()
+            self._save_state()
 
     def record_strategy_trade(self, strategy_id: str, pnl: float):
         with self._lock:
@@ -415,6 +441,91 @@ class RiskGuard:
             self._circuit_breaker_triggered = False
             self._blocked_until = None
             logger.info("Circuit breaker reset")
+            self._save_state()
+
+    def _save_state(self) -> None:
+        """Persist RiskGuard state atomically to JSON (R1)."""
+        state = {
+            "peak_balance": self._peak_balance,
+            "current_balance": self._current_balance,
+            "daily_start_balance": self._daily_start_balance,
+            "current_day": self._current_day.isoformat() if self._current_day else None,
+            "daily_trade_count": self._daily_trade_count,
+            "total_trades": self._total_trades,
+            "circuit_breaker_triggered": self._circuit_breaker_triggered,
+            "blocked_until": self._blocked_until.isoformat() if self._blocked_until else None,
+            "last_save_ts": datetime.now(timezone.utc).isoformat(),
+        }
+
+        path = Path(self._state_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(state, f, indent=2)
+            os.replace(tmp_path, str(path))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            logger.error("Failed to save RiskGuard state", exc_info=True)
+
+    def _restore_state(self) -> None:
+        """Restore RiskGuard state from JSON file (R1)."""
+        path = Path(self._state_path)
+        if not path.exists():
+            logger.info("No RiskGuard state file at %s — starting fresh", path)
+            return
+
+        try:
+            raw = json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            logger.error("Corrupt RiskGuard state file %s: %s", path, e)
+            return
+
+        try:
+            self._peak_balance = raw.get("peak_balance", self._peak_balance)
+            self._current_balance = raw.get("current_balance", self._current_balance)
+            self._daily_start_balance = raw.get(
+                "daily_start_balance", self._daily_start_balance
+            )
+
+            day_str = raw.get("current_day")
+            self._current_day = (
+                date.fromisoformat(day_str) if day_str else None
+            )
+
+            self._daily_trade_count = raw.get("daily_trade_count", 0)
+            self._total_trades = raw.get("total_trades", 0)
+            self._circuit_breaker_triggered = raw.get(
+                "circuit_breaker_triggered", False
+            )
+
+            blocked_str = raw.get("blocked_until")
+            if blocked_str:
+                self._blocked_until = datetime.fromisoformat(blocked_str)
+            else:
+                self._blocked_until = None
+
+            # If restored state is from a previous day, reset daily counters
+            today = datetime.now(timezone.utc).date()
+            if self._current_day is not None and self._current_day != today:
+                logger.info(
+                    "State from %s — resetting daily tracking for %s",
+                    self._current_day,
+                    today,
+                )
+                self._current_day = today
+                self._daily_start_balance = self._current_balance
+                self._daily_trade_count = 0
+                # Clear expired daily-loss block
+                if self._blocked_until and datetime.now(timezone.utc) >= self._blocked_until:
+                    self._blocked_until = None
+
+            logger.info("Restored RiskGuard state from %s", path)
+        except Exception as e:
+            logger.error("Failed to restore RiskGuard state: %s", e)
 
     def register_circuit_breaker_callback(self, callback: Callable):
         self._callbacks.append(callback)

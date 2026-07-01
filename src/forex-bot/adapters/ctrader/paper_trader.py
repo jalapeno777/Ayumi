@@ -51,6 +51,7 @@ class PaperTrader:
         position_config: PositionSizeConfig | None = None,
         starting_balance: float = 100000.0,
         api_client: Optional["cTraderAPIClient"] = None,
+        state_path: str | None = None,
     ):
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
@@ -59,7 +60,10 @@ class PaperTrader:
             api_client is not None and not api_client.is_paper_mode
         )
         self._order_manager = OrderManager(self._position_config, api_client=api_client)
-        self._risk_guard = RiskGuard(self._ftmo_config, starting_balance)
+        self._risk_guard = RiskGuard(
+            self._ftmo_config, starting_balance,
+            state_path=state_path or "data/state/risk_guard_state.json",
+        )
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
         self._lock = RLock()

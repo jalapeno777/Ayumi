@@ -10,17 +10,22 @@ from adapters.ctrader.risk_guard import FTMOConfig
 
 
 @pytest.fixture(autouse=True)
-def _reset_kill_switch_state():
-    """Ensure kill switch is inactive before each test.
+def _reset_kill_switch_state(tmp_path, monkeypatch):
+    """Ensure kill switch and RiskGuard state are isolated before each test.
 
-    PaperTrader creates its own KillSwitchManager using the default
-    state dir (data/kill_switches).  If a prior test activated the
-    kill switch, the persisted state leaks into subsequent tests and
-    blocks order processing.
+    PaperTrader creates its own KillSwitchManager and RiskGuard using
+    default paths.  If a prior test activated either, the persisted
+    state leaks into subsequent tests and blocks order processing.
     """
     ks = KillSwitchManager()
     if ks.is_active():
         ks.deactivate(reason="test_isolation")
+    # Redirect RiskGuard default state file to tmp so PaperTrader's
+    # internal RiskGuard doesn't pick up production state.
+    monkeypatch.setattr(
+        "adapters.ctrader.risk_guard.RiskGuard.__init__.__defaults__",
+        (None, 100000.0, str(tmp_path / "risk_guard_state.json")),
+    )
     yield
 
 
