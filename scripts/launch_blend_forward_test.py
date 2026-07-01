@@ -63,6 +63,7 @@ from strategies.session_range_mean_reversion import SessionRangeMeanReversionStr
 from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
 from strategies.rsi_threshold import SimpleRSIThresholdStrategy, RSIThresholdConfig
 from strategies.test_canary import TestCanaryStrategy
+from reporting.equity_tracker import EquityTracker
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
 
@@ -806,6 +807,14 @@ def main():
     write_forward_test_health_json(engine)
     logger.info("Forward test health JSON written on startup")
 
+    # ── Equity tracker (A8) ─────────────────────────────────────────────
+    _equity_tracker = EquityTracker(
+        data_dir=PROJECT_ROOT / "data",
+        starting_balance=10_000.0,
+    )
+    _equity_record_interval = 300.0  # 5 minutes
+    _last_equity_record = 0.0  # record immediately on first loop
+
     # ── Periodic health loop (B5) ─────────────────────────────────────────
     try:
         _health_interval = 60.0
@@ -898,11 +907,37 @@ def main():
 
                     # Write health JSON for external watchdogs / dashboards
                     write_forward_test_health_json(engine)
+
+                    # ── Equity snapshot (A8) — every 5 min ──────────────────
+                    if now - _last_equity_record >= _equity_record_interval:
+                        _last_equity_record = now
+                        try:
+                            # Determine current balance and trade count
+                            _eq_balance = _paper_balance
+                            if hasattr(engine, "_live_balance"):
+                                _eq_balance = engine._live_balance
+                            _eq_trades = t.get("trades_executed", 0)
+                            if _live_mode:
+                                _eq_trades = getattr(engine, "_live_fill_count", 0)
+                            _equity_tracker.record(_eq_balance, _eq_trades)
+                            logger.info(
+                                "[A8 Equity] Recorded: balance=$%.2f trades=%d",
+                                _eq_balance, _eq_trades,
+                            )
+                        except Exception as _eq_err:
+                            logger.warning("[A8 Equity] Record failed: %s", _eq_err)
                 except Exception as exc:
                     logger.warning("[B5 Health] Error logging health: %s", exc)
     except KeyboardInterrupt:
         shutdown(None, None)
     finally:
+        # Write daily equity report on exit (A8)
+        try:
+            _report_path = _equity_tracker.write_daily_report()
+            if _report_path:
+                logger.info("[A8 Equity] Daily report written: %s", _report_path)
+        except Exception:
+            pass
         # Release PID lock on exit
         try:
             _pid_ctx.__exit__(None, None, None)
