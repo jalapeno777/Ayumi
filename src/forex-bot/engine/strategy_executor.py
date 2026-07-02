@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from backtest.engine import Bar, BarPeriod, MarketState, TradeDirection
+from backtest.engine import Bar, BarPeriod, MarketState, TradeDirection, determine_session
 from backtest.strategies import ISignalStrategy
 
 from .protocol import CanonicalSignal
@@ -92,7 +92,10 @@ class StrategyExecutor:
             return None
 
         try:
-            state = MarketState(bars=bars)
+            state = MarketState(
+                bars=bars,
+                current_session=determine_session(bars[-1].time),
+            )
             result = self._strategy.evaluate(state)
             if result is None:
                 return None
