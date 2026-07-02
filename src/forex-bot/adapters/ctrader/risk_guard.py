@@ -13,6 +13,18 @@ from .models import TradeDirection, TradeSignal
 
 logger = logging.getLogger(__name__)
 
+# Default per-symbol max spread in pips.  Values reflect typical
+# interbank spreads; XAUUSD is wider due to gold's higher volatility.
+_DEFAULT_SYMBOL_SPREADS: dict[str, float] = {
+    "GBPUSD": 2.0,
+    "EURUSD": 2.0,
+    "USDJPY": 2.0,
+    "XAUUSD": 40.0,
+    "AUDUSD": 2.0,
+    "USDCHF": 2.0,
+    "USDCAD": 2.0,
+}
+
 
 class RiskLimitType(Enum):
     DAILY_LOSS = "daily_loss"
@@ -21,6 +33,7 @@ class RiskLimitType(Enum):
     MAX_POSITIONS = "max_positions"
     MIN_RISK_REWARD = "min_risk_reward"
     POSITION_SIZE = "position_size"
+    SPREAD = "spread"
 
 
 @dataclass
@@ -97,6 +110,9 @@ class RiskGuard:
         ftmo_config: FTMOConfig | None = None,
         starting_balance: float = 100000.0,
         state_path: str = "data/state/risk_guard_state.json",
+        *,
+        symbol_max_spreads: dict[str, float] | None = None,
+        default_max_spread: float = 2.0,
     ):
         self._config = ftmo_config or FTMOConfig()
         self._starting_balance = starting_balance
@@ -113,6 +129,19 @@ class RiskGuard:
         self._circuit_breaker_triggered = False
         self._per_strategy_pnl: dict[str, float] = {}
         self._state_path = state_path
+
+        # Spread gate wiring — allows RiskGuard to reject orders when
+        # the live spread exceeds the per-symbol maximum.
+        from confidence.gates import GateConfig, SpreadGate
+        resolved_spreads = dict(_DEFAULT_SYMBOL_SPREADS)
+        if symbol_max_spreads:
+            resolved_spreads.update(symbol_max_spreads)
+        self._gate_config = GateConfig(
+            default_max_spread=default_max_spread,
+            symbol_max_spreads=resolved_spreads,
+        )
+        self._spread_gate = SpreadGate(self._gate_config)
+
         self._restore_state()
 
     def check_signal(self, signal: TradeSignal) -> RiskLimitResult:
@@ -161,10 +190,11 @@ class RiskGuard:
         take_profit: float,
         account_balance: float | None = None,
         symbol: str | None = None,
+        spread: float = 0.0,
     ) -> RiskLimitResult:
         with self._lock:
             return self._check_trade_allowed_internal(
-                direction, volume, entry_price, stop_loss, take_profit, account_balance, symbol
+                direction, volume, entry_price, stop_loss, take_profit, account_balance, symbol, spread
             )
 
     def _check_trade_allowed_internal(
@@ -176,6 +206,7 @@ class RiskGuard:
         take_profit: float,
         account_balance: float | None = None,
         symbol: str | None = None,
+        spread: float = 0.0,
     ) -> RiskLimitResult:
         if account_balance:
             self._current_balance = account_balance
@@ -186,6 +217,23 @@ class RiskGuard:
                 limit_type=RiskLimitType.DAILY_LOSS,
                 message="Circuit breaker triggered - trading paused",
             )
+
+        # Spread gate — reject if spread exceeds per-symbol maximum
+        if spread > 0 and symbol:
+            gate_result = self._spread_gate.check({
+                'symbol': symbol,
+                'spread': spread,
+            })
+            if not gate_result.passed:
+                return RiskLimitResult(
+                    allowed=False,
+                    limit_type=RiskLimitType.SPREAD,
+                    message=gate_result.reason,
+                    current_value=spread,
+                    limit_value=self._gate_config.symbol_max_spreads.get(
+                        symbol, self._gate_config.default_max_spread
+                    ),
+                )
 
         if self._blocked_until and datetime.now(timezone.utc) < self._blocked_until:
             return RiskLimitResult(
