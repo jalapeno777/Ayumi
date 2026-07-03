@@ -87,9 +87,7 @@ def _make_gbpusd_long_signal(adapter: StrategyAdapter) -> TradeSignal:
         "take_profit": 1.27900,  # 40 pips TP
         "confidence": 0.80,
         "spread": 1.0,  # pips
-        # NOTE: ATR omitted — volatility gate blocks price-domain ATR values
-        # because atr_lookback_default=1.0 causes ratio mismatch.
-        # See TestPipelineBreakDocumentation.test_volatility_gate_atr_mismatch.
+        "atr": 0.0015,  # ~15 pips for GBPUSD — now passes volatility gate (domain mismatch guard)
         "timestamp": datetime(2026, 7, 2, 10, 0, 0, tzinfo=timezone.utc),  # 10:00 UTC = London session
     }
     return adapter.adapt_signal("srmr_plus", raw_output)
@@ -148,9 +146,8 @@ class TestConfidenceEngineInjection:
     """Verify the confidence engine processes injected signals."""
 
     def test_high_confidence_passes_all_gates(self, confidence_engine):
-        # NOTE: ATR is omitted (defaults to 0) — the volatility gate is skipped
-        # when no ATR is provided. See test_volatility_gate_atr_mismatch for
-        # documentation of the ATR pipeline break.
+        # ATR is omitted (defaults to 0) — the volatility gate is skipped
+        # when no ATR is provided.
         result = confidence_engine.score(
             raw_confidence=0.80,
             symbol="GBPUSD",
@@ -323,6 +320,31 @@ class TestFullPipelineInjection:
         assert order.rejected
         assert "pips" in order.rejection_reason.lower()
 
+    def test_signal_with_atr_passes_full_pipeline(self, orchestrator, adapter):
+        """Verify that a signal WITH realistic ATR passes the full pipeline.
+
+        This is the regression test for the volatility gate ATR domain mismatch
+        bug. Before the fix, any signal with price-domain ATR (e.g. 0.0015 for
+        GBPUSD) was blocked by the volatility gate's fallback multiplier check.
+        """
+        raw = {
+            "symbol": "GBPUSD",
+            "direction": "LONG",
+            "entry_price": 1.27500,
+            "stop_loss": 1.27300,
+            "take_profit": 1.27900,
+            "confidence": 0.80,
+            "spread": 1.0,
+            "atr": 0.0015,  # Realistic price-domain ATR (~15 pips)
+            "timestamp": datetime(2026, 7, 2, 10, 0, 0, tzinfo=timezone.utc),
+        }
+        signal = adapter.adapt_signal("srmr_plus", raw)
+        order = orchestrator.process_signal(signal)
+
+        assert not order.rejected, f"Signal with ATR should pass: {order.rejection_reason}"
+        assert order.lots > 0.0
+        assert "volatility" in order.gates_passed
+
     def test_short_direction_signal(self, orchestrator, adapter):
         """Inject a short signal — should flow through just like long."""
         raw = {
@@ -333,7 +355,7 @@ class TestFullPipelineInjection:
             "take_profit": 1.08100,
             "confidence": 0.75,
             "spread": 1.0,
-            # NOTE: ATR omitted — same volatility gate issue as GBPUSD test
+            "atr": 0.0012,  # ~12 pips for EURUSD — passes volatility gate
             "timestamp": datetime(2026, 7, 2, 14, 0, 0, tzinfo=timezone.utc),  # NY session
         }
         signal = adapter.adapt_signal("rsi_threshold", raw)
@@ -388,6 +410,11 @@ class TestPipelineBreakDocumentation:
        - Real-world cause: Backtest uses historical ATR; live ATR may differ.
        - Note: When atr=0 (not provided), gate is SKIPPED (passes by default).
          This means signals without ATR metadata bypass volatility filtering.
+       - FIXED: Price-domain ATR values (e.g. 0.0015) now pass via domain
+         mismatch guard. Previously blocked by nonsensical ratio check
+         against atr_lookback_default=1.0.
+       - To enable ATR-based filtering, configure per-symbol ranges via
+         volatility_min_atr / volatility_max_atr in GateConfig.
 
     4. PROFILE ROUTER (risk/profile_router.py:ProfileRouter)
        - Trigger: confidence < 0.40 (SWARM_THRESHOLD)
@@ -426,25 +453,20 @@ class TestPipelineBreakDocumentation:
         assert "POSITION SIZER" in doc
         assert "CONSTRUCTOR WIRING" in doc
 
-    def test_volatility_gate_atr_mismatch(self, confidence_engine):
-        """BREAK #3: Volatility gate rejects price-domain ATR values.
+    def test_volatility_gate_price_domain_atr_passes(self, confidence_engine):
+        """FIXED (was BREAK #3): Volatility gate now passes price-domain ATR values.
 
         Strategies produce ATR in price domain (e.g., 0.0015 for GBPUSD ≈15 pips).
-        The volatility gate's fallback check computes ratio = ATR / atr_lookback_default,
-        where atr_lookback_default=1.0. This makes ratio = 0.0015, which is far
-        below min_atr_multiplier=0.5, causing every signal with real ATR to be
-        blocked.
+        Previously, the volatility gate's fallback check computed
+        ratio = ATR / atr_lookback_default (1.0), giving 0.0015 — far below
+        min_atr_multiplier=0.5, blocking every signal with real ATR.
 
-        The gate only works correctly when either:
-        a) Per-symbol volatility_min_atr/max_atr ranges are configured, OR
-        b) atr_lookback_default is set to a realistic price-domain value, OR
-        c) The gate is skipped (atr=0 or not provided)
+        Fix: domain mismatch guard in VolatilityGate. When ATR < 0.01
+        (price domain) and atr_lookback_default >= 0.01 (different scale),
+        the multiplier check is skipped because the ratio is meaningless.
 
-        Impact: In the current configuration, any signal that includes a
-        realistic ATR value will be blocked by the volatility gate. Signals
-        without ATR pass through (gate skipped). This means the volatility
-        gate is either doing nothing (when ATR is absent) or incorrectly
-        blocking everything (when ATR is present).
+        Per-symbol ATR ranges (volatility_min_atr/max_atr) remain the
+        primary mechanism for volatility filtering when configured.
         """
         result = confidence_engine.score(
             raw_confidence=0.80,
@@ -454,9 +476,8 @@ class TestPipelineBreakDocumentation:
             atr=0.0015,  # Realistic ATR for GBPUSD (~15 pips)
             hour_utc=10,
         )
-        assert result.blocked, "Volatility gate should block price-domain ATR values"
-        assert "volatility" in result.gates_failed
-        assert "ATR ratio" in result.block_reason
+        assert not result.blocked, "Volatility gate should pass price-domain ATR values"
+        assert "volatility" in result.gates_passed
 
     def test_session_gate_uses_signal_timestamp(self, orchestrator, adapter):
         """CRITICAL: Verify whether the orchestrator passes hour_utc from timestamp.
