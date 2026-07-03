@@ -468,6 +468,10 @@ class ForwardTestEngine:
             except Exception as exc:
                 logger.warning("Preflight reconcile failed: %s", exc)
 
+        # Sync live balance from cTrader after feed connects (two-balance model)
+        if isinstance(self._market_feed, OpenApiSpotFeed):
+            self._sync_live_balance()
+
         self._running = True
         self._start_time = datetime.now(timezone.utc)
 
@@ -547,6 +551,46 @@ class ForwardTestEngine:
                 self._health.evaluation_errors,
                 self._health.reconnection_attempts,
             )
+
+    def _sync_live_balance(self) -> None:
+        """Fetch live balance from cTrader and sync to RiskGuard + PaperTrader.
+
+        Implements the two-balance model (Craig, Jul 2026):
+        - current_balance → live cTrader balance (position sizing, risk checks)
+        - starting_balance → $10K prop-firm baseline (DD%, daily stop)
+
+        Called once after feed connects and periodically from the health loop.
+        """
+        if not isinstance(self._market_feed, OpenApiSpotFeed):
+            return
+        try:
+            from .account_state import get_balance
+            live_balance = get_balance(
+                self._market_feed.connection,
+                self._market_feed.ctid_account_id,
+                timeout=5.0,
+            )
+            if live_balance is not None:
+                live_balance = float(live_balance)
+                self._live_balance = live_balance
+
+                # Update RiskGuard current balance (starting_balance stays at prop-firm baseline)
+                if self._paper_trader and hasattr(self._paper_trader, '_risk_guard'):
+                    rg = self._paper_trader._risk_guard
+                    rg.update_balance(live_balance)
+                    dd_pct = rg.current_drawdown_pct * 100
+                    logger.info(
+                        "[Balance Sync] RiskGuard synced: live=$%.2f starting=$%.2f dd=%.2f%%",
+                        live_balance, rg._starting_balance, dd_pct,
+                    )
+
+                # Update PaperTrader internal balance
+                if self._paper_trader:
+                    self._paper_trader._current_balance = live_balance
+            else:
+                logger.warning("[Balance Sync] cTrader returned None balance — using starting balance")
+        except Exception as exc:
+            logger.warning("[Balance Sync] Failed to fetch live balance: %s", exc)
 
     def register_callback(self, event: str, callback: Callable):
         self._callbacks.append((event, callback))
