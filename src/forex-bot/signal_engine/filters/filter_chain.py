@@ -25,11 +25,62 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from .trend_filter import TrendFilter
+from .trend_filter import TrendFilter, TrendConfig
 from .atr_filter import ATRFilter
 from .fvg_filter import FVGFilter
 
 logger = logging.getLogger(__name__)
+
+
+def build_chain_from_config(config: dict) -> "FilterChain":
+    """Build a FilterChain from a strategies.yaml ``filters`` config dict.
+
+    Config format::
+
+        filters:
+          trend:
+            enabled: true
+            ema_fast_period: 9
+            ema_slow_period: 21
+            tolerance_pips: 0.0
+          atr:
+            enabled: true
+          fvg:
+            enabled: true
+          orb:
+            enabled: true
+            min_score_threshold: 0.3
+            breakout_min_fraction: 0.10
+
+    Returns a FilterChain with all enabled filters in priority order.
+    """
+    chain = FilterChain(filters=[])  # empty — no defaults
+
+    trend_cfg = config.get("trend", {})
+    if trend_cfg.get("enabled", True):
+        tc = TrendConfig(
+            ema_fast_period=trend_cfg.get("ema_fast_period", 9),
+            ema_slow_period=trend_cfg.get("ema_slow_period", 21),
+            tolerance_pips=trend_cfg.get("tolerance_pips", 0.0),
+        )
+        chain.add(TrendFilter(config=tc))
+
+    if config.get("atr", {}).get("enabled", True):
+        chain.add(ATRFilter())
+
+    if config.get("fvg", {}).get("enabled", True):
+        chain.add(FVGFilter())
+
+    orb_cfg = config.get("orb", {})
+    if orb_cfg.get("enabled", False):
+        # Import here to avoid circular dependency at module load time
+        from ..orb_filter import ORBFilter
+        chain.add(ORBFilter(
+            min_score_threshold=orb_cfg.get("min_score_threshold", 0.3),
+            breakout_min_fraction=orb_cfg.get("breakout_min_fraction", 0.10),
+        ))
+
+    return chain
 
 
 @dataclass
@@ -47,7 +98,7 @@ class FilterChain:
         self._filters: list = []
         self._last_result: FilterResult = FilterResult(passed=True)
 
-        if filters:
+        if filters is not None:
             for f in filters:
                 self.add(f)
         else:
