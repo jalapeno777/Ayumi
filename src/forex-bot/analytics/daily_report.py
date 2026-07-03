@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
 import os
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
@@ -182,3 +185,88 @@ class DailyAnalytics:
             daily_risk_used_pct=round(daily_risk_pct, 4),
             per_strategy={k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)} for k, v in per_strat.items()},
         )
+
+
+# ── CLI entry point ─────────────────────────────────────────────────────
+#
+# Cron-invoked. Writes a markdown report to
+#   <reports_root>/daily/<YYYY-MM-DD>.md
+#
+# Defaults assume the project layout from /home/TacoPants/projects/Ayumi:
+#   - trade log:      logs/trades.jsonl
+#   - reports root:   data/forex/equity_reports/
+# Both can be overridden via CLI flags for forward-test isolation.
+
+DEFAULT_PROJECT_ROOT = Path("/home/TacoPants/projects/Ayumi")
+
+
+def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Return (project_root, trade_log, daily_report_path)."""
+    project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
+    trade_log = Path(args.trade_log) if args.trade_log else project_root / "logs" / "trades.jsonl"
+    reports_root = Path(args.reports_root) if args.reports_root else project_root / "data" / "forex" / "equity_reports"
+    return project_root, trade_log, reports_root
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Generate the daily performance markdown report. Returns exit code."""
+    parser = argparse.ArgumentParser(
+        description="Generate the daily forex performance report from the trade JSONL log."
+    )
+    parser.add_argument(
+        "--date",
+        default=None,
+        help="Target date in YYYY-MM-DD (default: today in America/Toronto).",
+    )
+    parser.add_argument(
+        "--trade-log",
+        default=None,
+        help="Path to trades JSONL (default: <project>/logs/trades.jsonl).",
+    )
+    parser.add_argument(
+        "--project-root",
+        default=None,
+        help="Project root used to resolve defaults (default: /home/TacoPants/projects/Ayumi).",
+    )
+    parser.add_argument(
+        "--reports-root",
+        default=None,
+        help="Reports root directory (default: <project>/data/forex/equity_reports).",
+    )
+    parser.add_argument(
+        "--starting-balance",
+        type=float,
+        default=10_000.0,
+        help="Starting balance used for risk-percentage metrics (default: 10000).",
+    )
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Also print the formatted report to stdout (for debugging).",
+    )
+    args = parser.parse_args(argv)
+
+    _project_root, trade_log, reports_root = _resolve_paths(args)
+
+    target_date = args.date or datetime.now(ZoneInfo("America/Toronto")).strftime("%Y-%m-%d")
+
+    analytics = DailyAnalytics(
+        trade_log_path=str(trade_log),
+        starting_balance=args.starting_balance,
+    )
+    report = analytics.generate_report(target_date)
+    formatted = analytics.format_report(report)
+
+    daily_dir = reports_root / "daily"
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    out_path = daily_dir / f"{target_date}.md"
+    out_path.write_text(formatted + "\n")
+
+    if args.stdout:
+        print(formatted)
+    print(f"[daily_report] wrote {out_path} (trades={report.total_trades}, pnl=${report.total_pnl:+.2f})")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
