@@ -215,7 +215,13 @@ class BlendForwardTestRunner:
         if result is None:
             return None
 
+        # Extract spread from bar (core.types.Bar has spread_pips)
+        bar_spread = getattr(bar, 'spread_pips', 0.0)
+
         if isinstance(result, dict):
+            # Ensure spread is present; bar value is the fallback
+            if 'spread' not in result:
+                result['spread'] = bar_spread
             return result
 
         # Try dataclass-style or object attribute access
@@ -233,6 +239,9 @@ class BlendForwardTestRunner:
         as_dict.setdefault('stop_loss', getattr(result, 'stop_loss', 0.0))
         as_dict.setdefault('take_profit', getattr(result, 'take_profit', 0.0))
         as_dict.setdefault('confidence', getattr(result, 'confidence', 0.5))
+
+        # Always include spread so downstream gates receive actual data
+        as_dict.setdefault('spread', bar_spread)
 
         if not as_dict.get('entry_price') or not as_dict.get('stop_loss'):
             return None
