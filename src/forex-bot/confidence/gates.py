@@ -151,6 +151,21 @@ class VolatilityGate:
 
         # Fallback: multiplier-based check against lookback default
         default = self._config.atr_lookback_default
+
+        # Domain mismatch guard: if ATR is in price domain (very small, e.g.
+        # 0.0015 for GBPUSD) but the lookback default is in a different scale
+        # (>= 0.01), the ratio is meaningless and would block every signal
+        # with realistic price-domain ATR.  Skip the multiplier check.
+        if atr < 0.01 and default >= 0.01:
+            return GateCheck(
+                gate_name="volatility", passed=True,
+                reason=(
+                    f"ATR {atr:.5f} appears to be in price domain while "
+                    f"lookback default {default} is in a different scale "
+                    f"— multiplier check skipped (domain mismatch)"
+                ),
+            )
+
         ratio = atr / default if default > 0 else 0.0
 
         if ratio < self._config.min_atr_multiplier:
