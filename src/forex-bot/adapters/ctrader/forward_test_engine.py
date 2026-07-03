@@ -661,6 +661,7 @@ class ForwardTestEngine:
             policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
             self._market_feed.set_permission_policy(policy)
             api_client = cTraderAPIClient(**live_creds)
+            api_client.set_permission_policy(policy)   # Phase 6: close defense-in-depth gap
             self._api_client = api_client
             logger.info("OpenApiSpotFeed + cTraderAPIClient constructed for live_mode")
 
@@ -767,6 +768,13 @@ class ForwardTestEngine:
             from .execution_permission import ExecutionPermissionPolicy
             policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
             self._market_feed.set_permission_policy(policy)
+            # Phase 6: also reset policy on _api_client for reconnect symmetry.
+            # If _api_client was constructed in _build_components() with the
+            # original policy, a market-feed reconnect that rebuilds _market_feed
+            # could leave _api_client referencing a stale policy object. Re-bind
+            # here so both broker paths share a fresh policy after reconnect.
+            if self._api_client is not None:
+                self._api_client.set_permission_policy(policy)
             self._wire_callbacks()
 
         subscribe_names = []
