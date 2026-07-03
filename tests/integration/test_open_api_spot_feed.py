@@ -327,6 +327,7 @@ class TestTokenRefresh:
         # Mock TokenLifecycle delegation — replaces direct HTTP calls
         from datetime import datetime, timedelta, timezone
         mock_lifecycle = MagicMock()
+        mock_lifecycle._refresh_disabled = False
         mock_lifecycle.force_refresh.return_value = "new-access"
         mock_creds = MagicMock()
         mock_creds.refresh_token = "new-refresh"
@@ -516,12 +517,18 @@ class TestExecutionEventClientMsgIdFallback:
         self.feed._pending_orders[self.request_id] = (self.event, self.order)
         self.feed._pending_client_msg_ids[self.client_msg_id] = self.request_id
 
+        # Seed symbol for VolumeCalculator — exec events need symbol_id → lot_size
+        self.feed._symbols[1] = SymbolInfo(
+            symbol_id=1, name="GBP/USD", pip_size=0.00001, digits=5, lot_size=100_000,
+        )
+
     def _make_exec_event(self, client_order_id="", execution_type=3):
         """Build a fake execution event with an order payload."""
         order_payload = MagicMock()
         order_payload.clientOrderId = client_order_id
         order_payload.executionPrice = 1.31997
         order_payload.executedVolume = 99000
+        order_payload.symbolId = 1
         order_payload.orderId = 42
 
         msg = MagicMock()
