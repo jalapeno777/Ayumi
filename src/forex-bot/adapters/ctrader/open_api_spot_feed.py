@@ -1209,9 +1209,16 @@ class OpenApiSpotFeed:
         ev = getattr(order_payload, "executedVolume", 0)
         if ev:
             ev_symbol_id = getattr(order_payload, "symbolId", None)
-            if ev_symbol_id is None:
+            if ev_symbol_id is None or ev_symbol_id not in self._symbols:
                 ev_symbol_id = self._resolve_name_to_id(order.symbol) or 0
-            order.volume = self._volume_calc.volume_to_lots(ev_symbol_id, ev)
+            try:
+                order.volume = self._volume_calc.volume_to_lots(ev_symbol_id, ev)
+            except ValueError:
+                logger.warning(
+                    "Execution event: cannot convert volume for symbol_id=%s, "
+                    "keeping order.volume=%s",
+                    ev_symbol_id, order.volume,
+                )
         setattr(order, "reason", "order_filled")
         event.set()
         self._trigger_callback("on_order_filled", order, message)
