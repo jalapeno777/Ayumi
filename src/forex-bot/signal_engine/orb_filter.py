@@ -16,12 +16,15 @@ from ``session_logic``.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import Optional
 
 from .data_types import Signal
 from .session_logic import SESSIONS
+
+logger = logging.getLogger(__name__)
 
 
 # ── Defaults ────────────────────────────────────────────────────────────────
@@ -94,20 +97,81 @@ class ORBScore:
 class ORBFilter:
     """Opening Range Breakout filter and signal prioritizer.
 
+    Implements the IFilter interface for use in FilterChain.
+
     Usage::
 
         orbf = ORBFilter()
         rng = orbf.calculate_opening_range(session="LONDON", bars=session_bars)
         scored = orbf.prioritize(signals, opening_range=rng, current_volume=1.2)
+
+    As a FilterChain stage::
+
+        chain = FilterChain()
+        chain.add(ORBFilter(min_score_threshold=0.3))
+        chain.evaluate(signal_direction="LONG", entry_price=1.2500,
+                       opening_range=rng, current_volume=1.2)
     """
+
+    priority: int = 40  # runs after trend(10), atr(20), fvg(30)
 
     def __init__(
         self,
         orb_windows: Optional[dict[str, int]] = None,
         breakout_min_fraction: float = BREAKOUT_MIN_FRACTION,
+        min_score_threshold: float = 0.3,
     ) -> None:
         self.orb_windows = orb_windows or dict(DEFAULT_ORB_WINDOW_MINUTES)
         self.breakout_min_fraction = breakout_min_fraction
+        self.min_score_threshold = min_score_threshold
+
+    @property
+    def name(self) -> str:
+        return "orb"
+
+    def evaluate(
+        self,
+        signal_direction: str = "",
+        entry_price: float = 0.0,
+        opening_range: Optional[OpeningRange] = None,
+        current_volume: float = 0.0,
+    ) -> bool:
+        """IFilter-compatible evaluate for FilterChain integration.
+
+        Returns True if the ORB score meets or exceeds the threshold,
+        or if no opening range is available (fail-open for live trading
+        before session range is established).
+
+        Args:
+            signal_direction: "LONG" or "SHORT".
+            entry_price: Entry price of the signal.
+            opening_range: Pre-computed OpeningRange for the active session.
+            current_volume: Volume of the current/bar (0 = unknown).
+        """
+        if opening_range is None or not opening_range.is_valid:
+            # No range established yet — allow signal through
+            return True
+
+        # Build a lightweight Signal for scoring
+        from .data_types import Signal as _Signal
+        sig = _Signal(
+            symbol="",
+            direction=signal_direction.upper() or "LONG",
+            entry_price=entry_price,
+            stop_loss=0.0,
+            take_profit=0.0,
+            confidence=0.0,
+            timestamp=datetime.now(timezone.utc),
+        )
+        score = self.score_signal(sig, opening_range, current_volume)
+        passed = score.score >= self.min_score_threshold
+        if not passed:
+            logger.debug(
+                "ORBFilter REJECT: dir=%s entry=%.5f score=%.3f threshold=%.3f type=%s",
+                signal_direction, entry_price, score.score,
+                self.min_score_threshold, score.breakout_type,
+            )
+        return passed
 
     # ── Opening Range Calculation ───────────────────────────────────────────
 
