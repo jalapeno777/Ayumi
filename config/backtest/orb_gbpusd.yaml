@@ -1,0 +1,93 @@
+# ORB (Opening Range Breakout) Backtest Configuration — GBPUSD M15
+# ---------------------------------------------------------------------------
+# Strategy: London + NY session opening range breakout with ATR-buffered
+# stops and 1R/2R/3R partial scaling.
+# Data constraint: M15 bars only. Data range: 2023-01 to 2026-04-10.
+# Backtest window: 2025-01-01 to 2026-04-10.
+
+# ---------------------------------------------------------------------------
+# Account
+# ---------------------------------------------------------------------------
+account:
+  starting_balance: 10_000.0
+  currency: USD
+
+# ---------------------------------------------------------------------------
+# Risk Management (FTMO-style)
+# ---------------------------------------------------------------------------
+risk:
+  risk_per_trade_pct: 0.005         # 0.5% per trade
+  max_daily_drawdown_pct: 0.05      # 5% daily max
+  max_total_drawdown_pct: 0.10      # 10% overall max
+  max_concurrent_positions: 2
+  max_trades_per_day: 5
+
+# ---------------------------------------------------------------------------
+# Instrument
+# ---------------------------------------------------------------------------
+instrument:
+  symbol: GBPUSD
+  timeframe: M15
+  spread_pips: 1.5
+  pip_value_usd_per_lot: 10.0       # standard lot
+  commission_per_lot: 3.5           # round-trip
+
+# ---------------------------------------------------------------------------
+# ORB Strategy Parameters
+# ---------------------------------------------------------------------------
+strategy:
+  type: opening_range_breakout
+
+  # Session windows (UTC)
+  sessions:
+    london:
+      range_start_utc: "07:00"
+      range_end_utc: "08:00"        # 60-minute opening range
+      trading_start_utc: "08:00"
+      trading_end_utc: "16:00"
+    ny:
+      range_start_utc: "12:00"
+      range_end_utc: "12:30"        # 30-minute opening range
+      trading_start_utc: "12:30"
+      trading_end_utc: "21:00"
+
+  # Entry: breakout above/below opening range high/low
+  breakout_threshold_pips: 2.5      # GBPUSD slightly wider (more volatile)
+  require_volume_confirm: false
+
+  # Stop loss: ATR-buffered
+  atr_period: 14
+  atr_buffer_multiplier: 1.5
+
+  # Take profit: partial scaling at 1R / 2R / 3R
+  partial_exits:
+    - rr_multiple: 1.0
+      close_pct: 0.33
+      move_sl_to_be: true
+    - rr_multiple: 2.0
+      close_pct: 0.33
+      move_sl_to_be: true
+    - rr_multiple: 3.0
+      close_pct: 0.34
+      move_sl_to_be: true
+
+  # Range width filters (pips)
+  min_range_width_pips: 6.0         # GBPUSD typically wider than EURUSD
+  max_range_width_pips: 50.0
+
+# ---------------------------------------------------------------------------
+# Backtest Window
+# ---------------------------------------------------------------------------
+backtest:
+  start_date: "2025-01-01"
+  end_date: "2026-04-10"
+  data_file: "data/forex/historical/GBPUSD_M15.csv"
+
+# ---------------------------------------------------------------------------
+# FTMO Feasibility Checks
+# ---------------------------------------------------------------------------
+ftmo:
+  daily_max_loss_pct: 0.05
+  overall_max_loss_pct: 0.10
+  profit_target_pct: 0.08
+  min_trades_for_consistency: 10
