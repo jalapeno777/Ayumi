@@ -1,3 +1,22 @@
+# ── Signal Filters ─────────────────────────────────────────────────────────
+# FilterChain configuration: filters run in priority order (ascending).
+# First filter to reject a signal stops the chain (short-circuit).
+# Set enabled: false to skip a filter entirely.
+filters:
+  trend:
+    enabled: true
+    ema_fast_period: 9
+    ema_slow_period: 21
+    tolerance_pips: 0.0
+  atr:
+    enabled: true
+  fvg:
+    enabled: true
+  orb:
+    enabled: true
+    min_score_threshold: 0.3
+    breakout_min_fraction: 0.10
+
 forward_test:
   account_balance: 10000
   spread_pips:
