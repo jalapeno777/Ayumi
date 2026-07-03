@@ -971,13 +971,38 @@ class OpenApiSpotFeed:
         return self.new_order(symbol_id, side, self._volume_calc.lots_to_volume(symbol_id, volume), order_type=proto_type,
                              price=price, sl=stop_loss, tp=take_profit, comment=comment)
 
+    # ------------------------------------------------------------------
+    # Phase 6: Broker-mutating methods — ALL must carry a policy guard.
+    # Currently guarded: cancel_order, amend_order, amend_sl_tp,
+    #                    close_position, new_order (P5A, above).
+    # If you add a NEW method that sends a mutating request to the broker
+    # (e.g. hedge_position, liquidate, partial_fill_amend), you MUST add:
+    #     if self._permission_policy is not None:
+    #         allowed, reason = self._permission_policy.can_<op>()
+    #         if not allowed:
+    #             logger.warning("<op> blocked by policy: %s", reason)
+    #             return False
+    # ------------------------------------------------------------------
+
     def cancel_order(self, order_id, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+        # Phase 6: policy gate for broker-mutating operations
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_cancel_order()
+            if not allowed:
+                logger.warning("cancel_order blocked by policy: %s", reason)
+                return False
         req = ProtoOACancelOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.orderId = order_id
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_order(self, order_id, *, price=None, sl=None, tp=None, symbol_id=None, timeout=_ORDER_TIMEOUT_SEC) -> bool:
+        # Phase 6: policy gate for broker-mutating operations
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_amend_order()
+            if not allowed:
+                logger.warning("amend_order blocked by policy: %s", reason)
+                return False
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.orderId = order_id
@@ -991,6 +1016,12 @@ class OpenApiSpotFeed:
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
+        # Phase 6: policy gate for broker-mutating operations
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_amend_sl_tp()
+            if not allowed:
+                logger.warning("amend_sl_tp blocked by policy: %s", reason)
+                return False
         # Wait-for-response amend: we need the actual broker outcome so callers
         # can detect rejection (e.g. TRADING_BAD_STOPS) and react. Serialization
         # via _amend_lock plus a 1s cooldown prevents back-to-back amend floods.
@@ -1072,6 +1103,12 @@ class OpenApiSpotFeed:
         Returns:
             ``True`` if cTrader acknowledged the close request, else ``False``.
         """
+        # Phase 6: policy gate for broker-mutating operations
+        if self._permission_policy is not None:
+            allowed, reason = self._permission_policy.can_close_position()
+            if not allowed:
+                logger.warning("close_position blocked by policy: %s", reason)
+                return False
         if isinstance(volume, float):
             if symbol_id is None:
                 raise ValueError(
