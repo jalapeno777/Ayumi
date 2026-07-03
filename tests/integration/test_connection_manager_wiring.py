@@ -92,9 +92,11 @@ class TestWatchdogWiringDegraded(unittest.TestCase):
         _authenticate(sm)
 
         # Use fast thresholds via start_watchdog kwargs.
-        # Cap memory at 256MB to keep the daemon thread test from
-        # being a runaway if the watchdog loop misbehaves.
-        with memory_capped(mb=256):
+        # Cap memory at 512MB as a runaway safety net for the daemon thread.
+        # (Was 256MB, but the OS rejects new-thread stack allocation under
+        # RLIMIT_AS=256MB once pytest has loaded heavier test modules above
+        # it — see card ce247472 cross-file ordering fix.)
+        with memory_capped(mb=512):
             mgr.start_watchdog(
                 degraded_threshold=0.15,
                 failed_threshold=0.40,
