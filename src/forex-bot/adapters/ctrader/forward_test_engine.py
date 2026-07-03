@@ -319,7 +319,7 @@ class ForwardTestEngine:
 
         self._callbacks: list[tuple[str, "Callable"]] = []
         self._health = ForwardTestHealth()
-        self._stats_fail_count: int = 0  # non-fatal stats recording failure counter
+        self._stats_fail_count: int = 0  # consecutive stats recording failures (resets on success)
 
         self._last_evaluation_at: float = 0.0
 
@@ -1307,10 +1307,15 @@ class ForwardTestEngine:
                     tp_price=float(signal.take_profit_1),
                 )
             )
+            # Reset on success: counter tracks *consecutive* failures,
+            # not lifetime totals. Without this reset the health line
+            # shows an ever-growing stats_fails=N that never clears
+            # even after transient I/O contention resolves.
+            self._stats_fail_count = 0
         except Exception as stats_err:
             self._stats_fail_count = getattr(self, "_stats_fail_count", 0) + 1
             logger.warning(
-                "Signal stats recording failed (non-fatal, count=%d): %s",
+                "Signal stats recording failed (non-fatal, consecutive_fails=%d): %s",
                 self._stats_fail_count, stats_err
             )
 
