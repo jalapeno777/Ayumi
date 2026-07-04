@@ -5,7 +5,7 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from backtest.engine import Bar, BarPeriod, MarketState, TradeDirection, determine_session
 from backtest.strategies import ISignalStrategy
@@ -27,6 +27,7 @@ class StrategyExecutor:
         max_bars: int = _DEFAULT_MAX_BARS,
         min_bars: int = _DEFAULT_MIN_BARS,
         historical_bars_csv: Optional[str] = None,
+        filter_config: Optional[dict] = None,
     ):
         self._slot = slot
         self._strategy = strategy
@@ -38,6 +39,25 @@ class StrategyExecutor:
         self._current_bar: Optional[Bar] = None
         self._bar_period = self._parse_bar_period(slot.timeframe)
         self._bar_closed = False
+
+        # Build optional FilterChain for post-strategy signal filtering
+        self._filter_chain: Any = None
+        if filter_config:
+            try:
+                from signal_engine.filters.filter_chain import build_chain_from_config
+
+                self._filter_chain = build_chain_from_config(filter_config)
+                logger.info(
+                    "FilterChain enabled for %s (%d filters)",
+                    slot.id,
+                    len(self._filter_chain.filters),
+                )
+            except ImportError:
+                logger.warning(
+                    "FilterChain config provided for %s but filter_chain module "
+                    "not available — signals will not be filtered",
+                    slot.id,
+                )
 
         if historical_bars_csv:
             self._load_historical_bars(historical_bars_csv)
@@ -99,7 +119,19 @@ class StrategyExecutor:
             result = self._strategy.evaluate(state)
             if result is None:
                 return None
-            return self._to_canonical_signal(result)
+
+            signal = self._to_canonical_signal(result)
+
+            # Apply FilterChain after signal generation, before emission.
+            # NEUTRAL signals are never filtered (they carry no directional intent).
+            if (
+                self._filter_chain is not None
+                and signal.direction != TradeDirection.NEUTRAL
+            ):
+                if not self._run_filter_chain(signal, bars):
+                    return None
+
+            return signal
         except Exception as exc:
             logger.error(
                 "Strategy evaluation error [%s]: %s", self._slot.id, exc, exc_info=True
@@ -220,6 +252,91 @@ class StrategyExecutor:
                 self._bars[0].time.strftime("%Y-%m-%d %H:%M"),
                 self._bars[-1].time.strftime("%Y-%m-%d %H:%M"),
             )
+
+    def _run_filter_chain(self, signal: CanonicalSignal, bars: list[Bar]) -> bool:
+        """Evaluate the FilterChain against the generated signal.
+
+        Builds a context dict from recent bars (EMAs, ATR, price arrays)
+        and passes it to each filter in priority order. Returns False if
+        any filter rejects the signal (short-circuit).
+        """
+        highs = [b.high for b in bars[-50:]]
+        lows = [b.low for b in bars[-50:]]
+        closes = [b.close for b in bars[-50:]]
+
+        pip_value = self._slot.params.get("pip_value", 0.0001)
+
+        ema_fast_period = 9
+        ema_slow_period = 21
+        # Try to read from filter_config trend settings
+        if isinstance(self._filter_chain, object):
+            for f in getattr(self._filter_chain, "filters", []):
+                fname = getattr(f, "name", "")
+                if fname == "trend" and hasattr(f, "_config"):
+                    ema_fast_period = getattr(f._config, "ema_fast_period", ema_fast_period)
+                    ema_slow_period = getattr(f._config, "ema_slow_period", ema_slow_period)
+
+        ema_fast = self._compute_ema(closes, ema_fast_period)
+        ema_slow = self._compute_ema(closes, ema_slow_period)
+        atr_value = self._compute_atr(bars[-50:], 14)
+
+        context = {
+            "signal_direction": signal.direction.name,
+            "ema_fast": ema_fast,
+            "ema_slow": ema_slow,
+            "atr_value": atr_value,
+            "pip_value": pip_value,
+            "highs": highs,
+            "lows": lows,
+            "closes": closes,
+        }
+
+        passed = self._filter_chain.evaluate(**context)
+        if not passed:
+            rejection = self._filter_chain.last_result
+            logger.info(
+                "FilterChain rejected signal [%s dir=%s]: %s — %s",
+                self._slot.id,
+                signal.direction.name,
+                rejection.filter_name,
+                rejection.reason,
+            )
+        return passed
+
+    @staticmethod
+    def _compute_ema(values: list[float], period: int) -> float:
+        """Compute the EMA value for the last element."""
+        if not values:
+            return 0.0
+        if len(values) < period:
+            period = len(values)
+        if period == 0:
+            return values[-1] if values else 0.0
+        multiplier = 2.0 / (period + 1)
+        ema = values[0]
+        for v in values[1:]:
+            ema = v * multiplier + ema * (1 - multiplier)
+        return ema
+
+    @staticmethod
+    def _compute_atr(bars: list[Bar], period: int = 14) -> float:
+        """Compute the Average True Range over the given bars."""
+        if len(bars) < 2:
+            return 0.0
+        true_ranges: list[float] = []
+        for i in range(1, len(bars)):
+            prev_close = bars[i - 1].close
+            bar = bars[i]
+            tr = max(
+                bar.high - bar.low,
+                abs(bar.high - prev_close),
+                abs(bar.low - prev_close),
+            )
+            true_ranges.append(tr)
+        if not true_ranges:
+            return 0.0
+        use_period = min(period, len(true_ranges))
+        return sum(true_ranges[-use_period:]) / use_period
 
     @staticmethod
     def _parse_bar_period(timeframe: str) -> BarPeriod:
