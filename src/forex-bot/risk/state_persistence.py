@@ -1,4 +1,8 @@
-"""State persistence for risk system — saves/restores sizer state across restarts."""
+"""State persistence for risk system — saves/restores sizer state across restarts.
+
+Also handles per-strategy position tracking for the per-strategy freeze
+subsystem (BQ-685a).
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,97 @@ from typing import Optional
 from risk.sl_position_sizer import SLPositionSizer
 
 logger = logging.getLogger("ayumi.risk")
+
+
+# ── Per-Strategy State Schema ─────────────────────────────────────────────────
+
+STRATEGY_STATE_VERSION = 1
+
+
+class StrategyTracker:
+    """Tracks per-strategy runtime metrics for freeze decisions.
+
+    Stored alongside the main risk state and persisted across restarts.
+    Each strategy entry contains:
+      - consecutive_losses: int
+      - daily_pnl: float (account currency)
+      - daily_dd_pct: float (percentage of daily starting balance)
+      - open_positions: int
+      - last_slippage_pips: float
+    """
+
+    def __init__(self) -> None:
+        self._strategies: dict[str, dict] = {}
+
+    def register(self, strategy_id: str) -> None:
+        """Register a strategy. Idempotent."""
+        if strategy_id not in self._strategies:
+            self._strategies[strategy_id] = {
+                "consecutive_losses": 0,
+                "daily_pnl": 0.0,
+                "daily_dd_pct": 0.0,
+                "open_positions": 0,
+                "last_slippage_pips": 0.0,
+            }
+
+    def update(
+        self,
+        strategy_id: str,
+        *,
+        consecutive_losses: int | None = None,
+        daily_pnl: float | None = None,
+        daily_dd_pct: float | None = None,
+        open_positions: int | None = None,
+        last_slippage_pips: float | None = None,
+    ) -> None:
+        """Update fields for a strategy. Auto-registers if unknown."""
+        self.register(strategy_id)
+        s = self._strategies[strategy_id]
+        if consecutive_losses is not None:
+            s["consecutive_losses"] = consecutive_losses
+        if daily_pnl is not None:
+            s["daily_pnl"] = daily_pnl
+        if daily_dd_pct is not None:
+            s["daily_dd_pct"] = daily_dd_pct
+        if open_positions is not None:
+            s["open_positions"] = open_positions
+        if last_slippage_pips is not None:
+            s["last_slippage_pips"] = last_slippage_pips
+
+    def get(self, strategy_id: str) -> dict | None:
+        """Return strategy metrics dict or None if not registered."""
+        return self._strategies.get(strategy_id)
+
+    def get_all(self) -> dict[str, dict]:
+        """Return all strategy metrics."""
+        return dict(self._strategies)
+
+    def reset_daily(self) -> None:
+        """Reset daily counters (call at session/day boundary)."""
+        for s in self._strategies.values():
+            s["consecutive_losses"] = 0
+            s["daily_pnl"] = 0.0
+            s["daily_dd_pct"] = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "version": STRATEGY_STATE_VERSION,
+            "strategies": dict(self._strategies),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "StrategyTracker":
+        tracker = cls()
+        strategies = data.get("strategies", {})
+        for sid, sdata in strategies.items():
+            tracker._strategies[sid] = {
+                "consecutive_losses": sdata.get("consecutive_losses", 0),
+                "daily_pnl": sdata.get("daily_pnl", 0.0),
+                "daily_dd_pct": sdata.get("daily_dd_pct", 0.0),
+                "open_positions": sdata.get("open_positions", 0),
+                "last_slippage_pips": sdata.get("last_slippage_pips", 0.0),
+            }
+        return tracker
 
 
 class StatePersistence:
@@ -38,9 +133,15 @@ class StatePersistence:
             },
         }
 
-    def save(self, sizer: SLPositionSizer) -> None:
-        """Persist current sizer state atomically."""
+    def save(self, sizer: SLPositionSizer, strategy_tracker: StrategyTracker | None = None) -> None:
+        """Persist current sizer state atomically.
+
+        If ``strategy_tracker`` is provided, per-strategy metrics are
+        included in the persisted state file.
+        """
         state = self.get_state(sizer)
+        if strategy_tracker is not None:
+            state["strategy_tracker"] = strategy_tracker.to_dict()
         self._atomic_write(state)
         logger.info("Saved risk state to %s", self._path)
 
@@ -82,6 +183,30 @@ class StatePersistence:
         except Exception as e:
             logger.error("Failed to restore state: %s", e)
             return False
+
+    def restore_strategy_tracker(self) -> StrategyTracker | None:
+        """Load and return the per-strategy tracker from the state file.
+
+        Returns None if the file is missing, corrupt, or contains no
+        strategy data.
+        """
+        if not self._path.exists():
+            return None
+
+        try:
+            raw = json.loads(self._path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+
+        st_data = raw.get("strategy_tracker")
+        if st_data is None:
+            return None
+
+        try:
+            return StrategyTracker.from_dict(st_data)
+        except Exception as e:
+            logger.error("Failed to restore strategy tracker: %s", e)
+            return None
 
     def _atomic_write(self, state: dict) -> None:
         """Write state atomically via temp file + rename."""
