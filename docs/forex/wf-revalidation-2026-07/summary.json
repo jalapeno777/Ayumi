@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-07-03T15:10:20.569769+00:00",
+  "strategy": "SRMR+",
+  "n_windows": 5,
+  "pairs": [
+    "GBPUSD",
+    "EURUSD",
+    "USDJPY",
+    "XAUUSD"
+  ],
+  "per_pair": {
+    "GBPUSD": {
+      "data_source": "parquet_1h",
+      "bar_count": 17225,
+      "windows_passed": 0,
+      "go_nogo": false,
+      "mean_profit_factor": 0.807488,
+      "mean_win_rate": 0.377215,
+      "mean_sharpe_ratio": -2.399066,
+      "mean_max_drawdown": 0.024003,
+      "mean_trade_count": 14.4,
+      "mean_total_pnl": -126.628604
+    },
+    "EURUSD": {
+      "data_source": "parquet_1h",
+      "bar_count": 17223,
+      "windows_passed": 1,
+      "go_nogo": false,
+      "mean_profit_factor": 0.944315,
+      "mean_win_rate": 0.359707,
+      "mean_sharpe_ratio": -3.564209,
+      "mean_max_drawdown": 0.030887,
+      "mean_trade_count": 13.0,
+      "mean_total_pnl": -144.723839
+    },
+    "USDJPY": {
+      "data_source": "parquet_1h",
+      "bar_count": 17126,
+      "windows_passed": 1,
+      "go_nogo": false,
+      "mean_profit_factor": 1.271409,
+      "mean_win_rate": 0.427805,
+      "mean_sharpe_ratio": -0.010929,
+      "mean_max_drawdown": 0.021871,
+      "mean_trade_count": 13.6,
+      "mean_total_pnl": -31.667425
+    },
+    "XAUUSD": {
+      "data_source": "csv_M15",
+      "bar_count": 74324,
+      "windows_passed": 5,
+      "go_nogo": true,
+      "mean_profit_factor": 8.019522,
+      "mean_win_rate": 0.863128,
+      "mean_sharpe_ratio": 13.684701,
+      "mean_max_drawdown": 0.005988,
+      "mean_trade_count": 48.4,
+      "mean_total_pnl": 2020.314259
+    }
+  },
+  "exit_gate_pass": false,
+  "pairs_meeting_exit_gate": [
+    "XAUUSD"
+  ]
+}
