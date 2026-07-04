@@ -42,12 +42,22 @@ class BtcRegimeOverlay:
 
     Loads BTC regime labels lazily and provides timestamp-based lookups.
     Degrades gracefully to "neutral" if data is unavailable.
+
+    Optionally accepts an ``hmm_signal_source`` — a fitted
+    ``CorrelationRegimeHMM`` — to blend HMM regime detection with
+    label-based lookups via :meth:`regime_with_hmm`.
     """
 
-    def __init__(self, path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        path: str | Path | None = None,
+        *,
+        hmm_signal_source=None,
+    ) -> None:
         self._path = Path(path) if path else Path(DEFAULT_BTC_REGIME_PATH)
         self._entries: list[dict] | None = None  # lazy load
         self._timestamps: list[int] | None = None
+        self._hmm_source = hmm_signal_source
 
     def _ensure_loaded(self) -> bool:
         """Lazily load the JSONL file. Returns True if data is available."""
@@ -170,6 +180,62 @@ class BtcRegimeOverlay:
         start_ms = int(bars[0].time.timestamp() * 1000)
         end_ms = int(bars[-1].time.timestamp() * 1000)
         return self.regime_for_window(start_ms, end_ms)
+
+    # ------------------------------------------------------------------
+    # HMM blend (BQ-1240a — additive, does not change existing behavior)
+    # ------------------------------------------------------------------
+
+    _HMM_REGIME_MAP: dict[str, str] = {
+        "STABLE": "neutral",
+        "BREAKDOWN": "high_vol",
+        "TRANSITION": "neutral",
+    }
+
+    def regime_with_hmm(
+        self,
+        ts_ms: int,
+        features_df=None,
+    ) -> str:
+        """Blend label-based regime with HMM signal.
+
+        If the HMM source is available and predicts BREAKDOWN with high
+        confidence, escalate the blended regime to ``high_vol`` regardless
+        of what the label says. Otherwise, return the label-based regime.
+
+        Args:
+            ts_ms: Epoch-millisecond timestamp.
+            features_df: Optional pre-computed HMM feature DataFrame.
+                If not provided and the HMM source has its own feature
+                engineer, this method falls back to label-only.
+
+        Returns:
+            Blended regime string (same vocabulary as
+            :meth:`regime_at_timestamp`).
+        """
+        label_regime = self.regime_at_timestamp(ts_ms)
+
+        if self._hmm_source is None:
+            return label_regime
+
+        if features_df is not None and not features_df.empty:
+            try:
+                hmm_regime, confidence = self._hmm_source.predict_current(
+                    features_df,
+                )
+            except Exception:
+                return label_regime
+
+            hmm_mapped = self._HMM_REGIME_MAP.get(hmm_regime, "neutral")
+
+            # If HMM is confident about BREAKDOWN, escalate
+            if hmm_regime == "BREAKDOWN" and confidence >= 0.65:
+                return "high_vol"
+
+            # If HMM says STABLE and label agrees, keep label
+            # If HMM says STABLE but label says high_vol, defer to label
+            return label_regime if hmm_mapped == label_regime else label_regime
+
+        return label_regime
 
     @property
     def entry_count(self) -> int:
