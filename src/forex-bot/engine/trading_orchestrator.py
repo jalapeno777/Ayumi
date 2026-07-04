@@ -61,7 +61,7 @@ class StrategySlotConfig:
 @dataclass
 class RiskConfig:
     """Portfolio-level risk parameters."""
-    max_drawdown_pct: float = 0.20
+    max_drawdown_pct: float = 0.10  # FTMO 10% max drawdown limit
     daily_loss_limit_pct: float = 0.05
     max_concurrent_positions: int = 5
     max_trades_per_day: int = 10
@@ -1044,7 +1044,7 @@ def build_mvp_orchestrator(
     config = OrchestratorConfig(
         starting_balance=starting_balance,
         risk=RiskConfig(
-            max_drawdown_pct=0.20,
+            max_drawdown_pct=0.10,  # FTMO 10% max drawdown
             daily_loss_limit_pct=0.05,
             max_concurrent_positions=5,
             max_trades_per_day=10,
@@ -1055,7 +1055,7 @@ def build_mvp_orchestrator(
     if risk_guard is None:
         ftmo = FTMOConfig(
             daily_loss_limit_pct=0.05,
-            total_drawdown_limit_pct=0.20,
+            total_drawdown_limit_pct=0.10,  # FTMO 10% total drawdown
             min_risk_reward=0.0,
             max_trades_per_day=10,
             max_positions=5,
