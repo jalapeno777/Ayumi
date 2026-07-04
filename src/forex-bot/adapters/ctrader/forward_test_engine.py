@@ -320,6 +320,11 @@ class ForwardTestEngine:
         self._callbacks: list[tuple[str, "Callable"]] = []
         self._health = ForwardTestHealth()
         self._stats_fail_count: int = 0  # consecutive stats recording failures (resets on success)
+        self._last_known_good_confidence: Optional[float] = None  # cached confidence from last successful stats recording
+
+        # Retry configuration for stats recording (env-overridable)
+        self._stats_retry_max: int = int(os.environ.get("STATS_RETRY_MAX", "3"))
+        self._stats_retry_base_delay: float = float(os.environ.get("STATS_RETRY_BASE_DELAY", "2.0"))
 
         self._last_evaluation_at: float = 0.0
 
@@ -1335,37 +1340,66 @@ class ForwardTestEngine:
         # CRITICAL: stats recording must NEVER crash the execution path.
         # The outcome has already been classified and the order sent — losing
         # a stats line is acceptable; losing the outcome return is not.
-        try:
-            self._stats_recorder = (
-                getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
-            )
-            self._stats_recorder.record_signal(
-                SignalRecord(
-                    signal_id=order.order_id if order and order.order_id else signal.strategy_id,
-                    timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
-                    strategy=signal.strategy_id or strategy_id or "unknown",
-                    symbol=signal.symbol,
-                    direction=direction_str.upper() if direction_str else "",
-                    confidence=float(signal.confidence),
-                    rationale_tags=[signal.rationale] if signal.rationale else [],
-                    confluence_score=0.0,
-                    lots=float(volume_lots),
-                    entry_price=float(signal.entry_price),
-                    sl_price=float(signal.stop_loss),
-                    tp_price=float(signal.take_profit_1),
+        #
+        # Retry strategy: transient I/O errors (file locks, disk contention,
+        # network-attached storage) can cause record_signal() to fail.
+        # We retry with exponential backoff (2s/4s/8s by default) before
+        # falling back to graceful degradation (last-known-good confidence).
+        signal_confidence = float(signal.confidence)
+        stats_recorded = False
+        for attempt in range(self._stats_retry_max):
+            try:
+                self._stats_recorder = (
+                    getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
                 )
-            )
-            # Reset on success: counter tracks *consecutive* failures,
-            # not lifetime totals. Without this reset the health line
-            # shows an ever-growing stats_fails=N that never clears
-            # even after transient I/O contention resolves.
-            self._stats_fail_count = 0
-        except Exception as stats_err:
-            self._stats_fail_count = getattr(self, "_stats_fail_count", 0) + 1
-            logger.warning(
-                "Signal stats recording failed (non-fatal, consecutive_fails=%d): %s",
-                self._stats_fail_count, stats_err
-            )
+                self._stats_recorder.record_signal(
+                    SignalRecord(
+                        signal_id=order.order_id if order and order.order_id else signal.strategy_id,
+                        timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                        strategy=signal.strategy_id or strategy_id or "unknown",
+                        symbol=signal.symbol,
+                        direction=direction_str.upper() if direction_str else "",
+                        confidence=signal_confidence,
+                        rationale_tags=[signal.rationale] if signal.rationale else [],
+                        confluence_score=0.0,
+                        lots=float(volume_lots),
+                        entry_price=float(signal.entry_price),
+                        sl_price=float(signal.stop_loss),
+                        tp_price=float(signal.take_profit_1),
+                    )
+                )
+                # Reset on success: counter tracks *consecutive* failures,
+                # not lifetime totals.
+                self._stats_fail_count = 0
+                self._last_known_good_confidence = signal_confidence
+                stats_recorded = True
+                break
+            except Exception as stats_err:
+                if attempt < self._stats_retry_max - 1:
+                    delay = self._stats_retry_base_delay * (2 ** attempt)
+                    logger.warning(
+                        "Signal stats recording attempt %d/%d failed (retry in %.1fs): %s",
+                        attempt + 1, self._stats_retry_max, delay, stats_err,
+                    )
+                    time.sleep(delay)
+                else:
+                    # All retries exhausted — graceful degradation
+                    self._stats_fail_count = getattr(self, "_stats_fail_count", 0) + 1
+                    last_good = self._last_known_good_confidence
+                    if last_good is not None:
+                        logger.warning(
+                            "Signal stats recording failed after %d attempts "
+                            "(consecutive_fails=%d, using last-known-good confidence=%.4f): %s",
+                            self._stats_retry_max, self._stats_fail_count,
+                            last_good, stats_err,
+                        )
+                    else:
+                        logger.warning(
+                            "Signal stats recording failed after %d attempts "
+                            "(consecutive_fails=%d, no prior confidence cached): %s",
+                            self._stats_retry_max, self._stats_fail_count,
+                            stats_err,
+                        )
 
         return outcome
 
@@ -1870,6 +1904,8 @@ class ForwardTestEngine:
                 "pid": self._heartbeat_pid,
                 "ticks_received": self._health.ticks_received,
                 "engine_running": self._running,
+                "stats_fails": getattr(self, "_stats_fail_count", 0),
+                "stats_last_known_good": getattr(self, "_last_known_good_confidence", None),
             }
             json_str = json.dumps(heartbeat, indent=2)
 
