@@ -34,6 +34,12 @@ from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectA
 AUTH_RETRY_MAX_ATTEMPTS = 3
 AUTH_RETRY_BACKOFF_SECONDS = (1.0, 2.0, 4.0)
 
+# Auth failure escalation: after this many consecutive auth failures across
+# reconnect cycles, force a full reconnect (new TCP + fresh auth) instead of
+# looping on the same connection.  Prevents the "stuck in FAILED" spiral
+# where auth errors climb to 20+ without recovery (2026-07-03 incident).
+AUTH_FULL_RECONNECT_THRESHOLD = 8
+
 
 # ── Decision context ──────────────────────────────────────────────────────────
 
@@ -267,6 +273,9 @@ class ConnectionManager:
         self._reconnect_strategy = ReconnectStrategy()
         self._auth_token: Optional[str] = None
         self._reconnect_attempt = 0
+
+        # Auth failure escalation tracking (2026-07-03: failed-state-sticky bug)
+        self._consecutive_auth_failures = 0
 
     def stop(self) -> None:
         """Stop background threads and release resources.
@@ -720,7 +729,56 @@ class ConnectionManager:
         Call after a successful reconnection to reset backoff.
         """
         self._reconnect_attempt = 0
+        self._consecutive_auth_failures = 0
         self._reconnect_strategy.reset()
+
+    # ─── Auth failure escalation (2026-07-03) ─────────────────────────────
+
+    def record_auth_success(self) -> None:
+        """Reset the consecutive auth failure counter after successful auth.
+
+        Call this whenever any connection successfully authenticates.
+        Ensures transient auth bursts don't permanently poison the state.
+        """
+        if self._consecutive_auth_failures > 0:
+            logger.info(
+                "[ConnectionManager] Auth success — resetting failure counter "
+                "(was %d)",
+                self._consecutive_auth_failures,
+            )
+        self._consecutive_auth_failures = 0
+
+    def record_auth_failure(self) -> bool:
+        """Track consecutive auth failures and decide if full reconnect is needed.
+
+        Returns ``True`` when the failure threshold is reached, signalling
+        that the caller should do a full reconnect (tear down TCP, create new
+        connection, fresh auth) instead of looping on the same connection.
+
+        The counter resets automatically when the threshold is hit, so a
+        single threshold breach triggers one full-reconnect signal.
+
+        Returns:
+            ``True`` if full reconnect is recommended, ``False`` otherwise.
+        """
+        self._consecutive_auth_failures += 1
+
+        if self._consecutive_auth_failures >= AUTH_FULL_RECONNECT_THRESHOLD:
+            logger.warning(
+                "[ConnectionManager] Auth failure threshold reached (%d/%d) "
+                "— recommending full reconnect",
+                self._consecutive_auth_failures,
+                AUTH_FULL_RECONNECT_THRESHOLD,
+            )
+            self._consecutive_auth_failures = 0
+            return True
+
+        logger.debug(
+            "[ConnectionManager] Auth failure %d/%d",
+            self._consecutive_auth_failures,
+            AUTH_FULL_RECONNECT_THRESHOLD,
+        )
+        return False
 
     # ─── Auth retry (BQ-1330a) ──────────────────────────────────────────────
 
@@ -766,6 +824,7 @@ class ConnectionManager:
                             max_attempts,
                         )
                     self.reset_reconnect_state()
+                    self.record_auth_success()
                     return True
                 # auth_fn returned False — treat as failure
                 logger.warning(
