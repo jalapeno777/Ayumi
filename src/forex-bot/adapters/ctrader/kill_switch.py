@@ -39,6 +39,9 @@ AUTO_FREEZE_CONSECUTIVE_LOSSES = 3
 AUTO_FREEZE_DAILY_DD_PCT = 1.5
 AUTO_FREEZE_SLIPPAGE_PIPS = 5.0
 
+# Trigger source identifiers (used by activated_by field)
+SOURCE_FTMO = "ftmo_guard"
+
 
 # ── Data Classes ──────────────────────────────────────────────────────────────
 
@@ -183,6 +186,16 @@ class KillSwitchManager:
         if self._disabled:
             return False
         return self._state.active
+
+    @property
+    def is_disabled(self) -> bool:
+        """Check if the kill switch is administratively disabled.
+
+        When True, all activation calls are suppressed (no-op).
+        External guards (e.g. FTMOGuard) can check this to log
+        that their breach would be suppressed.
+        """
+        return self._disabled
 
     def get_status(self) -> dict:
         """Full status dict for external consumption."""
