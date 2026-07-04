@@ -11,9 +11,12 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from risk.sl_position_sizer import SLPositionSizer
+
+if TYPE_CHECKING:
+    from risk.recovery_protocol import PositionInfo, ReconciliationResult
 
 logger = logging.getLogger("ayumi.risk")
 
@@ -207,6 +210,57 @@ class StatePersistence:
         except Exception as e:
             logger.error("Failed to restore strategy tracker: %s", e)
             return None
+
+    def reconcile_positions(
+        self,
+        strategy_tracker: StrategyTracker,
+        strategy_id: str,
+        broker_positions: list[dict],
+    ) -> dict:
+        """Reconcile locally tracked positions against broker state.
+
+        Compares the ``open_positions`` count tracked by the
+        :class:`StrategyTracker` against the actual broker-reported
+        positions for a given strategy.
+
+        Args:
+            strategy_tracker: The tracker holding local state.
+            strategy_id: Strategy to reconcile.
+            broker_positions: List of broker position dicts, each
+                containing ``symbol``, ``volume``, and ``side``.
+
+        Returns:
+            Dict with ``matched`` (bool), ``local_count`` (int),
+            ``broker_count`` (int), and ``mismatches`` (list of dicts).
+        """
+        local = strategy_tracker.get(strategy_id)
+        local_count = local["open_positions"] if local else 0
+        broker_count = len(broker_positions)
+
+        mismatches: list[dict] = []
+
+        if local_count != broker_count:
+            mismatches.append({
+                "type": "count_mismatch",
+                "strategy_id": strategy_id,
+                "local_count": local_count,
+                "broker_count": broker_count,
+            })
+
+        # Flag high slippage as a potential reconciliation concern
+        if local and local.get("last_slippage_pips", 0) > 5.0:
+            mismatches.append({
+                "type": "high_slippage_flag",
+                "strategy_id": strategy_id,
+                "last_slippage_pips": local["last_slippage_pips"],
+            })
+
+        return {
+            "matched": len(mismatches) == 0,
+            "local_count": local_count,
+            "broker_count": broker_count,
+            "mismatches": mismatches,
+        }
 
     def _atomic_write(self, state: dict) -> None:
         """Write state atomically via temp file + rename."""
