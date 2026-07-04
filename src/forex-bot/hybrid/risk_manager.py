@@ -4,9 +4,11 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from enum import StrEnum
+from typing import Optional
 
 from hybrid.signal import HumanSignal, SignalType
 from quant.position_sizing import fixed_fractional
+from risk.correlation_sizer import CorrelationAwareSizer, Direction
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,7 @@ class RiskManager:
         max_daily_risk_pct: float = 1.5,
         max_lot_size: float = 1.0,
         london_config: LondonSessionConfig | None = None,
+        correlation_sizer: Optional[CorrelationAwareSizer] = None,
     ) -> None:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -74,6 +77,7 @@ class RiskManager:
         self._max_daily_risk_pct = max_daily_risk_pct
         self._max_lot_size = max_lot_size
         self._london_config = london_config or LondonSessionConfig()
+        self._correlation_sizer = correlation_sizer
         self._daily_trade_count = 0
         self._daily_risk_used_pct = 0.0
         self._peak_balance = starting_balance
@@ -266,14 +270,56 @@ class RiskManager:
             stop_loss=sl,
         )
         lot_size = min(lot_size, self._max_lot_size)
+
+        # Correlation-aware size adjustment (BQ-1237 wiring)
+        if self._correlation_sizer is not None:
+            signal_direction = (
+                Direction.LONG
+                if signal.signal_type.value.upper() in ("BUY", "LONG")
+                else Direction.SHORT
+            )
+            result = self._correlation_sizer.compute_adjusted_size(
+                pair=signal.pair,
+                direction=signal_direction,
+                base_size_lots=lot_size,
+                base_risk_pct=risk_pct / 100.0,
+            )
+            if result.blocked:
+                logger.info(
+                    "Correlation sizer blocked %s: %s",
+                    signal.pair,
+                    result.block_reason,
+                )
+                return 0.0
+            lot_size = result.adjusted_size_lots
+            if result.scale_factor < 1.0:
+                logger.info(
+                    "Correlation sizer reduced %s: %.2f→%.2f lots (scale=%.2f, exposure=%.3f%%)",
+                    signal.pair,
+                    result.original_size_lots,
+                    result.adjusted_size_lots,
+                    result.scale_factor,
+                    result.correlated_exposure_pct * 100,
+                )
+
         return max(0.0, round(lot_size, 2))
 
-    def open_position(self) -> None:
+    def open_position(self, strategy_id: str = "default", pair: str = "", direction: str = "long", size_lots: float = 0.0, risk_pct: float = 0.005) -> None:
         self._open_position_count += 1
+        if self._correlation_sizer is not None and pair:
+            self._correlation_sizer.register_position(
+                strategy_id=strategy_id,
+                pair=pair,
+                direction=direction,
+                size_lots=size_lots,
+                risk_pct=risk_pct,
+            )
 
-    def close_position(self) -> None:
+    def close_position(self, strategy_id: str = "default", pair: str = "") -> None:
         if self._open_position_count > 0:
             self._open_position_count -= 1
+        if self._correlation_sizer is not None and pair:
+            self._correlation_sizer.remove_position(strategy_id, pair)
 
     def record_trade(self, pnl: float, risk_pct: float | None = None) -> None:
         self._current_balance += pnl
