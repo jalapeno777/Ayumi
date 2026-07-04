@@ -110,3 +110,10 @@ data/signal_stats*
 data/risk_state*
 data/forward_test_health.json
 data/overseer_state.json
+
+# Runtime equity tracking
+data/forex/equity_reports/
+data/forex/equity_snapshots.jsonl
+
+# Runtime state (regenerated on startup)
+data/state/
