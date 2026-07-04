@@ -92,6 +92,10 @@ class PaperTrader:
         bid: float = 0.0,
         ask: float = 0.0,
     ) -> PaperTradeResult:
+        # Council audit (FTMO-risk): risk check and order execution must be
+        # atomic. The entire method body is under self._lock (RLock), which
+        # serializes risk-guard checks → kill-switch gate → order submission.
+        # No separate lock acquisition exists between check and execute.
         with self._lock:
             self._stats.total_signals_processed += 1
 
