@@ -20,11 +20,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from typing import Union
 
 from risk.correlation_matrix import CorrelationMatrix
 
 logger = logging.getLogger(__name__)
+
+
+# Type alias for regime — accepts Regime enum or string label
+RegimeLike = Union[str, Enum]
 
 
 class Direction(str, Enum):
@@ -158,6 +162,7 @@ class CorrelationAwareSizer:
         direction: Direction | str,
         base_size_lots: float,
         base_risk_pct: float = 0.005,
+        regime: RegimeLike | None = None,
     ) -> SizingResult:
         """Compute the size for a *new* trade given current portfolio state.
 
@@ -172,11 +177,27 @@ class CorrelationAwareSizer:
             adjustment.
         base_risk_pct : float
             The risk of the base trade (default 0.5 %).
+        regime : RegimeLike | None
+            Current market regime (e.g. ``"STABLE"``, ``"BREAKDOWN"``,
+            ``"TRANSITION"``).  When ``"BREAKDOWN"``, the aggregate risk
+            cap is reduced by 50 % per BQ-1240b.  ``None`` preserves
+            pre-existing behaviour (no regime adjustment).
         """
         if isinstance(direction, str):
             direction = Direction(direction.lower())
 
         warnings: list[str] = []
+
+        # --- Regime-aware aggregate cap adjustment (BQ-1240b) ---------- #
+        effective_aggregate_cap = self.aggregate_risk_pct
+        if regime is not None:
+            regime_label = regime.value if isinstance(regime, Enum) else str(regime).upper()
+            if regime_label == "BREAKDOWN":
+                effective_aggregate_cap = self.aggregate_risk_pct * 0.5
+                warnings.append(
+                    f"BREAKDOWN regime: aggregate risk cap reduced to "
+                    f"{effective_aggregate_cap:.3%} (50 % exposure cut)."
+                )
 
         # --- Enforce per-trade risk cap -------------------------------- #
         if base_risk_pct > self.per_trade_risk_pct:
@@ -191,8 +212,8 @@ class CorrelationAwareSizer:
         # --- Compute correlated exposure ------------------------------- #
         correlated_exposure = self._correlated_exposure(pair, direction)
 
-        # Remaining risk budget
-        remaining_budget = self.aggregate_risk_pct - correlated_exposure
+        # Remaining risk budget (uses regime-adjusted cap)
+        remaining_budget = effective_aggregate_cap - correlated_exposure
 
         if remaining_budget <= 0:
             # Fully correlated budget exhausted
@@ -206,7 +227,8 @@ class CorrelationAwareSizer:
                 blocked=True,
                 block_reason=(
                     f"Correlated exposure {correlated_exposure:.3%} has reached "
-                    f"aggregate cap {self.aggregate_risk_pct:.3%}"
+                    f"effective aggregate cap {effective_aggregate_cap:.3%}"
+                    + (" (regime-adjusted)" if effective_aggregate_cap != self.aggregate_risk_pct else "")
                 ),
                 warnings=warnings,
             )
