@@ -37,6 +37,11 @@ def _make_spot_feed():
     feed._authed.set()
     feed._state_mgr._state = ConnectionState.AUTHENTICATED
     feed._name_to_id = {"EURUSD": 1, "GBPUSD": 2}
+    feed._id_to_name = {1: "EURUSD", 2: "GBPUSD"}
+    # Mock volume calculator so Order construction doesn't crash on unknown symbol_id
+    feed._volume_calc = MagicMock()
+    feed._volume_calc.volume_to_lots.return_value = 0.01
+    feed._volume_calc.lots_to_volume.return_value = 1000
     return feed
 
 

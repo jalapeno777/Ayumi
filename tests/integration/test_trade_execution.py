@@ -74,7 +74,10 @@ def _make_feed() -> OpenApiSpotFeed:
     # Pre-populate symbol map so resolve_symbol_id works.
     feed._id_to_name = {1: "EURUSD"}
     feed._name_to_id = {_normalize_symbol_name("EURUSD"): 1}
-    feed._symbols = {1: MagicMock(pip_size=1e-5, digits=5)}
+    # Mutate in-place: VolumeCalculator holds a reference to the original dict
+    # from __init__, so re-assigning feed._symbols would orphan it.
+    feed._symbols.clear()
+    feed._symbols[1] = MagicMock(pip_size=1e-5, digits=5, lot_size=100_000)
     return feed
 
 
