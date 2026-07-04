@@ -248,11 +248,16 @@ class RiskGuard:
         # Without this guard, an externally-updated balance (e.g. from a
         # broker snapshot) can falsely trigger the circuit breaker when
         # no trades have been placed today.
+        #
+        # Daily loss limit is a FIXED dollar amount based on starting_balance
+        # (prop-firm baseline), not a pct of the current day's start balance.
+        # Craig's two-balance model (Jul 2026): daily_loss_limit_pct applies
+        # to the original $10K starting balance, so 5% of $10K = $500 cap.
         daily_loss_pct = 0.0
         if self._daily_trade_count > 0:
             daily_loss_pct = (
                 self._daily_start_balance - self._current_balance
-            ) / self._daily_start_balance
+            ) / self._starting_balance if self._starting_balance > 0 else 0.0
         if self._daily_trade_count > 0 and daily_loss_pct >= self._config.daily_loss_limit_pct:
             self._trigger_circuit_breaker(
                 RiskLimitType.DAILY_LOSS,
@@ -267,7 +272,15 @@ class RiskGuard:
                 limit_value=self._config.daily_loss_limit_pct,
             )
 
-        drawdown_pct = (self._peak_balance - self._current_balance) / self._peak_balance
+        # DD% measured from the fixed prop-firm starting balance ($10K),
+        # not from the peak balance.  Craig's direction: "Everything based
+        # on cTrader balance. Keep original 10k for drawdowns."
+        if self._starting_balance > 0:
+            drawdown_pct = (
+                self._starting_balance - self._current_balance
+            ) / self._starting_balance
+        else:
+            drawdown_pct = 0.0
         if drawdown_pct >= self._config.total_drawdown_limit_pct:
             self._trigger_circuit_breaker(
                 RiskLimitType.TOTAL_DRAWDOWN,
@@ -608,7 +621,14 @@ class RiskGuard:
 
     @property
     def current_drawdown_pct(self) -> float:
-        return (self._peak_balance - self._current_balance) / self._peak_balance
+        """Drawdown from fixed prop-firm starting balance, not peak.
+
+        Craig's two-balance model: DD% = (starting - live) / starting.
+        Peak balance is tracked for informational purposes only.
+        """
+        if self._starting_balance <= 0:
+            return 0.0
+        return (self._starting_balance - self._current_balance) / self._starting_balance
 
     @property
     def current_daily_loss_pct(self) -> float:

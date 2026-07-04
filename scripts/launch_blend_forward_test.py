@@ -814,6 +814,7 @@ def main():
     )
     _equity_record_interval = 300.0  # 5 minutes
     _last_equity_record = 0.0  # record immediately on first loop
+    _last_balance_sync = 0.0  # sync RiskGuard from cTrader every 5 min
 
     # ── Periodic health loop (B5) ─────────────────────────────────────────
     try:
@@ -856,19 +857,26 @@ def main():
                         except Exception as _bal_err:
                             _balance_str = f"ctrader=ERR ({_bal_err})"
                     _stats_fails = getattr(engine, "_stats_fail_count", 0)
+                    # Periodic balance sync from cTrader → RiskGuard (every 5 min)
+                    if now - _last_balance_sync >= 300.0:
+                        _last_balance_sync = now
+                        if hasattr(engine, '_sync_live_balance'):
+                            engine._sync_live_balance()
+
                     # Risk guard status (B5 health extension — A6)
+                    # Uses two-balance model: starting=$10K baseline, live=cTrader
                     _rg = getattr(engine._paper_trader, "_risk_guard", None)
                     if _rg is not None:
-                        _peak = _rg._peak_balance
+                        _start_bal = _rg._starting_balance
                         _bal = _rg._current_balance
                         _daily_pnl = _bal - _rg._daily_start_balance
-                        _dd_pct = (_peak - _bal) / _peak * 100 if _peak > 0 else 0.0
+                        _dd_pct = (_start_bal - _bal) / _start_bal * 100 if _start_bal > 0 else 0.0
                         _breaker = "ON" if _rg._circuit_breaker_triggered else "OFF"
                         _halt = "NONE"
                         if _rg._blocked_until is not None:
                             _halt = f"until {_rg._blocked_until.isoformat()}"
                         _risk_str = (
-                            f"risk: peak=${_peak:.2f} balance=${_bal:.2f} "
+                            f"risk: starting=${_start_bal:.2f} balance=${_bal:.2f} "
                             f"daily_pnl=${_daily_pnl:.2f} dd={_dd_pct:.2f}% "
                             f"dd_breaker={_breaker} halt={_halt}"
                         )
