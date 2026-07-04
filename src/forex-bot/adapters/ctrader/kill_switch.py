@@ -30,10 +30,48 @@ logger = logging.getLogger("ayumi.ctrader.kill_switch")
 STATE_VERSION = 1
 DEFAULT_STATE_DIR = "data/kill_switches"
 GLOBAL_STATE_FILE = "global.state"
+STRATEGY_STATE_FILE = "strategies.json"
 HISTORY_FILE = "history.jsonl"
+
+# ── Auto-Freeze Thresholds ───────────────────────────────────────────────────
+
+AUTO_FREEZE_CONSECUTIVE_LOSSES = 3
+AUTO_FREEZE_DAILY_DD_PCT = 1.5
+AUTO_FREEZE_SLIPPAGE_PIPS = 5.0
 
 
 # ── Data Classes ──────────────────────────────────────────────────────────────
+
+@dataclass
+class StrategyFreezeState:
+    """Serializable per-strategy freeze state."""
+    strategy_id: str = ""
+    frozen: bool = False
+    reason: str = ""
+    triggered_by: str = ""
+    triggered_at: Optional[str] = None
+    consecutive_losses: int = 0
+    daily_dd_pct: float = 0.0
+    last_slippage_pips: float = 0.0
+    metadata: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "StrategyFreezeState":
+        return cls(
+            strategy_id=data.get("strategy_id", ""),
+            frozen=data.get("frozen", False),
+            reason=data.get("reason", ""),
+            triggered_by=data.get("triggered_by", ""),
+            triggered_at=data.get("triggered_at"),
+            consecutive_losses=data.get("consecutive_losses", 0),
+            daily_dd_pct=data.get("daily_dd_pct", 0.0),
+            last_slippage_pips=data.get("last_slippage_pips", 0.0),
+            metadata=data.get("metadata", {}),
+        )
+
 
 @dataclass
 class GlobalKillState:
@@ -114,6 +152,11 @@ class KillSwitchManager:
         # Cached flags for ultra-fast path (< 0.01ms)
         self._killed_cache: bool = self._state.active and self._state.mode == self.MODE_KILL
         self._frozen_cache: bool = self._state.active and self._state.mode == self.MODE_FREEZE
+
+        # Per-strategy freeze states
+        self._strategy_state_file = self._state_dir / STRATEGY_STATE_FILE
+        self._strategy_states: dict[str, StrategyFreezeState] = {}
+        self._load_strategy_states()
 
     # ── Public API: Query ──────────────────────────────────────────────────
 
@@ -289,6 +332,221 @@ class KillSwitchManager:
                 prev_mode, prev_reason, reason,
             )
 
+    # ── Public API: Per-Strategy Freeze ───────────────────────────────────
+
+    def register_strategy(self, strategy_id: str) -> None:
+        """Register a strategy for per-strategy freeze tracking.
+
+        Idempotent: re-registering an existing strategy is a no-op.
+        """
+        with self._lock:
+            if strategy_id not in self._strategy_states:
+                self._strategy_states[strategy_id] = StrategyFreezeState(
+                    strategy_id=strategy_id,
+                )
+                self._save_strategy_states()
+                logger.info("Strategy registered: %s", strategy_id)
+
+    def freeze_strategy(
+        self,
+        strategy_id: str,
+        reason: str,
+        triggered_by: str = "manual",
+    ) -> bool:
+        """Freeze a specific strategy.
+
+        Other strategies continue running.  Returns True if the strategy
+        was newly frozen, False if it was already frozen or not registered.
+        """
+        with self._lock:
+            st = self._strategy_states.get(strategy_id)
+            if st is None:
+                logger.warning(
+                    "freeze_strategy: strategy '%s' not registered — auto-registering",
+                    strategy_id,
+                )
+                st = StrategyFreezeState(strategy_id=strategy_id)
+                self._strategy_states[strategy_id] = st
+
+            if st.frozen:
+                logger.info("Strategy '%s' already frozen", strategy_id)
+                return False
+
+            now = datetime.now(timezone.utc).isoformat()
+            st.frozen = True
+            st.reason = reason
+            st.triggered_by = triggered_by
+            st.triggered_at = now
+
+            self._save_strategy_states()
+            self._append_history({
+                "ts": now,
+                "event": "strategy_frozen",
+                "level": self.LEVEL_STRATEGY,
+                "strategy_id": strategy_id,
+                "reason": reason,
+                "triggered_by": triggered_by,
+            })
+            logger.warning(
+                "STRATEGY FROZEN: %s — reason=%s, by=%s",
+                strategy_id, reason, triggered_by,
+            )
+            return True
+
+    def unfreeze_strategy(
+        self,
+        strategy_id: str,
+        reason: str = "manual_recovery",
+    ) -> bool:
+        """Unfreeze a specific strategy.
+
+        Returns True if the strategy was frozen and is now unfrozen.
+        Resets consecutive_losses and daily_dd_pct counters.
+        """
+        with self._lock:
+            st = self._strategy_states.get(strategy_id)
+            if st is None or not st.frozen:
+                logger.info("Strategy '%s' not frozen — nothing to unfreeze", strategy_id)
+                return False
+
+            now = datetime.now(timezone.utc).isoformat()
+            prev_reason = st.reason
+            st.frozen = False
+            st.reason = ""
+            st.triggered_by = ""
+            st.triggered_at = None
+            st.consecutive_losses = 0
+            st.daily_dd_pct = 0.0
+
+            self._save_strategy_states()
+            self._append_history({
+                "ts": now,
+                "event": "strategy_unfrozen",
+                "level": self.LEVEL_STRATEGY,
+                "strategy_id": strategy_id,
+                "previous_reason": prev_reason,
+                "reason": reason,
+            })
+            logger.info(
+                "STRATEGY UNFROZEN: %s — previous_reason=%s, reason=%s",
+                strategy_id, prev_reason, reason,
+            )
+            return True
+
+    def is_strategy_frozen(self, strategy_id: str) -> bool:
+        """Check if a specific strategy is frozen.
+
+        Target latency: < 0.01ms (dict lookup + bool read).
+        """
+        st = self._strategy_states.get(strategy_id)
+        return st is not None and st.frozen
+
+    def get_strategy_status(self, strategy_id: str) -> dict:
+        """Get full status dict for a specific strategy."""
+        with self._lock:
+            st = self._strategy_states.get(strategy_id)
+            if st is None:
+                return {"strategy_id": strategy_id, "frozen": False, "registered": False}
+            result = st.to_dict()
+            result["registered"] = True
+            return result
+
+    def get_all_frozen_strategies(self) -> list[str]:
+        """Return list of all currently frozen strategy IDs."""
+        with self._lock:
+            return [
+                sid for sid, st in self._strategy_states.items()
+                if st.frozen
+            ]
+
+    def check_auto_freeze(
+        self,
+        strategy_id: str,
+        consecutive_losses: int = 0,
+        daily_dd_pct: float = 0.0,
+        slippage_pips: float = 0.0,
+    ) -> bool:
+        """Check auto-freeze triggers and freeze if any threshold breached.
+
+        Triggers:
+          - consecutive_losses >= AUTO_FREEZE_CONSECUTIVE_LOSSES (3)
+          - daily_dd_pct >= AUTO_FREEZE_DAILY_DD_PCT (1.5%)
+          - slippage_pips >= AUTO_FREEZE_SLIPPAGE_PIPS (5.0)
+
+        Returns True if the strategy was newly auto-frozen.
+        """
+        with self._lock:
+            st = self._strategy_states.get(strategy_id)
+            if st is None:
+                st = StrategyFreezeState(strategy_id=strategy_id)
+                self._strategy_states[strategy_id] = st
+
+            # Update tracking counters
+            st.consecutive_losses = consecutive_losses
+            st.daily_dd_pct = daily_dd_pct
+            st.last_slippage_pips = slippage_pips
+
+            if st.frozen:
+                return False  # Already frozen
+
+            # Check triggers
+            if consecutive_losses >= AUTO_FREEZE_CONSECUTIVE_LOSSES:
+                self._auto_freeze(
+                    strategy_id, st,
+                    reason=f"auto: {consecutive_losses} consecutive losses",
+                    trigger="consecutive_losses",
+                )
+                return True
+
+            if daily_dd_pct >= AUTO_FREEZE_DAILY_DD_PCT:
+                self._auto_freeze(
+                    strategy_id, st,
+                    reason=f"auto: daily DD {daily_dd_pct:.2f}% >= {AUTO_FREEZE_DAILY_DD_PCT}%",
+                    trigger="daily_dd",
+                )
+                return True
+
+            if slippage_pips >= AUTO_FREEZE_SLIPPAGE_PIPS:
+                self._auto_freeze(
+                    strategy_id, st,
+                    reason=f"auto: slippage {slippage_pips:.1f} pips >= {AUTO_FREEZE_SLIPPAGE_PIPS}",
+                    trigger="slippage",
+                )
+                return True
+
+            return False
+
+    def _auto_freeze(
+        self,
+        strategy_id: str,
+        st: StrategyFreezeState,
+        reason: str,
+        trigger: str,
+    ) -> None:
+        """Internal: execute auto-freeze for a strategy."""
+        now = datetime.now(timezone.utc).isoformat()
+        st.frozen = True
+        st.reason = reason
+        st.triggered_by = f"auto_freeze:{trigger}"
+        st.triggered_at = now
+
+        self._save_strategy_states()
+        self._append_history({
+            "ts": now,
+            "event": "strategy_auto_frozen",
+            "level": self.LEVEL_STRATEGY,
+            "strategy_id": strategy_id,
+            "reason": reason,
+            "trigger": trigger,
+            "consecutive_losses": st.consecutive_losses,
+            "daily_dd_pct": st.daily_dd_pct,
+            "slippage_pips": st.last_slippage_pips,
+        })
+        logger.warning(
+            "STRATEGY AUTO-FROZEN: %s — trigger=%s, reason=%s",
+            strategy_id, trigger, reason,
+        )
+
     # ── Public API: Position Close Tracking ────────────────────────────────
 
     def record_positions_closed(self, count: int) -> None:
@@ -417,3 +675,73 @@ class KillSwitchManager:
                 f.write(json.dumps(event) + "\n")
         except Exception as exc:
             logger.warning("Failed to append kill switch history: %s", exc)
+
+    # ── Per-Strategy Persistence ───────────────────────────────────────────
+
+    def _save_strategy_states(self) -> None:
+        """Atomically persist all strategy freeze states to JSON."""
+        try:
+            data = {
+                "version": STATE_VERSION,
+                "strategies": {
+                    sid: st.to_dict()
+                    for sid, st in self._strategy_states.items()
+                },
+            }
+            json_str = json.dumps(data, indent=2)
+
+            fd, tmp_path = tempfile.mkstemp(
+                dir=str(self._state_dir),
+                prefix=".strategies.",
+                suffix=".tmp",
+            )
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(json_str)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path, str(self._strategy_state_file))
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+        except Exception as exc:
+            logger.critical(
+                "Failed to persist strategy states: %s — "
+                "STRATEGY FREEZE STATES WILL NOT SURVIVE RESTART",
+                exc,
+            )
+
+    def _load_strategy_states(self) -> None:
+        """Load strategy freeze states from disk on startup.
+
+        Missing file → empty registry (strategies registered as needed).
+        Corrupt file → empty registry + warning (fail-open, not fail-safe,
+        because per-strategy freeze is an enhancement layer on top of
+        the global kill switch which has its own fail-safe behavior).
+        """
+        if not self._strategy_state_file.exists():
+            logger.info("No strategy state file found — starting with empty registry")
+            return
+
+        try:
+            raw = self._strategy_state_file.read_text()
+            data = json.loads(raw)
+            strategies = data.get("strategies", {})
+
+            for sid, sdata in strategies.items():
+                self._strategy_states[sid] = StrategyFreezeState.from_dict(sdata)
+
+            frozen_count = sum(1 for s in self._strategy_states.values() if s.frozen)
+            logger.info(
+                "Strategy states loaded: %d registered, %d frozen",
+                len(self._strategy_states), frozen_count,
+            )
+
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.warning(
+                "Strategy state file corrupt (%s) — starting with empty registry",
+                exc,
+            )
