@@ -477,6 +477,30 @@ class RiskGuard:
                 self._peak_balance = self._current_balance
 
             self._update_daily_tracking()
+
+            # Enforce daily loss limit immediately after recording trade.
+            # Previously, daily loss was only checked in check_trade_allowed()
+            # with a guard requiring _daily_trade_count > 0, meaning the loss
+            # from trade #0 was not evaluated until trade #1 attempted to open.
+            # This immediate check ensures the circuit breaker fires right
+            # after any trade that breaches the daily loss limit.
+            if self._daily_trade_count > 0 and self._starting_balance > 0:
+                daily_loss_pct = (
+                    self._daily_start_balance - self._current_balance
+                ) / self._starting_balance
+                if daily_loss_pct >= self._config.daily_loss_limit_pct:
+                    self._trigger_circuit_breaker(
+                        RiskLimitType.DAILY_LOSS,
+                        daily_loss_pct,
+                        self._config.daily_loss_limit_pct,
+                    )
+                    logger.warning(
+                        "Daily loss limit breached on trade close: %.2f%% >= %.2f%% (pnl=%.2f)",
+                        daily_loss_pct * 100,
+                        self._config.daily_loss_limit_pct * 100,
+                        pnl,
+                    )
+
             self._save_state()
 
     def record_strategy_trade(self, strategy_id: str, pnl: float):
