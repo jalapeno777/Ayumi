@@ -11,7 +11,10 @@ State transition rules (from research doc section 2):
     - Any → RECONNECTING: on connection error
     - RECONNECTING → CONNECTING: after backoff delay
     - RECONNECTING → FAILED: after max retries (10)
-    - FAILED → DISCONNECTED: only via explicit reset
+    - FAILED → DISCONNECTED: via explicit reset
+    - FAILED → CONNECTING / RECONNECTING / CONNECTED / APP_AUTHENTICATING:
+      recovery transitions (added 2026-07-03: transient auth bursts no longer
+      trap the connection in FAILED state)
 """
 
 import logging
@@ -87,9 +90,16 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.RECONNECTING, ConnectionState.FAILED): True,
     (ConnectionState.RECONNECTING, ConnectionState.DISCONNECTED): True,
 
-    # Failed transitions
+    # Failed transitions — allow recovery paths so transient auth bursts
+    # don't permanently trap the connection (BQ: failed-state-sticky bug).
+    # The FAILED state must permit re-entry into the normal reconnect/auth
+    # lifecycle; without these, TCP reconnects but state transitions are
+    # rejected, causing the connection to fight itself.
     (ConnectionState.FAILED, ConnectionState.DISCONNECTED): True,
-    (ConnectionState.FAILED, ConnectionState.CONNECTING): True,  # manual retry
+    (ConnectionState.FAILED, ConnectionState.CONNECTING): True,    # manual retry
+    (ConnectionState.FAILED, ConnectionState.RECONNECTING): True,  # recovery
+    (ConnectionState.FAILED, ConnectionState.CONNECTED): True,     # TCP reconnected
+    (ConnectionState.FAILED, ConnectionState.APP_AUTHENTICATING): True,  # re-auth
 
     # Allow self-transitions for idempotent calls (no-op)
     (ConnectionState.DISCONNECTED, ConnectionState.DISCONNECTED): True,
