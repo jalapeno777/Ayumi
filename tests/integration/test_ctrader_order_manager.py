@@ -491,3 +491,224 @@ class TestOrderManagerPendingTimeout:
         assert result.success
         assert result.order.filled_price > 1.10500
         assert result.order.filled_price < 1.10520 + 0.0003
+
+
+class TestOrderManagerTP2TP3Wiring:
+    """Sprint Task 1.2 (card a7b8e896) — TP2/TP3 pass-through.
+
+    Both `execute_paper_order` and `execute_live_order` must accept
+    `take_profit_2` / `take_profit_3` and propagate them to the resulting
+    Position. Backward compatible: callers that don't pass tp2/tp3 still
+    construct a Position with None defaults.
+    """
+
+    def test_execute_paper_order_passes_tp2_tp3_to_position(self):
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+        )
+        assert result.success is True
+        assert result.position is not None
+        assert result.position.take_profit == 1.1100
+        assert result.position.take_profit_2 == 1.1150
+        assert result.position.take_profit_3 == 1.1200
+
+    def test_execute_paper_order_backward_compat_no_tp2_tp3(self):
+        """Calling execute_paper_order without tp2/tp3 still works."""
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            entry_price=1.1000,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        assert result.success is True
+        assert result.position is not None
+        assert result.position.take_profit == 1.1100
+        assert result.position.take_profit_2 is None
+        assert result.position.take_profit_3 is None
+        assert result.position.tp_levels_fired == []
+
+    def test_execute_paper_order_partial_tp2_only(self):
+        """Caller may pass tp2 without tp3."""
+        manager = OrderManager()
+        result = manager.execute_paper_order(
+            symbol="EURUSD",
+            direction=TradeDirection.SHORT,
+            volume=0.1,
+            entry_price=1.2000,
+            stop_loss=1.2050,
+            take_profit=1.1950,
+            take_profit_2=1.1900,
+        )
+        assert result.success is True
+        assert result.position.take_profit == 1.1950
+        assert result.position.take_profit_2 == 1.1900
+        assert result.position.take_profit_3 is None
+
+    def test_execute_paper_order_tp2_tp3_persisted_in_open_positions(self):
+        manager = OrderManager()
+        manager.execute_paper_order(
+            symbol="GBPUSD",
+            direction=TradeDirection.LONG,
+            volume=0.05,
+            entry_price=1.2500,
+            stop_loss=1.2450,
+            take_profit=1.2600,
+            take_profit_2=1.2650,
+            take_profit_3=1.2700,
+        )
+        positions = manager.get_open_positions()
+        assert len(positions) == 1
+        pos = positions[0]
+        assert pos.take_profit_2 == 1.2650
+        assert pos.take_profit_3 == 1.2700
+
+    def test_execute_live_order_validation_rejects_no_client(self):
+        """execute_live_order signature accepts tp2/tp3 even without an API client."""
+        manager = OrderManager()  # no api_client
+        result = manager.execute_live_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+        )
+        # Without a live client, validation should fail gracefully — but the
+        # signature must accept the kwargs without TypeError.
+        assert result.success is False
+        assert result.rejection_reason in ("no_live_client", "not_connected")
+
+    def test_execute_live_order_stashes_tp2_tp3_on_order_for_async_callback(self):
+        """When the live order fills asynchronously, the async on_filled callback
+        reads tp2/tp3 from the Order and forwards them to the Position."""
+        from unittest.mock import MagicMock
+
+        from adapters.ctrader.models import Order, OrderStatus, OrderType
+        from adapters.ctrader.order_manager import OrderManager
+
+        # Mock API client: connected, not paper, with a send_order that returns
+        # a pre-built Order (PENDING). The async execution flow then mutates
+        # that Order to FILLED via the registered on_filled callback.
+        api_client = MagicMock()
+        api_client.is_paper_mode = False
+        api_client.is_connected = True
+
+        submitted_order = Order(
+            order_id="LIVE_TEST_001",
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            status=OrderStatus.PENDING,
+        )
+        api_client.send_order.return_value = submitted_order
+        api_client.register_callback = MagicMock()
+
+        manager = OrderManager(api_client=api_client)
+
+        result = manager.execute_live_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            take_profit_2=1.1150,
+            take_profit_3=1.1200,
+        )
+        # Order was placed but not yet FILLED — position is None in the sync path.
+        assert result.order is not None
+        # tp2/tp3 must be stashed on the order (for the async callback path).
+        assert result.order.take_profit_2 == 1.1150
+        assert result.order.take_profit_3 == 1.1200
+
+        # Now simulate the async fill: flip the order to FILLED and fire the
+        # registered on_filled callback (same code path as on_order_filled wiring).
+        result.order.status = OrderStatus.FILLED
+        result.order.filled_at = result.order.created_at
+        result.order.filled_price = 1.1000
+
+        # Locate the on_filled callback that OrderManager registered.
+        on_filled_call = None
+        for call in api_client.register_callback.call_args_list:
+            args, _kwargs = call
+            if args and args[0] == "on_order_filled":
+                on_filled_call = args[1]
+                break
+        assert on_filled_call is not None, "OrderManager did not register on_order_filled"
+
+        # Fire it — this is what cTrader's spot feed does when the broker acks.
+        on_filled_call(result.order, None)
+
+        # The async callback should have created a Position with tp2/tp3.
+        position = manager.get_position(f"POS_{result.order.order_id}")
+        assert position is not None, "Async fill did not create a Position"
+        assert position.take_profit == 1.1100
+        assert position.take_profit_2 == 1.1150
+        assert position.take_profit_3 == 1.1200
+
+    def test_execute_live_order_backward_compat_no_tp2_tp3(self):
+        """Calling execute_live_order without tp2/tp3 still works."""
+        from unittest.mock import MagicMock
+
+        from adapters.ctrader.models import Order, OrderStatus, OrderType
+
+        api_client = MagicMock()
+        api_client.is_paper_mode = False
+        api_client.is_connected = True
+        submitted_order = Order(
+            order_id="LIVE_BC_TEST",
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            order_type=OrderType.MARKET,
+            volume=0.1,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+            status=OrderStatus.PENDING,
+        )
+        api_client.send_order.return_value = submitted_order
+        api_client.register_callback = MagicMock()
+
+        manager = OrderManager(api_client=api_client)
+        result = manager.execute_live_order(
+            symbol="EURUSD",
+            direction=TradeDirection.LONG,
+            volume=0.1,
+            stop_loss=1.0950,
+            take_profit=1.1100,
+        )
+        # No tp2/tp3 passed — attributes should default to None on the order.
+        assert result.order.take_profit_2 is None
+        assert result.order.take_profit_3 is None
+
+        # Simulate async fill to confirm Position gets None defaults.
+        result.order.status = OrderStatus.FILLED
+        result.order.filled_at = result.order.created_at
+        result.order.filled_price = 1.1000
+        on_filled_call = None
+        for call in api_client.register_callback.call_args_list:
+            args, _kwargs = call
+            if args and args[0] == "on_order_filled":
+                on_filled_call = args[1]
+                break
+        assert on_filled_call is not None
+        on_filled_call(result.order, None)
+
+        position = manager.get_position(f"POS_{result.order.order_id}")
+        assert position is not None
+        assert position.take_profit_2 is None
+        assert position.take_profit_3 is None
+
