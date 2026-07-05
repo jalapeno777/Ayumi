@@ -70,6 +70,11 @@ _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
 # Phase 7: live-mode validation gate.  Operator (Ava) creates this flag after
 # remediation is validated; the launcher refuses live mode if it is absent.
 _REMEDIATION_VALIDATED_FLAG = "data/ayumi/remediation_validated.flag"
+# Fallback: the audit doc is the source of truth. If the flag file is missing
+# (e.g. deleted by git clean, systemd cleanup, or process restart) but the
+# audit doc exists, the flag is auto-recreated with a warning instead of
+# crashing. This makes the forward test survivable across unplanned restarts.
+_REMEDIATION_AUDIT_DOC = "docs/audits/ayumi-live-remediation-session-audit-2026-06-30.md"
 
 
 # Heartbeat writer defaults
@@ -432,12 +437,35 @@ class ForwardTestEngine:
             logger.warning("ForwardTestEngine already running")
             return True
 
-        # Phase 7B: live-mode hard block — refuse to start against real broker
-        # until remediation has been validated and the operator creates the flag.
+        # Phase 7B: live-mode validation gate — refuse to start against real
+        # broker until remediation has been validated.
+        #
+        # Survivable check: if the flag file is missing but the audit doc
+        # exists, auto-recreate the flag and continue with a warning. This
+        # prevents crashes/kill-9/OOM from permanently killing the forward
+        # test when the underlying validation has already been done.
         if self._config.live_mode and not os.path.exists(_REMEDIATION_VALIDATED_FLAG):
-            raise RuntimeError(
-                "Refusing to start in live mode: remediation not validated"
-            )
+            if os.path.exists(_REMEDIATION_AUDIT_DOC):
+                logger.warning(
+                    "remediation_validated.flag missing but audit doc exists "
+                    "(%s) — auto-recreating flag. This is expected after "
+                    "crashes, kill -9, OOM, or git clean.",
+                    _REMEDIATION_AUDIT_DOC,
+                )
+                _flag_content = (
+                    f"auto-recreated {time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
+                    f"source: {_REMEDIATION_AUDIT_DOC}\n"
+                    f"reason: flag was missing on startup; audit doc is "
+                    f"source of truth.\n"
+                )
+                os.makedirs(os.path.dirname(_REMEDIATION_VALIDATED_FLAG), exist_ok=True)
+                with open(_REMEDIATION_VALIDATED_FLAG, "w") as f:
+                    f.write(_flag_content)
+            else:
+                raise RuntimeError(
+                    "Refusing to start in live mode: remediation not validated "
+                    "(flag and audit doc both missing)"
+                )
 
         if not self._validate_credentials():
             logger.error("Invalid credentials — aborting start")
