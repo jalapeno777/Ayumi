@@ -11,6 +11,15 @@ credentials.json
 api-keys.*
 data/.credentials
 
+# Ayumi runtime state (do NOT commit — caused prior outage 2026-07-05)
+# The remediation_validated.flag belongs outside the repo working dir;
+# tracked here so it's never accidentally committed and never wiped by
+# `git clean`. See card 2893597d for the proper fix (move to /var/lib/ayumi/).
+data/ayumi/
+data/*.pid
+data/.token_refresh.lock
+src/data/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -117,3 +126,5 @@ data/forex/equity_snapshots.jsonl
 
 # Runtime state (regenerated on startup)
 data/state/
+data/workboard.db
+data/workboard.db-*
