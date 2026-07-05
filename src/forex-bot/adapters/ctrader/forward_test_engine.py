@@ -749,6 +749,12 @@ class ForwardTestEngine:
             order_manager=self._paper_trader._order_manager,
             risk_guard=self._paper_trader._risk_guard,
             kill_switch=self._kill_switch,
+            # Sprint Task 1.5 (card a7b8e896): wire the live spot feed so
+            # PositionMonitor.check_tp_levels can amend the broker SL/TP when
+            # price crosses TP2/TP3 (ratcheting).  In paper mode the feed is
+            # still constructed (no live creds required) but amend_sl_tp is
+            # a no-op against the local PaperTrader so it's safe to wire.
+            market_feed=self._market_feed,
         )
 
         # Share kill switch with risk guard so circuit breaker uses
@@ -828,6 +834,11 @@ class ForwardTestEngine:
                 if self._paper_trader is not None:
                     self._paper_trader.set_api_client(self._api_client)
                 logger.info("_api_client reconstructed on reconnect")
+            # Sprint Task 1.5 (card a7b8e896): feed was constructed lazily
+            # AFTER _build_components, so wire it into the position monitor
+            # now so TP2/TP3 ratcheting has an amend_sl_tp channel.
+            if self._position_monitor is not None:
+                self._position_monitor.set_market_feed(self._market_feed)
             self._wire_callbacks()
 
         subscribe_names = []

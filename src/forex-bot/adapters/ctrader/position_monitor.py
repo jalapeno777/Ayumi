@@ -1,8 +1,8 @@
 """Position Monitor — centralized position monitoring and lifecycle management.
 
 Tracks per-position MAE/MFE, time-based exit rules, portfolio exposure,
-drawdown alerts, and integrates with the kill switch for portfolio-level
-safety.
+drawdown alerts, TP2/TP3 ratcheting, and integrates with the kill switch for
+portfolio-level safety.
 
 Thread-safe. Designed to be called on each tick from the forward test engine
 or run autonomously via its background monitoring thread.
@@ -12,12 +12,52 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
 from .models import Position, PositionStatus, TradeDirection
 
 logger = logging.getLogger(__name__)
+
+
+# ── TP Ratchet Action ──────────────────────────────────────────────────────
+
+
+@dataclass
+class TpRatchetAction:
+    """Result of one TP-level ratchet check on a position.
+
+    Returned by ``PositionMonitor.check_tp_levels`` so callers can log the
+    outcome (ratchet fired, amend failed, no-feed graceful skip) without
+    having to inspect internal state.
+
+    Attributes:
+        position_id: Position whose TP-level was checked.
+        level: TP level ratcheted (2 or 3).
+        new_sl: Stop loss we asked the broker to set.
+        new_tp: Take profit we asked the broker to set.
+        direction: ``"long"`` or ``"short"`` — included for log readability.
+        entry_price: Breakeven anchor for level 2 (original entry).
+        amend_status: One of:
+            ``"fired"``        — amend succeeded and tp_levels_fired was
+                                  updated; safe to skip on subsequent ticks.
+            ``"amend_failed"`` — broker rejected amend; tp_levels_fired NOT
+                                  updated so the next tick will retry.
+            ``"no_feed"``      — no market_feed reference was supplied to
+                                  the monitor; the ratchet could not be
+                                  sent (caller may fall back to manual).
+            ``"no_symbol_id"`` — market_feed was supplied but could not
+                                  resolve the symbol id (transient — retry).
+    """
+
+    position_id: str
+    level: int
+    new_sl: float
+    new_tp: float
+    direction: str
+    entry_price: float
+    amend_status: str
 
 
 class PositionMonitor:
@@ -31,6 +71,7 @@ class PositionMonitor:
         max_trade_duration_sec: float = 14400,   # 4 hours default
         check_interval_sec: float = 5.0,
         contract_sizes: dict[str, float] | None = None,
+        market_feed=None,
     ):
         self._order_manager = order_manager
         self._risk_guard = risk_guard
@@ -38,6 +79,12 @@ class PositionMonitor:
         self._max_trade_duration_sec = max_trade_duration_sec
         self._check_interval_sec = check_interval_sec
         self._contract_sizes = contract_sizes or {}  # symbol name -> contract size
+        # Optional reference to OpenApiSpotFeed for issuing amend_sl_tp calls
+        # when a TP2/TP3 level is crossed.  When None, check_tp_levels()
+        # still detects crossings and returns ``no_feed`` actions so callers
+        # can wire a fallback (manual amend, alert, etc.) without losing the
+        # monitoring visibility.
+        self._market_feed = market_feed
         self._lock = threading.RLock()
 
         # Background monitoring thread
@@ -54,6 +101,17 @@ class PositionMonitor:
     def _contract_size_for(self, symbol: str) -> float:
         """Return contract size for a symbol, defaulting to forex 100k."""
         return self._contract_sizes.get(symbol, 100_000.0)
+
+    def set_market_feed(self, market_feed) -> None:
+        """Attach (or replace) the live market feed used for amend_sl_tp calls.
+
+        Most callers wire the feed at construction time.  This setter exists
+        for the ForwardTestEngine path where ``OpenApiSpotFeed`` is created
+        lazily inside ``_start_openapi_feed`` (after ``_build_components``
+        has already constructed the PositionMonitor).
+        """
+        with self._lock:
+            self._market_feed = market_feed
 
     # ── Core: update_positions ─────────────────────────────────────────────
 
@@ -85,6 +143,13 @@ class PositionMonitor:
 
                 # Update time in trade
                 self._update_time_in_trade(position, now)
+
+        # Sprint Task 1.5 (card a7b8e896): TP2/TP3 ratcheting — out of the
+        # per-position loop so a single broker amend failure on one position
+        # cannot block ratcheting on the others.  ``check_tp_levels`` is
+        # idempotent (tp_levels_fired guards) so calling it every tick is
+        # safe and cheap when no level has crossed.
+        self.check_tp_levels(prices)
 
     def _update_excursions(self, position: Position, bid: float, ask: float):
         """Update Maximum Favorable / Adverse Excursion."""
@@ -224,6 +289,239 @@ class PositionMonitor:
                         self._max_trade_duration_sec,
                     )
         return expired
+
+    # ── TP2/TP3 Ratcheting (Sprint Task 1.5, card a7b8e896) ────────────────
+    #
+    # The cTrader Open API ``ProtoOAAmendPositionSLTPReq`` only accepts a
+    # single take-profit per position, so TP2/TP3 cannot be sent to the
+    # broker.  Instead we store them on the Position (Task 1.3) and detect
+    # crossing here so we can ratchet the broker TP/SL as price moves
+    # through each level.
+    #
+    # Crossing logic (using mid-price from ``prices[symbol]``):
+    #   LONG  — TP2 fires when ``price >= take_profit_2``; we amend
+    #           ``sl=position.entry_price`` (breakeven) and ``tp=tp2``.
+    #           TP3 fires when ``price >= take_profit_3``; we amend
+    #           ``sl=take_profit_2`` (lock-in TP1 profit) and ``tp=tp3``.
+    #   SHORT — mirror: ``price <= take_profit_2`` / ``price <= tp3``.
+    #
+    # Idempotency: ``Position.tp_levels_fired`` is the source of truth.  We
+    # only amend and append when the level is NOT already in the list.  If
+    # the amend call returns ``False`` we deliberately do NOT append — the
+    # next tick will retry, so a transient broker hiccup does not silently
+    # drop the ratchet.
+
+    def check_tp_levels(self, prices: dict) -> list[TpRatchetAction]:
+        """Check all open positions for TP2/TP3 crossings and amend the broker.
+
+        Called once per tick from :meth:`update_positions`.  Returns one
+        :class:`TpRatchetAction` per detected crossing (whether the amend
+        succeeded or not) so callers can log / alert / drive fallback logic.
+
+        Args:
+            prices: ``{symbol: mid_price}`` — the same dict that was passed
+                to ``update_positions``.  Only positions whose symbol appears
+                here are evaluated; positions without a fresh price are
+                skipped to avoid stale-fire on disconnected feeds.
+
+        Returns:
+            list[TpRatchetAction]: empty list when no positions needed
+            ratcheting.  One entry per ratchet fired or attempted.
+        """
+        actions: list[TpRatchetAction] = []
+        with self._lock:
+            open_positions = self._order_manager.get_open_positions()
+
+        for position in open_positions:
+            price = prices.get(position.symbol)
+            if price is None:
+                continue
+
+            actions.extend(self._maybe_ratchet(position, price))
+
+        return actions
+
+    def _maybe_ratchet(
+        self, position: Position, price: float
+    ) -> list[TpRatchetAction]:
+        """Evaluate one position against the TP2/TP3 ladder.
+
+        Helper kept out of the lock so the broker amend (which can block for
+        up to ``_AMEND_TIMEOUT_SEC``) does not hold the monitor lock against
+        ``update_positions`` / ``check_time_exits`` / portfolio-summary
+        callers.  The Position object is mutated only on success and the
+        ``tp_levels_fired`` list is appended in-place.
+        """
+        actions: list[TpRatchetAction] = []
+
+        # Defensive: if tp_levels_fired was somehow replaced by something
+        # other than a list, treat it as empty so we don't crash.
+        fired = position.tp_levels_fired
+        if not isinstance(fired, list):
+            logger.warning(
+                "Position %s has non-list tp_levels_fired=%r — resetting",
+                position.position_id, fired,
+            )
+            position.tp_levels_fired = []
+            fired = position.tp_levels_fired
+
+        # Breakeven anchor = ORIGINAL entry_price (not current price).
+        # Using current price would defeat the purpose of the ratchet:
+        # the whole point of moving SL to breakeven at TP2 is to risk-zero
+        # the trade at the original entry, locking in TP1's gain.
+        entry_price = position.entry_price
+
+        for level in (2, 3):
+            tp_attr = f"take_profit_{level}"
+            tp_value = getattr(position, tp_attr, None)
+            if tp_value is None:
+                continue
+
+            if level in fired:
+                continue  # Idempotency: skip already-fired levels.
+
+            # Crossing test (use >= / <= on mid so we fire at-or-before the
+            # actual broker close, which uses bid for LONG / ask for SHORT).
+            if position.direction == TradeDirection.LONG:
+                crossed = price >= tp_value
+            else:  # SHORT
+                crossed = price <= tp_value
+
+            if not crossed:
+                continue
+
+            # Determine target SL/TP for the broker amend.
+            if level == 2:
+                new_sl = entry_price          # breakeven (original entry)
+                new_tp = tp_value             # TP2
+            else:  # level == 3
+                # Lock in TP1 profit (SL = TP2) and push TP to TP3.
+                tp2 = position.take_profit_2
+                if tp2 is None:
+                    # Can't safely ratchet to TP3 without a TP2 anchor; skip.
+                    logger.warning(
+                        "Position %s: TP3 crossed but take_profit_2 is None "
+                        "\u2014 cannot compute new SL, skipping ratchet",
+                        position.position_id,
+                    )
+                    continue
+                new_sl = tp2
+                new_tp = tp_value
+
+            action = self._fire_ratchet(
+                position, level=level, new_sl=new_sl, new_tp=new_tp,
+                direction=position.direction.value,
+                entry_price=entry_price,
+            )
+            actions.append(action)
+
+        return actions
+
+    def _fire_ratchet(
+        self,
+        position: Position,
+        *,
+        level: int,
+        new_sl: float,
+        new_tp: float,
+        direction: str,
+        entry_price: float,
+    ) -> TpRatchetAction:
+        """Send the broker amend and record the outcome.
+
+        On success: append ``level`` to ``position.tp_levels_fired`` so the
+        next tick skips this level (idempotency).
+
+        On failure (no feed, no symbol id, broker reject): leave
+        ``tp_levels_fired`` untouched so the next tick retries.
+        """
+        if self._market_feed is None:
+            logger.warning(
+                "Position %s: TP%d ratchet detected but no market_feed on "
+                "PositionMonitor \u2014 cannot amend SL/TP. Will retry next tick.",
+                position.position_id, level,
+            )
+            return TpRatchetAction(
+                position_id=position.position_id,
+                level=level,
+                new_sl=new_sl,
+                new_tp=new_tp,
+                direction=direction,
+                entry_price=entry_price,
+                amend_status="no_feed",
+            )
+
+        try:
+            symbol_id = self._market_feed.resolve_symbol_id(position.symbol)
+        except (ValueError, KeyError, AttributeError) as exc:
+            logger.warning(
+                "Position %s: TP%d ratchet \u2014 cannot resolve symbol_id "
+                "for %r (%s); will retry next tick",
+                position.position_id, level, position.symbol, exc,
+            )
+            return TpRatchetAction(
+                position_id=position.position_id,
+                level=level,
+                new_sl=new_sl,
+                new_tp=new_tp,
+                direction=direction,
+                entry_price=entry_price,
+                amend_status="no_symbol_id",
+            )
+
+        logger.info(
+            "Position %s: TP%d crossed \u2014 amending broker SL=%.5f TP=%.5f",
+            position.position_id, level, new_sl, new_tp,
+        )
+        try:
+            amended = self._market_feed.amend_sl_tp(
+                position.position_id, new_sl, new_tp, symbol_id=symbol_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Position %s: TP%d amend raised %s: %s \u2014 will retry next tick",
+                position.position_id, level, type(exc).__name__, exc,
+            )
+            return TpRatchetAction(
+                position_id=position.position_id,
+                level=level,
+                new_sl=new_sl,
+                new_tp=new_tp,
+                direction=direction,
+                entry_price=entry_price,
+                amend_status="amend_failed",
+            )
+
+        if not amended:
+            logger.warning(
+                "Position %s: TP%d amend returned False \u2014 will retry next tick",
+                position.position_id, level,
+            )
+            return TpRatchetAction(
+                position_id=position.position_id,
+                level=level,
+                new_sl=new_sl,
+                new_tp=new_tp,
+                direction=direction,
+                entry_price=entry_price,
+                amend_status="amend_failed",
+            )
+
+        # Success: record the fired level for idempotency.
+        position.tp_levels_fired.append(level)
+        logger.info(
+            "Position %s: TP%d ratchet FIRED (sl=%.5f tp=%.5f fired=%s)",
+            position.position_id, level, new_sl, new_tp, position.tp_levels_fired,
+        )
+        return TpRatchetAction(
+            position_id=position.position_id,
+            level=level,
+            new_sl=new_sl,
+            new_tp=new_tp,
+            direction=direction,
+            entry_price=entry_price,
+            amend_status="fired",
+        )
 
     # ── Drawdown Alerts ────────────────────────────────────────────────────
 
