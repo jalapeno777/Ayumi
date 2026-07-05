@@ -596,6 +596,31 @@ class RiskGuard:
                 "daily_start_balance", self._daily_start_balance
             )
 
+            # Guard against stale state from a different account scale.
+            # If restored balances are wildly out of proportion to the
+            # configured starting_balance (e.g. a 100K state file loaded
+            # into a 10K run), discard the entire stale payload.
+            _tol = self._starting_balance * 5  # 5x tolerance is generous
+            _stale = any(abs(v - self._starting_balance) > _tol
+                         for v in (self._peak_balance, self._current_balance,
+                                   self._daily_start_balance))
+            if _stale:
+                logger.warning(
+                    "Stale RiskGuard state (balances ~%.2f vs starting %.2f) "
+                    "— resetting to fresh",
+                    self._current_balance, self._starting_balance,
+                )
+                self._peak_balance = self._starting_balance
+                self._current_balance = self._starting_balance
+                self._daily_start_balance = self._starting_balance
+                self._daily_trade_count = 0
+                self._total_trades = 0
+                self._circuit_breaker_triggered = False
+                self._blocked_until = None
+                self._current_day = datetime.now(timezone.utc).date()
+                self._save_state()
+                return
+
             day_str = raw.get("current_day")
             self._current_day = (
                 date.fromisoformat(day_str) if day_str else None
