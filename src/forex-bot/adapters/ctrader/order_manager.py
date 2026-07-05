@@ -185,6 +185,8 @@ class OrderManager:
         entry_price: float,
         stop_loss: float | None = None,
         take_profit: float | None = None,
+        take_profit_2: float | None = None,
+        take_profit_3: float | None = None,
         comment: str = "",
         spread: float = 0.0,
         bid: float = 0.0,
@@ -225,6 +227,11 @@ class OrderManager:
             filled_price=fill_price,
             comment=f"[PAPER MODE] {comment}",
         )
+        # Stash TP2/TP3 on the Order for _create_position_from_order to pick up.
+        # cTrader's wire protocol only accepts a single TP per position, so these
+        # are client-side tracking fields for the multi-TP monitoring flow.
+        order.take_profit_2 = take_profit_2
+        order.take_profit_3 = take_profit_3
 
         with self._lock:
             self._orders[order.order_id] = order
@@ -254,6 +261,8 @@ class OrderManager:
         price: float | None = None,
         stop_loss: float | None = None,
         take_profit: float | None = None,
+        take_profit_2: float | None = None,
+        take_profit_3: float | None = None,
         comment: str = "",
     ) -> OrderExecutionResult:
         if not symbol or not symbol.strip():
@@ -311,6 +320,13 @@ class OrderManager:
 
         with self._lock:
             self._orders[order.order_id] = order
+
+        # Stash TP2/TP3 on the Order for the async on_filled callback to pick up
+        # when the broker confirms the fill. cTrader's wire protocol only accepts
+        # one TP per position; these are client-side tracking fields for the
+        # multi-TP monitoring flow (Sprint Task 1.1/1.2, card a7b8e896).
+        order.take_profit_2 = take_profit_2
+        order.take_profit_3 = take_profit_3
 
         self._trigger_callback("on_order_placed", order)
 
@@ -415,6 +431,11 @@ class OrderManager:
             return None
 
         position_id = f"POS_{order.order_id}"
+        # TP2/TP3 are stashed on the Order at submission time (see
+        # execute_paper_order / execute_live_order). Defaults to None for
+        # callers that don't pass them — fully backward compatible.
+        tp2 = getattr(order, "take_profit_2", None)
+        tp3 = getattr(order, "take_profit_3", None)
         position = Position(
             position_id=position_id,
             symbol=order.symbol,
@@ -424,6 +445,8 @@ class OrderManager:
             current_price=order.filled_price or order.price or 0,
             stop_loss=order.stop_loss,
             take_profit=order.take_profit,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
             opened_at=order.filled_at or datetime.utcnow(),
             comment=order.comment,
         )
