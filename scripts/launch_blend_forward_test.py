@@ -600,6 +600,84 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
         logger.warning("Failed to write forward_test_health.json: %s", exc)
 
 
+# ── Stale Log Compression (MAINT) ────────────────────────────────────────────
+
+# Threshold for compressing stale logs. Files older than this on disk get
+# gzipped and originals removed (data preserved in .gz archives). The active
+# forward_test.log is rotated daily by TimedRotatingFileHandler in
+# common.logging_config; this routine handles older files left over from
+# prior logging configs (e.g. the `ayumi_*.log` family).
+_STALE_LOG_MAX_AGE_DAYS = 7
+_STALE_LOG_MIN_SIZE_BYTES = 1024  # skip empty / sub-KB stubs
+
+
+def compress_stale_logs(log_dir: Path, max_age_days: int = _STALE_LOG_MAX_AGE_DAYS) -> int:
+    """Gzip-compress ``*.log`` files in ``log_dir`` older than ``max_age_days``.
+
+    Skips files that are already compressed (``*.log.gz``), tiny stubs below
+    :data:`_STALE_LOG_MIN_SIZE_BYTES`, or that fail to read. After successful
+    compression the original uncompressed file is removed — data is preserved
+    in the ``.gz`` archive, never truly deleted.
+
+    Returns the number of files compressed.
+    """
+    import gzip
+    import time as _time
+
+    if not log_dir.exists():
+        return 0
+
+    cutoff_mtime = _time.time() - (max_age_days * 86400)
+    compressed = 0
+    try:
+        for log_file in log_dir.glob("*.log"):
+            # Skip files already compressed
+            if log_file.with_suffix(log_file.suffix + ".gz").exists():
+                continue
+            try:
+                stat = log_file.stat()
+            except OSError:
+                continue
+            # Skip small stubs and anything not old enough
+            if stat.st_size < _STALE_LOG_MIN_SIZE_BYTES:
+                continue
+            if stat.st_mtime >= cutoff_mtime:
+                continue
+            gz_path = log_file.with_suffix(log_file.suffix + ".gz")
+            try:
+                with open(log_file, "rb") as src, gzip.open(gz_path, "wb", compresslevel=6) as dst:
+                    # chunked copy so very large logs don't balloon RSS
+                    while True:
+                        chunk = src.read(64 * 1024)
+                        if not chunk:
+                            break
+                        dst.write(chunk)
+                # Verify the .gz is valid before removing original
+                import gzip as _gzip_check
+                with _gzip_check.open(gz_path, "rb") as _verify:
+                    _verify.read(1024)  # read a bit to confirm integrity
+                log_file.unlink()  # remove original — data preserved in .gz
+                compressed += 1
+            except OSError as exc:
+                # Don't fail startup over a single bad log
+                logger.warning("Failed to compress %s: %s", log_file, exc)
+                # Remove partial .gz if it was started
+                if gz_path.exists():
+                    try:
+                        gz_path.unlink()
+                    except OSError:
+                        pass
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("compress_stale_logs encountered unexpected error: %s", exc)
+
+    if compressed:
+        logger.info(
+            "Compressed %d stale log(s) in %s (older than %d days)",
+            compressed, log_dir, max_age_days,
+        )
+    return compressed
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -660,6 +738,10 @@ def main():
     setup_logging(level="DEBUG")
     # Specifically enable the spot feed and execution event loggers
     logging.getLogger("ayumi.openapi_spot_feed").setLevel(logging.DEBUG)
+    # Compress stale logs (>7d) from prior logging configs. Replaces
+    # originals with .gz archives — data preserved, space reclaimed.
+    # Cheap to run at startup; avoids `logs/` growing without bound.
+    compress_stale_logs(PROJECT_ROOT / "logs")
     _pid_ctx = acquire_pid_lock(_pid_path)
     _pid_guard = _pid_ctx.__enter__()  # acquire lock, exit(1) if duplicate
     _pid_guard.write_pid()
@@ -906,12 +988,24 @@ def main():
                             engine.health.signals_generated,
                         )
                     # Tick-to-bar pipeline health (Amendment 4)
+                    # During market-closed hours (Fri 21:00 UTC → Sun 21:00 UTC),
+                    # cTrader delivers stale/dribble ticks but no new bars form —
+                    # that's expected. Downgrade to INFO so we don't generate
+                    # false-positive stall warnings every health cycle.
                     if h.get("ticks_received", 0) > 0 and engine.health.bars_built == 0:
-                        logger.warning(
-                            "[B5 Pipeline] Ticks received (%d) but zero bars built — "
-                            "tick-to-bar pipeline may be stalled",
-                            h.get("ticks_received", 0),
-                        )
+                        if _is_forex_market_closed():
+                            logger.info(
+                                "[B5 Pipeline] Market closed — ticks=%d bars=%d "
+                                "(idle, expected)",
+                                h.get("ticks_received", 0),
+                                engine.health.bars_built,
+                            )
+                        else:
+                            logger.warning(
+                                "[B5 Pipeline] Ticks received (%d) but zero bars built — "
+                                "tick-to-bar pipeline may be stalled",
+                                h.get("ticks_received", 0),
+                            )
 
                     # Write health JSON for external watchdogs / dashboards
                     write_forward_test_health_json(engine)
