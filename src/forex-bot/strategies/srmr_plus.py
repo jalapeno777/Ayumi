@@ -14,6 +14,12 @@ from backtest.engine import (
 from backtest.strategy_legacy import ISignalStrategy
 from config.sessions import SessionRangeHours
 
+try:
+    from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar
+except ImportError:
+    DxyRegimeOverlay = None  # type: ignore[assignment,misc]
+    DxyBar = None  # type: ignore[assignment,misc]
+
 NO_SIGNAL = None
 
 
@@ -33,6 +39,7 @@ class SRMRPlusConfig:
     ema_trend_period: int = 50
     use_same_day_range: bool = False
     pip_value: float | None = None
+    dxy_overlay: bool = False  # enable DXY regime confidence adjustment
 
 
 _LONDON_START = SessionRangeHours.LONDON_START
@@ -329,6 +336,10 @@ class SRMRPlusStrategy(ISignalStrategy):
     def __init__(self, config: SRMRPlusConfig | None = None) -> None:
         super().__init__()
         self.config = config or SRMRPlusConfig()
+        self._dxy_overlay: DxyRegimeOverlay | None = None
+        if self.config.dxy_overlay and DxyRegimeOverlay is not None:
+            self._dxy_overlay = DxyRegimeOverlay()
+            logger.info("SRMR+ initialized with DXY regime overlay")
 
     @property
     def name(self) -> str:
@@ -450,3 +461,52 @@ class SRMRPlusStrategy(ISignalStrategy):
 
         logger.debug("SRMR+ %s: no signal condition met (price=%.5f session_low=%.5f session_high=%.5f rsi=%.1f)", getattr(latest, 'symbol', '?'), price, session_low, session_high, rsi)
         return None
+
+    def apply_dxy_overlay(
+        self,
+        signal: StrategySignal | None,
+        dxy_bars: list | None = None,
+    ) -> StrategySignal | None:
+        """Apply DXY regime confidence adjustment to a generated signal.
+
+        Returns the original signal unchanged if overlay is disabled,
+        no DXY bars provided, or signal is None.
+        """
+        if signal is None or self._dxy_overlay is None or not dxy_bars:
+            return signal
+        if DxyBar is None:
+            return signal
+
+        try:
+            dxy_data = [
+                DxyBar(
+                    time_ms=int(b["time_ms"]) if isinstance(b, dict) else int(b.time_ms),
+                    open=b["open"] if isinstance(b, dict) else b.open,
+                    high=b["high"] if isinstance(b, dict) else b.high,
+                    low=b["low"] if isinstance(b, dict) else b.low,
+                    close=b["close"] if isinstance(b, dict) else b.close,
+                )
+                for b in dxy_bars
+            ]
+            dir_name = (
+                signal.direction.name
+                if hasattr(signal.direction, "name")
+                else str(signal.direction)
+            )
+            adjusted = self._dxy_overlay.adjust_confidence(
+                signal.confidence, dxy_data, dir_name
+            )
+            return StrategySignal(
+                direction=signal.direction,
+                confidence=adjusted,
+                entry_price=signal.entry_price,
+                stop_loss=signal.stop_loss,
+                take_profit_1=signal.take_profit_1,
+                take_profit_2=signal.take_profit_2,
+                take_profit_3=signal.take_profit_3,
+                rationale=signal.rationale
+                + f" | DXY adj: {signal.confidence:.2f}\u2192{adjusted:.2f}",
+            )
+        except Exception as exc:
+            logger.warning("DXY overlay application failed: %s", exc)
+            return signal
