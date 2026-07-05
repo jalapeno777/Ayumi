@@ -43,7 +43,7 @@ from adapters.ctrader.forward_test_engine import (
 from adapters.ctrader.models import (
     OrderStatus,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.credential_store import CredentialStore
@@ -140,9 +140,9 @@ def engine(spot_feed) -> ForwardTestEngine:
     return eng
 
 
-def _make_signal(symbol: str, entry_price: float, stop_loss: float) -> TradeSignal:
-    """Fabricate a minimal BUY TradeSignal for integration testing."""
-    return TradeSignal(
+def _make_signal(symbol: str, entry_price: float, stop_loss: float) -> CTraderTradeSignal:
+    """Fabricate a minimal BUY CTraderTradeSignal for integration testing."""
+    return CTraderTradeSignal(
         symbol=symbol,
         direction=TradeDirection.LONG,
         entry_price=entry_price,

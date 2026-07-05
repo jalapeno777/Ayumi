@@ -110,9 +110,9 @@ class PortfolioRiskGuard:
 
     @staticmethod
     def _to_trade_signal(signal: CanonicalSignal):
-        from .models import TradeSignal
+        from .models import CTraderTradeSignal
 
-        return TradeSignal(
+        return CTraderTradeSignal(
             symbol=signal.symbol,
             direction=PortfolioRiskGuard._convert_direction(signal.direction),
             entry_price=signal.entry_price,

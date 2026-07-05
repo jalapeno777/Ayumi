@@ -2,7 +2,7 @@ import pytest
 
 from adapters.ctrader.models import (
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from adapters.ctrader.order_manager import (
     OrderManager,
@@ -37,7 +37,7 @@ def _make_signal(
     tp=1.26600,
     confidence=0.75,
 ):
-    return TradeSignal(
+    return CTraderTradeSignal(
         symbol=symbol,
         direction=direction,
         entry_price=entry,

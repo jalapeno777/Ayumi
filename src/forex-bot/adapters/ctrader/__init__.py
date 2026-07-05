@@ -7,7 +7,7 @@ from .models import (
     Position,
     PositionStatus,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
     cTraderCredentials,
 )
 
@@ -18,7 +18,7 @@ __all__ = [
     "PositionStatus",
     "Order",
     "Position",
-    "TradeSignal",
+    "CTraderTradeSignal",
     "cTraderCredentials",
     "AccountInfo",
     "MarketDataSnapshot",

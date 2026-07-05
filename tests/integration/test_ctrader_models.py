@@ -8,7 +8,7 @@ from adapters.ctrader.models import (
     Position,
     PositionStatus,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
     cTraderCredentials,
 )
 
@@ -93,7 +93,7 @@ class TestPosition:
 
 class TestTradeSignal:
     def test_trade_signal_creation(self):
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,

@@ -89,9 +89,9 @@ class TestHeartbeatTracker:
 class TestSignalConversion:
     def test_trade_signal_to_blend_dict(self):
         from launch_blend_forward_test import trade_signal_to_blend_dict
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.25000,
@@ -139,9 +139,9 @@ class TestBlendSignalAttribution:
     def test_signal_carries_strategy_id(self):
         """Verify blend runner receives strategy_id in signal dict."""
         from launch_blend_forward_test import trade_signal_to_blend_dict
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.25000,

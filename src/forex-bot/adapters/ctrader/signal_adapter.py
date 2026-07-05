@@ -6,7 +6,7 @@ from backtest.engine import MarketState
 from backtest.engine import TradeDirection as BacktestTradeDirection
 from backtest.strategies import ISignalStrategy
 
-from .models import TradeDirection, TradeSignal
+from .models import TradeDirection, CTraderTradeSignal
 from .paper_trader import PaperTrader
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class cTraderSignalAdapter:
         spread: float = 0.0,
         bid: float = 0.0,
         ask: float = 0.0,
-    ) -> TradeSignal | None:
+    ) -> CTraderTradeSignal | None:
         if spread > 0:
             self._current_spread = spread
         signal = self._strategy.evaluate(market_state)
@@ -61,7 +61,7 @@ class cTraderSignalAdapter:
 
         trade_direction = self._convert_direction(signal.direction)
 
-        trade_signal = TradeSignal(
+        trade_signal = CTraderTradeSignal(
             symbol=self._symbol,
             direction=trade_direction,
             entry_price=signal.entry_price,
@@ -174,7 +174,7 @@ class cTraderLiveAdapter:
         spread: float = 0.0,
         bid: float = 0.0,
         ask: float = 0.0,
-    ) -> list[TradeSignal]:
+    ) -> list[CTraderTradeSignal]:
         results = []
         for symbol, state in market_states.items():
             for strategy_name, strategy in self._strategies.items():

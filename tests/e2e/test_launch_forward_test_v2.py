@@ -162,10 +162,10 @@ class TestVolumeConversion:
             live_mode=True,
         )
 
-        # Create a mock TradeSignal
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        # Create a mock CTraderTradeSignal
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2700,
@@ -233,9 +233,9 @@ class TestSignalRouting:
             live_mode=True,
         )
 
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2700,
@@ -280,9 +280,9 @@ class TestSignalRouting:
             live_mode=True,
         )
 
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2700, stop_loss=1.2650,
@@ -318,9 +318,9 @@ class TestSignalRouting:
             live_mode=False,  # paper mode
         )
 
-        from adapters.ctrader.models import TradeSignal, TradeDirection
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2700, stop_loss=1.2650,
