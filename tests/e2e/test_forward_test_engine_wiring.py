@@ -34,7 +34,7 @@ from adapters.ctrader.models import (
     Order,
     OrderStatus,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 
@@ -52,8 +52,8 @@ def _live_creds_dict() -> dict:
     }
 
 
-def _make_signal() -> TradeSignal:
-    return TradeSignal(
+def _make_signal() -> CTraderTradeSignal:
+    return CTraderTradeSignal(
         symbol="EURUSD",
         direction=TradeDirection.LONG,
         entry_price=1.1000,

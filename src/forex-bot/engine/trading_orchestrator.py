@@ -670,7 +670,7 @@ class TradingOrchestrator:
             logger.warning("No PaperTrader configured — signal not executed")
             return
 
-        from adapters.ctrader.models import TradeDirection as CTradeDirection, TradeSignal
+        from adapters.ctrader.models import TradeDirection as CTradeDirection, CTraderTradeSignal
 
         # Convert backtest direction to cTrader direction
         if signal.direction.value == "long":
@@ -681,7 +681,7 @@ class TradingOrchestrator:
             logger.warning("Unknown direction: %s", signal.direction.value)
             return
 
-        trade_signal = TradeSignal(
+        trade_signal = CTraderTradeSignal(
             symbol=symbol,
             direction=c_dir,
             entry_price=signal.entry_price,

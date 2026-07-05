@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from threading import Lock
 
-from .models import TradeDirection, TradeSignal
+from .models import TradeDirection, CTraderTradeSignal
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +144,11 @@ class RiskGuard:
 
         self._restore_state()
 
-    def check_signal(self, signal: TradeSignal) -> RiskLimitResult:
+    def check_signal(self, signal: CTraderTradeSignal) -> RiskLimitResult:
         with self._lock:
             return self._check_signal_internal(signal)
 
-    def _check_signal_internal(self, signal: TradeSignal) -> RiskLimitResult:
+    def _check_signal_internal(self, signal: CTraderTradeSignal) -> RiskLimitResult:
         if self._circuit_breaker_triggered:
             return RiskLimitResult(
                 allowed=False,
@@ -357,7 +357,7 @@ class RiskGuard:
             message="Trade allowed",
         )
 
-    def _calculate_risk_reward(self, signal: TradeSignal) -> float:
+    def _calculate_risk_reward(self, signal: CTraderTradeSignal) -> float:
         risk = abs(signal.entry_price - signal.stop_loss)
         reward = abs(signal.take_profit_1 - signal.entry_price)
         if risk == 0:

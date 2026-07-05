@@ -1,7 +1,7 @@
 from datetime import date
 
 import pytest
-from adapters.ctrader.models import TradeDirection, TradeSignal
+from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from adapters.ctrader.risk_guard import (
     FTMO_PROFILE_CHALLENGE,
     FTMOConfig,
@@ -113,7 +113,7 @@ class TestRiskGuard:
 
     def test_signal_with_good_risk_reward(self):
         guard = RiskGuard(starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -130,7 +130,7 @@ class TestRiskGuard:
 
     def test_signal_with_poor_risk_reward(self):
         guard = RiskGuard(starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,

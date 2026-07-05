@@ -38,7 +38,7 @@ from adapters.ctrader.models import (
     OrderType,
     PositionStatus,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.order_manager import PositionSizeConfig, SlippageModel
@@ -91,12 +91,12 @@ def zero_slippage_trader():
 # ── Signal factories ─────────────────────────────────────────────────────────
 
 
-def _gbpusd_long_signal() -> TradeSignal:
+def _gbpusd_long_signal() -> CTraderTradeSignal:
     """Synthetic LONG GBPUSD signal (entry=1.2750, SL=1.2700, TP=1.2850).
 
     R:R = (1.2850 - 1.2750) / (1.2750 - 1.2700) = 2.0 ≥ 1.5 (FTMO min)
     """
-    return TradeSignal(
+    return CTraderTradeSignal(
         symbol="GBPUSD",
         direction=TradeDirection.LONG,
         entry_price=1.2750,
@@ -112,12 +112,12 @@ def _gbpusd_long_signal() -> TradeSignal:
     )
 
 
-def _usdjpy_short_signal() -> TradeSignal:
+def _usdjpy_short_signal() -> CTraderTradeSignal:
     """Synthetic SHORT USDJPY signal (entry=157.50, SL=158.00, TP=156.50).
 
     R:R = (157.50 - 156.50) / (158.00 - 157.50) = 2.0 ≥ 1.5 (FTMO min)
     """
-    return TradeSignal(
+    return CTraderTradeSignal(
         symbol="USDJPY",
         direction=TradeDirection.SHORT,
         entry_price=157.50,
@@ -139,7 +139,7 @@ def _usdjpy_short_signal() -> TradeSignal:
 class TestSignalToPaperTrade:
     """Test 1: Signal → Paper Trade with TP/SL.
 
-    Proves the pipeline can ingest a TradeSignal, run it through real
+    Proves the pipeline can ingest a CTraderTradeSignal, run it through real
     RiskGuard and OrderManager, and produce a tracked open position
     with correct direction, entry, SL, and TP.
     """
@@ -223,7 +223,7 @@ class TestPositionMonitoringTPHit:
     P&L, and the position must leave the open-positions list.
     """
 
-    def _open_long_gbpusd(self, trader) -> TradeSignal:
+    def _open_long_gbpusd(self, trader) -> CTraderTradeSignal:
         signal = _gbpusd_long_signal()
         result = trader.process_signal(signal, bid=1.2750, ask=1.2750)
         assert result.success, f"Setup failed: {result.rejection_reason}"
@@ -301,7 +301,7 @@ class TestPositionMonitoringSLHit:
     record the loss.
     """
 
-    def _open_short_usdjpy(self, trader) -> TradeSignal:
+    def _open_short_usdjpy(self, trader) -> CTraderTradeSignal:
         signal = _usdjpy_short_signal()
         result = trader.process_signal(signal, bid=157.50, ask=157.50)
         assert result.success, f"Setup failed: {result.rejection_reason}"
@@ -359,7 +359,7 @@ class TestPositionMonitoringSLHit:
 class TestLiveExecutionPath:
     """Test 4: Live execution path with mocked cTrader connection.
 
-    Proves _execute_signal_live() takes a TradeSignal and dispatches
+    Proves _execute_signal_live() takes a CTraderTradeSignal and dispatches
     a correctly-parameterized order to the OpenApiSpotFeed.new_order()
     surface (which we mock at the connection boundary).
 

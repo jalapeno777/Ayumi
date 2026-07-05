@@ -53,7 +53,7 @@ from adapters.ctrader.forward_test_engine import (
     ForwardTestEngine,
     _is_forex_market_closed,
 )
-from adapters.ctrader.models import cTraderCredentials, TradeSignal
+from adapters.ctrader.models import cTraderCredentials, CTraderTradeSignal
 from adapters.ctrader.risk_guard import FTMOConfig
 from forward_test.blend_runner import BlendForwardTestRunner
 from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
@@ -175,8 +175,8 @@ def raw_bars_to_bar_objects(raw_bars: list[dict], period: BarPeriod | None = Non
 
 # ── Signal Conversion ─────────────────────────────────────────────────────────
 
-def trade_signal_to_blend_dict(signal: TradeSignal, strategy_name: str) -> dict:
-    """Convert cTrader TradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
+def trade_signal_to_blend_dict(signal: CTraderTradeSignal, strategy_name: str) -> dict:
+    """Convert cTrader CTraderTradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
     return {
         "symbol": signal.symbol,
         "direction": signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction),
@@ -205,7 +205,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
         self._heartbeat = heartbeat or HeartbeatTracker()
         self._strategy_id_map = strategy_id_map or {}  # strategy_name -> strategy_id
 
-    def _blend_signal_id(self, signal: TradeSignal) -> str:
+    def _blend_signal_id(self, signal: CTraderTradeSignal) -> str:
         """Delegate to BlendForwardTestRunner.make_signal_id so we never
         drift out of sync with the canonical id construction.
 
@@ -302,7 +302,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
         finally:
             self._eval_semaphore.release()
 
-    def _route_signal(self, signal: TradeSignal, strategy_name: str):
+    def _route_signal(self, signal: CTraderTradeSignal, strategy_name: str):
         """Route a single signal through correlation gate → blend runner."""
         strategy_id = self._strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
 
@@ -348,7 +348,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     # Execute directly: live → cTrader, paper → PaperTrader
                     # Single-connection architecture: no dual execution path.
                     try:
-                        exec_signal = TradeSignal(
+                        exec_signal = CTraderTradeSignal(
                             symbol=signal.symbol,
                             direction=signal.direction,
                             entry_price=signal.entry_price,

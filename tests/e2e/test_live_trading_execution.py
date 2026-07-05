@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.models import (
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from backtest.engine import Bar, MarketState
 from strategies.session_range_mean_reversion import (
@@ -246,7 +246,7 @@ class TestTradeSignalCreation:
                 else TradeDirection.SHORT
             )
 
-            trade_signal = TradeSignal(
+            trade_signal = CTraderTradeSignal(
                 symbol="GBPUSD",
                 direction=direction,
                 entry_price=signal.entry_price,

@@ -15,7 +15,7 @@ from adapters.ctrader.models import (
     OrderStatus,
     OrderType,
     TradeDirection,
-    TradeSignal,
+    CTraderTradeSignal,
 )
 from adapters.ctrader.order_manager import (
     OrderManager,
@@ -24,7 +24,7 @@ from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig
 
 
-def _make_signal(**overrides) -> TradeSignal:
+def _make_signal(**overrides) -> CTraderTradeSignal:
     defaults = dict(
         symbol="EURUSD",
         direction=TradeDirection.LONG,
@@ -38,7 +38,7 @@ def _make_signal(**overrides) -> TradeSignal:
         rationale="Test signal",
     )
     defaults.update(overrides)
-    return TradeSignal(**defaults)
+    return CTraderTradeSignal(**defaults)
 
 
 class TestFIXRejectCode:
