@@ -1016,6 +1016,9 @@ class OpenApiSpotFeed:
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
+        # Platform constraint: ProtoOAAmendPositionSLTPReq only supports a single SL and single TP
+        # per position. TP2/TP3 are managed in-software via Position dataclass + position_monitor
+        # ratcheting. See docs/forex/tp-sl-chain-trace.md §F4.
         # Phase 6: policy gate for broker-mutating operations
         if self._permission_policy is not None:
             allowed, reason = self._permission_policy.can_amend_sl_tp()

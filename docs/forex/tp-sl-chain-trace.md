@@ -328,3 +328,79 @@ This gives multi-level TP exits within the cTrader proto constraint without the 
 - `grep -rn "take_profit_2\|take_profit_3" src/forex-bot/adapters/ctrader/` (excluding backtest/) → only `models.py`, `signal_adapter.py`, `portfolio_risk_guard.py`, `protocols.py`, and `forward_test_engine.py:1274/1278` references — the latter two are guards/checks for `tp1 is not None`, never `tp2`/`tp3` usage.
 
 The TP2/TP3 fields exist on every dataclass and are computed by every strategy, but no broker-bound call site references them.
+---
+
+## Post-Sprint Status
+
+**Sprint:** TP/SL chain trace resolution (card a7b8e896)
+**Status as of sprint close:** all actionable findings resolved; F4 is a documented platform constraint; F5 is addressed by the position_monitor ratcheting (Task 1.5).
+
+### F1 — `forward_test_engine.py:1278` drops TP2/TP3 on live amend
+
+**Status:** ✅ **FIXED**
+**Commit(s):**
+- `cf070a2` — `fix: F1+F2 — store TP2/TP3 on Position after amend_sl_tp` (Task 1.3)
+- `7e98496` — merge to main
+
+TP2/TP3 are now persisted onto the `Position` dataclass after `amend_sl_tp` runs, so the values are available to the in-process TP ladder manager even though the broker only sees TP1.
+
+### F2 — `forward_test_engine.py:1575` late-fill amend drops TP2/TP3
+
+**Status:** ✅ **FIXED**
+**Commit(s):**
+- `cf070a2` — `fix: F1+F2 — store TP2/TP3 on Position after amend_sl_tp` (Task 1.3, same fix covers both call sites)
+- `7e98496` — merge to main
+
+The same Position-storage fix covers the late-fill callback path, so both synchronous and late-fill flows now retain TP2/TP3 for downstream software-side use.
+
+### F3 — `paper_trader.py` single-TP only
+
+**Status:** ✅ **FIXED**
+**Commit(s):**
+- `e99cd98` — `fix(F3): paper_trader forwards all 3 TPs to OrderManager` (Task 1.4)
+- `99567a0` — merge to main
+
+The paper/paper-live path now forwards all three TPs to the order manager, so paper sims can exercise the same TP2/TP3 ladder logic that the live path uses.
+
+### F4 — cTrader `ProtoOAAmendPositionSLTPReq` supports only single SL/TP
+
+**Status:** 📋 **DOCUMENTED PLATFORM CONSTRAINT (not a bug)**
+**This document (Task 1.6).**
+
+The proto has exactly one `stopLoss` and one `takeProfit` field per position amend request. cTrader's position model therefore cannot hold multiple broker-side TPs. There is no fix to apply at the broker boundary — instead, the architecture is:
+
+- **TP1** is the active broker-side TP, set via `amend_sl_tp` after the naked market order fills.
+- **TP2 / TP3** are software-side exit levels, stored on the `Position` dataclass (Task 1.3, F1/F2 fix) and acted on by the position_monitor TP ratcheting (F5 / Task 1.5).
+
+The inline comment at `open_api_spot_feed.py:1018` (just above the `amend_sl_tp` definition) makes this constraint visible to anyone reading the broker-boundary code, with a back-reference to this section. This prevents future "why are TP2/TP3 not in the amend call?" confusion.
+
+### F5 — `position_monitor` has no TP ratcheting / TP2/TP3 management
+
+**Status:** ✅ **ADDRESSED by Task 1.5 (position_monitor TP ratcheting)**
+
+Task 1.5 introduces a software-side TP ladder on the `position_monitor`: it watches tick prices, fires partial closes + SL-breakeven ratchets when TP levels cross, and uses the `tp_levels_fired` idempotency set (added to `Position` in Task 1.1, commit `fe2134c`) to prevent double-firing. This is the in-process TP2/TP3 manager that the cTrader proto constraint (F4) forced us to build.
+
+See also: F1/F2 commit `cf070a2` — the `Position.tp2 / Position.tp3` fields and `tp_levels_fired` set are the data substrate the ratcheting manager reads.
+
+### F6 — Two `TradeSignal` dataclasses in the codebase
+
+**Status:** 🟡 **DEFERRED (low severity, non-blocking)**
+Two `TradeSignal` dataclasses exist (`adapters/ctrader/models.py` with TP1/TP2/TP3 vs `orchestrator/signal_orchestrator.py` with a singular `take_profit`). They do not collide at runtime — orchestrator constructs the cTrader one for broker-bound calls — but the naming inconsistency is a footgun. Tracked as a follow-up cleanup, not a sprint blocker.
+
+---
+
+### Summary — End-State TP/SL Architecture
+
+| Layer | TP1 | TP2 | TP3 | SL |
+|-------|:---:|:---:|:---:|:--:|
+| Strategy calc (e.g. `session_breakout`) | ✅ 1.5× range | ✅ 2.0× range | ✅ 3.0× range | ✅ entry ± sl_distance |
+| `StrategySignal` / cTrader `TradeSignal` dataclass | ✅ field | ✅ field | ✅ field | ✅ field |
+| `cTraderSignalAdapter` → `forward_test_engine` | ✅ preserved | ✅ preserved | ✅ preserved | ✅ preserved |
+| Naked market order (intentional) | — | — | — | — |
+| `amend_sl_tp` (proto) — **broker-bound** | ✅ set | ❌ proto can't | ❌ proto can't | ✅ set |
+| `Position` dataclass (post-amend) | ✅ stored | ✅ stored | ✅ stored | ✅ stored |
+| `position_monitor` (Task 1.5 ratcheting) | n/a | ✅ partial close + SL→BE | ✅ partial close + SL→TP1 | ✅ trailing |
+
+**Active broker TP:** TP1 (the only TP cTrader holds).
+**Software-managed exit levels:** TP2 and TP3, owned by the position_monitor ratcheting on top of the `Position` dataclass.
+**Single source of truth for TP exit behavior:** `docs/forex/tp-sl-chain-trace.md` + Task 1.5 ratcheting logic.
