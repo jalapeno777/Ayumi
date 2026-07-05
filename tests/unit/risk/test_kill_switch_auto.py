@@ -95,6 +95,21 @@ def _write_heartbeat(filepath: str, age_seconds: float = 0, engine_running: bool
 # ── Watchdog: Stale Heartbeat → Kill ─────────────────────────────────────────
 
 class TestWatchdogStaleHeartbeat:
+    @pytest.fixture(autouse=True)
+    def _force_market_open(self):
+        """Force market open for stale-heartbeat kill tests.
+
+        The watchdog's real `_is_forex_market_closed` check returns True on
+        weekends, which causes these tests to fail when run on a Saturday or
+        Sunday. Tests in TestWatchdogWeekend explicitly override this patch
+        to verify weekend behavior; here we want the "market open" baseline.
+        """
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed",
+            return_value=False,
+        ):
+            yield
+
     def test_stale_heartbeat_activates_kill(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
         """Watchdog detects stale heartbeat and activates global kill."""
         # Write a heartbeat that's 60s old (stale > 30s threshold)
@@ -620,6 +635,20 @@ class TestHeartbeatAtomicWrite:
 # ── Audit Log Entries for Auto-Triggers ──────────────────────────────────────
 
 class TestAutoTriggerAuditLog:
+    @pytest.fixture(autouse=True)
+    def _force_market_open(self):
+        """Force market open so the watchdog actually fires and writes audit log entries.
+
+        Mirrors TestWatchdogStaleHeartbeat._force_market_open — these tests
+        verify that audit log entries are created on auto-trigger, which
+        requires the watchdog to take the kill path.
+        """
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed",
+            return_value=False,
+        ):
+            yield
+
     def test_watchdog_audit_log(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
         """Watchdog trigger creates proper audit log entry."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=60)

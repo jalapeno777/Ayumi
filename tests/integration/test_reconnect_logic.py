@@ -157,7 +157,9 @@ class TestReconnectLogic(unittest.TestCase):
         # Set last_tick_at to 90s ago — past both 60s stale threshold and 5s backoff.
         engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(seconds=90)
 
-        with patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                   return_value=False), \
+             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,
@@ -178,7 +180,9 @@ class TestReconnectLogic(unittest.TestCase):
         # Fresh ticks (would normally make connection look healthy).
         engine._health.last_tick_at = datetime.now(timezone.utc)
 
-        with patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                   return_value=False), \
+             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,
@@ -257,7 +261,9 @@ class TestReconnectLogic(unittest.TestCase):
         # Last attempt 30s ago — well within default reconnect_delay.
         engine._last_reconnect_attempt_at = time.monotonic() - 30.0
 
-        with patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                   return_value=False), \
+             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,
