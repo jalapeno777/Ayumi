@@ -444,28 +444,7 @@ class ForwardTestEngine:
         # exists, auto-recreate the flag and continue with a warning. This
         # prevents crashes/kill-9/OOM from permanently killing the forward
         # test when the underlying validation has already been done.
-        if self._config.live_mode and not os.path.exists(_REMEDIATION_VALIDATED_FLAG):
-            if os.path.exists(_REMEDIATION_AUDIT_DOC):
-                logger.warning(
-                    "remediation_validated.flag missing but audit doc exists "
-                    "(%s) — auto-recreating flag. This is expected after "
-                    "crashes, kill -9, OOM, or git clean.",
-                    _REMEDIATION_AUDIT_DOC,
-                )
-                _flag_content = (
-                    f"auto-recreated {time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
-                    f"source: {_REMEDIATION_AUDIT_DOC}\n"
-                    f"reason: flag was missing on startup; audit doc is "
-                    f"source of truth.\n"
-                )
-                os.makedirs(os.path.dirname(_REMEDIATION_VALIDATED_FLAG), exist_ok=True)
-                with open(_REMEDIATION_VALIDATED_FLAG, "w") as f:
-                    f.write(_flag_content)
-            else:
-                raise RuntimeError(
-                    "Refusing to start in live mode: remediation not validated "
-                    "(flag and audit doc both missing)"
-                )
+        self._enforce_remediation_gate(self._config.live_mode)
 
         if not self._validate_credentials():
             logger.error("Invalid credentials — aborting start")
@@ -551,6 +530,47 @@ class ForwardTestEngine:
             sorted(self._required_timeframes),
         )
         return True
+
+    @staticmethod
+    def _enforce_remediation_gate(live_mode: bool) -> None:
+        """Enforce the remediation validation gate for live mode.
+
+        Returns silently when:
+          - ``live_mode`` is False (paper mode is always allowed); or
+          - the flag file already exists; or
+          - the flag is missing BUT the audit doc (source of truth) exists —
+            in which case the flag is auto-recreated from the audit doc with
+            a warning. This makes the forward test survivable across crashes,
+            kill -9, OOM, or ``git clean``.
+
+        Raises ``RuntimeError`` only when ``live_mode`` is True AND both the
+        flag and the audit doc are missing.
+        """
+        if not live_mode:
+            return
+        if os.path.exists(_REMEDIATION_VALIDATED_FLAG):
+            return
+        if os.path.exists(_REMEDIATION_AUDIT_DOC):
+            logger.warning(
+                "remediation_validated.flag missing but audit doc exists "
+                "(%s) — auto-recreating flag. This is expected after "
+                "crashes, kill -9, OOM, or git clean.",
+                _REMEDIATION_AUDIT_DOC,
+            )
+            _flag_content = (
+                f"auto-recreated {time.strftime('%Y-%m-%dT%H:%M:%S%z')}\n"
+                f"source: {_REMEDIATION_AUDIT_DOC}\n"
+                f"reason: flag was missing on startup; audit doc is "
+                f"source of truth.\n"
+            )
+            os.makedirs(os.path.dirname(_REMEDIATION_VALIDATED_FLAG), exist_ok=True)
+            with open(_REMEDIATION_VALIDATED_FLAG, "w") as f:
+                f.write(_flag_content)
+            return
+        raise RuntimeError(
+            "Refusing to start in live mode: remediation not validated "
+            "(flag and audit doc both missing)"
+        )
 
     def stop(self):
         if not self._running:
