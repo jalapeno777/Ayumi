@@ -60,8 +60,8 @@ from strategies.session_breakout import SessionBreakoutStrategy
 # Blend runner + correlation gate (domain layer)
 from forward_test.blend_runner import BlendForwardTestRunner
 
-# Old models for TradeSignal (used by strategies)
-from adapters.ctrader.models import TradeSignal, TradeDirection
+# Old models for CTraderTradeSignal (used by strategies)
+from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
 # ── New infrastructure imports ──────────────────────────────────────────────
 
@@ -282,8 +282,8 @@ def build_blend_runner() -> BlendForwardTestRunner:
 
 # ── Signal conversion ───────────────────────────────────────────────────────
 
-def trade_signal_to_blend_dict(signal: TradeSignal, strategy_name: str) -> dict:
-    """Convert cTrader TradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
+def trade_signal_to_blend_dict(signal: CTraderTradeSignal, strategy_name: str) -> dict:
+    """Convert cTrader CTraderTradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
     return {
         "symbol": signal.symbol,
         "direction": signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction),
@@ -461,7 +461,7 @@ class ForwardTestV2:
                 self._strategy_no_signal[sname] = self._strategy_no_signal.get(sname, 0) + 1
                 continue
 
-            # Convert strategy signal to TradeSignal
+            # Convert strategy signal to CTraderTradeSignal
             signal = self._convert_signal(result, symbol, sname)
             if signal is None:
                 continue
@@ -469,10 +469,10 @@ class ForwardTestV2:
             self._signals_generated += 1
             self._route_signal(signal, sname, strategy_id)
 
-    def _convert_signal(self, strategy_signal, symbol: str, strategy_name: str) -> TradeSignal | None:
-        """Convert a strategy's signal to a TradeSignal.
+    def _convert_signal(self, strategy_signal, symbol: str, strategy_name: str) -> CTraderTradeSignal | None:
+        """Convert a strategy's signal to a CTraderTradeSignal.
 
-        Strategy signals may be StrategySignal or TradeSignal objects.
+        Strategy signals may be StrategySignal or CTraderTradeSignal objects.
         """
         # Handle StrategySignal from backtest.engine
         if hasattr(strategy_signal, "direction"):
@@ -482,7 +482,7 @@ class ForwardTestV2:
             tp = getattr(strategy_signal, "take_profit", 0.0)
             conf = getattr(strategy_signal, "confidence", 0.5)
 
-            return TradeSignal(
+            return CTraderTradeSignal(
                 symbol=symbol,
                 direction=direction,
                 entry_price=entry,
@@ -496,7 +496,7 @@ class ForwardTestV2:
             )
         return None
 
-    def _route_signal(self, signal: TradeSignal, strategy_name: str, strategy_id: str) -> None:
+    def _route_signal(self, signal: CTraderTradeSignal, strategy_name: str, strategy_id: str) -> None:
         """Route a signal through correlation gate → blend runner → OrderGateway."""
         direction_str = (
             signal.direction.value
@@ -552,7 +552,7 @@ class ForwardTestV2:
 
     def _execute_via_gateway(
         self,
-        signal: TradeSignal,
+        signal: CTraderTradeSignal,
         lots: float,
         strategy_id: str,
         direction_str: str,

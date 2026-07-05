@@ -66,8 +66,8 @@ class TestMaxDrawdownPermanentBlock:
         guard._trigger_circuit_breaker(
             RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
         )
-        from adapters.ctrader.models import TradeDirection, TradeSignal
-        signal = TradeSignal(
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2500,
@@ -129,8 +129,8 @@ class TestNoAutoRecovery:
         guard._trigger_circuit_breaker(
             RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
         )
-        from adapters.ctrader.models import TradeDirection, TradeSignal
-        signal = TradeSignal(
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+        signal = CTraderTradeSignal(
             symbol="USDJPY",
             direction=TradeDirection.SHORT,
             entry_price=150.00,
@@ -176,8 +176,8 @@ class TestResetCircuitBreaker:
         guard._trigger_circuit_breaker(
             RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
         )
-        from adapters.ctrader.models import TradeDirection, TradeSignal
-        signal = TradeSignal(
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2500,
@@ -247,8 +247,8 @@ class TestResetRefusesDailyLoss:
         )
         guard.reset_circuit_breaker(reason="should fail")
 
-        from adapters.ctrader.models import TradeDirection, TradeSignal
-        signal = TradeSignal(
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+        signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.2500,

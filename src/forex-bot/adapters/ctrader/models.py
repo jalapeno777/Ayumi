@@ -94,7 +94,7 @@ class Position:
 
 
 @dataclass
-class TradeSignal:
+class CTraderTradeSignal:
     symbol: str
     direction: TradeDirection
     entry_price: float

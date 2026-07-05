@@ -141,7 +141,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
         BlendForwardTestEngine,
         CorrelationGate,
     )
-    from adapters.ctrader.signal_adapter import TradeSignal
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from datetime import datetime, timezone
 
     # Mock the blend_runner to capture cancel_risk calls AND delegate
@@ -170,8 +170,8 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
         success=False, rejection_reason="test"
     )
 
-    # Build a TradeSignal with a deterministic timestamp.
-    sig = TradeSignal(
+    # Build a CTraderTradeSignal with a deterministic timestamp.
+    sig = CTraderTradeSignal(
         symbol="GBPUSD",
         direction="LONG",
         entry_price=1.32727,
@@ -225,7 +225,7 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     from launch_blend_forward_test import (
         BlendForwardTestEngine,
     )
-    from adapters.ctrader.signal_adapter import TradeSignal
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from datetime import datetime, timezone
 
     engine = BlendForwardTestEngine.__new__(BlendForwardTestEngine)
@@ -237,7 +237,7 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     )
     engine._blend_runner = blend_runner
 
-    sig = TradeSignal(
+    sig = CTraderTradeSignal(
         symbol="GBPUSD",
         direction="LONG",
         entry_price=1.32727,

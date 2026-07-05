@@ -25,7 +25,7 @@ if str(SRC) not in sys.path:
 
 from confidence.gates import GateConfig, SpreadGate
 from adapters.ctrader.risk_guard import RiskGuard, RiskLimitType
-from adapters.ctrader.models import TradeDirection, TradeSignal
+from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from datetime import timedelta
 
 
@@ -91,8 +91,8 @@ class TestRiskGuardSpread:
         symbol: str = "GBPUSD",
         direction: TradeDirection = TradeDirection.LONG,
         spread: float = 0.0,
-    ) -> TradeSignal:
-        return TradeSignal(
+    ) -> CTraderTradeSignal:
+        return CTraderTradeSignal(
             symbol=symbol,
             direction=direction,
             entry_price=1.1000,
