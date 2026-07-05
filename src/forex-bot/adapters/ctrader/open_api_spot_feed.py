@@ -161,6 +161,10 @@ class OpenApiSpotFeed:
     and manages order execution.
     """
 
+    # Class-level default so mock instances (created via __new__) have
+    # _permission_policy = None even when __init__ is bypassed.
+    _permission_policy: Optional["ExecutionPermissionPolicy"] = None
+
     def __init__(
         self,
         ctid_account_id: int,
