@@ -460,6 +460,92 @@ class OrderManager:
                 pos.position_id = new_id
                 self._positions[new_id] = pos
 
+    def update_position_tp_levels(
+        self,
+        position_id: "int | str",
+        tp2: float | None = None,
+        tp3: float | None = None,
+    ) -> bool:
+        """Store TP2/TP3 on a Position after a successful amend_sl_tp.
+
+        Sprint Task 1.3 (card a7b8e896): the cTrader Open API proto
+        ``ProtoOAAmendPositionSLTPReq`` only accepts a single take-profit
+        per position, so TP2/TP3 cannot be sent to the broker.  Instead we
+        stash them on the ``Position`` object here so that
+        :class:`PositionMonitor` (Task 1.5) can ratchet the broker TP as
+        price crosses each level.
+
+        ``position_id`` is fuzzy-matched against the known position keys
+        because callers come from different code paths with different
+        identifier conventions:
+
+        * **Internal Position id** — ``"POS_{order.order_id}"`` (the key
+          OrderManager itself uses when storing positions).
+        * **cTrader broker position id** — an integer or numeric string
+          (the value ForwardTestEngine passes to ``amend_sl_tp``).  We
+          match this against the ``.position_id`` attribute that the
+          ``on_filled`` callback stashes on the ``Order`` object.
+        * **order_id** — a non-numeric string.  The Position would be
+          stored under ``POS_{order_id}``.
+
+        Returns ``True`` if the position was located and updated,
+        ``False`` otherwise (with a warning logged).  Callers should treat
+        a ``False`` result as non-fatal: the broker TP1 still protects
+        the position; ratcheting just won't activate for this trade.
+        """
+        with self._lock:
+            # Try 1: direct hit on the position key.
+            pos = self._positions.get(position_id)
+            if pos is not None:
+                pos.take_profit_2 = tp2
+                pos.take_profit_3 = tp3
+                return True
+
+            # Try 2: numeric id → resolve via _orders[].position_id
+            # (set via setattr from the cTrader execution event payload).
+            target_pid: int | None = None
+            try:
+                if isinstance(position_id, int) and not isinstance(position_id, bool):
+                    target_pid = position_id
+                elif isinstance(position_id, str) and position_id.isdigit():
+                    target_pid = int(position_id)
+            except (ValueError, TypeError):
+                target_pid = None
+
+            if target_pid is not None:
+                for order_id, order in list(self._orders.items()):
+                    broker_pid = getattr(order, "position_id", None)
+                    if broker_pid is None:
+                        continue
+                    try:
+                        if int(broker_pid) == target_pid:
+                            expected_key = f"POS_{order_id}"
+                            pos = self._positions.get(expected_key)
+                            if pos is not None:
+                                pos.take_profit_2 = tp2
+                                pos.take_profit_3 = tp3
+                                return True
+                    except (ValueError, TypeError):
+                        continue
+
+            # Try 3: non-numeric string → assume it's an order_id and
+            # look up POS_{order_id}.
+            if isinstance(position_id, str) and not position_id.isdigit():
+                expected_key = f"POS_{position_id}"
+                pos = self._positions.get(expected_key)
+                if pos is not None:
+                    pos.take_profit_2 = tp2
+                    pos.take_profit_3 = tp3
+                    return True
+
+            logger.warning(
+                "update_position_tp_levels: no Position found for lookup=%r "
+                "(positions=%d, orders=%d) — TP ratcheting will not activate "
+                "for this trade (broker TP1 still protects the position)",
+                position_id, len(self._positions), len(self._orders),
+            )
+            return False
+
     def update_position(
         self,
         position_id: str,

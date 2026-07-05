@@ -1286,8 +1286,40 @@ class ForwardTestEngine:
                 if amended:
                     logger.info("SL/TP attached to position %s: sl=%.5f tp=%.5f",
                                 position_id, signal.stop_loss, signal.take_profit_1)
+                    # F1 fix (Sprint Task 1.3, card a7b8e896): the cTrader
+                    # amend proto only accepts a single TP, so TP2/TP3 are
+                    # NOT sent to the broker.  Instead, stash them on the
+                    # Position via OrderManager so position_monitor can
+                    # ratchet the broker TP when price crosses those levels
+                    # (Task 1.5).  Only store on a confirmed amend success
+                    # — otherwise the position is unprotected and ratcheting
+                    # would be premature.
+                    tp2 = getattr(signal, "take_profit_2", None)
+                    tp3 = getattr(signal, "take_profit_3", None)
+                    if tp2 is not None or tp3 is not None:
+                        order_manager = self._resolve_order_manager()
+                        if order_manager is not None:
+                            stored = order_manager.update_position_tp_levels(
+                                position_id, tp2, tp3,
+                            )
+                            if not stored:
+                                logger.warning(
+                                    "F1: TP2/TP3 not stored on Position %s — "
+                                    "TP ratcheting will not activate (non-fatal)",
+                                    position_id,
+                                )
+                        else:
+                            logger.warning(
+                                "F1: no OrderManager available — TP2/TP3 cannot be "
+                                "stored on Position %s (non-fatal)",
+                                position_id,
+                            )
                 else:
-                    logger.warning("Failed to attach SL/TP to position %s (non-fatal)", position_id)
+                    logger.warning(
+                        "F1: amend_sl_tp returned False for position %s — "
+                        "TP2/TP3 NOT stored (position remains on TP1 only, non-fatal)",
+                        position_id,
+                    )
             except Exception as amend_err:
                 logger.warning("SL/TP amend error for position %s: %s (non-fatal)", position_id, amend_err)
 
@@ -1502,6 +1534,32 @@ class ForwardTestEngine:
             reason=reason,
         )
 
+    def _resolve_order_manager(self):
+        """Return the live ``OrderManager`` instance, or ``None`` in paper mode.
+
+        Sprint Task 1.3 (card a7b8e896) helper: F1 (immediate amend) and
+        F2 (late-fill amend) both need to call
+        :meth:`OrderManager.update_position_tp_levels` so that TP2/TP3
+        are stored on the Position after the broker amend succeeds.  In
+        live mode the engine always builds a :class:`PaperTrader` (and
+        therefore an OrderManager) so the typical return is the
+        live-mode manager; in paper mode no OrderManager is constructed
+        and this returns ``None`` so the caller can short-circuit.
+
+        The accessor is intentionally permissive — direct attribute,
+        property, or ``_paper_trader`` indirection all work — because
+        test scaffolding sometimes swaps one of these out.
+        """
+        # Direct attribute override (test scaffolding / future refactor)
+        om = getattr(self, "_order_manager", None)
+        if om is not None:
+            return om
+        # Property/indirection via PaperTrader (the production path)
+        paper = getattr(self, "_paper_trader", None)
+        if paper is not None:
+            return getattr(paper, "_order_manager", None)
+        return None
+
     def _register_late_fill_callbacks(
         self, order, signal: TradeSignal, strategy_id: str
     ) -> None:
@@ -1614,9 +1672,37 @@ class ForwardTestEngine:
                                     "Late SL/TP attached to position %s (order %s): sl=%.5f tp=%.5f",
                                     ctrader_position_id, order_id, signal.stop_loss, signal.take_profit_1,
                                 )
+                                # F2 fix (Sprint Task 1.3, card a7b8e896):
+                                # mirror the F1 immediate-path fix — store
+                                # TP2/TP3 on the Position after amend
+                                # success so position_monitor can ratchet
+                                # (Task 1.5).  cTrader's amend proto only
+                                # accepts one TP; TP2/TP3 are client-side
+                                # tracking fields.
+                                tp2 = getattr(signal, "take_profit_2", None)
+                                tp3 = getattr(signal, "take_profit_3", None)
+                                if tp2 is not None or tp3 is not None:
+                                    order_manager = self._resolve_order_manager()
+                                    if order_manager is not None:
+                                        stored = order_manager.update_position_tp_levels(
+                                            ctrader_position_id, tp2, tp3,
+                                        )
+                                        if not stored:
+                                            logger.warning(
+                                                "F2: TP2/TP3 not stored on Position %s — "
+                                                "TP ratcheting will not activate (non-fatal)",
+                                                ctrader_position_id,
+                                            )
+                                    else:
+                                        logger.warning(
+                                            "F2: no OrderManager available — TP2/TP3 cannot be "
+                                            "stored on Position %s (non-fatal)",
+                                            ctrader_position_id,
+                                        )
                             else:
                                 logger.warning(
-                                    "Late SL/TP amend returned False for position %s (non-fatal)",
+                                    "F2: late amend_sl_tp returned False for position %s — "
+                                    "TP2/TP3 NOT stored (position remains on TP1 only, non-fatal)",
                                     ctrader_position_id,
                                 )
                         except Exception as amend_err:
