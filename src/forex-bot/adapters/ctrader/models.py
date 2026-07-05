@@ -83,6 +83,14 @@ class Position:
     time_in_trade_sec: float = 0.0          # Seconds since position opened
     high_water_mark: float = 0.0            # Best price seen (for long: highest, for short: lowest)
     low_water_mark: float = 0.0             # Worst price seen (for long: lowest, for short: highest)
+    # ── Multi-TP extension (Sprint Task 1.1, card a7b8e896) ───────────────
+    # cTrader Open API only accepts a single TP per position. TP2/TP3 are
+    # tracked here for monitoring / partial-close logic; tp_levels_fired
+    # is the idempotency key that records which levels have already been
+    # actioned (e.g. [1] after TP1 fires, [1, 2] after TP2).
+    take_profit_2: float | None = None
+    take_profit_3: float | None = None
+    tp_levels_fired: list[int] = field(default_factory=list)
 
 
 @dataclass
