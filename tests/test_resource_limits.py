@@ -10,6 +10,9 @@ from common.resource_limits import (
     run_limited,
     configure_pytest_defaults,
     add_resource_args,
+    _cgroup_v2_available,
+    _set_cgroup_cpu_limit,
+    _cleanup_cgroup,
 )
 
 
@@ -31,6 +34,86 @@ class TestCpuLimited:
         """Default percent is 20."""
         with cpu_limited():
             pass
+
+    def test_cpu_limited_api_signature_unchanged(self):
+        """cpu_limited accepts percent as keyword and positional arg (backward compat)."""
+        with cpu_limited(20):
+            pass
+        with cpu_limited(percent=30):
+            pass
+
+
+# ── cgroup v2 helpers ───────────────────────────────────────────────────
+
+class TestCgroupV2:
+    def test_cgroup_v2_available_returns_bool(self):
+        """_cgroup_v2_available returns a boolean."""
+        result = _cgroup_v2_available()
+        assert isinstance(result, bool)
+
+    def test_set_cgroup_cpu_limit_returns_path_or_none(self):
+        """_set_cgroup_cpu_limit returns a path string or None."""
+        path = _set_cgroup_cpu_limit(percent=50)
+        assert path is None or isinstance(path, str)
+        if path:
+            _cleanup_cgroup(path)
+
+    def test_set_and_cleanup_cgroup(self):
+        """If cgroup v2 is available, setting a limit and cleaning up works."""
+        if not _cgroup_v2_available():
+            pytest.skip("cgroup v2 not available on this host")
+
+        path = _set_cgroup_cpu_limit(percent=30)
+        assert path is not None, "Expected cgroup path when v2 is available"
+        assert os.path.exists(path), f"cgroup dir {path} should exist"
+
+        # Verify cpu.max was written
+        cpu_max_path = f"{path}/cpu.max"
+        assert os.path.isfile(cpu_max_path)
+        with open(cpu_max_path) as f:
+            content = f.read().strip()
+        # Should be "quota period" format
+        parts = content.split()
+        assert len(parts) == 2, f"cpu.max should have 'quota period', got: {content}"
+
+        # Verify process is in this cgroup
+        with open(f"/proc/{os.getpid()}/cgroup") as f:
+            cgroup_line = f.read().strip()
+        assert "ayumi_cpu" in cgroup_line, \
+            f"Process should be in ayumi_cpu cgroup, got: {cgroup_line}"
+
+        _cleanup_cgroup(path)
+        assert not os.path.exists(path), \
+            f"cgroup dir {path} should be removed after cleanup"
+
+    def test_cpu_limited_uses_cgroup_when_available(self):
+        """cpu_limited creates and cleans up a cgroup when v2 is available."""
+        if not _cgroup_v2_available():
+            pytest.skip("cgroup v2 not available on this host")
+
+        with cpu_limited(percent=40):
+            # During the block, process should be in an ayumi_cpu cgroup
+            with open(f"/proc/{os.getpid()}/cgroup") as f:
+                cgroup_line = f.read().strip()
+            assert "ayumi_cpu" in cgroup_line, \
+                f"Process should be in cgroup during cpu_limited, got: {cgroup_line}"
+
+        # After the block, cgroup should be cleaned up
+        # Process should be back in root or original cgroup
+        pid = os.getpid()
+        expected_stale = f"/sys/fs/cgroup/ayumi_cpu_{pid}"
+        assert not os.path.exists(expected_stale), \
+            "cgroup should be cleaned up after cpu_limited exits"
+
+    def test_cgroup_fallback_on_permission_error(self):
+        """cpu_limited falls back to advisory when cgroup creation fails."""
+        # This test verifies the fallback path works without error.
+        # On systems without cgroup v2, _set_cgroup_cpu_limit returns None
+        # and _set_cpu_affinity is called instead.
+        # We can't force a permission error, but we verify the code path
+        # doesn't raise.
+        with cpu_limited(percent=15):
+            pass  # Should not raise regardless of cgroup availability
 
 
 # ── memory_capped ───────────────────────────────────────────────────────
