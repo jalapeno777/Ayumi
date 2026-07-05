@@ -40,7 +40,7 @@ from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
-from .models import OrderStatus, cTraderCredentials, TradeSignal, TradeDirection, get_symbol_info
+from .models import OrderStatus, cTraderCredentials, CTraderTradeSignal, TradeDirection, get_symbol_info
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
@@ -1156,7 +1156,7 @@ class ForwardTestEngine:
     _REJECTION_BREAKER_THRESHOLD = 5
     _REJECTION_COOLDOWN_SEC = 60.0
 
-    def _calculate_live_volume(self, signal: TradeSignal) -> float:
+    def _calculate_live_volume(self, signal: CTraderTradeSignal) -> float:
         """Compute position size for a live order without depending on PaperTrader.
 
         Refactored in T4 so the live execution path stays independent of the
@@ -1262,7 +1262,7 @@ class ForwardTestEngine:
         )
 
     def _execute_signal_live(
-        self, signal: TradeSignal, strategy_id: str = ""
+        self, signal: CTraderTradeSignal, strategy_id: str = ""
     ) -> Optional[LiveExecutionOutcome]:
         """Place a real cTrader order via the OpenApiSpotFeed.
 
@@ -1506,7 +1506,7 @@ class ForwardTestEngine:
     _CANCELLED_REASON = "order_cancelled"
 
     def _classify_live_order_outcome(
-        self, order, signal: TradeSignal, strategy_id: str
+        self, order, signal: CTraderTradeSignal, strategy_id: str
     ) -> LiveExecutionOutcome:
         """Translate a spot-feed ``Order`` into a :class:`LiveExecutionOutcome`.
 
@@ -1626,7 +1626,7 @@ class ForwardTestEngine:
         return None
 
     def _register_late_fill_callbacks(
-        self, order, signal: TradeSignal, strategy_id: str
+        self, order, signal: CTraderTradeSignal, strategy_id: str
     ) -> None:
         """Register one-shot callbacks so a late execution event upgrades SENT
         or TIMEOUT outcomes to a definitive terminal state.

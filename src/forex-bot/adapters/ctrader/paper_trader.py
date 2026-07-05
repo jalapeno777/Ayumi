@@ -6,7 +6,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
 from .kill_switch import KillSwitchManager
-from .models import Order, Position, PositionStatus, TradeSignal, TradeDirection
+from .models import Order, Position, PositionStatus, CTraderTradeSignal, TradeDirection
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
 from .risk_guard import FTMOConfig, RiskGuard
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PaperTradeResult:
     success: bool
-    signal: TradeSignal
+    signal: CTraderTradeSignal
     order: Order | None = None
     position: Position | None = None
     rejection_reason: str = ""
@@ -87,7 +87,7 @@ class PaperTrader:
 
     def process_signal(
         self,
-        signal: TradeSignal,
+        signal: CTraderTradeSignal,
         spread: float = 0.0,
         bid: float = 0.0,
         ask: float = 0.0,
@@ -225,7 +225,7 @@ class PaperTrader:
 
     def _execute_order(
         self,
-        signal: TradeSignal,
+        signal: CTraderTradeSignal,
         volume: float,
         spread: float = 0.0,
         bid: float = 0.0,

@@ -1,14 +1,14 @@
 """Tests for strategy_id propagation in cTraderSignalAdapter.
 
 Verifies that the strategy name is correctly threaded through to
-the TradeSignal.strategy_id field when signals are adapted.
+the CTraderTradeSignal.strategy_id field when signals are adapted.
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.ctrader.models import TradeDirection, TradeSignal
+from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from adapters.ctrader.signal_adapter import cTraderSignalAdapter
 from backtest.types import StrategySignal, TradeDirection as BacktestTradeDirection
 
@@ -56,7 +56,7 @@ class TestStrategyIdPropagation:
         result = adapter.evaluate_and_trade(_make_market_state())
 
         assert result is not None
-        assert isinstance(result, TradeSignal)
+        assert isinstance(result, CTraderTradeSignal)
         assert result.strategy_id == "Session Breakout Asian"
 
     def test_strategy_id_not_empty(self):
@@ -116,7 +116,7 @@ class TestStrategyIdPropagation:
         assert passed_signal.strategy_id == "TestStrategy"
 
     def test_signal_rejected_by_confidence_still_no_signal(self):
-        """Low-confidence signals return None — no TradeSignal constructed."""
+        """Low-confidence signals return None — no CTraderTradeSignal constructed."""
         strategy = MagicMock()
         strategy.name = "LowConfStrategy"
         strategy.evaluate.return_value = StrategySignal(
@@ -160,11 +160,11 @@ class TestStrategyIdPropagation:
 
 
 class TestTradeSignalModel:
-    """Verify TradeSignal model defaults and field behavior."""
+    """Verify CTraderTradeSignal model defaults and field behavior."""
 
     def test_strategy_id_defaults_to_empty(self):
-        """TradeSignal without explicit strategy_id defaults to empty string."""
-        ts = TradeSignal(
+        """CTraderTradeSignal without explicit strategy_id defaults to empty string."""
+        ts = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.085,
@@ -179,8 +179,8 @@ class TestTradeSignalModel:
         assert ts.strategy_id == ""
 
     def test_strategy_id_can_be_set(self):
-        """TradeSignal accepts strategy_id in constructor."""
-        ts = TradeSignal(
+        """CTraderTradeSignal accepts strategy_id in constructor."""
+        ts = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.085,

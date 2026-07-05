@@ -26,7 +26,7 @@ class TestLateFillPositionIdValidation:
             ForwardTestEngine,
             LiveExecutionStatus,
         )
-        from adapters.ctrader.models import TradeDirection, TradeSignal
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 
         # Create a minimal mock engine — we only need the callback registration
         config = ForwardTestConfig(
@@ -55,10 +55,10 @@ class TestLateFillPositionIdValidation:
         return engine
 
     def _make_signal(self):
-        """Create a TradeSignal for testing."""
-        from adapters.ctrader.models import TradeDirection, TradeSignal
+        """Create a CTraderTradeSignal for testing."""
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 
-        return TradeSignal(
+        return CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
             entry_price=1.25000,

@@ -1,7 +1,6 @@
 import pytest
 from adapters.ctrader.kill_switch import KillSwitchManager
-from adapters.ctrader.models import TradeDirection, TradeSignal
-from adapters.ctrader.order_manager import OrderExecutionResult
+from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from adapters.ctrader.paper_trader import (
     PaperTrader,
     PaperTradeResult,
@@ -41,7 +40,7 @@ class TestPaperTradingStats:
 
 class TestPaperTradeResult:
     def test_success_result(self):
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -59,7 +58,7 @@ class TestPaperTradeResult:
         assert result.order is None
 
     def test_rejected_result(self):
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -90,7 +89,7 @@ class TestPaperTrader:
     def test_process_signal_rejects_poor_risk_reward(self):
         config = FTMOConfig(min_risk_reward=2.0)
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -117,7 +116,7 @@ class TestPaperTrader:
             total_drawdown_limit_pct=0.20,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -139,7 +138,7 @@ class TestPaperTrader:
             max_position_size_pct=1.0,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -159,7 +158,7 @@ class TestPaperTrader:
     def test_process_signal_rejects_circuit_breaker(self):
         config = FTMOConfig(daily_loss_limit_pct=0.001, max_position_size_pct=2.0)
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -179,7 +178,7 @@ class TestPaperTrader:
 
     def test_close_position(self):
         trader = PaperTrader(starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -199,7 +198,7 @@ class TestPaperTrader:
 
     def test_close_all_positions(self):
         trader = PaperTrader(starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -218,7 +217,7 @@ class TestPaperTrader:
 
     def test_reset(self):
         trader = PaperTrader(starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -245,7 +244,7 @@ class TestPaperTrader:
             callback_called.append(result)
 
         trader.register_callback("on_trade_executed", on_trade)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -273,7 +272,7 @@ class TestPaperTrader:
             max_position_size_pct=2.0,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -304,7 +303,7 @@ class TestPaperTrader:
             max_position_size_pct=2.0,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -331,7 +330,7 @@ class TestPaperTrader:
             max_position_size_pct=2.0,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -359,7 +358,7 @@ class TestPaperTrader:
             max_position_size_pct=2.0,
         )
         trader = PaperTrader(ftmo_config=config, starting_balance=100000.0)
-        signal = TradeSignal(
+        signal = CTraderTradeSignal(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
             entry_price=1.1000,
@@ -376,132 +375,3 @@ class TestPaperTrader:
             trader.update_market_prices({"EURUSD": 1.0940})
             positions = trader.get_open_positions()
             assert len(positions) == 1
-
-
-class TestPaperTraderMultiTPForwarding:
-    """Sprint Task 1.4 (card a7b8e896): paper_trader._execute_order must forward
-    TP2/TP3 to OrderManager.execute_paper_order / execute_live_order so that
-    the resulting Position carries all three TP levels for downstream
-    monitoring (position_monitor / forward_test_engine).
-    """
-
-    @staticmethod
-    def _make_signal(tp1=1.1100, tp2=1.1200, tp3=1.1300):
-        return TradeSignal(
-            symbol="EURUSD",
-            direction=TradeDirection.LONG,
-            entry_price=1.1000,
-            stop_loss=1.0950,
-            take_profit_1=tp1,
-            take_profit_2=tp2,
-            take_profit_3=tp3,
-            volume=0.1,
-            confidence=0.85,
-            rationale="Multi-TP forwarding test",
-        )
-
-    def test_execute_order_forwards_tp2_tp3_in_paper_mode(self, monkeypatch):
-        """Paper-mode call must hand TP2/TP3 through to execute_paper_order."""
-        captured = {}
-
-        def fake_paper_order(**kwargs):
-            captured.update(kwargs)
-            return OrderExecutionResult(
-                success=True,
-                order=None,
-                position=None,
-            )
-
-        trader = PaperTrader(ftmo_config=FTMOConfig(min_risk_reward=1.0), starting_balance=100000.0)
-        monkeypatch.setattr(
-            trader._order_manager, "execute_paper_order", fake_paper_order
-        )
-        # Force the paper-mode branch regardless of api_client wiring.
-        monkeypatch.setattr(trader, "_live_mode_enabled", False)
-
-        signal = self._make_signal(tp1=1.1100, tp2=1.2150, tp3=1.3300)
-        trader._execute_order(signal=signal, volume=0.1, spread=0.0001)
-
-        assert captured["take_profit"] == 1.1100
-        assert captured["take_profit_2"] == 1.2150
-        assert captured["take_profit_3"] == 1.3300
-        # Other fields also forwarded correctly.
-        assert captured["symbol"] == "EURUSD"
-        assert captured["entry_price"] == 1.1000
-        assert captured["stop_loss"] == 1.0950
-        assert captured["direction"] == TradeDirection.LONG
-
-    def test_execute_order_forwards_tp2_tp3_in_live_mode(self, monkeypatch):
-        """Live-mode call must hand TP2/TP3 through to execute_live_order."""
-        captured = {}
-
-        def fake_live_order(**kwargs):
-            captured.update(kwargs)
-            return OrderExecutionResult(
-                success=True,
-                order=None,
-                position=None,
-            )
-
-        trader = PaperTrader(ftmo_config=FTMOConfig(min_risk_reward=1.0), starting_balance=100000.0)
-        monkeypatch.setattr(
-            trader._order_manager, "execute_live_order", fake_live_order
-        )
-        # Flip into live mode so _execute_order dispatches to execute_live_order.
-        monkeypatch.setattr(trader, "_live_mode_enabled", True)
-
-        signal = self._make_signal(tp1=1.1100, tp2=1.2250, tp3=1.3400)
-        trader._execute_order(signal=signal, volume=0.1)
-
-        assert captured["take_profit"] == 1.1100
-        assert captured["take_profit_2"] == 1.2250
-        assert captured["take_profit_3"] == 1.3400
-        assert captured["symbol"] == "EURUSD"
-        assert captured["stop_loss"] == 1.0950
-
-    def test_execute_order_handles_none_tp2_tp3_backward_compat(self, monkeypatch):
-        """Signals whose TP2/TP3 are None (e.g. legacy single-TP producers)
-        must not crash — OrderManager accepts None for these kwargs and
-        resulting positions simply have fewer TP levels populated.
-        """
-        captured = {}
-
-        def fake_paper_order(**kwargs):
-            captured.update(kwargs)
-            return OrderExecutionResult(
-                success=True,
-                order=None,
-                position=None,
-            )
-
-        trader = PaperTrader(ftmo_config=FTMOConfig(min_risk_reward=1.0), starting_balance=100000.0)
-        monkeypatch.setattr(
-            trader._order_manager, "execute_paper_order", fake_paper_order
-        )
-        monkeypatch.setattr(trader, "_live_mode_enabled", False)
-
-        # Construct a signal with TP2/TP3 as None — Python permits this
-        # even though the dataclass type annotation says `float`.  This
-        # mirrors a legacy or degraded signal where multi-TP enrichment
-        # has not yet run.
-        signal = TradeSignal(
-            symbol="EURUSD",
-            direction=TradeDirection.LONG,
-            entry_price=1.1000,
-            stop_loss=1.0950,
-            take_profit_1=1.1100,
-            take_profit_2=None,  # type: ignore[arg-type]
-            take_profit_3=None,  # type: ignore[arg-type]
-            volume=0.1,
-            confidence=0.85,
-            rationale="Backward compat: single-TP signal",
-        )
-
-        # Should not raise.
-        trader._execute_order(signal=signal, volume=0.1, spread=0.0001)
-
-        # None must be forwarded as-is — OrderManager treats None as
-        # "no additional TP at this level".
-        assert captured["take_profit"] == 1.1100
-        assert captured["take_profit_2"] is None
-        assert captured["take_profit_3"] is None

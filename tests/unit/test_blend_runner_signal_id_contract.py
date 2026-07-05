@@ -59,12 +59,12 @@ def test_blend_runner_make_signal_id_uses_strategy_id_and_timestamp():
     """make_signal_id must produce 'strategy_id' + '_' + str(timestamp)."""
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
     from forward_test.blend_runner import BlendForwardTestRunner
-    from adapters.ctrader.signal_adapter import TradeSignal
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from datetime import datetime, timezone
 
     # Minimal construction — use __new__ to skip init.
     runner = BlendForwardTestRunner.__new__(BlendForwardTestRunner)
-    sig = TradeSignal(
+    sig = CTraderTradeSignal(
         symbol="GBPUSD",
         direction="LONG",
         entry_price=1.32727,
