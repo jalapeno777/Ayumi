@@ -231,6 +231,10 @@ class PaperTrader:
         bid: float = 0.0,
         ask: float = 0.0,
     ) -> OrderExecutionResult:
+        # Sprint Task 1.4: forward TP2/TP3 to OrderManager so the resulting
+        # Position has all three TP levels populated. OrderManager methods
+        # accept take_profit_2/take_profit_3 as optional kwargs (default None)
+        # so signals with only TP1 defined continue to work.
         if self.is_live_mode:
             return self._order_manager.execute_live_order(
                 symbol=signal.symbol,
@@ -238,6 +242,8 @@ class PaperTrader:
                 volume=volume,
                 stop_loss=signal.stop_loss,
                 take_profit=signal.take_profit_1,
+                take_profit_2=signal.take_profit_2,
+                take_profit_3=signal.take_profit_3,
                 comment=signal.rationale,
             )
         return self._order_manager.execute_paper_order(
@@ -247,6 +253,8 @@ class PaperTrader:
             entry_price=signal.entry_price,
             stop_loss=signal.stop_loss,
             take_profit=signal.take_profit_1,
+            take_profit_2=signal.take_profit_2,
+            take_profit_3=signal.take_profit_3,
             comment=signal.rationale,
             spread=spread,
             bid=bid,
