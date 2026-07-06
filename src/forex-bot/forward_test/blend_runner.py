@@ -11,8 +11,8 @@ from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
+    OrchestratorTradeSignal,
     SignalOrchestrator,
-    TradeSignal,
 )
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
@@ -137,7 +137,7 @@ class BlendForwardTestRunner:
             pre_daily, pre_open, positions_carried,
         )
 
-    def make_signal_id(self, signal: TradeSignal) -> str:
+    def make_signal_id(self, signal: OrchestratorTradeSignal) -> str:
         """Build the canonical signal_id used by on_signal() to register
         a position with the sizer.
 
