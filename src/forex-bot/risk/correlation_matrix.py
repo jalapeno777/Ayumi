@@ -6,6 +6,11 @@ but is usable standalone for any portfolio analytics.
 
 Historical returns can be supplied directly (dict of symbol -> list of
 returns) or loaded from OHLC bar data.
+
+Dual-window support (SRB-AYUMI-001):
+    :meth:`compute_multi_window` returns correlation matrices at both
+    30-day and 90-day rolling windows in a single call, enabling the
+    pair-selection policy to detect short-term and structural correlations.
 """
 
 from __future__ import annotations
@@ -102,6 +107,38 @@ class CorrelationMatrix:
                     result[s1][s2] = self._pearson(r1, r2)
         self._matrix = result
         return result
+
+    def compute_multi_window(
+        self,
+        windows: list[int] | None = None,
+    ) -> dict[int, dict[str, dict[str, float]]]:
+        """Build correlation matrices at multiple rolling windows.
+
+        Parameters
+        ----------
+        windows
+            Rolling window sizes in observations.  Default ``[30, 90]``
+            per SRB-AYUMI-001 (30d short-term + 90d structural).
+
+        Returns
+        -------
+        dict mapping each window size to its N×N correlation matrix.
+        """
+        if windows is None:
+            windows = [30, 90]
+
+        results: dict[int, dict[str, dict[str, float]]] = {}
+        original_window = self.window
+        for w in windows:
+            self.window = w
+            results[w] = self.compute()
+        # Restore original window and cached matrix
+        self.window = original_window
+        if original_window in results:
+            self._matrix = results[original_window]
+        else:
+            self.compute()
+        return results
 
     # ------------------------------------------------------------------ #
     # Query helpers
