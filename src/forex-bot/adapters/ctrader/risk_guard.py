@@ -8,10 +8,16 @@ from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from threading import Lock
+from zoneinfo import ZoneInfo
 
 from .models import TradeDirection, CTraderTradeSignal
 
 logger = logging.getLogger(__name__)
+
+# Trading day boundary: 17:00 America/Toronto (5 PM ET).
+# Forex trading day rolls at 5 PM New York / Toronto time.
+_TRADING_TZ = ZoneInfo("America/Toronto")
+_TRADING_DAY_RESET_HOUR = 17
 
 # Default per-symbol max spread in pips.  Values reflect typical
 # interbank spreads; XAUUSD is wider due to gold's higher volatility.
@@ -364,8 +370,19 @@ class RiskGuard:
             return 0.0
         return reward / risk
 
+    def _current_trading_day(self) -> date:
+        """Return the current trading day based on 17:00 America/Toronto.
+
+        Forex trading day rolls at 5 PM ET.  Before 17:00 local we are
+        still in the previous calendar day's session.
+        """
+        now_tz = datetime.now(_TRADING_TZ)
+        if now_tz.hour >= _TRADING_DAY_RESET_HOUR:
+            return now_tz.date()
+        return now_tz.date() - timedelta(days=1)
+
     def _update_daily_tracking(self):
-        today = datetime.now(timezone.utc).date()
+        today = self._current_trading_day()
         if self._current_day is None:
             self._current_day = today
             self._daily_start_balance = self._current_balance
@@ -617,7 +634,7 @@ class RiskGuard:
                 self._total_trades = 0
                 self._circuit_breaker_triggered = False
                 self._blocked_until = None
-                self._current_day = datetime.now(timezone.utc).date()
+                self._current_day = self._current_trading_day()
                 self._save_state()
                 return
 
@@ -638,8 +655,8 @@ class RiskGuard:
             else:
                 self._blocked_until = None
 
-            # If restored state is from a previous day, reset daily counters
-            today = datetime.now(timezone.utc).date()
+            # If restored state is from a previous trading day, reset daily counters
+            today = self._current_trading_day()
             if self._current_day is not None and self._current_day != today:
                 logger.info(
                     "State from %s — resetting daily tracking for %s",
