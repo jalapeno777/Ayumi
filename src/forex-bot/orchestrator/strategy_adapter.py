@@ -1,4 +1,4 @@
-"""Strategy adapter — converts raw strategy outputs into TradeSignal objects."""
+"""Strategy adapter — converts raw strategy outputs into OrchestratorTradeSignal objects."""
 
 from __future__ import annotations
 
@@ -6,16 +6,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from orchestrator.signal_orchestrator import TradeSignal
+from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 
 logger = logging.getLogger("ayumi.orchestrator")
 
 
 class StrategyAdapter:
-    """Converts strategy-specific output formats into TradeSignal objects."""
+    """Converts strategy-specific output formats into OrchestratorTradeSignal objects."""
 
-    def adapt_signal(self, strategy_id: str, strategy_output: dict) -> TradeSignal:
-        """Convert a strategy's raw output dict to TradeSignal.
+    def adapt_signal(self, strategy_id: str, strategy_output: dict) -> OrchestratorTradeSignal:
+        """Convert a strategy's raw output dict to OrchestratorTradeSignal.
 
         Expected keys in strategy_output:
         - symbol (required)
@@ -61,7 +61,7 @@ class StrategyAdapter:
         if "atr" in strategy_output:
             metadata["atr"] = strategy_output["atr"]
 
-        signal = TradeSignal(
+        signal = OrchestratorTradeSignal(
             strategy_id=strategy_id,
             symbol=symbol,
             direction=direction,
