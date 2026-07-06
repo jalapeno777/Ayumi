@@ -1213,6 +1213,20 @@ class OpenApiSpotFeed:
             or getattr(getattr(message, "position", None), "price", None)
             or order.price
         )
+        # Stamp cTrader positionId onto Order for downstream amend calls
+        # (Sprint Task N1.3, card fcXXXXXX — naked-position bug). cTrader
+        # exposes the positionId in three places depending on event variant;
+        # try each in priority order.
+        _pos_source = (
+            getattr(order_payload, 'positionId', None)
+            or getattr(getattr(message, 'position', None), 'positionId', None)
+            or getattr(getattr(message, 'deal', None), 'positionId', None)
+        )
+        if _pos_source:
+            try:
+                order.position_id = int(_pos_source)
+            except (TypeError, ValueError):
+                pass
         ev = getattr(order_payload, "executedVolume", 0)
         if ev:
             ev_symbol_id = getattr(order_payload, "symbolId", None)
