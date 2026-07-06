@@ -15,7 +15,7 @@ logger = logging.getLogger("ayumi.orchestrator")
 
 
 @dataclass
-class TradeSignal:
+class OrchestratorTradeSignal:
     """Raw signal from a strategy."""
     strategy_id: str
     symbol: str
@@ -31,7 +31,7 @@ class TradeSignal:
 @dataclass
 class OrchestratedOrder:
     """Final order ready for execution."""
-    signal: TradeSignal
+    signal: OrchestratorTradeSignal
     profile: Profile
     confidence_final: float
     lots: float
@@ -57,7 +57,7 @@ class SignalOrchestrator:
         self._sizer = position_sizer
         self._account_balance = account_balance
 
-    def process_signal(self, signal: TradeSignal) -> OrchestratedOrder:
+    def process_signal(self, signal: OrchestratorTradeSignal) -> OrchestratedOrder:
         """Full pipeline: signal → confidence → routing → sizing → order."""
 
         logger.info(
