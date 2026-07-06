@@ -1,6 +1,6 @@
 """Missed-bid detector — signal-vs-fill gap analysis.
 
-Compares generated TradeSignals against opened positions to identify
+Compares generated OrchestratorTradeSignals against opened positions to identify
 signals that never resulted in a live position, classifying the likely reason.
 
 Phase 1: read-only log analysis. Does NOT modify strategy/orchestrator/order code.
@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from orchestrator.signal_orchestrator import TradeSignal
+from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 
 
 @dataclass
@@ -23,7 +23,7 @@ class MissedBid:
     symbol: str
     entry_price: float
     signal_time: datetime
-    direction: str  # "long" | "short" (mirrors TradeSignal.direction)
+    direction: str  # "long" | "short" (mirrors OrchestratorTradeSignal.direction)
     bars_to_expiry: int  # bars elapsed before signal invalidated
     reason: str  # "no_fill" | "filtered" | "price_reversed"
 
@@ -61,7 +61,7 @@ class MissedBidDetector:
 
     def analyze(
         self,
-        signals: list[TradeSignal],
+        signals: list[OrchestratorTradeSignal],
         positions: list[dict[str, Any]],
         bars: list[dict[str, Any]],
     ) -> list[MissedBid]:
@@ -69,7 +69,7 @@ class MissedBidDetector:
 
         Parameters
         ----------
-        signals : list[TradeSignal]
+        signals : list[OrchestratorTradeSignal]
             Strategy-generated signals.
         positions : list[dict]
             Opened positions.  Each dict should carry at least
@@ -121,8 +121,8 @@ class MissedBidDetector:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _signal_id(signal: TradeSignal) -> str:
-        """Derive a stable id from a TradeSignal."""
+    def _signal_id(signal: OrchestratorTradeSignal) -> str:
+        """Derive a stable id from an OrchestratorTradeSignal."""
         return signal.metadata.get(
             "signal_id",
             f"{signal.strategy_id}:{signal.symbol}:{signal.timestamp.isoformat()}",
@@ -130,7 +130,7 @@ class MissedBidDetector:
 
     @staticmethod
     def _matched_signal_ids(
-        signals: list[TradeSignal],
+        signals: list[OrchestratorTradeSignal],
         positions: list[dict[str, Any]],
     ) -> set[str]:
         """Return the set of signal IDs that have a matching position."""
@@ -186,7 +186,7 @@ class MissedBidDetector:
 
     def _classify_miss(
         self,
-        signal: TradeSignal,
+        signal: OrchestratorTradeSignal,
         symbol_bars: list[_Bar],
     ) -> str:
         """Determine why a signal was not filled.
