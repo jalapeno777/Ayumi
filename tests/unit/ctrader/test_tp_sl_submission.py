@@ -42,8 +42,8 @@ sys.path.insert(
 
 
 def _make_signal(**overrides):
-    """Construct a TradeSignal with all multi-TP fields populated."""
-    from adapters.ctrader.models import TradeDirection, TradeSignal
+    """Construct a OrchestratorTradeSignal with all multi-TP fields populated."""
+    from adapters.ctrader.models import TradeDirection, OrchestratorTradeSignal
 
     base = dict(
         symbol="GBPUSD",
@@ -60,7 +60,7 @@ def _make_signal(**overrides):
         timestamp=datetime(2026, 7, 5, 12, 0, 0, tzinfo=timezone.utc),
     )
     base.update(overrides)
-    return TradeSignal(**base)
+    return OrchestratorTradeSignal(**base)
 
 
 def _seed_order_manager_with_position(

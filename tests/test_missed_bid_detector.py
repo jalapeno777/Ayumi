@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from analysis.missed_bid_detector import MissedBidDetector
-from orchestrator.signal_orchestrator import TradeSignal
+from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 
 
 # ---------------------------------------------------------------------------
@@ -34,11 +34,11 @@ def _make_signal(
     signal_id: str | None = None,
     stop_loss: float = 1.0950,
     take_profit: float = 1.1100,
-) -> TradeSignal:
+) -> OrchestratorTradeSignal:
     metadata = {}
     if signal_id:
         metadata["signal_id"] = signal_id
-    return TradeSignal(
+    return OrchestratorTradeSignal(
         strategy_id=strategy_id,
         symbol=symbol,
         direction=direction,
