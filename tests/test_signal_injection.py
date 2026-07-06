@@ -9,7 +9,7 @@ lots > 0, the pipeline wiring is correct. Failures at any stage pinpoint
 the broken component.
 
 Pipeline stages under test:
-    1. StrategyAdapter.adapt_signal() — raw dict → TradeSignal
+    1. StrategyAdapter.adapt_signal() — raw dict → OrchestratorTradeSignal
     2. ConfidenceEngine.score() — gates (spread, session, volatility)
     3. ProfileRouter.route() — confidence threshold → Sniper/Swarm/Reject
     4. SLPositionSizer.calculate() — SL distance → lots
@@ -28,7 +28,7 @@ from __future__ import annotations
 import pytest
 from datetime import datetime, timezone
 
-from orchestrator.signal_orchestrator import SignalOrchestrator, TradeSignal, OrchestratedOrder
+from orchestrator.signal_orchestrator import SignalOrchestrator, OrchestratorTradeSignal, OrchestratedOrder
 from orchestrator.strategy_adapter import StrategyAdapter
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
@@ -77,7 +77,7 @@ def adapter():
     return StrategyAdapter()
 
 
-def _make_gbpusd_long_signal(adapter: StrategyAdapter) -> TradeSignal:
+def _make_gbpusd_long_signal(adapter: StrategyAdapter) -> OrchestratorTradeSignal:
     """Create a valid GBPUSD long signal via the adapter."""
     raw_output = {
         "symbol": "GBPUSD",
@@ -96,7 +96,7 @@ def _make_gbpusd_long_signal(adapter: StrategyAdapter) -> TradeSignal:
 # ── Stage 1: StrategyAdapter ──────────────────────────────────────────
 
 class TestStrategyAdapter:
-    """Verify raw strategy output converts to TradeSignal correctly."""
+    """Verify raw strategy output converts to OrchestratorTradeSignal correctly."""
 
     def test_adapt_valid_long_signal(self, adapter):
         raw = {

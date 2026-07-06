@@ -11,7 +11,7 @@ import pytest
 
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
-from orchestrator.signal_orchestrator import TradeSignal
+from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer

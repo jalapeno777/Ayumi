@@ -210,9 +210,9 @@ class TestCopyTradingBot(unittest.TestCase):
         self.assertIsNone(signal)
 
     def test_broadcast_signal(self):
-        from crypto.models.trade import TradeDirection, TradeSignal
+        from crypto.models.trade import TradeDirection, OrchestratorTradeSignal
 
-        sig = TradeSignal(
+        sig = OrchestratorTradeSignal(
             provider_id="p1",
             symbol="EURUSD",
             direction=TradeDirection.LONG,
