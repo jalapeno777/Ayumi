@@ -13,7 +13,7 @@ from confidence.gates import (
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
     SignalOrchestrator,
-    TradeSignal,
+    OrchestratorTradeSignal,
 )
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
@@ -34,12 +34,12 @@ def _make_signal(
     atr: float = 0.0008,
     confluences=None,
     **meta_kwargs,
-) -> TradeSignal:
+) -> OrchestratorTradeSignal:
     metadata = {"spread": spread, "atr": atr}
     if confluences:
         metadata["confluences"] = confluences
     metadata.update(meta_kwargs)
-    return TradeSignal(
+    return OrchestratorTradeSignal(
         strategy_id="test_strat",
         symbol=symbol,
         direction=direction,

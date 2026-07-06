@@ -1,9 +1,9 @@
 """Signal orchestrator — wires confidence → routing → sizing → execution."""
 
 from orchestrator.signal_orchestrator import (
-    TradeSignal,
+    OrchestratorTradeSignal,
     OrchestratedOrder,
     SignalOrchestrator,
 )
 
-__all__ = ["TradeSignal", "OrchestratedOrder", "SignalOrchestrator"]
+__all__ = ["OrchestratorTradeSignal", "OrchestratedOrder", "SignalOrchestrator"]
