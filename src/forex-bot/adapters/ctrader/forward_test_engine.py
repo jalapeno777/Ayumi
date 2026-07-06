@@ -48,6 +48,10 @@ from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
 
+# Confidence engine for live-fire gating
+from confidence.engine import ConfidenceEngine
+from confidence.gates import GateConfig
+
 # Lazy-import to avoid an import cycle at module load: api_client imports from
 # open_api_spot_feed which itself has no circular dep, but keeping the import
 # local lets tests patch the module path before the class is resolved.
@@ -107,6 +111,7 @@ class ForwardTestConfig:
     stats_interval_sec: float = 60.0
     live_mode: bool = False
     execution_mode: str = "paper"  # "paper" | "live" — must be explicit
+    live_fire_min_confidence: float = 0.65  # ConfidenceEngine threshold for live execution
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
@@ -378,6 +383,18 @@ class ForwardTestEngine:
         self._cfg_symbols_normalized: set[str] = {
             s.upper().replace("/", "") for s in self._config.symbols
         }
+
+        # Confidence engine for live-fire gating.  Only used when live_mode
+        # is active — paper mode bypasses the engine entirely so existing
+        # behaviour is unchanged.
+        self._confidence_engine: Optional[ConfidenceEngine] = None
+        if self._config.live_mode:
+            self._confidence_engine = ConfidenceEngine(gate_config=GateConfig())
+            logger.info(
+                "ConfidenceEngine initialised for live-fire gating "
+                "(min_confidence=%.2f)",
+                self._config.live_fire_min_confidence,
+            )
 
     @property
     def health(self) -> ForwardTestHealth:
@@ -1972,6 +1989,64 @@ class ForwardTestEngine:
                         s.confidence,
                     )
                     if self._config.live_mode:
+                        # ── ConfidenceEngine live-fire gate ──────────────
+                        # Score every signal through the multi-layer pipeline
+                        # (strategy score → confluence boost → gate validation)
+                        # before sending a real order to the broker.
+                        if self._confidence_engine is not None:
+                            direction_str = (
+                                s.direction.value
+                                if hasattr(s.direction, "value")
+                                else str(s.direction)
+                            )
+                            hour_utc = datetime.now(timezone.utc).hour
+                            conf_result = self._confidence_engine.score(
+                                raw_confidence=s.confidence,
+                                symbol=s.symbol,
+                                direction=direction_str,
+                                spread=self._current_spread,
+                                hour_utc=hour_utc,
+                            )
+                            logger.info(
+                                "[ConfidenceEngine] %s %s conf=%.3f → "
+                                "strategy=%.3f boost=%.3f final=%.3f "
+                                "gates_passed=%s gates_failed=%s blocked=%s",
+                                direction_str,
+                                s.symbol,
+                                s.confidence,
+                                conf_result.strategy_score,
+                                conf_result.confluence_boost,
+                                conf_result.final_score,
+                                conf_result.gates_passed,
+                                conf_result.gates_failed,
+                                conf_result.blocked,
+                            )
+                            if conf_result.blocked:
+                                logger.warning(
+                                    "[ConfidenceEngine] Signal BLOCKED by gate "
+                                    "%s for %s %s: %s",
+                                    conf_result.gates_failed,
+                                    direction_str,
+                                    s.symbol,
+                                    conf_result.block_reason,
+                                )
+                                with self._lock:
+                                    self._health.signals_rejected += 1
+                                continue
+                            if conf_result.final_score < self._config.live_fire_min_confidence:
+                                logger.warning(
+                                    "[ConfidenceEngine] Signal REJECTED — "
+                                    "final_score %.3f < live_fire_min_confidence "
+                                    "%.3f for %s %s",
+                                    conf_result.final_score,
+                                    self._config.live_fire_min_confidence,
+                                    direction_str,
+                                    s.symbol,
+                                )
+                                with self._lock:
+                                    self._health.signals_rejected += 1
+                                continue
+                        # ── end ConfidenceEngine gate ─────────────────────
                         self._execute_signal_live(s)
                     self._trigger_callback("on_signal_traded", s)
         except Exception as exc:
