@@ -11,8 +11,8 @@ from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
-    SignalOrchestrator,
     OrchestratorTradeSignal,
+    SignalOrchestrator,
 )
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter

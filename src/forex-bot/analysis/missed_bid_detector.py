@@ -1,6 +1,6 @@
 """Missed-bid detector — signal-vs-fill gap analysis.
 
-Compares generated TradeSignals against opened positions to identify
+Compares generated OrchestratorTradeSignals against opened positions to identify
 signals that never resulted in a live position, classifying the likely reason.
 
 Phase 1: read-only log analysis. Does NOT modify strategy/orchestrator/order code.
@@ -122,7 +122,7 @@ class MissedBidDetector:
 
     @staticmethod
     def _signal_id(signal: OrchestratorTradeSignal) -> str:
-        """Derive a stable id from a OrchestratorTradeSignal."""
+        """Derive a stable id from an OrchestratorTradeSignal."""
         return signal.metadata.get(
             "signal_id",
             f"{signal.strategy_id}:{signal.symbol}:{signal.timestamp.isoformat()}",

@@ -12,8 +12,8 @@ from confidence.gates import (
 )
 from orchestrator.signal_orchestrator import (
     OrchestratedOrder,
-    SignalOrchestrator,
     OrchestratorTradeSignal,
+    SignalOrchestrator,
 )
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
