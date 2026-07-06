@@ -135,6 +135,10 @@ class RiskGuard:
         self._circuit_breaker_triggered = False
         self._per_strategy_pnl: dict[str, float] = {}
         self._state_path = state_path
+        # When True, update_balance() is a no-op — only sync_live_balance()
+        # can change _current_balance.  Activated by sync_live_balance()
+        # once the cTrader live feed provides an authoritative balance.
+        self._live_balance_active = False
 
         # Spread gate wiring — allows RiskGuard to reject orders when
         # the live spread exceeds the per-symbol maximum.
@@ -531,10 +535,46 @@ class RiskGuard:
         self._kill_switch = kill_switch
 
     def update_balance(self, new_balance: float):
+        """Update current balance.
+
+        When live-balance mode is active (after :meth:`sync_live_balance`
+        has been called with an authoritative cTrader balance), this method
+        becomes a no-op.  PaperTrader.update_market_prices recalculates
+        ``_current_balance`` from ``starting_balance + pnl`` on every tick;
+        in live mode that recalculation is incorrect because the cTrader
+        balance already includes all realised and unrealised P&L.
+        Ignoring the paper recalculation prevents the in-memory balance
+        from reverting to ``starting_balance`` between sync intervals.
+        """
         with self._lock:
+            if self._live_balance_active:
+                return
             self._current_balance = new_balance
             if new_balance > self._peak_balance:
                 self._peak_balance = new_balance
+
+    def sync_live_balance(self, balance: float):
+        """Set the authoritative balance from the cTrader live feed.
+
+        Activates live-balance mode: subsequent :meth:`update_balance`
+        calls are ignored so that PaperTrader tick recalculation cannot
+        overwrite the synced value.  The balance will only change when
+        this method is called again with a fresh cTrader balance.
+
+        Should be called:
+        - After the first successful ``_sync_live_balance`` from the engine
+        - Periodically (e.g. every 5 min) to refresh the live balance
+        """
+        with self._lock:
+            self._live_balance_active = True
+            self._current_balance = balance
+            if balance > self._peak_balance:
+                self._peak_balance = balance
+
+    def disable_live_balance(self):
+        """Deactivate live-balance mode (testing / fallback to paper)."""
+        with self._lock:
+            self._live_balance_active = False
 
     def reset_daily_tracking(self):
         with self._lock:
@@ -635,6 +675,31 @@ class RiskGuard:
                 self._circuit_breaker_triggered = False
                 self._blocked_until = None
                 self._current_day = self._current_trading_day()
+                self._save_state()
+                return
+
+            # Startup sanity gate: reject impossible state values.
+            # peak_balance or daily_start_balance > 2x starting_balance
+            # is impossible in normal operation (would require 100% gain
+            # in a single day).  Reset to fresh state if detected.
+            _sanity_max = self._starting_balance * 2
+            if (self._daily_start_balance > _sanity_max
+                    or self._peak_balance > _sanity_max):
+                logger.warning(
+                    "Startup sanity gate: impossible state values "
+                    "(daily_start=%.2f peak=%.2f > 2x starting=%.2f) "
+                    "— resetting to fresh",
+                    self._daily_start_balance, self._peak_balance,
+                    self._starting_balance,
+                )
+                self._peak_balance = self._starting_balance
+                self._current_balance = self._starting_balance
+                self._daily_start_balance = self._starting_balance
+                self._daily_trade_count = 0
+                self._total_trades = 0
+                self._circuit_breaker_triggered = False
+                self._blocked_until = None
+                self._current_day = datetime.now(timezone.utc).date()
                 self._save_state()
                 return
 

@@ -944,6 +944,18 @@ def main():
                         _last_balance_sync = now
                         if hasattr(engine, '_sync_live_balance'):
                             engine._sync_live_balance()
+                        # Activate live-balance mode on RiskGuard so that
+                        # PaperTrader.update_market_prices tick recalculation
+                        # does not overwrite the synced cTrader balance.
+                        # PaperTrader recalculates _current_balance from
+                        # starting_balance + pnl on every tick, which reverts
+                        # the balance to $10K between 5-min sync intervals.
+                        # sync_live_balance() sets a flag that makes
+                        # update_balance() a no-op until the next sync.
+                        if hasattr(engine, '_live_balance') and engine._live_balance:
+                            _rg_pre = getattr(engine._paper_trader, "_risk_guard", None)
+                            if _rg_pre is not None:
+                                _rg_pre.sync_live_balance(engine._live_balance)
 
                     # Risk guard status (B5 health extension — A6)
                     # Uses two-balance model: starting=$10K baseline, live=cTrader
