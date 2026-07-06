@@ -85,30 +85,9 @@ _HEARTBEAT_INTERVAL_SEC = 5.0  # piggybacks on health monitor loop
 _ERROR_RATE_WINDOW_SEC = 60.0
 _ERROR_RATE_THRESHOLD_PCT = 0.50  # >50% error rate in 60s window → freeze
 
-_WEEKEND_CLOSE_HOUR_UTC = 21
-_WEEKEND_CLOSE_MINUTE_UTC = 55
-_WEEKEND_OPEN_HOUR_UTC = 21
-
-
-def _is_forex_market_closed() -> bool:
-    now = datetime.now(timezone.utc)
-    if now.weekday() == 4:
-        if now.hour > _WEEKEND_CLOSE_HOUR_UTC:
-            return True
-        if (
-            now.hour == _WEEKEND_CLOSE_HOUR_UTC
-            and now.minute >= _WEEKEND_CLOSE_MINUTE_UTC
-        ):
-            return True
-    if now.weekday() == 5:
-        return True
-    if now.weekday() == 6:
-        if now.hour < _WEEKEND_OPEN_HOUR_UTC:
-            return True
-        return False
-    if now.weekday() == 0 and now.hour < _WEEKEND_OPEN_HOUR_UTC:
-        return True
-    return False
+# Single source of truth for market-close detection lives in .market_hours.
+# Local alias preserves the existing call sites without renaming.
+from .market_hours import is_forex_market_closed as _is_forex_market_closed
 
 
 @dataclass
