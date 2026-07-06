@@ -1322,28 +1322,80 @@ class ForwardTestEngine:
 
         volume_raw = self._market_feed.lots_to_volume(symbol_id, volume_lots)
 
-        # cTrader rejects absolute SL/TP on MARKET orders with INVALID_REQUEST.
-        # Send the market order naked, then attach SL/TP via position amend after fill.
+        # Inline SL/TP on MARKET orders (verified against cTrader demo
+        # 2026-07-06 — the broker accepts absolute SL/TP on MARKET orders;
+        # previous naked-then-amend pattern was unnecessary). Fall back to
+        # the amend path only when the signal has no SL/TP (strategies
+        # without protection). Sprint Task N1.3, card fcXXXXXX.
+        inline_sl = signal.stop_loss if signal.stop_loss else None
+        inline_tp = signal.take_profit_1 if signal.take_profit_1 else None
+
         order = self._market_feed.new_order(
             symbol_id=symbol_id,
             side=side,
             volume=volume_raw,
             order_type=ProtoOAOrderType.MARKET,
-            sl=None,
-            tp=None,
+            sl=inline_sl,
+            tp=inline_tp,
             comment=signal.rationale,
         )
 
         outcome = self._classify_live_order_outcome(order, signal, strategy_id)
 
-        # If the order filled, attach SL/TP to the resulting position.
-        if outcome.status == LiveExecutionStatus.FILLED and signal.stop_loss and signal.take_profit_1:
+        # If the order filled with inline SL/TP, no amend is needed — the
+        # broker already has them. Still stash TP2/TP3 for ratcheting
+        # (Task 1.5). If inline SL/TP were absent, fall through to the
+        # amend path below for strategies without protection.
+        if outcome.status == LiveExecutionStatus.FILLED and inline_sl and inline_tp:
+            position_id = (
+                getattr(order, "position_id", None)
+                or getattr(order, "order_id", None)
+            )
+            logger.info(
+                "SL/TP attached inline on MARKET order %s (position %s): sl=%.5f tp=%.5f",
+                getattr(order, "order_id", ""), position_id, inline_sl, inline_tp,
+            )
+            # cTrader's amend proto only accepts a single TP, so TP2/TP3 are
+            # NOT sent to the broker. Instead, stash them on the Position via
+            # OrderManager so position_monitor can ratchet the broker TP
+            # when price crosses those levels (Task 1.5).
+            tp2 = getattr(signal, "take_profit_2", None)
+            tp3 = getattr(signal, "take_profit_3", None)
+            if tp2 is not None or tp3 is not None:
+                order_manager = self._resolve_order_manager()
+                if order_manager is not None:
+                    stored = order_manager.update_position_tp_levels(
+                        position_id, tp2, tp3,
+                    )
+                    if not stored:
+                        logger.warning(
+                            "TP2/TP3 not stored on Position %s — "
+                            "TP ratcheting will not activate (non-fatal)",
+                            position_id,
+                        )
+                else:
+                    logger.warning(
+                        "No OrderManager available — TP2/TP3 cannot be "
+                        "stored on Position %s (non-fatal)",
+                        position_id,
+                    )
+        elif outcome.status == LiveExecutionStatus.FILLED and signal.stop_loss and signal.take_profit_1:
+            # Fallback: strategies without inline SL/TP require amend
             position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
             try:
-                amended = self._market_feed.amend_sl_tp(
-                    position_id, signal.stop_loss, signal.take_profit_1,
-                    symbol_id=symbol_id,
-                )
+                # Bounded retry (defense in depth — the inline path is the
+                # primary fix, this only runs for the late-fill / no-inline
+                # case). 3 attempts with linear backoff handles transient
+                # broker issues without spamming.
+                amended = False
+                for attempt in range(3):
+                    amended = self._market_feed.amend_sl_tp(
+                        position_id, signal.stop_loss, signal.take_profit_1,
+                        symbol_id=symbol_id,
+                    )
+                    if amended:
+                        break
+                    time.sleep(0.2 * (attempt + 1))
                 if amended:
                     logger.info("SL/TP attached to position %s: sl=%.5f tp=%.5f",
                                 position_id, signal.stop_loss, signal.take_profit_1)
@@ -1377,7 +1429,7 @@ class ForwardTestEngine:
                             )
                 else:
                     logger.warning(
-                        "F1: amend_sl_tp returned False for position %s — "
+                        "F1: amend_sl_tp returned False after 3 attempts for position %s — "
                         "TP2/TP3 NOT stored (position remains on TP1 only, non-fatal)",
                         position_id,
                     )
@@ -1724,10 +1776,21 @@ class ForwardTestEngine:
                             and ctrader_position_id != 0):
                         try:
                             symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
-                            amended = self._market_feed.amend_sl_tp(
-                                ctrader_position_id, signal.stop_loss, signal.take_profit_1,
-                                symbol_id=symbol_id,
-                            )
+                            # Bounded retry (defense in depth — the inline
+                            # attach on the sync path is the primary fix;
+                            # late fills reach this branch via the fill
+                            # callback). 3 attempts with linear backoff
+                            # handles transient broker issues without
+                            # spamming.
+                            amended = False
+                            for attempt in range(3):
+                                amended = self._market_feed.amend_sl_tp(
+                                    ctrader_position_id, signal.stop_loss, signal.take_profit_1,
+                                    symbol_id=symbol_id,
+                                )
+                                if amended:
+                                    break
+                                time.sleep(0.2 * (attempt + 1))
                             if amended:
                                 logger.info(
                                     "Late SL/TP attached to position %s (order %s): sl=%.5f tp=%.5f",
@@ -1762,7 +1825,7 @@ class ForwardTestEngine:
                                         )
                             else:
                                 logger.warning(
-                                    "F2: late amend_sl_tp returned False for position %s — "
+                                    "F2: late amend_sl_tp returned False after 3 attempts for position %s — "
                                     "TP2/TP3 NOT stored (position remains on TP1 only, non-fatal)",
                                     ctrader_position_id,
                                 )
