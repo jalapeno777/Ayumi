@@ -7,7 +7,7 @@ from crypto.models.trade import (
     CopyTrade,
     ProviderStats,
     TradeDirection,
-    OrchestratorTradeSignal,
+    TradeSignal,
     TradeStatus,
 )
 
@@ -22,8 +22,8 @@ def _make_signal(
     take_profit: float = 1.1150,
     lot_size: float = 0.1,
     **kwargs,
-) -> OrchestratorTradeSignal:
-    return OrchestratorTradeSignal(
+) -> TradeSignal:
+    return TradeSignal(
         provider_id=provider_id,
         symbol=symbol,
         direction=direction,
