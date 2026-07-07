@@ -952,6 +952,32 @@ def main():
                         # the balance to $10K between 5-min sync intervals.
                         # sync_live_balance() sets a flag that makes
                         # update_balance() a no-op until the next sync.
+                        # Daily counter reset hook (card 18d69d04): when the
+                        # 17:00 America/Toronto trading-day boundary has
+                        # crossed since the last sync, reset the per-day
+                        # health counters (signals_sent, signals_failed_live,
+                        # signals_pending, signals_cancelled, signals_rejected,
+                        # signals_traded, signals_accepted).
+                        if hasattr(engine, '_paper_trader') and engine._paper_trader:
+                            _rg_for_reset = getattr(engine._paper_trader, '_risk_guard', None)
+                            if _rg_for_reset is not None:
+                                _current_trading_day = _rg_for_reset._current_trading_day()
+                                _last_health_day = getattr(
+                                    engine._health, '_last_health_trading_day', None,
+                                )
+                                if (
+                                    _last_health_day is None
+                                    or _current_trading_day != _last_health_day
+                                ):
+                                    engine._health.reset_daily_counters()
+                                    engine._health._last_health_trading_day = (
+                                        _current_trading_day
+                                    )
+                                    logger.info(
+                                        "[B5 Daily Reset] counters reset at trading_day=%s "
+                                        "(17:00 America/Toronto boundary crossed)",
+                                        _current_trading_day.isoformat(),
+                                    )
                         if hasattr(engine, '_live_balance') and engine._live_balance:
                             _rg_pre = getattr(engine._paper_trader, "_risk_guard", None)
                             if _rg_pre is not None:
