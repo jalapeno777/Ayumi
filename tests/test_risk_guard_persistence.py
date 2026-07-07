@@ -3,7 +3,10 @@
 Covers council decisions:
   R1 — state survives restarts
   R2 — daily loss halts until UTC midnight (not 5 min)
-  R3 — UTC date consistency
+  R3 — trading day boundary at 17:00 America/Toronto (changed from UTC midnight
+       in commit 7b5398e; the daily-loss time-based block intentionally remains
+       at UTC midnight since that's when the broker "day" rolls over for the
+       block-expiry timer)
 """
 
 import json
@@ -81,7 +84,14 @@ class TestSaveState:
 
 class TestRestoreState:
     def test_restore_state_recovers_all_fields(self, tmp_state):
-        """A new RiskGuard instance picks up state previously saved."""
+        """A new RiskGuard instance picks up state previously saved.
+
+        Note: _daily_start_balance may differ from what was set on g1 because
+        _save_state() calls _update_daily_tracking() which resets it to
+        _current_balance when the trading-day boundary (17:00 America/Toronto)
+        has been crossed. The test asserts the values that are actually
+        persisted after the save — i.e. what a fresh instance should see.
+        """
         # Phase 1 — create guard, set state, save
         g1 = RiskGuard(
             ftmo_config=FTMOConfig(),
@@ -90,8 +100,10 @@ class TestRestoreState:
         )
         g1._peak_balance = 11200.0
         g1._current_balance = 9500.0
+        # Align _current_day with the current trading day so save does not
+        # trigger a daily-start reset (which would overwrite _daily_start_balance).
+        g1._current_day = g1._current_trading_day()
         g1._daily_start_balance = 10000.0
-        g1._current_day = datetime.now(timezone.utc).date()
         g1._daily_trade_count = 5
         g1._total_trades = 30
         g1._circuit_breaker_triggered = True
@@ -235,7 +247,13 @@ class TestStateSurvivesRestart:
 # Test R3 — UTC date consistency
 # ---------------------------------------------------------------------------
 
-class TestUTCDateConsistency:
+class TestTradingDayConsistency:
+    """Trading day boundary is 17:00 America/Toronto (shipped in commit 7b5398e).
+
+    The daily-loss time-based block (block until UTC midnight) is intentionally
+    separate from the trading-day boundary — see test_daily_loss_blocks_until_utc_midnight.
+    """
+
     def test_no_date_today_in_source(self):
         """Verify risk_guard.py source has no date.today() calls (R3)."""
         import inspect
@@ -244,13 +262,31 @@ class TestUTCDateConsistency:
         source = inspect.getsource(rg_module.RiskGuard)
         assert "date.today()" not in source, (
             "date.today() found in RiskGuard source — must use "
-            "datetime.now(timezone.utc).date() instead"
+            "_current_trading_day() instead"
         )
 
-    def test_update_daily_tracking_uses_utc(self, guard):
-        """_update_daily_tracking sets _current_day to UTC today."""
+    def test_update_daily_tracking_uses_trading_day(self, guard):
+        """_update_daily_tracking sets _current_day to trading day (Toronto 17:00)."""
         guard._update_daily_tracking()
-        utc_today = datetime.now(timezone.utc).date()
-        assert guard._current_day == utc_today, (
-            f"_current_day={guard._current_day}, UTC today={utc_today}"
+        trading_today = guard._current_trading_day()
+        assert guard._current_day == trading_today, (
+            f"_current_day={guard._current_day}, trading_day={trading_today}"
+        )
+
+    def test_trading_day_uses_toronto_tz(self, guard):
+        """_current_trading_day uses America/Toronto timezone (not UTC)."""
+        from adapters.ctrader import risk_guard as rg_module
+
+        tz_name = rg_module._TRADING_TZ.key
+        assert tz_name == "America/Toronto", (
+            f"Expected America/Toronto, got {tz_name}"
+        )
+
+    def test_trading_day_boundary_uses_17_00(self, guard):
+        """Reset hour is 17 (5 PM Toronto)."""
+        from adapters.ctrader import risk_guard as rg_module
+
+        reset_hour = rg_module._TRADING_DAY_RESET_HOUR
+        assert reset_hour == 17, (
+            f"Expected 17:00 reset, got {reset_hour}:00"
         )
