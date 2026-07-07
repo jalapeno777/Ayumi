@@ -20,8 +20,8 @@ import tempfile
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
@@ -166,6 +166,31 @@ class ForwardTestHealth:
     signals_cancelled: int = 0
     signals_accepted: int = 0  # blend runner accepted the signal (T2)
     symbol_resolution_failures: int = 0  # total failed symbol resolutions (Task 2)
+    # Last trading-day observed for daily counter reset. Reset to None on
+    # process restart; the B5 health loop resets the daily counters when
+    # this lags the current trading day (see 17:00 America/Toronto boundary
+    # in risk_guard._TRADING_DAY_RESET_HOUR).
+    _last_health_trading_day: Optional[date] = field(default=None, repr=False, compare=False)
+
+    def reset_daily_counters(self) -> None:
+        """Reset per-trading-day counters to zero.
+
+        Mirrors risk_guard._current_trading_day() boundary (17:00
+        America/Toronto). Counters touched: signals_sent,
+        signals_failed_live, signals_pending, signals_cancelled,
+        signals_rejected, signals_traded, signals_accepted.
+
+        NOTE: signals_generated is intentionally NOT reset — it is a
+        lifetime diagnostic of strategy productivity across the session,
+        not a daily guardrail metric. See BQ-1175 follow-up discussion.
+        """
+        self.signals_sent = 0
+        self.signals_failed_live = 0
+        self.signals_pending = 0
+        self.signals_cancelled = 0
+        self.signals_rejected = 0
+        self.signals_traded = 0
+        self.signals_accepted = 0
 
 
 class LiveExecutionStatus(Enum):
