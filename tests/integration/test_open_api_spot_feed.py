@@ -483,6 +483,114 @@ class TestStaticSymbolsFallback:
 
 
 # ---------------------------------------------------------------------------
+# JPY tick decode regression (card 43c92270 / card 55140c52)
+# ---------------------------------------------------------------------------
+#
+# USDJPY's 100x price-scaling regression (commit bc4fa4f9) shipped because no
+# test exercised `_handle_spot_event` with a JPY-pair symbol_id and digits=3.
+# These tests assert that 5-digit protobuf-encoded raw prices decode to the
+# correct display level (~162.10), not the inflated ~1620.99 the buggy
+# divisor (10**digits with digits=3 → divisor=1000) would produce.
+#
+# Reverted decode (digits=3 divisor=1000):
+#   raw_bid=1620990 → 1620.990     ← WRONG
+# Fixed decode (is_jpy → tick_digits=5 → divisor=100000):
+#   raw_bid=1620990 → 162.0990     ← CORRECT
+#
+# ---------------------------------------------------------------------------
+class TestJpyTickDecode:
+    @pytest.fixture(autouse=True)
+    def setup(self, feed_factory):
+        self.feed = feed_factory()
+        self.feed._populate_static_symbols()
+        # Disable validation that requires an active connection so we can
+        # exercise the pure decoding path.
+        self.feed._subscribed_symbol_ids.update({1, 2, 4})
+
+    def test_usdjpy_raw_5digit_decodes_to_canonical_162099(self):
+        """USDJPY symbol_id=4 (digits=3) with raw prices at 5-digit protobuf
+        encoding must decode to ~162.0990, not the 100x-inflated ~1620.990.
+
+        cTrader raw price encoding is fixed at 5 decimal places across all
+        symbols: raw_value = display_price * 100_000. So 162.0990 encodes
+        to raw_bid=16_209_900 (NOT 1_620_990 — that would only be 4-digit
+        encoding and decode to 16.2099)."""
+        received = []
+        self.feed.on_tick(received.append)
+
+        # raw_bid=16_209_900 → $162.0990 in 5-digit encoding
+        # raw_ask=16_210_050 → $162.1005
+        self.feed._handle_spot_event(
+            _make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050)
+        )
+
+        assert len(received) == 1, "expected exactly one tick callback fire"
+        tick = received[0]
+        assert tick.symbol_id == 4
+        assert tick.bid == pytest.approx(162.0990, rel=1e-6)
+        assert tick.ask == pytest.approx(162.1005, rel=1e-6)
+        # Negative assertion: explicitly NOT the inflated 3-digit-divisor value
+        assert tick.bid != pytest.approx(1620.990, rel=1e-3)
+        assert tick.ask != pytest.approx(1621.005, rel=1e-3)
+
+    def test_eurusud_5digit_symbol_unchanged_by_jpy_workaround(self):
+        """EURUSD symbol_id=1 (digits=5) must decode at the existing level.
+        Regression check: the JPY workaround must not perturb non-JPY 5-digit
+        symbols (tick_digits evaluates to 5, so divisor stays 10**5=100000)."""
+        received = []
+        self.feed.on_tick(received.append)
+
+        # raw_bid=108500, raw_ask=108520 → $1.08500 / $1.08520
+        self.feed._handle_spot_event(
+            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
+        )
+
+        assert len(received) == 1
+        tick = received[0]
+        assert tick.symbol_id == 1
+        assert tick.bid == pytest.approx(1.08500, rel=1e-6)
+        assert tick.ask == pytest.approx(1.08520, rel=1e-6)
+
+    def test_usdjpy_regression_catches_old_divisor(self):
+        """If the buggy 3-digit divisor is reintroduced, the JPY tick decode
+        should land at ~1620.99 (100x inflated). This guards against the
+        regression returning."""
+        # Simulate the OLD code path: divisor = 10 ** digits (digits=3 → 1000)
+        old_digits = self.feed._symbol_digits[4]  # 3
+        old_divisor = 10 ** old_digits  # 1000
+        raw_bid = 16_209_900  # 5-digit encoding for $162.0990
+        inflated_bid = raw_bid / old_divisor  # → 16_209.900 (3-digit divisor)
+
+        # If the bug returned, USDJPY would decode to ~16209.90 instead of
+        # the canonical ~162.0990. We assert that we are NOT in that state
+        # by re-running the real handler and confirming the correct result.
+        received = []
+        self.feed.on_tick(received.append)
+        self.feed._handle_spot_event(
+            _make_spot_event(symbol_id=4, bid=raw_bid, ask=raw_bid + 15)
+        )
+        fixed_bid = received[0].bid
+
+        assert inflated_bid == pytest.approx(16209.900, rel=1e-3)
+        assert fixed_bid == pytest.approx(162.0990, rel=1e-3)
+        # 100x ratio — proof the regression shape would be caught.
+        assert inflated_bid / fixed_bid == pytest.approx(100.0, rel=1e-3)
+
+    def test_usdjpy_latest_tick_in_state_is_at_canonical_price(self):
+        """After a USDJPY tick arrives, get_latest_tick() must reflect the
+        ~162.10 price band — operators see this in the [B5 Health] line via
+        feed.get_all_ticks()."""
+        self.feed._handle_spot_event(
+            _make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050)
+        )
+
+        # _ticks_by_id is keyed by symbol_id after _handle_spot_event.
+        latest = self.feed._ticks_by_id[4]
+        assert latest.bid == pytest.approx(162.0990, rel=1e-6)
+        assert latest.ask == pytest.approx(162.1005, rel=1e-6)
+
+
+# ---------------------------------------------------------------------------
 # Properties
 # ---------------------------------------------------------------------------
 

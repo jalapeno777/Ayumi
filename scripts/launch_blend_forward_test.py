@@ -967,26 +967,40 @@ def main():
 
                     logger.info(
                         "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
-                        "trades=%d live_fills=%d stats_fails=%d %s "
-                        "%s uptime=%.0fs",
+                        "trades=%d live_fills=%d signals_failed_live=%d "
+                        "stats_fails=%d %s %s uptime=%.0fs",
                         h.get("ticks_received", 0),
                         h.get("ticks_per_second", 0.0),
                         engine.health.bars_built,
                         engine.health.signals_generated,
                         _paper_trades,
                         _live_fills,
+                        engine.health.signals_failed_live,
                         _stats_fails,
                         _balance_str,
                         _risk_str,
                         h.get("uptime_sec", 0),
                     )
-                    # Alert if live mode has zero fills despite signals
+                    # Alert if live mode has zero fills despite signals.
+                    # Distinguish "orders reaching broker but rejected" from
+                    # "orders not reaching broker" so operators can diagnose
+                    # the actual failure mode without grepping rejection logs.
                     if _live_mode and engine.health.signals_generated > 0 and _live_fills == 0:
-                        logger.warning(
-                            "[B5 Health] ⚠️  live_fills=0 but signals_generated=%d — "
-                            "orders may not be reaching cTrader",
-                            engine.health.signals_generated,
-                        )
+                        _failed = engine.health.signals_failed_live
+                        if _failed > 0:
+                            logger.warning(
+                                "[B5 Health] ⚠️  live_fills=0 signals_generated=%d "
+                                "signals_failed_live=%d — orders reaching broker "
+                                "but being rejected (see rejection log for errorCode)",
+                                engine.health.signals_generated,
+                                _failed,
+                            )
+                        else:
+                            logger.warning(
+                                "[B5 Health] ⚠️  live_fills=0 but signals_generated=%d — "
+                                "orders may not be reaching cTrader",
+                                engine.health.signals_generated,
+                            )
                     # Tick-to-bar pipeline health (Amendment 4)
                     # During market-closed hours (Fri 21:00 UTC → Sun 21:00 UTC),
                     # cTrader delivers stale/dribble ticks but no new bars form —
