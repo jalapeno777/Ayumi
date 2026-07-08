@@ -463,18 +463,13 @@ The cTrader Mobile cloud instance is a **separate subscription**, but the same c
 
 ---
 
-## 8. Open questions for Craig
+## 8. Decisions (Craig, 2026-07-07)
 
-1. **Kill-switch authority**: when Python detects a fault in cBot mid-trade, does it have authority to flatten the position unilaterally? Or does it only alert Craig for manual decision?
-   - Default proposal: **YES for emergency flatten** (DD breach imminent), **NO for routine overrides** (regime demote). Document the line.
-2. **Position sizing**: per-trade risk % — 0.5% (FTMO default), 1.0% (aggressive), 0.25% (conservative)? Affects challenge success rate materially.
-   - Default proposal: **0.5%** for Phase 1, can tune after P3 walk-forward.
-3. **Strategy count on challenge**: ICT/SMC only, or also load momentum/SR as backup strategies?
-   - Default proposal: **ICT/SMC only for first challenge**. Adding strategies mid-challenge complicates analysis. Validate one thing at a time.
-4. **Max concurrent positions**: 1 (safest), 2 (default in spec), 3 (aggressive)?
-   - Default proposal: **2** — matches `ICTSMC.BacktestConfig.Default.MaxOpenTrades`.
-5. **News filter source**: ForexFactory (free, scrape), Investing.com (free, scrape), paid API (ForexNewsAPI), or skip the filter for v1?
-   - Default proposal: **ForexFactory scrape with cache**, gate only high-impact events.
+1. **Kill-switch authority**: ✅ **Emergency flatten YES, regime demote NO.** Python watchdog can flatten all positions in catastrophic failures (DD breach imminent). Regime classification stays with cBot (tick-level data). **Visibility requirement:** when kill-switch activates, must surface prominently — dashboard alert + Craig notification, not silent.
+2. **Risk model**: ✅ **Max 2% risk at any time** (not per-trade fixed). Dynamic allocation: if a trade goes positive and SL moves to breakeven/profit, that frees risk capacity for another trade. This is the governing constraint, not position count.
+3. **Strategy count**: ✅ **No single-strategy limit.** Need one that works first, but different timeframes (scalping, swing, long-term) can complement each other. Current 10 strategies aren't producing enough trades — the problem is signal quality, not strategy count. Don't limit artificially.
+4. **Max concurrent positions**: ✅ Governed by **2% max risk at any time** (not a fixed position count). When SL moves to BE/profit on an open trade, capacity frees up for new entries. Dynamic, not static.
+5. **News filter source**: ✅ **ForexFactory scrape with cache** to start. Paid APIs (Financial Modeling Prep, etc.) deferred until revenue positive — not a pre-revenue priority.
 
 ---
 
