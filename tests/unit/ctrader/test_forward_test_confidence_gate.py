@@ -86,9 +86,9 @@ class TestConfidenceEngineWiring:
         assert paper_engine._confidence_engine is None
 
     def test_live_fire_min_confidence_default(self):
-        """Default live_fire_min_confidence must be 0.65."""
+        """Default live_fire_min_confidence must be 0.55 (lowered per Phase 4)."""
         cfg = ForwardTestConfig()
-        assert cfg.live_fire_min_confidence == 0.65
+        assert cfg.live_fire_min_confidence == 0.55
 
     def test_live_fire_min_confidence_configurable(self):
         """live_fire_min_confidence must be configurable."""

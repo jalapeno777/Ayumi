@@ -17,6 +17,7 @@ from orchestrator.signal_orchestrator import (
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
+from risk.regime_thresholds import Regime, RegimeAwareThresholds
 from risk.state_persistence import StatePersistence
 # Import the canonical CET date helper from ftmo_guard — do NOT duplicate it.
 # The daily reset boundary is FTMO-defined: CET midnight, not UTC midnight.
@@ -87,6 +88,11 @@ class BlendForwardTestRunner:
             position_sizer=self._sizer,
             account_balance=self._balance,
         )
+
+        # Phase 4: Regime-aware risk sizing
+        self._regime_thresholds = RegimeAwareThresholds()
+        self._current_regime: Regime = Regime.STABLE
+        self._regime_history: list = []
 
         # State persistence
         self._persistence = StatePersistence(
@@ -195,6 +201,9 @@ class BlendForwardTestRunner:
         if not bar:
             return orders
 
+        # Phase 4: Update market regime from recent bars
+        self.update_regime(bars)
+
         # Build a simple state object that strategies can evaluate
         state = type('BarState', (), {
             'bars': bars,
@@ -268,6 +277,44 @@ class BlendForwardTestRunner:
 
         return as_dict
 
+    def update_regime(self, bars: list) -> None:
+        """Classify current market regime from recent bars (ATR-based heuristic).
+
+        Simple volatility-based detection:
+        - Compute recent range (high-low) as proxy for ATR
+        - Compare to rolling mean: if current > 2x mean → BREAKDOWN
+        - If between 1x and 2x → TRANSITION
+        - Below 1x → STABLE
+        """
+        if len(bars) < 20:
+            return  # Not enough data
+
+        recent = bars[-20:]
+        ranges = [getattr(b, 'high', 0) - getattr(b, 'low', 0) for b in recent]
+        if not ranges or max(ranges) == 0:
+            return
+
+        current_range = ranges[-1]
+        avg_range = sum(ranges) / len(ranges)
+        if avg_range == 0:
+            return
+
+        ratio = current_range / avg_range
+        if ratio >= 2.0:
+            new_regime = Regime.BREAKDOWN
+        elif ratio >= 1.5:
+            new_regime = Regime.TRANSITION
+        else:
+            new_regime = Regime.STABLE
+
+        if new_regime != self._current_regime:
+            logger.info(
+                "Regime shift: %s → %s (range ratio %.2f)",
+                self._current_regime.value, new_regime.value, ratio,
+            )
+            self._current_regime = new_regime
+            self._regime_history.append((new_regime.value, ratio))
+
     def on_signal(self, strategy_id: str, signal_data: dict) -> OrchestratedOrder:
         """Handle incoming strategy signal through full pipeline."""
         signal = self._adapter.adapt_signal(strategy_id, signal_data)
@@ -275,6 +322,17 @@ class BlendForwardTestRunner:
         order = self._orchestrator.process_signal(signal)
 
         if not order.rejected:
+            # Phase 4: Apply regime-aware exposure multiplier
+            exposure_mult = self._regime_thresholds.get_exposure_multiplier(self._current_regime)
+            if exposure_mult < 1.0:
+                order.risk_amount *= exposure_mult
+                order.lots *= exposure_mult
+                logger.info(
+                    "Regime sizing: %s regime → %.0f%% exposure (risk=$%.2f lots=%.4f)",
+                    self._current_regime.value, exposure_mult * 100,
+                    order.risk_amount, order.lots,
+                )
+
             # Register position tracking under a unique signal_id
             signal_id = self.make_signal_id(signal)
             self._open_positions[signal_id] = {

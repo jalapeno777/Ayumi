@@ -115,7 +115,7 @@ class ForwardTestConfig:
     stats_interval_sec: float = 60.0
     live_mode: bool = False
     execution_mode: str = "paper"  # "paper" | "live" — must be explicit
-    live_fire_min_confidence: float = 0.65  # ConfidenceEngine threshold for live execution
+    live_fire_min_confidence: float = 0.55  # Lowered per Phase 4 — allow more signals through (was 0.65)
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
