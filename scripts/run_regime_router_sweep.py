@@ -11,6 +11,7 @@ Focus areas:
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import os
@@ -34,6 +35,7 @@ from backtest.strategies import (
     RegimeSwitchingRouter,
     RegimeRouterConfig,
 )
+from common.resource_limits import add_resource_args, run_limited
 from quant.walk_forward import run_strategy as run_walk_forward
 
 logging.basicConfig(
@@ -68,7 +70,7 @@ class RegimeRouterSweepConfig:
 
     output_dir: str = "reports/regime_router_sweeps"
 
-    max_workers: Optional[int] = None
+    max_workers: Optional[int] = 2
 
     regime_detection_params: Dict[str, List[Any]] = field(
         default_factory=lambda: {
@@ -345,7 +347,7 @@ class RegimeRouterSweepRunner:
             )
             tasks.append(task_args)
 
-        max_workers = self._config.max_workers or os.cpu_count()
+        max_workers = self._config.max_workers or 2
 
         if max_workers and max_workers > 1 and len(tasks) > 1:
             logger.info(f"Running {len(tasks)} tasks with {max_workers} workers")
@@ -503,10 +505,16 @@ class RegimeRouterSweepRunner:
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser(description="Regime Router parameter sweep")
+    add_resource_args(parser)
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    args = parser.parse_args()
+
     config = RegimeRouterSweepConfig(
         symbol="EURUSD",
         timeframe="H1",
         n_bars=10000,
+        max_workers=args.max_workers,
     )
 
     runner = RegimeRouterSweepRunner(config)
@@ -525,4 +533,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

@@ -10,6 +10,7 @@ Usage:
     python scripts/run_supertrend_rsi_walkforward.py
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -26,6 +27,7 @@ from backtest.engine import BacktestConfig, BacktestMetrics
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import SupertrendRSIBlendStrategy
 from backtest import CsvDataLoader
+from common.resource_limits import add_resource_args, run_limited
 from quant.go_nogo_criteria import PerWindowCriteria
 
 STRICT_PER_WINDOW = PerWindowCriteria(
@@ -257,6 +259,10 @@ def run_supertrend_walkforward(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Supertrend RSI 5-window walk-forward")
+    add_resource_args(parser)
+    args = parser.parse_args()
+
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     loader = CsvDataLoader()
@@ -310,4 +316,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

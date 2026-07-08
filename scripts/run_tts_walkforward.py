@@ -26,6 +26,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 from backtest.engine import Bar
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
+from common.resource_limits import add_resource_args, run_limited
 from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
 from quant.go_nogo_criteria import PerWindowCriteria
 from signal_engine.risk_sizer import (
@@ -146,6 +147,7 @@ def run_pair(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="TTC/TBD Walk-Forward Backtest")
+    add_resource_args(parser)
     parser.add_argument(
         "--pairs",
         nargs="+",
@@ -437,4 +439,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

@@ -9,6 +9,7 @@ Usage:
 """
 
 import argparse
+from common.resource_limits import add_resource_args, run_limited
 import logging
 import shutil
 import sys
@@ -70,6 +71,7 @@ def _reset_synthetic_data(log_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Forward test: Session Range MR GBPUSD")
+    add_resource_args(parser)
     parser.add_argument("--live", action="store_true", help="Enable live execution")
     parser.add_argument("--bar-minutes", type=int, default=15, help="Bar timeframe in minutes")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")

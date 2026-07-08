@@ -27,6 +27,7 @@ from backtest.parameter_sweep.optuna_optimizer import (  # noqa: E402
     session_range_mr_search_space,
 )
 from backtest import CsvDataLoader  # noqa: E402
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from strategies.session_range_mean_reversion import (  # noqa: E402
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,
@@ -88,6 +89,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Optuna optimization for Session Range MR"
     )
+    add_resource_args(parser)
     parser.add_argument(
         "--trials", type=int, default=100, help="Number of Optuna trials"
     )
@@ -212,4 +214,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

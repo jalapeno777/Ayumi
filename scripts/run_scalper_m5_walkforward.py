@@ -7,6 +7,7 @@ GO/NO-GO criteria: WR > 45%, PF > 1.3, 3/5 windows pass.
 Refs AYUAA-768.
 """
 
+import argparse
 import json
 import math
 import sys
@@ -22,6 +23,7 @@ from backtest.data_loader import CsvDataLoader
 from backtest.engine import BacktestConfig, get_spread_for_pair
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import ScalperStrategy
+from common.resource_limits import add_resource_args, run_limited
 from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria
 from quant.walk_forward import WalkForwardValidator
 from signal_engine.risk_sizer import ConfidencePositionSizer
@@ -258,6 +260,10 @@ def run_scalper_walkforward(pair: str) -> PairResult:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="M5 Scalper walk-forward validation")
+    add_resource_args(parser)
+    args = parser.parse_args()
+
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
@@ -325,4 +331,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

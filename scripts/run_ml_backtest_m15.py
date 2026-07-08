@@ -6,6 +6,7 @@ and checks FTMO acceptance criteria.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -27,6 +28,7 @@ from ml.train_model import (  # noqa: E402
 )
 from ml.features import build_feature_matrix, add_multi_timeframe_features, load_csv  # noqa: E402
 from ml.signal_simulator import build_labeled_dataset
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria  # noqa: E402
 
 
@@ -312,5 +314,12 @@ def run_full_backtest():
 
 
 if __name__ == "__main__":
-    report = run_full_backtest()
-    sys.exit(0 if report["acceptance"]["go_nogo"] else 1)
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        report = run_full_backtest()
+        sys.exit(0 if report["acceptance"]["go_nogo"] else 1)
+    _run()

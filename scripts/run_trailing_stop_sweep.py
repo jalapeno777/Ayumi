@@ -37,6 +37,7 @@ from backtest.trade_management import (
     TrailingStopMethod,
 )
 from backtest.data_loader import CsvDataLoader
+from common.resource_limits import add_resource_args, run_limited
 
 REPORT_DIR = Path("reports/parameter_sweeps")
 WALKFORWARD_REPORT_DIR = Path("reports/walk_forward")
@@ -274,8 +275,9 @@ def run_walk_forward(
 
 def main():
     parser = argparse.ArgumentParser(description="Trailing Stop Parameter Sweep")
+    add_resource_args(parser)
     parser.add_argument("--pair", default="GBPUSD", choices=["GBPUSD", "EURUSD"])
-    parser.add_argument("--max-workers", type=int, default=None)
+    parser.add_argument("--max-workers", type=int, default=2)
     args = parser.parse_args()
 
     pair = args.pair
@@ -394,4 +396,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

@@ -7,6 +7,7 @@ validation, and evaluates against FTMO criteria.
 """
 
 import argparse
+from common.resource_limits import add_resource_args, run_limited
 import json
 import sys
 import time
@@ -22,6 +23,7 @@ REPORTS_DIR = project_root / "reports"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Portfolio blend testing")
+    add_resource_args(parser)
     parser.add_argument("--windows", type=int, default=5, help="Walk-forward windows")
     parser.add_argument("--balance", type=float, default=10000, help="Starting balance")
     parser.add_argument("--output", type=str, default=None, help="Output JSON path")

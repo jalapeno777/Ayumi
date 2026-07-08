@@ -10,6 +10,7 @@ Simulates 90 trading days (Jan-Mar 2026) with:
 """
 
 import argparse
+from common.resource_limits import add_resource_args, run_limited
 import json
 import sys
 import warnings
@@ -661,6 +662,7 @@ def apply_go_nogo(metrics: dict, ftmo: dict, pair_results: dict) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="90-Day Forward Validation Simulation")
+    add_resource_args(parser)
     parser.add_argument(
         "--trades", type=int, default=270, help="Target number of trades"
     )

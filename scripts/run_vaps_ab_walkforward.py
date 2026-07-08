@@ -33,6 +33,7 @@ from backtest.walk_forward_runner import (  # noqa: E402
     STRATEGY_REGISTRY,
     run_strategy_walk_forward,
 )
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from quant.vaps import VAPSConfig  # noqa: E402
 from quant.walk_forward import (  # noqa: E402
     WalkForwardValidator,
@@ -357,6 +358,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="VAPS vs Fixed Sizing A/B Walk-Forward Comparison"
     )
+    add_resource_args(p)
     p.add_argument("--pair", type=str, default="GBPUSD", help="Currency pair")
     p.add_argument(
         "--strategy", type=str, default="session_range_mr", help="Strategy name"
@@ -469,4 +471,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

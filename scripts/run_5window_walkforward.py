@@ -10,6 +10,7 @@ Usage:
     python scripts/run_5window_walkforward.py
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -24,9 +25,14 @@ sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
 from backtest.runner import run_hybrid_backtest  # noqa: E402
 from backtest import CsvDataLoader  # noqa: E402
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="5-window walk-forward evaluation (ICT/SMC hybrid)")
+    add_resource_args(parser)
+    args = parser.parse_args()
+
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     loader = CsvDataLoader()
@@ -97,4 +103,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

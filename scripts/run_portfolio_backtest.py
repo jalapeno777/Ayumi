@@ -7,6 +7,7 @@ a portfolio backtest with FTMO compliance, and runs walk-forward validation.
 """
 
 import argparse
+from common.resource_limits import add_resource_args, run_limited
 import json
 import sys
 import time
@@ -457,6 +458,7 @@ def format_report(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Multi-strategy portfolio backtest")
+    add_resource_args(parser)
     parser.add_argument(
         "--pair", type=str, default="EURUSD", help="Pair to test (default: EURUSD)"
     )

@@ -11,6 +11,7 @@ Usage:
 GO Criteria: 3/5 windows pass (WR>55%, PF>1.2, DD<10%)
 """
 
+import argparse
 import sys
 import json
 from pathlib import Path
@@ -30,6 +31,7 @@ from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.strategies import SupertrendRSIBlendStrategy  # noqa: E402
 from backtest import CsvDataLoader  # noqa: E402
 from backtest.parameter_sweep import ParameterGrid, SweepRunner  # noqa: E402
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from quant.go_nogo_criteria import PerWindowCriteria  # noqa: E402
 
 SWEEP_PER_WINDOW = PerWindowCriteria(
@@ -187,6 +189,11 @@ def run_walk_forward_for_params(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Supertrend RSI blend parameter sweep + walk-forward")
+    add_resource_args(parser)
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    args = parser.parse_args()
+
     SWEEP_REPORT_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -211,7 +218,7 @@ def main() -> None:
         config = BacktestConfig(pair=pair, **BACKTEST_CONFIG)
 
         print("\n  Running parameter sweep...")
-        sweep_result, grid = run_sweep(bars, pair, config, max_workers=None)
+        sweep_result, grid = run_sweep(bars, pair, config, max_workers=args.max_workers)
 
         print(f"  Sweep complete: {len(sweep_result)} parameter sets with trades")
 
@@ -312,4 +319,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

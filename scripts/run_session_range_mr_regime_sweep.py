@@ -9,6 +9,7 @@ Usage:
     python scripts/run_session_range_mr_regime_sweep.py
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -27,6 +28,7 @@ from strategies.session_range_mean_reversion import (
     SessionRangeMRWithRegimeFilterConfig,
 )
 from backtest import CsvDataLoader
+from common.resource_limits import add_resource_args, run_limited
 from volatility_sweep_runner import SweepRunner
 
 
@@ -74,7 +76,7 @@ def run_sweep(
 
     grid = ParameterGrid(param_grid)
     runner = SweepRunner(
-        config=config, bars=sweep_bars, strategy_factory=strategy_factory, max_workers=1
+        config=config, bars=sweep_bars, strategy_factory=strategy_factory, max_workers=args.max_workers
     )
     result = runner.run(grid)
 
@@ -205,6 +207,11 @@ def top_n_with_scores(trade_results, n: int = 5) -> list:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Session Range MR with Regime Filter sweep + walk-forward")
+    add_resource_args(parser)
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    args = parser.parse_args()
+
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     WALKFORWARD_REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -380,4 +387,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

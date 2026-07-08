@@ -12,6 +12,7 @@ Usage:
     python scripts/run_high_conviction_sweep.py
 """
 
+import argparse
 import json
 import math
 import sys
@@ -34,6 +35,7 @@ from backtest.parameter_sweep import (  # noqa: E402
     to_json,
 )
 from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 DATA_PATHS = {
     "EURUSD": "data/forex/historical/EURUSD_H1.csv",
@@ -212,6 +214,10 @@ def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="High Conviction Strategy parameter sweep")
+    add_resource_args(parser)
+    args = parser.parse_args()
+
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     loader = CsvDataLoader()
 
@@ -433,4 +439,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    _p = argparse.ArgumentParser(add_help=False)
+    add_resource_args(_p)
+    _known, _unknown = _p.parse_known_args()
+
+    @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
+    def _run():
+        main()
+    _run()

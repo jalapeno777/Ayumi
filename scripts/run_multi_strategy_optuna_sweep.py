@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+from common.resource_limits import add_resource_args, run_limited
 import json
 import sys
 import logging
@@ -383,6 +384,7 @@ def print_results(
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-strategy Optuna sweep")
+    add_resource_args(parser)
     parser.add_argument("--strategy", required=True, choices=list(SEARCH_SPACES.keys()))
     parser.add_argument("--pair", required=True, help="Currency pair (e.g. GBPUSD)")
     parser.add_argument("--timeframe", required=True, help="Timeframe (e.g. H1, M15)")
