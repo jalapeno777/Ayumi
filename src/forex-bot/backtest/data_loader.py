@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import duckdb
 import pandas as pd
 import pyarrow.parquet as pq
 
@@ -10,6 +11,13 @@ from .engine import Bar, BarPeriod
 from core.pip import PipCalculator
 
 logger = logging.getLogger(__name__)
+
+# Phase 10a: default locations for the DB-first loader / CSV fallback. We do
+# NOT import ``backtest.db_data_loader`` at module level to avoid the circular
+# import (``db_data_loader`` already imports :class:`CsvDataLoader` from this
+# module). The functions below perform a lazy import instead.
+DEFAULT_DB_PATH = Path("data/ayumi_market.duckdb")
+DEFAULT_CSV_DIR = Path("data/forex/historical")
 
 _EASTERN = ZoneInfo("America/New_York")
 _UTC = timezone.utc
@@ -207,3 +215,288 @@ class CsvDataLoader:
             )
             bars.append(bar)
         return bars
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Phase 10a — DB-first loaders with CSV fallback
+#
+# These functions expose the same ``list[Bar]`` contract as
+# ``CsvDataLoader.load`` but prefer DuckDB (when present and populated) for
+# the source of truth. They preserve the historical ``_2026.csv`` OOS holdout
+# convention via the ``is_holdout`` boolean column populated by the Phase 8b
+# CSV migration (``is_holdout = true`` for the 2023+ bars that used to live in
+# ``{symbol}_{timeframe}_2026.csv`` files).
+#
+# Design notes:
+#   * We deliberately avoid a top-level ``from backtest.db_data_loader``
+#     import — ``db_data_loader`` already imports ``CsvDataLoader`` from this
+#     module, so a module-level import would create a cycle. ``DbDataLoader``
+#     is resolved lazily inside each function instead.
+#   * ``load_holdout`` / ``load_training`` are the DB-backed replacements for
+#     the implicit ``{symbol}_{timeframe}_2026.csv`` / ``{symbol}_{timeframe}.csv``
+#     convention that the ML scripts use today. ML scripts can adopt them
+#     without touching the ``CsvDataLoader`` call sites.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _resolve_paths(
+    db_path: str | Path | None,
+    csv_dir: str | Path | None,
+) -> tuple[Path, Path]:
+    """Return ``(db_path, csv_dir)`` with defaults applied."""
+    db_p = Path(db_path) if db_path is not None else DEFAULT_DB_PATH
+    csv_d = Path(csv_dir) if csv_dir is not None else DEFAULT_CSV_DIR
+    return db_p, csv_d
+
+
+def _query_bars_db(
+    symbol: str,
+    timeframe: str,
+    is_holdout: bool | None,
+    db_path: Path,
+) -> pd.DataFrame:
+    """Query the bars table for ``(symbol, timeframe)`` with an optional
+    ``is_holdout`` filter.
+
+    Returns an empty DataFrame when the DB file is missing, the query raises,
+    or the result set is empty. We intentionally swallow DuckDB errors here —
+    callers fall back to CSV on empty result, which keeps the DB optional.
+    """
+    if not db_path.exists():
+        logger.debug("_query_bars_db: DB not found at %s", db_path)
+        return pd.DataFrame()
+
+    sql = (
+        "SELECT timestamp_utc, open, high, low, close, volume, spread_pips "
+        "FROM bars WHERE symbol = ? AND timeframe = ?"
+    )
+    params: list = [symbol, timeframe]
+    if is_holdout is not None:
+        sql += " AND is_holdout = ?"
+        params.append(bool(is_holdout))
+    sql += " ORDER BY timestamp_utc"
+
+    try:
+        con = duckdb.connect(str(db_path), read_only=True)
+        try:
+            df = con.execute(sql, params).fetch_df()
+        finally:
+            con.close()
+    except duckdb.Error as exc:
+        logger.warning(
+            "_query_bars_db: DuckDB error for %s/%s (%s); falling back to CSV",
+            symbol,
+            timeframe,
+            exc,
+        )
+        return pd.DataFrame()
+
+    if df is None:
+        return pd.DataFrame()
+    return df
+
+
+def _bars_from_dataframe(df: pd.DataFrame) -> list[Bar]:
+    """Convert a bars-table DataFrame into ``list[Bar]`` with UTC tz-aware
+    timestamps. Mirrors the conversion in ``db_data_loader._df_to_bars`` but
+    is duplicated here to keep the new functions self-contained without
+    crossing the ``data_loader`` / ``db_data_loader`` import boundary.
+    """
+    if df.empty:
+        return []
+    timestamps = pd.to_datetime(df["timestamp_utc"], unit="s", utc=True)
+    opens = df["open"].to_numpy()
+    highs = df["high"].to_numpy()
+    lows = df["low"].to_numpy()
+    closes = df["close"].to_numpy()
+    volumes = df["volume"].astype("float64")
+    spreads = df["spread_pips"].astype("float64")
+    bars: list[Bar] = []
+    for ts, o, h, lo, c, v, s in zip(
+        timestamps, opens, highs, lows, closes, volumes, spreads
+    ):
+        bars.append(
+            Bar(
+                time=ts.to_pydatetime(),
+                open=float(o),
+                high=float(h),
+                low=float(lo),
+                close=float(c),
+                # NaN guard — DuckDB can return NaN for missing spread/volume.
+                volume=float(v) if v == v else 0.0,
+                spread_pips=float(s) if s == s else 0.0,
+            )
+        )
+    return bars
+
+
+def _csv_fallback(
+    symbol: str,
+    timeframe: str,
+    csv_path: Path,
+    *,
+    context: str,
+) -> list[Bar]:
+    """Load ``csv_path`` via :class:`CsvDataLoader` if present.
+
+    ``context`` is a short tag used in the log line (``"load_data"``,
+    ``"load_holdout"``, ``"load_training"``) so operators can see which
+    high-level API requested the fallback.
+    """
+    if not csv_path.exists():
+        logger.warning(
+            "%s: DB miss and no CSV at %s; returning empty list",
+            context,
+            csv_path,
+        )
+        return []
+    logger.info(
+        "%s: CsvDataLoader fallback for %s/%s, file=%s",
+        context,
+        symbol,
+        timeframe,
+        csv_path,
+    )
+    return CsvDataLoader().load(str(csv_path))
+
+
+def _log_db_hit(
+    fn_name: str,
+    symbol: str,
+    timeframe: str,
+    db_path: Path,
+    n_rows: int,
+    *,
+    is_holdout: bool | None = None,
+) -> None:
+    """Emit the standard ``DbDataLoader used`` log line."""
+    if is_holdout is None:
+        filter_label = "all"
+    else:
+        filter_label = "holdout" if is_holdout else "training"
+    logger.info(
+        "%s: DuckDB hit (%s) for %s/%s, rows=%d, is_holdout=%s",
+        fn_name,
+        db_path,
+        symbol,
+        timeframe,
+        n_rows,
+        filter_label,
+    )
+
+
+def load_data(
+    symbol: str,
+    timeframe: str,
+    *,
+    db_path: str | Path | None = None,
+    csv_dir: str | Path | None = None,
+) -> list[Bar]:
+    """Load all bars for ``(symbol, timeframe)`` with DB-first, CSV fallback.
+
+    Returns the full bars table rows (both training and holdout) — i.e. no
+    ``is_holdout`` filter. When ``data/ayumi_market.duckdb`` exists and
+    contains rows for the requested pair/timeframe, the DB result is
+    returned. Otherwise this falls back to
+    ``data/forex/historical/{symbol}_{timeframe}.csv`` via
+    :class:`CsvDataLoader`. Logs which loader was used.
+    """
+    db_p, csv_d = _resolve_paths(db_path, csv_dir)
+    df = _query_bars_db(symbol, timeframe, None, db_p)
+    if not df.empty:
+        _log_db_hit("load_data", symbol, timeframe, db_p, len(df))
+        return _bars_from_dataframe(df)
+    return _csv_fallback(
+        symbol,
+        timeframe,
+        csv_d / f"{symbol}_{timeframe}.csv",
+        context="load_data",
+    )
+
+
+def load_holdout(
+    symbol: str,
+    timeframe: str,
+    *,
+    db_path: str | Path | None = None,
+    csv_dir: str | Path | None = None,
+) -> list[Bar]:
+    """Load only the OOS holdout bars (``is_holdout = true``).
+
+    This is the DB-backed equivalent of the historical
+    ``{symbol}_{timeframe}_2026.csv`` convention that the ML scripts use
+    to identify out-of-sample data. The DB stores ``is_holdout = true`` for
+    every bar that used to live in a ``_2026.csv`` file (the Phase 8b CSV
+    migration populated this column at import time).
+
+    CSV fallback order:
+      1. ``{symbol}_{timeframe}_2026.csv`` (canonical holdout file)
+      2. ``{symbol}_{timeframe}.csv`` (no holdout suffix — only used when
+         the DB is empty *and* the ``_2026.csv`` variant is also missing;
+         the caller almost certainly wants the DB or the suffixed file).
+
+    Logs which loader was used.
+    """
+    db_p, csv_d = _resolve_paths(db_path, csv_dir)
+    df = _query_bars_db(symbol, timeframe, True, db_p)
+    if not df.empty:
+        _log_db_hit(
+            "load_holdout", symbol, timeframe, db_p, len(df), is_holdout=True
+        )
+        return _bars_from_dataframe(df)
+    holdout_csv = csv_d / f"{symbol}_{timeframe}_2026.csv"
+    if holdout_csv.exists():
+        return _csv_fallback(
+            symbol, timeframe, holdout_csv, context="load_holdout"
+        )
+    # Last resort: fall back to the unsuffixed CSV. We still log a warning so
+    # the operator can tell the difference between a real _2026.csv fallback
+    # and a "we grabbed whatever we had" fallback.
+    fallback_csv = csv_d / f"{symbol}_{timeframe}.csv"
+    if fallback_csv.exists():
+        logger.warning(
+            "load_holdout: no _2026.csv for %s/%s; using unsuffixed %s "
+            "(caller almost certainly wanted the holdout slice — verify data)",
+            symbol,
+            timeframe,
+            fallback_csv,
+        )
+        return CsvDataLoader().load(str(fallback_csv))
+    logger.warning(
+        "load_holdout: DB miss and no CSV (held or unsuffixed) for %s/%s; "
+        "returning empty list",
+        symbol,
+        timeframe,
+    )
+    return []
+
+
+def load_training(
+    symbol: str,
+    timeframe: str,
+    *,
+    db_path: str | Path | None = None,
+    csv_dir: str | Path | None = None,
+) -> list[Bar]:
+    """Load only the training bars (``is_holdout = false``).
+
+    This is the DB-backed equivalent of the historical
+    ``{symbol}_{timeframe}.csv`` convention (the unsuffixed filename the ML
+    scripts use for in-sample training data).
+
+    CSV fallback: ``{symbol}_{timeframe}.csv`` via :class:`CsvDataLoader`.
+    Logs which loader was used.
+    """
+    db_p, csv_d = _resolve_paths(db_path, csv_dir)
+    df = _query_bars_db(symbol, timeframe, False, db_p)
+    if not df.empty:
+        _log_db_hit(
+            "load_training", symbol, timeframe, db_p, len(df), is_holdout=False
+        )
+        return _bars_from_dataframe(df)
+    return _csv_fallback(
+        symbol,
+        timeframe,
+        csv_d / f"{symbol}_{timeframe}.csv",
+        context="load_training",
+    )
