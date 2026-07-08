@@ -604,12 +604,41 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
         state_mgr = getattr(feed, "_state_mgr", None)
         connection_state = state_mgr.state.value if state_mgr else "unknown"
 
+        # trades_executed observability fix (live mode):
+        # In live mode, PaperTrader.trades_executed stays at 0 because the
+        # paper trader's execute path is bypassed (live orders are sent
+        # directly to cTrader and counted via engine._live_fill_count).
+        # Reading from the paper trader in live mode produces a false zero
+        # in this health file even when real fills have happened.
+        is_live = bool(getattr(getattr(engine, "_config", None), "live_mode", False))
+        if is_live:
+            live_fills = getattr(engine, "_live_fill_count", 0)
+            # closed_trades_live: fills - currently-open positions. The paper
+            # trader's order manager does mirror live positions in live mode
+            # (execute_live_order is called for each live signal), so its
+            # get_open_positions() is a valid count of still-open trades.
+            try:
+                paper = getattr(engine, "_paper_trader", None)
+                open_positions = (
+                    len(paper.get_open_positions())
+                    if paper is not None and hasattr(paper, "get_open_positions")
+                    else 0
+                )
+            except Exception:
+                open_positions = 0
+            closed_trades_live = max(0, int(live_fills) - int(open_positions))
+            trades_executed = int(live_fills)
+        else:
+            trades_executed = trading.get("trades_executed", 0)
+            closed_trades_live = 0
+
         health_data = {
             "service_status": "up" if engine.is_running else "down",
             "ticks_received": health.ticks_received,
             "bars_built": health.bars_built,
             "signals_generated": health.signals_generated,
-            "trades_executed": trading.get("trades_executed", 0),
+            "trades_executed": trades_executed,
+            "closed_trades_live": closed_trades_live,
             "last_tick_time": health.last_tick_at.isoformat() if health.last_tick_at else None,
             "connection_state": connection_state,
             "market_closed": _is_forex_market_closed(),
