@@ -37,6 +37,10 @@ forward_test:
     min_risk_reward: 0.0
 
   strategies:
+    # ── SRMR+ Optimized Params (Optuna+WF validated 2026-07-08) ──
+    # 9 viable streams. Portfolio: 587 trades/window, $28,398 PnL/window.
+    # Source: reports/srmr-plus-pipeline-2026-07-08/
+
     - id: srmr_gbpusd_h1
       type: srmr_plus
       symbol: GBPUSD
@@ -44,11 +48,44 @@ forward_test:
       min_confidence: 0.40
       enabled: true
       params:
-        session_range_min_pips: 25.0
-        entry_near_extreme_pips: 15.0
-        hard_cap_sl_pips: 25.0
-        tp1_rr: 1.5
-        tp2_rr: 1.5
+        # Optuna optimized — PF=5.51, WR=72.5%, 58 trades, PnL=$3,008
+        atr_period: 21
+        rsi_period: 12
+        rsi_long_level: 41.8
+        rsi_short_level: 62.3
+        adx_period: 28
+        adx_max_threshold: 38.4
+        session_range_min_pips: 21.3
+        entry_near_extreme_pips: 20.0
+        hard_cap_sl_pips: 15.4
+        tp1_rr: 2.59
+        tp2_rr: 0.53
+        ema_trend_period: 20
+        use_same_day_range: true
+        dxy_overlay: false
+
+    - id: srmr_gbpusd_m15
+      type: srmr_plus
+      symbol: GBPUSD
+      timeframe: M15
+      min_confidence: 0.40
+      enabled: true
+      params:
+        # Optuna optimized — PF=3.74, WR=59.3%, 88 trades, PnL=$2,996
+        atr_period: 10
+        rsi_period: 11
+        rsi_long_level: 39.8
+        rsi_short_level: 57.7
+        adx_period: 25
+        adx_max_threshold: 37.8
+        session_range_min_pips: 19.1
+        entry_near_extreme_pips: 24.0
+        hard_cap_sl_pips: 30.0
+        tp1_rr: 2.81
+        tp2_rr: 0.67
+        ema_trend_period: 49
+        use_same_day_range: false
+        dxy_overlay: false
 
     - id: srmr_eurusd_h1
       type: srmr_plus
@@ -57,11 +94,44 @@ forward_test:
       min_confidence: 0.40
       enabled: true
       params:
-        session_range_min_pips: 15.0
-        entry_near_extreme_pips: 12.0
-        hard_cap_sl_pips: 20.0
-        tp1_rr: 1.5
-        tp2_rr: 1.5
+        # Optuna optimized — PF=3.69, WR=62.0%, 54 trades, PnL=$2,158
+        atr_period: 18
+        rsi_period: 15
+        rsi_long_level: 42.7
+        rsi_short_level: 60.7
+        adx_period: 25
+        adx_max_threshold: 35.4
+        session_range_min_pips: 14.0
+        entry_near_extreme_pips: 27.2
+        hard_cap_sl_pips: 10.2
+        tp1_rr: 2.80
+        tp2_rr: 1.12
+        ema_trend_period: 30
+        use_same_day_range: true
+        dxy_overlay: false
+
+    - id: srmr_eurusd_h4
+      type: srmr_plus
+      symbol: EURUSD
+      timeframe: H4
+      min_confidence: 0.40
+      enabled: true
+      params:
+        # Optuna optimized — PF=6.97, WR=79.3%, 6 trades, PnL=$464
+        atr_period: 17
+        rsi_period: 8
+        rsi_long_level: 29.9
+        rsi_short_level: 56.8
+        adx_period: 24
+        adx_max_threshold: 37.1
+        session_range_min_pips: 7.7
+        entry_near_extreme_pips: 27.1
+        hard_cap_sl_pips: 46.1
+        tp1_rr: 2.28
+        tp2_rr: 0.75
+        ema_trend_period: 99
+        use_same_day_range: true
+        dxy_overlay: false
 
     - id: srmr_xauusd_h1
       type: srmr_plus
@@ -70,19 +140,101 @@ forward_test:
       min_confidence: 0.40
       enabled: true
       params:
-        session_range_min_pips: 200.0
-        entry_near_extreme_pips: 150.0
-        hard_cap_sl_pips: 300.0
-        tp1_rr: 1.5
-        tp2_rr: 1.5
+        # Optuna optimized — PF=6.53, WR=68.4%, 58 trades, PnL=$3,258
+        atr_period: 16
+        rsi_period: 13
+        rsi_long_level: 34.1
+        rsi_short_level: 61.9
+        adx_period: 26
+        adx_max_threshold: 35.6
+        session_range_min_pips: 132.7
+        entry_near_extreme_pips: 241.7
+        hard_cap_sl_pips: 133.8
+        tp1_rr: 2.80
+        tp2_rr: 1.12
+        ema_trend_period: 44
+        use_same_day_range: false
         pip_value: 0.01
+        dxy_overlay: false
+
+    - id: srmr_xauusd_m15
+      type: srmr_plus
+      symbol: XAUUSD
+      timeframe: M15
+      min_confidence: 0.40
+      enabled: true
+      params:
+        # Optuna optimized — PF=7.16, WR=73.4%, 227 trades, PnL=$11,994 (strongest stream)
+        atr_period: 21
+        rsi_period: 12
+        rsi_long_level: 41.8
+        rsi_short_level: 62.3
+        adx_period: 28
+        adx_max_threshold: 38.4
+        session_range_min_pips: 176.9
+        entry_near_extreme_pips: 200.4
+        hard_cap_sl_pips: 153.7
+        tp1_rr: 2.59
+        tp2_rr: 0.53
+        ema_trend_period: 20
+        use_same_day_range: true
+        pip_value: 0.01
+        dxy_overlay: false
+
+    - id: srmr_xauusd_h4
+      type: srmr_plus
+      symbol: XAUUSD
+      timeframe: H4
+      min_confidence: 0.40
+      enabled: true
+      params:
+        # Optuna optimized — PF=11.47, WR=88.3%, 13 trades, PnL=$1,628
+        atr_period: 13
+        rsi_period: 14
+        rsi_long_level: 43.0
+        rsi_short_level: 57.3
+        adx_period: 17
+        adx_max_threshold: 33.4
+        session_range_min_pips: 153.2
+        entry_near_extreme_pips: 218.2
+        hard_cap_sl_pips: 120.7
+        tp1_rr: 2.96
+        tp2_rr: 0.77
+        ema_trend_period: 37
+        use_same_day_range: true
+        pip_value: 0.01
+        dxy_overlay: false
+
+    - id: srmr_usdjpy_m15
+      type: srmr_plus
+      symbol: USDJPY
+      timeframe: M15
+      min_confidence: 0.40
+      enabled: true
+      params:
+        # Optuna optimized — PF=3.64, WR=63.1%, 67 trades, PnL=$2,153
+        atr_period: 14
+        rsi_period: 10
+        rsi_long_level: 36.8
+        rsi_short_level: 64.1
+        adx_period: 27
+        adx_max_threshold: 28.5
+        session_range_min_pips: 19.7
+        entry_near_extreme_pips: 28.4
+        hard_cap_sl_pips: 73.2
+        tp1_rr: 2.34
+        tp2_rr: 0.54
+        ema_trend_period: 72
+        use_same_day_range: true
+        pip_value: 0.01
+        dxy_overlay: false
 
     - id: srmr_usdjpy_h1
       type: srmr_plus
       symbol: USDJPY
       timeframe: H1
       min_confidence: 0.40
-      enabled: true
+      enabled: false  # WF failed 0/5 — disabled in favor of M15 which passed 5/5
       params:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
