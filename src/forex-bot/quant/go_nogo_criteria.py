@@ -3,6 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+# Production-grade go/no-go gating threshold.
+# Use this when evaluating a strategy for live deployment, not for dev/CI
+# walk-forward checks. The default min_windows_passed=3 below is the
+# canonical 3-of-5 rule used by research and backtests; production paths
+# should override with AggregateCriteria(min_windows_passed=PRODUCTION_MIN_WINDOWS_PASSED).
+PRODUCTION_MIN_WINDOWS_PASSED = 5
+
+
 @dataclass(frozen=True)
 class EvaluateResult:
     passed: bool
@@ -94,7 +102,10 @@ class AggregateCheck:
 @dataclass(frozen=True)
 class AggregateCriteria:
     min_total_trades: int = 50
-    min_windows_passed: int = 2
+    # Verbal rule: 3-of-5 windows must pass. Code defaulted to 2 historically;
+    # corrected 2026-07-08 to match the documented rule. Production-grade
+    # gating should use PRODUCTION_MIN_WINDOWS_PASSED (5) instead of the default.
+    min_windows_passed: int = 3
     min_total_windows: int = 3
     p_value_threshold: float = 0.10
 

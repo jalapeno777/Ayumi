@@ -130,7 +130,7 @@ class TestAggregateCriteria:
     def test_default_thresholds(self):
         c = AggregateCriteria()
         assert c.min_total_trades == 50
-        assert c.min_windows_passed == 2
+        assert c.min_windows_passed == 3
         assert c.min_total_windows == 3
         assert c.p_value_threshold == 0.10
 
@@ -160,16 +160,19 @@ class TestAggregateCriteria:
         assert r_below.passed is False
 
     def test_min_windows_passed_boundary(self):
+        # Default min_windows_passed is 3 (3-of-5 rule, corrected 2026-07-08).
         c = CANONICAL_AGGREGATE
-        r_at = c.evaluate(100, 2, 5)
-        r_below = c.evaluate(100, 1, 5)
+        r_at = c.evaluate(100, 3, 5)
+        r_below = c.evaluate(100, 2, 5)
         assert r_at.passed is True
         assert r_below.passed is False
 
     def test_min_total_windows_boundary(self):
+        # Default min_windows_passed is 3, so windows_passed must be 3 to
+        # isolate the min_total_windows boundary check.
         c = CANONICAL_AGGREGATE
-        r_at = c.evaluate(100, 2, 3)
-        r_below = c.evaluate(100, 2, 2)
+        r_at = c.evaluate(100, 3, 3)
+        r_below = c.evaluate(100, 3, 2)
         assert r_at.passed is True
         assert r_below.passed is False
 
@@ -336,19 +339,35 @@ class TestBackwardCompatibility:
 
     def test_canonical_aggregate_matches_walk_forward_runner(self):
         c = CANONICAL_AGGREGATE
-        assert c.min_windows_passed == 2
+        assert c.min_windows_passed == 3
         assert c.min_total_windows == 3
 
-    def test_original_walk_forward_3_3_now_2_3(self):
-        r = evaluate_aggregate(
+    def test_walk_forward_default_3_of_5(self):
+        # Default rule: 3-of-5 windows must pass. 2 of 3 is below the bar
+        # and must be rejected by the canonical aggregate criteria.
+        r_below = evaluate_aggregate(
             total_trades=50,
             windows_passed=2,
             total_windows=3,
         )
-        assert r.passed is True
+        assert r_below.passed is False
 
-    def test_2_of_3_passes(self):
+        r_at = evaluate_aggregate(
+            total_trades=50,
+            windows_passed=3,
+            total_windows=5,
+        )
+        assert r_at.passed is True
+
+    def test_3_of_5_passes(self):
         windows = [
+            {
+                "trade_count": 25,
+                "win_rate": 0.60,
+                "profit_factor": 1.5,
+                "total_pnl": 100.0,
+                "max_drawdown": 0.05,
+            },
             {
                 "trade_count": 25,
                 "win_rate": 0.60,
@@ -370,9 +389,16 @@ class TestBackwardCompatibility:
                 "total_pnl": -100.0,
                 "max_drawdown": 0.50,
             },
+            {
+                "trade_count": 3,
+                "win_rate": 0.40,
+                "profit_factor": 0.5,
+                "total_pnl": -100.0,
+                "max_drawdown": 0.50,
+            },
         ]
         r = evaluate_full(windows)
-        assert r.windows_passed == 2
+        assert r.windows_passed == 3
         assert r.go is True
 
 

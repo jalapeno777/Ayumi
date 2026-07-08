@@ -267,7 +267,7 @@ def run_strategy_walk_forward(
 
     windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
     total = len(per_window)
-    go_nogo = total >= 3 and windows_passed >= 2
+    go_nogo = total >= 3 and windows_passed >= 3
 
     # Per-regime aggregation (BQ-508)
     regime_breakdown = aggregate_by_regime(per_window)
@@ -421,7 +421,7 @@ def run_multi_strategy_walk_forward(
 
     windows_passed = sum(1 for m in per_window if m.passed_go_nogo)
     total = len(per_window)
-    go_nogo = total >= 3 and windows_passed >= 2
+    go_nogo = total >= 3 and windows_passed >= 3
 
     # Per-regime aggregation (BQ-508)
     regime_breakdown = aggregate_by_regime(per_window)

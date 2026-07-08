@@ -1,13 +1,13 @@
 """Tests conftest — standard fixtures and path setup.
 
-(BQ-1037: previous version used invalid pytest_collection_start /
-pytest_collection_finish hooks which caused INTERNALERROR. Those have
-been removed. Module-level sys.modules pollution is handled per-test
-via monkeypatch fixtures in the individual test files.)
+Backtest stub isolation is now centralized here instead of duplicated in
+individual test files. The previous per-file cleanup fixtures from
+BQ-37e1f69e have been superseded by the autouse ``_isolate_backtest_stub``
+fixture and the ``pytest_pycollect_makemodule`` hook below.
 """
 
+import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -27,6 +27,57 @@ def _isolate_risk_guard_state(monkeypatch, tmp_path):
         (None, 100000.0, fake_state),
     )
     yield
+
+
+# ---------------------------------------------------------------------------
+# Backtest stub isolation
+# ---------------------------------------------------------------------------
+# Some unit tests (e.g. ``test_forward_test_flag_persistence.py``) install fake
+# ``backtest.*`` stubs at import time to avoid heavy transitive dependencies.
+# If those stubs leak into other test modules during collection, imports of
+# real backtest symbols fail and the full suite breaks.
+#
+# The hook runs before pytest imports each test module, and the autouse fixture
+# runs around every test, so stub-dependent tests get their stubs restored and
+# real-backtest tests get a clean import environment.
+
+
+def _remove_backtest_stubs():
+    """Pop all ``backtest.*`` stub modules from ``sys.modules``.
+
+    Returns a dict of the popped modules so they can be restored later. A
+    module is treated as a stub if it (or its parent ``backtest`` package)
+    carries the marker ``_tsukasa_stub = True``.
+    """
+    saved = {}
+    bt_pkg = sys.modules.get("backtest")
+    pkg_is_stub = bt_pkg is not None and getattr(bt_pkg, "_tsukasa_stub", False)
+
+    for key in list(sys.modules.keys()):
+        if key.startswith("backtest"):
+            mod = sys.modules.get(key)
+            if mod is None:
+                continue
+            if getattr(mod, "_tsukasa_stub", False) or pkg_is_stub:
+                saved[key] = sys.modules.pop(key)
+    return saved
+
+
+# Collection-time isolation: run before each test module is collected so every
+# module imports the real backtest package.
+def pytest_pycollect_makemodule(module_path, parent):
+    _remove_backtest_stubs()
+
+
+# Per-test isolation: run before/after every test so stub-dependent tests have
+# their stubs restored and real-backtest tests get a clean import environment.
+@pytest.fixture(autouse=True)
+def _isolate_backtest_stub():
+    saved = _remove_backtest_stubs()
+    yield
+    for key, mod in saved.items():
+        if key not in sys.modules:
+            sys.modules[key] = mod
 
 
 @pytest.fixture
