@@ -18,6 +18,9 @@ from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
 from risk.state_persistence import StatePersistence
+# Import the canonical CET date helper from ftmo_guard — do NOT duplicate it.
+# The daily reset boundary is FTMO-defined: CET midnight, not UTC midnight.
+from risk.ftmo_guard import _cet_date
 
 logger = logging.getLogger("ayumi.forward_test")
 
@@ -112,29 +115,46 @@ class BlendForwardTestRunner:
         )
 
     def _check_daily_reset(self, timestamp: datetime) -> None:
-        """Reset daily risk cap on day boundaries."""
-        day_str = timestamp.strftime("%Y-%m-%d")
-        if self._current_day and day_str != self._current_day:
-            self._sizer.reset_daily()
-            logger.info("Daily risk cap reset — new day: %s", day_str)
-        self._current_day = day_str
+        """Reset daily risk cap on day boundaries.
 
-    def daily_reset(self) -> None:
+        Uses the CET date (FTMO spec) — not the timestamp's naive date — so
+        that the daily budget rolls over at CET midnight regardless of which
+        timezone the timestamp is recorded in.
+        """
+        cet_day = _cet_date(timestamp)
+        if self._current_day and cet_day != self._current_day:
+            pre_daily = self._sizer._daily_risk_used
+            pre_open = self._sizer.open_risk
+            positions_carried = len(self._sizer.open_positions)
+            self._sizer.reset_daily(cet_date=cet_day)
+            logger.info(
+                "Daily risk cap reset — new CET day: %s (daily_used=%.2f→0.00, "
+                "open_risk=%.2f, positions_carried=%d)",
+                cet_day, pre_daily, pre_open, positions_carried,
+            )
+        self._current_day = cet_day
+
+    def daily_reset(self, now: Optional[datetime] = None) -> None:
         """Public daily reset — safe to call from engine scheduler.
 
         Logs pre-reset and post-reset values so operators can verify
         the daily counter was zeroed while open positions are carried over.
+        Uses the CET date (FTMO spec) so the rollover boundary matches
+        :meth:`_check_daily_reset` and ``FTMOGuard``.
         """
         sizer = self._sizer
         pre_daily = sizer._daily_risk_used
         pre_open = sizer.open_risk
         positions_carried = len(sizer.open_positions)
-        sizer.reset_daily()
-        now = datetime.now(timezone.utc)
-        self._current_day = now.strftime("%Y-%m-%d")
+        if now is None:
+            now = datetime.now(timezone.utc)
+        cet_day = _cet_date(now)
+        sizer.reset_daily(cet_date=cet_day)
+        self._current_day = cet_day
         logger.info(
-            "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, positions_carried=%d",
-            pre_daily, pre_open, positions_carried,
+            "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, "
+            "positions_carried=%d, cet_day=%s",
+            pre_daily, pre_open, positions_carried, cet_day,
         )
 
     def make_signal_id(self, signal: OrchestratorTradeSignal) -> str:

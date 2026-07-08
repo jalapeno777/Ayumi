@@ -178,6 +178,129 @@ class TestSLPositionSizer:
         result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
         assert result.blocked  # $0.50 risk can't reach 0.01 lots minimum
 
+    # --- Daily Reset (Phase 6B: FTMO CET midnight reset) ---
+
+    def test_reset_daily_restores_full_budget(self):
+        """After reset_daily(), daily_risk_remaining should equal the full
+        account_balance * daily_risk_cap_pct budget — no realized losses
+        from prior days should leak into today's budget."""
+        # Simulate prior-day realized loss: $150 accumulated
+        # (which would otherwise shrink today's $300 cap to $150)
+        result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        assert not result.blocked
+        self.sizer.register_open_position(result.risk_amount)
+        # Close as a loss — accumulates into _daily_risk_used
+        self.sizer.close_position(pnl=-50.0, risk_amount=result.risk_amount, win=False)
+        assert self.sizer._daily_risk_used > 0
+
+        # Sanity: prior to reset, remaining is reduced by used + open_risk
+        pre_remaining = self.sizer.daily_risk_remaining
+        full_budget = self.sizer.account_balance * self.sizer.daily_risk_cap_pct
+        assert pre_remaining < full_budget
+
+        # Now reset — should zero _daily_risk_used and restore full budget
+        self.sizer.reset_daily(cet_date="2026-07-09")
+
+        # Daily used is zeroed
+        assert self.sizer._daily_risk_used == 0.0
+        # Full budget restored (no open positions left after the close)
+        assert self.sizer.daily_risk_remaining == pytest.approx(full_budget, abs=1e-6)
+        # breaker.daily_dd_pct also reset
+        assert self.sizer.breaker.daily_dd_pct == 0.0
+
+    def test_reset_daily_carries_open_positions(self):
+        """reset_daily() must NOT touch _open_risk — open positions carry
+        over so their reserved risk continues to consume the daily cap
+        (recycling behaviour)."""
+        # Open 3 positions
+        results = []
+        for _ in range(3):
+            r = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+            assert not r.blocked
+            self.sizer.register_open_position(r.risk_amount)
+            results.append(r)
+
+        # Add a realized loss too
+        self.sizer.close_position(pnl=-25.0, risk_amount=results[0].risk_amount, win=False)
+
+        pre_open_risk = self.sizer.open_risk
+        pre_open_count = len(self.sizer.open_positions)
+        pre_daily_used = self.sizer._daily_risk_used
+        assert pre_open_risk > 0
+        assert pre_open_count == 2  # 3 opened, 1 closed (and lost)
+        assert pre_daily_used > 0
+
+        self.sizer.reset_daily()
+
+        # Open positions preserved
+        assert self.sizer.open_risk == pytest.approx(pre_open_risk, abs=1e-6)
+        assert len(self.sizer.open_positions) == pre_open_count
+        # Daily losses zeroed
+        assert self.sizer._daily_risk_used == 0.0
+        # Remaining budget reflects only open risk now (full - open)
+        expected_remaining = max(
+            0.0,
+            self.sizer.account_balance * self.sizer.daily_risk_cap_pct
+            - self.sizer.open_risk,
+        )
+        assert self.sizer.daily_risk_remaining == pytest.approx(expected_remaining, abs=1e-6)
+
+    def test_reset_daily_logs_transition(self, caplog):
+        """reset_daily() must log the pre→post transition so operators can
+        verify the daily counter was zeroed while open positions carried."""
+        import logging
+
+        # Accumulate some state
+        r = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        assert not r.blocked
+        self.sizer.register_open_position(r.risk_amount)
+        self.sizer.close_position(pnl=-50.0, risk_amount=r.risk_amount, win=False)
+
+        with caplog.at_level(logging.INFO, logger="risk.sl_position_sizer"):
+            self.sizer.reset_daily(cet_date="2026-07-09")
+
+        # Find the reset log line
+        reset_lines = [
+            rec for rec in caplog.records
+            if "reset_daily" in rec.getMessage().lower()
+        ]
+        assert reset_lines, f"Expected a reset_daily log entry, got: {[r.getMessage() for r in caplog.records]}"
+        msg = reset_lines[-1].getMessage()
+        # Log should mention pre-reset daily_used, post=0, carried positions
+        assert "daily_used" in msg
+        assert "open_risk" in msg
+        assert "positions_carried" in msg
+        assert "cet_date=2026-07-09" in msg
+
+    def test_reset_daily_idempotent(self):
+        """Calling reset_daily() twice in a row should be safe and leave
+        the state identical (idempotent)."""
+        r = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        assert not r.blocked
+        self.sizer.register_open_position(r.risk_amount)
+        self.sizer.close_position(pnl=-50.0, risk_amount=r.risk_amount, win=False)
+
+        self.sizer.reset_daily()
+        first_remaining = self.sizer.daily_risk_remaining
+        first_open_risk = self.sizer.open_risk
+
+        # Second reset — no positions, no losses, should be a no-op
+        self.sizer.reset_daily()
+        assert self.sizer.daily_risk_remaining == pytest.approx(first_remaining, abs=1e-6)
+        assert self.sizer.open_risk == pytest.approx(first_open_risk, abs=1e-6)
+        assert self.sizer._daily_risk_used == 0.0
+
+    def test_reset_daily_optional_cet_date(self):
+        """reset_daily() must accept being called without cet_date (backward
+        compat — some legacy call sites may still pass no arg)."""
+        r = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        assert not r.blocked
+        self.sizer.register_open_position(r.risk_amount)
+        self.sizer.close_position(pnl=-50.0, risk_amount=r.risk_amount, win=False)
+        # Should not raise
+        self.sizer.reset_daily()
+        assert self.sizer._daily_risk_used == 0.0
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -342,17 +342,41 @@ class SLPositionSizer:
                 "Cannot close position: no open positions matching risk_amount"
             )
 
-    def reset_daily(self):
-        """Reset daily counters (call at session open)."""
+    def reset_daily(self, cet_date: Optional[str] = None):
+        """Reset daily counters at CET midnight (FTMO spec).
+
+        Zeros out ``_daily_risk_used`` so prior-day realized losses stop
+        shrinking today's budget. Open positions are intentionally carried
+        over — their reserved risk stays in ``_open_risk`` and will only
+        be released when the position closes (recycling) or when the
+        signal_id is cancelled.
+
+        Args:
+            cet_date: Optional ``YYYY-MM-DD`` CET date string for the
+                new day. When omitted, the caller has already established
+                the day boundary and just needs the counter reset.
+
+        Note:
+            Per FTMO rules the daily loss limit (3%) resets at CET midnight.
+            Prior days' losses continue to count only toward the 10% total
+            drawdown, not today's daily budget.
+        """
         with self._lock:
-            if self._open_risk > 0:
-                logger.warning(
-                    "reset_daily called with $%.2f in open positions — "
-                    "not resetting open_risk to avoid losing track",
-                    self._open_risk,
-                )
+            pre_daily_used = self._daily_risk_used
+            pre_open_risk = self._open_risk
+            positions_carried = len(self._open_positions)
             self._daily_risk_used = 0.0
             self.breaker.daily_dd_pct = 0.0
+            logger.info(
+                "SLPositionSizer.reset_daily%s: daily_used=%.2f→0.00, "
+                "open_risk=%.2f (carried), positions_carried=%d, "
+                "balance=%.2f",
+                f" (cet_date={cet_date})" if cet_date else "",
+                pre_daily_used,
+                pre_open_risk,
+                positions_carried,
+                self.account_balance,
+            )
 
     def calculate(
         self,

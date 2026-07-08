@@ -45,6 +45,10 @@ from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
+# Import the canonical CET date helper from risk.ftmo_guard — do NOT
+# duplicate it. The daily reset boundary is FTMO-defined: CET midnight,
+# not UTC midnight.
+from risk.ftmo_guard import _cet_date
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
 
@@ -508,8 +512,10 @@ class ForwardTestEngine:
         self._running = True
         self._start_time = datetime.now(timezone.utc)
 
-        # Phase 6B: Initialize daily reset tracker
-        self._last_reset_date = self._start_time.strftime("%Y-%m-%d")
+        # Phase 6B: Initialize daily reset tracker using CET date (FTMO spec).
+        # CET midnight — not UTC midnight — is the canonical daily reset
+        # boundary for the daily loss cap.
+        self._last_reset_date = _cet_date(self._start_time)
 
         self._stop_health_monitor.clear()
         self._health_monitor_thread = threading.Thread(
@@ -2349,24 +2355,31 @@ class ForwardTestEngine:
                 # Phase 6B: Daily risk reset check — detect day boundary
                 # and call reset_daily() on the sizer.  This runs in the
                 # health monitor loop so it fires even without new signals.
+                # Uses the CET date (FTMO spec) — not UTC date — so the
+                # daily loss budget rolls over at CET midnight regardless
+                # of host timezone.
                 now_dt = datetime.now(timezone.utc)
-                day_str = now_dt.strftime("%Y-%m-%d")
+                day_str = _cet_date(now_dt)
                 if self._last_reset_date is not None and day_str != self._last_reset_date:
                     blend_runner = getattr(self, "_blend_runner", None)
                     if blend_runner is not None:
                         if hasattr(blend_runner, "daily_reset"):
-                            blend_runner.daily_reset()
+                            # Forward CET date so the blend runner's
+                            # internal day-tracking and sizer logging
+                            # stay consistent.
+                            blend_runner.daily_reset(now=now_dt)
                         else:
                             sizer = getattr(blend_runner, "_sizer", None)
                             if sizer is not None:
                                 pre_daily = sizer._daily_risk_used
                                 pre_open = sizer.open_risk
                                 positions_carried = len(sizer.open_positions)
-                                sizer.reset_daily()
+                                sizer.reset_daily(cet_date=day_str)
                                 logger.info(
                                     "Daily risk reset: daily_used=%.2f→0.00, "
-                                    "open_risk=%.2f, positions_carried=%d",
-                                    pre_daily, pre_open, positions_carried,
+                                    "open_risk=%.2f, positions_carried=%d, "
+                                    "cet_date=%s",
+                                    pre_daily, pre_open, positions_carried, day_str,
                                 )
                 self._last_reset_date = day_str
 
