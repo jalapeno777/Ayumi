@@ -10,9 +10,43 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from unittest.mock import MagicMock
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _clean_backtest_stub():
+    """Remove _tsukasa_stub pollution from sys.modules before each test.
+
+    test_forward_test_flag_persistence.py installs fake backtest.* modules
+    at import (collection) time without cleanup. The polluter sets
+    ``_tsukasa_stub = True`` on the ``backtest`` package but NOT on
+    sub-modules created via ``_make()`` (``backtest.engine``,
+    ``backtest.types``, etc.), so checking the marker alone misses them.
+
+    When the parent ``backtest`` package is a stub we remove **all**
+    ``backtest.*`` entries so Python re-imports the real modules during
+    our tests.  Stubs are restored afterward so the polluter's tests
+    still work.
+    """
+    saved = {}
+    bt_pkg = sys.modules.get("backtest")
+    pkg_is_stub = bt_pkg is not None and getattr(bt_pkg, "_tsukasa_stub", False)
+
+    for key in list(sys.modules.keys()):
+        if key.startswith("backtest"):
+            mod = sys.modules.get(key)
+            if mod is None:
+                continue
+            if getattr(mod, "_tsukasa_stub", False) or pkg_is_stub:
+                saved[key] = sys.modules.pop(key)
+    yield
+    # Restore stub modules so polluter tests still work
+    for key, mod in saved.items():
+        if key not in sys.modules:
+            sys.modules[key] = mod
 
 
 class TestCanaryDisable:
