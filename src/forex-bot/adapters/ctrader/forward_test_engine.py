@@ -2008,12 +2008,39 @@ class ForwardTestEngine:
                 self._strategy_last_eval[strategy.name] = time.monotonic()
 
                 # S1: INFO-level per-strategy eval log
+                # Includes a `reason` field on no_signal so log greps can
+                # distinguish:
+                #   - no_signal reason=strategy_conditions_not_met  (normal)
+                #   - no_signal reason=no_adapter_for_symbol         (config gap)
+                #   - no_signal reason=confidence_below_threshold    (filtered)
+                # The DEBUG-level line below provides additional bar/spread
+                # context for diagnosing why a strategy stopped firing.
+                no_signal_reason = "n/a"
+                if not signals:
+                    no_signal_reason = "strategy_conditions_not_met"
+                    # Last-bar snapshot for diagnosing "why no signal"
+                    _last_bar = bars[-1] if bars else None
+                    _last_bar_time = (
+                        _last_bar.time.isoformat() if _last_bar else "none"
+                    )
+                    logger.debug(
+                        "[S1] no_signal reason=%s strategy=%s symbol=%s "
+                        "bar_count=%d last_bar_time=%s last_eval_ts=%.0f",
+                        no_signal_reason,
+                        strategy.name,
+                        symbol,
+                        len(bars),
+                        _last_bar_time,
+                        self._strategy_last_eval[strategy.name],
+                    )
                 logger.info(
-                    "[S1] Strategy %s: eval #%d, signals=%d, total_no_signal=%d",
+                    "[S1] Strategy %s: eval #%d, signals=%d, total_no_signal=%d "
+                    "reason=%s",
                     strategy.name,
                     self._strategy_eval_counts[strategy.name],
                     len(signals),
                     self._strategy_no_signal_counts[strategy.name],
+                    no_signal_reason,
                 )
 
                 # T5: Check if risk guard blocked any signals (circuit breaker tracking)
