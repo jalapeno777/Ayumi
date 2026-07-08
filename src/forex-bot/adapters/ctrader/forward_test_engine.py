@@ -1382,6 +1382,10 @@ class ForwardTestEngine:
                 getattr(order, "position_id", None)
                 or getattr(order, "order_id", None)
             )
+            # Phase 1A audit §5.4 fix: wire cTrader positionId → blend
+            # signal_id in live mode (paper_trader on_trade_executed never
+            # fires here, so _on_trade_executed can't do it).
+            self._register_blend_position_mapping(signal, position_id)
             logger.info(
                 "SL/TP attached inline on MARKET order %s (position %s): sl=%.5f tp=%.5f",
                 getattr(order, "order_id", ""), position_id, inline_sl, inline_tp,
@@ -1413,6 +1417,8 @@ class ForwardTestEngine:
         elif outcome.status == LiveExecutionStatus.FILLED and signal.stop_loss and signal.take_profit_1:
             # Fallback: strategies without inline SL/TP require amend
             position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
+            # Phase 1A audit §5.4 fix: same wiring as the inline-SL/TP branch.
+            self._register_blend_position_mapping(signal, position_id)
             try:
                 # Bounded retry (defense in depth — the inline path is the
                 # primary fix, this only runs for the late-fill / no-inline
@@ -1806,6 +1812,11 @@ class ForwardTestEngine:
                         order_id, direction_str, signal.symbol,
                         self._live_fill_count,
                     )
+                    # Phase 1A audit §5.4 fix: wire the cTrader
+                    # positionId → blend signal_id mapping so the close
+                    # path can release sizer risk. Without this, the
+                    # first live close would leak a sizer risk slot.
+                    self._register_blend_position_mapping(signal, ctrader_position_id)
                     # Attach SL/TP via position amend. The synchronous FILLED
                     # path does this in execute_live_order, but late fills
                     # arrive via this callback path and were previously left
@@ -2640,6 +2651,54 @@ class ForwardTestEngine:
             logger.warning(
                 "Reconnection failed — next attempt in %.1fs (full-jitter, attempt=%d)",
                 self._reconnect_delay, attempts,
+            )
+
+    def _register_blend_position_mapping(
+        self, signal: "CTraderTradeSignal", ctrader_position_id
+    ) -> None:
+        """Wire a live-mode cTrader ``positionId`` to the blend_runner's
+        canonical ``signal_id``.
+
+        In live mode the ``paper_trader`` is bypassed entirely (orders go
+        straight to cTrader via ``_execute_signal_live``), so
+        ``paper_trader``'s ``on_trade_executed`` callback never fires and
+        ``_on_trade_executed`` never gets a chance to wire the mapping.
+
+        Without this mapping, :meth:`_on_position_closed` can't resolve
+        the cTrader ``positionId`` back to the ``strategy_id + "_" +
+        timestamp`` key the sizer stored risk under, so the first live
+        close leaks a sizer risk slot (Phase 1A execution-path audit
+        §5.4, "LIVE-mode position_id → signal_id mapping gap").
+
+        Called from both:
+        - the synchronous FILLED branch in :meth:`_execute_signal_live`
+          (most live fills — ``event.wait()`` returned FILLED)
+        - the late-fill FILLED branch in :meth:`_release_late` (audit
+          §5.4 recommendation: covers the race where the execution
+          event arrives after ``event.wait()`` timed out)
+        """
+        blend_runner = getattr(self, "_blend_runner", None)
+        if blend_runner is None:
+            return
+        if not isinstance(ctrader_position_id, int) or ctrader_position_id == 0:
+            return
+        try:
+            signal_id = blend_runner.make_signal_id(signal)
+        except Exception as exc:
+            logger.warning(
+                "Could not build blend signal_id for cTrader position %s: %s",
+                ctrader_position_id, exc,
+            )
+            return
+        try:
+            blend_runner.register_position_mapping(
+                str(ctrader_position_id), signal_id
+            )
+        except Exception as exc:
+            # Defensive — never let a mapping failure break the trade path.
+            logger.warning(
+                "register_position_mapping failed for cTrader position %s: %s",
+                ctrader_position_id, exc,
             )
 
     def _on_trade_executed(self, result):
