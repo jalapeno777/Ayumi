@@ -1,0 +1,143 @@
+{
+  "duckdb_ingest_csv_ms": {
+    "best_ms": 85.185,
+    "mean_ms": 87.585,
+    "schema": [
+      "Date",
+      "Open",
+      "High",
+      "Low",
+      "Close",
+      "Volume"
+    ]
+  },
+  "pandas_ingest_csv_ms": {
+    "best_ms": 71.638,
+    "mean_ms": 75.933
+  },
+  "monthly_avg_close_max_abs_diff": 0.0,
+  "queries": {
+    "count": {
+      "duckdb_ms": 0.495,
+      "pandas_ms": 0.0
+    },
+    "monthly_avg_close": {
+      "duckdb_ms": 6.933,
+      "pandas_ms": 20.359,
+      "speedup_x": 2.94
+    },
+    "range_filter": {
+      "duckdb_ms": 7.819,
+      "pandas_ms": 1.27,
+      "speedup_x": 0.16
+    },
+    "hourly_avg_range": {
+      "duckdb_ms": 2.138,
+      "pandas_ms": 3.744,
+      "speedup_x": 1.75
+    }
+  },
+  "concurrent_reads": {
+    "wall_ms": 16.144,
+    "threads": {
+      "reader-0": {
+        "ms": 14.094,
+        "result": [
+          74324,
+          2811.982307599188
+        ]
+      },
+      "reader-1": {
+        "ms": 15.698,
+        "result": [
+          74324,
+          2811.982307599188
+        ]
+      }
+    },
+    "errors": [],
+    "config": "read_only=True on all connections"
+  },
+  "parquet": {
+    "files": [
+      "AUDUSD_1h.parquet",
+      "EURUSD_1h.parquet",
+      "GBPUSD_1h.parquet",
+      "USDJPY_1d.parquet",
+      "USDJPY_1h.parquet"
+    ],
+    "row_count": 76529,
+    "duckdb_read_ms": 59.144,
+    "columns": [
+      "Open",
+      "High",
+      "Low",
+      "Close",
+      "Volume",
+      "timestamp"
+    ],
+    "per_file_rows": [
+      {
+        "file": "AUDUSD_1h.parquet",
+        "rows": 17323
+      },
+      {
+        "file": "EURUSD_1h.parquet",
+        "rows": 17223
+      },
+      {
+        "file": "GBPUSD_1h.parquet",
+        "rows": 17225
+      },
+      {
+        "file": "USDJPY_1d.parquet",
+        "rows": 7632
+      },
+      {
+        "file": "USDJPY_1h.parquet",
+        "rows": 17126
+      }
+    ]
+  },
+  "cross_db_query": [
+    76529,
+    24239,
+    584
+  ],
+  "sqlite_attach": {
+    "attached": true,
+    "db_path": "/home/TacoPants/projects/Ayumi/data/trading.db",
+    "tables": [
+      "_schema_version",
+      "bars",
+      "daily_summary",
+      "equity_curve",
+      "rolling_metrics",
+      "sqlite_sequence",
+      "trades"
+    ],
+    "sample_table": "equity_curve",
+    "sample_row_count": 3,
+    "sample_first_row": [
+      1,
+      "2026-04-23T01:35:22.711108+00:00",
+      10000.0,
+      10000.0,
+      0.0,
+      0,
+      null,
+      null
+    ],
+    "sample_columns": [
+      "id",
+      "timestamp",
+      "balance",
+      "equity",
+      "unrealized_pnl",
+      "open_positions",
+      "daily_pnl",
+      "metadata"
+    ],
+    "error": null
+  }
+}
