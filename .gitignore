@@ -128,3 +128,8 @@ data/forex/equity_snapshots.jsonl
 data/state/
 data/workboard.db
 data/workboard.db-*
+
+# Phase 6 audit reports (regenerated daily by daily_audit.py / ftmo_daily.py)
+reports/hayate-daily/
+reports/ftmo-daily/
+workboard.db

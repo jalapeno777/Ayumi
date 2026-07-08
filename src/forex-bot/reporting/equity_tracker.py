@@ -14,6 +14,98 @@ from pathlib import Path
 from typing import Optional
 
 
+# ── Challenge-completion detector (Phase 6, Quest §6) ─────────────────────
+
+@dataclass
+class ProfitTargetResult:
+    """Result of FTMO profit-target check.
+
+    Attributes:
+        reached: True if profit target has been hit.
+        current_balance: Balance used in the check.
+        peak_balance: Peak balance used as the target baseline.
+        target_pct: Fractional profit target (default 0.10 for FTMO 1-Step).
+        required_balance: Peak * (1 + target_pct) — the level we need to cross.
+        distance_to_target: required - current (signed).
+        freeze_new_positions: True once target is reached. Engine should stop
+            opening new positions per FTMO challenge-completion semantics.
+        target_date: ISO date string when the target was first reached, if
+            known (persisted in risk_guard_state.json for idempotent freezes).
+    """
+
+    reached: bool
+    current_balance: float
+    peak_balance: float
+    target_pct: float
+    required_balance: float
+    distance_to_target: float
+    freeze_new_positions: bool = False
+    target_date: Optional[str] = None
+
+
+# Canonical FTMO 1-Step +10% profit target (Quest Phase 0).
+DEFAULT_PROFIT_TARGET_PCT = 0.10
+
+
+def check_profit_target(
+    state_path: str | Path = "data/state/risk_guard_state.json",
+    target_pct: float = DEFAULT_PROFIT_TARGET_PCT,
+    fallback_starting_balance: float = 100_000.0,
+) -> ProfitTargetResult:
+    """Determine whether the FTMO profit target has been reached.
+
+    Uses the on-disk ``risk_guard_state.json`` (peak_balance + current_balance)
+    so we get a persistent signal across processes. If the state file is
+    missing or incomplete, falls back to a fresh peak derived from
+    ``starting_balance`` so the call never raises a KeyError during cron.
+
+    Returns a ``ProfitTargetResult``. ``freeze_new_positions`` is set
+    whenever ``reached`` is True; the caller should then invoke the
+    kill-switch freeze via ``KillSwitchManager.activate_global_freeze``
+    (or wait for ``equity_tracker`` wiring in Phase 6 to do it
+    automatically).
+    """
+    state_path = Path(state_path)
+    peak = fallback_starting_balance
+    current = fallback_starting_balance
+    target_date: Optional[str] = None
+
+    if state_path.exists():
+        try:
+            with state_path.open() as f:
+                state = json.load(f)
+            if isinstance(state, dict):
+                # risk_guard_state uses peak_balance / current_balance
+                pk = state.get("peak_balance")
+                if isinstance(pk, (int, float)) and pk > 0:
+                    peak = float(pk)
+                cb = state.get("current_balance")
+                if isinstance(cb, (int, float)) and cb > 0:
+                    current = float(cb)
+                # Prefer explicit "target_reached_date" if present
+                tdate = state.get("profit_target_reached_date")
+                if isinstance(tdate, str):
+                    target_date = tdate
+        except (json.JSONDecodeError, OSError):
+            # Bad state file — fall through with defaults.
+            pass
+
+    required = peak * (1.0 + target_pct)
+    distance = round(required - current, 2)
+    reached = current >= required
+
+    return ProfitTargetResult(
+        reached=reached,
+        current_balance=round(current, 2),
+        peak_balance=round(peak, 2),
+        target_pct=target_pct,
+        required_balance=round(required, 2),
+        distance_to_target=distance,
+        freeze_new_positions=reached,
+        target_date=target_date,
+    )
+
+
 @dataclass
 class EquitySnapshot:
     """Single point-in-time equity observation."""

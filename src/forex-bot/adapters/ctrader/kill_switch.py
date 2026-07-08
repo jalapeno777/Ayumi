@@ -264,6 +264,33 @@ class KillSwitchManager:
                     reason, triggered_by, close_positions,
                 )
 
+    def activate_profit_target_freeze(
+        self,
+        triggered_by: str = "phase6_profit_target_detector",
+        current_balance: float | None = None,
+        target_pct: float | None = None,
+    ) -> bool:
+        """Activate the global FREEZE for FTMO challenge-completion.
+
+        Phase-6 convenience wrapper. Calls :meth:`activate_global_freeze` with
+        a canonical reason so that the audit log shows the freeze was caused
+        by reaching the profit target, not a manual operator freeze.
+
+        Returns True if the freeze activation was attempted (i.e., the
+        hook is reachable). When the kill switch is administratively
+        disabled (``self._disabled``), the underlying activation is
+        suppressed — we still return True so callers can confirm the
+        decision was recorded in the audit trail via ``log_path``.
+        """
+        reason = (
+            f"ftmo_target_reached "
+            f"(balance={current_balance:.2f}, target_pct={target_pct:.4f})"
+            if current_balance is not None and target_pct is not None
+            else "ftmo_target_reached"
+        )
+        self.activate_global_freeze(reason=reason, triggered_by=triggered_by)
+        return True
+
     def activate_global_freeze(self, reason: str, triggered_by: str) -> None:
         """Activate global FREEZE — stops new trades, holds existing positions.
         """
