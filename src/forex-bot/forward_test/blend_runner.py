@@ -18,6 +18,7 @@ from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
 from risk.regime_thresholds import Regime, RegimeAwareThresholds
+from risk.edge_telemetry import EdgeTelemetryTracker
 from risk.state_persistence import StatePersistence
 # Import the canonical CET date helper from ftmo_guard — do NOT duplicate it.
 # The daily reset boundary is FTMO-defined: CET midnight, not UTC midnight.
@@ -93,6 +94,9 @@ class BlendForwardTestRunner:
         self._regime_thresholds = RegimeAwareThresholds()
         self._current_regime: Regime = Regime.STABLE
         self._regime_history: list = []
+
+        # Phase 4.2: Edge telemetry (R-multiple expectancy per strategy × symbol)
+        self._edge_tracker = EdgeTelemetryTracker()
 
         # State persistence
         self._persistence = StatePersistence(
@@ -324,13 +328,25 @@ class BlendForwardTestRunner:
         if not order.rejected:
             # Phase 4: Apply regime-aware exposure multiplier
             exposure_mult = self._regime_thresholds.get_exposure_multiplier(self._current_regime)
-            if exposure_mult < 1.0:
-                order.risk_amount *= exposure_mult
-                order.lots *= exposure_mult
+
+            # Phase 4.2: Apply edge-based risk multiplier
+            edge_mult = self._edge_tracker.get_risk_multiplier(strategy_id, signal.symbol)
+
+            combined_mult = exposure_mult * edge_mult
+            if combined_mult < 1.0:
+                order.risk_amount *= combined_mult
+                order.lots *= combined_mult
                 logger.info(
-                    "Regime sizing: %s regime → %.0f%% exposure (risk=$%.2f lots=%.4f)",
-                    self._current_regime.value, exposure_mult * 100,
-                    order.risk_amount, order.lots,
+                    "Regime+edge sizing: %s %.0f%% × %.1f%% = %.0f%% exposure (risk=$%.2f lots=%.4f)",
+                    self._current_regime.value, exposure_mult * 100, edge_mult * 100,
+                    combined_mult * 100, order.risk_amount, order.lots,
+                )
+            elif edge_mult > 1.0:
+                order.risk_amount *= edge_mult
+                order.lots *= edge_mult
+                logger.info(
+                    "Edge sizing: %.1fx multiplier (high edge, risk=$%.2f lots=%.4f)",
+                    edge_mult, order.risk_amount, order.lots,
                 )
 
             # Register position tracking under a unique signal_id
@@ -396,10 +412,22 @@ class BlendForwardTestRunner:
         self._orchestrator.update_balance(self._balance)
 
         symbol = pos["order"].signal.symbol if pos else "unknown"
+        strategy_id = pos["order"].signal.strategy_id if pos else "unknown"
+        risk_amount = pos["risk_amount"] if pos else 0.0
         logger.info(
             "Position closed: signal_id=%s symbol=%s pnl=%.2f open_risk=%.2f",
             order_id, symbol, pnl, self._sizer.open_risk,
         )
+
+        # Phase 4.2: Record edge telemetry
+        if strategy_id != "unknown" and risk_amount > 0:
+            self._edge_tracker.record_close(
+                strategy_id=strategy_id,
+                symbol=symbol,
+                risk_amount=risk_amount,
+                pnl=pnl,
+                signal_id=order_id,
+            )
 
         # Persist state after fill
         self._persistence.save(self._sizer)
