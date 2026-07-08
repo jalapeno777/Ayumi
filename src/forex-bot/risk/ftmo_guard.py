@@ -64,6 +64,7 @@ class FTMOBreachType(str, Enum):
     POSITION_LIMIT = "position_limit"
     DD_REDUCE = "dd_reduce"
     DD_FREEZE = "dd_freeze"
+    BEST_DAY_RULE = "best_day_rule"  # Phase 0: FTMO 1-Step best-day rule (50% cap)
 
 
 class FTMOAction(str, Enum):
@@ -100,6 +101,10 @@ class FTMOState:
     current_dd_pct: float = 0.0
     action_level: str = FTMOAction.ALLOW.value
     breach_history: list = field(default_factory=list)
+    # Phase 0: Best-day rule tracking (FTMO 1-Step: best day ≤ 50% of total positive-days profit)
+    daily_pnl: float = 0.0                          # P&L for current CET day
+    daily_pnl_date: Optional[str] = None            # CET date for daily_pnl tracking
+    daily_pnl_history: list = field(default_factory=list)  # [{date, pnl}] for completed days
 
     def to_dict(self) -> dict:
         return {
@@ -112,6 +117,9 @@ class FTMOState:
             "current_dd_pct": self.current_dd_pct,
             "action_level": self.action_level,
             "breach_history": list(self.breach_history),
+            "daily_pnl": self.daily_pnl,
+            "daily_pnl_date": self.daily_pnl_date,
+            "daily_pnl_history": list(self.daily_pnl_history),
         }
 
 
@@ -141,6 +149,10 @@ class FTMOGuard:
     DEFAULT_MAX_POSITIONS = 3
     DEFAULT_DD_REDUCE_PCT = 8.0
     DEFAULT_DD_FREEZE_PCT = 9.0
+    # Phase 0: Best-day rule (FTMO 1-Step: best day's profit ≤ 50% of total positive-days profit)
+    DEFAULT_BEST_DAY_CAP_PCT = 0.50
+    # Max daily P&L history to retain (days)
+    MAX_PNL_HISTORY = 60
 
     def __init__(
         self,
@@ -150,6 +162,7 @@ class FTMOGuard:
         max_concurrent_positions: int = DEFAULT_MAX_POSITIONS,
         dd_reduce_pct: float = DEFAULT_DD_REDUCE_PCT,
         dd_freeze_pct: float = DEFAULT_DD_FREEZE_PCT,
+        best_day_cap_pct: float = DEFAULT_BEST_DAY_CAP_PCT,
     ):
         if dd_reduce_pct >= dd_freeze_pct:
             raise ValueError(
@@ -164,12 +177,14 @@ class FTMOGuard:
         self._max_positions = max_concurrent_positions
         self._dd_reduce_pct = dd_reduce_pct
         self._dd_freeze_pct = dd_freeze_pct
+        self._best_day_cap_pct = best_day_cap_pct
 
         self._state = FTMOState(
             starting_balance=starting_balance,
             peak_balance=starting_balance,
             current_balance=starting_balance,
             daily_loss_date=_cet_date(),
+            daily_pnl_date=_cet_date(),
         )
 
     # ── Public API: State queries ──────────────────────────────────────────
@@ -242,8 +257,23 @@ class FTMOGuard:
                     self._state.daily_loss_date,
                     cet_today,
                 )
+                # Phase 0: Roll over daily P&L before resetting
+                if self._state.daily_pnl_date is not None and self._state.daily_pnl_date != cet_today:
+                    self._state.daily_pnl_history.append({
+                        "date": self._state.daily_pnl_date,
+                        "pnl": self._state.daily_pnl,
+                    })
+                    if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY:]
+                    logger.info(
+                        "FTMO daily P&L rollover: %s P&L=%.2f",
+                        self._state.daily_pnl_date,
+                        self._state.daily_pnl,
+                    )
                 self._state.daily_loss_pct = 0.0
                 self._state.daily_loss_date = cet_today
+                self._state.daily_pnl = 0.0
+                self._state.daily_pnl_date = cet_today
                 # If we were frozen due to daily loss, allow trading again
                 if self._state.action_level == FTMOAction.FREEZE.value:
                     self._set_action(FTMOAction.ALLOW, "Daily reset at CET midnight")
@@ -268,6 +298,30 @@ class FTMOGuard:
                 self._state.current_dd_pct = max(0.0, dd)
             else:
                 self._state.current_dd_pct = 0.0
+
+            # ── Phase 0: Track daily P&L ────────────────────────────────────
+            # Daily P&L = change in balance since start of CET day
+            # We approximate start-of-day balance as starting_balance - cumulative_daily_pnl
+            # For accuracy, the forward test engine should set daily_start_balance explicitly
+            if self._state.daily_pnl_date == cet_today:
+                # Track balance delta within the day
+                # On first update of the day, daily_pnl is 0 (reset at rollover)
+                # We use current_balance - starting_balance + cumulative losses as daily P&L
+                # Simplest: daily_pnl = current_balance - balance_at_start_of_day
+                # Since we don't track balance_at_start_of_day separately,
+                # we use the balance delta from the first update each day
+                pass  # daily_pnl is updated via record_daily_pnl() for closed trades
+
+            # ── Phase 0: Best-day rule check ────────────────────────────────
+            # FTMO 1-Step: best day's profit ≤ 50% of total positive-days profit
+            best_day_violation = self._check_best_day_rule()
+            if best_day_violation:
+                self._breach(
+                    FTMOBreachType.BEST_DAY_RULE,
+                    best_day_violation,
+                    FTMOAction.FREEZE,
+                )
+                return self.action_level
 
             # ── Check rules (order: most severe first) ─────────────────────
 
@@ -352,6 +406,79 @@ class FTMOGuard:
             if level == FTMOAction.REDUCE_50:
                 return 0.5
             return 1.0
+
+    # ── Phase 0: Best-day rule API ─────────────────────────────────────
+
+    def record_daily_pnl(self, pnl: float, date: Optional[str] = None) -> None:
+        """Record closed-trade P&L for the current (or specified) CET day.
+
+        Called by the forward test engine when a trade closes.
+        Accumulates into ``daily_pnl`` for the current day.
+
+        Args:
+            pnl: Realized P&L for the closed trade (positive = profit).
+            date: CET date string (YYYY-MM-DD). Defaults to today.
+        """
+        if date is None:
+            date = _cet_date()
+        with self._lock:
+            if self._state.daily_pnl_date != date:
+                # Rollover if date changed without an update() call
+                if self._state.daily_pnl_date is not None:
+                    self._state.daily_pnl_history.append({
+                        "date": self._state.daily_pnl_date,
+                        "pnl": self._state.daily_pnl,
+                    })
+                    if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY:]
+                self._state.daily_pnl = 0.0
+                self._state.daily_pnl_date = date
+            self._state.daily_pnl += pnl
+            logger.debug(
+                "FTMO daily P&L update: %s += %.2f → total %.2f",
+                date, pnl, self._state.daily_pnl,
+            )
+
+    def check_best_day_rule(self) -> Optional[str]:
+        """Check FTMO 1-Step best-day rule.
+
+        Rule: best single day's profit must not exceed 50% of
+        total positive-days profit.
+
+        Returns:
+            None if rule is not violated, or a detail string if violated.
+        """
+        with self._lock:
+            return self._check_best_day_rule()
+
+    def _check_best_day_rule(self) -> Optional[str]:
+        """Internal best-day rule check (caller holds lock)."""
+        # Need at least 2 positive days to evaluate
+        positive_days = [
+            d for d in self._state.daily_pnl_history
+            if d.get("pnl", 0) > 0
+        ]
+        # Include today if positive
+        if self._state.daily_pnl > 0:
+            positive_days.append({
+                "date": self._state.daily_pnl_date or _cet_date(),
+                "pnl": self._state.daily_pnl,
+            })
+
+        if len(positive_days) < 2:
+            return None  # Can't violate with <2 positive days
+
+        total_positive = sum(d["pnl"] for d in positive_days)
+        best_day = max(d["pnl"] for d in positive_days)
+        best_day_ratio = best_day / total_positive if total_positive > 0 else 0.0
+
+        if best_day_ratio > self._best_day_cap_pct:
+            return (
+                f"Best day profit {best_day:.2f} is {best_day_ratio:.1%} of "
+                f"total positive-days profit {total_positive:.2f} "
+                f"(cap: {self._best_day_cap_pct:.0%})"
+            )
+        return None
 
     # ── Internal ───────────────────────────────────────────────────────────
 

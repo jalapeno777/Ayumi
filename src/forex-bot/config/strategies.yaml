@@ -18,7 +18,7 @@ filters:
     breakout_min_fraction: 0.10
 
 forward_test:
-  account_balance: 10000
+  account_balance: 100000  # Phase 0: FTMO 1-Step canonical ($100K)
   spread_pips:
     GBPUSD: 2.0
     EURUSD: 2.0
@@ -28,8 +28,10 @@ forward_test:
     USDCHF: 2.0
     USDCAD: 2.0
   ftmo:
-    daily_loss_limit_pct: 0.04
-    total_drawdown_limit_pct: 0.07
+    # Phase 0: FTMO 1-Step canonical values (3% daily / 10% total / $100K)
+    # Source of truth: risk/ftmo_guard.py FTMOGuard defaults
+    daily_loss_limit_pct: 0.03
+    total_drawdown_limit_pct: 0.10
     max_positions: 3
     max_trades_per_day: 10
     min_risk_reward: 0.0
@@ -94,7 +96,7 @@ forward_test:
       symbol: AUDUSD
       timeframe: H1
       min_confidence: 0.40
-      enabled: true
+      enabled: false  # Phase 0: disabled — no historical data available (latent bug)
       params:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
@@ -107,7 +109,7 @@ forward_test:
       symbol: USDCHF
       timeframe: H1
       min_confidence: 0.40
-      enabled: true
+      enabled: false  # Phase 0: disabled — no historical data available (latent bug)
       params:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0
@@ -120,7 +122,7 @@ forward_test:
       symbol: USDCAD
       timeframe: H1
       min_confidence: 0.40
-      enabled: true
+      enabled: false  # Phase 0: disabled — no historical data available (latent bug)
       params:
         session_range_min_pips: 15.0
         entry_near_extreme_pips: 12.0

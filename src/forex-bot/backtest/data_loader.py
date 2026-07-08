@@ -180,6 +180,7 @@ class CsvDataLoader:
         """
         table = pq.read_table(str(filepath))
         df = table.to_pandas(timestamp_as_object=True)
+        df = df.reset_index(drop=True)  # Phase 0: fix KeyError 'timestamp' when parquet index is unnamed
         ts_col = _find_column(df, "timestamp")
         timestamps = pd.to_datetime(df[ts_col], utc=True).dt.tz_convert(_UTC)
         has_ask = _detect_ask_columns(df)
