@@ -1785,6 +1785,16 @@ class ForwardTestEngine:
                     self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
                     self._health.signals_traded += 1
                     self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    # Reconciliation defense: if the synchronous TIMEOUT path
+                    # spuriously bumped signals_failed_live before this late
+                    # fill arrived, undo that increment here. Bounded at zero
+                    # so the counter can never go negative. This pairs with
+                    # the launcher's fix that stops the synchronous path from
+                    # bumping signals_failed_live for TIMEOUT (which is an
+                    # awaiting-ack state, not a terminal failure).
+                    self._health.signals_failed_live = max(
+                        0, self._health.signals_failed_live - 1
+                    )
                     logger.info(
                         "Late fill detected for order %s (%s %s) — live_fills=%d",
                         order_id, direction_str, signal.symbol,

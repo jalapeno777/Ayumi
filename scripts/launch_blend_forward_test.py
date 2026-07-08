@@ -406,8 +406,34 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     order.lots,
                                     getattr(outcome.order, "order_id", ""),
                                 )
+                            elif outcome.status == LiveExecutionStatus.TIMEOUT:
+                                # Our local wait_for_event fired without seeing
+                                # the broker's execution event. The order WAS
+                                # transmitted; the verdict isn't terminal yet.
+                                # Treat as a pending ack state (mirrors SENT) and
+                                # hand the verdict to the late-fill callback.
+                                # This split is required because every TIMEOUT
+                                # that later confirms as FILLED was previously
+                                # double-counted in signals_failed_live, which
+                                # then mirrored live_fills 1:1 in the B5 health
+                                # line. Holding the correlation gate + risk
+                                # budget here matches SENT semantics: the broker
+                                # may still deliver an execution event late.
+                                with self._lock:
+                                    self._health.signals_sent += 1
+                                    self._health.signals_pending += 1
+                                logger.warning(
+                                    "Live order TIMEOUT awaiting ack: %s %s %.4f lots order_id=%s — deferring verdict to late-fill callback",
+                                    strategy_id,
+                                    direction_str,
+                                    order.lots,
+                                    getattr(outcome.order, "order_id", ""),
+                                )
                             else:
-                                # REJECTED / TIMEOUT / NOT_CONNECTED / CANCELLED
+                                # REJECTED / NOT_CONNECTED / CANCELLED — terminal
+                                # failures only. SENT and TIMEOUT are handled in
+                                # their own branches above and treated as
+                                # awaiting-ack until the late callback decides.
                                 with self._lock:
                                     self._health.signals_failed_live += 1
                                 logger.warning(
