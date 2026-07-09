@@ -492,7 +492,11 @@ class RiskGuard:
         with self._lock:
             self._total_trades += trade_count_increment
             self._daily_trade_count += trade_count_increment
-            self._current_balance += pnl
+
+            # NOTE: Do NOT add pnl to _current_balance here.
+            # _current_balance is synced from PaperTrader via update_balance()
+            # / sync_live_balance(), which already includes all realised and
+            # unrealised P&L.  Adding pnl here double-counts every trade close.
 
             if self._current_balance > self._peak_balance:
                 self._peak_balance = self._current_balance

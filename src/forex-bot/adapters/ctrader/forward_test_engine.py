@@ -652,12 +652,22 @@ class ForwardTestEngine:
                 if self._paper_trader and hasattr(self._paper_trader, '_risk_guard'):
                     rg = self._paper_trader._risk_guard
                     rg.update_balance(live_balance)
-                    # On first sync (no trades yet), align daily_start_balance
-                    # to live balance so daily_pnl reflects only today's activity,
-                    # not inherited drawdown from prior sessions.
-                    if rg._daily_trade_count == 0 and rg._total_trades == 0:
+                    # Reset daily_start_balance on new trading day (not just first-ever sync).
+                    # The old condition (_daily_trade_count == 0 AND _total_trades == 0) only
+                    # fired once ever; after any trade, mid-day restarts loaded a stale
+                    # daily_start_balance from the state file, causing daily P&L drift.
+                    today = rg._current_trading_day()
+                    if rg._current_day != today:
+                        if rg._current_day is not None:
+                            rg._record_daily_stats()
+                        rg._current_day = today
                         rg._daily_start_balance = live_balance
+                        rg._daily_trade_count = 0
                         rg._save_state()
+                        logger.info(
+                            "[Balance Sync] New trading day: daily_start_balance reset to $%.2f",
+                            live_balance,
+                        )
                     dd_pct = rg.current_drawdown_pct * 100
                     logger.info(
                         "[Balance Sync] RiskGuard synced: live=$%.2f starting=$%.2f dd=%.2f%%",

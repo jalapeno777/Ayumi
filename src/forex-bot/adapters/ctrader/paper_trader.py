@@ -304,7 +304,13 @@ class PaperTrader:
             )
             if position:
                 self._stats.realized_pnl += position.closed_pnl
-                self._current_balance += position.closed_pnl
+                # NOTE: Do NOT add closed_pnl to _current_balance here.
+                # _current_balance was set by the last update_market_prices()
+                # call to (starting_balance + realized_pnl + total_unrealized),
+                # which already included this position's unrealised P&L.  Adding
+                # closed_pnl here double-counts.  The next update_market_prices()
+                # tick will recompute _current_balance correctly with the updated
+                # realized_pnl and the reduced total_unrealized (position removed).
                 self._stats.current_balance = self._current_balance
 
                 is_win = position.closed_pnl > 0
