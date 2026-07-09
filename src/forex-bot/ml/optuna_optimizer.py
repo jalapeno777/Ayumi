@@ -133,22 +133,61 @@ DEFAULT_BT_CONFIG = dict(
 # Minimum total trades across walk-forward windows to not prune
 MIN_TOTAL_TRADES = 15
 
+# OOS holdout start date — replaces the implicit _2026.csv filename convention.
+# When CSV files migrate to DuckDB, use this date to filter holdout rows:
+#   WHERE timestamp_utc >= OOS_HOLDOUT_START  -- holdout data
+#   WHERE timestamp_utc <  OOS_HOLDOUT_START  -- training data
+OOS_HOLDOUT_START = "2026-01-01"
+
 # ── Data loading ────────────────────────────────────────────────────────────
 
 
-def load_bars(pair: str, tf: str = "M15") -> list[Bar]:
-    """Load historical bars from CSV."""
+def load_bars(pair: str, tf: str = "M15", holdout_only: bool = False) -> list[Bar]:
+    """Load historical bars from CSV.
+
+    OOS Holdout Convention
+    ----------------------
+    Files named ``{PAIR}_{TF}_2026.csv`` contain OOS holdout data
+    (>= OOS_HOLDOUT_START).  Files named ``{PAIR}_{TF}.csv`` contain the
+    full dataset including the holdout period.
+
+    When *holdout_only* is False (default for this optimizer) the full
+    ``.csv`` is loaded without filtering — optuna uses all available data.
+
+    When *holdout_only* is True, the function prefers the ``_2026.csv``
+    file, or filters the full ``.csv`` to ``>= OOS_HOLDOUT_START``.
+
+    DuckDB migration: replace filename selection with
+    ``WHERE timestamp_utc >= OOS_HOLDOUT_START`` (holdout) or
+    ``WHERE timestamp_utc <  OOS_HOLDOUT_START`` (training).
+    """
     data_dir = PROJECT_ROOT / "data" / "forex" / "historical"
-    for suffix in (f"{pair}_{tf}.csv", f"{pair}_{tf}_2026.csv"):
-        csv_path = data_dir / suffix
-        if csv_path.exists():
-            break
+    if holdout_only:
+        # Prefer the _2026.csv holdout file, fall back to filtered .csv
+        for suffix in (f"{pair}_{tf}_2026.csv", f"{pair}_{tf}.csv"):
+            csv_path = data_dir / suffix
+            if csv_path.exists():
+                break
+        else:
+            raise FileNotFoundError(f"No data for {pair}/{tf}")
     else:
-        raise FileNotFoundError(f"No data for {pair}/{tf}")
+        # Prefer the full .csv, fall back to _2026.csv
+        for suffix in (f"{pair}_{tf}.csv", f"{pair}_{tf}_2026.csv"):
+            csv_path = data_dir / suffix
+            if csv_path.exists():
+                break
+        else:
+            raise FileNotFoundError(f"No data for {pair}/{tf}")
 
     df = pd.read_csv(csv_path)
     df["time"] = pd.to_datetime(df["Date"])
     df = df.sort_values("time").reset_index(drop=True)
+
+    # If we fell back to the full .csv but caller wants holdout-only,
+    # apply the date filter to preserve the _2026.csv convention.
+    if holdout_only and not csv_path.name.endswith("_2026.csv"):
+        df = df[df["time"] >= pd.Timestamp(OOS_HOLDOUT_START)].reset_index(drop=True)
+
     return [
         Bar(
             time=row["time"].to_pydatetime(),
