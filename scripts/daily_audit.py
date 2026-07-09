@@ -337,6 +337,324 @@ def _ch_signal_to_trade() -> CheckResult:
     return CheckResult("FT-009", "Trading Health", "OK", detail)
 
 
+def _ch_ft_open_positions_vs_limits(max_positions: int = 3) -> CheckResult:
+    """FT-002: Open positions vs limits — query trading.db for open trades."""
+    db_path = ROOT / "data" / "trading.db"
+    if not db_path.exists():
+        return CheckResult("FT-002", "Trading Health", "WARN",
+                           "trading.db missing — cannot check open positions")
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'")
+        count = cursor.fetchone()[0]
+        conn.close()
+    except Exception as exc:
+        return CheckResult("FT-002", "Trading Health", "WARN",
+                           f"trading.db query failed: {exc}")
+    if count > max_positions:
+        return CheckResult("FT-002", "Trading Health", "CRITICAL",
+                           f"open_positions={count} > max={max_positions} (FTMO limit violation)",
+                           auto_remediation="A5 — never auto-close; A3 — escalate to Craig within 15 min",
+                           escalated=True)
+    if count >= max_positions:
+        return CheckResult("FT-002", "Trading Health", "WARN",
+                           f"open_positions={count} = max={max_positions} (at limit)")
+    return CheckResult("FT-002", "Trading Health", "OK",
+                       f"open_positions={count} / max={max_positions}")
+
+
+def _ch_ft_best_day_ratio() -> CheckResult:
+    """FT-005: Best-day ratio — best day P&L / total positive P&L."""
+    db_path = ROOT / "data" / "trading.db"
+    if not db_path.exists():
+        return CheckResult("FT-005", "Trading Health", "WARN",
+                           "trading.db missing — cannot check best-day ratio")
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(db_path))
+        rows = conn.execute(
+            "SELECT date, total_pnl FROM daily_summary WHERE total_pnl > 0 ORDER BY total_pnl DESC"
+        ).fetchall()
+        conn.close()
+    except Exception as exc:
+        return CheckResult("FT-005", "Trading Health", "WARN",
+                           f"daily_summary query failed: {exc}")
+    if not rows:
+        return CheckResult("FT-005", "Trading Health", "OK",
+                           "no profitable days recorded yet — best-day ratio not computable")
+    best_day_pnl = rows[0][1]
+    total_positive = sum(r[1] for r in rows)
+    if total_positive <= 0:
+        return CheckResult("FT-005", "Trading Health", "OK",
+                           "no positive P&L days — ratio undefined")
+    ratio = best_day_pnl / total_positive
+    detail = f"best_day=${best_day_pnl:.2f} / total_positive=${total_positive:.2f} = {ratio*100:.1f}%"
+    if ratio > 0.48:
+        return CheckResult("FT-005", "Trading Health", "CRITICAL",
+                           detail + " (>48% — FTMO 1-Step qualification risk)",
+                           auto_remediation="A5 — Ava card; Craig card at critical",
+                           escalated=True)
+    if ratio > 0.40:
+        return CheckResult("FT-005", "Trading Health", "WARN",
+                           detail + " (40-48% — could affect FTMO qualification)")
+    return CheckResult("FT-005", "Trading Health", "OK", detail)
+
+
+def _ch_ft_fill_latency_p50() -> CheckResult:
+    """FT-007: Fill latency p50 — median time from signal generation to fill.
+
+    The signal_stats.jsonl schema does not yet have a ``filled_at`` field.
+    Until the engine instruments fill timing, this checkpoint reports WARN
+    noting the data gap rather than SKIP.
+    """
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    if not stats_path.exists():
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           "signal_stats.jsonl missing — fill latency unobservable")
+    has_fill_data = False
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("filled_at") is not None:
+                    has_fill_data = True
+                    break
+    except OSError:
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error")
+    if not has_fill_data:
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",
+                           notes="Engine needs filled_at field on SignalRecord. See design doc §6.2 FT-010 (1.5 SP dependency).")
+    latencies: list[float] = []
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                filled_at = rec.get("filled_at")
+                signal_ts = rec.get("timestamp")
+                if filled_at and signal_ts:
+                    try:
+                        latency = (datetime.fromisoformat(filled_at) -
+                                   datetime.fromisoformat(signal_ts)).total_seconds()
+                        if latency > 0:
+                            latencies.append(latency)
+                    except (ValueError, TypeError):
+                        pass
+    except OSError:
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error during latency computation")
+    if not latencies:
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           "filled_at field exists but no valid latency pairs found")
+    latencies.sort()
+    p50 = latencies[len(latencies) // 2]
+    if p50 > 30:
+        return CheckResult("FT-007", "Trading Health", "CRITICAL",
+                           f"fill_latency_p50={p50:.1f}s (>30s — cTrader API degradation)",
+                           auto_remediation="A3 — card for cTrader API investigation",
+                           escalated=True)
+    if p50 > 5:
+        return CheckResult("FT-007", "Trading Health", "WARN",
+                           f"fill_latency_p50={p50:.1f}s (5-30s — degraded)")
+    return CheckResult("FT-007", "Trading Health", "OK",
+                       f"fill_latency_p50={p50:.1f}s (based on {len(latencies)} fills)")
+
+
+def _ch_ft_fill_latency_p95() -> CheckResult:
+    """FT-008: Fill latency p95 — 95th percentile time from signal to fill.
+
+    Same data dependency as FT-007 — requires ``filled_at`` field.
+    """
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    if not stats_path.exists():
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           "signal_stats.jsonl missing — fill latency unobservable")
+    has_fill_data = False
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("filled_at") is not None:
+                    has_fill_data = True
+                    break
+    except OSError:
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error")
+    if not has_fill_data:
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",
+                           notes="Engine needs filled_at field on SignalRecord. See design doc §6.2 FT-010 (1.5 SP dependency).")
+    latencies: list[float] = []
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                filled_at = rec.get("filled_at")
+                signal_ts = rec.get("timestamp")
+                if filled_at and signal_ts:
+                    try:
+                        latency = (datetime.fromisoformat(filled_at) -
+                                   datetime.fromisoformat(signal_ts)).total_seconds()
+                        if latency > 0:
+                            latencies.append(latency)
+                    except (ValueError, TypeError):
+                        pass
+    except OSError:
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error during latency computation")
+    if not latencies:
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           "filled_at field exists but no valid latency pairs found")
+    latencies.sort()
+    p95_idx = int(len(latencies) * 0.95)
+    p95 = latencies[min(p95_idx, len(latencies) - 1)]
+    if p95 > 30:
+        return CheckResult("FT-008", "Trading Health", "CRITICAL",
+                           f"fill_latency_p95={p95:.1f}s (>30s — tail latency severe)",
+                           auto_remediation="A3 — card for cTrader API investigation",
+                           escalated=True)
+    if p95 > 5:
+        return CheckResult("FT-008", "Trading Health", "WARN",
+                           f"fill_latency_p95={p95:.1f}s (5-30s — degraded tail)")
+    return CheckResult("FT-008", "Trading Health", "OK",
+                       f"fill_latency_p95={p95:.1f}s (based on {len(latencies)} fills)")
+
+
+def _ch_ft_slippage_analysis() -> CheckResult:
+    """FT-010: Slippage analysis — difference between expected and actual fill price.
+
+    signal_stats.jsonl does not yet have a ``requested_price`` or ``expected_price``
+    field to compare against ``entry_price``. Until instrumented, this checkpoint
+    reports WARN noting the data gap.
+    """
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    if not stats_path.exists():
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           "signal_stats.jsonl missing — slippage unobservable")
+    has_slippage_data = False
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("requested_price") is not None or rec.get("expected_price") is not None:
+                    has_slippage_data = True
+                    break
+    except OSError:
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error")
+    if not has_slippage_data:
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           "slippage data not yet instrumented (no requested_price/expected_price field in signal_stats.jsonl); manual monitoring required",
+                           notes="Engine needs requested_price or expected_price field on SignalRecord for slippage analysis.")
+    slippages: list[float] = []
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                expected = rec.get("requested_price") or rec.get("expected_price")
+                actual = rec.get("entry_price")
+                if expected is not None and actual is not None:
+                    slip = abs(actual - expected)
+                    slippages.append(slip)
+    except OSError:
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error during slippage computation")
+    if not slippages:
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           "slippage fields exist but no valid pairs found")
+    avg_slip = sum(slippages) / len(slippages)
+    max_slip = max(slippages)
+    detail = f"avg_slippage={avg_slip:.5f}, max_slippage={max_slip:.5f} (n={len(slippages)})"
+    if avg_slip > 0.001:
+        return CheckResult("FT-010", "Trading Health", "CRITICAL",
+                           detail + " — average slippage >1 pip",
+                           auto_remediation="A3 — card for cTrader execution investigation",
+                           escalated=True)
+    if avg_slip > 0.0003:
+        return CheckResult("FT-010", "Trading Health", "WARN",
+                           detail + " — slippage elevated")
+    return CheckResult("FT-010", "Trading Health", "OK", detail)
+
+
+def _ch_ft_order_rejection_rate() -> CheckResult:
+    """FT-011: Order rejection rate — rejected orders / total signals."""
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    if not stats_path.exists():
+        return CheckResult("FT-011", "Trading Health", "WARN",
+                           "signal_stats.jsonl missing — rejection rate unobservable")
+    total = 0
+    rejected = 0
+    try:
+        with stats_path.open() as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                total += 1
+                outcome = rec.get("outcome", "")
+                if outcome in ("failed_order_error", "rejected", "order_rejected"):
+                    rejected += 1
+    except OSError:
+        return CheckResult("FT-011", "Trading Health", "WARN",
+                           "signal_stats.jsonl read error")
+    if total == 0:
+        return CheckResult("FT-011", "Trading Health", "OK",
+                           "no signals recorded — rejection rate not computable")
+    rate = rejected / total
+    detail = f"rejection_rate={rate*100:.2f}% ({rejected}/{total} signals)"
+    if rate > 0.10:
+        return CheckResult("FT-011", "Trading Health", "CRITICAL",
+                           detail + " (>10% — cTrader API or risk gate issue)",
+                           auto_remediation="A3 — card for execution path investigation",
+                           escalated=True)
+    if rate > 0.03:
+        return CheckResult("FT-011", "Trading Health", "WARN",
+                           detail + " (3-10% — elevated)")
+    return CheckResult("FT-011", "Trading Health", "OK", detail)
+
+
 # ── Data Health (DH-NNN) ────────────────────────────────────────────────────
 
 def _ch_dh_file_freshness(path: Path, check_id: str, label: str,
@@ -370,6 +688,126 @@ def _ch_dh_signal_stats() -> CheckResult:
 def _ch_dh_risk_state() -> CheckResult:
     return _ch_dh_file_freshness(ROOT / "data" / "state" / "risk_guard_state.json",
                                  "DH-004", "risk_guard_state.json")
+
+
+def _ch_dh_tick_feed_latency() -> CheckResult:
+    """DH-001: Tick feed latency — wall-clock now minus last_tick_time."""
+    hb_path = ROOT / "data" / "forward_test_health.json"
+    if not hb_path.exists():
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           "forward_test_health.json missing — cannot measure tick feed latency",
+                           escalated=True)
+    try:
+        hb = json.loads(hb_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           f"forward_test_health.json unreadable: {exc}")
+    last_tick_str = hb.get("last_tick_time")
+    if not last_tick_str:
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           "last_tick_time field missing in forward_test_health.json")
+    try:
+        last_tick = datetime.fromisoformat(last_tick_str)
+    except (ValueError, TypeError) as exc:
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           f"last_tick_time unparseable: {exc}")
+    now = _now()
+    latency_s = (now - last_tick).total_seconds()
+    if latency_s < 0:
+        return CheckResult("DH-001", "Data Health", "OK",
+                           f"last_tick_time in future (clock skew, latency={latency_s:.1f}s)")
+    if latency_s < 2:
+        return CheckResult("DH-001", "Data Health", "OK",
+                           f"tick feed latency={latency_s:.2f}s")
+    if latency_s < 30:
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           f"tick feed latency={latency_s:.1f}s (degraded)",
+                           auto_remediation="A1 — observe; restart only if persists >5min")
+    return CheckResult("DH-001", "Data Health", "CRITICAL",
+                       f"tick feed latency={latency_s:.1f}s (>30s during market hours)",
+                       auto_remediation="A1 — restart forward test (counts toward 3-attempt cap)",
+                       escalated=True)
+
+
+def _ch_dh_bar_building_rate() -> CheckResult:
+    """DH-002: Bar building rate — bars/min from forward_test_health.json."""
+    hb_path = ROOT / "data" / "forward_test_health.json"
+    if not hb_path.exists():
+        return CheckResult("DH-002", "Data Health", "WARN",
+                           "forward_test_health.json missing — cannot measure bar building rate",
+                           escalated=True)
+    try:
+        hb = json.loads(hb_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return CheckResult("DH-002", "Data Health", "WARN",
+                           f"forward_test_health.json unreadable: {exc}")
+    bars_built = hb.get("bars_built")
+    if bars_built is None:
+        return CheckResult("DH-002", "Data Health", "WARN",
+                           "bars_built field missing in forward_test_health.json")
+    try:
+        file_age_s = time.time() - hb_path.stat().st_mtime
+    except OSError as exc:
+        return CheckResult("DH-002", "Data Health", "WARN", f"stat failed: {exc}")
+    market_closed = hb.get("market_closed", False)
+    if market_closed:
+        return CheckResult("DH-002", "Data Health", "OK",
+                           f"market closed — bars_built={bars_built} (no new bars expected)")
+    if file_age_s > 300:
+        return CheckResult("DH-002", "Data Health", "CRITICAL",
+                           f"forward_test_health.json stale ({file_age_s:.0f}s old), bars_built={bars_built}",
+                           auto_remediation="A1 — restart forward test if stale >5min during market",
+                           escalated=True)
+    if bars_built == 0:
+        return CheckResult("DH-002", "Data Health", "WARN",
+                           "bars_built=0 (forward test may still be warming up)",
+                           auto_remediation="A2 — observe; investigate if persists >10min")
+    return CheckResult("DH-002", "Data Health", "OK",
+                       f"bars_built={bars_built}, health_file_age={file_age_s:.0f}s")
+
+
+def _ch_dh_signal_stats_write_health() -> CheckResult:
+    """DH-005: signal_stats write health — verify the file is being written to."""
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    if not stats_path.exists():
+        return CheckResult("DH-005", "Data Health", "WARN",
+                           "signal_stats.jsonl missing — SignalStatsRecorder not writing",
+                           escalated=True)
+    try:
+        file_age_s = time.time() - stats_path.stat().st_mtime
+    except OSError as exc:
+        return CheckResult("DH-005", "Data Health", "WARN", f"stat failed: {exc}")
+    # Read last line to check its timestamp
+    last_ts: str | None = None
+    try:
+        out = subprocess.run(
+            ["tail", "-n", "1", str(stats_path)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        last_line = out.stdout.strip()
+        if last_line:
+            try:
+                rec = json.loads(last_line)
+                last_ts = rec.get("timestamp")
+            except json.JSONDecodeError:
+                pass
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    if file_age_s < 60:
+        detail = f"signal_stats.jsonl mtime={file_age_s:.0f}s"
+        if last_ts:
+            detail += f", last_record_ts={last_ts}"
+        return CheckResult("DH-005", "Data Health", "OK", detail)
+    if file_age_s < 300:
+        return CheckResult("DH-005", "Data Health", "WARN",
+                           f"signal_stats.jsonl mtime={file_age_s:.0f}s (stale writer)",
+                           auto_remediation="A3 — card for SignalStatsRecorder investigation if market open")
+    return CheckResult("DH-005", "Data Health", "CRITICAL",
+                       f"signal_stats.jsonl mtime={file_age_s:.0f}s (writer may be dead)",
+                       auto_remediation="A3 — escalation card for SignalStatsRecorder",
+                       escalated=True)
 
 
 # ── Pipeline Health (PH-NNN) — separate from drift detector ────────────────
@@ -454,10 +892,19 @@ def run_all_checkpoints(detector: DriftDetector | None = None) -> list[CheckResu
     checks.append(_ch_ft_total_dd(ROOT / "data" / "state" / "risk_guard_state.json"))   # FT-004
     checks.append(_ch_ft_target_reached())        # FT-AUX-TARGET (Phase 6 audit marker)
     checks.append(_ch_signal_to_trade())          # FT-009
+    checks.append(_ch_ft_open_positions_vs_limits())  # FT-002
+    checks.append(_ch_ft_best_day_ratio())        # FT-005
+    checks.append(_ch_ft_fill_latency_p50())      # FT-007
+    checks.append(_ch_ft_fill_latency_p95())      # FT-008
+    checks.append(_ch_ft_slippage_analysis())     # FT-010
+    checks.append(_ch_ft_order_rejection_rate())  # FT-011
 
     # Data Health
     checks.append(_ch_dh_signal_stats())          # DH-003
     checks.append(_ch_dh_risk_state())            # DH-004
+    checks.append(_ch_dh_tick_feed_latency())     # DH-001
+    checks.append(_ch_dh_bar_building_rate())     # DH-002
+    checks.append(_ch_dh_signal_stats_write_health())  # DH-005
 
     # Pipeline Health
     checks.append(_ch_ph_extraction())            # PH-001
@@ -582,12 +1029,13 @@ def render_report(
 
     lines.append("## Appendix: Data Sources Queried")
     lines.append("")
-    lines.append("- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002)")
+    lines.append("- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002, DH-001)")
     lines.append("- `df -h /home/TacoPants/projects/Ayumi/` (SH-004)")
     lines.append("- `data/forward_test.log` (SH-008)")
     lines.append("- `data/state/risk_guard_state.json` (FT-003, FT-004, FT-AUX-TARGET, DH-004)")
-    lines.append("- `data/forward_test_health.json` (FT-009)")
-    lines.append("- `data/signal_stats.jsonl` (DH-003)")
+    lines.append("- `data/forward_test_health.json` (FT-009, DH-001, DH-002)")
+    lines.append("- `data/signal_stats.jsonl` (DH-003, DH-005, FT-007, FT-008, FT-010, FT-011)")
+    lines.append("- `data/trading.db` trades + daily_summary tables (FT-002, FT-005)")
     lines.append("- `data/learning/trajectories.jsonl` (PH-001)")
     lines.append("- OpenClaw workboard sqlite (KH-001..KH-007 via DriftDetector)")
     lines.append("- `data/ops/remediation_log.jsonl` and `data/ops/escalation_queue.jsonl` (remediation/escalation)")
