@@ -247,7 +247,7 @@ def aggregate_month(
                 hours_left -= 1
             url = (
                 f"{BASE_URL}/{pair.upper()}"
-                f"/{year:04d}/{month_idx0 + 1:02d}"  # URL uses 1-indexed month
+                f"/{year:04d}/{month_idx0:02d}"  # URL uses 0-indexed month (00=January)
                 f"/{day:02d}/{hour:02d}h_ticks.bi5"
             )
             try:
