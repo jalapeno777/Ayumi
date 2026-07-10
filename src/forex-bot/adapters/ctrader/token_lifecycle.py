@@ -160,6 +160,9 @@ class TokenLifecycle:
             )
             return self._access_token
 
+        with self._lock:
+            return self._do_refresh(force=True)
+
     @property
     def expires_at(self) -> Optional[datetime]:
         """Return the current token's expiry time, or None if unknown."""

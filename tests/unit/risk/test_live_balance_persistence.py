@@ -212,12 +212,23 @@ class TestStartupSanityGate:
 
     def test_sanity_gate_allows_balance_near_zero(self, tmp_state_path):
         """Balance below starting_balance is valid (trading losses)."""
+        from datetime import datetime, timedelta
+        from zoneinfo import ZoneInfo
+
+        # Compute the current trading day (17:00 America/Toronto rollover)
+        # so the state file doesn't trigger the day-change reset logic.
+        now_tz = datetime.now(ZoneInfo("America/Toronto"))
+        if now_tz.hour >= 17:
+            trading_day = now_tz.date()
+        else:
+            trading_day = now_tz.date() - timedelta(days=1)
+
         Path(tmp_state_path).parent.mkdir(parents=True, exist_ok=True)
         Path(tmp_state_path).write_text(json.dumps({
             "peak_balance": 10_000.0,
             "current_balance": 3_000.0,  # Heavy losses but valid
             "daily_start_balance": 9_500.0,
-            "current_day": "2026-07-06",
+            "current_day": trading_day.isoformat(),
             "daily_trade_count": 5,
             "total_trades": 10,
             "circuit_breaker_triggered": False,
