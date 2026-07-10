@@ -56,6 +56,7 @@ def _make_mock_lifecycle() -> MagicMock:
     mock.force_refresh.return_value = "new_access_token"
     mock.ensure_valid.return_value = "valid_access_token"
     mock.expires_at = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    mock._refresh_disabled = False
     mock._store = MagicMock()
     mock._store.get.return_value = MagicMock(
         refresh_token="new_refresh_token",
