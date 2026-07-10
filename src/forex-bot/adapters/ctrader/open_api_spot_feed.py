@@ -38,8 +38,6 @@ pragmatic fallback.
 """
 
 import logging
-import os
-import random
 import threading
 import time
 import uuid
@@ -62,8 +60,6 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOACancelOrderReq,
     ProtoOAReconcileReq,
     ProtoOAAmendPositionSLTPReq,
-    ProtoOAExecutionEvent,
-    ProtoOAOrderErrorEvent,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAOrderType,
@@ -74,16 +70,12 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 from .market_data_feed import Tick, SymbolInfo
 from .volume_calculator import VolumeCalculator
 from .connection import CTraderConnection
-from .auth_error_types import get_policy, AuthFaultType
+from .auth_error_types import get_policy
 from .connection_state import ConnectionState, ConnectionStateManager
-from .token_manager import TokenManager, TokenStatus
+from .token_manager import TokenManager
 from .token_lifecycle import TokenLifecycle
-from .credential_store import CredentialStore
 from .execution_permission import ExecutionPermissionPolicy
 from .environment import (
-    Environment,
-    DEMO_HOSTS,
-    LIVE_HOSTS,
     _infer_environment,
     validate_endpoint_environment,
     log_startup_environment,
@@ -615,7 +607,6 @@ class OpenApiSpotFeed:
         # XAUUSD digits=2) must use tick_digits=5 to avoid price inflation.
         # Universal fix: always force 5 when digits < 5, no symbol-name
         # heuristic needed (supersedes the prior JPY-only guard).
-        symbol_name = self._symbol_name_for_id(symbol_id)
         digits = self._symbol_digits.get(symbol_id, 5)
         if symbol_id not in self._symbol_digits:
             logger.warning("Tick decode: no digits for symbol_id=%s, using default 5", symbol_id)
@@ -934,8 +925,10 @@ class OpenApiSpotFeed:
             req.limitPrice = price
         elif order_type == ProtoOAOrderType.STOP and price is not None:
             req.stopPrice = price
-        if sl is not None: req.stopLoss = sl
-        if tp is not None: req.takeProfit = tp
+        if sl is not None:
+            req.stopLoss = sl
+        if tp is not None:
+            req.takeProfit = tp
         # cTrader enforces a maximum comment length (100 chars). Truncate
         # to prevent ORDER_ERROR rejections when signal.rationale is long.
         if comment:
@@ -1025,9 +1018,12 @@ class OpenApiSpotFeed:
             price = self._round_price(symbol_id, price)
             sl = self._round_price(symbol_id, sl)
             tp = self._round_price(symbol_id, tp)
-        if price is not None: req.limitPrice = price
-        if sl is not None: req.stopLoss = sl
-        if tp is not None: req.takeProfit = tp
+        if price is not None:
+            req.limitPrice = price
+        if sl is not None:
+            req.stopLoss = sl
+        if tp is not None:
+            req.takeProfit = tp
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
