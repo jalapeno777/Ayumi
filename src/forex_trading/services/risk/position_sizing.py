@@ -1,11 +1,16 @@
 """Position sizing and risk management.
 
-Implements Kelly criterion, fixed fractional, and other sizing methods.
+Implements Kelly criterion, fixed fractional, ATR-based dynamic sizing,
+and other sizing methods.
 """
 from abc import ABC, abstractmethod
 from typing import Optional
+import logging
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 class SizingMethod(ABC):
@@ -110,6 +115,106 @@ class FixedLotSize(SizingMethod):
         avg_loss: Optional[float] = None
     ) -> float:
         return self.lot_size
+
+
+class ATRDynamicSizing(SizingMethod):
+    """ATR-based dynamic position sizing.
+
+    Risk is the constant, size is the variable.
+    High volatility → wider stop → smaller position → same dollar risk.
+
+    The stop distance is derived from ATR rather than a fixed stop-loss price:
+        effective_stop_distance = atr_multiplier × ATR(14)
+
+    This keeps dollar risk consistent across varying volatility regimes.
+
+    When ``atr`` is not supplied to :meth:`calculate_size`, the class falls
+    back to the explicit ``stop_loss`` distance (behaving like
+    :class:`FixedFractional`) so the ABC contract stays satisfied for callers
+    that have not been wired to pass ATR yet.
+
+    Configuration (via constructor):
+        atr_multiplier: K — ATR multiplier for stop distance (default 1.5).
+        risk_pct: Default risk fraction (default 0.005 = 0.5 %, FTMO-safe).
+        contract_size: Units per standard lot (default 100 000).
+        pip_value: Dollar value of one pip movement per standard lot
+            (default 10.0, i.e. $10 / pip / lot for EURUSD).
+
+    The ``contract_size`` and ``pip_value`` attributes are stored so that
+    downstream code or future subclasses can convert the raw price-unit
+    result into lots if needed.  The base ``calculate_size`` return value
+    follows the same convention as the other sizing methods in this module
+    (price-unit-denominated).
+    """
+
+    def __init__(
+        self,
+        atr_multiplier: float = 1.5,
+        risk_pct: float = 0.005,
+        contract_size: float = 100_000.0,
+        pip_value: float = 10.0,
+    ):
+        if atr_multiplier <= 0:
+            raise ValueError("atr_multiplier must be positive")
+        if risk_pct <= 0 or risk_pct > 1.0:
+            raise ValueError("risk_pct must be in (0, 1.0]")
+        self.atr_multiplier = atr_multiplier
+        self.default_risk_pct = risk_pct
+        self.contract_size = contract_size
+        self.pip_value = pip_value
+
+    def calculate_size(
+        self,
+        account_balance: float,
+        entry_price: float,
+        stop_loss: float,
+        risk_pct: Optional[float] = None,
+        win_rate: Optional[float] = None,
+        avg_win: Optional[float] = None,
+        avg_loss: Optional[float] = None,
+        atr: Optional[float] = None,
+    ) -> float:
+        """Return position size derived from ATR-based stop distance.
+
+        Args:
+            account_balance: Current account equity.
+            entry_price: Planned entry price.
+            stop_loss: Planned stop-loss price (fallback when *atr* is None).
+            risk_pct: Override for constructor ``default_risk_pct``.
+            atr: Current ATR(14) value in price units.  When provided,
+                the stop distance is ``atr_multiplier × atr`` instead of
+                ``|entry_price - stop_loss|``.
+        """
+        if account_balance <= 0:
+            return 0.0
+
+        effective_risk = risk_pct if risk_pct is not None else self.default_risk_pct
+        if effective_risk <= 0:
+            return 0.0
+
+        # Derive stop distance: prefer ATR, fall back to explicit SL
+        if atr is not None and atr > 0:
+            stop_distance = self.atr_multiplier * atr
+        else:
+            stop_distance = abs(entry_price - stop_loss)
+
+        if stop_distance == 0:
+            return 0.0
+
+        risk_amount = account_balance * effective_risk
+        size = risk_amount / stop_distance
+
+        logger.debug(
+            "ATRDynamicSizing: balance=%.2f risk_pct=%.4f atr=%s K=%.2f "
+            "stop_dist=%.6f size=%.4f",
+            account_balance,
+            effective_risk,
+            f"{atr:.6f}" if atr is not None else "N/A",
+            self.atr_multiplier,
+            stop_distance,
+            size,
+        )
+        return size
 
 
 class RiskCalculator:
