@@ -22,6 +22,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
+import yaml  # PyYAML — Optuna-tuned strategy configs (config/strategies.yaml)
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
@@ -550,6 +552,145 @@ STRATEGY_TIMEFRAMES = {
     "Test Canary": 15,
 }
 
+# ── strategies.yaml loader (Optuna-tuned per-symbol/timeframe configs) ────
+# `strategies.yaml` is the source of truth for SRMR+ per-symbol/timeframe
+# variants produced by the Optuna walk-forward pipeline.  Loading happens
+# at module-import time so STRATEGY_ID_MAP / STRATEGY_TIMEFRAMES can be
+# fully populated before the engine's startup assertions run.
+_STRATEGIES_YAML_PATH = (
+    PROJECT_ROOT / "src" / "forex-bot" / "config" / "strategies.yaml"
+)
+_TF_CODE_TO_MINUTES = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H2": 120, "H4": 240, "D1": 1440}
+_ALLOWED_TF_MINUTES = {15, 60, 240}  # mirrors ForwardTestEngine._ALLOWED_TIMEFRAMES
+_SUPPORTED_YAML_STRATEGY_TYPES = {"srmr_plus"}
+
+
+def _load_yaml_strategies(
+    yaml_path: Path,
+) -> tuple[list[dict], list[dict]]:
+    """Parse ``strategies.yaml`` into per-variant extras + skip-reasons.
+
+    Returns ``(extra, skipped)`` where each extra is::
+
+        {"name":        "SRMR+ GBPUSD H1",
+         "id":          "srmr_gbpusd_h1",
+         "symbol":      "GBPUSD",
+         "timeframe":   "H1",
+         "tf_minutes":  60,
+         "params":      {...},
+         "min_confidence": 0.40,    # engine-level; informational only
+        }
+
+    and each skipped entry is::
+
+        {"id": "ttc_xauusd_h1", "reason": "unsupported type 'ttc'"}
+    """
+    if not yaml_path.exists():
+        logger.warning(
+            "strategies.yaml not found at %s — falling back to default strategy pool",
+            yaml_path,
+        )
+        return [], [{"id": None, "reason": f"yaml not found at {yaml_path}"}]
+
+    try:
+        cfg = yaml.safe_load(yaml_path.read_text()) or {}
+    except yaml.YAMLError as exc:
+        logger.error("Failed to parse strategies.yaml: %s — using defaults", exc)
+        return [], [{"id": None, "reason": f"yaml parse error: {exc}"}]
+
+    yaml_strategies = (
+        cfg.get("forward_test", {}).get("strategies")
+        if isinstance(cfg.get("forward_test"), dict)
+        else None
+    )
+    if yaml_strategies is None:
+        # Fallback: tolerate root-level `strategies:` if forward_test wrapper absent
+        yaml_strategies = cfg.get("strategies") or []
+
+    extra: list[dict] = []
+    skipped: list[dict] = []
+    for entry in yaml_strategies or []:
+        entry_id = entry.get("id", "?")
+        if not entry.get("enabled", False):
+            skipped.append({"id": entry_id, "reason": "disabled"})
+            continue
+        etype = entry.get("type")
+        if etype not in _SUPPORTED_YAML_STRATEGY_TYPES:
+            skipped.append({
+                "id": entry_id,
+                "reason": f"unsupported type '{etype}' (no class wired)",
+            })
+            continue
+        tf_code = entry.get("timeframe")
+        tf_minutes = _TF_CODE_TO_MINUTES.get(tf_code)
+        if tf_minutes is None:
+            skipped.append({"id": entry_id, "reason": f"unknown timeframe '{tf_code}'"})
+            continue
+        if tf_minutes not in _ALLOWED_TF_MINUTES:
+            skipped.append({
+                "id": entry_id,
+                "reason": f"tf {tf_minutes}m not in allowed whitelist {_ALLOWED_TF_MINUTES}",
+            })
+            continue
+        symbol = entry.get("symbol")
+        if not symbol:
+            skipped.append({"id": entry_id, "reason": "missing 'symbol'"})
+            continue
+        params = dict(entry.get("params") or {})
+        extra.append({
+            "name": f"SRMR+ {symbol} {tf_code}",
+            "id": entry_id,
+            "symbol": symbol,
+            "timeframe": tf_code,
+            "tf_minutes": tf_minutes,
+            "params": params,
+            "min_confidence": entry.get("min_confidence"),
+        })
+    return extra, skipped
+
+
+_yaml_extras, _yaml_skipped = _load_yaml_strategies(_STRATEGIES_YAML_PATH)
+
+# Register each YAML variant in the id + timeframe maps so the engine's
+# startup assertions (s.name in STRATEGY_ID_MAP / STRATEGY_TIMEFRAMES) pass.
+for _extra in _yaml_extras:
+    STRATEGY_ID_MAP[_extra["name"]] = _extra["id"]
+    STRATEGY_TIMEFRAMES[_extra["name"]] = _extra["tf_minutes"]
+
+# The default "SRMR+" entry was the single un-tuned pool instance;
+# it is intentionally REPLACED by the per-symbol/timeframe variants
+# above when YAML has at least one enabled variant.  When YAML has no
+# enabled SRMR+ variant, we keep the default entry as a safety fallback
+# so the existing 10-strategy pool behaviour is preserved exactly.
+if any(_e["id"].startswith("srmr_") for _e in _yaml_extras):
+    STRATEGY_ID_MAP.pop("SRMR+", None)
+    STRATEGY_TIMEFRAMES.pop("SRMR+", None)
+
+
+def _build_srmr_instances_from_yaml(extras: list[dict]) -> list["SRMRPlusStrategy"]:
+    """Instantiate SRMRPlusStrategy objects from the parsed YAML extras."""
+    valid_fields = set(SRMRPlusConfig.__dataclass_fields__.keys())
+    instances: list[SRMRPlusStrategy] = []
+    for extra in extras:
+        params = dict(extra["params"])
+        unknown = sorted(set(params) - valid_fields)
+        if unknown:
+            logger.warning(
+                "SRMR+ %s: dropping unknown params %s",
+                extra["name"], unknown,
+            )
+            params = {k: v for k, v in params.items() if k in valid_fields}
+        try:
+            cfg = SRMRPlusConfig(**params)
+        except (TypeError, ValueError) as exc:
+            logger.error(
+                "SRMR+ %s: failed to build SRMRPlusConfig from YAML params: %s — skipping",
+                extra["name"], exc,
+            )
+            continue
+        instances.append(SRMRPlusStrategy(config=cfg, name=extra["name"]))
+    return instances
+
 
 def build_blend_runner() -> BlendForwardTestRunner:
     config = {
@@ -827,8 +968,42 @@ def main():
     # 3. Instantiate strategies (T3)
     from strategies.session_breakout import SessionBreakoutStrategy
 
-    strategies = [
-        SRMRPlusStrategy(config=SRMRPlusConfig()),
+    # 3a. Load Optuna-tuned SRMR+ variants from strategies.yaml
+    yaml_srmr_strategies = _build_srmr_instances_from_yaml(_yaml_extras)
+
+    if yaml_srmr_strategies:
+        logger.info(
+            "Loaded %d SRMR+ variant(s) from strategies.yaml: %s",
+            len(yaml_srmr_strategies),
+            [s.name for s in yaml_srmr_strategies],
+        )
+        for s in yaml_srmr_strategies:
+            logger.info(
+                "  YAML SRMR+ %s: rsi_long=%.1f rsi_short=%.1f adx_max=%.1f "
+                "session_range_min=%.1f entry_near_extreme=%.1f sl_cap=%.1f",
+                s.name,
+                s.config.rsi_long_level,
+                s.config.rsi_short_level,
+                s.config.adx_max_threshold,
+                s.config.session_range_min_pips,
+                s.config.entry_near_extreme_pips,
+                s.config.hard_cap_sl_pips,
+            )
+    else:
+        logger.warning(
+            "No SRMR+ variants loaded from strategies.yaml — "
+            "falling back to single default SRMRPlusConfig()"
+        )
+        yaml_srmr_strategies = [SRMRPlusStrategy(config=SRMRPlusConfig())]
+
+    for _skipped in _yaml_skipped:
+        logger.info(
+            "  YAML skipped entry: id=%s reason=%s",
+            _skipped["id"], _skipped["reason"],
+        )
+
+    # 3b. Build the full strategy pool: YAML-tuned SRMR+ + default non-SRMR+
+    strategies = yaml_srmr_strategies + [
         KillzoneMomentumStrategy(config=KillzoneMomentumConfig()),
         DonchianBreakoutStrategy(momentum=MomentumConfig()),
         SessionRangeMeanReversionStrategy(config=SessionRangeMRConfig()),
@@ -860,7 +1035,16 @@ def main():
         SimpleRSIThresholdStrategy(config=RSIThresholdConfig()),
         TestCanaryStrategy.from_env(),  # disabled unless AYUMI_ENABLE_CANARY=1
     ]
-    logger.info("Registered %d strategies: %s", len(strategies), [s.name for s in strategies])
+
+    # Distinguish YAML-loaded strategies from default-pool strategies in logs
+    _yaml_names = {s.name for s in yaml_srmr_strategies}
+    _default_names = [s.name for s in strategies if s.name not in _yaml_names]
+    logger.info(
+        "Strategy pool: %d total | YAML-loaded: %d %s | default: %d %s",
+        len(strategies),
+        len(yaml_srmr_strategies), sorted(_yaml_names),
+        len(_default_names), _default_names,
+    )
 
     # Verify .name properties match STRATEGY_ID_MAP keys
     for s in strategies:

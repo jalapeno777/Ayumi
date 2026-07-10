@@ -333,9 +333,18 @@ def _build_signal(
 
 
 class SRMRPlusStrategy(ISignalStrategy):
-    def __init__(self, config: SRMRPlusConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: SRMRPlusConfig | None = None,
+        name: str = "SRMR+",
+    ) -> None:
         super().__init__()
         self.config = config or SRMRPlusConfig()
+        # `name` allows multiple per-symbol/timeframe instances to coexist
+        # in the engine's strategy registry (keyed by ``s.name``).  The
+        # default "SRMR+" preserves backward compatibility for callers
+        # that don't pass an explicit name.
+        self._name = name
         self._dxy_overlay: DxyRegimeOverlay | None = None
         if self.config.dxy_overlay and DxyRegimeOverlay is not None:
             self._dxy_overlay = DxyRegimeOverlay()
@@ -343,7 +352,7 @@ class SRMRPlusStrategy(ISignalStrategy):
 
     @property
     def name(self) -> str:
-        return "SRMR+"
+        return self._name
 
     def initialize(self, config: dict | None = None) -> None:
         """Initialize the SRMR+ strategy."""
