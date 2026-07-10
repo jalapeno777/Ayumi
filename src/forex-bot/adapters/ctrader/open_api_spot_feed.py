@@ -609,20 +609,17 @@ class OpenApiSpotFeed:
         if raw_bid == 0 and raw_ask == 0:
             return
 
-        # cTrader encodes all raw prices (bid/ask + trendbar OHLC) at
+        # cTrader encodes ALL raw prices (bid/ask + trendbar OHLC) at
         # 5-decimal precision internally, regardless of the symbol's display
-        # digits. USDJPY reports digits=3 but its raw prices are still int
-        # units of 1e-5. Using 10**digits would leave JPY-pair prices 100x
-        # inflated (regression of commit bc4fa4f9; same root cause as the
-        # trendbar fix in commit 5d6bf21 — apply the same workaround here).
-        # Non-JPY 5-digit symbols (EURUSD/GBPUSD) are unaffected since
-        # digits=5 matches the protobuf encoding.
+        # digits. Any symbol with display digits < 5 (e.g. USDJPY digits=3,
+        # XAUUSD digits=2) must use tick_digits=5 to avoid price inflation.
+        # Universal fix: always force 5 when digits < 5, no symbol-name
+        # heuristic needed (supersedes the prior JPY-only guard).
         symbol_name = self._symbol_name_for_id(symbol_id)
         digits = self._symbol_digits.get(symbol_id, 5)
         if symbol_id not in self._symbol_digits:
             logger.warning("Tick decode: no digits for symbol_id=%s, using default 5", symbol_id)
-        is_jpy = "JPY" in symbol_name.upper()
-        tick_digits = 5 if (is_jpy and digits < 5) else digits
+        tick_digits = 5 if digits < 5 else digits
         divisor = 10 ** tick_digits
         bid, ask = raw_bid / divisor, raw_ask / divisor
 
@@ -843,7 +840,7 @@ class OpenApiSpotFeed:
         symbol_name = self._symbol_name_for_id(symbol_id)
         digits = self._symbol_digits.get(symbol_id, 5)
         is_jpy = "JPY" in symbol_name.upper()
-        tb_digits = 5 if (is_jpy and digits < 5) else digits
+        tb_digits = 5 if digits < 5 else digits
         d = float(10 ** tb_digits)
 
         bars = []
