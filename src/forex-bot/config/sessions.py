@@ -4,8 +4,9 @@ All times are UTC.
 """
 
 from dataclasses import dataclass
-from datetime import time
+from datetime import datetime, time
 from enum import Enum
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -100,3 +101,50 @@ def get_trading_session(timestamp: pd.Timestamp) -> TradingSession:
 
     # Handles the 23:59 → 00:00 boundary
     return TradingSession.ASIAN
+
+
+# ---------------------------------------------------------------------------
+# Session gating for signal pipeline (SRB-AYUMI-011 §4.2.1)
+# ---------------------------------------------------------------------------
+
+_ET = ZoneInfo("America/New_York")
+
+# Module-level toggle (can be overridden at runtime)
+SESSION_GATING_ENABLED: bool = True
+
+
+def is_tradable_session(
+    pair: str,
+    utc_timestamp: datetime,
+) -> tuple[bool, str]:
+    """Check whether *pair* may be traded at *utc_timestamp*.
+
+    Rules (SRB-AYUMI-011 §4.2.1):
+    - **Allow** — London Open (02:00–06:00 ET), NY Overlap (08:00–12:00 ET)
+    - **Allow (caution)** — NY Afternoon (12:00–17:00 ET)
+    - **Block** — Asian session (18:00–02:00 ET) for non-JPY pairs
+
+    Args:
+        pair: Symbol such as ``"GBPUSD"`` or ``"USD/JPY"``.
+        utc_timestamp: Timezone-aware UTC datetime.
+
+    Returns:
+        ``(allowed, reason)`` — *reason* is empty when allowed.
+    """
+    if not SESSION_GATING_ENABLED:
+        return True, ""
+
+    et_hour = utc_timestamp.astimezone(_ET).hour
+
+    pair_norm = pair.upper().replace("/", "").replace("_", "")
+    is_jpy = "JPY" in pair_norm
+
+    # Asian session: 18:00–02:00 ET (wraps midnight)
+    in_asian = et_hour >= 18 or et_hour < 2
+    if in_asian and not is_jpy:
+        return False, (
+            f"Session blocked: Asian session for non-JPY pair {pair} "
+            f"(ET hour {et_hour:02d}:00)"
+        )
+
+    return True, ""
