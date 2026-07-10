@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 
 # ── Price / range sanity guards ────────────────────────────────────────────
 # These prevent corrupted signals (e.g. from upstream unit mismatches) from

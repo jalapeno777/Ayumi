@@ -4,15 +4,15 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from backtest.engine import (
+from backtest.strategy_legacy import ISignalStrategy
+from config.sessions import SessionRangeHours
+from core.types import (
     Bar,
     MarketState,
     SessionType,
     StrategySignal,
     TradeDirection,
 )
-from backtest.strategy_legacy import ISignalStrategy
-from config.sessions import SessionRangeHours
 
 try:
     from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar

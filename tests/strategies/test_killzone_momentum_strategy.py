@@ -1,7 +1,7 @@
 import unittest
 
 from datetime import datetime
-from backtest.engine import Bar, MarketState, TradeDirection, SessionType
+from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.killzone_momentum import (
     KillzoneMomentumStrategy,
     KillzoneMomentumConfig,

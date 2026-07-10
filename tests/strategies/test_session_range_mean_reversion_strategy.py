@@ -2,7 +2,7 @@ import unittest
 
 from datetime import datetime
 
-from backtest.engine import Bar, MarketState, SessionType, TradeDirection
+from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,

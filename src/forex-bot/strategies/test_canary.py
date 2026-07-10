@@ -22,7 +22,7 @@ import os
 from typing import Optional
 
 from backtest.strategy_legacy import ISignalStrategy
-from backtest.types import Bar, MarketState, StrategySignal, TradeDirection
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 
 logger = logging.getLogger("ayumi.test_canary")
 

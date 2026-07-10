@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backtest.engine import (
+from core.types import (
     Bar,
     MarketState,
     SessionType,

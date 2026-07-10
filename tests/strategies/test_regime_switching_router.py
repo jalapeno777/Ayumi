@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import MagicMock
 
-from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import (
     ISignalStrategy,
     MomentumBreakoutStrategy,

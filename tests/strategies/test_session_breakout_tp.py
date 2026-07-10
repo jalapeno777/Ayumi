@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from backtest.engine import Bar, MarketState, TradeDirection
+from core.types import Bar, MarketState, TradeDirection
 from strategies.session_breakout import (
     SessionBreakoutStrategy,
     _FX_MAX_PRICE,

@@ -3,7 +3,7 @@ import unittest
 
 from datetime import datetime
 
-from backtest.engine import Bar, MarketState, SessionType, TradeDirection
+from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
     EURUSD_H1_PRESET,
     GBPJPY_H1_PRESET,

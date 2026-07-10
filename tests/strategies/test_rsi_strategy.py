@@ -20,7 +20,7 @@ import unittest
 from datetime import datetime, timedelta
 
 
-from backtest.engine import Bar, MarketState, TradeDirection
+from core.types import Bar, MarketState, TradeDirection
 
 from strategies.rsi_threshold import (
     RSIThresholdConfig,

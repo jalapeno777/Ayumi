@@ -21,8 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategy_legacy import ISignalStrategy
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 
 
 @dataclass(frozen=True)

@@ -4,14 +4,14 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List, Optional
 
-from backtest.engine import (
+from config.sessions import KillzoneHours
+from core.types import (
     Bar,
     MarketState,
     SessionType,
     StrategySignal,
     TradeDirection,
 )
-from config.sessions import KillzoneHours
 
 
 @dataclass(frozen=True)

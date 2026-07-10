@@ -3,14 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from backtest.engine import (
+from backtest.strategy_legacy import ISignalStrategy
+from core.types import (
     Bar,
     MarketState,
     SessionType,
     StrategySignal,
     TradeDirection,
 )
-from backtest.strategy_legacy import ISignalStrategy
 
 
 @dataclass(frozen=True)

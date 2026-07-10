@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backtest.engine import Bar, MarketState, SessionType, TradeDirection
+from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.bb_rsi_reversion import (
     BBRSIConfig,
     BBRSIMeanReversion,

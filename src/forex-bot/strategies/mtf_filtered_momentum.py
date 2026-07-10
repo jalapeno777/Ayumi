@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 
-from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 from quant.bar_resample import resample_bars
 from quant.mtf_regime import (
     MTFRegimeConfig,

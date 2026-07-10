@@ -3,14 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from backtest.engine import (
+from config.sessions import SessionRangeHours
+from core.types import (
     Bar,
     MarketState,
     SessionType,
     StrategySignal,
     TradeDirection,
 )
-from config.sessions import SessionRangeHours
 
 NO_SIGNAL = None
 

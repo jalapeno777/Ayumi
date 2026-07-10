@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from backtest.engine import (
+from core.types import (
     MarketState,
     StrategySignal,
 )
