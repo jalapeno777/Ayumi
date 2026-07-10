@@ -124,6 +124,35 @@ class BlendForwardTestRunner:
             "BlendForwardTestRunner started — balance=$%.2f", self._balance,
         )
 
+    # ── Broker reconciliation (card 0e0338d4) ─────────────────────────
+
+    def reconcile_with_broker(self, broker_positions) -> dict:
+        """Nuke-and-rebuild sizer ``_open_positions`` from broker truth.
+
+        Fixes the phantom-positions bug where the sizer reported
+        ``positions_carried=16`` while cTrader only had 4 actual fills.
+        Delegates to :meth:`SLPositionSizer.reconcile_with_broker`.
+
+        Accepts any iterable of position-like objects (the engine
+        passes the list returned by ``OpenApiSpotFeed.reconcile()``).
+
+        Returns the reconciliation result dict (before/after counts,
+        divergence flag, etc). Callers (launch script) log it and may
+        use it for health endpoints.
+        """
+        result = self._sizer.reconcile_with_broker(broker_positions)
+        # Mirror the new open_risk into the orchestrator's view of the
+        # account — the sizer is the source of truth for open_risk, so
+        # any downstream consumer that caches the old value must refresh.
+        try:
+            self._orchestrator.update_balance(self._sizer.account_balance)
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.debug(
+                "reconcile_with_broker: orchestrator.update_balance failed (non-fatal): %s",
+                exc,
+            )
+        return result
+
     def _check_daily_reset(self, timestamp: datetime) -> None:
         """Reset daily risk cap on day boundaries.
 

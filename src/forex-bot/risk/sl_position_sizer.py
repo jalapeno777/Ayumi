@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Union
+from typing import Any, Iterable, Optional, Union
 import logging
 import threading
 
@@ -46,6 +46,9 @@ INSTRUMENTS = {
     #       Update at runtime from broker feed for production accuracy.
     "USDJPY": InstrumentSpec("USDJPY", pip_size=0.01, lot_size=100000, pip_value_per_lot=6.5),
     "XAUUSD": InstrumentSpec("XAUUSD", pip_size=0.01, lot_size=100, pip_value_per_lot=1.0),
+    "AUDUSD": InstrumentSpec("AUDUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "USDCHF": InstrumentSpec("USDCHF", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "USDCAD": InstrumentSpec("USDCAD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
 }
 
 
@@ -342,6 +345,201 @@ class SLPositionSizer:
                 "Cannot close position: no open positions matching risk_amount"
             )
 
+    # ── Startup / periodic broker reconciliation ─────────────────────────
+
+    def reconcile_with_broker(
+        self,
+        broker_positions: Iterable[Any],
+    ) -> dict:
+        """Nuke-and-rebuild :attr:`_open_positions` from broker truth.
+
+        Why this exists (card 0e0338d4): the in-memory ``_open_positions``
+        dict previously accumulated phantom entries from the legacy
+        ``_legacy_open_risk`` synthesis path (the ``_open_risk`` setter
+        creates a ``_legacy_open_risk`` key when state is restored with a
+        non-zero ``open_risk`` scalar) and from ``register_open_position``
+        callbacks that did not have a matching broker position. The result
+        was ``positions_carried`` counts of 16+ when cTrader only had 4
+        actual fills.
+
+        The fix is to clear ``_open_positions`` completely and rebuild it
+        from the broker's authoritative open-position list. Lower risk
+        than in-place reconciliation because the broker is the source of
+        truth — anything not in the broker response does not exist.
+
+        Each rebuilt entry uses the ``seeded_{position_id}`` key so it
+        cannot collide with live ``signal_id`` keys registered by
+        ``BlendForwardTestRunner.on_signal``. Risk per position is computed
+        from the broker-provided entry/SL using the same formula as the
+        engine's ``_seed_existing_positions`` (so daily-cap accounting
+        matches what the engine would have computed).
+
+        Args:
+            broker_positions: An iterable of position-like objects (any
+                object exposing ``position_id``, ``symbol``, ``volume``
+                or ``volume_lots``, ``entry_price`` or ``price``, and
+                ``stop_loss``). Accepts both the
+                ``adapters.ctrader.models.Position`` dataclass and the
+                ``adapters.ctrader.account_state.Position`` dataclass —
+                attribute names are read via ``getattr`` with fallbacks.
+
+        Returns:
+            Dict with::
+
+                {
+                    "before_count":    int,   # entries before reconcile
+                    "after_count":     int,   # entries after reconcile
+                    "seeded_count":    int,   # broker positions registered
+                    "before_open_risk":float, # USD risk before reconcile
+                    "after_open_risk": float, # USD risk after reconcile
+                    "removed_count":   int,   # before_count - after_count
+                    "diverged":        bool,  # before_count != after_count
+                    "missing_position_ids": list[str],  # any that failed
+                    "ran_at":          str,   # ISO8601 UTC timestamp
+                }
+
+        Thread safety: Acquires ``self._lock``. Safe to call concurrently
+        with ``register``/``cancel``/``close`` — they will block briefly
+        during the swap.
+
+        Note:
+            This method does NOT touch ``_daily_risk_used``. Seeded
+            positions were opened on prior days so their reserved risk
+            consumes today's cap (via ``open_risk``) but they should not
+            be double-counted as today's realised losses.
+        """
+        # Lazy import to keep ``sl_position_sizer`` importable without
+        # the broker/strategy stacks (used by backtests + unit tests).
+        from risk.sl_position_sizer import _compute_position_risk_usd  # noqa: F401
+
+        with self._lock:
+            before_count = len(self._open_positions)
+            before_open_risk = sum(self._open_positions.values())
+
+            # Capture any position_ids we already know about (logging only).
+            pre_keys = set(self._open_positions.keys())
+
+            # ── Nuke: drop everything. Broker truth replaces local state. ──
+            self._open_positions.clear()
+
+            # ── Rebuild: register each broker position under a synthetic
+            #     ``seeded_{position_id}`` key so live signal_ids cannot
+            #     collide.
+            seeded_count = 0
+            after_open_risk = 0.0
+            missing_position_ids: list[str] = []
+            for pos in broker_positions:
+                position_id = (
+                    getattr(pos, "position_id", None)
+                    or getattr(pos, "positionId", None)
+                )
+                if position_id is None or str(position_id) == "":
+                    missing_position_ids.append("<missing-id>")
+                    logger.warning(
+                        "reconcile_with_broker: skipping position with no id: %r",
+                        pos,
+                    )
+                    continue
+
+                symbol = (
+                    getattr(pos, "symbol", None)
+                    or getattr(pos, "symbol_name", None)
+                    or ""
+                )
+                # `volume` is lots in ctrader.models.Position; `volume_lots`
+                # is lots in account_state.Position. Both acceptable.
+                lots = (
+                    getattr(pos, "volume", None)
+                    if getattr(pos, "volume", None) is not None
+                    else getattr(pos, "volume_lots", None)
+                ) or 0.0
+                try:
+                    lots = float(lots)
+                except (TypeError, ValueError):
+                    lots = 0.0
+
+                entry_price = (
+                    getattr(pos, "entry_price", None)
+                    if getattr(pos, "entry_price", None) is not None
+                    else getattr(pos, "price", None)
+                ) or 0.0
+                try:
+                    entry_price = float(entry_price)
+                except (TypeError, ValueError):
+                    entry_price = 0.0
+
+                sl_price = getattr(pos, "stop_loss", None)
+                if sl_price is None:
+                    sl_price = getattr(pos, "sl", None)
+                if sl_price is not None:
+                    try:
+                        sl_price = float(sl_price)
+                    except (TypeError, ValueError):
+                        sl_price = None
+
+                risk_amount = _compute_position_risk_usd(
+                    symbol=str(symbol),
+                    entry_price=entry_price,
+                    sl_price=sl_price,
+                    lots=lots,
+                )
+
+                key = f"seeded_{position_id}"
+                try:
+                    self.register(key, risk_amount)
+                except ValueError:
+                    # Duplicate key — extremely unlikely (broker returned
+                    # the same position_id twice) but handle it.
+                    logger.warning(
+                        "reconcile_with_broker: duplicate position_id=%s — "
+                        "skipping second registration",
+                        position_id,
+                    )
+                    missing_position_ids.append(str(position_id))
+                    continue
+
+                seeded_count += 1
+                after_open_risk += risk_amount
+
+            after_count = len(self._open_positions)
+            removed_count = before_count - after_count
+            diverged = before_count != after_count
+
+            result = {
+                "before_count": before_count,
+                "after_count": after_count,
+                "seeded_count": seeded_count,
+                "before_open_risk": float(before_open_risk),
+                "after_open_risk": float(after_open_risk),
+                "removed_count": removed_count,
+                "diverged": diverged,
+                "missing_position_ids": missing_position_ids,
+                "ran_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            # Log the reconciliation at WARNING level when divergence is
+            # detected (so operators notice phantoms disappearing), INFO
+            # otherwise (so the no-op startup is visible in logs).
+            log_level = logging.WARNING if diverged else logging.INFO
+            logger.log(
+                log_level,
+                "SLPositionSizer.reconcile_with_broker: "
+                "positions %d→%d (seeded=%d, removed=%d), "
+                "open_risk $%.2f→$%.2f, diverged=%s, missing=%d, "
+                "dropped_keys=%s",
+                before_count,
+                after_count,
+                seeded_count,
+                removed_count,
+                before_open_risk,
+                after_open_risk,
+                diverged,
+                len(missing_position_ids),
+                sorted(pre_keys - set(self._open_positions.keys()))[:20],
+            )
+
+            return result
+
     def reset_daily(self, cet_date: Optional[str] = None):
         """Reset daily counters at CET midnight (FTMO spec).
 
@@ -496,3 +694,64 @@ class SLPositionSizer:
             pip_value=spec.pip_value_per_lot,
             warnings=warnings,
         )
+
+
+# ── Module-level helpers ────────────────────────────────────────────────
+
+
+def _compute_position_risk_usd(
+    *,
+    symbol: str,
+    entry_price: float,
+    sl_price: Optional[float],
+    lots: float,
+) -> float:
+    """Compute the USD risk for a single open position.
+
+    Mirrors the formula used by
+    :meth:`SLPositionSizer.calculate` so seeded positions from the
+    broker consume the same ``open_risk`` budget that a live-trade
+    registration would have. Centralised here so the sizer does not
+    have to expose it as a method (the helper is also called from
+    :meth:`SLPositionSizer.reconcile_with_broker`).
+
+    Args:
+        symbol: Trading symbol (e.g. ``"EURUSD"``). Used to look up
+            ``INSTRUMENTS`` for ``pip_size`` and ``pip_value_per_lot``.
+        entry_price: Average fill price reported by the broker.
+        sl_price: Stop-loss price, or ``None`` if no SL is set on the
+            broker side.
+        lots: Position size in lots.
+
+    Returns:
+        USD risk amount. Returns ``lots * 100.0`` as a conservative
+        fallback when no SL is provided or the symbol is unknown —
+        matches the engine's existing ``_seed_existing_positions``
+        behaviour so seeded counts stay comparable across restart.
+    """
+    spec = INSTRUMENTS.get(str(symbol).upper())
+    if spec is None:
+        # Unknown symbol — fall back to FX defaults so an unmapped
+        # broker position still contributes a reasonable risk estimate
+        # rather than zero (which would silently understate open_risk).
+        spec = InstrumentSpec(
+            symbol=str(symbol),
+            pip_size=0.0001,
+            lot_size=100_000,
+            pip_value_per_lot=10.0,
+        )
+
+    if (
+        sl_price is None
+        or sl_price <= 0.0
+        or entry_price <= 0.0
+        or lots <= 0.0
+    ):
+        # No SL known — use the same conservative estimate the engine
+        # uses ($100 per lot) so broker positions without an SL still
+        # reserve a non-zero risk budget against the daily cap.
+        return float(lots) * 100.0
+
+    price_distance = abs(float(entry_price) - float(sl_price))
+    pips = price_distance / spec.pip_size if spec.pip_size > 0 else 0.0
+    return float(pips) * float(lots) * spec.pip_value_per_lot

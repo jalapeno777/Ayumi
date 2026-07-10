@@ -107,8 +107,10 @@ class OrderGateway:
             req.stopLoss = sl
         if tp is not None:
             req.takeProfit = tp
+        # cTrader enforces a maximum comment length (100 chars). Truncate
+        # to prevent ORDER_ERROR rejections when signal.rationale is long.
         if comment:
-            req.comment = comment
+            req.comment = comment[:100]
 
         # Register with event handler BEFORE sending
         event = self._event_handler.register_pending(

@@ -939,7 +939,10 @@ class OpenApiSpotFeed:
             req.stopPrice = price
         if sl is not None: req.stopLoss = sl
         if tp is not None: req.takeProfit = tp
-        if comment: req.comment = comment
+        # cTrader enforces a maximum comment length (100 chars). Truncate
+        # to prevent ORDER_ERROR rejections when signal.rationale is long.
+        if comment:
+            req.comment = comment[:100]
 
         event = threading.Event()
         client_msg_id = f"order_{uuid.uuid4().hex}"

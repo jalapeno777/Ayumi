@@ -41,6 +41,30 @@ class TestSLPositionSizer:
         assert not swarm.blocked
         assert swarm.lots == pytest.approx(sniper.lots * 0.5, abs=0.01)
 
+    def test_basic_audusd(self):
+        """Standard AUDUSD trade: $50 risk, 30 pip SL."""
+        result = self.sizer.calculate("AUDUSD", 0.6650, 0.6620, profile="sniper")
+        assert not result.blocked
+        assert result.lots > 0
+        assert result.sl_distance_pips == pytest.approx(30.0)
+        assert result.risk_amount == pytest.approx(50.0, abs=1.0)
+
+    def test_basic_usdchf(self):
+        """Standard USDCHF trade: $50 risk, 30 pip SL."""
+        result = self.sizer.calculate("USDCHF", 0.8850, 0.8820, profile="sniper")
+        assert not result.blocked
+        assert result.lots > 0
+        assert result.sl_distance_pips == pytest.approx(30.0)
+        assert result.risk_amount == pytest.approx(50.0, abs=1.0)
+
+    def test_basic_usdcad(self):
+        """Standard USDCAD trade: $50 risk, 30 pip SL."""
+        result = self.sizer.calculate("USDCAD", 1.3700, 1.3670, profile="sniper")
+        assert not result.blocked
+        assert result.lots > 0
+        assert result.sl_distance_pips == pytest.approx(30.0)
+        assert result.risk_amount == pytest.approx(50.0, abs=1.0)
+
     # --- SL Distance Validation ---
 
     def test_sl_too_close(self):

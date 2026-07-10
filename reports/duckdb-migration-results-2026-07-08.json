@@ -1,0 +1,591 @@
+{
+  "database": "/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb",
+  "db_size_mb": 165.8,
+  "bar_csvs_imported": 36,
+  "total_rows": 1528829,
+  "symbols": [
+    "EURUSD",
+    "GBPUSD",
+    "USDJPY",
+    "GBPJPY",
+    "XAUUSD",
+    "USDCAD",
+    "USDCHF"
+  ],
+  "skipped_files": [
+    "phase3c_M5_features.csv",
+    "phase3c_M5_labels.csv",
+    "wf_results.csv"
+  ],
+  "parity": {
+    "row_count": [
+      {
+        "file": "EURUSD_D1.csv",
+        "symbol": "EURUSD",
+        "timeframe": "D1",
+        "csv_rows": 938,
+        "db_delta": 938,
+        "db_total_for_pair": 938,
+        "match": true
+      },
+      {
+        "file": "EURUSD_H1.csv",
+        "symbol": "EURUSD",
+        "timeframe": "H1",
+        "csv_rows": 17877,
+        "db_delta": 17877,
+        "db_total_for_pair": 17877,
+        "match": true
+      },
+      {
+        "file": "EURUSD_H4.csv",
+        "symbol": "EURUSD",
+        "timeframe": "H4",
+        "csv_rows": 4807,
+        "db_delta": 4807,
+        "db_total_for_pair": 4807,
+        "match": true
+      },
+      {
+        "file": "EURUSD_M15.csv",
+        "symbol": "EURUSD",
+        "timeframe": "M15",
+        "csv_rows": 78273,
+        "db_delta": 78273,
+        "db_total_for_pair": 78273,
+        "match": true
+      },
+      {
+        "file": "EURUSD_M15_2026.csv",
+        "symbol": "EURUSD",
+        "timeframe": "M15",
+        "csv_rows": 7157,
+        "db_delta": 7157,
+        "db_total_for_pair": 85430,
+        "match": true
+      },
+      {
+        "file": "EURUSD_M5.csv",
+        "symbol": "EURUSD",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "GBPJPY_D1.csv",
+        "symbol": "GBPJPY",
+        "timeframe": "D1",
+        "csv_rows": 938,
+        "db_delta": 938,
+        "db_total_for_pair": 938,
+        "match": true
+      },
+      {
+        "file": "GBPJPY_H1.csv",
+        "symbol": "GBPJPY",
+        "timeframe": "H1",
+        "csv_rows": 17847,
+        "db_delta": 17847,
+        "db_total_for_pair": 17847,
+        "match": true
+      },
+      {
+        "file": "GBPJPY_H4.csv",
+        "symbol": "GBPJPY",
+        "timeframe": "H4",
+        "csv_rows": 4806,
+        "db_delta": 4806,
+        "db_total_for_pair": 4806,
+        "match": true
+      },
+      {
+        "file": "GBPJPY_M15.csv",
+        "symbol": "GBPJPY",
+        "timeframe": "M15",
+        "csv_rows": 78131,
+        "db_delta": 78131,
+        "db_total_for_pair": 78131,
+        "match": true
+      },
+      {
+        "file": "GBPJPY_M15_2026.csv",
+        "symbol": "GBPJPY",
+        "timeframe": "M15",
+        "csv_rows": 7154,
+        "db_delta": 7154,
+        "db_total_for_pair": 85285,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_D1.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "D1",
+        "csv_rows": 938,
+        "db_delta": 938,
+        "db_total_for_pair": 938,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_H1.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "H1",
+        "csv_rows": 17862,
+        "db_delta": 17862,
+        "db_total_for_pair": 17862,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_H4.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "H4",
+        "csv_rows": 4804,
+        "db_delta": 4804,
+        "db_total_for_pair": 4804,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_M15.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "M15",
+        "csv_rows": 78211,
+        "db_delta": 78211,
+        "db_total_for_pair": 78211,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_M15_2026.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "M15",
+        "csv_rows": 7157,
+        "db_delta": 7157,
+        "db_total_for_pair": 85368,
+        "match": true
+      },
+      {
+        "file": "GBPUSD_M5.csv",
+        "symbol": "GBPUSD",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "USDCAD_M5.csv",
+        "symbol": "USDCAD",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "USDCHF_M5.csv",
+        "symbol": "USDCHF",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "USDJPY_D1.csv",
+        "symbol": "USDJPY",
+        "timeframe": "D1",
+        "csv_rows": 938,
+        "db_delta": 938,
+        "db_total_for_pair": 938,
+        "match": true
+      },
+      {
+        "file": "USDJPY_H1.csv",
+        "symbol": "USDJPY",
+        "timeframe": "H1",
+        "csv_rows": 17853,
+        "db_delta": 17853,
+        "db_total_for_pair": 17853,
+        "match": true
+      },
+      {
+        "file": "USDJPY_H4.csv",
+        "symbol": "USDJPY",
+        "timeframe": "H4",
+        "csv_rows": 4802,
+        "db_delta": 4802,
+        "db_total_for_pair": 4802,
+        "match": true
+      },
+      {
+        "file": "USDJPY_M15.csv",
+        "symbol": "USDJPY",
+        "timeframe": "M15",
+        "csv_rows": 78178,
+        "db_delta": 78178,
+        "db_total_for_pair": 78178,
+        "match": true
+      },
+      {
+        "file": "USDJPY_M15_2026.csv",
+        "symbol": "USDJPY",
+        "timeframe": "M15",
+        "csv_rows": 7157,
+        "db_delta": 7157,
+        "db_total_for_pair": 85335,
+        "match": true
+      },
+      {
+        "file": "USDJPY_M5.csv",
+        "symbol": "USDJPY",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_D1.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "D1",
+        "csv_rows": 934,
+        "db_delta": 934,
+        "db_total_for_pair": 934,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_H1.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "H1",
+        "csv_rows": 16991,
+        "db_delta": 16991,
+        "db_total_for_pair": 16991,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_H1_fresh.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "H1",
+        "csv_rows": 13698,
+        "db_delta": 13698,
+        "db_total_for_pair": 30689,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_H4.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "H4",
+        "csv_rows": 4772,
+        "db_delta": 4772,
+        "db_total_for_pair": 4772,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_H4_fresh.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "H4",
+        "csv_rows": 3714,
+        "db_delta": 3714,
+        "db_total_for_pair": 8486,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M1.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M1",
+        "csv_rows": 353951,
+        "db_delta": 353951,
+        "db_total_for_pair": 353951,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M15.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M15",
+        "csv_rows": 74324,
+        "db_delta": 74324,
+        "db_total_for_pair": 74324,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M15_2026.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M15",
+        "csv_rows": 6785,
+        "db_delta": 6785,
+        "db_total_for_pair": 81109,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M15_fresh.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M15",
+        "csv_rows": 4465,
+        "db_delta": 4465,
+        "db_total_for_pair": 85574,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M5.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M5",
+        "csv_rows": 100000,
+        "db_delta": 100000,
+        "db_total_for_pair": 100000,
+        "match": true
+      },
+      {
+        "file": "XAUUSD_M5_fresh.csv",
+        "symbol": "XAUUSD",
+        "timeframe": "M5",
+        "csv_rows": 13367,
+        "db_delta": 13367,
+        "db_total_for_pair": 113367,
+        "match": true
+      }
+    ],
+    "random_sample_diff": [
+      {
+        "file": "GBPJPY_H1.csv",
+        "date": "2023-07-24 02:00:00",
+        "csv_values": {
+          "csv_open": 182.27,
+          "csv_high": 182.285,
+          "csv_low": 182.05,
+          "csv_close": 182.085,
+          "csv_volume": 0
+        },
+        "db_values": {
+          "open": 182.27,
+          "high": 182.285,
+          "low": 182.05,
+          "close": 182.085,
+          "volume": 0,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "EURUSD_H1.csv",
+        "date": "2023-06-12 21:00:00",
+        "csv_values": {
+          "csv_open": 1.07603,
+          "csv_high": 1.07683,
+          "csv_low": 1.07591,
+          "csv_close": 1.07675,
+          "csv_volume": 0
+        },
+        "db_values": {
+          "open": 1.07603,
+          "high": 1.07683,
+          "low": 1.07591,
+          "close": 1.07675,
+          "volume": 0,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "USDCAD_M5.csv",
+        "date": "2024-12-23 11:50:00",
+        "csv_values": {
+          "csv_open": 1.44036,
+          "csv_high": 1.44042,
+          "csv_low": 1.44019,
+          "csv_close": 1.44021,
+          "csv_volume": 284
+        },
+        "db_values": {
+          "open": 1.44036,
+          "high": 1.44042,
+          "low": 1.44019,
+          "close": 1.44021,
+          "volume": 284,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "GBPUSD_M15_2026.csv",
+        "date": "2026-01-27 23:45:00",
+        "csv_values": {
+          "csv_open": 1.38249,
+          "csv_high": 1.38297,
+          "csv_low": 1.38226,
+          "csv_close": 1.38265,
+          "csv_volume": 1361
+        },
+        "db_values": {
+          "open": 1.38249,
+          "high": 1.38297,
+          "low": 1.38226,
+          "close": 1.38265,
+          "volume": 1361,
+          "matches_found": 2
+        },
+        "match": true
+      },
+      {
+        "file": "GBPUSD_M15.csv",
+        "date": "2023-02-06 08:45:00",
+        "csv_values": {
+          "csv_open": 1.20593,
+          "csv_high": 1.20596,
+          "csv_low": 1.20456,
+          "csv_close": 1.20489,
+          "csv_volume": 0
+        },
+        "db_values": {
+          "open": 1.20593,
+          "high": 1.20596,
+          "low": 1.20456,
+          "close": 1.20489,
+          "volume": 0,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "EURUSD_M15_2026.csv",
+        "date": "2026-02-20 13:30:00",
+        "csv_values": {
+          "csv_open": 1.17763,
+          "csv_high": 1.1782,
+          "csv_low": 1.17579,
+          "csv_close": 1.17631,
+          "csv_volume": 4023
+        },
+        "db_values": {
+          "open": 1.17763,
+          "high": 1.1782,
+          "low": 1.17579,
+          "close": 1.17631,
+          "volume": 4023,
+          "matches_found": 2
+        },
+        "match": true
+      },
+      {
+        "file": "USDJPY_M15_2026.csv",
+        "date": "2026-02-18 11:00:00",
+        "csv_values": {
+          "csv_open": 153.811,
+          "csv_high": 153.81500000000003,
+          "csv_low": 153.723,
+          "csv_close": 153.74,
+          "csv_volume": 1032
+        },
+        "db_values": {
+          "open": 153.811,
+          "high": 153.81500000000003,
+          "low": 153.723,
+          "close": 153.74,
+          "volume": 1032,
+          "matches_found": 2
+        },
+        "match": true
+      },
+      {
+        "file": "EURUSD_M15.csv",
+        "date": "2023-02-13 03:30:00",
+        "csv_values": {
+          "csv_open": 1.06756,
+          "csv_high": 1.06802,
+          "csv_low": 1.06747,
+          "csv_close": 1.0679,
+          "csv_volume": 0
+        },
+        "db_values": {
+          "open": 1.06756,
+          "high": 1.06802,
+          "low": 1.06747,
+          "close": 1.0679,
+          "volume": 0,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "USDJPY_H4.csv",
+        "date": "2024-07-22 20:00:00",
+        "csv_values": {
+          "csv_open": 156.901,
+          "csv_high": 156.927,
+          "csv_low": 156.197,
+          "csv_close": 156.279,
+          "csv_volume": 0
+        },
+        "db_values": {
+          "open": 156.901,
+          "high": 156.927,
+          "low": 156.197,
+          "close": 156.279,
+          "volume": 0,
+          "matches_found": 1
+        },
+        "match": true
+      },
+      {
+        "file": "XAUUSD_H4_fresh.csv",
+        "date": "2024-03-07 04:00:00+00",
+        "csv_values": {
+          "csv_open": 2159.199951171875,
+          "csv_high": 2169.0,
+          "csv_low": 2158.800048828125,
+          "csv_close": 2163.60009765625,
+          "csv_volume": 32030
+        },
+        "db_values": {
+          "open": 2155.225,
+          "high": 2158.845,
+          "low": 2153.128,
+          "close": 2158.295,
+          "volume": 0,
+          "matches_found": 2
+        },
+        "match": true
+      }
+    ],
+    "dst_boundary_check": [
+      {
+        "label": "Spring forward 2024 (EST\u2192EDT)",
+        "csv_date_eastern": "2024-03-10 07:00:00",
+        "utc_epoch": 1710068400,
+        "utc_readable": "2024-03-10 11:00:00 UTC",
+        "expected_utc_hour": 11,
+        "actual_utc_hour": 11,
+        "hour_match": true,
+        "nearest_bars_found": 0,
+        "nearest_samples": null
+      },
+      {
+        "label": "Fall back 2023 (EDT\u2192EST)",
+        "csv_date_eastern": "2023-11-05 06:00:00",
+        "utc_epoch": 1699182000,
+        "utc_readable": "2023-11-05 11:00:00 UTC",
+        "expected_utc_hour": 11,
+        "actual_utc_hour": 11,
+        "hour_match": true,
+        "nearest_bars_found": 0,
+        "nearest_samples": null
+      },
+      {
+        "label": "Spring forward 2025 (EST\u2192EDT)",
+        "csv_date_eastern": "2025-03-09 07:00:00",
+        "utc_epoch": 1741518000,
+        "utc_readable": "2025-03-09 11:00:00 UTC",
+        "expected_utc_hour": 11,
+        "actual_utc_hour": 11,
+        "hour_match": true,
+        "nearest_bars_found": 0,
+        "nearest_samples": null
+      }
+    ],
+    "spread_pips": {
+      "total_rows": 1528829,
+      "zero_pips": 1528829,
+      "nonzero_pips": 0,
+      "note": "No CSV files contain ask columns; all spread_pips are 0.0 as expected."
+    }
+  }
+}

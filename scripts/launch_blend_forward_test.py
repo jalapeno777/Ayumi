@@ -940,6 +940,47 @@ def main():
         blend_runner.stop()
         sys.exit(1)
 
+    # ── Startup reconciliation (card 0e0338d4) ─────────────────────────────
+    # engine.start() already calls _seed_existing_positions() which ADDS
+    # to the sizer's _open_positions dict, but does not clear phantom
+    # entries left over from the _open_risk restore path or duplicate
+    # registrations. Run a nuke-and-rebuild reconciliation now so the
+    # sizer's positions_carried count matches the broker exactly from
+    # tick #1 of the new session.
+    _broker_positions: list = []
+    _feed = getattr(engine, "_market_feed", None)
+    if _feed is not None and hasattr(_feed, "reconcile"):
+        try:
+            _broker_positions = _feed.reconcile() or []
+            logger.info(
+                "Startup reconciliation: broker reports %d open position(s)",
+                len(_broker_positions),
+            )
+        except Exception as _recon_exc:
+            logger.warning(
+                "Startup reconciliation: broker.reconcile() failed (non-fatal): %s",
+                _recon_exc,
+            )
+            _broker_positions = []
+    try:
+        _recon_result = blend_runner.reconcile_with_broker(_broker_positions)
+        logger.info(
+            "Startup reconciliation result: positions %d→%d (seeded=%d, "
+            "diverged=%s, open_risk $%.2f→$%.2f)",
+            _recon_result["before_count"],
+            _recon_result["after_count"],
+            _recon_result["seeded_count"],
+            _recon_result["diverged"],
+            _recon_result["before_open_risk"],
+            _recon_result["after_open_risk"],
+        )
+    except Exception as _recon_exc:
+        logger.warning(
+            "Startup reconciliation: blend_runner.reconcile_with_broker() "
+            "failed (non-fatal, continuing with engine-seeded positions): %s",
+            _recon_exc,
+        )
+
     # Write health JSON immediately on startup to clear any stale "down" state
     write_forward_test_health_json(engine)
     logger.info("Forward test health JSON written on startup")
@@ -952,6 +993,8 @@ def main():
     _equity_record_interval = 300.0  # 5 minutes
     _last_equity_record = 0.0  # record immediately on first loop
     _last_balance_sync = 0.0  # sync RiskGuard from cTrader every 5 min
+    _reconcile_interval = 300.0  # 5 minutes — sizer/broker drift check
+    _last_reconcile = 0.0  # reconcile immediately on first loop
 
     # ── Periodic health loop (B5) ─────────────────────────────────────────
     try:
@@ -1116,6 +1159,45 @@ def main():
 
                     # Write health JSON for external watchdogs / dashboards
                     write_forward_test_health_json(engine)
+
+                    # ── Periodic sizer/broker reconciliation (card 0e0338d4)
+                    # Every 5 min: query cTrader for open positions and
+                    # nuke-and-rebuild the sizer's _open_positions dict.
+                    # Catches any drift introduced by duplicate
+                    # registration, late close callbacks, or the
+                    # _legacy_open_risk restore path. The first call
+                    # fires immediately on the first health tick
+                    # (_last_reconcile starts at 0).
+                    if now - _last_reconcile >= _reconcile_interval:
+                        _last_reconcile = now
+                        _feed_recon = getattr(engine, "_market_feed", None)
+                        if _feed_recon is not None and hasattr(_feed_recon, "reconcile"):
+                            try:
+                                _positions_now = _feed_recon.reconcile() or []
+                                _recon = blend_runner.reconcile_with_broker(_positions_now)
+                                if _recon.get("diverged"):
+                                    logger.warning(
+                                        "[B5 Reconcile] sizer/broker drift: "
+                                        "positions %d→%d (seeded=%d, "
+                                        "open_risk $%.2f→$%.2f)",
+                                        _recon["before_count"],
+                                        _recon["after_count"],
+                                        _recon["seeded_count"],
+                                        _recon["before_open_risk"],
+                                        _recon["after_open_risk"],
+                                    )
+                                else:
+                                    logger.info(
+                                        "[B5 Reconcile] sizer/broker in sync: "
+                                        "positions=%d, open_risk=$%.2f",
+                                        _recon["after_count"],
+                                        _recon["after_open_risk"],
+                                    )
+                            except Exception as _recon_err:
+                                logger.warning(
+                                    "[B5 Reconcile] failed (non-fatal): %s",
+                                    _recon_err,
+                                )
 
                     # ── Equity snapshot (A8) — every 5 min ──────────────────
                     if now - _last_equity_record >= _equity_record_interval:

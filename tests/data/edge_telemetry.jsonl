@@ -1,0 +1,12 @@
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": -25.0, "r_multiple": -0.5, "timestamp": "2026-07-10T12:10:54.093417+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 49.875, "pnl": -25.0, "r_multiple": -0.5012531328320802, "timestamp": "2026-07-10T12:10:54.093795+00:00", "signal_id": "ema_cross_1777028400.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 49.75, "pnl": 30.0, "r_multiple": 0.6030150753768844, "timestamp": "2026-07-10T12:10:54.094122+00:00", "signal_id": "ema_cross_1777032000.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": 75.0, "r_multiple": 1.5, "timestamp": "2026-07-10T12:10:54.096263+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": -30.0, "r_multiple": -0.6, "timestamp": "2026-07-10T12:10:54.098352+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": -30.0, "r_multiple": -0.6, "timestamp": "2026-07-10T12:10:54.100661+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 30.0, "pnl": -25.0, "r_multiple": -0.8333333333333334, "timestamp": "2026-07-10T12:15:06.767572+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 29.924999999999997, "pnl": -25.0, "r_multiple": -0.8354218880534671, "timestamp": "2026-07-10T12:15:06.767959+00:00", "signal_id": "ema_cross_1777028400.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 29.849999999999998, "pnl": 30.0, "r_multiple": 1.0050251256281408, "timestamp": "2026-07-10T12:15:06.768324+00:00", "signal_id": "ema_cross_1777032000.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 30.0, "pnl": 75.0, "r_multiple": 2.5, "timestamp": "2026-07-10T12:15:06.772347+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": -30.0, "r_multiple": -0.6, "timestamp": "2026-07-10T12:15:06.776162+00:00", "signal_id": "ema_cross_1777024800.0"}
+{"strategy_id": "ema_cross", "symbol": "EURUSD", "risk_amount": 50.0, "pnl": -30.0, "r_multiple": -0.6, "timestamp": "2026-07-10T12:15:06.780274+00:00", "signal_id": "ema_cross_1777024800.0"}

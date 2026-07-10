@@ -12,6 +12,52 @@ from .paper_trader import PaperTrader
 logger = logging.getLogger(__name__)
 
 
+# ── Price sanity guardrail ─────────────────────────────────────────────────────
+#
+# Defense against data-feed / decoder bugs that emit physically impossible
+# entry prices (e.g. $4.1M for XAUUSD when gold trades at ~$3,300). Triggered
+# multiple times in production by SRMR+ and Session-Range Mean Reversion on
+# XAUUSD bars (forward_test-stderr.log: 2026-07-08 to 2026-07-10). Root cause
+# is upstream in the spot-feed trendbar/tick decode for non-JPY pairs where
+# `digits < 5`; the JPY-pair workaround in open_api_spot_feed._handle_spot_event
+# does not cover XAUUSD. This guardrail blocks the corrupted signal BEFORE it
+# reaches the orchestrator, sizing gate, paper trader, or live broker.
+#
+# Values are intentionally generous — gold has never traded above ~$3,500
+# historically, so XAUUSD=5000 leaves >40% headroom while still rejecting
+# any 100x+ inflation bug. Defaults catch any unknown symbol at $10k.
+_MAX_REASONABLE_PRICES: dict[str, float] = {
+    "XAUUSD": 5000.0,   # gold sane max — never traded above ~$3,500
+    "EURUSD": 2.0,
+    "GBPUSD": 3.0,
+    "USDJPY": 300.0,
+    "AUDUSD": 2.0,
+    "USDCHF": 2.0,
+    "USDCAD": 3.0,
+}
+_DEFAULT_SANE_PRICE_MAX = 10_000.0
+
+
+def _max_reasonable_price(symbol: str) -> float:
+    """Sane maximum price for the given symbol. Used to reject decoder bugs."""
+    return _MAX_REASONABLE_PRICES.get(symbol.upper(), _DEFAULT_SANE_PRICE_MAX)
+
+
+def _price_exceeds_sanity_bound(symbol: str, value: float | None) -> bool:
+    """True if value is non-positive, NaN, or beyond the sane-max for the symbol."""
+    if value is None:
+        return True
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return True
+    if v != v:  # NaN check (NaN != NaN)
+        return True
+    if v <= 0:
+        return True
+    return v > _max_reasonable_price(symbol)
+
+
 class cTraderSignalAdapter:
     def __init__(
         self,
@@ -58,6 +104,28 @@ class cTraderSignalAdapter:
                 self._strategy.name, self._symbol, signal.confidence, self._min_confidence,
             )
             return None
+
+        # Price sanity guardrail — drop signals with impossible entry/SL/TP.
+        # Defends against upstream spot-feed decoder bugs that have produced
+        # XAUUSD entry prices in the millions (see log evidence 2026-07-08..10).
+        sane_max = _max_reasonable_price(self._symbol)
+        for field_name, field_value in (
+            ("entry_price", signal.entry_price),
+            ("stop_loss", signal.stop_loss),
+            ("take_profit_1", signal.take_profit_1),
+            ("take_profit_2", signal.take_profit_2),
+            ("take_profit_3", signal.take_profit_3),
+        ):
+            if _price_exceeds_sanity_bound(self._symbol, field_value):
+                logger.warning(
+                    "Signal REJECTED by price-sanity guardrail: strategy=%s symbol=%s "
+                    "%s=%.5f exceeds sane_max=%.2f — likely data-feed decoder bug "
+                    "(see open_api_spot_feed._handle_spot_event non-JPY path)",
+                    self._strategy.name, self._symbol,
+                    field_name, field_value if field_value is not None else 0.0,
+                    sane_max,
+                )
+                return None
 
         trade_direction = self._convert_direction(signal.direction)
 
