@@ -56,6 +56,14 @@ from .trade_logger import TradeLogger
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
 
+# Phase 1c: KillCriteriaChecker — global+per-strategy criterion evaluator
+# wired into the live-fire gate after the ConfidenceEngine pass.
+from policy.kill_criteria import KillCriteriaChecker
+
+# Phase 1b: BehavioralPolicy — streak + drawdown cooldown size multiplier
+# applied to live signals after KillCriteria and before _execute_signal_live.
+from policy.behavioral import BehavioralPolicy
+
 # Lazy-import to avoid an import cycle at module load: api_client imports from
 # open_api_spot_feed which itself has no circular dep, but keeping the import
 # local lets tests patch the module path before the class is resolved.
@@ -170,6 +178,17 @@ class ForwardTestHealth:
     signals_cancelled: int = 0
     signals_accepted: int = 0  # blend runner accepted the signal (T2)
     symbol_resolution_failures: int = 0  # total failed symbol resolutions (Task 2)
+    # Phase 1d wiring — diagnostics for KillCriteria + BehavioralPolicy gates.
+    # ``signals_killed_by_criteria`` counts signals blocked by any
+    # ``KillCriterion.triggered=True`` rule (spread / macro / per-strategy).
+    # ``behavioral_adjustments`` counts signals whose size was reduced below
+    # 1.0× by ``BehavioralPolicy.evaluate`` (streak or DD cooldown).
+    # ``last_kill_reasons`` and ``last_behavioral_multiplier`` snapshot the
+    # most recent gate decision for live-dashboard / log scrapers.
+    signals_killed_by_criteria: int = 0
+    behavioral_adjustments: int = 0
+    last_kill_reasons: list = field(default_factory=list)
+    last_behavioral_multiplier: float = 1.0
     # Last trading-day observed for daily counter reset. Reset to None on
     # process restart; the B5 health loop resets the daily counters when
     # this lags the current trading day (see 17:00 America/Toronto boundary
@@ -425,6 +444,34 @@ class ForwardTestEngine:
                 self._config.live_fire_min_confidence,
             )
 
+        # Phase 1d: KillCriteriaChecker — global+per-strategy criterion
+        # evaluator. Stateless across calls; built once at startup. Only
+        # wired into the live-fire path (paper mode bypasses it).
+        self._kill_criteria_checker: Optional[KillCriteriaChecker] = None
+        if self._config.live_mode:
+            self._kill_criteria_checker = KillCriteriaChecker(
+                global_config={"max_spread_bps": 2.0}
+            )
+            logger.info(
+                "KillCriteriaChecker initialised for live-fire gating "
+                "(max_spread_bps=2.0)",
+            )
+
+        # Phase 1d: BehavioralPolicy — streak + drawdown cooldown size
+        # multiplier. Applied to live signals after KillCriteria pass.
+        self._behavioral_policy: Optional[BehavioralPolicy] = None
+        if self._config.live_mode:
+            self._behavioral_policy = BehavioralPolicy()
+            logger.info("BehavioralPolicy initialised for live-fire sizing")
+
+        # Track consecutive losses (resets on win) for BehavioralPolicy
+        # context. Reset semantics:
+        #   - incremented on a losing position close
+        #   - zeroed on a winning position close
+        # Updated in ``_on_position_closed`` so the live-fire gate sees
+        # the freshest streak when sizing the next signal.
+        self._consecutive_losses: int = 0
+
     @property
     def health(self) -> ForwardTestHealth:
         with self._lock:
@@ -447,6 +494,10 @@ class ForwardTestEngine:
                 signals_pending=self._health.signals_pending,
                 signals_cancelled=self._health.signals_cancelled,
                 signals_accepted=self._health.signals_accepted,
+                signals_killed_by_criteria=self._health.signals_killed_by_criteria,
+                behavioral_adjustments=self._health.behavioral_adjustments,
+                last_kill_reasons=list(self._health.last_kill_reasons),
+                last_behavioral_multiplier=self._health.last_behavioral_multiplier,
             )
 
     @property
@@ -2199,6 +2250,103 @@ class ForwardTestEngine:
                                     self._health.signals_rejected += 1
                                 continue
                         # ── end ConfidenceEngine gate ─────────────────────
+
+                        # ── KillCriteria gate ─────────────────────────────
+                        # Phase 1c: global+per-strategy kill criteria. Runs
+                        # AFTER ConfidenceEngine so we only spend cycles on
+                        # signals that already passed multi-gate scoring.
+                        # The checker is stateless — see policy/kill_criteria.py.
+                        if self._kill_criteria_checker is not None:
+                            strategy_name = (
+                                getattr(s, "strategy_name", "")
+                                or getattr(s, "strategy_id", "")
+                                or "unknown"
+                            )
+                            kc_context = {
+                                "symbol": s.symbol,
+                                "spread_bps": self._current_spread,
+                                "hour_utc": hour_utc,
+                                "adx": getattr(s, "adx", 0.0) or 0.0,
+                                "confluence_score": conf_result.confluence_boost
+                                if conf_result
+                                else 0.0,
+                                "strategy_name": strategy_name,
+                            }
+                            kc_results = self._kill_criteria_checker.check(kc_context)
+                            triggered = [r for r in kc_results if r.triggered]
+                            if triggered:
+                                for r in triggered:
+                                    logger.info(
+                                        "[KillCriteria] %s %s TRIGGERED: %s",
+                                        direction_str,
+                                        s.symbol,
+                                        r,
+                                    )
+                                with self._lock:
+                                    self._health.signals_rejected += 1
+                                    self._health.signals_killed_by_criteria += 1
+                                    self._health.last_kill_reasons = [
+                                        r.name for r in triggered
+                                    ]
+                                continue
+                            # Debug-level: log all passed criteria so an
+                            # operator can audit which rules ran without
+                            # flooding INFO in production.
+                            for r in kc_results:
+                                logger.debug(
+                                    "[KillCriteria] %s %s PASSED: %s",
+                                    direction_str,
+                                    s.symbol,
+                                    r,
+                                )
+                        # ── end KillCriteria gate ──────────────────────────
+
+                        # ── BehavioralPolicy sizing ────────────────────────
+                        # Phase 1b: streak + DD cooldown size multiplier.
+                        # Applied AFTER kill criteria so we don't size a
+                        # signal that was just going to be killed. The
+                        # multiplier clamps volume in [min, max] per
+                        # council-approved semantics (Kaito/Nora/Ren/Sora,
+                        # 2026-07-10).
+                        if self._behavioral_policy is not None:
+                            dd_pct = 0.0
+                            # ForwardTestEngine holds the risk guard on the
+                            # paper trader (``self._paper_trader._risk_guard``),
+                            # not directly. Gracefully degrade to 0.0 when
+                            # the paper trader or its guard is not yet
+                            # constructed (early-startup race window).
+                            paper_trader = getattr(self, "_paper_trader", None)
+                            rg = getattr(paper_trader, "_risk_guard", None) if paper_trader else None
+                            if rg is not None:
+                                dd_pct = rg.current_daily_loss_pct * 100
+                            bp_context = {
+                                "consecutive_losses": self._consecutive_losses,
+                                "daily_drawdown_pct": dd_pct,
+                            }
+                            bp_result = self._behavioral_policy.evaluate(
+                                s.volume, bp_context
+                            )
+                            with self._lock:
+                                self._health.last_behavioral_multiplier = (
+                                    bp_result.multiplier
+                                )
+                            if bp_result.multiplier < 1.0:
+                                original_volume = s.volume
+                                s.volume = s.volume * bp_result.multiplier
+                                logger.info(
+                                    "[BehavioralPolicy] %s %s base=%.2f "
+                                    "adjusted=%.2f mult=%.2f reasons=%s",
+                                    direction_str,
+                                    s.symbol,
+                                    original_volume,
+                                    s.volume,
+                                    bp_result.multiplier,
+                                    bp_result.adjustments,
+                                )
+                                with self._lock:
+                                    self._health.behavioral_adjustments += 1
+                        # ── end BehavioralPolicy sizing ────────────────────
+
                         self._execute_signal_live(s)
                     self._trigger_callback("on_signal_traded", s)
         except Exception as exc:
@@ -2764,6 +2912,18 @@ class ForwardTestEngine:
 
         if self._trade_logger:
             self._trade_logger.log_position_closed(position)
+        # Phase 1d: feed the BehavioralPolicy streak counter. A losing
+        # close increments the counter (used by streak-loss cooldown);
+        # a winning close resets it. ``closed_pnl`` is signed — positive
+        # for wins, negative for losses. Attribute may be missing on
+        # synthetic position objects during tests, so guard with getattr.
+        closed_pnl = getattr(position, "closed_pnl", None)
+        if closed_pnl is not None:
+            with self._lock:
+                if closed_pnl > 0:
+                    self._consecutive_losses = 0
+                elif closed_pnl < 0:
+                    self._consecutive_losses += 1
         self._trigger_callback("on_position_closed", position)
 
     def _update_health(self):
@@ -2818,6 +2978,11 @@ class ForwardTestEngine:
                 "ticks_per_second": round(health.ticks_per_second, 2),
                 "uptime_sec": round(health.uptime_sec, 1),
                 "current_spread": round(self._current_spread, 5),
+                # Phase 1d: kill-criteria + behavioral-policy diagnostics.
+                "signals_killed_by_criteria": self._health.signals_killed_by_criteria,
+                "behavioral_adjustments": self._health.behavioral_adjustments,
+                "last_kill_reasons": list(self._health.last_kill_reasons),
+                "last_behavioral_multiplier": self._health.last_behavioral_multiplier,
             },
             "trading": {
                 "current_balance": stats.current_balance if stats else 0,
