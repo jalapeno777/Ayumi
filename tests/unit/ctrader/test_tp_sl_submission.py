@@ -454,7 +454,14 @@ class TestF2LateFillPath:
         assert position.take_profit_3 == 1.28500
 
     def test_f2_amend_failure_does_not_store_tp2_tp3(self):
-        """When late amend returns False, TP2/TP3 must NOT be stored."""
+        """When late amend returns False on all retries, TP2/TP3 must NOT be stored.
+
+        The F2 late-fill path uses a bounded 3-attempt retry loop with linear
+        backoff (defense in depth — the inline SL/TP attach on the sync path
+        is the primary fix; this only runs for the late-fill callback path
+        when the inline was not possible). When every attempt fails, the loop
+        exhausts and TP2/TP3 are NOT stashed on the Position.
+        """
         from adapters.ctrader.order_manager import OrderManager
 
         mgr = OrderManager()
@@ -497,9 +504,13 @@ class TestF2LateFillPath:
 
         registered_callbacks["on_order_filled"](cb_order, message)
 
-        # amend was attempted
-        feed.amend_sl_tp.assert_called_once()
-        # but the position was NOT updated because amend failed
+        # amend was attempted exactly 3 times (bounded retry loop exhausted)
+        # — not once. The retry is intentional defense in depth: when the
+        # broker rejects every attempt, TP2/TP3 must still NOT be stored.
+        assert feed.amend_sl_tp.call_count == 3, (
+            f"Expected 3 amend_sl_tp attempts (bounded retry), got {feed.amend_sl_tp.call_count}"
+        )
+        # but the position was NOT updated because all amend attempts failed
         assert position.take_profit_2 is None
         assert position.take_profit_3 is None
 
@@ -683,16 +694,15 @@ class TestExecuteSignalLiveEndToEnd:
                 strategy_id="test_strategy",
             )
 
-        # amend was called
-        feed.amend_sl_tp.assert_called_once()
-        call_args = feed.amend_sl_tp.call_args
-        # First positional arg is the cTrader position_id
-        assert call_args[0][0] == 55555
-        # Second arg is SL, third is TP1 (NOT tp2/tp3 — proto constraint)
-        assert call_args[0][1] == signal.stop_loss
-        assert call_args[0][2] == signal.take_profit_1
+        # With inline SL/TP on MARKET orders (verified against cTrader demo
+        # 2026-07-06), the broker already has SL/TP1 from the order itself —
+        # so the F1 fallback amend path is NOT taken when the signal has both
+        # stop_loss and take_profit_1. amend_sl_tp is only invoked on the
+        # late-fill callback path (F2) or when the inline attach is missing.
+        feed.amend_sl_tp.assert_not_called()
 
-        # Position now has TP2/TP3 stored
+        # Position now has TP2/TP3 stored (via the inline-path code in
+        # _execute_signal_live — same OrderManager call as the amend path).
         assert position.take_profit_2 == 1.27500
         assert position.take_profit_3 == 1.28500
 

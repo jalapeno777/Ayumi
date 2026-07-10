@@ -150,7 +150,16 @@ class TestLiveModeBlock:
     """Tests for the live-mode hard block."""
 
     def test_live_mode_without_validation_flag_raises(self, tmp_path, monkeypatch):
-        """Live mode must raise RuntimeError when remediation flag is missing."""
+        """Live mode must raise RuntimeError when remediation flag is missing.
+
+        The hard block requires BOTH the flag file AND the audit doc to be
+        absent. The audit doc is the source of truth for crash-recovery: if
+        only the flag is missing but the audit doc exists, the engine
+        auto-recreates the flag (Phase 7 survivability fix, card
+        ``survivable-remediation-flag``). This test isolates the hard-block
+        branch by pointing the audit-doc lookup at a guaranteed-missing path
+        under ``tmp_path``.
+        """
         monkeypatch.setattr(
             "adapters.ctrader.forward_test_engine.ForwardTestEngine._validate_credentials",
             lambda self: True,
@@ -166,6 +175,14 @@ class TestLiveModeBlock:
         monkeypatch.setattr(
             "adapters.ctrader.forward_test_engine.ForwardTestEngine._start_market_feed",
             lambda self: False,
+        )
+        # Force the audit-doc fallback path off so the engine cannot
+        # auto-recreate the flag — we want to exercise the hard block.
+        # Point at a tmp_path that we never create so os.path.exists() is False.
+        missing_audit = tmp_path / "does_not_exist" / "audit.md"
+        monkeypatch.setattr(
+            "adapters.ctrader.forward_test_engine._REMEDIATION_AUDIT_DOC",
+            str(missing_audit),
         )
 
         engine = ForwardTestEngine(
