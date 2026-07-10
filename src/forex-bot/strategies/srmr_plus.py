@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from backtest.strategy_legacy import ISignalStrategy
+from backtest.strategies.isignal_strategy import ISignalStrategy
 from config.sessions import SessionRangeHours
 from core.types import (
     Bar,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from backtest.strategy_legacy import ISignalStrategy
+from backtest.strategies.isignal_strategy import ISignalStrategy
 from core.types import (
     Bar,
     MarketState,

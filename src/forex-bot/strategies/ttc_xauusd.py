@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from backtest.strategies.tts_strategy import TTSStrategy
-from backtest.strategy_legacy import ISignalStrategy
+from backtest.strategies.isignal_strategy import ISignalStrategy
 
 logger = logging.getLogger(__name__)
 

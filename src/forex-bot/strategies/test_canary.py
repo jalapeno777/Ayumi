@@ -21,7 +21,7 @@ import logging
 import os
 from typing import Optional
 
-from backtest.strategy_legacy import ISignalStrategy
+from backtest.strategies.isignal_strategy import ISignalStrategy
 from core.types import Bar, MarketState, StrategySignal, TradeDirection
 
 logger = logging.getLogger("ayumi.test_canary")
