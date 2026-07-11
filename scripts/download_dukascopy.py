@@ -58,6 +58,8 @@ PRICE_SCALES = {
     "GBPUSD": 100_000,
     "EURUSD": 100_000,
     "USDJPY": 1_000,
+    "EURCHF": 100_000,  # 5-digit quote
+    "GBPJPY": 1_000,    # 3-digit JPY pair
 }
 
 BASE_URL = "https://datafeed.dukascopy.com/datafeed"
