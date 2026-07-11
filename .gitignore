@@ -138,3 +138,6 @@ workboard.db
 *.duckdb
 *.duckdb.wal
 data/ayumi_market.duckdb
+
+# Synthesized forex data (large, regenerable)
+data/forex/synthesized/
