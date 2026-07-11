@@ -5,6 +5,9 @@ All times are UTC.
 
 from dataclasses import dataclass
 from datetime import time
+from enum import Enum
+
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -49,3 +52,51 @@ DEFAULT_KILLZONES = [
 
 # Default preferred sessions for strategy filtering
 DEFAULT_PREFERRED_SESSIONS = {"london", "ny_am"}
+
+
+class TradingSession(Enum):
+    """Major forex trading sessions used for spread modelling.
+
+    Boundaries are UTC and align with typical institutional hours.
+    """
+
+    ASIAN = "asian"
+    LONDON = "london"
+    NY_OVERLAP = "ny_overlap"
+    NY_AFTERNOON = "ny_afternoon"
+    OFF_HOURS = "off_hours"
+
+
+# UTC time windows for each session
+_SESSION_WINDOWS = {
+    TradingSession.ASIAN: (time(0, 0), time(7, 0)),
+    TradingSession.LONDON: (time(7, 0), time(12, 0)),
+    TradingSession.NY_OVERLAP: (time(12, 0), time(16, 0)),
+    TradingSession.NY_AFTERNOON: (time(16, 0), time(20, 0)),
+    TradingSession.OFF_HOURS: (time(20, 0), time(23, 59)),
+}
+
+
+def get_trading_session(timestamp: pd.Timestamp) -> TradingSession:
+    """Return the :class:`TradingSession` for *timestamp* (UTC).
+
+    Parameters
+    ----------
+    timestamp:
+        A timezone-aware or naive ``pd.Timestamp``.  If naive it is
+        assumed to be UTC.
+
+    Returns
+    -------
+    TradingSession
+    """
+    if timestamp.tzinfo is not None:
+        timestamp = timestamp.tz_convert("UTC")
+    t = timestamp.time()
+
+    for session, (start, end) in _SESSION_WINDOWS.items():
+        if start <= t < end:
+            return session
+
+    # Handles the 23:59 → 00:00 boundary
+    return TradingSession.ASIAN
