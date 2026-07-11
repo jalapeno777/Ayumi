@@ -244,6 +244,18 @@ class ExecutionSimulator:
 
     # -- legacy helpers ----------------------------------------------------
 
+    def _calculate_spread(self, pair: str) -> float:
+        """Backward-compatible spread lookup (pips → price distance).
+
+        Uses the current UTC session to look up the base spread.
+        """
+        import pandas as pd
+        now = pd.Timestamp.now(tz="UTC")
+        session = get_trading_session(now)
+        base_pips = ExecutionSimulator._lookup_base_spread(pair, session)
+        pip_size = _STD_PIP_SIZE if "JPY" not in pair else _JPY_PIP_SIZE
+        return base_pips * pip_size
+
     def _calculate_slippage(self) -> float:
         return np.random.uniform(0, self.config.slippage_pips) * _STD_PIP_SIZE
 
