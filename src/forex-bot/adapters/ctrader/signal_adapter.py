@@ -8,8 +8,17 @@ from backtest.strategies import ISignalStrategy
 
 from .models import TradeDirection, CTraderTradeSignal
 from .paper_trader import PaperTrader
+from .risk_guard import _DEFAULT_SYMBOL_SPREADS
 
 logger = logging.getLogger(__name__)
+
+# ── Spread gate defaults ──────────────────────────────────────────────────────
+#
+# Per-symbol max spread in pips.  Signals arriving when the live spread
+# exceeds the threshold for the symbol are rejected at the adapter level,
+# before strategy evaluation — saving CPU and providing clean audit logs.
+# Values mirror risk_guard._DEFAULT_SYMBOL_SPREADS (SRB-AYUMI-011 §5.1).
+_DEFAULT_ADAPTER_SPREADS: dict[str, float] = dict(_DEFAULT_SYMBOL_SPREADS)
 
 
 # ── Price sanity guardrail ─────────────────────────────────────────────────────
@@ -66,6 +75,8 @@ class cTraderSignalAdapter:
         symbol: str = "EURUSD",
         *,
         blend_mode: bool = False,
+        max_spread_thresholds: dict[str, float] | None = None,
+        default_max_spread: float = 2.0,
     ):
         self._paper_trader = paper_trader
         self._strategy = strategy
@@ -77,6 +88,14 @@ class cTraderSignalAdapter:
         # In blend mode, signal routing and sizing is handled by BlendForwardTestRunner.
         # The adapter should return signals without executing through paper_trader.
         self._blend_mode = blend_mode
+        # Spread gate config — reject signals when spread exceeds per-symbol
+        # maximum.  Prevents entries during news spikes (e.g. 50-pip XAUUSD).
+        # Defaults from risk_guard._DEFAULT_SYMBOL_SPREADS.
+        resolved = dict(_DEFAULT_ADAPTER_SPREADS)
+        if max_spread_thresholds:
+            resolved.update(max_spread_thresholds)
+        self._max_spread_thresholds = resolved
+        self._default_max_spread = default_max_spread
 
     def set_min_confidence(self, confidence: float):
         self._min_confidence = confidence
@@ -93,6 +112,24 @@ class cTraderSignalAdapter:
     ) -> CTraderTradeSignal | None:
         if spread > 0:
             self._current_spread = spread
+
+        # ── Spread gate ────────────────────────────────────────────────────
+        # Reject signals when the live spread exceeds the per-symbol max.
+        # This blocks entries during news spikes (e.g. 50-pip XAUUSD spread)
+        # at the source, before strategy evaluation.
+        if self._current_spread > 0:
+            threshold = self._max_spread_thresholds.get(
+                self._symbol.upper(), self._default_max_spread
+            )
+            if self._current_spread > threshold:
+                logger.warning(
+                    "spread_too_wide: symbol=%s strategy=%s spread=%.2f "
+                    "threshold=%.2f — signal rejected at adapter",
+                    self._symbol, self._strategy.name,
+                    self._current_spread, threshold,
+                )
+                return None
+
         signal = self._strategy.evaluate(market_state)
 
         if signal is None:
@@ -215,6 +252,8 @@ class cTraderLiveAdapter:
         symbols: list[str],
         *,
         blend_mode: bool = False,
+        max_spread_thresholds: dict[str, float] | None = None,
+        default_max_spread: float = 2.0,
     ):
         self._paper_trader = paper_trader
         self._strategies = {s.name: s for s in strategies}
@@ -234,6 +273,8 @@ class cTraderLiveAdapter:
                     strategy=strategy,
                     symbol=symbol,
                     blend_mode=blend_mode,
+                    max_spread_thresholds=max_spread_thresholds,
+                    default_max_spread=default_max_spread,
                 )
 
     def evaluate_all_strategies(

@@ -19,13 +19,14 @@ logger = logging.getLogger(__name__)
 _TRADING_TZ = ZoneInfo("America/Toronto")
 _TRADING_DAY_RESET_HOUR = 17
 
-# Default per-symbol max spread in pips.  Values reflect typical
-# interbank spreads; XAUUSD is wider due to gold's higher volatility.
+# Default per-symbol max spread in pips.  Values are tightened to
+# reject news-spike spreads while allowing normal interbank conditions.
+# Reference: SRB-AYUMI-011 §5.1 rec 2.
 _DEFAULT_SYMBOL_SPREADS: dict[str, float] = {
+    "EURUSD": 1.0,   # tightest major — deep liquidity
     "GBPUSD": 2.0,
-    "EURUSD": 2.0,
-    "USDJPY": 2.0,
-    "XAUUSD": 40.0,
+    "USDJPY": 1.0,   # tightest major — deep liquidity
+    "XAUUSD": 30.0,  # gold: wider due to volatility, tightened from 40
     "AUDUSD": 2.0,
     "USDCHF": 2.0,
     "USDCAD": 2.0,
@@ -207,6 +208,46 @@ class RiskGuard:
                 direction, volume, entry_price, stop_loss, take_profit, account_balance, symbol, spread
             )
 
+    def check_spread(self, symbol: str, spread: float) -> RiskLimitResult:
+        """Check spread against per-symbol thresholds without evaluating other risk gates.
+
+        Returns a RiskLimitResult with limit_type=SPREAD.  Useful for
+        pre-checking spread at the signal-source level (e.g. in adapters)
+        before a signal enters the full risk pipeline.
+        """
+        if spread <= 0 or not symbol:
+            return RiskLimitResult(
+                allowed=True,
+                limit_type=RiskLimitType.SPREAD,
+                message="No spread data — skipping spread gate",
+            )
+        gate_result = self._spread_gate.check({
+            'symbol': symbol,
+            'spread': spread,
+        })
+        if not gate_result.passed:
+            threshold = self._gate_config.symbol_max_spreads.get(
+                symbol, self._gate_config.default_max_spread
+            )
+            logger.warning(
+                "spread_too_wide: symbol=%s spread=%.2f threshold=%.2f "
+                "— trade blocked",
+                symbol, spread, threshold,
+            )
+            return RiskLimitResult(
+                allowed=False,
+                limit_type=RiskLimitType.SPREAD,
+                message=f"spread_too_wide: {symbol} spread={spread:.2f} "
+                        f"threshold={threshold:.2f}",
+                current_value=spread,
+                limit_value=threshold,
+            )
+        return RiskLimitResult(
+            allowed=True,
+            limit_type=RiskLimitType.SPREAD,
+            message="Spread within limits",
+        )
+
     def _check_trade_allowed_internal(
         self,
         direction: TradeDirection,
@@ -235,14 +276,21 @@ class RiskGuard:
                 'spread': spread,
             })
             if not gate_result.passed:
+                threshold = self._gate_config.symbol_max_spreads.get(
+                    symbol, self._gate_config.default_max_spread
+                )
+                logger.warning(
+                    "spread_too_wide: symbol=%s spread=%.2f threshold=%.2f "
+                    "— trade blocked",
+                    symbol, spread, threshold,
+                )
                 return RiskLimitResult(
                     allowed=False,
                     limit_type=RiskLimitType.SPREAD,
-                    message=gate_result.reason,
+                    message=f"spread_too_wide: {symbol} spread={spread:.2f} "
+                            f"threshold={threshold:.2f}",
                     current_value=spread,
-                    limit_value=self._gate_config.symbol_max_spreads.get(
-                        symbol, self._gate_config.default_max_spread
-                    ),
+                    limit_value=threshold,
                 )
 
         if self._blocked_until and datetime.now(timezone.utc) < self._blocked_until:
