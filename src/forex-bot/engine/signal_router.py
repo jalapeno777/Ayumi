@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 from .protocol import CanonicalSignal
+from config.sessions import is_tradable_session
 
 if TYPE_CHECKING:
     from adapters.ctrader.order_manager import OrderManager
@@ -30,14 +31,33 @@ class SignalRouter:
         portfolio_risk: PortfolioRiskGuard,
         order_manager: OrderManager,
         cooldown_sec: float = 60.0,
+        session_gating_enabled: bool = True,
     ):
         self._portfolio_risk = portfolio_risk
         self._order_manager = order_manager
         self._cooldown_sec = cooldown_sec
+        self._session_gating_enabled = session_gating_enabled
         self._strategy_last_routed: dict[str, float] = {}
         self._callbacks: list[tuple[str, callable]] = []
 
     def route(self, signal: CanonicalSignal, spread: float = 0.0) -> RouteResult:
+        # Session gating — block signals outside tradable sessions
+        if self._session_gating_enabled:
+            now_utc = datetime.now(timezone.utc)
+            allowed, gate_reason = is_tradable_session(signal.symbol, now_utc)
+            if not allowed:
+                logger.info(
+                    "Session blocked: %s %s — %s",
+                    signal.symbol,
+                    signal.strategy_id,
+                    gate_reason,
+                )
+                return RouteResult(
+                    action="session_blocked",
+                    signal=signal,
+                    reason=gate_reason,
+                )
+
         if signal.confidence < 0.0:
             return RouteResult(
                 action="rejected",
