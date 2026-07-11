@@ -217,6 +217,88 @@ class ATRDynamicSizing(SizingMethod):
         return size
 
 
+class EquityScaler:
+    """Equity-curve scaling multiplier ("soft landing" mechanism).
+
+    Auto-reduces risk percentage as account equity drops during drawdowns.
+    The effective risk is scaled by the ratio of current equity to initial
+    equity, floored at ``floor_multiplier`` to prevent over-conservative
+    sizing during deep drawdowns.
+
+    Formula::
+
+        Effective Risk% = Base Risk% × max(floor, Current Equity / Initial Equity)
+
+    Usage (apply BEFORE passing risk_pct to any SizingMethod)::
+
+        scaler = EquityScaler(initial_equity=10_000.0)
+        effective_risk = scaler.scale_risk(base_risk_pct=0.02, current_equity=9_500.0)
+        size = sizing_method.calculate_size(..., risk_pct=effective_risk)
+
+    Reference: SRB-AYUMI-012 §5.1 rec 2 (equity-curve scaling).
+    """
+
+    def __init__(
+        self,
+        initial_equity: float,
+        floor_multiplier: float = 0.5,
+    ):
+        if initial_equity <= 0:
+            raise ValueError("initial_equity must be positive")
+        if not 0.0 < floor_multiplier <= 1.0:
+            raise ValueError("floor_multiplier must be in (0.0, 1.0]")
+        self.initial_equity = initial_equity
+        self.floor_multiplier = floor_multiplier
+
+    def get_scaling_factor(self, current_equity: float) -> float:
+        """Return the equity-curve scaling multiplier.
+
+        Args:
+            current_equity: Current account equity.
+
+        Returns:
+            Scaling factor in ``[floor_multiplier, 1.0+]``.  When equity
+            is at or above initial, the factor is 1.0 (full risk).  When
+            equity drops below initial, the factor scales linearly but
+            never below ``floor_multiplier``.
+        """
+        if current_equity <= 0:
+            return self.floor_multiplier
+
+        ratio = current_equity / self.initial_equity
+        return max(self.floor_multiplier, min(ratio, 1.0))
+
+    def scale_risk(
+        self,
+        base_risk_pct: float,
+        current_equity: float,
+    ) -> float:
+        """Return effective risk percentage after equity-curve scaling.
+
+        Args:
+            base_risk_pct: Base risk fraction (e.g. 0.02 for 2 %).
+            current_equity: Current account equity.
+
+        Returns:
+            Effective risk fraction ≤ ``base_risk_pct``.
+        """
+        factor = self.get_scaling_factor(current_equity)
+        effective_risk = base_risk_pct * factor
+
+        logger.info(
+            "EquityScaler: initial=%.2f current=%.2f ratio=%.4f "
+            "floor=%.2f factor=%.4f base_risk=%.4f effective_risk=%.4f",
+            self.initial_equity,
+            current_equity,
+            current_equity / self.initial_equity,
+            self.floor_multiplier,
+            factor,
+            base_risk_pct,
+            effective_risk,
+        )
+        return effective_risk
+
+
 class RiskCalculator:
     @staticmethod
     def calculate_sharpe(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
