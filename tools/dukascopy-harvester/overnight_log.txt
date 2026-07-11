@@ -1,0 +1,22 @@
+[2026-07-11 10:36:46] ############################################################
+[2026-07-11 10:36:46] # OVERNIGHT HARVEST START — Sat Jul 11 10:36:46 AM UTC 2026
+[2026-07-11 10:36:46] ############################################################
+[2026-07-11 10:36:46] 
+[2026-07-11 10:36:46] ============================================
+[2026-07-11 10:36:46]   GBPUSD: 2025-04-09 → 2026-07-11
+[2026-07-11 10:36:46]   2 year-chunks
+[2026-07-11 10:36:46] ============================================
+[2026-07-11 10:36:46] 
+[2026-07-11 10:36:46] >>> GBPUSD chunk 1/2: 2025-04-09 → 2025-12-31
+[2026-07-11 10:36:46]   --- GBPUSD: 2025-04-09 → 2025-12-31 ---
+[10:36:46] === Dukascopy Tick Harvester (SDK 3.6.51) ===
+[10:36:46] JNLP  : https://www.dukascopy.com/client/demo/jclient/jforex.jnlp
+[10:36:46] User  : DEMO2JNDma
+[10:36:46] Output: /data/output
+[10:36:46] Instrs: GBPUSD
+[10:36:46] Range : 2025-04-09 -> 2025-12-31
+[10:36:46] Rate  : 4.0 req/s
+[10:36:46] Batch : 1 day(s)
+[10:36:46] Per-call timeout: 30s, retries=2, fallback_bars=true
+[10:36:47] Connecting to Dukascopy...
+[10:36:48] FATAL: connect() failed: FileNotFoundException: https://www.dukascopy.com/client/demo/jclient/jforex.jnlp
