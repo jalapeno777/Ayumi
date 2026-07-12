@@ -1,0 +1,299 @@
+"""SRF Runner — wraps existing walk-forward engine, writes results to DuckDB."""
+
+from __future__ import annotations
+
+import json
+import logging
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from .schema import SRFDatabase, compute_data_hash, generate_run_id
+from .data_qa import validate_data
+
+logger = logging.getLogger(__name__)
+
+
+class StrategyRunner:
+    """Runs a strategy through walk-forward validation and records results in DuckDB."""
+
+    def __init__(
+        self,
+        db_path: str = "data/research/research.duckdb",
+        repo_path: str = ".",
+    ):
+        self.db = SRFDatabase(db_path)
+        self.repo_path = Path(repo_path).resolve()
+
+    # ── public API ───────────────────────────────────────────────────────
+
+    def run(
+        self,
+        *,
+        strategy_name: str,
+        strategy_factory: Any,
+        pair: str,
+        timeframe: int,
+        data_path: str,
+        params: dict | None = None,
+        n_windows: int = 5,
+        initial_balance: float = 10_000,
+        spread_pips: float | None = None,
+        min_confidence: float = 0.30,
+        register_if_missing: bool = True,
+    ) -> dict:
+        """Execute a single walk-forward run. Returns run metadata + results dict.
+
+        Raises RuntimeError if git tree is dirty or data QA fails.
+        """
+        start = time.monotonic()
+
+        # ── 1. Git-clean guard ────────────────────────────────────────────
+        git_commit = self._get_git_commit()
+        if git_commit is None:
+            raise RuntimeError(
+                "Git tree is dirty — SRF requires a clean tree for reproducibility. "
+                "Commit or stash changes before running."
+            )
+
+        # ── 2. Load + validate data ───────────────────────────────────────
+        df = self._load_data(data_path)
+        qa = validate_data(df, pair, timeframe)
+        if not qa.passed:
+            failures_str = "; ".join(
+                f"{f.check_name}: {f.detail}" for f in qa.failures if f.severity == "hard"
+            )
+            raise RuntimeError(f"Data QA failed for {pair} {timeframe}m: {failures_str}")
+
+        data_hash = compute_data_hash(data_path)
+
+        # ── 3. Convert to Bar objects ─────────────────────────────────────
+        bars = self._df_to_bars(df, pair)
+
+        # ── 4. Ensure strategy registered in DB ───────────────────────────
+        run_id = generate_run_id(strategy_name, pair, timeframe)
+
+        with self.db as conn:
+            self._ensure_strategy_registered(
+                conn, strategy_name, strategy_factory, register_if_missing
+            )
+
+            # ── 5. Insert run record ──────────────────────────────────────
+            conn.execute(
+                """INSERT INTO runs
+                   (run_id, strategy_name, pair, timeframe, params_json,
+                    git_commit, data_hash, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'running', now())""",
+                [
+                    run_id, strategy_name, pair, timeframe,
+                    json.dumps(params or {}), git_commit, data_hash,
+                ],
+            )
+
+            try:
+                # ── 6. Run walk-forward ───────────────────────────────────
+                results = self._run_walk_forward(
+                    bars=bars,
+                    strategy_factory=strategy_factory,
+                    pair=pair,
+                    n_windows=n_windows,
+                    initial_balance=initial_balance,
+                    spread_pips=spread_pips,
+                    min_confidence=min_confidence,
+                )
+
+                # ── 7. Write results to DB ────────────────────────────────
+                self._write_results(conn, run_id, results)
+
+                compute_seconds = time.monotonic() - start
+
+                conn.execute(
+                    """UPDATE runs SET status='completed', compute_seconds=?,
+                       completed_at=now() WHERE run_id=?""",
+                    [compute_seconds, run_id],
+                )
+
+                logger.info(
+                    "SRF run %s completed in %.1fs — %d windows, go_nogo=%s",
+                    run_id, compute_seconds,
+                    len(results.per_window),
+                    results.go_nogo,
+                )
+
+                return {
+                    "run_id": run_id,
+                    "strategy": strategy_name,
+                    "pair": pair,
+                    "timeframe": timeframe,
+                    "go_nogo": results.go_nogo,
+                    "windows": len(results.per_window),
+                    "compute_seconds": compute_seconds,
+                    "git_commit": git_commit,
+                    "data_hash": data_hash,
+                }
+
+            except Exception as exc:
+                conn.execute(
+                    "UPDATE runs SET status='failed', completed_at=now() WHERE run_id=?",
+                    [run_id],
+                )
+                logger.error("SRF run %s failed: %s", run_id, exc)
+                raise
+
+    # ── internals ────────────────────────────────────────────────────────
+
+    def _get_git_commit(self) -> str | None:
+        """Return current git commit hash, or None if tree is dirty."""
+        try:
+            # Check if tree is clean
+            diff = subprocess.check_output(
+                ["git", "diff", "--stat"],
+                cwd=str(self.repo_path),
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            if diff:
+                return None
+            # Get commit hash
+            commit = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=str(self.repo_path),
+                stderr=subprocess.DEVNULL,
+            ).decode().strip()
+            return commit
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+
+    def _load_data(self, data_path: str) -> pd.DataFrame:
+        """Load bar data from CSV."""
+        df = pd.read_csv(data_path)
+        return df
+
+    def _df_to_bars(self, df: pd.DataFrame, pair: str):
+        """Convert DataFrame to list of Bar objects."""
+        from backtest.engine import Bar
+
+        bars = []
+        for _, row in df.iterrows():
+            ts = row["timestamp"]
+            # Handle epoch ms or ISO string
+            if isinstance(ts, (int, float)):
+                dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+            else:
+                dt = pd.to_datetime(ts)
+                if dt.tz is None:
+                    dt = dt.tz_localize("UTC")
+
+            bars.append(
+                Bar(
+                    time=dt,
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=float(row.get("volume", 0)),
+                )
+            )
+        return bars
+
+    def _run_walk_forward(
+        self,
+        bars: list,
+        strategy_factory: Any,
+        pair: str,
+        n_windows: int,
+        initial_balance: float,
+        spread_pips: float | None,
+        min_confidence: float,
+    ):
+        """Call the existing walk-forward runner."""
+        from backtest.walk_forward_runner import run_strategy_walk_forward
+
+        return run_strategy_walk_forward(
+            bars=bars,
+            strategy_factory=strategy_factory,
+            pair=pair,
+            n_windows=n_windows,
+            initial_balance=initial_balance,
+            spread_pips=spread_pips,
+            min_confidence=min_confidence,
+        )
+
+    def _ensure_strategy_registered(
+        self, conn, name: str, strategy_factory: Any, register: bool
+    ) -> None:
+        """Ensure strategy exists in DB. Register if missing and allowed."""
+        row = conn.execute(
+            "SELECT name FROM strategies WHERE name=?", [name]
+        ).fetchone()
+
+        if row is None and register:
+            # Try to get module path from the factory's class
+            cls = strategy_factory.__class__ if hasattr(strategy_factory, "__class__") else None
+            module_path = ""
+            if cls:
+                module_path = f"{cls.__module__}.{cls.__name__}"
+
+            conn.execute(
+                """INSERT INTO strategies (name, version, module_path, status)
+                   VALUES (?, '1.0', ?, 'production')""",
+                [name, module_path],
+            )
+            logger.info("Auto-registered strategy '%s' in DB", name)
+
+    def _write_results(self, conn, run_id: str, results) -> None:
+        """Write walk-forward results to DuckDB tables."""
+        # ── Windows ───────────────────────────────────────────────────────
+        for w in results.per_window:
+            conn.execute(
+                """INSERT INTO windows
+                   (run_id, window_idx, win_rate, profit_factor, sharpe,
+                    max_drawdown, trade_count, total_pnl, passed_go_nogo)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    run_id, w.window_index,
+                    w.win_rate, w.profit_factor, w.sharpe_ratio,
+                    w.max_drawdown, w.trade_count, w.total_pnl,
+                    w.passed_go_nogo,
+                ],
+            )
+
+        # ── Metrics summary ───────────────────────────────────────────────
+        agg = results.aggregated
+        windows_passed = sum(1 for w in results.per_window if w.passed_go_nogo)
+        windows_total = len(results.per_window)
+
+        # Compute means/stds
+        import statistics
+        wrs = [w.win_rate for w in results.per_window if w.trade_count > 0]
+        pfs = [w.profit_factor for w in results.per_window if w.trade_count > 0]
+        shrs = [w.sharpe_ratio for w in results.per_window if w.trade_count > 0]
+        dds = [w.max_drawdown for w in results.per_window if w.trade_count > 0]
+        total_trades = sum(w.trade_count for w in results.per_window)
+
+        go_nogo_str = "go" if results.go_nogo else "no-go"
+
+        conn.execute(
+            """INSERT INTO metrics_summary
+               (run_id, mean_win_rate, std_win_rate, mean_profit_factor,
+                std_profit_factor, mean_sharpe, std_sharpe,
+                mean_max_drawdown, std_max_drawdown, total_trades,
+                windows_passed, windows_total, go_nogo)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                run_id,
+                statistics.mean(wrs) if wrs else None,
+                statistics.stdev(wrs) if len(wrs) > 1 else None,
+                statistics.mean(pfs) if pfs else None,
+                statistics.stdev(pfs) if len(pfs) > 1 else None,
+                statistics.mean(shrs) if shrs else None,
+                statistics.stdev(shrs) if len(shrs) > 1 else None,
+                statistics.mean(dds) if dds else None,
+                statistics.stdev(dds) if len(dds) > 1 else None,
+                total_trades, windows_passed, windows_total, go_nogo_str,
+            ],
+        )
