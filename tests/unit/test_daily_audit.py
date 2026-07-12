@@ -42,6 +42,7 @@ from daily_audit import (
     _ch_ft_fill_latency_p95,
     _ch_ft_slippage_analysis,
     _ch_ft_order_rejection_rate,
+    _get_market_status,
     run_all_checkpoints,
 )
 
@@ -77,6 +78,12 @@ class TestDH001TickFeedLatency:
         assert result.check_id == "DH-001"
         assert result.status == "WARN"
         assert "missing" in result.detail.lower()
+
+    @pytest.fixture(autouse=True)
+    def _mock_market_open(self, monkeypatch):
+        """Ensure existing tests run with market-open semantics regardless of real day."""
+        import daily_audit
+        monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
 
     def test_healthy_latency(self, tmp_data_root):
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -173,6 +180,12 @@ class TestDH002BarBuildingRate:
 # ── DH-005: Signal Stats Write Health ──────────────────────────────────────
 
 class TestDH005SignalStatsWriteHealth:
+
+    @pytest.fixture(autouse=True)
+    def _mock_market_open(self, monkeypatch):
+        """Ensure existing tests run with market-open semantics regardless of real day."""
+        import daily_audit
+        monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
 
     def test_missing_file(self, tmp_data_root):
         result = _ch_dh_signal_stats_write_health()
@@ -630,3 +643,172 @@ class TestRunAllCheckpoints:
             # Verify checkpoint IDs are unique
             ids = [r.check_id for r in results]
             assert len(ids) == len(set(ids)), f"Duplicate checkpoint IDs: {ids}"
+
+
+# ── Market Status Detection ───────────────────────────────────────────────
+
+class TestMarketStatusDetection:
+    """Test _get_market_status() for correct weekend/market-closed detection."""
+
+    def test_monday_afternoon_is_open(self):
+        # Monday 14:00 UTC
+        monday = datetime(2026, 7, 6, 14, 0, tzinfo=timezone.utc)  # Monday
+        assert _get_market_status(monday) == "open"
+
+    def test_friday_afternoon_is_open(self):
+        # Friday 18:00 UTC (market still open)
+        friday = datetime(2026, 7, 10, 18, 0, tzinfo=timezone.utc)  # Friday
+        assert _get_market_status(friday) == "open"
+
+    def test_friday_night_is_closed(self):
+        # Friday 23:00 UTC (market closed for weekend)
+        friday_night = datetime(2026, 7, 10, 23, 0, tzinfo=timezone.utc)  # Friday
+        assert _get_market_status(friday_night) == "closed"
+
+    def test_saturday_morning_is_weekend(self):
+        # Saturday 08:00 UTC
+        saturday = datetime(2026, 7, 11, 8, 0, tzinfo=timezone.utc)  # Saturday
+        assert _get_market_status(saturday) == "weekend"
+
+    def test_saturday_evening_is_weekend(self):
+        # Saturday 20:00 UTC
+        saturday_eve = datetime(2026, 7, 11, 20, 0, tzinfo=timezone.utc)  # Saturday
+        assert _get_market_status(saturday_eve) == "weekend"
+
+    def test_sunday_morning_is_weekend(self):
+        # Sunday 10:00 UTC (market still closed)
+        sunday = datetime(2026, 7, 12, 10, 0, tzinfo=timezone.utc)  # Sunday
+        assert _get_market_status(sunday) == "weekend"
+
+    def test_sunday_before_22_is_weekend(self):
+        # Sunday 21:59 UTC (still closed)
+        sunday_late = datetime(2026, 7, 12, 21, 59, tzinfo=timezone.utc)  # Sunday
+        assert _get_market_status(sunday_late) == "weekend"
+
+    def test_sunday_after_22_is_open(self):
+        # Sunday 22:30 UTC (market opens at 22:00)
+        sunday_open = datetime(2026, 7, 12, 22, 30, tzinfo=timezone.utc)  # Sunday
+        assert _get_market_status(sunday_open) == "open"
+
+    def test_weekday_early_monday_is_open(self):
+        # Monday 00:30 UTC (market opened Sunday 22:00)
+        monday_early = datetime(2026, 7, 6, 0, 30, tzinfo=timezone.utc)  # Monday
+        assert _get_market_status(monday_early) == "open"
+
+    def test_midweek_is_open(self):
+        # Wednesday 12:00 UTC
+        wed = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)  # Wednesday
+        assert _get_market_status(wed) == "open"
+
+
+class TestDH001WeekendBehavior:
+    """Verify DH-001 tick feed latency does not flag CRITICAL during weekend."""
+
+    def test_weekend_high_latency_not_critical(self, tmp_data_root):
+        """Tick feed latency on Saturday should be WARN, not CRITICAL."""
+        # Simulate 20-hour-old tick time on a Saturday
+        saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        old_tick = (saturday - timedelta(hours=20)).isoformat()
+        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
+            "last_tick_time": old_tick,
+        })
+        with patch("daily_audit._now", return_value=saturday):
+            result = _ch_dh_tick_feed_latency()
+        assert result.check_id == "DH-001"
+        assert result.status == "WARN"
+        assert "weekend" in result.detail.lower() or "closed" in result.detail.lower()
+        assert not result.escalated
+
+    def test_weekend_low_latency_ok(self, tmp_data_root):
+        """Tick feed with low latency on Saturday should be OK."""
+        saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        fresh_tick = (saturday - timedelta(seconds=1)).isoformat()
+        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
+            "last_tick_time": fresh_tick,
+        })
+        with patch("daily_audit._now", return_value=saturday):
+            result = _ch_dh_tick_feed_latency()
+        assert result.status == "OK"
+        assert "weekend" in result.detail.lower()
+
+    def test_weekday_high_latency_still_critical(self, tmp_data_root):
+        """Tick feed latency on Wednesday should still flag CRITICAL."""
+        wednesday = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+        old_tick = (wednesday - timedelta(seconds=60)).isoformat()
+        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
+            "last_tick_time": old_tick,
+        })
+        with patch("daily_audit._now", return_value=wednesday):
+            result = _ch_dh_tick_feed_latency()
+        assert result.status == "CRITICAL"
+        assert result.escalated
+
+    def test_friday_night_high_latency_not_critical(self, tmp_data_root):
+        """Tick feed latency Friday night (after market close) should be WARN."""
+        friday_night = datetime(2026, 7, 10, 23, 30, tzinfo=timezone.utc)
+        old_tick = (friday_night - timedelta(hours=2)).isoformat()
+        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
+            "last_tick_time": old_tick,
+        })
+        with patch("daily_audit._now", return_value=friday_night):
+            result = _ch_dh_tick_feed_latency()
+        assert result.status in ("WARN", "OK")  # Not CRITICAL
+        assert not result.escalated
+
+
+class TestDH005WeekendBehavior:
+    """Verify DH-005 signal_stats writer health relaxes during weekend."""
+
+    def test_weekend_stale_writer_not_critical(self, tmp_data_root):
+        """Stale signal_stats.jsonl on Saturday should be WARN, not CRITICAL."""
+        saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
+        _write_jsonl(stats_path, [
+            {"signal_id": "sig1", "timestamp": "2026-07-10T20:00:00+00:00", "outcome": "open"},
+        ])
+        # Reference clock is saturday noon — file mtime and the function's
+        # _now()/time.time() must use the same reference so file_age_s is
+        # computed relative to the simulated weekend "now".
+        saturday_ts = saturday.timestamp()
+        old_time = saturday_ts - 21600  # 6 hours old
+        os.utime(stats_path, (old_time, old_time))
+        with patch("daily_audit._now", return_value=saturday), \
+             patch("daily_audit.time.time", return_value=saturday_ts):
+            result = _ch_dh_signal_stats_write_health()
+        assert result.check_id == "DH-005"
+        assert result.status == "WARN"
+        assert not result.escalated
+
+    def test_weekend_fresh_writer_ok(self, tmp_data_root):
+        """Fresh signal_stats.jsonl on Saturday should be OK."""
+        saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
+        stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
+        _write_jsonl(stats_path, [
+            {"signal_id": "sig1", "timestamp": "2026-07-11T11:30:00+00:00", "outcome": "open"},
+        ])
+        # Reference clock is saturday noon — both file mtime and time.time()
+        # are anchored to it so file_age_s is computed correctly.
+        saturday_ts = saturday.timestamp()
+        fresh_time = saturday_ts - 300  # 5 min old
+        os.utime(stats_path, (fresh_time, fresh_time))
+        with patch("daily_audit._now", return_value=saturday), \
+             patch("daily_audit.time.time", return_value=saturday_ts):
+            result = _ch_dh_signal_stats_write_health()
+        assert result.status == "OK"
+
+    def test_weekday_stale_writer_still_critical(self, tmp_data_root):
+        """Stale signal_stats.jsonl on Wednesday should still be CRITICAL."""
+        wednesday = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
+        stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
+        _write_jsonl(stats_path, [
+            {"signal_id": "sig1", "timestamp": "2026-07-08T06:00:00+00:00", "outcome": "open"},
+        ])
+        # Reference clock is wednesday noon.
+        wednesday_ts = wednesday.timestamp()
+        old_time = wednesday_ts - 600  # 10 min old
+        os.utime(stats_path, (old_time, old_time))
+        with patch("daily_audit._now", return_value=wednesday), \
+             patch("daily_audit.time.time", return_value=wednesday_ts):
+            result = _ch_dh_signal_stats_write_health()
+        assert result.status == "CRITICAL"
+        assert result.escalated

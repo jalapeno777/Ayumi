@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
@@ -93,6 +93,34 @@ def _try_attach_extra(check: CheckResult, source: str, extra: dict[str, Any]) ->
     if extra:
         check.notes = (check.notes + " | " if check.notes else "") + json.dumps(extra, sort_keys=True)
     return check
+
+
+# ── Market status detection ────────────────────────────────────────────────
+
+def _get_market_status(now: datetime | None = None) -> str:
+    """Determine forex market status based on UTC time.
+
+    Forex market schedule (standard, cTrader-aligned):
+    - Opens Sunday 22:00 UTC
+    - Closes Friday 22:00 UTC
+    - Closed all day Saturday and Sunday before 22:00 UTC
+
+    Returns one of: ``open``, ``weekend``, ``closed``.
+    ``maintenance`` is reserved for future cTrader schedule API integration.
+    """
+    now = now or _now()
+    day = now.weekday()  # 0=Monday, 5=Saturday, 6=Sunday
+    hour = now.hour
+
+    if day == 5:  # Saturday — always closed
+        return "weekend"
+    if day == 6:  # Sunday
+        if hour < 22:
+            return "weekend"
+        return "open"  # Market opens at 22:00 UTC Sunday
+    if day == 4 and hour >= 22:  # Friday after 22:00 UTC — market closed
+        return "closed"
+    return "open"
 
 
 # ── Checkpoint implementations ─────────────────────────────────────────────
@@ -681,13 +709,22 @@ def _ch_dh_file_freshness(path: Path, check_id: str, label: str,
 
 
 def _ch_dh_signal_stats() -> CheckResult:
-    return _ch_dh_file_freshness(ROOT / "data" / "signal_stats.jsonl", "DH-003",
-                                 "signal_stats.jsonl")
+    stats_path = ROOT / "data" / "signal_stats.jsonl"
+    market_status = _get_market_status()
+    # During market closure, stale signal_stats.jsonl is expected
+    max_age = 3600.0 if market_status in ("weekend", "closed") else 60.0
+    return _ch_dh_file_freshness(stats_path, "DH-003",
+                                 "signal_stats.jsonl",
+                                 max_age_seconds=max_age)
 
 
 def _ch_dh_risk_state() -> CheckResult:
+    market_status = _get_market_status()
+    # During market closure, stale risk_guard_state.json is expected
+    max_age = 3600.0 if market_status in ("weekend", "closed") else 60.0
     return _ch_dh_file_freshness(ROOT / "data" / "state" / "risk_guard_state.json",
-                                 "DH-004", "risk_guard_state.json")
+                                 "DH-004", "risk_guard_state.json",
+                                 max_age_seconds=max_age)
 
 
 def _ch_dh_tick_feed_latency() -> CheckResult:
@@ -716,6 +753,20 @@ def _ch_dh_tick_feed_latency() -> CheckResult:
     if latency_s < 0:
         return CheckResult("DH-001", "Data Health", "OK",
                            f"last_tick_time in future (clock skew, latency={latency_s:.1f}s)")
+
+    market_status = _get_market_status(now)
+
+    # During weekend / market closure, high latency is expected — not CRITICAL
+    if market_status in ("weekend", "closed"):
+        if latency_s < 30:
+            return CheckResult("DH-001", "Data Health", "OK",
+                               f"tick feed latency={latency_s:.2f}s (market={market_status})")
+        # High latency during market closure is WARN, not CRITICAL
+        return CheckResult("DH-001", "Data Health", "WARN",
+                           f"tick feed latency={latency_s:.0f}s (market={market_status}, expected during closure)",
+                           auto_remediation="No action needed — market closed. Verify ticks resume at market open.",
+                           notes=f"market_status={market_status}")
+
     if latency_s < 2:
         return CheckResult("DH-001", "Data Health", "OK",
                            f"tick feed latency={latency_s:.2f}s")
@@ -769,6 +820,7 @@ def _ch_dh_bar_building_rate() -> CheckResult:
 def _ch_dh_signal_stats_write_health() -> CheckResult:
     """DH-005: signal_stats write health — verify the file is being written to."""
     stats_path = ROOT / "data" / "signal_stats.jsonl"
+    market_status = _get_market_status()
     if not stats_path.exists():
         return CheckResult("DH-005", "Data Health", "WARN",
                            "signal_stats.jsonl missing — SignalStatsRecorder not writing",
@@ -795,6 +847,20 @@ def _ch_dh_signal_stats_write_health() -> CheckResult:
                 pass
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
+
+    # During market closure, stale writer is expected — relax thresholds
+    if market_status in ("weekend", "closed"):
+        if file_age_s < 3600:
+            detail = f"signal_stats.jsonl mtime={file_age_s:.0f}s (market={market_status})"
+            if last_ts:
+                detail += f", last_record_ts={last_ts}"
+            return CheckResult("DH-005", "Data Health", "OK", detail)
+        # Stale writer during market closure is WARN, not CRITICAL
+        return CheckResult("DH-005", "Data Health", "WARN",
+                           f"signal_stats.jsonl mtime={file_age_s:.0f}s (market={market_status}, stale but expected during closure)",
+                           auto_remediation="No action — market closed. Verify writer resumes at market open.",
+                           notes=f"market_status={market_status}")
+
     if file_age_s < 60:
         detail = f"signal_stats.jsonl mtime={file_age_s:.0f}s"
         if last_ts:
@@ -937,6 +1003,11 @@ def render_report(
     lines.append(f"# Hayate Daily Audit — {report_date}")
     lines.append("")
     lines.append("## Executive Summary")
+    lines.append("")
+
+    # Include market status in report header
+    market_status = _get_market_status()
+    lines.append(f"_Market status: **{market_status}**_")
     lines.append("")
     if crit:
         verdict = f"{crit} CRITICAL, {warn} WARN, {ok} OK"
