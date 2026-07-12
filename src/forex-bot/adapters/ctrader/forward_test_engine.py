@@ -83,14 +83,21 @@ _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
+# PROJECT_ROOT mirrors .env resolution at line ~1000: Path(__file__).resolve().parents[4]
+#   parents[0] = ctrader/  parents[1] = adapters/  parents[2] = forex-bot/
+#   parents[3] = src/      parents[4] = <repo root>
+_PROJECT_ROOT = Path(__file__).resolve().parents[4]
+
 # Phase 7: live-mode validation gate.  Operator (Ava) creates this flag after
 # remediation is validated; the launcher refuses live mode if it is absent.
-_REMEDIATION_VALIDATED_FLAG = "data/ayumi/remediation_validated.flag"
+# Absolute paths ensure auto-recreate works from any CWD (fixes PermissionError
+# when the service is launched from a non-project working directory).
+_REMEDIATION_VALIDATED_FLAG = str(_PROJECT_ROOT / "data" / "ayumi" / "remediation_validated.flag")
 # Fallback: the audit doc is the source of truth. If the flag file is missing
 # (e.g. deleted by git clean, systemd cleanup, or process restart) but the
 # audit doc exists, the flag is auto-recreated with a warning instead of
 # crashing. This makes the forward test survivable across unplanned restarts.
-_REMEDIATION_AUDIT_DOC = "docs/audits/ayumi-live-remediation-session-audit-2026-06-30.md"
+_REMEDIATION_AUDIT_DOC = str(_PROJECT_ROOT / "docs" / "audits" / "ayumi-live-remediation-session-audit-2026-06-30.md")
 
 
 # Heartbeat writer defaults
@@ -2885,47 +2892,47 @@ class ForwardTestEngine:
         # Phase 6A: Wire close() into blend_runner → sizer.
         # When a position closes (SL hit, TP hit, or manual close), the
         # reserved risk must be released and PnL recorded.
-        _position_id = getattr(position, "position_id", "")
-        _closed_pnl = getattr(position, "closed_pnl", 0.0)
         blend_runner = getattr(self, "_blend_runner", None)
         if blend_runner is not None:
+            pnl = getattr(position, "closed_pnl", 0.0)
+            position_id = getattr(position, "position_id", "")
+
             if hasattr(blend_runner, "close_position"):
-                blend_runner.close_position(_position_id, _closed_pnl)
+                blend_runner.close_position(position_id, pnl)
             elif hasattr(blend_runner, "on_fill"):
                 # Backward-compat: resolve signal_id from engine mapping
-                signal_id = self._position_id_to_signal_id.pop(_position_id, _position_id)
+                signal_id = self._position_id_to_signal_id.pop(position_id, position_id)
                 close_price = (
                     getattr(position, "closed_price", None)
                     or getattr(position, "current_price", 0.0)
                 )
-                blend_runner.on_fill(signal_id, close_price, _closed_pnl)
+                blend_runner.on_fill(signal_id, close_price, pnl)
 
             # Log with signal_id, pnl, and remaining open_risk
             sizer = getattr(blend_runner, "_sizer", None)
             remaining_open_risk = sizer.open_risk if sizer is not None else 0.0
-            _log_signal_id = self._position_id_to_signal_id.get(_position_id, _position_id)
+            signal_id = self._position_id_to_signal_id.get(position_id, position_id)
             logger.info(
                 "Position closed: signal_id=%s pnl=%.2f open_risk=%.2f",
-                _log_signal_id, _closed_pnl, remaining_open_risk,
+                signal_id, pnl, remaining_open_risk,
             )
-
         # Persist closed trade to trading.db (DEBT card 248d4f98)
         try:
             from data.trading_db import insert_closed_trade
 
-            _sig_id = self._position_id_to_signal_id.get(_position_id, "")
+            sig_id = self.position_id_to_signal_id.get(position_id, "")
             # strategy_id is the prefix before the last underscore-timestamp
-            _strategy = _sig_id.rsplit("_", 1)[0] if "_" in _sig_id else _sig_id
-            _direction = (
+            strategy = sig_id.rsplit("_", 1)[0] if "_" in sig_id else sig_id
+            direction = (
                 position.direction.value
                 if hasattr(position.direction, "value")
                 else str(position.direction)
             )
             insert_closed_trade(
-                trade_id=str(_position_id),
-                strategy_name=_strategy,
+                trade_id=str(position_id),
+                strategy_name=strategy,
                 symbol=position.symbol,
-                direction=_direction,
+                direction=direction,
                 entry_price=position.entry_price,
                 exit_price=getattr(position, "closed_price", None),
                 entry_time=getattr(position, "opened_at", None),
@@ -2934,11 +2941,12 @@ class ForwardTestEngine:
                 stop_loss=getattr(position, "stop_loss", None),
                 take_profit=getattr(position, "take_profit", None),
                 source="live" if getattr(self._config, "live_mode", False) else "paper",
-                pnl=_closed_pnl,
+                pnl=pnl,
                 close_reason=getattr(position, "comment", "") or None,
             )
-        except Exception as _db_exc:
-            logger.warning("trading.db write failed (non-fatal): %s", _db_exc)
+        except Exception as db_exc:
+            logger.warning("trading.db write failed (non-fatal): %s", db_exc)
+
 
         if self._trade_logger:
             self._trade_logger.log_position_closed(position)

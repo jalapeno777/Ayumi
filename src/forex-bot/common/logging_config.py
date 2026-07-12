@@ -10,8 +10,15 @@ Usage (at the START of main()):
 
 import logging
 import logging.handlers
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+
+# PROJECT_ROOT is 3 levels up from src/forex-bot/common/logging_config.py:
+#   parents[0] = common/  parents[1] = forex-bot/  parents[2] = src/  parents[3] = <repo root>
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 DEFAULT_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
@@ -39,7 +46,19 @@ def setup_logging(
     Returns:
         The root logger, configured.
     """
+    # During pytest runs, redirect logs to a temp dir ONLY when the caller
+    # used the default log_dir (i.e. did not pass an explicit path). This
+    # prevents pytest from clobbering test fixtures that rely on tmp_path
+    # while still protecting production log files from test contamination.
+    if "pytest" in sys.modules and log_dir == "logs":
+        log_dir = os.path.join(tempfile.gettempdir(), "ayumi_pytest_logs")
+
+    # Resolve relative paths against PROJECT_ROOT so the service always
+    # writes to the same location regardless of CWD (fixes root contamination
+    # when launched from a non-project working directory).
     log_path = Path(log_dir)
+    if not log_path.is_absolute():
+        log_path = PROJECT_ROOT / log_path
     log_path.mkdir(parents=True, exist_ok=True)
 
     formatter = logging.Formatter(DEFAULT_FORMAT, datefmt=DEFAULT_DATE_FORMAT)
