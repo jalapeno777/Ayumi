@@ -169,8 +169,19 @@ class StrategyRunner:
             return None
 
     def _load_data(self, data_path: str) -> pd.DataFrame:
-        """Load bar data from CSV."""
+        """Load bar data from CSV. Normalizes column names to lowercase."""
         df = pd.read_csv(data_path)
+        # Normalize column names (CSVs may use TitleCase)
+        rename_map = {}
+        for col in df.columns:
+            lower = col.lower()
+            if lower != col:
+                rename_map[col] = lower
+        if rename_map:
+            df = df.rename(columns=rename_map)
+        # Normalize timestamp column name variants
+        if "date" in df.columns and "timestamp" not in df.columns:
+            df = df.rename(columns={"date": "timestamp"})
         return df
 
     def _df_to_bars(self, df: pd.DataFrame, pair: str):
