@@ -52,6 +52,7 @@ class PaperTrader:
         starting_balance: float = 100000.0,
         api_client: Optional["cTraderAPIClient"] = None,
         state_path: str | None = None,
+        stats_log_path: str | None = None,
     ):
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
@@ -79,6 +80,7 @@ class PaperTrader:
         # position_id -> signal_id correlation map. Populated when a
         # trade opens, consumed when the position closes.
         self._stats_recorder: SignalStatsRecorder | None = None
+        self._stats_log_path: str = stats_log_path or "data/signal_stats.jsonl"
         self._position_signal_id: dict[str, str] = {}
 
     @property
@@ -435,7 +437,7 @@ class PaperTrader:
         signal is recorded without leaving a half-initialised file.
         """
         if self._stats_recorder is None:
-            self._stats_recorder = SignalStatsRecorder()
+            self._stats_recorder = SignalStatsRecorder(log_path=self._stats_log_path)
         return self._stats_recorder
 
     @staticmethod

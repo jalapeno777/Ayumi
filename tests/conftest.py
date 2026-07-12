@@ -29,6 +29,24 @@ def _isolate_risk_guard_state(monkeypatch, tmp_path):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _isolate_signal_stats(monkeypatch, tmp_path):
+    """Redirect SignalStatsRecorder's default log path to a temp dir so
+    tests don't pollute the production signal_stats.jsonl file."""
+    fake_log = str(tmp_path / "signal_stats.jsonl")
+    # Patch the SignalStatsRecorder default path
+    monkeypatch.setattr(
+        "signal_engine.signal_stats.SignalStatsRecorder.__init__.__defaults__",
+        (fake_log,),
+    )
+    # Also patch PaperTrader's default stats_log_path
+    monkeypatch.setattr(
+        "adapters.ctrader.paper_trader.PaperTrader.__init__.__defaults__",
+        (None, None, 100000.0, None, None, fake_log),
+    )
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Backtest stub isolation
 # ---------------------------------------------------------------------------
