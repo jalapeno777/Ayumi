@@ -248,10 +248,10 @@ def _ch_stale_pid_files() -> CheckResult:
 
 
 def _ch_log_error_rate() -> CheckResult:
-    log = ROOT / "data" / "forward_test.log"
+    log = ROOT / "logs" / "forward_test.log"
     if not log.exists():
         return CheckResult("SH-008", "System Health", "OK",
-                           "data/forward_test.log missing (test not started yet?)")
+                           "logs/forward_test.log missing (test not started yet?)")
     try:
         # Read last 200 lines for efficiency.
         # Use tail in a subprocess (always available on Linux).
@@ -1102,7 +1102,7 @@ def render_report(
     lines.append("")
     lines.append("- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002, DH-001)")
     lines.append("- `df -h /home/TacoPants/projects/Ayumi/` (SH-004)")
-    lines.append("- `data/forward_test.log` (SH-008)")
+    lines.append("- `logs/forward_test.log` (SH-008)")
     lines.append("- `data/state/risk_guard_state.json` (FT-003, FT-004, FT-AUX-TARGET, DH-004)")
     lines.append("- `data/forward_test_health.json` (FT-009, DH-001, DH-002)")
     lines.append("- `data/signal_stats.jsonl` (DH-003, DH-005, FT-007, FT-008, FT-010, FT-011)")

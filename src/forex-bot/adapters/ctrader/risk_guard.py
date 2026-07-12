@@ -622,6 +622,7 @@ class RiskGuard:
             self._current_balance = balance
             if balance > self._peak_balance:
                 self._peak_balance = balance
+            self._save_state()
 
     def disable_live_balance(self):
         """Deactivate live-balance mode (testing / fallback to paper)."""
