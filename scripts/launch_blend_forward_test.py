@@ -925,33 +925,37 @@ def main():
                 "Found %d file(s) in data/ not owned by current user: %s",
                 len(_foreign_files), ", ".join(_foreign_files[:5])
             )
-            # Auto-fix known problematic root-owned files so the writer
-            # doesn't silently fail on every tick.  signal_stats.jsonl was
-            # root-owned in a prior run (before User= directive or manual
-            # root launch); removing it lets SignalStatsRecorder recreate
-            # with correct ownership.  Unix allows deleting a root-owned
-            # file if the containing directory is writable by current user.
-            for _fname in ("signal_stats.jsonl",):
-                _fpath = _data_dir / _fname
-                if _fpath.exists():
-                    try:
-                        _fst = _fpath.stat()
-                        if _fst.st_uid != _current_uid:
-                            _fpath.unlink()
-                            logger.info(
-                                "Removed foreign-owned %s (uid=%d) — "
-                                "will be recreated with correct ownership (uid=%d)",
-                                _fname, _fst.st_uid, _current_uid,
-                            )
-                    except OSError as _fix_err:
-                        logger.error(
-                            "Could not remove foreign-owned %s: %s — "
-                            "writes will fail until fixed manually (sudo chown %s:%s %s)",
-                            _fname, _fix_err,
-                            os.getenv("USER", "TacoPants"),
-                            os.getenv("USER", "TacoPants"),
-                            _fpath,
-                        )
+
+    # Check for root-owned log files (root contamination from prior runs).
+    # Remove foreign-owned .log files so they get recreated with correct
+    # ownership on the next setup_logging() call.  Unix allows deleting a
+    # root-owned file if the containing directory is writable by current user.
+    _logs_dir = PROJECT_ROOT / "logs"
+    if _logs_dir.exists():
+        for _log_f in _logs_dir.glob("*.log"):
+            try:
+                _lst = _log_f.stat()
+                if _lst.st_uid != _current_uid:
+                    _log_owner = pwd.getpwuid(_lst.st_uid).pw_name
+                    logger.warning(
+                        "Found foreign-owned log %s (owned by %s) — removing",
+                        _log_f, _log_owner,
+                    )
+                    _log_f.unlink()
+                    logger.info(
+                        "Removed foreign-owned %s (uid=%d) — will be recreated "
+                        "with correct ownership (uid=%d)",
+                        _log_f.name, _lst.st_uid, _current_uid,
+                    )
+            except (KeyError, OSError) as _log_fix_err:
+                logger.error(
+                    "Could not remove foreign-owned %s: %s — "
+                    "run 'sudo chown %s:%s %s' to fix manually",
+                    _log_f, _log_fix_err,
+                    os.getenv("USER", "TacoPants"),
+                    os.getenv("USER", "TacoPants"),
+                    _log_f,
+                )
 
     # ── Single-instance guard (B1) ─────────────────────────────────────────
     from adapters.ctrader.pid_guard import acquire_pid_lock
