@@ -69,15 +69,15 @@ def make_trending_bars(n=200, seed=42):
 class TestSRMRPlusConfig(unittest.TestCase):
     def test_default_config(self):
         config = SRMRPlusConfig()
-        self.assertEqual(config.adx_max_threshold, 25.0)
-        self.assertEqual(config.rsi_long_level, 35.0)
-        self.assertEqual(config.rsi_short_level, 65.0)
+        self.assertEqual(config.adx_max_threshold, 20.0)
+        self.assertEqual(config.rsi_long_level, 30.0)
+        self.assertEqual(config.rsi_short_level, 70.0)
         self.assertEqual(config.adx_period, 14)
-        self.assertEqual(config.hard_cap_sl_pips, 25.0)
+        self.assertEqual(config.hard_cap_sl_pips, 18.0)
         self.assertEqual(config.tp1_rr, 1.5)
         self.assertEqual(config.tp2_rr, 1.5)
-        self.assertEqual(config.entry_near_extreme_pips, 15.0)
-        self.assertEqual(config.session_range_min_pips, 15.0)
+        self.assertEqual(config.entry_near_extreme_pips, 8.0)
+        self.assertEqual(config.session_range_min_pips, 10.0)
 
     def test_custom_config(self):
         config = SRMRPlusConfig(adx_max_threshold=20.0, rsi_long_level=25.0)

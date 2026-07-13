@@ -146,15 +146,15 @@ class TestKillzoneMomentumStrategy(unittest.TestCase):
     def test_config_defaults(self):
         config = KillzoneMomentumConfig()
         self.assertEqual(config.atr_period, 14)
-        self.assertEqual(config.atr_breakout_multiplier, 0.5)
+        self.assertEqual(config.atr_breakout_multiplier, 0.3)
         self.assertEqual(config.ema_trend_period, 50)
         self.assertEqual(config.rsi_period, 14)
-        self.assertEqual(config.min_session_range_pips, 12.0)
+        self.assertEqual(config.min_session_range_pips, 8.0)
         self.assertEqual(config.hard_cap_sl_pips, 35.0)
         self.assertEqual(config.atr_sl_multiplier, 1.5)
         self.assertEqual(config.tp1_rr, 1.0)
         self.assertEqual(config.tp2_rr, 2.0)
-        self.assertEqual(config.adx_threshold, 20.0)
+        self.assertEqual(config.adx_threshold, 15.0)
 
     def test_config_custom_values(self):
         config = KillzoneMomentumConfig(
