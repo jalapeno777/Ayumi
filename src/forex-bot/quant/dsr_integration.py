@@ -62,6 +62,7 @@ from .oos_gate import (
     TIER_C_PAPER,
     deflated_sharpe_ratio,
     expected_max_sharpe,
+    min_track_record_length,
 )
 
 
@@ -261,11 +262,30 @@ def annotate_wf_results_with_dsr(
             dsr_pvalue=dsr_p,
         )
 
+        # Edge probability: 1 - DSR p-value, clamped to [0, 1].
+        # Represents the probability that the observed Sharpe is genuine
+        # (not due to selection bias / multiple testing).
+        edge_prob = max(0.0, min(1.0, 1.0 - dsr_p))
+
+        # Minimum track record length (Bailey & López de Prado 2014).
+        # Only meaningful for positive-SR streams.
+        min_trl = -1
+        if dsr_viable and mean_sharpe > 0.0:
+            min_trl = min_track_record_length(
+                observed_sr=mean_sharpe,
+                n_trials=n_trials,
+                skewness=0.0,
+                kurtosis_regular=3.0,
+                alpha=0.05,
+            )
+
         # Annotate a copy so the caller's dicts are untouched.
         annotated_entry = dict(entry)
         annotated_entry.update(
             {
                 "dsr_pvalue": float(dsr_p),
+                "edge_probability": float(edge_prob),
+                "min_track_record": int(min_trl),
                 "dsr_n_obs": int(n_obs),
                 "dsr_n_trials": int(n_trials),
                 "dsr_expected_max_sr": float(
