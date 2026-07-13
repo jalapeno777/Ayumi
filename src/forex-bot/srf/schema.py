@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Schema version — bump when tables change. Migrations are additive only.
 # ---------------------------------------------------------------------------
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # DDL — all tables created in a single transaction on first connect.
@@ -151,6 +151,20 @@ _DDL_STATEMENTS = [
         n_trials    INTEGER,
         started_at  TIMESTAMPTZ DEFAULT now(),
         completed_at TIMESTAMPTZ
+    )
+    """,
+    # ── portfolio blend runs ─────────────────────────────────────────────
+    """
+    CREATE TABLE IF NOT EXISTS portfolio_runs (
+        run_id              VARCHAR PRIMARY KEY,
+        configs_json        JSON,
+        combined_wr         DOUBLE,
+        combined_pf         DOUBLE,
+        combined_sharpe     DOUBLE,
+        monthly_trade_count  INTEGER,
+        max_dd              DOUBLE,
+        correlation_json    JSON,
+        created_at          TIMESTAMPTZ DEFAULT now()
     )
     """,
 ]
