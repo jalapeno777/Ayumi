@@ -4,6 +4,16 @@ AYUAA-487/AYUAA-481: Loads passing strategies, filters unprofitable ones,
 computes correlation between equity curves, optimizes weight allocation with
 multiple methods, runs walk-forward validation, and evaluates against
 FTMO criteria (WR >55%, PF >1.3, Sharpe >0.5).
+
+FTMO Defensive Rule Hooks
+-------------------------
+Live-trading entry decisions can use the Best Day Rule via
+:func:`check_ftmo_best_day_rule` together with :class:`BestDayRuleTracker`.
+The tracker is **inactive** during backtests and challenge phases — it only
+gates entries when ``account_phase='funded'``. See
+``src/forex-bot/backtest/best_day_rule.py`` for the per-day semantics and
+``docs/runbooks/backtesting-strategy.md`` (Best Day Rule section) for the
+integration pattern.
 """
 
 from __future__ import annotations
@@ -11,7 +21,8 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import datetime
+from typing import Any, Optional
 
 from quant.walk_forward import (
     AggregatedMetrics,
@@ -21,6 +32,11 @@ from quant.walk_forward import (
     _std,
 )
 
+from .best_day_rule import (
+    DEFAULT_THRESHOLD as BEST_DAY_DEFAULT_THRESHOLD,
+    BestDayCheckResult,
+    BestDayRuleTracker,
+)
 from .data_loader import CsvDataLoader
 from .engine import (
     BacktestConfig,
@@ -98,6 +114,47 @@ FTMO_CRITERIA = {
     "profit_factor": 1.3,
     "sharpe_ratio": 0.5,
 }
+
+
+def check_ftmo_best_day_rule(
+    tracker: BestDayRuleTracker,
+    planned_profit_dollars: float,
+    now: Optional[datetime] = None,
+) -> tuple[bool, str]:
+    """Gate an entry decision against the FTMO Best Day Rule.
+
+    Thin wrapper around :meth:`BestDayRuleTracker.check_entry` that returns
+    a flat ``(allowed, reason)`` tuple — convenient for destructuring in
+    trading loops. The reason string is ``""`` when the entry is allowed.
+
+    Args:
+        tracker: Configured :class:`BestDayRuleTracker`. When the tracker's
+            ``account_phase`` is not ``"funded"``, this is a no-op and
+            ``(True, "")`` is returned.
+        planned_profit_dollars: Expected profit if the trade works. Must
+            be ``>= 0`` for the rule to apply.
+        now: Current time. Forwarded to the tracker. Defaults to system
+            UTC time inside the tracker.
+
+    Returns:
+        ``(allowed, reason)``: ``allowed=True`` when the entry may proceed,
+        otherwise ``allowed=False`` with a human-readable reason describing
+        the projected share and threshold.
+
+    Example:
+        >>> tracker = BestDayRuleTracker(account_phase="funded")
+        >>> tracker.record_trade_close(some_trade_time, 400.0)
+        >>> allowed, reason = check_ftmo_best_day_rule(
+        ...     tracker, planned_profit_dollars=250.0, now=datetime.now(timezone.utc)
+        ... )
+        >>> if not allowed:
+        ...     logger.info("Entry blocked: %s", reason)
+    """
+    result: BestDayCheckResult = tracker.check_entry(
+        planned_profit_dollars=planned_profit_dollars,
+        now=now,
+    )
+    return result.allowed, result.reason
 
 
 def _build_strategy_name(strategy_name: str, pair: str, timeframe: str) -> str:
