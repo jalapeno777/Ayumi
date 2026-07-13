@@ -149,37 +149,13 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
         pass
 
     # Donchian + ATR Trailing Trend
-    try:
-        from strategies.donchian_atr_trend import DonchianATRTrendStrategy
-        factories["donchian_atr_trend"] = lambda: DonchianATRTrendStrategy()
-    except ImportError:
-        pass
+    from strategies.donchian_atr_trend import DonchianATRTrendStrategy
+    factories["donchian_atr_trend"] = lambda: DonchianATRTrendStrategy()
 
     # London Breakout + Retest
-    try:
-        from strategies.london_breakout_retest import LondonBreakoutRetestStrategy, LondonBreakoutConfig
-        lb_cfg = LondonBreakoutConfig(symbol=pair)
-        factories["london_breakout_retest"] = lambda: LondonBreakoutRetestStrategy(lb_cfg)
-    except ImportError:
-        pass
-
-    # Dual-timeframe Squeeze Pro (M15 entry, H1 context)
-    try:
-        from strategies.dual_tf_squeeze_pro import (
-            DualTFSqueezeProStrategy,
-            DualTFSqueezeProConfig,
-            GBPUSD_DTSQ_PRO,
-            XAUUSD_DTSQ_PRO,
-        )
-        if pair == "XAUUSD":
-            dtsq_cfg = XAUUSD_DTSQ_PRO
-        elif pair == "GBPUSD":
-            dtsq_cfg = GBPUSD_DTSQ_PRO
-        else:
-            dtsq_cfg = DualTFSqueezeProConfig()
-        factories["dual_tf_squeeze_pro"] = lambda: DualTFSqueezeProStrategy(dtsq_cfg)
-    except ImportError:
-        pass
+    from strategies.london_breakout_retest import LondonBreakoutRetestStrategy, LondonBreakoutConfig
+    lb_cfg = LondonBreakoutConfig(symbol=pair)
+    factories["london_breakout_retest"] = lambda: LondonBreakoutRetestStrategy(lb_cfg)
 
     return factories
 
