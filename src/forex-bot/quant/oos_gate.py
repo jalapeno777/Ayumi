@@ -181,6 +181,74 @@ def deflated_sharpe_ratio(
     return float(1.0 - stats.norm.cdf(z))
 
 
+# ---------------------------------------------------------------------------
+# Minimum Track Record Length
+# ---------------------------------------------------------------------------
+
+
+def min_track_record_length(
+    observed_sr: float,
+    n_trials: int = 1,
+    skewness: float = 0.0,
+    kurtosis_regular: float = 3.0,
+    alpha: float = 0.05,
+) -> int:
+    """Compute the minimum track record length (MinTRL) for the DSR test.
+
+    Bailey & López de Prado (2014), derived from the DSR hypothesis test.
+    Returns the minimum number of observations (e.g., trades) needed to
+    reject H0: true SR ≤ E[max SR | null] at significance level ``alpha``.
+
+    The formula inverts the DSR z-statistic:
+
+        z_α = (SR - E[max SR]) * sqrt(n - 1) / sqrt(V)
+
+    where ``V = 1 - γ₃·SR + (γ₄ - 1)/4 · SR²`` is the non-normality-adjusted
+    variance of the SR estimator (Bailey & López de Prado 2014, Eq. 5).
+    Solving for ``n``:
+
+        MinTRL = ceil( z_α² · V / (SR - E[max SR])² ) + 1
+
+    The ``+1`` accounts for the ``(n - 1)`` denominator in the SE formula.
+
+    Args:
+        observed_sr: the strategy's measured Sharpe ratio (annualized).
+        n_trials: number of independent trials for multiple-testing
+            correction. ``1`` means no correction (standard SR test).
+        skewness: γ₃ (sample skewness; 0.0 for normal).
+        kurtosis_regular: γ₄ (regular kurtosis; 3.0 for normal).
+        alpha: one-sided significance level (default 0.05).
+
+    Returns:
+        Minimum number of observations needed. Returns ``-1`` when the
+        observed SR does not exceed the expected max under the null
+        (i.e., the strategy cannot be validated at any sample size).
+    """
+    if alpha <= 0 or alpha >= 1:
+        raise ValueError(f"alpha must be in (0, 1), got {alpha!r}")
+    if observed_sr <= 0:
+        return -1
+
+    e_max = expected_max_sharpe(n_trials) if n_trials > 1 else 0.0
+    sr_excess = observed_sr - e_max
+    if sr_excess <= 0:
+        return -1
+
+    z_alpha = stats.norm.ppf(1.0 - alpha)
+
+    # Non-normality-adjusted variance term (same as DSR's SE² numerator).
+    variance_term = (
+        1.0
+        - skewness * observed_sr
+        + (kurtosis_regular - 1.0) / 4.0 * observed_sr ** 2
+    )
+    # Ensure variance term is positive (it can go negative for extreme skew/kurt).
+    variance_term = max(variance_term, 1e-12)
+
+    n_min = (z_alpha ** 2 * variance_term) / (sr_excess ** 2)
+    return int(math.ceil(n_min)) + 1
+
+
 def _compute_sharpe_and_moments(
     trade_returns: np.ndarray,
 ) -> tuple[float, float, float, int]:
@@ -655,4 +723,5 @@ __all__ = [
     "TIER_A_PRODUCTION",
     "TIER_B_DEMO",
     "TIER_C_PAPER",
+    "min_track_record_length",
 ]
