@@ -49,7 +49,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     result = runner.run(
         strategy_name=args.name or args.strategy.split(".")[-1].lower(),
-        strategy_factory=factory(),
+        strategy_factory=factory,
         pair=args.pair,
         timeframe=args.tf,
         data_path=args.data,

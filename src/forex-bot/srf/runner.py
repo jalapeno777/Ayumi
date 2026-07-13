@@ -244,9 +244,14 @@ class StrategyRunner:
 
         if row is None and register:
             # Try to get module path from the factory's class
-            cls = strategy_factory.__class__ if hasattr(strategy_factory, "__class__") else None
+            if isinstance(strategy_factory, type):
+                cls = strategy_factory
+            elif hasattr(strategy_factory, "__class__"):
+                cls = strategy_factory.__class__
+            else:
+                cls = None
             module_path = ""
-            if cls:
+            if cls and hasattr(cls, "__module__"):
                 module_path = f"{cls.__module__}.{cls.__name__}"
 
             conn.execute(
