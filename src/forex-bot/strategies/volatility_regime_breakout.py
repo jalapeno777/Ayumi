@@ -34,6 +34,9 @@ class VRBConfig:
     min_confidence: float = 0.50
     cooldown_bars: int = 10
     pip_value: float | None = None
+    # FIX (card 453dac89): breakout lookback and setup-expiry knobs.
+    breakout_period: int = 10
+    setup_max_bars: int = 30
 
 
 def _pip_value_for_price(price: float) -> float:
@@ -173,6 +176,14 @@ class VolatilityRegimeBreakoutStrategy:
     def __init__(self, config: VRBConfig | None = None):
         self.config = config or VRBConfig()
         self._last_signal_bar_index: int = -1
+        # FIX (card 453dac89): split detection into a setup phase and a
+        # breakout trigger. The original strategy tried to signal on the same
+        # bar it detected low-vol + middle-range + clear-trend — three
+        # mutually-exclusive conditions (during low-vol the trend is flat).
+        # Now: (a) detect the low-vol setup, (b) arm a setup window, (c) signal
+        # on the bar where price breaks the recent N-bar high/low.
+        self._setup_active: bool = False
+        self._setup_bars_remaining: int = 0
 
     @property
     def name(self) -> str:
@@ -180,12 +191,15 @@ class VolatilityRegimeBreakoutStrategy:
 
     def reset(self) -> None:
         self._last_signal_bar_index = -1
+        self._setup_active = False
+        self._setup_bars_remaining = 0
 
     def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = max(
             self.config.atr_period + self.config.atr_lookback + 1,
             self.config.range_period + 1,
             self.config.trend_ema_period + 1,
+            self.config.breakout_period + 2,
         )
 
         if len(state.bars) < min_required:
@@ -202,24 +216,57 @@ class VolatilityRegimeBreakoutStrategy:
             state.bars, self.config.atr_period, self.config.atr_lookback
         )
 
-        if atr_pct >= self.config.atr_percentile_low:
-            return None
-
         range_pos = _range_position(state.bars, self.config.range_period)
         if range_pos is None:
             return None
 
-        if range_pos > self.config.range_position_max:
-            return None
-
         trend = _trend_direction(state.bars, self.config.trend_ema_period)
-        if trend == 0:
+
+        if not self._setup_active:
+            # SETUP phase: only require low-vol + middle-range. Trend is not
+            # evaluated here because (a) during a low-vol regime the trend is
+            # flat by definition, and (b) the trend is used as a directional
+            # bias on the breakout bar, not as a setup gate.
+            if atr_pct >= self.config.atr_percentile_low:
+                return None
+            if range_pos > self.config.range_position_max:
+                return None
+            self._setup_active = True
+            self._setup_bars_remaining = self.config.setup_max_bars
             return None
 
-        direction = TradeDirection.LONG if trend == 1 else TradeDirection.SHORT
+        # BREAKOUT phase: we are armed from a prior low-vol setup. Look for
+        # the actual breakout — price closing above the recent N-bar high
+        # (long) or below the recent N-bar low (short). Decrement the setup
+        # window; expire if we don't see a breakout in time.
+        self._setup_bars_remaining -= 1
+        if self._setup_bars_remaining <= 0:
+            self._setup_active = False
+            return None
 
+        bars = state.bars
         latest = state.latest_bar
-        atr = _calculate_atr(state.bars, self.config.atr_period)
+        lookback = self.config.breakout_period
+        prior_bars = bars[-(lookback + 1) : -1]
+        if len(prior_bars) < lookback:
+            return None
+        recent_high = max(b.high for b in prior_bars)
+        recent_low = min(b.low for b in prior_bars)
+
+        direction: TradeDirection | None = None
+        # Use the trend as a directional bias: prefer alignment, but allow a
+        # neutral trend to take either breakout direction.
+        if latest.close > recent_high:
+            if trend > 0 or trend == 0:
+                direction = TradeDirection.LONG
+        elif latest.close < recent_low:
+            if trend < 0 or trend == 0:
+                direction = TradeDirection.SHORT
+
+        if direction is None:
+            return None
+
+        atr = _calculate_atr(bars, self.config.atr_period)
         pip = (
             self.config.pip_value
             if self.config.pip_value is not None
@@ -228,6 +275,7 @@ class VolatilityRegimeBreakoutStrategy:
 
         confidence = self.config.min_confidence
 
+        # Boost: deeper initial low-vol percentile → higher confidence.
         atr_pct_boost = (
             max(
                 0.0,
@@ -238,20 +286,30 @@ class VolatilityRegimeBreakoutStrategy:
         )
         confidence += atr_pct_boost
 
-        range_pos_boost = (1.0 - range_pos / self.config.range_position_max) * 0.10
-        confidence += range_pos_boost
+        # Boost: aligned trend (in addition to breakout direction) → higher
+        # confidence. Mild effect; 0.05 cap.
+        if (direction == TradeDirection.LONG and trend > 0) or (
+            direction == TradeDirection.SHORT and trend < 0
+        ):
+            confidence += 0.05
 
         confidence = min(confidence, 0.95)
 
         if confidence < self.config.min_confidence:
+            # Tear down setup; treat as a near-miss.
+            self._setup_active = False
+            self._setup_bars_remaining = 0
             return None
 
         rationale = (
             f"VRB {direction.value}: ATR_pct={atr_pct:.1f}%, "
             f"range_pos={range_pos:.2f}, trend={'bull' if trend == 1 else 'bear'}, "
-            f"ATR={atr:.5f}, conf={confidence:.2f}"
+            f"breakout_above={recent_high:.5f}, breakout_below={recent_low:.5f}, "
+            f"close={latest.close:.5f}, ATR={atr:.5f}, conf={confidence:.2f}"
         )
 
+        self._setup_active = False
+        self._setup_bars_remaining = 0
         self._last_signal_bar_index = len(state.bars)
 
         return _build_signal(
