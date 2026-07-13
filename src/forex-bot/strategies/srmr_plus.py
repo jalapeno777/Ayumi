@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -13,6 +14,7 @@ from core.types import (
     StrategySignal,
     TradeDirection,
 )
+from utils.pip_value import DEFAULT_PIP, JPY_PIP, pip_value_for_symbol
 
 try:
     from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar
@@ -40,6 +42,7 @@ class SRMRPlusConfig:
     ema_trend_period: int = 50
     use_same_day_range: bool = False
     pip_value: float | None = None
+    symbol: str | None = None  # set to enable symbol-aware pip-size lookup
     dxy_overlay: bool = False  # enable DXY regime confidence adjustment
     # Require at least N bars to pass since the price last touched the
     # session range extreme. Default 0 = disabled. Set to 3+ to enforce
@@ -62,15 +65,66 @@ _NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_PIP = 0.0001
-_JPY_PIP = 0.01
 _MIN_SL_PIPS = 5.0  # Minimum SL distance in pips
 
 
-def _pip_value_for_price(price: float) -> float:
+def _resolve_pip_size(symbol: str | None, price: float) -> float:
+    """Resolve pip size for a bar using symbol when available.
+
+    Prefers the symbol-name lookup (``utils.pip_value.pip_value_for_symbol``),
+    which is the correct, bug-free path (the old price heuristic mis-classified
+    XAUUSD as a JPY pair).
+
+    Fallback (when ``symbol`` is None/empty):
+    - Forex-range prices (<50): use the legacy price-based heuristic, which is
+      correct for non-JPY (<10) and JPY (50-300) pairs.
+    - Gold/silver-range prices (>=50 and <10000): raise. These are ambiguous
+      without a symbol — could be XAUUSD (pip=0.1), XAGUSD (pip=0.001),
+      BTCUSD (pip=1.0), or JPY (pip=0.01). The old heuristic returned the
+      JPY value, which corrupted every XAUUSD backtest result.
+    """
+    if symbol:
+        return pip_value_for_symbol(symbol)
     if price >= 50:
-        return _JPY_PIP
-    return _DEFAULT_PIP
+        # The price is in gold/silver/BTC territory — we cannot pick a safe
+        # default without a symbol. This is the bug we are fixing: callers
+        # MUST configure SRMRPlusConfig.symbol for non-forex instruments.
+        raise ValueError(
+            f"SRMR+ cannot determine pip size for price={price} without a "
+            f"symbol. Set SRMRPlusConfig.symbol (e.g. 'XAUUSD') and retry. "
+            f"See https://... for migration steps."
+        )
+    logger.debug(
+        "SRMR+ legacy price heuristic (no symbol configured, price=%.5f)",
+        price,
+    )
+    return DEFAULT_PIP
+
+
+# ---------------------------------------------------------------------------
+# Deprecated: backward-compat shim for tests/callers that imported the old
+# price-based helper. Emits a DeprecationWarning so we can find stragglers and
+# remove this in a follow-up cleanup pass.
+# ---------------------------------------------------------------------------
+
+
+def _pip_value_for_price(price: float) -> float:  # pragma: no cover - shim
+    """DEPRECATED: use ``utils.pip_value.pip_value_for_symbol`` instead.
+
+    The price-based heuristic mis-classifies XAUUSD as JPY because gold's
+    ~1900-2200 price range triggers the ``price >= 50`` branch. Retained
+    only for backward-compat with existing tests; new code must set
+    ``SRMRPlusConfig.symbol`` and rely on ``_resolve_pip_size``.
+    """
+    warnings.warn(
+        "_pip_value_for_price is deprecated and mis-classifies XAUUSD; "
+        "use utils.pip_value.pip_value_for_symbol instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    if price >= 50:
+        return JPY_PIP
+    return DEFAULT_PIP
 
 
 def _is_trading_session(bar_time: datetime) -> bool:
@@ -410,7 +464,7 @@ class SRMRPlusStrategy(ISignalStrategy):
         pip = (
             self.config.pip_value
             if self.config.pip_value is not None
-            else _pip_value_for_price(latest.close)
+            else _resolve_pip_size(self.config.symbol, latest.close)
         )
         session_range_width = session_range_price / pip
         if session_range_width < self.config.session_range_min_pips:

@@ -18,6 +18,7 @@ from core.types import (
     StrategySignal,
     TradeDirection,
 )
+from utils.pip_value import DEFAULT_PIP, pip_value_for_symbol
 
 
 def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
@@ -37,12 +38,19 @@ def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
-def _pip_size(symbol_hint: str = "") -> float:
-    if "XAU" in symbol_hint or "XAG" in symbol_hint:
-        return 0.01
-    if "JPY" in symbol_hint:
-        return 0.01
-    return 0.0001
+def _pip_size(symbol_hint: str | None = "") -> float:
+    """Symbol-aware pip size via the shared utility.
+
+    Kept as a thin wrapper for backward compat — delegates to
+    ``utils.pip_value.pip_value_for_symbol`` so the canonical lookup
+    lives in one place. Lenient on empty/None input (returns
+    ``DEFAULT_PIP``) to match the historical behavior of this helper
+    when no symbol was provided.
+    """
+    if not symbol_hint:
+        # Legacy behavior: empty/None hint → standard forex pip.
+        return DEFAULT_PIP
+    return pip_value_for_symbol(symbol_hint)
 
 
 @dataclass(frozen=True)
