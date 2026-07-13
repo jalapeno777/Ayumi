@@ -257,29 +257,64 @@ class StrategyRunner:
             logger.info("Auto-registered strategy '%s' in DB", name)
 
     def _write_results(self, conn, run_id: str, results) -> None:
-        """Write walk-forward results to DuckDB tables."""
+        """Write walk-forward results to DuckDB tables.
+
+        All three writes (windows, trades, metrics_summary) are wrapped in a
+        single explicit transaction. If any insert fails the entire batch is
+        rolled back so partial data never leaks into the reporting tables.
+
+        Per-window schema columns populated:
+            run_id, window_idx, win_rate, profit_factor, sharpe,
+            max_drawdown, trade_count, total_pnl, passed_go_nogo.
+
+        Per-trade columns populated from `results._trade_records` (attached by
+        the walk-forward runner). Each trade record carries ``window_id``,
+        ``direction`` and ``pnl``; entry/exit price/time are stored as NULL
+        because the walk-forward summary does not retain them — the full
+        trade tape lives in the backtest engine. ``exit_reason`` is NULL in
+        the same spirit; rationale is dropped (it isn't a column on the
+        trades table).
+        """
+        import statistics
+
         # ── Windows ───────────────────────────────────────────────────────
+        window_rows: list[list] = []
         for w in results.per_window:
-            conn.execute(
-                """INSERT INTO windows
-                   (run_id, window_idx, win_rate, profit_factor, sharpe,
-                    max_drawdown, trade_count, total_pnl, passed_go_nogo)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                [
-                    run_id, w.window_index,
-                    w.win_rate, w.profit_factor, w.sharpe_ratio,
-                    w.max_drawdown, w.trade_count, w.total_pnl,
-                    w.passed_go_nogo,
-                ],
-            )
+            window_rows.append([
+                run_id, w.window_index,
+                w.win_rate, w.profit_factor, w.sharpe_ratio,
+                w.max_drawdown, w.trade_count, w.total_pnl,
+                w.passed_go_nogo,
+            ])
+
+        # ── Trades ────────────────────────────────────────────────────────
+        # Pull trade records off the results object; the walk-forward runner
+        # attaches ``_trade_records`` as a sidecar (typed as Any on the
+        # dataclass). Be defensive: missing attribute, wrong type, or empty
+        # list all degrade gracefully to "no trades persisted".
+        trade_rows: list[list] = []
+        trade_records = getattr(results, "_trade_records", None)
+        if trade_records:
+            for t in trade_records:
+                if not isinstance(t, dict):
+                    continue
+                pnl = t.get("pnl")
+                # Skip degenerate rows that have no numeric PnL — they corrupt
+                # downstream aggregations.
+                if pnl is None:
+                    continue
+                trade_rows.append([
+                    run_id,
+                    t.get("window_id"),
+                    t.get("direction"),
+                    pnl,
+                    t.get("exit_reason"),
+                ])
 
         # ── Metrics summary ───────────────────────────────────────────────
-        agg = results.aggregated
         windows_passed = sum(1 for w in results.per_window if w.passed_go_nogo)
         windows_total = len(results.per_window)
 
-        # Compute means/stds
-        import statistics
         wrs = [w.win_rate for w in results.per_window if w.trade_count > 0]
         pfs = [w.profit_factor for w in results.per_window if w.trade_count > 0]
         shrs = [w.sharpe_ratio for w in results.per_window if w.trade_count > 0]
@@ -288,6 +323,81 @@ class StrategyRunner:
 
         go_nogo_str = "go" if results.go_nogo else "no-go"
 
+        summary_row = [
+            run_id,
+            statistics.mean(wrs) if wrs else None,
+            statistics.stdev(wrs) if len(wrs) > 1 else None,
+            statistics.mean(pfs) if pfs else None,
+            statistics.stdev(pfs) if len(pfs) > 1 else None,
+            statistics.mean(shrs) if shrs else None,
+            statistics.stdev(shrs) if len(shrs) > 1 else None,
+            statistics.mean(dds) if dds else None,
+            statistics.stdev(dds) if len(dds) > 1 else None,
+            total_trades, windows_passed, windows_total, go_nogo_str,
+        ]
+
+        # ── Single explicit transaction ───────────────────────────────────
+        # Without an explicit BEGIN/COMMIT, DuckDB's autocommit treats each
+        # executemany as its own commit and a failure mid-batch would leave
+        # partial state. Atomic transaction is required for the reporting
+        # views (v_top_strategies joins on run_id).
+        try:
+            conn.execute("BEGIN")
+            self._insert_windows(conn, window_rows)
+            self._insert_trades(conn, trade_rows)
+            self._insert_metrics_summary(conn, summary_row)
+            conn.execute("COMMIT")
+        except Exception as exc:
+            try:
+                conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            logger.exception(
+                "SRF persistence failed for run %s "
+                "(windows=%d, trades=%d): %s",
+                run_id, len(window_rows), len(trade_rows), exc,
+            )
+            raise
+
+        logger.info(
+            "SRF run %s persisted: %d windows, %d trades, summary written",
+            run_id, len(window_rows), len(trade_rows),
+        )
+
+    # ── per-table inserts (split out for testability + clarity) ─────────
+
+    @staticmethod
+    def _insert_windows(conn, rows: list[list]) -> None:
+        """Bulk-insert window metrics. Empty ``rows`` is a no-op."""
+        if not rows:
+            return
+        conn.executemany(
+            """INSERT INTO windows
+               (run_id, window_idx, win_rate, profit_factor, sharpe,
+                max_drawdown, trade_count, total_pnl, passed_go_nogo)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
+        )
+
+    @staticmethod
+    def _insert_trades(conn, rows: list[list]) -> None:
+        """Bulk-insert per-trade rows. Empty ``rows`` is a no-op."""
+        if not rows:
+            return
+        conn.executemany(
+            """INSERT INTO trades
+               (run_id, window_idx, direction, pnl, exit_reason)
+               VALUES (?, ?, ?, ?, ?)""",
+            rows,
+        )
+
+    @staticmethod
+    def _insert_metrics_summary(conn, row: list) -> None:
+        """Insert the per-run aggregate row. ``row`` must have 13 elements."""
+        if row is None or len(row) != 13:
+            raise ValueError(
+                f"metrics_summary row must have 13 elements, got {len(row) if row else 0}"
+            )
         conn.execute(
             """INSERT INTO metrics_summary
                (run_id, mean_win_rate, std_win_rate, mean_profit_factor,
@@ -295,16 +405,5 @@ class StrategyRunner:
                 mean_max_drawdown, std_max_drawdown, total_trades,
                 windows_passed, windows_total, go_nogo)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            [
-                run_id,
-                statistics.mean(wrs) if wrs else None,
-                statistics.stdev(wrs) if len(wrs) > 1 else None,
-                statistics.mean(pfs) if pfs else None,
-                statistics.stdev(pfs) if len(pfs) > 1 else None,
-                statistics.mean(shrs) if shrs else None,
-                statistics.stdev(shrs) if len(shrs) > 1 else None,
-                statistics.mean(dds) if dds else None,
-                statistics.stdev(dds) if len(dds) > 1 else None,
-                total_trades, windows_passed, windows_total, go_nogo_str,
-            ],
+            row,
         )
