@@ -17,10 +17,7 @@ This runbook captures the standard backtesting procedure so future sessions don'
 | Re-aggregate (force) | `python3 scripts/aggregate_ticks_to_bars.py --symbol GBPUSD --force` |
 | Run a sweep on one symbol | `python3 scripts/run_srf_sweep.py --pair GBPUSD --timeframes M15,H1,M5 --windows 5` |
 | View sweep results | `python3 -c "import duckdb; ..."` (see "Reading Results" below) |
-| Run portfolio blend (auto-discover) | `python3 scripts/run_portfolio_blend.py --compare` |
-| Run portfolio blend (select strategies) | `python3 scripts/run_portfolio_blend.py --strategies ttc_xauusd,killzone_momentum --symbols XAUUSD,GBPUSD --timeframes M15,H1` |
-| List available strategies | `python3 scripts/run_portfolio_blend.py --list-strategies` |
-| Self-test | `python3 scripts/run_portfolio_blend.py --self-test` |
+| Run portfolio blend | `python3 scripts/run_portfolio_blend.py --config configs/blend.json` |
 | Reset sweep data | `python3 -c "import duckdb; con=duckdb.connect('data/research/research.duckdb'); ..."` |
 
 ---
@@ -151,80 +148,7 @@ MIN_TRADES_PER_WINDOW = 15     # hard — too high for monthly windows, see "Spa
 
 ## Portfolio Blend
 
-`src/forex-bot/backtest/portfolio_blend.py` (1140 LOC) handles multi-strategy blending.
-`scripts/run_portfolio_blend.py` is the CLI driver.
-
-### CLI Usage
-
-```bash
-# Select specific strategies, symbols, and timeframes
-python3 scripts/run_portfolio_blend.py \
-    --strategies ttc_xauusd,killzone_momentum \
-    --symbols XAUUSD,GBPUSD \
-    --timeframes M15,H1 \
-    --weight-method combined_score
-
-# Compare all weight methods and pick the best
-python3 scripts/run_portfolio_blend.py --compare
-
-# Legacy mode: auto-discover passing strategies
-python3 scripts/run_portfolio_blend.py
-
-# Skip DuckDB persistence (JSON output only)
-python3 scripts/run_portfolio_blend.py --no-db
-
-# Run built-in unit test
-python3 scripts/run_portfolio_blend.py --self-test
-```
-
-### CLI Arguments
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--strategies` | auto | Comma-separated strategy names |
-| `--symbols` | auto | Comma-separated symbols (e.g. XAUUSD,GBPUSD) |
-| `--timeframes` | auto | Comma-separated timeframes (e.g. M15,H1) |
-| `--weight-method` | `equal_risk` | Weight optimization: equal_risk, inverse_variance, profit_factor, sharpe_weighted, combined_score |
-| `--risk-per-trade-pct` | 0.01 | Risk per trade as fraction (1%) |
-| `--max-open-trades` | 5 | Max concurrent trades across portfolio |
-| `--windows` | 5 | Walk-forward validation windows |
-| `--balance` | 10000 | Starting balance |
-| `--output` | `reports/portfolio_blend_results.json` | JSON output path |
-| `--no-db` | off | Skip DuckDB persistence |
-| `--no-filter` | off | Disable strategy filtering |
-| `--compare` | off | Compare all weight methods |
-| `--list-strategies` | off | List available strategies and exit |
-| `--self-test` | off | Run built-in unit test and exit |
-
-### DuckDB Persistence
-
-Results are saved to `data/research/research.duckdb` in the `portfolio_runs` table:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `run_id` | VARCHAR | Unique run identifier |
-| `configs_json` | JSON | Strategy/symbol/timeframe/weight config |
-| `combined_wr` | DOUBLE | Combined win rate |
-| `combined_pf` | DOUBLE | Combined profit factor |
-| `combined_sharpe` | DOUBLE | Combined Sharpe ratio |
-| `monthly_trade_count` | INTEGER | Total trades |
-| `max_dd` | DOUBLE | Max drawdown percentage |
-| `correlation_json` | JSON | Full correlation matrix |
-| `created_at` | TIMESTAMPTZ | Run timestamp |
-
-### Available Strategies
-
-Use `--list-strategies` to see the current registry. Common strategies:
-
-- `ttc_xauusd` (XAUUSD only)
-- `killzone_momentum`
-- `volatility_squeeze`
-- `bb_rsi_reversion`
-- `volatility_regime_breakout`
-- `srmr_plus` (forex only)
-- `donchian_atr_trend`
-- `london_breakout_retest`
-- `session_breakout`
+`src/forex-bot/backtest/portfolio_blend.py` (1140 LOC) handles multi-strategy blending:
 
 **Built-in weight methods:**
 - `equal_risk` — equal risk contribution per strategy
@@ -332,6 +256,86 @@ For sub-15-minute timeframes, expect:
 - Tighter stops (5-20 pips)
 
 **Specific to M3:** Not yet supported. Need to add M3 to `aggregate_ticks_to_bars.py` TIMEFRAMES dict and `tick_loader.py` TF_MINUTES. Card: `[DEBT] Add M3 timeframe support`.
+
+---
+
+## Best Day Rule (FTMO Funded Phase)
+
+**Module:** `src/forex-bot/backtest/best_day_rule.py`
+**Class:** `BestDayRuleTracker`
+**Reference:** `docs/research/ftmo-risk-and-port-sizing-2026-07.md` §A.7
+
+The FTMO Best Day Rule says: during the **funded phase only**, no single trading day may contribute more than 50% of cumulative profits. The rule prevents a single lucky spike from masking strategy inconsistency, and it is active on the path to scaling.
+
+**Caveat:** The 50% threshold appears in multiple sources but is not clearly documented on FTMO's official objectives page. **Verify the exact threshold in the FTMO client area terms before relying on this rule for live trading.** The threshold is configurable via `BestDayRuleTracker(account_phase="funded", threshold=...)`.
+
+### How it works
+
+| Property | Value |
+|---|---|
+| Active phase | `funded` only (challenge phase → inactive, always allow) |
+| Default threshold | 50% of cumulative P/L since funding start |
+| Default reset timezone | CET (UTC+1); pass `reset_tz_offset_hours=2` for CEST summer |
+| Loss handling | Losses never blocked; rule constrains profit concentration only |
+| Cumulative ≤ 0 | Always allow (no profit concentration exists yet) |
+
+### Basic usage
+
+```python
+from datetime import datetime, timezone
+from backtest.best_day_rule import BestDayRuleTracker
+from backtest.portfolio_blend import check_ftmo_best_day_rule
+
+# 1. Construct at the moment of phase promotion (challenge → funded)
+tracker = BestDayRuleTracker(account_phase="funded")
+
+# 2. On every trade close, record P/L
+tracker.record_trade_close(
+    close_time=datetime.now(timezone.utc),
+    pnl_dollars=400.0,
+)
+
+# 3. Before every entry decision, gate it
+allowed, reason = check_ftmo_best_day_rule(
+    tracker,
+    planned_profit_dollars=200.0,
+    now=datetime.now(timezone.utc),
+)
+if not allowed:
+    logger.info("Entry blocked: %s", reason)
+    return  # skip this entry
+
+# 4. Inspect state for UI / logging
+print(tracker.status(now=datetime.now(timezone.utc)))
+# {
+#   'is_active': True,
+#   'today_pnl': 400.0,
+#   'cumulative_pnl': 1000.0,
+#   'today_share': 0.4,
+#   'remaining_today_headroom_dollars': 100.0,
+#   ...
+# }
+```
+
+### Integration checklist for live trading
+
+- [ ] Construct `BestDayRuleTracker` exactly once per funded account session, at the moment of phase promotion. Persist its state across restarts (`status()` returns the full state).
+- [ ] After each closed trade, call `record_trade_close(close_time, pnl_dollars)`. The tracker's internal daily reset fires automatically at CET midnight.
+- [ ] Before each entry, call `check_ftmo_best_day_rule(tracker, planned_profit_dollars, now=...)` and skip entries when `allowed` is `False`. Logging the reason is recommended.
+- [ ] On phase demotion (back to challenge), replace the tracker with a new `BestDayRuleTracker(account_phase="challenge")` instance. Old P/L state should be archived.
+- [ ] For DST correctness, re-construct the tracker each morning with the correct `reset_tz_offset_hours` (1 for CET winter, 2 for CEST summer). The tracker does not currently auto-detect DST — pass it explicitly.
+- [ ] Verify the threshold against FTMO's client area terms before relying on it for production sizing decisions. Default 50% is a conservative interpretation per research §A.7.
+
+### Difference from `risk/ftmo_guard.py`
+
+`src/forex-bot/risk/ftmo_guard.py` also implements a Best Day check, but with a different formula: it uses the **sum of positive-day P/L** as the denominator, not cumulative P/L. The two implementations are complementary:
+
+| Use case | Module |
+|---|---|
+| Live funded-phase entry gating with planned-profit projection | `backtest/best_day_rule.py` (this card) |
+| Per-account daily P&L accounting alongside daily-loss and drawdown breakers | `risk/ftmo_guard.py` (existing) |
+
+A future consolidation card may merge these into a single canonical tracker once the FTMO threshold is verified. For now, both are valid interpretations of the rule.
 
 ---
 
