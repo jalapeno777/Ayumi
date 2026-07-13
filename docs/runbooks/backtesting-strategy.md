@@ -373,7 +373,7 @@ A future consolidation card may merge these into a single canonical tracker once
 
 - `scripts/aggregate_ticks_to_bars.py` — tick → bars aggregation
 - `scripts/run_srf_sweep.py` — single-symbol sweep driver
-- `scripts/run_portfolio_blend.py` — multi-strategy blend (TBD)
+- `scripts/run_portfolio_blend.py` — multi-strategy blend (built, commit 942e4a4)
 - `src/forex-bot/backtest/tick_loader.py` — bar loader (DuckDB + CSV fallback)
 - `src/forex-bot/backtest/walk_forward_runner.py` — walk-forward engine
 - `src/forex-bot/backtest/portfolio_blend.py` — blend framework
