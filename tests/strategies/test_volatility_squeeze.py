@@ -273,6 +273,11 @@ class TestSessionFilter(unittest.TestCase):
         state = MarketState(bars=[], current_session=SessionType.NY_PM)
         self.assertFalse(_passes_session_filter(state))
 
+    def test_none_session_passes(self):
+        """When session info is unavailable (e.g. CSV fallback), allow the trade."""
+        state = MarketState(bars=[], current_session=None)
+        self.assertTrue(_passes_session_filter(state))
+
 
 class TestBuildSignal(unittest.TestCase):
     def test_long_signal(self):

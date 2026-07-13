@@ -289,6 +289,8 @@ def _detect_squeeze_duration(
 
 
 def _passes_session_filter(state: MarketState) -> bool:
+    if state.current_session is None:
+        return True
     return state.current_session in _PREFERRED_SESSIONS
 
 

@@ -283,7 +283,17 @@ class BBRSIMeanReversion(ISignalStrategy):
         else:
             rsi_distance = rsi - cfg.rsi_short_level
 
-        confidence = 0.50 + min(rsi_distance / 40.0, 0.20)
+        # Confidence peaks at moderate RSI distance (5–15) and decreases
+        # for both minimal and extreme readings.  Extreme RSI in a low-ADX
+        # market is still mean-revertible, but extreme RSI near the ADX
+        # ceiling signals trend continuation — we already filter by ADX
+        # above, so the penalty here is a secondary safety net.
+        if rsi_distance <= 5:
+            confidence = 0.50 + rsi_distance / 25.0          # 0.50 → 0.70
+        elif rsi_distance <= 15:
+            confidence = 0.70                                  # peak band
+        else:
+            confidence = 0.70 - min((rsi_distance - 15) / 50.0, 0.20)  # 0.70 → 0.50
         confidence = max(0.40, min(confidence, 0.90))
 
         return StrategySignal(

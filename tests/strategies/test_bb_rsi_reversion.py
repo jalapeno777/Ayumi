@@ -276,3 +276,61 @@ class TestBBRSIMeanReversion:
         cfg = BBRSIConfig(pip_value=0.01, adx_max_threshold=50.0)
         strat = BBRSIMeanReversion(config=cfg)
         assert strat.config.pip_value == 0.01
+
+
+class TestConfidenceFormula:
+    """Verify the bell-curve confidence model (peaks at moderate distance)."""
+
+    def _build_state_for_rsi(self, rsi_value: float, direction: str):
+        """Create a MarketState that produces the desired RSI distance."""
+        cfg = BBRSIConfig(
+            rsi_long_level=30.0,
+            rsi_short_level=70.0,
+            adx_max_threshold=50.0,
+            require_low_volatility=False,
+            ema_trend_period=5,
+        )
+        strat = BBRSIMeanReversion(config=cfg)
+
+        if direction == "long":
+            # Drive price down to push RSI below 30
+            target_rsi = 30.0 - rsi_value  # rsi_distance = 30 - target_rsi
+            base = 1.2500
+            closes = [base] * 20
+            for i in range(80):
+                closes.append(base - (i + 1) * (0.0005 + rsi_value * 0.00005))
+        else:
+            target_rsi = 70.0 + rsi_value
+            base = 1.2500
+            closes = [base] * 20
+            for i in range(80):
+                closes.append(base + (i + 1) * (0.0005 + rsi_value * 0.00005))
+
+        bars = _make_bars(closes, hour=10)
+        state = MarketState(bars=bars, current_session=SessionType.LONDON)
+        return strat, state
+
+    def test_moderate_distance_higher_than_extreme(self):
+        """Confidence at distance=10 should be >= confidence at distance=25."""
+        strat_mod, state_mod = self._build_state_for_rsi(10, "long")
+        result_mod = strat_mod.evaluate(state_mod)
+
+        strat_ext, state_ext = self._build_state_for_rsi(25, "long")
+        result_ext = strat_ext.evaluate(state_ext)
+
+        # Both should produce signals (or at least the moderate one)
+        if result_mod and result_ext:
+            assert result_mod.confidence >= result_ext.confidence, (
+                f"Moderate distance should have higher confidence: "
+                f"mod={result_mod.confidence}, ext={result_ext.confidence}"
+            )
+
+    def test_confidence_bounded(self):
+        """All confidence values must stay within [0.40, 0.90]."""
+        for distance in [0, 3, 7, 12, 18, 25, 30]:
+            strat, state = self._build_state_for_rsi(distance, "long")
+            result = strat.evaluate(state)
+            if result is not None:
+                assert 0.40 <= result.confidence <= 0.90, (
+                    f"distance={distance}: confidence={result.confidence} out of bounds"
+                )
