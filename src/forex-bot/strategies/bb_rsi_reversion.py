@@ -1,5 +1,20 @@
+"""BB+RSI Mean Reversion strategy.
+
+.. deprecated:: 2026-07-13
+    Per research §A.6 (strategy-optimization-research.md), this strategy has
+    PF < 0.3 across all symbols/timeframes. Root causes:
+    1. Confidence formula is *inverse* to mean-reversion logic (higher RSI
+       distance = higher confidence, but extreme RSI in trend = continuation).
+    2. TP at BB middle is too tight — win/loss asymmetry can't exceed 0.5.
+    3. require_low_volatility filter excludes the conditions where mean
+       reversion actually works (post-spike conditions).
+
+    Replacement: Dual-timeframe Squeeze Pro (dual_df_squeeze_pro.py) per §B.2.
+    This file is kept for reference but should not be registered in new sweeps.
+"""
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -11,6 +26,9 @@ from core.types import (
     StrategySignal,
     TradeDirection,
 )
+
+# Module-level deprecation flag
+DEPRECATED = True
 
 
 @dataclass(frozen=True)
@@ -197,7 +215,16 @@ def _is_trading_session(bar_time) -> bool:
 
 
 class BBRSIMeanReversion(ISignalStrategy):
+    """Deprecated. See module docstring for details."""
+
     def __init__(self, config: BBRSIConfig | None = None):
+        warnings.warn(
+            "BBRSIMeanReversion is deprecated (PF < 0.3 across all symbols). "
+            "Use Dual-timeframe Squeeze Pro instead. "
+            "See docs/research/strategy-optimization-research.md §A.6.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.config = config or BBRSIConfig()
 
     @property

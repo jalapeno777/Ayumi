@@ -25,21 +25,30 @@ NO_SIGNAL = None
 
 @dataclass(frozen=True)
 class SRMRPlusConfig:
+    # Tuned per research §A.5 (strategy-optimization-research.md)
     atr_period: int = 14
     rsi_period: int = 14
-    rsi_long_level: float = 35.0
-    rsi_short_level: float = 65.0
+    rsi_long_level: float = 30.0  # was 35.0 — tighter oversold requirement, fewer better signals
+    rsi_short_level: float = 70.0  # was 65.0 — tighter overbought requirement
     adx_period: int = 14
-    adx_max_threshold: float = 25.0
-    session_range_min_pips: float = 15.0
-    entry_near_extreme_pips: float = 15.0
-    hard_cap_sl_pips: float = 25.0
+    adx_max_threshold: float = 20.0  # was 25.0 — only fire in low-trend conditions
+    session_range_min_pips: float = 10.0  # was 15.0 — allow quieter sessions (especially EURUSD M15)
+    entry_near_extreme_pips: float = 8.0  # was 15.0 — tighter proximity = more exhaustion, less mid-range
+    hard_cap_sl_pips: float = 18.0  # was 25.0 — tighter cap for mean reversion
     tp1_rr: float = 1.5  # was 1.0; raised to pass min_risk_reward=1.5 gate
     tp2_rr: float = 1.5
     ema_trend_period: int = 50
     use_same_day_range: bool = False
     pip_value: float | None = None
     dxy_overlay: bool = False  # enable DXY regime confidence adjustment
+    # Require at least N bars to pass since the price last touched the
+    # session range extreme. Default 0 = disabled. Set to 3+ to enforce
+    # multi-bar reversal confirmation per research §A.5 ("NEW: minimum
+    # bars since range extreme touch — bars_since_touch > 3"). When > 0,
+    # the strategy walks back through ``state.bars`` to find the most
+    # recent bar that touched the relevant extreme and rejects entries
+    # whose bars-since-touch is below the threshold.
+    min_bars_since_extreme_touch: int = 0
 
 
 _LONDON_START = SessionRangeHours.LONDON_START
@@ -426,10 +435,45 @@ class SRMRPlusStrategy(ISignalStrategy):
         price = latest.close
         entry_near_extreme_pips = self.config.entry_near_extreme_pips * pip
 
+        def _bars_since_extreme_touch(extreme: float, side: str) -> int:
+            """Walk back from current bar to find most recent bar that
+            touched the session-range extreme. Returns bar distance
+            (0 = current bar touched). Returns ``len(state.bars)`` if no
+            recent touch found (no constraint).
+            """
+            threshold = extreme + entry_near_extreme_pips
+            if side == "low":
+                # Touched the low = bar.low <= session_low + tolerance
+                for i in range(len(state.bars) - 1, -1, -1):
+                    if state.bars[i].low <= threshold:
+                        return len(state.bars) - 1 - i
+            else:
+                # Touched the high = bar.high >= session_high - tolerance
+                threshold_high = extreme - entry_near_extreme_pips
+                for i in range(len(state.bars) - 1, -1, -1):
+                    if state.bars[i].high >= threshold_high:
+                        return len(state.bars) - 1 - i
+            return len(state.bars)  # no touch found
+
+        # Trend exhaustion filter (research §A.5):
+        # Block mean reversion entries in trending conditions.
+        # LONG only when RSI < 50 (genuine oversold); SHORT only when RSI > 50.
         if (
             price <= session_low + entry_near_extreme_pips
             and rsi < self.config.rsi_long_level
+            and rsi < 50.0  # trend exhaustion gate
         ):
+            # Optional multi-bar reversal confirmation (research §A.5 NEW).
+            if self.config.min_bars_since_extreme_touch > 0:
+                bars_since = _bars_since_extreme_touch(session_low, "low")
+                if bars_since <= self.config.min_bars_since_extreme_touch:
+                    logger.debug(
+                        "SRMR+ %s: long blocked — only %d bars since low touch (need >%d)",
+                        getattr(latest, 'symbol', '?'),
+                        bars_since,
+                        self.config.min_bars_since_extreme_touch,
+                    )
+                    return None
             direction = TradeDirection.LONG
             rationale = (
                 f"SRMR+ long: price={price:.5f} near range low={session_low:.5f}, "
@@ -450,7 +494,19 @@ class SRMRPlusStrategy(ISignalStrategy):
         if (
             price >= session_high - entry_near_extreme_pips
             and rsi > self.config.rsi_short_level
+            and rsi > 50.0  # trend exhaustion gate
         ):
+            # Optional multi-bar reversal confirmation (research §A.5 NEW).
+            if self.config.min_bars_since_extreme_touch > 0:
+                bars_since = _bars_since_extreme_touch(session_high, "high")
+                if bars_since <= self.config.min_bars_since_extreme_touch:
+                    logger.debug(
+                        "SRMR+ %s: short blocked — only %d bars since high touch (need >%d)",
+                        getattr(latest, 'symbol', '?'),
+                        bars_since,
+                        self.config.min_bars_since_extreme_touch,
+                    )
+                    return None
             direction = TradeDirection.SHORT
             rationale = (
                 f"SRMR+ short: price={price:.5f} near range high={session_high:.5f}, "
