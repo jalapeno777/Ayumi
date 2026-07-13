@@ -933,6 +933,7 @@ def inventory_strategies_on_data(
     bars: list[Bar],
     pair: str,
     initial_balance: float = 10000.0,
+    ftmo_guard: Any | None = None,
 ) -> dict[str, StrategyInventoryResult]:
     config = BacktestConfig(
         starting_balance=initial_balance,
@@ -995,6 +996,11 @@ def inventory_strategies_on_data(
                 )
                 signal = strategy.evaluate(state)
                 if signal is not None and signal.confidence >= config.min_confidence:
+                    # FTMO guard: reject entry if it would breach daily or total loss limits
+                    if ftmo_guard is not None:
+                        planned_risk = config.risk_per_trade_pct * engine.balance
+                        if not ftmo_guard.check_entry(planned_risk, balance=engine.balance):
+                            continue
                     direction_val = (
                         1
                         if signal.direction == TradeDirection.LONG
