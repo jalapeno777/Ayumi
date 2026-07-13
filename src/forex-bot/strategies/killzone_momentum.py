@@ -16,21 +16,46 @@ from core.types import (
 
 @dataclass(frozen=True)
 class KillzoneMomentumConfig:
+    # Tuned per research §A.4 (strategy-optimization-research.md)
     atr_period: int = 14
-    atr_breakout_multiplier: float = 0.5
+    atr_breakout_multiplier: float = 0.3  # was 0.5 — catch cleaner (smaller) breakouts
     ema_trend_period: int = 50
     rsi_period: int = 14
-    min_session_range_pips: float = 12.0
+    min_session_range_pips: float = 8.0  # was 12.0 — allow quieter sessions
     hard_cap_sl_pips: float = 35.0
     atr_sl_multiplier: float = 1.5
-    retest_tolerance_atr: float = 0.5
+    retest_tolerance_atr: float = 1.0  # was 0.5 — allow retest up to 1×ATR from breakout
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
     adx_period: int = 14
-    adx_threshold: float = 20.0
-    min_bars_for_setup: int = 80
-    breakout_lookback_bars: int = 6
+    adx_threshold: float = 15.0  # was 20.0 — 20 too restrictive on M5; 15 still requires mild trend
+    min_bars_for_setup: int = 40  # was 80 — cut setup time without sacrificing indicator stability
+    breakout_lookback_bars: int = 12  # was 6 — more bars for breakout to develop on H1
+
+    # Per-pair/per-timeframe presets per research §A.4.
+    # The default values above target FX H1. For M5 XAUUSD, use
+    # ``KillzoneMomentumConfig.m5_xauusd()`` which raises session-range
+    # threshold to 25 pips (gold M5 has larger sessions) and shortens
+    # breakout lookback to 8 bars (M5 resolves breakouts faster).
+    @classmethod
+    def h1_fx(cls) -> "KillzoneMomentumConfig":
+        """Default preset — FX H1 (EURUSD, GBPUSD)."""
+        return cls()
+
+    @classmethod
+    def m5_xauusd(cls) -> "KillzoneMomentumConfig":
+        """M5 XAUUSD preset per research §A.4.
+
+        Differences from H1 FX defaults:
+        - ``min_session_range_pips`` 8.0 → 25.0 (gold M5 sessions are wider)
+        - ``breakout_lookback_bars`` 12 → 8 (M5 resolves breakouts faster)
+        - ``min_bars_for_setup`` stays at 40 (still appropriate for M5)
+        """
+        return cls(
+            min_session_range_pips=25.0,
+            breakout_lookback_bars=8,
+        )
 
 
 _LONDON_OPEN_START = KillzoneHours.LONDON_OPEN_START
