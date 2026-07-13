@@ -395,27 +395,26 @@ class VolatilitySqueezeStrategy:
         signal_type = None
         squeeze_duration = self._squeeze_bar_count
 
-        if squeeze_just_released and adx >= self.config.adx_min:
-            if latest.close > kc_upper:
-                direction = TradeDirection.LONG
-                signal_type = "release"
-            elif latest.close < kc_lower:
-                direction = TradeDirection.SHORT
-                signal_type = "release"
-
-        if (
-            direction is None
-            and self.config.squeeze_release_mode != "strict"
-            and in_squeeze
-            and self._squeeze_bar_count >= self.config.min_squeeze_bars
-            and adx >= self.config.adx_min
-        ):
+        # FIX (card 453dac89): Original code required `adx >= 20` while IN a
+        # squeeze, but ADX during a squeeze is structurally < 20 by definition —
+        # that's what makes it a squeeze. The strategy therefore never traded.
+        #
+        # The TTM Squeeze hypothesis fires on the *first* bar where BBs are
+        # outside KCs (John Carter, "Mastering the Trade", 2005). The release
+        # of the squeeze IS the signal — ADX is dropped because it is impossible
+        # to satisfy during the regime we are trying to detect.
+        #
+        # The original secondary "breakout" branch (`in_squeeze and
+        # latest.close > kc_upper`) was also dead code: `in_squeeze` requires
+        # `bb_upper <= kc_upper`, which is impossible when the latest close
+        # exceeds kc_upper (bb_upper rides the close). Removed.
+        if squeeze_just_released:
             if latest.close > kc_upper and latest.close > ema:
                 direction = TradeDirection.LONG
-                signal_type = "breakout"
+                signal_type = "release"
             elif latest.close < kc_lower and latest.close < ema:
                 direction = TradeDirection.SHORT
-                signal_type = "breakout"
+                signal_type = "release"
 
         if direction is None:
             return None
