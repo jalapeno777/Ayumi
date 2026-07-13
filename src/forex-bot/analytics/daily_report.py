@@ -200,6 +200,55 @@ class DailyAnalytics:
 DEFAULT_PROJECT_ROOT = Path("/home/TacoPants/projects/Ayumi")
 
 
+def _resolve_runtime_identity() -> tuple[int, int, str, str] | None:
+    """Return (uid, gid, user, group) for the expected runtime owner.
+
+    Mirrors ``remediation_actions._resolve_runtime_identity``: defaults to
+    TacoPants:TacoPants, overridable via ``AYUMI_RUNTIME_USER`` /
+    ``AYUMI_RUNTIME_GROUP``. Returns None if the user can't be resolved.
+    """
+    import grp as _grp
+    import pwd as _pwd
+
+    user_name = os.environ.get("AYUMI_RUNTIME_USER", "TacoPants")
+    group_name = os.environ.get("AYUMI_RUNTIME_GROUP", user_name)
+    try:
+        uid = _pwd.getpwnam(user_name).pw_uid
+        gid = _grp.getgrnam(group_name).gr_gid
+    except KeyError:
+        return None
+    return uid, gid, user_name, group_name
+
+
+def _self_heal_ownership(path: Path) -> None:
+    """Chown a file/dir to the runtime user if it was written as root.
+
+    Self-heal pattern for cron jobs running as root (see
+    ``monitoring/remediation_actions.py:check_signal_stats_owner``). When a
+    root-owned output is detected, fix ownership to the expected runtime
+    user so downstream tools can read/write the file without ``PermissionError``.
+    Silently no-ops if we can't resolve the runtime user or lack permission.
+    """
+    if not path.exists():
+        return
+    identity = _resolve_runtime_identity()
+    if identity is None:
+        return
+    uid, gid, user_name, group_name = identity
+    try:
+        st = path.stat()
+    except OSError:
+        return
+    if st.st_uid == uid and st.st_gid == gid:
+        return
+    try:
+        os.chown(path, uid, gid)
+        print(f"[self-heal] chown {path} -> {user_name}:{group_name}")
+    except (PermissionError, OSError):
+        # Not running as root, or path in a read-only mount — skip silently.
+        pass
+
+
 def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     """Return (project_root, trade_log, daily_report_path)."""
     project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
@@ -259,8 +308,10 @@ def main(argv: list[str] | None = None) -> int:
 
     daily_dir = reports_root / "daily"
     daily_dir.mkdir(parents=True, exist_ok=True)
+    _self_heal_ownership(daily_dir)  # fix parent dir if written as root
     out_path = daily_dir / f"{target_date}.md"
     out_path.write_text(formatted + "\n")
+    _self_heal_ownership(out_path)
 
     if args.stdout:
         print(formatted)
