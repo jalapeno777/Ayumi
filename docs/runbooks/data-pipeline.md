@@ -172,12 +172,28 @@ For long-running harvests (e.g., USDJPY 2020-2026 = ~79 months):
 
 ## Current Data State (2026-07-13)
 
-| Symbol  | CSV Files | DuckDB Ticks | DuckDB Bars Coverage         |
-|---------|-----------|-------------|------------------------------|
-| EURUSD  | 1,080     | 112M        | M5/M15/H1 (2020-01 → 2026-07) |
-| GBPUSD  | 1,374     | 117M        | M1-M30/H1/H4/D1 (2020-01 → 2026-07) |
-| XAUUSD  | 801       | 199M        | M5/M15/H1 (2022-01 → 2026-07) |
-| USDJPY  | 7 (test)  | 0           | ❌ NOT HARVESTED              |
+| Symbol  | CSV Files | DuckDB Ticks | DuckDB Bars Coverage          | Status |
+|---------|-----------|-------------|-------------------------------|--------|
+| EURUSD  | 1,080     | 112M        | M5/M15/H1 (2020-01 → 2026-07) | ✅ Complete |
+| GBPUSD  | 1,374     | Importing   | M1-M30/H1/H4/D1 (2020-01 → 2026-07) | ⏳ Importing 1367 unimported CSVs |
+| XAUUSD  | 801       | 199M        | M5/M15/H1 (2022-01 → 2026-07) | ✅ Complete (7 CSVs importing) |
+| USDJPY  | 7 (test)  | 0           | ❌ NOT HARVESTED              | 🔴 Backlog card 1991c77a |
+
+**Note:** GBPUSD had 1374 CSVs harvested but only 7 were imported into DuckDB prior to Jul 13. The import is running now. Always check `import_log` table counts vs CSV file counts to verify data is fully loaded.
+
+### Verifying import status
+```bash
+source .venv/bin/activate
+python3 -c "
+import duckdb
+con = duckdb.connect('data/ayumi_market.duckdb', read_only=True)
+for sym in ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD']:
+    ticks = con.execute('SELECT COUNT(*) FROM ticks WHERE symbol = ?', [sym]).fetchone()[0]
+    files = con.execute('SELECT COUNT(DISTINCT filename) FROM import_log WHERE symbol = ?', [sym]).fetchone()[0]
+    print(f'{sym}: {files} files imported, {ticks:,} ticks')
+con.close()
+"
+```
 
 ## Price Scales
 

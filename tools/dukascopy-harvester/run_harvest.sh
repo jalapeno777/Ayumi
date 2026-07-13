@@ -25,8 +25,8 @@ COMPLETE_FLAG="${SCRIPT_DIR}/harvest_complete.flag"
 
 SYMBOLS=("EURUSD" "XAUUSD")
 START_DATE="2020-01-01"
-END_DATE="2026-07-10"
-RATE_LIMIT_RPS="4"
+END_DATE="2026-07-13"
+RATE_LIMIT_RPS="2.5"
 BATCH_DAYS="1"
 MAX_RETRIES=5          # Max retries per symbol (with exponential backoff)
 CIRCUIT_BREAKER=10    # Consecutive failures across ALL symbols before full stop
@@ -100,6 +100,7 @@ run_harvest_for_symbol() {
         # Run the Docker container
         set +e
         docker run --rm \
+            --network host \
             --env-file "$ENV_FILE" \
             -e "INSTRUMENTS=${symbol}" \
             -e "START_DATE=${START_DATE}" \
