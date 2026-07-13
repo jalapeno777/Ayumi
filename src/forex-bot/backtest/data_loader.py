@@ -46,6 +46,31 @@ def _find_column(df: pd.DataFrame, name: str) -> str:
 
 
 def _parse_csv_timestamp(ts_str: str) -> datetime:
+    """Parse a CSV timestamp into a UTC ``datetime``.
+
+    Accepts three families of input (in order):
+
+    1. **ISO 8601** with explicit offset or ``Z`` suffix — e.g.
+       ``2025-01-09T15:30:00``, ``2025-01-09T15:30:00Z``,
+       ``2025-01-09T15:30:00+00:00``. The supplied offset is preserved; the
+       result is converted to UTC.
+    2. **ISO 8601 naive** — same as above but with no offset. Stamped as
+       ``_EASTERN`` (the historical default) then converted to UTC.
+    3. **Legacy space-separated** — ``%Y-%m-%d %H:%M:%S`` or
+       ``%Y-%m-%d %H:%M``. Stamped as ``_EASTERN`` then converted to UTC.
+
+    Raises ``ValueError`` if none of the above succeed.
+    """
+    iso_candidate = ts_str.replace("Z", "+00:00") if ts_str else ts_str
+    try:
+        dt = datetime.fromisoformat(iso_candidate)
+        if dt.tzinfo is None:
+            # Naive ISO 8601 — stamp as Eastern (matches legacy default).
+            dt = dt.replace(tzinfo=_EASTERN)
+        return dt.astimezone(_UTC)
+    except ValueError:
+        pass
+
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
             dt = datetime.strptime(ts_str, fmt)
@@ -145,13 +170,13 @@ class CsvDataLoader:
 
     @staticmethod
     def _parse_datetime(s: str) -> datetime:
-        """Parse datetime with or without seconds."""
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-            try:
-                return datetime.strptime(s, fmt)
-            except ValueError:
-                continue
-        raise ValueError(f"Cannot parse datetime: {s}")
+        """Parse a datetime string.
+
+        Accepts ISO 8601 variants (with or without offset) and the legacy
+        space-separated formats. Delegates to :func:`_parse_csv_timestamp`
+        so both parser copies stay in lock-step.
+        """
+        return _parse_csv_timestamp(s)
 
     def infer_timeframe(self, bars: list[Bar]) -> BarPeriod:
         if len(bars) < 2:
