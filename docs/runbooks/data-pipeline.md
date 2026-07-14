@@ -177,9 +177,13 @@ For long-running harvests (e.g., USDJPY 2020-2026 = ~79 months):
 | EURUSD  | 1,080     | 112M        | M5/M15/H1 (2020-01 → 2026-07) | ✅ Complete |
 | GBPUSD  | 1,374     | Importing   | M1-M30/H1/H4/D1 (2020-01 → 2026-07) | ⏳ Importing 1367 unimported CSVs |
 | XAUUSD  | 801       | 199M        | M5/M15/H1 (2022-01 → 2026-07) | ✅ Complete (7 CSVs importing) |
-| USDJPY  | 7 (test)  | 0           | ❌ NOT HARVESTED              | 🔴 Backlog card 1991c77a |
+| USDJPY  | 1 (test)  | 0           | ❌ NOT HARVESTED              | 🔴 Smoke test only — flat M1 bars, not real tick data. No harvester running. Needs full harvest run. |
 
 **Note:** GBPUSD had 1374 CSVs harvested but only 7 were imported into DuckDB prior to Jul 13. The import is running now. Always check `import_log` table counts vs CSV file counts to verify data is fully loaded.
+
+**USDJPY status (Jul 13):** Docker harvester produced 1 smoke-test file (`USDJPY_20240608_M1.csv`) containing 1,442 M1 bars with flat OHLC (same open/high/low/close on every bar, volume=0). This is demo account M1 bar data, not real tick data. The harvester is not currently running. Needs a fresh harvest attempt with proper tick data configuration.
+
+**GBPUSD import status (Jul 13):** 1,374 CSVs exist in `tools/dukascopy-harvester/output/` but most have NOT been imported to DuckDB yet. Run `scripts/import_ticks.py` to load them.
 
 ### Verifying import status
 ```bash

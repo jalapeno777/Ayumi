@@ -51,3 +51,11 @@ Decisions that affect project direction. Newest first.
 ### D-010: Archive Superseded Docs
 - **Decision:** Move all superseded plan/forex/research docs to `docs/_archive/`. Delete obvious junk (copy-trading, TikTok, marketing). Card `7843e2e5` tracks harvesting remaining nuggets.
 - **Rationale:** 90+ stale docs causing confusion about what's current. Single source of truth must be obvious.
+
+### D-011: Phase 1A Sweep Results
+- **Decision:** killzone_momentum XAUUSD H1 is the primary tuning candidate. Deprecate donchian_atr_trend and bb_rsi_reversion. Card volatility_squeeze zero-trade bug (`269887b8`).
+- **Rationale:** 64-run sweep completed. Only killzone_momentum on XAUUSD shows meaningful edge (PF=21.5 H1, PF=5.5 M5). FX pairs are weak across all strategies. Two strategies produce zero trades due to detection bugs.
+
+### D-012: USDJPY Data Still Missing
+- **Decision:** USDJPY harvest has not succeeded. Single smoke-test file contains flat M1 bars (not real ticks). Needs fresh harvest attempt.
+- **Rationale:** Docker harvester stopped. No container running. JNLP connectivity was intermittent. Must restart harvest with proper configuration.

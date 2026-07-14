@@ -3,7 +3,7 @@
 > **This document supersedes all prior plan, quest, and roadmap documents.**
 > If any other doc conflicts with this one, this one wins.
 > Decision log: `docs/decisions/decision-log.md`
-> Last updated: 2026-07-13 (rev 2 — post-cleanup + SRF fixes)
+> Last updated: 2026-07-13 (rev 3 — post-sweep results)
 
 ---
 
@@ -29,6 +29,22 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 
 ## Current State (2026-07-13)
 
+### Phase 1A Sweep Results (Jul 13)
+
+Full SRF sweep completed: 8 strategies × 3 pairs × 3 timeframes = 64 runs. Per-window + per-trade data now persisting correctly.
+
+| Strategy | Best Result | Verdict |
+|----------|-------------|---------|
+| killzone_momentum | XAUUSD H1: PF=21.5, WR=54%, 2/5 windows | **TUNE** — best candidate |
+| killzone_momentum | XAUUSD M5: PF=5.5, WR=44%, 128 trades | **TUNE** — decent volume |
+| srmr_plus | GBPUSD M5: PF=0.55, WR=26% | **WEAK** — needs trend filter |
+| london_breakout_retest | XAUUSD M5: PF=0.47, WR=27% | **WEAK** — FX is zero-trade |
+| donchian_atr_trend | Best: PF=0.15, WR=22% | **DEPRECATE** — no signal |
+| bb_rsi_reversion | Prior: PF<0.3 | **DEPRECATE** — no signal |
+| volatility_squeeze | 0 trades everywhere | **BUG** — card 269887b8 |
+| volatility_regime_breakout | 0 trades everywhere | **BUG** — needs card |
+| ttc_xauusd | Runs didn't complete | **RE-RUN** — data format issue |
+
 ### What We Have
 
 **Data Layer:**
@@ -37,8 +53,8 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
   - EURUSD: M5/M15/H1 ticks (2020-01 → 2026-07) ✅
   - GBPUSD: M1-M30/H1/H4/D1 (2020-01 → 2026-07) ✅ (confirmed current Jul 13)
   - XAUUSD: M5/M15/H1 ticks (2022-01 → 2026-07) ✅
-  - USDJPY: ❌ NO DATA
-- Research DB (`research.duckdb`): 8 strategies, 144 walk-forward runs
+  - USDJPY: ❌ NO DATA (Docker harvest produced 1 smoke-test file with flat M1 bars — not real tick data. No harvester currently running.)
+- Research DB (`research.duckdb`): 8 strategies, 64+ walk-forward runs with per-window/trade persistence
 
 **Strategies (16 built, 8 with edge docs + SRF runs):**
 - Tier 1 (validated): `volatility_regime_breakout` (27 runs), `volatility_squeeze` (27 runs), `srmr_plus` (25 runs), `ttc_xauusd` (21 runs), `killzone_momentum` (17 runs)
@@ -85,28 +101,34 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 **Target pairs:** EURUSD, GBPUSD, USDJPY, XAUUSD
 **Target timeframes:** M5, M15, H1, H4, D1
 
-### Phase 1: Strategy Factory + Validation (5-7 days) — *sweep running*
+### Phase 1: Strategy Factory + Validation (5-7 days) — *Phase 1A sweep complete, tuning next*
 > Goal: Apply strategy tuning research, build confidence engine, select final 3-5 strategy blend.
 
 #### 1A: Strategy Tuning (from `docs/research/strategy-optimization-research.md`)
 
 - [x] **1A.1** ~~Investigate ttc_xauusd anomaly~~ — SKIPPED. Research doc reported PF=8 but actual SRF data shows PF=2.25, WR=47.3%. No anomaly exists. (Decision D-008)
-- [ ] **1A.2** Fix `volatility_squeeze` zero-trade bug (ADX>=20 contradicts squeeze condition)
-  - `adx_min`: 20→15, `squeeze_release_mode`: moderate→any_release, `min_confidence`: 0.55→0.40
-  - Fix RSI/ADX period confusion bug
-  - Re-run sweep, verify 5-15 trades/window
-- [ ] **1A.3** Fix `volatility_regime_breakout` zero-trade bug (low-vol + trend = contradiction)
-  - `atr_percentile_low`: 20→30, `range_position_max`: 0.50→0.70, add volatility expansion trigger
-  - Re-run sweep
-- [ ] **1A.4** Tune `killzone_momentum` (high PF=2.06 but low trade count)
+- [ ] **1A.2** Fix `volatility_squeeze` zero-trade bug — carded as `269887b8`
+  - Confirmed: 0 trades across ALL 9 pair/TF combinations. Code "fix" (card 453dac89) never worked.
+  - Debug: Are BB/KC bands correct? Is `in_squeeze` ever True? Is `squeeze_just_released` ever True?
+  - Fix detection logic, re-run SRF on XAUUSD M15 to verify >0 trades
+  - Also check if same bug affects volatility_regime_breakout
+- [ ] **1A.3** Fix `volatility_regime_breakout` zero-trade bug — same pattern as 1A.2
+  - Confirmed: 0 trades across ALL 9 pair/TF combinations. Needs its own card.
+  - Setup/breakout split was implemented but may not be triggering.
+- [ ] **1A.4** Tune `killzone_momentum` — **BEST CANDIDATE**
+  - Sweep results: XAUUSD H1 PF=21.5, WR=54%, 2/5 windows passed (standout)
+  - XAUUSD M5 PF=5.5, WR=44%, 128 trades (decent volume)
+  - FX pairs all weak (PF<0.15) — focus tuning on XAUUSD only
   - Per-pair/per-timeframe presets (M5 vs H1)
   - `min_session_range_pips`: 12→8 (FX H1) / 25 (XAUUSD M5)
   - `retest_tolerance_atr`: 0.5→1.0, `adx_threshold`: 20→15
-- [ ] **1A.5** Tune `srmr_plus` (low WR 17-23%)
+- [ ] **1A.5** Tune `srmr_plus` (sweep: GBPUSD PF=0.3-0.55, WR=16-26% — confirmed weak)
   - `rsi_long/short`: 35/65→30/70, `adx_max`: 25→20
   - Add trend exhaustion filter, minimum bars since range extreme touch
-- [ ] **1A.6** Assess `bb_rsi_reversion` (PF<0.3) — deprecate or rebuild with corrected TP target
-- [ ] **1A.7** Verify new strategies (`donchian_atr_trend`, `dual_tf_squeeze_pro`, `london_breakout_retest`) have proper SRF runs
+- [ ] **1A.6** Deprecate `bb_rsi_reversion` (PF<0.3 across all pairs) and `donchian_atr_trend` (PF<0.15 everywhere)
+  - Donchian: 9 runs completed, PF ranges 0.00-0.15, WR 0-23%. No signal.
+  - BB RSI: runs didn't complete (data format issue), but prior runs showed PF<0.3
+- [ ] **1A.7** Verify `london_breakout_retest` — partial results: 0 trades on FX, some on XAUUSD (PF=0.08-0.47). Likely deprecate for FX, may have signal on XAUUSD.
 
 #### 1B: Confidence Engine Build
 
