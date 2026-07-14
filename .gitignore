@@ -141,3 +141,4 @@ data/ayumi_market.duckdb
 
 # Synthesized forex data (large, regenerable)
 data/forex/synthesized/
+data/research/qa_failures.jsonl
