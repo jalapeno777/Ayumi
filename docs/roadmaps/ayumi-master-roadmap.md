@@ -2,7 +2,8 @@
 
 > **This document supersedes all prior plan, quest, and roadmap documents.**
 > If any other doc conflicts with this one, this one wins.
-> Last updated: 2026-07-13
+> Decision log: `docs/decisions/decision-log.md`
+> Last updated: 2026-07-13 (rev 2 — post-cleanup + SRF fixes)
 
 ---
 
@@ -34,7 +35,7 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 - DuckDB (`ayumi_market.duckdb`, 53GB): 429M ticks, 306M bars
 - Coverage:
   - EURUSD: M5/M15/H1 ticks (2020-01 → 2026-07) ✅
-  - GBPUSD: M1-M30/H1/H4/D1 (2020-01 → 2025-04) ⚠️ stale (Apr 2025 cutoff)
+  - GBPUSD: M1-M30/H1/H4/D1 (2020-01 → 2026-07) ✅ (confirmed current Jul 13)
   - XAUUSD: M5/M15/H1 ticks (2022-01 → 2026-07) ✅
   - USDJPY: ❌ NO DATA
 - Research DB (`research.duckdb`): 8 strategies, 144 walk-forward runs
@@ -57,8 +58,8 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 |-----|--------|
 | No USDJPY data | Can't trade USDJPY (target pair) |
 | GBPUSD data stale (Apr 2025) | Can't validate GBPUSD strategies |
-| No canonical test runbook | Unclear what to run, when |
-| No data pipeline runbook | Unclear how to download/aggregate/validate |
+| ~~No canonical test runbook~~ | ✅ Fixed — see roadmap Test Runbook section |
+| ~~No data pipeline runbook~~ | ✅ Fixed — see `docs/runbooks/data-pipeline.md` |
 | No final strategy blend selected | Can't launch forward test |
 | Portfolio blend driver not wired | Can't run multi-strategy forward test |
 | FTMO trailing guard not implemented | Risk of breaching max loss |
@@ -70,28 +71,26 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 
 ## Phase Plan: Now → FTMO Challenge
 
-### Phase 0: Data Completeness (1-2 days)
+### Phase 0: Data Completeness (in progress)
 > Goal: Fill data gaps so all target pairs have complete coverage.
 
-- [ ] **0.1** Download USDJPY tick data (Dukascopy, 2020-01 → present)
-- [ ] **0.2** Update GBPUSD data (Dukascopy, 2025-04 → present)
+- [ ] **0.1** Download USDJPY tick data (Dukascopy Docker SDK, 2020-01 → present) — *in progress*
+- [x] **0.2** ~~Update GBPUSD data~~ — confirmed current (Jul 2026), no update needed
 - [ ] **0.3** Aggregate ticks → bars for USDJPY (M5, M15, H1, H4, D1)
 - [ ] **0.4** Validate data quality (gap analysis, tick density, spread sanity)
 - [ ] **0.5** Download Dukascopy crisis period data (2020-03 COVID, 2022-02 Ukraine) for stress testing
 
+**Data pipeline runbook:** `docs/runbooks/data-pipeline.md` (Docker SDK commands, JNLP troubleshooting, import/aggregation/validation)
+
 **Target pairs:** EURUSD, GBPUSD, USDJPY, XAUUSD
 **Target timeframes:** M5, M15, H1, H4, D1
 
-### Phase 1: Strategy Factory + Validation (5-7 days)
+### Phase 1: Strategy Factory + Validation (5-7 days) — *sweep running*
 > Goal: Apply strategy tuning research, build confidence engine, select final 3-5 strategy blend.
 
 #### 1A: Strategy Tuning (from `docs/research/strategy-optimization-research.md`)
 
-- [ ] **1A.1** Investigate `ttc_xauusd` XAUUSD M15 anomaly (PF=8, WR=86% — likely overfit or look-ahead bug)
-  - Run synthetic random walk test
-  - Inspect 20 random trades from window 4 (100% WR)
-  - Re-run with shuffled bars + lookback=10
-  - Compute Deflated Sharpe Ratio
+- [x] **1A.1** ~~Investigate ttc_xauusd anomaly~~ — SKIPPED. Research doc reported PF=8 but actual SRF data shows PF=2.25, WR=47.3%. No anomaly exists. (Decision D-008)
 - [ ] **1A.2** Fix `volatility_squeeze` zero-trade bug (ADX>=20 contradicts squeeze condition)
   - `adx_min`: 20→15, `squeeze_release_mode`: moderate→any_release, `min_confidence`: 0.55→0.40
   - Fix RSI/ADX period confusion bug
@@ -281,8 +280,8 @@ The confidence engine is the bridge between raw strategy signals and position si
 
 ```
 1. Download ticks (Dukascopy)
-   scripts/download_dukascopy.py --pair <PAIR> --start <DATE> --end <DATE>
-   scripts/download_dukascopy_crisis.py  # for crisis periods
+   ~~scripts/download_dukascopy.py~~ — DELETED. Use Docker SDK harvester only.
+   See `docs/runbooks/data-pipeline.md` for exact commands.
 
 2. Import ticks to DuckDB
    scripts/import_ticks.py --pair <PAIR> --input <TICK_FILE>
@@ -391,26 +390,23 @@ Ayumi/
 
 ## Superseded Documents
 
-These docs are now **historical reference only**. Do not use them as source of truth:
+All prior plan, quest, and sprint docs have been moved to `docs/_archive/`.
+These are **historical reference only** — do not use as source of truth.
 
-- `docs/plans/quest-ayumi-ftmo-2026-07-07.md`
-- `docs/plans/quest-ayumi-ftmo-roadmap-2026-07-08.md`
-- `docs/plans/quest-ayumi-ftmo-phase-update-2026-07-08.md`
-- `docs/plans/quest-ayumi-ftmo-reviews-synthesis-2026-07-08.md`
-- `docs/plans/quest-pivot-final-synthesis-2026-07-08.md`
-- `docs/plans/multi-strategy-blend-plan-2026-07.md`
-- `docs/plans/ayumi-refactor-2026-06.md`
-- `docs/plans/ayumi-refactor-2026-06-full-spec.md`
-- `docs/plans/ayumi-reliability-sprint-2026-07-05.md`
-- All other `docs/plans/sprint-*.md` and `docs/plans/bq*.md` files
-
-**Keep as reference** (still contain useful detail):
+**Canonical reference docs (still live):**
+- `docs/decisions/decision-log.md` — All major decisions with rationale
+- `docs/research/strategy-optimization-research.md` — Strategy tuning research (feeds Phase 1A)
 - `docs/research/ftmo-risk-and-port-sizing-2026-07.md` — FTMO risk rules detail
-- `docs/research/strategy-optimization-research.md` — Strategy tuning research (Jul 12) — feeds Phase 1A
-- `docs/forex/signal_confidence_engine.md` (in workspace) — Confidence engine v2.3 spec — feeds Phase 1B
-- `docs/edges/*.md` — Strategy edge hypotheses
-- `docs/audits/*.md` — Recent audit findings
-- `docs/post-mortems/*.md` — Learning from past failures
+- `docs/research/icir-research-2026-07-08.md` — ICIR research
+- `docs/research/oos-gate-research-2026-07-08.md` — OOS gate research
+- `docs/specs/signal-confidence-engine-v2.3.md` — Confidence engine spec (feeds Phase 1B)
+- `docs/edges/*.md` — Strategy edge hypotheses (8 files)
+- `docs/audits/*.md` — Audit findings
+- `docs/runbooks/data-pipeline.md` — Data pipeline runbook
+- `docs/runbooks/backtesting-strategy.md` — Backtesting runbook
+
+**Card `7843e2e5`** tracks harvesting any remaining useful content from archived
+docs before they're eventually deleted.
 
 ---
 
