@@ -512,6 +512,7 @@ class OpenApiSpotFeed:
         if app_res is None or not self._is_expected_auth_response(app_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"):
             self._handle_auth_failure("initial_app_auth")
             return False
+        self._app_authed.set()
 
         # Account auth
         self._state_mgr.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="acct_auth_sending")
@@ -522,6 +523,10 @@ class OpenApiSpotFeed:
         if acct_res is None or not self._is_expected_auth_response(acct_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"):
             self._handle_auth_failure("initial_acct_auth")
             return False
+        self._authed.set()
+        self._auth_error_count = 0
+        self._auth_circuit_open = False
+        self._last_successful_auth_time = time.monotonic()
 
         # Track token expiry
         payload = Protobuf.extract(acct_res)
@@ -574,10 +579,7 @@ class OpenApiSpotFeed:
             logger.debug("[MSG] payloadType=%s pending_orders=%d", msg_type, len(self._pending_orders))
 
         if msg_type == 2101:
-            self._authed.set()
-            self._auth_error_count = 0
-            self._auth_circuit_open = False
-            self._last_successful_auth_time = time.monotonic()
+            self._app_authed.set()
         elif msg_type == 2131:
             self._handle_spot_event(Protobuf.extract(message))
         elif msg_type in _EXECUTION_EVENT_PAYLOAD_TYPES:
@@ -589,7 +591,10 @@ class OpenApiSpotFeed:
             if not self._handle_pending_order_error(payload, message):
                 self._handle_error(payload)
         elif msg_type == 2103:
-            self._app_authed.set()
+            self._authed.set()
+            self._auth_error_count = 0
+            self._auth_circuit_open = False
+            self._last_successful_auth_time = time.monotonic()
         elif msg_type in (2128, 2130):
             pass
 
@@ -965,9 +970,10 @@ class OpenApiSpotFeed:
                 self._pending_orders.pop(request_id, None)
                 self._pending_client_msg_ids.pop(client_msg_id, None)
             reactor.callFromThread(lambda: reactor.callLater(60.0, _delayed_cleanup))
-            order.status = OrderStatus.PENDING
+            order.status = OrderStatus.REJECTED
             order.comment = "timeout_awaiting_event"
             setattr(order, "reason", "timeout_awaiting_event")
+            self._trigger_callback("on_order_rejected", order, None, "timeout_awaiting_event")
         return order
 
     def send_order(self, symbol, direction, order_type, volume, price=None,
@@ -1327,11 +1333,27 @@ class OpenApiSpotFeed:
             "Auth error classified: code=%s fault_type=%s tier=%s can_refresh=%s escalate=%s",
             error_code, fault_type.value, tier, policy.can_refresh, policy.requires_escalation,
         )
+        # Description-based reclassification: INVALID_REQUEST with "not authorized"
+        # in the description is classified as MALFORMED_REQUEST by error code
+        # lookup, but the real issue is account authorization. Upgrade to
+        # ACCOUNT_AUTHORIZATION_FAULT so the kill switch activates.
+        if not policy.activate_kill_switch and "not authorized" in description.lower():
+            from .auth_error_types import AuthFaultType, POLICIES
+            reclassified = POLICIES.get(AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT)
+            if reclassified and reclassified.activate_kill_switch:
+                policy = reclassified
+                fault_type = AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT
+                logger.warning(
+                    "Auth error reclassified by description: code=%s desc='%s' → %s",
+                    error_code, description, fault_type.value,
+                )
+
         if policy.activate_kill_switch:
             logger.error(
-                "Kill switch recommended due to %s fault (code=%s)",
-                fault_type.value, error_code,
+                "Kill switch activating due to %s fault (code=%s): %s",
+                fault_type.value, error_code, description,
             )
+            self._activate_kill_switch_freeze(f"auth_fault:{fault_type.value}:{error_code}")
         if policy.can_refresh:
             now = time.monotonic()
             if now - self._last_reactive_refresh_time < 60.0:
