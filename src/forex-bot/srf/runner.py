@@ -61,6 +61,20 @@ class StrategyRunner:
                 "Commit or stash changes before running."
             )
 
+        # ── 1b. Hypothesis doc gate ────────────────────────────────────────
+        # Prevents post-hoc rationalization: every strategy must have a
+        # hypothesis doc written BEFORE the sweep, not reconstructed from
+        # results after seeing profit factors.
+        hypothesis_path = (
+            self.repo_path / "docs" / "edges" / f"{strategy_name}-hypothesis.md"
+        )
+        if not hypothesis_path.exists():
+            raise RuntimeError(
+                f"Strategy '{strategy_name}' has no hypothesis doc at "
+                f"{hypothesis_path}. Write the edge hypothesis BEFORE running "
+                "a sweep — this prevents post-hoc rationalization of results."
+            )
+
         # ── 2. Load + validate data ───────────────────────────────────────
         df = self._load_data(data_path)
         qa = validate_data(df, pair, timeframe)
