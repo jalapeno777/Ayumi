@@ -21,12 +21,19 @@ Usage (from ``forward_test_engine._on_position_closed``)::
         pnl=10.0,
         source="paper",
     )
+
+Canonical DB location
+---------------------
+``<project_root>/data/trading.db``
+
+Override for testing via ``TRADING_DB_PATH`` env var.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -34,7 +41,11 @@ from typing import Optional
 
 logger = logging.getLogger("ayumi.trading_db")
 
-_DB_PATH = Path(__file__).resolve().parent / "trading.db"
+# Canonical DB location: <project_root>/data/trading.db
+# Configurable via TRADING_DB_PATH env var for testing.
+# This must match the path used by readers (trade_store.py, audit_bar_close.py).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_DB_PATH = Path(os.environ.get("TRADING_DB_PATH", str(_PROJECT_ROOT / "data" / "trading.db")))
 
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS trades (
