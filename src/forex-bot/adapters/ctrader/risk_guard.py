@@ -61,6 +61,10 @@ class FTMOProfile:
     max_positions: int = 3
     min_risk_reward: float = 1.5
     best_day_rule_max_pct: float = 0.50
+    # Enforcement threshold: halt trading when best-day ratio exceeds this
+    # value.  Default 40% provides a 10% safety buffer below the FTMO 50%
+    # hard cap.
+    best_day_enforce_pct: float = 0.40
 
     def __post_init__(self):
         if self.risk_per_trade_pct <= 0:
@@ -98,6 +102,7 @@ class FTMOConfig:
     min_risk_reward: float = FTMO_PROFILE_CHALLENGE.min_risk_reward
     max_position_size_pct: float = FTMO_PROFILE_CHALLENGE.risk_per_trade_pct
     best_day_rule_max_pct: float = FTMO_PROFILE_CHALLENGE.best_day_rule_max_pct
+    best_day_enforce_pct: float = FTMO_PROFILE_CHALLENGE.best_day_enforce_pct
 
 
 @dataclass
@@ -462,16 +467,37 @@ class RiskGuard:
         return max((s.pnl for s in self._daily_stats if s.pnl > 0), default=0.0)
 
     def _check_best_day_rule(self, stats: DailyTradingStats):
+        """Evaluate FTMO best-day rule and enforce via _blocked_until when exceeded.
+
+        Two thresholds:
+          - ``best_day_enforce_pct`` (default 40%): halts trading until UTC
+            midnight to prevent the ratio from climbing further.
+          - ``best_day_rule_max_pct`` (default 50%): FTMO hard cap — logged
+            as a CRITICAL warning for audit trail.
+        """
         positive_days = [s for s in self._daily_stats if s.pnl > 0]
         if len(positive_days) < 2:
             return
 
         total_positive_pnl = sum(s.pnl for s in positive_days)
-        best_day_pct = stats.pnl / total_positive_pnl if total_positive_pnl > 0 else 0
+        best_day_pnl = max(s.pnl for s in positive_days)
+        best_day_pct = best_day_pnl / total_positive_pnl if total_positive_pnl > 0 else 0
 
         if best_day_pct > self._config.best_day_rule_max_pct:
+            logger.critical(
+                f"Best day rule HARD CAP breached: Best day {best_day_pct * 100:.1f}% > "
+                f"{self._config.best_day_rule_max_pct * 100:.1f}% FTMO limit"
+            )
+
+        if best_day_pct > self._config.best_day_enforce_pct:
+            next_midnight = (
+                datetime.now(timezone.utc) + timedelta(days=1)
+            ).replace(hour=0, minute=0, second=0, microsecond=0)
+            self._blocked_until = next_midnight
             logger.warning(
-                f"Best day rule warning: Best day {best_day_pct * 100:.1f}% > {self._config.best_day_rule_max_pct * 100}% limit"
+                f"Best day rule ENFORCED: Best day {best_day_pct * 100:.1f}% > "
+                f"{self._config.best_day_enforce_pct * 100:.1f}% enforcement threshold. "
+                f"Trading halted until UTC midnight ({next_midnight.isoformat()})."
             )
 
     def _trigger_circuit_breaker(

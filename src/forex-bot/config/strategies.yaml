@@ -35,6 +35,10 @@ forward_test:
     max_positions: 3
     max_trades_per_day: 10
     min_risk_reward: 0.0
+    # Best-day rule enforcement: halt trading when one day's profit
+    # exceeds this fraction of total positive-days profit.
+    # Default 40% provides a 10% safety buffer below the FTMO 50% hard cap.
+    best_day_enforce_pct: 0.40
 
   strategies:
     # ── SRMR+ Optimized Params (Optuna+WF validated 2026-07-08) ──
