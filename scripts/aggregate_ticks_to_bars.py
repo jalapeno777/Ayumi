@@ -145,7 +145,7 @@ def aggregate_symbol_timeframe(
         SELECT
             ? AS symbol,
             ? AS timeframe,
-            bar_ts AS timestamp_utc,
+            (bar_ts / 1000) AS timestamp_utc,
             MAX(CASE WHEN rn_first = 1 THEN (bid + ask) / 2.0 END) AS open,
             MAX(ask) AS high,
             MIN(bid) AS low,
@@ -252,8 +252,8 @@ def main():
         print("\n=== Aggregated Bars ===")
         df = con.execute("""
             SELECT symbol, timeframe, count(*) as bars,
-                   min(timestamp_utc) as earliest_ms,
-                   max(timestamp_utc) as latest_ms
+                   min(timestamp_utc) as earliest_s,
+                   max(timestamp_utc) as latest_s
             FROM bars
             GROUP BY symbol, timeframe
             ORDER BY symbol, timeframe
@@ -264,8 +264,8 @@ def main():
         else:
             import datetime
             for _, row in df.iterrows():
-                e = datetime.datetime.fromtimestamp(row["earliest_ms"] / 1000, tz=datetime.timezone.utc)
-                l = datetime.datetime.fromtimestamp(row["latest_ms"] / 1000, tz=datetime.timezone.utc)
+                e = datetime.datetime.fromtimestamp(row["earliest_s"], tz=datetime.timezone.utc)
+                l = datetime.datetime.fromtimestamp(row["latest_s"], tz=datetime.timezone.utc)
                 print(f"  {row['symbol']:<8} {row['timeframe']:<4} {row['bars']:>8} bars  {e.date()} → {l.date()}")
 
         print("\n=== Available Tick Data ===")
