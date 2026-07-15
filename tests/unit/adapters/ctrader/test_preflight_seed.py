@@ -9,10 +9,9 @@ Scope:
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

@@ -1596,7 +1596,7 @@ class ForwardTestEngine:
         # We retry with exponential backoff (2s/4s/8s by default) before
         # falling back to graceful degradation (last-known-good confidence).
         signal_confidence = float(signal.confidence)
-        stats_recorded = False
+        _stats_recorded = False  # Reserved for future logging; not yet wired up.
         for attempt in range(self._stats_retry_max):
             try:
                 self._stats_recorder = (
@@ -1622,7 +1622,7 @@ class ForwardTestEngine:
                 # not lifetime totals.
                 self._stats_fail_count = 0
                 self._last_known_good_confidence = signal_confidence
-                stats_recorded = True
+                _stats_recorded = True  # Reserved for future logging.
                 break
             except Exception as stats_err:
                 if attempt < self._stats_retry_max - 1:
