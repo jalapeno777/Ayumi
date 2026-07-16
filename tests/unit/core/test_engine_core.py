@@ -27,7 +27,7 @@ from core.types import (
     TradeDirection,
     TradeOutcome,
 )
-from engine.base import EngineCore
+from engine.base import EngineCore, UNITS_PER_LOT
 
 
 # ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ class TestCloseTrade:
             take_profit_1=entry + 0.010 if direction == TradeDirection.LONG else entry - 0.010,
             take_profit_2=entry + 0.015 if direction == TradeDirection.LONG else entry - 0.015,
             take_profit_3=entry + 0.020 if direction == TradeDirection.LONG else entry - 0.020,
-            lot_size=size,
+            lot_size=size * UNITS_PER_LOT,  # size is in lots; _close_trade expects units
             entry_time=datetime(2024, 1, 1, 10, 0),
         )
 

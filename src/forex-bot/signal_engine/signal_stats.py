@@ -39,6 +39,7 @@ VALID_OUTCOMES = {
     "manual_close",
     "expired",
     "timeout_close",
+    "rejected",
 }
 
 
@@ -69,6 +70,10 @@ class SignalRecord:
     pips_realized: Optional[float] = None
     time_to_close_seconds: Optional[int] = None
     closed_at: Optional[str] = None
+
+    # Rejection fields — populated only when outcome == "rejected".
+    rejection_reason: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 class SignalStatsRecorder:
@@ -166,6 +171,45 @@ class SignalStatsRecorder:
             # atomicity with the read.
             self._append_line(close_record)
 
+    def record_rejection(
+        self,
+        signal_id: str,
+        rejection_reason: str,
+        error_code: str = "",
+    ) -> None:
+        """Append a rejection outcome line for a signal.
+
+        Rejections are recorded as a close line with ``outcome="rejected"``
+        plus the broker's ``rejection_reason`` and ``error_code`` so the
+        rejection rate is queryable alongside win/loss outcomes.
+        """
+        with self._lock:
+            existing = self._find_open_line(signal_id)
+            if existing is None:
+                existing = self._find_any_line(signal_id) or {}
+
+            rejection_record = {
+                "signal_id": signal_id,
+                "timestamp": existing.get("timestamp", ""),
+                "strategy": existing.get("strategy", "unknown"),
+                "symbol": existing.get("symbol", "unknown"),
+                "direction": existing.get("direction", ""),
+                "confidence": existing.get("confidence", 0.0),
+                "rationale_tags": existing.get("rationale_tags", []),
+                "confluence_score": existing.get("confluence_score", 0.0),
+                "lots": existing.get("lots", 0.0),
+                "entry_price": existing.get("entry_price", 0.0),
+                "sl_price": existing.get("sl_price", 0.0),
+                "tp_price": existing.get("tp_price", 0.0),
+                "outcome": "rejected",
+                "pips_realized": 0.0,
+                "time_to_close_seconds": 0,
+                "closed_at": datetime.now(timezone.utc).isoformat(),
+                "rejection_reason": rejection_reason,
+                "error_code": error_code,
+            }
+            self._append_line(rejection_record)
+
     # ------------------------------------------------------------------
     # Read API
     # ------------------------------------------------------------------
@@ -215,6 +259,7 @@ class SignalStatsRecorder:
         filtered = [r for r in signals.values() if keep(r)]
         closed = [r for r in filtered if r.get("outcome") in VALID_OUTCOMES]
         wins = [r for r in closed if r.get("outcome") == "tp_hit"]
+        rejections = [r for r in closed if r.get("outcome") == "rejected"]
 
         # Per-strategy / per-symbol breakdowns (always computed so the
         # dashboard can chart even when no filter is active).
@@ -251,7 +296,11 @@ class SignalStatsRecorder:
             "open_signals": len(filtered) - len(closed),
             "closed_signals": len(closed),
             "wins": len(wins),
-            "losses": len(closed) - len(wins),
+            "losses": len(closed) - len(wins) - len(rejections),
+            "rejections": len(rejections),
+            "rejection_rate": (
+                len(rejections) / len(closed) if closed else 0.0
+            ),
             "hit_rate": (len(wins) / len(closed)) if closed else 0.0,
             "avg_pips": avg_pips,
             "avg_time_to_close_seconds": avg_time_to_close,
@@ -368,3 +417,67 @@ __all__ = [
     "SignalStatsRecorder",
     "VALID_OUTCOMES",
 ]
+
+
+# ------------------------------------------------------------------
+# Self-test (AC3: verifies rejected orders appear in stats)
+# Run: python3 -m pytest signal_engine/signal_stats.py::test_rejection_recording
+# Or:  python3 -c "from signal_engine.signal_stats import test_rejection_recording; test_rejection_recording()"
+# ------------------------------------------------------------------
+
+def test_rejection_recording(tmp_path=None):
+    """Verify that rejected orders are recorded in stats with rejection metadata."""
+    import tempfile
+    import os
+
+    tmpdir = tmp_path or tempfile.mkdtemp()
+    log_path = os.path.join(str(tmpdir), "test_signal_stats.jsonl")
+    recorder = SignalStatsRecorder(log_path=log_path)
+
+    # Record a normal signal (open line)
+    sig_id = recorder.record_signal(SignalRecord(
+        signal_id="test-sig-001",
+        timestamp="2026-07-16T12:00:00Z",
+        strategy="test_strategy",
+        symbol="GBPUSD",
+        direction="BUY",
+        confidence=0.75,
+    ))
+
+    # Record a rejection outcome
+    recorder.record_rejection(
+        signal_id="test-sig-001",
+        rejection_reason="NOT_ENOUGH_MONEY",
+        error_code="INSUFFICIENT_FUNDS",
+    )
+
+    # Record a second signal that fills normally
+    recorder.record_signal(SignalRecord(
+        signal_id="test-sig-002",
+        timestamp="2026-07-16T12:01:00Z",
+        strategy="test_strategy",
+        symbol="GBPUSD",
+        direction="SELL",
+        confidence=0.65,
+    ))
+    recorder.record_outcome("test-sig-002", "tp_hit", pips=25.0, time_to_close=3600)
+
+    # Verify stats
+    stats = recorder.get_stats()
+    assert stats["total_signals"] == 2, f"Expected 2 signals, got {stats['total_signals']}"
+    assert stats["closed_signals"] == 2, f"Expected 2 closed, got {stats['closed_signals']}"
+    assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"
+    assert stats["rejection_rate"] == 0.5, f"Expected 0.5 rejection rate, got {stats['rejection_rate']}"
+
+    # Verify rejection metadata is persisted in the JSONL
+    rows = recorder._read_all_rows()
+    rejection_rows = [r for r in rows if r.get("outcome") == "rejected"]
+    assert len(rejection_rows) == 1, f"Expected 1 rejection row, got {len(rejection_rows)}"
+    assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"
+    assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"
+
+    # Cleanup
+    if tmp_path is None:
+        os.remove(log_path)
+
+    print("test_rejection_recording: PASS")

@@ -1584,6 +1584,30 @@ class ForwardTestEngine:
                 direction_str, signal.symbol, outcome.reason,
                 getattr(order, "order_id", ""),
             )
+            # Record rejection in signal stats so rejection rate is non-zero.
+            _rej_signal_id = (
+                getattr(order, "order_id", None) or signal.strategy_id
+            )
+            _rej_error_code = (
+                getattr(order, "error_code", None)
+                or getattr(order, "errorCode", None)
+                or ""
+            )
+            try:
+                _rej_recorder = (
+                    getattr(self, "_stats_recorder", None)
+                    or SignalStatsRecorder()
+                )
+                _rej_recorder.record_rejection(
+                    signal_id=_rej_signal_id,
+                    rejection_reason=outcome.reason,
+                    error_code=_rej_error_code,
+                )
+            except Exception:
+                logger.debug(
+                    "Rejection stats recording failed (non-fatal): %s %s",
+                    signal.symbol, _rej_signal_id,
+                )
         elif outcome.status == LiveExecutionStatus.TIMEOUT:
             logger.warning(
                 "Live order TIMEOUT: %s %s order_id=%s (no execution event in window)",
