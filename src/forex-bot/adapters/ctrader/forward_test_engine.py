@@ -196,6 +196,16 @@ class ForwardTestHealth:
     behavioral_adjustments: int = 0
     last_kill_reasons: list = field(default_factory=list)
     last_behavioral_multiplier: float = 1.0
+    # Health-observability fields (cards 45aad19f / 2bb667ce / a8a757c4).
+    # ``live_fills`` counts every confirmed fill (synchronous or late-callback),
+    # replacing the ad-hoc ``_live_fill_count`` attribute.  ``seeded_positions``
+    # counts carry-over positions discovered at startup via broker reconcile.
+    # ``last_rejection_errorcode`` and ``rejection_breakdown`` surface the
+    # broker's errorCode so operators don't have to grep 30K+ log lines.
+    live_fills: int = 0
+    seeded_positions: int = 0
+    last_rejection_errorcode: str = ""
+    rejection_breakdown: dict[str, int] = field(default_factory=dict)
     # Last trading-day observed for daily counter reset. Reset to None on
     # process restart; the B5 health loop resets the daily counters when
     # this lags the current trading day (see 17:00 America/Toronto boundary
@@ -505,6 +515,10 @@ class ForwardTestEngine:
                 behavioral_adjustments=self._health.behavioral_adjustments,
                 last_kill_reasons=list(self._health.last_kill_reasons),
                 last_behavioral_multiplier=self._health.last_behavioral_multiplier,
+                live_fills=self._health.live_fills,
+                seeded_positions=self._health.seeded_positions,
+                last_rejection_errorcode=self._health.last_rejection_errorcode,
+                rejection_breakdown=dict(self._health.rejection_breakdown),
             )
 
     @property
@@ -1355,6 +1369,9 @@ class ForwardTestEngine:
             "Preflight: seeded %d open cTrader positions totaling $%.2f risk",
             seeded_count, total_seeded_risk,
         )
+        # Record seeded positions in health so operators can distinguish
+        # session fills from carry-over (card 2bb667ce AC2).
+        self._health.seeded_positions = seeded_count
 
     def _execute_signal_live(
         self, signal: CTraderTradeSignal, strategy_id: str = ""
@@ -1658,6 +1675,49 @@ class ForwardTestEngine:
     _TIMEOUT_REASON = "timeout_awaiting_event"
     _CANCELLED_REASON = "order_cancelled"
 
+    def _process_live_outcome(self, outcome: LiveExecutionOutcome) -> None:
+        """Update health counters based on a synchronous live-order outcome.
+
+        Called from ``_evaluate_strategies`` after ``_execute_signal_live``
+        returns, and from ``_release_late`` for late-arriving outcomes.
+        Centralises counter logic so both the synchronous and callback
+        paths agree on what each status means.
+        """
+        with self._lock:
+            if outcome.status == LiveExecutionStatus.FILLED:
+                self._health.live_fills += 1
+                self._health.signals_traded += 1
+                self._health.signals_pending = max(
+                    0, self._health.signals_pending - 1
+                )
+                # Backward-compat: keep ``_live_fill_count`` in sync so
+                # the launch script's ``getattr(engine, '_live_fill_count', 0)``
+                # reads correctly until it is migrated to ``health.live_fills``.
+                self._live_fill_count = self._health.live_fills
+            elif outcome.status in (
+                LiveExecutionStatus.SENT,
+                LiveExecutionStatus.TIMEOUT,
+            ):
+                self._health.signals_sent += 1
+                self._health.signals_pending += 1
+            else:
+                # REJECTED, CANCELLED, NOT_CONNECTED — terminal failures.
+                self._health.signals_failed_live += 1
+                self._health.signals_pending = max(
+                    0, self._health.signals_pending - 1
+                )
+                # Surface the broker errorCode so operators don't have to
+                # grep through 30K+ log lines (card 45aad19f).
+                code = outcome.reason or "unknown"
+                # Strip description text after the first colon / underscore
+                # so ``TRADING_BAD_STOPS: New SL for SELL...`` becomes
+                # ``TRADING_BAD_STOPS``.
+                short_code = code.split(":")[0].split("_")[0].strip() or code
+                self._health.last_rejection_errorcode = short_code
+                self._health.rejection_breakdown[short_code] = (
+                    self._health.rejection_breakdown.get(short_code, 0) + 1
+                )
+
     def _classify_live_order_outcome(
         self, order, signal: CTraderTradeSignal, strategy_id: str
     ) -> LiveExecutionOutcome:
@@ -1862,9 +1922,11 @@ class ForwardTestEngine:
 
             with self._lock:
                 if rv_status == LiveExecutionStatus.FILLED:
-                    self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
+                    self._health.live_fills += 1
                     self._health.signals_traded += 1
                     self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    # Backward-compat: keep _live_fill_count in sync.
+                    self._live_fill_count = self._health.live_fills
                     # Reconciliation defense: if the synchronous TIMEOUT path
                     # spuriously bumped signals_failed_live before this late
                     # fill arrived, undo that increment here. Bounded at zero
@@ -1878,7 +1940,7 @@ class ForwardTestEngine:
                     logger.info(
                         "Late fill detected for order %s (%s %s) — live_fills=%d",
                         order_id, direction_str, signal.symbol,
-                        self._live_fill_count,
+                        self._health.live_fills,
                     )
                     # Phase 1A audit §5.4 fix: wire the cTrader
                     # positionId → blend signal_id mapping so the close
@@ -1967,9 +2029,18 @@ class ForwardTestEngine:
                 ):
                     self._health.signals_failed_live += 1
                     self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    # Surface the broker errorCode in health output (card 45aad19f).
+                    late_reason = getattr(message, "description", "") or rv_status.value
+                    if late_reason:
+                        short_code = late_reason.split(":")[0].split("_")[0].strip() or late_reason
+                        self._health.last_rejection_errorcode = short_code
+                        self._health.rejection_breakdown[short_code] = (
+                            self._health.rejection_breakdown.get(short_code, 0) + 1
+                        )
                     logger.warning(
-                        "Late outcome for order %s: %s (%s %s)",
+                        "Late outcome for order %s: %s (%s %s) reason=%s",
                         order_id, rv_status.value, direction_str, signal.symbol,
+                        late_reason,
                     )
             # Free correlation / risk on the launcher side, if it exists.
             gate = getattr(self, "_correlation_gate", None)
@@ -2188,8 +2259,14 @@ class ForwardTestEngine:
                     self._health.signals_generated += len(signals)
 
                 for s in signals:
-                    with self._lock:
-                        self._health.signals_traded += 1
+                    if not self._config.live_mode:
+                        # Paper mode: the paper trader will execute this
+                        # signal synchronously, so counting it as traded is
+                        # accurate.  In live mode we defer this bump to
+                        # ``_process_live_outcome`` which only fires after a
+                        # confirmed FILLED outcome.
+                        with self._lock:
+                            self._health.signals_traded += 1
                     logger.info(
                         "Signal traded: %s %s %s @ %.5f conf=%.2f",
                         s.direction.value,
@@ -2354,7 +2431,15 @@ class ForwardTestEngine:
                                     self._health.behavioral_adjustments += 1
                         # ── end BehavioralPolicy sizing ────────────────────
 
-                        self._execute_signal_live(s)
+                        # Capture and process the outcome so counters
+                        # (live_fills, signals_sent, signals_failed_live,
+                        # rejection_breakdown) stay accurate on the
+                        # synchronous path.  Previously the return value
+                        # was discarded, leaving live_fills permanently 0
+                        # for synchronous fills.
+                        outcome = self._execute_signal_live(s)
+                        if outcome is not None:
+                            self._process_live_outcome(outcome)
                     self._trigger_callback("on_signal_traded", s)
         except Exception as exc:
             with self._lock:
@@ -2418,6 +2503,19 @@ class ForwardTestEngine:
                 "engine_running": self._running,
                 "stats_fails": getattr(self, "_stats_fail_count", 0),
                 "stats_last_known_good": getattr(self, "_last_known_good_confidence", None),
+                # Health-observability fields (cards 45aad19f / 2bb667ce / a8a757c4).
+                # These mirror ``ForwardTestHealth`` so downstream consumers
+                # (Hayate daily audit, dashboard) can read fill counts,
+                # rejection breakdown, and seeded positions directly from
+                # the heartbeat JSON without grepping logs.
+                "live_fills": self._health.live_fills,
+                "trades": self._health.signals_traded,
+                "signals_sent": self._health.signals_sent,
+                "signals_failed_live": self._health.signals_failed_live,
+                "signals_pending": self._health.signals_pending,
+                "seeded_positions": self._health.seeded_positions,
+                "last_rejection_errorcode": self._health.last_rejection_errorcode,
+                "rejection_breakdown": dict(self._health.rejection_breakdown),
             }
             json_str = json.dumps(heartbeat, indent=2)
 

@@ -483,3 +483,28 @@ class BlendForwardTestRunner:
         """Persist state and shutdown cleanly."""
         self._persistence.save(self._sizer)
         logger.info("BlendForwardTestRunner stopped — balance=$%.2f", self._balance)
+
+    def health_snapshot(self) -> dict:
+        """Return a dict of key blend-runner metrics for health reporting.
+
+        Consumed by the launch script's ``write_forward_test_health_json``
+        and Hayate's daily audit so downstream readers get a single,
+        consistent snapshot rather than reaching into private attrs.
+
+        Keys:
+          - open_positions: count of currently-open positions
+          - open_risk: total dollar risk across open positions
+          - daily_risk_used: risk consumed today
+          - daily_risk_remaining: risk budget left today
+          - balance: current account balance
+          - total_closed: lifetime closed positions (via sizer)
+        """
+        sizer = self._sizer
+        return {
+            "open_positions": len(sizer.open_positions),
+            "open_risk": round(sizer.open_risk, 2),
+            "daily_risk_used": round(sizer._daily_risk_used, 2),
+            "daily_risk_remaining": round(sizer.daily_risk_remaining, 2),
+            "balance": round(self._balance, 2),
+            "total_closed": getattr(sizer, "_total_closed", 0),
+        }
