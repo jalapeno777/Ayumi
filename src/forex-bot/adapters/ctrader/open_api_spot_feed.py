@@ -955,15 +955,32 @@ class OpenApiSpotFeed:
 
             def on_error(failure):
                 logger.warning("Order send deferred error: %s", failure)
-                # The error event handler (_handle_pending_order_error) will
-                # set order status. But set the event so the calling thread
-                # doesn't block until timeout.
+                # The error event handler (_handle_pending_order_error) may
+                # have already set order status via a broker error event.
+                # If not, mark the order as rejected here so the caller gets
+                # a terminal status instead of a dangling PENDING.
+                if order.status == OrderStatus.PENDING:
+                    order.status = OrderStatus.REJECTED
+                    setattr(order, "reason", "deferred_error")
+                    order.comment = "deferred_error"
+                    self._trigger_callback(
+                        "on_order_rejected", order, None, "deferred_error",
+                    )
+                # Set the event so the calling thread doesn't block further.
                 event.set()
 
             d.addCallbacks(lambda _: None, on_error)
         reactor.callFromThread(do_send)
 
-        if not event.wait(timeout=timeout):
+        # Use timeout + 5 to give the deferred's responseTimeoutInSeconds
+        # callback (on_error) a chance to fire before we fall through to
+        # the local timeout path.  Without this margin, event.wait expires
+        # at the same instant as the deferred timeout, creating a race
+        # where on_error never gets to run before the local timeout
+        # handler marks the order as "timeout_awaiting_event".
+        if not event.wait(timeout=timeout + 5):
+            # Both the deferred timeout AND the local wait expired — the
+            # reactor thread is likely stuck or massively delayed.
             # Don't immediately purge — keep entries for 60s grace period
             # so late error events can still be matched/logged
             def _delayed_cleanup():
