@@ -14,6 +14,15 @@ gates entries when ``account_phase='funded'``. See
 ``src/forex-bot/backtest/best_day_rule.py`` for the per-day semantics and
 ``docs/runbooks/backtesting-strategy.md`` (Best Day Rule section) for the
 integration pattern.
+
+News Blackout Filter
+--------------------
+Use :func:`check_news_blackout` to gate entries around high-impact economic
+events (NFP, FOMC, ECB, BOJ, BOE rate decisions, CPI).  The filter wraps
+:class:`~data.news_calendar.NewsCalendarFilter` and returns a flat
+``(allowed, reason)`` tuple.  See
+``src/forex-bot/data/news_calendar.py`` for configuration details and
+``docs/runbooks/backtesting-strategy.md`` (News Blackout section).
 """
 
 from __future__ import annotations
@@ -51,6 +60,7 @@ from .engine import (
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
+from ..data.news_calendar import NewsCalendarFilter
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +165,48 @@ def check_ftmo_best_day_rule(
         now=now,
     )
     return result.allowed, result.reason
+
+
+def check_news_blackout(
+    news_filter: NewsCalendarFilter,
+    symbols: list[str],
+    now: Optional[datetime] = None,
+) -> tuple[bool, str]:
+    """Gate an entry decision against the FTMO news blackout filter.
+
+    Thin wrapper around :meth:`NewsCalendarFilter.is_blackout_now` that
+    returns a flat ``(allowed, reason)`` tuple — convenient for
+    destructuring in trading loops.  The reason string is ``""`` when the
+    entry is allowed.
+
+    Args:
+        news_filter: Configured :class:`NewsCalendarFilter`.
+        symbols: Trading symbols being evaluated (e.g.
+            ``["EURUSD", "USDJPY"]``).
+        now: Current time.  Defaults to system UTC time inside the filter.
+
+    Returns:
+        ``(allowed, reason)``: ``allowed=True`` when the entry may proceed,
+        otherwise ``allowed=False`` with a human-readable reason describing
+        the active blackout event.
+
+    Example:
+        >>> nf = NewsCalendarFilter(auto_fetch=False, cache_path="cal.json")
+        >>> allowed, reason = check_news_blackout(nf, ["EURUSD"])
+        >>> if not allowed:
+        ...     logger.info("Entry blocked: %s", reason)
+    """
+    if news_filter.is_blackout_now(symbols, now=now):
+        window = news_filter.next_blackout_window(symbols, now=now)
+        if window:
+            reason = (
+                f"News blackout: {window.title} ({window.currency}) "
+                f"until {window.end.strftime('%H:%M UTC')}"
+            )
+        else:
+            reason = "News blackout active"
+        return False, reason
+    return True, ""
 
 
 def _build_strategy_name(strategy_name: str, pair: str, timeframe: str) -> str:

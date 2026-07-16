@@ -339,6 +339,70 @@ A future consolidation card may merge these into a single canonical tracker once
 
 ---
 
+## News Blackout Filter (FTMO Compliance)
+
+Per FTMO Standard account rules: **"no trading 2 min before/after high-impact news."**
+Our blend plan extends this to a **5-minute** safety margin on each side.
+
+### What it does
+
+The :class:`~data.news_calendar.NewsCalendarFilter` class checks whether
+the current time falls within a blackout window around high-impact economic
+events (NFP, FOMC, ECB, BOJ, BOE rate decisions, CPI, PPI, GDP, etc.).
+
+### Usage in trading loops
+
+```python
+from data.news_calendar import NewsCalendarFilter
+from backtest.portfolio_blend import check_news_blackout
+
+nf = NewsCalendarFilter()  # auto-fetches ForexFactory calendar
+
+# Before each entry:
+allowed, reason = check_news_blackout(nf, ["EURUSD", "USDJPY"])
+if not allowed:
+    logger.info("Skipping entry: %s", reason)
+    continue
+```
+
+### Usage in backtests
+
+For deterministic backtests, disable auto-fetch and inject a fixed calendar:
+
+```python
+nf = NewsCalendarFilter(
+    cache_path="data/news_calendar_2024.json",
+    auto_fetch=False,
+)
+```
+
+### Configuration
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `blackout_minutes` | 5 | Minutes before AND after event |
+| `cache_path` | `data/news_calendar_cache.json` | Local calendar cache |
+| `cache_ttl_hours` | 24 | Max cache age before re-fetch |
+| `auto_fetch` | `True` | Fetch from ForexFactory when stale |
+| `permissive_on_failure` | `True` | Allow entries if no data (log warning) |
+
+### High-impact event criteria
+
+An event triggers a blackout if:
+1. Its `impact` field is `"high"`, OR
+2. Its title matches keywords: NFP, FOMC, ECB rate, BoE rate, BoJ rate, CPI, PPI, GDP, ISM PMI, unemployment rate
+3. Central bank rate decision keywords per currency
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/forex-bot/data/news_calendar.py` | Filter implementation |
+| `src/forex-bot/backtest/portfolio_blend.py` | `check_news_blackout()` entry gate |
+| `tests/unit/data/test_news_calendar.py` | Unit tests |
+
+---
+
 ## Common Pitfalls
 
 **1. "All 5 windows pass" is misleading.** It means PF≥1.3 in all 5 windows, not that the strategy is great. A strategy with PF=1.31 in 5 windows is far weaker than PF=3.0 in 3 windows.
