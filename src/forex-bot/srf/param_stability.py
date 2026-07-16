@@ -2,7 +2,8 @@
 
 Analyzes optimization landscape to detect overfitting via parameter
 instability: heatmap generation, plateau detection, neighbor robustness,
-cross-window rank correlation, and coefficient of variation.
+cross-window rank correlation, coefficient of variation, and
+perturbation-sweep overfit-spike detection.
 """
 
 from __future__ import annotations
@@ -39,6 +40,35 @@ class StabilityResult:
             "plateau_score": float(self.plateau_score),
             "neighbor_correlation": float(self.neighbor_correlation),
             "cross_window_rank_correlation": float(self.cross_window_rank_correlation),
+        }
+
+
+@dataclass
+class PerturbationStabilityResult:
+    """Result of post-selection perturbation sweep for overfit spike detection.
+
+    A high ``stability_score`` (close to 1.0) means small parameter changes
+    preserve performance — the config sits on a broad plateau.  A low score
+    (below ``spike_threshold``) indicates a narrow performance spike,
+    classic overfitting.
+    """
+    stability_score: float             # Fraction of perturbations retaining ≥80% of peak
+    is_overfit_spike: bool             # True if score < spike_threshold
+    peak_performance: float            # Performance at best_params (unperturbed)
+    n_perturbations: int               # Total perturbation evaluations
+    n_retained: int                    # Perturbations that retained ≥ threshold
+    per_param: dict[str, float]        # Per-parameter retention fraction
+    heatmap: np.ndarray | None = None  # [n_fractions, n_params] performance grid
+    detail: str = ""
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "stability_score": float(self.stability_score),
+            "is_overfit_spike": bool(self.is_overfit_spike),
+            "peak_performance": float(self.peak_performance),
+            "n_perturbations": int(self.n_perturbations),
+            "n_retained": int(self.n_retained),
+            "per_param": {k: float(v) for k, v in self.per_param.items()},
         }
 
 
@@ -181,6 +211,120 @@ def cross_window_rank_correlation(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Perturbation sweep (overfit spike detection)
+# ═══════════════════════════════════════════════════════════════════════════
+
+DEFAULT_PERTURBATION_FRACTIONS: tuple[float, ...] = (-0.20, -0.10, -0.05, 0.05, 0.10, 0.20)
+"""Standard perturbation levels: ±5%, ±10%, ±20% of each parameter value."""
+
+
+def perturbation_stability_score(
+    evaluate_fn: callable,
+    best_params: dict[str, float],
+    *,
+    perturbation_fractions: tuple[float, ...] = DEFAULT_PERTURBATION_FRACTIONS,
+    retention_threshold: float = 0.80,
+    spike_threshold: float = 0.50,
+) -> PerturbationStabilityResult:
+    """Run a perturbation sweep and compute overfit-spike stability score.
+
+    For each parameter in ``best_params``, perturbs its value by each fraction
+    in ``perturbation_fractions`` (one parameter at a time) and evaluates
+    performance.  Computes the fraction of all perturbations that retain at
+    least ``retention_threshold`` (default 80%) of peak performance.
+
+    If the resulting score is below ``spike_threshold`` (default 0.5), the
+    configuration is flagged as an overfit spike — it sits on a narrow
+    performance peak that small parameter changes destroy.
+
+    Parameters
+    ----------
+    evaluate_fn : callable(dict[str, float]) -> float
+        Returns a performance metric (higher = better, e.g. Sharpe or profit factor).
+    best_params : winning parameter set from optuna/backtest.
+    perturbation_fractions : relative perturbation levels (default ±5/10/20%).
+    retention_threshold : fraction of peak performance that counts as "retained".
+    spike_threshold : scores below this flag as overfit spike.
+
+    Returns
+    -------
+    PerturbationStabilityResult with score, flag, and per-parameter detail.
+    """
+    param_names = sorted(best_params.keys())
+    n_perturb = len(perturbation_fractions)
+    n_params = len(param_names)
+
+    # Peak (unperturbed) performance
+    peak = float(evaluate_fn(best_params))
+    if abs(peak) < 1e-12:
+        return PerturbationStabilityResult(
+            stability_score=0.0,
+            is_overfit_spike=True,
+            peak_performance=0.0,
+            n_perturbations=n_perturb * n_params,
+            n_retained=0,
+            per_param={name: 0.0 for name in param_names},
+            detail="Peak performance ≈ 0 — cannot compute stability.",
+        )
+
+    heatmap = np.full((n_perturb, n_params), np.nan)
+    per_param: dict[str, float] = {}
+    total_retained = 0
+    total_evaluated = 0
+
+    for j, pname in enumerate(param_names):
+        retained_for_param = 0
+        evaluated_for_param = 0
+        for i, frac in enumerate(perturbation_fractions):
+            params = best_params.copy()
+            params[pname] = best_params[pname] * (1.0 + frac)
+            try:
+                perf = float(evaluate_fn(params))
+                heatmap[i, j] = perf
+                evaluated_for_param += 1
+                total_evaluated += 1
+                if perf >= retention_threshold * peak:
+                    retained_for_param += 1
+                    total_retained += 1
+            except Exception:
+                logger.warning(
+                    "Perturbation eval failed for %s=%s*%.2f",
+                    pname, best_params[pname], 1 + frac,
+                )
+
+        per_param[pname] = (
+            retained_for_param / evaluated_for_param
+            if evaluated_for_param > 0
+            else 0.0
+        )
+
+    score = total_retained / total_evaluated if total_evaluated > 0 else 0.0
+    is_spike = score < spike_threshold
+
+    detail_parts = [
+        f"{name}={ratio:.0%}"
+        for name, ratio in per_param.items()
+    ]
+    detail = (
+        f"stability_score={score:.3f} "
+        f"({'OVERFIT SPIKE' if is_spike else 'stable'}), "
+        f"peak={peak:.4f}, retained={total_retained}/{total_evaluated}, "
+        f"per_param: {', '.join(detail_parts)}"
+    )
+
+    return PerturbationStabilityResult(
+        stability_score=score,
+        is_overfit_spike=is_spike,
+        peak_performance=peak,
+        n_perturbations=total_evaluated,
+        n_retained=total_retained,
+        per_param=per_param,
+        heatmap=heatmap,
+        detail=detail,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Heatmap generation
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -280,3 +424,67 @@ def assess_stability(
         cross_window_rank_correlation=cwrc,
         detail=detail,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Self-test: synthetic overfit vs stable configs
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _self_test() -> None:
+    """Validate perturbation_stability_score with synthetic configs.
+
+    Run directly:  python -m forex_bot.srf.param_stability --self-test
+    """
+    # ── Synthetic overfit config: sharp Gaussian peak ────────────────
+    # Performance drops to ~0 with even 5% perturbation.
+    overfit_best = {"threshold": 0.50, "period": 14.0}
+
+    def overfit_eval(params: dict[str, float]) -> float:
+        import math
+        t = params["threshold"]
+        p = params["period"]
+        # Narrow Gaussian: width ≈ 2% of value
+        dt = (t - 0.50) / 0.01
+        dp = (p - 14.0) / 0.28
+        return 3.0 * math.exp(-(dt**2 + dp**2))
+
+    overfit_result = perturbation_stability_score(overfit_eval, overfit_best)
+    assert overfit_result.is_overfit_spike, (
+        f"Overfit config should be flagged as spike, got score={overfit_result.stability_score:.3f}"
+    )
+    print(f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}")
+
+    # ── Synthetic stable config: broad plateau ───────────────────────
+    # Performance stays high across ±20% perturbations.
+    stable_best = {"threshold": 0.50, "period": 14.0}
+
+    def stable_eval(params: dict[str, float]) -> float:
+        t = params["threshold"]
+        p = params["period"]
+        # Broad Gaussian: width ≈ 50% of value
+        dt = (t - 0.50) / 0.25
+        dp = (p - 14.0) / 7.0
+        return 2.0 * math.exp(-(dt**2 + dp**2) * 0.5)
+
+    stable_result = perturbation_stability_score(stable_eval, stable_best)
+    assert not stable_result.is_overfit_spike, (
+        f"Stable config should NOT be flagged as spike, got score={stable_result.stability_score:.3f}"
+    )
+    print(f"  [PASS] Stable config passes: score={stable_result.stability_score:.3f}")
+
+    # ── Per-parameter breakdown ──────────────────────────────────────
+    for name, ratio in stable_result.per_param.items():
+        assert ratio >= 0.5, (
+            f"Stable param '{name}' retention {ratio:.0%} should be ≥50%"
+        )
+    print(f"  [PASS] Per-param breakdown: {stable_result.per_param}")
+
+    print("\nAll self-tests passed.")
+
+
+if __name__ == "__main__":
+    import sys
+    if "--self-test" in sys.argv:
+        _self_test()
+    else:
+        print("Usage: python -m forex_bot.srf.param_stability --self-test")

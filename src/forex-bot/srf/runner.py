@@ -15,6 +15,7 @@ import pandas as pd
 
 from .schema import SRFDatabase, compute_data_hash, generate_run_id
 from .data_qa import validate_data
+from .param_stability import perturbation_stability_score, PerturbationStabilityResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,14 @@ class StrategyRunner:
         spread_pips: float | None = None,
         min_confidence: float = 0.30,
         register_if_missing: bool = True,
+        perturbation_evaluate_fn: callable | None = None,
     ) -> dict:
         """Execute a single walk-forward run. Returns run metadata + results dict.
+
+        If ``perturbation_evaluate_fn`` is provided, runs a post-selection
+        perturbation stability check (overfit spike detection) after the
+        walk-forward validation completes.  The function should accept a
+        params dict and return a scalar performance metric.
 
         Raises RuntimeError if git tree is dirty or data QA fails.
         """
@@ -139,7 +146,7 @@ class StrategyRunner:
                     results.go_nogo,
                 )
 
-                return {
+                result_dict = {
                     "run_id": run_id,
                     "strategy": strategy_name,
                     "pair": pair,
@@ -150,6 +157,21 @@ class StrategyRunner:
                     "git_commit": git_commit,
                     "data_hash": data_hash,
                 }
+
+                # ── 8. Optional perturbation stability check ─────────────
+                if perturbation_evaluate_fn is not None:
+                    psr = perturbation_stability_score(
+                        perturbation_evaluate_fn,
+                        params or {},
+                    )
+                    result_dict["perturbation_stability"] = psr.summary()
+                    result_dict["overfit_spike"] = psr.is_overfit_spike
+                    logger.info(
+                        "SRF run %s perturbation stability: score=%.3f, overfit_spike=%s",
+                        run_id, psr.stability_score, psr.is_overfit_spike,
+                    )
+
+                return result_dict
 
             except Exception as exc:
                 conn.execute(
