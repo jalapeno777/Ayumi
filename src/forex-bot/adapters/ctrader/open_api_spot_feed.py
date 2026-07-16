@@ -589,7 +589,7 @@ class OpenApiSpotFeed:
         elif msg_type == 2142:
             payload = Protobuf.extract(message)
             if not self._handle_pending_order_error(payload, message):
-                self._handle_error(payload)
+                self._handle_error(payload, message)
         elif msg_type == 2103:
             self._authed.set()
             self._auth_error_count = 0
@@ -966,6 +966,15 @@ class OpenApiSpotFeed:
                     self._trigger_callback(
                         "on_order_rejected", order, None, "deferred_error",
                     )
+                else:
+                    # Order already processed by _handle_pending_order_error
+                    # with a real broker errorCode. Log the deferred error
+                    # for diagnostics but don't overwrite the real reason.
+                    logger.info(
+                        "Deferred error fired after broker event already handled "
+                        "order=%s (current reason=%s) — not overwriting",
+                        request_id, getattr(order, "reason", ""),
+                    )
                 # Set the event so the calling thread doesn't block further.
                 event.set()
 
@@ -987,10 +996,32 @@ class OpenApiSpotFeed:
                 self._pending_orders.pop(request_id, None)
                 self._pending_client_msg_ids.pop(client_msg_id, None)
             reactor.callFromThread(lambda: reactor.callLater(60.0, _delayed_cleanup))
-            order.status = OrderStatus.REJECTED
-            order.comment = "timeout_awaiting_event"
-            setattr(order, "reason", "timeout_awaiting_event")
-            self._trigger_callback("on_order_rejected", order, None, "timeout_awaiting_event")
+            # Don't overwrite if _handle_pending_order_error already set a
+            # real broker errorCode (race won by the broker event handler).
+            if order.status == OrderStatus.PENDING:
+                order.status = OrderStatus.REJECTED
+                order.comment = "timeout_awaiting_event"
+                setattr(order, "reason", "timeout_awaiting_event")
+                self._trigger_callback("on_order_rejected", order, None, "timeout_awaiting_event")
+        # AC2/AC3: Brief grace period for late-arriving broker error events.
+        # When the deferred timeout fires just before a broker rejection
+        # arrives, the order.reason is "deferred_error" instead of the real
+        # errorCode (e.g. TRADING_BAD_STOPS). Poll briefly (up to 500ms) to
+        # let the reactor thread process the 2142 error event and update
+        # the order via _handle_pending_order_error.
+        if getattr(order, "reason", "") in ("deferred_error", "timeout_awaiting_event"):
+            _GRACE_POLL_SEC = 0.5
+            _GRACE_INTERVAL = 0.05
+            grace_end = time.monotonic() + _GRACE_POLL_SEC
+            while time.monotonic() < grace_end:
+                if getattr(order, "reason", "") not in ("deferred_error", "timeout_awaiting_event"):
+                    logger.info(
+                        "Late broker error received during grace poll: "
+                        "order=%s reason=%s",
+                        request_id, getattr(order, "reason", ""),
+                    )
+                    break
+                time.sleep(_GRACE_INTERVAL)
         return order
 
     def send_order(self, symbol, direction, order_type, volume, price=None,
@@ -1299,20 +1330,28 @@ class OpenApiSpotFeed:
         error_code = getattr(message, 'errorCode', 'UNKNOWN')
         description = getattr(message, 'description', '')
         reason = f"{error_code}: {description}".strip(": ")
+        # Guard: if the order was already marked REJECTED by the deferred
+        # timeout (on_error) or the local event.wait timeout path, this is
+        # a late-arriving broker error event. Update the order's reason to
+        # the real errorCode so the caller/classifier sees it, but don't
+        # trigger a second callback.
+        already_rejected = order.status == OrderStatus.REJECTED
         order.status = OrderStatus.REJECTED
         order.comment = reason
         setattr(order, "reason", reason)
         logger.warning(
-            "[ORDER_ERROR] MATCHED clientOrderId=%r errorCode=%r description=%r reason=%s",
+            "[ORDER_ERROR] MATCHED clientOrderId=%r errorCode=%r description=%r reason=%s%s",
             client_order_id, error_code, description, reason,
+            " (late arrival — reason corrected, callback skipped)" if already_rejected else "",
         )
         event.set()
-        self._trigger_callback("on_order_rejected", order, message, reason)
+        if not already_rejected:
+            self._trigger_callback("on_order_rejected", order, message, reason)
         return True
 
     # ── Error handling & token refresh ─────────────────────────────────────
 
-    def _handle_error(self, message) -> None:
+    def _handle_error(self, message, envelope=None) -> None:
         error_code = getattr(message, "errorCode", "UNKNOWN")
         if error_code == "ALREADY_LOGGED_IN":
             self._authed.set()
@@ -1321,6 +1360,20 @@ class OpenApiSpotFeed:
             return
         # Centralized auth error classification
         description = getattr(message, "description", "")
+
+        # Determine if this error originated from a non-order query call
+        # (e.g. balance/position reconciliation). Query calls use
+        # clientMsgId prefixed with trader_query_*, protoOaTrades_*,
+        # or protoOaAccount_*. Kill switch should NOT activate for these.
+        client_msg_id = getattr(envelope, "clientMsgId", "") if envelope else ""
+        is_query_call = (
+            client_msg_id.startswith("trader_query_")
+            or client_msg_id.startswith("protoOaTrades_")
+            or client_msg_id.startswith("protoOaAccount_")
+            or client_msg_id.startswith("protoOaReconcile")
+            or client_msg_id.startswith("protoOaSymbolBy")
+            or client_msg_id.startswith("protoOaTrader_")
+        )
 
         # Tier classification (BQ-1382 §6)
         tier = _ERROR_TIERS.get(error_code, "unknown")
@@ -1355,15 +1408,22 @@ class OpenApiSpotFeed:
         # lookup, but the real issue is account authorization. Upgrade to
         # ACCOUNT_AUTHORIZATION_FAULT so the kill switch activates.
         if not policy.activate_kill_switch and "not authorized" in description.lower():
-            from .auth_error_types import AuthFaultType, POLICIES
-            reclassified = POLICIES.get(AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT)
-            if reclassified and reclassified.activate_kill_switch:
-                policy = reclassified
-                fault_type = AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT
+            if is_query_call:
                 logger.warning(
-                    "Auth error reclassified by description: code=%s desc='%s' → %s",
-                    error_code, description, fault_type.value,
+                    "Query error contains 'not authorized' — kill switch NOT activated "
+                    "(non-order call, clientMsgId=%s): code=%s desc='%s'",
+                    client_msg_id, error_code, description,
                 )
+            else:
+                from .auth_error_types import AuthFaultType, POLICIES
+                reclassified = POLICIES.get(AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT)
+                if reclassified and reclassified.activate_kill_switch:
+                    policy = reclassified
+                    fault_type = AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT
+                    logger.warning(
+                        "Auth error reclassified by description: code=%s desc='%s' → %s",
+                        error_code, description, fault_type.value,
+                    )
 
         if policy.activate_kill_switch:
             logger.error(
