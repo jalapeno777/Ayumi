@@ -409,10 +409,22 @@ class VolatilitySqueezeStrategy:
         # `bb_upper <= kc_upper`, which is impossible when the latest close
         # exceeds kc_upper (bb_upper rides the close). Removed.
         if squeeze_just_released:
-            if latest.close > kc_upper and latest.close > ema:
+            # FIX (card 269887b8): Previous code required `close > kc_upper
+            # AND close > ema` for long (and `close < kc_lower AND
+            # close < ema` for short). On a real-world squeeze release the
+            # close typically clears the EMA yet stays *inside* the
+            # keltner channel — close rarely exceeds kc_upper on the
+            # release bar. Result: zero trades across all 9 SRF cells
+            # (EURUSD/GBPUSD/XAUUSD × M5/M15/H1) even after the
+            # ADX-gate removal (card 453dac89).
+            #
+            # TTM Squeeze (John Carter, "Mastering the Trade", 2005)
+            # fires on release + momentum direction. Direction comes
+            # from close vs ema, not from close vs kc_upper.
+            if latest.close > ema:
                 direction = TradeDirection.LONG
                 signal_type = "release"
-            elif latest.close < kc_lower and latest.close < ema:
+            elif latest.close < ema:
                 direction = TradeDirection.SHORT
                 signal_type = "release"
 
