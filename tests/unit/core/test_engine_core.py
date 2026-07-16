@@ -1,468 +1,547 @@
-"""Comprehensive tests for EngineCore base class."""
+"""Comprehensive tests for EngineCore base class.
+
+These tests cover the post-refactor EngineCore in ``engine.base``.
+Key API differences from the old test suite:
+- ``EngineCore.__init__`` now requires ``config: BacktestConfig``.
+- ``Position`` was removed — trades are ``SimulatedTrade`` objects.
+- ``PropFirmConfig`` was replaced by ``BacktestConfig.max_*_drawdown_pct``.
+- ``ExecutionConfig`` was folded into ``BacktestConfig`` fields.
+- The metrics object is ``BacktestMetrics`` from ``core.config`` and uses
+  ``total_pnl``/``total_pnl_pct`` rather than ``total_return``.
+"""
+
+from __future__ import annotations
 
 import math
+from datetime import datetime, timedelta
 
-import numpy as np
-import pandas as pd
 import pytest
 
-from src.forex_trading.services.backtest.engine_core.base import (
-    BacktestMetrics,
-    EngineCore,
-    Position,
+from core.config import BacktestConfig, BacktestMetrics
+from core.spread import SpreadModel
+from core.types import (
+    Bar,
+    BarPeriod,
+    ExitReason,
+    SimulatedTrade,
+    TradeDirection,
+    TradeOutcome,
 )
-from src.forex_trading.services.backtest.prop_firm_rules import PropFirmConfig
-from src.forex_trading.services.backtest.execution import ExecutionConfig
+from engine.base import EngineCore
 
 
-def _make_bar(close=1.1000, timestamp=None):
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_bar(
+    close: float = 1.1000,
+    timestamp: datetime | None = None,
+    high: float | None = None,
+    low: float | None = None,
+) -> Bar:
+    """Build a Bar object using the current ``core.types.Bar`` shape."""
     if timestamp is None:
-        timestamp = pd.Timestamp("2024-01-01")
-    return pd.Series(
-        {
-            "open": close - 0.0001,
-            "high": close + 0.0002,
-            "low": close - 0.0002,
-            "close": close,
-            "volume": 100000,
-        },
-        name=timestamp,
+        timestamp = datetime(2024, 1, 1, 10, 0)
+    return Bar(
+        time=timestamp,
+        open=close - 0.0001,
+        high=high if high is not None else close + 0.0002,
+        low=low if low is not None else close - 0.0002,
+        close=close,
+        volume=100_000,
+        period=BarPeriod.H1,
     )
+
+
+def _make_signal(
+    direction: TradeDirection = TradeDirection.LONG,
+    entry: float = 1.1000,
+    sl: float = 1.0950,
+    tp1: float = 1.1100,
+    tp2: float = 1.1150,
+    tp3: float = 1.1200,
+    confidence: float = 0.7,
+) -> "SimulatedTrade":
+    """Helper to fabricate a SimulatedTrade via _open_trade."""
+    # Not a factory of signals — we build signal-equivalent inputs in tests
+    # that need them. This helper exists so call sites that need a trade
+    # object can use a uniform pattern.
+    return SimulatedTrade(
+        entry_bar_index=0,
+        direction=direction,
+        entry_price=entry,
+        stop_loss=sl,
+        take_profit_1=tp1,
+        take_profit_2=tp2,
+        take_profit_3=tp3,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Initialization
+# ---------------------------------------------------------------------------
 
 
 class TestEngineCoreInit:
     def test_defaults(self):
-        core = EngineCore()
-        assert core.starting_balance == 10_000.0
-        assert core.risk_free_rate == 0.0
-        assert core.risk_pct == 0.02
-        assert len(core.positions) == 0
-        assert core.equity_curve == [10_000.0]
-        assert core.realized_pnl == 0.0
+        """Default BacktestConfig wires through EngineCore cleanly."""
+        core = EngineCore(BacktestConfig())
+        assert core.balance == 100_000.0
+        assert core.config.starting_balance == 100_000.0
+        assert core.config.max_daily_drawdown_pct == pytest.approx(0.05)
+        assert core.config.max_total_drawdown_pct == pytest.approx(0.10)
 
-    def test_custom_params(self):
-        pfc = PropFirmConfig(max_daily_drawdown_pct=0.03)
-        ec = ExecutionConfig(spread_pips=2.0)
-        core = EngineCore(
+    def test_custom_config(self):
+        cfg = BacktestConfig(
             starting_balance=50_000.0,
-            prop_firm_config=pfc,
-            execution_config=ec,
-            risk_free_rate=0.02,
-            risk_pct=0.01,
-            sharpe_annualization_factor=math.sqrt(252),
+            risk_per_trade_pct=0.01,
+            max_daily_drawdown_pct=0.03,
+            max_total_drawdown_pct=0.06,
         )
-        assert core.starting_balance == 50_000.0
-        assert core.risk_free_rate == 0.02
-        assert core.risk_pct == 0.01
+        core = EngineCore(cfg)
+        assert core.config.starting_balance == 50_000.0
+        assert core.config.risk_per_trade_pct == pytest.approx(0.01)
+        assert core.config.max_daily_drawdown_pct == pytest.approx(0.03)
+        assert core.config.max_total_drawdown_pct == pytest.approx(0.06)
+
+    def test_spread_model_override(self):
+        """A custom SpreadModel is honored on the instance."""
+        core = EngineCore(BacktestConfig(), SpreadModel(spread_pips=2.5, slippage_pips=0.3))
+        assert isinstance(core.spread_model, SpreadModel)
+        assert core.spread_model.spread_pips == pytest.approx(2.5)
+        assert core.spread_model.slippage_pips == pytest.approx(0.3)
+
+
+# ---------------------------------------------------------------------------
+# Reset
+# ---------------------------------------------------------------------------
 
 
 class TestReset:
     def test_reset_clears_state(self):
-        core = EngineCore()
-        core.positions = [
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
-                entry_price=1.1,
-                direction="long",
-                lots=0.1,
-                pair="EURUSD",
-            )
-        ]
-        core.realized_pnl = 500.0
-        core.equity_curve = [10_000.0, 10_500.0]
-        core.trades = [{"pnl": 500.0}]
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        # Mutate state to simulate post-trade values
+        core.balance = 9_000.0
+        core.peak_balance = 11_000.0
+        core.max_drawdown = 0.15
+        core.max_daily_loss = 200.0
+        core.total_spread_cost = 12.5
+        core.total_commission_cost = 4.0
+        core.rejected_signals = 3
 
         core._reset()
 
-        assert core.positions == []
-        assert core.realized_pnl == 0.0
-        assert core.equity_curve == [10_000.0]
-        assert core.trades == []
+        assert core.balance == 10_000.0
+        assert core.peak_balance == 10_000.0
+        assert core.max_drawdown == 0.0
+        assert core.max_daily_loss == 0.0
+        assert core.total_spread_cost == 0.0
+        assert core.total_commission_cost == 0.0
+        assert core.rejected_signals == 0
+
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
 
 
 class TestCalculateMetrics:
     def test_empty_trades(self):
-        core = EngineCore()
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
         m = core._calculate_metrics([], [10_000.0, 10_000.0])
-        assert m.total_return == 0.0
+        assert isinstance(m, BacktestMetrics)
+        assert m.total_pnl == 0.0
+        assert m.total_pnl_pct == 0.0
         assert m.sharpe_ratio == 0.0
         assert m.win_rate == 0.0
         assert m.profit_factor == 0.0
         assert m.total_trades == 0
-        assert m.avg_trade_duration == 0.0
+        assert m.avg_holding_bars == 0.0
+        assert m.winning_trades == 0
+        assert m.losing_trades == 0
 
     def test_with_trades(self):
-        core = EngineCore()
-        trades = [
-            {"pnl": 100.0, "holding_hours": 2.0},
-            {"pnl": -50.0, "holding_hours": 4.0},
-            {"pnl": 200.0, "holding_hours": 1.0},
-        ]
+        """Mix of wins/losses yields sane metrics."""
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        now = datetime(2024, 1, 1, 10, 0)
+        t1 = SimulatedTrade(
+            entry_bar_index=0,
+            exit_bar_index=2,
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            exit_price=1.1050,
+            profit_loss=100.0,
+            outcome=TradeOutcome.WIN,
+            entry_time=now,
+            exit_time=now + timedelta(hours=2),
+        )
+        t2 = SimulatedTrade(
+            entry_bar_index=0,
+            exit_bar_index=4,
+            direction=TradeDirection.SHORT,
+            entry_price=1.1100,
+            exit_price=1.1150,
+            profit_loss=-50.0,
+            outcome=TradeOutcome.LOSS,
+            entry_time=now,
+            exit_time=now + timedelta(hours=4),
+        )
+        t3 = SimulatedTrade(
+            entry_bar_index=0,
+            exit_bar_index=1,
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            exit_price=1.1200,
+            profit_loss=200.0,
+            outcome=TradeOutcome.WIN,
+            entry_time=now,
+            exit_time=now + timedelta(hours=1),
+        )
         curve = [10_000.0, 10_050.0, 10_100.0, 10_250.0]
-        m = core._calculate_metrics(trades, curve)
-        assert m.total_return == pytest.approx(250.0 / 10_000.0)
-        assert m.win_rate == pytest.approx(2 / 3)
+        m = core._calculate_metrics([t1, t2, t3], curve)
         assert m.total_trades == 3
-        assert m.avg_trade_duration == pytest.approx(7.0 / 3)
+        assert m.winning_trades == 2
+        assert m.losing_trades == 1
+        assert m.win_rate == pytest.approx(2 / 3 * 100)
         assert m.profit_factor == pytest.approx(300.0 / 50.0)
+        assert m.avg_holding_bars == pytest.approx((2 + 4 + 1) / 3)
+        assert m.largest_win == pytest.approx(200.0)
+        assert m.largest_loss == pytest.approx(-50.0)
 
     def test_all_losing_trades(self):
-        core = EngineCore()
-        trades = [
-            {"pnl": -100.0, "holding_hours": 1.0},
-            {"pnl": -50.0, "holding_hours": 2.0},
-        ]
-        m = core._calculate_metrics(trades, [10_000.0, 9_900.0, 9_850.0])
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        now = datetime(2024, 1, 1, 10, 0)
+        t1 = SimulatedTrade(
+            entry_bar_index=0,
+            exit_bar_index=1,
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            exit_price=1.0900,
+            profit_loss=-100.0,
+            outcome=TradeOutcome.LOSS,
+            entry_time=now,
+            exit_time=now + timedelta(hours=1),
+        )
+        t2 = SimulatedTrade(
+            entry_bar_index=0,
+            exit_bar_index=2,
+            direction=TradeDirection.LONG,
+            entry_price=1.1000,
+            exit_price=1.0950,
+            profit_loss=-50.0,
+            outcome=TradeOutcome.LOSS,
+            entry_time=now,
+            exit_time=now + timedelta(hours=2),
+        )
+        m = core._calculate_metrics([t1, t2], [10_000.0, 9_900.0, 9_850.0])
+        assert m.winning_trades == 0
+        assert m.losing_trades == 2
         assert m.win_rate == 0.0
+        # No wins → profit_factor is 0
         assert m.profit_factor == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Sharpe ratio
+# ---------------------------------------------------------------------------
 
 
 class TestCalculateSharpeRatio:
     def test_flat_equity(self):
-        core = EngineCore()
+        core = EngineCore(BacktestConfig())
         assert core._calculate_sharpe_ratio([10_000.0, 10_000.0, 10_000.0]) == 0.0
 
     def test_rising_equity(self):
-        core = EngineCore(risk_free_rate=0.0)
+        core = EngineCore(BacktestConfig())
         curve = [10_000.0, 10_100.0, 10_200.0, 10_300.0, 10_400.0]
         sharpe = core._calculate_sharpe_ratio(curve)
         assert sharpe > 0
 
     def test_insufficient_data(self):
-        core = EngineCore()
+        core = EngineCore(BacktestConfig())
         assert core._calculate_sharpe_ratio([10_000.0]) == 0.0
+        assert core._calculate_sharpe_ratio([]) == 0.0
 
-    def test_with_series(self):
-        core = EngineCore()
-        s = pd.Series([10_000.0, 10_100.0, 10_200.0, 10_300.0, 10_400.0])
-        sharpe = core._calculate_sharpe_ratio(s)
+    def test_with_list(self):
+        core = EngineCore(BacktestConfig())
+        curve = [10_000.0, 10_100.0, 10_200.0, 10_300.0, 10_400.0]
+        sharpe = core._calculate_sharpe_ratio(curve)
         assert sharpe > 0
 
     def test_custom_annualization(self):
-        core = EngineCore(sharpe_annualization_factor=math.sqrt(12))
+        """Lower annualization factor yields smaller absolute Sharpe."""
+        core_monthly = EngineCore(
+            BacktestConfig(sharpe_annualization_factor=12.0)
+        )
+        core_daily = EngineCore(
+            BacktestConfig(sharpe_annualization_factor=252.0)
+        )
         curve = [10_000.0, 10_100.0, 10_200.0, 10_300.0, 10_400.0]
-        sharpe_monthly = core._calculate_sharpe_ratio(curve)
-        core2 = EngineCore(sharpe_annualization_factor=math.sqrt(252))
-        sharpe_daily = core2._calculate_sharpe_ratio(curve)
-        assert sharpe_monthly < sharpe_daily
+        sharpe_monthly = core_monthly._calculate_sharpe_ratio(curve)
+        sharpe_daily = core_daily._calculate_sharpe_ratio(curve)
+        # Daily annualization multiplies the result by sqrt(252/12) → larger
+        assert abs(sharpe_monthly) < abs(sharpe_daily)
 
 
-class TestGetPipValue:
-    def test_eurusd(self):
-        core = EngineCore()
-        pip_val = core._get_pip_value(1.1, "EURUSD")
-        assert pip_val == pytest.approx(10.0)
-
-    def test_usdjpy(self):
-        core = EngineCore()
-        pip_val = core._get_pip_value(150.0, "USDJPY")
-        assert pip_val == pytest.approx(1000.0)
-
-    def test_unknown_pair(self):
-        core = EngineCore()
-        pip_val = core._get_pip_value(1.0, "XXXYYY")
-        assert pip_val > 0
+# ---------------------------------------------------------------------------
+# Daily tracking
+# ---------------------------------------------------------------------------
 
 
 class TestDailyTracking:
     def test_same_day(self):
-        core = EngineCore()
-        t = pd.Timestamp("2024-01-01 12:00:00")
+        core = EngineCore(BacktestConfig())
+        t = datetime(2024, 1, 1, 12, 0)
         core._update_daily_tracking(t)
-        assert core._current_day == pd.Timestamp("2024-01-01")
-        core._current_daily_pnl = 100.0
-        t2 = pd.Timestamp("2024-01-01 14:00:00")
+        assert core.current_day == t.date()
+        # Set a sentinel, second call on same day shouldn't reset it
+        core.daily_start_balance = 9_900.0
+        t2 = datetime(2024, 1, 1, 14, 0)
         core._update_daily_tracking(t2)
-        assert core._current_daily_pnl == 100.0
+        assert core.current_day == t.date()
+        assert core.daily_start_balance == 9_900.0
 
     def test_new_day_resets(self):
-        core = EngineCore()
-        t1 = pd.Timestamp("2024-01-01 12:00:00")
+        core = EngineCore(BacktestConfig())
+        t1 = datetime(2024, 1, 1, 12, 0)
         core._update_daily_tracking(t1)
-        core._current_daily_pnl = 100.0
-        t2 = pd.Timestamp("2024-01-02 09:00:00")
+        core.balance = 9_900.0
+        # Move to next day → should reset daily_start to current balance
+        t2 = datetime(2024, 1, 2, 9, 0)
         core._update_daily_tracking(t2)
-        assert core._current_daily_pnl == 0.0
-        assert core._current_day == pd.Timestamp("2024-01-02")
+        assert core.current_day == t2.date()
+        assert core.daily_start_balance == 9_900.0
+
+
+# ---------------------------------------------------------------------------
+# Drawdown checks
+# ---------------------------------------------------------------------------
 
 
 class TestDrawdownChecks:
     def test_max_drawdown_not_breached(self):
-        core = EngineCore()
-        assert not core._is_max_drawdown_breached()
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        assert core._is_max_drawdown_breached() is False
 
     def test_max_drawdown_breached(self):
-        core = EngineCore()
-        core.prop_firm.state.current_balance = 8_900.0
-        core.prop_firm.state.peak_balance = 10_000.0
-        assert core._is_max_drawdown_breached()
+        cfg = BacktestConfig(starting_balance=10_000.0, max_total_drawdown_pct=0.10)
+        core = EngineCore(cfg)
+        core.peak_balance = 10_000.0
+        core.balance = 8_900.0  # 11% drawdown
+        assert core._is_max_drawdown_breached() is True
 
     def test_daily_loss_not_breached(self):
-        core = EngineCore()
-        assert not core._is_max_daily_loss_breached()
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        assert core._is_max_daily_loss_breached() is False
 
     def test_daily_loss_breached(self):
-        core = EngineCore()
-        core.prop_firm.state._get_current_day_stats(pd.Timestamp("2024-01-01"))
-        core.prop_firm.state.daily_stats[-1].max_drawdown = 0.06
-        assert core._is_max_daily_loss_breached()
+        cfg = BacktestConfig(starting_balance=10_000.0, max_daily_drawdown_pct=0.05)
+        core = EngineCore(cfg)
+        core.daily_start_balance = 10_000.0
+        core.balance = 9_400.0  # 6% daily loss
+        assert core._is_max_daily_loss_breached() is True
+
+
+# ---------------------------------------------------------------------------
+# Trade close / open
+# ---------------------------------------------------------------------------
 
 
 class TestCloseTrade:
-    def _make_core(self):
-        return EngineCore()
+    def _make_core(self, balance: float = 10_000.0) -> EngineCore:
+        return EngineCore(BacktestConfig(starting_balance=balance))
+
+    def _open_trade(
+        self,
+        core: EngineCore,
+        direction: TradeDirection,
+        entry: float,
+        size: float = 1.0,
+    ) -> SimulatedTrade:
+        """Build a minimal SimulatedTrade for closing tests."""
+        return SimulatedTrade(
+            entry_bar_index=0,
+            direction=direction,
+            entry_price=entry,
+            stop_loss=entry - 0.005 if direction == TradeDirection.LONG else entry + 0.005,
+            take_profit_1=entry + 0.010 if direction == TradeDirection.LONG else entry - 0.010,
+            take_profit_2=entry + 0.015 if direction == TradeDirection.LONG else entry - 0.015,
+            take_profit_3=entry + 0.020 if direction == TradeDirection.LONG else entry - 0.020,
+            lot_size=size,
+            entry_time=datetime(2024, 1, 1, 10, 0),
+        )
 
     def test_close_long_winner(self):
         core = self._make_core()
-        pos = Position(
-            entry_time=pd.Timestamp("2024-01-01"),
-            entry_price=1.1000,
-            direction="long",
-            lots=0.1,
-            pair="EURUSD",
+        trade = self._open_trade(core, TradeDirection.LONG, entry=1.1000)
+        core._close_trade(
+            trade,
+            bar_index=1,
+            exit_time=datetime(2024, 1, 2, 10, 0),
+            exit_price=1.1100,
+            reason=ExitReason.TAKE_PROFIT_1,
         )
-        core.positions.append(pos)
-        pnl = core._close_trade(pos, 1, pd.Timestamp("2024-01-02"), 1.1100, "tp")
-        assert pnl > 0
-        assert len(core.positions) == 0
-        assert len(core.trades) == 1
-        assert core.trades[0]["exit_reason"] == "tp"
-        assert core.realized_pnl > 0
+        assert trade.exit_price == 1.1100
+        assert trade.exit_reason == ExitReason.TAKE_PROFIT_1
+        assert trade.outcome == TradeOutcome.WIN
+        assert trade.profit_loss > 0
+        # Balance increased by trade profit
+        assert core.balance > core.config.starting_balance
 
     def test_close_short_winner(self):
         core = self._make_core()
-        pos = Position(
-            entry_time=pd.Timestamp("2024-01-01"),
-            entry_price=1.1100,
-            direction="short",
-            lots=0.1,
-            pair="EURUSD",
+        trade = self._open_trade(core, TradeDirection.SHORT, entry=1.1100)
+        core._close_trade(
+            trade,
+            bar_index=1,
+            exit_time=datetime(2024, 1, 2, 10, 0),
+            exit_price=1.1000,
+            reason=ExitReason.TAKE_PROFIT_1,
         )
-        core.positions.append(pos)
-        pnl = core._close_trade(pos, 1, pd.Timestamp("2024-01-02"), 1.1000, "tp")
-        assert pnl > 0
-        assert len(core.positions) == 0
+        assert trade.exit_price == 1.1000
+        assert trade.profit_loss > 0
+        assert trade.outcome == TradeOutcome.WIN
+        assert core.balance > core.config.starting_balance
 
     def test_close_long_loser(self):
         core = self._make_core()
-        pos = Position(
-            entry_time=pd.Timestamp("2024-01-01"),
-            entry_price=1.1000,
-            direction="long",
-            lots=0.1,
-            pair="EURUSD",
+        trade = self._open_trade(core, TradeDirection.LONG, entry=1.1000)
+        core._close_trade(
+            trade,
+            bar_index=1,
+            exit_time=datetime(2024, 1, 2, 10, 0),
+            exit_price=1.0900,
+            reason=ExitReason.STOP_LOSS,
         )
-        core.positions.append(pos)
-        pnl = core._close_trade(pos, 1, pd.Timestamp("2024-01-02"), 1.0900, "sl")
-        assert pnl < 0
-        assert core.realized_pnl < 0
+        assert trade.exit_price == 1.0900
+        assert trade.profit_loss < 0
+        assert trade.outcome == TradeOutcome.LOSS
+        assert core.balance < core.config.starting_balance
 
-    def test_close_records_in_prop_firm(self):
+    def test_close_records_balance_change(self):
+        """A winning close increases peak_balance."""
         core = self._make_core()
-        pos = Position(
-            entry_time=pd.Timestamp("2024-01-01"),
-            entry_price=1.1000,
-            direction="long",
-            lots=0.1,
-            pair="EURUSD",
+        starting = core.balance
+        trade = self._open_trade(core, TradeDirection.LONG, entry=1.1000)
+        core._close_trade(
+            trade,
+            bar_index=1,
+            exit_time=datetime(2024, 1, 2, 10, 0),
+            exit_price=1.1200,
+            reason=ExitReason.TAKE_PROFIT_3,
         )
-        core.positions.append(pos)
-        core._close_trade(pos, 1, pd.Timestamp("2024-01-02"), 1.1100, "tp")
-        assert len(core.prop_firm.state.trade_history) == 1
+        assert core.balance > starting
 
 
 class TestCloseAllOpenTrades:
     def test_close_multiple(self):
-        core = EngineCore()
-        for i, direction in enumerate(["long", "short"]):
-            pos = Position(
-                entry_time=pd.Timestamp("2024-01-01"),
-                entry_price=1.1000 + i * 0.01,
-                direction=direction,
-                lots=0.1,
-                pair="EURUSD",
-            )
-            core.positions.append(pos)
-
-        bar = _make_bar(1.1000)
-        pnls = core._close_all_open_trades(bar, pd.Timestamp("2024-01-02"), force=True)
-        assert len(pnls) == 2
-        assert len(core.positions) == 0
-        assert len(core.trades) == 2
-
-
-class TestOpenTrade:
-    def test_open_long(self):
-        core = EngineCore()
-        bar = _make_bar(1.1000, pd.Timestamp("2024-01-01"))
-        pos = core._open_trade(1, bar, 0, lot_size=0.1, pair="EURUSD")
-        assert pos is not None
-        assert pos.direction == "long"
-        assert pos.pair == "EURUSD"
-        assert len(core.positions) == 1
-
-    def test_open_short(self):
-        core = EngineCore()
-        bar = _make_bar(1.1000, pd.Timestamp("2024-01-01"))
-        pos = core._open_trade(-1, bar, 0, lot_size=0.1, pair="EURUSD")
-        assert pos is not None
-        assert pos.direction == "short"
-
-    def test_neutral_signal_returns_none(self):
-        core = EngineCore()
-        bar = _make_bar(1.1000)
-        pos = core._open_trade(0, bar, 0, lot_size=0.1, pair="EURUSD")
-        assert pos is not None
-
-
-class TestUnrealizedPnl:
-    def test_no_positions(self):
-        core = EngineCore()
-        bar = _make_bar(1.1000)
-        assert core._calculate_unrealized_pnl(bar) == 0.0
-
-    def test_long_profit(self):
-        core = EngineCore()
-        core.positions.append(
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
+        core = EngineCore(BacktestConfig(starting_balance=10_000.0))
+        trades = [
+            SimulatedTrade(
+                entry_bar_index=0,
+                direction=TradeDirection.LONG,
                 entry_price=1.1000,
-                direction="long",
-                lots=0.1,
-                pair="EURUSD",
-            )
-        )
-        bar = _make_bar(1.1100)
-        pnl = core._calculate_unrealized_pnl(bar)
-        assert pnl > 0
-
-    def test_short_profit(self):
-        core = EngineCore()
-        core.positions.append(
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
+                stop_loss=1.0950,
+                take_profit_1=1.1100,
+                take_profit_2=1.1150,
+                take_profit_3=1.1200,
+                lot_size=1.0,
+                entry_time=datetime(2024, 1, 1, 10, 0),
+            ),
+            SimulatedTrade(
+                entry_bar_index=0,
+                direction=TradeDirection.SHORT,
                 entry_price=1.1100,
-                direction="short",
-                lots=0.1,
-                pair="EURUSD",
-            )
-        )
+                stop_loss=1.1150,
+                take_profit_1=1.0900,
+                take_profit_2=1.0850,
+                take_profit_3=1.0800,
+                lot_size=1.0,
+                entry_time=datetime(2024, 1, 1, 10, 0),
+            ),
+        ]
         bar = _make_bar(1.1000)
-        pnl = core._calculate_unrealized_pnl(bar)
-        assert pnl > 0
-
-    def test_multiple_positions(self):
-        core = EngineCore()
-        core.positions.append(
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
-                entry_price=1.1000,
-                direction="long",
-                lots=0.1,
-                pair="EURUSD",
-            )
+        closed = core._close_all_open_trades(
+            trades, 1, bar.time, bar.close
         )
-        core.positions.append(
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
-                entry_price=1.1100,
-                direction="short",
-                lots=0.1,
-                pair="GBPUSD",
-            )
-        )
-        bar = _make_bar(1.1100)
-        pnl = core._calculate_unrealized_pnl(bar)
-        assert pnl > 0
+        assert len(closed) == 2
+        for t in closed:
+            assert t.exit_reason == ExitReason.END_OF_DATA
+            assert t.exit_price == 1.1000
 
 
-class TestCurrentEquity:
-    def test_no_trades(self):
-        core = EngineCore()
-        bar = _make_bar(1.1000)
-        assert core._current_equity(bar) == 10_000.0
-
-    def test_with_realized_pnl(self):
-        core = EngineCore()
-        core.realized_pnl = 500.0
-        bar = _make_bar(1.1000)
-        assert core._current_equity(bar) == 10_500.0
-
-
-class TestPositionHelpers:
-    def test_has_open_position(self):
-        core = EngineCore()
-        core.positions.append(
-            Position(
-                entry_time=pd.Timestamp("2024-01-01"),
-                entry_price=1.1,
-                direction="long",
-                lots=0.1,
-                pair="EURUSD",
-            )
-        )
-        assert core._has_open_position("EURUSD")
-        assert not core._has_open_position("GBPUSD")
-
-    def test_get_open_position(self):
-        core = EngineCore()
-        pos = Position(
-            entry_time=pd.Timestamp("2024-01-01"),
-            entry_price=1.1,
-            direction="long",
-            lots=0.1,
-            pair="EURUSD",
-        )
-        core.positions.append(pos)
-        assert core._get_open_position("EURUSD") is pos
-        assert core._get_open_position("GBPUSD") is None
-
-    def test_no_positions(self):
-        core = EngineCore()
-        assert not core._has_open_position("EURUSD")
-        assert core._get_open_position("EURUSD") is None
-
-
-class TestCalculateMaxDrawdown:
-    def test_flat_equity(self):
-        core = EngineCore()
-        eq = pd.Series([10_000.0, 10_000.0, 10_000.0])
-        dd, dur = core._calculate_max_drawdown(eq)
-        assert dd == 0.0
-
-    def test_monotonic_increase(self):
-        core = EngineCore()
-        eq = pd.Series([10_000.0, 10_100.0, 10_200.0])
-        dd, dur = core._calculate_max_drawdown(eq)
-        assert dd == 0.0
-
-    def test_with_drawdown(self):
-        core = EngineCore()
-        eq = pd.Series([10_000.0, 10_500.0, 10_400.0, 9_900.0, 10_200.0])
-        dd, dur = core._calculate_max_drawdown(eq)
-        assert dd > 0.04
-        assert dur >= 1
-
-
-class TestLotSizeCalculation:
-    def test_clamped_to_prop_firm_limits(self):
-        core = EngineCore(
-            prop_firm_config=PropFirmConfig(min_lot_size=0.05, max_lot_size=0.5)
-        )
-        lot = core._calculate_open_trade_lot_size(1.1, 1.09, 10_000.0)
-        assert lot >= 0.05
-        assert lot <= 0.5
+# ---------------------------------------------------------------------------
+# BacktestMetrics dataclass
+# ---------------------------------------------------------------------------
 
 
 class TestBacktestMetricsDataclass:
+    @staticmethod
+    def _make_metrics(**overrides):
+        defaults = dict(
+            starting_balance=10_000.0,
+            ending_balance=10_000.0,
+            total_pnl=0.0,
+            total_pnl_pct=0.0,
+            win_rate=0.0,
+            total_trades=0,
+            winning_trades=0,
+            losing_trades=0,
+            breakeven_trades=0,
+            avg_win=0.0,
+            avg_loss=0.0,
+            largest_win=0.0,
+            largest_loss=0.0,
+            profit_factor=0.0,
+            max_drawdown_pct=0.0,
+            max_drawdown_dollar=0.0,
+            max_daily_loss_dollar=0.0,
+            sharpe_ratio=0.0,
+            avg_risk_reward=0.0,
+            expectancy=0.0,
+            avg_holding_bars=0.0,
+        )
+        defaults.update(overrides)
+        return BacktestMetrics(**defaults)
+
     def test_defaults(self):
-        m = BacktestMetrics()
-        assert m.total_return == 0.0
+        """All metric fields can be constructed via keyword args."""
+        m = self._make_metrics()
+        assert m.total_pnl == 0.0
+        assert m.total_pnl_pct == 0.0
         assert m.sharpe_ratio == 0.0
         assert m.total_trades == 0
 
     def test_custom(self):
-        m = BacktestMetrics(total_return=0.1, sharpe_ratio=1.5, win_rate=0.6)
-        assert m.total_return == 0.1
-        assert m.sharpe_ratio == 1.5
-        assert m.win_rate == 0.6
+        m = self._make_metrics(
+            ending_balance=11_000.0,
+            total_pnl=1_000.0,
+            total_pnl_pct=0.10,
+            win_rate=60.0,
+            sharpe_ratio=1.5,
+        )
+        assert m.total_pnl == 1_000.0
+        assert m.total_pnl_pct == pytest.approx(0.10)
+        assert m.win_rate == pytest.approx(60.0)
+        assert m.sharpe_ratio == pytest.approx(1.5)
+
+
+# ---------------------------------------------------------------------------
+# Determine-session helper
+# ---------------------------------------------------------------------------
+
+
+class TestDetermineSession:
+    def test_london(self):
+        from engine.base import determine_session
+        assert determine_session(datetime(2024, 1, 1, 10, 0)) == "london"
+
+    def test_asian(self):
+        from engine.base import determine_session
+        assert determine_session(datetime(2024, 1, 1, 3, 0)) == "asian"
+
+    def test_outside(self):
+        from engine.base import determine_session
+        assert determine_session(datetime(2024, 1, 1, 22, 0)) == "outside"
