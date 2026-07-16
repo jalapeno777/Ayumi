@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from core.types import Bar, MarketState, StrategySignal, TradeDirection
+from utils.pip_value import DEFAULT_PIP, pip_value_for_symbol
 
 # ── Price / range sanity guards ────────────────────────────────────────────
 # These prevent corrupted signals (e.g. from upstream unit mismatches) from
@@ -34,11 +35,17 @@ def _calculate_atr(bars: list[Bar], period: int = 14) -> float:
     return tr_sum / count if count > 0 else 0.0001
 
 
-def _pip_size(price: float) -> float:
-    """Return pip size based on price level (works for JPY and non-JPY pairs)."""
-    if price >= 50:
-        return 0.01
-    return 0.0001
+def _pip_size_for_symbol(symbol: str) -> float:
+    """Return pip size based on the trading symbol.
+
+    Uses the canonical ``utils.pip_value`` lookup so that XAUUSD (gold)
+    correctly returns 0.1 instead of being mis-classified as JPY by the
+    old price-based heuristic.
+    """
+    try:
+        return pip_value_for_symbol(symbol)
+    except (ValueError, TypeError):
+        return DEFAULT_PIP
 
 
 def _ema(values: list[float], period: int) -> float | None:
@@ -128,7 +135,7 @@ class SessionBreakoutStrategy:
 
         range_high = max(b.high for b in range_bars)
         range_low = min(b.low for b in range_bars)
-        pip = _pip_size(range_high)
+        pip = _pip_size_for_symbol(symbol)
         range_width_pips = (range_high - range_low) / pip
 
         valid = self.min_range_pips <= range_width_pips <= self.max_range_pips
@@ -203,7 +210,7 @@ class SessionBreakoutStrategy:
 
         range_high = range_data["high"]
         range_low = range_data["low"]
-        pip = _pip_size(range_high)
+        pip = _pip_size_for_symbol(symbol)
         buffer_price = self.buffer_pips * pip
 
         # 3. Check breakout

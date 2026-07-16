@@ -2,6 +2,9 @@
 
 These tests pin the canonical pip-size lookup that replaces the
 old price-based heuristic (which mis-classified XAUUSD as JPY).
+
+Also includes regression tests for strategy files that were migrated
+from broken heuristics to ``pip_value_for_symbol``.
 """
 
 from __future__ import annotations
@@ -141,6 +144,60 @@ class TestConsistency(unittest.TestCase):
         lookup table doesn't know about."""
         # SGD is exotic but uses standard forex pip
         self.assertEqual(pip_value_for_symbol("SGDUSD"), DEFAULT_PIP)
+
+
+class TestSessionBreakoutPipSize(unittest.TestCase):
+    """Regression: session_breakout._pip_size_for_symbol must use
+    pip_value_for_symbol, not the old price-based heuristic.
+
+    The old ``_pip_size(price)`` returned 0.01 for XAUUSD because
+    gold's ~2000 price triggers the ``price >= 50`` JPY branch.
+    """
+
+    def test_xauusd_returns_gold_pip(self):
+        """XAUUSD must return 0.1, not the old 0.01."""
+        from strategies.session_breakout import _pip_size_for_symbol
+        self.assertEqual(_pip_size_for_symbol("XAUUSD"), 0.1)
+
+    def test_eurusd_returns_forex_pip(self):
+        from strategies.session_breakout import _pip_size_for_symbol
+        self.assertEqual(_pip_size_for_symbol("EURUSD"), 0.0001)
+
+    def test_usdjpy_returns_jpy_pip(self):
+        from strategies.session_breakout import _pip_size_for_symbol
+        self.assertEqual(_pip_size_for_symbol("USDJPY"), 0.01)
+
+    def test_empty_symbol_falls_back_to_default(self):
+        from strategies.session_breakout import _pip_size_for_symbol
+        self.assertEqual(_pip_size_for_symbol(""), DEFAULT_PIP)
+
+
+class TestGridStrategyPipSize(unittest.TestCase):
+    """Regression: GridState._get_pip_size and GridStrategy._get_pip_size
+    must use pip_value_for_symbol, not the old JPY-only heuristic.
+
+    The old code returned 0.0001 for XAUUSD (wrong; should be 0.1).
+    """
+
+    def test_grid_state_xauusd(self):
+        from backtest.grid_strategy import GridConfig, GridState
+        state = GridState(GridConfig(pair="XAUUSD"))
+        self.assertEqual(state.pip_size, 0.1)
+
+    def test_grid_state_eurusd(self):
+        from backtest.grid_strategy import GridConfig, GridState
+        state = GridState(GridConfig(pair="EURUSD"))
+        self.assertEqual(state.pip_size, 0.0001)
+
+    def test_grid_state_usdjpy(self):
+        from backtest.grid_strategy import GridConfig, GridState
+        state = GridState(GridConfig(pair="USDJPY"))
+        self.assertEqual(state.pip_size, 0.01)
+
+    def test_grid_strategy_get_pip_size_xauusd(self):
+        from backtest.grid_strategy import GridStrategy
+        gs = GridStrategy(pair="XAUUSD")
+        self.assertEqual(gs._get_pip_size("XAUUSD"), 0.1)
 
 
 if __name__ == "__main__":

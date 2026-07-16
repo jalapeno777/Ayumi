@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from utils.pip_value import DEFAULT_PIP, pip_value_for_symbol
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .strategies import ISignalStrategy
 
@@ -108,9 +109,10 @@ class GridState:
         self.bar_count: int = 0
 
     def _get_pip_size(self, pair: str) -> float:
-        if pair.endswith("JPY"):
-            return 0.01
-        return 0.0001
+        try:
+            return pip_value_for_symbol(pair)
+        except (ValueError, TypeError):
+            return DEFAULT_PIP
 
     def initialize_grid(self, mid_price: float) -> None:
         self.levels = []
@@ -340,9 +342,10 @@ class GridStrategy(ISignalStrategy):
         return tr_sum / self.config.atr_period
 
     def _get_pip_size(self, pair: str) -> float:
-        if pair.endswith("JPY"):
-            return 0.01
-        return 0.0001
+        try:
+            return pip_value_for_symbol(pair)
+        except (ValueError, TypeError):
+            return DEFAULT_PIP
 
     def reset_grid(self) -> None:
         self.state.reset()
