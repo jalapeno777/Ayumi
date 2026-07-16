@@ -215,11 +215,14 @@ class cTraderSignalAdapter:
         return trade_signal
 
     def _convert_direction(self, direction) -> TradeDirection:
-        if isinstance(direction, BacktestTradeDirection):
-            if direction == BacktestTradeDirection.LONG:
-                return TradeDirection.LONG
-            elif direction == BacktestTradeDirection.SHORT:
-                return TradeDirection.SHORT
+        # Direction can arrive as a BacktestTradeDirection enum, a core TradeDirection
+        # StrEnum, or a plain string ("long"/"short") from the signal engine.
+        # Compare by value to handle all three correctly.
+        val = str(direction).lower() if direction is not None else "neutral"
+        if val == "long":
+            return TradeDirection.LONG
+        elif val == "short":
+            return TradeDirection.SHORT
         return TradeDirection.NEUTRAL
 
     def register_callback(self, event: str, callback: Callable):
