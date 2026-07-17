@@ -147,17 +147,23 @@ class SLPositionSizer:
         max_lot_size: float = 1.0,
         daily_risk_cap_pct: float = 0.03,     # 3%
         min_sl_pips: float = 5.0,
+        max_positions_per_symbol: int = 1,
+        max_total_open_risk: float = 150.0,
     ):
         self.account_balance = account_balance
         self.risk_per_trade_pct = risk_per_trade_pct
         self.max_lot_size = max_lot_size
         self.daily_risk_cap_pct = daily_risk_cap_pct
         self.min_sl_pips = min_sl_pips
+        self.max_positions_per_symbol = max_positions_per_symbol
+        self.max_total_open_risk = max_total_open_risk
 
         # Track daily risk used (recycling)
         self._daily_risk_used: float = 0.0
         # Phase 5: per-signal identity-keyed open positions
         self._open_positions: dict[str, float] = {}
+        # Phase 5b: track symbol per position for per-symbol limits
+        self._position_symbols: dict[str, str] = {}
         self._peak_balance: float = account_balance  # Track peak for account DD
 
         self.breaker = CircuitBreakerState()
@@ -179,6 +185,7 @@ class SLPositionSizer:
         """
         if value <= 0.0 and not self._open_positions:
             self._open_positions.clear()
+            self._position_symbols.clear()
             return
         legacy_key = "_legacy_open_risk"
         # Replace any existing legacy entry with the restored scalar amount.
@@ -215,6 +222,11 @@ class SLPositionSizer:
             max_daily = self.account_balance * self.daily_risk_cap_pct
             return max(0.0, max_daily - self._daily_risk_used - self._open_risk)
 
+    def _count_positions_for_symbol(self, symbol: str) -> int:
+        """Count currently open positions for a given symbol."""
+        with self._lock:
+            return sum(1 for s in self._position_symbols.values() if s == symbol)
+
     def update_balance(self, balance: float):
         """Update account balance and track peak."""
         with self._lock:
@@ -227,12 +239,21 @@ class SLPositionSizer:
 
     # ── Phase 5 identity-keyed public API ─────────────────────────────
 
-    def register(self, signal_id: str, risk_amount: float) -> None:
-        """Register an open position's risk under a unique signal_id."""
+    def register(self, signal_id: str, risk_amount: float, symbol: str = "") -> None:
+        """Register an open position's risk under a unique signal_id.
+
+        Args:
+            signal_id: Unique identifier for this position/signal.
+            risk_amount: USD risk if SL hit.
+            symbol: Trading symbol (e.g. "EURUSD"). Used for per-symbol
+                concurrent position limits.
+        """
         with self._lock:
             if signal_id in self._open_positions:
                 raise ValueError(f"signal_id={signal_id!r} already registered")
             self._open_positions[signal_id] = float(risk_amount)
+            if symbol:
+                self._position_symbols[signal_id] = symbol
 
     def cancel(self, signal_id: str) -> None:
         """Cancel the risk reserved for ``signal_id``.
@@ -253,6 +274,7 @@ class SLPositionSizer:
                 )
                 return
             del self._open_positions[signal_id]
+            self._position_symbols.pop(signal_id, None)
 
     def close(self, signal_id: str, pnl: float = 0.0) -> None:
         """Close the position for ``signal_id`` and record PnL.
@@ -265,6 +287,7 @@ class SLPositionSizer:
             if signal_id not in self._open_positions:
                 raise KeyError(f"Cannot close unknown signal_id={signal_id!r}")
             self._open_positions.pop(signal_id)
+            self._position_symbols.pop(signal_id, None)
 
             win = pnl > 0
             if not win and pnl < 0:
@@ -421,6 +444,7 @@ class SLPositionSizer:
 
             # ── Nuke: drop everything. Broker truth replaces local state. ──
             self._open_positions.clear()
+            self._position_symbols.clear()
 
             # ── Rebuild: register each broker position under a synthetic
             #     ``seeded_{position_id}`` key so live signal_ids cannot
@@ -486,7 +510,7 @@ class SLPositionSizer:
 
                 key = f"seeded_{position_id}"
                 try:
-                    self.register(key, risk_amount)
+                    self.register(key, risk_amount, symbol=str(symbol))
                 except ValueError:
                     # Duplicate key — extremely unlikely (broker returned
                     # the same position_id twice) but handle it.
@@ -655,6 +679,38 @@ class SLPositionSizer:
             )
         if profile == "swarm":
             base_risk *= 0.5  # Swarm uses half the per-trade risk
+
+        # ── Concurrent position limits (Phase 5b) ────────────────────
+        # Max positions per symbol: prevents the 9-GBPUSD-position bug
+        # where the risk engine allowed unlimited concurrent positions
+        # on the same symbol.
+        current_positions_for_symbol = self._count_positions_for_symbol(symbol)
+        if current_positions_for_symbol >= self.max_positions_per_symbol:
+            return PositionSizeResult(
+                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                blocked=True,
+                block_reason=(
+                    f"Max {self.max_positions_per_symbol} position(s) "
+                    f"already open for {symbol}"
+                ),
+            )
+
+        # Max total concurrent open risk: hard cap on sum of all open
+        # position risk.  Prevents portfolio overexposure even when
+        # individual trades are within budget.
+        current_open_risk = self._open_risk
+        if current_open_risk + base_risk > self.max_total_open_risk:
+            return PositionSizeResult(
+                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                blocked=True,
+                block_reason=(
+                    f"Total open risk ${current_open_risk:.2f} + new "
+                    f"${base_risk:.2f} = ${current_open_risk + base_risk:.2f} "
+                    f"exceeds max ${self.max_total_open_risk:.2f}"
+                ),
+            )
 
         # Check daily risk cap
         if base_risk > self.daily_risk_remaining:

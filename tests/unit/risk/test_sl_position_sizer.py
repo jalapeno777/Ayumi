@@ -14,6 +14,8 @@ class TestSLPositionSizer:
             risk_per_trade_pct=0.005,   # 0.5% = $50
             max_lot_size=1.0,
             daily_risk_cap_pct=0.03,    # 3% = $300
+            max_positions_per_symbol=10,  # High default for daily-cap-only tests
+            max_total_open_risk=10000.0,  # High default for daily-cap-only tests
         )
 
     # --- Basic Calculation ---
@@ -324,6 +326,130 @@ class TestSLPositionSizer:
         # Should not raise
         self.sizer.reset_daily()
         assert self.sizer._daily_risk_used == 0.0
+
+    # --- Concurrent Position Limits (Phase 5b) ---
+
+    def test_max_positions_per_symbol_blocks_second(self):
+        """Should block a second position on the same symbol."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            risk_per_trade_pct=0.005,
+            max_positions_per_symbol=1,
+        )
+        # First position succeeds
+        r1 = sizer.calculate("GBPUSD", 1.2850, 1.2820, profile="sniper")
+        assert not r1.blocked
+        sizer.register("sig_001", r1.risk_amount, symbol="GBPUSD")
+
+        # Second position on same symbol should be blocked
+        r2 = sizer.calculate("GBPUSD", 1.2860, 1.2830, profile="sniper")
+        assert r2.blocked
+        assert "already open for GBPUSD" in r2.block_reason
+
+    def test_max_positions_per_symbol_allows_different_symbols(self):
+        """Different symbols should not interfere with each other."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            risk_per_trade_pct=0.005,
+            max_positions_per_symbol=1,
+        )
+        r1 = sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        assert not r1.blocked
+        sizer.register("sig_eur_1", r1.risk_amount, symbol="EURUSD")
+
+        r2 = sizer.calculate("GBPUSD", 1.2850, 1.2820, profile="sniper")
+        assert not r2.blocked
+        sizer.register("sig_gbp_1", r2.risk_amount, symbol="GBPUSD")
+
+    def test_max_positions_per_symbol_release_on_close(self):
+        """After closing a position, should allow new one on same symbol."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            risk_per_trade_pct=0.005,
+            max_positions_per_symbol=1,
+        )
+        r1 = sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        sizer.register("sig_001", r1.risk_amount, symbol="EURUSD")
+
+        # Close the position
+        sizer.close("sig_001", pnl=50.0)
+
+        # Should be able to open again
+        r2 = sizer.calculate("EURUSD", 1.0860, 1.0830, profile="sniper")
+        assert not r2.blocked
+
+    def test_max_total_open_risk_blocks_when_exceeded(self):
+        """Should block when total open risk + new risk exceeds cap."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            risk_per_trade_pct=0.005,   # $50 per trade
+            max_total_open_risk=100.0,  # $100 cap = 2 positions max
+            max_positions_per_symbol=10,  # Don't interfere with this test
+        )
+        # Open 2 positions ($100 total open risk)
+        r1 = sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        sizer.register("sig_001", r1.risk_amount, symbol="EURUSD")
+
+        r2 = sizer.calculate("GBPUSD", 1.2850, 1.2820, profile="sniper")
+        sizer.register("sig_002", r2.risk_amount, symbol="GBPUSD")
+
+        # 3rd should be blocked: $100 open + $50 new = $150 > $100 cap
+        r3 = sizer.calculate("AUDUSD", 0.6650, 0.6620, profile="sniper")
+        assert r3.blocked
+        assert "exceeds max" in r3.block_reason
+        assert "$100.00" in r3.block_reason
+
+    def test_max_total_open_risk_blocks_9_gbpusd_scenario(self):
+        """Reproduces the original bug: 9 GBPUSD positions at $50 each.
+
+        With max_positions_per_symbol=1 and max_total_open_risk=150,
+        only 1 position should be allowed — positions 2-9 must be blocked.
+        """
+        sizer = SLPositionSizer(
+            account_balance=9314.0,
+            risk_per_trade_pct=0.005,    # ~$46.57 per trade
+            max_positions_per_symbol=1,
+            max_total_open_risk=150.0,
+        )
+        r1 = sizer.calculate("GBPUSD", 1.2850, 1.2820, profile="sniper")
+        assert not r1.blocked
+        sizer.register("sig_001", r1.risk_amount, symbol="GBPUSD")
+
+        # Attempts 2-9 must all be blocked
+        for i in range(2, 10):
+            r = sizer.calculate("GBPUSD", 1.2860 + i * 0.001, 1.2830 + i * 0.001, profile="sniper")
+            assert r.blocked, f"Position #{i} should be blocked"
+            assert "already open for GBPUSD" in r.block_reason
+
+    def test_per_symbol_check_logged_in_block_reason(self):
+        """Block reason for per-symbol limit must contain the symbol name."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            max_positions_per_symbol=1,
+        )
+        r1 = sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        sizer.register("sig_001", r1.risk_amount, symbol="EURUSD")
+
+        r2 = sizer.calculate("EURUSD", 1.0860, 1.0830, profile="sniper")
+        assert r2.blocked
+        assert "EURUSD" in r2.block_reason
+        assert "1" in r2.block_reason  # max count
+
+    def test_total_open_risk_check_logged_with_amounts(self):
+        """Block reason for total open risk must contain dollar amounts."""
+        sizer = SLPositionSizer(
+            account_balance=10000.0,
+            risk_per_trade_pct=0.005,
+            max_total_open_risk=75.0,
+            max_positions_per_symbol=10,
+        )
+        r1 = sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
+        sizer.register("sig_001", r1.risk_amount, symbol="EURUSD")
+
+        r2 = sizer.calculate("GBPUSD", 1.2850, 1.2820, profile="sniper")
+        assert r2.blocked
+        assert "$" in r2.block_reason
+        assert "75.00" in r2.block_reason  # max cap amount
 
 
 if __name__ == "__main__":

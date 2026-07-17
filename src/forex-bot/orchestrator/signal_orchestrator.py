@@ -120,10 +120,12 @@ class SignalOrchestrator:
 
         if size_result.blocked:
             logger.warning(
-                "Signal rejected: strategy=%s symbol=%s reason=sizing gate=%s sl_pips=%.1f risk_avail=%.2f",
+                "Signal rejected: strategy=%s symbol=%s reason=sizing_block=%s "
+                "sl_pips=%.1f daily_risk_remaining=%.2f open_risk=%.2f",
                 signal.strategy_id, signal.symbol, size_result.block_reason,
                 size_result.sl_distance_pips,
-                size_result.risk_amount,
+                self._sizer.daily_risk_remaining,
+                self._sizer.open_risk,
             )
         else:
             logger.info(
