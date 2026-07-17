@@ -120,6 +120,13 @@ from .market_hours import is_forex_market_closed
 _STALE_TICK_WARN_SEC = 60.0
 _STALE_TICK_FREEZE_SEC = 120.0
 
+# Pre-emptive reconnect thresholds (2026-07-17)
+# The connection.py health monitor degrades at 35s and reconnects at 60s.
+# We trigger a proactive reconnect at 20s — before the degraded window
+# opens — so orders never queue against an unresponsive connection.
+_PRE_EMPTIVE_RECONNECT_SEC = 20.0
+_PRE_EMPTIVE_POLL_SEC = 5.0
+
 # Error tier classification per BQ-1382 §6
 _ERROR_TIERS = {
     # Tier 1: Transient — auto-reconnect
@@ -257,6 +264,11 @@ class OpenApiSpotFeed:
         # but may still receive execution events from the broker.
         # Maps request_id → (expiry_monotonic, Order, client_msg_id)
         self._late_fill_registry: dict[str, tuple[float, Order, str]] = {}
+
+        # Pre-emptive reconnect monitor
+        self._preemptive_thread: Optional[threading.Thread] = None
+        self._preemptive_stop = threading.Event()
+        self._preemptive_in_progress = threading.Event()
         self._callbacks: dict[str, list[Callable]] = {
             "on_order_filled": [],
             "on_order_rejected": [],
@@ -453,12 +465,14 @@ class OpenApiSpotFeed:
                     logger.warning("Failed to auto-subscribe to %s", symbol_name)
 
         logger.info("OpenApiSpotFeed started: account=%d symbols=%d", self._ctid_account_id, len(self._symbols))
+        self._start_preemptive_monitor()
         return True
 
     def stop(self):
         if not self._running:
             return
         self._running = False
+        self._stop_preemptive_monitor()
         self._conn.stop_health_monitor()
         self._conn.disconnect()
 
@@ -480,6 +494,116 @@ class OpenApiSpotFeed:
             self._refresh_timer = None
 
         logger.info("OpenApiSpotFeed stopped")
+
+    # ── Pre-emptive reconnect monitor ──────────────────────────────────────
+
+    def _start_preemptive_monitor(self) -> None:
+        """Start a daemon thread that monitors heartbeat staleness.
+
+        When heartbeat silence exceeds ``_PRE_EMPTIVE_RECONNECT_SEC``, a
+        proactive reconnect is triggered *before* the connection enters the
+        DEGRADED window (35s in connection.py).  This prevents orders from
+        queuing against an unresponsive connection.
+        """
+        if self._preemptive_thread is not None and self._preemptive_thread.is_alive():
+            return
+        self._preemptive_stop.clear()
+        self._preemptive_thread = threading.Thread(
+            target=self._preemptive_loop,
+            name="ctrader-preemptive-reconnect",
+            daemon=True,
+        )
+        self._preemptive_thread.start()
+        logger.info(
+            "[Preemptive] Monitor started (threshold=%ss, poll=%ss)",
+            _PRE_EMPTIVE_RECONNECT_SEC, _PRE_EMPTIVE_POLL_SEC,
+        )
+
+    def _stop_preemptive_monitor(self) -> None:
+        """Stop the pre-emptive reconnect monitor thread."""
+        self._preemptive_stop.set()
+        thread = self._preemptive_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=_PRE_EMPTIVE_POLL_SEC * 2)
+        self._preemptive_thread = None
+
+    def _preemptive_loop(self) -> None:
+        """Main pre-emptive reconnect monitor loop."""
+        while not self._preemptive_stop.wait(_PRE_EMPTIVE_POLL_SEC):
+            try:
+                self._check_preemptive_reconnect()
+            except Exception as exc:
+                logger.error("[Preemptive] Monitor cycle error: %s", exc)
+
+    def _check_preemptive_reconnect(self) -> None:
+        """Check heartbeat staleness and trigger pre-emptive reconnect if needed."""
+        # Skip if connection is not in AUTHENTICATED state
+        if not self._state_mgr.is_authenticated:
+            return
+        # Skip if a reconnect or re-auth is already in progress
+        if self._reauth_in_progress.is_set():
+            return
+        if self._preemptive_in_progress.is_set():
+            return
+        # Skip during market close (no ticks expected)
+        if is_forex_market_closed():
+            return
+        # Check heartbeat age
+        last_hb = self._conn._last_heartbeat_recv
+        if last_hb is None:
+            return
+        silence = time.monotonic() - last_hb
+        if silence < _PRE_EMPTIVE_RECONNECT_SEC:
+            return
+        # Pre-emptive reconnect threshold exceeded
+        logger.warning(
+            "[Preemptive] Heartbeat silence %.1fs >= %.1fs — triggering proactive reconnect",
+            silence, _PRE_EMPTIVE_RECONNECT_SEC,
+        )
+        self._trigger_preemptive_reconnect(silence)
+
+    def _trigger_preemptive_reconnect(self, silence_sec: float) -> None:
+        """Force a proactive reconnect before the degraded window opens.
+
+        Runs ``CTraderConnection.attempt_reconnect()`` in a background thread
+        because that method includes a blocking ``time.sleep()`` for backoff.
+        On success, :meth:`_on_conn_connected` fires and spawns
+        :meth:`_reconnect_restore` to re-authenticate.
+        """
+        # Atomically claim the reconnect slot to prevent double-firing
+        if not self._preemptive_in_progress.is_set():
+            self._preemptive_in_progress.set()
+        else:
+            return
+
+        # Also set reauth flag so _on_conn_connected knows to re-auth
+        if not self._reauth_in_progress.is_set():
+            self._reauth_in_progress.set()
+
+        # Check if connection is already mid-reconnect
+        if self._conn._reconnect_count > 0:
+            logger.info(
+                "[Preemptive] Connection already attempting reconnect (count=%d) — skipping",
+                self._conn._reconnect_count,
+            )
+            self._preemptive_in_progress.clear()
+            return
+
+        def _do_reconnect():
+            try:
+                logger.info("[Preemptive] Initiating reconnect (silence=%.1fs)", silence_sec)
+                success = self._conn.attempt_reconnect()
+                if success:
+                    logger.info("[Preemptive] Reconnect succeeded — re-auth will follow")
+                else:
+                    logger.error("[Preemptive] Reconnect failed — connection health monitor will retry")
+            except Exception as exc:
+                logger.error("[Preemptive] Reconnect exception: %s", exc, exc_info=True)
+            finally:
+                self._preemptive_in_progress.clear()
+
+        t = threading.Thread(target=_do_reconnect, name="ctrader-preemptive-reconnect-action", daemon=True)
+        t.start()
 
     # ── Connection callbacks (from CTraderConnection) ──────────────────────
 
