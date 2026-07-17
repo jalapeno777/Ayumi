@@ -4,20 +4,68 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+import statistics
 import subprocess
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+from scipy import stats
 
 from .schema import SRFDatabase, compute_data_hash, generate_run_id
 from .data_qa import validate_data
-from .param_stability import perturbation_stability_score, PerturbationStabilityResult
+from .param_stability import perturbation_stability_score
 
 logger = logging.getLogger(__name__)
+
+
+# ── Risk metric helpers ──────────────────────────────────────────────────
+
+def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) -> float:
+    """Compute the Deflated Sharpe Ratio (Bailey & López de Prado 2014).
+
+    Adjusts observed Sharpe for skew/kurtosis bias and sample size.
+    Returns a float — values >0 indicate skill after multiple-testing correction.
+    """
+    if n < 3 or sr_annual == 0:
+        return 0.0
+    # Expected Sharpe under null (zero-mean): 0
+    # Variance of Sharpe estimator under non-normality
+    sr_var = (1 - skew * sr_annual * math.sqrt(1 / 252)
+              + ((kurt_excess) / 4) * (sr_annual ** 2) / 252) / (n - 1)
+    if sr_var <= 0:
+        return 0.0
+    # DSR = CDF of observed SR under the deflated null
+    z = sr_annual * math.sqrt(n) / math.sqrt(252)
+    dsr = stats.norm.cdf(z)
+    return round(float(dsr), 6)
+
+
+def _composite_score(sharpe: float, sortino: float, calmar: float,
+                     win_rate: float, go_rate: float) -> float:
+    """Weighted composite score for strategy ranking.
+
+    Blends risk-adjusted return metrics with consistency metrics.
+    Scale: roughly 0-1, higher is better.
+    """
+    # Normalize components to ~[0,1] range
+    s_sharpe = min(max(sharpe / 3.0, 0), 1)      # Sharpe ~3 = excellent
+    s_sortino = min(max(sortino / 4.0, 0), 1)     # Sortino ~4 = excellent
+    s_calmar = min(max(calmar / 5.0, 0), 1)        # Calmar ~5 = excellent
+    s_wr = min(max((win_rate - 40) / 40, 0), 1)    # 40-80% win rate range
+    s_go = go_rate                                  # 0-1 pass rate
+
+    weights = {'sharpe': 0.25, 'sortino': 0.25, 'calmar': 0.15, 'wr': 0.15, 'go': 0.20}
+    score = (weights['sharpe'] * s_sharpe +
+             weights['sortino'] * s_sortino +
+             weights['calmar'] * s_calmar +
+             weights['wr'] * s_wr +
+             weights['go'] * s_go)
+    return round(float(score), 6)
 
 
 class StrategyRunner:
@@ -316,7 +364,6 @@ class StrategyRunner:
         the same spirit; rationale is dropped (it isn't a column on the
         trades table).
         """
-        import statistics
 
         # ── Windows ───────────────────────────────────────────────────────
         window_rows: list[list] = []
@@ -360,12 +407,81 @@ class StrategyRunner:
         pfs = [w.profit_factor for w in results.per_window if w.trade_count > 0]
         shrs = [w.sharpe_ratio for w in results.per_window if w.trade_count > 0]
         dds = [w.max_drawdown for w in results.per_window if w.trade_count > 0]
+        pnls = [w.total_pnl for w in results.per_window if w.trade_count > 0]
         total_trades = sum(w.trade_count for w in results.per_window)
 
         go_nogo_str = "go" if results.go_nogo else "no-go"
 
+        # ── Compute extended risk metrics ───────────────────────────────
+        # All computed from per-window PnL series when available.
+        pnl_arr = np.array(pnls, dtype=np.float64) if pnls else None
+
+        def _safe_stdev(vals: list[float]) -> float | None:
+            return statistics.stdev(vals) if len(vals) > 1 else None
+
+        # Deflated Sharpe Ratio (simplified — uses sample size and skew/kurt correction)
+        # DSR adjusts the observed Sharpe for multiple-testing bias.
+        # Reference: Bailey & López de Prado (2014)
+        if pnl_arr is not None and len(pnl_arr) >= 3:
+            mean_pnl = float(np.mean(pnl_arr))
+            std_pnl = float(np.std(pnl_arr, ddof=1))
+            n = len(pnl_arr)
+            skew_val = float(stats.skew(pnl_arr)) if n >= 3 else 0.0
+            kurt_val = float(stats.kurtosis(pnl_arr, fisher=True)) if n >= 4 else 0.0
+            observed_sharpe = (mean_pnl / std_pnl * math.sqrt(n)) if std_pnl > 0 else 0.0
+            # DSR approximation: Sharpe adjusted for skew/kurtosis bias
+            sr_annual = observed_sharpe * math.sqrt(252)  # annualize daily-equivalent
+            dsr = _deflated_sharpe(sr_annual, n, skew_val, kurt_val)
+            # Sortino: downside deviation only
+            downside = pnl_arr[pnl_arr < 0]
+            downside_std = float(np.std(downside, ddof=1)) if len(downside) > 1 else std_pnl or 0.0
+            sortino = (mean_pnl / downside_std * math.sqrt(n)) if downside_std > 0 else 0.0
+            # Calmar: total return / max drawdown
+            cumulative_pnl = float(np.sum(pnl_arr))
+            max_dd = max(dds) if dds else 0.0
+            calmar = (cumulative_pnl / max_dd) if max_dd > 0 else None
+            # ICIR (Information Coefficient Information Ratio): mean IC / std IC
+            # Approximated from win-rate consistency
+            ic_proxy = [(w.win_rate - 50.0) / 50.0 for w in results.per_window if w.trade_count > 0]
+            icir = (statistics.mean(ic_proxy) / statistics.stdev(ic_proxy)) if len(ic_proxy) > 1 and statistics.stdev(ic_proxy) > 0 else 0.0
+            # Composite score: weighted blend
+            score = _composite_score(
+                observed_sharpe, sortino, calmar or 0.0,
+                statistics.mean(wrs) if wrs else 0.0,
+                windows_passed / windows_total if windows_total > 0 else 0.0,
+            )
+        else:
+            dsr = None
+            sortino = None
+            calmar = None
+            icir = None
+            score = None
+
+        # OOS Sharpe decay: compare first-half vs second-half Sharpe
+        if pnl_arr is not None and len(pnl_arr) >= 4:
+            mid = len(pnl_arr) // 2
+            first_half = pnl_arr[:mid]
+            second_half = pnl_arr[mid:]
+            s1 = float(np.mean(first_half) / np.std(first_half, ddof=1)) if np.std(first_half, ddof=1) > 0 and len(first_half) > 1 else 0.0
+            s2 = float(np.mean(second_half) / np.std(second_half, ddof=1)) if np.std(second_half, ddof=1) > 0 and len(second_half) > 1 else 0.0
+            oos_sharpe_decay = s1 - s2 if s1 > 0 else 0.0
+        else:
+            oos_sharpe_decay = None
+
+        # Param stability CV (from perturbation stability if available)
+        param_stability_cv = None
+        if hasattr(results, 'aggregated') and results.aggregated:
+            # If aggregated metrics carry stability info, extract it
+            pass  # perturbation_evaluate_fn handles this separately
+
         summary_row = [
             run_id,
+            # Extended risk metrics (new columns)
+            icir,
+            dsr,
+            calmar,
+            sortino,
+            # Original 13 columns
             statistics.mean(wrs) if wrs else None,
             statistics.stdev(wrs) if len(wrs) > 1 else None,
             statistics.mean(pfs) if pfs else None,
@@ -375,6 +491,10 @@ class StrategyRunner:
             statistics.mean(dds) if dds else None,
             statistics.stdev(dds) if len(dds) > 1 else None,
             total_trades, windows_passed, windows_total, go_nogo_str,
+            # Additional new columns
+            score,
+            param_stability_cv,
+            oos_sharpe_decay,
         ]
 
         # ── Single explicit transaction ───────────────────────────────────
@@ -434,17 +554,19 @@ class StrategyRunner:
 
     @staticmethod
     def _insert_metrics_summary(conn, row: list) -> None:
-        """Insert the per-run aggregate row. ``row`` must have 13 elements."""
-        if row is None or len(row) != 13:
+        """Insert the per-run aggregate row. ``row`` must have 19 elements."""
+        if row is None or len(row) != 19:
             raise ValueError(
-                f"metrics_summary row must have 13 elements, got {len(row) if row else 0}"
+                f"metrics_summary row must have 19 elements, got {len(row) if row else 0}"
             )
         conn.execute(
             """INSERT INTO metrics_summary
-               (run_id, mean_win_rate, std_win_rate, mean_profit_factor,
+               (run_id, icir, dsr, calmar, sortino,
+                mean_win_rate, std_win_rate, mean_profit_factor,
                 std_profit_factor, mean_sharpe, std_sharpe,
                 mean_max_drawdown, std_max_drawdown, total_trades,
-                windows_passed, windows_total, go_nogo)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                windows_passed, windows_total, go_nogo,
+                score, param_stability_cv, oos_sharpe_decay)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             row,
         )

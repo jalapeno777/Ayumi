@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,7 +55,6 @@ def re_evaluate_candidate(conn, candidate: dict) -> dict | None:
     this would call StrategyRunner.run() with the candidate's params.
     """
     try:
-        from srf.runner import StrategyRunner
         # TODO: wire to actual strategy re-run
         # For now, log that we'd re-evaluate
         logger.info("Re-evaluating %s %s %dm (DSR was %.3f)",
@@ -102,12 +100,10 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
 
         # Log to cron_runs table
         conn.execute(
-            "INSERT INTO cron_runs (cron_name, started_at, completed_at, status, details_json) "
+            "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) "
             "VALUES (?, ?, ?, ?, ?)",
-            ["nightly_topk", started_at, datetime.now(timezone.utc),
-             "ok", json.dumps({"candidates": len(candidates),
-                                "re_evaluated": re_evaluated,
-                                "promoted": promoted})],
+            [started_at, datetime.now(timezone.utc), 0,
+             len(candidates), "ok"],
         )
 
     summary = {
