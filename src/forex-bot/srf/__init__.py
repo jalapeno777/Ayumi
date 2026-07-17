@@ -10,7 +10,24 @@ Public API:
 """
 
 from .schema import SRFDatabase, compute_data_hash, generate_run_id
+from .drift_monitor import (
+    DriftMonitor,
+    DriftReport,
+    DriftResult,
+    compute_psi,
+    compute_ks_test,
+)
 
 __version__ = "0.1.0"
 
-__all__ = ["SRFDatabase", "compute_data_hash", "generate_run_id"]
+__all__ = [
+    "SRFDatabase",
+    "compute_data_hash",
+    "generate_run_id",
+    # Drift monitoring
+    "DriftMonitor",
+    "DriftReport",
+    "DriftResult",
+    "compute_psi",
+    "compute_ks_test",
+]
