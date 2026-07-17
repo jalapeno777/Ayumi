@@ -45,10 +45,9 @@ from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
-# Import the canonical CET date helper from risk.ftmo_guard — do NOT
-# duplicate it. The daily reset boundary is FTMO-defined: CET midnight,
-# not UTC midnight.
-from risk.ftmo_guard import _cet_date
+# Import the canonical trading-date helper from risk.ftmo_guard.
+# The daily reset boundary is 00:00 America/Toronto (Craig decision Jul 17).
+from risk.ftmo_guard import _trading_date
 from .signal_adapter import cTraderLiveAdapter
 from .trade_logger import TradeLogger
 
@@ -584,10 +583,9 @@ class ForwardTestEngine:
         self._running = True
         self._start_time = datetime.now(timezone.utc)
 
-        # Phase 6B: Initialize daily reset tracker using CET date (FTMO spec).
-        # CET midnight — not UTC midnight — is the canonical daily reset
-        # boundary for the daily loss cap.
-        self._last_reset_date = _cet_date(self._start_time)
+        # Phase 6B: Initialize daily reset tracker using trading date.
+        # America/Toronto midnight is the canonical daily reset boundary.
+        self._last_reset_date = _trading_date(self._start_time)
 
         self._stop_health_monitor.clear()
         self._health_monitor_thread = threading.Thread(
@@ -2653,16 +2651,16 @@ class ForwardTestEngine:
                 # Phase 6B: Daily risk reset check — detect day boundary
                 # and call reset_daily() on the sizer.  This runs in the
                 # health monitor loop so it fires even without new signals.
-                # Uses the CET date (FTMO spec) — not UTC date — so the
-                # daily loss budget rolls over at CET midnight regardless
-                # of host timezone.
+                # Uses America/Toronto midnight (Craig decision Jul 17) so
+                # the daily loss budget rolls over at Toronto midnight
+                # regardless of host timezone.
                 now_dt = datetime.now(timezone.utc)
-                day_str = _cet_date(now_dt)
+                day_str = _trading_date(now_dt)
                 if self._last_reset_date is not None and day_str != self._last_reset_date:
                     blend_runner = getattr(self, "_blend_runner", None)
                     if blend_runner is not None:
                         if hasattr(blend_runner, "daily_reset"):
-                            # Forward CET date so the blend runner's
+                            # Forward trading date so the blend runner's
                             # internal day-tracking and sizer logging
                             # stay consistent.
                             blend_runner.daily_reset(now=now_dt)
@@ -2676,7 +2674,7 @@ class ForwardTestEngine:
                                 logger.info(
                                     "Daily risk reset: daily_used=%.2f→0.00, "
                                     "open_risk=%.2f, positions_carried=%d, "
-                                    "cet_date=%s",
+                                    "trading_date=%s",
                                     pre_daily, pre_open, positions_carried, day_str,
                                 )
                 self._last_reset_date = day_str

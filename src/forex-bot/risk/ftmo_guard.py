@@ -3,7 +3,7 @@
 Implements three core FTMO protections:
 
 1. **Daily loss limit** — freeze trading when daily loss reaches 4% of
-   starting balance.  Resets at CET midnight.
+   starting balance.  Resets at 00:00 America/Toronto.
 2. **Max concurrent positions** — reject new positions beyond 3.
 3. **Drawdown breaker** — reduce new position size by 50% at 8% drawdown,
    freeze all trading at 9% drawdown.
@@ -23,37 +23,39 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Optional, Protocol
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger("ayumi.risk.ftmo_guard")
 
-# ── CET timezone helpers ──────────────────────────────────────────────────────
+# ── Trading-day timezone helpers ─────────────────────────────────────────────
 
-# CET = UTC+1, CEST = UTC+2.
-# We use a fixed UTC+1 offset for "CET midnight" reset purposes.
-# DST transitions happen on Sunday 01:00 UTC (last Sunday March/October),
-# which means the reset window is never ambiguous for weekday trading.
-CET_UTC_OFFSET = timedelta(hours=1)
+# Per Craig decision (Jul 17, 2026): both engine and risk guard reset at
+# 00:00 America/Toronto (midnight Eastern).  DST is handled automatically
+# by ZoneInfo.
+_TRADING_TZ = ZoneInfo("America/Toronto")
 
 
-def _cet_date(now: Optional[datetime] = None) -> str:
-    """Return the current CET date as ``YYYY-MM-DD`` string."""
+def _trading_date(now: Optional[datetime] = None) -> str:
+    """Return the current America/Toronto date as ``YYYY-MM-DD`` string."""
     if now is None:
         now = datetime.now(timezone.utc)
-    cet_now = now + CET_UTC_OFFSET
-    return cet_now.strftime("%Y-%m-%d")
+    return now.astimezone(_TRADING_TZ).strftime("%Y-%m-%d")
 
 
-def _cet_midnight_utc(now: Optional[datetime] = None) -> datetime:
-    """Return the next CET midnight as a UTC datetime."""
+def _toronto_midnight_utc(now: Optional[datetime] = None) -> datetime:
+    """Return the next America/Toronto midnight as a UTC datetime."""
     if now is None:
         now = datetime.now(timezone.utc)
-    cet_now = now + CET_UTC_OFFSET
-    # Midnight tonight in CET = 00:00 CET tomorrow
-    cet_midnight = (cet_now + timedelta(days=1)).replace(
+    now_tz = now.astimezone(_TRADING_TZ)
+    next_midnight = (now_tz + timedelta(days=1)).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    # Convert back to UTC
-    return cet_midnight - CET_UTC_OFFSET
+    return next_midnight.astimezone(timezone.utc)
+
+
+# Backward-compatible aliases (deprecated — use _trading_date / _toronto_midnight_utc)
+_cet_date = _trading_date
+_cet_midnight_utc = _toronto_midnight_utc
 
 
 # ── Enums ────────────────────────────────────────────────────────────────────
@@ -96,14 +98,14 @@ class FTMOState:
     peak_balance: float = 0.0
     current_balance: float = 0.0
     daily_loss_pct: float = 0.0
-    daily_loss_date: Optional[str] = None    # CET date for the current daily loss tracking
+    daily_loss_date: Optional[str] = None    # Trading date for the current daily loss tracking
     open_position_count: int = 0
     current_dd_pct: float = 0.0
     action_level: str = FTMOAction.ALLOW.value
     breach_history: list = field(default_factory=list)
     # Phase 0: Best-day rule tracking (FTMO 1-Step: best day ≤ 50% of total positive-days profit)
-    daily_pnl: float = 0.0                          # P&L for current CET day
-    daily_pnl_date: Optional[str] = None            # CET date for daily_pnl tracking
+    daily_pnl: float = 0.0                          # P&L for current trading day
+    daily_pnl_date: Optional[str] = None            # Trading date for daily_pnl tracking
     daily_pnl_history: list = field(default_factory=list)  # [{date, pnl}] for completed days
 
     def to_dict(self) -> dict:
@@ -183,8 +185,8 @@ class FTMOGuard:
             starting_balance=starting_balance,
             peak_balance=starting_balance,
             current_balance=starting_balance,
-            daily_loss_date=_cet_date(),
-            daily_pnl_date=_cet_date(),
+            daily_loss_date=_trading_date(),
+            daily_pnl_date=_trading_date(),
         )
 
     # ── Public API: State queries ──────────────────────────────────────────
@@ -249,16 +251,16 @@ class FTMOGuard:
             now = datetime.now(timezone.utc)
 
         with self._lock:
-            # ── CET midnight daily reset ───────────────────────────────────
-            cet_today = _cet_date(now)
-            if self._state.daily_loss_date != cet_today:
+            # ── America/Toronto midnight daily reset ──────────────────
+            today_str = _trading_date(now)
+            if self._state.daily_loss_date != today_str:
                 logger.info(
                     "FTMO daily reset: %s → %s",
                     self._state.daily_loss_date,
-                    cet_today,
+                    today_str,
                 )
                 # Phase 0: Roll over daily P&L before resetting
-                if self._state.daily_pnl_date is not None and self._state.daily_pnl_date != cet_today:
+                if self._state.daily_pnl_date is not None and self._state.daily_pnl_date != today_str:
                     self._state.daily_pnl_history.append({
                         "date": self._state.daily_pnl_date,
                         "pnl": self._state.daily_pnl,
@@ -271,12 +273,12 @@ class FTMOGuard:
                         self._state.daily_pnl,
                     )
                 self._state.daily_loss_pct = 0.0
-                self._state.daily_loss_date = cet_today
+                self._state.daily_loss_date = today_str
                 self._state.daily_pnl = 0.0
-                self._state.daily_pnl_date = cet_today
+                self._state.daily_pnl_date = today_str
                 # If we were frozen due to daily loss, allow trading again
                 if self._state.action_level == FTMOAction.FREEZE.value:
-                    self._set_action(FTMOAction.ALLOW, "Daily reset at CET midnight")
+                    self._set_action(FTMOAction.ALLOW, "Daily reset at America/Toronto midnight")
 
             # ── Update balance metrics ─────────────────────────────────────
             self._state.current_balance = current_balance
@@ -300,10 +302,10 @@ class FTMOGuard:
                 self._state.current_dd_pct = 0.0
 
             # ── Phase 0: Track daily P&L ────────────────────────────────────
-            # Daily P&L = change in balance since start of CET day
+            # Daily P&L = change in balance since start of trading day
             # We approximate start-of-day balance as starting_balance - cumulative_daily_pnl
             # For accuracy, the forward test engine should set daily_start_balance explicitly
-            if self._state.daily_pnl_date == cet_today:
+            if self._state.daily_pnl_date == today_str:
                 # Track balance delta within the day
                 # On first update of the day, daily_pnl is 0 (reset at rollover)
                 # We use current_balance - starting_balance + cumulative losses as daily P&L
@@ -363,7 +365,7 @@ class FTMOGuard:
 
             # All clear — recover from reduce/freeze if rules no longer breached
             if self._state.action_level != FTMOAction.ALLOW.value:
-                # Daily loss and DD can recover without CET reset
+                # Daily loss and DD can recover without daily reset
                 self._set_action(FTMOAction.ALLOW, "Metrics within FTMO limits")
             return self.action_level
 
@@ -410,17 +412,17 @@ class FTMOGuard:
     # ── Phase 0: Best-day rule API ─────────────────────────────────────
 
     def record_daily_pnl(self, pnl: float, date: Optional[str] = None) -> None:
-        """Record closed-trade P&L for the current (or specified) CET day.
+        """Record closed-trade P&L for the current (or specified) trading day.
 
         Called by the forward test engine when a trade closes.
         Accumulates into ``daily_pnl`` for the current day.
 
         Args:
             pnl: Realized P&L for the closed trade (positive = profit).
-            date: CET date string (YYYY-MM-DD). Defaults to today.
+            date: Trading date string (YYYY-MM-DD). Defaults to today.
         """
         if date is None:
-            date = _cet_date()
+            date = _trading_date()
         with self._lock:
             if self._state.daily_pnl_date != date:
                 # Rollover if date changed without an update() call
@@ -461,7 +463,7 @@ class FTMOGuard:
         # Include today if positive
         if self._state.daily_pnl > 0:
             positive_days.append({
-                "date": self._state.daily_pnl_date or _cet_date(),
+                "date": self._state.daily_pnl_date or _trading_date(),
                 "pnl": self._state.daily_pnl,
             })
 

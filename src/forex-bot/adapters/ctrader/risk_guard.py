@@ -14,10 +14,11 @@ from .models import TradeDirection, CTraderTradeSignal
 
 logger = logging.getLogger(__name__)
 
-# Trading day boundary: 17:00 America/Toronto (5 PM ET).
-# Forex trading day rolls at 5 PM New York / Toronto time.
+# Trading day boundary: 00:00 America/Toronto (midnight Eastern).
+# Per Craig decision (Jul 17, 2026): align engine and risk guard to
+# America/Toronto midnight for consistency.
 _TRADING_TZ = ZoneInfo("America/Toronto")
-_TRADING_DAY_RESET_HOUR = 17
+_TRADING_DAY_RESET_HOUR = 0
 
 # Default per-symbol max spread in pips.  Values are tightened to
 # reject news-spike spreads while allowing normal interbank conditions.
@@ -428,15 +429,13 @@ class RiskGuard:
         return reward / risk
 
     def _current_trading_day(self) -> date:
-        """Return the current trading day based on 17:00 America/Toronto.
+        """Return the current trading day based on 00:00 America/Toronto.
 
-        Forex trading day rolls at 5 PM ET.  Before 17:00 local we are
-        still in the previous calendar day's session.
+        Trading day rolls at midnight Eastern.  This aligns with the
+        engine and FTMO guard for consistent daily reset.
         """
         now_tz = datetime.now(_TRADING_TZ)
-        if now_tz.hour >= _TRADING_DAY_RESET_HOUR:
-            return now_tz.date()
-        return now_tz.date() - timedelta(days=1)
+        return now_tz.date()
 
     def _update_daily_tracking(self):
         today = self._current_trading_day()
