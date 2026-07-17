@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from hybrid.risk_manager import RiskAction, RiskDecision, RiskManager
 from hybrid.signal import HumanSignal, SignalType
+from risk.correlation_sizer import CorrelationAwareSizer
 
 
 class OrderStatus(StrEnum):
@@ -48,6 +49,7 @@ DEFAULT_SESSION_WINDOWS = [
 class HybridEngineConfig:
     session_filter_enabled: bool = True
     allowed_sessions: list[str] | None = None
+    use_kelly_sizing: bool = False
 
 
 class HybridEngine:
@@ -57,9 +59,11 @@ class HybridEngine:
         starting_balance: float = 100_000.0,
         config: HybridEngineConfig | None = None,
         session_windows: list[SessionWindow] | None = None,
+        correlation_sizer: CorrelationAwareSizer | None = None,
     ) -> None:
         self._risk_manager = risk_manager or RiskManager(
             starting_balance=starting_balance,
+            correlation_sizer=correlation_sizer,
         )
         self._config = config or HybridEngineConfig()
         self._session_windows = session_windows or DEFAULT_SESSION_WINDOWS

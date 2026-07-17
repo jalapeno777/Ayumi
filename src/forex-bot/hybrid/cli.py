@@ -7,6 +7,8 @@ from typing import Any
 from hybrid.engine import HybridEngine, HybridEngineConfig
 from hybrid.risk_manager import RiskManager
 from hybrid.signal import HumanSignal, SignalSource, SignalType
+from risk.correlation_sizer import CorrelationAwareSizer
+from risk.correlation_matrix import CorrelationMatrix
 
 
 def _parse_kv_args(args: list[str]) -> dict[str, str]:
@@ -181,13 +183,36 @@ def _format_close_result(result: Any, position_id: str) -> str:
 def create_engine(
     starting_balance: float = 100_000.0,
     session_filter_enabled: bool = True,
+    correlation_matrix: CorrelationMatrix | None = None,
+    use_kelly_sizing: bool = False,
 ) -> HybridEngine:
-    config = HybridEngineConfig(session_filter_enabled=session_filter_enabled)
-    risk_manager = RiskManager(starting_balance=starting_balance)
+    """Create a HybridEngine with optional correlation-aware sizing.
+
+    When *correlation_matrix* is provided, a :class:`CorrelationAwareSizer`
+    is instantiated and passed to the :class:`RiskManager` so that
+    cross-strategy correlation penalties apply to live position sizing.
+
+    *use_kelly_sizing* enables Half-Kelly position sizing (default off).
+    """
+    correlation_sizer: CorrelationAwareSizer | None = None
+    if correlation_matrix is not None:
+        correlation_sizer = CorrelationAwareSizer(
+            correlation_matrix=correlation_matrix,
+        )
+
+    config = HybridEngineConfig(
+        session_filter_enabled=session_filter_enabled,
+        use_kelly_sizing=use_kelly_sizing,
+    )
+    risk_manager = RiskManager(
+        starting_balance=starting_balance,
+        correlation_sizer=correlation_sizer,
+    )
     return HybridEngine(
         risk_manager=risk_manager,
         starting_balance=starting_balance,
         config=config,
+        correlation_sizer=correlation_sizer,
     )
 
 
