@@ -345,7 +345,21 @@ def _build_signal(
     rsi: float,
     rationale: str,
     pip: float,
+    spread_price: float = 0.0,
 ) -> StrategySignal | None:
+    """Build a StrategySignal with TP anchored to the broker fill price.
+
+    The strategy's ``entry`` is the mid-price (Bar.close). For BUY orders the
+    broker fills at ASK = mid + half-spread; for SELL at BID = mid - half-spread.
+    TP/SL are computed relative to the fill price so the broker accepts the
+    order (TP > entry for BUY, TP < entry for SELL) — prevents
+    TRADING_BAD_STOPS rejections on wide-spread symbols like XAUUSD.
+
+    Args:
+        spread_price: full bid/ask spread in price units. Default 0.0 keeps
+            legacy behavior (TP/SL relative to mid) for callers that don't
+            supply bar-level spread info.
+    """
     if atr <= 0:
         logger.debug("SRMR+ _build_signal: ATR is zero or negative")
         return None
@@ -368,17 +382,43 @@ def _build_signal(
         entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
     )
 
+    # Anchor TP baseline to the broker fill price (ASK for BUY, BID for SELL)
+    # so the broker always sees TP > fill for BUY / TP < fill for SELL.
+    half_spread = spread_price / 2.0
+    if direction == TradeDirection.LONG:
+        tp_baseline = entry + half_spread  # ASK
+    else:
+        tp_baseline = entry - half_spread  # BID
+
     risk = sl_distance
     tp1 = (
-        entry + risk * config.tp1_rr
+        tp_baseline + risk * config.tp1_rr
         if direction == TradeDirection.LONG
-        else entry - risk * config.tp1_rr
+        else tp_baseline - risk * config.tp1_rr
     )
     tp2 = (
-        entry + risk * config.tp2_rr
+        tp_baseline + risk * config.tp2_rr
         if direction == TradeDirection.LONG
-        else entry - risk * config.tp2_rr
+        else tp_baseline - risk * config.tp2_rr
     )
+
+    # Guard clause: ensure TP direction is consistent with trade direction
+    # relative to the strategy's mid-price entry. Defense-in-depth for edge
+    # cases (zero/negative spread, NaN, sl_distance exactly at half-spread).
+    if direction == TradeDirection.LONG and tp1 <= entry:
+        logger.warning(
+            "SRMR+ _build_signal: LONG tp1=%.5f <= entry=%.5f after spread anchoring "
+            "(spread=%.5f, sl_distance=%.5f) — dropping signal",
+            tp1, entry, spread_price, sl_distance,
+        )
+        return None
+    if direction == TradeDirection.SHORT and tp1 >= entry:
+        logger.warning(
+            "SRMR+ _build_signal: SHORT tp1=%.5f >= entry=%.5f after spread anchoring "
+            "(spread=%.5f, sl_distance=%.5f) — dropping signal",
+            tp1, entry, spread_price, sl_distance,
+        )
+        return None
 
     confidence = 0.55 + (0.15 * (1.0 - adx / config.adx_max_threshold))
     confidence = min(0.80, max(0.40, confidence))
@@ -533,6 +573,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 f"SRMR+ long: price={price:.5f} near range low={session_low:.5f}, "
                 f"RSI={rsi:.1f}, ADX={adx:.1f}, range={session_range_width:.1f} pips"
             )
+            spread_price = latest.spread_pips * pip
             return _build_signal(
                 direction,
                 price,
@@ -543,6 +584,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 rsi,
                 rationale,
                 pip,
+                spread_price=spread_price,
             )
 
         if (
@@ -566,6 +608,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 f"SRMR+ short: price={price:.5f} near range high={session_high:.5f}, "
                 f"RSI={rsi:.1f}, ADX={adx:.1f}, range={session_range_width:.1f} pips"
             )
+            spread_price = latest.spread_pips * pip
             return _build_signal(
                 direction,
                 price,
@@ -576,6 +619,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 rsi,
                 rationale,
                 pip,
+                spread_price=spread_price,
             )
 
         logger.debug("SRMR+ %s: no signal condition met (price=%.5f session_low=%.5f session_high=%.5f rsi=%.1f)", getattr(latest, 'symbol', '?'), price, session_low, session_high, rsi)
