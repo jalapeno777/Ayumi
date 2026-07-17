@@ -175,7 +175,23 @@ def _build_signal(
     session_range_price: float,
     rationale: str,
     pip_value: float,
+    spread_price: float = 0.0,
 ) -> StrategySignal | None:
+    """Build a StrategySignal with TP anchored to the broker fill price.
+
+    The strategy's ``entry`` is the mid-price (Bar.close). For BUY orders the
+    broker fills at ASK = mid + half-spread; for SELL at BID = mid - half-spread.
+    TP/SL are computed relative to the fill price so the broker accepts the
+    order (TP > entry for BUY, TP < entry for SELL) — see card f2317859 for
+    the TRADING_BAD_STOPS incident on XAUUSD where mid-anchored TP landed
+    below the ASK fill.
+
+    Args:
+        spread_price: full bid/ask spread in price units (e.g. 0.04 for
+            4-pip XAUUSD spread with pip_value=0.01). Default 0.0 keeps
+            legacy behavior (TP/SL relative to mid) for callers that
+            don't supply bar-level spread info.
+    """
     if atr <= 0:
         return None
 
@@ -197,21 +213,38 @@ def _build_signal(
     if sl_distance < min_sl:
         sl_distance = min_sl
 
-    sl = (
-        entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
-    )
+    # Anchor TP baseline to the broker fill price (ASK for BUY, BID for SELL)
+    # so the broker always sees TP > fill for BUY / TP < fill for SELL.
+    # SL stays anchored to mid (entry) — it's already well past the fill on
+    # the correct side as long as sl_distance > half-spread.
+    half_spread = spread_price / 2.0
+    if direction == TradeDirection.LONG:
+        sl = entry - sl_distance
+        tp_baseline = entry + half_spread  # ASK
+    else:
+        sl = entry + sl_distance
+        tp_baseline = entry - half_spread  # BID
 
     risk = sl_distance
     tp1 = (
-        entry + risk * config.tp1_rr
+        tp_baseline + risk * config.tp1_rr
         if direction == TradeDirection.LONG
-        else entry - risk * config.tp1_rr
+        else tp_baseline - risk * config.tp1_rr
     )
     tp2 = (
-        entry + risk * config.tp2_rr
+        tp_baseline + risk * config.tp2_rr
         if direction == TradeDirection.LONG
-        else entry - risk * config.tp2_rr
+        else tp_baseline - risk * config.tp2_rr
     )
+
+    # Guard clause: ensure TP direction is consistent with trade direction
+    # relative to the strategy's mid-price entry. Should be impossible with
+    # the fill-price anchoring above, but defense-in-depth for edge cases
+    # (zero/negative spread, NaN, sl_distance exactly at half-spread).
+    if direction == TradeDirection.LONG and tp1 <= entry:
+        return None
+    if direction == TradeDirection.SHORT and tp1 >= entry:
+        return None
 
     return StrategySignal(
         direction=direction,
@@ -282,6 +315,13 @@ class SessionRangeMeanReversionStrategy:
 
         entry_near_extreme_pips = self.config.entry_near_extreme_pips * pip
 
+        # Compute the bar's bid/ask spread in price units so TP can be anchored
+        # to the broker fill price (ASK for BUY, BID for SELL). Without this,
+        # mid-anchored TP can land below the ASK fill on wide-spread symbols
+        # (e.g. XAUUSD) and get rejected with TRADING_BAD_STOPS — see card
+        # f2317859 for the 2026-07-17 00:15:25 incident.
+        spread_price = latest.spread_pips * pip
+
         if (
             price <= session_low + entry_near_extreme_pips
             and rsi < self.config.rsi_long_level
@@ -292,7 +332,8 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale, pip
+                direction, price, atr, self.config, session_range_price, rationale, pip,
+                spread_price=spread_price,
             )
 
         if (
@@ -305,7 +346,8 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale, pip
+                direction, price, atr, self.config, session_range_price, rationale, pip,
+                spread_price=spread_price,
             )
 
         return None
