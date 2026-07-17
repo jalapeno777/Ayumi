@@ -30,9 +30,9 @@ logger = logging.getLogger("ayumi.test_canary")
 class TestCanaryStrategy(ISignalStrategy):
     """Fire a signal on every bar close to validate the execution pipeline.
 
-    DISABLED as of 2026-06-29 22:20 EDT — see blended-strategies sprint.
-    Kept registered for re-enable later. Set tp_sl_pct=0.0 below to fully
-    disable without removing from the launcher.
+    RE-ENABLED as of 2026-07-17 — canary now defaults to enabled via from_env().
+    To explicitly disable, set AYUMI_ENABLE_CANARY=0 in the environment.
+    Constructor still defaults to tp_sl_pct=0.0 (disabled) for safety.
     """
 
     def __init__(self, tp_sl_pct: float = 0.0):  # 0.0 = disabled (no signals)
@@ -43,10 +43,10 @@ class TestCanaryStrategy(ISignalStrategy):
     def from_env(cls, default_tp_sl_pct: float = 0.005) -> "TestCanaryStrategy":
         """Construct from environment gating.
 
-        Re-enable requires explicit AYUMI_ENABLE_CANARY=1.
-        tp_sl_pct=0.0 by default unless env var is set.
+        Canary is enabled by default (forward test mode). To disable,
+        set AYUMI_ENABLE_CANARY=0 explicitly.
         """
-        enabled = os.getenv("AYUMI_ENABLE_CANARY", "0").strip() == "1"
+        enabled = os.getenv("AYUMI_ENABLE_CANARY", "1").strip() == "1"
         if enabled:
             return cls(tp_sl_pct=default_tp_sl_pct)
         return cls(tp_sl_pct=0.0)
