@@ -31,7 +31,7 @@ from risk.ftmo_guard import (
     FTMOAction,
     FTMOBreachType,
     FTMOGuard,
-    _cet_date,
+    _trading_date,
 )
 
 
@@ -98,7 +98,7 @@ class TestMinimumPositiveDays:
 
     def test_only_today_positive_no_violation(self, guard):
         """Today's daily_pnl alone (1 positive day) → no violation."""
-        _set_today(guard, _cet_date(), 100.0)
+        _set_today(guard, _trading_date(), 100.0)
         result = guard.check_best_day_rule()
         assert result is None
 
@@ -294,10 +294,10 @@ class TestRecordDailyPnl:
         assert guard.state.daily_pnl == pytest.approx(30.0)
 
     def test_default_date_uses_today(self, guard):
-        """When no date provided, ``_cet_date()`` is used."""
+        """When no date provided, ``_trading_date()`` is used."""
         guard.record_daily_pnl(50.0)  # no date argument
         assert guard.state.daily_pnl == pytest.approx(50.0)
-        assert guard.state.daily_pnl_date == _cet_date()
+        assert guard.state.daily_pnl_date == _trading_date()
 
     def test_accumulation_independent_of_history(self, guard):
         """Accumulation does not write to history (rollover is separate)."""
@@ -316,8 +316,8 @@ class TestRecordDailyPnl:
 
 # ── 6. CET midnight rollover ────────────────────────────────────────────────
 
-class TestCetrRollover:
-    """Daily P&L rolls to history when CET date changes."""
+class TestTorontoRollover:
+    """Daily P&L rolls to history when America/Toronto date changes."""
 
     def test_rollover_via_record_daily_pnl_date_change(self, guard):
         """Different date string in ``record_daily_pnl`` triggers rollover."""
@@ -339,13 +339,13 @@ class TestCetrRollover:
         assert guard.state.daily_pnl_date == "2026-07-09"
 
     def test_rollover_via_update_with_next_day(self, guard):
-        """``update()`` with a ``now``-arg on the next CET day triggers rollover."""
+        """``update()`` with a ``now``-arg on the next Toronto day triggers rollover."""
         # Set up state as if we're on "2026-07-08" with 100 pnl recorded
         _set_today(guard, "2026-07-08", 100.0)
         guard._state.daily_loss_date = "2026-07-08"
 
-        # Call update with a time on 2026-07-09 01:30 UTC (= 02:30 CET)
-        next_day = datetime(2026, 7, 9, 1, 30, tzinfo=timezone.utc)
+        # Call update with a time on 2026-07-09 04:30 UTC (= 00:30 EDT)
+        next_day = datetime(2026, 7, 9, 4, 30, tzinfo=timezone.utc)
         guard.update(current_balance=10000.0, open_positions=0, now=next_day)
 
         # history should contain day 07-08
@@ -467,7 +467,8 @@ class TestHistoryTrimming:
         guard._state.daily_loss_date = "2026-07-08"
 
         # update() with next-day now triggers rollover + trim
-        next_day = datetime(2026, 7, 9, 1, 30, tzinfo=timezone.utc)
+        # 04:30 UTC = 00:30 EDT (next Toronto day)
+        next_day = datetime(2026, 7, 9, 4, 30, tzinfo=timezone.utc)
         guard.update(current_balance=10000.0, open_positions=0, now=next_day)
 
         # 62 + 1 (rolled over) = 63, then trimmed to 60

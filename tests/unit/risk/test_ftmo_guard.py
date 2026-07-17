@@ -21,8 +21,9 @@ import pytest
 from risk.ftmo_guard import (
     FTMOAction,
     FTMOGuard,
-    _cet_date,
-    _cet_midnight_utc,
+    _trading_date,
+    _toronto_midnight_utc,
+    _TRADING_TZ,
 )
 
 
@@ -69,26 +70,26 @@ class TestDailyLoss:
         call_kwargs = kill_switch.activate_global_freeze.call_args
         assert "ftmo_guard" in str(call_kwargs)
 
-    def test_daily_loss_resets_at_cet_midnight(self, guard):
-        """Daily loss should reset when CET date changes."""
+    def test_daily_loss_resets_at_toronto_midnight(self, guard):
+        """Daily loss should reset when America/Toronto date changes."""
         # Trigger a daily loss
         guard.update(current_balance=9500.0, open_positions=0)
         assert guard.daily_loss_pct >= 5.0
 
-        # Simulate next CET day
-        next_day = datetime(2026, 7, 5, 0, 30, tzinfo=timezone.utc)  # 01:30 CET July 5
+        # Simulate next Toronto day (04:30 UTC = 00:30 EDT July 5)
+        next_day = datetime(2026, 7, 5, 4, 30, tzinfo=timezone.utc)
         action = guard.update(current_balance=10000.0, open_positions=0, now=next_day)
         assert guard.daily_loss_pct == 0.0
         assert action == FTMOAction.ALLOW
 
     def test_daily_reset_recovers_from_freeze(self, guard):
-        """If frozen by daily loss, CET midnight should allow trading again."""
+        """If frozen by daily loss, Toronto midnight should allow trading again."""
         # Hit daily loss freeze
         guard.update(current_balance=9500.0, open_positions=0)
         assert guard.action_level == FTMOAction.FREEZE
 
-        # Next CET day, balance recovered
-        next_day = datetime(2026, 7, 5, 0, 30, tzinfo=timezone.utc)
+        # Next Toronto day (04:30 UTC = 00:30 EDT July 5), balance recovered
+        next_day = datetime(2026, 7, 5, 4, 30, tzinfo=timezone.utc)
         guard.update(current_balance=10000.0, open_positions=0, now=next_day)
         assert guard.action_level == FTMOAction.ALLOW
 
@@ -237,28 +238,32 @@ class TestKillSwitchIntegration:
         assert action == FTMOAction.FREEZE  # Still tracks, just doesn't call KS
 
 
-# ── 7. CET Helpers ───────────────────────────────────────────────────────────
+# ── 7. Trading Date Helpers ──────────────────────────────────────────────────
 
-class TestCETHelpers:
-    """Tests for CET date/midnight utilities."""
+class TestTradingDateHelpers:
+    """Tests for America/Toronto date/midnight utilities.
 
-    def test_cet_date_returns_yyyy_mm_dd(self):
-        result = _cet_date(datetime(2026, 7, 4, 23, 30, tzinfo=timezone.utc))
-        # 23:30 UTC + 1h = 00:30 CET July 5
-        assert result == "2026-07-05"
+    Convention changed from CET to America/Toronto midnight per Craig
+    decision (Jul 17, 2026, commit 5e55283/4216e55).
+    """
 
-    def test_cet_midnight_utc_returns_next_midnight(self):
-        """CET midnight should be 23:00 UTC (00:00 CET next day)."""
-        now = datetime(2026, 7, 4, 12, 0, tzinfo=timezone.utc)
-        midnight = _cet_midnight_utc(now)
-        # Next CET midnight after 12:00 UTC July 4 = 23:00 UTC July 4 = 00:00 CET July 5
-        assert midnight.day == 4
-        assert midnight.hour == 23
+    def test_trading_date_returns_yyyy_mm_dd(self):
+        """UTC 23:30 July 4 = 19:30 EDT July 4 (Toronto is UTC-4 in summer)."""
+        result = _trading_date(datetime(2026, 7, 4, 23, 30, tzinfo=timezone.utc))
+        assert result == "2026-07-04"
 
-    def test_cet_date_changes_at_midnight(self):
-        """UTC 22:59 and UTC 23:00 should be different CET dates."""
-        before = _cet_date(datetime(2026, 7, 4, 22, 59, tzinfo=timezone.utc))
-        after = _cet_date(datetime(2026, 7, 4, 23, 0, tzinfo=timezone.utc))
+    def test_toronto_midnight_utc_returns_next_midnight(self):
+        """Toronto midnight should be 04:00 UTC during EDT (00:00 EDT next day)."""
+        now = datetime(2026, 7, 4, 12, 0, tzinfo=timezone.utc)  # 08:00 EDT
+        midnight = _toronto_midnight_utc(now)
+        # Next Toronto midnight after 08:00 EDT July 4 = 00:00 EDT July 5 = 04:00 UTC July 5
+        assert midnight.day == 5
+        assert midnight.hour == 4
+
+    def test_trading_date_changes_at_midnight(self):
+        """UTC 03:59 and UTC 04:00 should be different Toronto dates (EDT)."""
+        before = _trading_date(datetime(2026, 7, 5, 3, 59, tzinfo=timezone.utc))
+        after = _trading_date(datetime(2026, 7, 5, 4, 0, tzinfo=timezone.utc))
         assert before == "2026-07-04"
         assert after == "2026-07-05"
 
