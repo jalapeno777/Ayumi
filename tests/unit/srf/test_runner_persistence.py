@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -112,8 +113,16 @@ def make_results(
     *,
     n_trades: int = 8,
     go: bool = True,
+    with_dates: bool = True,
 ) -> WalkForwardResults:
-    """Build a synthetic WalkForwardResults with trade records attached."""
+    """Build a synthetic WalkForwardResults with trade records attached.
+
+    When ``with_dates=True`` (default), attaches ``_window_dates`` sidecar
+    with synthetic datetime boundaries so the date-column INSERT path is
+    exercised.
+    """
+    from datetime import datetime, timezone, timedelta as td
+
     per_window = [make_window(i, go=(i % 2 == 0)) for i in range(n_windows)]
     agg = AggregatedMetrics(
         mean_win_rate=0.56, std_win_rate=0.05,
@@ -130,6 +139,7 @@ def make_results(
     )
     # Round-robin window assignment to exercise multi-window trade persistence.
     directions = ["long", "short", "long", "short"]
+    base_time = datetime(2025, 1, 1, tzinfo=timezone.utc)
     results._trade_records = [
         {
             "pnl": 5.0 + idx,
@@ -137,9 +147,25 @@ def make_results(
             "window_id": idx % n_windows,
             "rationale": f"trade_{idx}",
             "confidence_score": 0.6 + (idx % 5) * 0.05,
+            "entry_time": base_time + td(hours=idx),
+            "exit_time": base_time + td(hours=idx + 1),
+            "entry_price": 1.0850 + idx * 0.001,
+            "exit_price": 1.0860 + idx * 0.001,
         }
         for idx in range(n_trades)
     ]
+    # Window dates sidecar — matches walk-forward split boundaries
+    if with_dates:
+        results._window_dates = [
+            {
+                "window_index": i,
+                "train_start": base_time + td(days=i * 30),
+                "train_end": base_time + td(days=i * 30 + 21),
+                "test_start": base_time + td(days=i * 30 + 25),
+                "test_end": base_time + td(days=i * 30 + 30),
+            }
+            for i in range(n_windows)
+        ]
     return results
 
 
@@ -374,7 +400,12 @@ class TestTradeRecordDefensive:
     def test_trade_columns_are_correct(
         self, seeded_db, tmp_db_path,
     ):
-        """Stored trades have run_id, window_idx, direction, pnl, exit_reason."""
+        """Stored trades have run_id, window_idx, direction, pnl, exit_reason.
+
+        With the date-fix, ``entry_time``, ``exit_time``, ``entry_price``,
+        and ``exit_price`` are now populated when the trade record dict
+        provides them.
+        """
         results = make_results(n_windows=3, n_trades=0)
         results._trade_records = [
             {
@@ -383,6 +414,10 @@ class TestTradeRecordDefensive:
                 "window_id": 1,
                 "exit_reason": "take_profit",
                 "rationale": "ranking-engine breakout",
+                "entry_time": datetime(2025, 3, 15, 8, 0, tzinfo=timezone.utc),
+                "exit_time": datetime(2025, 3, 15, 12, 0, tzinfo=timezone.utc),
+                "entry_price": 1.0850,
+                "exit_price": 1.0920,
             },
         ]
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -403,13 +438,10 @@ class TestTradeRecordDefensive:
         assert direction == "long"
         assert pnl == pytest.approx(9.99)
         assert exit_reason == "take_profit"
-        # Time/price columns are NULL because the walk-forward summary does
-        # not retain them — explicit assertion guards against accidental
-        # default-value inversion.
-        assert et is None
-        assert xt is None
-        assert ep is None
-        assert xp is None
+        assert et == datetime(2025, 3, 15, 8, 0, tzinfo=timezone.utc)
+        assert xt == datetime(2025, 3, 15, 12, 0, tzinfo=timezone.utc)
+        assert ep == pytest.approx(1.0850)
+        assert xp == pytest.approx(1.0920)
 
 
 # ---------------------------------------------------------------------------
@@ -617,12 +649,262 @@ class TestInsertHelpers:
         db = SRFDatabase(tmp_db_path)
         try:
             with db as conn:
-                with pytest.raises(ValueError, match="13 elements"):
+                with pytest.raises(ValueError, match="20 elements"):
                     StrategyRunner._insert_metrics_summary(
                         conn, ["too", "short"],
                     )
-                with pytest.raises(ValueError, match="13 elements"):
+                with pytest.raises(ValueError, match="20 elements"):
                     StrategyRunner._insert_metrics_summary(conn, None)
+        finally:
+            db.close()
+
+
+# ---------------------------------------------------------------------------
+# Window date columns (train_start/end, test_start/end)
+# ---------------------------------------------------------------------------
+
+class TestWindowDateColumns:
+    """Verify that the 4 date columns are populated when _window_dates sidecar
+    is present, and remain NULL when absent."""
+
+    def test_dates_populated_from_sidecar(self, seeded_db, tmp_db_path):
+        """When results._window_dates is provided, all 4 date columns are set."""
+        results = make_results(n_windows=3, n_trades=0, with_dates=True)
+        runner = StrategyRunner(db_path=tmp_db_path)
+
+        with seeded_db as conn:
+            runner._write_results(conn, "mock_run_001", results)
+
+        with seeded_db as conn:
+            rows = conn.execute(
+                """SELECT window_idx, train_start, train_end,
+                          test_start, test_end
+                   FROM windows WHERE run_id='mock_run_001'
+                   ORDER BY window_idx"""
+            ).fetchall()
+
+        assert len(rows) == 3
+        for row in rows:
+            widx, ts, te, xs, xe = row
+            assert ts is not None, f"train_start NULL for window {widx}"
+            assert te is not None, f"train_end NULL for window {widx}"
+            assert xs is not None, f"test_start NULL for window {widx}"
+            assert xe is not None, f"test_end NULL for window {widx}"
+
+    def test_dates_null_when_no_sidecar(self, seeded_db, tmp_db_path):
+        """When no _window_dates sidecar, date columns remain NULL."""
+        results = make_results(n_windows=3, n_trades=0, with_dates=False)
+        runner = StrategyRunner(db_path=tmp_db_path)
+
+        with seeded_db as conn:
+            runner._write_results(conn, "mock_run_001", results)
+
+        with seeded_db as conn:
+            null_count = conn.execute(
+                """SELECT COUNT(*) FROM windows
+                   WHERE run_id='mock_run_001' AND train_start IS NULL"""
+            ).fetchone()[0]
+        assert null_count == 3
+
+    def test_window_dates_round_trip(self, seeded_db, tmp_db_path):
+        """Specific date values survive the round-trip through the DB."""
+        results = make_results(n_windows=1, n_trades=0, with_dates=True)
+        # Override with known values
+        results._window_dates = [{
+            "window_index": 0,
+            "train_start": datetime(2024, 6, 1, 0, 0, tzinfo=timezone.utc),
+            "train_end": datetime(2024, 9, 30, 0, 0, tzinfo=timezone.utc),
+            "test_start": datetime(2024, 10, 1, 0, 0, tzinfo=timezone.utc),
+            "test_end": datetime(2024, 12, 31, 0, 0, tzinfo=timezone.utc),
+        }]
+        runner = StrategyRunner(db_path=tmp_db_path)
+
+        with seeded_db as conn:
+            runner._write_results(conn, "mock_run_001", results)
+
+        with seeded_db as conn:
+            row = conn.execute(
+                """SELECT train_start, train_end, test_start, test_end
+                   FROM windows WHERE run_id='mock_run_001' AND window_idx=0"""
+            ).fetchone()
+
+        ts, te, xs, xe = row
+        assert ts == datetime(2024, 6, 1, 0, 0, tzinfo=timezone.utc)
+        assert te == datetime(2024, 9, 30, 0, 0, tzinfo=timezone.utc)
+        assert xs == datetime(2024, 10, 1, 0, 0, tzinfo=timezone.utc)
+        assert xe == datetime(2024, 12, 31, 0, 0, tzinfo=timezone.utc)
+
+
+class TestTradeTimestampColumns:
+    """Verify that entry_time, exit_time, entry_price, exit_price are populated."""
+
+    def test_trade_timestamps_populated(self, seeded_db, tmp_db_path):
+        """Trade records with entry/exit data get full column population."""
+        results = make_results(n_windows=2, n_trades=0)
+        results._trade_records = [
+            {
+                "pnl": 42.0,
+                "direction": "long",
+                "window_id": 0,
+                "entry_time": datetime(2025, 1, 15, 8, 0, tzinfo=timezone.utc),
+                "exit_time": datetime(2025, 1, 15, 14, 30, tzinfo=timezone.utc),
+                "entry_price": 1.0850,
+                "exit_price": 1.0920,
+                "exit_reason": "take_profit",
+            },
+        ]
+        runner = StrategyRunner(db_path=tmp_db_path)
+
+        with seeded_db as conn:
+            runner._write_results(conn, "mock_run_001", results)
+
+        with seeded_db as conn:
+            row = conn.execute(
+                """SELECT entry_time, exit_time, entry_price, exit_price
+                   FROM trades WHERE run_id='mock_run_001'"""
+            ).fetchone()
+
+        et, xt, ep, xp = row
+        assert et == datetime(2025, 1, 15, 8, 0, tzinfo=timezone.utc)
+        assert xt == datetime(2025, 1, 15, 14, 30, tzinfo=timezone.utc)
+        assert ep == pytest.approx(1.0850)
+        assert xp == pytest.approx(1.0920)
+
+    def test_trade_timestamps_null_when_absent(self, seeded_db, tmp_db_path):
+        """Trade records without timestamp fields store NULL for those columns."""
+        results = make_results(n_windows=2, n_trades=0)
+        results._trade_records = [
+            {"pnl": 10.0, "direction": "short", "window_id": 1},
+        ]
+        runner = StrategyRunner(db_path=tmp_db_path)
+
+        with seeded_db as conn:
+            runner._write_results(conn, "mock_run_001", results)
+
+        with seeded_db as conn:
+            row = conn.execute(
+                """SELECT entry_time, exit_time, entry_price, exit_price
+                   FROM trades WHERE run_id='mock_run_001'"""
+            ).fetchone()
+
+        et, xt, ep, xp = row
+        assert et is None
+        assert xt is None
+        assert ep is None
+        assert xp is None
+
+
+class TestNamingNormalization:
+    """Strategy name normalization for duplicate variants."""
+
+    def test_normalize_finds_known_variants(self, tmp_db_path):
+        """normalize_strategy_names detects and reports underscore variants."""
+        db = SRFDatabase(tmp_db_path)
+        try:
+            with db as conn:
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('killzone_momentum', '1.0', 'm.MockStrategy', 'production')"
+                )
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('killzonemomentum', '1.0', 'm.MockStrategy', 'production')"
+                )
+                conn.execute(
+                    """INSERT INTO runs
+                       (run_id, strategy_name, pair, timeframe, params_json,
+                        git_commit, data_hash, status, created_at)
+                       VALUES ('killzone_momentum_GBPUSD_M15_001', 'killzone_momentum',
+                               'GBPUSD', 15, '{}', 'abc', 'h1', 'completed', now())"""
+                )
+                conn.execute(
+                    """INSERT INTO runs
+                       (run_id, strategy_name, pair, timeframe, params_json,
+                        git_commit, data_hash, status, created_at)
+                       VALUES ('killzonemomentum_GBPUSD_M15_002', 'killzonemomentum',
+                               'GBPUSD', 15, '{}', 'abc', 'h1', 'completed', now())"""
+                )
+
+            result = StrategyRunner.normalize_strategy_names(
+                tmp_db_path, dry_run=True
+            )
+
+            assert len(result["variants_found"]) == 1
+            assert result["variants_found"][0]["from"] == "killzonemomentum"
+            assert result["variants_found"][0]["to"] == "killzone_momentum"
+        finally:
+            db.close()
+
+    def test_normalize_dry_run_does_not_modify(self, tmp_db_path):
+        """dry_run=True must not change any data."""
+        db = SRFDatabase(tmp_db_path)
+        try:
+            with db as conn:
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('srmr_plus', '1.0', 'm.S', 'production')"
+                )
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('srmrplus', '1.0', 'm.S', 'production')"
+                )
+                conn.execute(
+                    """INSERT INTO runs
+                       (run_id, strategy_name, pair, timeframe, params_json,
+                        git_commit, data_hash, status, created_at)
+                       VALUES ('srmrplus_XAUUSD_M15_001', 'srmrplus',
+                               'XAUUSD', 15, '{}', 'abc', 'h1', 'completed', now())"""
+                )
+
+            StrategyRunner.normalize_strategy_names(tmp_db_path, dry_run=True)
+
+            with db as conn:
+                name = conn.execute(
+                    "SELECT strategy_name FROM runs WHERE run_id='srmrplus_XAUUSD_M15_001'"
+                ).fetchone()[0]
+            assert name == "srmrplus"
+        finally:
+            db.close()
+
+    def test_normalize_applies_changes(self, tmp_db_path):
+        """dry_run=False updates strategy_name in the runs table."""
+        db = SRFDatabase(tmp_db_path)
+        try:
+            with db as conn:
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('volatility_squeeze', '1.0', 'm.S', 'production')"
+                )
+                conn.execute(
+                    "INSERT INTO strategies (name, version, module_path, status) "
+                    "VALUES ('volatilitysqueeze', '1.0', 'm.S', 'production')"
+                )
+                conn.execute(
+                    """INSERT INTO runs
+                       (run_id, strategy_name, pair, timeframe, params_json,
+                        git_commit, data_hash, status, created_at)
+                       VALUES ('vsqueeze_001', 'volatilitysqueeze',
+                               'EURUSD', 5, '{}', 'abc', 'h1', 'completed', now())"""
+                )
+                conn.execute(
+                    """INSERT INTO runs
+                       (run_id, strategy_name, pair, timeframe, params_json,
+                        git_commit, data_hash, status, created_at)
+                       VALUES ('vsqueeze_002', 'volatilitysqueeze',
+                               'GBPUSD', 60, '{}', 'abc', 'h1', 'completed', now())"""
+                )
+
+            result = StrategyRunner.normalize_strategy_names(tmp_db_path)
+
+            assert result["rows_updated"].get("volatilitysqueeze") == 2
+
+            with db as conn:
+                names = conn.execute(
+                    "SELECT DISTINCT strategy_name FROM runs "
+                    "WHERE run_id IN ('vsqueeze_001', 'vsqueeze_002')"
+                ).fetchall()
+            assert len(names) == 1
+            assert names[0][0] == "volatility_squeeze"
         finally:
             db.close()
 
