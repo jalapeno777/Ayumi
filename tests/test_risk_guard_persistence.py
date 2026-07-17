@@ -3,10 +3,10 @@
 Covers council decisions:
   R1 — state survives restarts
   R2 — daily loss halts until UTC midnight (not 5 min)
-  R3 — trading day boundary at 17:00 America/Toronto (changed from UTC midnight
-       in commit 7b5398e; the daily-loss time-based block intentionally remains
-       at UTC midnight since that's when the broker "day" rolls over for the
-       block-expiry timer)
+  R3 — trading day boundary at 00:00 America/Toronto (changed from 17:00
+       in commit 4216e55; aligns engine and risk guard to Toronto midnight)
+       The daily-loss time-based block intentionally remains at UTC midnight
+       since that's when the broker "day" rolls over for the block-expiry timer.
 """
 
 import json
@@ -248,7 +248,8 @@ class TestStateSurvivesRestart:
 # ---------------------------------------------------------------------------
 
 class TestTradingDayConsistency:
-    """Trading day boundary is 17:00 America/Toronto (shipped in commit 7b5398e).
+    """Trading day boundary is 00:00 America/Toronto (changed from 17:00 in
+    commit 4216e55 to align with engine and FTMO guard).
 
     The daily-loss time-based block (block until UTC midnight) is intentionally
     separate from the trading-day boundary — see test_daily_loss_blocks_until_utc_midnight.
@@ -282,11 +283,12 @@ class TestTradingDayConsistency:
             f"Expected America/Toronto, got {tz_name}"
         )
 
-    def test_trading_day_boundary_uses_17_00(self, guard):
-        """Reset hour is 17 (5 PM Toronto)."""
+    def test_trading_day_boundary_uses_midnight(self, guard):
+        """Reset hour is 0 (midnight Toronto) — changed from 17 in commit 4216e55."""
         from adapters.ctrader import risk_guard as rg_module
 
         reset_hour = rg_module._TRADING_DAY_RESET_HOUR
-        assert reset_hour == 17, (
-            f"Expected 17:00 reset, got {reset_hour}:00"
+        # Convention changed from 17:00 to 00:00 America/Toronto midnight
+        assert reset_hour == 0, (
+            f"Expected 0 (midnight Toronto), got {reset_hour}:00"
         )
