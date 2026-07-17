@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -7,6 +8,7 @@ import duckdb
 import pandas as pd
 import pyarrow.parquet as pq
 
+from .abstract_data_loader import AbstractDataLoader
 from .engine import Bar, BarPeriod
 from core.pip import PipCalculator
 
@@ -90,7 +92,79 @@ def _detect_ask_columns(df: pd.DataFrame) -> bool:
     return _ASK_OPEN in df.columns and _ASK_CLOSE in df.columns
 
 
-class CsvDataLoader:
+class CsvDataLoader(AbstractDataLoader):
+    """CSV file-based data loader.
+
+    Implements the :class:`AbstractDataLoader` interface while retaining
+    its original file-path-based methods (``load``, ``load_from_string``,
+    ``load_parquet``) for backward compatibility.
+
+    The ABC methods (``load_bars``, ``get_available_symbols``,
+    ``get_date_range``) operate against a configurable ``csv_dir``
+    using the ``{symbol}_{timeframe}.csv`` naming convention.
+    """
+
+    # Filename pattern: {SYMBOL}_{TIMEFRAME}[_suffix?].csv
+    _FILENAME_RE = re.compile(r"^(?P<symbol>[A-Z]+)_(?P<timeframe>[A-Z0-9]+)(?:_.+)?$")
+
+    def __init__(self, csv_dir: str | Path = DEFAULT_CSV_DIR) -> None:
+        self.csv_dir = Path(csv_dir)
+
+    # ------------------------------------------------------------------ #
+    # AbstractDataLoader interface
+    # ------------------------------------------------------------------ #
+    def load_bars(
+        self,
+        symbol: str,
+        timeframe: str,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[Bar]:
+        """Load bars for ``(symbol, timeframe)`` from ``csv_dir``.
+
+        Uses the ``{symbol}_{timeframe}.csv`` naming convention.
+        Optionally filters by ``start`` / ``end`` (UTC datetimes).
+        """
+        csv_path = self.csv_dir / f"{symbol}_{timeframe}.csv"
+        if not csv_path.exists():
+            logger.warning(
+                "CsvDataLoader.load_bars: no CSV at %s; returning empty list",
+                csv_path,
+            )
+            return []
+        bars = self.load(str(csv_path))
+        if start is not None:
+            bars = [b for b in bars if b.time >= start]
+        if end is not None:
+            bars = [b for b in bars if b.time <= end]
+        return bars
+
+    def get_available_symbols(self) -> list[str]:
+        """Scan ``csv_dir`` for ``*.csv`` files and extract unique symbols."""
+        symbols: set[str] = set()
+        if not self.csv_dir.is_dir():
+            return []
+        for path in self.csv_dir.glob("*.csv"):
+            match = self._FILENAME_RE.match(path.stem)
+            if match:
+                symbols.add(match.group("symbol"))
+        return sorted(symbols)
+
+    def get_date_range(
+        self,
+        symbol: str,
+        timeframe: str,
+    ) -> tuple[datetime | None, datetime | None]:
+        """Return ``(first, last)`` bar timestamp for ``(symbol, timeframe)``."""
+        bars = self.load_bars(symbol, timeframe)
+        if not bars:
+            return None, None
+        return bars[0].time, bars[-1].time
+
+    # ------------------------------------------------------------------ #
+    # Original file-based API (backward compatible)
+    # ------------------------------------------------------------------ #
     def load(self, filepath: str) -> list[Bar]:
         bars = []
         dropped = 0

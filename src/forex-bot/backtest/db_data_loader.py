@@ -33,6 +33,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
+from backtest.abstract_data_loader import AbstractDataLoader
 from backtest.data_loader import CsvDataLoader
 from backtest.engine import Bar
 
@@ -61,7 +62,7 @@ _RESULT_COLUMNS = [
 ]
 
 
-class DbDataLoader:
+class DbDataLoader(AbstractDataLoader):
     """DuckDB-backed loader with a CSV fallback for forward compatibility."""
 
     def __init__(
@@ -72,7 +73,7 @@ class DbDataLoader:
     ) -> None:
         self.db_path = Path(db_path)
         self.csv_dir = Path(csv_dir)
-        self._csv_loader = csv_loader or CsvDataLoader()
+        self._csv_loader = csv_loader or CsvDataLoader(csv_dir=self.csv_dir)
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -113,6 +114,89 @@ class DbDataLoader:
         """
         symbol, timeframe = self._parse_filename(filepath)
         return self.load(symbol, timeframe)
+
+    # ------------------------------------------------------------------ #
+    # AbstractDataLoader interface
+    # ------------------------------------------------------------------ #
+    def load_bars(
+        self,
+        symbol: str,
+        timeframe: str,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[Bar]:
+        """Load bars for ``(symbol, timeframe)``.
+
+        Delegates to :meth:`load`, converting ``start``/``end`` datetimes
+        to Unix epoch seconds for the DB query.
+        """
+        start_ts = int(start.timestamp()) if start is not None else None
+        end_ts = int(end.timestamp()) if end is not None else None
+        return self.load(symbol, timeframe, start_ts=start_ts, end_ts=end_ts)
+
+    def get_available_symbols(self) -> list[str]:
+        """Return distinct symbols from the ``bars`` table.
+
+        Falls back to scanning the CSV directory when the DB is unavailable.
+        """
+        if not self._db_available():
+            return self._csv_loader.get_available_symbols()
+        try:
+            con = duckdb.connect(str(self.db_path), read_only=True)
+            try:
+                df = con.execute(
+                    "SELECT DISTINCT symbol FROM bars ORDER BY symbol"
+                ).fetch_df()
+            finally:
+                con.close()
+        except duckdb.Error as exc:
+            logger.warning(
+                "DbDataLoader.get_available_symbols: DuckDB error (%s); "
+                "falling back to CSV scanner",
+                exc,
+            )
+            return self._csv_loader.get_available_symbols()
+        if df is None or df.empty:
+            return []
+        return df["symbol"].tolist()
+
+    def get_date_range(
+        self,
+        symbol: str,
+        timeframe: str,
+    ) -> tuple[datetime | None, datetime | None]:
+        """Return ``(first, last)`` UTC timestamp for ``(symbol, timeframe)``."""
+        if not self._db_available():
+            return self._csv_loader.get_date_range(symbol, timeframe)
+        try:
+            con = duckdb.connect(str(self.db_path), read_only=True)
+            try:
+                df = con.execute(
+                    "SELECT MIN(timestamp_utc) AS first_ts, "
+                    "MAX(timestamp_utc) AS last_ts "
+                    "FROM bars WHERE symbol = ? AND timeframe = ?",
+                    [symbol, timeframe],
+                ).fetch_df()
+            finally:
+                con.close()
+        except duckdb.Error as exc:
+            logger.warning(
+                "DbDataLoader.get_date_range: DuckDB error (%s); "
+                "falling back to CSV",
+                exc,
+            )
+            return self._csv_loader.get_date_range(symbol, timeframe)
+        if df is None or df.empty:
+            return None, None
+        first_ts = df["first_ts"].iloc[0]
+        last_ts = df["last_ts"].iloc[0]
+        if first_ts is None or last_ts is None:
+            return None, None
+        return (
+            datetime.fromtimestamp(int(first_ts), tz=timezone.utc),
+            datetime.fromtimestamp(int(last_ts), tz=timezone.utc),
+        )
 
     # ------------------------------------------------------------------ #
     # Internals
