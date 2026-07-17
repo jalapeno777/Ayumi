@@ -79,6 +79,13 @@ class ExecutionEventHandler:
         self._on_filled = on_filled
         self._on_rejected = on_rejected
 
+        # Late-fill registry: orders that timed out or disconnected but may
+        # still receive broker events. Maps client_msg_id → (expiry, result).
+        # Mirrors the pattern in OpenApiSpotFeed._late_fill_registry.
+        self._late_fill: dict[str, tuple[float, OrderResult | None]] = {}
+        self._late_fill_by_coid: dict[str, str] = {}  # clientOrderId → client_msg_id
+        self._late_fill_ttl: float = 120.0  # seconds
+
     # ── Registration / lookup API (called by OrderGateway) ───────────────
 
     def register_pending(
@@ -117,6 +124,38 @@ class ExecutionEventHandler:
             for co_id, cm_id in list(self._client_order_ids.items()):
                 if cm_id == client_msg_id:
                     self._client_order_ids.pop(co_id, None)
+
+    def register_late_fill(self, client_msg_id: str, client_order_id: str | None = None) -> None:
+        """Register a timed-out order for late-fill matching.
+
+        Call this when ``get_result`` returns ``None`` after the event times
+        out. The entry stays in the registry for ``_late_fill_ttl`` seconds
+        so that late-arriving execution events can still be correlated.
+        """
+        import time as _time
+        with self._lock:
+            expiry = _time.monotonic() + self._late_fill_ttl
+            self._late_fill[client_msg_id] = (expiry, None)
+            if client_order_id:
+                self._late_fill_by_coid[client_order_id] = client_msg_id
+            logger.info(
+                "[LATE_FILL] Registered clientMsgId=%s for %ds grace",
+                client_msg_id, self._late_fill_ttl,
+            )
+
+    def _check_late_fill(self, client_order_id: str) -> str | None:
+        """Check late-fill registry by clientOrderId. Returns client_msg_id if found."""
+        import time as _time
+        with self._lock:
+            # Lazy cleanup
+            now = _time.monotonic()
+            expired = [k for k, (exp, _) in self._late_fill.items() if now >= exp]
+            for k in expired:
+                self._late_fill.pop(k, None)
+                for coid, cmid in list(self._late_fill_by_coid.items()):
+                    if cmid == k:
+                        self._late_fill_by_coid.pop(coid, None)
+            return self._late_fill_by_coid.get(client_order_id)
 
     # ── Routing ──────────────────────────────────────────────────────────
 

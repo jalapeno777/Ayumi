@@ -97,11 +97,17 @@ _ACCT_AUTH_RES_PAYLOAD_TYPE = 2103
 _ERROR_RES_PAYLOAD_TYPE = 2142
 _EXECUTION_EVENT_PAYLOAD_TYPES = {2126, 2151}
 _ORDER_ERROR_EVENT_PAYLOAD_TYPE = 2132
-# 20s — cTrader demo can be slow; 10s was too tight and caused
-# timeout → cancel → crash race conditions when fills arrived 1-2s late.
-_ORDER_TIMEOUT_SEC = 20.0
+# 30s — cTrader demo broker has been observed responding in ~25s.
+# The previous 20s base (+5s margin = 25s total) was exactly at the
+# broker's response boundary, causing every order to time out.
+# 30s base (+5s margin = 35s total) gives 10s of headroom.
+_ORDER_TIMEOUT_SEC = 30.0
 _AMEND_TIMEOUT_SEC = 30.0  # SL/TP amends are not time-critical — use a longer timeout
 _RECONCILE_TIMEOUT_SEC = 10.0
+
+# Late-fill registry TTL: how long after timeout/disconnect we keep
+# order entries available for matching late-arriving execution events.
+_LATE_FILL_TTL_SEC = 120.0
 
 # Re-exported from connection.py for backward compatibility
 from .connection import (
@@ -246,6 +252,11 @@ class OpenApiSpotFeed:
         self._pending_orders: dict[str, tuple[threading.Event, Order]] = {}
         self._pending_client_msg_ids: dict[str, str] = {}
         self._disconnected_pending_orders: list[Order] = []
+
+        # Late-fill registry: orders that timed out or were disconnected
+        # but may still receive execution events from the broker.
+        # Maps request_id → (expiry_monotonic, Order, client_msg_id)
+        self._late_fill_registry: dict[str, tuple[float, Order, str]] = {}
         self._callbacks: dict[str, list[Callable]] = {
             "on_order_filled": [],
             "on_order_rejected": [],
@@ -279,8 +290,22 @@ class OpenApiSpotFeed:
                 "Production runtime requires a TokenLifecycle instance for OAuth refresh delegation. "
                 "Pass token_lifecycle=<TokenLifecycle> when constructing for live/demo use."
             )
+        # Enable token refresh — TokenLifecycle ships with _refresh_disabled=True
+        # as a conservative default. Production runtime must override this to
+        # allow proactive and reactive OAuth refresh. Without this, the access
+        # token expires and every subsequent request gets
+        # account_authorization_fault (INVALID_REQUEST: not authorized).
+        if getattr(self._token_lifecycle, '_refresh_disabled', False):
+            self._token_lifecycle._refresh_disabled = False
+            logger.info("[Startup] token refresh ENABLED (was disabled by default)")
+        # Start proactive refresh timer now that refresh is enabled.
+        if hasattr(self._token_lifecycle, 'start_proactive_timer'):
+            try:
+                self._token_lifecycle.start_proactive_timer()
+            except Exception as exc:
+                logger.warning("[Startup] proactive refresh timer failed: %s", exc)
         logger.info(
-            "[Startup] refresh_owner=TokenLifecycle wired=%s",
+            "[Startup] refresh_owner=TokenLifecycle wired=%s refresh_enabled=True",
             self._token_lifecycle is not None,
         )
 
@@ -447,6 +472,7 @@ class OpenApiSpotFeed:
             event.set()
         self._pending_orders.clear()
         self._pending_client_msg_ids.clear()
+        self._late_fill_registry.clear()
         self._callback_executor.shutdown(wait=False, cancel_futures=True)
 
         if self._refresh_timer is not None:
@@ -471,7 +497,19 @@ class OpenApiSpotFeed:
         self._reauth_in_progress.clear()
         self._disconnect_at = time.monotonic()
 
-        for _, (event, order) in list(self._pending_orders.items()):
+        # Move pending orders to late-fill registry (not just
+        # _disconnected_pending_orders) so that execution events arriving
+        # after the disconnect can still be matched.  Previously, clearing
+        # _pending_orders here caused all late fills to be dropped with
+        # "[EXEC_EVENT] DROP — not in pending_orders (keys=[])".
+        for req_id, (event, order) in list(self._pending_orders.items()):
+            # Find the client_msg_id for this request_id
+            cmsg_id = None
+            for cm_id, rid in list(self._pending_client_msg_ids.items()):
+                if rid == req_id:
+                    cmsg_id = cm_id
+                    break
+            self._register_late_fill(req_id, order, cmsg_id or "")
             order.status = OrderStatus.PENDING
             order.comment = order.comment or "connection_lost_during_order"
             setattr(order, "reason", "connection_lost_during_order")
@@ -677,6 +715,55 @@ class OpenApiSpotFeed:
                 self._callback_executor.submit(cb, *args)
             except RuntimeError:
                 pass
+
+    # ── Late-fill registry ───────────────────────────────────────────────
+
+    def _register_late_fill(self, request_id: str, order: Order, client_msg_id: str) -> None:
+        """Register a timed-out or disconnected order for late-fill matching.
+
+        Keeps the order available in ``_late_fill_registry`` for
+        ``_LATE_FILL_TTL_SEC`` seconds so that execution events arriving
+        after the timeout/disconnect can still be correlated.
+        """
+        expiry = time.monotonic() + _LATE_FILL_TTL_SEC
+        self._late_fill_registry[request_id] = (expiry, order, client_msg_id)
+        logger.info(
+            "[LATE_FILL] Registered request_id=%s for %ds grace (reason=%s)",
+            request_id, _LATE_FILL_TTL_SEC, getattr(order, "reason", "unknown"),
+        )
+
+    def _lookup_late_fill(self, request_id: str) -> Order | None:
+        """Check the late-fill registry for a timed-out order.
+
+        Returns the ``Order`` if found and not expired, else ``None``.
+        Cleans up expired entries as a side effect.
+        """
+        if not self._late_fill_registry:
+            return None
+        # Lazy cleanup of expired entries
+        now = time.monotonic()
+        expired = [rid for rid, (exp, _, _) in self._late_fill_registry.items() if now >= exp]
+        for rid in expired:
+            self._late_fill_registry.pop(rid, None)
+        entry = self._late_fill_registry.get(request_id)
+        if entry is None:
+            return None
+        _, order, _ = entry
+        return order
+
+    def _resolve_late_fill(self, request_id: str) -> tuple[threading.Event, Order] | None:
+        """Pop a late-fill entry and return a synthetic (Event, Order) pair.
+
+        This is used when a late execution event matches a timed-out order.
+        The order is removed from the registry and its status is updated.
+        """
+        entry = self._late_fill_registry.pop(request_id, None)
+        if entry is None:
+            return None
+        _, order, _ = entry
+        event = threading.Event()  # Synthetic event — caller already has the result
+        event.set()
+        return event, order
 
     def get_tick(self, symbol_name: str) -> Optional[Tick]:
         with self._lock:
@@ -990,12 +1077,11 @@ class OpenApiSpotFeed:
         if not event.wait(timeout=timeout + 5):
             # Both the deferred timeout AND the local wait expired — the
             # reactor thread is likely stuck or massively delayed.
-            # Don't immediately purge — keep entries for 60s grace period
-            # so late error events can still be matched/logged
-            def _delayed_cleanup():
-                self._pending_orders.pop(request_id, None)
-                self._pending_client_msg_ids.pop(client_msg_id, None)
-            reactor.callFromThread(lambda: reactor.callLater(60.0, _delayed_cleanup))
+            # Move to late-fill registry so execution events arriving later
+            # can still be matched and the order status corrected from
+            # REJECTED → FILLED.  The registry entry has a TTL of
+            # _LATE_FILL_TTL_SEC (120s) to prevent unbounded growth.
+            self._register_late_fill(request_id, order, client_msg_id)
             # Don't overwrite if _handle_pending_order_error already set a
             # real broker errorCode (race won by the broker event handler).
             if order.status == OrderStatus.PENDING:
@@ -1228,6 +1314,8 @@ class OpenApiSpotFeed:
         logger.info("[EXEC_EVENT] clientOrderId=%r execType=%s has_order=%s pending_keys=%s",
                      client_order_id, etype, order_payload is not None,
                      list(self._pending_orders.keys()) if self._pending_orders else "[]")
+        event: threading.Event
+        order: Order
         if not client_order_id or client_order_id not in self._pending_orders:
             # Fallback: try matching by envelope clientMsgId (same pattern as
             # _handle_pending_order_error). When cTrader acks with empty
@@ -1237,18 +1325,51 @@ class OpenApiSpotFeed:
             if client_msg_id:
                 client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
             if not client_order_id or client_order_id not in self._pending_orders:
-                error_code = getattr(message, "errorCode", "UNKNOWN")
-                description = getattr(message, "description", "")
-                logger.warning(
-                    "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
-                    "errorCode=%r description=%r",
-                    client_order_id,
-                    list(self._pending_orders.keys()) if self._pending_orders else "[]",
-                    error_code, description,
-                )
-                return
-        event, order = self._pending_orders.pop(client_order_id)
-        self._pending_client_msg_ids.pop(client_order_id, None)
+                # Late-fill registry check: order may have timed out or been
+                # disconnected, but the broker execution event arrived later.
+                # Match by clientOrderId or clientMsgId against the registry.
+                late_order = None
+                if client_order_id:
+                    late_order = self._lookup_late_fill(client_order_id)
+                    if late_order is not None:
+                        self._late_fill_registry.pop(client_order_id, None)
+                if late_order is None and client_msg_id:
+                    # Try to find via client_msg_id in the registry
+                    for rid, (_, ord_, cmid) in list(self._late_fill_registry.items()):
+                        if cmid == client_msg_id:
+                            self._late_fill_registry.pop(rid, None)
+                            late_order = ord_
+                            break
+                if late_order is not None:
+                    logger.info(
+                        "[EXEC_EVENT] LATE-FILL MATCH — clientOrderId=%r found in late_fill_registry, "
+                        "upgrading from reason=%s",
+                        client_order_id, getattr(late_order, "reason", ""),
+                    )
+                    order = late_order
+                    # Synthetic event (already set) — the original caller already
+                    # returned; no thread is waiting on this event.
+                    event = threading.Event()
+                    event.set()
+                else:
+                    error_code = getattr(message, "errorCode", "UNKNOWN")
+                    description = getattr(message, "description", "")
+                    logger.warning(
+                        "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
+                        "or late_fill_registry (size=%d) "
+                        "errorCode=%r description=%r",
+                        client_order_id,
+                        list(self._pending_orders.keys()) if self._pending_orders else "[]",
+                        len(self._late_fill_registry),
+                        error_code, description,
+                    )
+                    return
+            else:
+                event, order = self._pending_orders.pop(client_order_id)
+                self._pending_client_msg_ids.pop(client_order_id, None)
+        else:
+            event, order = self._pending_orders.pop(client_order_id)
+            self._pending_client_msg_ids.pop(client_order_id, None)
 
         etype = getattr(message, "executionType", None)
         if etype == ProtoOAExecutionType.ORDER_CANCELLED:
@@ -1317,12 +1438,38 @@ class OpenApiSpotFeed:
         if not client_order_id and client_msg_id:
             client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
         if not client_order_id or client_order_id not in self._pending_orders:
+            # Late-fill registry check: error event for a timed-out/disconnected order
+            late_order = None
+            if client_order_id:
+                late_order = self._lookup_late_fill(client_order_id)
+                if late_order is not None:
+                    self._late_fill_registry.pop(client_order_id, None)
+            if late_order is None and client_msg_id:
+                for rid, (_, ord_, cmid) in list(self._late_fill_registry.items()):
+                    if cmid == client_msg_id:
+                        self._late_fill_registry.pop(rid, None)
+                        late_order = ord_
+                        break
+            if late_order is not None:
+                error_code = getattr(message, 'errorCode', 'UNKNOWN')
+                description = getattr(message, 'description', '')
+                reason = f"{error_code}: {description}".strip(": ")
+                late_order.status = OrderStatus.REJECTED
+                late_order.comment = reason
+                setattr(late_order, "reason", reason)
+                logger.info(
+                    "[ORDER_ERROR] LATE-FILL MATCH — clientOrderId=%r errorCode=%r "
+                    "updating order from late_fill_registry",
+                    client_order_id, error_code,
+                )
+                return True
             error_code = getattr(message, "errorCode", "UNKNOWN")
             description = getattr(message, "description", "")
             logger.warning(
                 "[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r "
-                "errorCode=%r description=%r",
+                "errorCode=%r description=%r (pending=%d, late_registry=%d)",
                 client_order_id, client_msg_id, error_code, description,
+                len(self._pending_orders), len(self._late_fill_registry),
             )
             return False
         event, order = self._pending_orders.pop(client_order_id)
