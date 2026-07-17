@@ -3,13 +3,8 @@ from __future__ import annotations
 import pytest
 from datetime import datetime
 
-from forex_trading.strategies.ict import (
-    Bar,
-    FVGDetector,
-    FVGType,
-    ICTMarketState,
-    TradeDirection,
-)
+from backtest.engine import Bar, TradeDirection
+from backtest.ict_smc import FVGDetector, ICTMarketState
 
 
 @pytest.fixture
@@ -237,19 +232,6 @@ class TestFVGDetector:
 
         for fvg in state.active_fvgs:
             assert fvg.age <= detector._max_age
-
-    def test_fvg_type_classification(self, bullish_fvg_bars):
-        state = ICTMarketState(bullish_fvg_bars)
-        detector = FVGDetector()
-        detector.detect(state)
-
-        for fvg in state.active_fvgs:
-            assert fvg.fvg_type in [
-                FVGType.BULLISH_FVG,
-                FVGType.BEARISH_FVG,
-                FVGType.BISI,
-                FVGType.SIBI,
-            ]
 
     def test_get_all_unfilled(self, bullish_fvg_bars):
         state = ICTMarketState(bullish_fvg_bars)

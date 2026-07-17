@@ -3,12 +3,8 @@ from __future__ import annotations
 import pytest
 from datetime import datetime
 
-from forex_trading.strategies.ict import (
-    Bar,
-    ICTMarketState,
-    OrderBlockDetector,
-    TradeDirection,
-)
+from backtest.engine import Bar, TradeDirection
+from backtest.ict_smc import ICTMarketState, OrderBlockDetector
 
 
 @pytest.fixture

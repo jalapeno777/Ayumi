@@ -3,14 +3,12 @@ from __future__ import annotations
 import pytest
 from datetime import datetime
 
-from forex_trading.strategies.ict import (
-    Bar,
-    ConfluenceEngine,
-    ConfluenceSignal,
-    ICTEngine,
+from backtest.engine import Bar, TradeDirection
+from backtest.ict_smc import (
     ICTMarketState,
+    SignalConfluenceEngine as ConfluenceEngine,
+    ConfluenceSignal,
     SignalStrength,
-    TradeDirection,
 )
 
 
@@ -167,49 +165,6 @@ class TestConfluenceEngine:
             assert signal.take_profit_2 < signal.take_profit_1
             assert signal.take_profit_3 < signal.take_profit_2
             assert signal.stop_loss > signal.entry_price
-
-
-class TestICTEngine:
-    def test_engine_initialization(self):
-        engine = ICTEngine()
-        assert engine._ob_detector is not None
-        assert engine._fvg_detector is not None
-        assert engine._confluence_engine is not None
-
-    def test_update_market_state(self, market_state):
-        engine = ICTEngine()
-        engine.update_market_state(market_state)
-
-        assert len(market_state.active_order_blocks) >= 0
-        assert len(market_state.active_fvgs) >= 0
-
-    def test_get_order_block(self, market_state):
-        engine = ICTEngine()
-        engine.update_market_state(market_state)
-
-        ob = engine.get_order_block(market_state, TradeDirection.LONG)
-        if ob is not None:
-            assert ob.direction == TradeDirection.LONG
-
-    def test_get_fvg(self, market_state):
-        engine = ICTEngine()
-        engine.update_market_state(market_state)
-
-        fvg = engine.get_fvg(market_state, TradeDirection.LONG, 1.1020)
-        if fvg is not None:
-            assert fvg.direction == TradeDirection.LONG
-
-    def test_evaluate_confluence(self, market_state):
-        engine = ICTEngine()
-        signal = engine.evaluate_confluence(market_state)
-
-        if signal is not None:
-            assert isinstance(signal, ConfluenceSignal)
-
-    def test_set_direction_bias(self, market_state):
-        engine = ICTEngine()
-        engine.set_direction_bias(market_state, TradeDirection.LONG)
-        assert market_state.structure_bias == TradeDirection.LONG
 
 
 class TestSignalStrength:

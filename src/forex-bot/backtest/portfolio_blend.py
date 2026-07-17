@@ -60,7 +60,7 @@ from .engine import (
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
-from ..data.news_calendar import NewsCalendarFilter
+from data.news_calendar import NewsCalendarFilter
 
 logger = logging.getLogger(__name__)
 
