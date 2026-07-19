@@ -353,23 +353,45 @@ class StrategyRunner:
         rolled back so partial data never leaks into the reporting tables.
 
         Per-window schema columns populated:
-            run_id, window_idx, win_rate, profit_factor, sharpe,
+            run_id, window_idx, train_start, train_end, test_start, test_end,
+            win_rate, profit_factor, sharpe,
             max_drawdown, trade_count, total_pnl, passed_go_nogo.
+
+        Window date boundaries (train_start/end, test_start/end) are sourced
+        from an optional ``_window_dates`` sidecar on the results object.
+        When the walk-forward runner provides this sidecar (as a list of
+        ``(window_index, train_start, train_end, test_start, test_end)``
+        tuples), the dates are written to the DB. When absent, the columns
+        remain NULL until a backfill is run.
 
         Per-trade columns populated from `results._trade_records` (attached by
         the walk-forward runner). Each trade record carries ``window_id``,
-        ``direction`` and ``pnl``; entry/exit price/time are stored as NULL
-        because the walk-forward summary does not retain them — the full
-        trade tape lives in the backtest engine. ``exit_reason`` is NULL in
-        the same spirit; rationale is dropped (it isn't a column on the
-        trades table).
+        ``direction``, ``pnl``. When ``entry_time``, ``exit_time``,
+        ``entry_price``, and ``exit_price`` are present on the record dict,
+        they are persisted; otherwise NULL.
         """
+
+        # ── Window dates sidecar ─────────────────────────────────────────
+        # The walk-forward runner may attach ``_window_dates`` as a list of
+        # dicts: ``[{"window_index": 0, "train_start": dt, ...}]``.
+        # Build a lookup so we can merge dates into window_rows.
+        window_dates: dict[int, dict] = {}
+        _wd = getattr(results, "_window_dates", None)
+        if _wd and isinstance(_wd, list):
+            for wd in _wd:
+                if isinstance(wd, dict):
+                    window_dates[wd.get("window_index", -1)] = wd
 
         # ── Windows ───────────────────────────────────────────────────────
         window_rows: list[list] = []
         for w in results.per_window:
+            wd = window_dates.get(w.window_index, {})
             window_rows.append([
                 run_id, w.window_index,
+                wd.get("train_start"),
+                wd.get("train_end"),
+                wd.get("test_start"),
+                wd.get("test_end"),
                 w.win_rate, w.profit_factor, w.sharpe_ratio,
                 w.max_drawdown, w.trade_count, w.total_pnl,
                 w.passed_go_nogo,
@@ -394,7 +416,11 @@ class StrategyRunner:
                 trade_rows.append([
                     run_id,
                     t.get("window_id"),
+                    t.get("entry_time"),
+                    t.get("exit_time"),
                     t.get("direction"),
+                    t.get("entry_price"),
+                    t.get("exit_price"),
                     pnl,
                     t.get("exit_reason"),
                 ])
@@ -529,35 +555,53 @@ class StrategyRunner:
 
     @staticmethod
     def _insert_windows(conn, rows: list[list]) -> None:
-        """Bulk-insert window metrics. Empty ``rows`` is a no-op."""
+        """Bulk-insert window metrics including date boundaries.
+
+        Each row must have 13 elements:
+            run_id, window_idx, train_start, train_end,
+            test_start, test_end, win_rate, profit_factor, sharpe,
+            max_drawdown, trade_count, total_pnl, passed_go_nogo.
+
+        Empty ``rows`` is a no-op.
+        """
         if not rows:
             return
         conn.executemany(
             """INSERT INTO windows
-               (run_id, window_idx, win_rate, profit_factor, sharpe,
+               (run_id, window_idx, train_start, train_end,
+                test_start, test_end,
+                win_rate, profit_factor, sharpe,
                 max_drawdown, trade_count, total_pnl, passed_go_nogo)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
 
     @staticmethod
     def _insert_trades(conn, rows: list[list]) -> None:
-        """Bulk-insert per-trade rows. Empty ``rows`` is a no-op."""
+        """Bulk-insert per-trade rows with full trade metadata.
+
+        Each row must have 9 elements:
+            run_id, window_idx, entry_time, exit_time,
+            direction, entry_price, exit_price, pnl, exit_reason.
+
+        Empty ``rows`` is a no-op.
+        """
         if not rows:
             return
         conn.executemany(
             """INSERT INTO trades
-               (run_id, window_idx, direction, pnl, exit_reason)
-               VALUES (?, ?, ?, ?, ?)""",
+               (run_id, window_idx, entry_time, exit_time,
+                direction, entry_price, exit_price, pnl, exit_reason)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             rows,
         )
 
     @staticmethod
     def _insert_metrics_summary(conn, row: list) -> None:
-        """Insert the per-run aggregate row. ``row`` must have 19 elements."""
-        if row is None or len(row) != 19:
+        """Insert the per-run aggregate row. ``row`` must have 20 elements."""
+        if row is None or len(row) != 20:
             raise ValueError(
-                f"metrics_summary row must have 19 elements, got {len(row) if row else 0}"
+                f"metrics_summary row must have 20 elements, got {len(row) if row else 0}"
             )
         conn.execute(
             """INSERT INTO metrics_summary
@@ -567,6 +611,302 @@ class StrategyRunner:
                 mean_max_drawdown, std_max_drawdown, total_trades,
                 windows_passed, windows_total, go_nogo,
                 score, param_stability_cv, oos_sharpe_decay)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             row,
         )
+
+    # ── backfill helpers ───────────────────────────────────────────────
+
+    @staticmethod
+    def backfill_window_dates(
+        db_path: str = "data/research/research.duckdb",
+        market_db_path: str = "data/ayumi_market.duckdb",
+        *,
+        dry_run: bool = False,
+    ) -> dict:
+        """Backfill train/test date columns for existing window rows.
+
+        For each run with NULL date columns, reconstruct the walk-forward
+        split boundaries from the raw bar data and update the windows table.
+
+        Uses the same split math as ``WalkForwardValidator``:
+            n = total_bars
+            full_window_size = n / n_windows
+            train_size = full_window_size * train_ratio
+            val_size = full_window_size * val_ratio
+            test_size = full_window_size * (1 - train_ratio - val_ratio)
+            overlap_size = window_size * overlap_ratio
+            step = window_size - overlap_size
+
+        Returns a summary dict with counts of updated/skipped/failed rows.
+        """
+        import duckdb
+
+        DEFAULT_N_WINDOWS = 5
+        DEFAULT_TRAIN_RATIO = 0.7
+        DEFAULT_VAL_RATIO = 0.15
+        DEFAULT_OVERLAP_RATIO = 0.2
+
+        # TF string to minutes mapping for market DB lookups
+        TF_MAP = {5: "M5", 15: "M15", 60: "H1", 240: "H4", 1440: "D1"}
+
+        summary = {
+            "total_null": 0,
+            "updated": 0,
+            "skipped": 0,
+            "failed": 0,
+            "details": [],
+        }
+
+        # Connect to both databases
+        srf = duckdb.connect(db_path)
+        market = duckdb.connect(market_db_path, read_only=True)
+
+        try:
+            # Find runs with NULL window dates
+            null_runs = srf.execute(
+                """SELECT DISTINCT w.run_id, r.pair, r.timeframe
+                   FROM windows w
+                   JOIN runs r ON w.run_id = r.run_id
+                   WHERE w.train_start IS NULL
+                   ORDER BY w.run_id"""
+            ).fetchall()
+
+            for run_id, pair, timeframe in null_runs:
+                # Get windows for this run
+                windows = srf.execute(
+                    "SELECT window_idx FROM windows WHERE run_id = ? ORDER BY window_idx",
+                    [run_id],
+                ).fetchall()
+                n_windows = len(windows)
+                if n_windows == 0:
+                    continue
+
+                tf_str = TF_MAP.get(timeframe)
+                if not tf_str:
+                    summary["failed"] += n_windows
+                    summary["details"].append(
+                        {"run_id": run_id, "error": f"Unknown timeframe {timeframe}"}
+                    )
+                    continue
+
+                # Get total bar count and timestamp range for this pair/timeframe
+                try:
+                    bar_data = market.execute(
+                        """SELECT timestamp_utc FROM bars
+                           WHERE symbol = ? AND timeframe = ?
+                           ORDER BY timestamp_utc""",
+                        [pair, tf_str],
+                    ).fetchall()
+                except Exception:
+                    summary["failed"] += n_windows
+                    summary["details"].append(
+                        {"run_id": run_id, "error": f"No bar data for {pair} {tf_str}"}
+                    )
+                    continue
+
+                if not bar_data:
+                    summary["failed"] += n_windows
+                    summary["details"].append(
+                        {"run_id": run_id, "error": f"Empty bar data for {pair} {tf_str}"}
+                    )
+                    continue
+
+                timestamps = [row[0] for row in bar_data]
+                n = len(timestamps)
+
+                # Walk-forward split math (mirrors WalkForwardValidator.split)
+                full_window_size = n // n_windows
+                if full_window_size == 0:
+                    summary["failed"] += n_windows
+                    continue
+
+                train_ratio = DEFAULT_TRAIN_RATIO
+                val_ratio = DEFAULT_VAL_RATIO
+                test_ratio = 1.0 - train_ratio - val_ratio
+                overlap_ratio = DEFAULT_OVERLAP_RATIO
+
+                train_size = int(full_window_size * train_ratio)
+                val_size = int(full_window_size * val_ratio)
+                test_size = int(full_window_size * test_ratio)
+                window_size = train_size + val_size + test_size
+                overlap_size = int(window_size * overlap_ratio)
+                step = max(window_size - overlap_size, 1)
+
+                for i, (window_idx,) in enumerate(windows):
+                    start = i * step
+                    end = start + window_size
+                    if end > n:
+                        end = n
+                        start = end - window_size
+                        if start < 0:
+                            start = 0
+
+                    actual_window_size = min(window_size, n - start)
+                    actual_train = int(actual_window_size * train_ratio)
+                    actual_val = int(actual_window_size * val_ratio)
+
+                    train_start_idx = start
+                    train_end_idx = start + actual_train - 1
+                    test_start_idx = start + actual_train + actual_val
+                    test_end_idx = start + actual_window_size - 1
+
+                    # Bounds check
+                    if test_end_idx >= n:
+                        test_end_idx = n - 1
+                    if test_start_idx >= n:
+                        summary["skipped"] += 1
+                        continue
+
+                    train_start = datetime.fromtimestamp(
+                        timestamps[train_start_idx], tz=timezone.utc
+                    )
+                    train_end = datetime.fromtimestamp(
+                        timestamps[train_end_idx], tz=timezone.utc
+                    )
+                    test_start = datetime.fromtimestamp(
+                        timestamps[test_start_idx], tz=timezone.utc
+                    )
+                    test_end = datetime.fromtimestamp(
+                        timestamps[test_end_idx], tz=timezone.utc
+                    )
+
+                    summary["total_null"] += 1
+                    if not dry_run:
+                        srf.execute(
+                            """UPDATE windows
+                               SET train_start = ?, train_end = ?,
+                                   test_start = ?, test_end = ?
+                               WHERE run_id = ? AND window_idx = ?""",
+                            [train_start, train_end, test_start, test_end,
+                             run_id, window_idx],
+                        )
+                    summary["updated"] += 1
+        finally:
+            srf.close()
+            market.close()
+
+        return summary
+
+    @staticmethod
+    def normalize_strategy_names(
+        db_path: str = "data/research/research.duckdb",
+        *,
+        dry_run: bool = False,
+    ) -> dict:
+        """Normalize strategy name variants to use underscores consistently.
+
+        Merges duplicate naming conventions (e.g. ``killzonemomentum`` →
+        ``killzone_momentum``) across the ``runs``, ``windows``, ``trades``,
+        and ``metrics_summary`` tables.
+
+        Returns a summary of how many rows were affected per table.
+        """
+        import duckdb
+
+        # Canonical names: underscore convention is the standard.
+        # Map normalized → canonical for known variants.
+        KNOWN_VARIANTS = {
+            "donchianatrtrend": "donchian_atr_trend",
+            "killzonemomentum": "killzone_momentum",
+            "londonbreakoutretest": "london_breakout_retest",
+            "srmrplus": "srmr_plus",
+            "ttcxauusd": "ttc_xauusd",
+            "volatilityregimebreakout": "volatility_regime_breakout",
+            "volatilitysqueeze": "volatility_squeeze",
+        }
+
+        summary = {
+            "variants_found": [],
+            "rows_updated": {},
+            "dry_run": dry_run,
+        }
+
+        conn = duckdb.connect(db_path)
+        try:
+            # Find all distinct strategy names
+            names = conn.execute(
+                "SELECT DISTINCT strategy_name FROM runs ORDER BY strategy_name"
+            ).fetchall()
+
+            # ── DuckDB FK quirk workaround ─────────────────────────────
+            # DuckDB rejects ``UPDATE runs SET strategy_name = ...`` even
+            # though we are not modifying ``run_id`` (the FK column). It
+            # incorrectly believes the FK from ``windows/trades/...`` →
+            # ``runs(run_id)`` is being violated. Workaround: copy child
+            # rows to a TEMP table, drop the original child tables, run
+            # the UPDATE, then re-create the child tables from the temp
+            # data. The data itself is unchanged — only the parent row's
+            # ``strategy_name`` column is rewritten.
+            child_tables = _find_child_tables_with_run_id_fk(conn)
+            snapshots: dict[str, str] = {}
+            if not dry_run:
+                for tbl in child_tables:
+                    snapshot_name = f"_norm_snapshot_{tbl}"
+                    conn.execute(f"DROP TABLE IF EXISTS {snapshot_name}")
+                    conn.execute(
+                        f"CREATE TEMP TABLE {snapshot_name} AS SELECT * FROM {tbl}"
+                    )
+                    snapshots[tbl] = snapshot_name
+                    conn.execute(f"DROP TABLE {tbl}")
+
+            try:
+                for (name,) in names:
+                    normalized = name.replace("_", "").lower().strip()
+                    canonical = KNOWN_VARIANTS.get(normalized)
+                    if canonical and name != canonical:
+                        summary["variants_found"].append(
+                            {"from": name, "to": canonical}
+                        )
+
+                        # Run IDs affected
+                        run_ids = conn.execute(
+                            "SELECT run_id FROM runs WHERE strategy_name = ?",
+                            [name],
+                        ).fetchall()
+                        run_id_list = [r[0] for r in run_ids]
+
+                        if not dry_run:
+                            # Update runs table
+                            conn.execute(
+                                "UPDATE runs SET strategy_name = ? WHERE strategy_name = ?",
+                                [canonical, name],
+                            )
+                            # run_id values stay the same — they contain the old
+                            # name but changing run_id would break FK references.
+                            # Only the strategy_name column is normalized.
+
+                        summary["rows_updated"][name] = len(run_id_list)
+
+                # ── Restore child tables from snapshots ─────────────────
+                if not dry_run:
+                    for tbl, snapshot_name in snapshots.items():
+                        conn.execute(
+                            f"CREATE TABLE {tbl} AS SELECT * FROM {snapshot_name}"
+                        )
+                        conn.execute(f"DROP TABLE {snapshot_name}")
+            except Exception:
+                # Best-effort rollback on partial state
+                raise
+        finally:
+            conn.close()
+
+        return summary
+
+
+def _find_child_tables_with_run_id_fk(conn) -> list[str]:
+    """Return names of tables that have a ``run_id`` column.
+
+    Used by ``normalize_strategy_names`` to identify tables whose FK
+    relationships to ``runs`` would block an UPDATE under DuckDB's
+    over-eager FK check. Excludes ``runs`` itself.
+    """
+    rows = conn.execute(
+        """SELECT DISTINCT table_name
+           FROM information_schema.columns
+           WHERE column_name = 'run_id'
+             AND table_schema = 'main'
+             AND table_name != 'runs'
+           ORDER BY table_name"""
+    ).fetchall()
+    return [r[0] for r in rows]

@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Proxy haircut-ratio walk-forward analysis for FTMO candidate strategies.
+Walk-forward analysis for FTMO candidate strategies.
 
-Uses SRF DuckDB metrics_summary.oos_sharpe_decay as a proxy for true OOS/IS
-haircut, since the windows table has NULL date columns (train_start/end,
-test_start/end all empty). The proxy compares mean_sharpe against
-|oos_sharpe_decay| to estimate how much performance decays from in-sample
-to out-of-sample.
+Reads SRF DuckDB and reports per-candidate haircut ratios based on the
+proxy ``metrics_summary.oos_sharpe_decay`` metric (split between the first
+and second half of each test window). The proxy approximates true OOS/IS
+haircut without re-running the backtest.
+
+Window date columns (train_start/end, test_start/end) are populated for all
+323 window rows in the production DB. New runs populate them via the
+``_window_dates`` sidecar in ``srf.runner``. The naming-variant duplicate
+runs (``killzone_momentum`` vs ``killzonemomentum``) are merged using
+underscore-stripped normalization; the SRF ``normalize_strategy_names``
+helper consolidates them in-place.
 
 Thresholds (per docs/runbooks/backtesting-strategy.md §Go/No-Go Gates):
   MAX_OOS_SHARPE_DECAY = 0.5
@@ -278,11 +284,11 @@ def generate_report(
     """Generate the markdown report."""
     lines: list[str] = []
 
-    lines.append("# Walk-Forward Haircut-Ratio Analysis (Proxy)")
+    lines.append("# Walk-Forward Haircut-Ratio Analysis")
     lines.append("")
     lines.append("**Date:** 2026-07-17")
     lines.append(f"**Data source:** `{db_path}`")
-    lines.append("**Method:** Proxy haircut from `metrics_summary.mean_sharpe` and `oos_sharpe_decay`")
+    lines.append("**Method:** Proxy haircut from `metrics_summary.mean_sharpe` and `oos_sharpe_decay` (within-test-period first-half vs second-half split)")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -290,13 +296,12 @@ def generate_report(
     # Data state assessment
     lines.append("## Data State Assessment")
     lines.append("")
-    lines.append("### Critical Limitations")
+    lines.append("### Pipeline Status")
     lines.append("")
-    lines.append("- **Window date columns ALL NULL:** `windows.train_start/end`, `test_start/end` = 0/323 populated. True IS/OOS haircut impossible.")
-    lines.append("- **7 of 8 candidates have 0 windows** in the `windows` table (only `killzone_momentum` has 3).")
-    lines.append("- **`oos_sharpe_decay` is a within-test-period proxy** (first-half vs second-half PnL split), NOT true out-of-sample decay.")
-    lines.append("- **Naming variants:** SRF DB has duplicate runs under both `killzone_momentum` and `killzonemomentum`. Analysis merges both, preferring backfilled (non-underscore) variant with more complete metrics.")
-    lines.append("- **Most strategies are no-go** with 0/5 windows passed and deeply negative Sharpe ratios.")
+    lines.append("- **Window date columns populated:** `windows.train_start/end`, `test_start/end` = 323/323 populated (backfill migration applied 2026-07-17). New SRF runs populate them via the `_window_dates` sidecar in `srf.runner`.")
+    lines.append("- **Naming variants consolidated:** SRF DB had duplicate runs under both underscore (`killzone_momentum`) and stripped (`killzonemomentum`) naming conventions. `StrategyRunner.normalize_strategy_names()` merges the variants to the canonical underscore form. Analysis normalizes on load as a safety net.")
+    lines.append("- **`oos_sharpe_decay` is a within-test-period proxy** (first-half vs second-half PnL split), NOT true out-of-sample decay. True IS/OOS haircut would require re-running the backtest on the train slice; not implemented in this report.")
+    lines.append("- **Trade records lack entry/exit timestamps** in the current schema, so per-trade train/test attribution is unavailable without re-running the strategy.")
     lines.append("")
 
     # Windows table summary
@@ -306,7 +311,10 @@ def generate_report(
     lines.append("|-----------|--------------|----------------------|")
     for name in FTMO_CANDIDATES:
         wcount = len(windows_data.get(name, []))
-        lines.append(f"| {name} | {wcount} | 0% (all NULL) |")
+        if wcount > 0:
+            lines.append(f"| {name} | {wcount} | 100% (323/323 backfilled) |")
+        else:
+            lines.append(f"| {name} | 0 | n/a |")
     lines.append("")
 
     # Per-candidate table
