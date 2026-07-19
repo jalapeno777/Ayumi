@@ -13,12 +13,10 @@ class TradeDirection(Enum):
     NEUTRAL = "neutral"
 
 
-class SessionType(Enum):
-    ASIAN = "asian"
-    LONDON = "london"
-    NY_AM = "ny_am"
-    NY_PM = "ny_pm"
-    OUTSIDE = "outside"
+# Re-export from core.types so all code shares the same enum identity.
+# Previously this was a duplicate definition, which caused `in` checks to
+# silently fail when comparing across modules.
+from core.types import SessionType  # noqa: E402,F401
 
 
 from backtest.simple_engine import SimpleBacktestEngine
