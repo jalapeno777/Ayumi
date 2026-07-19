@@ -541,7 +541,7 @@ STRATEGY_ID_MAP = {
 # Strategy -> bar period minutes mapping
 STRATEGY_TIMEFRAMES = {
     "SRMR+": 60,
-    "Killzone Momentum": 15,
+    "Killzone Momentum": 60,  # H1 per SRF validation Jul 2026
     "Donchian Channel Breakout": 15,
     "Session-Range Mean Reversion": 60,
     "BB+RSI Mean Reversion": 60,
@@ -699,7 +699,7 @@ def build_blend_runner() -> BlendForwardTestRunner:
         "daily_risk_cap_pct": 0.05,
         "max_sniper": 3,
         "max_swarm": 5,
-        "spread_pips": {"GBPUSD": 2.0, "EURUSD": 0.8},
+        "spread_pips": {"GBPUSD": 2.0, "EURUSD": 0.8, "XAUUSD": 0.3, "USDJPY": 0.8},
         "atr_cache_path": "data/atr_cache.json",
         "state_path": "data/risk_state_blend.json",
         "log_level": "INFO",
@@ -883,6 +883,8 @@ def main():
                         help="Execution mode (paper/live). If not specified, derives from --live flag.")
     parser.add_argument("--live", action="store_true", help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)")
     parser.add_argument("--paper-only", action="store_true", help="Run in paper-only mode (default, overridden by --live)")
+    parser.add_argument("--only", default=None,
+                        help="Comma-separated strategy names to keep (drops rest). e.g. --only 'Killzone Momentum'")
     args = parser.parse_args()
 
     # Resolve execution mode: --mode takes priority, then fall back to --live
@@ -1069,6 +1071,15 @@ def main():
 
     # Distinguish YAML-loaded strategies from default-pool strategies in logs
     _yaml_names = {s.name for s in yaml_srmr_strategies}
+    _default_names = [s.name for s in strategies if s.name not in _yaml_names]
+
+    # Apply --only filter if specified
+    if args.only:
+        keep = {s.strip() for s in args.only.split(",")}
+        strategies = [s for s in strategies if s.name in keep]
+        logger.info("Strategy filter --only '%s': %d strategies kept", ", ".join(keep), len(strategies))
+
+    _yaml_names_after = {s.name for s in strategies if s.name in _yaml_names}
     _default_names = [s.name for s in strategies if s.name not in _yaml_names]
     logger.info(
         "Strategy pool: %d total | YAML-loaded: %d %s | default: %d %s",
