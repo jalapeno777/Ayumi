@@ -120,11 +120,17 @@ from .market_hours import is_forex_market_closed
 _STALE_TICK_WARN_SEC = 60.0
 _STALE_TICK_FREEZE_SEC = 120.0
 
-# Pre-emptive reconnect thresholds (2026-07-17)
+# Pre-emptive reconnect thresholds (2026-07-17, revised 2026-07-17)
 # The connection.py health monitor degrades at 35s and reconnects at 60s.
-# We trigger a proactive reconnect at 20s — before the degraded window
-# opens — so orders never queue against an unresponsive connection.
-_PRE_EMPTIVE_RECONNECT_SEC = 20.0
+# We trigger a proactive reconnect at 30s — closer to the degraded window
+# but still before it opens — so orders never queue against an unresponsive
+# connection.  The original 20s threshold caused a race condition: during
+# the 35-second event.wait() in new_order(), heartbeat silence could reach
+# 20s under normal conditions (busy market, server-side processing delay),
+# triggering a reconnect that tore down the connection while the order
+# response was still in-flight, causing every order to time out with
+# "timeout_awaiting_event" (card d88336dc root cause).
+_PRE_EMPTIVE_RECONNECT_SEC = 30.0
 _PRE_EMPTIVE_POLL_SEC = 5.0
 
 # Error tier classification per BQ-1382 §6
@@ -547,6 +553,18 @@ class OpenApiSpotFeed:
             return
         # Skip during market close (no ticks expected)
         if is_forex_market_closed():
+            return
+        # CRITICAL: Never trigger a reconnect while orders are in-flight.
+        # new_order() blocks on event.wait(timeout+5) for the broker's
+        # execution event.  A reconnect tears down the TCP connection,
+        # causing the pending order response to be lost and every in-flight
+        # order to time out with "timeout_awaiting_event".
+        # This was the root cause of card d88336dc: 172 timeouts, 0 fills.
+        if self._pending_orders:
+            logger.debug(
+                "[Preemptive] Skipping reconnect — %d order(s) in-flight",
+                len(self._pending_orders),
+            )
             return
         # Check heartbeat age
         last_hb = self._conn._last_heartbeat_recv

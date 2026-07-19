@@ -1697,6 +1697,13 @@ class ForwardTestEngine:
     _TIMEOUT_REASON = "timeout_awaiting_event"
     _CANCELLED_REASON = "order_cancelled"
 
+    # Rejection log path — JSONL file written alongside trade logs so
+    # operators have a dedicated, greppable record of every broker
+    # rejection with the real errorCode.  Fixes the "see rejection log
+    # for errorCode" message in launch_blend_forward_test.py that
+    # pointed at a log file which was never created (card d88336dc AC3).
+    _REJECTION_LOG_PATH = "logs/rejections.jsonl"
+
     def _process_live_outcome(self, outcome: LiveExecutionOutcome) -> None:
         """Update health counters based on a synchronous live-order outcome.
 
@@ -1739,6 +1746,43 @@ class ForwardTestEngine:
                 self._health.rejection_breakdown[short_code] = (
                     self._health.rejection_breakdown.get(short_code, 0) + 1
                 )
+                # Write structured rejection log entry (card d88336dc AC3).
+                # The launch script's health message references a rejection
+                # log that was never created — this writes it.
+                self._write_rejection_log(outcome, short_code)
+
+    def _write_rejection_log(self, outcome: LiveExecutionOutcome, short_code: str) -> None:
+        """Append a rejection event to the JSONL rejection log.
+
+        Called from :meth:`_process_live_outcome` for every terminal failure
+        (REJECTED, CANCELLED, NOT_CONNECTED, TIMEOUT).  Writes one JSON object
+        per line to ``logs/rejections.jsonl`` so operators can ``grep`` or
+        ``jq`` the file for specific errorCodes without digging through the
+        main log.
+
+        Format::
+
+            {"ts": "2026-07-17T20:30:00Z", "status": "REJECTED",
+             "symbol": "EURUSD", "direction": "BUY", "strategy": "ttc_xauusd",
+             "error_code": "TRADING_BAD_STOPS", "reason": "..."}
+        """
+        try:
+            from pathlib import Path
+            log_path = Path(_PROJECT_ROOT) / self._REJECTION_LOG_PATH
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "status": outcome.status.value,
+                "symbol": outcome.symbol,
+                "direction": outcome.direction,
+                "strategy": outcome.strategy_id,
+                "error_code": short_code,
+                "reason": outcome.reason,
+            }
+            with open(log_path, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as exc:
+            logger.warning("Failed to write rejection log: %s", exc)
 
     def _classify_live_order_outcome(
         self, order, signal: CTraderTradeSignal, strategy_id: str
