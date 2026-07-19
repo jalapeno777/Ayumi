@@ -11,6 +11,7 @@ from threading import RLock
 from hybrid.engine import HybridEngine, HybridEngineConfig
 from hybrid.risk_manager import RiskManager
 from hybrid.signal import HumanSignal, SignalType
+from risk.correlation_sizer import CorrelationAwareSizer
 from hybrid.trade_rules import (
     RuleAction,
     RuleResult,
@@ -119,6 +120,8 @@ class HybridPaperTrader:
         slippage_base_pips: float = 0.1,
         slippage_random_pips: float = 0.2,
         use_session_filter: bool = True,
+        correlation_sizer: CorrelationAwareSizer | None = None,
+        use_kelly_sizing: bool = False,
     ) -> None:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
@@ -126,9 +129,16 @@ class HybridPaperTrader:
         self._slippage = SlippageModel(slippage_base_pips, slippage_random_pips)
 
         self._engine = HybridEngine(
-            risk_manager=RiskManager(starting_balance=starting_balance),
+            risk_manager=RiskManager(
+                starting_balance=starting_balance,
+                correlation_sizer=correlation_sizer,
+            ),
             starting_balance=starting_balance,
-            config=HybridEngineConfig(session_filter_enabled=use_session_filter),
+            config=HybridEngineConfig(
+                session_filter_enabled=use_session_filter,
+                use_kelly_sizing=use_kelly_sizing,
+            ),
+            correlation_sizer=correlation_sizer,
         )
 
         self._rules_engine = TradeRulesEngine(
