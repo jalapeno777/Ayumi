@@ -1109,7 +1109,7 @@ def main():
         symbol=symbols[0],
         symbols=symbols,
         starting_balance=10_000.0,
-        min_confidence=0.50,
+        min_confidence=0.30,  # Match SRF-validated threshold
         max_bars_per_symbol=500,
         min_bars_for_evaluation=55,
         live_mode=(execution_mode == "live"),
