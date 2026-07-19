@@ -1094,6 +1094,11 @@ def main():
         assert s.name in STRATEGY_TIMEFRAMES, f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
     logger.info("All strategy .name properties verified against maps")
 
+    # When --only is used, filter the maps to match the active pool
+    active_names = {s.name for s in strategies}
+    active_strategy_timeframes = {k: v for k, v in STRATEGY_TIMEFRAMES.items() if k in active_names}
+    active_strategy_id_map = {k: v for k, v in STRATEGY_ID_MAP.items() if k in active_names}
+
     # 4. Build blend runner
     blend_runner = build_blend_runner()
     correlation_gate = CorrelationGate()
@@ -1109,7 +1114,7 @@ def main():
         min_bars_for_evaluation=55,
         live_mode=(execution_mode == "live"),
         execution_mode=execution_mode,
-        strategy_timeframes=STRATEGY_TIMEFRAMES,
+        strategy_timeframes=active_strategy_timeframes,
         preload_bar_count=200,  # bars per symbol/timeframe fetched through spot feed
     )
 
@@ -1122,7 +1127,7 @@ def main():
         blend_runner=blend_runner,
         correlation_gate=correlation_gate,
         heartbeat=heartbeat,
-        strategy_id_map=STRATEGY_ID_MAP,
+        strategy_id_map=active_strategy_id_map,
         blend_mode=True,
     )
 
