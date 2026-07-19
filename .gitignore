@@ -142,3 +142,11 @@ data/ayumi_market.duckdb
 # Synthesized forex data (large, regenerable)
 data/forex/synthesized/
 data/research/qa_failures.jsonl
+
+# SQLite WAL/SHM temp files
+*.db-shm
+*.db-wal
+# Research backups
+*.duckdb.bak*
+# State DB
+data/state.db

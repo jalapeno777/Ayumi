@@ -1124,7 +1124,7 @@ def _send_telegram(text: str, dry_run: bool = False) -> bool:
 
     The Hayate hard boundary says "NEVER communicate directly with
     Craig" — but `daily_audit.py` is invoked by the cron wrapper in
-    /root/.openclaw/ayumi-overseer-workspace/scripts/hayate_daily_audit.py
+    /root/.openclaw/workspace/scripts/hayate_daily_audit.py
     which sits above Hayate and thus has delivery authority. The dry-run
     flag here is a runtime safety: when True, we print to stdout instead.
     """
