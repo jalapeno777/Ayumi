@@ -185,9 +185,9 @@ class FTMOGuard:
     # ── Daily checkpoint ───────────────────────────────────────────────────
 
     def record_midnight_balance(self, balance: float) -> None:
-        """Record the account balance at CET midnight.
+        """Record the account balance at America/Toronto midnight.
 
-        Call this at the start of each trading day (00:00 CET).
+        Call this at the start of each trading day (00:00 America/Toronto).
         For 1-step challenge, updates the trailing highest if balance exceeds
         the previous peak.  Always resets the daily loss tracking.
         """
