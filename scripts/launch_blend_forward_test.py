@@ -1373,8 +1373,33 @@ def main():
                     # cTrader delivers stale/dribble ticks but no new bars form —
                     # that's expected. Downgrade to INFO so we don't generate
                     # false-positive stall warnings every health cycle.
+                    #
+                    # Amendment 5 (tick-to-bar stall fix): The bars_built counter
+                    # only counts bars finalized from LIVE ticks at period
+                    # boundaries — it does NOT include preloaded historical bars.
+                    # With 200 preloaded bars and an H1 timeframe, bars_built
+                    # stays 0 until the first hour boundary (up to 60 min),
+                    # causing false-positive stall warnings every 60s. Fix:
+                    # count total bars (including preloaded) before warning.
                     if h.get("ticks_received", 0) > 0 and engine.health.bars_built == 0:
-                        if _is_forex_market_closed():
+                        # Count total bars across all keys, including preloaded
+                        # and currently-forming bars (mirrors engine's internal
+                        # B5 check at line ~2756 in forward_test_engine.py).
+                        _total_bars_all = (
+                            sum(len(v) for v in engine._bars.values())
+                            + sum(1 for v in engine._current_bar.values() if v is not None)
+                        )
+                        if _total_bars_all > 0:
+                            # Preloaded/forming bars exist — pipeline is healthy,
+                            # just waiting for first live bar boundary crossing.
+                            logger.debug(
+                                "[B5 Pipeline] ticks=%d bars_built=%d total_bars=%d "
+                                "— awaiting first bar boundary (preloaded bars available)",
+                                h.get("ticks_received", 0),
+                                engine.health.bars_built,
+                                _total_bars_all,
+                            )
+                        elif _is_forex_market_closed():
                             logger.info(
                                 "[B5 Pipeline] Market closed — ticks=%d bars=%d "
                                 "(idle, expected)",
