@@ -53,10 +53,6 @@ def _toronto_midnight_utc(now: Optional[datetime] = None) -> datetime:
     return next_midnight.astimezone(timezone.utc)
 
 
-# Backward-compatible aliases (deprecated — use _trading_date / _toronto_midnight_utc)
-_cet_date = _trading_date
-_cet_midnight_utc = _toronto_midnight_utc
-
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 

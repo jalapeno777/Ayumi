@@ -565,7 +565,7 @@ class SLPositionSizer:
             return result
 
     def reset_daily(self, cet_date: Optional[str] = None):
-        """Reset daily counters at CET midnight (FTMO spec).
+        """Reset daily counters at America/Toronto midnight (FTMO spec).
 
         Zeros out ``_daily_risk_used`` so prior-day realized losses stop
         shrinking today's budget. Open positions are intentionally carried
@@ -574,12 +574,12 @@ class SLPositionSizer:
         signal_id is cancelled.
 
         Args:
-            cet_date: Optional ``YYYY-MM-DD`` CET date string for the
+            cet_date: Optional ``YYYY-MM-DD`` Toronto date string for the
                 new day. When omitted, the caller has already established
                 the day boundary and just needs the counter reset.
 
         Note:
-            Per FTMO rules the daily loss limit (3%) resets at CET midnight.
+            Per FTMO rules the daily loss limit (3%) resets at America/Toronto midnight.
             Prior days' losses continue to count only toward the 10% total
             drawdown, not today's daily budget.
         """
