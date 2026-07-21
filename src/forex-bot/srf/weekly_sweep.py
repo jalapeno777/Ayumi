@@ -96,12 +96,12 @@ def weekly_sweep(
         try:
             with SRFDatabase(str(db_path)) as conn:
                 conn.execute(
-                    "INSERT INTO cron_runs (cron_name, started_at, completed_at, status, details_json) "
+                    "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) "
                     "VALUES (?, ?, ?, ?, ?)",
-                    ["weekly_sweep", started_at, datetime.now(timezone.utc),
-                     "ok" if failures == 0 else "partial",
-                     json.dumps({"total_runs": total_runs, "successes": successes,
-                                 "failures": failures})],
+                    [started_at, datetime.now(timezone.utc),
+                     0 if failures == 0 else 1,
+                     total_runs,
+                     f"weekly_sweep:{'ok' if failures == 0 else 'partial'}"],
                 )
         except Exception as e:
             logger.error("Failed to log cron run: %s", e)
