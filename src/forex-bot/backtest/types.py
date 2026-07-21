@@ -245,7 +245,7 @@ class BacktestMetrics:
         print(f"  Losing:              {self.losing_trades}")
         print(f"  Breakeven:           {self.breakeven_trades}")
         print(f"  Rejected Signals:    {self.rejected_signals}")
-        print(f"\n  Win Rate:            {self.win_rate:.1f}%")
+        print(f"\n  Win Rate:            {self.win_rate:.1%}")
         print(f"  Avg Win:             ${self.avg_win:.2f}")
         print(f"  Avg Loss:            ${self.avg_loss:.2f}")
         print(f"  Largest Win:         ${self.largest_win:.2f}")
@@ -554,7 +554,7 @@ class BacktestEngine:
             wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
             losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
 
-            metrics.win_rate = metrics.winning_trades / len(trades) * 100
+            metrics.win_rate = metrics.winning_trades / len(trades)
             metrics.avg_win = (
                 sum(t.profit_loss for t in wins) / len(wins) if wins else 0
             )
@@ -577,8 +577,8 @@ class BacktestEngine:
             metrics.avg_risk_reward = (
                 abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
             )
-            metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
-                (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
+            metrics.expectancy = (metrics.win_rate * metrics.avg_win) - (
+                (1 - metrics.win_rate) * abs(metrics.avg_loss)
             )
             metrics.avg_holding_bars = sum(
                 t.exit_bar_index - t.entry_bar_index for t in trades

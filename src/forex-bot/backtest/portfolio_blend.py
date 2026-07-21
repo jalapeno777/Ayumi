@@ -120,7 +120,7 @@ class PortfolioBlendResult:
 
 
 FTMO_CRITERIA = {
-    "win_rate": 55.0,
+    "win_rate": 0.55,
     "profit_factor": 1.3,
     "sharpe_ratio": 0.5,
 }
@@ -367,7 +367,7 @@ def optimize_weights_combined_score(
 
 
 MIN_PROFIT_FACTOR = 1.0
-MIN_WIN_RATE = 45.0
+MIN_WIN_RATE = 0.45
 
 
 def filter_strategies(
@@ -381,7 +381,7 @@ def filter_strategies(
         if ec.profit_factor < MIN_PROFIT_FACTOR:
             reasons.append(f"PF {ec.profit_factor:.2f} < {MIN_PROFIT_FACTOR}")
         if ec.win_rate < MIN_WIN_RATE:
-            reasons.append(f"WR {ec.win_rate:.1f}% < {MIN_WIN_RATE}%")
+            reasons.append(f"WR {ec.win_rate:.1%} < {MIN_WIN_RATE:.1%}")
 
         if reasons:
             removed.append(FilteredStrategy(key=key, reason="; ".join(reasons)))
@@ -525,7 +525,7 @@ def run_portfolio_blend(
 
     if wf_result and wf_result.aggregated:
         ftmo_check["wf_mean_win_rate"] = (
-            wf_result.aggregated.mean_win_rate * 100 >= FTMO_CRITERIA["win_rate"]
+            wf_result.aggregated.mean_win_rate >= FTMO_CRITERIA["win_rate"]
         )
         ftmo_check["wf_mean_profit_factor"] = (
             wf_result.aggregated.mean_profit_factor >= FTMO_CRITERIA["profit_factor"]
@@ -613,7 +613,7 @@ def _compute_combined_metrics(
 
     positive_returns = [r for r in returns if r > 0]
     negative_returns = [r for r in returns if r < 0]
-    win_rate = (len(positive_returns) / len(returns) * 100) if returns else 0.0
+    win_rate = (len(positive_returns) / len(returns)) if returns else 0.0
 
     total_wins = sum(positive_returns) * initial_balance
     total_losses = abs(sum(negative_returns) * initial_balance)
@@ -867,7 +867,7 @@ def format_portfolio_report(
         is_active = key in result.weights.weights
         marker = "" if is_active else " [FILTERED]"
         lines.append(
-            f"{label:<45} {ec.win_rate:>6.1f} {ec.profit_factor:>7.2f} "
+            f"{label:<45} {ec.win_rate:>6.1%} {ec.profit_factor:>7.2f} "
             f"{ec.sharpe_ratio:>7.2f} {ec.max_drawdown * 100:>7.2f} {ec.trade_count:>7} "
             f"${ec.total_pnl:>9.2f}{marker}"
         )
@@ -915,7 +915,7 @@ def format_portfolio_report(
     lines.append(
         f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)"
     )
-    lines.append(f"  Win Rate:          {m.win_rate:>10.1f}%")
+    lines.append(f"  Win Rate:          {m.win_rate:>10.1%}")
     lines.append(f"  Profit Factor:     {m.profit_factor:>10.2f}")
     lines.append(f"  Sharpe Ratio:      {m.sharpe_ratio:>10.2f}")
     lines.append(f"  Max Drawdown:      {m.max_drawdown_pct:>10.2f}%")
@@ -1204,7 +1204,7 @@ def select_least_correlated(
     correlation: CorrelationResult,
     max_strategies: int = 4,
     min_pf: float = 1.0,
-    min_wr: float = 45.0,
+    min_wr: float = 0.45,
     max_pairwise_corr: float = 0.5,
 ) -> SelectionResult:
     candidates: list[str] = []
