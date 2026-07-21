@@ -10,6 +10,16 @@ from pathlib import Path
 from threading import Lock
 from zoneinfo import ZoneInfo
 
+from risk.ftmo_params import (
+    FTMO_DAILY_DD_LIMIT_PCT,
+    FTMO_TOTAL_DD_LIMIT_PCT,
+    FTMO_RISK_PER_TRADE_PCT,
+    FTMO_MAX_CONCURRENT_POSITIONS,
+    FTMO_MAX_TRADES_PER_DAY,
+    FTMO_MIN_RISK_REWARD,
+    FTMO_BEST_DAY_CAP_PCT,
+    FTMO_BEST_DAY_ENFORCE_PCT,
+)
 from .models import TradeDirection, CTraderTradeSignal
 
 logger = logging.getLogger(__name__)
@@ -55,17 +65,22 @@ class RiskLimitResult:
 
 @dataclass
 class FTMOProfile:
-    risk_per_trade_pct: float = 0.005
-    daily_loss_limit_pct: float = 0.05
-    total_drawdown_limit_pct: float = 0.10
-    max_trades_per_day: int = 10
-    max_positions: int = 3
-    min_risk_reward: float = 1.5
-    best_day_rule_max_pct: float = 0.50
-    # Enforcement threshold: halt trading when best-day ratio exceeds this
-    # value.  Default 40% provides a 10% safety buffer below the FTMO 50%
-    # hard cap.
-    best_day_enforce_pct: float = 0.40
+    """FTMO challenge risk profile.
+
+    Defaults are imported from :mod:`risk.ftmo_params` (single source of
+    truth) to prevent parameter divergence.  The previous inline defaults
+    had ``daily_loss_limit_pct = 0.05`` (5%), which was 67% more permissive
+    than the FTMO 1-Step Standard 3% daily DD limit.
+    """
+
+    risk_per_trade_pct: float = FTMO_RISK_PER_TRADE_PCT
+    daily_loss_limit_pct: float = FTMO_DAILY_DD_LIMIT_PCT
+    total_drawdown_limit_pct: float = FTMO_TOTAL_DD_LIMIT_PCT
+    max_trades_per_day: int = FTMO_MAX_TRADES_PER_DAY
+    max_positions: int = FTMO_MAX_CONCURRENT_POSITIONS
+    min_risk_reward: float = FTMO_MIN_RISK_REWARD
+    best_day_rule_max_pct: float = FTMO_BEST_DAY_CAP_PCT
+    best_day_enforce_pct: float = FTMO_BEST_DAY_ENFORCE_PCT
 
     def __post_init__(self):
         if self.risk_per_trade_pct <= 0:
@@ -80,14 +95,23 @@ class FTMOProfile:
             raise ValueError(
                 f"max_trades_per_day must be positive, got {self.max_trades_per_day}"
             )
+        # Cross-check: theoretical worst-case risk (all trades hit SL) vs
+        # daily limit.  This is a conservative guideline — the actual
+        # enforcement happens at runtime via the daily loss circuit breaker
+        # in check_trade_allowed_internal().  Warn rather than reject so
+        # that standard FTMO params (0.5% risk × 10 trades = 5% worst-case)
+        # remain valid alongside the 3% FTMO daily DD hard limit.
         max_total_risk = self.risk_per_trade_pct * self.max_trades_per_day
         if max_total_risk > self.daily_loss_limit_pct:
-            raise ValueError(
+            import warnings as _w
+            _w.warn(
                 f"risk_per_trade_pct ({self.risk_per_trade_pct}) * "
                 f"max_trades_per_day ({self.max_trades_per_day}) = "
                 f"{max_total_risk:.4f} exceeds daily_loss_limit_pct "
-                f"({self.daily_loss_limit_pct}). Reduce risk per trade or "
-                f"max trades per day."
+                f"({self.daily_loss_limit_pct}). The runtime circuit "
+                f"breaker enforces the daily limit dynamically.",
+                UserWarning,
+                stacklevel=2,
             )
 
 

@@ -62,21 +62,19 @@ logger = logging.getLogger("ayumi.risk.engine")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LOCKED FTMO 1-STEP STANDARD LIMITS — DO NOT OVERRIDE
+# LOCKED FTMO 1-STEP STANDARD LIMITS — imported from canonical source
 # ─────────────────────────────────────────────────────────────────────────────
-# These are referenced in the engine's pre-trade checks via constants below.
+# All FTMO parameter constants live in :mod:`risk.ftmo_params` (single source
+# of truth).  Re-exported here for backward compatibility with existing imports.
 # Any attempt to override these via GuardrailConfig raises ValueError at
 # construction time.  See :meth:`GuardrailEngine.__post_init__`.
 # ─────────────────────────────────────────────────────────────────────────────
 
-#: Hard-coded FTMO 1-Step Standard daily DD limit (3%).
-FTMO_DAILY_DD_LIMIT_PCT: float = 0.03
-
-#: Hard-coded FTMO 1-Step Standard total DD limit (10%).
-FTMO_TOTAL_DD_LIMIT_PCT: float = 0.10
-
-#: Reference account size used by the locked FTMO 1-Step Standard rules.
-FTMO_REFERENCE_ACCOUNT_SIZE: float = 10_000.0
+from risk.ftmo_params import (
+    FTMO_DAILY_DD_LIMIT_PCT,
+    FTMO_TOTAL_DD_LIMIT_PCT,
+    FTMO_REFERENCE_ACCOUNT_SIZE,
+)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

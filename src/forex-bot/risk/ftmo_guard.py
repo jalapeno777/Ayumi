@@ -25,6 +25,15 @@ from enum import Enum
 from typing import Optional, Protocol
 from zoneinfo import ZoneInfo
 
+from risk.ftmo_params import (
+    FTMO_DAILY_DD_LIMIT_PCT,
+    FTMO_TOTAL_DD_LIMIT_PCT,
+    FTMO_REFERENCE_ACCOUNT_SIZE,
+    FTMO_MAX_CONCURRENT_POSITIONS,
+    FTMO_RISK_PER_TRADE_PCT,
+    FTMO_BEST_DAY_CAP_PCT,
+)
+
 logger = logging.getLogger("ayumi.risk.ftmo_guard")
 
 # ── Trading-day timezone helpers ─────────────────────────────────────────────
@@ -142,13 +151,15 @@ class FTMOGuard:
         dd_freeze_pct: Drawdown % that triggers freeze (default 9.0).
     """
 
-    # Default FTMO parameters
-    DEFAULT_MAX_DAILY_LOSS_PCT = 4.0
-    DEFAULT_MAX_POSITIONS = 3
+    # Default FTMO parameters — imported from canonical source (risk.ftmo_params)
+    # ftmo_guard uses percentage points (0-100 scale) for daily_loss_pct,
+    # so we convert the fraction (0.03) to percentage points (3.0).
+    DEFAULT_MAX_DAILY_LOSS_PCT = FTMO_DAILY_DD_LIMIT_PCT * 100  # 3.0%
+    DEFAULT_MAX_POSITIONS = FTMO_MAX_CONCURRENT_POSITIONS       # 3
     DEFAULT_DD_REDUCE_PCT = 8.0
     DEFAULT_DD_FREEZE_PCT = 9.0
     # Phase 0: Best-day rule (FTMO 1-Step: best day's profit ≤ 50% of total positive-days profit)
-    DEFAULT_BEST_DAY_CAP_PCT = 0.50
+    DEFAULT_BEST_DAY_CAP_PCT = FTMO_BEST_DAY_CAP_PCT            # 0.50
     # Max daily P&L history to retain (days)
     MAX_PNL_HISTORY = 60
 

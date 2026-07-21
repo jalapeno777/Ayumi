@@ -53,11 +53,11 @@ class TestDailyLoss:
     """Tests for daily loss limit enforcement."""
 
     def test_no_breach_when_loss_below_limit(self, guard):
-        """Daily loss of 3% should not trigger any action."""
-        # 3% loss = $300 drop from $10k
-        action = guard.update(current_balance=9700.0, open_positions=1)
+        """Daily loss below the 3% FTMO limit should not trigger any action."""
+        # 2.5% loss = $250 drop from $10k (below the 3% FTMO daily DD limit)
+        action = guard.update(current_balance=9750.0, open_positions=1)
         assert action == FTMOAction.ALLOW
-        assert guard.daily_loss_pct == pytest.approx(3.0, abs=0.01)
+        assert guard.daily_loss_pct == pytest.approx(2.5, abs=0.01)
 
     def test_freeze_on_daily_loss_breach(self, guard, kill_switch):
         """Daily loss of 4%+ should trigger FREEZE and call kill_switch."""
