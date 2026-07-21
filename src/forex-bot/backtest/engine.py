@@ -16,9 +16,7 @@ from backtest.types import (
     determine_session,
     get_spread_for_pair,
 )
-from backtest.simple_engine import SimpleBacktestEngine
-
-BacktestEngine = SimpleBacktestEngine
+from engine.engine import BacktestEngine
 
 __all__ = [
     "Bar",

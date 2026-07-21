@@ -20,9 +20,7 @@ class TradeDirection(Enum):
 from core.types import SessionType  # noqa: E402,F401
 
 
-from backtest.simple_engine import SimpleBacktestEngine
-
-BacktestEngine = SimpleBacktestEngine
+from engine.engine import BacktestEngine
 
 
 class TradeOutcome(Enum):

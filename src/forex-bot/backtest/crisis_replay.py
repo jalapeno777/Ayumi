@@ -29,9 +29,9 @@ try:
         BacktestConfig,
         BacktestMetrics,
         Bar,
-        SimpleBacktestEngine,
         SimulatedTrade,
     )
+    from engine.engine import BacktestEngine
 except ImportError:
     # When run as script from src/forex-bot/backtest/crisis_replay.py
     # Load simple_engine.py directly to avoid heavy backtest/__init__.py
@@ -53,7 +53,7 @@ except ImportError:
     BacktestConfig = _se_mod.BacktestConfig
     BacktestMetrics = _se_mod.BacktestMetrics
     Bar = _se_mod.Bar
-    SimpleBacktestEngine = _se_mod.SimpleBacktestEngine
+    from engine.engine import BacktestEngine
     SimulatedTrade = _se_mod.SimulatedTrade
 
 logger = logging.getLogger("crisis_replay")
@@ -400,7 +400,7 @@ def run_crisis_replay(
         pair=pair,
         min_bars_before_signal=30,
     )
-    engine = SimpleBacktestEngine(config)
+    engine = BacktestEngine(config)
     result: BacktestMetrics = engine.run(bars)
 
     # Compute survival metrics
