@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any
 
+from core.config import BacktestConfig as _CoreBacktestConfig
 from core.types import ExitReason
 
 
@@ -162,30 +163,21 @@ def get_spread_for_pair(pair: str) -> float:
 
 
 @dataclass
-class BacktestConfig:
-    starting_balance: float = 10000.0
-    risk_per_trade_pct: float = 0.01
-    max_daily_drawdown_pct: float = 0.02
-    max_total_drawdown_pct: float = 0.05
-    spread_pips: float = 0.5
-    commission_per_lot: float = 3.5
-    leverage: int = 100
-    min_confidence: float = 0.50
-    min_confluences: int = 1
-    min_risk_reward: float = 1.0
-    max_open_trades: int = 1
-    min_bars_before_signal: int = 30
-    partial_close_enabled: bool = True
+class BacktestConfig(_CoreBacktestConfig):
+    """Backtest-specific extension of the canonical core.config.BacktestConfig.
+
+    Inherits all canonical defaults (starting_balance, risk_per_trade_pct,
+    max_daily_drawdown_pct, max_total_drawdown_pct, spread_pips, etc.)
+    from core.config to guarantee backtest and forward-test use identical
+    risk and trading parameters.
+    """
+
+    # Backtest-specific fields not in core.config.BacktestConfig
     partial_close_at_rr: float = 1.0
     partial_close_pct: float = 0.5
-    trailing_stop_enabled: bool = False
     trailing_stop_atr_multiplier: float = 1.0
-    regime_filter_enabled: bool = True
     news_volatility_filter_enabled: bool = True
     round_trip_spread: bool = True
-    slippage_pips: float = 0.2
-    swap_per_lot_per_day: float = -2.0
-    pair: str = ""
     sizing_mode: Any = None
     position_sizing_config: Any = None
 
