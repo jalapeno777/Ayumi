@@ -36,6 +36,7 @@ DB_PATH = PROJECT_ROOT / "data" / "ayumi_market.duckdb"
 # Timeframe definitions: (name, milliseconds)
 TIMEFRAMES = {
     "M1":  60_000,
+    "M3":  180_000,
     "M5":  300_000,
     "M15": 900_000,
     "M30": 1_800_000,
