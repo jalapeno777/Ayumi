@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -25,7 +26,15 @@ from risk.state_persistence import StatePersistence
 # The daily reset boundary is FTMO-defined: America/Toronto midnight (Eastern).
 from risk.ftmo_guard import _trading_date
 
+# Phase 0 forward-test diagnostics — mirror PaperTrader wiring.
+# The blend-mode pipeline does NOT route through PaperTrader.process_signal
+# (the adapter short-circuits in blend mode), so we wire the recorder
+# directly into the runner to keep signal_stats.jsonl up to date.
+from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
+
 logger = logging.getLogger("ayumi.forward_test")
+
+_DEFAULT_STATS_LOG_PATH = "data/signal_stats.jsonl"
 
 
 class BlendForwardTestRunner:
@@ -56,12 +65,30 @@ class BlendForwardTestRunner:
         - atr_cache_path: str
         - state_path: str
         - log_level: str
+        - stats_log_path: str (default ``data/signal_stats.jsonl``) —
+          JSONL destination for the runner-attached signal-stats recorder.
+          Override (typically for tests) by passing ``stats_log_path`` in
+          the config dict or by setting the ``STATS_LOG_PATH`` env var.
         """
         self._config = config
         self._balance = config["account_balance"]
 
         # Setup logging
         setup_logging(level=config.get("log_level", "INFO"))
+
+        # Phase 0 forward-test diagnostics: the SignalStatsRecorder mirrors
+        # what PaperTrader does in non-blend mode. The blend-mode signal
+        # pipeline does NOT route through PaperTrader (the adapter short-
+        # circuits in blend mode and returns the trade signal directly),
+        # so without this wiring the JSONL file goes silent the moment
+        # blend_mode=True is enabled. Lazy-init keeps unit tests that
+        # never invoke on_signal() free of file-system side effects.
+        self._stats_log_path: str = (
+            config.get("stats_log_path")
+            or os.environ.get("STATS_LOG_PATH")
+            or _DEFAULT_STATS_LOG_PATH
+        )
+        self._stats_recorder: SignalStatsRecorder | None = None
 
         # Build pipeline components
         spread_pips = config.get("spread_pips", {})
@@ -116,6 +143,28 @@ class BlendForwardTestRunner:
         # Populated by register_position_mapping() when the engine links
         # a PaperTrader position_id to the blend_runner's signal_id.
         self._position_id_to_signal_id: dict[str, str] = {}
+
+    # ------------------------------------------------------------------
+    # Phase 0 forward-test diagnostics (signal_stats wiring)
+    # ------------------------------------------------------------------
+    def _get_stats_recorder(self) -> SignalStatsRecorder:
+        """Lazy-init the SignalStatsRecorder on first use.
+
+        Mirrors :meth:`PaperTrader._get_stats_recorder` (non-blend path).
+        Kept off the constructor so existing tests that don't touch the
+        stats log don't pay any startup cost and so the runner can be
+        instantiated before the first signal without leaving a half-
+        initialised file on disk. The recorder opens with ``append``
+        semantics via :meth:`SignalStatsRecorder._append_line` (atomic
+        temp + ``os.replace``) so a simulated clean process restart that
+        re-instantiates against the same ``log_path`` will append cleanly
+        rather than truncate.
+        """
+        if self._stats_recorder is None:
+            self._stats_recorder = SignalStatsRecorder(
+                log_path=self._stats_log_path,
+            )
+        return self._stats_recorder
 
     def start(self) -> None:
         """Initialize all components, restore state, start logging."""
@@ -427,12 +476,63 @@ class BlendForwardTestRunner:
                 order.lots,
                 order.risk_amount,
             )
+            # Phase 0 forward-test diagnostics: write the open row to the
+            # JSONL signal-stats log. This closes the writer-silence bug
+            # that left ``data/signal_stats.jsonl`` untouched in blend mode
+            # (the cTrader adapter short-circuits before PaperTrader in
+            # blend mode, so without this hook no caller ever invokes
+            # ``record_signal``). Failures here are non-fatal — the trade
+            # itself is already accepted and registered.
+            try:
+                recorder = self._get_stats_recorder()
+                recorder.record_signal(
+                    SignalRecord(
+                        signal_id=signal_id,
+                        timestamp=signal.timestamp.isoformat()
+                        if signal.timestamp
+                        else "",
+                        strategy=strategy_id,
+                        symbol=signal.symbol,
+                        direction=str(signal.direction),
+                        confidence=float(signal.confidence),
+                        rationale_tags=[signal.metadata.get("rationale", "")]
+                        if isinstance(signal.metadata, dict)
+                        else [],
+                        confluence_score=0.0,
+                        lots=float(order.lots),
+                        entry_price=float(signal.entry_price),
+                        sl_price=float(signal.stop_loss),
+                        tp_price=float(getattr(signal, "take_profit", 0.0)),
+                    )
+                )
+            except Exception as _stats_exc:  # noqa: BLE001
+                logger.warning(
+                    "Signal-stats record_signal failed (non-fatal): %s",
+                    _stats_exc,
+                )
         else:
             logger.info(
                 "Order rejected: %s — %s",
                 signal.symbol,
                 order.rejection_reason,
             )
+            # Phase 0 forward-test diagnostics: write the rejection row to
+            # the JSONL signal-stats log. Mirrors the rejection branch in
+            # ``_execute_signal_live`` so the aggregator's rejection_rate
+            # is non-zero whenever the blend runner rejects a signal.
+            try:
+                recorder = self._get_stats_recorder()
+                signal_id = self.make_signal_id(signal)
+                recorder.record_rejection(
+                    signal_id=signal_id,
+                    rejection_reason=str(order.rejection_reason or ""),
+                    error_code="",
+                )
+            except Exception as _stats_exc:  # noqa: BLE001
+                logger.warning(
+                    "Signal-stats record_rejection failed (non-fatal): %s",
+                    _stats_exc,
+                )
 
         return order
 
@@ -500,6 +600,44 @@ class BlendForwardTestRunner:
                 risk_amount=risk_amount,
                 pnl=pnl,
                 signal_id=order_id,
+            )
+
+        # Phase 0 forward-test diagnostics: write the close row to the
+        # JSONL signal-stats log so the aggregator's hit_rate, avg_pips,
+        # and avg_time_to_close have outcome data to consume. Mirrors
+        # ``PaperTrader.close_position``. Failures are non-fatal — the
+        # sizer + telemetry update is already done by this point.
+        try:
+            recorder = self._get_stats_recorder()
+            outcome = "tp_hit" if pnl > 0 else "sl_hit"
+            # Coarse time_to_close: if the orchestrator metadata carries
+            # an opened_at we use it; otherwise emit 0 (the dashboard
+            # tolerates 0 and shows it as "unknown").
+            opened_at = None
+            closed_at = datetime.now(timezone.utc)
+            if pos and isinstance(pos.get("order"), OrchestratedOrder):
+                _sig = getattr(pos["order"], "signal", None)
+                if _sig and getattr(_sig, "timestamp", None):
+                    opened_at = _sig.timestamp
+            time_to_close = 0
+            if opened_at is not None:
+                try:
+                    time_to_close = max(
+                        0,
+                        int((closed_at - opened_at).total_seconds()),
+                    )
+                except Exception:  # noqa: BLE001
+                    time_to_close = 0
+            recorder.record_outcome(
+                signal_id=order_id,
+                outcome=outcome,
+                pips=float(pnl),
+                time_to_close=int(time_to_close),
+            )
+        except Exception as _stats_exc:  # noqa: BLE001
+            logger.warning(
+                "Signal-stats record_outcome failed (non-fatal): %s",
+                _stats_exc,
             )
 
         # Persist state after fill
