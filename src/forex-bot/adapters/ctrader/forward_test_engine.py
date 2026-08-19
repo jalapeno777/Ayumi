@@ -3370,8 +3370,20 @@ class ForwardTestEngine:
         )
         # Structured diagnostic for post-mortem analysis (card ecbecd01).
         # Surfaces attempt number, current backoff, the last failure reason,
-        # and how stale the auth token is so operators can correlate
-        # ALREADY_LOGGED_IN / token-expiry-driven reconnect storms in logs.
+        # and how much validity remains on the auth token so operators can
+        # correlate ALREADY_LOGGED_IN / token-expiry-driven reconnect storms.
+        # IMPORTANT (card 54f3c0fa): ``_token_expires_at`` is a monotonic
+        # ABSOLUTE expiry timestamp set once at successful auth — it is NOT
+        # an age. Report remaining-seconds (computed at log time) so that
+        # consecutive emissions actually decrease when the clock advances,
+        # and emit ``None`` when the feed has not yet authed.
+        _token_expires_at = getattr(
+            self._market_feed, "_token_expires_at", None
+        )
+        if _token_expires_at is None:
+            _token_validity_remaining_s = None
+        else:
+            _token_validity_remaining_s = _token_expires_at - time.monotonic()
         logger.info(
             "Reconnect diagnostic: %s",
             json.dumps(
@@ -3379,9 +3391,7 @@ class ForwardTestEngine:
                     "attempt_no": self._health.reconnection_attempts,
                     "backoff_s": self._reconnect_delay,
                     "last_error": str(self._health.last_error or "unknown"),
-                    "token_age_s": getattr(
-                        self._market_feed, "_token_expires_at", None
-                    ),
+                    "token_validity_remaining_s": _token_validity_remaining_s,
                 }
             ),
         )
