@@ -72,8 +72,8 @@ logger = logging.getLogger("ayumi.risk.engine")
 
 from risk.ftmo_params import (
     FTMO_DAILY_DD_LIMIT_PCT,
-    FTMO_TOTAL_DD_LIMIT_PCT,
     FTMO_REFERENCE_ACCOUNT_SIZE,
+    FTMO_TOTAL_DD_LIMIT_PCT,
 )
 
 

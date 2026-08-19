@@ -655,7 +655,7 @@ def _parse_trader_balance_response(response: Any, *, Protobuf: Any) -> Decimal:
     if hasattr(payload, "DESCRIPTOR") and not hasattr(payload, "trader"):
         try:
             payload = Protobuf.extract(response)
-        except Exception:
+        except Exception:  # noqa: S110 — best-effort Protobuf.extract fallback; unknown payload shape is propagated by the subsequent getattr()
             pass
 
     trader = getattr(payload, "trader", None)

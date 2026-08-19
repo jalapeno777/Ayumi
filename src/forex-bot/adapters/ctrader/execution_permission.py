@@ -24,8 +24,9 @@ Note on reason string format:
   pass because they use substring ``in`` checks rather than exact equality.
 """
 
-from typing import Tuple, Optional
 import logging
+from typing import Optional, Tuple
+
 from .kill_switch import KillSwitchManager
 
 logger = logging.getLogger(__name__)

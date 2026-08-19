@@ -43,7 +43,7 @@ class SlippageModel:
     pip_value: float = 0.0001
 
     def apply(self, price: float, direction: TradeDirection) -> float:
-        slippage_pips = self.base_pips + random.random() * self.random_pips
+        slippage_pips = self.base_pips + random.random() * self.random_pips  # noqa: S311 — non-cryptographic slippage simulation jitter on order fills
         slippage = slippage_pips * self.pip_value
         if direction == TradeDirection.LONG:
             return price + slippage
@@ -676,7 +676,7 @@ class OrderManager:
         # Store close reason on the position for downstream consumers
         # (PaperTrader stats mapping, signal-stats recorder).  Not a
         # dataclass field — set dynamically to avoid touching models.py.
-        setattr(position, "close_reason", reason)
+        position.close_reason = reason
 
         logger.info(
             f"Position {position.position_id} closed: {reason} @ {exit_price}, PnL: {pnl:.2f}"

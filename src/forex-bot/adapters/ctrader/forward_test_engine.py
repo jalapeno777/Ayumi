@@ -20,9 +20,9 @@ import tempfile
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -31,57 +31,55 @@ if TYPE_CHECKING:
     from .market_data_feed import LiveMarketDataFeed
 
 from backtest.engine import Bar, MarketState
-from backtest.types import determine_session, SessionType
 from backtest.strategies import ISignalStrategy
-
-from .connection_state import ConnectionState
-from .credential_store import CredentialStore
-from .token_lifecycle import TokenLifecycle
-from .kill_switch import KillSwitchManager
-from .market_data_feed import Tick
-from .open_api_spot_feed import OpenApiSpotFeed
-from .models import (
-    OrderStatus,
-    cTraderCredentials,
-    CTraderTradeSignal,
-    TradeDirection,
-    get_symbol_info,
-)
-from .order_manager import PositionSizeConfig
-from .paper_trader import PaperTrader
-from .position_monitor import PositionMonitor
-from .risk_guard import FTMOConfig
-
-# Import the canonical trading-date helper from risk.ftmo_guard.
-# The daily reset boundary is 00:00 America/Toronto (Craig decision Jul 17).
-from risk.ftmo_guard import _trading_date
-from .signal_adapter import cTraderLiveAdapter
-from .trade_logger import TradeLogger
+from backtest.types import SessionType, determine_session
 
 # Confidence engine for live-fire gating
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
-
-# Phase 1c: KillCriteriaChecker — global+per-strategy criterion evaluator
-# wired into the live-fire gate after the ConfidenceEngine pass.
-from policy.kill_criteria import KillCriteriaChecker
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+    ProtoOAOrderType,
+    ProtoOATradeSide,
+)
 
 # Phase 1b: BehavioralPolicy — streak + drawdown cooldown size multiplier
 # applied to live signals after KillCriteria and before _execute_signal_live.
 from policy.behavioral import BehavioralPolicy
 
-# Lazy-import to avoid an import cycle at module load: api_client imports from
-# open_api_spot_feed which itself has no circular dep, but keeping the import
-# local lets tests patch the module path before the class is resolved.
-from .api_client import cTraderAPIClient  # noqa: E402
+# Phase 1c: KillCriteriaChecker — global+per-strategy criterion evaluator
+# wired into the live-fire gate after the ConfidenceEngine pass.
+from policy.kill_criteria import KillCriteriaChecker
+
+# Import the canonical trading-date helper from risk.ftmo_guard.
+# The daily reset boundary is 00:00 America/Toronto (Craig decision Jul 17).
+from risk.ftmo_guard import _trading_date
 
 # Phase 0 forward-test diagnostics — see signal_engine/signal_stats.py
 from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
 
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAOrderType,
-    ProtoOATradeSide,
+# Lazy-import to avoid an import cycle at module load: api_client imports from
+# open_api_spot_feed which itself has no circular dep, but keeping the import
+# local lets tests patch the module path before the class is resolved.
+from .api_client import cTraderAPIClient  # noqa: E402
+from .connection_state import ConnectionState
+from .credential_store import CredentialStore
+from .kill_switch import KillSwitchManager
+from .market_data_feed import Tick
+from .models import (
+    CTraderTradeSignal,
+    OrderStatus,
+    TradeDirection,
+    cTraderCredentials,
+    get_symbol_info,
 )
+from .open_api_spot_feed import OpenApiSpotFeed
+from .order_manager import PositionSizeConfig
+from .paper_trader import PaperTrader
+from .position_monitor import PositionMonitor
+from .risk_guard import FTMOConfig
+from .signal_adapter import cTraderLiveAdapter
+from .token_lifecycle import TokenLifecycle
+from .trade_logger import TradeLogger
 
 logger = logging.getLogger("ayumi.forward_test")
 
@@ -412,7 +410,7 @@ class ForwardTestEngine:
 
         # Startup assertion: whitelist check
         for tf in self._required_timeframes:
-            assert tf in self._ALLOWED_TIMEFRAMES, (
+            assert tf in self._ALLOWED_TIMEFRAMES, (  # noqa: S101 — startup config fail-fast; removal changes crash semantics (stripped under `python -O`)
                 f"Timeframe {tf} not in allowed whitelist {self._ALLOWED_TIMEFRAMES}"
             )
 
@@ -420,7 +418,7 @@ class ForwardTestEngine:
         if self._strategy_timeframes:
             registered_names = {s.name for s in strategies}
             for stg_name in self._strategy_timeframes:
-                assert stg_name in registered_names, (
+                assert stg_name in registered_names, (  # noqa: S101 — startup config fail-fast; removal changes crash semantics (stripped under `python -O`)
                     f"strategy_timeframes key '{stg_name}' does not match any registered "
                     f"strategy .name property. Registered: {sorted(registered_names)}"
                 )
@@ -1115,9 +1113,10 @@ class ForwardTestEngine:
         return success
 
     def _build_quote_credentials(self) -> cTraderCredentials:
-        from dotenv import load_dotenv
         import os
         from pathlib import Path
+
+        from dotenv import load_dotenv
 
         env_path = Path(__file__).resolve().parents[4] / ".env"
         if env_path.exists():
@@ -1172,10 +1171,10 @@ class ForwardTestEngine:
 
     def _assert_bar_integrity(self, bar: Bar):
         """Verify bar OHLC integrity."""
-        assert bar.high >= max(bar.open, bar.close), (
+        assert bar.high >= max(bar.open, bar.close), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
             f"Bar integrity fail: high={bar.high} < max(open={bar.open}, close={bar.close})"
         )
-        assert bar.low <= min(bar.open, bar.close), (
+        assert bar.low <= min(bar.open, bar.close), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
             f"Bar integrity fail: low={bar.low} > min(open={bar.open}, close={bar.close})"
         )
 
@@ -1416,7 +1415,7 @@ class ForwardTestEngine:
             sym_id = None
             try:
                 sym_id = self._market_feed.resolve_symbol_id(signal.symbol)
-            except Exception:
+            except Exception:  # noqa: S110 — best-effort symbol lookup; falls back to default pip_value below
                 pass
             if sym_id is not None:
                 sym_info = self._market_feed.symbols.get(sym_id)
@@ -2395,7 +2394,7 @@ class ForwardTestEngine:
             if gate is not None and rv_status != LiveExecutionStatus.FILLED:
                 try:
                     gate.release(signal.symbol, direction_str)
-                except Exception:
+                except Exception:  # noqa: S110 — best-effort correlation gate release on launcher side; state will be re-resolved on next signal
                     pass
             blend_runner = getattr(self, "_blend_runner", None)
             if blend_runner is not None and rv_status != LiveExecutionStatus.FILLED:
@@ -2412,7 +2411,7 @@ class ForwardTestEngine:
                                 self._config.starting_balance * 0.01,
                             ),
                         )
-                except Exception:
+                except Exception:  # noqa: S110 — best-effort blend_runner.cancel_risk rollback; signal rejection is final
                     pass
 
         try:
@@ -3000,9 +2999,7 @@ class ForwardTestEngine:
             # heartbeat JSON shape stays integer.
             return int(value) if isinstance(value, (int, float)) else 0
         except Exception as exc:
-            logger.debug(
-                "Safe-counter read failed for attr=%s: %s", attr_name, exc
-            )
+            logger.debug("Safe-counter read failed for attr=%s: %s", attr_name, exc)
             return 0
 
     def _check_error_rate(self):
@@ -3377,9 +3374,7 @@ class ForwardTestEngine:
         # an age. Report remaining-seconds (computed at log time) so that
         # consecutive emissions actually decrease when the clock advances,
         # and emit ``None`` when the feed has not yet authed.
-        _token_expires_at = getattr(
-            self._market_feed, "_token_expires_at", None
-        )
+        _token_expires_at = getattr(self._market_feed, "_token_expires_at", None)
         if _token_expires_at is None:
             _token_validity_remaining_s = None
         else:
@@ -3420,7 +3415,7 @@ class ForwardTestEngine:
             attempts = self._health.reconnection_attempts
             exponent = min(attempts, 8)  # cap exponent to prevent overflow
             backoff_cap = min(cap, base * (2**exponent))
-            self._reconnect_delay = random.uniform(0, backoff_cap)
+            self._reconnect_delay = random.uniform(0, backoff_cap)  # noqa: S311 — non-cryptographic full-jitter on reconnection delay (decorrelated jitter per AWS Architecture Blog)
             logger.warning(
                 "Reconnection failed — next attempt in %.1fs (full-jitter, attempt=%d)",
                 self._reconnect_delay,

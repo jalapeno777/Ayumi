@@ -224,6 +224,7 @@ def get_symbol_info(symbol: str) -> SymbolInfo:
     For unknown symbols, falls back to FX defaults with a warning.
     """
     import logging
+
     from utils.pip_value import pip_value_for_symbol
 
     sym_upper = symbol.upper()

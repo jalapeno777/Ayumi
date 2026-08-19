@@ -150,9 +150,7 @@ class HealthMonitor:
                 self._order_gateway, "_order_error_session_conflict_count", 0
             )
             session_conflict = (
-                session_conflict_raw
-                if isinstance(session_conflict_raw, int)
-                else 0
+                session_conflict_raw if isinstance(session_conflict_raw, int) else 0
             )
             if session_conflict > 0:
                 extras.append(f"order_error_session_conflict={session_conflict}")
@@ -166,9 +164,7 @@ class HealthMonitor:
                 self._order_gateway, "_unmatched_late_fills_count", 0
             )
             unmatched_late = (
-                unmatched_late_raw
-                if isinstance(unmatched_late_raw, int)
-                else 0
+                unmatched_late_raw if isinstance(unmatched_late_raw, int) else 0
             )
             if unmatched_late > 0:
                 extras.append(f"unmatched_late_fills={unmatched_late}")

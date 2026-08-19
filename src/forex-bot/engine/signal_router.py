@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
-from .protocol import CanonicalSignal
 from config.sessions import is_tradable_session
+
+from .protocol import CanonicalSignal
 
 if TYPE_CHECKING:
     from adapters.ctrader.order_manager import OrderManager

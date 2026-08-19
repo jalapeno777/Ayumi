@@ -5,7 +5,7 @@ from datetime import datetime
 from backtest.engine import MarketState
 from backtest.strategies import ISignalStrategy
 
-from .models import TradeDirection, CTraderTradeSignal
+from .models import CTraderTradeSignal, TradeDirection
 from .paper_trader import PaperTrader
 from .risk_guard import _DEFAULT_SYMBOL_SPREADS
 
@@ -300,7 +300,7 @@ class cTraderLiveAdapter:
     ) -> list[CTraderTradeSignal]:
         results = []
         for symbol, state in market_states.items():
-            for strategy_name, strategy in self._strategies.items():
+            for strategy_name, _strategy in self._strategies.items():
                 key = f"{strategy_name}_{symbol}"
                 adapter = self._adapters.get(key)
                 if adapter is None:

@@ -4,12 +4,12 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .models import TradeDirection
 from .risk_guard import (
     FTMOConfig,
     RiskGuard,
     RiskLimitResult,
 )
-from .models import TradeDirection
 
 if TYPE_CHECKING:
     from engine.protocol import CanonicalSignal

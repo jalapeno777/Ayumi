@@ -238,9 +238,9 @@ class BarBuilder:
     @staticmethod
     def _assert_bar_integrity(bar: dict) -> None:
         """Verify OHLC integrity."""
-        assert bar["high"] >= max(bar["open"], bar["close"]), (
+        assert bar["high"] >= max(bar["open"], bar["close"]), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
             f"Bar integrity fail: high={bar['high']} < max(open={bar['open']}, close={bar['close']})"
         )
-        assert bar["low"] <= min(bar["open"], bar["close"]), (
+        assert bar["low"] <= min(bar["open"], bar["close"]), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
             f"Bar integrity fail: low={bar['low']} > min(open={bar['open']}, close={bar['close']})"
         )

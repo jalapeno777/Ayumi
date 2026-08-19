@@ -38,16 +38,17 @@ import typing
 from ctrader_open_api.client import Client
 from ctrader_open_api.endpoints import EndPoints
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAApplicationAuthReq,
     ProtoOAAccountAuthReq,
-    ProtoOASymbolsListReq,
-    ProtoOASymbolByIdReq,
+    ProtoOAApplicationAuthReq,
     ProtoOAGetTrendbarsReq,
+    ProtoOASymbolByIdReq,
+    ProtoOASymbolsListReq,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATrendbarPeriod
 from ctrader_open_api.protobuf import Protobuf
 from ctrader_open_api.tcpProtocol import TcpProtocol
 from twisted.internet import reactor
+
 from .reactor_manager import ReactorManager
 
 logger = logging.getLogger(__name__)
@@ -280,7 +281,7 @@ class CTraderOpenApiClient:
         if self._client:
             try:
                 self._client.stopService()
-            except Exception:
+            except Exception:  # noqa: S110 — fire-and-forget stopService during disconnect; client may already be torn down
                 pass
         self._connected = False
         self._reauth_in_progress.clear()

@@ -1,5 +1,6 @@
 from .models import (
     AccountInfo,
+    CTraderTradeSignal,
     MarketDataSnapshot,
     Order,
     OrderStatus,
@@ -7,7 +8,6 @@ from .models import (
     Position,
     PositionStatus,
     TradeDirection,
-    CTraderTradeSignal,
     cTraderCredentials,
 )
 
