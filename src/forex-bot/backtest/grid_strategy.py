@@ -70,8 +70,15 @@ class GridConfig:
 
     @classmethod
     def ftmo(cls, pair: str = "EURUSD") -> "GridConfig":
-        """FTMO-constrained conservative grid preset for the given pair."""
-        presets = GRID_PRESETS.get(pair, GRID_PRESETS["EURUSD"])
+        """FTMO-constrained conservative grid preset for the given pair.
+
+        Pass ``pair`` to bind the returned config to that symbol; omit it
+        (or pass an empty string) to keep the EURUSD default. Card
+        d8b13347 fixed the missing ``pair=`` forward so the dataclass
+        default no longer silently overrides the caller's intent.
+        """
+        effective_pair = pair if pair else "EURUSD"
+        presets = GRID_PRESETS.get(effective_pair, GRID_PRESETS["EURUSD"])
         return cls(
             grid_spacing_pips=presets["grid_spacing_pips"],
             num_levels=presets["num_levels"],
@@ -79,6 +86,7 @@ class GridConfig:
             max_concurrent_positions=presets.get("max_concurrent_positions", 5),
             initial_spacing_type="fixed",
             position_sizing_type="equal",
+            pair=effective_pair,
         )
 
 
