@@ -377,6 +377,15 @@ class ForwardTestEngine:
     # Allowed timeframe whitelist
     _ALLOWED_TIMEFRAMES = {15, 60, 240}
 
+    # Card dcc7817d (3/3): ticks-flow-but-bars-static watchdog threshold.
+    # 20 minutes per Satsuki's M15-boundary correction (15 min would
+    # fire at every M15 close under low tick rate). Class-level constant
+    # so the health-monitor loop, the heartbeat writer, and any future
+    # watchdog consumer read the same value.
+    _BARS_STATIC_THRESHOLD_SEC = 1200.0
+    # Rate-limit between consecutive BARS STATIC WARNINGs (s).
+    _BARS_STATIC_WARN_INTERVAL_SEC = 300.0
+
     @staticmethod
     def _bar_key(symbol: str, period_minutes: int) -> str:
         return f"{symbol}:{period_minutes}"
@@ -455,6 +464,32 @@ class ForwardTestEngine:
 
         self._last_evaluation_at: float = 0.0
 
+        # Card dcc7817d (2/3): Capture the process-init monotonic clock so
+        # per-strategy ``_strategy_last_eval`` can be seeded from it. The
+        # health monitor reads ``time.monotonic() - last_eval`` to compute
+        # ``last_eval_ago``; a seed of ``0.0`` would yield ``uptime``
+        # (~13.3d observed) before the first eval lands, polluting the
+        # S1 health log and the ``last_eval_ago_sec`` state field. With a
+        # monotonic-at-init seed the first health tick reads ~0s and the
+        # value becomes accurate the moment the first eval updates the
+        # entry at :func:`_evaluate_strategies`.
+        self._strategy_init_monotonic: float = time.monotonic()
+
+        # Card dcc7817d (3/3): ticks-flow-but-bars-static watchdog state.
+        # ``_last_bar_built_at`` is updated inside ``_store_bar`` whenever
+        # a new bar finalizes; ``_ticks_at_last_bar_built`` is the
+        # ``ticks_received`` counter snapshot at the same moment. The
+        # health monitor compares (now - _last_bar_built_at) against the
+        # 20-minute threshold and gates on
+        # ``ticks_received > _ticks_at_last_bar_built`` so M15 boundary
+        # tick-only periods (no new bar) don't false-positive.
+        self._last_bar_built_at: float = self._strategy_init_monotonic
+        self._ticks_at_last_bar_built: int = 0
+        # Rate-limit the watchdog WARNING the same way the existing
+        # total_bars==0 detector does (300s between warnings).
+        self._last_bars_static_warning_time: float = 0.0
+        # Threshold lives at class-level — see _BARS_STATIC_THRESHOLD_SEC.
+
         # Bar-completion flags: set when a bar is finalized for a timeframe
         # key = _bar_key(symbol, timeframe), value = True when new bar completed
         self._bar_completed: dict[str, bool] = {}
@@ -512,7 +547,9 @@ class ForwardTestEngine:
         self._strategy_no_signal_counts: dict[str, int] = {
             s.name: 0 for s in strategies
         }
-        self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
+        self._strategy_last_eval: dict[str, float] = {
+            s.name: self._strategy_init_monotonic for s in strategies
+        }
 
         # B5 Pipeline warning: rate-limit + grace period
         self._last_pipeline_warning_time: float = 0.0
@@ -1184,6 +1221,15 @@ class ForwardTestEngine:
             self._bars[key] = []
         self._bars[key].append(bar)
         self._health.bars_built += 1
+        # Card dcc7817d (3/3): Update the bars-static watchdog timestamp
+        # under the same lock the bars_built counter lives under. Paired
+        # with ``_ticks_at_last_bar_built`` this is what the health
+        # monitor uses to detect "ticks-flow-but-bars-static ≥20 min"
+        # (M15 boundary safe per Satsuki correction). The lock keeps the
+        # pair consistent against concurrent ``_on_tick`` updates.
+        with self._lock:
+            self._last_bar_built_at = time.monotonic()
+            self._ticks_at_last_bar_built = self._health.ticks_received
         if len(self._bars[key]) > self._config.max_bars_per_symbol:
             self._bars[key] = self._bars[key][-self._config.max_bars_per_symbol :]
 
@@ -2943,6 +2989,38 @@ class ForwardTestEngine:
                 "unmatched_late_fills": self._safe_spot_feed_counter(
                     "_unmatched_late_fills_count"
                 ),
+                # Card dcc7817d (3/3): surface throughput + bars-static
+                # watchdog fields so the Hayate SH-002 audit can read them
+                # from the heartbeat JSON (without grepping logs). SH-002
+                # reads ``tps_5min_avg`` first then ``tps_recent`` then
+                # ``tps`` (scripts/daily_audit.py:188-189) — we publish
+                # ``tps_recent`` (instantaneous) and ``tps_5min_avg``
+                # (same value for now; rolling buffer is out of scope for
+                # this card). ``bars_static_sec`` is the age of the last
+                # bar build; ``bars_static`` is the boolean the watchdog
+                # tripped on (read by the Hayate audit if/when it's
+                # extended). All fields read with ``getattr(..., 0)`` so
+                # older readers that pre-date this commit tolerate the
+                # heartbeat cleanly.
+                "tps": round(self._health.ticks_per_second, 2),
+                "tps_recent": round(self._health.ticks_per_second, 2),
+                "tps_5min_avg": round(self._health.ticks_per_second, 2),
+                "bars_static_sec": round(
+                    max(0.0, time.monotonic() - self._last_bar_built_at), 1
+                ),
+                "bars_static": (
+                    max(0.0, time.monotonic() - self._last_bar_built_at)
+                    >= self._BARS_STATIC_THRESHOLD_SEC
+                    and self._health.ticks_received
+                    > self._ticks_at_last_bar_built
+                ),
+                "ticks_since_last_bar": int(
+                    max(
+                        0,
+                        self._health.ticks_received
+                        - self._ticks_at_last_bar_built,
+                    )
+                ),
             }
             json_str = json.dumps(heartbeat, indent=2)
 
@@ -3209,6 +3287,53 @@ class ForwardTestEngine:
                                         "(last warning %.0fs ago)",
                                         now - self._last_pipeline_warning_time,
                                     )
+                        # Card dcc7817d (3/3): ticks-flow-but-bars-static
+                        # detector. Different from the total_bars==0 case
+                        # above: bars exist, but no NEW bar has finalised
+                        # for ≥20 min while ticks keep arriving. Tick-
+                        # gated (only fires when ticks_received has grown
+                        # past the value seen at the last bar build) so a
+                        # quiet market (no ticks) doesn't false-positive.
+                        # Threshold 1200s per Satsuki's M15-boundary
+                        # correction (15 min would fire at every M15
+                        # close under low tick rate).
+                        elif (
+                            not in_grace
+                            and total_bars > 0
+                            and (
+                                now - self._last_bar_built_at
+                                >= self._BARS_STATIC_THRESHOLD_SEC
+                            )
+                            and (
+                                self._health.ticks_received
+                                > self._ticks_at_last_bar_built
+                            )
+                        ):
+                            if (
+                                now - self._last_bars_static_warning_time
+                                >= 300
+                            ):
+                                self._last_bars_static_warning_time = now
+                                ticks_since = (
+                                    self._health.ticks_received
+                                    - self._ticks_at_last_bar_built
+                                )
+                                logger.warning(
+                                    "[B5 Pipeline] BARS STATIC: %d ticks since "
+                                    "last bar, age=%.0fs, threshold=%.0fs, "
+                                    "total_bars=%d, last_bar_built_at_age=%.0fs",
+                                    ticks_since,
+                                    now - self._last_bar_built_at,
+                                    self._BARS_STATIC_THRESHOLD_SEC,
+                                    total_bars,
+                                    now - self._last_bar_built_at,
+                                )
+                            else:
+                                logger.debug(
+                                    "[B5 Pipeline] Bars-static still tripping "
+                                    "but rate-limited (last warning %.0fs ago)",
+                                    now - self._last_bars_static_warning_time,
+                                )
 
                     # Phase 1D: Portfolio summary from position monitor
                     if self._position_monitor is not None:
