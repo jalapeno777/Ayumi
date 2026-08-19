@@ -7,12 +7,12 @@ import pytest
 from signal_engine.risk_sizer import (
     ConfidencePositionSizer,
     ConfidenceTier,
-    DEFAULT_TIERS,
     parse_tiers,
 )
 
 
 # ── Default Tier Mapping ────────────────────────────────────────────
+
 
 class TestDefaultTierMapping:
     def setup_method(self):
@@ -54,6 +54,7 @@ class TestDefaultTierMapping:
 
 # ── Risk Amount ─────────────────────────────────────────────────────
 
+
 class TestRiskAmount:
     def test_risk_amount_calculation(self):
         sizer = ConfidencePositionSizer(account_size=10000.0)
@@ -65,6 +66,7 @@ class TestRiskAmount:
 
 
 # ── Lot Size ────────────────────────────────────────────────────────
+
 
 class TestLotSize:
     def test_lot_size_basic(self):
@@ -78,6 +80,7 @@ class TestLotSize:
 
 
 # ── Tier Labels ─────────────────────────────────────────────────────
+
 
 class TestTierLabel:
     def test_label_mid_tier(self):
@@ -96,6 +99,7 @@ class TestTierLabel:
 
 # ── Custom Tiers ────────────────────────────────────────────────────
 
+
 class TestCustomTiers:
     def test_custom_tier_override(self):
         custom = [ConfidenceTier(0.50, 1.00, 0.02)]
@@ -103,7 +107,7 @@ class TestCustomTiers:
         assert sizer.get_risk_pct(0.75) == 0.02
 
     def test_parse_tiers(self):
-        json_str = '[[0.5, 0.8, 0.01], [0.8, 1.0, 0.02]]'
+        json_str = "[[0.5, 0.8, 0.01], [0.8, 1.0, 0.02]]"
         tiers = parse_tiers(json_str)
         assert len(tiers) == 2
         assert tiers[0].risk_pct == 0.01

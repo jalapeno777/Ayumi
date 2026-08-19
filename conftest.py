@@ -14,12 +14,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from common.resource_limits import configure_pytest_defaults
 
 # Apply memory limit at collection time
-configure_pytest_defaults(max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "2048")))
+configure_pytest_defaults(
+    max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "2048"))
+)
 
 
 def pytest_collection_modifyitems(config, items):
     """Optional hook: log collection size for diagnostics."""
     import logging
+
     logging.getLogger("ayumi.resource_limits").debug(
         "Collected %d tests, memory limit active", len(items)
     )

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 logger = logging.getLogger("ayumi.bar_builder")
@@ -44,7 +44,7 @@ class BarBuilder:
         self._lock = threading.Lock()
 
         # Per-timeframe state: key = "SYMBOL:period_minutes"
-        self._bars: dict[str, list] = {}        # finalized bars
+        self._bars: dict[str, list] = {}  # finalized bars
         self._current_bar: dict[str, Optional[dict]] = {}  # forming bar
         self._timeframes: set[int] = set()
 
@@ -115,7 +115,9 @@ class BarBuilder:
         with self._lock:
             return list(self._bars.get(key, []))
 
-    def get_bars_including_forming(self, symbol: str, period_minutes: int) -> list[dict]:
+    def get_bars_including_forming(
+        self, symbol: str, period_minutes: int
+    ) -> list[dict]:
         """Get bars including the current forming bar as last element."""
         key = self._bar_key(symbol, period_minutes)
         with self._lock:

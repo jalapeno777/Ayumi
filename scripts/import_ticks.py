@@ -12,10 +12,10 @@ Usage:
                                     [--generate-bars]
                                     [--timeframes M1,M5,M15,M30,H1,H4,D1]
 """
+
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -159,8 +159,12 @@ def main():
     ap = argparse.ArgumentParser(description="Import tick CSVs into DuckDB")
     ap.add_argument("--staging", type=Path, default=DEFAULT_STAGING)
     ap.add_argument("--db-path", type=Path, default=DEFAULT_DB)
-    ap.add_argument("--keep-csvs", action="store_true", help="Don't delete CSVs after import")
-    ap.add_argument("--generate-bars", action="store_true", help="Generate OHLCV bars from ticks")
+    ap.add_argument(
+        "--keep-csvs", action="store_true", help="Don't delete CSVs after import"
+    )
+    ap.add_argument(
+        "--generate-bars", action="store_true", help="Generate OHLCV bars from ticks"
+    )
     ap.add_argument(
         "--timeframes",
         type=str,

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
+from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.donchian_atr_trend import (
     DonchianATRConfig,
     DonchianATRTrendStrategy,
@@ -27,6 +27,7 @@ from strategies.donchian_atr_trend import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _bar(
     close: float = 1.1000,
@@ -112,6 +113,7 @@ def _ranging_bars(
 # Helper function tests
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateATR:
     def test_returns_default_for_insufficient_bars(self):
         bars = [_bar(close=1.0, high=1.001, low=0.999) for _ in range(5)]
@@ -121,7 +123,13 @@ class TestCalculateATR:
     def test_returns_positive_value_for_valid_bars(self):
         bars = []
         for i in range(20):
-            bars.append(_bar(close=1.0 + i * 0.001, high=1.0 + i * 0.001 + 0.002, low=1.0 + i * 0.001 - 0.001))
+            bars.append(
+                _bar(
+                    close=1.0 + i * 0.001,
+                    high=1.0 + i * 0.001 + 0.002,
+                    low=1.0 + i * 0.001 - 0.001,
+                )
+            )
         result = _calculate_atr(bars, period=14)
         assert result > 0
 
@@ -208,6 +216,7 @@ class TestDonchianChannel:
 # Strategy integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestDonchianATRTrendStrategyBasics:
     def test_name_property(self):
         strategy = DonchianATRTrendStrategy()
@@ -227,9 +236,7 @@ class TestDonchianATRTrendStrategyBasics:
 
 
 class TestDonchianATRTrendBreakoutSignals:
-    def _make_breakout_bars(
-        self, direction: str = "long", n: int = 60
-    ) -> list[Bar]:
+    def _make_breakout_bars(self, direction: str = "long", n: int = 60) -> list[Bar]:
         """Build bars that produce a Donchian breakout on the last bar."""
         bars: list[Bar] = []
         start_dt = datetime(2026, 1, 1, 6, 0, tzinfo=timezone.utc)
@@ -267,9 +274,7 @@ class TestDonchianATRTrendBreakoutSignals:
         return bars
 
     def test_long_breakout_signal(self):
-        strategy = DonchianATRTrendStrategy(
-            DonchianATRConfig(cooldown_bars=0)
-        )
+        strategy = DonchianATRTrendStrategy(DonchianATRConfig(cooldown_bars=0))
         bars = self._make_breakout_bars("long")
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -285,9 +290,7 @@ class TestDonchianATRTrendBreakoutSignals:
         assert "breakout_long" in signal.rationale
 
     def test_short_breakout_signal(self):
-        strategy = DonchianATRTrendStrategy(
-            DonchianATRConfig(cooldown_bars=0)
-        )
+        strategy = DonchianATRTrendStrategy(DonchianATRConfig(cooldown_bars=0))
         bars = self._make_breakout_bars("short")
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -307,9 +310,7 @@ class TestDonchianATRTrendBreakoutSignals:
         When all bars are identical, ATR = 0 and EMA = close,
         so the strategy returns None early (atr <= 0 guard).
         """
-        strategy = DonchianATRTrendStrategy(
-            DonchianATRConfig(cooldown_bars=0)
-        )
+        strategy = DonchianATRTrendStrategy(DonchianATRConfig(cooldown_bars=0))
         bars: list[Bar] = []
         start_dt = datetime(2026, 1, 1, 6, 0, tzinfo=timezone.utc)
         for i in range(60):
@@ -374,9 +375,7 @@ class TestDonchianATRTrendRiskCalculation:
             assert r3 == pytest.approx(risk * 3)
 
     def test_confidence_capped_at_085(self):
-        strategy = DonchianATRTrendStrategy(
-            DonchianATRConfig(cooldown_bars=0)
-        )
+        strategy = DonchianATRTrendStrategy(DonchianATRConfig(cooldown_bars=0))
         bars = TestDonchianATRTrendBreakoutSignals._make_breakout_bars("long")
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)

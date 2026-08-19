@@ -181,9 +181,7 @@ class BacktestEngine(
                         min_confidence=self.config.min_confidence,
                     )
                     if combined is not None:
-                        combined = self._apply_policy_gates(
-                            combined, bar, "combined"
-                        )
+                        combined = self._apply_policy_gates(combined, bar, "combined")
                         if combined is None:
                             self.rejected_signals += 1
                             continue
@@ -253,9 +251,7 @@ class BacktestEngine(
         daily_dd_pct = 0.0
         daily_start = float(getattr(self, "daily_start_balance", 0.0) or 0.0)
         if daily_start > 0:
-            daily_dd_pct = max(
-                0.0, (daily_start - self.balance) / daily_start * 100
-            )
+            daily_dd_pct = max(0.0, (daily_start - self.balance) / daily_start * 100)
         bp_context = {
             "consecutive_losses": self._consecutive_losses,
             "daily_drawdown_pct": daily_dd_pct,

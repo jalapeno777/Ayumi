@@ -12,11 +12,11 @@ Usage:
     loader = DbDataLoader(db_path="data/ayumi_market.duckdb")
     symbols = loader.get_available_symbols()
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from pathlib import Path
 
 from .types import Bar
 

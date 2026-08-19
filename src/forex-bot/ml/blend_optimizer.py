@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 @dataclass
 class BlendOptConfig:
     """Configuration for blend optimization."""
+
     starting_balance: float = 10000.0
     risk_per_trade_pct: float = 0.005
     max_concurrent: int = 8
@@ -32,6 +33,7 @@ class BlendOptConfig:
 @dataclass
 class BlendConfig:
     """A specific strategy blend configuration."""
+
     active_strategies: dict[str, bool]
     strategy_weights: dict[str, float]
     allowed_symbols: dict[str, list[str]]
@@ -42,6 +44,7 @@ class BlendConfig:
 @dataclass
 class BlendResult:
     """Result of a blend optimization run."""
+
     best_config: BlendConfig
     best_score: float
     best_win_rate: float
@@ -88,13 +91,22 @@ class StrategyBlendOptimizer:
         dd_factor = 1.0 / (1.0 + max_dd_pct / 100.0)
         profit_factor = gross_profit / max(gross_loss, 1.0)
         strategy_penalty = 1.0 / (1.0 + 0.1 * (num_active_strategies - 1))
-        return profit_factor * win_rate * math.sqrt(total_trades) * dd_factor * strategy_penalty
+        return (
+            profit_factor
+            * win_rate
+            * math.sqrt(total_trades)
+            * dd_factor
+            * strategy_penalty
+        )
 
     def objective(self, trial: optuna.Trial) -> float:
         """Optuna objective function."""
         # CPU metering
         now = time.monotonic()
-        if self._cpu_budget_seconds > 0 and self._cpu_used_seconds >= self._cpu_budget_seconds:
+        if (
+            self._cpu_budget_seconds > 0
+            and self._cpu_used_seconds >= self._cpu_budget_seconds
+        ):
             raise optuna.TrialPruned("CPU budget exceeded")
 
         trial_start = time.monotonic()
@@ -115,7 +127,8 @@ class StrategyBlendOptimizer:
                 # Per-strategy symbol selection
                 chosen = trial.suggest_categorical(
                     f"symbols_{sid}",
-                    [",".join(strat.symbols), ",".join(strat.symbols[:1])] if len(strat.symbols) > 1
+                    [",".join(strat.symbols), ",".join(strat.symbols[:1])]
+                    if len(strat.symbols) > 1
                     else [strat.symbols[0]],
                 )
                 allowed_symbols[sid] = chosen.split(",")
@@ -161,14 +174,18 @@ class StrategyBlendOptimizer:
 
         num_active = sum(1 for v in active.values() if v)
         score = self._compute_score(
-            result.win_rate, result.total_trades, result.max_drawdown_pct,
+            result.win_rate,
+            result.total_trades,
+            result.max_drawdown_pct,
             gross_profit=result.gross_profit,
             gross_loss=result.gross_loss,
             num_active_strategies=num_active,
         )
         return score
 
-    def optimize(self, n_trials: int | None = None, timeout: int | None = None) -> BlendResult:
+    def optimize(
+        self, n_trials: int | None = None, timeout: int | None = None
+    ) -> BlendResult:
         """Run optimization."""
         # Pre-generate signals for all strategies
         self._signal_provider.generate_signals("EURUSD", "2025-01-01", "2025-03-31")

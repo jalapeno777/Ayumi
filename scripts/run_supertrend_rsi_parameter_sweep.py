@@ -189,9 +189,13 @@ def run_walk_forward_for_params(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Supertrend RSI blend parameter sweep + walk-forward")
+    parser = argparse.ArgumentParser(
+        description="Supertrend RSI blend parameter sweep + walk-forward"
+    )
     add_resource_args(parser)
-    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    parser.add_argument(
+        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
+    )
     args = parser.parse_args()
 
     SWEEP_REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -326,4 +330,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

@@ -330,8 +330,8 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
     def test_default_config(self):
         strategy = VolatilitySqueezeStrategy()
         self.assertEqual(strategy.config.bb_period, 20)
-        self.assertEqual(strategy.config.bb_std_dev, 2.0)
-        self.assertEqual(strategy.config.min_squeeze_bars, 3)
+        self.assertAlmostEqual(strategy.config.bb_std_dev, 1.8)
+        self.assertEqual(strategy.config.min_squeeze_bars, 2)
 
     def test_custom_config(self):
         config = VolatilitySqueezeConfig(bb_period=10, adx_min=25)
@@ -409,21 +409,23 @@ class TestVolatilitySqueezeConfig(unittest.TestCase):
     def test_default_values(self):
         config = VolatilitySqueezeConfig()
         self.assertEqual(config.bb_period, 20)
-        self.assertEqual(config.bb_std_dev, 2.0)
+        self.assertAlmostEqual(config.bb_std_dev, 1.8)
         self.assertEqual(config.kc_period, 20)
-        self.assertEqual(config.kc_atr_multiplier, 2.0)
+        self.assertAlmostEqual(config.kc_atr_multiplier, 1.8)
         self.assertEqual(config.squeeze_threshold, 0.0)
-        self.assertEqual(config.min_squeeze_bars, 3)
+        self.assertEqual(config.min_squeeze_bars, 2)
         self.assertEqual(config.ema_period, 20)
         self.assertEqual(config.adx_period, 14)
-        self.assertAlmostEqual(config.adx_min, 20.0)
+        self.assertEqual(config.rsi_period, 14)
+        self.assertAlmostEqual(config.adx_min, 15.0)
         self.assertEqual(config.atr_period, 14)
         self.assertAlmostEqual(config.atr_sl_multiplier, 1.5)
         self.assertAlmostEqual(config.tp1_rr, 1.0)
         self.assertAlmostEqual(config.tp2_rr, 2.0)
         self.assertAlmostEqual(config.tp3_rr, 3.0)
         self.assertTrue(config.session_filter)
-        self.assertAlmostEqual(config.min_confidence, 0.55)
+        self.assertAlmostEqual(config.min_confidence, 0.40)
+        self.assertEqual(config.squeeze_release_mode, "any_release")
 
     def test_frozen_dataclass(self):
         config = VolatilitySqueezeConfig()

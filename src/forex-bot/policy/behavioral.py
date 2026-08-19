@@ -115,9 +115,7 @@ class BehavioralPolicy:
             cfg.get("max_multiplier", DEFAULT_MAX_MULTIPLIER)
         )
 
-    def evaluate(
-        self, base_size: float, context: dict
-    ) -> BehavioralResult:
+    def evaluate(self, base_size: float, context: dict) -> BehavioralResult:
         """Compute the size multiplier for the current trading context.
 
         Parameters

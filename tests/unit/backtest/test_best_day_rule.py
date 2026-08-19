@@ -16,6 +16,7 @@ Covers:
 13. Multi-day scenarios across resets
 14. Edge: today's P/L is negative, entry brings it positive
 """
+
 from __future__ import annotations
 
 import sys
@@ -169,9 +170,7 @@ class TestDailyReset:
 
     def test_reset_at_midnight_local(self):
         """A trade after 00:00 CET starts a new day for the tracker."""
-        t = BestDayRuleTracker(
-            account_phase="funded", reset_tz_offset_hours=1
-        )  # CET
+        t = BestDayRuleTracker(account_phase="funded", reset_tz_offset_hours=1)  # CET
         # 2026-07-12 22:00 UTC = 2026-07-12 23:00 CET (still 12th)
         t.record_trade_close(_utc(2026, 7, 12, 22), 100.0)
         # 2026-07-12 23:30 UTC = 2026-07-13 00:30 CET (now 13th)
@@ -182,9 +181,7 @@ class TestDailyReset:
 
     def test_reset_at_midnight_summer_time_cest(self):
         """CEST is UTC+2 (summer). At 22:00 UTC = 00:00 next-day CEST."""
-        t = BestDayRuleTracker(
-            account_phase="funded", reset_tz_offset_hours=2
-        )  # CEST
+        t = BestDayRuleTracker(account_phase="funded", reset_tz_offset_hours=2)  # CEST
         # 2026-07-12 20:00 UTC = 2026-07-12 22:00 CEST (still 12th)
         t.record_trade_close(_utc(2026, 7, 12, 20), 100.0)
         # 2026-07-12 22:00 UTC = 2026-07-13 00:00 CEST → next day
@@ -288,7 +285,7 @@ class TestCheckEntry:
         """
         t = BestDayRuleTracker(account_phase="funded")
         t.record_trade_close(_utc(2026, 7, 11, 10), 1200.0)  # yesterday
-        t.record_trade_close(_utc(2026, 7, 12, 9), -200.0)   # today (loss)
+        t.record_trade_close(_utc(2026, 7, 12, 9), -200.0)  # today (loss)
         # today=-200, cumulative=1000, planned=800 → projected=600, share=60%
         result = t.check_entry(
             planned_profit_dollars=800.0,
@@ -303,9 +300,7 @@ class TestCheckEntry:
         t.record_trade_close(_utc(2026, 7, 11, 10), 700.0)  # yesterday
         t.record_trade_close(_utc(2026, 7, 12, 10), 200.0)  # today
         # today=200, cumulative=900, planned=100 → projected=300, share=33.3% > 30% → BLOCK
-        result = t.check_entry(
-            planned_profit_dollars=100.0, now=_utc(2026, 7, 12, 14)
-        )
+        result = t.check_entry(planned_profit_dollars=100.0, now=_utc(2026, 7, 12, 14))
         assert result.allowed is False
         assert result.threshold == 0.30
 
@@ -315,9 +310,7 @@ class TestCheckEntry:
         t.record_trade_close(_utc(2026, 7, 11, 10), 900.0)  # yesterday
         t.record_trade_close(_utc(2026, 7, 12, 10), 100.0)  # today
         # today=100, cumulative=1000, planned=20 → projected=120, share=12% → ALLOW
-        result = t.check_entry(
-            planned_profit_dollars=20.0, now=_utc(2026, 7, 12, 14)
-        )
+        result = t.check_entry(planned_profit_dollars=20.0, now=_utc(2026, 7, 12, 14))
         assert isinstance(result, BestDayCheckResult)
         assert result.allowed is True
         assert result.today_pnl == 100.0

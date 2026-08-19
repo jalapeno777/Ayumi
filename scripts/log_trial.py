@@ -136,9 +136,7 @@ def log_trial(
         If ``source`` or ``outcome`` is not a recognised value.
     """
     if source not in VALID_SOURCES:
-        raise ValueError(
-            f"Invalid source '{source}'. Must be one of {VALID_SOURCES}"
-        )
+        raise ValueError(f"Invalid source '{source}'. Must be one of {VALID_SOURCES}")
     if outcome not in VALID_OUTCOMES:
         raise ValueError(
             f"Invalid outcome '{outcome}'. Must be one of {VALID_OUTCOMES}"
@@ -203,9 +201,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument(
-        "--strategy", type=str, help="Strategy name (e.g. EMA_Cross)"
-    )
+    parser.add_argument("--strategy", type=str, help="Strategy name (e.g. EMA_Cross)")
     parser.add_argument("--symbol", type=str, help="Trading symbol (e.g. XAUUSD)")
     parser.add_argument(
         "--source",
@@ -276,7 +272,9 @@ def main(argv: list[str] | None = None) -> int:
         config_hash=args.config_hash,
         note=args.note,
     )
-    print(f"Logged trial #{count_trials()} — {entry['strategy_name']} ({entry['outcome']})")
+    print(
+        f"Logged trial #{count_trials()} — {entry['strategy_name']} ({entry['outcome']})"
+    )
     return 0
 
 

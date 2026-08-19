@@ -15,8 +15,6 @@ Exit codes:
 
 from __future__ import annotations
 
-import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -25,7 +23,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+)
 log = logging.getLogger("ayumi.t3d")
 
 
@@ -37,6 +38,7 @@ def main():
     # Step 1: Load credentials
     print("\n── Step 1: Load Credentials ──")
     from adapters.ctrader.credential_store import CredentialStore
+
     cs = CredentialStore(str(ROOT / "data" / ".credentials"))
     try:
         creds = cs.load()
@@ -62,6 +64,7 @@ def main():
             ProtoOASubscribeSpotsReq,
         )
         from ctrader_open_api.protobuf import Protobuf
+
         print("✓ SDK imported")
     except ImportError as e:
         print(f"✗ SDK import failed: {e}")
@@ -86,6 +89,7 @@ def main():
         # Try to extract the actual response
         try:
             from ctrader_open_api.protobuf import Protobuf
+
             extracted = Protobuf.extract(message)
             payload_type = extracted.payloadType
             log.info(f"Extracted payloadType={payload_type}")
@@ -94,7 +98,7 @@ def main():
 
         # Application auth response
         if payload_type == 2101 or "AppAuthRes" in str(type(extracted)):
-            if hasattr(extracted, 'errorCode') and extracted.errorCode:
+            if hasattr(extracted, "errorCode") and extracted.errorCode:
                 log.error(f"App auth failed: {extracted.errorCode}")
                 return
             log.info("✓ Application authenticated")
@@ -108,7 +112,7 @@ def main():
 
         # Account auth response
         elif payload_type == 2103 or "AccountAuthRes" in str(type(extracted)):
-            if hasattr(extracted, 'errorCode') and extracted.errorCode:
+            if hasattr(extracted, "errorCode") and extracted.errorCode:
                 log.error(f"Account auth failed: {extracted.errorCode}")
                 return
             log.info("✓ Account authenticated")
@@ -155,7 +159,7 @@ def main():
         # New order response
         elif payload_type == 2112 or "NewOrderRes" in str(type(extracted)):
             log.info(f"✓ NEW ORDER RESPONSE: {type(extracted)}")
-            if hasattr(extracted, 'errorCode') and extracted.errorCode:
+            if hasattr(extracted, "errorCode") and extracted.errorCode:
                 log.error(f"Order rejected: errorCode={extracted.errorCode}")
                 order_result["status"] = "rejected"
                 order_result["error"] = extracted.errorCode
@@ -167,16 +171,16 @@ def main():
 
         # Execution event
         elif payload_type == 2126:
-            log.info(f"✓ EXECUTION EVENT received")
+            log.info("✓ EXECUTION EVENT received")
             order_result["status"] = "execution_event"
             order_result["data"] = extracted
             order_event.set()
 
         # Order error event
         elif payload_type == 2132:
-            log.warning(f"⚠ ORDER ERROR EVENT")
-            error_code = getattr(extracted, 'errorCode', 'UNKNOWN')
-            description = getattr(extracted, 'description', '')
+            log.warning("⚠ ORDER ERROR EVENT")
+            error_code = getattr(extracted, "errorCode", "UNKNOWN")
+            description = getattr(extracted, "description", "")
             log.warning(f"  errorCode={error_code} description={description}")
             order_result["status"] = "rejected"
             order_result["error"] = f"{error_code}: {description}"
@@ -198,6 +202,7 @@ def main():
 
     # Create client and start reactor in background
     from twisted.internet import reactor
+
     client = Client("demo.ctraderapi.com", 5035, TcpProtocol)
     client.setConnectedCallback(on_connected)
     client.setMessageReceivedCallback(on_message)
@@ -209,7 +214,10 @@ def main():
     # Start reactor if not already running
     if not reactor.running:
         import threading
-        reactor_thread = threading.Thread(target=reactor.run, args=(False,), daemon=True)
+
+        reactor_thread = threading.Thread(
+            target=reactor.run, args=(False,), daemon=True
+        )
         reactor_thread.start()
         time.sleep(1)
         log.info("Reactor started in background thread")
@@ -238,8 +246,8 @@ def main():
 
     status = order_result["status"]
     if status == "filled" or status == "execution_event":
-        print(f"✅ ORDER FILLED!")
-        print(f"  Check cTrader dashboard for the 0.01 lot GBPUSD BUY")
+        print("✅ ORDER FILLED!")
+        print("  Check cTrader dashboard for the 0.01 lot GBPUSD BUY")
         return 0
     elif status == "rejected":
         print(f"❌ ORDER REJECTED: {order_result.get('error', 'unknown')}")
@@ -248,7 +256,7 @@ def main():
         print(f"❌ ORDER ERROR: {order_result.get('error', 'unknown')}")
         return 2
     elif status == "success":
-        print(f"✅ ORDER ACCEPTED (response received)")
+        print("✅ ORDER ACCEPTED (response received)")
         return 0
     else:
         print(f"❓ Unknown status: {status}")

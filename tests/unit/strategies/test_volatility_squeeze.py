@@ -183,9 +183,7 @@ class TestVolatilitySqueezeBugfix:
         # Drive the strategy bar-by-bar through the entire series.
         # Mock RSI so the (correct, separate) overbought filter does not
         # mask the ADX-gate fix being verified here.
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         assert signal is not None, (
@@ -202,17 +200,13 @@ class TestVolatilitySqueezeBugfix:
 
     def test_entry_branch_reachable_on_squeeze_release_short(self):
         """A squeeze release to the downside must reach the SHORT entry branch."""
-        config = VolatilitySqueezeConfig(
-            session_filter=False, min_squeeze_bars=3
-        )
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=3)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80, base_price=1.30000)
         _append_breakout_bar(flat, magnitude=0.0050, direction="down")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         assert signal is not None
@@ -222,9 +216,7 @@ class TestVolatilitySqueezeBugfix:
 
     def test_no_signal_during_continued_squeeze(self):
         """A squeeze that is *not* released must not signal."""
-        config = VolatilitySqueezeConfig(
-            session_filter=False, min_squeeze_bars=3
-        )
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=3)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80)
@@ -243,9 +235,7 @@ class TestVolatilitySqueezeBugfix:
             )
         )
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         assert signal is None, "Continued squeeze must not signal"
@@ -253,16 +243,16 @@ class TestVolatilitySqueezeBugfix:
     def test_signal_structure_is_well_formed(self):
         """SL/TP distances, confidence, and rationale are well-formed."""
         config = VolatilitySqueezeConfig(
-            session_filter=False, min_squeeze_bars=2, atr_sl_multiplier=1.5,
+            session_filter=False,
+            min_squeeze_bars=2,
+            atr_sl_multiplier=1.5,
         )
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80)
         _append_breakout_bar(flat, magnitude=0.0050, direction="up")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         assert signal is not None
@@ -290,17 +280,13 @@ class TestVolatilitySqueezeFilters:
 
     def test_rsi_overbought_blocks_long(self):
         """An RSI >= 70 must block a long signal (pre-existing filter)."""
-        config = VolatilitySqueezeConfig(
-            session_filter=False, min_squeeze_bars=2
-        )
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=2)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80)
         _append_breakout_bar(flat, magnitude=0.0050, direction="up")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=85.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=85.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         # Either no signal, or a non-long signal — long is forbidden here.
@@ -309,17 +295,13 @@ class TestVolatilitySqueezeFilters:
 
     def test_rsi_oversold_blocks_short(self):
         """An RSI <= 30 must block a short signal (pre-existing filter)."""
-        config = VolatilitySqueezeConfig(
-            session_filter=False, min_squeeze_bars=2
-        )
+        config = VolatilitySqueezeConfig(session_filter=False, min_squeeze_bars=2)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80, base_price=1.30000)
         _append_breakout_bar(flat, magnitude=0.0050, direction="down")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=15.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=15.0):
             _, signal = _drive_then_evaluate(strategy, flat)
 
         if signal is not None:
@@ -327,17 +309,13 @@ class TestVolatilitySqueezeFilters:
 
     def test_session_filter_blocks_outside_session(self):
         """With session_filter=True, an OUTSIDE session must not signal."""
-        config = VolatilitySqueezeConfig(
-            session_filter=True, min_squeeze_bars=2
-        )
+        config = VolatilitySqueezeConfig(session_filter=True, min_squeeze_bars=2)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80)
         _append_breakout_bar(flat, magnitude=0.0050, direction="up")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
             _, signal = _drive_then_evaluate(
                 strategy, flat, session=SessionType.OUTSIDE
             )
@@ -345,20 +323,14 @@ class TestVolatilitySqueezeFilters:
 
     def test_session_filter_passes_london(self):
         """With session_filter=True, LONDON session is allowed to signal."""
-        config = VolatilitySqueezeConfig(
-            session_filter=True, min_squeeze_bars=2
-        )
+        config = VolatilitySqueezeConfig(session_filter=True, min_squeeze_bars=2)
         strategy = VolatilitySqueezeStrategy(config)
 
         flat = _make_squeeze_bars(80)
         _append_breakout_bar(flat, magnitude=0.0050, direction="up")
 
-        with patch(
-            "strategies.volatility_squeeze._calculate_rsi", return_value=50.0
-        ):
-            _, signal = _drive_then_evaluate(
-                strategy, flat, session=SessionType.LONDON
-            )
+        with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
+            _, signal = _drive_then_evaluate(strategy, flat, session=SessionType.LONDON)
         assert signal is not None, "LONDON session must allow the signal"
 
 

@@ -23,20 +23,20 @@ from .thresholds import (
 # Spec §7.1 Forex Weight Table (total 0.95, 5% slack)
 # ──────────────────────────────────────────────────────────────────────
 
-WEIGHT_MTF_ALIGNMENT = 0.14          # §4.5 multi-TF agreement
-WEIGHT_MULTI_SESSION = 0.10           # 3+ sessions = 1.0
-WEIGHT_SVC_PRESENT = 0.10             # SVC at entry = 1.0
-WEIGHT_HITS_TO_LEVEL = 0.08           # hit count → score mapping
-WEIGHT_HITS_WITH_VOLUME = 0.05        # increasing vol per hit = 1.0
-WEIGHT_NEAR_PERIOD_EXTREME = 0.08     # §1.2 proximity tiers
-WEIGHT_HTF_NOT_CONSOLIDATING = 0.08   # H4 not consolidating = 1.0
-WEIGHT_KILL_ZONE = 0.06               # in kill zone = 1.0
-WEIGHT_SESSION_OVERLAP = 0.04         # in overlap = 1.0
-WEIGHT_SESSION_PHASE = 0.04           # opening/mid/closing
-WEIGHT_DAY_OF_WEEK = 0.04             # §8.3 weekly model
-WEIGHT_ASIA_CONTROL = 0.03            # tight+consolidating = 1.0
-WEIGHT_EMA_BOUNCE = 0.05              # 50 EMA touch + rejection = 1.0
-WEIGHT_DXY_CORRELATION = 0.06         # DXY agrees = 1.0
+WEIGHT_MTF_ALIGNMENT = 0.14  # §4.5 multi-TF agreement
+WEIGHT_MULTI_SESSION = 0.10  # 3+ sessions = 1.0
+WEIGHT_SVC_PRESENT = 0.10  # SVC at entry = 1.0
+WEIGHT_HITS_TO_LEVEL = 0.08  # hit count → score mapping
+WEIGHT_HITS_WITH_VOLUME = 0.05  # increasing vol per hit = 1.0
+WEIGHT_NEAR_PERIOD_EXTREME = 0.08  # §1.2 proximity tiers
+WEIGHT_HTF_NOT_CONSOLIDATING = 0.08  # H4 not consolidating = 1.0
+WEIGHT_KILL_ZONE = 0.06  # in kill zone = 1.0
+WEIGHT_SESSION_OVERLAP = 0.04  # in overlap = 1.0
+WEIGHT_SESSION_PHASE = 0.04  # opening/mid/closing
+WEIGHT_DAY_OF_WEEK = 0.04  # §8.3 weekly model
+WEIGHT_ASIA_CONTROL = 0.03  # tight+consolidating = 1.0
+WEIGHT_EMA_BOUNCE = 0.05  # 50 EMA touch + rejection = 1.0
+WEIGHT_DXY_CORRELATION = 0.06  # DXY agrees = 1.0
 
 # Bonus factor (uses the 5% slack)
 WEIGHT_PATTERN_TYPE = 0.05
@@ -164,15 +164,18 @@ class ConfluenceScorer:
         else:
             # Fallback: use HTF alignment score from candidate/htf_state
             direction = candidate.get("direction")
-            alignment = mtf_state.get("alignment_score",
-                                     candidate.get("htf_alignment_score", 0.0))
+            alignment = mtf_state.get(
+                "alignment_score", candidate.get("htf_alignment_score", 0.0)
+            )
             if direction == "long":
                 score = max(0.0, alignment)
             else:
                 score = max(0.0, -alignment)
 
         return BoosterResult(
-            "mtf_alignment", score, WEIGHT_MTF_ALIGNMENT,
+            "mtf_alignment",
+            score,
+            WEIGHT_MTF_ALIGNMENT,
             f"tf_agreement={mtf_state.get('tf_agreement_count', 'n/a')}",
         )
 
@@ -188,7 +191,9 @@ class ConfluenceScorer:
             score = 0.2
 
         return BoosterResult(
-            "multi_session", score, WEIGHT_MULTI_SESSION,
+            "multi_session",
+            score,
+            WEIGHT_MULTI_SESSION,
             f"sessions={session_count}",
         )
 
@@ -201,7 +206,9 @@ class ConfluenceScorer:
 
         score = 1.0 if svc else 0.0
         return BoosterResult(
-            "svc_present", score, WEIGHT_SVC_PRESENT,
+            "svc_present",
+            score,
+            WEIGHT_SVC_PRESENT,
             f"svc={'yes' if svc else 'no'}",
         )
 
@@ -219,7 +226,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "hits_to_level", score, WEIGHT_HITS_TO_LEVEL,
+            "hits_to_level",
+            score,
+            WEIGHT_HITS_TO_LEVEL,
             f"hits={hits}",
         )
 
@@ -235,7 +244,9 @@ class ConfluenceScorer:
             score = 0.1
 
         return BoosterResult(
-            "hits_with_volume", score, WEIGHT_HITS_WITH_VOLUME,
+            "hits_with_volume",
+            score,
+            WEIGHT_HITS_WITH_VOLUME,
             f"trend={trend}",
         )
 
@@ -253,7 +264,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "near_period_extreme", score, WEIGHT_NEAR_PERIOD_EXTREME,
+            "near_period_extreme",
+            score,
+            WEIGHT_NEAR_PERIOD_EXTREME,
             f"proximity={proximity_pct:.4f}",
         )
 
@@ -274,7 +287,9 @@ class ConfluenceScorer:
 
         score = 0.0 if htf_consolidating else 1.0
         return BoosterResult(
-            "htf_not_consolidating", score, WEIGHT_HTF_NOT_CONSOLIDATING,
+            "htf_not_consolidating",
+            score,
+            WEIGHT_HTF_NOT_CONSOLIDATING,
             f"consolidating={htf_consolidating}",
         )
 
@@ -283,7 +298,9 @@ class ConfluenceScorer:
         kz_active = session_state.get("kill_zone_active", False)
         score = 1.0 if kz_active else 0.0
         return BoosterResult(
-            "kill_zone", score, WEIGHT_KILL_ZONE,
+            "kill_zone",
+            score,
+            WEIGHT_KILL_ZONE,
             f"active={kz_active}",
         )
 
@@ -292,7 +309,9 @@ class ConfluenceScorer:
         overlap = session_state.get("session_overlap", False)
         score = 1.0 if overlap else 0.0
         return BoosterResult(
-            "session_overlap", score, WEIGHT_SESSION_OVERLAP,
+            "session_overlap",
+            score,
+            WEIGHT_SESSION_OVERLAP,
             f"overlap={overlap}",
         )
 
@@ -325,16 +344,18 @@ class ConfluenceScorer:
         dow = session_state.get("day_of_week", "").lower()
 
         dow_scores = {
-            "monday": 0.2,    # Fake move day — low conviction
-            "tuesday": 0.7,   # True trend day
-            "wednesday": 0.9, # Midweek reversal window — best
+            "monday": 0.2,  # Fake move day — low conviction
+            "tuesday": 0.7,  # True trend day
+            "wednesday": 0.9,  # Midweek reversal window — best
             "thursday": 0.5,  # Typical trading day
-            "friday": 0.1,    # Unpredictable — skip
+            "friday": 0.1,  # Unpredictable — skip
         }
         score = dow_scores.get(dow, 0.3)
 
         return BoosterResult(
-            "day_of_week", score, WEIGHT_DAY_OF_WEEK,
+            "day_of_week",
+            score,
+            WEIGHT_DAY_OF_WEEK,
             f"dow={dow}",
         )
 
@@ -349,16 +370,18 @@ class ConfluenceScorer:
 
         if asia_range_pct is not None and asia_trending is not None:
             if asia_range_pct < 0.02 and not asia_trending:
-                score = 1.0   # tight + consolidating
+                score = 1.0  # tight + consolidating
             elif asia_trending:
-                score = 0.0   # trending — suppresses Asia→UK setups
+                score = 0.0  # trending — suppresses Asia→UK setups
             else:
-                score = 0.5   # neutral
+                score = 0.5  # neutral
         else:
             score = 0.5  # unknown — neutral
 
         return BoosterResult(
-            "asia_control", score, WEIGHT_ASIA_CONTROL,
+            "asia_control",
+            score,
+            WEIGHT_ASIA_CONTROL,
             f"range={asia_range_pct}, trending={asia_trending}",
         )
 
@@ -372,7 +395,9 @@ class ConfluenceScorer:
         if candidate.get("ema_rejection_candle") is not None:
             score = 1.0 if candidate["ema_rejection_candle"] else 0.0
             return BoosterResult(
-                "ema_bounce", score, WEIGHT_EMA_BOUNCE,
+                "ema_bounce",
+                score,
+                WEIGHT_EMA_BOUNCE,
                 f"rejection_candle={candidate['ema_rejection_candle']}",
             )
 
@@ -386,7 +411,9 @@ class ConfluenceScorer:
             score = 0.0
 
         return BoosterResult(
-            "ema_bounce", score, WEIGHT_EMA_BOUNCE,
+            "ema_bounce",
+            score,
+            WEIGHT_EMA_BOUNCE,
             f"ema_dist={ema_distance:.4f}",
         )
 
@@ -404,7 +431,9 @@ class ConfluenceScorer:
             score = 0.5  # flat/unknown
 
         return BoosterResult(
-            "dxy_correlation", score, WEIGHT_DXY_CORRELATION,
+            "dxy_correlation",
+            score,
+            WEIGHT_DXY_CORRELATION,
             f"agrees={dxy_state.get('agrees', 'n/a')}",
         )
 
@@ -431,6 +460,8 @@ class ConfluenceScorer:
         score = pattern_scores.get(pattern, 0.3)
 
         return BoosterResult(
-            "pattern_type", score, WEIGHT_PATTERN_TYPE,
+            "pattern_type",
+            score,
+            WEIGHT_PATTERN_TYPE,
             f"pattern={pattern}",
         )

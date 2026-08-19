@@ -12,6 +12,7 @@ Covers:
 * ``IcirMonitor`` — live rolling 30/60/90-day ICIR with the
   ``decay_alert`` flag triggering on sub-threshold 30-day ICIR.
 """
+
 from __future__ import annotations
 
 import math
@@ -196,33 +197,20 @@ class TestIcir:
 
     def test_confidence_tier_mapping(self):
         """n_windows → tier mapping follows CONF_*_MIN_N thresholds."""
-        assert (
-            icir(_build_window_series(0.05, n_windows=5))["confidence"]
-            == "low"
-        )
-        assert (
-            icir(_build_window_series(0.05, n_windows=15))["confidence"]
-            == "medium"
-        )
-        assert (
-            icir(_build_window_series(0.05, n_windows=45))["confidence"]
-            == "high"
-        )
+        assert icir(_build_window_series(0.05, n_windows=5))["confidence"] == "low"
+        assert icir(_build_window_series(0.05, n_windows=15))["confidence"] == "medium"
+        assert icir(_build_window_series(0.05, n_windows=45))["confidence"] == "high"
 
     def test_confidence_threshold_boundary(self):
         """Boundaries: n=CONF_MEDIUM_MIN_N is medium; n=CONF_HIGH_MIN_N is high."""
         n_medium_min = CONF_MEDIUM_MIN_N
         n_high_min = CONF_HIGH_MIN_N
         assert (
-            icir(_build_window_series(0.05, n_windows=n_medium_min))[
-                "confidence"
-            ]
+            icir(_build_window_series(0.05, n_windows=n_medium_min))["confidence"]
             == "medium"
         )
         assert (
-            icir(_build_window_series(0.05, n_windows=n_high_min))[
-                "confidence"
-            ]
+            icir(_build_window_series(0.05, n_windows=n_high_min))["confidence"]
             == "high"
         )
 
@@ -234,12 +222,8 @@ class TestIcir:
         # Same series with NaN slots — should give the same numbers.
         nan_series = [0.04, math.nan, 0.06, 0.05, math.nan, 0.07, 0.05]
         nan_result = icir(nan_series)
-        assert nan_result["mean_ic"] == pytest.approx(
-            clean_result["mean_ic"], rel=1e-9
-        )
-        assert nan_result["std_ic"] == pytest.approx(
-            clean_result["std_ic"], rel=1e-9
-        )
+        assert nan_result["mean_ic"] == pytest.approx(clean_result["mean_ic"], rel=1e-9)
+        assert nan_result["std_ic"] == pytest.approx(clean_result["std_ic"], rel=1e-9)
         # n_windows counts valid only.
         assert nan_result["n_windows"] == 5
 
@@ -256,37 +240,43 @@ class TestEvaluateIcir:
         """WF windows with per-trade confidences/Rs → real ICIR."""
         wf = []
         # Window 1: high correlation
-        wf.append({
-            "window": 0,
-            "confidences": [0.1, 0.3, 0.5, 0.7, 0.9],
-            "r_multiples": [-0.8, -0.2, 0.3, 0.9, 1.7],
-        })
+        wf.append(
+            {
+                "window": 0,
+                "confidences": [0.1, 0.3, 0.5, 0.7, 0.9],
+                "r_multiples": [-0.8, -0.2, 0.3, 0.9, 1.7],
+            }
+        )
         # Window 2: high correlation (slightly different r)
-        wf.append({
-            "window": 1,
-            "confidences": [0.2, 0.4, 0.6, 0.8, 0.95],
-            "r_multiples": [-0.5, 0.1, 0.4, 1.0, 1.5],
-        })
+        wf.append(
+            {
+                "window": 1,
+                "confidences": [0.2, 0.4, 0.6, 0.8, 0.95],
+                "r_multiples": [-0.5, 0.1, 0.4, 1.0, 1.5],
+            }
+        )
         # Window 3: high correlation
-        wf.append({
-            "window": 2,
-            "confidences": [0.15, 0.35, 0.55, 0.75, 0.9],
-            "r_multiples": [-0.6, -0.1, 0.5, 0.8, 1.6],
-        })
+        wf.append(
+            {
+                "window": 2,
+                "confidences": [0.15, 0.35, 0.55, 0.75, 0.9],
+                "r_multiples": [-0.6, -0.1, 0.5, 0.8, 1.6],
+            }
+        )
         # Window 4: high correlation
-        wf.append({
-            "window": 3,
-            "confidences": [0.25, 0.45, 0.65, 0.85, 0.95],
-            "r_multiples": [-0.7, 0.0, 0.3, 1.1, 1.4],
-        })
+        wf.append(
+            {
+                "window": 3,
+                "confidences": [0.25, 0.45, 0.65, 0.85, 0.95],
+                "r_multiples": [-0.7, 0.0, 0.3, 1.1, 1.4],
+            }
+        )
 
         result = evaluate_icir(wf)
         # We should get 4 high-IC observations.
         assert result["n_windows_with_ic"] == 4
         assert result["n_windows"] == 4
-        assert all(
-            math.isfinite(ic) and ic > 0.9 for ic in result["per_window_ic"]
-        )
+        assert all(math.isfinite(ic) and ic > 0.9 for ic in result["per_window_ic"])
         # Per-window ICs are highly consistent → std tiny → ICIR is
         # mathematically infinite (positive infinity in this case
         # because mean is positive). In JSON-serialised output this
@@ -393,21 +383,17 @@ class TestIcirMonitor:
 
     def test_skips_nan_or_infinite_observations(self):
         """NaN / infinite confidence or R-multiple are silently dropped."""
-        monitor = IcirMonitor(
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
-        monitor.update(0.5, 1.0, datetime(2026, 7, 7, 10, 0))   # valid
+        monitor = IcirMonitor(now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
+        monitor.update(0.5, 1.0, datetime(2026, 7, 7, 10, 0))  # valid
         monitor.update(float("nan"), 1.0, datetime(2026, 7, 7, 11, 0))  # NaN → skipped
         monitor.update(0.6, float("inf"), datetime(2026, 7, 7, 12, 0))  # inf → skipped
-        monitor.update(0.7, 0.5, datetime(2026, 7, 7, 13, 0))   # valid
+        monitor.update(0.7, 0.5, datetime(2026, 7, 7, 13, 0))  # valid
         # Only the two non-bad rows are stored.
         assert monitor.n_observations == 2
 
     def test_update_and_get_status_returns_shape(self):
         """Basic update flow returns the expected status shape."""
-        monitor = IcirMonitor(
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
+        monitor = IcirMonitor(now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
         # 5 trades, well-correlated: high confidence → high R, low conf → low R
         now = datetime(2026, 7, 8, 12, 0)
         for i, (c, r) in enumerate(
@@ -438,9 +424,7 @@ class TestIcirMonitor:
         days in the same way), so the per-day ICs have nonzero std and
         the ICIR is a meaningful finite number rather than ``+inf``.
         """
-        monitor = IcirMonitor(
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
+        monitor = IcirMonitor(now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
         anchor = datetime(2026, 7, 8, 12, 0)
         # 30 days, 4 trades per day. Confidence values are deterministic
         # per trade (so trade ordering maps cleanly to day indexing) but
@@ -508,7 +492,7 @@ class TestIcirMonitor:
         """decay_alert=True when icir_30d < DECAY_ALERT_THRESHOLD and sufficient data."""
         monitor = IcirMonitor(
             decay_threshold=0.5,  # custom threshold for predictability
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
+            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)),
         )
         anchor = datetime(2026, 7, 8, 12, 0)
         # Push 30 days of trades with a *negative* drift in confidence → R mapping.
@@ -546,8 +530,7 @@ class TestIcirMonitor:
     def test_decay_alert_does_not_fire_with_insufficient_data(self):
         """decay_alert stays False until 30d window has enough IC observations."""
         monitor = IcirMonitor(
-            decay_threshold=0.5,
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
+            decay_threshold=0.5, now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
         )
         anchor = datetime(2026, 7, 8, 12, 0)
         # Only 5 days of trades (not enough IC buckets for ICIR).
@@ -569,9 +552,7 @@ class TestIcirMonitor:
 
     def test_60_and_90_day_windows(self):
         """Sanity: with 90+ days of data, all three windows compute."""
-        monitor = IcirMonitor(
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
+        monitor = IcirMonitor(now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
         anchor = datetime(2026, 7, 8, 12, 0)
         # 95 days of 5 trades/day with predictable positive correlation.
         # Confs spaced closely so per-trade R noise often flips a rank,
@@ -605,9 +586,7 @@ class TestIcirMonitor:
 
     def test_clear_resets_the_monitor(self):
         """clear() drops all observations."""
-        monitor = IcirMonitor(
-            now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
+        monitor = IcirMonitor(now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
         monitor.update(0.5, 1.0, datetime(2026, 7, 7, 12, 0))
         monitor.update(0.6, 0.5, datetime(2026, 7, 6, 12, 0))
         assert monitor.n_observations == 2

@@ -8,19 +8,15 @@ These tests verify the four fixes:
 """
 
 import json
-import os
 import threading
 import time
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.ctrader.credential_store import CredentialStore, Credentials
+from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import (
-    OAUTH_URL,
-    REFRESH_BUFFER,
     TokenLifecycle,
     TokenRefreshError,
 )
@@ -190,9 +186,7 @@ def test_inter_process_file_lock_serializes_refresh(tmp_path, monkeypatch):
         with count_lock:
             call_count += 1
         time.sleep(0.05)
-        return _mock_oauth_response(
-            access_token="locked_token", expires_in=2592000
-        )
+        return _mock_oauth_response(access_token="locked_token", expires_in=2592000)
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.side_effect = fake_post

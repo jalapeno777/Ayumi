@@ -5,19 +5,11 @@ from enum import Enum
 from typing import Any
 
 from core.config import BacktestConfig as _CoreBacktestConfig
-from core.types import ExitReason
-
-
-class TradeDirection(Enum):
-    LONG = "long"
-    SHORT = "short"
-    NEUTRAL = "neutral"
-
-
-# Re-export from core.types so all code shares the same enum identity.
-# Previously this was a duplicate definition, which caused `in` checks to
-# silently fail when comparing across modules.
-from core.types import SessionType  # noqa: E402,F401
+from core.types import (
+    ExitReason,
+    SessionType,
+    TradeDirection,  # noqa: F401 — re-export for backtest.types.TradeDirection identity
+)
 
 
 from engine.engine import BacktestEngine

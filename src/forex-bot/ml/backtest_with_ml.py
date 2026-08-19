@@ -8,22 +8,19 @@ Pipeline:
 5. Compare results.
 
 Usage:
-    python -c "import sys; sys.path.insert(0, 'src/forex-bot'); from ml.backtest_with_ml import main; main()"
+    cd /home/TacoPants/projects/Ayumi/src/forex-bot && python3 -m ml.backtest_with_ml
 """
 
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-# Ensure project paths
-# backtest_with_ml.py -> ml/ -> forex-bot/ -> src/ -> project_root
+# Project root: backtest_with_ml.py -> ml/ -> forex-bot/ -> src/ -> project_root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # src/forex-bot
 
 from backtest.engine import (
     BacktestConfig,

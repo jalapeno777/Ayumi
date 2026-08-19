@@ -10,9 +10,8 @@ Tests AC1, AC2, AC3 from card c9876cce:
 """
 
 import sys
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 # Ensure src/forex-bot is importable
 _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
@@ -115,13 +114,16 @@ class TestKillSwitchQueryVsOrder:
 
         for prefix in query_prefixes:
             feed._activate_kill_switch_freeze.reset_mock()
-            msg = _make_error_message("INVALID_REQUEST", "Trading account is not authorized")
+            msg = _make_error_message(
+                "INVALID_REQUEST", "Trading account is not authorized"
+            )
             envelope = _make_envelope(prefix)
 
             feed._handle_error(msg, envelope)
 
-            assert not feed._activate_kill_switch_freeze.called, \
+            assert not feed._activate_kill_switch_freeze.called, (
                 f"Kill switch should NOT activate for query call with clientMsgId prefix '{prefix}'"
+            )
 
     def test_non_not_authorized_error_not_affected(self):
         """Errors without 'not authorized' should behave as before (no reclassification)."""

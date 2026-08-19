@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 # ── Defaults ────────────────────────────────────────────────────────────────
 
-DEFAULT_THRESHOLD = 0.2   # Alert when PSI exceeds this
-DEFAULT_N_BINS = 10        # Number of bins for distribution comparison
-DEFAULT_WINDOW_SIZE = 1000 # Rolling window size for continuous tracking
-EPSILON = 1e-6             # Floor to prevent division by zero / log(0)
+DEFAULT_THRESHOLD = 0.2  # Alert when PSI exceeds this
+DEFAULT_N_BINS = 10  # Number of bins for distribution comparison
+DEFAULT_WINDOW_SIZE = 1000  # Rolling window size for continuous tracking
+EPSILON = 1e-6  # Floor to prevent division by zero / log(0)
 
 # Severity bands
 PSI_OK = 0.10
@@ -249,7 +249,9 @@ class PSIDriftDetector:
             raise ValueError(f"baseline values for '{feature}' is empty")
         self._baselines[feature] = list(values)
         logger.debug(
-            "Baseline set for '%s' (%d values)", feature, len(values),
+            "Baseline set for '%s' (%d values)",
+            feature,
+            len(values),
         )
 
     def has_baseline(self, feature: str) -> bool:
@@ -270,12 +272,13 @@ class PSIDriftDetector:
         """
         if feature not in self._baselines:
             raise KeyError(
-                f"No baseline set for feature '{feature}'. "
-                "Call set_baseline() first."
+                f"No baseline set for feature '{feature}'. Call set_baseline() first."
             )
 
         psi = compute_psi(
-            self._baselines[feature], actual, n_bins=self.n_bins,
+            self._baselines[feature],
+            actual,
+            n_bins=self.n_bins,
         )
         alert = PSIAlert(
             feature=feature,
@@ -286,7 +289,10 @@ class PSIDriftDetector:
         if alert.is_alert:
             logger.warning(
                 "PSI drift detected for '%s': %.4f (threshold %.2f, severity=%s)",
-                feature, psi, self.threshold, alert.severity,
+                feature,
+                psi,
+                self.threshold,
+                alert.severity,
             )
 
         self._alert_history.append(alert)

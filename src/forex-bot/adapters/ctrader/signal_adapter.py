@@ -3,7 +3,6 @@ from collections.abc import Callable
 from datetime import datetime
 
 from backtest.engine import MarketState
-from backtest.engine import TradeDirection as BacktestTradeDirection
 from backtest.strategies import ISignalStrategy
 
 from .models import TradeDirection, CTraderTradeSignal
@@ -36,7 +35,7 @@ _DEFAULT_ADAPTER_SPREADS: dict[str, float] = dict(_DEFAULT_SYMBOL_SPREADS)
 # historically, so XAUUSD=5000 leaves >40% headroom while still rejecting
 # any 100x+ inflation bug. Defaults catch any unknown symbol at $10k.
 _MAX_REASONABLE_PRICES: dict[str, float] = {
-    "XAUUSD": 5000.0,   # gold sane max — never traded above ~$3,500
+    "XAUUSD": 5000.0,  # gold sane max — never traded above ~$3,500
     "EURUSD": 2.0,
     "GBPUSD": 3.0,
     "USDJPY": 300.0,
@@ -125,8 +124,10 @@ class cTraderSignalAdapter:
                 logger.warning(
                     "spread_too_wide: symbol=%s strategy=%s spread=%.2f "
                     "threshold=%.2f — signal rejected at adapter",
-                    self._symbol, self._strategy.name,
-                    self._current_spread, threshold,
+                    self._symbol,
+                    self._strategy.name,
+                    self._current_spread,
+                    threshold,
                 )
                 return None
 
@@ -138,7 +139,10 @@ class cTraderSignalAdapter:
         if signal.confidence < self._min_confidence:
             logger.info(
                 "Signal rejected: strategy=%s symbol=%s reason=confidence_threshold raw_confidence=%.3f threshold=%.2f",
-                self._strategy.name, self._symbol, signal.confidence, self._min_confidence,
+                self._strategy.name,
+                self._symbol,
+                signal.confidence,
+                self._min_confidence,
             )
             return None
 
@@ -158,8 +162,10 @@ class cTraderSignalAdapter:
                     "Signal REJECTED by price-sanity guardrail: strategy=%s symbol=%s "
                     "%s=%.5f exceeds sane_max=%.2f — likely data-feed decoder bug "
                     "(see open_api_spot_feed._handle_spot_event non-JPY path)",
-                    self._strategy.name, self._symbol,
-                    field_name, field_value if field_value is not None else 0.0,
+                    self._strategy.name,
+                    self._symbol,
+                    field_name,
+                    field_value if field_value is not None else 0.0,
                     sane_max,
                 )
                 return None
@@ -182,8 +188,11 @@ class cTraderSignalAdapter:
 
         logger.info(
             "Signal adapted: %s %s %s entry=%.5f sl=%.5f sl_dist=%.6f conf=%.2f",
-            trade_direction.value, self._symbol, self._strategy.name,
-            signal.entry_price, signal.stop_loss,
+            trade_direction.value,
+            self._symbol,
+            self._strategy.name,
+            signal.entry_price,
+            signal.stop_loss,
             abs(signal.entry_price - signal.stop_loss),
             signal.confidence,
         )
@@ -267,8 +276,10 @@ class cTraderLiveAdapter:
         for symbol in symbols:
             for strategy in strategies:
                 # Strategy-pair matching: only create adapter if strategy is registered for this symbol
-                if hasattr(strategy, 'symbols') and strategy.symbols:
-                    if symbol.upper().replace("/", "") not in {s.upper().replace("/", "") for s in strategy.symbols}:
+                if hasattr(strategy, "symbols") and strategy.symbols:
+                    if symbol.upper().replace("/", "") not in {
+                        s.upper().replace("/", "") for s in strategy.symbols
+                    }:
                         continue
                 key = f"{strategy.name}_{symbol}"
                 self._adapters[key] = cTraderSignalAdapter(

@@ -369,6 +369,88 @@ class TestGoNogoCriteria(unittest.TestCase):
         self.assertTrue(go_nogo_criteria(results))
 
 
+class TestEmbargoBars(unittest.TestCase):
+    """Tests for embargo_bars parameter on WalkForwardValidator and run_strategy."""
+
+    def test_embargo_default_zero(self):
+        """Default embargo_bars should be 0 (backward compat)."""
+        wf = WalkForwardValidator(data=list(range(300)))
+        self.assertEqual(wf.embargo_bars, 0)
+
+    def test_embargo_negative_raises(self):
+        """Negative embargo_bars should raise ValueError."""
+        with self.assertRaises(ValueError):
+            WalkForwardValidator(data=list(range(300)), embargo_bars=-1)
+
+    def test_embargo_creates_gap_between_val_and_test(self):
+        """With embargo_bars=10, there should be a 10-bar gap between val end and test start."""
+        data = list(range(500))
+        wf = WalkForwardValidator(data=data, n_windows=3, embargo_bars=10)
+        for train, val, test in wf.split():
+            if train and val and test:
+                val_end = val[-1]
+                test_start = test[0]
+                gap = test_start - val_end
+                # Gap should be embargo_bars + 1 (val_end is inclusive, test_start exclusive)
+                self.assertGreaterEqual(gap, 11, f"Expected gap >= 11, got {gap}")
+
+    def test_embargo_zero_matches_no_embargo(self):
+        """embargo_bars=0 should produce same splits as default (no embargo)."""
+        data = list(range(500))
+        wf_no_embargo = WalkForwardValidator(data=data, n_windows=3)
+        wf_zero_embargo = WalkForwardValidator(data=data, n_windows=3, embargo_bars=0)
+        splits_no = list(wf_no_embargo.split())
+        splits_zero = list(wf_zero_embargo.split())
+        self.assertEqual(len(splits_no), len(splits_zero))
+        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_zero):
+            self.assertEqual(t1, t2)
+            self.assertEqual(v1, v2)
+            self.assertEqual(te1, te2)
+
+    def test_embargo_reduces_test_size(self):
+        """Embargo should reduce test window size compared to no embargo."""
+        data = list(range(500))
+        wf_no = WalkForwardValidator(data=data, n_windows=3, embargo_bars=0)
+        wf_emb = WalkForwardValidator(data=data, n_windows=3, embargo_bars=20)
+        splits_no = list(wf_no.split())
+        splits_emb = list(wf_emb.split())
+        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_emb):
+            self.assertEqual(len(t1), len(t2), "Train size should not change")
+            self.assertEqual(len(v1), len(v2), "Val size should not change")
+            self.assertLessEqual(
+                len(te2),
+                len(te1),
+                "Test size should decrease or stay same with embargo",
+            )
+
+    def test_embargo_large_can_eliminate_test(self):
+        """If embargo is larger than test portion, the window should be skipped."""
+        data = list(range(300))
+        # With 3 windows on 300 items, each window is ~100 items
+        # train=70, val=15, test=15. embargo=200 should eliminate all test data.
+        wf = WalkForwardValidator(data=data, n_windows=3, embargo_bars=200)
+        windows = list(wf.split())
+        self.assertEqual(len(windows), 0, "Large embargo should eliminate all windows")
+
+    def test_run_strategy_accepts_embargo_bars(self):
+        """run_strategy should accept and pass through embargo_bars."""
+        strategy = MACrossStrategy(fast_period=5, slow_period=13)
+        bars = _make_bars(500, trend="up")
+        results = run_strategy(strategy, bars, n_windows=3, embargo_bars=5)
+        self.assertEqual(len(results.per_window), 3)
+
+    def test_embargo_preserves_temporal_ordering(self):
+        """With embargo, train < val < test ordering must still hold."""
+        data = list(range(1000))
+        wf = WalkForwardValidator(data=data, n_windows=5, embargo_bars=15)
+        for train, val, test in wf.split():
+            if train and val and test:
+                self.assertLess(
+                    max(train), min(val), "Train must end before val starts"
+                )
+                self.assertLess(max(val), min(test), "Val must end before test starts")
+
+
 class TestComparisonReport(unittest.TestCase):
     def test_basic_report(self):
         results_a = WalkForwardResults(

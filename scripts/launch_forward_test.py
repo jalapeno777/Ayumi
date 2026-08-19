@@ -9,7 +9,7 @@ Launches the forward test engine with:
 
 Usage:
     python scripts/launch_forward_test.py [--dry-run]
-    
+
     --dry-run: Validate config and imports without connecting to cTrader
 """
 
@@ -89,12 +89,15 @@ def build_forward_config() -> ForwardTestConfig:
 def check_market_open() -> bool:
     """Check if forex market is currently open."""
     from adapters.ctrader.forward_test_engine import _is_forex_market_closed
+
     return not _is_forex_market_closed()
 
 
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Forward Test Launcher")
-    parser.add_argument("--dry-run", action="store_true", help="Validate without connecting")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate without connecting"
+    )
     args = parser.parse_args()
 
     setup_logging(level="INFO")
@@ -103,6 +106,7 @@ def main():
 
     # ── Single-instance guard (B1) ─────────────────────────────────────────
     from adapters.ctrader.pid_guard import acquire_pid_lock
+
     _pid_path = PROJECT_ROOT / "data" / "forward_test.pid"
     _pid_ctx = acquire_pid_lock(_pid_path)
     _pid_guard = _pid_ctx.__enter__()
@@ -127,6 +131,7 @@ def main():
         logger.info("=== DRY RUN — validating pipeline ===")
         # Validate imports and config construction
         from forward_test.blend_runner import BlendForwardTestRunner
+
         runner_config = {
             "account_balance": config.starting_balance,
             "risk_per_trade_pct": 0.005,

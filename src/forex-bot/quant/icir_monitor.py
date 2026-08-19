@@ -36,6 +36,7 @@ even with sparse trading days.
 Per the research doc (§7.6) this is the *single highest-value* live ICIR
 use — independently of PnL, it is the earliest signal of skill decay.
 """
+
 from __future__ import annotations
 
 import math
@@ -159,9 +160,7 @@ class IcirMonitor:
 
     # Internal storage. Public for inspection but not part of the API
     # contract; the order of ``_observations`` is append-only.
-    _observations: list[tuple[datetime, float, float]] = field(
-        default_factory=list
-    )
+    _observations: list[tuple[datetime, float, float]] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     # Mutators
@@ -300,9 +299,7 @@ class IcirMonitor:
         # tz for windowing — compare on the calendar wall clock. This is
         # a deliberate simplification; forward tests run on UTC.
         now_cmp = (
-            now.replace(tzinfo=None)
-            if isinstance(now, datetime)
-            else datetime.utcnow()
+            now.replace(tzinfo=None) if isinstance(now, datetime) else datetime.utcnow()
         )
 
         buckets = self._bucket_observations()
@@ -320,9 +317,7 @@ class IcirMonitor:
         icir_60d = icir_by_window.get(60)
         icir_90d = icir_by_window.get(90)
 
-        decay_alert = bool(
-            icir_30d is not None and icir_30d < self.decay_threshold
-        )
+        decay_alert = bool(icir_30d is not None and icir_30d < self.decay_threshold)
 
         last_updated_iso = ""
         if self._observations:

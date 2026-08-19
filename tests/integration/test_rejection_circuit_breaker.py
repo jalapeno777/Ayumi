@@ -1,6 +1,6 @@
 """Tests for rejection circuit breaker logic (T5)."""
+
 import time
-import pytest
 from unittest.mock import MagicMock
 
 
@@ -10,16 +10,22 @@ class TestRejectionCircuitBreaker:
     def test_breaker_threshold_value(self):
         """Threshold should be 5."""
         from adapters.ctrader.forward_test_engine import ForwardTestEngine
+
         assert ForwardTestEngine._REJECTION_BREAKER_THRESHOLD == 5
 
     def test_breaker_cooldown_duration(self):
         """Cooldown should be 60 seconds."""
         from adapters.ctrader.forward_test_engine import ForwardTestEngine
+
         assert ForwardTestEngine._REJECTION_COOLDOWN_SEC == 60.0
 
     def test_cooldown_blocks_evaluation(self):
         """When cooldown_until is in the future, evaluation should skip."""
-        from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig
+        from adapters.ctrader.forward_test_engine import (
+            ForwardTestEngine,
+            ForwardTestConfig,
+        )
+
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
         engine._config = ForwardTestConfig()
         engine._rejection_cooldown_until = time.monotonic() + 60.0
@@ -34,7 +40,11 @@ class TestRejectionCircuitBreaker:
 
     def test_no_cooldown_allows_evaluation(self):
         """When cooldown has expired, evaluation should proceed past cooldown check."""
-        from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig
+        from adapters.ctrader.forward_test_engine import (
+            ForwardTestEngine,
+            ForwardTestConfig,
+        )
+
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
         engine._config = ForwardTestConfig()
         engine._rejection_cooldown_until = 0.0  # expired
@@ -58,7 +68,8 @@ class TestRejectionCircuitBreaker:
     def test_runtime_counter_fields_exist(self):
         """Engine should have runtime counter fields initialized."""
         from adapters.ctrader.forward_test_engine import ForwardTestEngine
+
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
         # These are set in __init__, verify they're documented/expected
-        assert hasattr(ForwardTestEngine, '_REJECTION_BREAKER_THRESHOLD')
-        assert hasattr(ForwardTestEngine, '_REJECTION_COOLDOWN_SEC')
+        assert hasattr(ForwardTestEngine, "_REJECTION_BREAKER_THRESHOLD")
+        assert hasattr(ForwardTestEngine, "_REJECTION_COOLDOWN_SEC")

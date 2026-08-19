@@ -197,7 +197,9 @@ def render_markdown_report(
     lines.append("")
     lines.append("## Per-trial results")
     lines.append("")
-    lines.append("Sorted ascending by p-value. ✅ = rejected H0 (significant), ❌ = not rejected.")
+    lines.append(
+        "Sorted ascending by p-value. ✅ = rejected H0 (significant), ❌ = not rejected."
+    )
     if n_negative > 0:
         lines.append(
             f"_Note: {n_negative} trial(s) have a non-positive mean Sharpe and are reported as p = 1 "
@@ -222,7 +224,9 @@ def render_markdown_report(
             f"{p:.4g} | {mark_bonf} | {mark_bh} |"
         )
     if elided > 0:
-        lines.append(f"| ... | _({elided} non-candidate trials with non-positive Sharpe elided)_ | | | | | |")
+        lines.append(
+            f"| ... | _({elided} non-candidate trials with non-positive Sharpe elided)_ | | | | | |"
+        )
     lines.append("")
 
     # Surviving candidates under each rule.
@@ -235,7 +239,9 @@ def render_markdown_report(
         for name in bonf_survivors:
             lines.append(f"- `{name}`")
     else:
-        lines.append("**Bonferroni survivors** (FWER controlled): _none_ — no trial survives the conservative threshold.")
+        lines.append(
+            "**Bonferroni survivors** (FWER controlled): _none_ — no trial survives the conservative threshold."
+        )
     lines.append("")
     if bh_survivors:
         lines.append("**Benjamini-Hochberg survivors** (FDR controlled):")
@@ -355,7 +361,9 @@ def load_trials_from_json(path: Path) -> list[Trial]:
     with path.open() as fp:
         data = json.load(fp)
     if not isinstance(data, list):
-        raise ValueError(f"Expected a JSON array of trial records, got {type(data).__name__}")
+        raise ValueError(
+            f"Expected a JSON array of trial records, got {type(data).__name__}"
+        )
     trials: list[Trial] = []
     for entry in data:
         if not isinstance(entry, dict):
@@ -419,7 +427,12 @@ def _default_paths() -> tuple[Path, Path]:
     # scripts/quant/multiple_testing_correction.py -> project root is 3 levels up
     project_root = here.parents[2]
     duckdb_path = project_root / "data" / "research" / "research.duckdb"
-    report_path = project_root / "reports" / "quant" / f"multiple_testing_{date.today().isoformat()}.md"
+    report_path = (
+        project_root
+        / "reports"
+        / "quant"
+        / f"multiple_testing_{date.today().isoformat()}.md"
+    )
     return duckdb_path, report_path
 
 
@@ -437,8 +450,12 @@ def main(argv: Iterable[str] | None = None) -> int:
         default=None,
         help="Path to the SRF research DuckDB (used when --input is not given).",
     )
-    parser.add_argument("--alpha", type=float, default=0.05, help="Per-test significance level.")
-    parser.add_argument("--q", type=float, default=0.10, help="BH-FDR target proportion.")
+    parser.add_argument(
+        "--alpha", type=float, default=0.05, help="Per-test significance level."
+    )
+    parser.add_argument(
+        "--q", type=float, default=0.10, help="BH-FDR target proportion."
+    )
     parser.add_argument(
         "--report",
         type=Path,

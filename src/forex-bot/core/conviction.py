@@ -99,9 +99,7 @@ class ConvictionVector:
             "regime_fit": self.regime_fit,
             "freshness": self.freshness,
         }
-        return sum(
-            components[name] * self.WEIGHTS[name] for name in components
-        )
+        return sum(components[name] * self.WEIGHTS[name] for name in components)
 
 
 @dataclass

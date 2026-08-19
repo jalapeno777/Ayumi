@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -33,7 +33,8 @@ class StrategyRegistry:
     def get_for_symbol(self, symbol: str) -> list[StrategyConfig]:
         """Get all strategies that trade a given symbol."""
         return [
-            s for s in self._strategies.values()
+            s
+            for s in self._strategies.values()
             if s.active and symbol.upper() in [sym.upper() for sym in s.symbols]
         ]
 
@@ -154,6 +155,22 @@ def default_registry() -> StrategyRegistry:
             symbols=["XAUUSD"],
             timeframes=["M15"],
             typical_confidence_range=(0.45, 0.80),
+        ),
+        StrategyConfig(
+            strategy_id="donchian_atr_trend_v2",
+            name="Donchian + ATR Trailing Trend v2",
+            strategy_type="trend",
+            symbols=["XAUUSD", "GBPUSD", "EURUSD"],
+            timeframes=["M15", "H1"],
+            typical_confidence_range=(0.45, 0.85),
+        ),
+        StrategyConfig(
+            strategy_id="dual_tf_squeeze_pro",
+            name="Dual-Timeframe Squeeze Pro",
+            strategy_type="breakout",
+            symbols=["XAUUSD", "GBPUSD"],
+            timeframes=["M15", "H1"],
+            typical_confidence_range=(0.40, 0.85),
         ),
     ]
 

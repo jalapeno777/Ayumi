@@ -1,9 +1,9 @@
 """Tests for symbol_discovery module."""
 
 import pytest
+
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -17,6 +17,7 @@ from adapters.ctrader.symbol_discovery import (
 
 
 # --- classify_symbol tests ---
+
 
 class TestClassifySymbol:
     def test_forex_major(self):
@@ -51,6 +52,7 @@ class TestClassifySymbol:
 
 # --- SymbolInfo tests ---
 
+
 class TestSymbolInfo:
     def test_data_structure(self):
         info = SymbolInfo(symbol_id=1, name="EUR/USD", pip_size=0.0001, digits=5)
@@ -78,12 +80,14 @@ class TestSymbolInfo:
 
 # --- Cache tests ---
 
+
 class TestCache:
     def test_save_and_load_cycle(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_path = Path(tmpdir) / "symbols.json"
             # Create discovery with dummy credentials
             from adapters.ctrader.models import cTraderCredentials
+
             creds = cTraderCredentials(host="localhost", port=1234, use_ssl=False)
             disc = SymbolDiscovery(creds, cache_path=str(cache_path))
 
@@ -106,6 +110,7 @@ class TestCache:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_path = Path(tmpdir) / "nonexistent.json"
             from adapters.ctrader.models import cTraderCredentials
+
             creds = cTraderCredentials(host="localhost", port=1234, use_ssl=False)
             disc = SymbolDiscovery(creds, cache_path=str(cache_path))
             assert disc.get_all() == {}
@@ -113,9 +118,11 @@ class TestCache:
 
 # --- get_by_category ---
 
+
 class TestGetByCategory:
     def test_category_filtering(self):
         from adapters.ctrader.models import cTraderCredentials
+
         creds = cTraderCredentials(host="localhost", port=1234, use_ssl=False)
         disc = SymbolDiscovery(creds, cache_path="/tmp/nonexistent_test.json")
 

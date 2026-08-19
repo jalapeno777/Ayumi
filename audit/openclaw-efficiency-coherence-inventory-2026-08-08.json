@@ -1,0 +1,44 @@
+{
+  "audit_date": "2026-08-08",
+  "mode": "read-only",
+  "runtime": {
+    "config": "/root/.openclaw/openclaw.json",
+    "version": "2026.7.1-2",
+    "configured_agents": 28,
+    "openclaw_cron_jobs": 200,
+    "openclaw_cron_enabled": 200,
+    "openclaw_cron_disabled": 0,
+    "openclaw_cron_by_agent": {"main": 149, "mizuki": 4, "reina": 3, "tsubaki": 1, "ava": 1, "unattributed": 42},
+    "openclaw_schedule_kinds": {"cron": 172, "every": 28},
+    "configured_concurrency": {"default": 4, "subagents": 2},
+    "heartbeat_defaults": {"every": "30m", "skip_when_busy": true},
+    "bootstrap_limits": {"per_file_chars": 20000, "total_chars": 85000}
+  },
+  "agents": {
+    "main": {"name": "Ava", "workspace": "/root/.openclaw/workspace", "heartbeat": "29m", "direct_policy": "block", "delegates": 24},
+    "sakura": {"name": "Sakura", "workspace": "/root/.openclaw/sakura-workspace", "heartbeat": "43m", "direct_policy": "block"},
+    "council": ["ren", "hina", "sora", "yuki", "rei", "kaito", "liora", "nora", "axel", "emi"],
+    "auditors": ["ken", "megumi", "ei"],
+    "unnamed_config_ids": ["rin", "himari", "tomoe", "riko"],
+    "scheduled_non_main": ["ava", "mizuki", "reina", "tsubaki"]
+  },
+  "protected_files": {
+    "ava": ["AGENTS.md", "HEARTBEAT.md", "IDENTITY.md", "SOUL.md", "MEMORY.md", "CONTEXT.md", "STANDING_ORDERS.md"],
+    "sakura": ["AGENTS.md", "HEARTBEAT.md", "IDENTITY.md", "SOUL.md", "skills/sakura/SKILL.md", "canonical Sakura specifications"],
+    "policy": "identity, personality, continuity, constitutional, relationship, and bootstrap material protected by default"
+  },
+  "features": {
+    "eval_protocol_gate": {"configured": true, "enabled": false, "dry_run": true, "classification": "dormant/intentional disabled"},
+    "memory": {"honcho_slot": true, "memory_wiki": {"enabled": true, "isolated": true, "bridge": false}, "qmd": "per-agent directories", "hybrid_search": true},
+    "lobster": {"enabled": true, "bqes_pipeline_present": true, "status": "active with workspace-resolution limitation"},
+    "open_prose": {"enabled": true, "canonical_extension_present": true, "production_invocation": "unverified"},
+    "skills": {"total": 69, "with_inferred_activations": 13, "never_activated": 56, "health_mode": "shadow"}
+  },
+  "schedulers": {
+    "openclaw": "200 jobs from CLI snapshot",
+    "user_crontab": "present; includes dispatch_cron.py, workboard, Honcho, canary, learning, reflection, monitoring, and backup jobs",
+    "systemd": ["heartbeat-bridge.service", "ava-gate-serve.service", "ayumi-watchdog.service", "backup-agents.timer", "daily-agent-report.timer", "openclaw-dashboard.service parked"]
+  },
+  "finding_ids": ["C-01", "C-02", "C-03", "C-04", "C-05", "C-06", "C-07", "C-08"],
+  "disposition": "no remediation performed; future work requires explicit review"
+}

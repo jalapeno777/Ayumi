@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Tick type (lightweight, for on_tick hooks)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Tick:
     """A single price tick (bid/ask/last).
@@ -44,6 +45,7 @@ class Tick:
     Used by ``ISignalStrategy.on_tick()`` for tick-level strategies.
     Strategies that only work on bars can ignore this.
     """
+
     timestamp: datetime
     bid: float
     ask: float
@@ -65,12 +67,14 @@ class Tick:
 # Strategy config protocol
 # ---------------------------------------------------------------------------
 
+
 class StrategyConfig(Protocol):
     """Protocol for strategy configuration objects.
 
     Any dataclass or dict-like object with these fields is acceptable.
     Strategies define their own config dataclasses (e.g., ``SRMRPlusConfig``).
     """
+
     def __getitem__(self, key: str) -> Any: ...
     def get(self, key: str, default: Any = None) -> Any: ...
 
@@ -78,6 +82,7 @@ class StrategyConfig(Protocol):
 # ---------------------------------------------------------------------------
 # ISignalStrategy — Formal ABC
 # ---------------------------------------------------------------------------
+
 
 class ISignalStrategy(ABC):
     """Canonical signal strategy interface for the Ayumi trading system.

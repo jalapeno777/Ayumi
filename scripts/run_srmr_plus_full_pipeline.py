@@ -20,10 +20,8 @@ import json
 import sys
 import time
 import traceback
-from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
@@ -37,6 +35,7 @@ from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 try:
     import optuna
+
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 except ImportError:
     print("ERROR: optuna not installed. Run: pip install optuna")
@@ -49,6 +48,7 @@ REPORT_DIR.mkdir(parents=True, exist_ok=True)
 # Timeframes to evaluate (M30 missing from data, skip)
 DEFAULT_TIMEFRAMES = ["M5", "M15", "H1", "H4", "D1"]
 
+
 # Optuna search space for SRMR+ parameters
 def suggest_srmr_params(trial: optuna.Trial, pip_scale: float = 1.0) -> dict:
     """Suggest SRMR+ parameters via Optuna."""
@@ -59,13 +59,21 @@ def suggest_srmr_params(trial: optuna.Trial, pip_scale: float = 1.0) -> dict:
         "rsi_short_level": trial.suggest_float("rsi_short_level", 55.0, 80.0),
         "adx_period": trial.suggest_int("adx_period", 7, 28),
         "adx_max_threshold": trial.suggest_float("adx_max_threshold", 15.0, 40.0),
-        "session_range_min_pips": trial.suggest_float("session_range_min_pips", 5.0 * pip_scale, 50.0 * pip_scale),
-        "entry_near_extreme_pips": trial.suggest_float("entry_near_extreme_pips", 3.0 * pip_scale, 30.0 * pip_scale),
-        "hard_cap_sl_pips": trial.suggest_float("hard_cap_sl_pips", 10.0 * pip_scale, 50.0 * pip_scale),
+        "session_range_min_pips": trial.suggest_float(
+            "session_range_min_pips", 5.0 * pip_scale, 50.0 * pip_scale
+        ),
+        "entry_near_extreme_pips": trial.suggest_float(
+            "entry_near_extreme_pips", 3.0 * pip_scale, 30.0 * pip_scale
+        ),
+        "hard_cap_sl_pips": trial.suggest_float(
+            "hard_cap_sl_pips", 10.0 * pip_scale, 50.0 * pip_scale
+        ),
         "tp1_rr": trial.suggest_float("tp1_rr", 0.5, 3.0),
         "tp2_rr": trial.suggest_float("tp2_rr", 0.5, 3.0),
         "ema_trend_period": trial.suggest_int("ema_trend_period", 20, 100),
-        "use_same_day_range": trial.suggest_categorical("use_same_day_range", [True, False]),
+        "use_same_day_range": trial.suggest_categorical(
+            "use_same_day_range", [True, False]
+        ),
     }
 
 
@@ -127,18 +135,18 @@ def run_optuna_for_timeframe(
                     spread_pips=spread,
                 )
                 # Objective: maximize total PnL (could also use Sharpe or PF)
-                if hasattr(wf_result, 'mean_total_pnl'):
+                if hasattr(wf_result, "mean_total_pnl"):
                     pnl = wf_result.mean_total_pnl
                 elif isinstance(wf_result, dict):
-                    pnl = wf_result.get('mean_total_pnl', 0)
+                    pnl = wf_result.get("mean_total_pnl", 0)
                 else:
                     pnl = 0
 
                 # Penalize if too few trades
-                if hasattr(wf_result, 'mean_trade_count'):
+                if hasattr(wf_result, "mean_trade_count"):
                     trades = wf_result.mean_trade_count
                 elif isinstance(wf_result, dict):
-                    trades = wf_result.get('mean_trade_count', 0)
+                    trades = wf_result.get("mean_trade_count", 0)
                 else:
                     trades = 0
 
@@ -174,7 +182,7 @@ def run_optuna_for_timeframe(
         )
 
         # Extract results
-        if hasattr(wf_result, 'mean_total_pnl'):
+        if hasattr(wf_result, "mean_total_pnl"):
             result["status"] = "complete"
             result["windows_passed"] = wf_result.windows_passed
             result["windows_total"] = n_windows
@@ -209,12 +217,30 @@ def run_optuna_for_timeframe(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SRMR+ full pipeline: Optuna + WF across timeframes")
-    parser.add_argument("--pair", type=str, default="XAUUSD", help="Currency pair (default: XAUUSD)")
-    parser.add_argument("--timeframes", type=str, default=None, help="Comma-separated timeframes (default: all available)")
-    parser.add_argument("--trials", type=int, default=50, help="Optuna trials per timeframe (default: 50)")
-    parser.add_argument("--windows", type=int, default=5, help="WF windows (default: 5)")
-    parser.add_argument("--dry-run", action="store_true", help="Show plan without running")
+    parser = argparse.ArgumentParser(
+        description="SRMR+ full pipeline: Optuna + WF across timeframes"
+    )
+    parser.add_argument(
+        "--pair", type=str, default="XAUUSD", help="Currency pair (default: XAUUSD)"
+    )
+    parser.add_argument(
+        "--timeframes",
+        type=str,
+        default=None,
+        help="Comma-separated timeframes (default: all available)",
+    )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=50,
+        help="Optuna trials per timeframe (default: 50)",
+    )
+    parser.add_argument(
+        "--windows", type=int, default=5, help="WF windows (default: 5)"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show plan without running"
+    )
     args = parser.parse_args()
 
     pair = args.pair
@@ -233,8 +259,8 @@ def main():
     print(f"  Timeframes: {[e['timeframe'] for e in evals]}")
     print(f"  Optuna trials: {args.trials} per timeframe")
     print(f"  WF windows: {args.windows}")
-    print(f"  CPU cap: 20%, Memory cap: 2048MB")
-    print(f"  Mode: SEQUENTIAL")
+    print("  CPU cap: 20%, Memory cap: 2048MB")
+    print("  Mode: SEQUENTIAL")
     print()
 
     if args.dry_run:
@@ -250,7 +276,11 @@ def main():
                 tf = eval_config["timeframe"]
                 data_path = eval_config["data_path"]
 
-                print(f"[{i}/{len(evals)}] {pair} {tf} — Optuna({args.trials} trials)...", end=" ", flush=True)
+                print(
+                    f"[{i}/{len(evals)}] {pair} {tf} — Optuna({args.trials} trials)...",
+                    end=" ",
+                    flush=True,
+                )
                 start = time.time()
 
                 result = run_optuna_for_timeframe(
@@ -270,7 +300,9 @@ def main():
                     pnl = result.get("mean_total_pnl", 0)
                     trades = result.get("mean_trade_count", 0)
                     opt_val = result.get("optuna_best_value", 0)
-                    print(f"DONE ({elapsed:.0f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f} | trades={trades:.0f} | optuna_best={opt_val:.0f}")
+                    print(
+                        f"DONE ({elapsed:.0f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f} | trades={trades:.0f} | optuna_best={opt_val:.0f}"
+                    )
                 elif result["status"] == "skipped":
                     print(f"SKIP — {result.get('reason', 'unknown')}")
                 else:
@@ -283,7 +315,11 @@ def main():
                     f.write(json.dumps(result, default=str) + "\n")
 
     # Summary
-    viable = [r for r in all_results if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3]
+    viable = [
+        r
+        for r in all_results
+        if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3
+    ]
 
     summary = {
         "pair": pair,
@@ -297,10 +333,12 @@ def main():
     with open(REPORT_DIR / f"{pair}_summary.json", "w") as f:
         json.dump(summary, f, indent=2, default=str)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"SUMMARY: {len(all_results)} timeframes evaluated, {len(viable)} viable")
     for v in viable:
-        print(f"  ✅ {v['timeframe']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS PnL={v['mean_total_pnl']:.0f}")
+        print(
+            f"  ✅ {v['timeframe']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS PnL={v['mean_total_pnl']:.0f}"
+        )
     print(f"\nFull report: {REPORT_DIR / f'{pair}_summary.json'}")
 
 

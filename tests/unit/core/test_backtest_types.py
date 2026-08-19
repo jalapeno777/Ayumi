@@ -7,7 +7,7 @@ Covers:
   - BarPeriod constants and BacktestConfig.units_per_lot
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 
@@ -25,6 +25,7 @@ from backtest.types import (
 # ---------------------------------------------------------------------------
 # get_spread_for_pair
 # ---------------------------------------------------------------------------
+
 
 class TestGetSpreadForPair:
     """Tests for get_spread_for_pair — case normalization, known pairs, fallback."""
@@ -76,6 +77,7 @@ class TestGetSpreadForPair:
 # BacktestConfig.effective_spread_pips
 # ---------------------------------------------------------------------------
 
+
 class TestEffectiveSpreadPips:
     """Tests for BacktestConfig.effective_spread_pips precedence.
 
@@ -116,15 +118,16 @@ class TestEffectiveSpreadPips:
         assert cfg.effective_spread_pips == DEFAULT_SPREAD_PIPS
 
     def test_default_config_spread(self):
-        """The BacktestConfig default spread_pips is 0.5 per the dataclass."""
+        """The BacktestConfig default spread_pips is 1.5 per the dataclass."""
         cfg = BacktestConfig()
-        assert cfg.spread_pips == 0.5
-        assert cfg.effective_spread_pips == 0.5
+        assert cfg.spread_pips == 1.5
+        assert cfg.effective_spread_pips == 1.5
 
 
 # ---------------------------------------------------------------------------
 # MarketState.latest_bar and atr
 # ---------------------------------------------------------------------------
+
 
 def _make_bar(
     t: str = "2026-01-01T00:00:00",
@@ -190,29 +193,20 @@ class TestMarketStateATR:
 
         ATR = sum(TR) / 14 = 14 * 0.0020 / 14 = 0.0020
         """
-        bars = [
-            _make_bar(t=f"2026-01-01T{i:02d}:00:00")
-            for i in range(15)
-        ]
+        bars = [_make_bar(t=f"2026-01-01T{i:02d}:00:00") for i in range(15)]
         state = MarketState(bars=bars)
         assert state.atr == pytest.approx(0.0020)
 
     def test_atr_with_20_bars_uses_last_14(self):
         """With 20 bars, ATR uses the last 14 (indices 6..19)."""
         # All identical bars → ATR = 0.0020 as above
-        bars = [
-            _make_bar(t=f"2026-01-01T{i:02d}:00:00")
-            for i in range(20)
-        ]
+        bars = [_make_bar(t=f"2026-01-01T{i:02d}:00:00") for i in range(20)]
         state = MarketState(bars=bars)
         assert state.atr == pytest.approx(0.0020)
 
     def test_atr_reflects_volatile_bar(self):
         """One bar with a large range influences the ATR upward."""
-        bars = [
-            _make_bar(t=f"2026-01-01T{i:02d}:00:00")
-            for i in range(15)
-        ]
+        bars = [_make_bar(t=f"2026-01-01T{i:02d}:00:00") for i in range(15)]
         # Make the last bar extremely volatile
         bars[-1] = _make_bar(
             t="2026-01-01T14:00:00",
@@ -236,6 +230,7 @@ class TestMarketStateATR:
 # ---------------------------------------------------------------------------
 # BarPeriod constants and units_per_lot
 # ---------------------------------------------------------------------------
+
 
 class TestBarPeriod:
     """Tests for BarPeriod class constants and minute values."""

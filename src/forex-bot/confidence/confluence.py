@@ -45,13 +45,15 @@ class ConfluenceDetector:
         timestamp: datetime,
     ) -> None:
         """Record a signal for confluence tracking."""
-        self._signals.append(_SignalRecord(
-            strategy_id=strategy_id,
-            symbol=symbol,
-            direction=direction.lower(),
-            confidence=confidence,
-            timestamp=timestamp,
-        ))
+        self._signals.append(
+            _SignalRecord(
+                strategy_id=strategy_id,
+                symbol=symbol,
+                direction=direction.lower(),
+                confidence=confidence,
+                timestamp=timestamp,
+            )
+        )
         # Prune old signals
         cutoff = timestamp - self._window
         self._signals = [s for s in self._signals if s.timestamp >= cutoff]
@@ -64,7 +66,8 @@ class ConfluenceDetector:
         direction = direction.lower()
 
         matching = [
-            s for s in self._signals
+            s
+            for s in self._signals
             if s.symbol.upper() == symbol.upper()
             and s.direction == direction
             and s.timestamp >= cutoff

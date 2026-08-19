@@ -8,12 +8,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from confidence.gates import GateCheck, GateConfig, SpreadGate, SessionGate, VolatilityGate
+from confidence.gates import (
+    GateCheck,
+    GateConfig,
+    SpreadGate,
+    SessionGate,
+    VolatilityGate,
+)
 
 
 @dataclass
 class ConfidenceResult:
     """Output of the confidence engine."""
+
     final_score: float
     strategy_score: float
     confluence_boost: float
@@ -81,14 +88,19 @@ class ConfidenceEngine:
         strategy_score = max(0.0, min(1.0, raw_confidence))
 
         # Layer 2: Confluence boost (explicit confluences + detector)
-        confluence_boost = self._calc_confluence_boost(confluences, direction, strategy_score)
+        confluence_boost = self._calc_confluence_boost(
+            confluences, direction, strategy_score
+        )
 
         if self._confluence_detector is not None:
             from datetime import datetime, timezone
+
             now = datetime.now(timezone.utc)
             result = self._confluence_detector.get_confluence(symbol, direction, now)
             if result.confluence_score > 0:
-                confluence_boost = min(confluence_boost + result.confluence_score * 0.15, 0.30)
+                confluence_boost = min(
+                    confluence_boost + result.confluence_score * 0.15, 0.30
+                )
 
         # Layer 3: Gate validation
         gates_passed: list[str] = []

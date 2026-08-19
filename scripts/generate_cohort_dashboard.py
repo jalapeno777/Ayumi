@@ -37,6 +37,7 @@ Usage
 CLI flags are optional; defaults match the Ayumi project layout as of
 2026-07-08.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -60,9 +61,7 @@ from quant.icir import evaluate_icir  # noqa: E402
 # Defaults — paths under the Ayumi repo layout as of 2026-07-08.
 # ---------------------------------------------------------------------------
 
-DEFAULT_REPORTS_DIR = (
-    _REPO_ROOT / "reports" / "srmr-plus-pipeline-2026-07-08"
-)
+DEFAULT_REPORTS_DIR = _REPO_ROOT / "reports" / "srmr-plus-pipeline-2026-07-08"
 DEFAULT_DSR_FILE = DEFAULT_REPORTS_DIR / "dsr_annotated_results.json"
 DEFAULT_STRATEGY_FILE = (
     _REPO_ROOT / "reports" / "multi-strategy-wf-2026-07-08" / "results.jsonl"
@@ -92,7 +91,9 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     return out
 
 
-def _load_dsr_annotated(path: Path) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, Any] | None]:
+def _load_dsr_annotated(
+    path: Path,
+) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, Any] | None]:
     """Load the Phase 10b DSR annotated report into a (pair, timeframe) → entry index.
 
     The annotated file groups entries by tier (``tier_a``, ``tier_b``,
@@ -207,9 +208,7 @@ def _build_stream_row(
     if dsr_entry:
         row["dsr_pvalue"] = _round(dsr_entry.get("dsr_pvalue"))
         row["dsr_n_obs"] = dsr_entry.get("dsr_n_obs")
-        row["dsr_expected_max_sr"] = _round(
-            dsr_entry.get("dsr_expected_max_sr")
-        )
+        row["dsr_expected_max_sr"] = _round(dsr_entry.get("dsr_expected_max_sr"))
         row["tier"] = dsr_entry.get("tier")
 
     return row
@@ -272,11 +271,7 @@ def build_dashboard(
         wf_entry = streams_by_pair_tf[key]
         dsr_entry = dsr_index.get(key)
         strategy = strategy_index.get(key)
-        rows.append(
-            _build_stream_row(
-                pair, timeframe, wf_entry, dsr_entry, strategy
-            )
-        )
+        rows.append(_build_stream_row(pair, timeframe, wf_entry, dsr_entry, strategy))
 
     # Top-level summary.
     tier_counts: dict[str, int] = {"A": 0, "B": 0, "C": 0, "REJECT": 0, "NONE": 0}
@@ -290,8 +285,10 @@ def build_dashboard(
             n_in_dsr += 1
         if row["icir"] is not None:
             n_icir_computed += 1
-        tier_key = row["tier"] if row["tier"] in {"A", "B", "C"} else (
-            "REJECT" if row["tier"] == "REJECT" else "NONE"
+        tier_key = (
+            row["tier"]
+            if row["tier"] in {"A", "B", "C"}
+            else ("REJECT" if row["tier"] == "REJECT" else "NONE")
         )
         tier_counts[tier_key] += 1
 
@@ -370,9 +367,7 @@ def print_human_readable(dashboard: dict[str, Any]) -> None:
         stream_label = f"{strat}/{sym}/{tf}"[:28]
         pf = row.get("pf")
         wr_pct = (
-            f"{row['win_rate'] * 100:.1f}"
-            if row.get("win_rate") is not None
-            else "-"
+            f"{row['win_rate'] * 100:.1f}" if row.get("win_rate") is not None else "-"
         )
         max_dd_pct = (
             f"{row['max_drawdown'] * 100:.2f}"
@@ -388,9 +383,7 @@ def print_human_readable(dashboard: dict[str, Any]) -> None:
         dsr_str = (
             f"{row['dsr_pvalue']:.4f}" if row.get("dsr_pvalue") is not None else "-"
         )
-        icir_str = (
-            f"{row['icir']:.2f}" if row.get("icir") is not None else "-"
-        )
+        icir_str = f"{row['icir']:.2f}" if row.get("icir") is not None else "-"
         tier = row.get("tier") or "-"
         print(
             f"{stream_label:<28} "
@@ -445,10 +438,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help=(
-            "Output JSON path. "
-            f"Default: {DEFAULT_OUTPUT}"
-        ),
+        help=(f"Output JSON path. Default: {DEFAULT_OUTPUT}"),
     )
     parser.add_argument(
         "--quiet",
@@ -474,10 +464,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.quiet:
         print_human_readable(dashboard)
-        print(
-            f"Wrote {len(dashboard.get('streams', []))} streams to "
-            f"{args.output}"
-        )
+        print(f"Wrote {len(dashboard.get('streams', []))} streams to {args.output}")
 
     return 0
 

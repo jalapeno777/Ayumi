@@ -70,13 +70,16 @@ class TestCanaryDisable:
     def test_canary_evaluate_returns_none_when_disabled(self):
         """evaluate() returns None when canary is disabled."""
         from strategies.test_canary import TestCanaryStrategy
-        from backtest.types import Bar, MarketState
+        from backtest.types import Bar
         from datetime import datetime, timezone
 
         canary = TestCanaryStrategy(tp_sl_pct=0.0)
         bar = Bar(
             time=datetime.now(timezone.utc),
-            open=1.0, high=1.1, low=0.9, close=1.05,
+            open=1.0,
+            high=1.1,
+            low=0.9,
+            close=1.05,
             volume=100,
         )
         state = MagicMock()
@@ -94,14 +97,17 @@ class TestCanaryDisable:
     def test_canary_warning_log_when_enabled(self, caplog):
         """evaluate() emits WARNING log when canary is enabled (hardening)."""
         from strategies.test_canary import TestCanaryStrategy
-        from backtest.types import Bar, MarketState
+        from backtest.types import Bar
         from datetime import datetime, timezone
 
         canary = TestCanaryStrategy(tp_sl_pct=0.005)
 
         bar = Bar(
             time=datetime.now(timezone.utc),
-            open=1.0, high=1.1, low=0.9, close=1.05,
+            open=1.0,
+            high=1.1,
+            low=0.9,
+            close=1.05,
             volume=100,
         )
         state = MagicMock()
@@ -113,7 +119,9 @@ class TestCanaryDisable:
         assert any(
             "canary" in record.message.lower() and "enabled" in record.message.lower()
             for record in caplog.records
-        ), f"Expected WARNING about canary being enabled, got: {[r.message for r in caplog.records]}"
+        ), (
+            f"Expected WARNING about canary being enabled, got: {[r.message for r in caplog.records]}"
+        )
 
 
 class TestCanaryEnvGating:

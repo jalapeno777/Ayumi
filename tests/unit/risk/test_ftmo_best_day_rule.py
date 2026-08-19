@@ -37,6 +37,7 @@ from risk.ftmo_guard import (
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def kill_switch():
     """Mock kill switch that records all calls."""
@@ -63,6 +64,7 @@ def guard_no_ks():
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _seed_history(guard: FTMOGuard, entries: list[tuple[str, float]]) -> None:
     """Replace the daily_pnl_history with a fixed list of (date, pnl) tuples.
 
@@ -81,6 +83,7 @@ def _set_today(guard: FTMOGuard, date: str, pnl: float = 0.0) -> None:
 
 
 # ── 1. Minimum 2 positive days required ─────────────────────────────────────
+
 
 class TestMinimumPositiveDays:
     """Best-day rule is only meaningful with ≥2 positive days."""
@@ -111,6 +114,7 @@ class TestMinimumPositiveDays:
 
 
 # ── 2. Boundary: best day = 50% exactly ────────────────────────────────────
+
 
 class TestBoundary:
     """``best_day_ratio == 50%`` is allowed (only strictly > 50% violates)."""
@@ -151,6 +155,7 @@ class TestBoundary:
 
 
 # ── 3. Strict: best day > 50% → violation + FREEZE ────────────────────────
+
 
 class TestStrictViolation:
     """``best_day_ratio > 50%`` → violation flagged, FREEZE action."""
@@ -223,6 +228,7 @@ class TestStrictViolation:
 
 # ── 4. Negative days excluded from positive-days total ─────────────────────
 
+
 class TestNegativeDaysExcluded:
     """Negative-PnL days are NOT counted in the positive-days denominator."""
 
@@ -267,6 +273,7 @@ class TestNegativeDaysExcluded:
 
 
 # ── 5. record_daily_pnl accumulation ───────────────────────────────────────
+
 
 class TestRecordDailyPnl:
     """``record_daily_pnl`` accumulates trades within a CET day."""
@@ -315,6 +322,7 @@ class TestRecordDailyPnl:
 
 
 # ── 6. CET midnight rollover ────────────────────────────────────────────────
+
 
 class TestTorontoRollover:
     """Daily P&L rolls to history when America/Toronto date changes."""
@@ -387,6 +395,7 @@ class TestTorontoRollover:
 
 # ── 7. History trimming at MAX_PNL_HISTORY ─────────────────────────────────
 
+
 class TestHistoryTrimming:
     """History is trimmed to ``MAX_PNL_HISTORY`` (60) most recent entries."""
 
@@ -402,10 +411,12 @@ class TestHistoryTrimming:
         """After 64+ days, history should be trimmed to 60 most recent."""
         # Pre-populate 63 history entries
         for i in range(63):
-            guard._state.daily_pnl_history.append({
-                "date": f"2026-05-{i + 1:02d}",
-                "pnl": 100.0,
-            })
+            guard._state.daily_pnl_history.append(
+                {
+                    "date": f"2026-05-{i + 1:02d}",
+                    "pnl": 100.0,
+                }
+            )
         assert len(guard._state.daily_pnl_history) == 63
 
         # Pre-set state: simulate today being a specific day with pnl
@@ -420,10 +431,12 @@ class TestHistoryTrimming:
     def test_history_at_60_not_over_trimmed(self, guard):
         """With 60 entries, rollover yields 61 then trim to exactly 60."""
         for i in range(60):
-            guard._state.daily_pnl_history.append({
-                "date": f"2026-05-{i + 1:02d}",
-                "pnl": 50.0,
-            })
+            guard._state.daily_pnl_history.append(
+                {
+                    "date": f"2026-05-{i + 1:02d}",
+                    "pnl": 50.0,
+                }
+            )
         assert len(guard._state.daily_pnl_history) == 60
 
         _set_today(guard, "2026-05-01", 100.0)
@@ -435,10 +448,12 @@ class TestHistoryTrimming:
     def test_history_keeps_most_recent_entries(self, guard):
         """When trimming, the OLDEST entries are dropped (FIFO)."""
         for i in range(63):
-            guard._state.daily_pnl_history.append({
-                "date": f"day_{i:03d}",
-                "pnl": 100.0,
-            })
+            guard._state.daily_pnl_history.append(
+                {
+                    "date": f"day_{i:03d}",
+                    "pnl": 100.0,
+                }
+            )
 
         _set_today(guard, "day_xxx", 100.0)
         guard.record_daily_pnl(50.0, "day_yyy")  # triggers rollover
@@ -457,10 +472,12 @@ class TestHistoryTrimming:
         """History trimming also runs during update() CET rollover."""
         # Pre-populate 62 history entries
         for i in range(62):
-            guard._state.daily_pnl_history.append({
-                "date": f"2026-04-{i + 1:02d}",
-                "pnl": 50.0,
-            })
+            guard._state.daily_pnl_history.append(
+                {
+                    "date": f"2026-04-{i + 1:02d}",
+                    "pnl": 50.0,
+                }
+            )
 
         # Set up state as if we're on "2026-07-08" with pnl=100
         _set_today(guard, "2026-07-08", 100.0)
@@ -476,6 +493,7 @@ class TestHistoryTrimming:
 
 
 # ── 8. check_best_day_rule edge cases ─────────────────────────────────────
+
 
 class TestCheckBestDayRuleEdgeCases:
     """Edge cases and configuration of ``check_best_day_rule()``."""
@@ -512,12 +530,13 @@ class TestCheckBestDayRuleEdgeCases:
         # The message should contain:
         assert "Best day" in result
         assert "80.0%" in result  # 200 / (200+50) = 0.80
-        assert "50%" in result    # cap: 50%
+        assert "50%" in result  # cap: 50%
         assert "200.00" in result  # best day value
         assert "250.00" in result  # total positive
 
 
 # ── 9. Custom best_day_cap_pct ─────────────────────────────────────────────
+
 
 class TestCustomBestDayCap:
     """Custom ``best_day_cap_pct`` overrides default 50%."""
@@ -587,6 +606,7 @@ class TestCustomBestDayCap:
 
 # ── 10. Recovery from best-day freeze ──────────────────────────────────────
 
+
 class TestRecoveryFromFreeze:
     """When the best-day rule is no longer violated, action recovers to ALLOW."""
 
@@ -633,6 +653,7 @@ class TestRecoveryFromFreeze:
 
 # ── 11. State serialization ───────────────────────────────────────────────
 
+
 class TestStateSerialization:
     """Best-day rule fields are included in ``state.to_dict()`` and state property."""
 
@@ -673,6 +694,7 @@ class TestStateSerialization:
 
 # ── 12. FTMOBreachType enum ────────────────────────────────────────────────
 
+
 class TestBestDayBreachType:
     """``FTMOBreachType.BEST_DAY_RULE`` enum value exists and is correct."""
 
@@ -687,7 +709,8 @@ class TestBestDayBreachType:
         guard.update(current_balance=10000.0, open_positions=0)
         # Check breach history
         best_day_breaches = [
-            b for b in guard.state.breach_history
+            b
+            for b in guard.state.breach_history
             if b["type"] == FTMOBreachType.BEST_DAY_RULE.value
         ]
         assert len(best_day_breaches) >= 1
@@ -706,6 +729,7 @@ class TestBestDayBreachType:
 
 
 # ── 13. update() integration: best-day check runs first ───────────────────
+
 
 class TestUpdateIntegration:
     """Best-day rule runs as part of ``update()`` and is checked before other rules."""

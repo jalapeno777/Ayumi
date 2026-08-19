@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
+
 
 def _create_workboard_schema(db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
@@ -145,6 +144,7 @@ def now() -> datetime:
 
 def _make_detector(workboard_db, plans_dir, ops_dir, now):
     from monitoring.drift_detector import DriftDetector
+
     return DriftDetector(
         workboard_db=str(workboard_db),
         plans_dir=plans_dir,
@@ -156,10 +156,11 @@ def _make_detector(workboard_db, plans_dir, ops_dir, now):
 # ── Tests ─────────────────────────────────────────────────────────────────
 
 
-def test_check_card_staleness_warns_and_auto_creates(workboard_db: Path, now: datetime) -> None:
+def test_check_card_staleness_warns_and_auto_creates(
+    workboard_db: Path, now: datetime
+) -> None:
     """Cards older than 3d → warn, older than 7d → auto_create."""
     from monitoring.drift_detector import (
-        DriftDetector,
         CARD_WARN_DAYS,
         CARD_AUTO_CREATE_DAYS,
     )
@@ -200,7 +201,9 @@ def test_check_card_staleness_warns_and_auto_creates(workboard_db: Path, now: da
     assert by_id["stale-1"].age_days >= CARD_AUTO_CREATE_DAYS
 
 
-def test_auto_create_stale_card_writes_draft(ops_dir: Path, workboard_db: Path, now: datetime) -> None:
+def test_auto_create_stale_card_writes_draft(
+    ops_dir: Path, workboard_db: Path, now: datetime
+) -> None:
     """auto_create_stale_card should append a draft to stale_cards.jsonl."""
     det = _make_detector(workboard_db, Path("."), ops_dir, now)
     _insert_card(
@@ -228,7 +231,9 @@ def test_auto_create_stale_card_writes_draft(ops_dir: Path, workboard_db: Path, 
     assert parsed["parent_card_id"] == "to-auto"
 
 
-def test_auto_create_stale_card_noop_for_warn(workboard_db: Path, ops_dir: Path, now: datetime) -> None:
+def test_auto_create_stale_card_noop_for_warn(
+    workboard_db: Path, ops_dir: Path, now: datetime
+) -> None:
     """auto_create_stale_card should NOT create a draft for warn-level cards."""
     det = _make_detector(workboard_db, Path("."), ops_dir, now)
     _insert_card(
@@ -245,7 +250,9 @@ def test_auto_create_stale_card_noop_for_warn(workboard_db: Path, ops_dir: Path,
     assert not (ops_dir / "stale_cards.jsonl").exists()
 
 
-def test_check_phase_staleness_no_audit_trail(plans_dir: Path, workboard_db: Path, ops_dir: Path, now: datetime) -> None:
+def test_check_phase_staleness_no_audit_trail(
+    plans_dir: Path, workboard_db: Path, ops_dir: Path, now: datetime
+) -> None:
     """With no audit_trail entries, check_phase_staleness should report 0
     by default (require_audit_trail=False). With strict mode, it reports."""
     # Write a quest plan with no audit trail entries
@@ -271,7 +278,9 @@ def test_check_phase_staleness_no_audit_trail(plans_dir: Path, workboard_db: Pat
     assert all(p.level == "escalate" for p in phases)
 
 
-def test_check_phase_staleness_with_recent_audit(workboard_db: Path, plans_dir: Path, ops_dir: Path, now: datetime) -> None:
+def test_check_phase_staleness_with_recent_audit(
+    workboard_db: Path, plans_dir: Path, ops_dir: Path, now: datetime
+) -> None:
     """A phase with a recent audit entry must NOT be flagged."""
     plan = plans_dir / "quest-test.md"
     iso_now = now.isoformat()
@@ -287,7 +296,9 @@ def test_check_phase_staleness_with_recent_audit(workboard_db: Path, plans_dir: 
     assert det.check_phase_staleness() == []
 
 
-def test_escalate_phase_appends_to_escalation_queue(workboard_db: Path, plans_dir: Path, ops_dir: Path, now: datetime) -> None:
+def test_escalate_phase_appends_to_escalation_queue(
+    workboard_db: Path, plans_dir: Path, ops_dir: Path, now: datetime
+) -> None:
     """escalate_phase writes a record to data/ops/escalation_queue.jsonl."""
     plan = plans_dir / "quest-test.md"
     iso_10d_ago = (now - timedelta(days=10)).isoformat()

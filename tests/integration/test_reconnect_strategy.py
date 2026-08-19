@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
 
-from adapters.ctrader.error_classifier import ErrorTier, classify_error
+from adapters.ctrader.error_classifier import classify_error
 from adapters.ctrader.reconnect_strategy import (
     ReconnectAction,
-    ReconnectDecision,
     ReconnectStrategy,
 )
 
 
 class TestReconnectTier1Retry(unittest.TestCase):
-
     def test_tier_1_retries(self):
         strategy = ReconnectStrategy(max_attempts=10)
         classified = classify_error("CONNECTION_LOST", "socket dropped")
@@ -37,7 +34,6 @@ class TestReconnectTier1Retry(unittest.TestCase):
 
 
 class TestReconnectTier3BHalt(unittest.TestCase):
-
     def test_tier_3b_halts(self):
         strategy = ReconnectStrategy()
         classified = classify_error("AUTH_EXPIRED", "refresh token invalid")
@@ -56,7 +52,6 @@ class TestReconnectTier3BHalt(unittest.TestCase):
 
 
 class TestReconnectTier3ANoRetry(unittest.TestCase):
-
     def test_tier_3a_no_retry(self):
         strategy = ReconnectStrategy()
         classified = classify_error("INVALID_SYMBOL", "bad symbol")
@@ -67,15 +62,17 @@ class TestReconnectTier3ANoRetry(unittest.TestCase):
 
 
 class TestReconnectJitterBounded(unittest.TestCase):
-
     def test_jitter_never_exceeds_cap(self):
         strategy = ReconnectStrategy(base_sleep=1.0, cap_sleep=5.0, max_attempts=20)
         classified = classify_error("CONNECTION_LOST", "drop")
 
         for attempt in range(1, 16):
             decision = strategy.decide(classified, attempt=attempt)
-            self.assertLessEqual(decision.sleep_seconds, 5.0,
-                                 f"Attempt {attempt}: sleep {decision.sleep_seconds} > cap 5.0")
+            self.assertLessEqual(
+                decision.sleep_seconds,
+                5.0,
+                f"Attempt {attempt}: sleep {decision.sleep_seconds} > cap 5.0",
+            )
 
     def test_jitter_never_below_base(self):
         strategy = ReconnectStrategy(base_sleep=2.0, cap_sleep=60.0)
@@ -83,12 +80,14 @@ class TestReconnectJitterBounded(unittest.TestCase):
 
         for attempt in range(1, 10):
             decision = strategy.decide(classified, attempt=attempt)
-            self.assertGreaterEqual(decision.sleep_seconds, 2.0,
-                                    f"Attempt {attempt}: sleep {decision.sleep_seconds} < base 2.0")
+            self.assertGreaterEqual(
+                decision.sleep_seconds,
+                2.0,
+                f"Attempt {attempt}: sleep {decision.sleep_seconds} < base 2.0",
+            )
 
 
 class TestReconnectMaxAttempts(unittest.TestCase):
-
     def test_no_retry_after_max_attempts(self):
         strategy = ReconnectStrategy(max_attempts=3)
         classified = classify_error("CONNECTION_LOST", "drop")
@@ -104,7 +103,6 @@ class TestReconnectMaxAttempts(unittest.TestCase):
 
 
 class TestReconnectReset(unittest.TestCase):
-
     def test_reset_after_success(self):
         strategy = ReconnectStrategy(base_sleep=1.0, cap_sleep=60.0)
         classified = classify_error("CONNECTION_LOST", "drop")
@@ -126,7 +124,6 @@ class TestReconnectReset(unittest.TestCase):
 
 
 class TestReconnectTier2Backoff(unittest.TestCase):
-
     def test_tier_2_retries_with_longer_sleep(self):
         strategy = ReconnectStrategy(base_sleep=1.0, cap_sleep=60.0)
 

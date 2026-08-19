@@ -2,6 +2,28 @@
 
 Uses the existing WalkForwardObjective / OptunaOptimizer infrastructure
 from optuna_optimizer.py, targeting the TTC-specific tunable parameters.
+
+Embargo / Out-of-Sample Leakage Notes
+--------------------------------------
+The underlying WalkForwardValidator (quant/walk_forward.py) creates
+**contiguous** train/val/test slices with no buffer between them.
+For financial time series with autocorrelation, directly adjacent
+train→test boundaries risk information leakage.
+
+The ``embargo_bars`` parameter (default 0) is an API-level contract for
+a future walk-forward runner upgrade. When wired through to the
+validator, it will drop ``embargo_bars`` bars between each train→val
+and val→test boundary within every walk-forward window.
+
+**Recommended value for XAUUSD M15:** 96 bars (24 hours of M15 data)
+to cover a full trading day's autocorrelation decay.
+
+PF=0 Mitigation
+---------------
+Trials producing PF=0 (no winning trades or no trades at all in one or
+more windows) are now explicitly pruned rather than silently scored.
+This prevents the optimizer from exploring degenerate parameter regions
+where the strategy is so selective it never fires.
 """
 
 from __future__ import annotations
@@ -162,6 +184,7 @@ def run_ttc_optuna(
     seed: int = 42,
     composite_weights: dict[str, float] | None = None,
     min_trades: int = 2,
+    embargo_bars: int = 0,
 ) -> OptimizationResult:
     """Run Optuna optimization for the TTC signal engine.
 
@@ -173,6 +196,10 @@ def run_ttc_optuna(
         seed: Random seed for reproducibility
         composite_weights: Custom composite score weights
         min_trades: Minimum avg trades per window (default 2, TTC is selective)
+        embargo_bars: Bars to drop between train/val/test boundaries.
+            Default 0 (no embargo — preserves current behavior). When the
+            walk-forward runner supports embargo, set to 96 for XAUUSD M15
+            (24h autocorrelation decay). See module docstring for details.
 
     Returns:
         OptimizationResult with best params and walk-forward results.
@@ -227,6 +254,18 @@ def run_ttc_optuna(
                 raise optuna.TrialPruned()
 
             if agg.mean_trade_count < self._min_trades:
+                raise optuna.TrialPruned()
+
+            # Prune trials with PF=0 (no winning trades in avg across windows).
+            # These represent degenerate parameter regions where the strategy
+            # is too selective or market conditions didn't align — the 1/3
+            # PF=0 anomaly from the 3-seed investigation traces to this.
+            if agg.mean_profit_factor <= 0.0:
+                logger.info(
+                    "Trial %d pruned: PF=%.2f (no winning trades)",
+                    trial.number,
+                    agg.mean_profit_factor,
+                )
                 raise optuna.TrialPruned()
 
             score = self._composite_score(agg)

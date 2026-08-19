@@ -88,7 +88,9 @@ class TestSplitBrainGate(unittest.TestCase):
 
         self.market_mgr.transition_to(ConnectionState.CONNECTED, reason="test")
         self.market_mgr.transition_to(ConnectionState.APP_AUTHENTICATING, reason="test")
-        self.market_mgr.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="test")
+        self.market_mgr.transition_to(
+            ConnectionState.ACCT_AUTHENTICATING, reason="test"
+        )
         self.market_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="test")
         self.assertFalse(self.mgr.is_fully_operational)  # Trade still down
 
@@ -101,11 +103,15 @@ class TestSplitBrainGate(unittest.TestCase):
         self.assertTrue(self.mgr.is_fully_operational)  # Both up!
 
         # Market data degrades
-        self.market_mgr.transition_to(ConnectionState.DEGRADED, reason="heartbeat_delayed")
+        self.market_mgr.transition_to(
+            ConnectionState.DEGRADED, reason="heartbeat_delayed"
+        )
         self.assertFalse(self.mgr.is_fully_operational)  # No longer fully operational
 
         # Market data recovers
-        self.market_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="heartbeat_recovered")
+        self.market_mgr.transition_to(
+            ConnectionState.AUTHENTICATED, reason="heartbeat_recovered"
+        )
         self.assertTrue(self.mgr.is_fully_operational)
 
 
@@ -179,10 +185,18 @@ class TestMetrics(unittest.TestCase):
         state_mgr = ConnectionStateManager(name="market_data")
 
         # Simulate reconnect sequence
-        metrics.record_transition(ConnectionState.AUTHENTICATED, ConnectionState.RECONNECTING, "timeout")
-        metrics.record_transition(ConnectionState.RECONNECTING, ConnectionState.CONNECTING, "retry")
-        metrics.record_transition(ConnectionState.CONNECTING, ConnectionState.CONNECTED, "tcp_up")
-        metrics.record_transition(ConnectionState.CONNECTED, ConnectionState.AUTHENTICATED, "reconnected")
+        metrics.record_transition(
+            ConnectionState.AUTHENTICATED, ConnectionState.RECONNECTING, "timeout"
+        )
+        metrics.record_transition(
+            ConnectionState.RECONNECTING, ConnectionState.CONNECTING, "retry"
+        )
+        metrics.record_transition(
+            ConnectionState.CONNECTING, ConnectionState.CONNECTED, "tcp_up"
+        )
+        metrics.record_transition(
+            ConnectionState.CONNECTED, ConnectionState.AUTHENTICATED, "reconnected"
+        )
 
         health = metrics.get_health(state_mgr)
         self.assertEqual(health.reconnect_count_1h, 1)
@@ -196,12 +210,14 @@ class TestMetrics(unittest.TestCase):
         # Record transition into AUTHENTICATED with a "before" state
         with metrics._lock:
             metrics._current_state = ConnectionState.AUTHENTICATED
-            metrics._transitions.append(_StateTransition(
-                timestamp=time.monotonic() - 0.5,
-                old_state=ConnectionState.DISCONNECTED,
-                new_state=ConnectionState.AUTHENTICATED,
-                reason="connected",
-            ))
+            metrics._transitions.append(
+                _StateTransition(
+                    timestamp=time.monotonic() - 0.5,
+                    old_state=ConnectionState.DISCONNECTED,
+                    new_state=ConnectionState.AUTHENTICATED,
+                    reason="connected",
+                )
+            )
 
         health = metrics.get_health(state_mgr)
         self.assertGreater(health.uptime_pct_1h, 0)
@@ -210,9 +226,13 @@ class TestMetrics(unittest.TestCase):
         metrics = ConnectionMetrics(ConnectionRole.TRADE_EXECUTION)
         state_mgr = ConnectionStateManager(name="trade")
 
-        metrics.record_transition(ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED, "slow_hb")
+        metrics.record_transition(
+            ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED, "slow_hb"
+        )
         time.sleep(0.1)
-        metrics.record_transition(ConnectionState.DEGRADED, ConnectionState.AUTHENTICATED, "recovered")
+        metrics.record_transition(
+            ConnectionState.DEGRADED, ConnectionState.AUTHENTICATED, "recovered"
+        )
 
         health = metrics.get_health(state_mgr)
         self.assertGreater(health.time_in_degraded_1h, 0)
@@ -282,7 +302,9 @@ class TestMetricsEmission(unittest.TestCase):
             self.assertEqual(record["market_data"]["state"], "authenticated")
             self.assertEqual(record["trade_execution"]["state"], "authenticated")
             self.assertTrue(record["fully_operational"])
-            self.assertEqual(record["error_tiers"], {"t1": 1, "t2": 0, "t3a": 0, "t3b": 1})
+            self.assertEqual(
+                record["error_tiers"], {"t1": 1, "t2": 0, "t3a": 0, "t3b": 1}
+            )
             self.assertEqual(payload["error_tiers"], record["error_tiers"])
 
     def test_emit_metrics_without_path_returns_payload_only(self):
@@ -306,7 +328,9 @@ class TestCallbacks(unittest.TestCase):
         mgr.register(ConnectionRole.MARKET_DATA, market_mgr)
 
         callbacks = []
-        mgr.on_state_change(lambda h, r, o, n, reason: callbacks.append((r, o, n, reason)))
+        mgr.on_state_change(
+            lambda h, r, o, n, reason: callbacks.append((r, o, n, reason))
+        )
 
         market_mgr.transition_to(ConnectionState.CONNECTING, reason="test")
 
@@ -342,7 +366,9 @@ class TestUnregister(unittest.TestCase):
         mgr = ConnectionManager()
         market_mgr = ConnectionStateManager(name="market_data")
         mgr.register(ConnectionRole.MARKET_DATA, market_mgr)
-        mgr.register(ConnectionRole.TRADE_EXECUTION, ConnectionStateManager(name="trade"))
+        mgr.register(
+            ConnectionRole.TRADE_EXECUTION, ConnectionStateManager(name="trade")
+        )
 
         self.assertFalse(mgr.is_fully_operational)
 
@@ -355,8 +381,6 @@ class TestUnregister(unittest.TestCase):
         mgr.register("market_data", ConnectionStateManager(name="market_data"))
         mgr.unregister("market_data")
         self.assertFalse(mgr.is_data_available)
-
-
 
 
 class TestDecisionContext(unittest.TestCase):
@@ -442,14 +466,23 @@ class TestDecisionContext(unittest.TestCase):
         mgr.register(ConnectionRole.TRADE_EXECUTION, trade_mgr)
 
         # Market: AUTHENTICATED → DEGRADED
-        for target in (ConnectionState.CONNECTING, ConnectionState.CONNECTED,
-                       ConnectionState.APP_AUTHENTICATING, ConnectionState.ACCT_AUTHENTICATING,
-                       ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED):
+        for target in (
+            ConnectionState.CONNECTING,
+            ConnectionState.CONNECTED,
+            ConnectionState.APP_AUTHENTICATING,
+            ConnectionState.ACCT_AUTHENTICATING,
+            ConnectionState.AUTHENTICATED,
+            ConnectionState.DEGRADED,
+        ):
             market_mgr.transition_to(target)
         # Trade: fully AUTHENTICATED
-        for target in (ConnectionState.CONNECTING, ConnectionState.CONNECTED,
-                       ConnectionState.APP_AUTHENTICATING, ConnectionState.ACCT_AUTHENTICATING,
-                       ConnectionState.AUTHENTICATED):
+        for target in (
+            ConnectionState.CONNECTING,
+            ConnectionState.CONNECTED,
+            ConnectionState.APP_AUTHENTICATING,
+            ConnectionState.ACCT_AUTHENTICATING,
+            ConnectionState.AUTHENTICATED,
+        ):
             trade_mgr.transition_to(target)
 
         snapshot = mgr.get_decision_context()

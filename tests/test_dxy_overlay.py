@@ -4,6 +4,7 @@ Covers: regime classification (4 regimes), confidence multiplier
 (directional mapping), edge cases (insufficient data, empty bars),
 and SRMR+ integration.
 """
+
 from __future__ import annotations
 
 import sys
@@ -22,6 +23,7 @@ from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy  # noqa: E402
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_dxy_bars(
     n: int = 30,
@@ -42,9 +44,7 @@ def make_dxy_bars(
         c = o + change
         h = max(o, c) + rng.uniform(0, noise * 0.5)
         lo = min(o, c) - rng.uniform(0, noise * 0.5)
-        bars.append(
-            DxyBar(time_ms=i * 3600_000, open=o, high=h, low=lo, close=c)
-        )
+        bars.append(DxyBar(time_ms=i * 3600_000, open=o, high=h, low=lo, close=c))
         price = c
     return bars
 
@@ -52,6 +52,7 @@ def make_dxy_bars(
 # ---------------------------------------------------------------------------
 # Regime Classification Tests
 # ---------------------------------------------------------------------------
+
 
 class TestClassify:
     def test_trending_up(self):
@@ -110,6 +111,7 @@ class TestClassify:
 # Confidence Multiplier Tests
 # ---------------------------------------------------------------------------
 
+
 class TestConfidenceMultiplier:
     def setup_method(self):
         self.overlay = DxyRegimeOverlay()
@@ -161,6 +163,7 @@ class TestConfidenceMultiplier:
 # Adjust Confidence Integration Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAdjustConfidence:
     def test_applies_multiplier_end_to_end(self):
         """Full pipeline: bars → regime → multiplier → adjusted confidence."""
@@ -191,6 +194,7 @@ class TestAdjustConfidence:
 # ---------------------------------------------------------------------------
 # SRMR+ Integration Tests
 # ---------------------------------------------------------------------------
+
 
 class TestSRMRPlusIntegration:
     def test_overlay_disabled_by_default(self):

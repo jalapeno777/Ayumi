@@ -214,7 +214,9 @@ def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="High Conviction Strategy parameter sweep")
+    parser = argparse.ArgumentParser(
+        description="High Conviction Strategy parameter sweep"
+    )
     add_resource_args(parser)
     args = parser.parse_args()
 
@@ -446,4 +448,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

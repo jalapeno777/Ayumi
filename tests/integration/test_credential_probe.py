@@ -9,21 +9,19 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
-import sys
 import textwrap
-from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-from _project_root import PROJECT_ROOT
 
 # ---------------------------------------------------------------------------
 # Load check_sdk_callback_names from its actual location (.github/linters/)
 # ---------------------------------------------------------------------------
 _spec = importlib.util.spec_from_file_location(
     "check_sdk_callback_names",
-    pathlib.Path(__file__).resolve().parents[2] / ".github" / "linters" / "check_sdk_callback_names.py",
+    pathlib.Path(__file__).resolve().parents[2]
+    / ".github"
+    / "linters"
+    / "check_sdk_callback_names.py",
 )
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
@@ -31,10 +29,10 @@ find_callback_typos = _mod.find_callback_typos
 lint_directory = _mod.lint_directory
 
 
-
 # ===========================================================================
 # Credential Probe Tests
 # ===========================================================================
+
 
 class TestGetCredentials:
     """Tests for probe_ctrader_credentials.get_credentials."""
@@ -96,12 +94,15 @@ class TestValidateCredentials:
     def test_all_present_returns_empty(self):
         from probe_ctrader_credentials import validate_credentials
 
-        creds = {k: "value" for k in [
-            "CTRADER_OPENAPI_CLIENT_ID",
-            "CTRADER_OPENAPI_CLIENT_SECRET",
-            "CTRADER_OPENAPI_ACCESS_TOKEN",
-            "CTRADER_OPENAPI_ACCOUNT_ID",
-        ]}
+        creds = {
+            k: "value"
+            for k in [
+                "CTRADER_OPENAPI_CLIENT_ID",
+                "CTRADER_OPENAPI_CLIENT_SECRET",
+                "CTRADER_OPENAPI_ACCESS_TOKEN",
+                "CTRADER_OPENAPI_ACCOUNT_ID",
+            ]
+        }
         assert validate_credentials(creds) == []
 
 
@@ -134,7 +135,10 @@ class TestRunProbe:
         monkeypatch.setenv("CTRADER_OPENAPI_ACCOUNT_ID", "42")
 
         mock_check.return_value = ProbeResult(
-            success=True, stage="auth", message="OK", details={},
+            success=True,
+            stage="auth",
+            message="OK",
+            details={},
         )
 
         result = run_probe()
@@ -152,7 +156,10 @@ class TestRunProbe:
         monkeypatch.setenv("CTRADER_OPENAPI_ACCOUNT_ID", "42")
 
         mock_check.return_value = ProbeResult(
-            success=False, stage="auth", message="Bad creds", details={},
+            success=False,
+            stage="auth",
+            message="Bad creds",
+            details={},
         )
 
         result = run_probe()
@@ -176,6 +183,7 @@ class TestProbeResult:
 # ===========================================================================
 # Callback Name Linter Tests
 # ===========================================================================
+
 
 class TestFindCallbackTypos:
     """Tests for check_sdk_callback_names.find_callback_typos."""

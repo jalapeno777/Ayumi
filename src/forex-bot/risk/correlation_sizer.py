@@ -39,22 +39,26 @@ class Direction(str, Enum):
 @dataclass
 class OpenPosition:
     """A currently-open position registered with the sizer."""
+
     strategy_id: str
     pair: str
     direction: Direction
     size_lots: float
-    risk_pct: float          # fractional risk of this single position (e.g. 0.005 = 0.5 %)
+    risk_pct: float  # fractional risk of this single position (e.g. 0.005 = 0.5 %)
 
 
 @dataclass
 class SizingResult:
     """Returned by :meth:`CorrelationAwareSizer.compute_adjusted_size`."""
+
     adjusted_size_lots: float
     adjusted_risk_pct: float
     original_size_lots: float
     original_risk_pct: float
     scale_factor: float
-    correlated_exposure_pct: float   # sum of effective risk from correlated open positions
+    correlated_exposure_pct: (
+        float  # sum of effective risk from correlated open positions
+    )
     blocked: bool = False
     block_reason: str = ""
     warnings: list[str] = field(default_factory=list)
@@ -111,7 +115,11 @@ class CorrelationAwareSizer:
         )
         logger.debug(
             "Registered position: %s %s %s %.2f lots risk=%.3f%%",
-            strategy_id, pair, direction.value, size_lots, risk_pct * 100,
+            strategy_id,
+            pair,
+            direction.value,
+            size_lots,
+            risk_pct * 100,
         )
 
     def remove_position(self, strategy_id: str, pair: str) -> bool:
@@ -191,7 +199,9 @@ class CorrelationAwareSizer:
         # --- Regime-aware aggregate cap adjustment (BQ-1240b) ---------- #
         effective_aggregate_cap = self.aggregate_risk_pct
         if regime is not None:
-            regime_label = regime.value if isinstance(regime, Enum) else str(regime).upper()
+            regime_label = (
+                regime.value if isinstance(regime, Enum) else str(regime).upper()
+            )
             if regime_label == "BREAKDOWN":
                 effective_aggregate_cap = self.aggregate_risk_pct * 0.5
                 warnings.append(
@@ -205,7 +215,9 @@ class CorrelationAwareSizer:
                 f"Base risk {base_risk_pct:.3%} exceeds per-trade cap "
                 f"{self.per_trade_risk_pct:.3%}; capping."
             )
-            cap_scale = self.per_trade_risk_pct / base_risk_pct if base_risk_pct > 0 else 0.0
+            cap_scale = (
+                self.per_trade_risk_pct / base_risk_pct if base_risk_pct > 0 else 0.0
+            )
             base_risk_pct = self.per_trade_risk_pct
             base_size_lots *= cap_scale
 
@@ -228,7 +240,11 @@ class CorrelationAwareSizer:
                 block_reason=(
                     f"Correlated exposure {correlated_exposure:.3%} has reached "
                     f"effective aggregate cap {effective_aggregate_cap:.3%}"
-                    + (" (regime-adjusted)" if effective_aggregate_cap != self.aggregate_risk_pct else "")
+                    + (
+                        " (regime-adjusted)"
+                        if effective_aggregate_cap != self.aggregate_risk_pct
+                        else ""
+                    )
                 ),
                 warnings=warnings,
             )

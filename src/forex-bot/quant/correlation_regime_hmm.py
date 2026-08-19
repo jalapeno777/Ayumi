@@ -17,6 +17,7 @@ Usage:
     hmm.fit(returns_df, funding_df)
     regime, confidence = hmm.predict_current(features)
 """
+
 from __future__ import annotations
 
 import logging
@@ -262,15 +263,23 @@ class CorrelationRegimeHMM:
             # State 0 = lower vol = STABLE, last state = BREAKDOWN
             self._state_labels = [STABLE, BREAKDOWN]
             if self.n_states > 2:
-                self._state_labels = [
-                    STABLE,
-                ] + [TRANSITION] * (self.n_states - 2) + [BREAKDOWN]
+                self._state_labels = (
+                    [
+                        STABLE,
+                    ]
+                    + [TRANSITION] * (self.n_states - 2)
+                    + [BREAKDOWN]
+                )
         else:
             self._state_labels = [BREAKDOWN, STABLE]
             if self.n_states > 2:
-                self._state_labels = [
-                    BREAKDOWN,
-                ] + [TRANSITION] * (self.n_states - 2) + [STABLE]
+                self._state_labels = (
+                    [
+                        BREAKDOWN,
+                    ]
+                    + [TRANSITION] * (self.n_states - 2)
+                    + [STABLE]
+                )
 
         self._is_fit = True
         logger.info(

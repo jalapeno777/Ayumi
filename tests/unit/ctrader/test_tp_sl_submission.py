@@ -163,8 +163,11 @@ class TestUpdatePositionTpLevelsDirect:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-1", broker_position_id=999,
-            take_profit_2=1.27500, take_profit_3=1.28500,
+            mgr,
+            order_id="ord-1",
+            broker_position_id=999,
+            take_profit_2=1.27500,
+            take_profit_3=1.28500,
         )
 
         # Pre-conditions
@@ -183,7 +186,9 @@ class TestUpdatePositionTpLevelsDirect:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-2", broker_position_id=555111,
+            mgr,
+            order_id="ord-2",
+            broker_position_id=555111,
         )
 
         ok = mgr.update_position_tp_levels(555111, tp2=1.29500, tp3=1.30000)
@@ -197,7 +202,9 @@ class TestUpdatePositionTpLevelsDirect:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-3", broker_position_id=42,
+            mgr,
+            order_id="ord-3",
+            broker_position_id=42,
         )
 
         ok = mgr.update_position_tp_levels("42", tp2=2.0, tp3=3.0)
@@ -225,8 +232,11 @@ class TestUpdatePositionTpLevelsDirect:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-4", broker_position_id=7,
-            take_profit_2=None, take_profit_3=9.999,
+            mgr,
+            order_id="ord-4",
+            broker_position_id=7,
+            take_profit_2=None,
+            take_profit_3=9.999,
         )
         assert position.take_profit_2 is None
         assert position.take_profit_3 == 9.999
@@ -263,8 +273,11 @@ class TestF1ImmediatePath:
 
         paper, mgr = self._make_paper_trader_with_order_manager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f1", broker_position_id=7777,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f1",
+            broker_position_id=7777,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         engine = _make_engine(paper)
@@ -304,9 +317,13 @@ class TestF1ImmediatePath:
 
             # The F1 block (extracted for clarity — same logic as the inline
             # code in _execute_signal_live):
-            position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
+            position_id = getattr(order, "position_id", None) or getattr(
+                order, "order_id", None
+            )
             amended = engine._market_feed.amend_sl_tp(
-                position_id, signal.stop_loss, signal.take_profit_1,
+                position_id,
+                signal.stop_loss,
+                signal.take_profit_1,
                 symbol_id=2,
             )
             assert amended is True
@@ -326,8 +343,11 @@ class TestF1ImmediatePath:
         """When amend returns False, TP2/TP3 must NOT be stored."""
         paper, mgr = self._make_paper_trader_with_order_manager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f1-fail", broker_position_id=8888,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f1-fail",
+            broker_position_id=8888,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         engine = _make_engine(paper)
@@ -344,9 +364,13 @@ class TestF1ImmediatePath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         # Inline F1 logic with amend failure
-        position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
+        position_id = getattr(order, "position_id", None) or getattr(
+            order, "order_id", None
+        )
         amended = engine._market_feed.amend_sl_tp(
-            position_id, signal.stop_loss, signal.take_profit_1,
+            position_id,
+            signal.stop_loss,
+            signal.take_profit_1,
             symbol_id=2,
         )
         assert amended is False
@@ -363,8 +387,11 @@ class TestF1ImmediatePath:
         """If signal has no tp2/tp3, the F1 block must not crash."""
         paper, mgr = self._make_paper_trader_with_order_manager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f1-none", broker_position_id=9999,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f1-none",
+            broker_position_id=9999,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         engine = _make_engine(paper)
@@ -403,8 +430,11 @@ class TestF2LateFillPath:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f2", broker_position_id=11111,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f2",
+            broker_position_id=11111,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         paper = MagicMock()
@@ -424,8 +454,10 @@ class TestF2LateFillPath:
 
         # Register callbacks and capture them
         registered_callbacks: dict = {}
+
         def _capture(event_name, func):
             registered_callbacks[event_name] = func
+
         feed.register_callback.side_effect = _capture
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
@@ -466,8 +498,11 @@ class TestF2LateFillPath:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f2-fail", broker_position_id=22222,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f2-fail",
+            broker_position_id=22222,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         paper = MagicMock()
@@ -485,8 +520,8 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = (
-            lambda event_name, func: registered_callbacks.update({event_name: func})
+        feed.register_callback.side_effect = lambda event_name, func: (
+            registered_callbacks.update({event_name: func})
         )
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
@@ -520,8 +555,11 @@ class TestF2LateFillPath:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-f2-none", broker_position_id=33333,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-f2-none",
+            broker_position_id=33333,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         paper = MagicMock()
@@ -539,8 +577,8 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=None, take_profit_3=None)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = (
-            lambda event_name, func: registered_callbacks.update({event_name: func})
+        feed.register_callback.side_effect = lambda event_name, func: (
+            registered_callbacks.update({event_name: func})
         )
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
@@ -579,8 +617,8 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = (
-            lambda event_name, func: registered_callbacks.update({event_name: func})
+        feed.register_callback.side_effect = lambda event_name, func: (
+            registered_callbacks.update({event_name: func})
         )
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
@@ -596,16 +634,18 @@ class TestF2LateFillPath:
         message.deal = MagicMock()
         message.deal.positionId = None
 
-        with caplog.at_level(logging.WARNING, logger="adapters.ctrader.forward_test_engine"):
+        with caplog.at_level(
+            logging.WARNING, logger="adapters.ctrader.forward_test_engine"
+        ):
             # Must not raise even though there's no OrderManager
             registered_callbacks["on_order_filled"](cb_order, message)
 
         # Sanity: amend still happened (TP1 was attached to broker)
         feed.amend_sl_tp.assert_called_once()
         # A warning was logged about missing OrderManager
-        assert any(
-            "no OrderManager" in record.message for record in caplog.records
-        ), f"Expected missing-OrderManager warning, got: {[r.message for r in caplog.records]}"
+        assert any("no OrderManager" in record.message for record in caplog.records), (
+            f"Expected missing-OrderManager warning, got: {[r.message for r in caplog.records]}"
+        )
 
 
 # ── Acceptance: end-to-end via _execute_signal_live ────────────────────
@@ -629,8 +669,11 @@ class TestExecuteSignalLiveEndToEnd:
 
         mgr = OrderManager()
         _, position = _seed_order_manager_with_position(
-            mgr, order_id="ord-e2e", broker_position_id=55555,
-            take_profit_2=None, take_profit_3=None,
+            mgr,
+            order_id="ord-e2e",
+            broker_position_id=55555,
+            take_profit_2=None,
+            take_profit_3=None,
         )
 
         paper = MagicMock()
@@ -645,10 +688,12 @@ class TestExecuteSignalLiveEndToEnd:
         feed = OpenApiSpotFeed.__new__(OpenApiSpotFeed)
         feed.resolve_symbol_id = MagicMock(return_value=2)
         feed.amend_sl_tp = MagicMock(return_value=True)
-        feed.new_order = MagicMock(return_value=MagicMock(
-            order_id="ord-e2e",
-            position_id=55555,
-        ))
+        feed.new_order = MagicMock(
+            return_value=MagicMock(
+                order_id="ord-e2e",
+                position_id=55555,
+            )
+        )
         feed.lots_to_volume = MagicMock(return_value=10000)
         # Provide a state_mgr that reports operational so the next gate passes
         feed._state_mgr = MagicMock(is_operational=True)
@@ -721,8 +766,8 @@ class TestRegressionLateFillExisting:
         engine._market_feed = feed
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = (
-            lambda event_name, func: registered_callbacks.update({event_name: func})
+        feed.register_callback.side_effect = lambda event_name, func: (
+            registered_callbacks.update({event_name: func})
         )
 
         order = MagicMock()
@@ -743,7 +788,9 @@ class TestRegressionLateFillExisting:
         message.deal = MagicMock()
         message.deal.positionId = None
 
-        with caplog.at_level(logging.WARNING, logger="adapters.ctrader.forward_test_engine"):
+        with caplog.at_level(
+            logging.WARNING, logger="adapters.ctrader.forward_test_engine"
+        ):
             registered_callbacks["on_order_filled"](cb_order, message)
 
         # amend NOT called because positionId wasn't a valid int

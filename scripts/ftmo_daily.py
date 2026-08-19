@@ -30,7 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -57,41 +57,43 @@ DEFAULT_REPORTS_DIR = ROOT / "reports" / "ftmo-daily"
 # consistent daily report regardless of which sub-account profile is
 # currently selected on the engine.
 FTMO_STARTING_BALANCE = 100_000.0
-FTMO_DAILY_LIMIT_PCT = 0.03       # 3%
-FTMO_TOTAL_LIMIT_PCT = 0.10       # 10%
-FTMO_BEST_DAY_CAP_PCT = 0.50      # 50%
+FTMO_DAILY_LIMIT_PCT = 0.03  # 3%
+FTMO_TOTAL_LIMIT_PCT = 0.10  # 10%
+FTMO_BEST_DAY_CAP_PCT = 0.50  # 50%
 FTMO_PROFIT_TARGET_PCT = DEFAULT_PROFIT_TARGET_PCT  # 0.10
 
 
 # ── Result dataclasses ─────────────────────────────────────────────────────
 
+
 @dataclass
 class FTMOMetrics:
     """Computed daily metrics derived from the live state file."""
 
-    report_date: str                 # YYYY-MM-DD
+    report_date: str  # YYYY-MM-DD
     starting_balance: float
     current_balance: float
     peak_balance: float
     daily_open_balance: float
     daily_pnl: float
-    daily_loss_pct_of_start: float    # positive = loss vs starting balance
+    daily_loss_pct_of_start: float  # positive = loss vs starting balance
     daily_limit_pct: float
-    daily_limit_pct_used: float       # daily_loss_pct / daily_limit_pct
-    total_dd_pct: float               # peak-anchored drawdown
+    daily_limit_pct_used: float  # daily_loss_pct / daily_limit_pct
+    total_dd_pct: float  # peak-anchored drawdown
     total_limit_pct: float
-    total_limit_pct_used: float       # total_dd_pct / total_limit_pct
+    total_limit_pct_used: float  # total_dd_pct / total_limit_pct
     best_day_profit: Optional[float]
     total_positive_profit: Optional[float]
     best_day_ratio: Optional[float]
     best_day_cap_pct: float
     profit_target: ProfitTargetResult
     days_remaining_estimate: Optional[float]
-    breach_status: str                # "OK" | "WARNING" | "BREACH"
+    breach_status: str  # "OK" | "WARNING" | "BREACH"
     notes: list[str]
 
 
 # ── State loader ───────────────────────────────────────────────────────────
+
 
 def _load_state(path: str | Path = DEFAULT_STATE_PATH) -> dict:
     path = Path(path)
@@ -120,6 +122,7 @@ def _load_state(path: str | Path = DEFAULT_STATE_PATH) -> dict:
 
 
 # ── Best-day ratio loader (best-effort) ────────────────────────────────────
+
 
 def _load_daily_pnl_history(data_dir: Path = ROOT / "data") -> list[dict]:
     """Load per-day P&L from the FTMO guard's persisted history if
@@ -164,7 +167,9 @@ def _load_daily_pnl_history(data_dir: Path = ROOT / "data") -> list[dict]:
     return []
 
 
-def _compute_best_day_ratio(history: list[dict]) -> tuple[Optional[float], Optional[float]]:
+def _compute_best_day_ratio(
+    history: list[dict],
+) -> tuple[Optional[float], Optional[float]]:
     """Return ``(best_day_profit, total_positive_profit)``.
 
     Both are ``None`` if no positive-day history exists.
@@ -175,10 +180,15 @@ def _compute_best_day_ratio(history: list[dict]) -> tuple[Optional[float], Optio
     total_pos = sum(pos)
     best = max(pos)
     ratio = best / total_pos if total_pos > 0 else None
-    return round(best, 2), round(total_pos, 2), round(ratio, 4) if ratio is not None else None
+    return (
+        round(best, 2),
+        round(total_pos, 2),
+        round(ratio, 4) if ratio is not None else None,
+    )
 
 
 # ── Core computation ───────────────────────────────────────────────────────
+
 
 def compute_ftmo_metrics(
     state: dict | None = None,
@@ -232,7 +242,9 @@ def compute_ftmo_metrics(
     # 3% daily limit" is fractional of the *initial* account balance
     # in FTMO 1-Step).
     daily_loss_amt = max(0.0, daily_open - current)
-    daily_loss_pct_of_start = round(daily_loss_amt / starting, 4) if starting > 0 else 0.0
+    daily_loss_pct_of_start = (
+        round(daily_loss_amt / starting, 4) if starting > 0 else 0.0
+    )
 
     # Total drawdown (peak-anchored, expressed as % of peak).
     total_dd = 0.0
@@ -293,10 +305,14 @@ def compute_ftmo_metrics(
         daily_pnl=daily_pnl,
         daily_loss_pct_of_start=daily_loss_pct_of_start,
         daily_limit_pct=daily_limit_pct,
-        daily_limit_pct_used=round(daily_loss_pct_of_start / daily_limit_pct, 4) if daily_limit_pct else 0.0,
+        daily_limit_pct_used=round(daily_loss_pct_of_start / daily_limit_pct, 4)
+        if daily_limit_pct
+        else 0.0,
         total_dd_pct=total_dd_pct,
         total_limit_pct=total_limit_pct,
-        total_limit_pct_used=round(total_dd_pct / total_limit_pct, 4) if total_limit_pct else 0.0,
+        total_limit_pct_used=round(total_dd_pct / total_limit_pct, 4)
+        if total_limit_pct
+        else 0.0,
         best_day_profit=best_day,
         total_positive_profit=total_pos,
         best_day_ratio=best_ratio,
@@ -310,13 +326,21 @@ def compute_ftmo_metrics(
 
 # ── Markdown report writer ─────────────────────────────────────────────────
 
+
 def render_report(m: FTMOMetrics) -> str:
     pt = m.profit_target
-    pct_used_daily = m.daily_loss_pct_of_start / m.daily_limit_pct * 100 if m.daily_limit_pct else 0
-    pct_used_total = m.total_dd_pct / m.total_limit_pct * 100 if m.total_limit_pct else 0
+    pct_used_daily = (
+        m.daily_loss_pct_of_start / m.daily_limit_pct * 100 if m.daily_limit_pct else 0
+    )
+    pct_used_total = (
+        m.total_dd_pct / m.total_limit_pct * 100 if m.total_limit_pct else 0
+    )
     progress_pct = (
-        (m.current_balance - m.starting_balance) / (m.starting_balance * FTMO_PROFIT_TARGET_PCT) * 100
-        if FTMO_PROFIT_TARGET_PCT else 0
+        (m.current_balance - m.starting_balance)
+        / (m.starting_balance * FTMO_PROFIT_TARGET_PCT)
+        * 100
+        if FTMO_PROFIT_TARGET_PCT
+        else 0
     )
 
     lines: list[str] = []
@@ -325,18 +349,22 @@ def render_report(m: FTMOMetrics) -> str:
     lines.append(f"**Status:** {m.breach_status}")
     if m.breach_status == "BREACH":
         lines.append("")
-        lines.append("> ⚠️ **BREACH**: One or more FTMO limits exceeded. New positions must be frozen.")
+        lines.append(
+            "> ⚠️ **BREACH**: One or more FTMO limits exceeded. New positions must be frozen."
+        )
     elif m.breach_status == "WARNING":
         lines.append("")
-        lines.append(f"> ⚠️ **WARNING**: Within 50% of one or more FTMO limits — review before next session.")
+        lines.append(
+            "> ⚠️ **WARNING**: Within 50% of one or more FTMO limits — review before next session."
+        )
     if pt.reached:
         lines.append("")
         lines.append("> 🎯 **Profit target reached.** New positions are frozen.")
     lines.append("")
     lines.append("## Equity")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|---|---|")
+    lines.append("| Metric | Value |")
+    lines.append("|---|---|")
     lines.append(f"| Starting balance | ${m.starting_balance:,.2f} |")
     lines.append(f"| Current balance | ${m.current_balance:,.2f} |")
     lines.append(f"| Peak balance | ${m.peak_balance:,.2f} |")
@@ -347,35 +375,47 @@ def render_report(m: FTMOMetrics) -> str:
     lines.append("## Daily Loss (FTMO 3% limit)")
     lines.append("")
     daily_remaining = max(0.0, m.daily_limit_pct - m.daily_loss_pct_of_start)
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|---|---|")
-    lines.append(f"| Daily loss ($) | ${(m.daily_open_balance - m.current_balance):+,.2f} |")
-    lines.append(f"| Daily loss (% of start) | {m.daily_loss_pct_of_start * 100:.2f}% |")
-    lines.append(f"| Limit | {m.daily_limit_pct * 100:.2f}% (${m.starting_balance * m.daily_limit_pct:,.2f}) |")
+    lines.append("| Metric | Value |")
+    lines.append("|---|---|")
+    lines.append(
+        f"| Daily loss ($) | ${(m.daily_open_balance - m.current_balance):+,.2f} |"
+    )
+    lines.append(
+        f"| Daily loss (% of start) | {m.daily_loss_pct_of_start * 100:.2f}% |"
+    )
+    lines.append(
+        f"| Limit | {m.daily_limit_pct * 100:.2f}% (${m.starting_balance * m.daily_limit_pct:,.2f}) |"
+    )
     lines.append(f"| Used | {pct_used_daily:.1f}% of limit |")
-    lines.append(f"| Remaining headroom | {daily_remaining * 100:.2f}% (${m.starting_balance * daily_remaining:,.2f}) |")
+    lines.append(
+        f"| Remaining headroom | {daily_remaining * 100:.2f}% (${m.starting_balance * daily_remaining:,.2f}) |"
+    )
     lines.append("")
 
     lines.append("## Total Drawdown (FTMO 10% limit)")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|---|---|")
+    lines.append("| Metric | Value |")
+    lines.append("|---|---|")
     lines.append(f"| DD (%) | {m.total_dd_pct * 100:.2f}% |")
     lines.append(f"| DD ($) | ${(m.peak_balance - m.current_balance):,.2f} |")
-    lines.append(f"| Limit | {m.total_limit_pct * 100:.2f}% (${m.peak_balance * m.total_limit_pct:,.2f}) |")
+    lines.append(
+        f"| Limit | {m.total_limit_pct * 100:.2f}% (${m.peak_balance * m.total_limit_pct:,.2f}) |"
+    )
     lines.append(f"| Used | {pct_used_total:.1f}% of limit |")
     lines.append("")
 
     lines.append("## Best-Day Ratio (FTMO 50% cap)")
     lines.append("")
     if m.best_day_ratio is None:
-        lines.append("- No positive-day history available yet (live snapshot stream not started).")
+        lines.append(
+            "- No positive-day history available yet (live snapshot stream not started)."
+        )
     else:
         ratio_pct = m.best_day_ratio * 100
         cap_pct = m.best_day_cap_pct * 100
         used = ratio_pct / cap_pct * 100 if cap_pct else 0
-        lines.append(f"| Metric | Value |")
-        lines.append(f"|---|---|")
+        lines.append("| Metric | Value |")
+        lines.append("|---|---|")
         lines.append(f"| Best day profit | ${m.best_day_profit:,.2f} |")
         lines.append(f"| Total positive-day profit | ${m.total_positive_profit:,.2f} |")
         lines.append(f"| Ratio | {ratio_pct:.2f}% |")
@@ -387,17 +427,21 @@ def render_report(m: FTMOMetrics) -> str:
     lines.append("")
     progress_dollars = m.current_balance - m.starting_balance
     target_dollars = m.starting_balance * FTMO_PROFIT_TARGET_PCT
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|---|---|")
-    lines.append(f"| Progress to target | ${progress_dollars:+,.2f} / ${target_dollars:,.2f} ({progress_pct:+.1f}%) |")
+    lines.append("| Metric | Value |")
+    lines.append("|---|---|")
+    lines.append(
+        f"| Progress to target | ${progress_dollars:+,.2f} / ${target_dollars:,.2f} ({progress_pct:+.1f}%) |"
+    )
     lines.append(f"| Required balance | ${pt.required_balance:,.2f} |")
     lines.append(f"| Reached | **{pt.reached}** |")
     if m.days_remaining_estimate is not None:
         lines.append(f"| Pace-based days remaining | {m.days_remaining_estimate:.1f} |")
     elif pt.reached:
-        lines.append(f"| Pace-based days remaining | 0 (target reached) |")
+        lines.append("| Pace-based days remaining | 0 (target reached) |")
     else:
-        lines.append(f"| Pace-based days remaining | n/a (currently at or below starting balance) |")
+        lines.append(
+            "| Pace-based days remaining | n/a (currently at or below starting balance) |"
+        )
     lines.append("")
 
     if m.notes:
@@ -425,6 +469,7 @@ def write_report(
 
 # ── Optional freeze activation ─────────────────────────────────────────────
 
+
 def activate_freeze_if_target_reached(metrics: FTMOMetrics) -> bool:
     """Fire the kill-switch freeze when the +10% target is reached.
 
@@ -436,6 +481,7 @@ def activate_freeze_if_target_reached(metrics: FTMOMetrics) -> bool:
         return False
     try:
         from adapters.ctrader.kill_switch import KillSwitchManager
+
         km = KillSwitchManager()
         km.activate_profit_target_freeze(
             triggered_by="ftmo_daily.py",
@@ -451,6 +497,7 @@ def activate_freeze_if_target_reached(metrics: FTMOMetrics) -> bool:
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
+
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="FTMO daily tracker.")

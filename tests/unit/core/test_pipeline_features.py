@@ -23,11 +23,13 @@ class TestSwarmProfile:
 
 class TestGateFeatures:
     def test_gate_pass_fail(self, extractor):
-        features = extractor.extract({
-            "gate_spread_pass": True,
-            "gate_session_pass": False,
-            "gate_volatility_pass": True,
-        })
+        features = extractor.extract(
+            {
+                "gate_spread_pass": True,
+                "gate_session_pass": False,
+                "gate_volatility_pass": True,
+            }
+        )
         assert features["gate_spread_pass"] == 1.0
         assert features["gate_session_pass"] == 0.0
         assert features["gate_volatility_pass"] == 1.0

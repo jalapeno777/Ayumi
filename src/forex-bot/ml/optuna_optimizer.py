@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -24,7 +23,6 @@ import pandas as pd
 from optuna.samplers import TPESampler
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from backtest.engine import Bar, get_spread_for_pair
 from backtest.strategies import TTSStrategy

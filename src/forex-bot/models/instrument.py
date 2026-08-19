@@ -59,9 +59,9 @@ DETECTOR_STACK: dict[SymbolType, list[str]] = {
         "open_interest",
     ],
     SymbolType.forex_major: [
-        "cot_positioning",       # Weekly — substitute for open_interest
-        "rate_differential",     # Daily — substitute for funding_rate
-        "order_flow_proxy",      # Intraday — substitute for liquidations
+        "cot_positioning",  # Weekly — substitute for open_interest
+        "rate_differential",  # Daily — substitute for funding_rate
+        "order_flow_proxy",  # Intraday — substitute for liquidations
     ],
     SymbolType.forex_cross: [
         "cot_positioning",
@@ -136,11 +136,31 @@ class Instrument:
 # symbol_type.  Existing crypto symbols default to crypto_perp.
 DEFAULT_INSTRUMENTS: dict[str, Instrument] = {
     # Forex majors
-    "EURUSD": Instrument("EURUSD", SymbolType.forex_major, pip_size=0.0001, lot_size=100_000, pip_value_per_lot=10.0),
-    "GBPUSD": Instrument("GBPUSD", SymbolType.forex_major, pip_size=0.0001, lot_size=100_000, pip_value_per_lot=10.0),
-    "USDJPY": Instrument("USDJPY", SymbolType.forex_major, pip_size=0.01, lot_size=100_000, pip_value_per_lot=6.5),
+    "EURUSD": Instrument(
+        "EURUSD",
+        SymbolType.forex_major,
+        pip_size=0.0001,
+        lot_size=100_000,
+        pip_value_per_lot=10.0,
+    ),
+    "GBPUSD": Instrument(
+        "GBPUSD",
+        SymbolType.forex_major,
+        pip_size=0.0001,
+        lot_size=100_000,
+        pip_value_per_lot=10.0,
+    ),
+    "USDJPY": Instrument(
+        "USDJPY",
+        SymbolType.forex_major,
+        pip_size=0.01,
+        lot_size=100_000,
+        pip_value_per_lot=6.5,
+    ),
     # Metals
-    "XAUUSD": Instrument("XAUUSD", SymbolType.metal, pip_size=0.01, lot_size=100, pip_value_per_lot=1.0),
+    "XAUUSD": Instrument(
+        "XAUUSD", SymbolType.metal, pip_size=0.1, lot_size=100, pip_value_per_lot=10.0
+    ),
 }
 
 

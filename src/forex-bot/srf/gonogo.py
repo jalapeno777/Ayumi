@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 # ── Phase 1 thresholds (placeholders until Phase 2 adds DSR) ─────────────
 MIN_PROFIT_FACTOR = 1.3
-MIN_WINDOWS_PASSED = 3     # out of 5
+MIN_WINDOWS_PASSED = 3  # out of 5
 MAX_PARAM_STABILITY_CV = 0.3
 MAX_OOS_SHARPE_DECAY = 0.5  # OOS/IS ratio, so < 0.5 means >50% decay
-MIN_TRADES_PER_WINDOW = 15
+MIN_TRADES_PER_WINDOW = 20
 
 
 @dataclass
@@ -45,7 +45,8 @@ def evaluate_go_nogo(
 
     # ── 1. Profit factor per window ──────────────────────────────────────
     pf_passing = sum(
-        1 for w in windows
+        1
+        for w in windows
         if w.get("profit_factor", 0) >= min_pf and w.get("trade_count", 0) >= min_trades
     )
     checks["windows_passed"] = pf_passing >= min_windows
@@ -56,7 +57,9 @@ def evaluate_go_nogo(
     total_trades = sum(w.get("trade_count", 0) for w in windows)
     checks["sufficient_trades"] = total_trades >= min_trades * len(windows) * 0.5
     if not checks["sufficient_trades"]:
-        reasons.append(f"Only {total_trades} total trades (need ~{min_trades * len(windows)})")
+        reasons.append(
+            f"Only {total_trades} total trades (need ~{min_trades * len(windows)})"
+        )
 
     # ── 3. PF consistency (std not too high) ─────────────────────────────
     pfs = [w.get("profit_factor", 0) for w in windows if w.get("trade_count", 0) > 0]
@@ -86,7 +89,9 @@ def evaluate_go_nogo(
         detail = "All go/no-go criteria met"
     elif near_pass:
         decision = "watch"
-        detail = "Core criteria met but stability/consistency concerns: " + "; ".join(reasons)
+        detail = "Core criteria met but stability/consistency concerns: " + "; ".join(
+            reasons
+        )
     else:
         decision = "no-go"
         detail = "; ".join(reasons)

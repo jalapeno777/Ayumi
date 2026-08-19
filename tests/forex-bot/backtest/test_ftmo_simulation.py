@@ -16,7 +16,6 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
-import os
 import sys
 import tempfile
 import types
@@ -171,36 +170,34 @@ class TestDailyLossLimit:
         assert result.violations[0]["rule"] == "daily_loss"
         assert not result.passed
 
-    def test_daily_loss_below_limit_no_violation(
-        self, default_sim: FTMOSimulation
-    ):
+    def test_daily_loss_below_limit_no_violation(self, default_sim: FTMOSimulation):
         """A loss below 5% should not trigger a violation."""
         trades = [make_trade(pnl=-400.0)]  # 4% loss
         result = default_sim.run(trades)
 
-        daily_violations = [
-            v for v in result.violations if v["rule"] == "daily_loss"
-        ]
+        daily_violations = [v for v in result.violations if v["rule"] == "daily_loss"]
         assert len(daily_violations) == 0
 
-    def test_daily_loss_accumulates_across_trades(
-        self, default_sim: FTMOSimulation
-    ):
+    def test_daily_loss_accumulates_across_trades(self, default_sim: FTMOSimulation):
         """Multiple trades on the same day accumulate for daily loss."""
         # Two trades, same day, -$300 each = -$600 total → exceeds $500
         ts = datetime(2026, 6, 1, 10, 0, 0)
         trades = [
             Trade(ts, "EURUSD", "long", 1.10, 1.09, 0.10, -300.0, "strat"),
             Trade(
-                ts.replace(hour=14), "GBPUSD", "short",
-                1.28, 1.29, 0.10, -300.0, "strat",
+                ts.replace(hour=14),
+                "GBPUSD",
+                "short",
+                1.28,
+                1.29,
+                0.10,
+                -300.0,
+                "strat",
             ),
         ]
         result = default_sim.run(trades)
 
-        daily_violations = [
-            v for v in result.violations if v["rule"] == "daily_loss"
-        ]
+        daily_violations = [v for v in result.violations if v["rule"] == "daily_loss"]
         assert len(daily_violations) >= 1
 
     def test_daily_loss_resets_each_day(self, default_sim: FTMOSimulation):
@@ -212,18 +209,14 @@ class TestDailyLossLimit:
         ]
         result = default_sim.run(trades)
 
-        daily_violations = [
-            v for v in result.violations if v["rule"] == "daily_loss"
-        ]
+        daily_violations = [v for v in result.violations if v["rule"] == "daily_loss"]
         assert len(daily_violations) == 0
 
 
 class TestMaxDrawdown:
     """Tests for FTMO max drawdown rule."""
 
-    def test_max_drawdown_triggers_violation(
-        self, default_sim: FTMOSimulation
-    ):
+    def test_max_drawdown_triggers_violation(self, default_sim: FTMOSimulation):
         """A 10% drawdown from peak should trigger max_drawdown violation."""
         # Earn $1000 first (peak = $11K), then lose within daily limit
         # each day until cumulative drawdown crosses 10%.
@@ -233,31 +226,25 @@ class TestMaxDrawdown:
         #   Actually $10.6K * 0.05 = $530. $700 > $530 → daily loss fires
         # Use stop_on_violation=False to isolate the max_drawdown check.
         trades = [
-            make_trade(days_ago=2, pnl=1000.0),    # peak $11K
-            make_trade(days_ago=1, pnl=-400.0),    # equity $10.6K, DD $400
-            make_trade(days_ago=0, pnl=-700.0),    # equity $9.9K, DD $1100
+            make_trade(days_ago=2, pnl=1000.0),  # peak $11K
+            make_trade(days_ago=1, pnl=-400.0),  # equity $10.6K, DD $400
+            make_trade(days_ago=0, pnl=-700.0),  # equity $9.9K, DD $1100
         ]
         result = default_sim.run(trades, stop_on_violation=False)
 
-        dd_violations = [
-            v for v in result.violations if v["rule"] == "max_drawdown"
-        ]
+        dd_violations = [v for v in result.violations if v["rule"] == "max_drawdown"]
         assert len(dd_violations) >= 1
         assert not result.passed
 
-    def test_drawdown_below_limit_no_violation(
-        self, default_sim: FTMOSimulation
-    ):
+    def test_drawdown_below_limit_no_violation(self, default_sim: FTMOSimulation):
         """Drawdown below 10% should not trigger a violation."""
         trades = [
-            make_trade(days_ago=1, pnl=500.0),    # peak $10.5K
-            make_trade(days_ago=0, pnl=-200.0),    # DD $200 < 10% of $10.5K
+            make_trade(days_ago=1, pnl=500.0),  # peak $10.5K
+            make_trade(days_ago=0, pnl=-200.0),  # DD $200 < 10% of $10.5K
         ]
         result = default_sim.run(trades)
 
-        dd_violations = [
-            v for v in result.violations if v["rule"] == "max_drawdown"
-        ]
+        dd_violations = [v for v in result.violations if v["rule"] == "max_drawdown"]
         assert len(dd_violations) == 0
 
 
@@ -273,11 +260,9 @@ class TestProfitTarget:
         assert result.passed
         assert result.final_equity >= 11000.0
 
-    def test_profit_below_target_not_passed(
-        self, default_sim: FTMOSimulation
-    ):
+    def test_profit_below_target_not_passed(self, default_sim: FTMOSimulation):
         """Profit below 10% should not pass."""
-        trades = [make_trade(pnl=500.0)]   # 5%
+        trades = [make_trade(pnl=500.0)]  # 5%
         result = default_sim.run(trades)
 
         assert not result.passed
@@ -309,12 +294,24 @@ class TestComputations:
         trades = [
             Trade(ts, "EURUSD", "long", 1.10, 1.11, 0.10, 100.0, "s"),
             Trade(
-                ts.replace(hour=14), "GBPUSD", "short",
-                1.28, 1.27, 0.10, 50.0, "s",
+                ts.replace(hour=14),
+                "GBPUSD",
+                "short",
+                1.28,
+                1.27,
+                0.10,
+                50.0,
+                "s",
             ),
             Trade(
-                ts.replace(day=2), "EURUSD", "long",
-                1.11, 1.12, 0.10, 75.0, "s",
+                ts.replace(day=2),
+                "EURUSD",
+                "long",
+                1.11,
+                1.12,
+                0.10,
+                75.0,
+                "s",
             ),
         ]
         result = default_sim.run(trades)
@@ -326,10 +323,10 @@ class TestComputations:
     def test_max_drawdown_calculation(self, default_sim: FTMOSimulation):
         """Max drawdown should be peak-to-trough."""
         trades = [
-            make_trade(days_ago=3, pnl=500.0),    # $10.5K
-            make_trade(days_ago=2, pnl=500.0),    # $11K (peak)
-            make_trade(days_ago=1, pnl=-300.0),    # $10.7K, DD=$300
-            make_trade(days_ago=0, pnl=200.0),    # $10.9K
+            make_trade(days_ago=3, pnl=500.0),  # $10.5K
+            make_trade(days_ago=2, pnl=500.0),  # $11K (peak)
+            make_trade(days_ago=1, pnl=-300.0),  # $10.7K, DD=$300
+            make_trade(days_ago=0, pnl=200.0),  # $10.9K
         ]
         result = default_sim.run(trades)
 
@@ -430,27 +427,31 @@ class TestCSVLoading:
         with open(csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
             writer.writeheader()
-            writer.writerow({
-                "timestamp": "2026-06-01 10:00:00",
-                "pair": "EURUSD",
-                "direction": "long",
-                "entry_price": "1.1000",
-                "exit_price": "1.1050",
-                "size": "0.10",
-                "pnl": "50.0",
-                "strategy": "test",
-            })
+            writer.writerow(
+                {
+                    "timestamp": "2026-06-01 10:00:00",
+                    "pair": "EURUSD",
+                    "direction": "long",
+                    "entry_price": "1.1000",
+                    "exit_price": "1.1050",
+                    "size": "0.10",
+                    "pnl": "50.0",
+                    "strategy": "test",
+                }
+            )
             # Malformed: bad pnl
-            writer.writerow({
-                "timestamp": "2026-06-02 10:00:00",
-                "pair": "EURUSD",
-                "direction": "long",
-                "entry_price": "1.1000",
-                "exit_price": "1.1050",
-                "size": "0.10",
-                "pnl": "not_a_number",
-                "strategy": "test",
-            })
+            writer.writerow(
+                {
+                    "timestamp": "2026-06-02 10:00:00",
+                    "pair": "EURUSD",
+                    "direction": "long",
+                    "entry_price": "1.1000",
+                    "exit_price": "1.1050",
+                    "size": "0.10",
+                    "pnl": "not_a_number",
+                    "strategy": "test",
+                }
+            )
 
         trades = FTMOSimulation.load_trades(csv_path)
         assert len(trades) == 1  # only the valid row
@@ -482,16 +483,14 @@ class TestEdgeCases:
         trades = [make_trade(pnl=-500.0)]
         result = default_sim.run(trades)
 
-        daily_violations = [
-            v for v in result.violations if v["rule"] == "daily_loss"
-        ]
+        daily_violations = [v for v in result.violations if v["rule"] == "daily_loss"]
         assert len(daily_violations) == 1
 
     def test_stop_on_violation_false(self, default_sim: FTMOSimulation):
         """With stop_on_violation=False, all trades are processed."""
         trades = [
             make_trade(days_ago=1, pnl=-600.0),  # triggers daily loss
-            make_trade(days_ago=0, pnl=200.0),   # should still be processed
+            make_trade(days_ago=0, pnl=200.0),  # should still be processed
         ]
         result = default_sim.run(trades, stop_on_violation=False)
 
@@ -501,7 +500,7 @@ class TestEdgeCases:
         """With stop_on_violation=True (default), trading stops after violation."""
         trades = [
             make_trade(days_ago=1, pnl=-600.0),  # triggers daily loss → stop
-            make_trade(days_ago=0, pnl=200.0),   # should NOT be processed
+            make_trade(days_ago=0, pnl=200.0),  # should NOT be processed
         ]
         result = default_sim.run(trades, stop_on_violation=True)
 
@@ -530,9 +529,7 @@ class TestEdgeCases:
         trades = [make_trade(pnl=-200.0)]
         result = sim.run(trades)
 
-        daily_violations = [
-            v for v in result.violations if v["rule"] == "daily_loss"
-        ]
+        daily_violations = [v for v in result.violations if v["rule"] == "daily_loss"]
         assert len(daily_violations) == 1
 
         # 6% of $5K = $300 profit target

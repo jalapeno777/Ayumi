@@ -8,6 +8,7 @@ Covers:
     - TRANSITION detection
     - BtcRegimeOverlay backward-compatibility
 """
+
 from __future__ import annotations
 
 import warnings
@@ -29,6 +30,7 @@ from quant.correlation_regime_hmm import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def calm_returns() -> pd.DataFrame:
@@ -113,6 +115,7 @@ def fitted_hmm(
 # FeatureEngineer Tests
 # ---------------------------------------------------------------------------
 
+
 class TestFeatureEngineer:
     """Tests for FeatureEngineer.transform()."""
 
@@ -185,6 +188,7 @@ class TestFeatureEngineer:
 # ---------------------------------------------------------------------------
 # HMM fit/predict Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCorrelationRegimeHMM:
     """Tests for CorrelationRegimeHMM fit/predict."""
@@ -286,6 +290,7 @@ class TestCorrelationRegimeHMM:
 # Edge Cases
 # ---------------------------------------------------------------------------
 
+
 class TestEdgeCases:
     """Tests for edge cases and robustness."""
 
@@ -328,6 +333,7 @@ class TestEdgeCases:
 # RegimeHistory Tests
 # ---------------------------------------------------------------------------
 
+
 class TestRegimeHistory:
     """Tests for RegimeHistory transition tracking."""
 
@@ -362,6 +368,7 @@ class TestRegimeHistory:
 # ---------------------------------------------------------------------------
 # BtcRegimeOverlay Integration Tests
 # ---------------------------------------------------------------------------
+
 
 class TestBtcRegimeOverlayIntegration:
     """Tests that BtcRegimeOverlay HMM integration is backward-compatible."""

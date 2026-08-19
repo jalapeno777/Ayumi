@@ -14,10 +14,6 @@ from backtest.types import TradeDirection as BacktestTradeDirection
 from strategies.volatility_regime_breakout import (
     VRBConfig,
     VolatilityRegimeBreakoutStrategy,
-    _atr_percentile,
-    _calculate_atr,
-    _range_position,
-    _trend_direction,
 )
 
 
@@ -62,7 +58,9 @@ def _make_flat_bars(
         close = base_price + change
         high = max(open_, close) + abs(random.gauss(0, volatility * 0.3))
         low = min(open_, close) - abs(random.gauss(0, volatility * 0.3))
-        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
+        bars.append(
+            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
+        )
     return bars
 
 
@@ -82,7 +80,9 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + abs(random.gauss(0, vol * 0.3))
         low = min(open_, close) - abs(random.gauss(0, vol * 0.3))
-        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
+        bars.append(
+            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
+        )
 
     # Phase 2: low-volatility squeeze (bars 56-69)
     for i in range(56, 70):
@@ -92,7 +92,9 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + abs(random.gauss(0, vol * 0.3))
         low = min(open_, close) - abs(random.gauss(0, vol * 0.3))
-        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
+        bars.append(
+            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
+        )
 
     # Phase 3: breakout bar (bar 70) — close above recent 10-bar high
     recent_high = max(b.high for b in bars[-11:-1])
@@ -114,7 +116,9 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + 0.0003
         low = min(open_, close) - 0.0003
-        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
+        bars.append(
+            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
+        )
 
     return bars
 
@@ -124,11 +128,14 @@ class TestVRBConfig(unittest.TestCase):
         cfg = VRBConfig()
         self.assertEqual(cfg.atr_period, 14)
         self.assertEqual(cfg.atr_lookback, 50)
-        self.assertEqual(cfg.atr_percentile_low, 20.0)
+        self.assertAlmostEqual(cfg.atr_percentile_low, 30.0)
         self.assertEqual(cfg.range_period, 20)
-        self.assertEqual(cfg.trend_ema_period, 50)
+        self.assertAlmostEqual(cfg.range_position_max, 0.70)
+        self.assertEqual(cfg.trend_ema_period, 20)
         self.assertEqual(cfg.breakout_period, 10)
-        self.assertEqual(cfg.cooldown_bars, 10)
+        self.assertEqual(cfg.cooldown_bars, 3)
+        self.assertAlmostEqual(cfg.min_confidence, 0.35)
+        self.assertAlmostEqual(cfg.vol_expansion_ratio, 1.5)
 
     def test_custom_config(self):
         cfg = VRBConfig(atr_period=10, trend_ema_period=30)
@@ -220,20 +227,20 @@ class TestVRBBreakoutSignal(unittest.TestCase):
         state = MarketState(bars=bars, current_session=SessionType.LONDON)
         signal = strategy.evaluate(state)
 
-        self.assertIsNotNone(signal, "VRB strategy should produce SHORT signal on downside breakout")
+        self.assertIsNotNone(
+            signal, "VRB strategy should produce SHORT signal on downside breakout"
+        )
         self.assertEqual(signal.direction, TradeDirection.SHORT)
 
     def test_cooldown_prevents_rapid_resignal(self):
         """After a signal, cooldown_bars must elapse before the next signal."""
-        strategy = VolatilityRegimeBreakoutStrategy(
-            VRBConfig(cooldown_bars=10)
-        )
+        strategy = VolatilityRegimeBreakoutStrategy(VRBConfig(cooldown_bars=10))
         bars = _make_mixed_vol_bars(75)
 
         # Use progressive evaluation to get first signal organically
         signal1 = None
         for start_idx in range(65, len(bars)):
-            partial = bars[:start_idx + 1]
+            partial = bars[: start_idx + 1]
             state = MarketState(bars=partial, current_session=SessionType.LONDON)
             signal1 = strategy.evaluate(state)
             if signal1 is not None:
@@ -260,7 +267,7 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
         # Use progressive evaluation for organic signal generation
         signal = None
         for start_idx in range(65, len(bars)):
-            partial = bars[:start_idx + 1]
+            partial = bars[: start_idx + 1]
             state = MarketState(bars=partial, current_session=SessionType.LONDON)
             signal = strategy.evaluate(state)
             if signal is not None:
@@ -268,7 +275,9 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
 
         self.assertIsNotNone(signal, "Strategy should produce a signal")
         # Type-identity check: strategy direction IS backtest direction
-        self.assertIs(signal.direction, getattr(BacktestTradeDirection, signal.direction.name))
+        self.assertIs(
+            signal.direction, getattr(BacktestTradeDirection, signal.direction.name)
+        )
         self.assertIn(signal.direction, BacktestTradeDirection)
 
     def test_short_signal_direction_is_backtest_direction(self):
@@ -279,7 +288,7 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
         # Use progressive evaluation for organic signal generation
         signal = None
         for start_idx in range(65, len(bars)):
-            partial = bars[:start_idx + 1]
+            partial = bars[: start_idx + 1]
             # Flip the breakout bar to a downside breakout
             if start_idx == 70:
                 prior_bars = partial[-(11):-1]
@@ -297,7 +306,9 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
 
         self.assertIsNotNone(signal, "Strategy should produce a SHORT signal")
         self.assertIn(signal.direction, BacktestTradeDirection)
-        self.assertIs(signal.direction, getattr(BacktestTradeDirection, signal.direction.name))
+        self.assertIs(
+            signal.direction, getattr(BacktestTradeDirection, signal.direction.name)
+        )
 
 
 if __name__ == "__main__":

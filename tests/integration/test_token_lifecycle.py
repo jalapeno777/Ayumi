@@ -6,7 +6,6 @@ All HTTP calls are mocked. No real OAuth requests are made.
 import json
 import threading
 import time
-from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,7 +13,6 @@ import pytest
 from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import (
     OAUTH_URL,
-    REFRESH_BUFFER,
     TokenLifecycle,
     TokenRefreshError,
 )
@@ -201,9 +199,7 @@ def test_concurrent_refresh_is_serialized(tmp_path):
         # Simulate small network latency
         time.sleep(0.05)
         # Use 30-day expiry so other threads see token as valid (> 5-day buffer)
-        return _mock_oauth_response(
-            access_token="concurrent_token", expires_in=2592000
-        )
+        return _mock_oauth_response(access_token="concurrent_token", expires_in=2592000)
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.side_effect = fake_post

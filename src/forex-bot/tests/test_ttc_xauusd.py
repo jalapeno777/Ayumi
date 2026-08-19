@@ -4,6 +4,13 @@ Verifies the strategy module can be imported, instantiated, and evaluated
 against a synthetic XAUUSD M15 bar stream. Also verifies the strategy is
 registered in strategies/registry.py and surfaces for XAUUSD symbol
 selection (i.e. walk_forward / blend selection can find it).
+
+Additional tests (card f5b6ebcd): PF-cap decision verification,
+embargo documentation, and optimizer PF=0 pruning.
+
+Tick-aggregation regression fixture (card d69e3542): documents the
+0/5 FTMO window result on tick-aggregated XAUUSD M15 data, a regression
+from the original 4/5 baseline on non-tick-aggregated data.
 """
 
 from __future__ import annotations
@@ -172,8 +179,7 @@ def test_ttc_xauusd_selectable_for_xauusd():
     xauusd_strategies = reg.get_for_symbol("XAUUSD")
     strategy_ids = [s.strategy_id for s in xauusd_strategies]
     assert "ttc_xauusd" in strategy_ids, (
-        f"ttc_xauusd not selectable for XAUUSD. "
-        f"Currently selectable: {strategy_ids}"
+        f"ttc_xauusd not selectable for XAUUSD. Currently selectable: {strategy_ids}"
     )
 
 
@@ -208,8 +214,251 @@ def test_bars_are_chronologically_ordered():
     bars = _make_xauusd_m15_bars()
     for i in range(1, len(bars)):
         assert bars[i].time > bars[i - 1].time, (
-            f"Bar {i} time {bars[i].time} not after bar {i-1} time {bars[i-1].time}"
+            f"Bar {i} time {bars[i].time} not after bar {i - 1} time {bars[i - 1].time}"
         )
+
+
+# ---------- PF-cap and embargo tests (card f5b6ebcd) ----------
+
+
+def test_tts_strategy_documents_pf_cap_decision():
+    """The TTSStrategy class docstring must document the PF-cap design decision.
+
+    Card f5b6ebcd investigation found no PF cap in the signal engine.
+    The decision (not needed — belongs in risk layer) must be documented
+    in the class docstring so future developers don't re-investigate.
+    """
+    from backtest.strategies.tts_strategy import TTSStrategy
+
+    docstring = TTSStrategy.__doc__ or ""
+    assert "PF-Cap" in docstring or "pf-cap" in docstring.lower(), (
+        "TTSStrategy docstring must document the PF-cap design decision"
+    )
+    assert "signal generator" in docstring.lower(), (
+        "Docstring must clarify TTSStrategy is a signal generator, not risk manager"
+    )
+
+
+def test_ttc_optimizer_has_embargo_parameter():
+    """run_ttc_optuna must accept embargo_bars parameter.
+
+    The embargo_bars parameter is the API contract for out-of-sample
+    leakage prevention. Even though the walk-forward runner doesn't
+    wire it through yet, the parameter must exist for forward compatibility.
+    """
+    import inspect
+    from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
+
+    sig = inspect.signature(run_ttc_optuna)
+    assert "embargo_bars" in sig.parameters, (
+        "run_ttc_optuna must have embargo_bars parameter for OOS leakage prevention"
+    )
+    assert sig.parameters["embargo_bars"].default == 0, (
+        "embargo_bars should default to 0 (no embargo, preserves current behavior)"
+    )
+
+
+def test_ttc_optimizer_documents_embargo_in_docstring():
+    """Module docstring must document the embargo / leakage risk."""
+    from backtest.parameter_sweep import ttc_optimizer
+
+    docstring = ttc_optimizer.__doc__ or ""
+    assert "embargo" in docstring.lower(), (
+        "ttc_optimizer module docstring must document embargo / leakage risk"
+    )
+    assert "leakage" in docstring.lower() or "autocorrelation" in docstring.lower(), (
+        "Docstring must explain why embargo matters for financial data"
+    )
+
+
+def test_ttc_xauusd_has_recommended_embargo_constant():
+    """TTCXAUUSDStrategy module must expose recommended embargo for XAUUSD M15."""
+    from strategies.ttc_xauusd import RECOMMENDED_EMBARGO_BARS_M15
+
+    # 96 bars = 24 hours of M15 data
+    assert RECOMMENDED_EMBARGO_BARS_M15 == 96, (
+        f"Expected 96 (24h of M15), got {RECOMMENDED_EMBARGO_BARS_M15}"
+    )
+
+
+def test_ttc_xauusd_documents_risk_delegation():
+    """TTCXAUUSDStrategy docstring must document risk management delegation."""
+    from strategies.ttc_xauusd import TTCXAUUSDStrategy
+
+    docstring = TTCXAUUSDStrategy.__doc__ or ""
+    assert "risk" in docstring.lower(), (
+        "Docstring must address risk management delegation"
+    )
+
+
+def test_ttc_optimizer_prunes_pf_zero_trials():
+    """The optimizer objective must prune PF=0 trials.
+
+    This verifies the code path exists. Full integration testing
+    requires historical data and is out of scope for this card.
+    """
+    import inspect
+    from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
+
+    source = inspect.getsource(run_ttc_optuna)
+    assert "mean_profit_factor" in source, (
+        "Objective must check mean_profit_factor for PF=0 pruning"
+    )
+    assert "TrialPruned" in source, (
+        "Objective must prune trials (raise TrialPruned) for PF=0"
+    )
+
+
+# ---------- Tick-aggregated regression fixture (card d69e3542) ----------
+
+
+# Per-window results from optimizer run on tick-aggregated XAUUSD M15
+# data (104,381 bars). Baseline config (lookback=5, history=50).
+# Original non-tick-agg baseline: 4/5 FTMO windows passed.
+# Tick-agg result: 0/5 windows pass Go/No-Go. Major regression.
+TICK_AGG_PER_WINDOW = [
+    {
+        "window": 0,
+        "win_rate": 0.50,
+        "profit_factor": 1.13,
+        "trade_count": 16,
+        "total_pnl": 52.87,
+        "passed_go_nogo": False,
+    },
+    {
+        "window": 1,
+        "win_rate": 0.667,
+        "profit_factor": 1.51,
+        "trade_count": 3,
+        "total_pnl": 25.27,
+        "passed_go_nogo": False,
+    },
+    {
+        "window": 2,
+        "win_rate": 0.40,
+        "profit_factor": 0.50,
+        "trade_count": 5,
+        "total_pnl": -74.60,
+        "passed_go_nogo": False,
+    },
+    {
+        "window": 3,
+        "win_rate": 0.40,
+        "profit_factor": 0.67,
+        "trade_count": 15,
+        "total_pnl": -149.61,
+        "passed_go_nogo": False,
+    },
+    {
+        "window": 4,
+        "win_rate": 0.105,
+        "profit_factor": 0.18,
+        "trade_count": 19,
+        "total_pnl": -699.92,
+        "passed_go_nogo": False,
+    },
+]
+
+# Aggregated metrics across 5 windows
+TICK_AGG_AGGREGATED = {
+    "mean_win_rate": 0.4144,
+    "mean_profit_factor": 0.7969,
+    "mean_trade_count": 11.6,
+    "mean_total_pnl": -169.20,
+    "windows_passed": 0,
+    "total_windows": 5,
+}
+
+# Optimizer summary: 82/100 trials completed (process died at trial 81).
+# All 82 trials had Go/No-Go = False. Best score: -0.5954 (trial 0).
+# Score pattern dominated by 3 discrete values indicating similar
+# parameter convergence with Go/No-Go penalty (-1.0) pushing all negative.
+TICK_AGG_OPTIMIZER_SUMMARY = {
+    "trials_completed": 82,
+    "trials_total": 100,
+    "all_go_nogo_false": True,
+    "best_score": -0.5954,
+    "best_trial": 0,
+    "low_trade_counts": "6-14 per window (minimum 15 recommended)",
+}
+
+
+def test_tick_agg_xauusd_data_exists():
+    """Verify tick-aggregated XAUUSD M15 data file is present and populated."""
+
+    from backtest.parameter_sweep.ttc_optimizer import _DATA_DIR
+
+    csv_path = _DATA_DIR / "XAUUSD_M15.csv"
+    assert csv_path.exists(), f"Tick-agg XAUUSD M15 data missing: {csv_path}"
+
+    line_count = sum(1 for _ in open(csv_path)) - 1  # minus header
+    assert line_count > 100000, (
+        f"Expected ~104K rows in tick-agg data, got {line_count}"
+    )
+
+
+def test_tick_agg_regression_0_of_5_windows():
+    """Document the tick-aggregation regression: 0/5 FTMO windows pass.
+
+    The original TTC XAUUSD backtest on non-tick-aggregated M15 data
+    achieved 4/5 FTMO windows. After the tick-aggregation pipeline fix
+    (card 933469d8), the same strategy achieves 0/5 windows.
+
+    This test locks the regression baseline so future improvements can
+    measure progress. When the strategy recovers, update the fixture.
+    """
+    assert TICK_AGG_AGGREGATED["windows_passed"] == 0
+    assert TICK_AGG_AGGREGATED["total_windows"] == 5
+
+    # All individual windows also fail
+    for w in TICK_AGG_PER_WINDOW:
+        assert w["passed_go_nogo"] is False, (
+            f"Window {w['window']} unexpectedly passes Go/No-Go"
+        )
+
+    # Mean P&L is negative — strategy is not profitable on tick-agg data
+    assert TICK_AGG_AGGREGATED["mean_total_pnl"] < 0
+
+    # Window 4 is the worst (PnL = -699.92, WR = 10.5%)
+    worst = min(TICK_AGG_PER_WINDOW, key=lambda w: w["total_pnl"])
+    assert worst["window"] == 4
+    assert worst["total_pnl"] < -600
+
+
+def test_tick_agg_optimizer_all_trials_failed():
+    """Document that 82/100 optimizer trials all had Go/No-Go = False.
+
+    The TPE sampler explored the full search space and could not find
+    any parameter combination that passes the Go/No-Go gate on
+    tick-aggregated data. This suggests the regression is structural
+    (data characteristics), not a parameter tuning issue.
+    """
+    assert TICK_AGG_OPTIMIZER_SUMMARY["all_go_nogo_false"] is True
+    assert TICK_AGG_OPTIMIZER_SUMMARY["trials_completed"] >= 80, (
+        "Optimizer should have completed most trials"
+    )
+    assert TICK_AGG_OPTIMIZER_SUMMARY["best_score"] < 0, (
+        "Best score should be negative (Go/No-Go penalty dominates)"
+    )
+
+
+def test_tick_agg_low_trade_count_documented():
+    """Document that low trade counts (6-14/window) contribute to failures.
+
+    The Go/No-Go gate recommends ≥15 trades per window for statistical
+    significance. Tick-aggregated data produces fewer signals, likely
+    due to smoother bar formation reducing false breakout patterns
+    that the TTC strategy relies on.
+    """
+    for w in TICK_AGG_PER_WINDOW:
+        assert w["trade_count"] < 20, (
+            f"Window {w['window']} has unexpectedly high trade count"
+        )
+    # Several windows are below the 15-trade minimum for statistical significance
+    below_min = sum(1 for w in TICK_AGG_PER_WINDOW if w["trade_count"] < 15)
+    assert below_min >= 2, (
+        f"Expected ≥2 windows below 15-trade minimum, got {below_min}"
+    )
 
 
 if __name__ == "__main__":

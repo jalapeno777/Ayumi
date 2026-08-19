@@ -165,12 +165,18 @@ class TestPinnedTask:
 
     def test_content_hash_deterministic(self):
         a = PinnedTask(
-            task_id="x", prompt="p", acceptance_criteria="a",
-            expected_outputs=["diff"], tier="T1",
+            task_id="x",
+            prompt="p",
+            acceptance_criteria="a",
+            expected_outputs=["diff"],
+            tier="T1",
         )
         b = PinnedTask(
-            task_id="x", prompt="p", acceptance_criteria="a",
-            expected_outputs=["diff"], tier="T1",
+            task_id="x",
+            prompt="p",
+            acceptance_criteria="a",
+            expected_outputs=["diff"],
+            tier="T1",
         )
         assert a.content_hash == b.content_hash
 
@@ -181,19 +187,31 @@ class TestPinnedTask:
 
     def test_content_hash_changes_with_acceptance(self):
         a = PinnedTask(
-            task_id="x", prompt="p", acceptance_criteria="aa", tier="T1",
+            task_id="x",
+            prompt="p",
+            acceptance_criteria="aa",
+            tier="T1",
         )
         b = PinnedTask(
-            task_id="x", prompt="p", acceptance_criteria="bb", tier="T1",
+            task_id="x",
+            prompt="p",
+            acceptance_criteria="bb",
+            tier="T1",
         )
         assert a.content_hash != b.content_hash
 
     def test_content_hash_changes_with_expected_outputs(self):
         a = PinnedTask(
-            task_id="x", prompt="p", expected_outputs=["diff"], tier="T1",
+            task_id="x",
+            prompt="p",
+            expected_outputs=["diff"],
+            tier="T1",
         )
         b = PinnedTask(
-            task_id="x", prompt="p", expected_outputs=["test_log"], tier="T1",
+            task_id="x",
+            prompt="p",
+            expected_outputs=["test_log"],
+            tier="T1",
         )
         assert a.content_hash != b.content_hash
 
@@ -204,11 +222,17 @@ class TestPinnedTask:
 
     def test_content_hash_independent_of_tags_and_profile(self):
         a = PinnedTask(
-            task_id="x", prompt="p", tier="T1", tags=["a"],
+            task_id="x",
+            prompt="p",
+            tier="T1",
+            tags=["a"],
             agent_profile={"success_rate": 0.5},
         )
         b = PinnedTask(
-            task_id="x", prompt="p", tier="T1", tags=["b"],
+            task_id="x",
+            prompt="p",
+            tier="T1",
+            tags=["b"],
             agent_profile={"success_rate": 0.9},
         )
         # Tags + profile are *operational*, not part of content identity.
@@ -217,14 +241,18 @@ class TestPinnedTask:
     def test_expected_outputs_must_be_list(self):
         with pytest.raises(TypeError):
             PinnedTask(
-                task_id="x", prompt="p", expected_outputs="diff",  # type: ignore[arg-type]
+                task_id="x",
+                prompt="p",
+                expected_outputs="diff",  # type: ignore[arg-type]
                 tier="T0",
             )
 
     def test_agent_profile_must_be_dict(self):
         with pytest.raises(TypeError):
             PinnedTask(
-                task_id="x", prompt="p", agent_profile="not-a-dict",  # type: ignore[arg-type]
+                task_id="x",
+                prompt="p",
+                agent_profile="not-a-dict",  # type: ignore[arg-type]
                 tier="T0",
             )
 
@@ -238,7 +266,9 @@ class TestPinnedTask:
 
     def test_from_dict_drops_unknown_keys(self):
         raw = {
-            "task_id": "x", "prompt": "p", "tier": "T0",
+            "task_id": "x",
+            "prompt": "p",
+            "tier": "T0",
             "future_field_we_dont_know_about": "ignore me",
         }
         t = PinnedTask.from_dict(raw)
@@ -326,9 +356,14 @@ class TestCapabilityScore:
 
     def test_agent_profile_overrides_applied(self):
         t = PinnedTask(
-            task_id="x", prompt="p", tier="T1",
-            agent_profile={"success_rate": 0.0, "rework_rate": 0.4,
-                           "avg_tokens": 20000},
+            task_id="x",
+            prompt="p",
+            tier="T1",
+            agent_profile={
+                "success_rate": 0.0,
+                "rework_rate": 0.4,
+                "avg_tokens": 20000,
+            },
         )
         # measured_capability=0.0 triggers profile-relative scoring;
         # rework penalty should come from profile.
@@ -381,14 +416,19 @@ class TestDecompositionScore:
     def test_clarity_higher_with_acceptance_text(self):
         no_acc = PinnedTask(task_id="x", prompt="do the thing", tier="T1")
         rich_acc = PinnedTask(
-            task_id="x", prompt="do the thing", tier="T1",
+            task_id="x",
+            prompt="do the thing",
+            tier="T1",
             acceptance_criteria=(
                 "must return exactly one entry; verifies via assert; "
                 "given input X then result is Y"
             ),
             expected_outputs=["diff", "test_log", "schema"],
         )
-        assert decomposition_score(rich_acc)["clarity"] > decomposition_score(no_acc)["clarity"]
+        assert (
+            decomposition_score(rich_acc)["clarity"]
+            > decomposition_score(no_acc)["clarity"]
+        )
 
     def test_clarity_floor_when_no_acceptance_no_outputs(self):
         t = PinnedTask(task_id="x", prompt="do the thing", tier="T1")
@@ -397,13 +437,20 @@ class TestDecompositionScore:
 
     def test_coupling_tags_reduce_dependency(self):
         clean = PinnedTask(
-            task_id="x", prompt="short task", tier="T2",
+            task_id="x",
+            prompt="short task",
+            tier="T2",
         )
         coupled = PinnedTask(
-            task_id="x", prompt="short task", tier="T2",
+            task_id="x",
+            prompt="short task",
+            tier="T2",
             tags=["shared-state", "race", "migration"],
         )
-        assert decomposition_score(clean)["dependency"] > decomposition_score(coupled)["dependency"]
+        assert (
+            decomposition_score(clean)["dependency"]
+            > decomposition_score(coupled)["dependency"]
+        )
 
     def test_long_prompt_increments_subtasks(self):
         # Build a single long sentence (no coupling flags) > 250 words.
@@ -432,33 +479,52 @@ class TestDecompositionScore:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _make_result(task_id: str, tier: str, cap: float, decomp: float) -> PinnedEvalResult:
+def _make_result(
+    task_id: str, tier: str, cap: float, decomp: float
+) -> PinnedEvalResult:
     return PinnedEvalResult(
         task_id=task_id,
         content_hash="x" * 64,
         tier=tier,
         label=TIER_THRESHOLDS[tier].label,
         capability={
-            "tier": tier, "label": TIER_THRESHOLDS[tier].label,
+            "tier": tier,
+            "label": TIER_THRESHOLDS[tier].label,
             "min_capability": TIER_THRESHOLDS[tier].min_capability,
             "tolerance": TIER_THRESHOLDS[tier].tolerance,
-            "measured_capability": cap, "headroom": 0.0, "raw_score": cap,
-            "rework_penalty": 0.0, "token_penalty": 0.0,
+            "measured_capability": cap,
+            "headroom": 0.0,
+            "raw_score": cap,
+            "rework_penalty": 0.0,
+            "token_penalty": 0.0,
             "final_score": cap,
-            "verdict": "STRONG" if cap >= 0.85 else "READY" if cap >= 0.65
-                       else "MARGINAL" if cap >= 0.45
-                       else "WEAK" if cap >= 0.20 else "FAIL",
+            "verdict": "STRONG"
+            if cap >= 0.85
+            else "READY"
+            if cap >= 0.65
+            else "MARGINAL"
+            if cap >= 0.45
+            else "WEAK"
+            if cap >= 0.20
+            else "FAIL",
         },
         decomposition={
-            "atomicity": decomp, "clarity": decomp, "dependency": decomp,
-            "combined": decomp, "estimated_subtasks": 1,
-            "clamped_subtasks": 1, "tier_max_subtasks":
-                TIER_THRESHOLDS[tier].max_atomic_subtasks,
+            "atomicity": decomp,
+            "clarity": decomp,
+            "dependency": decomp,
+            "combined": decomp,
+            "estimated_subtasks": 1,
+            "clamped_subtasks": 1,
+            "tier_max_subtasks": TIER_THRESHOLDS[tier].max_atomic_subtasks,
             "verdict": "DECOMPOSE_OK",
         },
         measured_capability=cap,
-        agent_profile={}, tags=[], prompt_chars=0, acceptance_chars=0,
-        expected_outputs=[], timestamp="2026-01-01T00:00:00Z",
+        agent_profile={},
+        tags=[],
+        prompt_chars=0,
+        acceptance_chars=0,
+        expected_outputs=[],
+        timestamp="2026-01-01T00:00:00Z",
         schema_version=SCHEMA_VERSION,
     )
 
@@ -498,7 +564,7 @@ class TestAggregate:
     def test_verdict_counts_present(self):
         results = [
             _make_result("a", "T0", 0.95, 0.9),  # STRONG
-            _make_result("b", "T0", 0.5, 0.9),   # MARGINAL
+            _make_result("b", "T0", 0.5, 0.9),  # MARGINAL
         ]
         out = aggregate(results)
         assert out["by_tier"]["T0"]["verdict_counts"]["STRONG"] == 1
@@ -507,8 +573,8 @@ class TestAggregate:
     def test_ready_share(self):
         results = [
             _make_result("a", "T1", 0.95, 0.9),  # STRONG → ready
-            _make_result("b", "T1", 0.7, 0.9),   # READY → ready
-            _make_result("c", "T1", 0.5, 0.9),   # MARGINAL → not ready
+            _make_result("b", "T1", 0.7, 0.9),  # READY → ready
+            _make_result("c", "T1", 0.5, 0.9),  # MARGINAL → not ready
         ]
         out = aggregate(results)
         assert out["by_tier"]["T1"]["ready_share"] == pytest.approx(2 / 3)
@@ -537,7 +603,10 @@ class TestEvaluate:
 
     def test_evaluate_accepts_overrides(self, small_task: PinnedTask):
         r = evaluate(
-            small_task, 0.80, rework_rate=0.3, avg_tokens=15000,
+            small_task,
+            0.80,
+            rework_rate=0.3,
+            avg_tokens=15000,
             timestamp="2026-01-01T00:00:00Z",
         )
         assert r.capability["rework_penalty"] > 0
@@ -563,15 +632,18 @@ class TestIO:
     def test_load_tasks_jsonl_skips_bad_rows(self, tmp_path: Path):
         f = tmp_path / "tasks.jsonl"
         f.write_text(
-            "\n".join([
-                json.dumps({"task_id": "good", "prompt": "p", "tier": "T0"}),
-                "not json",
-                json.dumps({"prompt": "missing-id", "tier": "T0"}),
-                json.dumps({"task_id": "bad-tier", "prompt": "p", "tier": "T9"}),
-                json.dumps({"task_id": "good2", "prompt": "p2", "tier": "T1"}),
-                "# comment",
-                "",
-            ]) + "\n"
+            "\n".join(
+                [
+                    json.dumps({"task_id": "good", "prompt": "p", "tier": "T0"}),
+                    "not json",
+                    json.dumps({"prompt": "missing-id", "tier": "T0"}),
+                    json.dumps({"task_id": "bad-tier", "prompt": "p", "tier": "T9"}),
+                    json.dumps({"task_id": "good2", "prompt": "p2", "tier": "T1"}),
+                    "# comment",
+                    "",
+                ]
+            )
+            + "\n"
         )
         tasks = load_tasks_jsonl(f)
         ids = [t.task_id for t in tasks]
@@ -611,50 +683,63 @@ class TestCLI:
     def test_demo_run_exits_zero(self, tmp_path: Path):
         out = tmp_path / "demo.jsonl"
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        )
+        env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
         result = subprocess.run(
             [
-                sys.executable, str(self._script_path()),
-                "--demo", "--reset", "--summary", "--output", str(out),
+                sys.executable,
+                str(self._script_path()),
+                "--demo",
+                "--reset",
+                "--summary",
+                "--output",
+                str(out),
             ],
-            capture_output=True, text=True, env=env, timeout=60,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
         )
         assert result.returncode == 0, (
             f"stderr={result.stderr!r}\nstdout={result.stdout!r}"
         )
         assert out.exists()
-        rows = [
-            json.loads(line) for line in out.read_text().strip().split("\n")
-        ]
+        rows = [json.loads(line) for line in out.read_text().strip().split("\n")]
         assert len(rows) == 5
         for r in rows:
             assert r["schema_version"] == SCHEMA_VERSION
             assert r["content_hash"]
             assert r["capability"]["verdict"] in {
-                "STRONG", "READY", "MARGINAL", "WEAK", "FAIL",
+                "STRONG",
+                "READY",
+                "MARGINAL",
+                "WEAK",
+                "FAIL",
             }
 
     def test_demo_summary_contains_overall(self, tmp_path: Path):
         out = tmp_path / "demo.jsonl"
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        )
+        env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
         result = subprocess.run(
             [
-                sys.executable, str(self._script_path()),
-                "--demo", "--reset", "--summary", "--output", str(out),
+                sys.executable,
+                str(self._script_path()),
+                "--demo",
+                "--reset",
+                "--summary",
+                "--output",
+                str(out),
             ],
-            capture_output=True, text=True, env=env, timeout=60,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
         )
         assert result.returncode == 0
         # The summary JSON is appended to stdout after INFO logs; pull the
         # block that starts with '{' on its own line.
         json_blocks = [
-            blk for blk in result.stdout.split("\n\n")
-            if blk.strip().startswith("{")
+            blk for blk in result.stdout.split("\n\n") if blk.strip().startswith("{")
         ]
         assert json_blocks, "no summary JSON found"
         summary = json.loads(json_blocks[-1])
@@ -665,7 +750,9 @@ class TestCLI:
     def test_no_args_exits_one(self):
         result = subprocess.run(
             [sys.executable, str(self._script_path())],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 1
 
@@ -673,10 +760,17 @@ class TestCLI:
         out = tmp_path / "demo.jsonl"
         result = subprocess.run(
             [
-                sys.executable, str(self._script_path()),
-                "--demo", "--capability", "1.5", "--output", str(out),
+                sys.executable,
+                str(self._script_path()),
+                "--demo",
+                "--capability",
+                "1.5",
+                "--output",
+                str(out),
             ],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 1
         assert "--capability" in result.stderr or "capability" in result.stderr
@@ -684,30 +778,39 @@ class TestCLI:
     def test_loads_user_tasks(self, tmp_path: Path):
         tasks_path = tmp_path / "tasks.jsonl"
         tasks_path.write_text(
-            json.dumps({
-                "task_id": "u-1", "prompt": "do it", "tier": "T1",
-                "acceptance_criteria": "must work",
-                "expected_outputs": ["diff"],
-            }) + "\n"
+            json.dumps(
+                {
+                    "task_id": "u-1",
+                    "prompt": "do it",
+                    "tier": "T1",
+                    "acceptance_criteria": "must work",
+                    "expected_outputs": ["diff"],
+                }
+            )
+            + "\n"
         )
         out = tmp_path / "results.jsonl"
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        )
+        env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
         result = subprocess.run(
             [
-                sys.executable, str(self._script_path()),
-                "--tasks", str(tasks_path),
-                "--capability", "0.8",
-                "--reset", "--output", str(out),
+                sys.executable,
+                str(self._script_path()),
+                "--tasks",
+                str(tasks_path),
+                "--capability",
+                "0.8",
+                "--reset",
+                "--output",
+                str(out),
             ],
-            capture_output=True, text=True, env=env, timeout=30,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
         )
         assert result.returncode == 0, result.stderr
-        rows = [
-            json.loads(line) for line in out.read_text().strip().split("\n")
-        ]
+        rows = [json.loads(line) for line in out.read_text().strip().split("\n")]
         assert len(rows) == 1
         assert rows[0]["task_id"] == "u-1"
 
@@ -720,18 +823,24 @@ class TestCLI:
 class TestDeterminism:
     def test_demo_runs_produce_identical_hashes(self, tmp_path: Path):
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        )
+        env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
         out1 = tmp_path / "a.jsonl"
         out2 = tmp_path / "b.jsonl"
         for o in (out1, out2):
             subprocess.run(
                 [
-                    sys.executable, str(SCRIPTS_DIR / "pinned_eval_harness.py"),
-                    "--demo", "--reset", "--output", str(o),
+                    sys.executable,
+                    str(SCRIPTS_DIR / "pinned_eval_harness.py"),
+                    "--demo",
+                    "--reset",
+                    "--output",
+                    str(o),
                 ],
-                check=True, capture_output=True, text=True, env=env, timeout=30,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30,
             )
         hashes1 = [
             json.loads(line)["content_hash"]
@@ -745,25 +854,27 @@ class TestDeterminism:
 
     def test_demo_runs_produce_identical_scores(self, tmp_path: Path):
         env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        )
+        env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
         out1 = tmp_path / "a.jsonl"
         out2 = tmp_path / "b.jsonl"
         for o in (out1, out2):
             subprocess.run(
                 [
-                    sys.executable, str(SCRIPTS_DIR / "pinned_eval_harness.py"),
-                    "--demo", "--reset", "--output", str(o),
+                    sys.executable,
+                    str(SCRIPTS_DIR / "pinned_eval_harness.py"),
+                    "--demo",
+                    "--reset",
+                    "--output",
+                    str(o),
                 ],
-                check=True, capture_output=True, text=True, env=env, timeout=30,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30,
             )
-        rows1 = [
-            json.loads(line) for line in out1.read_text().strip().split("\n")
-        ]
-        rows2 = [
-            json.loads(line) for line in out2.read_text().strip().split("\n")
-        ]
+        rows1 = [json.loads(line) for line in out1.read_text().strip().split("\n")]
+        rows2 = [json.loads(line) for line in out2.read_text().strip().split("\n")]
         # Compare all numeric fields (timestamps will be identical because
         # we run them in the same second here, but content_hash is the main
         # tamper-evidence check).

@@ -286,9 +286,7 @@ class TestNoSignalConditions:
         bars = _append_breakout_up(bars)
         state = _make_state(bars, session=SessionType.OUTSIDE)
 
-        strategy = MomentumM15Strategy(
-            MomentumM15Config(session_filter=True)
-        )
+        strategy = MomentumM15Strategy(MomentumM15Config(session_filter=True))
         assert strategy.evaluate(state) is None
 
     def test_session_filter_disabled_allows_signal(self):
@@ -297,9 +295,7 @@ class TestNoSignalConditions:
         bars = _append_breakout_up(bars)
         state = _make_state(bars, session=SessionType.OUTSIDE)
 
-        strategy = MomentumM15Strategy(
-            MomentumM15Config(session_filter=False)
-        )
+        strategy = MomentumM15Strategy(MomentumM15Config(session_filter=False))
         signal = strategy.evaluate(state)
         assert signal is not None
 
@@ -450,9 +446,7 @@ class TestSignalQuality:
         bars = _append_breakout_up(bars)
         state = _make_state(bars)
 
-        strategy = MomentumM15Strategy(
-            MomentumM15Config(min_confidence=0.99)
-        )
+        strategy = MomentumM15Strategy(MomentumM15Config(min_confidence=0.99))
         signal = strategy.evaluate(state)
         assert signal is None
 

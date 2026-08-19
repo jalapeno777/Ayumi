@@ -44,6 +44,7 @@ Usage::
     python scripts/qa_market_data.py --historical-dir ...  # custom dir
     python scripts/qa_market_data.py --print-summary       # stdout summary
 """
+
 from __future__ import annotations
 
 import argparse
@@ -151,7 +152,9 @@ class FileReport:
 class ParsedBars:
     """Parsed OHLCV rows + the timestamp column name used."""
 
-    df: pd.DataFrame  # columns: timestamp (datetime64[ns, UTC]), open, high, low, close, volume
+    df: (
+        pd.DataFrame
+    )  # columns: timestamp (datetime64[ns, UTC]), open, high, low, close, volume
     ts_col: str
 
 
@@ -192,7 +195,9 @@ def _load_csv(path: Path) -> ParsedBars | None:
 
     ts_col = _detect_timestamp_col(header)
     if ts_col is None:
-        print(f"  [skip] {path}: no timestamp column (header={header})", file=sys.stderr)
+        print(
+            f"  [skip] {path}: no timestamp column (header={header})", file=sys.stderr
+        )
         return None
 
     # Read the rest with pandas using only the columns we want.
@@ -205,14 +210,16 @@ def _load_csv(path: Path) -> ParsedBars | None:
         df = pd.read_csv(path)
 
     # Normalise column names to lowercase.
-    df = df.rename(columns={
-        ts_col: "timestamp",
-        "Open": "open",
-        "High": "high",
-        "Low": "low",
-        "Close": "close",
-        "Volume": "volume",
-    })
+    df = df.rename(
+        columns={
+            ts_col: "timestamp",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
+        }
+    )
     if "timestamp" not in df.columns:
         # Last-ditch: take the first column as timestamp.
         df = df.rename(columns={df.columns[0]: "timestamp"})
@@ -229,7 +236,10 @@ def _load_csv(path: Path) -> ParsedBars | None:
         print(f"  [skip] {path}: all timestamps unparseable", file=sys.stderr)
         return None
     if bad_ts > 0:
-        print(f"  [warn] {path}: dropped {bad_ts} rows with unparseable timestamps", file=sys.stderr)
+        print(
+            f"  [warn] {path}: dropped {bad_ts} rows with unparseable timestamps",
+            file=sys.stderr,
+        )
         df = df.loc[ts.notna()].copy()
         ts = ts.loc[ts.notna()]
 
@@ -240,11 +250,15 @@ def _load_csv(path: Path) -> ParsedBars | None:
         else:
             df[col] = float("nan")
     if "volume" in df.columns:
-        df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
+        df["volume"] = (
+            pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
+        )
     else:
         df["volume"] = 0
 
-    df = df[["timestamp", "open", "high", "low", "close", "volume"]].reset_index(drop=True)
+    df = df[["timestamp", "open", "high", "low", "close", "volume"]].reset_index(
+        drop=True
+    )
     return ParsedBars(df=df, ts_col=ts_col)
 
 
@@ -362,13 +376,15 @@ def _check_price_sanity(df: pd.DataFrame, rep: FileReport) -> None:
         for i in big[:ANOMALY_DETAIL_CAP]:
             ts0 = pd.Timestamp(ts[i]).isoformat()
             ts1 = pd.Timestamp(ts[i + 1]).isoformat()
-            rep.big_jump_samples.append({
-                "t0": ts0,
-                "t1": ts1,
-                "close0": float(prev[i]),
-                "close1": float(curr[i]),
-                "delta_pct": round(100.0 * (curr[i] - prev[i]) / prev[i], 3),
-            })
+            rep.big_jump_samples.append(
+                {
+                    "t0": ts0,
+                    "t1": ts1,
+                    "close0": float(prev[i]),
+                    "close1": float(curr[i]),
+                    "delta_pct": round(100.0 * (curr[i] - prev[i]) / prev[i], 3),
+                }
+            )
 
 
 def _check_gaps(df: pd.DataFrame, rep: FileReport) -> None:
@@ -497,8 +513,10 @@ def _ensure_numpy() -> None:
 
 def _format_table(headers: list[str], rows: list[list[str]]) -> str:
     """Build a GitHub-flavoured-Markdown pipe table."""
-    out = ["| " + " | ".join(headers) + " |",
-           "| " + " | ".join(["---"] * len(headers)) + " |"]
+    out = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---"] * len(headers)) + " |",
+    ]
     for r in rows:
         out.append("| " + " | ".join(r) + " |")
     return "\n".join(out)
@@ -522,24 +540,41 @@ def render_markdown(reports: list[FileReport], generated_at: datetime) -> str:
     for rep in sorted(reports, key=lambda r: (r.pair, r.timeframe)):
         if rep.skipped:
             continue
-        gap_rows.append([
-            rep.pair,
-            rep.timeframe,
-            str(rep.rows),
-            str(rep.gap_count),
-            str(rep.weekend_gap_count),
-            f"{rep.gap_density:.4f}",
-            f"{rep.weekend_gap_density:.4f}",
-            f"{rep.inferred_period_min:.2f}" if rep.inferred_period_min is not None else "n/a",
-        ])
+        gap_rows.append(
+            [
+                rep.pair,
+                rep.timeframe,
+                str(rep.rows),
+                str(rep.gap_count),
+                str(rep.weekend_gap_count),
+                f"{rep.gap_density:.4f}",
+                f"{rep.weekend_gap_density:.4f}",
+                f"{rep.inferred_period_min:.2f}"
+                if rep.inferred_period_min is not None
+                else "n/a",
+            ]
+        )
     lines.append("## Gap density per pair")
     lines.append("")
-    lines.append("Gap density = gaps per 1000 bars. Weekend gaps (Sat / Sun UTC) are expected and reported separately.")
+    lines.append(
+        "Gap density = gaps per 1000 bars. Weekend gaps (Sat / Sun UTC) are expected and reported separately."
+    )
     lines.append("")
-    lines.append(_format_table(
-        ["Pair", "TF", "Rows", "Gaps", "Weekend gaps", "Gap/1k", "Wknd/1k", "Δ (min)"],
-        gap_rows,
-    ))
+    lines.append(
+        _format_table(
+            [
+                "Pair",
+                "TF",
+                "Rows",
+                "Gaps",
+                "Weekend gaps",
+                "Gap/1k",
+                "Wknd/1k",
+                "Δ (min)",
+            ],
+            gap_rows,
+        )
+    )
     lines.append("")
 
     # ---- Anomalies ----
@@ -555,7 +590,9 @@ def render_markdown(reports: list[FileReport], generated_at: datetime) -> str:
         if rep.negative_price_count:
             bits.append(f"{rep.negative_price_count} negative-price rows")
         if rep.big_jump_count:
-            bits.append(f"{rep.big_jump_count} >{int(PRICE_JUMP_THRESHOLD * 100)}% close jumps")
+            bits.append(
+                f"{rep.big_jump_count} >{int(PRICE_JUMP_THRESHOLD * 100)}% close jumps"
+            )
         if bits:
             any_anom = True
             lines.append(f"- **{rep.pair} {rep.timeframe}** — {', '.join(bits)}  ")
@@ -637,25 +674,33 @@ def filter_by_pair(paths: Iterable[Path], pairs: list[str]) -> list[Path]:
 def main(argv: list[str] | None = None) -> int:
     _ensure_numpy()
 
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
-        "--pairs", nargs="*", default=[],
+        "--pairs",
+        nargs="*",
+        default=[],
         help="Restrict to these pairs (e.g. EURUSD XAUUSD). Default: all pairs.",
     )
     parser.add_argument(
-        "--historical-dir", default=str(DEFAULT_INPUT_DIRS[0]),
+        "--historical-dir",
+        default=str(DEFAULT_INPUT_DIRS[0]),
         help="Primary historical CSV dir (default: %(default)s)",
     )
     parser.add_argument(
-        "--dukascopy-dir", default=str(DEFAULT_INPUT_DIRS[1]),
+        "--dukascopy-dir",
+        default=str(DEFAULT_INPUT_DIRS[1]),
         help="Secondary dukascopy CSV dir (default: %(default)s)",
     )
     parser.add_argument(
-        "--report-dir", default=str(DEFAULT_REPORT_DIR),
+        "--report-dir",
+        default=str(DEFAULT_REPORT_DIR),
         help="Where to write the QA report (default: %(default)s)",
     )
     parser.add_argument(
-        "--print-summary", action="store_true",
+        "--print-summary",
+        action="store_true",
         help="Echo a short summary to stdout after writing the report.",
     )
     args = parser.parse_args(argv)
@@ -676,19 +721,30 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             pair, tf = _pair_timeframe_from_filename(p)
             rep = FileReport(
-                pair=pair, timeframe=tf, path=str(p),
-                rows=0, first_ts="", last_ts="", csv_header=[],
+                pair=pair,
+                timeframe=tf,
+                path=str(p),
+                rows=0,
+                first_ts="",
+                last_ts="",
+                csv_header=[],
                 timestamp_ok=False,
             )
             rep.skipped = True
             rep.skip_reason = f"unhandled exception: {type(e).__name__}: {e}"
         reports.append(rep)
-        tag = "skipped" if rep.skipped else f"rows={rep.rows} gaps={rep.gap_count}+{rep.weekend_gap_count}w"
+        tag = (
+            "skipped"
+            if rep.skipped
+            else f"rows={rep.rows} gaps={rep.gap_count}+{rep.weekend_gap_count}w"
+        )
         print(f"  {p}  [{tag}]", file=sys.stderr)
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
-    out_path = report_dir / f"qa-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
+    out_path = (
+        report_dir / f"qa-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
+    )
 
     md = render_markdown(reports, datetime.now(timezone.utc))
     out_path.write_text(md)
@@ -700,18 +756,22 @@ def main(argv: list[str] | None = None) -> int:
         total = sum(r.gap_count for r in scan)
         wknd = sum(r.weekend_gap_count for r in scan)
         anom = sum(
-            1 for r in scan
+            1
+            for r in scan
             if r.duplicate_count or r.negative_price_count or r.big_jump_count
         )
         print(
-            json.dumps({
-                "files": len(scan),
-                "skipped": len(reports) - len(scan),
-                "weekday_gaps": total,
-                "weekend_gaps": wknd,
-                "files_with_anomalies": anom,
-                "report": str(out_path),
-            }, indent=2)
+            json.dumps(
+                {
+                    "files": len(scan),
+                    "skipped": len(reports) - len(scan),
+                    "weekday_gaps": total,
+                    "weekend_gaps": wknd,
+                    "files_with_anomalies": anom,
+                    "report": str(out_path),
+                },
+                indent=2,
+            )
         )
     return 0
 

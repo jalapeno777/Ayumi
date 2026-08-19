@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
 from .strategies.isignal_strategy import ISignalStrategy, Tick, StrategyConfig

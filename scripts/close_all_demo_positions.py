@@ -17,6 +17,7 @@ PROJECT_ROOT = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -26,7 +27,7 @@ async def main():
     from adapters.ctrader.token_lifecycle import TokenLifecycle
 
     # Use the same loader the engine uses — handles refresh via lifecycle.
-    store = CredentialStore('.env')
+    store = CredentialStore(".env")
     lifecycle = TokenLifecycle(store)
     access_token = lifecycle.ensure_valid()
     creds = store.get()
@@ -41,8 +42,8 @@ async def main():
         client_secret=creds.client_secret,
         access_token=access_token,
         refresh_token=creds.refresh_token or None,
-        host=os.environ.get('CTRADER_HOST', 'demo.ctraderapi.com'),
-        port=int(os.environ.get('CTRADER_SSL_PORT', '5035')),
+        host=os.environ.get("CTRADER_HOST", "demo.ctraderapi.com"),
+        port=int(os.environ.get("CTRADER_SSL_PORT", "5035")),
         token_lifecycle=lifecycle,
     )
 
@@ -53,7 +54,7 @@ async def main():
     # Allow async connect path to settle, then subscribe to symbols so
     # the symbol_id map is populated (needed for reconcile() to work).
     await asyncio.sleep(5)
-    for sym in ('GBPUSD', 'EURUSD', 'USDJPY'):
+    for sym in ("GBPUSD", "EURUSD", "USDJPY"):
         feed.subscribe(sym)
     await asyncio.sleep(3)
 
@@ -62,10 +63,12 @@ async def main():
     positions = feed.reconcile()
     print(f"Found {len(positions)} open position(s)")
     for p in positions:
-        print(f"  id={p.position_id} {p.symbol} lots={p.volume} "
-              f"entry={getattr(p, 'entry_price', '?')} "
-              f"sl={getattr(p, 'sl_price', '?')} "
-              f"tp={getattr(p, 'tp_price', '?')}")
+        print(
+            f"  id={p.position_id} {p.symbol} lots={p.volume} "
+            f"entry={getattr(p, 'entry_price', '?')} "
+            f"sl={getattr(p, 'sl_price', '?')} "
+            f"tp={getattr(p, 'tp_price', '?')}"
+        )
 
     if not positions:
         print("Nothing to close.")
@@ -77,7 +80,10 @@ async def main():
     closed = []
     failed = []
     for p in positions:
-        print(f"  Closing position {p.position_id} ({p.symbol}, {p.volume} lots)...", flush=True)
+        print(
+            f"  Closing position {p.position_id} ({p.symbol}, {p.volume} lots)...",
+            flush=True,
+        )
         # position_id is a decimal string; close_position expects int
         try:
             pid_int = int(p.position_id)
@@ -101,14 +107,17 @@ async def main():
         except Exception:
             lot_size = 100_000  # forex default
         volume_int = int(round(volume_lots * lot_size))
-        print(f"    pid={pid_int}  volume(lots)={volume_lots}  volume(int)={volume_int}", flush=True)
+        print(
+            f"    pid={pid_int}  volume(lots)={volume_lots}  volume(int)={volume_int}",
+            flush=True,
+        )
         try:
             ok = feed.close_position(pid_int, volume_int)
             if ok:
-                print(f"    OK")
+                print("    OK")
                 closed.append(p.position_id)
             else:
-                print(f"    FAILED — broker rejected")
+                print("    FAILED — broker rejected")
                 failed.append((p.position_id, "rejected"))
         except Exception as e:
             print(f"    FAILED — {type(e).__name__}: {e}")

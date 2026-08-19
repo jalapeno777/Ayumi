@@ -378,7 +378,7 @@ class TestOrderManagerPendingTimeout:
     def test_non_pending_order_not_timed_out(self):
         from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
         from datetime import datetime, timezone
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         config = PendingOrderTimeoutConfig(timeout_seconds=30.0)
         manager = OrderManager(pending_timeout_config=config)
@@ -419,6 +419,7 @@ class TestOrderManagerPendingTimeout:
 
         pending = manager.get_pending_orders()
         assert pending == []
+
     def test_paper_fill_long_uses_real_ask_with_slippage(self):
         manager = OrderManager()
         result = manager.execute_paper_order(
@@ -648,7 +649,9 @@ class TestOrderManagerTP2TP3Wiring:
             if args and args[0] == "on_order_filled":
                 on_filled_call = args[1]
                 break
-        assert on_filled_call is not None, "OrderManager did not register on_order_filled"
+        assert on_filled_call is not None, (
+            "OrderManager did not register on_order_filled"
+        )
 
         # Fire it — this is what cTrader's spot feed does when the broker acks.
         on_filled_call(result.order, None)
@@ -711,4 +714,3 @@ class TestOrderManagerTP2TP3Wiring:
         assert position is not None
         assert position.take_profit_2 is None
         assert position.take_profit_3 is None
-

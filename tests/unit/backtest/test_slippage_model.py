@@ -14,7 +14,6 @@ Covers:
 - Edge cases: JPY pairs, cross pairs, extreme values
 """
 
-import math
 import pytest
 
 from backtest.slippage_model import (
@@ -22,8 +21,6 @@ from backtest.slippage_model import (
     SlippageContext,
     SlippageModel,
     TradeSide,
-    SESSION_LIQUIDITY_FACTOR,
-    DEFAULT_SESSION_FACTOR,
     compute_slippage,
     compute_slippage_pips,
     apply_to_trade,
@@ -35,6 +32,7 @@ from backtest.slippage_model import (
 # ---------------------------------------------------------------------------
 # Config / Context validation
 # ---------------------------------------------------------------------------
+
 
 class TestSlippageConfigValidation:
     def test_default_config(self):
@@ -101,6 +99,7 @@ class TestSlippageContextValidation:
 # FIXED model
 # ---------------------------------------------------------------------------
 
+
 class TestFixedModel:
     def test_fixed_baseline_eurusd(self):
         """Standard EURUSD: 0.2 pip slippage on 1.0850 price."""
@@ -138,6 +137,7 @@ class TestFixedModel:
 # ---------------------------------------------------------------------------
 # LINEAR model
 # ---------------------------------------------------------------------------
+
 
 class TestLinearModel:
     def test_linear_small_trade_minimal_impact(self):
@@ -190,6 +190,7 @@ class TestLinearModel:
 # SQUARE_ROOT model
 # ---------------------------------------------------------------------------
 
+
 class TestSquareRootModel:
     def test_sqrt_small_trade(self):
         """Small trade → sqrt impact is modest."""
@@ -228,12 +229,8 @@ class TestSquareRootModel:
             volume_coefficient=1.0,
             adv_lots=10000,
         )
-        small = compute_slippage_pips(
-            cfg, SlippageContext(price=1.0, trade_lots=10.0)
-        )
-        big = compute_slippage_pips(
-            cfg, SlippageContext(price=1.0, trade_lots=40.0)
-        )
+        small = compute_slippage_pips(cfg, SlippageContext(price=1.0, trade_lots=10.0))
+        big = compute_slippage_pips(cfg, SlippageContext(price=1.0, trade_lots=40.0))
         # 4x volume → 2x slippage (sqrt property)
         assert big == pytest.approx(small * 2, rel=1e-6)
 
@@ -241,6 +238,7 @@ class TestSquareRootModel:
 # ---------------------------------------------------------------------------
 # Session and volatility adjustments
 # ---------------------------------------------------------------------------
+
 
 class TestSessionAdjustment:
     def test_london_session_no_penalty(self):
@@ -317,6 +315,7 @@ class TestVolatilityAdjustment:
 # apply_to_trade
 # ---------------------------------------------------------------------------
 
+
 class TestApplyToTrade:
     def test_buy_increases_price(self):
         """Buy slippage makes fill price worse (higher)."""
@@ -358,6 +357,7 @@ class TestApplyToTrade:
 # apply_slippage_to_price utility
 # ---------------------------------------------------------------------------
 
+
 class TestApplySlippageToPrice:
     def test_buy_utility(self):
         result = apply_slippage_to_price(1.0850, 1.0, TradeSide.BUY)
@@ -379,6 +379,7 @@ class TestApplySlippageToPrice:
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     def test_pip_size_helper_standard_fx(self):

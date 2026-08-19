@@ -9,6 +9,7 @@ Creates data/ayumi_market.duckdb with:
 Usage:
     python3 scripts/init_tick_db.py [--db-path data/ayumi_market.duckdb]
 """
+
 from __future__ import annotations
 
 import argparse

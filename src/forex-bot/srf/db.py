@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
 
-from .schema import SRFDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +18,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Strategy helpers
 # ---------------------------------------------------------------------------
+
 
 def list_strategies(
     conn,
@@ -44,8 +43,13 @@ def list_strategies(
             "FROM strategies ORDER BY created_at"
         ).fetchall()
     return [
-        {"name": r[0], "version": r[1], "module_path": r[2],
-         "status": r[3], "created_at": r[4]}
+        {
+            "name": r[0],
+            "version": r[1],
+            "module_path": r[2],
+            "status": r[3],
+            "created_at": r[4],
+        }
         for r in rows
     ]
 
@@ -53,6 +57,7 @@ def list_strategies(
 # ---------------------------------------------------------------------------
 # Run helpers
 # ---------------------------------------------------------------------------
+
 
 def get_run(conn, run_id: str) -> dict | None:
     """Fetch a single run with its metrics summary. Returns None if not found."""
@@ -70,12 +75,22 @@ def get_run(conn, run_id: str) -> dict | None:
     if row is None:
         return None
     return {
-        "run_id": row[0], "strategy_name": row[1], "pair": row[2],
-        "timeframe": row[3], "params": json.loads(row[4]) if row[4] else {},
-        "git_commit": row[5], "data_hash": row[6], "status": row[7],
-        "compute_seconds": row[8], "created_at": row[9], "completed_at": row[10],
-        "go_nogo": row[11], "score": row[12], "total_trades": row[13],
-        "windows_passed": row[14], "windows_total": row[15],
+        "run_id": row[0],
+        "strategy_name": row[1],
+        "pair": row[2],
+        "timeframe": row[3],
+        "params": json.loads(row[4]) if row[4] else {},
+        "git_commit": row[5],
+        "data_hash": row[6],
+        "status": row[7],
+        "compute_seconds": row[8],
+        "created_at": row[9],
+        "completed_at": row[10],
+        "go_nogo": row[11],
+        "score": row[12],
+        "total_trades": row[13],
+        "windows_passed": row[14],
+        "windows_total": row[15],
     }
 
 
@@ -87,8 +102,14 @@ def list_recent_runs(conn, limit: int = 10) -> list[dict]:
         [limit],
     ).fetchall()
     return [
-        {"run_id": r[0], "strategy_name": r[1], "pair": r[2],
-         "timeframe": r[3], "status": r[4], "created_at": r[5]}
+        {
+            "run_id": r[0],
+            "strategy_name": r[1],
+            "pair": r[2],
+            "timeframe": r[3],
+            "status": r[4],
+            "created_at": r[5],
+        }
         for r in rows
     ]
 
@@ -96,6 +117,7 @@ def list_recent_runs(conn, limit: int = 10) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Window / metrics helpers
 # ---------------------------------------------------------------------------
+
 
 def get_window_results(conn, run_id: str) -> list[dict]:
     """Return per-window results for a run."""
@@ -106,9 +128,16 @@ def get_window_results(conn, run_id: str) -> list[dict]:
         [run_id],
     ).fetchall()
     return [
-        {"window_idx": r[0], "win_rate": r[1], "profit_factor": r[2],
-         "sharpe": r[3], "max_drawdown": r[4], "trade_count": r[5],
-         "total_pnl": r[6], "passed_go_nogo": r[7]}
+        {
+            "window_idx": r[0],
+            "win_rate": r[1],
+            "profit_factor": r[2],
+            "sharpe": r[3],
+            "max_drawdown": r[4],
+            "trade_count": r[5],
+            "total_pnl": r[6],
+            "passed_go_nogo": r[7],
+        }
         for r in rows
     ]
 
@@ -127,20 +156,32 @@ def get_metrics(conn, run_id: str) -> dict | None:
     if row is None:
         return None
     return {
-        "icir": row[0], "dsr": row[1], "calmar": row[2], "sortino": row[3],
-        "mean_win_rate": row[4], "std_win_rate": row[5],
-        "mean_profit_factor": row[6], "std_profit_factor": row[7],
-        "mean_sharpe": row[8], "std_sharpe": row[9],
-        "mean_max_drawdown": row[10], "std_max_drawdown": row[11],
-        "total_trades": row[12], "windows_passed": row[13],
-        "windows_total": row[14], "go_nogo": row[15], "score": row[16],
-        "param_stability_cv": row[17], "oos_sharpe_decay": row[18],
+        "icir": row[0],
+        "dsr": row[1],
+        "calmar": row[2],
+        "sortino": row[3],
+        "mean_win_rate": row[4],
+        "std_win_rate": row[5],
+        "mean_profit_factor": row[6],
+        "std_profit_factor": row[7],
+        "mean_sharpe": row[8],
+        "std_sharpe": row[9],
+        "mean_max_drawdown": row[10],
+        "std_max_drawdown": row[11],
+        "total_trades": row[12],
+        "windows_passed": row[13],
+        "windows_total": row[14],
+        "go_nogo": row[15],
+        "score": row[16],
+        "param_stability_cv": row[17],
+        "oos_sharpe_decay": row[18],
     }
 
 
 # ---------------------------------------------------------------------------
 # Monte Carlo helpers
 # ---------------------------------------------------------------------------
+
 
 def insert_monte_carlo_samples(
     conn,
@@ -177,6 +218,7 @@ def insert_monte_carlo_samples(
 # Cron sentinel helpers
 # ---------------------------------------------------------------------------
 
+
 def record_cron_run(
     conn,
     cron_start: datetime,
@@ -203,14 +245,18 @@ def last_cron_run(conn) -> dict | None:
     if row is None:
         return None
     return {
-        "cron_start": row[0], "cron_end": row[1], "exit_code": row[2],
-        "run_count": row[3], "status": row[4],
+        "cron_start": row[0],
+        "cron_end": row[1],
+        "exit_code": row[2],
+        "run_count": row[3],
+        "status": row[4],
     }
 
 
 # ---------------------------------------------------------------------------
 # Promotion helpers
 # ---------------------------------------------------------------------------
+
 
 def promotion_queue(conn, min_score: float | None = None) -> list[dict]:
     """Return strategies in the promotion queue (go_nogo='go')."""
@@ -230,8 +276,15 @@ def promotion_queue(conn, min_score: float | None = None) -> list[dict]:
                ORDER BY score DESC NULLS LAST"""
         ).fetchall()
     return [
-        {"strategy_name": r[0], "pair": r[1], "timeframe": r[2],
-         "dsr": r[3], "pf": float(r[4]) if r[4] else None,
-         "windows_passed": r[5], "windows_total": r[6], "score": r[7]}
+        {
+            "strategy_name": r[0],
+            "pair": r[1],
+            "timeframe": r[2],
+            "dsr": r[3],
+            "pf": float(r[4]) if r[4] else None,
+            "windows_passed": r[5],
+            "windows_total": r[6],
+            "score": r[7],
+        }
         for r in rows
     ]

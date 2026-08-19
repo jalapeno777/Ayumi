@@ -3,10 +3,9 @@
 Tests that _evaluate_strategies() only passes finalized bars to strategies,
 not the incomplete current-period bar.
 """
-import pytest
+
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock, patch
-from collections import defaultdict
+from unittest.mock import MagicMock
 
 
 def _make_bar(time, open_=1.0, high=1.0, low=1.0, close=1.0, volume=100.0):

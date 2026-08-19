@@ -3,7 +3,7 @@
 > **This document supersedes all prior plan, quest, and roadmap documents.**
 > If any other doc conflicts with this one, this one wins.
 > Decision log: `docs/decisions/decision-log.md`
-> Last updated: 2026-07-13 (rev 3 — post-sweep results)
+> Last updated: 2026-07-22 (rev 4 — strategy factory pivot: portfolio evaluation + regime profiling)
 
 ---
 
@@ -27,39 +27,41 @@ Build and run a profitable automated forex trading bot on the **FTMO 1-Step Stan
 
 ---
 
-## Current State (2026-07-13)
+## Current State (2026-07-22)
 
-### Phase 1A Sweep Results (Jul 13)
+### Jul 22 SRF Re-sweep + Strategy Factory Pivot
 
-Full SRF sweep completed: 8 strategies × 3 pairs × 3 timeframes = 64 runs. Per-window + per-trade data now persisting correctly.
+> **Key insight (Jul 22):** Per-strategy per-window Go/No-Go gates are the wrong abstraction.
+> A strategy with PF=0.8 in chop + PF=2.5 in trends is a valuable blend component.
+> The path forward is regime-aware blending, not per-strategy gates.
 
-| Strategy | Best Result | Verdict |
-|----------|-------------|---------|
-| killzone_momentum | XAUUSD H1: PF=21.5, WR=54%, 2/5 windows | **TUNE** — best candidate |
-| killzone_momentum | XAUUSD M5: PF=5.5, WR=44%, 128 trades | **TUNE** — decent volume |
-| srmr_plus | GBPUSD M5: PF=0.55, WR=26% | **WEAK** — needs trend filter |
-| london_breakout_retest | XAUUSD M5: PF=0.47, WR=27% | **WEAK** — FX is zero-trade |
-| donchian_atr_trend | Best: PF=0.15, WR=22% | **DEPRECATE** — no signal |
-| bb_rsi_reversion | Prior: PF<0.3 | **DEPRECATE** — no signal |
-| volatility_squeeze | 0 trades everywhere | **BUG** — card 269887b8 |
-| volatility_regime_breakout | 0 trades everywhere | **BUG** — needs card |
-| ttc_xauusd | Runs didn't complete | **RE-RUN** — data format issue |
+| Strategy | Best Pair/TF | Mean PF | Mean WR | Status |
+|----------|-------------|---------|---------|--------|
+| killzone_momentum | XAUUSD H1 | 0.93 | 57.5% | Trend-dependent — bleeds in chop |
+| srmr_plus | XAUUSD H1 | 3.96 | 56.7% | Strong but low trade count |
+| srmr_plus | EURUSD M15 | 1.75 | 50.3% | Closest to consistent edge |
+| volatility_regime_breakout | XAUUSD M15 | 3.38 | 58.9% | Real edge, starved for volume |
+| volatility_squeeze (fixed) | XAUUSD M15 | 0.79 | 50.2% | Fixed but no edge |
+| donchian_atr_trend_v2 (NEW) | XAUUSD H1 | 1.97 | 65.8% | Best new candidate |
+| dual_tf_squeeze_pro (NEW) | XAUUSD M15 | N/A | N/A | Too restrictive — 3 signals/5000 bars |
+| ttc_xauusd | XAUUSD M15 | 0.80 | 47.3% | OVERFIT — lookback=10 lifts to PF=1.32 |
+
+**Finding:** All strategies show real edge in trending windows (PF=2-4) but bleed in choppy periods. Portfolio blend evaluation is the correct assessment method.
 
 ### What We Have
 
 **Data Layer:**
 - DuckDB (`ayumi_market.duckdb`, 53GB): 429M ticks, 306M bars
 - Coverage:
-  - EURUSD: M5/M15/H1 ticks (2020-01 → 2026-07) ✅
-  - GBPUSD: M1-M30/H1/H4/D1 (2020-01 → 2026-07) ✅ (confirmed current Jul 13)
-  - XAUUSD: M5/M15/H1 ticks (2022-01 → 2026-07) ✅
-  - USDJPY: ❌ NO DATA (Docker harvest produced 1 smoke-test file with flat M1 bars — not real tick data. No harvester currently running.)
-- Research DB (`research.duckdb`): 8 strategies, 64+ walk-forward runs with per-window/trade persistence
+  - EURUSD: M5/M15/H1/H4/D1 ✅ (2020-01 → 2026-07)
+  - GBPUSD: M5/M15/H1/H4/D1 ✅ (2020-01 → 2026-07)
+  - XAUUSD: M5/M15/H1/H4/D1 ✅ (2022-01 → 2026-07)
+  - USDJPY: ❌ NO DATA (smoke test only — 120 H1 bars)
 
-**Strategies (16 built, 8 with edge docs + SRF runs):**
-- Tier 1 (validated): `volatility_regime_breakout` (27 runs), `volatility_squeeze` (27 runs), `srmr_plus` (25 runs), `ttc_xauusd` (21 runs), `killzone_momentum` (17 runs)
-- Tier 2 (initial runs): `bb_rsi_reversion` (9), `donchian_atr_trend` (9), `london_breakout_retest` (9)
-- Tier 3 (built, no SRF): `momentum`, `mtf_filtered_momentum`, `rsi_threshold`, `session_breakout`, `session_range_mean_reversion`, `session_range_mr_ict_filtered`, `dual_tf_squeeze_pro`
+**Strategies (18 built, 10 with SRF runs as of Jul 22):**
+- Active candidates: `killzone_momentum`, `srmr_plus`, `volatility_regime_breakout` (fixed), `volatility_squeeze` (fixed), `donchian_atr_trend_v2` (NEW), `dual_tf_squeeze_pro` (NEW), `ttc_xauusd` (tunable)
+- Deprecated: `bb_rsi_reversion` (PF<0.3), `donchian_atr_trend` v1 (PF<0.15), `london_breakout_retest` (FX zero-trade)
+- Tier 3 (built, no SRF): `momentum`, `mtf_filtered_momentum`, `rsi_threshold`, `session_breakout`, `session_range_mean_reversion`, `session_range_mr_ict_filtered`
 
 **Infrastructure:**
 - cTrader order chain proven (Jun 25, 2026)
@@ -67,114 +69,172 @@ Full SRF sweep completed: 8 strategies × 3 pairs × 3 timeframes = 64 runs. Per
 - Risk engine: position sizing, kill switch, FTMO guard, daily audit
 - SRF framework: walk-forward, Monte Carlo, PBO, parameter stability
 - Quant: bootstrap CIs, multiple testing correction, ICIR, OOS gate
+- Regime detector: ATR/ADX-based with conditional allocation (commit 615bf3a, Jul 21)
+- ML: confidence_learner (RandomForest), blend_optimizer (Optuna), per_symbol_configs
 
 ### What's Missing
 
 | Gap | Impact |
 |-----|--------|
 | No USDJPY data | Can't trade USDJPY (target pair) |
-| GBPUSD data stale (Apr 2025) | Can't validate GBPUSD strategies |
-| ~~No canonical test runbook~~ | ✅ Fixed — see roadmap Test Runbook section |
-| ~~No data pipeline runbook~~ | ✅ Fixed — see `docs/runbooks/data-pipeline.md` |
 | No final strategy blend selected | Can't launch forward test |
 | Portfolio blend driver not wired | Can't run multi-strategy forward test |
 | FTMO trailing guard not implemented | Risk of breaching max loss |
-| No M3 timeframe data | Some strategies may need it |
 | No news blackout | Risk of trading into volatility spikes |
+| Regime detector not wired | Can't gate strategies by market state |
 | No CI/CD | No automated test runs on push |
 
 ---
 
 ## Phase Plan: Now → FTMO Challenge
 
-### Phase 0: Data Completeness (in progress)
-> Goal: Fill data gaps so all target pairs have complete coverage.
+### Phase 0: Data Completeness (partially complete — expansion planned)
+> Goal: Fill data gaps for existing pairs AND plan new symbols for blend diversification.
 
-- [ ] **0.1** Download USDJPY tick data (Dukascopy Docker SDK, 2020-01 → present) — *in progress*
-- [x] **0.2** ~~Update GBPUSD data~~ — confirmed current (Jul 2026), no update needed
+- [ ] **0.1** Download USDJPY tick data (Dukascopy Docker SDK, 2020-01 → present)
+- [x] **0.2** ~~Update GBPUSD data~~ — confirmed current (Jul 2026)
 - [ ] **0.3** Aggregate ticks → bars for USDJPY (M5, M15, H1, H4, D1)
 - [ ] **0.4** Validate data quality (gap analysis, tick density, spread sanity)
 - [ ] **0.5** Download Dukascopy crisis period data (2020-03 COVID, 2022-02 Ukraine) for stress testing
+- [ ] **0.6** Expand symbol coverage for blend diversification (post-FTMO baseline):
+  - Priority candidates: AUDUSD, USDCHF, NZDUSD (carry-trade diversification)
+  - DXY (dollar index, inverse correlation), Brent crude
+  - Crypto (via Cabal pipeline): BTCUSD, ETHUSD
 
-**Data pipeline runbook:** `docs/runbooks/data-pipeline.md` (Docker SDK commands, JNLP troubleshooting, import/aggregation/validation)
+**Data pipeline runbook:** `docs/runbooks/data-pipeline.md`
 
-**Target pairs:** EURUSD, GBPUSD, USDJPY, XAUUSD
+**Target pairs (immediate):** EURUSD, GBPUSD, USDJPY, XAUUSD
+**Target pairs (expansion):** AUDUSD, USDCHF, DXY, BTCUSD
 **Target timeframes:** M5, M15, H1, H4, D1
 
-### Phase 1: Strategy Factory + Validation (5-7 days) — *Phase 1A sweep complete, tuning next*
-> Goal: Apply strategy tuning research, build confidence engine, select final 3-5 strategy blend.
+### Phase 1: Strategy Factory → Portfolio Blend (rev 4 — Jul 22 pivot)
+> Goal: Profile each strategy by regime, select complementary blend, validate FTMO viability.
+>
+> **Key insight (Jul 22):** Per-strategy Go/No-Go gates are the wrong abstraction.
+> A strategy with PF=0.8 in chop + PF=2.5 in trends is a valuable blend component.
+> Evaluate the PORTFOLIO, not the individual.
 
-#### 1A: Strategy Tuning (from `docs/research/strategy-optimization-research.md`)
+#### 1A: Strategy Repair + New Builds — ✅ COMPLETE (Jul 22)
 
-- [x] **1A.1** ~~Investigate ttc_xauusd anomaly~~ — SKIPPED. Research doc reported PF=8 but actual SRF data shows PF=2.25, WR=47.3%. No anomaly exists. (Decision D-008)
-- [ ] **1A.2** Fix `volatility_squeeze` zero-trade bug — carded as `269887b8`
-  - Confirmed: 0 trades across ALL 9 pair/TF combinations. Code "fix" (card 453dac89) never worked.
-  - Debug: Are BB/KC bands correct? Is `in_squeeze` ever True? Is `squeeze_just_released` ever True?
-  - Fix detection logic, re-run SRF on XAUUSD M15 to verify >0 trades
-  - Also check if same bug affects volatility_regime_breakout
-- [ ] **1A.3** Fix `volatility_regime_breakout` zero-trade bug — same pattern as 1A.2
-  - Confirmed: 0 trades across ALL 9 pair/TF combinations. Needs its own card.
-  - Setup/breakout split was implemented but may not be triggering.
-- [ ] **1A.4** Tune `killzone_momentum` — **BEST CANDIDATE**
-  - Sweep results: XAUUSD H1 PF=21.5, WR=54%, 2/5 windows passed (standout)
-  - XAUUSD M5 PF=5.5, WR=44%, 128 trades (decent volume)
-  - FX pairs all weak (PF<0.15) — focus tuning on XAUUSD only
-  - Per-pair/per-timeframe presets (M5 vs H1)
-  - `min_session_range_pips`: 12→8 (FX H1) / 25 (XAUUSD M5)
-  - `retest_tolerance_atr`: 0.5→1.0, `adx_threshold`: 20→15
-- [ ] **1A.5** Tune `srmr_plus` (sweep: GBPUSD PF=0.3-0.55, WR=16-26% — confirmed weak)
-  - `rsi_long/short`: 35/65→30/70, `adx_max`: 25→20
-  - Add trend exhaustion filter, minimum bars since range extreme touch
-- [ ] **1A.6** Deprecate `bb_rsi_reversion` (PF<0.3 across all pairs) and `donchian_atr_trend` (PF<0.15 everywhere)
-  - Donchian: 9 runs completed, PF ranges 0.00-0.15, WR 0-23%. No signal.
-  - BB RSI: runs didn't complete (data format issue), but prior runs showed PF<0.3
-- [ ] **1A.7** Verify `london_breakout_retest` — partial results: 0 trades on FX, some on XAUUSD (PF=0.08-0.47). Likely deprecate for FX, may have signal on XAUUSD.
+- [x] **1A.1** ttc_xauusd — OVERFIT verdict (Jul 22). PF=8 was research doc misattribution. Actual PF=0.80, WR=47.3%. Tunable: lookback 5→10 lifts PF to 1.32.
+- [x] **1A.2** Fix `volatility_squeeze` zero-trade bug — FIXED (commit 788c82b). adx_min 20→15, any_release mode, rsi_period separated.
+- [x] **1A.3** Fix `volatility_regime_breakout` zero-trade bug — FIXED (commit 1874099). vol_expansion_ratio=1.5 trigger added.
+- [x] **1A.4** killzone_momentum — M15 PF=0.97, H1 PF=0.93. Previous PF=21.5 was single-window anomaly. Trend-dependent, not independently viable.
+- [x] **1A.5** srmr_plus — Tuning applied. PF=1.75 EURUSD M15, PF=3.96 XAUUSD H1 but inconsistent.
+- [x] **1A.6** Deprecated `bb_rsi_reversion`, `donchian_atr_trend` v1.
+- [x] **1A.7** `london_breakout_retest` — REVIVED Jul 22: PF=3.98 zero-cost, **PF=2.07 under FTMO realistic costs**, 7.3 trades/year on XAUUSD M15, 80% WR. Robust under 5x slippage stress. Recommended blend gate: ADX[15,30] + LONDON session. (Previously marked deprecated — that was for FX; XAUUSD performance is strong.)
+- [x] **1A.8** Build B.1 Donchian ATR Trailing Trend v2 (commit 0a89e37) — 22 tests, 144 trades smoke, PF=1.57
+- [x] **1A.9** Build B.2 Dual-TF Squeeze Pro (commit b514b0a) — 16 tests. Too restrictive (3 signals/5000 bars). Needs gate relaxation.
+- [x] **1A.10** Raise `MIN_TRADES_PER_WINDOW` 15→20 (commit f4d8ee2)
 
-#### 1B: Confidence Engine Build
+#### 1B: Strategy Regime Profiling — NEXT
+> Goal: Understand WHEN each strategy wins and loses. Build a characterization matrix.
 
-The confidence engine determines position sizing and trade gating. Two layers:
+- [ ] **1B.1** Profile each strategy by regime (TRENDING/CHOPPY/VOLATILE/QUIET) using regime detector
+  - Per-regime: PF, WR, trade count, DD profile, streak patterns
+  - Per-session: Asia/London/NY performance breakdown
+  - Per-timeframe: M15 vs H1 comparison
+  - Output: `docs/research/strategy-profiles/` — one doc per strategy
+- [ ] **1B.2** Compute pairwise correlation of strategy equity curves
+  - Identify complementary pairs (low correlation = good diversification)
+  - Identify redundant pairs (high correlation = pick one)
+- [ ] **1B.3** Identify regime gaps — which regimes have NO winning strategy?
+  - If chop has no winner → need a mean-reversion or range strategy
+  - If volatile has no winner → need a breakout-volatility strategy
+- [ ] **1B.4** Build B.3 London Breakout Retest (XAUUSD-tuned) — deferred until profile gaps identified
 
-**Layer 1 — Strategy Confidence (existing, `src/forex-bot/confidence/`):**
+#### 1C: Confidence Enhancement
+> Goal: Layer indicators and gates to improve signal quality.
+
+**Layer 1 — Strategy Confidence** (`src/forex-bot/confidence/`):
 - Multi-layer scoring: Strategy Score → Confluence Boost → Gate Validator → Final Score
 - Gates: SpreadGate, SessionGate, VolatilityGate
-- Confluence detection: multi-strategy agreement scoring
-- Gate tuner: learns optimal thresholds from historical trades
-- ML confidence learner: RandomForest per (symbol, timeframe) learning feature importances
-- **Status:** Built but needs wiring to blend driver and forward test launcher
+- ML confidence learner: RandomForest per (symbol, timeframe)
+- **Status:** Built, needs wiring to blend driver
 
-**Layer 2 — Signal Confidence Engine (spec at `docs/forex/signal_confidence_engine.md` v2.3):**
-- TTC/TBD confluence framework — the full trading methodology
-- 8-stage pipeline: Swing Detection → Level Counting → HTF Context → Pattern Detection → Gate Validation → Confluence Scoring → Confidence Calculation → Signal Output
-- Components: M/W 11-point validation, SVC detection, trap detection, Asia liquidity grab, ILOD/IHOD, Flight Log strategies (FL-001 through FL-006)
-- Scoring: 0.0-1.0 confidence with gates (hard requirements) + boosters (confluence factors)
-- Session logic: Asia/London/NY sessions, kill zones, weekly structural model
-- Stop/target: cover-the-vector, partial exits, 200 EMA reassessment
-- **Status:** Design complete (v2.3, 14 reviews). Implementation partial — swing_detector, level_counter, htf_analyzer, pattern_detector, gate_validator, confluence_scorer, session_logic, stop_target, signal_output exist in `signal_engine/` but need integration with confidence engine
+**Layer 2 — Regime-Aware Gating (NEW — Jul 22):**
+- Wire regime detector (`regime/detector.py`) as a signal gate
+  - Shadow mode first: log regime classification per signal, don't gate
+  - Analysis: does filtering CHOPPY/QUIET signals improve per-strategy PF?
+  - If yes → activate as live gate with bypass flag
+- Per-strategy regime affinity: assign each strategy its best-performing regimes
+  - e.g., Donchian ATR → only fire in TRENDING; SRMR+ → only fire in CHOPPY
 
-- [ ] **1B.1** Audit existing `signal_engine/` modules against v2.3 spec — identify gaps
-- [ ] **1B.2** Wire confidence engine (`confidence/`) to consume signal_engine output (`signal_engine/`)
-- [ ] **1B.3** Implement confidence → position sizing mapping (≥0.65 full, 0.50-0.64 half, 0.40-0.49 quarter, <0.40 no trade)
-- [ ] **1B.4** Wire ML confidence learner to blend driver (per-symbol/per-timeframe weight adjustment)
-- [ ] **1B.5** Calibrate gate thresholds using historical trade data (gate_tuner.py)
-- [ ] **1B.6** Backtest confidence engine: does higher confidence → higher win rate?
+**Layer 3 — Signal Confidence Engine (spec v2.3):**
+- TTC/TBD confluence framework — 8-stage pipeline
+- Status: Design complete, modules exist in `signal_engine/`, need integration
+- Lower priority than Layer 2 for near-term FTMO push
 
-#### 1C: Walk-Forward Validation
+- [ ] **1C.1** Wire regime detector in shadow mode — log classification per signal
+- [ ] **1C.2** Analyze: does regime filtering improve signal quality?
+- [ ] **1C.3** If yes → implement per-strategy regime affinity gates
+- [ ] **1C.4** Wire ML confidence learner to blend driver
+- [ ] **1C.5** Calibrate gate thresholds using historical trade data
+- [ ] **1C.6** Audit signal_engine/ modules against v2.3 spec (deferred to post-FTMO)
 
-- [ ] **1C.1** Run SRF walk-forward for all strategies across 4 pairs × available history
-  - FX H1: 3 windows (17k bars / 5 = too few test bars)
-  - XAUUSD M15: 5 windows (74k bars, ample)
-  - FX M15: 5-7 windows (when data available)
-- [ ] **1C.2** Raise `min_trades_per_window`: 15→20 (H1) / 30 (M15/M5)
-- [ ] **1C.3** Implement anchored walk-forward as secondary diagnostic
-- [ ] **1C.4** Run Monte Carlo on top performers (1,000 simulations min)
-- [ ] **1C.5** Run PBO (Probability of Backtest Overfitting) on each strategy
-- [ ] **1C.6** Run multiple testing correction (Bonferroni/Holm) across strategy set
-- [ ] **1C.7** Generate correlation matrix of strategy returns (exclude >0.7 correlated)
-- [ ] **1C.8** Score each strategy: OOS Sharpe, max DD, profit factor, PBO, ICIR, calibration
-- [ ] **1C.9** Select final blend: 3-5 strategies, diversified across pairs/timeframes
-- [ ] **1C.10** Document selection rationale in `docs/decisions/strategy-blend-selection.md`
+#### 1D: Blend Selection + Validation
+> Goal: Select complementary strategies, validate the PORTFOLIO meets FTMO criteria.
 
-**Gate:** Blend selected + confidence engine wired → Phase 2. If no strategy passes, go back to strategy development.
+- [ ] **1D.1** Run portfolio blend backtest with all profiled strategies
+  - Combined equity curve across full data
+  - FTMO viability: overall PF > 1.0, max DD < 10%, daily DD < 5%
+  - Profit target: does cumulative P&L reach +10%?
+- [ ] **1D.2** Use ML blend_optimizer to search strategy weight combinations
+  - Optuna sweep: which strategies, what weights, what regime filters
+- [ ] **1D.3** Run Monte Carlo on blended equity curve (1,000 simulations)
+- [ ] **1D.4** Run PBO on blend parameters
+- [ ] **1D.5** Walk-forward validate the SELECTED BLEND (not individual strategies)
+- [ ] **1D.6** Document blend selection rationale in `docs/decisions/strategy-blend-selection.md`
+
+**Trade Volume Gate (Craig directive Jul 22):** Blend must average ≥1 trade/day (~250/year) before FTMO challenge start. Current blend produces ~38/year. 7x gap requires symbol + strategy + confidence expansion.
+
+**Gate:** Blend backtest passes FTMO sim (PF > 1.0, max DD < 10%, daily DD < 5%, ≥250 trades/year) → Phase 2.
+
+#### 1E: Strategy Factory Sprint (Jul 22 — 17:38 to 21:55 EDT)
+> Goal: Discover + validate high-edge strategies to expand the blend.
+> 4-hour work block. Owner directive (Craig): keep working autonomously, find things that move toward FTMO viability.
+
+**Outcomes:**
+
+- [x] **1E.1** London Breakout Retest validated end-to-end on XAUUSD M15. Cost-stress tested at 5 levels. Robust strategy. Wired into `scripts/launch_blend_forward_test.py` as 5th strategy. Files: `tests/strategies/test_london_breakout_retest.py`, `scripts/test_lbo_gated.py`, `scripts/lbo_cost_stress.py`, `docs/research/strategy-profiles/london_breakout_retest_2026-07-22.md`.
+
+- [x] **1E.2** **Bug #4 FIXED**: `RegimeDetector.detect_current()` returns only TRENDING/CHOPPY when called on 60-bar windows. The detector needs ≥100-bar windows (`atr_lookback=50` + `adx_period=14` warmup) to classify VOLATILE/QUIET. All prior cached labels were missing QUIET/VOLATILE bars. **This invalidated much of the prior session's confidence in the gated blend** — see debt cards for re-validation requirements.
+
+- [x] **1E.3** **Bug #3 FIXED**: `SRMRPlusConfig()` defaults to `symbol=None`, raises ValueError on `.evaluate()`. All prior SRMR+ calls were silently failing. Fixed in `scripts/gate_loosening_study.py`, `scripts/run_blend_5strat.py`, and `scripts/launch_blend_forward_test.py`.
+
+- [x] **1E.4** **Bug #1 FIXED**: pandas Series `[-1]` is label-based, returns KeyError on RangeIndex. ADX precompute was storing 0 for all bars via silent `except: pass`. Fixed to `Series.iloc[-1]`.
+
+- [x] **1E.5** **Bug #2 FIXED**: `timestamp_utc` column has mixed scales (sec for most symbols, ms for GBPUSD M1). Auto-detect via `value > 1e12`. Fixed in all loaders.
+
+- [x] **1E.6** Gate loosening study re-run with corrected cache. **Result inverts prior finding**: SRMR+ baseline is genuinely profitable (71 trades, PF=1.29, +$333, DD=3%, WR=68%) — QUIET-only regime filter is load-bearing, not arbitrary. Adding CHOPPY to SRMR+ regime destroys edge (PF 1.29 → 0.84).
+
+- [x] **1E.7** 5-strategy blend backtest written (`scripts/run_blend_5strat.py`). **Disagreement with original 4-strategy validation surfaced a position-management model mismatch** — needs reconciliation before trust is restored in blend numbers.
+
+**Bug-Cache Validation Delta (with corrected 100-bar precompute):**
+
+| Strategy | Original Cache | Corrected Cache | Implication |
+|---|---|---|---|
+| killzone_momentum | 81 trades, PF=1.235 | 73 trades, PF=0.943 | Slightly negative when full regime data exposed. adx_[15,30] loosening rescues (125 trades, PF=1.178). |
+| srmr_plus (QUIET+LONDON) | 0 trades (silent crash) | 71 trades, PF=1.29 | Hidden edge — was crashing all along |
+| dual_tf_squeeze_pro | 17 trades, PF=1.467 | 11 trades, PF=1.083 | Lower volume but still positive |
+| donchian_atr_trend_v2 (H1) | 456 trades, PF=0.992 | 275 trades, PF=1.029 | Slightly positive at baseline; loosening destroys |
+
+**LBO Cost-Stress (final, validates strategy):**
+
+| Cost Scenario | PF | Net | DD | WR |
+|---|---:|---:|---:|---:|
+| Zero cost | 3.977 | $325 | 1.00% | 80.0% |
+| **Realistic FTMO (2.5p + $3.5 + 0.2slip)** | **2.068** | **$159** | **1.28%** | **80.0%** |
+| Worst case (5p + 1p slip) | 1.977 | $148 | 1.30% | 80.0% |
+
+**Conclusions:**
+1. **LBO is a real edge** — confirmed by cost-stress across 5 scenarios.
+2. **Regime gates are load-bearing**, not arbitrary. Don't loosen SRMR+ beyond QUIET.
+3. **The 250/day target is unrealistic** with retail strategies on XAUUSD. Realistic FTMO target: 50-150 trades/year.
+4. **The original 4-strategy gated blend result (PF=1.74) is suspect** — needs re-validation against corrected cache.
+5. **Cache fix is the highest-impact change** of the sprint.
+
+**See:** `docs/research/strategy-profiles/consolidated_findings_2026-07-22.md` for full details.
 
 ### Phase 2: Blend Engine + Risk Wiring (2-3 days)
 > Goal: Wire the selected blend into a single executable forward-test system.
@@ -201,11 +261,6 @@ The confidence engine determines position sizing and trade gating. Two layers:
 
 ### Phase 3: cTrader Demo Validation (1-2 weeks)
 > Goal: Validate the blend on a cTrader demo account — simultaneously testing strategy performance AND technical execution path.
->
-> This is NOT local paper trading. Signals execute through the same cTrader order chain
-> that the FTMO challenge will use. This validates: signal generation → confidence gating →
-> position sizing → order submission → TP/SL management → risk guard enforcement →
-> daily audit — the full production path.
 
 - [ ] **3.1** Deploy blend to cTrader demo account with forward test launcher v2
 - [ ] **3.2** Verify confidence engine gates signals correctly (no trades <0.40 confidence)
@@ -244,55 +299,52 @@ The confidence engine determines position sizing and trade gating. Two layers:
 
 ## Strategy Factory
 
-The strategy factory is the system for developing, tuning, validating, and selecting strategies. It integrates three components:
+The strategy factory is the system for developing, profiling, and blending strategies. It integrates four components:
 
 ### 1. Strategy Research Framework (SRF)
 
 Location: `src/forex-bot/srf/`
 
 - Walk-forward runner with rolling and anchored modes
-- Go/No-Go gate: PF≥1.3, ≥20 trades/window (H1) / ≥30 (M15/M5), ≥3/5 windows passed
+- Go/No-Go gate (per-strategy, used for initial screening only — portfolio evaluation is the real gate)
 - Monte Carlo simulation (1,000+ runs per strategy)
 - PBO (Probability of Backtest Overfitting)
 - Parameter stability analysis
 - Per-window + per-trade persistence to research.duckdb
 
-### 2. Strategy Tuning Research
+### 2. Regime Detector (NEW — Jul 21)
 
-Canonical doc: `docs/research/strategy-optimization-research.md` (Jul 12, 2026)
+Location: `src/forex-bot/regime/detector.py`
 
-Key findings applied in Phase 1A:
-- `ttc_xauusd`: PF=8 flagged as likely overfit — investigate before tuning
-- `volatility_squeeze`: ADX>=20 in squeeze condition is contradictory — fix to 15
-- `volatility_regime_breakout`: low-vol + trend = logical contradiction — refactor to expansion trigger
-- `killzone_momentum`: high PF (2.06) but low trade count — per-pair presets needed
-- `srmr_plus`: low WR (17-23%) — needs trend exhaustion filter
-- `bb_rsi_reversion`: PF<0.3 — deprecate or rebuild
-- Window sizing: 3 windows for FX H1 (17k bars), 5 for XAUUSD M15 (74k bars)
-- `min_trades_per_window`: raise from 15 to 20 (H1) / 30 (M15/M5)
-- New strategies built: `donchian_atr_trend`, `dual_tf_squeeze_pro`, `london_breakout_retest`
+- ATR/ADX-based market regime classification
+- Four regimes: TRENDING (ADX>25), CHOPPY (ADX<20), VOLATILE (ATR pct>80%), QUIET (ATR pct<20%)
+- Conditional allocation guidance per regime (size multiplier, max positions, preferred strategy types)
+- **Status:** Built (commit 615bf3a), not yet wired as signal gate
 
-### 3. Confidence Engine
+### 3. ML Pipeline
 
-The confidence engine is the bridge between raw strategy signals and position sizing. Two layers:
+Location: `src/forex-bot/ml/`
+
+- `confidence_learner.py` — RandomForest per (symbol, timeframe) predicting win probability
+- `blend_optimizer.py` — Optuna-based search over strategy combinations and weights
+- `per_symbol_configs.py` — Optuna-tuned base confidence, KZ penalty, HTF penalty per pair
+- `optuna_optimizer.py` — Parameter tuning sweeps
+- `features.py` — Feature engineering pipeline
+- **Status:** Built, needs wiring to blend driver
+
+### 4. Confidence Engine
 
 **Layer 1 — Strategy Confidence** (`src/forex-bot/confidence/`):
 - Multi-layer: Strategy Score → Confluence Boost → Gate Validator → Final Score (0.0-1.0)
 - Gates: SpreadGate, SessionGate, VolatilityGate
-- Confluence: multi-strategy agreement detection
-- Gate tuner: learns optimal thresholds from historical trade data
-- ML confidence learner: RandomForest per (symbol, TF) learning feature importances
 - Position sizing mapping: ≥0.65 full, 0.50-0.64 half, 0.40-0.49 quarter, <0.40 no trade
 
 **Layer 2 — Signal Confidence Engine** (spec: `docs/forex/signal_confidence_engine.md` v2.3):
-- TTC/TBD confluence framework — the full trading methodology
-- 8-stage pipeline: Swing Detection → Level Counting → HTF Context → Pattern Detection → Gate Validation → Confluence Scoring → Confidence Calculation → Signal Output
-- Pattern detection: M/W 11-point validation, SVC, traps, Asia liquidity grab, ILOD/IHOD, FL-001 through FL-006
-- Session logic: Asia/London/NY kill zones, weekly structural model (Monday fake, Tuesday trend, Wednesday reversal)
-- Stop/target: cover-the-vector, partial exits, 200 EMA reassessment, 3:1 minimum R:R gate
-- Implementation: modules exist in `signal_engine/` — need integration with Layer 1 confidence engine
+- TTC/TBD confluence framework — 8-stage pipeline
+- Implementation: modules exist in `signal_engine/`, need integration
+- Deferred to post-FTMO (Layer 2 regime gating is higher priority)
 
-**Integration path:** signal_engine produces structured signal JSON → confidence engine consumes it → applies gates → calculates final confidence → maps to position size → passes to blend driver / forward test launcher
+**Integration path:** strategies → regime detector (gate) → confidence engine (score) → blend driver (weight) → position sizer → forward test launcher
 
 ---
 
@@ -302,7 +354,7 @@ The confidence engine is the bridge between raw strategy signals and position si
 
 ```
 1. Download ticks (Dukascopy)
-   ~~scripts/download_dukascopy.py~~ — DELETED. Use Docker SDK harvester only.
+   Use Docker SDK harvester only.
    See `docs/runbooks/data-pipeline.md` for exact commands.
 
 2. Import ticks to DuckDB
@@ -350,14 +402,6 @@ source .venv/bin/activate
 python3 -m pytest tests/ -q --timeout=30 -m "not live"
 ```
 
-### SRF Walk-Forward (when validating strategies)
-```bash
-source .venv/bin/activate
-python3 -m pytest tests/unit/srf/ -q -x
-# Or run a specific strategy:
-python3 -m src.forex-bot.srf.runner --strategy srmr_plus --pair EURUSD --start 2020-01-01 --end 2026-07-01
-```
-
 ### What NOT to run
 - Never run bare `pytest tests/` during development — use targeted scope
 - Never run `tests/e2e/test_live_*.py` without `--live` flag and explicit reason
@@ -365,70 +409,17 @@ python3 -m src.forex-bot.srf.runner --strategy srmr_plus --pair EURUSD --start 2
 
 ---
 
-## Repo Structure (Cleaned 2026-07-13)
+## Canonical Reference Docs
 
-```
-Ayumi/
-├── src/forex-bot/          # Main codebase (300 files)
-│   ├── adapters/           # cTrader, Open API
-│   ├── analytics/          # Regime, correlation, session, patterns
-│   ├── backtest/           # Engine, walk-forward, portfolio blend, FTMO guard
-│   ├── common/             # Shared utilities
-│   ├── config/             # Configuration
-│   ├── core/               # Engine core, types, indicators
-│   ├── data/               # Data layer
-│   ├── engine/             # Signal engine
-│   ├── forward_test/      # Forward test infrastructure
-│   ├── ml/                 # ML pipeline
-│   ├── quant/              # Quant analysis (ICIR, OOS, calibration, DSR)
-│   ├── risk/               # Risk engine, FTMO guard, kill switch
-│   ├── signal_engine/      # Signal generation and routing
-│   ├── srf/                # Strategy Research Framework
-│   └── strategies/         # 16 strategy implementations
-├── tests/                  # 5,800+ tests
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   ├── strategies/
-│   └── regression/
-├── scripts/                # Pipeline scripts (to be cleaned further)
-├── docs/                   # Documentation
-│   ├── audits/             # This inventory + audits
-│   ├── decisions/          # Decision records
-│   ├── edges/              # Strategy edge hypotheses
-│   ├── plans/              # (legacy — superseded by this roadmap)
-│   ├── research/           # Research docs
-│   └── runbooks/           # Operational runbooks
-├── data/                   # DuckDB + SQLite + Parquet
-├── reports/                # Backtest reports
-├── config/                 # Config files
-├── pytest.ini
-├── ruff.toml
-├── requirements.txt
-└── TOOLS.md
-```
-
----
-
-## Superseded Documents
-
-All prior plan, quest, and sprint docs have been moved to `docs/_archive/`.
-These are **historical reference only** — do not use as source of truth.
-
-**Canonical reference docs (still live):**
 - `docs/decisions/decision-log.md` — All major decisions with rationale
-- `docs/research/strategy-optimization-research.md` — Strategy tuning research (feeds Phase 1A)
+- `docs/research/strategy-optimization-research.md` — Strategy tuning research
 - `docs/research/ftmo-risk-and-port-sizing-2026-07.md` — FTMO risk rules detail
 - `docs/research/icir-research-2026-07-08.md` — ICIR research
 - `docs/research/oos-gate-research-2026-07-08.md` — OOS gate research
-- `docs/specs/signal-confidence-engine-v2.3.md` — Confidence engine spec (feeds Phase 1B)
-- `docs/edges/*.md` — Strategy edge hypotheses (8 files)
-- `docs/audits/*.md` — Audit findings
+- `docs/specs/signal-confidence-engine-v2.3.md` — Confidence engine spec
+- `docs/edges/*.md` — Strategy edge hypotheses
 - `docs/runbooks/data-pipeline.md` — Data pipeline runbook
 - `docs/runbooks/backtesting-strategy.md` — Backtesting runbook
-
-**Card `7843e2e5`** tracks harvesting any remaining useful content from archived
-docs before they're eventually deleted.
 
 ---
 

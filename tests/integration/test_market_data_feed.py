@@ -7,7 +7,6 @@ protobuf or network required.
 from __future__ import annotations
 
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -17,6 +16,7 @@ from adapters.ctrader.protocols import Bar, Tick
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def ts(minute: int, second: int = 0) -> datetime:
     """Create a UTC timestamp on 2026-06-16 at the given minute/second."""
@@ -83,8 +83,9 @@ class TestMarketDataFeed:
 
         # Ticks within the 14:00 hour
         for m in range(0, 60, 5):
-            feed.on_spot_event(SYM_ID, 1.26500 + m * 0.00010,
-                               1.26510 + m * 0.00010, ts(m))
+            feed.on_spot_event(
+                SYM_ID, 1.26500 + m * 0.00010, 1.26510 + m * 0.00010, ts(m)
+            )
 
         # No bar should have closed yet — all within same period
         assert len(closed_bars) == 0
@@ -139,8 +140,7 @@ class TestMarketDataFeed:
         base = ts_at(14, 0)
 
         for i in range(100):
-            feed.on_spot_event(SYM_ID, 1.26500, 1.26510,
-                               base + timedelta(seconds=i))
+            feed.on_spot_event(SYM_ID, 1.26500, 1.26510, base + timedelta(seconds=i))
 
         assert feed.ticks_received == 100
 
@@ -182,7 +182,9 @@ class TestMarketDataFeed:
                     bid = 1.26000 + (thread_id * 0.001) + (i * 0.00001)
                     ask = bid + 0.00010
                     feed.on_spot_event(
-                        SYM_ID, bid, ask,
+                        SYM_ID,
+                        bid,
+                        ask,
                         ts_at(14, 0, (thread_id * 100 + i) % 60),
                     )
             except Exception as exc:

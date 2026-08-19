@@ -2,19 +2,23 @@
 
 All tests construct SymbolInfo objects directly — no cTrader connection required.
 """
+
 import sys
 import os
 
 import pytest
 
 # Ensure src/forex-bot is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
+)
 
 from adapters.ctrader.market_data_feed import SymbolInfo
 from adapters.ctrader.volume_calculator import VolumeCalculator
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def symbols():
@@ -54,6 +58,7 @@ def calc(symbols):
 
 # ── Lots ↔ Volume conversion ────────────────────────────────────────────────
 
+
 def test_forex_lots_to_volume(calc):
     """1. EURUSD 1.0 lot → 100 000 raw volume."""
     assert calc.lots_to_volume(1, 1.0) == 100_000
@@ -76,12 +81,15 @@ def test_crypto_volume_to_lots(calc):
 
 # ── Round-trip ──────────────────────────────────────────────────────────────
 
+
 def test_round_trip_forex(calc):
     """5. Round-trip lots→volume→lots for forex is identity."""
     for lots in [0.01, 0.1, 0.5, 1.0, 2.5]:
         vol = calc.lots_to_volume(1, lots)
         back = calc.volume_to_lots(1, vol)
-        assert back == pytest.approx(lots, abs=1e-9), f"Round-trip failed for {lots} lots"
+        assert back == pytest.approx(lots, abs=1e-9), (
+            f"Round-trip failed for {lots} lots"
+        )
 
 
 def test_round_trip_crypto(calc):
@@ -89,10 +97,13 @@ def test_round_trip_crypto(calc):
     for lots in [0.01, 1.0, 10.0]:
         vol = calc.lots_to_volume(2, lots)
         back = calc.volume_to_lots(2, vol)
-        assert back == pytest.approx(lots, abs=1e-9), f"Round-trip failed for {lots} lots"
+        assert back == pytest.approx(lots, abs=1e-9), (
+            f"Round-trip failed for {lots} lots"
+        )
 
 
 # ── Volume validation ───────────────────────────────────────────────────────
+
 
 def test_validate_below_min(calc):
     """7. Volume below min_volume → (False, reason contains 'min')."""
@@ -125,6 +136,7 @@ def test_validate_ok(calc):
 
 # ── Price decoding ──────────────────────────────────────────────────────────
 
+
 def test_price_forex_5digit(calc):
     """11. EURUSD digits=5, raw 109450 → 1.09450."""
     assert calc.price_from_raw(1, 109_450) == pytest.approx(1.09450)
@@ -142,6 +154,7 @@ def test_price_jpy_3digit(calc):
 
 # ── Error / fallback handling ───────────────────────────────────────────────
 
+
 def test_unknown_symbol_lots(calc):
     """14. Unknown symbol_id on lots_to_volume → ValueError."""
     with pytest.raises(ValueError, match="Unknown symbol_id"):
@@ -155,6 +168,7 @@ def test_unknown_symbol_price(calc):
 
 
 # ── Defaults ────────────────────────────────────────────────────────────────
+
 
 def test_default_lot_size():
     """16. SymbolInfo default lot_size is 100_000."""

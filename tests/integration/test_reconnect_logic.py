@@ -12,7 +12,6 @@ monkeypatching of time.monotonic / datetime.now.
 from __future__ import annotations
 
 import sys
-import threading
 import time
 import types
 import unittest
@@ -43,37 +42,63 @@ def _ctrader_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "ctrader_open_api.messages", msgs_pkg)
 
     pb_mod = types.ModuleType("ctrader_open_api.protobuf")
+
     class _Pb:
         @staticmethod
         def extract(msg):
             return msg
+
     pb_mod.Protobuf = _Pb
     monkeypatch.setitem(sys.modules, "ctrader_open_api.protobuf", pb_mod)
 
     msgs_mod = types.ModuleType("ctrader_open_api.messages.OpenApiMessages_pb2")
     for _name in [
-        "ProtoOASymbolsListReq", "ProtoOASubscribeSpotsReq",
-        "ProtoOAUnsubscribeSpotsReq", "ProtoOASymbolByIdReq",
-        "ProtoOANewOrderReq", "ProtoOAClosePositionReq",
-        "ProtoOAAmendOrderReq", "ProtoOACancelOrderReq",
-        "ProtoOAReconcileReq", "ProtoOAAmendPositionSLTPReq",
-        "ProtoOAExecutionEvent", "ProtoOAOrderErrorEvent",
-        "ProtoOAAccountAuthReq", "ProtoOAApplicationAuthReq",
+        "ProtoOASymbolsListReq",
+        "ProtoOASubscribeSpotsReq",
+        "ProtoOAUnsubscribeSpotsReq",
+        "ProtoOASymbolByIdReq",
+        "ProtoOANewOrderReq",
+        "ProtoOAClosePositionReq",
+        "ProtoOAAmendOrderReq",
+        "ProtoOACancelOrderReq",
+        "ProtoOAReconcileReq",
+        "ProtoOAAmendPositionSLTPReq",
+        "ProtoOAExecutionEvent",
+        "ProtoOAOrderErrorEvent",
+        "ProtoOAAccountAuthReq",
+        "ProtoOAApplicationAuthReq",
         "ProtoOAGetTrendbarsReq",
     ]:
         setattr(msgs_mod, _name, type(_name, (), {"__init__": lambda self, **kw: None}))
-    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
+    monkeypatch.setitem(
+        sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod
+    )
 
     model_mod = types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
-    class _OT: MARKET = 0; LIMIT = 1; STOP = 2
-    class _TS: BUY = 0; SELL = 1
-    class _TIF: GOOD_TILL_CANCEL = 0
-    class _ET: ORDER_CANCELLED = 0; ORDER_REJECTED = 1
+
+    class _OT:
+        MARKET = 0
+        LIMIT = 1
+        STOP = 2
+
+    class _TS:
+        BUY = 0
+        SELL = 1
+
+    class _TIF:
+        GOOD_TILL_CANCEL = 0
+
+    class _ET:
+        ORDER_CANCELLED = 0
+        ORDER_REJECTED = 1
+
     model_mod.ProtoOAOrderType = _OT
     model_mod.ProtoOATradeSide = _TS
     model_mod.ProtoOATimeInForce = _TIF
     model_mod.ProtoOAExecutionType = _ET
-    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
+    monkeypatch.setitem(
+        sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod
+    )
 
 
 def _drive_to_state(state_mgr: ConnectionStateManager, target: ConnectionState) -> None:
@@ -98,8 +123,6 @@ def _drive_to_state(state_mgr: ConnectionStateManager, target: ConnectionState) 
         state_mgr.transition_to(ConnectionState.DEGRADED, reason="test")
     elif target == ConnectionState.AUTHENTICATED:
         return  # already there
-
-
 
 
 def _make_engine_with_mock_feed() -> ForwardTestEngine:
@@ -157,9 +180,13 @@ class TestReconnectLogic(unittest.TestCase):
         # Set last_tick_at to 90s ago — past both 60s stale threshold and 5s backoff.
         engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(seconds=90)
 
-        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
-                   return_value=False), \
-             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                return_value=False,
+            ),
+            patch.object(engine, "_attempt_reconnect") as mock_reconnect,
+        ):
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,
@@ -180,9 +207,13 @@ class TestReconnectLogic(unittest.TestCase):
         # Fresh ticks (would normally make connection look healthy).
         engine._health.last_tick_at = datetime.now(timezone.utc)
 
-        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
-                   return_value=False), \
-             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                return_value=False,
+            ),
+            patch.object(engine, "_attempt_reconnect") as mock_reconnect,
+        ):
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,
@@ -190,7 +221,8 @@ class TestReconnectLogic(unittest.TestCase):
             )
             # Backoff gate should have been bypassed.
             self.assertEqual(
-                engine._last_reconnect_attempt_at, 0.0,
+                engine._last_reconnect_attempt_at,
+                0.0,
                 "Backoff gate must be bypassed for forced stuck-state reconnect",
             )
 
@@ -225,8 +257,13 @@ class TestReconnectLogic(unittest.TestCase):
         _drive_to_state(engine._state_mgr, ConnectionState.RECONNECTING)
         engine._reconnect_stuck_at = time.monotonic() - 90.0
 
-        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
-                   return_value=True),              patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                return_value=True,
+            ),
+            patch.object(engine, "_attempt_reconnect") as mock_reconnect,
+        ):
             engine._check_connection_health()
             self.assertFalse(
                 mock_reconnect.called,
@@ -261,9 +298,13 @@ class TestReconnectLogic(unittest.TestCase):
         # Last attempt 30s ago — well within default reconnect_delay.
         engine._last_reconnect_attempt_at = time.monotonic() - 30.0
 
-        with patch("adapters.ctrader.forward_test_engine._is_forex_market_closed",
-                   return_value=False), \
-             patch.object(engine, "_attempt_reconnect") as mock_reconnect:
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine._is_forex_market_closed",
+                return_value=False,
+            ),
+            patch.object(engine, "_attempt_reconnect") as mock_reconnect,
+        ):
             engine._check_connection_health()
             self.assertTrue(
                 mock_reconnect.called,

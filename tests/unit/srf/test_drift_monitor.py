@@ -21,7 +21,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression
 
 from srf.drift_monitor import (
     DriftMonitor,
@@ -39,8 +39,6 @@ from srf.permutation_drift import (
     CompositeDriftMonitor,
     CompositeReport,
     ShapDriftChecker,
-    DEFAULT_DECAY_THRESHOLD,
-    DEFAULT_RED_ZONE_IMPORTANCE,
 )
 
 # ---------------------------------------------------------------------------
@@ -79,9 +77,9 @@ def drifted_current() -> pd.DataFrame:
     """Current data with clear distribution shift."""
     return pd.DataFrame(
         {
-            "feature_a": RNG.normal(2, 1.5, 500),   # mean + variance shift
-            "feature_b": RNG.normal(8, 3, 500),      # mean + variance shift
-            "feature_c": RNG.uniform(5, 15, 500),    # range shift
+            "feature_a": RNG.normal(2, 1.5, 500),  # mean + variance shift
+            "feature_b": RNG.normal(8, 3, 500),  # mean + variance shift
+            "feature_c": RNG.uniform(5, 15, 500),  # range shift
         }
     )
 
@@ -410,12 +408,18 @@ class TestDriftMonitor:
 class TestSignalEngineScenarios:
     """Simulate drift scenarios on ICT/signal_engine-like feature distributions."""
 
-    def _make_ict_features(self, n: int, mu: float = 0, sigma: float = 1) -> pd.DataFrame:
+    def _make_ict_features(
+        self, n: int, mu: float = 0, sigma: float = 1
+    ) -> pd.DataFrame:
         """Generate synthetic ICT-feature-like data."""
         return pd.DataFrame(
             {
-                "ict_confluence_score": np.clip(RNG.normal(mu + 0.5, sigma * 0.3, n), 0, 1),
-                "ict_structure_score": np.clip(RNG.normal(mu + 0.4, sigma * 0.25, n), 0, 1),
+                "ict_confluence_score": np.clip(
+                    RNG.normal(mu + 0.5, sigma * 0.3, n), 0, 1
+                ),
+                "ict_structure_score": np.clip(
+                    RNG.normal(mu + 0.4, sigma * 0.25, n), 0, 1
+                ),
                 "ict_ob_score": np.clip(RNG.normal(mu + 0.3, sigma * 0.2, n), 0, 1),
                 "ict_fvg_score": np.clip(RNG.normal(mu + 0.2, sigma * 0.2, n), 0, 1),
                 "ict_bias_encoded": RNG.choice([-1, 0, 1], size=n),
@@ -443,7 +447,10 @@ class TestSignalEngineScenarios:
         assert report.has_drift
         drifted_features = {a.feature for a in report.alerts()}
         # At least the continuous-score features should drift
-        assert "ict_confluence_score" in drifted_features or "ict_structure_score" in drifted_features
+        assert (
+            "ict_confluence_score" in drifted_features
+            or "ict_structure_score" in drifted_features
+        )
 
     def test_report_summary_contains_counts(self):
         ref = self._make_ict_features(500)
@@ -569,11 +576,13 @@ class TestPermutationDriftMonitor:
     @pytest.fixture
     def simple_model_data(self):
         """Create a simple linear regression dataset where f1 is important."""
-        X = pd.DataFrame({
-            "f1": RNG.normal(0, 1, 200),
-            "f2": RNG.normal(0, 1, 200),
-            "noise": RNG.normal(0, 0.1, 200),  # uninformative feature
-        })
+        X = pd.DataFrame(
+            {
+                "f1": RNG.normal(0, 1, 200),
+                "f2": RNG.normal(0, 1, 200),
+                "noise": RNG.normal(0, 0.1, 200),  # uninformative feature
+            }
+        )
         y = 3 * X["f1"] + 0.5 * X["f2"] + RNG.normal(0, 0.1, 200)
         model = LinearRegression().fit(X, y)
         return X, y, model
@@ -598,19 +607,20 @@ class TestPermutationDriftMonitor:
             model=model, scoring="r2", reference_X=X, reference_y=y
         )
         # Same data — should not flag major drift
-        X_new = pd.DataFrame({
-            "f1": RNG.normal(0, 1, 200),
-            "f2": RNG.normal(0, 1, 200),
-            "noise": RNG.normal(0, 0.1, 200),
-        })
+        X_new = pd.DataFrame(
+            {
+                "f1": RNG.normal(0, 1, 200),
+                "f2": RNG.normal(0, 1, 200),
+                "noise": RNG.normal(0, 0.1, 200),
+            }
+        )
         y_new = 3 * X_new["f1"] + 0.5 * X_new["f2"] + RNG.normal(0, 0.1, 200)
         report = monitor.check_importance_drift(X_new, y_new)
         # With same distributions, predictive features (f1, f2) should not decay.
         # The 'noise' feature has near-zero importance and may fall in red zone —
         # that's expected behavior for uninformative features.
         meaningful_alerts = [
-            r for r in report.alerts()
-            if r.reference_importance > 0.01
+            r for r in report.alerts() if r.reference_importance > 0.01
         ]
         assert len(meaningful_alerts) == 0, (
             f"Unexpected drift on meaningful features: {meaningful_alerts}"
@@ -627,11 +637,13 @@ class TestPermutationDriftMonitor:
             decay_threshold=0.30,  # 30% decay triggers alert
         )
         # Create current data where f1 is no longer predictive
-        X_decayed = pd.DataFrame({
-            "f1": RNG.normal(0, 1, 200),
-            "f2": RNG.normal(0, 1, 200),
-            "noise": RNG.normal(0, 0.1, 200),
-        })
+        X_decayed = pd.DataFrame(
+            {
+                "f1": RNG.normal(0, 1, 200),
+                "f2": RNG.normal(0, 1, 200),
+                "noise": RNG.normal(0, 0.1, 200),
+            }
+        )
         # y depends only on f2 now (f1 relationship removed)
         y_decayed = 0.5 * X_decayed["f2"] + RNG.normal(0, 0.1, 200)
         report = monitor.check_importance_drift(X_decayed, y_decayed)
@@ -716,10 +728,12 @@ class TestCompositeDriftMonitor:
     @pytest.fixture
     def composite_setup(self):
         """Create data + monitors for composite testing."""
-        X = pd.DataFrame({
-            "f1": RNG.normal(0, 1, 300),
-            "f2": RNG.normal(5, 2, 300),
-        })
+        X = pd.DataFrame(
+            {
+                "f1": RNG.normal(0, 1, 300),
+                "f2": RNG.normal(5, 2, 300),
+            }
+        )
         y = 2 * X["f1"] + X["f2"] + RNG.normal(0, 0.1, 300)
         model = LinearRegression().fit(X, y)
 
@@ -741,10 +755,12 @@ class TestCompositeDriftMonitor:
         dist_mon, imp_mon, X, y = composite_setup
         composite = CompositeDriftMonitor(dist_mon, imp_mon)
         # Same distribution data
-        X_stable = pd.DataFrame({
-            "f1": RNG.normal(0, 1, 200),
-            "f2": RNG.normal(5, 2, 200),
-        })
+        X_stable = pd.DataFrame(
+            {
+                "f1": RNG.normal(0, 1, 200),
+                "f2": RNG.normal(5, 2, 200),
+            }
+        )
         y_stable = 2 * X_stable["f1"] + X_stable["f2"] + RNG.normal(0, 0.1, 200)
         report = composite.check_all(X_stable, X_stable, y_stable)
         # Should not have severe drift (some sampling variance OK)
@@ -765,10 +781,12 @@ class TestCompositeDriftMonitor:
         composite = CompositeDriftMonitor(dist_mon, imp_mon)
 
         # Shift f1 distribution AND remove its predictive relationship
-        X_shifted = pd.DataFrame({
-            "f1": RNG.normal(3, 2, 200),   # mean + variance shift
-            "f2": RNG.normal(5, 2, 200),   # same
-        })
+        X_shifted = pd.DataFrame(
+            {
+                "f1": RNG.normal(3, 2, 200),  # mean + variance shift
+                "f2": RNG.normal(5, 2, 200),  # same
+            }
+        )
         # y no longer depends on f1
         y_shifted = X_shifted["f2"] + RNG.normal(0, 0.1, 200)
 
@@ -787,14 +805,18 @@ class TestCompositeDriftMonitor:
 class TestSignalEngineFeatureDecay:
     """Realistic feature decay scenarios for signal_engine-like features."""
 
-    def _make_features(self, n: int, f1_weight: float = 2.0) -> tuple[pd.DataFrame, np.ndarray]:
+    def _make_features(
+        self, n: int, f1_weight: float = 2.0
+    ) -> tuple[pd.DataFrame, np.ndarray]:
         """Generate synthetic signal_engine-like features + target."""
-        X = pd.DataFrame({
-            "ict_confluence_score": np.clip(RNG.normal(0.5, 0.2, n), 0, 1),
-            "ict_structure_score": np.clip(RNG.normal(0.4, 0.15, n), 0, 1),
-            "ict_ob_score": np.clip(RNG.normal(0.3, 0.15, n), 0, 1),
-            "ict_fvg_score": np.clip(RNG.normal(0.2, 0.1, n), 0, 1),
-        })
+        X = pd.DataFrame(
+            {
+                "ict_confluence_score": np.clip(RNG.normal(0.5, 0.2, n), 0, 1),
+                "ict_structure_score": np.clip(RNG.normal(0.4, 0.15, n), 0, 1),
+                "ict_ob_score": np.clip(RNG.normal(0.3, 0.15, n), 0, 1),
+                "ict_fvg_score": np.clip(RNG.normal(0.2, 0.1, n), 0, 1),
+            }
+        )
         # Target is a weighted combination
         y = (
             f1_weight * X["ict_confluence_score"]
@@ -842,7 +864,10 @@ class TestSignalEngineFeatureDecay:
         # Reference model should rely heavily on confluence_score
         assert ref_imp["ict_confluence_score"]["mean"] > 0.1
         # Current model (where f1 has no relationship) should not rely on it
-        assert cur_imp["ict_confluence_score"]["mean"] < ref_imp["ict_confluence_score"]["mean"]
+        assert (
+            cur_imp["ict_confluence_score"]["mean"]
+            < ref_imp["ict_confluence_score"]["mean"]
+        )
 
     def test_stable_features_no_meaningful_decay(self):
         """Features with stable, meaningful predictive power should not show

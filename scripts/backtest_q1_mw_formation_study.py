@@ -96,8 +96,12 @@ class Q1BacktestStudy(StatisticalStudy):
         l1_hit_rate = outcomes.get("L1", 0) / total_closed if total_closed > 0 else 0.0
         l2_hit_rate = outcomes.get("L2", 0) / total_closed if total_closed > 0 else 0.0
         l3_hit_rate = outcomes.get("L3", 0) / total_closed if total_closed > 0 else 0.0
-        stop_loss_rate = outcomes.get("SL", 0) / total_closed if total_closed > 0 else 0.0
-        rr_3_1_hit_rate = trades_with_3_1_or_better / total_closed if total_closed > 0 else 0.0
+        stop_loss_rate = (
+            outcomes.get("SL", 0) / total_closed if total_closed > 0 else 0.0
+        )
+        rr_3_1_hit_rate = (
+            trades_with_3_1_or_better / total_closed if total_closed > 0 else 0.0
+        )
         average_rr = sum(closed_rrs) / len(closed_rrs) if closed_rrs else 0.0
 
         return {
@@ -126,7 +130,12 @@ class Q1BacktestStudy(StatisticalStudy):
             return self._evaluate_short(pattern, bars, entry_idx, entry_price, atr)
 
     def _evaluate_long(
-        self, pattern: MWPattern, bars: list[Bar], entry_idx: int, entry_price: float, atr: float
+        self,
+        pattern: MWPattern,
+        bars: list[Bar],
+        entry_idx: int,
+        entry_price: float,
+        atr: float,
     ) -> dict:
         neckline = pattern.neckline_level
         stop = neckline - atr * 1.5
@@ -152,7 +161,12 @@ class Q1BacktestStudy(StatisticalStudy):
         return {"outcome": "open", "rr": 0.0}
 
     def _evaluate_short(
-        self, pattern: MWPattern, bars: list[Bar], entry_idx: int, entry_price: float, atr: float
+        self,
+        pattern: MWPattern,
+        bars: list[Bar],
+        entry_idx: int,
+        entry_price: float,
+        atr: float,
     ) -> dict:
         neckline = pattern.neckline_level
         stop = neckline + atr * 1.5
@@ -179,8 +193,12 @@ class Q1BacktestStudy(StatisticalStudy):
 
 
 def main():
-    data_path = Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_H1.csv"
-    report_path = Path(__file__).parent.parent / "reports" / "backtest_q1_mw_formation.json"
+    data_path = (
+        Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_H1.csv"
+    )
+    report_path = (
+        Path(__file__).parent.parent / "reports" / "backtest_q1_mw_formation.json"
+    )
 
     loader = CsvDataLoader()
     bars = loader.load(str(data_path))

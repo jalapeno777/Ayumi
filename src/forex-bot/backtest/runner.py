@@ -23,8 +23,6 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Grid strategy archived — lazy import to avoid collection errors
 try:
     from strategies.grid.adapter import GridStrategyAdapter
@@ -58,6 +56,7 @@ from backtest import (
     VotingMethod,
 )
 from backtest.engine import get_spread_for_pair
+
 try:
     from backtest.grid_strategy import GridConfig
 except ImportError:

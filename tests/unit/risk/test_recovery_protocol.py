@@ -30,14 +30,13 @@ from risk.recovery_protocol import (  # noqa: E402
     MarginInfo,
     PositionInfo,
     RecoveryProtocol,
-    RecoveryResult,
-    ReconciliationResult,
 )
 from risk.state_persistence import StatePersistence, StrategyTracker  # noqa: E402
 from adapters.ctrader.kill_switch import KillSwitchManager  # noqa: E402
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def ks_manager(tmp_path):
@@ -89,6 +88,7 @@ def matching_positions():
 
 # ── Test 1: Happy Path — Full 4-Step Recovery ──────────────────────────────
 
+
 def test_happy_path_recovery(protocol, ks_manager, good_margin, matching_positions):
     """Full recovery sequence succeeds when all checks pass."""
     local, broker = matching_positions
@@ -116,6 +116,7 @@ def test_happy_path_recovery(protocol, ks_manager, good_margin, matching_positio
 
 
 # ── Test 2: Position Reconciliation Mismatch ────────────────────────────────
+
 
 def test_reconciliation_mismatch_aborts(protocol, ks_manager, good_margin):
     """Recovery aborts when positions don't match."""
@@ -190,6 +191,7 @@ def test_reconciliation_missing_in_broker(protocol, ks_manager, good_margin):
 
 # ── Test 3: Margin Verification Failure ─────────────────────────────────────
 
+
 def test_margin_failure_aborts(protocol, ks_manager, bad_margin, matching_positions):
     """Recovery aborts when margin level is too low."""
     local, broker = matching_positions
@@ -215,7 +217,10 @@ def test_margin_failure_aborts(protocol, ks_manager, bad_margin, matching_positi
 
 # ── Test 4: Gradual Unfreeze Sets 50% Risk ──────────────────────────────────
 
-def test_gradual_unfreeze_sets_half_risk(protocol, ks_manager, good_margin, matching_positions):
+
+def test_gradual_unfreeze_sets_half_risk(
+    protocol, ks_manager, good_margin, matching_positions
+):
     """After successful recovery, risk multiplier is 50% during cooldown."""
     local, broker = matching_positions
 
@@ -244,7 +249,10 @@ def test_gradual_unfreeze_sets_half_risk(protocol, ks_manager, good_margin, matc
 
 # ── Test 5: Cooldown Expiry Restores Full Risk ─────────────────────────────
 
-def test_cooldown_expiry_restores_full_risk(protocol, ks_manager, good_margin, matching_positions):
+
+def test_cooldown_expiry_restores_full_risk(
+    protocol, ks_manager, good_margin, matching_positions
+):
     """After cooldown expires, risk is restored to 100%."""
     local, broker = matching_positions
 
@@ -277,7 +285,9 @@ def test_cooldown_expiry_restores_full_risk(protocol, ks_manager, good_margin, m
     assert protocol.get_cooldown_state("beta") is None
 
 
-def test_restore_full_risk_before_cooldown_fails(protocol, ks_manager, good_margin, matching_positions):
+def test_restore_full_risk_before_cooldown_fails(
+    protocol, ks_manager, good_margin, matching_positions
+):
     """restore_full_risk returns False if cooldown hasn't expired."""
     local, broker = matching_positions
 
@@ -303,6 +313,7 @@ def test_restore_full_risk_not_in_cooldown(protocol):
 
 
 # ── Test 6: Risk Multiplier Queries ─────────────────────────────────────────
+
 
 def test_risk_multiplier_no_cooldown(protocol):
     """get_risk_multiplier returns 1.0 when strategy is not in cooldown."""
@@ -336,6 +347,7 @@ def test_get_all_cooldowns(protocol, ks_manager, good_margin, matching_positions
 
 
 # ── Test 7: StatePersistence.reconcile_positions ────────────────────────────
+
 
 def test_state_persistence_reconcile_positions_match(tmp_path):
     """StatePersistence.reconcile_positions succeeds when counts match."""
@@ -396,6 +408,7 @@ def test_state_persistence_reconcile_positions_unregistered(tmp_path):
 
 
 # ── Test 8: CooldownState Unit Tests ────────────────────────────────────────
+
 
 def test_cooldown_state_not_expired():
     """CooldownState correctly reports not-expired."""

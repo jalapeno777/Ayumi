@@ -1,34 +1,72 @@
 """Tests for DailyAnalytics."""
 
 import json
-import os
-import tempfile
 
 import pytest
 
-from analytics.daily_report import DailyAnalytics, DailyPerformance
+from analytics.daily_report import DailyAnalytics
 
 
 @pytest.fixture
 def trade_log(tmp_path):
     log_path = tmp_path / "trades.jsonl"
     trades = [
-        {"timestamp": "2025-04-20T09:00:00", "strategy_id": "mom_v1", "symbol": "EURUSD",
-         "direction": "LONG", "profile": "sniper", "confidence": 0.75, "lots": 0.5,
-         "risk_amount": 50.0, "pnl": 25.0, "gate_passes": ["spread", "session"],
-         "gate_rejections": [], "sl_distance_pips": 15.0},
-        {"timestamp": "2025-04-20T10:00:00", "strategy_id": "mr_v1", "symbol": "GBPUSD",
-         "direction": "SHORT", "profile": "swarm", "confidence": 0.55, "lots": 0.3,
-         "risk_amount": 30.0, "pnl": -15.0, "gate_passes": ["spread"],
-         "gate_rejections": ["volatility"], "sl_distance_pips": 20.0},
-        {"timestamp": "2025-04-20T14:00:00", "strategy_id": "mom_v1", "symbol": "EURUSD",
-         "direction": "LONG", "profile": "sniper", "confidence": 0.82, "lots": 0.5,
-         "risk_amount": 50.0, "pnl": 40.0, "gate_passes": ["spread", "session"],
-         "gate_rejections": [], "sl_distance_pips": 12.0},
-        {"timestamp": "2025-04-21T09:00:00", "strategy_id": "mom_v1", "symbol": "EURUSD",
-         "direction": "SHORT", "profile": "sniper", "confidence": 0.45, "lots": 0.3,
-         "risk_amount": 30.0, "pnl": -10.0, "gate_passes": ["spread"],
-         "gate_rejections": ["session"], "sl_distance_pips": 18.0},
+        {
+            "timestamp": "2025-04-20T09:00:00",
+            "strategy_id": "mom_v1",
+            "symbol": "EURUSD",
+            "direction": "LONG",
+            "profile": "sniper",
+            "confidence": 0.75,
+            "lots": 0.5,
+            "risk_amount": 50.0,
+            "pnl": 25.0,
+            "gate_passes": ["spread", "session"],
+            "gate_rejections": [],
+            "sl_distance_pips": 15.0,
+        },
+        {
+            "timestamp": "2025-04-20T10:00:00",
+            "strategy_id": "mr_v1",
+            "symbol": "GBPUSD",
+            "direction": "SHORT",
+            "profile": "swarm",
+            "confidence": 0.55,
+            "lots": 0.3,
+            "risk_amount": 30.0,
+            "pnl": -15.0,
+            "gate_passes": ["spread"],
+            "gate_rejections": ["volatility"],
+            "sl_distance_pips": 20.0,
+        },
+        {
+            "timestamp": "2025-04-20T14:00:00",
+            "strategy_id": "mom_v1",
+            "symbol": "EURUSD",
+            "direction": "LONG",
+            "profile": "sniper",
+            "confidence": 0.82,
+            "lots": 0.5,
+            "risk_amount": 50.0,
+            "pnl": 40.0,
+            "gate_passes": ["spread", "session"],
+            "gate_rejections": [],
+            "sl_distance_pips": 12.0,
+        },
+        {
+            "timestamp": "2025-04-21T09:00:00",
+            "strategy_id": "mom_v1",
+            "symbol": "EURUSD",
+            "direction": "SHORT",
+            "profile": "sniper",
+            "confidence": 0.45,
+            "lots": 0.3,
+            "risk_amount": 30.0,
+            "pnl": -10.0,
+            "gate_passes": ["spread"],
+            "gate_rejections": ["session"],
+            "sl_distance_pips": 18.0,
+        },
     ]
     with open(log_path, "w") as f:
         for t in trades:

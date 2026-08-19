@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, time
 
 from signal_engine.session_logic import (
-    SESSIONS,
-    KILL_ZONES,
-    OVERLAPS,
-    WEEKLY_MODIFIERS,
     SessionAnalyzer,
     _is_dst,
     get_ny_kz_hours,
@@ -18,12 +13,14 @@ from signal_engine.session_logic import (
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
+
 def _utc(year, month, day, hour, minute=0):
     """Create a naive UTC datetime (as used by the module)."""
     return datetime(year, month, day, hour, minute)
 
 
 # ── Session Detection ───────────────────────────────────────────────
+
 
 class TestSessionDetection:
     def setup_method(self):
@@ -57,6 +54,7 @@ class TestSessionDetection:
 
 # ── DST ─────────────────────────────────────────────────────────────
 
+
 class TestDST:
     def test_is_dst_summer(self):
         assert _is_dst(_utc(2026, 7, 1, 12, 0)) is True
@@ -67,12 +65,12 @@ class TestDST:
     def test_dst_transition_march(self):
         # 2026 DST starts March 8 (2nd Sunday)
         assert _is_dst(_utc(2026, 3, 7, 12, 0)) is False  # before
-        assert _is_dst(_utc(2026, 3, 9, 12, 0)) is True   # after
+        assert _is_dst(_utc(2026, 3, 9, 12, 0)) is True  # after
 
     def test_dst_transition_november(self):
         # 2026 DST ends November 1 (1st Sunday)
         assert _is_dst(_utc(2026, 10, 31, 12, 0)) is True  # before
-        assert _is_dst(_utc(2026, 11, 2, 12, 0)) is False   # after
+        assert _is_dst(_utc(2026, 11, 2, 12, 0)) is False  # after
 
     def test_get_ny_kz_hours_edt(self):
         start, end = get_ny_kz_hours(is_dst=True)
@@ -86,6 +84,7 @@ class TestDST:
 
 
 # ── Kill Zones ──────────────────────────────────────────────────────
+
 
 class TestKillZones:
     def setup_method(self):
@@ -112,6 +111,7 @@ class TestKillZones:
 
 # ── Weekly Modifiers ────────────────────────────────────────────────
 
+
 class TestWeeklyModifiers:
     def setup_method(self):
         self.sa = SessionAnalyzer()
@@ -130,6 +130,7 @@ class TestWeeklyModifiers:
 
 
 # ── Phase Scoring ───────────────────────────────────────────────────
+
 
 class TestPhaseScoring:
     def setup_method(self):

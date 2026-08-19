@@ -10,7 +10,7 @@ Reactor bridge pattern (Amendment A1):
 from __future__ import annotations
 
 import threading
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -261,7 +261,6 @@ class TestMessageRouting:
 
 
 class TestDisconnect:
-
     @patch("adapters.ctrader.session.reactor")
     @patch("adapters.ctrader.session.Client")
     def test_disconnect_cleans_up(self, mock_client_cls, mock_reactor):
@@ -286,7 +285,6 @@ class TestDisconnect:
 
 
 class TestSubscribe:
-
     @patch("adapters.ctrader.session.reactor")
     def test_subscribe_market_data(self, mock_reactor):
         """subscribe_market_data sends ProtoOASubscribeSpotsReq and transitions to SUBSCRIBED."""
@@ -312,7 +310,6 @@ class TestSubscribe:
 
 
 class TestProperties:
-
     def test_initial_state_is_disconnected(self):
         session = _make_session()
         assert session.state == SessionState.DISCONNECTED

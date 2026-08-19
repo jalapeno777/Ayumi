@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 from data.ctrader_client import CTraderHistoricalClient
@@ -39,7 +40,9 @@ def main():
     account_id = os.environ.get("CTRADER_ACCOUNT")
 
     if not all([client_id, client_secret, account_id]):
-        logger.error("Missing CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, or CTRADER_ACCOUNT in .env")
+        logger.error(
+            "Missing CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, or CTRADER_ACCOUNT in .env"
+        )
         sys.exit(1)
 
     account_id = int(account_id)
@@ -59,7 +62,15 @@ def main():
             done += 1
             filename = f"{pair}_{tf}.csv"
             filepath = OUTPUT_DIR / filename
-            logger.info("[%d/%d] Downloading %s %s (%s → %s)", done, total, pair, tf, START_DATE, END_DATE)
+            logger.info(
+                "[%d/%d] Downloading %s %s (%s → %s)",
+                done,
+                total,
+                pair,
+                tf,
+                START_DATE,
+                END_DATE,
+            )
 
             try:
                 client.download_and_save(

@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -34,7 +34,12 @@ class DailyPerformance:
 class DailyAnalytics:
     """Generates daily performance reports from trade history."""
 
-    def __init__(self, trade_log_path: str = "logs/trades.jsonl", starting_balance: float = 10000.0, config: dict | None = None) -> None:
+    def __init__(
+        self,
+        trade_log_path: str = "logs/trades.jsonl",
+        starting_balance: float = 10000.0,
+        config: dict | None = None,
+    ) -> None:
         self._trade_log = trade_log_path
         self._starting_balance = starting_balance
         self._config = config or {}
@@ -88,10 +93,10 @@ class DailyAnalytics:
             f"Win Rate: {report.win_rate:.1%}",
             f"PnL: ${report.total_pnl:+.2f}",
             f"Max Drawdown: ${report.max_drawdown:.2f}",
-            f"",
+            "",
             f"Sniper: {report.sniper_trades} trades ({report.sniper_win_rate:.1%} WR)",
             f"Swarm: {report.swarm_trades} trades ({report.swarm_win_rate:.1%} WR)",
-            f"",
+            "",
             f"Confidence: low={report.confidence_distribution.get('low', 0)} | "
             f"med={report.confidence_distribution.get('med', 0)} | "
             f"high={report.confidence_distribution.get('high', 0)}",
@@ -103,18 +108,30 @@ class DailyAnalytics:
             lines.append("")
             lines.append("Per Strategy:")
             for sid, stats in report.per_strategy.items():
-                lines.append(f"  {sid}: {stats.get('trades', 0)} trades, "
-                             f"${stats.get('pnl', 0):+.2f}")
+                lines.append(
+                    f"  {sid}: {stats.get('trades', 0)} trades, "
+                    f"${stats.get('pnl', 0):+.2f}"
+                )
         return "\n".join(lines)
 
     def _build_report(self, date: str, trades: list[dict]) -> DailyPerformance:
         if not trades:
             return DailyPerformance(
-                date=date, total_trades=0, winning_trades=0, losing_trades=0,
-                win_rate=0.0, total_pnl=0.0, max_drawdown=0.0,
-                sniper_trades=0, swarm_trades=0, sniper_win_rate=0.0,
-                swarm_win_rate=0.0, confidence_distribution={"low": 0, "med": 0, "high": 0},
-                gate_rejections={}, circuit_breaker_triggers=0, daily_risk_used_pct=0.0,
+                date=date,
+                total_trades=0,
+                winning_trades=0,
+                losing_trades=0,
+                win_rate=0.0,
+                total_pnl=0.0,
+                max_drawdown=0.0,
+                sniper_trades=0,
+                swarm_trades=0,
+                sniper_win_rate=0.0,
+                swarm_win_rate=0.0,
+                confidence_distribution={"low": 0, "med": 0, "high": 0},
+                gate_rejections={},
+                circuit_breaker_triggers=0,
+                daily_risk_used_pct=0.0,
                 per_strategy={},
             )
 
@@ -183,7 +200,10 @@ class DailyAnalytics:
             gate_rejections=gate_rej,
             circuit_breaker_triggers=sum(1 for t in trades if t.get("circuit_breaker")),
             daily_risk_used_pct=round(daily_risk_pct, 4),
-            per_strategy={k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)} for k, v in per_strat.items()},
+            per_strategy={
+                k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)}
+                for k, v in per_strat.items()
+            },
         )
 
 
@@ -251,9 +271,19 @@ def _self_heal_ownership(path: Path) -> None:
 
 def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     """Return (project_root, trade_log, daily_report_path)."""
-    project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
-    trade_log = Path(args.trade_log) if args.trade_log else project_root / "logs" / "trades.jsonl"
-    reports_root = Path(args.reports_root) if args.reports_root else project_root / "data" / "forex" / "equity_reports"
+    project_root = (
+        Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
+    )
+    trade_log = (
+        Path(args.trade_log)
+        if args.trade_log
+        else project_root / "logs" / "trades.jsonl"
+    )
+    reports_root = (
+        Path(args.reports_root)
+        if args.reports_root
+        else project_root / "data" / "forex" / "equity_reports"
+    )
     return project_root, trade_log, reports_root
 
 
@@ -297,7 +327,9 @@ def main(argv: list[str] | None = None) -> int:
 
     _project_root, trade_log, reports_root = _resolve_paths(args)
 
-    target_date = args.date or datetime.now(ZoneInfo("America/Toronto")).strftime("%Y-%m-%d")
+    target_date = args.date or datetime.now(ZoneInfo("America/Toronto")).strftime(
+        "%Y-%m-%d"
+    )
 
     analytics = DailyAnalytics(
         trade_log_path=str(trade_log),
@@ -315,7 +347,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.stdout:
         print(formatted)
-    print(f"[daily_report] wrote {out_path} (trades={report.total_trades}, pnl=${report.total_pnl:+.2f})")
+    print(
+        f"[daily_report] wrote {out_path} (trades={report.total_trades}, pnl=${report.total_pnl:+.2f})"
+    )
     return 0
 
 

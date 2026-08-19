@@ -4,6 +4,7 @@
 Use case: cleanup after a test run left naked positions with no SL/TP.
 Connects to demo.ctraderapi.com, reconciles positions, and closes each.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,10 +17,10 @@ sys.path.insert(0, str(SRC))
 os.chdir(str(ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
-from adapters.ctrader.connection import CTraderConnection
 from adapters.ctrader.credential_store import CredentialStore
 
 
@@ -56,7 +57,9 @@ def main():
             symbol_id = feed.resolve_symbol_id(p.symbol)
             vol_raw = feed.lots_to_volume(symbol_id, p.volume)
             pos_id_int = int(p.position_id)
-            print(f"  Closing {p.symbol} dir={p.direction.value} pos_id={pos_id_int} lots={p.volume} raw={vol_raw}")
+            print(
+                f"  Closing {p.symbol} dir={p.direction.value} pos_id={pos_id_int} lots={p.volume} raw={vol_raw}"
+            )
             ok = feed.close_position(pos_id_int, vol_raw, timeout=15.0)
             print(f"    -> close {'OK' if ok else 'FAILED'}")
         except Exception as e:

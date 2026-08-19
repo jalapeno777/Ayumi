@@ -83,12 +83,15 @@ def _make_position(
 # Test 1 — Signal with matching position → NOT missed
 # ---------------------------------------------------------------------------
 
+
 class TestSignalWithPosition:
     def test_matched_signal_not_in_results(self):
         signal = _make_signal(signal_id="sig-1", entry_price=1.1000)
         position = _make_position(signal_id="sig-1")
         bars = [
-            _make_bar(offset_minutes=1, open_=1.0995, high_=1.1005, low_=1.0990, close_=1.1002),
+            _make_bar(
+                offset_minutes=1, open_=1.0995, high_=1.1005, low_=1.0990, close_=1.1002
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
         result = detector.analyze([signal], [position], bars)
@@ -108,12 +111,15 @@ class TestSignalWithPosition:
 # Test 2 — Entry price hit in window, no position → no_fill
 # ---------------------------------------------------------------------------
 
+
 class TestNoFill:
     def test_entry_touched_but_no_position(self):
         """Entry price is within bar range but no position opened."""
         signal = _make_signal(signal_id="sig-2", entry_price=1.1000, direction="long")
         bars = [
-            _make_bar(offset_minutes=1, open_=1.0990, high_=1.1010, low_=1.0985, close_=1.1005),
+            _make_bar(
+                offset_minutes=1, open_=1.0990, high_=1.1010, low_=1.0985, close_=1.1005
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
         result = detector.analyze([signal], [], bars)
@@ -128,7 +134,9 @@ class TestNoFill:
             direction="short",
         )
         bars = [
-            _make_bar(offset_minutes=1, open_=1.1010, high_=1.1015, low_=1.0990, close_=1.1005),
+            _make_bar(
+                offset_minutes=1, open_=1.1010, high_=1.1015, low_=1.0990, close_=1.1005
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
         result = detector.analyze([signal], [], bars)
@@ -140,6 +148,7 @@ class TestNoFill:
 # Test 3 — Price never reaches entry → filtered
 # ---------------------------------------------------------------------------
 
+
 class TestFiltered:
     def test_price_never_reaches_entry(self):
         """For a long signal, price stays well below entry for all bars."""
@@ -149,10 +158,13 @@ class TestFiltered:
             direction="long",
         )
         bars = [
-            _make_bar(offset_minutes=i + 1, open_=1.0990 + i * 0.0001,
-                      high_=1.0995 + i * 0.0001,
-                      low_=1.0985 + i * 0.0001,
-                      close_=1.0992 + i * 0.0001)
+            _make_bar(
+                offset_minutes=i + 1,
+                open_=1.0990 + i * 0.0001,
+                high_=1.0995 + i * 0.0001,
+                low_=1.0985 + i * 0.0001,
+                close_=1.0992 + i * 0.0001,
+            )
             for i in range(5)
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
@@ -172,6 +184,7 @@ class TestFiltered:
 # Test 4 — Price approaches entry then reverses → price_reversed
 # ---------------------------------------------------------------------------
 
+
 class TestPriceReversed:
     def test_price_approaches_then_drops_for_long(self):
         """Long signal: price rises toward entry in first half, then
@@ -183,11 +196,19 @@ class TestPriceReversed:
         )
         bars = [
             # First half — approaching entry (closes rising toward 1.1050)
-            _make_bar(offset_minutes=1, open_=1.0980, high_=1.1030, low_=1.0975, close_=1.1025),
-            _make_bar(offset_minutes=2, open_=1.1025, high_=1.1045, low_=1.1020, close_=1.1040),
+            _make_bar(
+                offset_minutes=1, open_=1.0980, high_=1.1030, low_=1.0975, close_=1.1025
+            ),
+            _make_bar(
+                offset_minutes=2, open_=1.1025, high_=1.1045, low_=1.1020, close_=1.1040
+            ),
             # Second half — reversing away (closes dropping below first-half levels)
-            _make_bar(offset_minutes=3, open_=1.1040, high_=1.1042, low_=1.1010, close_=1.1015),
-            _make_bar(offset_minutes=4, open_=1.1015, high_=1.1020, low_=1.0990, close_=1.0995),
+            _make_bar(
+                offset_minutes=3, open_=1.1040, high_=1.1042, low_=1.1010, close_=1.1015
+            ),
+            _make_bar(
+                offset_minutes=4, open_=1.1015, high_=1.1020, low_=1.0990, close_=1.0995
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=4)
         result = detector.analyze([signal], [], bars)
@@ -198,6 +219,7 @@ class TestPriceReversed:
 # ---------------------------------------------------------------------------
 # Test 5 — Signal filled after max_bars_to_fill → no_fill
 # ---------------------------------------------------------------------------
+
 
 class TestExpiredWindow:
     def test_entry_touched_after_window_expired(self):
@@ -220,13 +242,25 @@ class TestExpiredWindow:
         )
         bars = [
             # Bars 1-5 (within window): entry touched on bar 3
-            _make_bar(offset_minutes=1, open_=1.0990, high_=1.0995, low_=1.0985, close_=1.0992),
-            _make_bar(offset_minutes=2, open_=1.0992, high_=1.0998, low_=1.0990, close_=1.0996),
-            _make_bar(offset_minutes=3, open_=1.0996, high_=1.1010, low_=1.0994, close_=1.1005),
-            _make_bar(offset_minutes=4, open_=1.1005, high_=1.1008, low_=1.0998, close_=1.1002),
-            _make_bar(offset_minutes=5, open_=1.1002, high_=1.1006, low_=1.0996, close_=1.1000),
+            _make_bar(
+                offset_minutes=1, open_=1.0990, high_=1.0995, low_=1.0985, close_=1.0992
+            ),
+            _make_bar(
+                offset_minutes=2, open_=1.0992, high_=1.0998, low_=1.0990, close_=1.0996
+            ),
+            _make_bar(
+                offset_minutes=3, open_=1.0996, high_=1.1010, low_=1.0994, close_=1.1005
+            ),
+            _make_bar(
+                offset_minutes=4, open_=1.1005, high_=1.1008, low_=1.0998, close_=1.1002
+            ),
+            _make_bar(
+                offset_minutes=5, open_=1.1002, high_=1.1006, low_=1.0996, close_=1.1000
+            ),
             # Bar 6 (outside window) — irrelevant
-            _make_bar(offset_minutes=6, open_=1.1000, high_=1.1015, low_=1.0998, close_=1.1012),
+            _make_bar(
+                offset_minutes=6, open_=1.1000, high_=1.1015, low_=1.0998, close_=1.1012
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
         result = detector.analyze([signal], [], bars)
@@ -238,6 +272,7 @@ class TestExpiredWindow:
 # Edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestEdgeCases:
     def test_multiple_signals_mixed_results(self):
         """Two signals: one matched, one missed."""
@@ -245,8 +280,14 @@ class TestEdgeCases:
         sig_missed = _make_signal(signal_id="miss", symbol="GBPUSD", entry_price=1.2500)
         positions = [_make_position(signal_id="match", symbol="EURUSD")]
         bars = [
-            _make_bar(symbol="GBPUSD", offset_minutes=1,
-                      open_=1.2400, high_=1.2420, low_=1.2390, close_=1.2410),
+            _make_bar(
+                symbol="GBPUSD",
+                offset_minutes=1,
+                open_=1.2400,
+                high_=1.2420,
+                low_=1.2390,
+                close_=1.2410,
+            ),
         ]
         detector = MissedBidDetector(max_bars_to_fill=5)
         result = detector.analyze([sig_matched, sig_missed], positions, bars)

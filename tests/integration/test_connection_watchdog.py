@@ -38,7 +38,6 @@ def _authenticate(state_mgr: ConnectionStateManager) -> None:
 
 
 class TestWatchdogSilenceToDegraded(unittest.TestCase):
-
     def test_silence_triggers_degraded(self):
         mgr = ConnectionManager()
         sm = ConnectionStateManager(name="market_data")
@@ -57,7 +56,6 @@ class TestWatchdogSilenceToDegraded(unittest.TestCase):
 
 
 class TestWatchdogSilenceToFailed(unittest.TestCase):
-
     def test_silence_triggers_failed(self):
         mgr = ConnectionManager()
         sm = ConnectionStateManager(name="trade")
@@ -76,7 +74,6 @@ class TestWatchdogSilenceToFailed(unittest.TestCase):
 
 
 class TestWatchdogRecovery(unittest.TestCase):
-
     def test_ping_resets_degraded(self):
         mgr = ConnectionManager()
         sm = ConnectionStateManager(name="market_data")
@@ -100,7 +97,6 @@ class TestWatchdogRecovery(unittest.TestCase):
 
 
 class TestWatchdogStopIdempotent(unittest.TestCase):
-
     def test_stop_is_idempotent(self):
         mgr = ConnectionManager()
         sm = ConnectionStateManager(name="market_data")
@@ -136,7 +132,6 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
 
 
 class TestWatchdogGetSilence(unittest.TestCase):
-
     def test_get_silence_returns_none_for_untracked(self):
         mgr = ConnectionManager()
         wd = _FastWatchdog(mgr)

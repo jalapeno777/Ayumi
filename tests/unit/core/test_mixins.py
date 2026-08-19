@@ -10,7 +10,6 @@ Rewritten for post-refactor API (card 99a4d28d).
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -21,9 +20,7 @@ from engine.base import EngineCore
 from engine.mixins import CombineMethod, CombinedSignalMixin, ProgressiveSLMixin
 
 
-def _make_bar(
-    close=1.1000, high=None, low=None, opn=None
-) -> Bar:
+def _make_bar(close=1.1000, high=None, low=None, opn=None) -> Bar:
     return Bar(
         time=datetime(2024, 1, 1, tzinfo=timezone.utc),
         open=opn if opn is not None else close - 0.0001,

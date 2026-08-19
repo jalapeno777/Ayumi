@@ -78,7 +78,9 @@ class ConfluenceWrappedStrategy(ISignalStrategy):
         htf_dict = {"alignment_score": htf_state.alignment_score} if htf_state else {}
         session_dict = {
             "phase_score": session_state.phase_score if session_state else 0.0,
-            "kill_zone_active": session_state.kill_zone_active if session_state else False,
+            "kill_zone_active": session_state.kill_zone_active
+            if session_state
+            else False,
         }
         conf_score, _ = self._confluence_scorer.score(
             candidate=candidate,
@@ -103,7 +105,9 @@ class ConfluenceWrappedStrategy(ISignalStrategy):
             rationale=f"[conf={blended:.2f}] {signal.rationale}",
         )
 
-    def _build_candidate(self, signal: StrategySignal, direction: str, bars: list[Bar]) -> dict:
+    def _build_candidate(
+        self, signal: StrategySignal, direction: str, bars: list[Bar]
+    ) -> dict:
         return {
             "direction": direction,
             "symbol": self.symbol,
@@ -157,7 +161,9 @@ class ConfluenceWrappedStrategy(ISignalStrategy):
 
         if abs(slope) < 0.001:
             phase = HTFPhase.CONSOLIDATING
-        elif (direction == "long" and slope > 0) or (direction == "short" and slope < 0):
+        elif (direction == "long" and slope > 0) or (
+            direction == "short" and slope < 0
+        ):
             phase = HTFPhase.ALIGNED
         else:
             phase = HTFPhase.CONFLICTING

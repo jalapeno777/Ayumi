@@ -8,10 +8,10 @@ Covers the three concerns that previously lived as inline script logic:
 
 The HTTP fetcher is mocked so the suite runs offline.
 """
+
 from __future__ import annotations
 
 import csv
-import io
 import lzma
 import struct
 import sys
@@ -39,6 +39,7 @@ from data.dukascopy_importer import (  # type: ignore  # noqa: E402
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _make_bi5_record(
     time_ms: int,
     ask_scaled: int,
@@ -61,6 +62,7 @@ _HOUR_START_EPOCH = int(datetime(2024, 6, 3, 12, tzinfo=timezone.utc).timestamp(
 
 
 # ── Test cases ─────────────────────────────────────────────────────────────
+
 
 class TestTickDataclass(unittest.TestCase):
     def test_is_frozen_and_slotted(self):
@@ -101,7 +103,9 @@ class TestIsWeekend(unittest.TestCase):
 
 class TestUrlConstruction(unittest.TestCase):
     def test_hour_url_format(self):
-        importer = DukascopyImporter(output_dir=None, base_url="https://example.test/datafeed")
+        importer = DukascopyImporter(
+            output_dir=None, base_url="https://example.test/datafeed"
+        )
         url = importer._hour_url("EURUSD", date(2024, 6, 3), 12)
         self.assertEqual(
             url, "https://example.test/datafeed/EURUSD/2024/06/03/12h_ticks.bi5"
@@ -122,9 +126,7 @@ class TestUrlConstruction(unittest.TestCase):
 class TestParseBi5(unittest.TestCase):
     def test_parses_single_record(self):
         # ask_raw=1_100_000 → 1.1, bid_raw=1_080_000 → 1.08
-        blob = _make_bi5_blob(
-            [(1500, 1_100_000, 1_080_000, 2.5, 1.5)]
-        )
+        blob = _make_bi5_blob([(1500, 1_100_000, 1_080_000, 2.5, 1.5)])
         ticks = DukascopyImporter.parse_bi5(blob, "EURUSD", _HOUR_START_EPOCH)
         self.assertEqual(len(ticks), 1)
         t = ticks[0]
@@ -149,12 +151,18 @@ class TestParseBi5(unittest.TestCase):
         self.assertEqual(timestamps, sorted(timestamps))
         self.assertEqual(
             timestamps,
-            [_HOUR_START_EPOCH * 1000 + 100, _HOUR_START_EPOCH * 1000 + 200, _HOUR_START_EPOCH * 1000 + 300],
+            [
+                _HOUR_START_EPOCH * 1000 + 100,
+                _HOUR_START_EPOCH * 1000 + 200,
+                _HOUR_START_EPOCH * 1000 + 300,
+            ],
         )
 
     def test_handles_empty_blob(self):
         # An empty file (no records) is represented as an LZMA-compressed empty payload.
-        ticks = DukascopyImporter.parse_bi5(lzma.compress(b""), "EURUSD", _HOUR_START_EPOCH)
+        ticks = DukascopyImporter.parse_bi5(
+            lzma.compress(b""), "EURUSD", _HOUR_START_EPOCH
+        )
         self.assertEqual(ticks, [])
 
     def test_handles_raw_empty_bytes(self):
@@ -163,14 +171,14 @@ class TestParseBi5(unittest.TestCase):
 
     def test_returns_empty_on_lzma_error(self):
         # Garbage that is not valid LZMA
-        ticks = DukascopyImporter.parse_bi5(b"not a real xz stream", "EURUSD", _HOUR_START_EPOCH)
+        ticks = DukascopyImporter.parse_bi5(
+            b"not a real xz stream", "EURUSD", _HOUR_START_EPOCH
+        )
         self.assertEqual(ticks, [])
 
     def test_xau_uses_larger_scaling(self):
         # Gold is priced around 2000; raw values are ~2_000_000_000 with 1M divisor.
-        blob = _make_bi5_blob(
-            [(0, 2_000_500_000, 2_000_000_000, 0.0, 0.0)]
-        )
+        blob = _make_bi5_blob([(0, 2_000_500_000, 2_000_000_000, 0.0, 0.0)])
         ticks = DukascopyImporter.parse_bi5(blob, "XAUUSD", _HOUR_START_EPOCH)
         self.assertEqual(len(ticks), 1)
         self.assertAlmostEqual(ticks[0].ask, 2000.5)
@@ -196,7 +204,9 @@ class TestFetchBytes(unittest.TestCase):
 
     def test_returns_bytes_on_success(self):
         importer = self._make_importer()
-        with mock.patch.object(importer, "_fetch_bytes", wraps=importer._fetch_bytes) as _:
+        with mock.patch.object(
+            importer, "_fetch_bytes", wraps=importer._fetch_bytes
+        ) as _:
             pass  # not used; see real mock below
 
         fake_resp = mock.MagicMock()
@@ -227,6 +237,7 @@ class TestFetchBytes(unittest.TestCase):
 
 def urllib_error_404():
     import urllib.error
+
     return urllib.error.HTTPError(
         url="https://example.test/x", code=404, msg="Not Found", hdrs={}, fp=None
     )
@@ -239,9 +250,7 @@ class TestFetchHourTicks(unittest.TestCase):
             base_url="https://example.test",
             retry_backoff=(0, 0, 0),
         )
-        blob = _make_bi5_blob(
-            [(1500, 1_100_000, 1_080_000, 2.5, 1.5)]
-        )
+        blob = _make_bi5_blob([(1500, 1_100_000, 1_080_000, 2.5, 1.5)])
         with mock.patch.object(importer, "_fetch_bytes", return_value=blob):
             ticks = importer.fetch_hour_ticks("EURUSD", date(2024, 6, 3), 12)
         self.assertEqual(len(ticks), 1)
@@ -308,9 +317,7 @@ class TestDownloadDay(unittest.TestCase):
         side_effects = [DukascopyFetchError("network down")] + [
             [Tick(1, "EURUSD", 1.0, 1.1, 0.0, 0.0)] for _ in range(23)
         ]
-        with mock.patch.object(
-            importer, "fetch_hour_ticks", side_effect=side_effects
-        ):
+        with mock.patch.object(importer, "fetch_hour_ticks", side_effect=side_effects):
             ticks = importer.download_day("EURUSD", date(2024, 6, 3))
         # 23 successful hours, each yielding 1 tick.
         self.assertEqual(len(ticks), 23)

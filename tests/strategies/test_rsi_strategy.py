@@ -128,9 +128,7 @@ class TestRSICalculation(unittest.TestCase):
 
     def test_rsi_bounded_0_100(self):
         """Random-ish price series: RSI must always be in [0, 100]."""
-        closes = [
-            1.1000 + 0.0001 * ((i * 7) % 13 - 6) for i in range(40)
-        ]
+        closes = [1.1000 + 0.0001 * ((i * 7) % 13 - 6) for i in range(40)]
         rsi = _rsi_wilder(closes, 14)
         self.assertIsNotNone(rsi)
         self.assertGreaterEqual(rsi, 0.0)
@@ -242,9 +240,15 @@ class TestSignalBehavior(unittest.TestCase):
         sig = s.evaluate(state)
         self.assertIsNotNone(sig)
         risk = abs(sig.entry_price - sig.stop_loss)
-        self.assertAlmostEqual(sig.take_profit_1, sig.entry_price + risk * 1.0, places=5)
-        self.assertAlmostEqual(sig.take_profit_2, sig.entry_price + risk * 2.0, places=5)
-        self.assertAlmostEqual(sig.take_profit_3, sig.entry_price + risk * 3.0, places=5)
+        self.assertAlmostEqual(
+            sig.take_profit_1, sig.entry_price + risk * 1.0, places=5
+        )
+        self.assertAlmostEqual(
+            sig.take_profit_2, sig.entry_price + risk * 2.0, places=5
+        )
+        self.assertAlmostEqual(
+            sig.take_profit_3, sig.entry_price + risk * 3.0, places=5
+        )
 
 
 if __name__ == "__main__":

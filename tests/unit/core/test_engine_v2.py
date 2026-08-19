@@ -9,17 +9,13 @@ Rewritten for post-refactor API (card 99a4d28d).
 
 from __future__ import annotations
 
-import math
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from core.config import BacktestConfig, BacktestMetrics
-from engine.base import EngineCore
+from core.config import BacktestConfig
 from engine.engine import BacktestEngine
-from engine.mixins import CombineMethod, ProgressiveSLMixin, CombinedSignalMixin
-from engine.trade_mgmt import TradeManagementMixin
+from engine.mixins import CombineMethod, ProgressiveSLMixin
 
 
 class DummyStrategy:

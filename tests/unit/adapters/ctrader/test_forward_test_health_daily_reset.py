@@ -4,6 +4,7 @@ Locks in behavior that the B5 health loop resets per-trading-day counters
 when the 17:00 America/Toronto boundary has crossed, matching the
 risk_guard._current_trading_day() pattern.
 """
+
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -24,6 +25,9 @@ def health() -> ForwardTestHealth:
     h.signals_accepted = 7
     # signals_generated is intentionally NOT reset by reset_daily_counters
     h.signals_generated = 99
+    # Card 0d7d7557: new regime-gate rejection counter. Reset with the
+    # daily family so operators see per-trading-day gate churn.
+    h.signals_filtered_by_regime_gate = 8
     return h
 
 
@@ -36,9 +40,12 @@ def test_reset_daily_counters_zeros_day_buckets(health: ForwardTestHealth) -> No
     assert health.signals_rejected == 0
     assert health.signals_traded == 0
     assert health.signals_accepted == 0
+    assert health.signals_filtered_by_regime_gate == 0
 
 
-def test_reset_daily_counters_preserves_lifetime_counters(health: ForwardTestHealth) -> None:
+def test_reset_daily_counters_preserves_lifetime_counters(
+    health: ForwardTestHealth,
+) -> None:
     """signals_generated is a lifetime diagnostic, NOT a daily guardrail."""
     health.reset_daily_counters()
     assert health.signals_generated == 99, (
@@ -78,3 +85,21 @@ def test_trading_day_boundary_uses_toronto_17_00() -> None:
 
     assert trading_day(at_1659) == date(2026, 7, 6)
     assert trading_day(at_1700) == date(2026, 7, 7)
+
+
+def test_signals_filtered_by_regime_gate_default_is_zero() -> None:
+    """Card 0d7d7557: new field, default 0, present on a fresh dataclass."""
+    h = ForwardTestHealth()
+    assert h.signals_filtered_by_regime_gate == 0
+
+
+def test_signals_filtered_by_regime_gate_resets_with_family() -> None:
+    """Card 0d7d7557: regime-gate counter resets with the daily bucket.
+
+    Operators need to see per-trading-day gate churn, so the reset path
+    must zero this counter alongside signals_sent / signals_failed_live.
+    """
+    h = ForwardTestHealth()
+    h.signals_filtered_by_regime_gate = 27
+    h.reset_daily_counters()
+    assert h.signals_filtered_by_regime_gate == 0

@@ -1,9 +1,25 @@
+"""Amalgamation backtest engine and signal combination system.
+
+Refactored to compose with canonical ``engine.base.EngineCore`` and
+``engine.mixins.ProgressiveSLMixin``, eliminating ~300 lines of
+duplicated infrastructure code.
+
+The amalgamation-specific concerns retained here are:
+
+* ``AmalgamationConfig``     — voting method, confidence, confluence
+* ``ComponentExtractor``     — strategy profiling and extraction
+* ``AmalgamationEngine``     — pure signal combination (no engine infra)
+* ``AmalgamatedBacktestEngine`` — backtest runner using amalgamation logic
+"""
+
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .engine import (
-    BacktestConfig,
-    BacktestMetrics,
+from core.config import BacktestConfig, BacktestMetrics
+from core.pip import PipCalculator
+from core.types import (
     Bar,
     ExitReason,
     MarketState,
@@ -12,10 +28,18 @@ from .engine import (
     StrategySignal,
     TradeDirection,
     TradeOutcome,
-    determine_session,
 )
+
+from engine.base import EngineCore, determine_session
+from engine.mixins import ProgressiveSLMixin
+
 from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
+
+
+# ────────────────────────────────────────────────────────────────────
+# Enums
+# ────────────────────────────────────────────────────────────────────
 
 
 class VotingMethod(Enum):
@@ -29,6 +53,10 @@ class ConfidenceMethod(Enum):
     WEIGHTED = "weighted"
     CONFLUENCE = "confluence"
 
+
+# ────────────────────────────────────────────────────────────────────
+# Constants
+# ────────────────────────────────────────────────────────────────────
 
 ICT_SMC_COMPONENT_TYPES = [
     "order_block",
@@ -46,6 +74,11 @@ INDICATOR_STRATEGY_PATTERNS = [
     "Bollinger Band",
     "S/R Breakout",
 ]
+
+
+# ────────────────────────────────────────────────────────────────────
+# Configuration
+# ────────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -98,6 +131,11 @@ class ExtractionResult:
     weight: float = 1.0
 
 
+# ────────────────────────────────────────────────────────────────────
+# Component extractor (unchanged — pure logic, no engine infra)
+# ────────────────────────────────────────────────────────────────────
+
+
 class ComponentExtractor:
     COMPONENT_TYPES = [
         "signal_generator",
@@ -136,7 +174,19 @@ class ComponentExtractor:
         return ComponentProfile(name=name, component_type="unknown")
 
 
+# ────────────────────────────────────────────────────────────────────
+# Amalgamation engine — pure signal combiner (no engine infrastructure)
+# ────────────────────────────────────────────────────────────────────
+
+
 class AmalgamationEngine:
+    """Pure signal-combination logic (voting, confidence, level aggregation).
+
+    This is not a backtest engine — it has no trade management, balance
+    tracking, or metrics.  It is used by ``AmalgamatedBacktestEngine``
+    to combine multiple strategy signals before opening trades.
+    """
+
     def __init__(self, config: AmalgamationConfig):
         self.config = config
 
@@ -298,7 +348,20 @@ class AmalgamationEngine:
         return f"Amalgamated {dir_label} (conf={confidence:.2f}): {', '.join(names)}"
 
 
-class AmalgamatedBacktestEngine:
+# ────────────────────────────────────────────────────────────────────
+# AmalgamatedBacktestEngine — composes EngineCore + ProgressiveSLMixin
+# ────────────────────────────────────────────────────────────────────
+
+
+class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
+    """Backtest engine using amalgamation-based signal combination.
+
+    Composes ``EngineCore`` (trade lifecycle, metrics, daily tracking)
+    and ``ProgressiveSLMixin`` (progressive SL, trade-exit checks) from
+    the canonical engine package, using ``AmalgamationEngine`` for
+    signal combination and ``ConfidencePositionSizer`` for risk sizing.
+    """
+
     def __init__(
         self,
         config: BacktestConfig,
@@ -306,7 +369,8 @@ class AmalgamatedBacktestEngine:
         amalgamation_config: AmalgamationConfig | None = None,
         risk_sizer: ConfidencePositionSizer | None = None,
     ):
-        self.config = config
+        EngineCore.__init__(self, config)
+        ProgressiveSLMixin.__init__(self, config)
         self.amalgamation = (
             amalgamation_config if amalgamation_config else AmalgamationConfig()
         )
@@ -331,13 +395,15 @@ class AmalgamatedBacktestEngine:
         else:
             self.strategies = strategies
 
+    # ── public API ──────────────────────────────────────────────────
+
     def run(self, bars: list[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
         trades: list[SimulatedTrade] = []
-        equity_curve = [self.balance]
+        equity_curve: list[float] = [self.balance]
         open_trades: list[SimulatedTrade] = []
         rejected_signals = 0
 
@@ -361,7 +427,8 @@ class AmalgamatedBacktestEngine:
                 and i >= self.config.min_bars_before_signal
             ):
                 state = MarketState(
-                    bars=bars[: i + 1], current_session=determine_session(bars[i].time)
+                    bars=bars[: i + 1],
+                    current_session=determine_session(bar.time),
                 )
 
                 all_signals: list[StrategySignal] = []
@@ -389,7 +456,7 @@ class AmalgamatedBacktestEngine:
                 if all_signals:
                     combined = engine.combine(all_signals, state)
                     if combined is not None:
-                        trade = self._open_trade(combined, bar, i)
+                        trade = self._open_trade_confidence(combined, bar, i)
                         if trade is not None:
                             open_trades.append(trade)
                         else:
@@ -400,7 +467,8 @@ class AmalgamatedBacktestEngine:
             equity_curve.append(self.balance)
 
         self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, trades)
-        return self._calculate_metrics(trades, equity_curve, rejected_signals)
+        self.rejected_signals = rejected_signals
+        return self._calculate_metrics(trades, equity_curve)
 
     def run_individual_and_combined(
         self, bars: list[Bar]
@@ -417,179 +485,29 @@ class AmalgamatedBacktestEngine:
 
         return individual_metrics, combined_metrics
 
-    def _reset(self):
-        self.balance = self.config.starting_balance
-        self.peak_balance = self.config.starting_balance
-        self.max_drawdown = 0.0
-        self.max_daily_loss = 0.0
-        self.current_day = None
-        self.daily_start_balance = self.config.starting_balance
-        self.total_spread_cost = 0.0
-        self.total_commission_cost = 0.0
+    # ── confidence-based trade opening ──────────────────────────────
 
-    def _update_daily_tracking(self, bar_time):
-        day = bar_time.date()
-        if self.current_day is None:
-            self.current_day = day
-            self.daily_start_balance = self.balance
-        elif day != self.current_day:
-            daily_loss = self.daily_start_balance - self.balance
-            if daily_loss > self.max_daily_loss:
-                self.max_daily_loss = daily_loss
-            self.current_day = day
-            self.daily_start_balance = self.balance
-
-    def _is_max_drawdown_breached(self) -> bool:
-        drawdown_pct = (self.peak_balance - self.balance) / self.peak_balance
-        return drawdown_pct >= self.config.max_total_drawdown_pct
-
-    def _is_max_daily_loss_breached(self) -> bool:
-        daily_loss_pct = (
-            self.daily_start_balance - self.balance
-        ) / self.daily_start_balance
-        return daily_loss_pct >= self.config.max_daily_drawdown_pct
-
-    def _check_open_trades(
-        self,
-        open_trades: list[SimulatedTrade],
-        bar: Bar,
-        bar_index: int,
-        closed_trades: list[SimulatedTrade],
-        equity_curve: list[float],
-    ):
-        to_close = []
-        for trade in open_trades:
-            hit, exit_price, reason = self._check_trade_exit(trade, bar)
-            if hit:
-                self._close_trade(trade, bar_index, bar.time, exit_price, reason)
-                closed_trades.append(trade)
-                to_close.append(trade)
-                equity_curve.append(self.balance)
-        for t in to_close:
-            open_trades.remove(t)
-
-    def _check_trade_exit(self, trade: SimulatedTrade, bar: Bar):
-        if trade.direction == TradeDirection.LONG:
-            if bar.low <= trade.stop_loss:
-                return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.high >= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
-            if bar.high >= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
-        else:
-            if bar.high >= trade.stop_loss:
-                return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.low <= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
-            if bar.low <= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
-        return (False, 0, ExitReason.STOP_LOSS)
-
-    def _close_trade(
-        self,
-        trade: SimulatedTrade,
-        bar_index: int,
-        exit_time,
-        exit_price: float,
-        reason: ExitReason,
-    ):
-        trade.exit_bar_index = bar_index
-        trade.exit_time = exit_time
-        trade.exit_reason = reason
-
-        pip_value = self._get_pip_value(trade.entry_price)
-        standard_lots = trade.lot_size / self.config.units_per_lot
-        spread_pips = self.config.effective_spread_pips
-        commission_cost = standard_lots * self.config.commission_per_lot
-        self.total_commission_cost += commission_cost
-
-        if self.config.round_trip_spread:
-            spread_price = spread_pips * pip_value
-            if trade.direction == TradeDirection.LONG:
-                exit_price -= spread_price
-            else:
-                exit_price += spread_price
-            spread_dollars = spread_pips * pip_value * trade.lot_size
-            self.total_spread_cost += spread_dollars
-        else:
-            spread_dollars = spread_pips * pip_value * trade.lot_size
-            self.total_spread_cost += spread_dollars
-
-        slippage_price = self.config.slippage_pips * pip_value
-        if trade.direction == TradeDirection.LONG:
-            exit_price -= slippage_price
-        else:
-            exit_price += slippage_price
-
-        trade.exit_price = exit_price
-
-        holding_days = (exit_time.date() - trade.entry_time.date()).days
-        if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
-            swap_cost = standard_lots * self.config.swap_per_lot_per_day * holding_days
-        else:
-            swap_cost = 0.0
-
-        if trade.direction == TradeDirection.LONG:
-            trade.pips = (exit_price - trade.entry_price) / pip_value
-        else:
-            trade.pips = (trade.entry_price - exit_price) / pip_value
-
-        trade.profit_loss = (
-            trade.pips * standard_lots * pip_value * self.config.units_per_lot
-            - commission_cost
-            + swap_cost
-        )
-        self.balance += trade.profit_loss
-
-        trade.outcome = (
-            TradeOutcome.WIN
-            if trade.profit_loss > 0.01
-            else TradeOutcome.LOSS
-            if trade.profit_loss < -0.01
-            else TradeOutcome.BREAKEVEN
-        )
-
-        if self.balance > self.peak_balance:
-            self.peak_balance = self.balance
-        drawdown = (self.peak_balance - self.balance) / self.peak_balance
-        if drawdown > self.max_drawdown:
-            self.max_drawdown = drawdown
-
-    def _close_all_open_trades(
-        self,
-        open_trades: list[SimulatedTrade],
-        bar_index: int,
-        exit_time,
-        closed_trades: list[SimulatedTrade],
-    ):
-        for trade in open_trades:
-            self._close_trade(
-                trade,
-                bar_index,
-                exit_time,
-                closed_trades[-1].exit_price if closed_trades else trade.entry_price,
-                ExitReason.END_OF_DATA,
-            )
-            closed_trades.append(trade)
-        open_trades.clear()
-
-    def _open_trade(
+    def _open_trade_confidence(
         self, signal: StrategySignal, bar: Bar, bar_index: int
     ) -> SimulatedTrade | None:
+        """Open trade with ConfidencePositionSizer.
+
+        Uses ``ConfidencePositionSizer`` (unlike ``EngineCore._open_trade``
+        which uses fixed ``risk_per_trade_pct``).
+        """
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
             return None
 
-        pip_value = self._get_pip_value(signal.entry_price)
+        pip_value = PipCalculator.pip_value(signal.entry_price)
         stop_pips = abs(signal.entry_price - signal.stop_loss) / pip_value
 
-        # Confidence-based risk sizing
         risk_amount = self.risk_sizer.get_risk_amount(signal.confidence)
         lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None
 
-        spread_cost = self.config.effective_spread_pips * pip_value
+        spread_cost = (self.config.spread_pips or 0) * pip_value
         effective_entry = (
             signal.entry_price + spread_cost
             if signal.direction == TradeDirection.LONG
@@ -599,7 +517,6 @@ class AmalgamatedBacktestEngine:
         if adjusted_risk == 0:
             return None
 
-        # Recalculate lot size based on adjusted risk (wider due to spread)
         lot_size = risk_amount / adjusted_risk
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:
@@ -631,105 +548,29 @@ class AmalgamatedBacktestEngine:
             rationale=signal.rationale,
         )
 
-    def _calculate_metrics(
+    # ── amalgamation-specific close-all ─────────────────────────────
+
+    def _close_all_open_trades(
         self,
-        trades: list[SimulatedTrade],
-        equity_curve: list[float],
-        rejected_signals: int,
-    ) -> BacktestMetrics:
-        metrics = BacktestMetrics(
-            starting_balance=self.config.starting_balance,
-            ending_balance=self.balance,
-            total_pnl=self.balance - self.config.starting_balance,
-            total_pnl_pct=(self.balance - self.config.starting_balance)
-            / self.config.starting_balance,
-            win_rate=0.0,
-            total_trades=len(trades),
-            winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
-            losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
-            ),
-            avg_win=0.0,
-            avg_loss=0.0,
-            largest_win=0.0,
-            largest_loss=0.0,
-            profit_factor=0.0,
-            max_drawdown_pct=self.max_drawdown * 100,
-            max_drawdown_dollar=self.max_drawdown * self.peak_balance,
-            max_daily_loss_dollar=self.max_daily_loss,
-            sharpe_ratio=0.0,
-            avg_risk_reward=0.0,
-            expectancy=0.0,
-            avg_holding_bars=0.0,
-            equity_curve=equity_curve,
-            trades=trades,
-            total_spread_cost=self.total_spread_cost,
-            total_commission_cost=self.total_commission_cost,
-            rejected_signals=rejected_signals,
-        )
-
-        if len(trades) > 0:
-            wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
-            losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
-
-            metrics.win_rate = metrics.winning_trades / len(trades) * 100
-            metrics.avg_win = (
-                sum(t.profit_loss for t in wins) / len(wins) if wins else 0
-            )
-            metrics.avg_loss = (
-                sum(t.profit_loss for t in losses) / len(losses) if losses else 0
-            )
-            metrics.largest_win = max(t.profit_loss for t in wins) if wins else 0
-            metrics.largest_loss = min(t.profit_loss for t in losses) if losses else 0
-
-            total_wins = sum(t.profit_loss for t in wins)
-            total_losses = abs(sum(t.profit_loss for t in losses))
-            metrics.profit_factor = (
-                total_wins / total_losses
-                if total_losses > 0
-                else total_wins
-                if total_wins > 0
-                else 0
-            )
-
-            metrics.avg_risk_reward = (
-                abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
-            )
-            metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
-                (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
-            )
-            metrics.avg_holding_bars = sum(
-                t.exit_bar_index - t.entry_bar_index for t in trades
-            ) / len(trades)
-
-        metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
-        return metrics
-
-    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
-        import math
-
-        if len(equity_curve) < 2:
-            return 0.0
-        returns = []
-        for i in range(1, len(equity_curve)):
-            if equity_curve[i - 1] != 0:
-                returns.append(
-                    (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
-                )
-        if not returns:
-            return 0.0
-        mean_return = sum(returns) / len(returns)
-        std_dev = math.sqrt(sum((r - mean_return) ** 2 for r in returns) / len(returns))
-        if std_dev == 0:
-            return 999.0 if mean_return > 0 else 0.0
-        return (mean_return / std_dev) * math.sqrt(252)
-
-    @staticmethod
-    def _get_pip_value(price: float) -> float:
-        if price >= 50:
-            return 0.01
-        elif price >= 1:
-            return 0.0001
+        open_trades: list[SimulatedTrade],
+        bar_index: int,
+        exit_time,
+        closed_trades: list[SimulatedTrade],
+    ) -> list[SimulatedTrade]:
+        """Close all remaining open trades at last available price."""
+        if closed_trades:
+            exit_price = closed_trades[-1].exit_price
+        elif open_trades:
+            exit_price = open_trades[0].entry_price
         else:
-            return 0.00000001
+            exit_price = self.config.starting_balance
+
+        closed: list[SimulatedTrade] = []
+        for trade in open_trades:
+            self._close_trade(
+                trade, bar_index, exit_time, exit_price, ExitReason.END_OF_DATA
+            )
+            closed_trades.append(trade)
+            closed.append(trade)
+        open_trades.clear()
+        return closed

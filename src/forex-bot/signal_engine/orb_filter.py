@@ -17,7 +17,7 @@ from ``session_logic``.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, time, timezone
 from typing import Optional
 
@@ -41,8 +41,8 @@ DEFAULT_ORB_WINDOW_MINUTES: dict[str, int] = {
 BREAKOUT_MIN_FRACTION = 0.10  # 10 % of OR width
 
 # Volume ratio thresholds
-VOLUME_STRONG = 1.5   # ≥ 1.5× session average
-VOLUME_NORMAL = 1.0   # ≥ 1.0× session average
+VOLUME_STRONG = 1.5  # ≥ 1.5× session average
+VOLUME_NORMAL = 1.0  # ≥ 1.0× session average
 
 # Scoring weights (sum to 1.0)
 W_DIRECTION = 0.45
@@ -51,6 +51,7 @@ W_VOLUME = 0.25
 
 
 # ── Data Structures ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class OpeningRange:
@@ -84,15 +85,16 @@ class ORBScore:
     """ORB alignment score for a single signal."""
 
     signal: Signal
-    score: float                      # 0.0 – 1.0
+    score: float  # 0.0 – 1.0
     direction_aligned: bool
-    distance_score: float             # 0.0 – 1.0
-    volume_score: float               # 0.0 – 1.0
-    breakout_type: str = ""           # "breakout", "pseudo", "failure", "inside"
+    distance_score: float  # 0.0 – 1.0
+    volume_score: float  # 0.0 – 1.0
+    breakout_type: str = ""  # "breakout", "pseudo", "failure", "inside"
     detail: str = ""
 
 
 # ── ORB Filter ──────────────────────────────────────────────────────────────
+
 
 class ORBFilter:
     """Opening Range Breakout filter and signal prioritizer.
@@ -154,6 +156,7 @@ class ORBFilter:
 
         # Build a lightweight Signal for scoring
         from .data_types import Signal as _Signal
+
         sig = _Signal(
             symbol="",
             direction=signal_direction.upper() or "LONG",
@@ -168,8 +171,11 @@ class ORBFilter:
         if not passed:
             logger.debug(
                 "ORBFilter REJECT: dir=%s entry=%.5f score=%.3f threshold=%.3f type=%s",
-                signal_direction, entry_price, score.score,
-                self.min_score_threshold, score.breakout_type,
+                signal_direction,
+                entry_price,
+                score.score,
+                self.min_score_threshold,
+                score.breakout_type,
             )
         return passed
 
@@ -356,8 +362,7 @@ class ORBFilter:
         Signals below *min_score* are filtered out.
         """
         scored = [
-            self.score_signal(sig, opening_range, current_volume)
-            for sig in signals
+            self.score_signal(sig, opening_range, current_volume) for sig in signals
         ]
         scored = [s for s in scored if s.score >= min_score]
         scored.sort(key=lambda s: s.score, reverse=True)
@@ -373,8 +378,7 @@ class ORBFilter:
         """
         if session not in SESSIONS:
             raise ValueError(
-                f"Unknown session '{session}'. "
-                f"Valid sessions: {list(SESSIONS.keys())}"
+                f"Unknown session '{session}'. Valid sessions: {list(SESSIONS.keys())}"
             )
         return SESSIONS[session]
 

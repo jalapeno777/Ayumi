@@ -141,15 +141,18 @@ class TTCXAUUSDForwardTest:
         print(f"TTC XAUUSD FORWARD TEST ({mode})")
         print("=" * 60)
         print(f"Symbol: {SYMBOL}")
-        print(f"Bar period: M15")
-        print(f"Strategy: TTCXAUUSDStrategy (Optuna-validated)")
+        print("Bar period: M15")
+        print("Strategy: TTCXAUUSDStrategy (Optuna-validated)")
         print(f"Starting balance: ${STARTING_BALANCE:,.2f}")
         print(f"Min confidence: {MIN_CONFIDENCE}")
         print("-" * 60)
 
         self._slot.engine.register_callback("on_signal_traded", self._on_signal_traded)
         t = threading.Thread(
-            target=self._run_engine, args=(self._slot,), daemon=True, name="ft-ttc-xauusd"
+            target=self._run_engine,
+            args=(self._slot,),
+            daemon=True,
+            name="ft-ttc-xauusd",
         )
         self._slot.thread = t
         t.start()

@@ -28,10 +28,11 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class InstrumentSpec:
     """Specification for a trading instrument."""
+
     symbol: str
-    pip_size: float          # Price change per pip (e.g., 0.0001 for EURUSD, 0.01 for XAUUSD)
-    lot_size: int            # Units per lot (e.g., 100000 for forex, 100 for XAUUSD)
-    pip_value_per_lot: float # USD value of 1 pip movement per 1 lot
+    pip_size: float  # Price change per pip (e.g., 0.0001 for EURUSD, 0.1 for XAUUSD)
+    lot_size: int  # Units per lot (e.g., 100000 for forex, 100 for XAUUSD)
+    pip_value_per_lot: float  # USD value of 1 pip movement per 1 lot
 
     @property
     def min_sl_pips(self) -> float:
@@ -40,23 +41,38 @@ class InstrumentSpec:
 
 # Common instruments
 INSTRUMENTS = {
-    "EURUSD": InstrumentSpec("EURUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
-    "GBPUSD": InstrumentSpec("GBPUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "EURUSD": InstrumentSpec(
+        "EURUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
+    ),
+    "GBPUSD": InstrumentSpec(
+        "GBPUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
+    ),
     # NOTE: USDJPY pip value varies with USD/JPY rate (~6.5 at 154.00).
     #       Update at runtime from broker feed for production accuracy.
-    "USDJPY": InstrumentSpec("USDJPY", pip_size=0.01, lot_size=100000, pip_value_per_lot=6.5),
-    "XAUUSD": InstrumentSpec("XAUUSD", pip_size=0.01, lot_size=100, pip_value_per_lot=1.0),
-    "AUDUSD": InstrumentSpec("AUDUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
-    "USDCHF": InstrumentSpec("USDCHF", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
-    "USDCAD": InstrumentSpec("USDCAD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "USDJPY": InstrumentSpec(
+        "USDJPY", pip_size=0.01, lot_size=100000, pip_value_per_lot=6.5
+    ),
+    "XAUUSD": InstrumentSpec(
+        "XAUUSD", pip_size=0.1, lot_size=100, pip_value_per_lot=10.0
+    ),
+    "AUDUSD": InstrumentSpec(
+        "AUDUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
+    ),
+    "USDCHF": InstrumentSpec(
+        "USDCHF", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
+    ),
+    "USDCAD": InstrumentSpec(
+        "USDCAD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
+    ),
 }
 
 
 @dataclass
 class PositionSizeResult:
     """Result of position sizing calculation."""
+
     lots: float
-    risk_amount: float        # USD risk if SL hit
+    risk_amount: float  # USD risk if SL hit
     sl_distance_pips: float
     sl_distance_price: float  # Absolute price distance
     pip_value: float
@@ -68,6 +84,7 @@ class PositionSizeResult:
 @dataclass
 class CircuitBreakerState:
     """Tracks circuit breaker conditions."""
+
     # Win rate tracking
     recent_trades: list[bool] = field(default_factory=list)  # True=win, False=loss
     max_trades_tracked: int = 20
@@ -75,9 +92,9 @@ class CircuitBreakerState:
 
     # Drawdown tracking
     daily_dd_pct: float = 0.0
-    daily_dd_limit: float = 0.03      # 3%
+    daily_dd_limit: float = 0.03  # 3%
     account_dd_pct: float = 0.0
-    account_dd_limit: float = 0.07    # 7%
+    account_dd_limit: float = 0.07  # 7%
 
     # Halt state
     halted: bool = False
@@ -88,7 +105,7 @@ class CircuitBreakerState:
         """Record a trade result."""
         self.recent_trades.append(win)
         if len(self.recent_trades) > self.max_trades_tracked:
-            self.recent_trades = self.recent_trades[-self.max_trades_tracked:]
+            self.recent_trades = self.recent_trades[-self.max_trades_tracked :]
 
     @property
     def win_rate(self) -> float:
@@ -115,7 +132,9 @@ class CircuitBreakerState:
 
         # Check daily drawdown
         if self.daily_dd_pct >= self.daily_dd_limit:
-            return f"Daily drawdown {self.daily_dd_pct:.1%} >= {self.daily_dd_limit:.1%}"
+            return (
+                f"Daily drawdown {self.daily_dd_pct:.1%} >= {self.daily_dd_limit:.1%}"
+            )
 
         # Check account drawdown
         if self.account_dd_pct >= self.account_dd_limit:
@@ -128,7 +147,9 @@ class CircuitBreakerState:
         self.halted = True
         self.halted_until = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
         self.halt_reason = reason
-        logger.warning("CIRCUIT BREAKER TRIGGERED: %s. Halted until %s", reason, self.halted_until)
+        logger.warning(
+            "CIRCUIT BREAKER TRIGGERED: %s. Halted until %s", reason, self.halted_until
+        )
 
 
 class SLPositionSizer:
@@ -143,9 +164,9 @@ class SLPositionSizer:
     def __init__(
         self,
         account_balance: float,
-        risk_per_trade_pct: float = 0.005,   # 0.5%
+        risk_per_trade_pct: float = 0.005,  # 0.5%
         max_lot_size: float = 1.0,
-        daily_risk_cap_pct: float = 0.03,     # 3%
+        daily_risk_cap_pct: float = 0.03,  # 3%
         min_sl_pips: float = 5.0,
         max_positions_per_symbol: int = 1,
         max_total_open_risk: float = 150.0,
@@ -235,7 +256,9 @@ class SLPositionSizer:
             self.account_balance = balance
             # Update account DD
             if self._peak_balance > 0:
-                self.breaker.account_dd_pct = (self._peak_balance - balance) / self._peak_balance
+                self.breaker.account_dd_pct = (
+                    self._peak_balance - balance
+                ) / self._peak_balance
 
     # ── Phase 5 identity-keyed public API ─────────────────────────────
 
@@ -325,9 +348,7 @@ class SLPositionSizer:
         amount; if the entry would go to zero or negative it is removed.
         """
         with self._lock:
-            legacy_keys = [
-                k for k in self._open_positions if k.startswith("_legacy_")
-            ]
+            legacy_keys = [k for k in self._open_positions if k.startswith("_legacy_")]
             if legacy_keys:
                 key = legacy_keys[0]
                 current = self._open_positions[key]
@@ -453,9 +474,8 @@ class SLPositionSizer:
             after_open_risk = 0.0
             missing_position_ids: list[str] = []
             for pos in broker_positions:
-                position_id = (
-                    getattr(pos, "position_id", None)
-                    or getattr(pos, "positionId", None)
+                position_id = getattr(pos, "position_id", None) or getattr(
+                    pos, "positionId", None
                 )
                 if position_id is None or str(position_id) == "":
                     missing_position_ids.append("<missing-id>")
@@ -622,7 +642,7 @@ class SLPositionSizer:
         warnings = []
 
         # Normalize profile (accept both str and Profile enum)
-        if hasattr(profile, 'value'):
+        if hasattr(profile, "value"):
             profile = profile.value.lower()
         profile = str(profile).lower()
 
@@ -630,18 +650,26 @@ class SLPositionSizer:
         breaker_reason = self.breaker.check_breakers()
         if breaker_reason:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=0.0,
-                sl_distance_price=0.0, pip_value=0.0,
-                blocked=True, block_reason=breaker_reason
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=0.0,
+                sl_distance_price=0.0,
+                pip_value=0.0,
+                blocked=True,
+                block_reason=breaker_reason,
             )
 
         # Get instrument spec
         spec = INSTRUMENTS.get(symbol)
         if not spec:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=0.0,
-                sl_distance_price=0.0, pip_value=0.0,
-                blocked=True, block_reason=f"Unknown instrument: {symbol}"
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=0.0,
+                sl_distance_price=0.0,
+                pip_value=0.0,
+                blocked=True,
+                block_reason=f"Unknown instrument: {symbol}",
             )
 
         # Calculate SL distance
@@ -650,32 +678,50 @@ class SLPositionSizer:
 
         logger.debug(
             "Sizing: symbol=%s entry=%.5f sl=%.5f dist_price=%.6f dist_pips=%.1f pip_size=%.4f",
-            symbol, entry_price, sl_price, sl_distance_price, sl_distance_pips, spec.pip_size,
+            symbol,
+            entry_price,
+            sl_price,
+            sl_distance_price,
+            sl_distance_pips,
+            spec.pip_size,
         )
 
         # Check min SL distance
-        if sl_distance_pips < self.min_sl_pips - 0.01:  # Allow tiny floating point margin
+        if (
+            sl_distance_pips < self.min_sl_pips - 0.01
+        ):  # Allow tiny floating point margin
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
                 blocked=True,
-                block_reason=f"SL distance {sl_distance_pips:.1f} pips < minimum {self.min_sl_pips} pips"
+                block_reason=f"SL distance {sl_distance_pips:.1f} pips < minimum {self.min_sl_pips} pips",
             )
 
         # Determine risk amount based on profile
         base_risk = self.risk_per_trade
         if base_risk <= 0:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
-                blocked=True, block_reason="Account risk amount is zero"
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
+                blocked=True,
+                block_reason="Account risk amount is zero",
             )
 
         if profile not in ("sniper", "swarm"):
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot if spec else 0.0,
-                blocked=True, block_reason=f"Unknown profile: {profile}"
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot if spec else 0.0,
+                blocked=True,
+                block_reason=f"Unknown profile: {profile}",
             )
         if profile == "swarm":
             base_risk *= 0.5  # Swarm uses half the per-trade risk
@@ -687,8 +733,11 @@ class SLPositionSizer:
         current_positions_for_symbol = self._count_positions_for_symbol(symbol)
         if current_positions_for_symbol >= self.max_positions_per_symbol:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
                 blocked=True,
                 block_reason=(
                     f"Max {self.max_positions_per_symbol} position(s) "
@@ -702,8 +751,11 @@ class SLPositionSizer:
         current_open_risk = self._open_risk
         if current_open_risk + base_risk > self.max_total_open_risk:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
                 blocked=True,
                 block_reason=(
                     f"Total open risk ${current_open_risk:.2f} + new "
@@ -715,10 +767,13 @@ class SLPositionSizer:
         # Check daily risk cap
         if base_risk > self.daily_risk_remaining:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
                 blocked=True,
-                block_reason=f"Trade risk ${base_risk:.2f} exceeds daily remaining ${self.daily_risk_remaining:.2f}"
+                block_reason=f"Trade risk ${base_risk:.2f} exceeds daily remaining ${self.daily_risk_remaining:.2f}",
             )
 
         # Calculate lots: risk_amount / (sl_pips * pip_value_per_lot)
@@ -737,9 +792,13 @@ class SLPositionSizer:
         lots = round(lots, 2)
         if lots < 0.01:
             return PositionSizeResult(
-                lots=0.0, risk_amount=0.0, sl_distance_pips=sl_distance_pips,
-                sl_distance_price=sl_distance_price, pip_value=spec.pip_value_per_lot,
-                blocked=True, block_reason=f"Calculated lots {lots:.4f} below minimum 0.01"
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=sl_distance_pips,
+                sl_distance_price=sl_distance_price,
+                pip_value=spec.pip_value_per_lot,
+                blocked=True,
+                block_reason=f"Calculated lots {lots:.4f} below minimum 0.01",
             )
 
         return PositionSizeResult(
@@ -797,12 +856,7 @@ def _compute_position_risk_usd(
             pip_value_per_lot=10.0,
         )
 
-    if (
-        sl_price is None
-        or sl_price <= 0.0
-        or entry_price <= 0.0
-        or lots <= 0.0
-    ):
+    if sl_price is None or sl_price <= 0.0 or entry_price <= 0.0 or lots <= 0.0:
         # No SL known — use the same conservative estimate the engine
         # uses ($100 per lot) so broker positions without an SL still
         # reserve a non-zero risk budget against the daily cap.

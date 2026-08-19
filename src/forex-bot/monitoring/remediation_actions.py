@@ -70,7 +70,11 @@ def _default_project_root() -> Path:
 
 
 def _resolve_project_root(project_root: Path | str | None = None) -> Path:
-    return Path(project_root).resolve() if project_root is not None else _default_project_root()
+    return (
+        Path(project_root).resolve()
+        if project_root is not None
+        else _default_project_root()
+    )
 
 
 def _utc_now() -> datetime:
@@ -87,7 +91,9 @@ def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
         fh.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
-def _record_result(project_root: Path, pattern_name: str, result: RemediationResult) -> None:
+def _record_result(
+    project_root: Path, pattern_name: str, result: RemediationResult
+) -> None:
     payload = {"pattern_name": pattern_name, **asdict(result)}
     _append_jsonl(project_root / REMEDIATION_LOG_PATH, payload)
 
@@ -187,7 +193,10 @@ def check_remediation_flag_exists(project_root: Path) -> tuple[bool, str]:
             f"{REMEDIATION_VALIDATED_FLAG} missing, but source audit doc "
             f"{REMEDIATION_AUDIT_DOC} is also missing; not safe to recreate",
         )
-    return True, f"{REMEDIATION_VALIDATED_FLAG} missing while {REMEDIATION_AUDIT_DOC} exists"
+    return (
+        True,
+        f"{REMEDIATION_VALIDATED_FLAG} missing while {REMEDIATION_AUDIT_DOC} exists",
+    )
 
 
 def _remediate_stale_audit_log(project_root: Path) -> RemediationResult:
@@ -207,15 +216,28 @@ def _remediate_stale_audit_log(project_root: Path) -> RemediationResult:
 def check_signal_stats_owner(project_root: Path) -> tuple[bool, str]:
     signal_stats_path = project_root / SIGNAL_STATS_PATH
     if not signal_stats_path.exists():
-        return False, f"{SIGNAL_STATS_PATH} does not exist; no ownership remediation needed"
+        return (
+            False,
+            f"{SIGNAL_STATS_PATH} does not exist; no ownership remediation needed",
+        )
 
     stat_result = signal_stats_path.stat()
-    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(project_root)
-    current_owner = f"{_name_for_uid(stat_result.st_uid)}:{_name_for_gid(stat_result.st_gid)}"
+    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(
+        project_root
+    )
+    current_owner = (
+        f"{_name_for_uid(stat_result.st_uid)}:{_name_for_gid(stat_result.st_gid)}"
+    )
     runtime_owner = f"{runtime_user}:{runtime_group}"
     if stat_result.st_uid == runtime_uid and stat_result.st_gid == runtime_gid:
-        return False, f"{SIGNAL_STATS_PATH} already owned by runtime user {runtime_owner}"
-    return True, f"{SIGNAL_STATS_PATH} owner is {current_owner}, expected {runtime_owner}"
+        return (
+            False,
+            f"{SIGNAL_STATS_PATH} already owned by runtime user {runtime_owner}",
+        )
+    return (
+        True,
+        f"{SIGNAL_STATS_PATH} owner is {current_owner}, expected {runtime_owner}",
+    )
 
 
 def _remediate_signal_stats_root_owned(project_root: Path) -> RemediationResult:
@@ -224,7 +246,9 @@ def _remediate_signal_stats_root_owned(project_root: Path) -> RemediationResult:
         return _result(False, "no_op", evidence)
 
     signal_stats_path = project_root / SIGNAL_STATS_PATH
-    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(project_root)
+    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(
+        project_root
+    )
     os.chown(signal_stats_path, runtime_uid, runtime_gid)
     return _result(
         True,
@@ -266,7 +290,10 @@ def _remediate_stale_pid_file(project_root: Path) -> RemediationResult:
 def check_balance_snapshot_age(project_root: Path) -> tuple[bool, str]:
     state_path = project_root / RISK_GUARD_STATE_PATH
     if not state_path.exists():
-        return False, f"{RISK_GUARD_STATE_PATH} does not exist; no balance snapshot to refresh"
+        return (
+            False,
+            f"{RISK_GUARD_STATE_PATH} does not exist; no balance snapshot to refresh",
+        )
 
     try:
         payload = json.loads(state_path.read_text(encoding="utf-8"))
@@ -275,16 +302,25 @@ def check_balance_snapshot_age(project_root: Path) -> tuple[bool, str]:
 
     last_save_ts = payload.get("last_save_ts")
     if not last_save_ts:
-        return False, f"{RISK_GUARD_STATE_PATH} has no last_save_ts; not treating as stale snapshot"
+        return (
+            False,
+            f"{RISK_GUARD_STATE_PATH} has no last_save_ts; not treating as stale snapshot",
+        )
 
     try:
         last_save = _parse_timestamp(str(last_save_ts))
     except ValueError as exc:
-        return False, f"{RISK_GUARD_STATE_PATH} has invalid last_save_ts {last_save_ts!r}: {exc}"
+        return (
+            False,
+            f"{RISK_GUARD_STATE_PATH} has invalid last_save_ts {last_save_ts!r}: {exc}",
+        )
 
     age = _utc_now() - last_save
     if age <= BALANCE_SNAPSHOT_STALE_AFTER:
-        return False, f"{RISK_GUARD_STATE_PATH} last_save_ts age {age} is within 60 minutes"
+        return (
+            False,
+            f"{RISK_GUARD_STATE_PATH} last_save_ts age {age} is within 60 minutes",
+        )
     return True, f"{RISK_GUARD_STATE_PATH} last_save_ts age {age} exceeds 60 minutes"
 
 
@@ -326,7 +362,9 @@ def detect_and_remediate(
 
     if pattern_name not in KNOWN_PATTERNS:
         valid_patterns = ", ".join(sorted(KNOWN_PATTERNS))
-        raise ValueError(f"unknown remediation pattern {pattern_name!r}; valid: {valid_patterns}")
+        raise ValueError(
+            f"unknown remediation pattern {pattern_name!r}; valid: {valid_patterns}"
+        )
 
     root = _resolve_project_root(project_root)
     try:

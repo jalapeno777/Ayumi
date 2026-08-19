@@ -1,11 +1,16 @@
-"""SRF Phase 3 — Weekly deep sweep.
+"""SRF Phase 3 — Weekly deep sweep (cron entry point).
 
-Runs a full grid sweep across all registered strategies × pairs × timeframes.
-Intended as a weekly cron job (e.g., every Saturday 02:00).
+Runs every strategy × pair × timeframe combo through ``StrategyRunner.run()``
+and logs a summary row to ``cron_runs``.
 
-Usage:
+Cron: ``b5a3e5fb-9763-4a1f-99ac-d01cce71ac94``, schedule ``0 4 * * 6``
+America/Toronto (Saturdays 4am EDT).
+
+Usage::
+
     python -m srf.weekly_sweep
-    python -m srf.weekly_sweep --strategies SRMR+,Keltner --pairs GBPUSD,EURUSD
+    python -m srf.weekly_sweep --strategies srmr_plus,killzone_momentum --pairs GBPUSD,EURUSD
+    python -m srf.weekly_sweep --trials 50
 """
 
 from __future__ import annotations
@@ -19,21 +24,29 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Resolve project root (this file lives at src/forex-bot/srf/weekly_sweep.py)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-# Default sweep grid
+# Default sweep grid (preserved from previous implementation)
 DEFAULT_PAIRS = ["GBPUSD", "EURUSD", "USDJPY", "XAUUSD"]
 DEFAULT_TIMEFRAMES = ["M15", "H1"]
 DEFAULT_TRIALS = 50
+DEFAULT_WINDOWS = 5
+
+# Timeframe string → minutes
+_TF_MINUTES: dict[str, int] = {
+    "M5": 5,
+    "M15": 15,
+    "M30": 30,
+    "H1": 60,
+    "H4": 240,
+    "D1": 1440,
+}
 
 
-def get_registered_strategies(conn) -> list[dict]:
-    """Get all production-status strategies from DuckDB."""
-    rows = conn.execute(
-        "SELECT name, version, module_path FROM strategies WHERE status='production'"
-    ).fetchall()
-    cols = [d[0] for d in conn.description]
-    return [dict(zip(cols, r)) for r in rows]
+def _resolve_data_path(pair: str, tf_str: str) -> Path:
+    """Resolve the CSV data path for a pair/timeframe combo."""
+    return PROJECT_ROOT / "data" / "forex" / "historical" / f"{pair}_{tf_str}.csv"
 
 
 def weekly_sweep(
@@ -42,94 +55,169 @@ def weekly_sweep(
     timeframes: list[str] | None = None,
     trials_per_combo: int = DEFAULT_TRIALS,
 ) -> dict:
-    """Run full grid sweep.
+    """Run the full SRF weekly sweep across all strategy × pair × timeframe combos.
 
-    Returns summary with total runs, successes, failures, best candidates.
+    Each combo is passed to ``StrategyRunner.run()`` which writes results
+    to the ``runs`` and ``metrics_summary`` tables in ``research.duckdb``.
+    A single ``cron_runs`` row summarises the sweep.
     """
-    from srf.schema import SRFDatabase
+    from .registry import get_strategy_factories
+    from .runner import StrategyRunner
 
-    db_path = PROJECT_ROOT / "data" / "research" / "research.duckdb"
     pairs = pairs or DEFAULT_PAIRS
     timeframes = timeframes or DEFAULT_TIMEFRAMES
+    db_path = PROJECT_ROOT / "data" / "research" / "research.duckdb"
+
+    # ── Resolve strategies ────────────────────────────────────────────
+    all_factories = get_strategy_factories()
+
+    if strategies:
+        factories = {n: f for n, f in all_factories.items() if n in strategies}
+        missing = set(strategies) - set(all_factories.keys())
+        if missing:
+            logger.warning("Unknown strategies ignored: %s", ", ".join(sorted(missing)))
+    else:
+        factories = all_factories
 
     started_at = datetime.now(timezone.utc)
-    logger.info("Weekly sweep started: %d pairs × %d timeframes", len(pairs), len(timeframes))
+    total_combos = len(factories) * len(pairs) * len(timeframes)
 
-    total_runs = 0
+    logger.info(
+        "Weekly sweep started: %d strategies × %d pairs × %d timeframes = %d combos",
+        len(factories),
+        len(pairs),
+        len(timeframes),
+        total_combos,
+    )
+
+    # ── Run sweep ─────────────────────────────────────────────────────
+    runner = StrategyRunner(db_path=str(db_path), repo_path=str(PROJECT_ROOT))
+
     successes = 0
     failures = 0
-    best_candidates = []
+    failure_details: list[str] = []
 
-    if not db_path.exists():
-        logger.warning("research.duckdb not found — sweep will create it")
-    else:
-        with SRFDatabase(str(db_path)) as conn:
-            if strategies is None:
-                strat_rows = get_registered_strategies(conn)
-                strategies = [s["name"] for s in strat_rows] or ["SRMR+"]
-
-    for strategy_name in strategies:
+    for strat_name, strat_factory in sorted(factories.items()):
         for pair in pairs:
-            for tf in timeframes:
-                total_runs += 1
-                try:
-                    logger.info("Sweeping %s %s %s (%d trials)",
-                                strategy_name, pair, tf, trials_per_combo)
-
-                    # Invoke SRF runner
-                    from srf.runner import StrategyRunner
-                    runner = StrategyRunner(
-                        db_path=str(db_path),
-                        pair=pair,
-                        timeframe=tf,
-                    )
-                    # TODO: wire actual sweep call once runner supports it
-                    # result = runner.run(trials=trials_per_combo)
-                    successes += 1
-
-                except Exception as e:
-                    logger.error("Sweep failed for %s %s %s: %s", strategy_name, pair, tf, e)
+            for tf_str in timeframes:
+                tf_minutes = _TF_MINUTES.get(tf_str)
+                if tf_minutes is None:
                     failures += 1
+                    failure_details.append(
+                        f"{strat_name}/{pair}/{tf_str}: unknown timeframe"
+                    )
+                    continue
 
-    # Log to cron_runs
+                data_path = _resolve_data_path(pair, tf_str)
+                if not data_path.exists():
+                    failures += 1
+                    failure_details.append(
+                        f"{strat_name}/{pair}/{tf_str}: no data file"
+                    )
+                    logger.debug(
+                        "Skip %s/%s/%s — %s not found",
+                        strat_name,
+                        pair,
+                        tf_str,
+                        data_path.name,
+                    )
+                    continue
+
+                try:
+                    result = runner.run(
+                        strategy_name=strat_name,
+                        strategy_factory=strat_factory,
+                        pair=pair,
+                        timeframe=tf_minutes,
+                        data_path=str(data_path),
+                        n_windows=DEFAULT_WINDOWS,
+                    )
+                    successes += 1
+                    logger.info(
+                        "OK %s/%s/%s — go_nogo=%s",
+                        strat_name,
+                        pair,
+                        tf_str,
+                        result.get("go_nogo"),
+                    )
+                except Exception as exc:
+                    failures += 1
+                    failure_details.append(
+                        f"{strat_name}/{pair}/{tf_str}: {type(exc).__name__}: {exc}"
+                    )
+                    logger.warning("FAIL %s/%s/%s — %s", strat_name, pair, tf_str, exc)
+
+    # ── Log cron_runs row ─────────────────────────────────────────────
+    completed_at = datetime.now(timezone.utc)
+    exit_code = 0 if successes > 0 else 1
+    status = "weekly_sweep:ok" if exit_code == 0 else "weekly_sweep:failed"
+
     if db_path.exists():
         try:
+            from .schema import SRFDatabase
+
             with SRFDatabase(str(db_path)) as conn:
                 conn.execute(
-                    "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    [started_at, datetime.now(timezone.utc),
-                     0 if failures == 0 else 1,
-                     total_runs,
-                     f"weekly_sweep:{'ok' if failures == 0 else 'partial'}"],
+                    "INSERT INTO cron_runs (cron_start, cron_end, exit_code, "
+                    "run_count, status) VALUES (?, ?, ?, ?, ?)",
+                    [started_at, completed_at, exit_code, successes, status],
                 )
-        except Exception as e:
-            logger.error("Failed to log cron run: %s", e)
+            logger.info(
+                "Logged cron_runs row: exit_code=%d run_count=%d status=%s",
+                exit_code,
+                successes,
+                status,
+            )
+        except Exception as exc:
+            # DB write failure is logged but does NOT fail the cron.
+            logger.error("Failed to log cron_runs row: %s", exc)
+    else:
+        logger.warning(
+            "research.duckdb not found at %s — cron_runs row not written", db_path
+        )
 
+    # ── Summary ───────────────────────────────────────────────────────
     summary = {
-        "status": "ok" if failures == 0 else "partial",
-        "total_combos": total_runs,
+        "status": "ok" if exit_code == 0 else "failed",
+        "total_combos": total_combos,
         "successes": successes,
         "failures": failures,
-        "strategies": strategies,
+        "strategies": sorted(factories.keys()),
         "pairs": pairs,
         "timeframes": timeframes,
+        "trials_per_combo": trials_per_combo,
         "started_at": started_at.isoformat(),
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+        "completed_at": completed_at.isoformat(),
     }
-    logger.info("Weekly sweep done: %d/%d succeeded", successes, total_runs)
+    if failure_details:
+        summary["failure_sample"] = failure_details[:10]
+
+    logger.info(
+        "Weekly sweep done: %d/%d succeeded, exit_code=%d",
+        successes,
+        total_combos,
+        exit_code,
+    )
     return summary
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="SRF Weekly Deep Sweep")
-    parser.add_argument("--strategies", type=str, default=None, help="Comma-separated strategy names")
+    parser.add_argument(
+        "--strategies", type=str, default=None, help="Comma-separated strategy names"
+    )
     parser.add_argument("--pairs", type=str, default=None, help="Comma-separated pairs")
-    parser.add_argument("--timeframes", type=str, default=None, help="Comma-separated timeframes")
-    parser.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
+    parser.add_argument(
+        "--timeframes", type=str, default=None, help="Comma-separated timeframes"
+    )
+    parser.add_argument(
+        "--trials", type=int, default=DEFAULT_TRIALS, help="Trials per combo (metadata)"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
 
     result = weekly_sweep(
         strategies=args.strategies.split(",") if args.strategies else None,
@@ -138,7 +226,8 @@ def main():
         trials_per_combo=args.trials,
     )
     print(json.dumps(result, indent=2))
+    return 0 if result["status"] == "ok" else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

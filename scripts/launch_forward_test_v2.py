@@ -40,41 +40,43 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 # ── Domain layer imports (reused, not reimplemented) ────────────────────────
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
-from backtest.engine import MarketState
-from core.types import BarPeriod
+from adapters.ctrader.credential_store import CredentialStore
+from adapters.ctrader.execution_event_handler import ExecutionEventHandler
+from adapters.ctrader.market_data_feed import MarketDataFeed
 
-# Strategies — same 9 as the old launcher
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
-from strategies.killzone_momentum import KillzoneMomentumStrategy, KillzoneMomentumConfig
+# Old models for CTraderTradeSignal (used by strategies)
+from adapters.ctrader.models import CTraderTradeSignal
+from adapters.ctrader.order_gateway import OrderGateway
+from adapters.ctrader.position_tracker import PositionTracker
+from adapters.ctrader.protocols import OrderStatus, TradeSide
+from adapters.ctrader.session import cTraderSession
+from adapters.ctrader.token_lifecycle import TokenLifecycle
+from backtest.engine import MarketState
+
+# ── New infrastructure imports ──────────────────────────────────────────────
+from common.logging_config import setup_logging
+from engine.health_monitor import HealthMonitor
+
+# Blend runner + correlation gate (domain layer)
+from forward_test.blend_runner import BlendForwardTestRunner
+from strategies.bb_rsi_reversion import BBRSIConfig, BBRSIMeanReversion
+from strategies.killzone_momentum import (
+    KillzoneMomentumConfig,
+    KillzoneMomentumStrategy,
+)
 from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
+from strategies.rsi_threshold import RSIThresholdConfig, SimpleRSIThresholdStrategy
+from strategies.session_breakout import SessionBreakoutStrategy
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,
 )
-from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
-from strategies.rsi_threshold import SimpleRSIThresholdStrategy, RSIThresholdConfig
-from strategies.session_breakout import SessionBreakoutStrategy
 
-# Blend runner + correlation gate (domain layer)
-from forward_test.blend_runner import BlendForwardTestRunner
-
-# Old models for CTraderTradeSignal (used by strategies)
-from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
-
-# ── New infrastructure imports ──────────────────────────────────────────────
-
-from common.logging_config import setup_logging
-from adapters.ctrader.credential_store import CredentialStore
-from adapters.ctrader.token_lifecycle import TokenLifecycle
-from adapters.ctrader.session import cTraderSession
-from adapters.ctrader.market_data_feed import MarketDataFeed
-from adapters.ctrader.execution_event_handler import ExecutionEventHandler
-from adapters.ctrader.order_gateway import OrderGateway
-from adapters.ctrader.position_tracker import PositionTracker
-from adapters.ctrader.protocols import OrderStatus, TradeSide
-from engine.health_monitor import HealthMonitor
+# Strategies — same 9 as the old launcher
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 logger = logging.getLogger("ayumi.launch_v2")
 
@@ -117,6 +119,7 @@ STRATEGY_ID_MAP: dict[str, str] = {
 
 # ── Volume conversion (CRITICAL FIX) ────────────────────────────────────────
 
+
 def lots_to_volume(lots: float, lot_size: int) -> int:
     """Convert lots to raw cTrader volume units.
 
@@ -137,6 +140,7 @@ def lots_to_volume(lots: float, lot_size: int) -> int:
 
 # ── Correlation Gate (reused from old launcher) ─────────────────────────────
 
+
 class CorrelationGate:
     """Blocks duplicate symbol-direction signals — max 1 position per (symbol, direction)."""
 
@@ -149,7 +153,10 @@ class CorrelationGate:
         with self._lock:
             existing = self._active.get(key)
             if existing:
-                return False, f"correlation_block: {existing} already holds {symbol}/{direction}"
+                return (
+                    False,
+                    f"correlation_block: {existing} already holds {symbol}/{direction}",
+                )
             self._active[key] = strategy_id
             return True, ""
 
@@ -165,6 +172,7 @@ class CorrelationGate:
 
 
 # ── Symbol spec query ───────────────────────────────────────────────────────
+
 
 def query_symbol_specs(
     session: cTraderSession,
@@ -196,6 +204,7 @@ def query_symbol_specs(
 
             # Extract the payload
             from ctrader_open_api.protobuf import Protobuf
+
             payload = Protobuf.extract(response)
 
             symbol_info = getattr(payload, "symbol", [None])
@@ -224,7 +233,95 @@ def query_symbol_specs(
     return specs
 
 
+def query_symbol_id_map(
+    session: cTraderSession,
+    account_id: int,
+    symbols: list[str],
+) -> dict[str, int]:
+    """Query cTrader for the symbol list and resolve requested names to IDs.
+
+    F821 fix (card 9cdbfd0a): ``symbol_id_map`` was passed to ForwardTestV2 but
+    never constructed. Mirrors the ProtoOASymbolsListReq pattern used by
+    OpenApiSpotFeed._fetch_symbol_list.
+
+    Returns:
+        Dict mapping normalized symbol name (e.g. "EURUSD") → symbol_id.
+    """
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASymbolsListReq
+    from ctrader_open_api.protobuf import Protobuf
+
+    wanted = {s.upper().replace("/", "") for s in symbols}
+    id_map: dict[str, int] = {}
+
+    req = ProtoOASymbolsListReq()
+    req.ctidTraderAccountId = account_id
+    try:
+        response = session.send(req, "symbols_list", timeout=15.0)
+        if response is None:
+            logger.error("Symbol list query timed out")
+            return id_map
+        payload = Protobuf.extract(response)
+        for sym in getattr(payload, "symbol", []):
+            name = str(getattr(sym, "symbolName", "")).upper().replace("/", "")
+            if name in wanted:
+                id_map[name] = sym.symbolId
+    except Exception as exc:
+        logger.error("Failed to query symbol list: %s", exc)
+
+    missing = wanted - set(id_map)
+    if missing:
+        logger.warning("Symbols not resolved via symbol list: %s", sorted(missing))
+    else:
+        logger.info("Resolved all %d symbols: %s", len(id_map), id_map)
+    return id_map
+
+
+def connect_and_resolve_symbols(
+    session: cTraderSession,
+    account_id: int,
+    symbols: list[str],
+) -> tuple[dict[str, int], dict[int, dict[str, Any]]] | None:
+    """Connect + authenticate the session, then resolve symbol IDs/specs and subscribe.
+
+    Rework (card 9cdbfd0a round 2, Rin HIGH finding): query_symbol_id_map /
+    query_symbol_specs were invoked before any ``session.connect()`` — ``send()``
+    raised ``SendError("No client — not connected")``, the query swallowed it and
+    returned an empty map, and the launcher exited. Ordering now follows the
+    sibling convention in ``OpenApiSpotFeed.start()`` / ``cTraderSession._do_connect``:
+
+        TCP connect + app auth + account auth (session.connect)
+        → symbol list query → symbol spec queries → spot subscription
+
+    Partial resolution is tolerated: symbols the list query cannot resolve are
+    logged by ``query_symbol_id_map`` and simply won't be traded; only a fully
+    empty map (or connect/subscribe failure) aborts the launch.
+
+    Returns:
+        ``(symbol_id_map, symbol_specs)`` on success, ``None`` when the launch
+        must abort (connect failed, no symbols resolved, subscribe failed).
+    """
+    if not session.connect():
+        logger.error(
+            "Session connect failed (state=%s) — cannot start engine",
+            session.state.value,
+        )
+        return None
+
+    symbol_id_map = query_symbol_id_map(session, account_id, symbols)
+    if not symbol_id_map:
+        logger.error("Could not resolve any symbol IDs — cannot start engine")
+        return None
+    symbol_specs = query_symbol_specs(session, account_id, list(symbol_id_map.values()))
+
+    if not session.subscribe_market_data(list(symbol_id_map.values())):
+        logger.error("Failed to subscribe to market data — cannot start engine")
+        return None
+
+    return symbol_id_map, symbol_specs
+
+
 # ── Strategy builder (reused from old launcher) ─────────────────────────────
+
 
 def build_strategies() -> list:
     """Build the same 9 strategies as the old launcher."""
@@ -234,30 +331,51 @@ def build_strategies() -> list:
         DonchianBreakoutStrategy(momentum=MomentumConfig()),
         SessionRangeMeanReversionStrategy(config=SessionRangeMRConfig()),
         BBRSIMeanReversion(config=BBRSIConfig()),
-        SessionBreakoutStrategy({
-            "name": "Session Breakout London",
-            "range_start_hour": 0, "range_end_hour": 8,
-            "trade_start_hour": 8, "trade_end_hour": 12,
-            "min_range_pips": 30, "max_range_pips": 80,
-            "buffer_pips": 3, "sl_atr_multiplier": 2.0,
-            "atr_period": 14, "min_range_bars": 20,
-        }),
-        SessionBreakoutStrategy({
-            "name": "Session Breakout NY",
-            "range_start_hour": 8, "range_end_hour": 13,
-            "trade_start_hour": 13, "trade_end_hour": 17,
-            "min_range_pips": 25, "max_range_pips": 70,
-            "buffer_pips": 3, "sl_atr_multiplier": 1.8,
-            "atr_period": 14, "min_range_bars": 20,
-        }),
-        SessionBreakoutStrategy({
-            "name": "Session Breakout Asian",
-            "range_start_hour": 21, "range_end_hour": 0,
-            "trade_start_hour": 0, "trade_end_hour": 6,
-            "min_range_pips": 20, "max_range_pips": 60,
-            "buffer_pips": 3, "sl_atr_multiplier": 1.5,
-            "atr_period": 14, "min_range_bars": 20,
-        }),
+        SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout London",
+                "range_start_hour": 0,
+                "range_end_hour": 8,
+                "trade_start_hour": 8,
+                "trade_end_hour": 12,
+                "min_range_pips": 30,
+                "max_range_pips": 80,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 2.0,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        ),
+        SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout NY",
+                "range_start_hour": 8,
+                "range_end_hour": 13,
+                "trade_start_hour": 13,
+                "trade_end_hour": 17,
+                "min_range_pips": 25,
+                "max_range_pips": 70,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 1.8,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        ),
+        SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout Asian",
+                "range_start_hour": 21,
+                "range_end_hour": 0,
+                "trade_start_hour": 0,
+                "trade_end_hour": 6,
+                "min_range_pips": 20,
+                "max_range_pips": 60,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 1.5,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        ),
         SimpleRSIThresholdStrategy(config=RSIThresholdConfig()),
     ]
 
@@ -282,11 +400,14 @@ def build_blend_runner() -> BlendForwardTestRunner:
 
 # ── Signal conversion ───────────────────────────────────────────────────────
 
+
 def trade_signal_to_blend_dict(signal: CTraderTradeSignal, strategy_name: str) -> dict:
     """Convert cTrader CTraderTradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
     return {
         "symbol": signal.symbol,
-        "direction": signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction),
+        "direction": signal.direction.value
+        if hasattr(signal.direction, "value")
+        else str(signal.direction),
         "entry_price": signal.entry_price,
         "stop_loss": signal.stop_loss,
         "take_profit": signal.take_profit_1 or 0.0,
@@ -296,6 +417,7 @@ def trade_signal_to_blend_dict(signal: CTraderTradeSignal, strategy_name: str) -
 
 
 # ── V2 Forward Test Engine ──────────────────────────────────────────────────
+
 
 class ForwardTestV2:
     """Evaluation loop using new infrastructure modules.
@@ -454,11 +576,15 @@ class ForwardTestV2:
                 # Evaluate strategy — use its evaluate method
                 result = strategy.evaluate(state)
             except Exception as exc:
-                logger.error("Strategy %s evaluation error: %s", sname, exc, exc_info=True)
+                logger.error(
+                    "Strategy %s evaluation error: %s", sname, exc, exc_info=True
+                )
                 continue
 
             if result is None:
-                self._strategy_no_signal[sname] = self._strategy_no_signal.get(sname, 0) + 1
+                self._strategy_no_signal[sname] = (
+                    self._strategy_no_signal.get(sname, 0) + 1
+                )
                 continue
 
             # Convert strategy signal to CTraderTradeSignal
@@ -469,7 +595,9 @@ class ForwardTestV2:
             self._signals_generated += 1
             self._route_signal(signal, sname, strategy_id)
 
-    def _convert_signal(self, strategy_signal, symbol: str, strategy_name: str) -> CTraderTradeSignal | None:
+    def _convert_signal(
+        self, strategy_signal, symbol: str, strategy_name: str
+    ) -> CTraderTradeSignal | None:
         """Convert a strategy's signal to a CTraderTradeSignal.
 
         Strategy signals may be StrategySignal or CTraderTradeSignal objects.
@@ -496,7 +624,9 @@ class ForwardTestV2:
             )
         return None
 
-    def _route_signal(self, signal: CTraderTradeSignal, strategy_name: str, strategy_id: str) -> None:
+    def _route_signal(
+        self, signal: CTraderTradeSignal, strategy_name: str, strategy_id: str
+    ) -> None:
         """Route a signal through correlation gate → blend runner → OrderGateway."""
         direction_str = (
             signal.direction.value
@@ -505,11 +635,17 @@ class ForwardTestV2:
         )
 
         # Check correlation gate
-        allowed, reason = self._corr_gate.check(signal.symbol, direction_str, strategy_id)
+        allowed, reason = self._corr_gate.check(
+            signal.symbol, direction_str, strategy_id
+        )
         if not allowed:
             logger.info(
                 "Signal blocked: %s | %s %s conf=%.2f — %s",
-                strategy_id, direction_str, signal.symbol, signal.confidence, reason,
+                strategy_id,
+                direction_str,
+                signal.symbol,
+                signal.confidence,
+                reason,
             )
             self._signals_rejected += 1
             return
@@ -529,8 +665,11 @@ class ForwardTestV2:
         if order.rejected:
             logger.info(
                 "Signal rejected by blend: %s %s %s conf=%.2f — %s",
-                strategy_id, direction_str, signal.symbol,
-                signal.confidence, order.rejection_reason,
+                strategy_id,
+                direction_str,
+                signal.symbol,
+                signal.confidence,
+                order.rejection_reason,
             )
             self._signals_rejected += 1
             self._corr_gate.release(signal.symbol, direction_str)
@@ -538,8 +677,12 @@ class ForwardTestV2:
 
         logger.info(
             "Signal accepted: %s %s %s @ %.5f conf=%.2f lots=%.4f",
-            strategy_id, direction_str, signal.symbol,
-            signal.entry_price, signal.confidence, order.lots,
+            strategy_id,
+            direction_str,
+            signal.symbol,
+            signal.entry_price,
+            signal.confidence,
+            order.lots,
         )
         self._signals_accepted += 1
 
@@ -548,7 +691,9 @@ class ForwardTestV2:
             self._execute_via_gateway(signal, order.lots, strategy_id, direction_str)
         else:
             self._paper_trades += 1
-            logger.info("Paper trade: %s %s %.4f lots", strategy_id, direction_str, order.lots)
+            logger.info(
+                "Paper trade: %s %s %.4f lots", strategy_id, direction_str, order.lots
+            )
 
     def _execute_via_gateway(
         self,
@@ -579,7 +724,11 @@ class ForwardTestV2:
 
         logger.info(
             "Sending order: %s %s vol=%d (lots=%.4f lotSize=%d)",
-            strategy_id, direction_str, raw_volume, lots, lot_size,
+            strategy_id,
+            direction_str,
+            raw_volume,
+            lots,
+            lot_size,
         )
 
         try:
@@ -602,7 +751,11 @@ class ForwardTestV2:
             filled_price = result.filled_price or 0.0
             logger.info(
                 "✅ FILLED: %s %s @ %.5f vol=%d (%.4f lots)",
-                strategy_id, direction_str, filled_price, raw_volume, lots,
+                strategy_id,
+                direction_str,
+                filled_price,
+                raw_volume,
+                lots,
             )
             # Track position
             if result.order_id:
@@ -618,20 +771,24 @@ class ForwardTestV2:
         elif result.status == OrderStatus.REJECTED:
             logger.warning(
                 "❌ REJECTED: %s %s — %s",
-                strategy_id, direction_str,
+                strategy_id,
+                direction_str,
                 result.error_message or result.error_code or "unknown",
             )
             self._corr_gate.release(signal.symbol, direction_str)
         elif result.status == OrderStatus.TIMEOUT:
             logger.warning(
                 "⏰ TIMEOUT: %s %s — order timed out",
-                strategy_id, direction_str,
+                strategy_id,
+                direction_str,
             )
             self._corr_gate.release(signal.symbol, direction_str)
         else:
             logger.warning(
                 "❓ Unknown status %s: %s %s",
-                result.status, strategy_id, direction_str,
+                result.status,
+                strategy_id,
+                direction_str,
             )
             self._corr_gate.release(signal.symbol, direction_str)
 
@@ -653,20 +810,24 @@ class ForwardTestV2:
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Ayumi Forward Test v2 (New Infrastructure)"
     )
     parser.add_argument(
-        "--symbols", default="GBPUSD,USDJPY",
+        "--symbols",
+        default="GBPUSD,USDJPY",
         help="Comma-separated symbols (default: GBPUSD,USDJPY)",
     )
     parser.add_argument(
-        "--live", action="store_true",
+        "--live",
+        action="store_true",
         help="Send real orders to cTrader via OrderGateway (default: paper)",
     )
     parser.add_argument(
-        "--log-level", default="INFO",
+        "--log-level",
+        default="INFO",
         help="Logging level (default: INFO)",
     )
     args = parser.parse_args()
@@ -682,9 +843,7 @@ def main() -> None:
     logger.info("Live mode: %s", args.live)
 
     # ── Step 2: Load credentials ───────────────────────────────────────────
-    cred_store = CredentialStore(
-        env_path=str(PROJECT_ROOT / ".env")
-    )
+    cred_store = CredentialStore(env_path=str(PROJECT_ROOT / ".env"))
     try:
         creds = cred_store.load()
         logger.info("Credentials loaded for account_id=%d", creds.account_id)
@@ -713,52 +872,10 @@ def main() -> None:
         port=int(os.getenv("CTRADER_SSL_PORT", "5035")),
     )
 
-    if not session.connect():
-        logger.error("Session connection failed — aborting")
-        token_lifecycle.stop_proactive_timer()
-        sys.exit(1)
-
-    logger.info("Session connected and authenticated")
-
-    # ── Step 5: Query symbol specs (CRITICAL for volume) ───────────────────
-    symbol_id_map: dict[str, int] = {}
-    for sym in symbols:
-        symbol_id_map[sym] = _DEFAULT_SYMBOL_IDS.get(sym, 1)
-
-    all_symbol_ids = list(symbol_id_map.values())
-    symbol_specs = query_symbol_specs(session, creds.account_id, all_symbol_ids)
-
-    # Verify we got specs for all symbols
-    for sym, sid in symbol_id_map.items():
-        if sid not in symbol_specs:
-            logger.warning(
-                "No spec for %s (id=%d) — using default lotSize=10M",
-                sym, sid,
-            )
-            symbol_specs[sid] = {
-                "lotSize": 10_000_000,
-                "minVolume": 100_000,
-                "stepVolume": 100_000,
-                "digits": 5,
-                "pipSize": 0.0001,
-            }
-
-    # Log volume conversion info
-    for sym, sid in symbol_id_map.items():
-        spec = symbol_specs[sid]
-        vol_001 = lots_to_volume(0.01, spec["lotSize"])
-        logger.info(
-            "Volume: %s 0.01 lots = %d raw (lotSize=%d)",
-            sym, vol_001, spec["lotSize"],
-        )
-
     # ── Step 6: Create MarketDataFeed ──────────────────────────────────────
-    # Use H1 (3600s) as primary bar period
-    sid_to_name = {v: k for k, v in symbol_id_map.items()}
     market_data_feed = MarketDataFeed(
         symbols=symbols,
         bar_period_seconds=3600,
-        symbol_id_map=sid_to_name,
     )
 
     # ── Step 7: Create ExecutionEventHandler ───────────────────────────────
@@ -774,32 +891,37 @@ def main() -> None:
     # ── Step 9: Create PositionTracker ─────────────────────────────────────
     position_tracker = PositionTracker(session=session)
 
-    # ── Step 10: Subscribe to market data ──────────────────────────────────
-    if not session.subscribe_market_data(all_symbol_ids):
-        logger.error("Failed to subscribe to market data — aborting")
-        session.disconnect()
-        token_lifecycle.stop_proactive_timer()
-        sys.exit(1)
-
-    logger.info("Subscribed to market data for %d symbols", len(all_symbol_ids))
-
     # Register the event handler for execution events
     for pt in (2126, 2151, 2132, 2142):
         session.register_message_handler(pt, lambda msg: event_handler.route(msg, msg))
 
     # ── Step 11: Load strategies ───────────────────────────────────────────
     strategies = build_strategies()
-    logger.info("Loaded %d strategies: %s", len(strategies), [s.name for s in strategies])
+    logger.info(
+        "Loaded %d strategies: %s", len(strategies), [s.name for s in strategies]
+    )
 
     # Verify strategy names
     for s in strategies:
-        assert s.name in STRATEGY_ID_MAP, f"Strategy .name '{s.name}' not in STRATEGY_ID_MAP"
-        assert s.name in STRATEGY_TIMEFRAMES, f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
+        assert s.name in STRATEGY_ID_MAP, (
+            f"Strategy .name '{s.name}' not in STRATEGY_ID_MAP"
+        )
+        assert s.name in STRATEGY_TIMEFRAMES, (
+            f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
+        )
     logger.info("All strategy names verified against maps")
 
     # ── Step 12: Create blend runner and correlation gate ──────────────────
     blend_runner = build_blend_runner()
     correlation_gate = CorrelationGate()
+
+    # ── Step 12b: Connect session, resolve symbol IDs/specs, subscribe ─────
+    # Rework (card 9cdbfd0a round 2): connect must precede the symbol queries
+    # (see connect_and_resolve_symbols docstring for the ordering rationale).
+    resolved = connect_and_resolve_symbols(session, creds.account_id, symbols)
+    if resolved is None:
+        sys.exit(1)
+    symbol_id_map, symbol_specs = resolved
 
     # ── Step 13: Create ForwardTestV2 engine ───────────────────────────────
     engine = ForwardTestV2(
@@ -839,7 +961,7 @@ def main() -> None:
         engine.stop()
         blend_runner.stop()
         token_lifecycle.stop_proactive_timer()
-        session.disconnect()
+        session.disconnect()  # launcher owns the session lifecycle (connected at Step 12b)
         logger.info("Clean shutdown complete")
         sys.exit(0)
 
@@ -848,8 +970,10 @@ def main() -> None:
 
     logger.info("=" * 60)
     logger.info("=== Forward Test v2 RUNNING ===")
-    logger.info("Pipeline: MarketDataFeed → strategies → blend → %s",
-                "OrderGateway" if args.live else "PaperTrade")
+    logger.info(
+        "Pipeline: MarketDataFeed → strategies → blend → %s",
+        "OrderGateway" if args.live else "PaperTrade",
+    )
     logger.info("=" * 60)
 
     # ── Main loop (keeps process alive) ────────────────────────────────────

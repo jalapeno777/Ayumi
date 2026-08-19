@@ -292,6 +292,7 @@ forward_test:
       timeframe: H1
       min_confidence: 0.40
       enabled: true
+      embargo_bars: 96  # M15 recommended embargo (24h autocorrelation buffer)
       params:
         symbol: XAUUSD
         timeframe: H1

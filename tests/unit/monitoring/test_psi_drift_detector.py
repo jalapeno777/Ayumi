@@ -21,9 +21,6 @@ from monitoring.psi_drift_detector import (
     PSIAlert,
     PSIDriftDetector,
     FeatureWindow,
-    DEFAULT_THRESHOLD,
-    DEFAULT_N_BINS,
-    EPSILON,
 )
 
 
@@ -35,8 +32,28 @@ class TestComputePSI:
 
     def test_identical_distributions_psi_near_zero(self):
         """PSI of a distribution vs itself should be ~0."""
-        data = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
-                1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
+        data = [
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4,
+            1.5,
+            1.6,
+            1.7,
+            1.8,
+            1.9,
+            2.0,
+        ]
         psi = compute_psi(data, data, n_bins=5)
         assert psi == pytest.approx(0.0, abs=1e-10)
 
@@ -185,6 +202,7 @@ class TestFeatureWindow:
 
     def test_maxlen_bounds_window(self):
         from collections import deque
+
         fw = FeatureWindow(values=deque(maxlen=5))
         fw.add([1, 2, 3, 4, 5, 6, 7])
         assert fw.count == 5
@@ -223,9 +241,7 @@ class TestPSIDriftDetector:
     def test_check_drift_no_drift(self):
         d = self._build_detector()
         # Same baseline data → no drift
-        alert = d.check_drift(
-            "win_rate", [0.3 + 0.01 * i for i in range(50)]
-        )
+        alert = d.check_drift("win_rate", [0.3 + 0.01 * i for i in range(50)])
         assert alert.psi == pytest.approx(0.0, abs=1e-10)
         assert not alert.is_alert
         assert alert.severity == "none"
@@ -233,9 +249,7 @@ class TestPSIDriftDetector:
     def test_check_drift_with_shift(self):
         d = self._build_detector()
         # Shifted distribution → drift expected
-        alert = d.check_drift(
-            "win_rate", [0.6 + 0.01 * i for i in range(50)]
-        )
+        alert = d.check_drift("win_rate", [0.6 + 0.01 * i for i in range(50)])
         assert alert.psi > 0.1
         assert alert.is_alert
 
@@ -246,10 +260,12 @@ class TestPSIDriftDetector:
 
     def test_check_all(self):
         d = self._build_detector()
-        alerts = d.check_all({
-            "win_rate": [0.3 + 0.01 * i for i in range(50)],  # no drift
-            "sharpe": [3.0 + 0.05 * i for i in range(50)],    # major drift
-        })
+        alerts = d.check_all(
+            {
+                "win_rate": [0.3 + 0.01 * i for i in range(50)],  # no drift
+                "sharpe": [3.0 + 0.05 * i for i in range(50)],  # major drift
+            }
+        )
         assert len(alerts) == 2
         names = [a.feature for a in alerts]
         assert "win_rate" in names
@@ -257,10 +273,12 @@ class TestPSIDriftDetector:
 
     def test_check_all_skips_missing_baselines(self):
         d = self._build_detector()
-        alerts = d.check_all({
-            "unknown_feature": [1.0, 2.0],
-            "win_rate": [0.3 + 0.01 * i for i in range(50)],
-        })
+        alerts = d.check_all(
+            {
+                "unknown_feature": [1.0, 2.0],
+                "win_rate": [0.3 + 0.01 * i for i in range(50)],
+            }
+        )
         assert len(alerts) == 1
         assert alerts[0].feature == "win_rate"
 

@@ -49,10 +49,12 @@ from daily_audit import (
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def tmp_data_root(tmp_path, monkeypatch):
     """Create a temporary ROOT for daily_audit so all file checks use tmp_path."""
     import daily_audit
+
     monkeypatch.setattr(daily_audit, "ROOT", tmp_path)
     return tmp_path
 
@@ -71,8 +73,8 @@ def _write_jsonl(path: Path, records: list[dict]) -> None:
 
 # ── DH-001: Tick Feed Latency ──────────────────────────────────────────────
 
-class TestDH001TickFeedLatency:
 
+class TestDH001TickFeedLatency:
     def test_missing_file(self, tmp_data_root):
         result = _ch_dh_tick_feed_latency()
         assert result.check_id == "DH-001"
@@ -83,39 +85,52 @@ class TestDH001TickFeedLatency:
     def _mock_market_open(self, monkeypatch):
         """Ensure existing tests run with market-open semantics regardless of real day."""
         import daily_audit
+
         monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
 
     def test_healthy_latency(self, tmp_data_root):
         now_iso = datetime.now(timezone.utc).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": now_iso,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": now_iso,
+            },
+        )
         result = _ch_dh_tick_feed_latency()
         assert result.status == "OK"
         assert "latency" in result.detail.lower()
 
     def test_degraded_latency(self, tmp_data_root):
         old_time = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": old_time,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": old_time,
+            },
+        )
         result = _ch_dh_tick_feed_latency()
         assert result.status == "WARN"
         assert "degraded" in result.detail.lower()
 
     def test_critical_latency(self, tmp_data_root):
         very_old = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": very_old,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": very_old,
+            },
+        )
         result = _ch_dh_tick_feed_latency()
         assert result.status == "CRITICAL"
         assert result.escalated is True
 
     def test_missing_last_tick_field(self, tmp_data_root):
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "service_status": "up",
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "service_status": "up",
+            },
+        )
         result = _ch_dh_tick_feed_latency()
         assert result.status == "WARN"
         assert "last_tick_time" in result.detail
@@ -123,8 +138,8 @@ class TestDH001TickFeedLatency:
 
 # ── DH-002: Bar Building Rate ──────────────────────────────────────────────
 
-class TestDH002BarBuildingRate:
 
+class TestDH002BarBuildingRate:
     def test_missing_file(self, tmp_data_root):
         result = _ch_dh_bar_building_rate()
         assert result.check_id == "DH-002"
@@ -132,10 +147,13 @@ class TestDH002BarBuildingRate:
 
     def test_healthy_bars(self, tmp_data_root):
         hb_path = tmp_data_root / "data" / "forward_test_health.json"
-        _write_json(hb_path, {
-            "bars_built": 245,
-            "market_closed": False,
-        })
+        _write_json(
+            hb_path,
+            {
+                "bars_built": 245,
+                "market_closed": False,
+            },
+        )
         # Touch file to make it fresh
         os.utime(hb_path, (time.time(), time.time()))
         result = _ch_dh_bar_building_rate()
@@ -144,20 +162,26 @@ class TestDH002BarBuildingRate:
 
     def test_market_closed(self, tmp_data_root):
         hb_path = tmp_data_root / "data" / "forward_test_health.json"
-        _write_json(hb_path, {
-            "bars_built": 100,
-            "market_closed": True,
-        })
+        _write_json(
+            hb_path,
+            {
+                "bars_built": 100,
+                "market_closed": True,
+            },
+        )
         result = _ch_dh_bar_building_rate()
         assert result.status == "OK"
         assert "market closed" in result.detail.lower()
 
     def test_zero_bars(self, tmp_data_root):
         hb_path = tmp_data_root / "data" / "forward_test_health.json"
-        _write_json(hb_path, {
-            "bars_built": 0,
-            "market_closed": False,
-        })
+        _write_json(
+            hb_path,
+            {
+                "bars_built": 0,
+                "market_closed": False,
+            },
+        )
         os.utime(hb_path, (time.time(), time.time()))
         result = _ch_dh_bar_building_rate()
         assert result.status == "WARN"
@@ -165,10 +189,13 @@ class TestDH002BarBuildingRate:
 
     def test_stale_file(self, tmp_data_root):
         hb_path = tmp_data_root / "data" / "forward_test_health.json"
-        _write_json(hb_path, {
-            "bars_built": 50,
-            "market_closed": False,
-        })
+        _write_json(
+            hb_path,
+            {
+                "bars_built": 50,
+                "market_closed": False,
+            },
+        )
         # Make file old (6 minutes ago)
         old_time = time.time() - 360
         os.utime(hb_path, (old_time, old_time))
@@ -179,12 +206,13 @@ class TestDH002BarBuildingRate:
 
 # ── DH-005: Signal Stats Write Health ──────────────────────────────────────
 
-class TestDH005SignalStatsWriteHealth:
 
+class TestDH005SignalStatsWriteHealth:
     @pytest.fixture(autouse=True)
     def _mock_market_open(self, monkeypatch):
         """Ensure existing tests run with market-open semantics regardless of real day."""
         import daily_audit
+
         monkeypatch.setattr(daily_audit, "_get_market_status", lambda now=None: "open")
 
     def test_missing_file(self, tmp_data_root):
@@ -196,9 +224,12 @@ class TestDH005SignalStatsWriteHealth:
     def test_healthy_writer(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
         now_iso = datetime.now(timezone.utc).isoformat()
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": now_iso, "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {"signal_id": "sig1", "timestamp": now_iso, "outcome": "open"},
+            ],
+        )
         os.utime(stats_path, (time.time(), time.time()))
         result = _ch_dh_signal_stats_write_health()
         assert result.status == "OK"
@@ -206,9 +237,16 @@ class TestDH005SignalStatsWriteHealth:
 
     def test_stale_writer(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-01-01T00:00:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         old_time = time.time() - 120  # 2 minutes old
         os.utime(stats_path, (old_time, old_time))
         result = _ch_dh_signal_stats_write_health()
@@ -217,9 +255,16 @@ class TestDH005SignalStatsWriteHealth:
 
     def test_dead_writer(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-01-01T00:00:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-01-01T00:00:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         old_time = time.time() - 600  # 10 minutes old
         os.utime(stats_path, (old_time, old_time))
         result = _ch_dh_signal_stats_write_health()
@@ -229,8 +274,8 @@ class TestDH005SignalStatsWriteHealth:
 
 # ── FT-002: Open Positions vs Limits ───────────────────────────────────────
 
-class TestFT002OpenPositions:
 
+class TestFT002OpenPositions:
     def test_missing_db(self, tmp_data_root):
         result = _ch_ft_open_positions_vs_limits()
         assert result.check_id == "FT-002"
@@ -262,7 +307,9 @@ class TestFT002OpenPositions:
             close_reason TEXT,
             metadata TEXT
         )""")
-        conn.execute("INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES ('t1', 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'closed')")
+        conn.execute(
+            "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES ('t1', 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'closed')"
+        )
         conn.commit()
         conn.close()
         result = _ch_ft_open_positions_vs_limits()
@@ -295,7 +342,10 @@ class TestFT002OpenPositions:
             metadata TEXT
         )""")
         for i in range(3):
-            conn.execute("INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')", (f"t{i}",))
+            conn.execute(
+                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",
+                (f"t{i}",),
+            )
         conn.commit()
         conn.close()
         result = _ch_ft_open_positions_vs_limits()
@@ -328,7 +378,10 @@ class TestFT002OpenPositions:
             metadata TEXT
         )""")
         for i in range(4):
-            conn.execute("INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')", (f"t{i}",))
+            conn.execute(
+                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",
+                (f"t{i}",),
+            )
         conn.commit()
         conn.close()
         result = _ch_ft_open_positions_vs_limits()
@@ -339,8 +392,8 @@ class TestFT002OpenPositions:
 
 # ── FT-005: Best-Day Ratio ─────────────────────────────────────────────────
 
-class TestFT005BestDayRatio:
 
+class TestFT005BestDayRatio:
     def test_missing_db(self, tmp_data_root):
         result = _ch_ft_best_day_ratio()
         assert result.check_id == "FT-005"
@@ -364,7 +417,9 @@ class TestFT005BestDayRatio:
             worst_trade_pnl REAL,
             strategies_used TEXT
         )""")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 9950, 2, 0, 2, -50, 0.5, 0, 0, -30, '[]')")
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 9950, 2, 0, 2, -50, 0.5, 0, 0, -30, '[]')"
+        )
         conn.commit()
         conn.close()
         result = _ch_ft_best_day_ratio()
@@ -390,11 +445,21 @@ class TestFT005BestDayRatio:
             strategies_used TEXT
         )""")
         # 5 profitable days, best day = $150, total = $600 → 25% → OK
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10100, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-02', 10100, 10200, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-03', 10200, 10350, 3, 2, 1, 150, 0.5, 0, 150, -20, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-04', 10350, 10450, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-05', 10450, 10550, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10100, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-02', 10100, 10200, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-03', 10200, 10350, 3, 2, 1, 150, 0.5, 0, 150, -20, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-04', 10350, 10450, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-05', 10450, 10550, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
         conn.commit()
         conn.close()
         result = _ch_ft_best_day_ratio()
@@ -420,11 +485,21 @@ class TestFT005BestDayRatio:
             strategies_used TEXT
         )""")
         # Best day = $450, total positive = $1000 → 45% → WARN
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10100, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-02', 10100, 10550, 3, 2, 1, 450, 0.5, 0, 450, -20, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-03', 10550, 10600, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-04', 10600, 10650, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-05', 10650, 10750, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')")
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10100, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-02', 10100, 10550, 3, 2, 1, 450, 0.5, 0, 450, -20, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-03', 10550, 10600, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-04', 10600, 10650, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-05', 10650, 10750, 2, 1, 1, 100, 0.5, 0, 100, -10, '[]')"
+        )
         conn.commit()
         conn.close()
         result = _ch_ft_best_day_ratio()
@@ -451,9 +526,15 @@ class TestFT005BestDayRatio:
             strategies_used TEXT
         )""")
         # Best day = $500, total positive = $600 → 83% → CRITICAL
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10050, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-02', 10050, 10550, 3, 2, 1, 500, 0.5, 0, 500, -20, '[]')")
-        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-03', 10550, 10600, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')")
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 10050, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-02', 10050, 10550, 3, 2, 1, 500, 0.5, 0, 500, -20, '[]')"
+        )
+        conn.execute(
+            "INSERT INTO daily_summary VALUES ('2026-07-03', 10550, 10600, 2, 1, 1, 50, 0.5, 0, 50, -10, '[]')"
+        )
         conn.commit()
         conn.close()
         result = _ch_ft_best_day_ratio()
@@ -463,8 +544,8 @@ class TestFT005BestDayRatio:
 
 # ── FT-007: Fill Latency P50 ───────────────────────────────────────────────
 
-class TestFT007FillLatencyP50:
 
+class TestFT007FillLatencyP50:
     def test_missing_file(self, tmp_data_root):
         result = _ch_ft_fill_latency_p50()
         assert result.check_id == "FT-007"
@@ -473,10 +554,23 @@ class TestFT007FillLatencyP50:
     def test_no_fill_data(self, tmp_data_root):
         """When filled_at field doesn't exist in signal_stats.jsonl."""
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-08T10:00:00+00:00", "outcome": "open", "entry_price": 1.1},
-            {"signal_id": "sig2", "timestamp": "2026-07-08T11:00:00+00:00", "outcome": "tp_hit", "entry_price": 1.2},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "outcome": "open",
+                    "entry_price": 1.1,
+                },
+                {
+                    "signal_id": "sig2",
+                    "timestamp": "2026-07-08T11:00:00+00:00",
+                    "outcome": "tp_hit",
+                    "entry_price": 1.2,
+                },
+            ],
+        )
         result = _ch_ft_fill_latency_p50()
         assert result.status == "WARN"
         assert "not yet instrumented" in result.detail.lower()
@@ -488,13 +582,15 @@ class TestFT007FillLatencyP50:
         for i in range(10):
             ts = f"2026-07-08T10:0{i}:00+00:00"
             filled = f"2026-07-08T10:0{i}:0{i // 3 + 1}+00:00"  # 1-4 seconds later
-            records.append({
-                "signal_id": f"sig{i}",
-                "timestamp": ts,
-                "filled_at": filled,
-                "outcome": "tp_hit",
-                "entry_price": 1.1,
-            })
+            records.append(
+                {
+                    "signal_id": f"sig{i}",
+                    "timestamp": ts,
+                    "filled_at": filled,
+                    "outcome": "tp_hit",
+                    "entry_price": 1.1,
+                }
+            )
         _write_jsonl(stats_path, records)
         result = _ch_ft_fill_latency_p50()
         assert result.status == "OK"
@@ -503,8 +599,8 @@ class TestFT007FillLatencyP50:
 
 # ── FT-008: Fill Latency P95 ───────────────────────────────────────────────
 
-class TestFT008FillLatencyP95:
 
+class TestFT008FillLatencyP95:
     def test_missing_file(self, tmp_data_root):
         result = _ch_ft_fill_latency_p95()
         assert result.check_id == "FT-008"
@@ -512,9 +608,16 @@ class TestFT008FillLatencyP95:
 
     def test_no_fill_data(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-08T10:00:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         result = _ch_ft_fill_latency_p95()
         assert result.status == "WARN"
         assert "not yet instrumented" in result.detail.lower()
@@ -525,13 +628,15 @@ class TestFT008FillLatencyP95:
         for i in range(20):
             ts = f"2026-07-08T10:{i:02d}:00+00:00"
             filled = f"2026-07-08T10:{i:02d}:{i % 5 + 1:02d}+00:00"  # 1-5 seconds later
-            records.append({
-                "signal_id": f"sig{i}",
-                "timestamp": ts,
-                "filled_at": filled,
-                "outcome": "tp_hit",
-                "entry_price": 1.1,
-            })
+            records.append(
+                {
+                    "signal_id": f"sig{i}",
+                    "timestamp": ts,
+                    "filled_at": filled,
+                    "outcome": "tp_hit",
+                    "entry_price": 1.1,
+                }
+            )
         _write_jsonl(stats_path, records)
         result = _ch_ft_fill_latency_p95()
         assert result.status == "OK"
@@ -540,8 +645,8 @@ class TestFT008FillLatencyP95:
 
 # ── FT-010: Slippage Analysis ──────────────────────────────────────────────
 
-class TestFT010SlippageAnalysis:
 
+class TestFT010SlippageAnalysis:
     def test_missing_file(self, tmp_data_root):
         result = _ch_ft_slippage_analysis()
         assert result.check_id == "FT-010"
@@ -549,20 +654,49 @@ class TestFT010SlippageAnalysis:
 
     def test_no_slippage_data(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-08T10:00:00+00:00", "entry_price": 1.1, "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "entry_price": 1.1,
+                    "outcome": "open",
+                },
+            ],
+        )
         result = _ch_ft_slippage_analysis()
         assert result.status == "WARN"
         assert "not yet instrumented" in result.detail.lower()
 
     def test_with_slippage_data(self, tmp_data_root):
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-08T10:00:00+00:00", "entry_price": 1.1001, "requested_price": 1.1000, "outcome": "tp_hit"},
-            {"signal_id": "sig2", "timestamp": "2026-07-08T11:00:00+00:00", "entry_price": 1.2001, "requested_price": 1.2000, "outcome": "tp_hit"},
-            {"signal_id": "sig3", "timestamp": "2026-07-08T12:00:00+00:00", "entry_price": 1.3001, "requested_price": 1.3000, "outcome": "tp_hit"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "entry_price": 1.1001,
+                    "requested_price": 1.1000,
+                    "outcome": "tp_hit",
+                },
+                {
+                    "signal_id": "sig2",
+                    "timestamp": "2026-07-08T11:00:00+00:00",
+                    "entry_price": 1.2001,
+                    "requested_price": 1.2000,
+                    "outcome": "tp_hit",
+                },
+                {
+                    "signal_id": "sig3",
+                    "timestamp": "2026-07-08T12:00:00+00:00",
+                    "entry_price": 1.3001,
+                    "requested_price": 1.3000,
+                    "outcome": "tp_hit",
+                },
+            ],
+        )
         result = _ch_ft_slippage_analysis()
         assert result.status == "OK"
         assert "avg_slippage" in result.detail
@@ -570,8 +704,8 @@ class TestFT010SlippageAnalysis:
 
 # ── FT-011: Order Rejection Rate ───────────────────────────────────────────
 
-class TestFT011OrderRejectionRate:
 
+class TestFT011OrderRejectionRate:
     def test_missing_file(self, tmp_data_root):
         result = _ch_ft_order_rejection_rate()
         assert result.check_id == "FT-011"
@@ -589,7 +723,13 @@ class TestFT011OrderRejectionRate:
         records = []
         for i in range(100):
             outcome = "failed_order_error" if i < 2 else "open"
-            records.append({"signal_id": f"sig{i}", "timestamp": "2026-07-08T10:00:00+00:00", "outcome": outcome})
+            records.append(
+                {
+                    "signal_id": f"sig{i}",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "outcome": outcome,
+                }
+            )
         _write_jsonl(stats_path, records)
         result = _ch_ft_order_rejection_rate()
         assert result.status == "OK"
@@ -600,7 +740,13 @@ class TestFT011OrderRejectionRate:
         records = []
         for i in range(100):
             outcome = "failed_order_error" if i < 5 else "open"
-            records.append({"signal_id": f"sig{i}", "timestamp": "2026-07-08T10:00:00+00:00", "outcome": outcome})
+            records.append(
+                {
+                    "signal_id": f"sig{i}",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "outcome": outcome,
+                }
+            )
         _write_jsonl(stats_path, records)
         result = _ch_ft_order_rejection_rate()
         assert result.status == "WARN"
@@ -611,7 +757,13 @@ class TestFT011OrderRejectionRate:
         records = []
         for i in range(100):
             outcome = "failed_order_error" if i < 15 else "open"
-            records.append({"signal_id": f"sig{i}", "timestamp": "2026-07-08T10:00:00+00:00", "outcome": outcome})
+            records.append(
+                {
+                    "signal_id": f"sig{i}",
+                    "timestamp": "2026-07-08T10:00:00+00:00",
+                    "outcome": outcome,
+                }
+            )
         _write_jsonl(stats_path, records)
         result = _ch_ft_order_rejection_rate()
         assert result.status == "CRITICAL"
@@ -620,8 +772,8 @@ class TestFT011OrderRejectionRate:
 
 # ── Integration: run_all_checkpoints count ─────────────────────────────────
 
-class TestRunAllCheckpoints:
 
+class TestRunAllCheckpoints:
     def test_returns_25_checkpoints(self, tmp_data_root):
         """Verify run_all_checkpoints returns exactly 25 results."""
         # We need to mock DriftDetector since it requires workboard access
@@ -637,8 +789,9 @@ class TestRunAllCheckpoints:
 
             # Verify all have valid statuses (no SKIP)
             for r in results:
-                assert r.status in ("OK", "WARN", "CRITICAL"), \
+                assert r.status in ("OK", "WARN", "CRITICAL"), (
                     f"Check {r.check_id} has status {r.status} (expected OK/WARN/CRITICAL)"
+                )
 
             # Verify checkpoint IDs are unique
             ids = [r.check_id for r in results]
@@ -646,6 +799,7 @@ class TestRunAllCheckpoints:
 
 
 # ── Market Status Detection ───────────────────────────────────────────────
+
 
 class TestMarketStatusDetection:
     """Test _get_market_status() for correct weekend/market-closed detection."""
@@ -709,9 +863,12 @@ class TestDH001WeekendBehavior:
         # Simulate 20-hour-old tick time on a Saturday
         saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
         old_tick = (saturday - timedelta(hours=20)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": old_tick,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": old_tick,
+            },
+        )
         with patch("daily_audit._now", return_value=saturday):
             result = _ch_dh_tick_feed_latency()
         assert result.check_id == "DH-001"
@@ -723,9 +880,12 @@ class TestDH001WeekendBehavior:
         """Tick feed with low latency on Saturday should be OK."""
         saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
         fresh_tick = (saturday - timedelta(seconds=1)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": fresh_tick,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": fresh_tick,
+            },
+        )
         with patch("daily_audit._now", return_value=saturday):
             result = _ch_dh_tick_feed_latency()
         assert result.status == "OK"
@@ -735,9 +895,12 @@ class TestDH001WeekendBehavior:
         """Tick feed latency on Wednesday should still flag CRITICAL."""
         wednesday = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
         old_tick = (wednesday - timedelta(seconds=60)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": old_tick,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": old_tick,
+            },
+        )
         with patch("daily_audit._now", return_value=wednesday):
             result = _ch_dh_tick_feed_latency()
         assert result.status == "CRITICAL"
@@ -747,9 +910,12 @@ class TestDH001WeekendBehavior:
         """Tick feed latency Friday night (after market close) should be WARN."""
         friday_night = datetime(2026, 7, 10, 23, 30, tzinfo=timezone.utc)
         old_tick = (friday_night - timedelta(hours=2)).isoformat()
-        _write_json(tmp_data_root / "data" / "forward_test_health.json", {
-            "last_tick_time": old_tick,
-        })
+        _write_json(
+            tmp_data_root / "data" / "forward_test_health.json",
+            {
+                "last_tick_time": old_tick,
+            },
+        )
         with patch("daily_audit._now", return_value=friday_night):
             result = _ch_dh_tick_feed_latency()
         assert result.status in ("WARN", "OK")  # Not CRITICAL
@@ -763,17 +929,26 @@ class TestDH005WeekendBehavior:
         """Stale signal_stats.jsonl on Saturday should be WARN, not CRITICAL."""
         saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-10T20:00:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-10T20:00:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         # Reference clock is saturday noon — file mtime and the function's
         # _now()/time.time() must use the same reference so file_age_s is
         # computed relative to the simulated weekend "now".
         saturday_ts = saturday.timestamp()
         old_time = saturday_ts - 21600  # 6 hours old
         os.utime(stats_path, (old_time, old_time))
-        with patch("daily_audit._now", return_value=saturday), \
-             patch("daily_audit.time.time", return_value=saturday_ts):
+        with (
+            patch("daily_audit._now", return_value=saturday),
+            patch("daily_audit.time.time", return_value=saturday_ts),
+        ):
             result = _ch_dh_signal_stats_write_health()
         assert result.check_id == "DH-005"
         assert result.status == "WARN"
@@ -783,16 +958,25 @@ class TestDH005WeekendBehavior:
         """Fresh signal_stats.jsonl on Saturday should be OK."""
         saturday = datetime(2026, 7, 11, 12, 0, tzinfo=timezone.utc)
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-11T11:30:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-11T11:30:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         # Reference clock is saturday noon — both file mtime and time.time()
         # are anchored to it so file_age_s is computed correctly.
         saturday_ts = saturday.timestamp()
         fresh_time = saturday_ts - 300  # 5 min old
         os.utime(stats_path, (fresh_time, fresh_time))
-        with patch("daily_audit._now", return_value=saturday), \
-             patch("daily_audit.time.time", return_value=saturday_ts):
+        with (
+            patch("daily_audit._now", return_value=saturday),
+            patch("daily_audit.time.time", return_value=saturday_ts),
+        ):
             result = _ch_dh_signal_stats_write_health()
         assert result.status == "OK"
 
@@ -800,15 +984,24 @@ class TestDH005WeekendBehavior:
         """Stale signal_stats.jsonl on Wednesday should still be CRITICAL."""
         wednesday = datetime(2026, 7, 8, 12, 0, tzinfo=timezone.utc)
         stats_path = tmp_data_root / "data" / "signal_stats.jsonl"
-        _write_jsonl(stats_path, [
-            {"signal_id": "sig1", "timestamp": "2026-07-08T06:00:00+00:00", "outcome": "open"},
-        ])
+        _write_jsonl(
+            stats_path,
+            [
+                {
+                    "signal_id": "sig1",
+                    "timestamp": "2026-07-08T06:00:00+00:00",
+                    "outcome": "open",
+                },
+            ],
+        )
         # Reference clock is wednesday noon.
         wednesday_ts = wednesday.timestamp()
         old_time = wednesday_ts - 600  # 10 min old
         os.utime(stats_path, (old_time, old_time))
-        with patch("daily_audit._now", return_value=wednesday), \
-             patch("daily_audit.time.time", return_value=wednesday_ts):
+        with (
+            patch("daily_audit._now", return_value=wednesday),
+            patch("daily_audit.time.time", return_value=wednesday_ts),
+        ):
             result = _ch_dh_signal_stats_write_health()
         assert result.status == "CRITICAL"
         assert result.escalated

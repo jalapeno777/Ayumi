@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from adapters.ctrader.credential_store import Credentials, CredentialStore
+from adapters.ctrader.credential_store import CredentialStore
 
 
 VALID_ENV = """\

@@ -99,7 +99,6 @@ class SignalRouter:
             signal.symbol,
         )
 
-        tp = signal.take_profit_1 or signal.entry_price
         trade_check = self._portfolio_risk.check_trade_allowed(signal, volume)
         if not trade_check.allowed:
             return RouteResult(

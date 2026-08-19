@@ -18,7 +18,6 @@ After T4:
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -73,6 +72,7 @@ def _make_signal() -> CTraderTradeSignal:
 def live_engine(tmp_path):
     """Build a forward test engine with live mode, mocked live creds, and isolated kill switch state."""
     from adapters.ctrader.kill_switch import KillSwitchManager
+
     isolated_dir = tmp_path / "kill_switches"
     isolated_dir.mkdir(parents=True, exist_ok=True)
     cfg = ForwardTestConfig(live_mode=True, starting_balance=10000.0)
@@ -159,6 +159,7 @@ class TestCalculateLiveVolumeIndependentOfPaperTrader:
     def test_volume_default_when_sl_distance_is_zero(self, live_engine):
         """SL == entry_price → distance=0 → fallback to default_lot_size."""
         from adapters.ctrader.order_manager import PositionSizeConfig
+
         live_engine._paper_trader = None
         live_engine._position_config = PositionSizeConfig(default_lot_size=0.42)
         sig = _make_signal()

@@ -11,6 +11,7 @@ ensure symbol discovery has run before invoking lots_to_volume / volume_to_lots
 for a given symbol_id. Unknown symbols raise ValueError on volume methods and
 warn+fallback on price decoding.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,17 +25,17 @@ logger = logging.getLogger("ayumi.ctrader.volume_calculator")
 
 class VolumeCalculator:
     """Converts between lots, cTrader protocol volume, and notional.
-    
+
     Knows the per-symbol lot size from SymbolInfo, avoiding hardcoded 100k.
     Holds a reference to OpenApiSpotFeed._symbols dict — sees updates live.
     """
 
-    def __init__(self, symbols: Dict[int, 'SymbolInfo']):
+    def __init__(self, symbols: Dict[int, "SymbolInfo"]):
         self._symbols = symbols  # reference to OpenApiSpotFeed._symbols
 
     def lots_to_volume(self, symbol_id: int, lots: float) -> int:
         """Strategy lots → cTrader protocol integer volume.
-        
+
         Raises ValueError if symbol_id unknown.
         """
         sym = self._symbols.get(symbol_id)
@@ -44,7 +45,7 @@ class VolumeCalculator:
 
     def volume_to_lots(self, symbol_id: int, volume: int) -> float:
         """cTrader protocol volume → strategy lots.
-        
+
         Raises ValueError if symbol_id unknown.
         """
         sym = self._symbols.get(symbol_id)
@@ -54,7 +55,7 @@ class VolumeCalculator:
 
     def validate_volume(self, symbol_id: int, volume: int) -> Tuple[bool, str]:
         """Validate volume against symbol min/max/step constraints.
-        
+
         Returns (True, "OK") if valid, (False, reason) if invalid.
         """
         sym = self._symbols.get(symbol_id)
@@ -72,11 +73,14 @@ class VolumeCalculator:
 
     def price_from_raw(self, symbol_id: int, raw_price: int) -> float:
         """Decode a cTrader raw price using per-symbol digits.
-        
+
         Falls back to /100_000 with warning for unknown symbols.
         """
         sym = self._symbols.get(symbol_id)
         if sym is None:
-            logger.warning("price_from_raw: unknown symbol_id=%s, using default 5 digits", symbol_id)
+            logger.warning(
+                "price_from_raw: unknown symbol_id=%s, using default 5 digits",
+                symbol_id,
+            )
             return raw_price / 100_000
-        return raw_price / (10 ** sym.digits)
+        return raw_price / (10**sym.digits)

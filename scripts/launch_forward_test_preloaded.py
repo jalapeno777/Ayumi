@@ -3,14 +3,19 @@
 
 from __future__ import annotations
 
-import os, sys, signal as sig_module, time, logging
-from datetime import datetime, timezone, timedelta
+import os
+import sys
+import signal as sig_module
+import time
+import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
@@ -86,7 +91,9 @@ def main():
         strategies=[SRMRPlusStrategy(config=SRMRPlusConfig())],
         ftmo_config=FTMOConfig(),
         position_config=PositionSizeConfig(
-            risk_per_trade_pct=0.005, max_lot_size=1.0, min_lot_size=0.01,
+            risk_per_trade_pct=0.005,
+            max_lot_size=1.0,
+            min_lot_size=0.01,
         ),
         credentials=credentials,
     )
@@ -94,15 +101,17 @@ def main():
     # Preload bars
     bar_objects = []
     for rb in raw_bars:
-        bar_objects.append(Bar(
-            time=datetime.fromtimestamp(rb["timestamp"] / 1000, tz=timezone.utc),
-            open=rb["open"],
-            high=rb["high"],
-            low=rb["low"],
-            close=rb["close"],
-            volume=rb["volume"],
-            period=BarPeriod.H1,
-        ))
+        bar_objects.append(
+            Bar(
+                time=datetime.fromtimestamp(rb["timestamp"] / 1000, tz=timezone.utc),
+                open=rb["open"],
+                high=rb["high"],
+                low=rb["low"],
+                close=rb["close"],
+                volume=rb["volume"],
+                period=BarPeriod.H1,
+            )
+        )
 
     engine._bars["GBPUSD"] = bar_objects
     logger.info(f"Preloaded {len(bar_objects)} H1 bars into engine._bars['GBPUSD']")
@@ -112,6 +121,7 @@ def main():
         logger.info("Shutdown signal — stopping engine...")
         engine.stop()
         sys.exit(0)
+
     sig_module.signal(sig_module.SIGINT, shutdown)
     sig_module.signal(sig_module.SIGTERM, shutdown)
 

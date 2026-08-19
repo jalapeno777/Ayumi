@@ -332,7 +332,13 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale, pip,
+                direction,
+                price,
+                atr,
+                self.config,
+                session_range_price,
+                rationale,
+                pip,
                 spread_price=spread_price,
             )
 
@@ -346,7 +352,13 @@ class SessionRangeMeanReversionStrategy:
                 f"RSI={rsi:.1f}, range={session_range_width:.1f} pips"
             )
             return _build_signal(
-                direction, price, atr, self.config, session_range_price, rationale, pip,
+                direction,
+                price,
+                atr,
+                self.config,
+                session_range_price,
+                rationale,
+                pip,
                 spread_price=spread_price,
             )
 

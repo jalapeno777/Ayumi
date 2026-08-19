@@ -97,7 +97,14 @@ def _collect_issues(path: Path, source: str) -> list[dict]:
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError as exc:
-        return [{"path": str(path), "line": exc.lineno or 1, "type": "syntax_error", "message": str(exc)}]
+        return [
+            {
+                "path": str(path),
+                "line": exc.lineno or 1,
+                "type": "syntax_error",
+                "message": str(exc),
+            }
+        ]
 
     # Pre-compute class method definitions
     class_methods: dict[str, set[str]] = {}
@@ -122,23 +129,27 @@ def _collect_issues(path: Path, source: str) -> list[dict]:
         # Typo detection
         if method_name in COMMON_TYPOS:
             expected = COMMON_TYPOS[method_name]
-            issues.append({
-                "path": str(path),
-                "line": line,
-                "type": "typo",
-                "message": f"likely typo '{method_name}' should be '{expected}'",
-            })
+            issues.append(
+                {
+                    "path": str(path),
+                    "line": line,
+                    "type": "typo",
+                    "message": f"likely typo '{method_name}' should be '{expected}'",
+                }
+            )
             continue
 
         # Registration outside a class is suspicious
         enclosing_class = _enclosing_class(node, tree)
         if enclosing_class is None:
-            issues.append({
-                "path": str(path),
-                "line": line,
-                "type": "registration_outside_class",
-                "message": f"{method_name} called outside a class",
-            })
+            issues.append(
+                {
+                    "path": str(path),
+                    "line": line,
+                    "type": "registration_outside_class",
+                    "message": f"{method_name} called outside a class",
+                }
+            )
             continue
 
         # Check that the callback argument is a method defined on the class
@@ -149,24 +160,30 @@ def _collect_issues(path: Path, source: str) -> list[dict]:
         if callback_target is None and node.args:
             # Could be a local variable or a module-level function - flag it
             arg = node.args[0]
-            issues.append({
-                "path": str(path),
-                "line": line,
-                "type": "non_method_callback",
-                "message": f"{method_name} registered with non-self argument ({type(arg).__name__})",
-            })
+            issues.append(
+                {
+                    "path": str(path),
+                    "line": line,
+                    "type": "non_method_callback",
+                    "message": f"{method_name} registered with non-self argument ({type(arg).__name__})",
+                }
+            )
             continue
 
-        if callback_target and callback_target not in class_methods.get(enclosing_class, set()):
-            issues.append({
-                "path": str(path),
-                "line": line,
-                "type": "undefined_callback",
-                "message": (
-                    f"{method_name} references self.{callback_target}, "
-                    f"but '{callback_target}' is not defined in class '{enclosing_class}'"
-                ),
-            })
+        if callback_target and callback_target not in class_methods.get(
+            enclosing_class, set()
+        ):
+            issues.append(
+                {
+                    "path": str(path),
+                    "line": line,
+                    "type": "undefined_callback",
+                    "message": (
+                        f"{method_name} references self.{callback_target}, "
+                        f"but '{callback_target}' is not defined in class '{enclosing_class}'"
+                    ),
+                }
+            )
 
     return issues
 

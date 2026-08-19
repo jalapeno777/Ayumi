@@ -29,6 +29,13 @@ _XAUUSD_M15_PARAMS = {
     "history_bars": 50,
 }
 
+# Embargo recommendation for XAUUSD M15 walk-forward optimization.
+# 96 M15 bars = 24 hours of trading data. This covers typical intraday
+# autocorrelation decay for XAUUSD and should be applied as the embargo_bars
+# parameter when running ttc_optimizer.run_ttc_optuna() for this pair.
+# See ttc_optimizer.py module docstring for full embargo documentation.
+RECOMMENDED_EMBARGO_BARS_M15 = 96
+
 _CONST_MAP = {
     "mw_base_confidence": "MW_BASE_CONFIDENCE",
     "rsi_divergence_boost": "RSI_DIVERGENCE_BOOST",
@@ -42,9 +49,25 @@ _CONST_MAP = {
 
 
 class TTCXAUUSDStrategy(ISignalStrategy):
-    """TTSStrategy pre-wired with Optuna-optimized XAUUSD M15 parameters."""
+    """TTSStrategy pre-wired with Optuna-optimized XAUUSD M15 parameters.
+
+    Embargo
+    -------
+    Walk-forward validation for this strategy MUST use ``embargo_bars=96``
+    (24 hours of M15 data) to prevent autocorrelation leakage at train/test
+    boundaries.  Callers should pass ``embargo_bars=TTCXAUUSDStrategy.EMBARGO_BARS_M15``
+    to ``run_strategy()`` or ``WalkForwardValidator``.
+
+    Risk Management Delegation
+    --------------------------
+    This adapter does not implement PF caps, drawdown limits, or position
+    throttling. Those concerns belong to the portfolio risk manager in
+    the execution layer, not the signal generator. See the PF-Cap Design
+    Decision in TTSStrategy's docstring (backtest/strategies/tts_strategy.py).
+    """
 
     name = "TTC XAUUSD M15"
+    EMBARGO_BARS_M15: int = RECOMMENDED_EMBARGO_BARS_M15
 
     def __init__(self) -> None:
         import backtest.strategies.tts_strategy as tts_mod
@@ -74,13 +97,16 @@ class TTCXAUUSDStrategy(ISignalStrategy):
     def evaluate(self, state: object) -> object:
         result = self._strategy.evaluate(state)
         if result is None:
-            bars = getattr(state, 'bars', [])
-            latest = getattr(state, 'latest_bar', None)
+            bars = getattr(state, "bars", [])
+            latest = getattr(state, "latest_bar", None)
             if latest:
                 logger.debug(
                     "TTC XAUUSD M15: no signal (bars=%d, time=%s)",
-                    len(bars), getattr(latest, 'time', '?'),
+                    len(bars),
+                    getattr(latest, "time", "?"),
                 )
             else:
-                logger.debug("TTC XAUUSD M15: no signal (bars=%d, no latest bar)", len(bars))
+                logger.debug(
+                    "TTC XAUUSD M15: no signal (bars=%d, no latest bar)", len(bars)
+                )
         return result

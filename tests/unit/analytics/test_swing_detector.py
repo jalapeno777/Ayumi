@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from signal_engine.swing_detector import SwingDetector
 from signal_engine.data_types import SwingType
@@ -54,14 +53,16 @@ class TestSwingDetection:
         # bar 2 (high=1) can't be SH because neighbors have high=3 and high=2
         # bar 1 (high=3) > bar 0 (1) and bar 2 (1) → SH at price 3
         # bar 2 (low=0) < bar 1 (1) and bar 3 (1) → SL at price 0
-        assert any(s.price == 3.0 for s in sh) or len(sh) >= 0  # bar 1 needs lb=2 neighbors
+        assert (
+            any(s.price == 3.0 for s in sh) or len(sh) >= 0
+        )  # bar 1 needs lb=2 neighbors
         assert any(s.price == 0.0 for s in sl) or len(sl) >= 0
 
     def test_alternating_highs_lows(self):
         """Multiple alternating peaks and troughs."""
         det = SwingDetector(lookback=2)
         highs = [1, 5, 1, 6, 1, 4, 1]
-        lows =   [3, 0, 3, 0, 3, 0, 3]
+        lows = [3, 0, 3, 0, 3, 0, 3]
         sh, sl = det.detect_swings(highs, lows)
         # With lb=2, evaluable range is [2, 4] (indices 2, 3, 4)
         # Index 2: high=1 ≤ neighbors(5,6) → not SH; low=3 ≥ neighbors(0,0) → not SL
@@ -149,9 +150,7 @@ class TestGetSwingSeries:
         import pandas as pd
 
         det = SwingDetector(lookback=2)
-        df = pd.DataFrame(
-            {"high": [1, 5, 1, 5, 1], "low": [0, 0, 0, 0, 0]}
-        )
+        df = pd.DataFrame({"high": [1, 5, 1, 5, 1], "low": [0, 0, 0, 0, 0]})
         result = det.get_swing_series(df)
         assert "swing_high" in result.columns
         assert "swing_low" in result.columns

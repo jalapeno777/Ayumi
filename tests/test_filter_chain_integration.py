@@ -13,7 +13,7 @@ from signal_engine.filters.filter_chain import FilterChain, build_chain_from_con
 from signal_engine.filters.trend_filter import TrendFilter
 from signal_engine.filters.atr_filter import ATRFilter
 from signal_engine.filters.fvg_filter import FVGFilter
-from signal_engine.orb_filter import ORBFilter, OpeningRange, ORBScore
+from signal_engine.orb_filter import ORBFilter, OpeningRange
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
@@ -35,7 +35,13 @@ def sample_opening_range():
 @pytest.fixture
 def strategies_yaml_path():
     """Path to the live strategies.yaml."""
-    return Path(__file__).parent.parent / "src" / "forex-bot" / "config" / "strategies.yaml"
+    return (
+        Path(__file__).parent.parent
+        / "src"
+        / "forex-bot"
+        / "config"
+        / "strategies.yaml"
+    )
 
 
 # ── Test 1: Default chain (trend → atr → fvg) ─────────────────────────────
@@ -64,7 +70,9 @@ def test_orb_filter_chain_integration_pass(sample_opening_range):
         opening_range=sample_opening_range,
         current_volume=2000.0,
     )
-    assert result is True, f"Expected strong breakout to pass, last_result={chain.last_result}"
+    assert result is True, (
+        f"Expected strong breakout to pass, last_result={chain.last_result}"
+    )
 
 
 def test_orb_filter_chain_integration_reject(sample_opening_range):
@@ -160,7 +168,9 @@ def test_strategies_yaml_builds_working_chain(strategies_yaml_path):
         config = yaml.safe_load(f)
 
     chain = build_chain_from_config(config["filters"])
-    assert len(chain.filters) >= 3, f"Expected at least 3 filters, got {len(chain.filters)}"
+    assert len(chain.filters) >= 3, (
+        f"Expected at least 3 filters, got {len(chain.filters)}"
+    )
 
 
 # ── Test 6: Priority ordering in chain ─────────────────────────────────────

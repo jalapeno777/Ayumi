@@ -7,14 +7,14 @@ for monitoring forward-test performance against FTMO-style drawdown limits.
 from __future__ import annotations
 
 import json
-import os
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone, timedelta, date
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone, date
 from pathlib import Path
 from typing import Optional
 
 
 # ── Challenge-completion detector (Phase 6, Quest §6) ─────────────────────
+
 
 @dataclass
 class ProfitTargetResult:
@@ -200,9 +200,7 @@ class EquityTracker:
 
         dd_pct = 0.0
         if self._peak_balance > 0:
-            dd_pct = round(
-                (self._peak_balance - balance) / self._peak_balance * 100, 4
-            )
+            dd_pct = round((self._peak_balance - balance) / self._peak_balance * 100, 4)
 
         daily_pnl = round(balance - self._daily_open, 2)
 
@@ -242,7 +240,9 @@ class EquityTracker:
 
     # ── Summaries ────────────────────────────────────────────────────────
 
-    def daily_summary(self, target_date: Optional[str] = None) -> Optional[DailySummary]:
+    def daily_summary(
+        self, target_date: Optional[str] = None
+    ) -> Optional[DailySummary]:
         """Return aggregated stats for *target_date* (YYYY-MM-DD).
 
         Defaults to the most recent date present in snapshots.
@@ -289,7 +289,9 @@ class EquityTracker:
             ftmo_status=ftmo,
         )
 
-    def weekly_summary(self, week_start: Optional[str] = None) -> Optional[WeeklySummary]:
+    def weekly_summary(
+        self, week_start: Optional[str] = None
+    ) -> Optional[WeeklySummary]:
         """Return aggregated stats for the ISO week containing *week_start*.
 
         Defaults to the most recent week present in snapshots.
@@ -360,8 +362,8 @@ class EquityTracker:
         lines = [
             f"# Equity Daily Report — {ds.date}",
             "",
-            f"| Metric | Value |",
-            f"|---|---|",
+            "| Metric | Value |",
+            "|---|---|",
             f"| Open Balance | ${ds.open_balance:,.2f} |",
             f"| Close Balance | ${ds.close_balance:,.2f} |",
             f"| P&L | ${ds.pnl:+,.2f} |",
@@ -384,8 +386,8 @@ class EquityTracker:
         lines = [
             f"# Equity Weekly Report — Week of {ws.week_of}",
             "",
-            f"| Metric | Value |",
-            f"|---|---|",
+            "| Metric | Value |",
+            "|---|---|",
             f"| Start Balance | ${ws.start_balance:,.2f} |",
             f"| End Balance | ${ws.end_balance:,.2f} |",
             f"| P&L | ${ws.pnl:+,.2f} |",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -12,6 +13,7 @@ from .config import (
 )
 from .correlation import CorrelationTracker
 from .correlation import Position as CorrelationPosition
+from .markov_regime import MarkovRegimeFilter
 from .position_sizing import (
     DynamicSizingConfig,
     dynamic_sizing,
@@ -89,12 +91,51 @@ class QuantPipeline:
                 threshold=config.correlation.threshold,
             )
 
-        self._atr_history: list[float] = []
-        self._high_history: list[float] = []
-        self._low_history: list[float] = []
-        self._close_history: list[float] = []
+        # Bounded deques: regime functions only need the last
+        # ``lookback`` elements.  Using ``deque(maxlen=...)`` prevents
+        # unbounded growth over multi-year backtests or long-running
+        # live sessions.
+        _max_lookback = (
+            max(
+                config.regime.atr_lookback,
+                config.regime.adx_period + 1,
+                50,
+            )
+            * 2
+        )
+        self._atr_history: deque[float] = deque(maxlen=_max_lookback)
+        self._high_history: deque[float] = deque(maxlen=_max_lookback)
+        self._low_history: deque[float] = deque(maxlen=_max_lookback)
+        self._close_history: deque[float] = deque(maxlen=_max_lookback)
 
         self._strategy_portfolio: StrategyPortfolio | None = None
+
+        # Markov-regime filter (AYUAA-401 Phase 2). It is an additive
+        # sizing layer: it multiplies the base lot by a persistence
+        # factor but never overrides the base Kelly/FF calculation.
+        # Cold start (insufficient history) returns neutral 1.0x so the
+        # filter never *reduces* exposure before it has evidence.
+        self._markov_filter: MarkovRegimeFilter | None = None
+        self._markov_enabled: bool = bool(config.markov.enabled)
+        if self._markov_enabled:
+            self._markov_filter = MarkovRegimeFilter(
+                states=list(config.markov.states),
+                min_history=config.markov.min_history,
+            )
+
+        # The last classified 6-state regime label, used to form the
+        # (prev, current) transition when ``update_bars`` is called.
+        self._last_markov_state: str | None = None
+
+    def reset_markov_filter(self) -> None:
+        """Reset the Markov filter and associated state.
+
+        Call this when switching symbols or restarting a backtest to
+        prevent cross-pair transition contamination.
+        """
+        if self._markov_filter is not None:
+            self._markov_filter.reset()
+        self._last_markov_state = None
 
     def pre_trade_check(
         self,
@@ -151,9 +192,7 @@ class QuantPipeline:
             lot_size = self._apply_sizing_mode(base_lot)
             sizing_mode = self._config.position_sizing.mode.value
 
-        if lot_size is not None and lot_size != self._calculate_base_lot(
-            entry_price, stop_loss
-        ):
+        if lot_size is not None and lot_size != base_lot:
             action = TradeAction.RESIZE
         else:
             action = TradeAction.ACCEPT
@@ -230,6 +269,24 @@ class QuantPipeline:
         self._low_history.append(low)
         self._close_history.append(close)
 
+        # Phase 2: feed the resulting transition into the Markov filter
+        # if it is enabled. We classify the current bar using the same
+        # volatility + trend regime functions the pipeline already uses
+        # for ``_check_regime``, then merge into the 6-state space the
+        # filter is built over (extreme→high, neutral→ranging).
+        if self._markov_filter is not None:
+            current_state = self._get_current_markov_state()
+            if current_state is not None and self._last_markov_state is not None:
+                try:
+                    self._markov_filter.observe(self._last_markov_state, current_state)
+                except ValueError:
+                    logger.warning(
+                        "Markov filter rejected state %r — likely regime.py "
+                        "output changed. Skipping transition.",
+                        current_state,
+                    )
+            self._last_markov_state = current_state
+
     def update_correlation_prices(self, prices: dict[str, float]) -> None:
         if self._corr_tracker is not None:
             self._corr_tracker.update(prices)
@@ -298,13 +355,13 @@ class QuantPipeline:
                 "_check_regime called without bar_time, using fabricated noon Monday"
             )
         vol_result = calc_volatility_regime(
-            self._atr_history,
+            list(self._atr_history),
             lookback=self._config.regime.atr_lookback,
         )
         trend_result = calc_trend_regime(
-            self._high_history,
-            self._low_history,
-            self._close_history,
+            list(self._high_history),
+            list(self._low_history),
+            list(self._close_history),
             adx_period=self._config.regime.adx_period,
         )
 
@@ -362,7 +419,7 @@ class QuantPipeline:
                 max_multiplier=sizing_cfg.vaps_max_multiplier,
             )
             adapted_lot, _regime, _pct = vaps_multiply(
-                base_lot, self._atr_history, config=vaps_config
+                base_lot, list(self._atr_history), config=vaps_config
             )
             return adapted_lot
 
@@ -382,4 +439,69 @@ class QuantPipeline:
                 config=dyn_config,
             )
 
+        if sizing_cfg.mode == SizingMode.MARKOV_ADAPTIVE:
+            # Cold start: filter is disabled or not yet trained. The
+            # contract is "no modulation" — return the base lot
+            # untouched so the filter never *reduces* exposure before
+            # it has any evidence to act on.
+            if self._markov_filter is None or not self._markov_filter.is_ready():
+                return base_lot
+            current_state = self._get_current_markov_state()
+            if current_state is None:
+                return base_lot
+            multiplier = self._markov_filter.size_multiplier(current_state)
+            # The Markov filter's internal hard clamp is
+            # [0.5, 1.3], but we re-clamp against the configured
+            # bounds so a future config change to make the layer
+            # more conservative always wins.
+            configured_min = self._config.markov.min_multiplier
+            configured_max = self._config.markov.max_multiplier
+            multiplier = max(configured_min, min(configured_max, multiplier))
+            return base_lot * multiplier
+
         return base_lot
+
+    def _get_current_markov_state(self) -> str | None:
+        """Classify the current bar into one of the 6 Markov states.
+
+        Returns ``None`` until there is enough history for
+        ``volatility_regime`` and ``trend_regime`` to produce a
+        meaningful classification. The merge rules are:
+
+        * ``extreme`` volatility → ``high`` (collapse the 4-state
+          volatility into the 3-state lattice the Markov filter
+          expects).
+        * ``neutral`` trend → ``ranging`` (same collapse for the
+          3-state trend space into the 2-state lattice).
+
+        The result is a ``"{vol}_{trend}"`` label, e.g. ``"normal_ranging"``.
+        """
+        if len(self._atr_history) < 50:
+            return None
+        if (
+            len(self._high_history) < self._config.regime.adx_period + 1
+            or len(self._low_history) < self._config.regime.adx_period + 1
+            or len(self._close_history) < self._config.regime.adx_period + 1
+        ):
+            return None
+
+        vol_r = calc_volatility_regime(
+            list(self._atr_history),
+            lookback=self._config.regime.atr_lookback,
+        )
+        trend_r = calc_trend_regime(
+            list(self._high_history),
+            list(self._low_history),
+            list(self._close_history),
+            adx_period=self._config.regime.adx_period,
+        )
+
+        # Merge to the 6-state space the Markov filter is built over.
+        vol_str = vol_r.regime.value
+        if vol_str == "extreme":
+            vol_str = "high"
+        trend_str = trend_r.direction.value
+        if trend_str == "neutral":
+            trend_str = "ranging"
+
+        return f"{vol_str}_{trend_str}"

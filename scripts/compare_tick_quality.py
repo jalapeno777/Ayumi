@@ -42,12 +42,9 @@ import logging
 import os
 import statistics
 import sys
-import time
-from collections import defaultdict
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,6 +96,7 @@ def pip_size_for(pair: str) -> float:
 @dataclass
 class TickSample:
     """A single captured tick."""
+
     symbol: str
     bid: float
     ask: float
@@ -116,6 +114,7 @@ class TickSample:
 @dataclass
 class SpreadStats:
     """Aggregated spread statistics for a symbol."""
+
     symbol: str
     count: int
     mean_pips: float
@@ -131,6 +130,7 @@ class SpreadStats:
 @dataclass
 class TickFrequencyStats:
     """Tick frequency analysis for a symbol."""
+
     symbol: str
     count: int
     mean_interval_ms: float
@@ -143,6 +143,7 @@ class TickFrequencyStats:
 @dataclass
 class BarComparison:
     """OHLCV bar comparison between live-aggregated and HistData."""
+
     symbol: str
     timeframe: str
     bar_timestamp: str
@@ -486,7 +487,8 @@ def analyze_spreads(ticks: list[TickSample]) -> SpreadStats:
         min_pips=min(spreads, default=0),
         stdev_pips=statistics.stdev(spreads) if len(spreads) > 1 else 0,
         backtest_assumption_pips=backtest_assumption,
-        divergence_pips=(statistics.mean(spreads) if spreads else 0) - backtest_assumption,
+        divergence_pips=(statistics.mean(spreads) if spreads else 0)
+        - backtest_assumption,
     )
 
 
@@ -536,7 +538,8 @@ def compare_bars(
     for tick in live_ticks:
         ts = datetime.fromisoformat(tick.timestamp)
         bar_ts = ts.replace(
-            second=0, microsecond=0,
+            second=0,
+            microsecond=0,
             minute=(ts.minute // timeframe_minutes) * timeframe_minutes,
         )
         if bar_ts not in live_bars:
@@ -713,9 +716,7 @@ def main():
             hist_path = args.histdata / f"{symbol}_M1.csv"
             if hist_path.exists():
                 comparisons = compare_bars(ticks, hist_path)
-                logger.info(
-                    "  Bar comparisons: %d overlapping bars", len(comparisons)
-                )
+                logger.info("  Bar comparisons: %d overlapping bars", len(comparisons))
                 if comparisons:
                     close_diffs = [abs(c.close_diff_pips) for c in comparisons]
                     print(

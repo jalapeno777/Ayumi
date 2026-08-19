@@ -1,7 +1,6 @@
 """Tests for StatePersistence."""
 
 import json
-import os
 
 import pytest
 from risk.sl_position_sizer import SLPositionSizer
@@ -19,7 +18,6 @@ def persistence(tmp_path):
 
 
 class TestStatePersistence:
-
     def test_save_restore_cycle(self, sizer, persistence):
         sizer._daily_risk_used = 50.0
         sizer._open_risk = 25.0

@@ -30,7 +30,7 @@ import math
 import os
 import random
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -52,9 +52,7 @@ DB_PATH = Path(
         else str(project_root / "data" / "research" / "research.duckdb"),
     )
 )
-REPORT_PATH = (
-    project_root / "docs" / "research" / "ttc-xauusd-anomaly-investigation.md"
-)
+REPORT_PATH = project_root / "docs" / "research" / "ttc-xauusd-anomaly-investigation.md"
 
 # Try common XAUUSD M15 data files in priority order. Allow override via
 # AYUMI_DATA_DIR (worktrees don't share untracked files with main checkout).
@@ -202,9 +200,7 @@ def run_strategy_on_bars(
     trade_count = len(pnls)
     win_rate = (len(wins) / trade_count) if trade_count > 0 else 0.0
     pf = (
-        (total_win / total_loss)
-        if total_loss > 0
-        else (10.0 if total_win > 0 else 0.0)
+        (total_win / total_loss) if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
     )
     return {
         "label": label,
@@ -261,7 +257,11 @@ def _rows_to_engine_bars(rows: list) -> list:
         if needed not in keys_lower:
             return rows
     time_key = next(
-        (keys_lower[k] for k in ("timestamp", "time", "date", "datetime") if k in keys_lower),
+        (
+            keys_lower[k]
+            for k in ("timestamp", "time", "date", "datetime")
+            if k in keys_lower
+        ),
         None,
     )
     if not time_key:
@@ -269,6 +269,7 @@ def _rows_to_engine_bars(rows: list) -> list:
     vol_key = keys_lower.get("volume")
 
     from datetime import datetime
+
     out = []
     for r in rows:
         try:
@@ -440,13 +441,15 @@ def _dsr(
     if n_trials <= 0:
         return {"dsr_p_value": None, "error": "n_trials must be > 0"}
 
-    e_max_sharpe = (
-        math.sqrt(2.0 * math.log(n_trials))
-        - (math.log(math.log(n_trials)) + math.log(4 * math.pi))
-        / (2 * math.sqrt(2 * math.log(n_trials)))
-    )
+    e_max_sharpe = math.sqrt(2.0 * math.log(n_trials)) - (
+        math.log(math.log(n_trials)) + math.log(4 * math.pi)
+    ) / (2 * math.sqrt(2 * math.log(n_trials)))
     se_sharpe = math.sqrt(
-        (1.0 - skewness * observed_sharpe + ((excess_kurtosis - 1.0) / 4.0) * observed_sharpe**2)
+        (
+            1.0
+            - skewness * observed_sharpe
+            + ((excess_kurtosis - 1.0) / 4.0) * observed_sharpe**2
+        )
         / (n_obs_per_trial - 1)
     )
     if se_sharpe <= 0:
@@ -542,7 +545,7 @@ def render_markdown(results: list) -> str:
     lines.append("## Tests")
     lines.append("")
     for r in results:
-        lines.append(f"### {r.get('label','?')}")
+        lines.append(f"### {r.get('label', '?')}")
         lines.append("")
         for k, v in r.items():
             if k in ("label", "samples"):
@@ -555,9 +558,7 @@ def render_markdown(results: list) -> str:
             lines.append(
                 "| entry_time | direction | entry | exit | pnl | exit_reason |"
             )
-            lines.append(
-                "|---|---|---|---|---|---|"
-            )
+            lines.append("|---|---|---|---|---|---|")
             for s in r["samples"]:
                 lines.append(
                     f"| {s['entry_time']} | {s['direction']} | "
@@ -595,7 +596,7 @@ def render_markdown(results: list) -> str:
         elif "shuffled" in lab:
             trades = r.get("trade_count", 0)
             if "error" in r:
-                verdict = f"BLOCKED: {r.get("error")}"
+                verdict = f"BLOCKED: {r.get('error')}"
             elif trades == 0:
                 verdict = (
                     "INCONCLUSIVE: 0 trades in the consolidated test set after "
@@ -676,7 +677,9 @@ def render_markdown(results: list) -> str:
     lines.append("### Follow-up recommendations")
     lines.append("")
     lines.append("- [ ] Re-run this investigation script after the next sweep lands.")
-    lines.append("- [ ] Increase sigma in the synthetic test (0.0015, 0.0025) for XAUUSD M15 realized vol.")
+    lines.append(
+        "- [ ] Increase sigma in the synthetic test (0.0015, 0.0025) for XAUUSD M15 realized vol."
+    )
     lines.append("- [ ] Add per-window trade inspection (windows 1-3).")
     lines.append("- [ ] Promote this script to tests/e2e/ as a strategy smoke test.")
     lines.append("")
@@ -687,11 +690,19 @@ def render_markdown(results: list) -> str:
 # ── Driver ──────────────────────────────────────────────────────────────────
 def main() -> int:
     parser = argparse.ArgumentParser(description="ttc_xauusd anomaly investigation")
-    parser.add_argument("--synthetic", action="store_true", help="Run synthetic test only")
-    parser.add_argument("--shuffled", action="store_true", help="Run shuffled test only")
-    parser.add_argument("--inspect", action="store_true", help="Run trade inspection only")
+    parser.add_argument(
+        "--synthetic", action="store_true", help="Run synthetic test only"
+    )
+    parser.add_argument(
+        "--shuffled", action="store_true", help="Run shuffled test only"
+    )
+    parser.add_argument(
+        "--inspect", action="store_true", help="Run trade inspection only"
+    )
     parser.add_argument("--dsr", action="store_true", help="Run DSR only")
-    parser.add_argument("--out", type=str, default=str(REPORT_PATH), help="Output report path")
+    parser.add_argument(
+        "--out", type=str, default=str(REPORT_PATH), help="Output report path"
+    )
     args = parser.parse_args()
 
     only_one = any([args.synthetic, args.shuffled, args.inspect, args.dsr])

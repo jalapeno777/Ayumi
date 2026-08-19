@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol, Sequence
 
-from .psi_drift_detector import PSIDriftDetector, PSIAlert, _severity
+from .psi_drift_detector import PSIDriftDetector, PSIAlert
 
 logger = logging.getLogger(__name__)
 
@@ -133,9 +133,7 @@ class DriftReport:
             f"windows={self.window_count}",
         ]
         if self.psi_results:
-            psi_strs = [
-                f"{f}={a.psi:.3f}" for f, a in self.psi_results.items()
-            ]
+            psi_strs = [f"{f}={a.psi:.3f}" for f, a in self.psi_results.items()]
             parts.append("psi={" + ", ".join(psi_strs) + "}")
         if self.alerts:
             parts.append(f"alerts={len(self.alerts)}")
@@ -187,12 +185,8 @@ class AlphaDecayPipeline:
         DriftReport with PSI results, regime context, and recommendation.
         """
         report = DriftReport(
-            baseline_window_count=len(
-                next(iter(baseline_features.values()), [0])
-            ),
-            window_count=len(
-                next(iter(current_features.values()), [0])
-            ),
+            baseline_window_count=len(next(iter(baseline_features.values()), [0])),
+            window_count=len(next(iter(current_features.values()), [0])),
         )
 
         # ── Ensure baselines are set ──────────────────────────────────────
@@ -215,26 +209,25 @@ class AlphaDecayPipeline:
                         )
                 except (ValueError, KeyError) as exc:
                     logger.warning(
-                        "PSI check failed for '%s': %s", feature, exc,
+                        "PSI check failed for '%s': %s",
+                        feature,
+                        exc,
                     )
 
         # ── BTC regime context ───────────────────────────────────────────
         if window_start_ms is not None and window_end_ms is not None:
             try:
                 report.btc_regime = self.btc_overlay.regime_for_window(
-                    window_start_ms, window_end_ms,
+                    window_start_ms,
+                    window_end_ms,
                 )
             except Exception as exc:
                 logger.warning("BTC regime lookup failed: %s", exc)
                 report.btc_regime = "neutral"
 
         # ── Recommendation logic ─────────────────────────────────────────
-        major_count = sum(
-            1 for a in psi_alerts if a.severity == "major"
-        )
-        minor_count = sum(
-            1 for a in psi_alerts if a.severity == "minor"
-        )
+        major_count = sum(1 for a in psi_alerts if a.severity == "major")
+        minor_count = sum(1 for a in psi_alerts if a.severity == "minor")
 
         if major_count > 0:
             report.recommendation = "retrain"
@@ -250,7 +243,8 @@ class AlphaDecayPipeline:
             report.recommendation = "ok"
 
         logger.info(
-            "Alpha-decay pipeline complete: %s", report.summary(),
+            "Alpha-decay pipeline complete: %s",
+            report.summary(),
         )
 
         return report

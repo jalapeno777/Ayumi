@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from .protocols import OrderResult, OrderStatus
 
@@ -32,11 +32,11 @@ _GENERAL_ERROR_PAYLOAD_TYPE = 2142
 # We use integers directly to avoid importing the protobuf module (which
 # requires the SDK at runtime and complicates unit tests).  The values are
 # stable as they are wire-format enums defined by cTrader.
-_EXEC_TYPE_FILLED = 3       # ORDER_FILLED
+_EXEC_TYPE_FILLED = 3  # ORDER_FILLED
 _EXEC_TYPE_PARTIAL_FILL = 11  # ORDER_PARTIAL_FILL
-_EXEC_TYPE_CANCELLED = 5    # ORDER_CANCELLED
-_EXEC_TYPE_REJECTED = 7     # ORDER_REJECTED
-_EXEC_TYPE_EXPIRED = 6      # ORDER_EXPIRED
+_EXEC_TYPE_CANCELLED = 5  # ORDER_CANCELLED
+_EXEC_TYPE_REJECTED = 7  # ORDER_REJECTED
+_EXEC_TYPE_EXPIRED = 6  # ORDER_EXPIRED
 
 
 class ExecutionEventHandler:
@@ -125,7 +125,9 @@ class ExecutionEventHandler:
                 if cm_id == client_msg_id:
                     self._client_order_ids.pop(co_id, None)
 
-    def register_late_fill(self, client_msg_id: str, client_order_id: str | None = None) -> None:
+    def register_late_fill(
+        self, client_msg_id: str, client_order_id: str | None = None
+    ) -> None:
         """Register a timed-out order for late-fill matching.
 
         Call this when ``get_result`` returns ``None`` after the event times
@@ -133,6 +135,7 @@ class ExecutionEventHandler:
         so that late-arriving execution events can still be correlated.
         """
         import time as _time
+
         with self._lock:
             expiry = _time.monotonic() + self._late_fill_ttl
             self._late_fill[client_msg_id] = (expiry, None)
@@ -140,12 +143,14 @@ class ExecutionEventHandler:
                 self._late_fill_by_coid[client_order_id] = client_msg_id
             logger.info(
                 "[LATE_FILL] Registered clientMsgId=%s for %ds grace",
-                client_msg_id, self._late_fill_ttl,
+                client_msg_id,
+                self._late_fill_ttl,
             )
 
     def _check_late_fill(self, client_order_id: str) -> str | None:
         """Check late-fill registry by clientOrderId. Returns client_msg_id if found."""
         import time as _time
+
         with self._lock:
             # Lazy cleanup
             now = _time.monotonic()
@@ -253,9 +258,7 @@ class ExecutionEventHandler:
         with self._lock:
             matched_id = self._match_by_client_order_id(client_order_id)
             if not matched_id and client_msg_id:
-                matched_id = (
-                    client_msg_id if client_msg_id in self._pending else None
-                )
+                matched_id = client_msg_id if client_msg_id in self._pending else None
             if not matched_id:
                 logger.warning(
                     "[ORDER_ERROR] No match clientOrderId=%r clientMsgId=%r "

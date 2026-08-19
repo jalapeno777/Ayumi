@@ -1,7 +1,7 @@
 import pytest
 from core.types import TradeDirection
 from engine.protocol import CanonicalSignal
-from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard, StrategyRiskStats
+from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
 from adapters.ctrader.risk_guard import FTMOConfig
 
 

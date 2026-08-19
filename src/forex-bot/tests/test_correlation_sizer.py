@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 
 import pytest
 
@@ -13,7 +12,9 @@ from risk.correlation_sizer import CorrelationAwareSizer, Direction
 # --------------------------------------------------------------------------- #
 # Fixtures & helpers
 # --------------------------------------------------------------------------- #
-def _build_matrix(symbol_returns: dict[str, list[float]], window: int = 30) -> CorrelationMatrix:
+def _build_matrix(
+    symbol_returns: dict[str, list[float]], window: int = 30
+) -> CorrelationMatrix:
     """Quick helper to build a CorrelationMatrix from pre-made return series."""
     cm = CorrelationMatrix(window=window)
     for sym, rets in symbol_returns.items():
@@ -31,7 +32,9 @@ def _perfectly_correlated(n: int = 60) -> dict[str, list[float]]:
 def _uncorrelated(n: int = 60) -> dict[str, list[float]]:
     """Two symbols with zero correlation."""
     a = [0.001 * ((-1) ** i) for i in range(n)]
-    b = [0.001 * ((-1) ** (i + 1)) * 0.5 for i in range(n)]  # inverse pattern, different magnitude
+    b = [
+        0.001 * ((-1) ** (i + 1)) * 0.5 for i in range(n)
+    ]  # inverse pattern, different magnitude
     # Actually let's make them truly uncorrelated by using independent-looking sequences
     b = []
     val = 0.002
@@ -121,7 +124,9 @@ class TestCorrelationAwareSizer:
         sizer = CorrelationAwareSizer(cm)
 
         # Strategy A is already long EURUSD
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Strategy B wants to go long GBPUSD (corr=1 with EURUSD, same direction)
         result = sizer.compute_adjusted_size(
@@ -148,10 +153,14 @@ class TestCorrelationAwareSizer:
     def test_same_direction_same_pair_reduced_v2(self):
         """Two same-direction trades on perfectly correlated pairs → size reduced."""
         cm = _build_matrix(_perfectly_correlated())  # EURUSD/GBPUSD corr = 1.0
-        sizer = CorrelationAwareSizer(cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01)
+        sizer = CorrelationAwareSizer(
+            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01
+        )
 
         # Strategy A: already long EURUSD at 0.5% risk
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Strategy B: wants long GBPUSD at 0.5% risk
         # Correlated exposure from A = 0.005 * 1.0 = 0.005
@@ -168,7 +177,9 @@ class TestCorrelationAwareSizer:
         assert result.correlated_exposure_pct == pytest.approx(0.005)
 
         # Now add the position and try a THIRD strategy
-        sizer.register_position("strat_b", "GBPUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_b", "GBPUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         result3 = sizer.compute_adjusted_size(
             pair="EURUSD",
@@ -184,10 +195,14 @@ class TestCorrelationAwareSizer:
     def test_same_direction_reduces_size(self):
         """When correlated exposure is partial, new trade is scaled down."""
         cm = _build_matrix(_perfectly_correlated())
-        sizer = CorrelationAwareSizer(cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.008)
+        sizer = CorrelationAwareSizer(
+            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.008
+        )
 
         # Strategy A: long EURUSD at 0.5% risk
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Strategy B wants long GBPUSD
         # Correlated = 0.005, remaining = 0.008 - 0.005 = 0.003
@@ -212,7 +227,9 @@ class TestCorrelationAwareSizer:
 
         sizer = CorrelationAwareSizer(cm)
 
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         result = sizer.compute_adjusted_size(
             pair="XAUUSD",
@@ -231,13 +248,19 @@ class TestCorrelationAwareSizer:
     def test_hedging_increases_capacity(self):
         """An opposite-direction position on a correlated pair increases capacity."""
         cm = _build_matrix(_perfectly_correlated())  # corr = 1.0
-        sizer = CorrelationAwareSizer(cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01)
+        sizer = CorrelationAwareSizer(
+            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01
+        )
 
         # Strategy A: LONG EURUSD
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Strategy B: SHORT GBPUSD (hedge — corr = 1 but opposite direction)
-        sizer.register_position("strat_b", "GBPUSD", Direction.SHORT, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_b", "GBPUSD", Direction.SHORT, size_lots=0.50, risk_pct=0.005
+        )
 
         # Strategy C: wants LONG EURUSD
         # Exposure from A (same dir, corr=1) = +0.005
@@ -259,7 +282,9 @@ class TestCorrelationAwareSizer:
     def test_per_trade_risk_cap(self):
         """If base risk exceeds per-trade cap, size is scaled down."""
         cm = _build_matrix(_perfectly_correlated())
-        sizer = CorrelationAwareSizer(cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01)
+        sizer = CorrelationAwareSizer(
+            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01
+        )
 
         result = sizer.compute_adjusted_size(
             pair="EURUSD",
@@ -278,7 +303,9 @@ class TestCorrelationAwareSizer:
         cm = _build_matrix(_perfectly_correlated())
         sizer = CorrelationAwareSizer(cm, aggregate_risk_pct=0.008)
 
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Second trade is scaled down
         result_before = sizer.compute_adjusted_size("GBPUSD", "long", 0.50, 0.005)
@@ -305,6 +332,7 @@ class TestCorrelationAwareSizer:
         n = 60
         # Build two series with ~0.5 correlation
         import random
+
         rng = random.Random(42)
         a = [rng.gauss(0, 0.001) for _ in range(n)]
         b = [0.5 * a[i] + 0.5 * rng.gauss(0, 0.001) for i in range(n)]
@@ -317,9 +345,13 @@ class TestCorrelationAwareSizer:
         corr = cm.get_correlation("EURUSD", "GBPUSD")
         assert 0.3 < corr < 0.8, f"Expected moderate correlation, got {corr}"
 
-        sizer = CorrelationAwareSizer(cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.006)
+        sizer = CorrelationAwareSizer(
+            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.006
+        )
 
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         result = sizer.compute_adjusted_size("GBPUSD", "long", 0.50, 0.005)
         # Exposure = 0.005 * corr (~0.5) ≈ 0.0025

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 
@@ -14,7 +13,9 @@ logger = logging.getLogger("ayumi.orchestrator")
 class StrategyAdapter:
     """Converts strategy-specific output formats into OrchestratorTradeSignal objects."""
 
-    def adapt_signal(self, strategy_id: str, strategy_output: dict) -> OrchestratorTradeSignal:
+    def adapt_signal(
+        self, strategy_id: str, strategy_output: dict
+    ) -> OrchestratorTradeSignal:
         """Convert a strategy's raw output dict to OrchestratorTradeSignal.
 
         Expected keys in strategy_output:
@@ -47,7 +48,9 @@ class StrategyAdapter:
         # Normalize direction
         direction = direction.upper()
         if direction not in ("LONG", "SHORT"):
-            logger.warning("Unknown direction %r for %s, defaulting to LONG", direction, symbol)
+            logger.warning(
+                "Unknown direction %r for %s, defaulting to LONG", direction, symbol
+            )
             direction = "LONG"
 
         # Build metadata from optional fields
@@ -77,7 +80,12 @@ class StrategyAdapter:
         logger.info(
             "Adapted signal: strategy=%s symbol=%s dir=%s conf=%.2f "
             "entry=%.5f sl=%.5f sl_dist=%.6f",
-            strategy_id, symbol, direction, confidence,
-            float(entry_price), float(stop_loss), sl_dist,
+            strategy_id,
+            symbol,
+            direction,
+            confidence,
+            float(entry_price),
+            float(stop_loss),
+            sl_dist,
         )
         return signal

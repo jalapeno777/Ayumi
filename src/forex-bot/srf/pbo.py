@@ -30,17 +30,19 @@ PERIODS_PER_YEAR = 252
 # Result structure
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class PBOScore:
     """PBO score for a study of N strategies."""
-    pbo: float               # Probability of Backtest Overfitting [0, 1]
-    logit: float             # λ = ln(PBO / (1 - PBO))
-    ci_lower: float          # 95% CI lower bound on PBO
-    ci_upper: float          # 95% CI upper bound on PBO
-    n_strategies: int        # N
-    n_periods: int           # T
-    n_combinations: int      # Number of IS/OOS splits evaluated
-    n_blocks: int            # S (blocks per half)
+
+    pbo: float  # Probability of Backtest Overfitting [0, 1]
+    logit: float  # λ = ln(PBO / (1 - PBO))
+    ci_lower: float  # 95% CI lower bound on PBO
+    ci_upper: float  # 95% CI upper bound on PBO
+    n_strategies: int  # N
+    n_periods: int  # T
+    n_combinations: int  # Number of IS/OOS splits evaluated
+    n_blocks: int  # S (blocks per half)
 
     def is_overfit(self, threshold: float = 0.5) -> bool:
         """True if PBO exceeds threshold (default 50%)."""
@@ -62,6 +64,7 @@ class PBOScore:
 # ═══════════════════════════════════════════════════════════════════════════
 # CSCV algorithm
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _sharpe_ratio(returns: np.ndarray) -> np.ndarray:
     """Compute per-column Sharpe ratio for a [T, N] matrix.
@@ -113,6 +116,7 @@ def compute_pbo(
     S = min(n_blocks, T // 2)
     while S > 1:
         from math import comb
+
         n_comb = comb(2 * S, S) // 2
         if n_comb <= max_combinations:
             break
@@ -132,11 +136,12 @@ def compute_pbo(
     R = R[:usable_T, :]
 
     # Build block indices
-    blocks = [R[i * block_size:(i + 1) * block_size, :] for i in range(2 * S)]
+    blocks = [R[i * block_size : (i + 1) * block_size, :] for i in range(2 * S)]
 
     # Enumerate IS/OOS combinations
     all_indices = list(range(2 * S))
     from math import comb
+
     total_combos = comb(2 * S, S) // 2
 
     # To avoid double-counting, only consider combos where the smallest
@@ -171,10 +176,14 @@ def compute_pbo(
     if evaluated == 0:
         logger.warning("No CSCV combinations evaluated (T=%d, N=%d, S=%d)", T, N, S)
         return PBOScore(
-            pbo=0.5, logit=0.0,
-            ci_lower=0.0, ci_upper=1.0,
-            n_strategies=N, n_periods=T,
-            n_combinations=0, n_blocks=S,
+            pbo=0.5,
+            logit=0.0,
+            ci_lower=0.0,
+            ci_upper=1.0,
+            n_strategies=N,
+            n_periods=T,
+            n_combinations=0,
+            n_blocks=S,
         )
 
     pbo = breach_count / evaluated
@@ -213,6 +222,7 @@ def compute_pbo(
 # ═══════════════════════════════════════════════════════════════════════════
 # DuckDB storage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def store_pbo_score(conn, study_id: str, score: PBOScore) -> None:
     """Store PBO score for a study in DuckDB.

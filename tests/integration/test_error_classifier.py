@@ -8,7 +8,6 @@ and the import works fine.)
 
 from __future__ import annotations
 
-import pytest
 
 from adapters.ctrader.error_classifier import ErrorTier, classify_error
 

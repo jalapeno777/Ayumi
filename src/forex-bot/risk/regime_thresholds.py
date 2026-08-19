@@ -174,9 +174,7 @@ class RegimeAwareThresholds:
         t = self.get_thresholds(regime)
 
         if z_score < t.sigma_mult:
-            return False, (
-                f"z_score {z_score:.2f} < {t.sigma_mult:.1f}σ threshold"
-            )
+            return False, (f"z_score {z_score:.2f} < {t.sigma_mult:.1f}σ threshold")
         if abs(correlation) < t.corr_threshold:
             return False, (
                 f"correlation {abs(correlation):.2f} < {t.corr_threshold:.2f} threshold"

@@ -27,12 +27,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from _project_root import PROJECT_ROOT
 
 from archive.legacy_ctrader._pkg.open_api_spot_feed import (  # noqa: E402
     OpenApiSpotFeed,
     ProtoOATradeSide,
-    ProtoOAOrderType,
 )
 # NOTE: do NOT import OrderStatus from adapters.ctrader.models — that's a
 # *different* enum class than the one open_api_spot_feed uses internally
@@ -45,6 +43,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def feed_factory():
@@ -63,11 +62,14 @@ def feed_factory():
         )
         defaults.update(kwargs)
 
-        with patch(
-            "archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection"
-        ) as mock_conn_cls, patch(
-            "archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager"
-        ) as mock_token_cls:
+        with (
+            patch(
+                "archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection"
+            ) as mock_conn_cls,
+            patch(
+                "archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager"
+            ) as mock_token_cls,
+        ):
             mock_conn = MagicMock()
             mock_conn_cls.return_value = mock_conn
             mock_token = MagicMock()
@@ -113,6 +115,7 @@ def _seed_symbol(feed: OpenApiSpotFeed, symbol_id: int, name: str, digits: int) 
 # ---------------------------------------------------------------------------
 # new_order: volume is decoded per symbol
 # ---------------------------------------------------------------------------
+
 
 class TestNewOrderVolumeDecoder:
     def test_5_digit_fx_volume_decoded_as_100000(self, feed_factory):
@@ -173,7 +176,8 @@ class TestNewOrderVolumeDecoder:
         assert order.volume == pytest.approx(0.5)
 
     def test_eurusd_uses_5_digit_divisor_not_legacy_100_000_constant(
-        self, feed_factory,
+        self,
+        feed_factory,
     ):
         """Sanity: with digits=5 the divisor is 10**5 = 100_000, so the
         decoded value matches the old behaviour. This guards against
@@ -188,6 +192,7 @@ class TestNewOrderVolumeDecoder:
 # ---------------------------------------------------------------------------
 # _handle_spot_event: price is decoded per symbol
 # ---------------------------------------------------------------------------
+
 
 class TestSpotEventPriceDecoder:
     def _make_spot_message(self, symbol_id: int, raw_bid: int, raw_ask: int):
@@ -255,9 +260,11 @@ class TestSpotEventPriceDecoder:
 # Cross-check: volume and price use the same digits table
 # ---------------------------------------------------------------------------
 
+
 class TestDecoderConsistency:
     def test_same_symbol_uses_same_divisor_for_price_and_volume(
-        self, feed_factory,
+        self,
+        feed_factory,
     ):
         """For any given symbol, the price divisor and volume divisor
         should be derived from the same ``_symbol_digits`` entry. This
@@ -274,9 +281,11 @@ class TestDecoderConsistency:
         # 1.0 lot raw = 10**digits for each symbol.
         # 1.0 price raw = 1.0 / 10**digits → so 10**digits raw = 1.0 price.
         for symbol_id, digits in [(1, 5), (2, 5), (4, 3), (42, 2)]:
-            divisor = 10 ** digits
+            divisor = 10**digits
             order = feed.new_order(
-                symbol_id, ProtoOATradeSide.BUY, volume=divisor,
+                symbol_id,
+                ProtoOATradeSide.BUY,
+                volume=divisor,
             )
             assert order.volume == pytest.approx(1.0), (
                 f"symbol_id={symbol_id} digits={digits} → "

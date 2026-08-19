@@ -135,6 +135,64 @@ class HealthMonitor:
         if self._order_gateway is not None:
             pending = self._safe_attr(self._order_gateway, "pending_orders", 0)
             extras.append(f"pending_orders={pending}")
+            # Card 18b74ea7: surface the session-conflict counter so
+            # operators see ALREADY_LOGGED_IN events that arrive with empty
+            # clientOrderId (and were previously silently dropped). The
+            # counter lives on OpenApiSpotFeed (which is the live-mode
+            # order_gateway). Attribute name mirrors the spot feed's
+            # private counter (``_order_error_session_conflict_count``)
+            # so existing ``_safe_attr`` lookups Just Work.
+            # Note: MagicMock instances return a MagicMock (not the
+            # default) for any attribute access, which breaks numeric
+            # comparisons. Guard with isinstance so test scaffolding that
+            # uses ``_make_mock(live_fills=2)`` does not crash.
+            session_conflict_raw = self._safe_attr(
+                self._order_gateway, "_order_error_session_conflict_count", 0
+            )
+            session_conflict = (
+                session_conflict_raw
+                if isinstance(session_conflict_raw, int)
+                else 0
+            )
+            if session_conflict > 0:
+                extras.append(f"order_error_session_conflict={session_conflict}")
+            # Card ce6de98d (E): surface the unmatched_late_fills counter
+            # so operators see how often broker events arrive after the
+            # late-fill registry's 120s grace window. The DROP warning was
+            # always logged; the counter is additive so the B5 health line
+            # shows the rate at which broker events arrive too late to be
+            # matched.
+            unmatched_late_raw = self._safe_attr(
+                self._order_gateway, "_unmatched_late_fills_count", 0
+            )
+            unmatched_late = (
+                unmatched_late_raw
+                if isinstance(unmatched_late_raw, int)
+                else 0
+            )
+            if unmatched_late > 0:
+                extras.append(f"unmatched_late_fills={unmatched_late}")
+            # Card 8ad140c5 finding #5 (sprint reina-2026-08-18-106):
+            # surface signals_indeterminate in the ACTIVE blend health
+            # path so operators see live-order INDETERMINATE outcomes
+            # (timeout with reason=indeterminate_awaiting_event) without
+            # grepping logs. The counter lives on the ForwardTestEngine
+            # (``_health.signals_indeterminate``) which is exposed as
+            # ``_order_gateway`` here for legacy v2 launchers; the ACTIVE
+            # blend launcher (forward_test_engine.py) writes the same
+            # counter into the heartbeat JSON via _write_heartbeat. We
+            # surface it here too so the B5 health line stays consistent
+            # across both launcher paths.
+            signals_indeterminate_raw = self._safe_attr(
+                self._order_gateway, "_signals_indeterminate", 0
+            )
+            signals_indeterminate = (
+                signals_indeterminate_raw
+                if isinstance(signals_indeterminate_raw, int)
+                else 0
+            )
+            if signals_indeterminate > 0:
+                extras.append(f"signals_indeterminate={signals_indeterminate}")
 
         session_state = None
         if self._session is not None:
@@ -143,7 +201,9 @@ class HealthMonitor:
                 extras.append(f"session_state={session_state}")
 
         if self._position_tracker is not None:
-            open_positions = self._safe_attr(self._position_tracker, "open_positions", 0)
+            open_positions = self._safe_attr(
+                self._position_tracker, "open_positions", 0
+            )
             extras.append(f"open_positions={open_positions}")
 
         if extras:
@@ -156,8 +216,7 @@ class HealthMonitor:
             and uptime > 60.0
         ):
             logger.warning(
-                "[B5 Health] session_state=%s after %.0fs — "
-                "expected SUBSCRIBED",
+                "[B5 Health] session_state=%s after %.0fs — expected SUBSCRIBED",
                 session_state,
                 uptime,
             )

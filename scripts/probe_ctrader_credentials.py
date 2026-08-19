@@ -51,6 +51,7 @@ except ImportError:
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 class ProbeResult(NamedTuple):
     """Outcome of a credential probe."""
 
@@ -72,6 +73,7 @@ REQUIRED_CREDS = [
 # Core probe functions (each is independently testable)
 # ---------------------------------------------------------------------------
 
+
 def get_credentials() -> dict[str, str]:
     """Read cTrader credentials from environment."""
     return {key: os.environ.get(key, "").strip() for key in REQUIRED_CREDS}
@@ -82,7 +84,9 @@ def validate_credentials(creds: dict[str, str]) -> list[str]:
     return [k for k in REQUIRED_CREDS if not creds.get(k)]
 
 
-def check_auth(creds: dict[str, str], host: str | None = None, port: int = 5035) -> ProbeResult:
+def check_auth(
+    creds: dict[str, str], host: str | None = None, port: int = 5035
+) -> ProbeResult:
     """Attempt to authenticate with cTrader OpenAPI.
 
     Imports ``ctrader_open_api`` and ``CTraderOpenApiClient`` lazily so
@@ -179,6 +183,7 @@ def run_probe(host: str | None = None, port: int = 5035) -> ProbeResult:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Probe cTrader credential health without starting the engine.",
@@ -189,7 +194,8 @@ def main() -> int:
         help="Output results as JSON",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Verbose output including credential prefixes",
     )
@@ -198,17 +204,21 @@ def main() -> int:
     result = run_probe()
 
     if args.json:
-        print(json.dumps({
-            "success": result.success,
-            "stage": result.stage,
-            "message": result.message,
-            "details": result.details,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "success": result.success,
+                    "stage": result.stage,
+                    "message": result.message,
+                    "details": result.details,
+                },
+                indent=2,
+            )
+        )
     elif args.verbose:
         creds = get_credentials()
         prefixes = {
-            k: (v[:8] + "..." if len(v) > 8 else "(empty)")
-            for k, v in creds.items()
+            k: (v[:8] + "..." if len(v) > 8 else "(empty)") for k, v in creds.items()
         }
         print("cTrader Credential Probe")
         print(f"  Stage:   {result.stage}")

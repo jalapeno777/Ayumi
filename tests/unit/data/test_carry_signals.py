@@ -69,17 +69,23 @@ def _provider(
 
 class TestStaticFredRates(unittest.TestCase):
     def test_filters_by_date_range(self):
-        src = StaticFredRates([
-            {"date": "2018-01-01", "rate": 2.27},
-            {"date": "2020-01-01", "rate": 0.09},
-            {"date": "2023-01-01", "rate": 5.33},
-        ])
-        rows = src.get_series("FEDFUNDS", start_date="2019-01-01", end_date="2022-12-31")
+        src = StaticFredRates(
+            [
+                {"date": "2018-01-01", "rate": 2.27},
+                {"date": "2020-01-01", "rate": 0.09},
+                {"date": "2023-01-01", "rate": 5.33},
+            ]
+        )
+        rows = src.get_series(
+            "FEDFUNDS", start_date="2019-01-01", end_date="2022-12-31"
+        )
         self.assertEqual([r["date"] for r in rows], ["2020-01-01"])
 
     def test_default_table_includes_known_years(self):
         src = StaticFredRates()
-        rows = src.get_series("FEDFUNDS", start_date="2010-01-01", end_date="2025-12-31")
+        rows = src.get_series(
+            "FEDFUNDS", start_date="2010-01-01", end_date="2025-12-31"
+        )
         # Should span every year in the fallback table.
         self.assertGreaterEqual(len(rows), 5)
         self.assertEqual(rows[-1]["date"][:4], "2025")
@@ -117,10 +123,12 @@ class TestFredFetcherOffline(unittest.TestCase):
                 api_key="",
                 cache_path=str(cache_path),
                 force_offline=False,
-                source=StaticFredRates([
-                    {"date": "2024-01-01", "rate": 5.33},
-                    {"date": "2025-01-01", "rate": 4.58},
-                ]),
+                source=StaticFredRates(
+                    [
+                        {"date": "2024-01-01", "rate": 5.33},
+                        {"date": "2025-01-01", "rate": 4.58},
+                    ]
+                ),
             )
             fetcher.get_us_policy_rate_history(start_date="2020-01-01")
             self.assertTrue(cache_path.exists())
@@ -131,9 +139,14 @@ class TestFredFetcherOffline(unittest.TestCase):
                 api_key="",
                 cache_path=str(cache_path),
                 force_offline=False,
-                source=StaticFredRates([
-                    {"date": "1900-01-01", "rate": 99.0},  # would dominate if real call made
-                ]),
+                source=StaticFredRates(
+                    [
+                        {
+                            "date": "1900-01-01",
+                            "rate": 99.0,
+                        },  # would dominate if real call made
+                    ]
+                ),
             )
             rows = fetcher2.get_us_policy_rate_history(start_date="2020-01-01")
             # We should still see 5.33 from cache, not 99.0 from source.
@@ -144,10 +157,12 @@ class TestFredFetcherOffline(unittest.TestCase):
             api_key="",
             cache_path=None,
             force_offline=False,
-            source=StaticFredRates([
-                {"date": "2026-01-01", "rate": 4.25},
-                {"date": "2026-07-01", "rate": 4.75},
-            ]),
+            source=StaticFredRates(
+                [
+                    {"date": "2026-01-01", "rate": 4.25},
+                    {"date": "2026-07-01", "rate": 4.75},
+                ]
+            ),
         )
         latest = fetcher.latest_us_policy_rate()
         self.assertEqual(latest, 4.75)
@@ -175,14 +190,18 @@ class TestECBSDMXProvider(unittest.TestCase):
 
         def fake_fetcher(url: str) -> str:
             captured["url"] = url
-            return json.dumps({
-                "dataSets": [{
-                    "observations": {
-                        "0": [3.40],
-                        "1": [3.65],
-                    }
-                }]
-            })
+            return json.dumps(
+                {
+                    "dataSets": [
+                        {
+                            "observations": {
+                                "0": [3.40],
+                                "1": [3.65],
+                            }
+                        }
+                    ]
+                }
+            )
 
         with tempfile.TemporaryDirectory() as tmp:
             provider = ECBSDMXProvider(
@@ -213,9 +232,15 @@ class TestECBSDMXProvider(unittest.TestCase):
 
 class TestMT5SwapFileProvider(unittest.TestCase):
     def test_in_memory_records(self):
-        prov = MT5SwapFileProvider(records=[
-            {"symbol": "USDJPY", "long_swap_points": 12.5, "short_swap_points": -15.0},
-        ])
+        prov = MT5SwapFileProvider(
+            records=[
+                {
+                    "symbol": "USDJPY",
+                    "long_swap_points": 12.5,
+                    "short_swap_points": -15.0,
+                },
+            ]
+        )
         self.assertEqual(prov.get_swap_points("USDJPY"), (12.5, -15.0))
         self.assertEqual(prov.get_swap_points("usdjpy"), (12.5, -15.0))
 
@@ -343,6 +368,7 @@ class TestScoreWithCarryRegimeShift(unittest.TestCase):
         # Avoid importing confidence from anywhere that pulls network side
         # effects — keep this isolated.
         from confidence.engine import ConfidenceEngine
+
         return ConfidenceEngine()
 
     def test_regime_shift_increases_confidence_for_aligned_direction(self):
@@ -354,13 +380,15 @@ class TestScoreWithCarryRegimeShift(unittest.TestCase):
             swaps={"USDJPY": (12.0, -14.0)},
         )
         result_long = score_with_carry(
-            engine, provider_positive,
+            engine,
+            provider_positive,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="long",
         )
         result_short = score_with_carry(
-            engine, provider_positive,
+            engine,
+            provider_positive,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="short",
@@ -381,13 +409,15 @@ class TestScoreWithCarryRegimeShift(unittest.TestCase):
             swaps={"USDJPY": (-2.0, 8.0)},
         )
         result_long = score_with_carry(
-            engine, provider_negative,
+            engine,
+            provider_negative,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="long",
         )
         result_short = score_with_carry(
-            engine, provider_negative,
+            engine,
+            provider_negative,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="short",
@@ -412,7 +442,8 @@ class TestScoreWithCarryRegimeShift(unittest.TestCase):
             confluences=list(confluences),
         )
         with_carry = score_with_carry(
-            engine, provider_neutral,
+            engine,
+            provider_neutral,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="long",
@@ -432,7 +463,8 @@ class TestScoreWithCarryRegimeShift(unittest.TestCase):
         )
         without = engine.score(0.55, symbol="USDJPY", direction="long")
         with_disabled = score_with_carry(
-            engine, provider,
+            engine,
+            provider,
             raw_confidence=0.55,
             symbol="USDJPY",
             direction="long",

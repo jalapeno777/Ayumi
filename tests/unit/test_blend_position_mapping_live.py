@@ -61,12 +61,7 @@ import pytest
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
 ENGINE = (
-    WORKSPACE
-    / "src"
-    / "forex-bot"
-    / "adapters"
-    / "ctrader"
-    / "forward_test_engine.py"
+    WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
 )
 
 
@@ -129,8 +124,8 @@ def _attach_blend_runner(engine, blend_runner):
     canonical pattern in ``BlendForwardTestRunner.make_signal_id`` —
     avoids side-effect signature mismatches with the real bound method.
     """
-    blend_runner.make_signal_id.side_effect = (
-        lambda sig: sig.strategy_id + "_" + str(sig.timestamp.timestamp())
+    blend_runner.make_signal_id.side_effect = lambda sig: (
+        sig.strategy_id + "_" + str(sig.timestamp.timestamp())
     )
     engine._blend_runner = blend_runner
 
@@ -179,7 +174,9 @@ class TestRegisterBlendPositionMapping:
         engine_mock._register_blend_position_mapping(mock_signal, 99999)
 
     @pytest.mark.parametrize("bad_value", [0, None, "abc", "99999", 3.14])
-    def test_invalid_position_id_skips_wiring(self, engine_mock, mock_signal, bad_value):
+    def test_invalid_position_id_skips_wiring(
+        self, engine_mock, mock_signal, bad_value
+    ):
         """PositionId of 0, None, string (even numeric), or float must NOT
         trigger wiring. Mirrors the late-fill ``ctrader_position_id``
         validation at ``forward_test_engine.py:1768-1787``.
@@ -195,7 +192,9 @@ class TestRegisterBlendPositionMapping:
         # keeping the helper's side-effect surface tight.
         blend_runner.make_signal_id.assert_not_called()
 
-    def test_register_position_mapping_exception_swallowed(self, engine_mock, mock_signal):
+    def test_register_position_mapping_exception_swallowed(
+        self, engine_mock, mock_signal
+    ):
         """A failure inside ``register_position_mapping`` (e.g. blend
         runner is in a half-initialised state) MUST NOT propagate — the
         helper lives in the trade-execution path where raising would
@@ -257,8 +256,8 @@ class TestExecuteSignalLiveWiring:
         # Simulate the fallback branch's position_id extraction.
         order = MagicMock()
         order.position_id = 7654322  # different cTrader int
-        position_id = (
-            getattr(order, "position_id", None) or getattr(order, "order_id", None)
+        position_id = getattr(order, "position_id", None) or getattr(
+            order, "order_id", None
         )
         engine_mock._register_blend_position_mapping(mock_signal, position_id)
 
@@ -303,7 +302,6 @@ class TestReleaseLateWiring:
         """
         from adapters.ctrader.forward_test_engine import (
             ForwardTestEngine,
-            LiveExecutionStatus,
         )
 
         with patch.object(ForwardTestEngine, "__init__", return_value=None):
@@ -323,7 +321,9 @@ class TestReleaseLateWiring:
 
             # Spy on the helper.
             helper_calls = []
-            engine._register_blend_position_mapping = lambda sig, pid: helper_calls.append((sig, pid))
+            engine._register_blend_position_mapping = lambda sig, pid: (
+                helper_calls.append((sig, pid))
+            )
 
             blend_runner = MagicMock()
             engine._blend_runner = blend_runner
@@ -363,8 +363,7 @@ class TestReleaseLateWiring:
             # The helper MUST have been called with the signal and the
             # extracted int positionId.  This locks the audit §5.4 fix.
             assert len(helper_calls) == 1, (
-                f"Expected 1 helper call, got {len(helper_calls)}: "
-                f"{helper_calls}"
+                f"Expected 1 helper call, got {len(helper_calls)}: {helper_calls}"
             )
             called_signal, called_position_id = helper_calls[0]
             assert called_signal is signal
@@ -430,10 +429,7 @@ def test_release_late_calls_helper_in_filled_branch():
             for sub in ast.walk(node):
                 if isinstance(sub, ast.Call):
                     func = sub.func
-                    if (
-                        isinstance(func, ast.Attribute)
-                        and func.attr == target
-                    ):
+                    if isinstance(func, ast.Attribute) and func.attr == target:
                         found_in_late_release = True
                         break
 

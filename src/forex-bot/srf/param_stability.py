@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 import numpy as np
@@ -22,13 +22,15 @@ logger = logging.getLogger(__name__)
 # Data structures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class StabilityResult:
     """Parameter stability analysis result."""
-    cv: float                          # Coefficient of variation of performance
-    is_stable: bool                    # True if CV < threshold
-    plateau_score: float               # 0 = spike, 1 = broad plateau
-    neighbor_correlation: float        # Spearman correlation of neighbor performance
+
+    cv: float  # Coefficient of variation of performance
+    is_stable: bool  # True if CV < threshold
+    plateau_score: float  # 0 = spike, 1 = broad plateau
+    neighbor_correlation: float  # Spearman correlation of neighbor performance
     cross_window_rank_correlation: float  # Mean Spearman rank correlation of params
     heatmap: np.ndarray | None = None  # [n_perturbations, n_params] performance grid
     detail: str = ""
@@ -52,12 +54,13 @@ class PerturbationStabilityResult:
     (below ``spike_threshold``) indicates a narrow performance spike,
     classic overfitting.
     """
-    stability_score: float             # Fraction of perturbations retaining ≥80% of peak
-    is_overfit_spike: bool             # True if score < spike_threshold
-    peak_performance: float            # Performance at best_params (unperturbed)
-    n_perturbations: int               # Total perturbation evaluations
-    n_retained: int                    # Perturbations that retained ≥ threshold
-    per_param: dict[str, float]        # Per-parameter retention fraction
+
+    stability_score: float  # Fraction of perturbations retaining ≥80% of peak
+    is_overfit_spike: bool  # True if score < spike_threshold
+    peak_performance: float  # Performance at best_params (unperturbed)
+    n_perturbations: int  # Total perturbation evaluations
+    n_retained: int  # Perturbations that retained ≥ threshold
+    per_param: dict[str, float]  # Per-parameter retention fraction
     heatmap: np.ndarray | None = None  # [n_fractions, n_params] performance grid
     detail: str = ""
 
@@ -75,6 +78,7 @@ class PerturbationStabilityResult:
 # ═══════════════════════════════════════════════════════════════════════════
 # Core analyses
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def coefficient_of_variation(window_performances: Sequence[float]) -> float:
     """CV of a performance metric across walk-forward windows.
@@ -137,6 +141,7 @@ def neighbor_robustness(
     Mean Spearman correlation in [-1, 1].  High = neighbors perform similarly.
     """
     from scipy.stats import spearmanr
+
     N = len(performance)
     if N < k + 1:
         return 0.0
@@ -161,7 +166,9 @@ def neighbor_robustness(
         if len(neighbor_dists) > 2 and np.std(perf_diffs) > 0:
             r, _ = spearmanr(neighbor_dists, perf_diffs)
             if r is not None and math.isfinite(r):
-                correlations.append(-r)  # negative because close distance should = small diff
+                correlations.append(
+                    -r
+                )  # negative because close distance should = small diff
 
     if not correlations:
         return 0.0
@@ -199,8 +206,10 @@ def cross_window_rank_correlation(
     correlations = []
     for i in range(len(window_perf_vectors)):
         for j in range(i + 1, len(window_perf_vectors)):
-            if (np.std(window_perf_vectors[i]) > 0 and
-                    np.std(window_perf_vectors[j]) > 0):
+            if (
+                np.std(window_perf_vectors[i]) > 0
+                and np.std(window_perf_vectors[j]) > 0
+            ):
                 r, _ = spearmanr(window_perf_vectors[i], window_perf_vectors[j])
                 if r is not None and math.isfinite(r):
                     correlations.append(r)
@@ -214,7 +223,14 @@ def cross_window_rank_correlation(
 # Perturbation sweep (overfit spike detection)
 # ═══════════════════════════════════════════════════════════════════════════
 
-DEFAULT_PERTURBATION_FRACTIONS: tuple[float, ...] = (-0.20, -0.10, -0.05, 0.05, 0.10, 0.20)
+DEFAULT_PERTURBATION_FRACTIONS: tuple[float, ...] = (
+    -0.20,
+    -0.10,
+    -0.05,
+    0.05,
+    0.10,
+    0.20,
+)
 """Standard perturbation levels: ±5%, ±10%, ±20% of each parameter value."""
 
 
@@ -289,22 +305,19 @@ def perturbation_stability_score(
             except Exception:
                 logger.warning(
                     "Perturbation eval failed for %s=%s*%.2f",
-                    pname, best_params[pname], 1 + frac,
+                    pname,
+                    best_params[pname],
+                    1 + frac,
                 )
 
         per_param[pname] = (
-            retained_for_param / evaluated_for_param
-            if evaluated_for_param > 0
-            else 0.0
+            retained_for_param / evaluated_for_param if evaluated_for_param > 0 else 0.0
         )
 
     score = total_retained / total_evaluated if total_evaluated > 0 else 0.0
     is_spike = score < spike_threshold
 
-    detail_parts = [
-        f"{name}={ratio:.0%}"
-        for name, ratio in per_param.items()
-    ]
+    detail_parts = [f"{name}={ratio:.0%}" for name, ratio in per_param.items()]
     detail = (
         f"stability_score={score:.3f} "
         f"({'OVERFIT SPIKE' if is_spike else 'stable'}), "
@@ -327,6 +340,7 @@ def perturbation_stability_score(
 # ═══════════════════════════════════════════════════════════════════════════
 # Heatmap generation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def generate_heatmap(
     evaluate_fn: callable,
@@ -358,7 +372,12 @@ def generate_heatmap(
             try:
                 heatmap[i, j] = float(evaluate_fn(params))
             except Exception:
-                logger.warning("Evaluation failed for %s=%s*%.2f", pname, best_params[pname], 1 + frac)
+                logger.warning(
+                    "Evaluation failed for %s=%s*%.2f",
+                    pname,
+                    best_params[pname],
+                    1 + frac,
+                )
 
     return heatmap
 
@@ -366,6 +385,7 @@ def generate_heatmap(
 # ═══════════════════════════════════════════════════════════════════════════
 # Full stability assessment
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def assess_stability(
     window_performances: Sequence[float],
@@ -430,6 +450,7 @@ def assess_stability(
 # Self-test: synthetic overfit vs stable configs
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _self_test() -> None:
     """Validate perturbation_stability_score with synthetic configs.
 
@@ -441,6 +462,7 @@ def _self_test() -> None:
 
     def overfit_eval(params: dict[str, float]) -> float:
         import math
+
         t = params["threshold"]
         p = params["period"]
         # Narrow Gaussian: width ≈ 2% of value
@@ -452,7 +474,9 @@ def _self_test() -> None:
     assert overfit_result.is_overfit_spike, (
         f"Overfit config should be flagged as spike, got score={overfit_result.stability_score:.3f}"
     )
-    print(f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}")
+    print(
+        f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}"
+    )
 
     # ── Synthetic stable config: broad plateau ───────────────────────
     # Performance stays high across ±20% perturbations.
@@ -484,6 +508,7 @@ def _self_test() -> None:
 
 if __name__ == "__main__":
     import sys
+
     if "--self-test" in sys.argv:
         _self_test()
     else:

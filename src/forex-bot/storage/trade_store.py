@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -53,6 +54,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 # ---------------------------------------------------------------------------
 # TradeStore
 # ---------------------------------------------------------------------------
+
 
 class TradeStore:
     """Persistent SQLite trade store with equity curve and performance tracking.
@@ -155,9 +157,7 @@ class TradeStore:
         self._write(_do)
         return trade_id
 
-    def record_close(
-        self, trade_id: str, exit_price: float, close_reason: str
-    ) -> dict:
+    def record_close(self, trade_id: str, exit_price: float, close_reason: str) -> dict:
         """Close a trade, compute P&L, return the closed trade dict."""
 
         def _do(conn):
@@ -250,7 +250,15 @@ class TradeStore:
                                           open_positions, daily_pnl, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (_utcnow(), balance, equity, unrealized, open_count, daily_pnl, meta_json),
+                (
+                    _utcnow(),
+                    balance,
+                    equity,
+                    unrealized,
+                    open_count,
+                    daily_pnl,
+                    meta_json,
+                ),
             )
 
         self._write(_do)
@@ -394,7 +402,9 @@ class TradeStore:
             ).fetchone()
 
             starting_balance = start_snap["balance"] if start_snap else 0.0
-            ending_balance = end_snap["balance"] if end_snap else starting_balance + total_pnl
+            ending_balance = (
+                end_snap["balance"] if end_snap else starting_balance + total_pnl
+            )
 
             # Max drawdown for the day
             curve = conn.execute(
@@ -447,9 +457,18 @@ class TradeStore:
                     strategies_used  = excluded.strategies_used
                 """,
                 (
-                    date, starting_balance, ending_balance, len(closed),
-                    winning, losing, total_pnl, max_dd,
-                    sharpe, best, worst, strategies_json,
+                    date,
+                    starting_balance,
+                    ending_balance,
+                    len(closed),
+                    winning,
+                    losing,
+                    total_pnl,
+                    max_dd,
+                    sharpe,
+                    best,
+                    worst,
+                    strategies_json,
                 ),
             )
 
@@ -492,7 +511,9 @@ class TradeStore:
             win_rate = len(winning) / len(pnls) if pnls else 0.0
             gross_profit = sum(winning) if winning else 0.0
             gross_loss = abs(sum(losing)) if losing else 0.0
-            profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
+            profit_factor = (
+                gross_profit / gross_loss if gross_loss > 0 else float("inf")
+            )
             avg_pnl = sum(pnls) / len(pnls) if pnls else 0.0
             sharpe = _simple_sharpe(pnls)
 
@@ -532,8 +553,14 @@ class TradeStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    metrics["timestamp"], window_days, sharpe, max_dd,
-                    win_rate, profit_factor, avg_pnl, len(pnls),
+                    metrics["timestamp"],
+                    window_days,
+                    sharpe,
+                    max_dd,
+                    win_rate,
+                    profit_factor,
+                    avg_pnl,
+                    len(pnls),
                 ),
             )
 
@@ -616,11 +643,13 @@ class TradeStore:
 # Module-level helper (kept for backward compat)
 # ---------------------------------------------------------------------------
 
+
 def _simple_sharpe(pnls: list[float]) -> Optional[float]:
     """Simple Sharpe ratio (no risk-free rate, assumes daily returns)."""
     if len(pnls) < 2:
         return None
     import statistics
+
     mean = statistics.mean(pnls)
     stdev = statistics.pstdev(pnls)
     return mean / stdev if stdev > 0 else None

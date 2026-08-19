@@ -1,6 +1,7 @@
 """Tests for HistoricalDataBackfill module."""
 
 import pytest
+
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
 import tempfile
@@ -25,17 +26,20 @@ def _make_backfill(tmpdir: str) -> HistoricalDataBackfill:
 
 def _make_sample_df(n=10) -> pd.DataFrame:
     now = datetime.now(timezone.utc)
-    return pd.DataFrame({
-        "timestamp": [now - timedelta(hours=i) for i in range(n)],
-        "open": [1.0 + i * 0.001 for i in range(n)],
-        "high": [1.001 + i * 0.001 for i in range(n)],
-        "low": [0.999 + i * 0.001 for i in range(n)],
-        "close": [1.0005 + i * 0.001 for i in range(n)],
-        "volume": [100 + i * 10 for i in range(n)],
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": [now - timedelta(hours=i) for i in range(n)],
+            "open": [1.0 + i * 0.001 for i in range(n)],
+            "high": [1.001 + i * 0.001 for i in range(n)],
+            "low": [0.999 + i * 0.001 for i in range(n)],
+            "close": [1.0005 + i * 0.001 for i in range(n)],
+            "volume": [100 + i * 10 for i in range(n)],
+        }
+    )
 
 
 # --- CSV save format ---
+
 
 class TestCSVSaveFormat:
     def test_csv_column_names_match_existing_format(self):
@@ -45,18 +49,28 @@ class TestCSVSaveFormat:
             path = bf._save_csv(df, "EUR/USD", "H1")
 
             saved = pd.read_csv(path)
-            assert list(saved.columns) == ["Date", "Open", "High", "Low", "Close", "Volume"]
+            assert list(saved.columns) == [
+                "Date",
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Volume",
+            ]
             assert len(saved) == 10
 
 
 # --- Missing symbols detection ---
+
 
 class TestMissingSymbols:
     def test_detects_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             bf._data_dir.mkdir(parents=True, exist_ok=True)
-            (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
+            (bf._data_dir / "EURUSD_H1.csv").write_text(
+                "Date,Open,High,Low,Close,Volume\n"
+            )
 
             discovered = {
                 1: SymbolInfo(symbol_id=1, name="EUR/USD"),
@@ -70,7 +84,9 @@ class TestMissingSymbols:
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             bf._data_dir.mkdir(parents=True, exist_ok=True)
-            (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
+            (bf._data_dir / "EURUSD_H1.csv").write_text(
+                "Date,Open,High,Low,Close,Volume\n"
+            )
 
             discovered = {
                 1: SymbolInfo(symbol_id=1, name="EUR/USD"),
@@ -82,14 +98,13 @@ class TestMissingSymbols:
 
 # --- Multiple symbol backfill with symbol_id dict ---
 
+
 class TestMultipleBackfill:
     def test_accepts_dict_of_symbol_ids(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             # No API creds set, so it will fall back to CSV
-            results = bf.backfill_multiple(
-                {"EUR/USD": 1, "GBP/USD": 2}, "H1"
-            )
+            results = bf.backfill_multiple({"EUR/USD": 1, "GBP/USD": 2}, "H1")
             # Without creds, Open API fails → CSV fallback → empty
             # But the call should not raise
             assert isinstance(results, dict)
@@ -125,6 +140,7 @@ class TestMultipleBackfill:
 
 # --- Timeframe validation ---
 
+
 class TestTimeframeValidation:
     def test_valid_timeframes(self):
         assert "M1" in VALID_TIMEFRAMES
@@ -139,6 +155,7 @@ class TestTimeframeValidation:
 
 
 # --- Date range defaults ---
+
 
 class TestDateRangeDefaults:
     def test_default_end_is_now(self):
@@ -158,12 +175,20 @@ class TestDateRangeDefaults:
 
 # --- Empty result handling ---
 
+
 class TestEmptyResultHandling:
     def test_empty_dataframe_has_correct_columns(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             df = bf.backfill_symbol("NONEXISTENT/PAIR", "H1")
-            assert list(df.columns) == ["timestamp", "open", "high", "low", "close", "volume"]
+            assert list(df.columns) == [
+                "timestamp",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+            ]
             assert len(df) == 0
 
     def test_backfill_multiple_with_no_data(self):

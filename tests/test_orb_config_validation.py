@@ -12,7 +12,6 @@ Run:
     pytest tests/test_orb_config_validation.py -q
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 
@@ -32,6 +31,7 @@ CONFIGS = {
 
 # ── Fixtures ─────────────────────────────────────────────────────────
 
+
 @pytest.fixture(params=list(CONFIGS.values()), ids=list(CONFIGS.keys()))
 def config_path(request):
     """Yield path to each config file."""
@@ -47,11 +47,17 @@ def config(config_path):
 
 # ── Structural Tests ─────────────────────────────────────────────────
 
+
 class TestConfigStructure:
     """Verify the top-level structure of each config file."""
 
     REQUIRED_SECTIONS = [
-        "account", "risk", "instrument", "strategy", "backtest", "ftmo"
+        "account",
+        "risk",
+        "instrument",
+        "strategy",
+        "backtest",
+        "ftmo",
     ]
 
     def test_file_exists(self, config_path):
@@ -82,9 +88,11 @@ class TestConfigStructure:
         """Risk section must have all risk parameters."""
         risk = config["risk"]
         required = [
-            "risk_per_trade_pct", "max_daily_drawdown_pct",
-            "max_total_drawdown_pct", "max_concurrent_positions",
-            "max_trades_per_day"
+            "risk_per_trade_pct",
+            "max_daily_drawdown_pct",
+            "max_total_drawdown_pct",
+            "max_concurrent_positions",
+            "max_trades_per_day",
         ]
         for field in required:
             assert field in risk, f"Missing risk field: {field}"
@@ -95,12 +103,19 @@ class TestConfigStructure:
 
 # ── Instrument Tests ─────────────────────────────────────────────────
 
+
 class TestInstrument:
     """Verify instrument configuration."""
 
     def test_instrument_fields(self, config):
         inst = config["instrument"]
-        required = ["symbol", "timeframe", "spread_pips", "pip_value_usd_per_lot", "commission_per_lot"]
+        required = [
+            "symbol",
+            "timeframe",
+            "spread_pips",
+            "pip_value_usd_per_lot",
+            "commission_per_lot",
+        ]
         for field in required:
             assert field in inst, f"Missing instrument field: {field}"
 
@@ -121,6 +136,7 @@ class TestInstrument:
 
 
 # ── Strategy Tests ───────────────────────────────────────────────────
+
 
 class TestStrategyConfig:
     """Verify ORB strategy configuration."""
@@ -145,6 +161,7 @@ class TestStrategyConfig:
             def to_minutes(t_str):
                 h, m = t_str.split(":")
                 return int(h) * 60 + int(m)
+
             start = to_minutes(session["range_start_utc"])
             end = to_minutes(session["range_end_utc"])
             assert start < end, f"{session_name}: range start must be before end"
@@ -179,6 +196,7 @@ class TestStrategyConfig:
 
 # ── Backtest Window Tests ────────────────────────────────────────────
 
+
 class TestBacktestWindow:
     """Verify backtest window configuration."""
 
@@ -207,13 +225,18 @@ class TestBacktestWindow:
 
 # ── FTMO Tests ───────────────────────────────────────────────────────
 
+
 class TestFTMOConfig:
     """Verify FTMO feasibility parameters."""
 
     def test_ftmo_fields(self, config):
         ftmo = config["ftmo"]
-        required = ["daily_max_loss_pct", "overall_max_loss_pct",
-                    "profit_target_pct", "min_trades_for_consistency"]
+        required = [
+            "daily_max_loss_pct",
+            "overall_max_loss_pct",
+            "profit_target_pct",
+            "min_trades_for_consistency",
+        ]
         for field in required:
             assert field in ftmo, f"Missing FTMO field: {field}"
 
@@ -226,6 +249,7 @@ class TestFTMOConfig:
 
 
 # ── Cross-Config Consistency ─────────────────────────────────────────
+
 
 class TestCrossConfig:
     """Verify consistency between the two config files."""

@@ -13,9 +13,6 @@ and verify the new class directly.
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
-import pytest
 
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed

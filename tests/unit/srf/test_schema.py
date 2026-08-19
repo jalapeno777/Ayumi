@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import os
 import sys
-import tempfile
-import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -23,6 +19,7 @@ from srf.schema import SRFDatabase, SCHEMA_VERSION
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_db_path(tmp_path):
@@ -43,19 +40,26 @@ def db(tmp_db_path):
 # Schema integrity
 # ---------------------------------------------------------------------------
 
+
 class TestSchemaIntegrity:
     """Verify all 7 required tables exist with correct columns/types."""
 
     REQUIRED_TABLES = {
-        "strategies", "runs", "windows", "trades",
-        "monte_carlo_samples", "metrics_summary", "cron_runs",
+        "strategies",
+        "runs",
+        "windows",
+        "trades",
+        "monte_carlo_samples",
+        "metrics_summary",
+        "cron_runs",
     }
 
     def test_all_required_tables_exist(self, db):
         """All 7 spec-mandated tables must be present."""
         with db as conn:
             tables = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT table_name FROM information_schema.tables "
                     "WHERE table_schema='main'"
                 ).fetchall()
@@ -78,26 +82,52 @@ class TestSchemaIntegrity:
         """Runs table has expected columns."""
         with db as conn:
             cols = self._columns(conn, "runs")
-        expected = {"run_id", "strategy_name", "pair", "timeframe",
-                    "params_json", "git_commit", "data_hash", "status",
-                    "compute_seconds", "created_at", "completed_at"}
+        expected = {
+            "run_id",
+            "strategy_name",
+            "pair",
+            "timeframe",
+            "params_json",
+            "git_commit",
+            "data_hash",
+            "status",
+            "compute_seconds",
+            "created_at",
+            "completed_at",
+        }
         assert expected.issubset(cols), f"Missing columns: {expected - cols}"
 
     def test_windows_columns(self, db):
         """Windows table has expected columns."""
         with db as conn:
             cols = self._columns(conn, "windows")
-        expected = {"run_id", "window_idx", "win_rate", "profit_factor",
-                    "sharpe", "max_drawdown", "trade_count", "total_pnl",
-                    "passed_go_nogo"}
+        expected = {
+            "run_id",
+            "window_idx",
+            "win_rate",
+            "profit_factor",
+            "sharpe",
+            "max_drawdown",
+            "trade_count",
+            "total_pnl",
+            "passed_go_nogo",
+        }
         assert expected.issubset(cols), f"Missing columns: {expected - cols}"
 
     def test_trades_columns(self, db):
         """Trades table has expected columns."""
         with db as conn:
             cols = self._columns(conn, "trades")
-        expected = {"run_id", "window_idx", "entry_time", "exit_time",
-                    "direction", "entry_price", "exit_price", "pnl"}
+        expected = {
+            "run_id",
+            "window_idx",
+            "entry_time",
+            "exit_time",
+            "direction",
+            "entry_price",
+            "exit_price",
+            "pnl",
+        }
         assert expected.issubset(cols), f"Missing columns: {expected - cols}"
 
     def test_monte_carlo_columns(self, db):
@@ -111,8 +141,14 @@ class TestSchemaIntegrity:
         """metrics_summary table has expected columns."""
         with db as conn:
             cols = self._columns(conn, "metrics_summary")
-        expected = {"run_id", "go_nogo", "score", "total_trades",
-                    "windows_passed", "windows_total"}
+        expected = {
+            "run_id",
+            "go_nogo",
+            "score",
+            "total_trades",
+            "windows_passed",
+            "windows_total",
+        }
         assert expected.issubset(cols), f"Missing columns: {expected - cols}"
 
     def test_cron_runs_columns(self, db):
@@ -126,7 +162,8 @@ class TestSchemaIntegrity:
         """Reporting views are created."""
         with db as conn:
             views = {
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT table_name FROM information_schema.tables "
                     "WHERE table_schema='main' AND table_type='VIEW'"
                 ).fetchall()
@@ -147,6 +184,7 @@ class TestSchemaIntegrity:
 # ---------------------------------------------------------------------------
 # Single-writer lock
 # ---------------------------------------------------------------------------
+
 
 class TestSingleWriterLock:
     """Verify the file lock prevents concurrent connections."""
@@ -188,6 +226,7 @@ class TestSingleWriterLock:
 # Migration idempotency
 # ---------------------------------------------------------------------------
 
+
 class TestMigrationIdempotency:
     """Verify migrations are safe to run multiple times."""
 
@@ -200,18 +239,14 @@ class TestMigrationIdempotency:
         db2 = SRFDatabase(tmp_db_path)
         conn = db2.connect()  # _migrate runs again
         # Verify schema version is still 1
-        row = conn.execute(
-            "SELECT MAX(version) FROM _srf_schema_version"
-        ).fetchone()
+        row = conn.execute("SELECT MAX(version) FROM _srf_schema_version").fetchone()
         assert row[0] == SCHEMA_VERSION
         db2.close()
 
     def test_version_tracking(self, db):
         """_srf_schema_version table has exactly one row at current version."""
         with db as conn:
-            rows = conn.execute(
-                "SELECT version FROM _srf_schema_version"
-            ).fetchall()
+            rows = conn.execute("SELECT version FROM _srf_schema_version").fetchall()
         versions = [r[0] for r in rows]
         assert SCHEMA_VERSION in versions
 
@@ -221,6 +256,7 @@ class TestMigrationIdempotency:
         conn = db1.connect()
         # Try to create tables again — IF NOT EXISTS should handle it
         from srf.schema import _DDL_STATEMENTS
+
         for stmt in _DDL_STATEMENTS:
             conn.execute(stmt)
         db1.close()
@@ -229,6 +265,7 @@ class TestMigrationIdempotency:
 # ---------------------------------------------------------------------------
 # Backup helper
 # ---------------------------------------------------------------------------
+
 
 class TestBackupHelper:
     """Verify the backup function creates a valid copy."""
@@ -249,12 +286,14 @@ class TestBackupHelper:
 # Utility functions
 # ---------------------------------------------------------------------------
 
+
 class TestUtilities:
     """Test compute_data_hash and generate_run_id."""
 
     def test_compute_data_hash(self, tmp_path):
         """compute_data_hash returns a hex string."""
         from srf.schema import compute_data_hash
+
         f = tmp_path / "data.csv"
         f.write_text("test,data\n1,2\n")
         h = compute_data_hash(str(f))
@@ -265,6 +304,7 @@ class TestUtilities:
     def test_compute_data_hash_consistent(self, tmp_path):
         """Same content produces same hash."""
         from srf.schema import compute_data_hash
+
         f = tmp_path / "a.csv"
         f.write_text("identical")
         h1 = compute_data_hash(str(f))
@@ -274,6 +314,7 @@ class TestUtilities:
     def test_generate_run_id_format(self):
         """generate_run_id produces expected format."""
         from srf.schema import generate_run_id
+
         rid = generate_run_id("mystrategy", "GBPUSD", 15)
         assert rid.startswith("mystrategy_GBPUSD_15m_")
         # Timestamp should be 14 digits

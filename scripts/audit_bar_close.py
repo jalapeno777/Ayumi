@@ -35,10 +35,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import sys
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -144,34 +143,55 @@ def _build_session_breakout_factories() -> dict[str, Callable[[], Any]]:
         return {}
 
     def _asian() -> Any:
-        return SessionBreakoutStrategy({
-            "name": "Session Breakout Asian",
-            "range_start_hour": 21, "range_end_hour": 0,
-            "trade_start_hour": 0, "trade_end_hour": 6,
-            "min_range_pips": 20, "max_range_pips": 60,
-            "buffer_pips": 3, "sl_atr_multiplier": 1.5,
-            "atr_period": 14, "min_range_bars": 20,
-        })
+        return SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout Asian",
+                "range_start_hour": 21,
+                "range_end_hour": 0,
+                "trade_start_hour": 0,
+                "trade_end_hour": 6,
+                "min_range_pips": 20,
+                "max_range_pips": 60,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 1.5,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        )
 
     def _london() -> Any:
-        return SessionBreakoutStrategy({
-            "name": "Session Breakout London",
-            "range_start_hour": 0, "range_end_hour": 8,
-            "trade_start_hour": 8, "trade_end_hour": 12,
-            "min_range_pips": 30, "max_range_pips": 80,
-            "buffer_pips": 3, "sl_atr_multiplier": 2.0,
-            "atr_period": 14, "min_range_bars": 20,
-        })
+        return SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout London",
+                "range_start_hour": 0,
+                "range_end_hour": 8,
+                "trade_start_hour": 8,
+                "trade_end_hour": 12,
+                "min_range_pips": 30,
+                "max_range_pips": 80,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 2.0,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        )
 
     def _ny() -> Any:
-        return SessionBreakoutStrategy({
-            "name": "Session Breakout NY",
-            "range_start_hour": 8, "range_end_hour": 13,
-            "trade_start_hour": 13, "trade_end_hour": 17,
-            "min_range_pips": 25, "max_range_pips": 70,
-            "buffer_pips": 3, "sl_atr_multiplier": 1.8,
-            "atr_period": 14, "min_range_bars": 20,
-        })
+        return SessionBreakoutStrategy(
+            {
+                "name": "Session Breakout NY",
+                "range_start_hour": 8,
+                "range_end_hour": 13,
+                "trade_start_hour": 13,
+                "trade_end_hour": 17,
+                "min_range_pips": 25,
+                "max_range_pips": 70,
+                "buffer_pips": 3,
+                "sl_atr_multiplier": 1.8,
+                "atr_period": 14,
+                "min_range_bars": 20,
+            }
+        )
 
     return {
         "Session Breakout Asian": _asian,
@@ -188,6 +208,7 @@ def _resolve_factory(
         return custom
     try:
         import importlib
+
         mod = importlib.import_module(module)
         klass = getattr(mod, cls_name, None)
         if klass is None:
@@ -222,12 +243,16 @@ def _synthetic_bars(n: int, period_minutes: int = 60) -> list[Bar]:
         wave = 0.0005 * (1 if ((i + period_minutes) // 5) % 2 == 0 else -1)
         op = price
         cl = max(0.0001, price + drift + wave)
-        bars.append(Bar(
-            time=t0 + timedelta(minutes=i * period_minutes),
-            open=op, high=max(op, cl) + 0.0004,
-            low=max(0.0001, min(op, cl) - 0.0004),
-            close=cl, volume=1000.0,
-        ))
+        bars.append(
+            Bar(
+                time=t0 + timedelta(minutes=i * period_minutes),
+                open=op,
+                high=max(op, cl) + 0.0004,
+                low=max(0.0001, min(op, cl) - 0.0004),
+                close=cl,
+                volume=1000.0,
+            )
+        )
         price = cl
     return bars
 
@@ -244,6 +269,7 @@ def _load_bars_csv(path: Path, n: int) -> Optional[list[Bar]]:
         return None
     try:
         import csv
+
         rows: list[Bar] = []
 
         def _col(row: dict, *names: str) -> Optional[str]:
@@ -261,17 +287,23 @@ def _load_bars_csv(path: Path, n: int) -> Optional[list[Bar]]:
                 if raw_t is None:
                     continue
                 # Date-only values get a midnight UTC stamp
-                t = datetime.fromisoformat(raw_t.replace(" ", "T") if " " in raw_t and "T" not in raw_t else raw_t)
+                t = datetime.fromisoformat(
+                    raw_t.replace(" ", "T")
+                    if " " in raw_t and "T" not in raw_t
+                    else raw_t
+                )
                 if t.tzinfo is None:
                     t = t.replace(tzinfo=timezone.utc)
-                rows.append(Bar(
-                    time=t,
-                    open=float(_col(row, "open") or 0.0),
-                    high=float(_col(row, "high") or 0.0),
-                    low=float(_col(row, "low") or 0.0),
-                    close=float(_col(row, "close") or 0.0),
-                    volume=float(_col(row, "volume") or 0.0),
-                ))
+                rows.append(
+                    Bar(
+                        time=t,
+                        open=float(_col(row, "open") or 0.0),
+                        high=float(_col(row, "high") or 0.0),
+                        low=float(_col(row, "low") or 0.0),
+                        close=float(_col(row, "close") or 0.0),
+                        volume=float(_col(row, "volume") or 0.0),
+                    )
+                )
         return rows[-n:] if len(rows) > n else rows
     except Exception as exc:
         log.warning("CSV load failed for %s: %s", path, exc)
@@ -284,6 +316,7 @@ def _load_bars_parquet(path: Path, n: int) -> Optional[list[Bar]]:
         return None
     try:
         import pandas as pd
+
         df = pd.read_parquet(path).tail(n)
         bars: list[Bar] = []
         for _, row in df.iterrows():
@@ -294,14 +327,16 @@ def _load_bars_parquet(path: Path, n: int) -> Optional[list[Bar]]:
                 t = t.to_pydatetime()
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)
-            bars.append(Bar(
-                time=t,
-                open=float(row["open"]),
-                high=float(row["high"]),
-                low=float(row["low"]),
-                close=float(row["close"]),
-                volume=float(row.get("volume", 0.0) or 0.0),
-            ))
+            bars.append(
+                Bar(
+                    time=t,
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=float(row.get("volume", 0.0) or 0.0),
+                )
+            )
         return bars
     except Exception as exc:
         log.warning("Parquet load failed for %s: %s", path, exc)
@@ -320,12 +355,16 @@ def _load_bars(symbol: str, timeframe_minutes: int, n: int) -> list[Bar]:
         log.info("Loaded %d bars from %s", len(bars), csv_path)
         return bars
     # Parquet fallback
-    pq_path = _REPO / "data" / "forex" / "parquet" / f"{symbol}_{tf_label.lower()}.parquet"
+    pq_path = (
+        _REPO / "data" / "forex" / "parquet" / f"{symbol}_{tf_label.lower()}.parquet"
+    )
     bars = _load_bars_parquet(pq_path, n)
     if bars:
         log.info("Loaded %d bars from %s", len(bars), pq_path)
         return bars
-    log.warning("No preloaded data for %s %s — using synthetic series", symbol, tf_label)
+    log.warning(
+        "No preloaded data for %s %s — using synthetic series", symbol, tf_label
+    )
     return _synthetic_bars(n, period_minutes=timeframe_minutes)
 
 
@@ -355,9 +394,13 @@ def _audit_strategy(
     """
     if len(bars) < 60:
         return AuditRow(
-            strategy=name, symbol=symbol,
-            timeframe_minutes=0, bars_audited=len(bars),
-            signals_total=0, on_closed_bars=0, on_forming_bars=0,
+            strategy=name,
+            symbol=symbol,
+            timeframe_minutes=0,
+            bars_audited=len(bars),
+            signals_total=0,
+            on_closed_bars=0,
+            on_forming_bars=0,
             verdict="SKIP",
             note=f"insufficient bars ({len(bars)} < 60)",
         )
@@ -366,9 +409,13 @@ def _audit_strategy(
         strategy = factory()
     except Exception as exc:
         return AuditRow(
-            strategy=name, symbol=symbol,
-            timeframe_minutes=0, bars_audited=len(bars),
-            signals_total=0, on_closed_bars=0, on_forming_bars=0,
+            strategy=name,
+            symbol=symbol,
+            timeframe_minutes=0,
+            bars_audited=len(bars),
+            signals_total=0,
+            on_closed_bars=0,
+            on_forming_bars=0,
             verdict="STUB",
             note=f"instantiation failed: {type(exc).__name__}: {exc}",
         )
@@ -405,7 +452,8 @@ def _audit_strategy(
         note = "all signals on closed bars only"
 
     return AuditRow(
-        strategy=actual_name, symbol=symbol,
+        strategy=actual_name,
+        symbol=symbol,
         timeframe_minutes=TIMEFRAME_MAP.get(name, 0),
         bars_audited=n,
         signals_total=total,
@@ -424,15 +472,19 @@ def main(argv: Optional[list[str]] = None) -> int:
         description="Audit Ayumi strategies for bar-close timing discipline."
     )
     parser.add_argument(
-        "--bars", type=int, default=200,
+        "--bars",
+        type=int,
+        default=200,
         help="Number of bars to audit per strategy (default: 200)",
     )
     parser.add_argument(
-        "--symbols", default="GBPUSD,USDJPY",
+        "--symbols",
+        default="GBPUSD,USDJPY",
         help="Comma-separated symbols to try (default: GBPUSD,USDJPY)",
     )
     parser.add_argument(
-        "--data-dir", default="data/forex",
+        "--data-dir",
+        default="data/forex",
         help="Historical data root (default: data/forex)",
     )
     args = parser.parse_args(argv)
@@ -455,7 +507,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     log.info(
         "Auditing %d strategies across %d symbol(s), window=%d bars",
-        len(factories), len(symbols), args.bars,
+        len(factories),
+        len(symbols),
+        args.bars,
     )
 
     results: list[dict] = []
@@ -472,17 +526,19 @@ def main(argv: Optional[list[str]] = None) -> int:
                 break
         if not bars:
             log.warning("No data for %s on any symbol — skipping", strat_name)
-            results.append({
-                "strategy": strat_name,
-                "symbol": None,
-                "timeframe_minutes": tf_minutes,
-                "bars_audited": 0,
-                "signals_total": None,
-                "on_closed_bars": None,
-                "on_forming_bars": None,
-                "verdict": "SKIP",
-                "note": "no data available for any configured symbol",
-            })
+            results.append(
+                {
+                    "strategy": strat_name,
+                    "symbol": None,
+                    "timeframe_minutes": tf_minutes,
+                    "bars_audited": 0,
+                    "signals_total": None,
+                    "on_closed_bars": None,
+                    "on_forming_bars": None,
+                    "verdict": "SKIP",
+                    "note": "no data available for any configured symbol",
+                }
+            )
             skips += 1
             continue
         try:
@@ -490,50 +546,53 @@ def main(argv: Optional[list[str]] = None) -> int:
         except Exception as exc:
             log.error("Audit crashed for %s: %s", strat_name, exc)
             log.debug("%s", traceback.format_exc())
-            results.append({
-                "strategy": strat_name,
-                "symbol": used_symbol,
-                "timeframe_minutes": tf_minutes,
-                "bars_audited": len(bars),
-                "signals_total": None,
-                "on_closed_bars": None,
-                "on_forming_bars": None,
-                "verdict": "ERROR",
-                "note": f"audit exception: {type(exc).__name__}: {exc}",
-            })
+            results.append(
+                {
+                    "strategy": strat_name,
+                    "symbol": used_symbol,
+                    "timeframe_minutes": tf_minutes,
+                    "bars_audited": len(bars),
+                    "signals_total": None,
+                    "on_closed_bars": None,
+                    "on_forming_bars": None,
+                    "verdict": "ERROR",
+                    "note": f"audit exception: {type(exc).__name__}: {exc}",
+                }
+            )
             failures += 1
             continue
-        results.append({
-            "strategy": row.strategy,
-            "symbol": row.symbol,
-            "timeframe_minutes": row.timeframe_minutes,
-            "bars_audited": row.bars_audited,
-            "signals_total": row.signals_total,
-            "on_closed_bars": row.on_closed_bars,
-            "on_forming_bars": row.on_forming_bars,
-            "verdict": row.verdict,
-            "note": row.note,
-        })
+        results.append(
+            {
+                "strategy": row.strategy,
+                "symbol": row.symbol,
+                "timeframe_minutes": row.timeframe_minutes,
+                "bars_audited": row.bars_audited,
+                "signals_total": row.signals_total,
+                "on_closed_bars": row.on_closed_bars,
+                "on_forming_bars": row.on_forming_bars,
+                "verdict": row.verdict,
+                "note": row.note,
+            }
+        )
         if row.verdict == "FAIL":
             failures += 1
         elif row.verdict in ("WARN", "STUB"):
             skips += 1
         log.info(
             "%-32s | %4s | closed=%-3d forming=%-3d | %s",
-            row.strategy, row.verdict,
-            row.on_closed_bars, row.on_forming_bars, row.note,
+            row.strategy,
+            row.verdict,
+            row.on_closed_bars,
+            row.on_forming_bars,
+            row.note,
         )
 
     print(json.dumps(results, indent=2, default=str))
 
     if failures > 0:
-        log.warning(
-            "%d strategy/strategies showed forming-bar signal leak", failures
-        )
+        log.warning("%d strategy/strategies showed forming-bar signal leak", failures)
     if skips > 0:
-        log.info(
-            "%d strategy/strategies skipped (no data or no signal)", skips
-        )
+        log.info("%d strategy/strategies skipped (no data or no signal)", skips)
 
     # Exit 0 unless something actually errored; FAIL verdicts are surfaced
     # in the JSON for downstream tooling to consume.

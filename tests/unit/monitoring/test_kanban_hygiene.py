@@ -84,7 +84,14 @@ def workboard_db(tmp_path: Path) -> Path:
     return db
 
 
-def _insert_card(db_path: Path, card_id: str, status: str, *, age_days: float, title: str | None = None) -> None:
+def _insert_card(
+    db_path: Path,
+    card_id: str,
+    status: str,
+    *,
+    age_days: float,
+    title: str | None = None,
+) -> None:
     ts = int((datetime.now(timezone.utc) - timedelta(days=age_days)).timestamp() * 1000)
     conn = sqlite3.connect(db_path)
     try:
@@ -102,7 +109,9 @@ def _insert_card(db_path: Path, card_id: str, status: str, *, age_days: float, t
         conn.close()
 
 
-def test_run_hygiene_dry_run_detects_done_and_stale(kh_module, workboard_db: Path, tmp_path: Path) -> None:
+def test_run_hygiene_dry_run_detects_done_and_stale(
+    kh_module, workboard_db: Path, tmp_path: Path
+) -> None:
     """Dry run identifies done cards >3d, stale >7d, blocked >48h."""
     ops = tmp_path / "ops"
     ops.mkdir()
@@ -137,7 +146,9 @@ def test_run_hygiene_dry_run_detects_done_and_stale(kh_module, workboard_db: Pat
     assert not list(ops.iterdir()), "no files should be created in dry-run"
 
 
-def test_run_hygiene_apply_writes_files(kh_module, workboard_db: Path, tmp_path: Path) -> None:
+def test_run_hygiene_apply_writes_files(
+    kh_module, workboard_db: Path, tmp_path: Path
+) -> None:
     """Apply mode writes JSONL logs and updates archived_at in the DB."""
     ops = tmp_path / "ops"
     ops.mkdir()
@@ -176,7 +187,9 @@ def test_run_hygiene_apply_writes_files(kh_module, workboard_db: Path, tmp_path:
     assert escalation_path.exists() and escalation_path.read_text().strip() != ""
 
 
-def test_run_hygiene_respects_max_archive(kh_module, workboard_db: Path, tmp_path: Path) -> None:
+def test_run_hygiene_respects_max_archive(
+    kh_module, workboard_db: Path, tmp_path: Path
+) -> None:
     """--max-archive should cap how many cards get archived per run."""
     ops = tmp_path / "ops"
     ops.mkdir()

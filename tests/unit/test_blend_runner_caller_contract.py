@@ -26,12 +26,10 @@ from __future__ import annotations
 
 import ast
 import re
-import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 # Resolve project paths
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")

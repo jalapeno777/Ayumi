@@ -64,9 +64,9 @@ logger = logging.getLogger("ayumi.carry")
 class CarryRegime(str, Enum):
     """How the carry differential favours the proposed direction."""
 
-    POSITIVE = "positive"   # carrying trade aligns with direction (earns the diff)
-    NEGATIVE = "negative"   # carry opposes direction (pays the diff)
-    NEUTRAL = "neutral"     # differential too small to matter, or data missing
+    POSITIVE = "positive"  # carrying trade aligns with direction (earns the diff)
+    NEGATIVE = "negative"  # carry opposes direction (pays the diff)
+    NEUTRAL = "neutral"  # differential too small to matter, or data missing
 
 
 @dataclass
@@ -151,15 +151,29 @@ class SwapRateProvider(Protocol):
 
 
 _BASE_CCY: dict[str, str] = {
-    "EURUSD": "EUR", "GBPUSD": "GBP", "AUDUSD": "AUD", "NZDUSD": "NZD",
-    "USDJPY": "USD", "USDCHF": "USD", "USDCAD": "USD",
-    "EURJPY": "EUR", "GBPJPY": "GBP", "EURGBP": "EUR",
+    "EURUSD": "EUR",
+    "GBPUSD": "GBP",
+    "AUDUSD": "AUD",
+    "NZDUSD": "NZD",
+    "USDJPY": "USD",
+    "USDCHF": "USD",
+    "USDCAD": "USD",
+    "EURJPY": "EUR",
+    "GBPJPY": "GBP",
+    "EURGBP": "EUR",
 }
 
 _QUOTE_CCY: dict[str, str] = {
-    "EURUSD": "USD", "GBPUSD": "USD", "AUDUSD": "USD", "NZDUSD": "USD",
-    "USDJPY": "JPY", "USDCHF": "CHF", "USDCAD": "CAD",
-    "EURJPY": "JPY", "GBPJPY": "JPY", "EURGBP": "GBP",
+    "EURUSD": "USD",
+    "GBPUSD": "USD",
+    "AUDUSD": "USD",
+    "NZDUSD": "USD",
+    "USDJPY": "JPY",
+    "USDCHF": "CHF",
+    "USDCAD": "CAD",
+    "EURJPY": "JPY",
+    "GBPJPY": "JPY",
+    "EURGBP": "GBP",
 }
 
 
@@ -254,7 +268,9 @@ class ECBSDMXProvider:
 
         try:
             end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            start = (datetime.now(timezone.utc) - timedelta(days=365 * 5)).strftime("%Y-%m-%d")
+            start = (datetime.now(timezone.utc) - timedelta(days=365 * 5)).strftime(
+                "%Y-%m-%d"
+            )
             url = self.ENDPOINT_TEMPLATE.format(start=start, end=end)
             payload = self._fetch(url)
             parsed = self._parse(payload)
@@ -302,7 +318,9 @@ class ECBSDMXProvider:
                 return []
             obs = (datasets[0] or {}).get("observations") or {}
             values: list[float] = []
-            for idx in sorted(obs.keys(), key=lambda k: int(k) if k.lstrip("-").isdigit() else 0):
+            for idx in sorted(
+                obs.keys(), key=lambda k: int(k) if k.lstrip("-").isdigit() else 0
+            ):
                 v = obs[idx]
                 if isinstance(v, list) and v:
                     v = v[0]

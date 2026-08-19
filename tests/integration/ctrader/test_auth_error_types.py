@@ -1,12 +1,10 @@
 """Tests for centralized auth error classification (WP-B)."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.auth_error_types import (
     AuthFaultType,
     AuthFaultPolicy,
-    ERROR_CLASSIFICATIONS,
     POLICIES,
     classify_error,
     get_policy,
@@ -151,6 +149,7 @@ class TestSpotFeedErrorWiring:
         feed._last_reactive_refresh_time = 0.0
         feed._token_lifecycle = None
         feed._auth_error_count = 0
+        feed._kill_switch = None
         return feed
 
     @patch("adapters.ctrader.open_api_spot_feed.logger")
@@ -218,8 +217,9 @@ class TestSpotFeedErrorWiring:
 
         # Check that kill switch recommendation was logged
         error_calls = [str(c) for c in mock_logger.error.call_args_list]
-        assert any("kill switch" in c.lower() or "Kill switch" in c for c in error_calls), \
-            f"Expected kill switch log, got: {error_calls}"
+        assert any(
+            "kill switch" in c.lower() or "Kill switch" in c for c in error_calls
+        ), f"Expected kill switch log, got: {error_calls}"
 
     @patch("adapters.ctrader.open_api_spot_feed.logger")
     def test_already_logged_in_short_circuits(self, mock_logger):

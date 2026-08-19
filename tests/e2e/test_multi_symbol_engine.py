@@ -1,14 +1,14 @@
 """Tests for multi-symbol forward test engine (AYU-BUILD-003)."""
 
 import pytest
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 
 
 # ── AC1: Multi-symbol config validation ──────────────────────────────────────
+
 
 class TestForwardTestConfig:
     def test_single_symbol_defaults_to_list(self):
@@ -26,6 +26,7 @@ class TestForwardTestConfig:
 
 
 # ── AC5: H4 in allowed timeframes ────────────────────────────────────────────
+
 
 class TestAllowedTimeframes:
     def test_h4_in_allowed(self):
@@ -50,8 +51,10 @@ class TestAllowedTimeframes:
 
 # ── AC2/AC3: Tick routing and bar building ───────────────────────────────────
 
+
 def _make_tick(symbol_id=1, bid=1.0, ask=1.0001, timestamp=None):
     from adapters.ctrader.market_data_feed import Tick
+
     return Tick(
         symbol_id=symbol_id,
         bid=bid,
@@ -95,6 +98,7 @@ class TestMultiSymbolTickRouting:
 
 # ── AC4/AC9: Strategy-pair matching ──────────────────────────────────────────
 
+
 class TestStrategyPairMatching:
     def test_strategy_only_evaluates_registered_pairs(self):
         from adapters.ctrader.signal_adapter import cTraderLiveAdapter
@@ -134,6 +138,7 @@ class TestStrategyPairMatching:
 
 
 # ── AC7: Regression — single GBPUSD still works ─────────────────────────────
+
 
 class TestRegressionSingleSymbol:
     def test_single_gbpusd_config(self):

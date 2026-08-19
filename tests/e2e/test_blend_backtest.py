@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime, timezone
 
-from backtest.blend_backtest import BlendBacktest, BacktestConfig, BacktestResult
+from backtest.blend_backtest import BlendBacktest, BacktestConfig
 
 
 def _make_signal(
@@ -131,11 +131,11 @@ class TestBlendBacktestDrawdown:
     def test_max_drawdown_calculation(self):
         # Use small P&Ls to stay within daily risk cap
         signals = [
-            _make_signal(outcome_pnl=50.0),    # 10050
-            _make_signal(outcome_pnl=50.0),    # 10100
-            _make_signal(outcome_pnl=-30.0),   # 10070
-            _make_signal(outcome_pnl=-50.0),   # 10020
-            _make_signal(outcome_pnl=20.0),    # 10040
+            _make_signal(outcome_pnl=50.0),  # 10050
+            _make_signal(outcome_pnl=50.0),  # 10100
+            _make_signal(outcome_pnl=-30.0),  # 10070
+            _make_signal(outcome_pnl=-50.0),  # 10020
+            _make_signal(outcome_pnl=20.0),  # 10040
         ]
         result = self.bt.run(signals)
         # Peak = 10100, trough = 10020, DD = 80
@@ -156,7 +156,10 @@ class TestBlendBacktestPerStrategy:
     def test_per_strategy_breakdown(self):
         signals = (
             [_make_signal(strategy_id="momentum", outcome_pnl=50.0) for _ in range(5)]
-            + [_make_signal(strategy_id="reversal", outcome_pnl=-30.0) for _ in range(5)]
+            + [
+                _make_signal(strategy_id="reversal", outcome_pnl=-30.0)
+                for _ in range(5)
+            ]
             + [_make_signal(strategy_id="breakout", outcome_pnl=80.0) for _ in range(5)]
         )
         result = self.bt.run(signals)
@@ -174,10 +177,9 @@ class TestBlendBacktestStats:
         self.bt = BlendBacktest()
 
     def test_avg_win_and_loss(self):
-        signals = (
-            [_make_signal(outcome_pnl=100.0) for _ in range(3)]
-            + [_make_signal(outcome_pnl=-60.0) for _ in range(2)]
-        )
+        signals = [_make_signal(outcome_pnl=100.0) for _ in range(3)] + [
+            _make_signal(outcome_pnl=-60.0) for _ in range(2)
+        ]
         result = self.bt.run(signals)
         assert result.avg_win == pytest.approx(100.0)
         assert result.avg_loss == pytest.approx(-60.0)
@@ -187,9 +189,7 @@ class TestBlendBacktestStats:
         result = self.bt.run(signals)
         # All same P&L = zero std → sharpe should be 0 or near 0
         # Need variance for positive sharpe
-        signals = [
-            _make_signal(outcome_pnl=30.0 + i * 5) for i in range(20)
-        ]
+        signals = [_make_signal(outcome_pnl=30.0 + i * 5) for i in range(20)]
         result = self.bt.run(signals)
         assert result.sharpe_ratio > 0
 

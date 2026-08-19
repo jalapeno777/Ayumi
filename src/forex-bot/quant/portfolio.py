@@ -261,7 +261,10 @@ class StrategyPortfolio:
                             open_sym,
                         )
                         continue
-                    if existing_direction == signal_direction and corr >= constraints.correlation_threshold:
+                    if (
+                        existing_direction == signal_direction
+                        and corr >= constraints.correlation_threshold
+                    ):
                         return False
 
         return True

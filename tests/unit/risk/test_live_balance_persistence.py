@@ -140,16 +140,20 @@ class TestStartupSanityGate:
         """State with peak_balance > 2x starting_balance is rejected."""
         # Write a state file with impossible values
         Path(tmp_state_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_state_path).write_text(json.dumps({
-            "peak_balance": 25_000.0,  # 2.5x starting
-            "current_balance": 10_000.0,
-            "daily_start_balance": 10_000.0,
-            "current_day": "2026-07-06",
-            "daily_trade_count": 0,
-            "total_trades": 0,
-            "circuit_breaker_triggered": False,
-            "blocked_until": None,
-        }))
+        Path(tmp_state_path).write_text(
+            json.dumps(
+                {
+                    "peak_balance": 25_000.0,  # 2.5x starting
+                    "current_balance": 10_000.0,
+                    "daily_start_balance": 10_000.0,
+                    "current_day": "2026-07-06",
+                    "daily_trade_count": 0,
+                    "total_trades": 0,
+                    "circuit_breaker_triggered": False,
+                    "blocked_until": None,
+                }
+            )
+        )
 
         guard = RiskGuard(
             ftmo_config=FTMOConfig(),
@@ -165,16 +169,20 @@ class TestStartupSanityGate:
     def test_sanity_gate_rejects_impossible_daily_start(self, tmp_state_path):
         """State with daily_start_balance > 2x starting_balance is rejected."""
         Path(tmp_state_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_state_path).write_text(json.dumps({
-            "peak_balance": 10_000.0,
-            "current_balance": 10_000.0,
-            "daily_start_balance": 21_000.0,  # 2.1x starting
-            "current_day": "2026-07-06",
-            "daily_trade_count": 0,
-            "total_trades": 0,
-            "circuit_breaker_triggered": False,
-            "blocked_until": None,
-        }))
+        Path(tmp_state_path).write_text(
+            json.dumps(
+                {
+                    "peak_balance": 10_000.0,
+                    "current_balance": 10_000.0,
+                    "daily_start_balance": 21_000.0,  # 2.1x starting
+                    "current_day": "2026-07-06",
+                    "daily_trade_count": 0,
+                    "total_trades": 0,
+                    "circuit_breaker_triggered": False,
+                    "blocked_until": None,
+                }
+            )
+        )
 
         guard = RiskGuard(
             ftmo_config=FTMOConfig(),
@@ -188,16 +196,20 @@ class TestStartupSanityGate:
     def test_sanity_gate_allows_normal_values(self, tmp_state_path):
         """Normal state values (within 2x) are accepted."""
         Path(tmp_state_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_state_path).write_text(json.dumps({
-            "peak_balance": 10_500.0,  # Normal
-            "current_balance": 9_324.58,  # Normal
-            "daily_start_balance": 9_324.58,  # Normal
-            "current_day": "2026-07-06",
-            "daily_trade_count": 0,
-            "total_trades": 0,
-            "circuit_breaker_triggered": False,
-            "blocked_until": None,
-        }))
+        Path(tmp_state_path).write_text(
+            json.dumps(
+                {
+                    "peak_balance": 10_500.0,  # Normal
+                    "current_balance": 9_324.58,  # Normal
+                    "daily_start_balance": 9_324.58,  # Normal
+                    "current_day": "2026-07-06",
+                    "daily_trade_count": 0,
+                    "total_trades": 0,
+                    "circuit_breaker_triggered": False,
+                    "blocked_until": None,
+                }
+            )
+        )
 
         guard = RiskGuard(
             ftmo_config=FTMOConfig(),
@@ -224,16 +236,20 @@ class TestStartupSanityGate:
             trading_day = now_tz.date() - timedelta(days=1)
 
         Path(tmp_state_path).parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_state_path).write_text(json.dumps({
-            "peak_balance": 10_000.0,
-            "current_balance": 3_000.0,  # Heavy losses but valid
-            "daily_start_balance": 9_500.0,
-            "current_day": trading_day.isoformat(),
-            "daily_trade_count": 5,
-            "total_trades": 10,
-            "circuit_breaker_triggered": False,
-            "blocked_until": None,
-        }))
+        Path(tmp_state_path).write_text(
+            json.dumps(
+                {
+                    "peak_balance": 10_000.0,
+                    "current_balance": 3_000.0,  # Heavy losses but valid
+                    "daily_start_balance": 9_500.0,
+                    "current_day": trading_day.isoformat(),
+                    "daily_trade_count": 5,
+                    "total_trades": 10,
+                    "circuit_breaker_triggered": False,
+                    "blocked_until": None,
+                }
+            )
+        )
 
         guard = RiskGuard(
             ftmo_config=FTMOConfig(),

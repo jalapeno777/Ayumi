@@ -71,10 +71,17 @@ DEFAULT_SHIFT_SCALING: float = 0.10
 DEFAULT_REGIME_AMPLIFICATION: float = 1.5
 
 # Pairs supported by the COT signal (maps to CFTC forex futures)
-SUPPORTED_PAIRS: frozenset[str] = frozenset({
-    "USDJPY", "EURUSD", "GBPUSD", "USDCHF",
-    "USDCAD", "AUDUSD", "NZDUSD",
-})
+SUPPORTED_PAIRS: frozenset[str] = frozenset(
+    {
+        "USDJPY",
+        "EURUSD",
+        "GBPUSD",
+        "USDCHF",
+        "USDCAD",
+        "AUDUSD",
+        "NZDUSD",
+    }
+)
 
 # When True, extreme divergence blocks the signal entirely.
 # Default False — COT is advisory, not a hard filter.
@@ -103,6 +110,7 @@ class COTSignalResult:
         signal_date: COT report date used (ISO).
         rationale: Human-readable explanation.
     """
+
     pair: str
     direction: str
     bias: str
@@ -165,7 +173,9 @@ def assess_cot(
 
     _fetcher = fetcher or COTFetcher()
     div: COTDivergenceSignal = _fetcher.get_divergence_signal(
-        pair, lookback_weeks=lookback_weeks, fmt=fmt,
+        pair,
+        lookback_weeks=lookback_weeks,
+        fmt=fmt,
     )
 
     aligned = div.bias == direction

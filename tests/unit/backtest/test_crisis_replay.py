@@ -9,6 +9,7 @@ Covers:
 6. load_crisis_data with mocked tmp_path CSVs (write 2 months, verify concat)
 7. End-to-end run_crisis_replay returns dict with all keys
 """
+
 from __future__ import annotations
 
 import sys
@@ -57,6 +58,7 @@ from simple_engine_standalone import SimulatedTrade, TradeOutcome  # noqa: E402
 
 # ── Fixtures ────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def mock_trade_factory():
     """Create mock SimulatedTrade objects with PnL values."""
@@ -71,6 +73,7 @@ def mock_trade_factory():
 
 
 # ── Test CRISIS_WINDOWS ──────────────────────────────────────────────────────────
+
 
 class TestCrisisWindows:
     """AC: All 6 CRISIS_WINDOWS defined; spans are valid."""
@@ -110,6 +113,7 @@ class TestCrisisWindows:
 
 
 # ── Test survival_metrics ─────────────────────────────────────────────────────────
+
 
 class TestSurvivalMetrics:
     """AC: survival_metrics implements 3 survival gates."""
@@ -167,7 +171,11 @@ class TestSurvivalMetrics:
         """All 3 gates pass when metrics are within thresholds."""
         # Small drawdown (1%), quick recovery, decent Sharpe
         curve = [100.0, 100.0, 99.5, 100.0, 100.5, 101.0]
-        trades = [mock_trade_factory(0.5), mock_trade_factory(0.5), mock_trade_factory(-0.2)]
+        trades = [
+            mock_trade_factory(0.5),
+            mock_trade_factory(0.5),
+            mock_trade_factory(-0.2),
+        ]
 
         result = survival_metrics(trades, curve)
 
@@ -195,6 +203,7 @@ class TestSurvivalMetrics:
 
 
 # ── Test load_crisis_data ──────────────────────────────────────────────────────────
+
 
 class TestLoadCrisisData:
     """AC: load_crisis_data reads CSVs and filters to crisis window."""
@@ -231,6 +240,7 @@ class TestLoadCrisisData:
 
 # ── Test run_crisis_replay (end-to-end) ───────────────────────────────────────────
 
+
 class TestRunCrisisReplay:
     """AC: run_crisis_replay returns dict with all keys."""
 
@@ -258,14 +268,16 @@ class TestRunCrisisReplay:
         from datetime import timedelta
 
         while ts < cw.end:
-            rows.append({
-                "timestamp": ts.isoformat(),
-                "open": 1.1000,
-                "high": 1.1010,
-                "low": 1.0990,
-                "close": 1.1005,
-                "volume": 1000.0,
-            })
+            rows.append(
+                {
+                    "timestamp": ts.isoformat(),
+                    "open": 1.1000,
+                    "high": 1.1010,
+                    "low": 1.0990,
+                    "close": 1.1005,
+                    "volume": 1000.0,
+                }
+            )
             ts = ts + timedelta(minutes=1)
 
         csv_path = tmp_path / f"{pair}_M1_2015-01.csv"
@@ -288,9 +300,11 @@ class TestRunCrisisReplay:
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────
 
+
 def pd_ts(dt: datetime):  # type: ignore[name-defined]
     """Convert datetime to pandas Timestamp."""
     import pandas as pd  # noqa: F401
+
     # dt already has tzinfo, just wrap in pd.Timestamp
     return pd.Timestamp(dt)
 
@@ -302,14 +316,16 @@ def pd_data_rows(start: datetime, end: datetime) -> list[dict]:
     rows = []
     ts = start
     while ts < end:
-        rows.append({
-            "timestamp": ts.isoformat(),
-            "open": 1.1000,
-            "high": 1.1010,
-            "low": 1.0990,
-            "close": 1.1005,
-            "volume": 1000.0,
-        })
+        rows.append(
+            {
+                "timestamp": ts.isoformat(),
+                "open": 1.1000,
+                "high": 1.1010,
+                "low": 1.0990,
+                "close": 1.1005,
+                "volume": 1000.0,
+            }
+        )
         ts = ts + timedelta(minutes=1)
     return rows
 

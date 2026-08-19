@@ -12,7 +12,6 @@ Key API differences from the old test suite:
 
 from __future__ import annotations
 
-import math
 from datetime import datetime, timedelta
 
 import pytest
@@ -108,7 +107,9 @@ class TestEngineCoreInit:
 
     def test_spread_model_override(self):
         """A custom SpreadModel is honored on the instance."""
-        core = EngineCore(BacktestConfig(), SpreadModel(spread_pips=2.5, slippage_pips=0.3))
+        core = EngineCore(
+            BacktestConfig(), SpreadModel(spread_pips=2.5, slippage_pips=0.3)
+        )
         assert isinstance(core.spread_model, SpreadModel)
         assert core.spread_model.spread_pips == pytest.approx(2.5)
         assert core.spread_model.slippage_pips == pytest.approx(0.3)
@@ -272,12 +273,8 @@ class TestCalculateSharpeRatio:
 
     def test_custom_annualization(self):
         """Lower annualization factor yields smaller absolute Sharpe."""
-        core_monthly = EngineCore(
-            BacktestConfig(sharpe_annualization_factor=12.0)
-        )
-        core_daily = EngineCore(
-            BacktestConfig(sharpe_annualization_factor=252.0)
-        )
+        core_monthly = EngineCore(BacktestConfig(sharpe_annualization_factor=12.0))
+        core_daily = EngineCore(BacktestConfig(sharpe_annualization_factor=252.0))
         curve = [10_000.0, 10_100.0, 10_200.0, 10_300.0, 10_400.0]
         sharpe_monthly = core_monthly._calculate_sharpe_ratio(curve)
         sharpe_daily = core_daily._calculate_sharpe_ratio(curve)
@@ -365,11 +362,20 @@ class TestCloseTrade:
             entry_bar_index=0,
             direction=direction,
             entry_price=entry,
-            stop_loss=entry - 0.005 if direction == TradeDirection.LONG else entry + 0.005,
-            take_profit_1=entry + 0.010 if direction == TradeDirection.LONG else entry - 0.010,
-            take_profit_2=entry + 0.015 if direction == TradeDirection.LONG else entry - 0.015,
-            take_profit_3=entry + 0.020 if direction == TradeDirection.LONG else entry - 0.020,
-            lot_size=size * UNITS_PER_LOT,  # size is in lots; _close_trade expects units
+            stop_loss=entry - 0.005
+            if direction == TradeDirection.LONG
+            else entry + 0.005,
+            take_profit_1=entry + 0.010
+            if direction == TradeDirection.LONG
+            else entry - 0.010,
+            take_profit_2=entry + 0.015
+            if direction == TradeDirection.LONG
+            else entry - 0.015,
+            take_profit_3=entry + 0.020
+            if direction == TradeDirection.LONG
+            else entry - 0.020,
+            lot_size=size
+            * UNITS_PER_LOT,  # size is in lots; _close_trade expects units
             entry_time=datetime(2024, 1, 1, 10, 0),
         )
 
@@ -463,9 +469,7 @@ class TestCloseAllOpenTrades:
             ),
         ]
         bar = _make_bar(1.1000)
-        closed = core._close_all_open_trades(
-            trades, 1, bar.time, bar.close
-        )
+        closed = core._close_all_open_trades(trades, 1, bar.time, bar.close)
         assert len(closed) == 2
         for t in closed:
             assert t.exit_reason == ExitReason.END_OF_DATA
@@ -536,12 +540,15 @@ class TestBacktestMetricsDataclass:
 class TestDetermineSession:
     def test_london(self):
         from engine.base import determine_session
+
         assert determine_session(datetime(2024, 1, 1, 10, 0)) == "london"
 
     def test_asian(self):
         from engine.base import determine_session
+
         assert determine_session(datetime(2024, 1, 1, 3, 0)) == "asian"
 
     def test_outside(self):
         from engine.base import determine_session
+
         assert determine_session(datetime(2024, 1, 1, 22, 0)) == "outside"

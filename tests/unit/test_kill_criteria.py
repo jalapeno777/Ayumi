@@ -94,9 +94,7 @@ class TestAdxRangeCriterion:
 
     def test_adx_in_range(self):
         """adx 30 within [20, 50] → not triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -113,9 +111,7 @@ class TestAdxRangeCriterion:
 
     def test_adx_below_range(self):
         """adx 15 below [20, 50] → triggered with "below" evidence."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -135,9 +131,7 @@ class TestAdxRangeCriterion:
 
     def test_adx_above_range(self):
         """adx 60 above [20, 50] → triggered with "above" evidence."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -155,9 +149,7 @@ class TestAdxRangeCriterion:
 
     def test_adx_at_lower_boundary_passes(self):
         """adx exactly at lo (20.0) is in-range (closed interval)."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -172,9 +164,7 @@ class TestAdxRangeCriterion:
 
     def test_adx_at_upper_boundary_passes(self):
         """adx exactly at hi (50.0) is in-range (closed interval)."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -198,9 +188,7 @@ class TestConfluenceCriterion:
 
     def test_confluence_above_min(self):
         """score 0.8, min 0.6 → not triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"min_confluence": 0.6}
-        )
+        checker = KillCriteriaChecker(strategy_config={"min_confluence": 0.6})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -217,9 +205,7 @@ class TestConfluenceCriterion:
 
     def test_confluence_below_min(self):
         """score 0.4, min 0.6 → triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"min_confluence": 0.6}
-        )
+        checker = KillCriteriaChecker(strategy_config={"min_confluence": 0.6})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -238,9 +224,7 @@ class TestConfluenceCriterion:
 
     def test_confluence_exact_min_passes(self):
         """score == min_confluence is NOT triggered (strict <)."""
-        checker = KillCriteriaChecker(
-            strategy_config={"min_confluence": 0.6}
-        )
+        checker = KillCriteriaChecker(strategy_config={"min_confluence": 0.6})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -268,9 +252,7 @@ class TestSessionWindowCriterion:
 
     def test_session_in_window(self):
         """hour 10 within [8, 17] → not triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [8, 17]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [8, 17]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -286,9 +268,7 @@ class TestSessionWindowCriterion:
 
     def test_session_outside_window(self):
         """hour 23 outside [8, 17] → triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [8, 17]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [8, 17]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -307,9 +287,7 @@ class TestSessionWindowCriterion:
 
     def test_session_wrap_midnight(self):
         """hour 2 within [22, 6] (wrap) → not triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [22, 6]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [22, 6]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -323,9 +301,7 @@ class TestSessionWindowCriterion:
 
     def test_session_wrap_midnight_outside_before_start(self):
         """hour 21 outside [22, 6] (before the wrap window opens) → triggered."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [22, 6]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [22, 6]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -339,9 +315,7 @@ class TestSessionWindowCriterion:
 
     def test_session_wrap_midnight_at_start_passes(self):
         """hour 22 exactly at the start of [22, 6] → in (inclusive)."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [22, 6]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [22, 6]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -355,9 +329,7 @@ class TestSessionWindowCriterion:
 
     def test_session_at_end_hour_is_outside(self):
         """hour 17 with window [8, 17] is OUT (half-open interval)."""
-        checker = KillCriteriaChecker(
-            strategy_config={"session_window": [8, 17]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"session_window": [8, 17]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -410,9 +382,7 @@ class TestStrategyConfigSelection:
 
     def test_partial_strategy_config_runs_only_configured(self):
         """Only ``adx_range`` set → confluence + session are skipped."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",
@@ -469,18 +439,46 @@ class TestAnyTriggeredHelper:
     def test_any_triggered_helper(self):
         """Mix of pass/fail → True (at least one triggered)."""
         results = [
-            KillCriterion(name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"),
-            KillCriterion(name="adx_range", triggered=True, value=15.0, threshold=20.0, evidence="low"),
-            KillCriterion(name="session_window", triggered=False, value=10.0, threshold=8.0, evidence="ok"),
+            KillCriterion(
+                name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"
+            ),
+            KillCriterion(
+                name="adx_range",
+                triggered=True,
+                value=15.0,
+                threshold=20.0,
+                evidence="low",
+            ),
+            KillCriterion(
+                name="session_window",
+                triggered=False,
+                value=10.0,
+                threshold=8.0,
+                evidence="ok",
+            ),
         ]
         assert KillCriteriaChecker.any_triggered(results) is True
 
     def test_any_triggered_all_pass_returns_false(self):
         """All criteria pass → False."""
         results = [
-            KillCriterion(name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"),
-            KillCriterion(name="macro_event_buffer", triggered=False, value=0.0, threshold=0.0, evidence="ok"),
-            KillCriterion(name="adx_range", triggered=False, value=30.0, threshold=20.0, evidence="ok"),
+            KillCriterion(
+                name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"
+            ),
+            KillCriterion(
+                name="macro_event_buffer",
+                triggered=False,
+                value=0.0,
+                threshold=0.0,
+                evidence="ok",
+            ),
+            KillCriterion(
+                name="adx_range",
+                triggered=False,
+                value=30.0,
+                threshold=20.0,
+                evidence="ok",
+            ),
         ]
         assert KillCriteriaChecker.any_triggered(results) is False
 
@@ -491,7 +489,9 @@ class TestAnyTriggeredHelper:
     def test_any_triggered_single_triggered(self):
         """Single triggered criterion in a list of one → True."""
         results = [
-            KillCriterion(name="spread", triggered=True, value=5.0, threshold=2.0, evidence="wide"),
+            KillCriterion(
+                name="spread", triggered=True, value=5.0, threshold=2.0, evidence="wide"
+            ),
         ]
         assert KillCriteriaChecker.any_triggered(results) is True
 
@@ -596,9 +596,7 @@ class TestEvidenceStrings:
 
     def test_evidence_unknown_strategy_falls_back_to_unknown(self):
         """When strategy_name is absent, evidence says 'unknown'."""
-        checker = KillCriteriaChecker(
-            strategy_config={"adx_range": [20.0, 50.0]}
-        )
+        checker = KillCriteriaChecker(strategy_config={"adx_range": [20.0, 50.0]})
         results = checker.check(
             {
                 "symbol": "GBPUSD",

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from signal_engine.htf_analyzer import HTFAnalyzer
 from signal_engine.data_types import HTFPhase, HTFState
@@ -114,7 +113,12 @@ class TestExhaustion:
         ema_50 = np.linspace(1.0990, 1.1010, n)
         data = {"highs": highs, "lows": lows, "closes": closes, "ema_50": ema_50}
         state = analyzer.analyze_phase(data)
-        assert state.phase in (HTFPhase.EXHAUSTION, HTFPhase.ALIGNED, HTFPhase.NEUTRAL, HTFPhase.CONSOLIDATING)
+        assert state.phase in (
+            HTFPhase.EXHAUSTION,
+            HTFPhase.ALIGNED,
+            HTFPhase.NEUTRAL,
+            HTFPhase.CONSOLIDATING,
+        )
 
 
 class TestMTFAlignment:

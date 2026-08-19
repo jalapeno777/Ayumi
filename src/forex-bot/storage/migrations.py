@@ -105,7 +105,9 @@ def run_migrations(conn: sqlite3.Connection) -> int:
     for migration in MIGRATIONS:
         if migration["version"] > current:
             logger.info(
-                "Applying migration v%d: %s", migration["version"], migration["description"]
+                "Applying migration v%d: %s",
+                migration["version"],
+                migration["description"],
             )
             conn.executescript(migration["up"])
             conn.execute(

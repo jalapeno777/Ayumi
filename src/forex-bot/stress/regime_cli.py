@@ -36,7 +36,6 @@ import numpy as np
 import pandas as pd
 
 from stress.regime_generator import (
-    DEFAULT_N_PATHS,
     DEFAULT_N_REGIMES,
     DEFAULT_RANDOM_STATE,
     MIN_OBSERVATIONS,
@@ -58,6 +57,7 @@ PRICE_COLUMN_CANDIDATES = ("close", "Close", "CLOSE", "price", "Price")
 # ═══════════════════════════════════════════════════════════════════════════
 # CSV I/O
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def load_price_csv(path: str | Path) -> pd.Series:
     """Load a CSV file and return the close-price series.
@@ -125,6 +125,7 @@ def write_price_csv(
 # Core pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def run_synthetic_generation(
     prices: np.ndarray | pd.Series,
     n_regimes: int = DEFAULT_N_REGIMES,
@@ -177,11 +178,16 @@ def run_synthetic_generation(
     n_paths_out, T = synthetic_returns.shape
     price_paths = np.empty((n_paths_out, T + 1), dtype=float)
     for i in range(n_paths_out):
-        price_paths[i] = synthesize_prices(synthetic_returns[i], start_price=start_price)
+        price_paths[i] = synthesize_prices(
+            synthetic_returns[i], start_price=start_price
+        )
 
     logger.info(
         "Generated %d synthetic price paths (T=%d, start=%.5f, regimes=%d)",
-        n_paths_out, T, start_price, params.n_regimes,
+        n_paths_out,
+        T,
+        start_price,
+        params.n_regimes,
     )
     return price_paths, params
 
@@ -280,7 +286,9 @@ def run_all_pairs(
         if len(close_prices) < MIN_OBSERVATIONS:
             logger.warning(
                 "Skip %s: only %d prices (need ≥%d)",
-                pair_name, len(close_prices), MIN_OBSERVATIONS,
+                pair_name,
+                len(close_prices),
+                MIN_OBSERVATIONS,
             )
             continue
 
@@ -317,6 +325,7 @@ def run_all_pairs(
 # CLI
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _build_parser() -> argparse.ArgumentParser:
     """Construct the argparse CLI parser."""
     parser = argparse.ArgumentParser(
@@ -334,12 +343,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Generate synthetic paths for a single CSV file.",
     )
     p_single.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         required=True,
         help="Input CSV path (must contain a Close column).",
     )
     p_single.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default=DEFAULT_OUTPUT_DIR,
         help=f"Output directory (default: {DEFAULT_OUTPUT_DIR}).",
     )
@@ -374,12 +385,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Generate synthetic paths for all CSV files in a directory.",
     )
     p_all.add_argument(
-        "-i", "--input-dir",
+        "-i",
+        "--input-dir",
         required=True,
         help="Directory containing input CSV files.",
     )
     p_all.add_argument(
-        "-o", "--output-dir",
+        "-o",
+        "--output-dir",
         default=DEFAULT_OUTPUT_DIR,
         help=f"Output directory (default: {DEFAULT_OUTPUT_DIR}).",
     )
@@ -447,7 +460,8 @@ def _cmd_single(args: argparse.Namespace) -> int:
     if len(close_prices) < MIN_OBSERVATIONS:
         logger.error(
             "Input has only %d rows (need ≥%d)",
-            len(close_prices), MIN_OBSERVATIONS,
+            len(close_prices),
+            MIN_OBSERVATIONS,
         )
         return 1
 
@@ -473,7 +487,9 @@ def _cmd_single(args: argparse.Namespace) -> int:
 
     logger.info(
         "Done: %d rows → %s, summary → %s",
-        n_rows, price_out, summary_path,
+        n_rows,
+        price_out,
+        summary_path,
     )
     return 0
 

@@ -3,11 +3,11 @@
 Prevents demo/live confusion by cross-checking endpoint, account,
 and configured environment at startup. Misconfiguration fails closed.
 """
+
 from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger("ayumi.ctrader.environment")
 

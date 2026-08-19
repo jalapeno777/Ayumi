@@ -4,16 +4,16 @@ Verifies that MarketState constructed via StrategyExecutor.try_evaluate()
 gets current_session resolved from determine_session() instead of defaulting
 to SessionType.OUTSIDE.
 """
+
 import sys
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 # Ensure src is on path
 sys.path.insert(0, "src/forex-bot")
 
-from backtest.engine import Bar, BarPeriod, MarketState
+from backtest.engine import Bar
 from backtest.types import SessionType, determine_session
 
 

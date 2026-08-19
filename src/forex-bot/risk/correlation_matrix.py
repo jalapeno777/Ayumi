@@ -16,7 +16,6 @@ Dual-window support (SRB-AYUMI-001):
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -102,8 +101,16 @@ class CorrelationMatrix:
                 if s1 == s2:
                     result[s1][s2] = 1.0
                 else:
-                    r1 = self._returns[s1][-self.window:] if self.window else self._returns[s1]
-                    r2 = self._returns[s2][-self.window:] if self.window else self._returns[s2]
+                    r1 = (
+                        self._returns[s1][-self.window :]
+                        if self.window
+                        else self._returns[s1]
+                    )
+                    r2 = (
+                        self._returns[s2][-self.window :]
+                        if self.window
+                        else self._returns[s2]
+                    )
                     result[s1][s2] = self._pearson(r1, r2)
         self._matrix = result
         return result

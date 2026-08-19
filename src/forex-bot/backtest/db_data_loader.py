@@ -23,6 +23,7 @@ Drop-in usage
     loader = DbDataLoader()
     bars = loader.load_by_filepath("data/forex/historical/XAUUSD_M15.csv")
 """
+
 from __future__ import annotations
 
 import logging
@@ -182,8 +183,7 @@ class DbDataLoader(AbstractDataLoader):
                 con.close()
         except duckdb.Error as exc:
             logger.warning(
-                "DbDataLoader.get_date_range: DuckDB error (%s); "
-                "falling back to CSV",
+                "DbDataLoader.get_date_range: DuckDB error (%s); falling back to CSV",
                 exc,
             )
             return self._csv_loader.get_date_range(symbol, timeframe)

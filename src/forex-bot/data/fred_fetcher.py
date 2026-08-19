@@ -28,9 +28,9 @@ from typing import Optional, Protocol
 logger = logging.getLogger("ayumi.fred")
 
 # FRED series IDs (stable; do not change without updating downstream consumers)
-SERIES_FED_FUNDS = "FEDFUNDS"        # Effective Federal Funds Rate (monthly, %)
-SERIES_DGS10 = "DGS10"               # 10-Year Treasury (daily, %)
-SERIES_DGS2 = "DGS2"                 # 2-Year Treasury (daily, %)
+SERIES_FED_FUNDS = "FEDFUNDS"  # Effective Federal Funds Rate (monthly, %)
+SERIES_DGS10 = "DGS10"  # 10-Year Treasury (daily, %)
+SERIES_DGS2 = "DGS2"  # 2-Year Treasury (daily, %)
 
 # Manual fallback table for the synthetic-history path. Values are end-of-year
 # effective federal funds rate in percent. Updated quarterly by Ava/Tsukasa.
@@ -58,6 +58,7 @@ def _has_fredapi() -> bool:
     """Check if the optional fredapi library is available."""
     try:
         import fredapi  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -68,8 +69,7 @@ class FredSource(Protocol):
 
     def get_series(
         self, series_id: str, start_date: str, end_date: str
-    ) -> list[dict]:
-        ...
+    ) -> list[dict]: ...
 
 
 class StaticFredRates:
@@ -88,14 +88,9 @@ class StaticFredRates:
             ]
         self._history = sorted(history, key=lambda r: r["date"])
 
-    def get_series(
-        self, series_id: str, start_date: str, end_date: str
-    ) -> list[dict]:
+    def get_series(self, series_id: str, start_date: str, end_date: str) -> list[dict]:
         del series_id  # static source ignores series; one effective rate per year
-        return [
-            r for r in self._history
-            if start_date <= r["date"] <= end_date
-        ]
+        return [r for r in self._history if start_date <= r["date"] <= end_date]
 
 
 class FredFetcher:
@@ -122,9 +117,13 @@ class FredFetcher:
         force_offline: bool = False,
         source: Optional[FredSource] = None,
     ) -> None:
-        self._api_key = api_key if api_key is not None else os.environ.get("FRED_API_KEY", "")
+        self._api_key = (
+            api_key if api_key is not None else os.environ.get("FRED_API_KEY", "")
+        )
         self._cache_path = Path(cache_path) if cache_path else None
-        self._force_offline = force_offline or os.environ.get("FRED_OFFLINE", "") not in ("", "0", "false", "False")
+        self._force_offline = force_offline or os.environ.get(
+            "FRED_OFFLINE", ""
+        ) not in ("", "0", "false", "False")
         self._cache: dict[str, list[dict]] = self._load_cache()
         self._client = None
         self._explicit_source = source
@@ -133,9 +132,12 @@ class FredFetcher:
             if _has_fredapi() and self._api_key:
                 try:
                     import fredapi  # type: ignore
+
                     self._client = fredapi.Fred(api_key=self._api_key)
                 except Exception as exc:  # pragma: no cover - network init
-                    logger.warning("fredapi init failed (%s); falling back to synthetic rates", exc)
+                    logger.warning(
+                        "fredapi init failed (%s); falling back to synthetic rates", exc
+                    )
 
     # ------------------------------------------------------------------
     # Cache I/O
@@ -196,10 +198,13 @@ class FredFetcher:
                 rows = [
                     {"date": ts.strftime("%Y-%m-%d"), "rate": float(value)}
                     for ts, value in df.items()
-                    if value is not None and not (isinstance(value, float) and value != value)  # NaN check
+                    if value is not None
+                    and not (isinstance(value, float) and value != value)  # NaN check
                 ]
             except Exception as exc:  # pragma: no cover - network path
-                logger.warning("FRED live fetch failed (%s); using synthetic history", exc)
+                logger.warning(
+                    "FRED live fetch failed (%s); using synthetic history", exc
+                )
 
         if rows is None:
             rows = self._synthetic_us_rates(start_date, end_date)

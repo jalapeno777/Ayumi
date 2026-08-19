@@ -1,6 +1,7 @@
 import unittest
 
 import pytest
+
 pytest.skip("strategies.usdjpy_d1_trend module removed", allow_module_level=True)
 
 from backtest.engine import Bar, MarketState, TradeDirection

@@ -35,8 +35,13 @@ class TrendFilter:
     def name(self) -> str:
         return "trend"
 
-    def evaluate(self, signal_direction: str, ema_fast: float, ema_slow: float,
-                 tolerance: Optional[float] = None) -> bool:
+    def evaluate(
+        self,
+        signal_direction: str,
+        ema_fast: float,
+        ema_slow: float,
+        tolerance: Optional[float] = None,
+    ) -> bool:
         """Return True if the signal direction aligns with the EMA trend.
 
         Args:
@@ -65,6 +70,9 @@ class TrendFilter:
         if not passed:
             logger.debug(
                 "TrendFilter REJECT: dir=%s ema_fast=%.5f ema_slow=%.5f spread=%.5f",
-                direction, ema_fast, ema_slow, spread,
+                direction,
+                ema_fast,
+                ema_slow,
+                spread,
             )
         return passed

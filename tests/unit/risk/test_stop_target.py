@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 
-from signal_engine.stop_target import StopTargetCalculator, ATR_SL_MULTIPLIERS
+from signal_engine.stop_target import StopTargetCalculator
 
 
 # ── Helpers ─────────────────────────────────────────────────────────

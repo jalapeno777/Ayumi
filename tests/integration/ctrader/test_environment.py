@@ -5,8 +5,6 @@ import pytest
 
 from adapters.ctrader.environment import (
     Environment,
-    DEMO_HOSTS,
-    LIVE_HOSTS,
     _infer_environment,
     validate_endpoint_environment,
     log_startup_environment,

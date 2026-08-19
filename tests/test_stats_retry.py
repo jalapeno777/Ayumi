@@ -15,9 +15,8 @@ import os
 import sys
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
-import pytest
 
 # Ensure src is importable
 SRC = Path(__file__).resolve().parent.parent / "src"
@@ -28,6 +27,7 @@ if str(SRC) not in sys.path:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_engine_skeleton():
     """Create a minimal ForwardTestEngine-like object for testing stats retry.
@@ -71,6 +71,7 @@ class FakeStatsRecorder:
 # Tests — Retry Success
 # ---------------------------------------------------------------------------
 
+
 class TestRetrySuccess:
     """record_signal fails on first attempt but succeeds on retry."""
 
@@ -90,7 +91,7 @@ class TestRetrySuccess:
                 break
             except Exception:
                 if attempt < engine._stats_retry_max - 1:
-                    time.sleep(engine._stats_retry_base_delay * (2 ** attempt))
+                    time.sleep(engine._stats_retry_base_delay * (2**attempt))
                 else:
                     engine._stats_fail_count += 1
 
@@ -114,7 +115,7 @@ class TestRetrySuccess:
                 break
             except Exception:
                 if attempt < engine._stats_retry_max - 1:
-                    time.sleep(engine._stats_retry_base_delay * (2 ** attempt))
+                    time.sleep(engine._stats_retry_base_delay * (2**attempt))
                 else:
                     engine._stats_fail_count += 1
 
@@ -127,6 +128,7 @@ class TestRetrySuccess:
 # Tests — Retry Exhaustion / Graceful Degradation
 # ---------------------------------------------------------------------------
 
+
 class TestRetryExhaustion:
     """record_signal always fails — verify graceful degradation."""
 
@@ -135,7 +137,7 @@ class TestRetryExhaustion:
         engine = _make_engine_skeleton()
         # Set a prior good confidence to simulate running engine
         engine._last_known_good_confidence = 0.65
-        recorder = FakeStatsRecorder(fail_times=float('inf'))
+        recorder = FakeStatsRecorder(fail_times=float("inf"))
 
         stats_recorded = False
         for attempt in range(engine._stats_retry_max):
@@ -147,7 +149,7 @@ class TestRetryExhaustion:
                 break
             except Exception:
                 if attempt < engine._stats_retry_max - 1:
-                    time.sleep(engine._stats_retry_base_delay * (2 ** attempt))
+                    time.sleep(engine._stats_retry_base_delay * (2**attempt))
                 else:
                     engine._stats_fail_count += 1
 
@@ -161,7 +163,7 @@ class TestRetryExhaustion:
         """First-ever stats failure with no prior good confidence cached."""
         engine = _make_engine_skeleton()
         assert engine._last_known_good_confidence is None
-        recorder = FakeStatsRecorder(fail_times=float('inf'))
+        recorder = FakeStatsRecorder(fail_times=float("inf"))
 
         stats_recorded = False
         for attempt in range(engine._stats_retry_max):
@@ -173,7 +175,7 @@ class TestRetryExhaustion:
                 break
             except Exception:
                 if attempt < engine._stats_retry_max - 1:
-                    time.sleep(engine._stats_retry_base_delay * (2 ** attempt))
+                    time.sleep(engine._stats_retry_base_delay * (2**attempt))
                 else:
                     engine._stats_fail_count += 1
 
@@ -187,7 +189,7 @@ class TestRetryExhaustion:
 
         # Simulate two consecutive signal failures (each exhausting retries)
         for _ in range(2):
-            recorder = FakeStatsRecorder(fail_times=float('inf'))
+            recorder = FakeStatsRecorder(fail_times=float("inf"))
             for attempt in range(engine._stats_retry_max):
                 try:
                     recorder.record_signal(signal_confidence=0.50)
@@ -206,7 +208,7 @@ class TestRetryExhaustion:
         engine = _make_engine_skeleton()
 
         # First signal: all retries fail
-        recorder_fail = FakeStatsRecorder(fail_times=float('inf'))
+        recorder_fail = FakeStatsRecorder(fail_times=float("inf"))
         for attempt in range(engine._stats_retry_max):
             try:
                 recorder_fail.record_signal(signal_confidence=0.50)
@@ -241,6 +243,7 @@ class TestRetryExhaustion:
 # ---------------------------------------------------------------------------
 # Tests — Heartbeat JSON
 # ---------------------------------------------------------------------------
+
 
 class TestHeartbeatStatsFails:
     """Verify heartbeat JSON includes stats_fails field."""
@@ -303,6 +306,7 @@ class TestHeartbeatStatsFails:
 # Tests — Configurable Retry Parameters
 # ---------------------------------------------------------------------------
 
+
 class TestRetryConfiguration:
     """Verify retry parameters are configurable via environment variables."""
 
@@ -328,7 +332,7 @@ class TestRetryConfiguration:
         """Verify exponential backoff schedule: 2s, 4s, 8s for 3 retries."""
         base_delay = 2.0
         max_retries = 3
-        expected_delays = [base_delay * (2 ** i) for i in range(max_retries - 1)]
+        expected_delays = [base_delay * (2**i) for i in range(max_retries - 1)]
         # Retries 0 and 1 have delays (before attempts 1 and 2)
         # Retry 2 (last) has no delay (falls through to exhaustion)
         assert expected_delays == [2.0, 4.0]  # delays before retry 1 and 2

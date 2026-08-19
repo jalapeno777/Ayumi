@@ -33,10 +33,10 @@ import os
 import sqlite3
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 
 DEFAULT_WORKBOARD_DB = os.path.expanduser(
@@ -46,10 +46,10 @@ DEFAULT_OPS_DIR = Path("data/ops")
 DEFAULT_STALE_LOG = DEFAULT_OPS_DIR / "stale_cards.jsonl"
 DEFAULT_ESCALATION_QUEUE = DEFAULT_OPS_DIR / "escalation_queue.jsonl"
 
-DEFAULT_DONE_ARCHIVE_DAYS = 3      # 72 h
+DEFAULT_DONE_ARCHIVE_DAYS = 3  # 72 h
 DEFAULT_STALE_DAYS = 7
-DEFAULT_BLOCKED_DAYS = 2           # 48 h
-DEFAULT_MAX_ARCHIVE = 200          # safety cap
+DEFAULT_BLOCKED_DAYS = 2  # 48 h
+DEFAULT_MAX_ARCHIVE = 200  # safety cap
 
 
 @dataclass

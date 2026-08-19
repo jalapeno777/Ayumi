@@ -34,11 +34,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from datetime import date
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
 # ---------------------------------------------------------------------------
 # Path setup — allow running from project root or scripts/quant/
@@ -60,8 +59,6 @@ from quant.oos_gate import (  # noqa: E402
 )
 from quant.dsr_integration import (  # noqa: E402
     DEFAULT_N_INDEPENDENT_TRIALS,
-    annotate_wf_results_with_dsr,
-    generate_tier_ranking,
 )
 
 
@@ -176,8 +173,12 @@ def load_from_json(path: Path) -> list[Candidate]:
                 trade_count=trades,
                 pair=pair,
                 timeframe=tf,
-                extra={k: v for k, v in entry.items()
-                       if k not in ("name", "mean_sharpe", "trade_count", "pair", "timeframe")},
+                extra={
+                    k: v
+                    for k, v in entry.items()
+                    if k
+                    not in ("name", "mean_sharpe", "trade_count", "pair", "timeframe")
+                },
             )
         )
     return candidates
@@ -197,7 +198,11 @@ def load_from_jsonl(path: Path) -> list[Candidate]:
 
         pair = str(entry.get("pair", ""))
         tf = str(entry.get("timeframe", ""))
-        name = entry.get("name") or f"{pair}/{tf}" if pair else entry.get("name", f"trial_{lineno}")
+        name = (
+            entry.get("name") or f"{pair}/{tf}"
+            if pair
+            else entry.get("name", f"trial_{lineno}")
+        )
         sharpe = float(entry.get("mean_sharpe", 0.0) or 0.0)
         trades = int(entry.get("mean_trade_count", entry.get("trade_count", 0)) or 0)
         windows_passed = int(entry.get("windows_passed", 0) or 0)
@@ -211,7 +216,9 @@ def load_from_jsonl(path: Path) -> list[Candidate]:
                 extra={
                     "windows_passed": windows_passed,
                     "windows_total": int(entry.get("windows_total", 0) or 0),
-                    "mean_profit_factor": float(entry.get("mean_profit_factor", 0.0) or 0.0),
+                    "mean_profit_factor": float(
+                        entry.get("mean_profit_factor", 0.0) or 0.0
+                    ),
                     "mean_win_rate": float(entry.get("mean_win_rate", 0.0) or 0.0),
                 },
             )
@@ -252,31 +259,37 @@ def analyze_candidates(
 
         edge_prob = max(0.0, min(1.0, 1.0 - dsr_p))
 
-        min_trl = min_track_record_length(
-            observed_sr=c.mean_sharpe,
-            n_trials=n_trials,
-            skewness=0.0,
-            kurtosis_regular=3.0,
-            alpha=alpha,
-        ) if c.mean_sharpe > 0.0 else -1
+        min_trl = (
+            min_track_record_length(
+                observed_sr=c.mean_sharpe,
+                n_trials=n_trials,
+                skewness=0.0,
+                kurtosis_regular=3.0,
+                alpha=alpha,
+            )
+            if c.mean_sharpe > 0.0
+            else -1
+        )
 
         # Track record adequacy: does the candidate have enough trades?
         trl_adequate = c.trade_count >= min_trl if min_trl > 0 else False
 
-        results.append({
-            "name": c.name,
-            "pair": c.pair,
-            "timeframe": c.timeframe,
-            "mean_sharpe": c.mean_sharpe,
-            "trade_count": c.trade_count,
-            "dsr_pvalue": float(dsr_p),
-            "edge_probability": float(edge_prob),
-            "min_track_record": int(min_trl),
-            "trl_adequate": bool(trl_adequate),
-            "expected_max_sr": float(e_max),
-            "n_trials": int(n_trials),
-            **c.extra,
-        })
+        results.append(
+            {
+                "name": c.name,
+                "pair": c.pair,
+                "timeframe": c.timeframe,
+                "mean_sharpe": c.mean_sharpe,
+                "trade_count": c.trade_count,
+                "dsr_pvalue": float(dsr_p),
+                "edge_probability": float(edge_prob),
+                "min_track_record": int(min_trl),
+                "trl_adequate": bool(trl_adequate),
+                "expected_max_sr": float(e_max),
+                "n_trials": int(n_trials),
+                **c.extra,
+            }
+        )
 
     # Sort by edge probability descending.
     results.sort(key=lambda r: r["edge_probability"], reverse=True)
@@ -312,24 +325,38 @@ def render_report(
     lines.append(f"**Candidates analyzed:** {total}")
     lines.append(f"**Independent trials (multiple-testing correction):** {n_trials}")
     lines.append(f"**Significance level (α):** {alpha}")
-    lines.append(f"**Expected max Sharpe under null:** {results[0]['expected_max_sr']:.4f}" if results else "")
+    lines.append(
+        f"**Expected max Sharpe under null:** {results[0]['expected_max_sr']:.4f}"
+        if results
+        else ""
+    )
     lines.append("")
     lines.append("## Summary")
     lines.append("")
     lines.append("| Category | Count | Criteria |")
     lines.append("|---|---:|---|")
-    lines.append(f"| Promote (significant edge) | {len(promote_list)} | DSR p-value < {alpha} |")
-    lines.append(f"| Watch (uncertain) | {len(watch_list)} | Edge prob ∈ [50%, {1-alpha:.0%}) |")
-    lines.append(f"| Kill (insufficient evidence) | {len(kill_list)} | Edge prob < 50% |")
+    lines.append(
+        f"| Promote (significant edge) | {len(promote_list)} | DSR p-value < {alpha} |"
+    )
+    lines.append(
+        f"| Watch (uncertain) | {len(watch_list)} | Edge prob ∈ [50%, {1 - alpha:.0%}) |"
+    )
+    lines.append(
+        f"| Kill (insufficient evidence) | {len(kill_list)} | Edge prob < 50% |"
+    )
     lines.append("")
 
     # --- Promote list ---
     lines.append("## Promote List")
     lines.append("")
-    lines.append(f"Candidates with DSR p-value < {alpha} (statistically significant edge after multiple-testing correction).")
+    lines.append(
+        f"Candidates with DSR p-value < {alpha} (statistically significant edge after multiple-testing correction)."
+    )
     lines.append("")
     if promote_list:
-        lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met |")
+        lines.append(
+            "| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met |"
+        )
         lines.append("|---:|---|---:|---:|---:|---:|---:|:---:|")
         for i, r in enumerate(promote_list, 1):
             trl_met = "✅" if r["trl_adequate"] else "⚠️"
@@ -345,7 +372,9 @@ def render_report(
     # --- Kill list ---
     lines.append("## Kill List")
     lines.append("")
-    lines.append("Candidates with edge probability < 50% (insufficient evidence of genuine edge).")
+    lines.append(
+        "Candidates with edge probability < 50% (insufficient evidence of genuine edge)."
+    )
     lines.append("")
     if kill_list:
         lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob |")
@@ -364,10 +393,14 @@ def render_report(
     lines.append("")
     lines.append("All candidates sorted by edge probability (descending).")
     lines.append("")
-    lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met | Tier |")
+    lines.append(
+        "| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met | Tier |"
+    )
     lines.append("|---:|---|---:|---:|---:|---:|---:|:---:|:---:|")
     for i, r in enumerate(results, 1):
-        trl_met = "✅" if r["trl_adequate"] else "⚠️" if r["min_track_record"] > 0 else "—"
+        trl_met = (
+            "✅" if r["trl_adequate"] else "⚠️" if r["min_track_record"] > 0 else "—"
+        )
         # Simple tier: promote / watch / kill
         if r["dsr_pvalue"] < alpha:
             tier = "🟢 Promote"
@@ -502,10 +535,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     # --- Report ---
     report_path = args.report
     if report_path is None:
-        report_path = PROJECT_ROOT / "reports" / "quant" / f"deflated_sharpe_{date.today().isoformat()}.md"
+        report_path = (
+            PROJECT_ROOT
+            / "reports"
+            / "quant"
+            / f"deflated_sharpe_{date.today().isoformat()}.md"
+        )
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_text = render_report(results, n_trials=args.n_trials, source=source, alpha=args.alpha)
+    report_text = render_report(
+        results, n_trials=args.n_trials, source=source, alpha=args.alpha
+    )
     report_path.write_text(report_text)
 
     # --- JSON output ---

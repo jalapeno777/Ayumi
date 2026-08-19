@@ -22,8 +22,10 @@ from typing import Any, Protocol, runtime_checkable
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 
+
 class OrderStatus(Enum):
     """Lifecycle status for an order."""
+
     PENDING = "pending"
     FILLED = "filled"
     REJECTED = "rejected"
@@ -33,12 +35,14 @@ class OrderStatus(Enum):
 
 class TradeSide(Enum):
     """Direction of a trade."""
+
     BUY = "buy"
     SELL = "sell"
 
 
 class PositionStatus(Enum):
     """Lifecycle status for a position."""
+
     OPEN = "open"
     CLOSED = "closed"
     TP_HIT = "tp_hit"
@@ -47,6 +51,7 @@ class PositionStatus(Enum):
 
 class SessionState(Enum):
     """Connection state machine values."""
+
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
     AUTHENTICATING = "authenticating"
@@ -58,9 +63,11 @@ class SessionState(Enum):
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class Tick:
     """A single bid/ask update for a symbol."""
+
     symbol: str
     bid: float
     ask: float
@@ -78,6 +85,7 @@ class Tick:
 @dataclass(frozen=True)
 class Bar:
     """An OHLCV bar for a symbol/timeframe."""
+
     symbol: str
     timeframe: str
     open: float
@@ -96,6 +104,7 @@ class OrderResult:
     ``status`` is explicitly FILLED, REJECTED, or TIMEOUT — never
     PENDING masquerading as success.
     """
+
     status: OrderStatus
     order_id: str | None = None
     filled_price: float | None = None
@@ -108,6 +117,7 @@ class OrderResult:
 @dataclass(frozen=True)
 class Position:
     """A trading position (open or historical)."""
+
     position_id: str
     symbol: str
     direction: str
@@ -121,6 +131,7 @@ class Position:
 
 
 # ── Protocols ────────────────────────────────────────────────────────────────
+
 
 @runtime_checkable
 class MarketFeedProtocol(Protocol):

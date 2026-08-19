@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from signal_engine.level_counter import LevelCounter
 from signal_engine.data_types import Swing, SwingType, LevelType
@@ -149,6 +148,7 @@ class TestFeedToHtf:
     def test_feed_format(self):
         counter = LevelCounter()
         from signal_engine.data_types import Level
+
         level = Level(1.1, LevelType.R1, 0.01, 5, True)
         result = counter.feed_to_htf(level)
         assert result["price"] == 1.1

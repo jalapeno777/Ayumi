@@ -53,8 +53,8 @@ Usage
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, replace
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Iterable
 
@@ -111,7 +111,7 @@ class GuardrailConfig:
     slippage_threshold_pips: float = 3.0
     daily_dd_scale_threshold: float = 0.015  # 1.5% → halve size
     daily_dd_stop_threshold: float = 0.025  # 2.5% → block entries
-    total_dd_stop_threshold: float = 0.08   # 8%   → block + CRITICAL alert
+    total_dd_stop_threshold: float = 0.08  # 8%   → block + CRITICAL alert
 
     def __post_init__(self) -> None:
         if self.max_concurrent_positions < 1:
@@ -147,9 +147,7 @@ class BlackoutWindow:
 
     def __post_init__(self) -> None:
         if self.start_utc.tzinfo is None or self.end_utc.tzinfo is None:
-            raise ValueError(
-                "BlackoutWindow datetimes must be timezone-aware (UTC)"
-            )
+            raise ValueError("BlackoutWindow datetimes must be timezone-aware (UTC)")
         if self.start_utc >= self.end_utc:
             raise ValueError(
                 f"BlackoutWindow start ({self.start_utc}) must be < end ({self.end_utc})"
@@ -194,9 +192,11 @@ class OrderRequest:
         if self.stop_loss_price <= 0:
             raise ValueError(f"stop_loss_price must be > 0, got {self.stop_loss_price}")
         if self.risk_amount_usd < 0:
-            raise ValueError(f"risk_amount_usd must be >= 0, got {self.risk_amount_usd}")
+            raise ValueError(
+                f"risk_amount_usd must be >= 0, got {self.risk_amount_usd}"
+            )
         if self.estimated_slippage_pips < 0:
-            raise ValueError(f"estimated_slippage_pips must be >= 0")
+            raise ValueError("estimated_slippage_pips must be >= 0")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -385,7 +385,10 @@ class GuardrailEngine:
             logger.info(
                 "guardrail.update_state pnl=%.2f daily_pnl=%.2f total_pnl=%.2f "
                 "open_positions=%d",
-                pnl, self._daily_pnl, self._total_pnl, self._open_positions,
+                pnl,
+                self._daily_pnl,
+                self._total_pnl,
+                self._open_positions,
             )
 
     def register_open_position(self) -> None:
@@ -395,7 +398,8 @@ class GuardrailEngine:
             self._daily_trade_count += 1
             logger.info(
                 "guardrail.position_opened open_positions=%d daily_trades=%d",
-                self._open_positions, self._daily_trade_count,
+                self._open_positions,
+                self._daily_trade_count,
             )
 
     def reset_daily(self, timestamp: datetime | None = None) -> None:
@@ -413,7 +417,8 @@ class GuardrailEngine:
             self._current_date = ts.strftime("%Y-%m-%d")
             logger.info(
                 "guardrail.daily_reset date=%s starting_balance=%.2f",
-                self._current_date, self._starting_balance,
+                self._current_date,
+                self._starting_balance,
             )
 
     def _seed_daily_pnl(self, pnl: float) -> None:
@@ -465,7 +470,9 @@ class GuardrailEngine:
             self._blackout_windows.append(window)
             logger.info(
                 "guardrail.blackout_added event=%s window=%s..%s",
-                window.event_name, window.start_utc.isoformat(), window.end_utc.isoformat(),
+                window.event_name,
+                window.start_utc.isoformat(),
+                window.end_utc.isoformat(),
             )
 
     def clear_blackout_windows(self) -> None:
@@ -611,9 +618,8 @@ class GuardrailEngine:
                 )
 
             # 9) Projected daily DD: current daily loss + trade risk vs 3% limit.
-            projected_daily_dd_pct = (
-                self.daily_dd_pct
-                + (order.risk_amount_usd / self._starting_balance)
+            projected_daily_dd_pct = self.daily_dd_pct + (
+                order.risk_amount_usd / self._starting_balance
             )
             # Use a small epsilon to avoid floating-point boundary false rejects.
             # At exactly 3.0% projected DD, we are AT the limit, not over it.
@@ -667,8 +673,12 @@ class GuardrailEngine:
             logger.info(
                 "guardrail.ALLOW %s side=%s size=%.4f risk=$%.2f "
                 "daily_dd=%.2f%% total_dd=%.2f%% adjusted_size=%s",
-                order.symbol, order.side, order.size, order.risk_amount_usd,
-                self.daily_dd_pct * 100, self.total_dd_pct * 100,
+                order.symbol,
+                order.side,
+                order.size,
+                order.risk_amount_usd,
+                self.daily_dd_pct * 100,
+                self.total_dd_pct * 100,
                 f"{adjusted_size:.4f}" if adjusted_size is not None else "none",
             )
             return CheckResult(allowed=True, reason="ok", adjusted_size=adjusted_size)
@@ -682,7 +692,8 @@ class GuardrailEngine:
             self._daily_trade_count = 0
             logger.info(
                 "guardrail.auto_daily_reset date=%s starting_balance=%.2f",
-                today, self._starting_balance,
+                today,
+                self._starting_balance,
             )
 
     def _is_in_blackout_at(self, ts: datetime) -> bool:

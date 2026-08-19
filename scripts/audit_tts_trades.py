@@ -3,7 +3,6 @@
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -65,9 +64,11 @@ def main():
 
     all_results = {}
     for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Window {idx}: train={len(train_bars)}, test={len(test_bars)}")
-        print(f"  Test range: {test_bars[0].time if test_bars else 'N/A'} → {test_bars[-1].time if test_bars else 'N/A'}")
+        print(
+            f"  Test range: {test_bars[0].time if test_bars else 'N/A'} → {test_bars[-1].time if test_bars else 'N/A'}"
+        )
 
         strategy = TTSStrategy(
             symbol=pair,
@@ -99,9 +100,13 @@ def main():
             pattern_type = "unknown"
             direction_raw = "unknown"
             session_name = "unknown"
-            
+
             # Parse pattern type from rationale: "TTC/TBD EURUSD: M long @ ..."
-            if "pattern_type=" in rationale or ": M " in rationale or ": W " in rationale:
+            if (
+                "pattern_type=" in rationale
+                or ": M " in rationale
+                or ": W " in rationale
+            ):
                 # Standard format: "TTC/TBD EURUSD: M long @ ..."
                 parts = rationale.split(": ", 1)
                 if len(parts) >= 2:
@@ -111,25 +116,27 @@ def main():
                         pattern_type = tokens[0]  # "M", "W", "FL-001", etc.
                     if len(tokens) >= 2:
                         direction_raw = tokens[1]  # "long" or "short"
-            
-            trade_details.append({
-                "bar_entry": t.entry_bar_index,
-                "bar_exit": t.exit_bar_index,
-                "entry_time": str(t.entry_time),
-                "exit_time": str(t.exit_time),
-                "pattern_type": pattern_type,
-                "direction": direction_raw,
-                "confidence": t.confidence_score,
-                "entry_price": t.entry_price,
-                "stop_loss": t.stop_loss,
-                "tp1": t.take_profit_1,
-                "exit_price": t.exit_price,
-                "pips": t.pips,
-                "pnl": t.profit_loss,
-                "outcome": t.outcome.value,
-                "exit_reason": t.exit_reason.value,
-                "rationale": rationale,
-            })
+
+            trade_details.append(
+                {
+                    "bar_entry": t.entry_bar_index,
+                    "bar_exit": t.exit_bar_index,
+                    "entry_time": str(t.entry_time),
+                    "exit_time": str(t.exit_time),
+                    "pattern_type": pattern_type,
+                    "direction": direction_raw,
+                    "confidence": t.confidence_score,
+                    "entry_price": t.entry_price,
+                    "stop_loss": t.stop_loss,
+                    "tp1": t.take_profit_1,
+                    "exit_price": t.exit_price,
+                    "pips": t.pips,
+                    "pnl": t.profit_loss,
+                    "outcome": t.outcome.value,
+                    "exit_reason": t.exit_reason.value,
+                    "rationale": rationale,
+                }
+            )
 
         all_results[f"window_{idx}"] = {
             "trade_count": len(trades),
@@ -140,15 +147,19 @@ def main():
 
         # Print trade table for this window
         if trades:
-            print(f"\n  {'#':>3} {'Time':<20} {'Pattern':<8} {'Dir':<5} {'Conf':>5} {'Entry':>10} {'SL':>10} {'Exit':>10} {'Pips':>8} {'PnL':>10} {'Result':<6} {'ExitWhy':<12}")
-            print(f"  {'─'*120}")
+            print(
+                f"\n  {'#':>3} {'Time':<20} {'Pattern':<8} {'Dir':<5} {'Conf':>5} {'Entry':>10} {'SL':>10} {'Exit':>10} {'Pips':>8} {'PnL':>10} {'Result':<6} {'ExitWhy':<12}"
+            )
+            print(f"  {'─' * 120}")
             for i, td in enumerate(trade_details):
-                print(f"  {i+1:>3} {td['entry_time']:<20} {td['pattern_type']:<8} {td['direction']:<5} {td['confidence']:>5.2f} {td['entry_price']:>10.5f} {td['stop_loss']:>10.5f} {td['exit_price']:>10.5f} {td['pips']:>8.1f} {td['pnl']:>10.2f} {td['outcome']:<6} {td['exit_reason']:<12}")
+                print(
+                    f"  {i + 1:>3} {td['entry_time']:<20} {td['pattern_type']:<8} {td['direction']:<5} {td['confidence']:>5.2f} {td['entry_price']:>10.5f} {td['stop_loss']:>10.5f} {td['exit_price']:>10.5f} {td['pips']:>8.1f} {td['pnl']:>10.2f} {td['outcome']:<6} {td['exit_reason']:<12}"
+                )
 
     # ── Analysis ──
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("ANALYSIS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     all_trades = []
     for wdata in all_results.values():
@@ -167,10 +178,10 @@ def main():
     wins = [t for t in all_trades if t["outcome"] == "win"]
     losses = [t for t in all_trades if t["outcome"] == "loss"]
     print(f"\nTotal trades: {total}, Wins: {len(wins)}, Losses: {len(losses)}")
-    print(f"Overall win rate: {len(wins)/total:.1%}")
+    print(f"Overall win rate: {len(wins) / total:.1%}")
 
     # By pattern type
-    print(f"\n--- By Pattern Type ---")
+    print("\n--- By Pattern Type ---")
     pattern_stats = {}
     for t in all_trades:
         pt = t["pattern_type"]
@@ -182,15 +193,17 @@ def main():
             pattern_stats[pt]["losses"] += 1
         pattern_stats[pt]["pnl"] += t["pnl"]
         pattern_stats[pt]["pips"].append(t["pips"])
-    
+
     for pt, s in sorted(pattern_stats.items()):
         n = s["wins"] + s["losses"]
         wr = s["wins"] / n if n > 0 else 0
         avg_pips = sum(s["pips"]) / n if n > 0 else 0
-        print(f"  {pt:<12}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}, avg_pips={avg_pips:>7.1f}")
+        print(
+            f"  {pt:<12}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}, avg_pips={avg_pips:>7.1f}"
+        )
 
     # By direction
-    print(f"\n--- By Direction ---")
+    print("\n--- By Direction ---")
     dir_stats = {}
     for t in all_trades:
         d = t["direction"]
@@ -207,7 +220,7 @@ def main():
         print(f"  {d:<8}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}")
 
     # By confidence bucket
-    print(f"\n--- By Confidence ---")
+    print("\n--- By Confidence ---")
     conf_buckets = {"0.30-0.40": [], "0.40-0.50": [], "0.50-0.60": [], "0.60+": []}
     for t in all_trades:
         c = t["confidence"]
@@ -219,7 +232,7 @@ def main():
             conf_buckets["0.50-0.60"].append(t)
         else:
             conf_buckets["0.60+"].append(t)
-    
+
     for bucket, trades in conf_buckets.items():
         if not trades:
             print(f"  {bucket}: no trades")
@@ -229,7 +242,7 @@ def main():
         print(f"  {bucket}: {len(trades):>3} trades, WR={wr:>5.1%}")
 
     # By exit reason
-    print(f"\n--- By Exit Reason ---")
+    print("\n--- By Exit Reason ---")
     exit_stats = {}
     for t in all_trades:
         er = t["exit_reason"]
@@ -246,9 +259,9 @@ def main():
         print(f"  {er:<20}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}")
 
     # Session info from rationale (if available)
-    print(f"\n--- Sample Rationales ---")
+    print("\n--- Sample Rationales ---")
     for i, t in enumerate(all_trades[:5]):
-        print(f"  Trade {i+1}: {t['rationale'][:120]}")
+        print(f"  Trade {i + 1}: {t['rationale'][:120]}")
 
     # Save full results
     out_path = Path("reports/tts_walkforward/audit_trades_detail.json")

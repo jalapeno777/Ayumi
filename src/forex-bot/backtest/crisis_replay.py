@@ -9,6 +9,7 @@ Usage:
     python -m backtest.crisis_replay --strategies MyStrategy --crises 2015_chf_unpeg
     python -m backtest.crisis_replay --strategies all --output data/stress_test_results
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,9 +40,7 @@ except ImportError:
     import importlib.util as _ilu
 
     _FXBOT = _Path(__file__).resolve().parent.parent  # src/forex-bot/
-    _SRC = _FXBOT.parent  # src/
-    sys.path.insert(0, str(_FXBOT))  # for core.types
-    sys.path.insert(0, str(_SRC))  # fallback
+    sys.path.append(str(_FXBOT))  # for core.types, engine, etc.
 
     _spec = _ilu.spec_from_file_location(
         "_simple_engine_standalone", str(_FXBOT / "backtest" / "simple_engine.py")
@@ -54,12 +53,14 @@ except ImportError:
     BacktestMetrics = _se_mod.BacktestMetrics
     Bar = _se_mod.Bar
     from engine.engine import BacktestEngine
+
     SimulatedTrade = _se_mod.SimulatedTrade
 
 logger = logging.getLogger("crisis_replay")
 
 
 # ── Crisis Windows ──────────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class CrisisWindow:
@@ -122,14 +123,15 @@ _CRISIS_BY_EVENT: dict[str, CrisisWindow] = {cw.event: cw for cw in CRISIS_WINDO
 
 # ── Survival gates (SRB-AYUMI-010 §5) ───────────────────────────────────────────
 
-MAX_DRAWDOWN_PCT = 7.0       # Strategy must not draw down more than 7%
-MAX_RECOVERY_BARS = 20       # Must recover to prior peak within 20 M1 bars
-MIN_SHARPE_RATIO = 0.3       # Crisis Sharpe must be ≥ 0.3 × baseline
+MAX_DRAWDOWN_PCT = 7.0  # Strategy must not draw down more than 7%
+MAX_RECOVERY_BARS = 20  # Must recover to prior peak within 20 M1 bars
+MIN_SHARPE_RATIO = 0.3  # Crisis Sharpe must be ≥ 0.3 × baseline
 DEFAULT_BASELINE_SHARPE = 1.0  # Fallback when no walk-forward data exists
 _M1_BARS_PER_YEAR = 252 * 24 * 60  # Annualization factor for M1 Sharpe
 
 
 # ── Strategy Protocol ───────────────────────────────────────────────────────────
+
 
 class CrisisStrategy(Protocol):
     """Protocol for strategies that can be replayed through crisis windows."""
@@ -145,6 +147,7 @@ class CrisisStrategy(Protocol):
 
 
 # ── Data Loading ─────────────────────────────────────────────────────────────────
+
 
 def _months_range(start: datetime, end: datetime) -> list[tuple[int, int]]:
     """Yield (year, month) tuples in [start, end) range."""
@@ -208,7 +211,11 @@ def load_crisis_data(
                 break
 
         if ts_col is None:
-            logger.warning("No timestamp column found for %s (cols: %s)", pair, list(combined.columns))
+            logger.warning(
+                "No timestamp column found for %s (cols: %s)",
+                pair,
+                list(combined.columns),
+            )
             continue
 
         combined[ts_col] = pd.to_datetime(combined[ts_col], utc=True, errors="coerce")
@@ -225,6 +232,7 @@ def load_crisis_data(
 
 
 # ── Survival Metrics ──────────────────────────────────────────────────────────────
+
 
 def survival_metrics(
     trades: list[SimulatedTrade],
@@ -264,7 +272,11 @@ def survival_metrics(
         recovery_bars = 0
     else:
         # Count bars from trough back to peak level that was in effect at trough
-        recovery_target = equity_curve[peak_idx_at_trough] if peak_idx_at_trough < len(equity_curve) else equity_curve[0]
+        recovery_target = (
+            equity_curve[peak_idx_at_trough]
+            if peak_idx_at_trough < len(equity_curve)
+            else equity_curve[0]
+        )
         recovery_bars = 0
         for i in range(trough_idx, len(equity_curve)):
             if equity_curve[i] >= recovery_target:
@@ -308,6 +320,7 @@ def survival_metrics(
 
 
 # ── Crisis Replay ────────────────────────────────────────────────────────────────
+
 
 def _df_to_bars(df: pd.DataFrame) -> list[Bar]:
     """Convert a DataFrame to a list of Bar objects."""
@@ -384,7 +397,9 @@ def run_crisis_replay(
     bars = _df_to_bars(df)
 
     if len(bars) < 30:
-        logger.warning("Insufficient bars (%d) for %s — skipping", len(bars), event_name)
+        logger.warning(
+            "Insufficient bars (%d) for %s — skipping", len(bars), event_name
+        )
         return {
             "event": event_name,
             "strategy": strategy_cls.__name__ if strategy_cls else "none",
@@ -528,6 +543,7 @@ def _write_summary_md(summary: dict, path: Path) -> None:
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────
 
+
 def main():
     """CLI entry point for crisis replay."""
     parser = argparse.ArgumentParser(
@@ -568,7 +584,9 @@ def main():
     if args.crises:
         for c in args.crises:
             if c not in _CRISIS_BY_EVENT:
-                print(f"Error: Unknown crisis '{c}'. Available: {sorted(_CRISIS_BY_EVENT)}")
+                print(
+                    f"Error: Unknown crisis '{c}'. Available: {sorted(_CRISIS_BY_EVENT)}"
+                )
                 return 1
 
     # Run
@@ -603,7 +621,9 @@ def main():
                         f"[{status}]"
                     )
                 else:
-                    print(f"  {event}: No data or error ({result.get('error', 'unknown')})")
+                    print(
+                        f"  {event}: No data or error ({result.get('error', 'unknown')})"
+                    )
 
         print(f"\nReports written to {args.output_dir}/")
         return 0
@@ -625,7 +645,9 @@ def _run_selected_crises(
         original = CRISIS_WINDOWS
         CRISIS_WINDOWS = [_CRISIS_BY_EVENT[c] for c in crisis_filter]
         try:
-            return run_all_crises(strategy_classes, output_dir, base_dir, initial_equity)
+            return run_all_crises(
+                strategy_classes, output_dir, base_dir, initial_equity
+            )
         finally:
             CRISIS_WINDOWS = original
     return run_all_crises(strategy_classes, output_dir, base_dir, initial_equity)

@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from backtest.types import Bar, BarPeriod
+from backtest.types import Bar
 from backtest.walk_forward_runner import run_strategy_walk_forward
 
 logger = logging.getLogger(__name__)
@@ -59,21 +59,29 @@ def load_bars_from_csv(csv_path: Path, pair: str, tf_minutes: int) -> list[Bar]:
     df = df.rename(columns=col_map)
 
     if "timestamp" not in df.columns:
-        raise ValueError(f"No timestamp column found in {csv_path}. Columns: {list(df.columns)}")
+        raise ValueError(
+            f"No timestamp column found in {csv_path}. Columns: {list(df.columns)}"
+        )
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = df.sort_values("timestamp").drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
+    df = (
+        df.sort_values("timestamp")
+        .drop_duplicates(subset=["timestamp"])
+        .reset_index(drop=True)
+    )
 
     bars = []
     for _, row in df.iterrows():
-        bars.append(Bar(
-            time=row["timestamp"].to_pydatetime(),
-            open=float(row["open"]),
-            high=float(row["high"]),
-            low=float(row["low"]),
-            close=float(row["close"]),
-            volume=float(row.get("volume", 0)),
-        ))
+        bars.append(
+            Bar(
+                time=row["timestamp"].to_pydatetime(),
+                open=float(row["open"]),
+                high=float(row["high"]),
+                low=float(row["low"]),
+                close=float(row["close"]),
+                volume=float(row.get("volume", 0)),
+            )
+        )
 
     return bars
 
@@ -85,16 +93,22 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
     # TTC XAUUSD — only for XAUUSD
     if pair == "XAUUSD":
         from strategies.ttc_xauusd import TTCXAUUSDStrategy
+
         factories["ttc_xauusd"] = lambda: TTCXAUUSDStrategy()
 
     # Killzone Momentum — works on XAUUSD, forex
     from strategies.killzone_momentum import KillzoneMomentumConfig
+
     try:
         from strategies.killzone_momentum import KillzoneMomentumStrategy
-        factories["killzone_momentum"] = lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig())
+
+        factories["killzone_momentum"] = lambda: KillzoneMomentumStrategy(
+            KillzoneMomentumConfig()
+        )
     except ImportError:
         # Try alternate class name
         import strategies.killzone_momentum as kz_mod
+
         for name in dir(kz_mod):
             obj = getattr(kz_mod, name)
             if isinstance(obj, type) and "Killzone" in name and "Config" not in name:
@@ -103,15 +117,19 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
     # Volatility Squeeze — works on XAUUSD, forex
     from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
     factories["volatility_squeeze"] = lambda: VolatilitySqueezeStrategy()
 
     # BB RSI Reversion
     from strategies.bb_rsi_reversion import BBRSIConfig
+
     try:
         from strategies.bb_rsi_reversion import BBRSIReversionStrategy
+
         factories["bb_rsi_reversion"] = lambda: BBRSIReversionStrategy(BBRSIConfig())
     except ImportError:
         import strategies.bb_rsi_reversion as bb_mod
+
         for name in dir(bb_mod):
             obj = getattr(bb_mod, name)
             if isinstance(obj, type) and "BB" in name and "Config" not in name:
@@ -120,16 +138,20 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
     # Volatility Regime Breakout
     from strategies.volatility_regime_breakout import VolatilityRegimeBreakoutStrategy
+
     factories["volatility_regime_breakout"] = lambda: VolatilityRegimeBreakoutStrategy()
 
     # SRMR+ — forex only (session range MR)
     if pair != "XAUUSD":
         from strategies.srmr_plus import SRMRPlusConfig
+
         try:
             from strategies.srmr_plus import SRMRPlusStrategy
+
             factories["srmr_plus"] = lambda: SRMRPlusStrategy(SRMRPlusConfig())
         except ImportError:
             import strategies.srmr_plus as srmr_mod
+
             for name in dir(srmr_mod):
                 obj = getattr(srmr_mod, name)
                 if isinstance(obj, type) and "SRMR" in name and "Config" not in name:
@@ -140,6 +162,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
     try:
         from strategies.session_breakout import SessionBreakoutConfig
         import strategies.session_breakout as sb_mod
+
         for name in dir(sb_mod):
             obj = getattr(sb_mod, name)
             if isinstance(obj, type) and "Breakout" in name and "Config" not in name:
@@ -150,10 +173,15 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
     # Donchian + ATR Trailing Trend
     from strategies.donchian_atr_trend import DonchianATRTrendStrategy
+
     factories["donchian_atr_trend"] = lambda: DonchianATRTrendStrategy()
 
     # London Breakout + Retest
-    from strategies.london_breakout_retest import LondonBreakoutRetestStrategy, LondonBreakoutConfig
+    from strategies.london_breakout_retest import (
+        LondonBreakoutRetestStrategy,
+        LondonBreakoutConfig,
+    )
+
     lb_cfg = LondonBreakoutConfig(symbol=pair)
     factories["london_breakout_retest"] = lambda: LondonBreakoutRetestStrategy(lb_cfg)
 
@@ -185,15 +213,24 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
         except Exception as e:
             logger.error("Failed to load bars: %s", e)
             continue
-        logger.info("  %d bars loaded (%s to %s)", len(bars), bars[0].time, bars[-1].time)
+        logger.info(
+            "  %d bars loaded (%s to %s)", len(bars), bars[0].time, bars[-1].time
+        )
 
         if len(bars) < 1000:
-            logger.warning("Only %d bars — need ≥1000 for meaningful walk-forward", len(bars))
+            logger.warning(
+                "Only %d bars — need ≥1000 for meaningful walk-forward", len(bars)
+            )
             continue
 
         for strat_name, factory in strategies.items():
-            logger.info("Running %s on %s %s (%d-window walk-forward)...",
-                        strat_name, pair, tf, n_windows)
+            logger.info(
+                "Running %s on %s %s (%d-window walk-forward)...",
+                strat_name,
+                pair,
+                tf,
+                n_windows,
+            )
             start = time.monotonic()
 
             try:
@@ -211,24 +248,33 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
                 agg = wf.aggregated
 
                 if agg is None:
-                    logger.warning("  %s %s %s: no aggregated metrics", strat_name, pair, tf)
-                    results.append({
-                        "strategy": strat_name, "pair": pair, "tf": tf,
-                        "status": "no_metrics", "elapsed_s": round(elapsed, 1),
-                    })
+                    logger.warning(
+                        "  %s %s %s: no aggregated metrics", strat_name, pair, tf
+                    )
+                    results.append(
+                        {
+                            "strategy": strat_name,
+                            "pair": pair,
+                            "tf": tf,
+                            "status": "no_metrics",
+                            "elapsed_s": round(elapsed, 1),
+                        }
+                    )
                     continue
 
                 # Run go/no-go evaluation using per_window (WalkForwardResults.per_window)
                 window_dicts = []
-                for w in (wf.per_window if hasattr(wf, 'per_window') else []):
-                    window_dicts.append({
-                        "win_rate": getattr(w, "win_rate", 0),
-                        "profit_factor": getattr(w, "profit_factor", 0),
-                        "max_drawdown": getattr(w, "max_drawdown", 0),
-                        "trade_count": getattr(w, "trade_count", 0),
-                        "sharpe": getattr(w, "sharpe_ratio", 0),
-                        "total_pnl": getattr(w, "total_pnl", 0),
-                    })
+                for w in wf.per_window if hasattr(wf, "per_window") else []:
+                    window_dicts.append(
+                        {
+                            "win_rate": getattr(w, "win_rate", 0),
+                            "profit_factor": getattr(w, "profit_factor", 0),
+                            "max_drawdown": getattr(w, "max_drawdown", 0),
+                            "trade_count": getattr(w, "trade_count", 0),
+                            "sharpe": getattr(w, "sharpe_ratio", 0),
+                            "total_pnl": getattr(w, "total_pnl", 0),
+                        }
+                    )
 
                 go_nogo = evaluate_go_nogo(window_dicts) if window_dicts else None
 
@@ -266,8 +312,15 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
                         "INSERT INTO runs (run_id, strategy_name, pair, timeframe, "
                         "params_json, git_commit, data_hash, status, created_at, completed_at, compute_seconds) "
                         "VALUES (?, ?, ?, ?, '{}', ?, ?, 'completed', now(), now(), ?)",
-                        [run_id, strat_name, pair, tf_minutes, git_commit,
-                         f"tick_db:{pair}:{tf}", elapsed],
+                        [
+                            run_id,
+                            strat_name,
+                            pair,
+                            tf_minutes,
+                            git_commit,
+                            f"tick_db:{pair}:{tf}",
+                            elapsed,
+                        ],
                     )
                     # Insert metrics summary
                     conn.execute(
@@ -276,28 +329,49 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
                         " mean_max_drawdown, mean_sharpe, total_trades, windows_passed, "
                         " windows_total, go_nogo) "
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        [run_id, agg.mean_win_rate, getattr(agg, "std_win_rate", 0),
-                         agg.mean_profit_factor, agg.mean_max_drawdown, getattr(agg, "mean_sharpe_ratio", 0),
-                         int(agg.mean_trade_count * agg.total_windows),
-                         agg.windows_passed, agg.total_windows,
-                         result["go_nogo"]],
+                        [
+                            run_id,
+                            agg.mean_win_rate,
+                            getattr(agg, "std_win_rate", 0),
+                            agg.mean_profit_factor,
+                            agg.mean_max_drawdown,
+                            getattr(agg, "mean_sharpe_ratio", 0),
+                            int(agg.mean_trade_count * agg.total_windows),
+                            agg.windows_passed,
+                            agg.total_windows,
+                            result["go_nogo"],
+                        ],
                     )
 
                 results.append(result)
-                logger.info("  ✓ %s %s %s: WR=%.1f%% PF=%.2f DD=%.1f%% trades=%.0f go=%s (%.1fs)",
-                            strat_name, pair, tf,
-                            agg.mean_win_rate * 100, agg.mean_profit_factor,
-                            agg.mean_max_drawdown * 100,
-                            agg.mean_trade_count * agg.total_windows,
-                            result["go_nogo"], elapsed)
+                logger.info(
+                    "  ✓ %s %s %s: WR=%.1f%% PF=%.2f DD=%.1f%% trades=%.0f go=%s (%.1fs)",
+                    strat_name,
+                    pair,
+                    tf,
+                    agg.mean_win_rate * 100,
+                    agg.mean_profit_factor,
+                    agg.mean_max_drawdown * 100,
+                    agg.mean_trade_count * agg.total_windows,
+                    result["go_nogo"],
+                    elapsed,
+                )
 
             except Exception as e:
                 elapsed = time.monotonic() - start
-                logger.error("  ✗ %s %s %s FAILED: %s (%.1fs)", strat_name, pair, tf, e, elapsed)
-                results.append({
-                    "strategy": strat_name, "pair": pair, "tf": tf,
-                    "status": "failed", "error": str(e), "elapsed_s": round(elapsed, 1),
-                })
+                logger.error(
+                    "  ✗ %s %s %s FAILED: %s (%.1fs)", strat_name, pair, tf, e, elapsed
+                )
+                results.append(
+                    {
+                        "strategy": strat_name,
+                        "pair": pair,
+                        "tf": tf,
+                        "status": "failed",
+                        "error": str(e),
+                        "elapsed_s": round(elapsed, 1),
+                    }
+                )
 
     return results
 
@@ -305,7 +379,9 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
 def main():
     parser = argparse.ArgumentParser(description="SRF Full Sweep")
     parser.add_argument("--pair", required=True, help="Trading pair (e.g., XAUUSD)")
-    parser.add_argument("--timeframes", default="M15,H1,M5", help="Comma-separated timeframes")
+    parser.add_argument(
+        "--timeframes", default="M15,H1,M5", help="Comma-separated timeframes"
+    )
     parser.add_argument("--windows", type=int, default=5, help="Walk-forward windows")
     parser.add_argument("--output", default=None, help="Output JSON file")
     args = parser.parse_args()
@@ -317,31 +393,40 @@ def main():
     )
 
     tfs = args.timeframes.split(",")
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("  SRF Full Sweep: %s × %s", args.pair, tfs)
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     results = run_sweep(args.pair, tfs, n_windows=args.windows)
 
     # Summary
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"  SRF Sweep Results: {args.pair}")
-    print(f"{'='*80}")
-    print(f"  {'Strategy':<25} {'TF':<5} {'WR':>6} {'PF':>6} {'MaxDD':>7} {'Trades':>7} {'Go/NoGo':<8}")
-    print(f"  {'-'*25} {'-'*5} {'-'*6} {'-'*6} {'-'*7} {'-'*7} {'-'*8}")
+    print(f"{'=' * 80}")
+    print(
+        f"  {'Strategy':<25} {'TF':<5} {'WR':>6} {'PF':>6} {'MaxDD':>7} {'Trades':>7} {'Go/NoGo':<8}"
+    )
+    print(f"  {'-' * 25} {'-' * 5} {'-' * 6} {'-' * 6} {'-' * 7} {'-' * 7} {'-' * 8}")
 
     for r in results:
         if r["status"] == "completed":
-            print(f"  {r['strategy']:<25} {r['tf']:<5} {r['win_rate']*100:>5.1f}% "
-                  f"{r['profit_factor']:>6.2f} {r['max_drawdown']*100:>6.1f}% "
-                  f"{r['total_trades']:>7.0f} {r['go_nogo']:<8}")
+            print(
+                f"  {r['strategy']:<25} {r['tf']:<5} {r['win_rate'] * 100:>5.1f}% "
+                f"{r['profit_factor']:>6.2f} {r['max_drawdown'] * 100:>6.1f}% "
+                f"{r['total_trades']:>7.0f} {r['go_nogo']:<8}"
+            )
         elif r["status"] == "failed":
-            print(f"  {r['strategy']:<25} {r['tf']:<5} FAILED: {r.get('error', '')[:50]}")
+            print(
+                f"  {r['strategy']:<25} {r['tf']:<5} FAILED: {r.get('error', '')[:50]}"
+            )
         else:
             print(f"  {r['strategy']:<25} {r['tf']:<5} {r['status']}")
 
     # Save JSON
-    output_path = args.output or f"/tmp/srf_sweep_{args.pair}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_path = (
+        args.output
+        or f"/tmp/srf_sweep_{args.pair}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     Path(output_path).write_text(json.dumps(results, indent=2, default=str))
     print(f"\n  Results saved: {output_path}")
     print(f"  DuckDB: {DB_PATH}")

@@ -7,7 +7,6 @@ This test creates a minimal scenario: generate a strategy signal and verify
 its TradeDirection identity matches what the backtest engine uses.
 """
 
-import pytest
 from datetime import datetime, timezone
 from core.types import (
     Bar,
@@ -80,5 +79,7 @@ class TestZeroTradeFix:
         if signal is not None:
             # Signal direction must be usable by backtest engine
             assert signal.direction in BacktestTradeDirection
-            assert signal.direction is BacktestTradeDirection.LONG or \
-                   signal.direction is BacktestTradeDirection.SHORT
+            assert (
+                signal.direction is BacktestTradeDirection.LONG
+                or signal.direction is BacktestTradeDirection.SHORT
+            )

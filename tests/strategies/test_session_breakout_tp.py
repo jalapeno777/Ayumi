@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from core.types import Bar, MarketState, TradeDirection
 from strategies.session_breakout import (
@@ -136,6 +135,7 @@ def _state_for(bars: list[Bar], symbol: str) -> MarketState:
 # Sanity: constants are sensible
 # ---------------------------------------------------------------------------
 
+
 class TestGuardConstants:
     def test_price_bounds_include_known_fx_pairs(self):
         # EURUSD, GBPUSD, USDJPY, XAUUSD all live in [0.01, 10000].
@@ -153,6 +153,7 @@ class TestGuardConstants:
 # ---------------------------------------------------------------------------
 # Normal-case TP computation (sane inputs → sane outputs)
 # ---------------------------------------------------------------------------
+
 
 class TestSessionBreakoutTP:
     def test_gbpusd_bearish_breakout_produces_sane_tps(self):
@@ -255,6 +256,7 @@ class TestSessionBreakoutTP:
 # Bug regression: the BQ-? TP corruption pattern is now rejected
 # ---------------------------------------------------------------------------
 
+
 class TestReportedBugRegression:
     """The reported case: GBPUSD SELL, entry=1.319975, tp_price=0.6659.
     That TP is ~6540 pips below entry — the unit-mismatch signature.
@@ -324,6 +326,7 @@ class TestReportedBugRegression:
 # Edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestEdgeCases:
     def test_zero_atr_returns_none(self):
         """If ATR is zero (degenerate input), no signal."""
@@ -349,7 +352,10 @@ class TestEdgeCases:
         signal = strategy.evaluate(state)
         if signal is not None:
             assert _FX_MIN_PRICE <= signal.take_profit_1 <= _FX_MAX_PRICE
-            assert abs(signal.take_profit_1 - signal.entry_price) / 0.0001 < _MAX_TP_DISTANCE_PIPS
+            assert (
+                abs(signal.take_profit_1 - signal.entry_price) / 0.0001
+                < _MAX_TP_DISTANCE_PIPS
+            )
 
     def test_one_signal_per_direction_per_day(self):
         """Re-calling evaluate after a fired signal returns None for that direction."""
@@ -375,10 +381,16 @@ class TestEdgeCases:
         bars = []
         for i in range(40):
             t = base_time + timedelta(hours=i % 7)  # 0..6
-            bars.append(Bar(
-                time=t, open=1.32, high=1.3205, low=1.3195,
-                close=1.32, volume=1000.0,
-            ))
+            bars.append(
+                Bar(
+                    time=t,
+                    open=1.32,
+                    high=1.3205,
+                    low=1.3195,
+                    close=1.32,
+                    volume=1000.0,
+                )
+            )
         state = _state_for(bars, "GBPUSD")
         # No bar in trade window (7-10) → evaluate returns None.
         assert strategy.evaluate(state) is None

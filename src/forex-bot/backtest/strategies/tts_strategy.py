@@ -154,6 +154,26 @@ class TTSStrategy(ISignalStrategy):
         5. Confluence scoring (ConfluenceScorer) — boosters
         6. SL/TP calculation (StopTargetCalculator)
         7. Output as StrategySignal
+
+    PF-Cap Design Decision (card f5b6ebcd, Jul 2026)
+    -------------------------------------------------
+    This strategy does **not** implement a profit-factor cap (PF cap).
+    A PF cap would suppress trading when rolling PF drops below a threshold.
+    The decision is **not needed here** because:
+
+    1. **Separation of concerns.** TTSStrategy is a *signal generator* — its
+       job is to identify opportunities via pattern + confluence scoring.
+       Making it stateful (tracking running PF) would couple signal detection
+       to trade history, making backtests non-deterministic across position
+       sizing configurations.
+    2. **Risk management layer.** PF-based position throttling belongs in the
+       portfolio/position-sizing layer (risk manager, not signal engine).
+       The backtest engine already supports per-trade SL/TP via
+       StopTargetCalculator, and the execution layer can apply PF caps.
+    3. **Root cause of PF=0.** The 1/3-runs-PF=0 anomaly is not a missing
+       PF cap — it's over-selective parameter combinations found by certain
+       Optuna seeds. The fix is pruning PF=0 trials in the optimizer
+       objective (see ttc_optimizer.py), not adding runtime PF gating.
     """
 
     SWING_LOOKBACK = 5  # N-bar swing detection

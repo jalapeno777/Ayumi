@@ -2,11 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
-
-class TradeDirection(Enum):
-    LONG = "long"
-    SHORT = "short"
-    NEUTRAL = "neutral"
+from core.types import TradeDirection
 
 
 class OrderType(Enum):
@@ -23,13 +19,13 @@ class OrderStatus(Enum):
 
 
 class PositionStatus(Enum):
-    ENTRY_PENDING = "entry_pending"   # Order sent, not yet filled
-    OPEN = "open"                     # Position is open
-    TP_HIT = "tp_hit"                # Closed by take profit
-    SL_HIT = "sl_hit"                # Closed by stop loss
+    ENTRY_PENDING = "entry_pending"  # Order sent, not yet filled
+    OPEN = "open"  # Position is open
+    TP_HIT = "tp_hit"  # Closed by take profit
+    SL_HIT = "sl_hit"  # Closed by stop loss
     TIMEOUT_CLOSE = "timeout_close"  # Closed by time limit
-    MANUAL_CLOSE = "manual_close"    # Closed manually
-    CLOSED = "closed"                # Generic closed (backward compat)
+    MANUAL_CLOSE = "manual_close"  # Closed manually
+    CLOSED = "closed"  # Generic closed (backward compat)
 
     @property
     def is_closed(self) -> bool:
@@ -83,11 +79,15 @@ class Position:
     closed_pnl: float = 0.0
     comment: str = ""
     # ── Phase 1D: Position monitoring fields ──────────────────────────────
-    max_favorable_excursion: float = 0.0   # MFE — best unrealized PnL reached
-    max_adverse_excursion: float = 0.0     # MAE — worst unrealized PnL reached
-    time_in_trade_sec: float = 0.0          # Seconds since position opened
-    high_water_mark: float = 0.0            # Best price seen (for long: highest, for short: lowest)
-    low_water_mark: float = 0.0             # Worst price seen (for long: lowest, for short: highest)
+    max_favorable_excursion: float = 0.0  # MFE — best unrealized PnL reached
+    max_adverse_excursion: float = 0.0  # MAE — worst unrealized PnL reached
+    time_in_trade_sec: float = 0.0  # Seconds since position opened
+    high_water_mark: float = (
+        0.0  # Best price seen (for long: highest, for short: lowest)
+    )
+    low_water_mark: float = (
+        0.0  # Worst price seen (for long: lowest, for short: highest)
+    )
     # ── Multi-TP extension (Sprint Task 1.1, card a7b8e896) ───────────────
     # cTrader Open API only accepts a single TP per position. TP2/TP3 are
     # tracked here for monitoring / partial-close logic; tp_levels_fired
@@ -162,10 +162,16 @@ class SymbolInfo:
 
     Use ``from_live_symbol_info()`` to bridge from the live-trading
     ``market_data_feed.SymbolInfo`` populated by ``_fetch_symbol_details``.
+
+    .. deprecated:: 2026-07-30
+        ``pip_size`` should be sourced from :func:`utils.pip_value.pip_value_for_symbol`.
+        ``SYMBOL_METADATA`` remains as a compatibility layer for ``pip_value_per_lot``
+        and contract sizing, but pip_size is now delegated to the canonical source.
     """
-    pip_size: float              # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
-    pip_value_per_lot: float     # USD value of 1 pip per standard lot
-    lot_size: int = 100_000      # contract size per lot
+
+    pip_size: float  # e.g., 0.0001 for EURUSD, 0.1 for XAUUSD
+    pip_value_per_lot: float  # USD value of 1 pip per standard lot
+    lot_size: int = 100_000  # contract size per lot
     contract_size: float = 100_000.0  # same as lot_size but as float for some calcs
 
     @classmethod
@@ -196,7 +202,9 @@ SYMBOL_METADATA: dict[str, SymbolInfo] = {
     "EURUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "GBPUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDJPY": SymbolInfo(pip_size=0.01, pip_value_per_lot=6.5),
-    "XAUUSD": SymbolInfo(pip_size=0.01, pip_value_per_lot=1.0, lot_size=100, contract_size=100.0),
+    "XAUUSD": SymbolInfo(
+        pip_size=0.1, pip_value_per_lot=10.0, lot_size=100, contract_size=100.0
+    ),
     "AUDUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDCHF": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDCAD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
@@ -207,13 +215,48 @@ _DEFAULT_SYMBOL_INFO = SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0)
 
 
 def get_symbol_info(symbol: str) -> SymbolInfo:
-    """Look up symbol metadata with fallback and warning for unknown symbols."""
+    """Look up symbol metadata with canonical pip_size delegation.
+
+    pip_size is sourced from :func:`utils.pip_value.pip_value_for_symbol`
+    (the single source of truth). Other fields (pip_value_per_lot, lot_size,
+    contract_size) come from ``SYMBOL_METADATA``.
+
+    For unknown symbols, falls back to FX defaults with a warning.
+    """
     import logging
-    info = SYMBOL_METADATA.get(symbol.upper())
+    from utils.pip_value import pip_value_for_symbol
+
+    sym_upper = symbol.upper()
+    info = SYMBOL_METADATA.get(sym_upper)
+    canonical_pip = pip_value_for_symbol(symbol)
+
     if info is not None:
+        # Override pip_size with canonical source to prevent drift.
+        if info.pip_size != canonical_pip:
+            logging.getLogger(__name__).warning(
+                "SymbolInfo.pip_size=%.5f for '%s' differs from canonical "
+                "pip_value_for_symbol()=%.5f — using canonical",
+                info.pip_size,
+                sym_upper,
+                canonical_pip,
+            )
+            return SymbolInfo(
+                pip_size=canonical_pip,
+                pip_value_per_lot=info.pip_value_per_lot,
+                lot_size=info.lot_size,
+                contract_size=info.contract_size,
+            )
         return info
+
+    # Unknown symbol — use canonical pip_size with FX defaults.
     logging.getLogger(__name__).warning(
-        "Unknown symbol '%s' — falling back to FX defaults (pip_size=0.0001, pip_value=10.0/lot)",
+        "Unknown symbol '%s' — falling back to FX defaults (pip_size=%.5f, pip_value=10.0/lot)",
         symbol,
+        canonical_pip,
     )
-    return _DEFAULT_SYMBOL_INFO
+    return SymbolInfo(
+        pip_size=canonical_pip,
+        pip_value_per_lot=_DEFAULT_SYMBOL_INFO.pip_value_per_lot,
+        lot_size=_DEFAULT_SYMBOL_INFO.lot_size,
+        contract_size=_DEFAULT_SYMBOL_INFO.contract_size,
+    )

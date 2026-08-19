@@ -2,7 +2,7 @@
 
 import pytest
 
-from risk.sl_position_sizer import SLPositionSizer, PositionSizeResult, INSTRUMENTS
+from risk.sl_position_sizer import SLPositionSizer
 
 
 class TestSLPositionSizer:
@@ -11,9 +11,9 @@ class TestSLPositionSizer:
     def setup_method(self):
         self.sizer = SLPositionSizer(
             account_balance=10000.0,
-            risk_per_trade_pct=0.005,   # 0.5% = $50
+            risk_per_trade_pct=0.005,  # 0.5% = $50
             max_lot_size=1.0,
-            daily_risk_cap_pct=0.03,    # 3% = $300
+            daily_risk_cap_pct=0.03,  # 3% = $300
             max_positions_per_symbol=10,  # High default for daily-cap-only tests
             max_total_open_risk=10000.0,  # High default for daily-cap-only tests
         )
@@ -125,7 +125,9 @@ class TestSLPositionSizer:
                 positions.append(result)
 
         # Close one with a win
-        self.sizer.close_position(pnl=100.0, risk_amount=positions[0].risk_amount, win=True)
+        self.sizer.close_position(
+            pnl=100.0, risk_amount=positions[0].risk_amount, win=True
+        )
 
         # Should be able to open again
         result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
@@ -165,7 +167,10 @@ class TestSLPositionSizer:
 
         # Manually expire it
         from datetime import datetime, timezone, timedelta
-        self.sizer.breaker.halted_until = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        self.sizer.breaker.halted_until = datetime.now(timezone.utc) - timedelta(
+            seconds=1
+        )
         result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")
         assert not result.blocked  # Should be lifted
 
@@ -194,6 +199,7 @@ class TestSLPositionSizer:
     def test_profile_enum_accepted(self):
         """Profile enum should be accepted and converted."""
         from risk.profile_router import Profile
+
         result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile=Profile.SNIPER)
         assert not result.blocked
         assert result.lots > 0
@@ -247,7 +253,9 @@ class TestSLPositionSizer:
             results.append(r)
 
         # Add a realized loss too
-        self.sizer.close_position(pnl=-25.0, risk_amount=results[0].risk_amount, win=False)
+        self.sizer.close_position(
+            pnl=-25.0, risk_amount=results[0].risk_amount, win=False
+        )
 
         pre_open_risk = self.sizer.open_risk
         pre_open_count = len(self.sizer.open_positions)
@@ -269,7 +277,9 @@ class TestSLPositionSizer:
             self.sizer.account_balance * self.sizer.daily_risk_cap_pct
             - self.sizer.open_risk,
         )
-        assert self.sizer.daily_risk_remaining == pytest.approx(expected_remaining, abs=1e-6)
+        assert self.sizer.daily_risk_remaining == pytest.approx(
+            expected_remaining, abs=1e-6
+        )
 
     def test_reset_daily_logs_transition(self, caplog):
         """reset_daily() must log the pre→post transition so operators can
@@ -287,10 +297,11 @@ class TestSLPositionSizer:
 
         # Find the reset log line
         reset_lines = [
-            rec for rec in caplog.records
-            if "reset_daily" in rec.getMessage().lower()
+            rec for rec in caplog.records if "reset_daily" in rec.getMessage().lower()
         ]
-        assert reset_lines, f"Expected a reset_daily log entry, got: {[r.getMessage() for r in caplog.records]}"
+        assert reset_lines, (
+            f"Expected a reset_daily log entry, got: {[r.getMessage() for r in caplog.records]}"
+        )
         msg = reset_lines[-1].getMessage()
         # Log should mention pre-reset daily_used, post=0, carried positions
         assert "daily_used" in msg
@@ -312,7 +323,9 @@ class TestSLPositionSizer:
 
         # Second reset — no positions, no losses, should be a no-op
         self.sizer.reset_daily()
-        assert self.sizer.daily_risk_remaining == pytest.approx(first_remaining, abs=1e-6)
+        assert self.sizer.daily_risk_remaining == pytest.approx(
+            first_remaining, abs=1e-6
+        )
         assert self.sizer.open_risk == pytest.approx(first_open_risk, abs=1e-6)
         assert self.sizer._daily_risk_used == 0.0
 
@@ -382,7 +395,7 @@ class TestSLPositionSizer:
         """Should block when total open risk + new risk exceeds cap."""
         sizer = SLPositionSizer(
             account_balance=10000.0,
-            risk_per_trade_pct=0.005,   # $50 per trade
+            risk_per_trade_pct=0.005,  # $50 per trade
             max_total_open_risk=100.0,  # $100 cap = 2 positions max
             max_positions_per_symbol=10,  # Don't interfere with this test
         )
@@ -407,7 +420,7 @@ class TestSLPositionSizer:
         """
         sizer = SLPositionSizer(
             account_balance=9314.0,
-            risk_per_trade_pct=0.005,    # ~$46.57 per trade
+            risk_per_trade_pct=0.005,  # ~$46.57 per trade
             max_positions_per_symbol=1,
             max_total_open_risk=150.0,
         )
@@ -417,7 +430,9 @@ class TestSLPositionSizer:
 
         # Attempts 2-9 must all be blocked
         for i in range(2, 10):
-            r = sizer.calculate("GBPUSD", 1.2860 + i * 0.001, 1.2830 + i * 0.001, profile="sniper")
+            r = sizer.calculate(
+                "GBPUSD", 1.2860 + i * 0.001, 1.2830 + i * 0.001, profile="sniper"
+            )
             assert r.blocked, f"Position #{i} should be blocked"
             assert "already open for GBPUSD" in r.block_reason
 

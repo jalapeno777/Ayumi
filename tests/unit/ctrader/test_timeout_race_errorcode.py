@@ -10,11 +10,9 @@ Tests AC2, AC3, AC4 from card 24fe38bb:
 """
 
 import sys
-import time
 import threading
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 # Ensure src/forex-bot is importable
 _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
@@ -32,7 +30,11 @@ def _make_minimal_feed():
     feed._permission_policy = None
     feed._pending_orders = {}
     feed._pending_client_msg_ids = {}
-    feed._callbacks = {"on_order_rejected": [], "on_order_filled": [], "on_order_cancelled": []}
+    feed._callbacks = {
+        "on_order_rejected": [],
+        "on_order_filled": [],
+        "on_order_cancelled": [],
+    }
     feed._callback_executor = MagicMock()
     feed._state_mgr = MagicMock()
     feed._state_mgr.is_operational = True
@@ -63,11 +65,14 @@ class TestTimeoutRaceErrorCodePropagation:
 
         # Track callbacks
         callback_calls = []
-        feed._callbacks["on_order_rejected"] = [lambda o, m, r: callback_calls.append(r)]
-        feed._trigger_callback = lambda event, *args: callback_calls.append(args[-1] if args else "")
+        feed._callbacks["on_order_rejected"] = [
+            lambda o, m, r: callback_calls.append(r)
+        ]
+        feed._trigger_callback = lambda event, *args: callback_calls.append(
+            args[-1] if args else ""
+        )
 
         # Prepare the order that new_order would create
-        from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOATradeSide
 
         # We can't easily call new_order directly without a full reactor setup,
         # so test the _handle_pending_order_error path directly with an
@@ -105,10 +110,12 @@ class TestTimeoutRaceErrorCodePropagation:
 
         assert result is True, "Should have matched the pending order"
         # The order reason should now be the real broker errorCode
-        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), \
+        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
             f"Expected real errorCode in reason, got: {getattr(order, 'reason', '')}"
-        assert order.comment != "deferred_error", \
+        )
+        assert order.comment != "deferred_error", (
             "Comment should have been updated from generic deferred_error"
+        )
 
     def test_genuine_timeout_preserves_timeout_reason(self):
         """AC4(b): Genuine timeout (no broker error) → reason stays timeout_awaiting_event."""
@@ -174,16 +181,16 @@ class TestTimeoutRaceErrorCodePropagation:
         result = feed._handle_pending_order_error(mock_message, mock_envelope)
 
         assert result is True
-        assert callback_count[0] == 0, \
+        assert callback_count[0] == 0, (
             "Should NOT have triggered a second callback for late-arriving error"
-        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), \
+        )
+        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
             "Reason should still be updated to real errorCode"
+        )
 
     def test_on_error_does_not_overwrite_real_broker_error(self):
         """Verify on_error callback skips when broker already set a real error."""
         feed = _make_minimal_feed()
-
-        from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOATradeSide
 
         request_id = "test_req_onerror"
         order = Order(
@@ -212,7 +219,9 @@ class TestTimeoutRaceErrorCodePropagation:
 
         on_error_simulated()
 
-        assert not callback_fired[0], \
+        assert not callback_fired[0], (
             "on_error should NOT have overwritten the real broker errorCode"
-        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), \
+        )
+        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
             "Real broker errorCode should be preserved"
+        )

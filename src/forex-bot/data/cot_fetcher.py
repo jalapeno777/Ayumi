@@ -63,6 +63,7 @@ USER_AGENT = "Mozilla/5.0 (Ayumi COT Fetcher)"
 
 class COTFormat(str, Enum):
     """Supported CFTC COT report formats."""
+
     LEGACY = "legacy"
     DISAGGREGATED = "disaggregated"
 
@@ -70,6 +71,7 @@ class COTFormat(str, Enum):
 @dataclass
 class COTPositioning:
     """Parsed positioning snapshot for a single currency/market."""
+
     market_name: str
     report_date: str  # ISO date string (Tuesday close)
     format: COTFormat
@@ -113,6 +115,7 @@ class COTDivergenceSignal:
     trade direction, confidence gets a small boost. When divergent,
     confidence is penalised.
     """
+
     currency: str
     signal_date: str  # ISO date
     bias: str  # "long", "short", "neutral"
@@ -165,10 +168,7 @@ class COTFetcher:
             return None
 
         # Filter to this market, sorted by date descending
-        matching = [
-            r for r in records
-            if r.market_name.upper() == market_name.upper()
-        ]
+        matching = [r for r in records if r.market_name.upper() == market_name.upper()]
         if not matching:
             logger.debug("No COT data for %s (%s)", market_name, fmt.value)
             return None
@@ -204,10 +204,7 @@ class COTFetcher:
         """
         market_name = USD_QUOTED_PAIRS.get(pair.upper(), pair)
         records = self._load_reports(fmt)
-        matching = [
-            r for r in records
-            if r.market_name.upper() == market_name.upper()
-        ]
+        matching = [r for r in records if r.market_name.upper() == market_name.upper()]
         matching.sort(key=lambda r: r.report_date, reverse=True)
 
         if len(matching) < 2:
@@ -222,11 +219,15 @@ class COTFetcher:
 
         recent = matching[: min(lookback_weeks, len(matching))]
         current = recent[0]
-        prior_avg_net = sum(r.net_position for r in recent[1:]) / max(len(recent) - 1, 1)
+        prior_avg_net = sum(r.net_position for r in recent[1:]) / max(
+            len(recent) - 1, 1
+        )
 
         # For USD-quoted pairs where the CFTC reports the non-USD currency:
         # JPY long = USDJPY short, so invert the signal
-        invert = pair.upper().startswith("USD") and pair.upper().endswith(("JPY", "CHF", "CAD"))
+        invert = pair.upper().startswith("USD") and pair.upper().endswith(
+            ("JPY", "CHF", "CAD")
+        )
         raw_net = current.net_position * (-1 if invert else 1)
 
         # Prior average on same (possibly inverted) basis as raw_net
@@ -250,7 +251,11 @@ class COTFetcher:
         confidence_adjustment = max(-0.05, min(0.05, normalised_shift * 0.1))
 
         # Detect regime change (on same basis as bias)
-        prior_bias = "long" if prior_inverted > 0 else ("short" if prior_inverted < 0 else "neutral")
+        prior_bias = (
+            "long"
+            if prior_inverted > 0
+            else ("short" if prior_inverted < 0 else "neutral")
+        )
         regime_change = bias != prior_bias and bias != "neutral"
 
         rationale_parts = [f"Current net: {current.net_position:,.0f}"]
@@ -324,7 +329,7 @@ class COTFetcher:
         report_date: Optional[str] = None,
     ) -> list[COTPositioning]:
         """Load reports from cache or fetch from CFTC."""
-        year = (report_date[:4] if report_date else str(datetime.now(timezone.utc).year))
+        year = report_date[:4] if report_date else str(datetime.now(timezone.utc).year)
 
         # Try cache first
         if self._cache is not None:
@@ -456,7 +461,9 @@ class COTFetcher:
         )
 
     @staticmethod
-    def _parse_disaggregated_row(row: list[str], market_name: str) -> Optional[COTPositioning]:
+    def _parse_disaggregated_row(
+        row: list[str], market_name: str
+    ) -> Optional[COTPositioning]:
         """Parse a Disaggregated format row.
 
         Columns differ from Legacy:
@@ -487,11 +494,11 @@ class COTFetcher:
             market_name=market_name,
             report_date=report_date,
             format=COTFormat.DISAGGREGATED,
-            non_comm_long=_f(8),   # Managed Money Long
+            non_comm_long=_f(8),  # Managed Money Long
             non_comm_short=_f(9),  # Managed Money Short
             non_comm_spread=_f(10) if len(row) > 10 else 0.0,
-            comm_long=_f(4),       # Producer/Merchant Long
-            comm_short=_f(5),      # Producer/Merchant Short
+            comm_long=_f(4),  # Producer/Merchant Long
+            comm_short=_f(5),  # Producer/Merchant Short
         )
 
     @staticmethod

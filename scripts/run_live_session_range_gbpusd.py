@@ -9,7 +9,7 @@ Usage:
 """
 
 import argparse
-from common.resource_limits import add_resource_args, run_limited
+from common.resource_limits import add_resource_args
 import logging
 import shutil
 import sys
@@ -66,16 +66,26 @@ def _reset_synthetic_data(log_dir: str):
 
     logger.info("Reset complete: archived %d synthetic trade log(s)", removed)
     if removed == 0:
-        logger.info("No synthetic data detected — logs may contain real data, not clearing")
+        logger.info(
+            "No synthetic data detected — logs may contain real data, not clearing"
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Forward test: Session Range MR GBPUSD")
+    parser = argparse.ArgumentParser(
+        description="Forward test: Session Range MR GBPUSD"
+    )
     add_resource_args(parser)
     parser.add_argument("--live", action="store_true", help="Enable live execution")
-    parser.add_argument("--bar-minutes", type=int, default=15, help="Bar timeframe in minutes")
+    parser.add_argument(
+        "--bar-minutes", type=int, default=15, help="Bar timeframe in minutes"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
-    parser.add_argument("--reset", action="store_true", help="Clear synthetic trade logs and start fresh")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear synthetic trade logs and start fresh",
+    )
     args = parser.parse_args()
 
     _build_logging(args.verbose)
@@ -101,11 +111,11 @@ def main():
 
     logger.info(
         "Starting forward test — %s, %dm bars, %s mode",
-        SYMBOL, args.bar_minutes, "LIVE" if args.live else "PAPER",
+        SYMBOL,
+        args.bar_minutes,
+        "LIVE" if args.live else "PAPER",
     )
-    logger.info(
-        "Spread/slippage simulation enabled on paper fills (via SlippageModel)"
-    )
+    logger.info("Spread/slippage simulation enabled on paper fills (via SlippageModel)")
 
     if not engine.start():
         logger.error("Failed to start forward test engine — exiting")

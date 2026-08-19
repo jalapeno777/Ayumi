@@ -10,7 +10,7 @@ Usage:
 """
 
 import argparse
-from common.resource_limits import add_resource_args, run_limited
+from common.resource_limits import add_resource_args
 import json
 import sys
 import logging
@@ -30,10 +30,9 @@ from backtest.parameter_sweep.optuna_optimizer import (
     categorical,
     OptimizationResult,
 )
-from backtest.engine import Bar, BacktestConfig, get_spread_for_pair
+from backtest.engine import Bar
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from backtest import CsvDataLoader
-from quant.walk_forward import comparison_report
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -241,7 +240,6 @@ def load_bars(pair: str, timeframe: str) -> list[Bar]:
 
 
 def run_baseline(bars: list[Bar], strategy_name: str, pair: str) -> Any:
-    from quant.walk_forward import WalkForwardResults
 
     factory = STRATEGY_FACTORIES[strategy_name]
     strategy = factory({})
@@ -352,7 +350,7 @@ def print_results(
     print(f"  {strategy} — {pair} {timeframe}")
     print(f"{'=' * 70}")
 
-    print(f"\n  BASELINE:")
+    print("\n  BASELINE:")
     if baseline.aggregated:
         agg = baseline.aggregated
         print(f"    Win Rate:     {agg.mean_win_rate:.1%}")

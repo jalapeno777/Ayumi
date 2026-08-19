@@ -18,8 +18,7 @@ Covers all FTMO 1-Step Standard rules:
 
 from __future__ import annotations
 
-from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
@@ -27,7 +26,6 @@ from risk.engine import (
     FTMO_DAILY_DD_LIMIT_PCT,
     FTMO_TOTAL_DD_LIMIT_PCT,
     BlackoutWindow,
-    CheckResult,
     GuardrailConfig,
     GuardrailEngine,
     OrderRequest,
@@ -142,29 +140,45 @@ class TestOrderRequestValidation:
     def test_rejects_bad_side(self):
         with pytest.raises(ValueError, match="side"):
             OrderRequest(
-                symbol="EURUSD", side="long", size=0.1,
-                entry_price=1.10, stop_loss_price=1.09, risk_amount_usd=50.0,
+                symbol="EURUSD",
+                side="long",
+                size=0.1,
+                entry_price=1.10,
+                stop_loss_price=1.09,
+                risk_amount_usd=50.0,
             )
 
     def test_rejects_negative_size(self):
         with pytest.raises(ValueError, match="size"):
             OrderRequest(
-                symbol="EURUSD", side="buy", size=-0.1,
-                entry_price=1.10, stop_loss_price=1.09, risk_amount_usd=50.0,
+                symbol="EURUSD",
+                side="buy",
+                size=-0.1,
+                entry_price=1.10,
+                stop_loss_price=1.09,
+                risk_amount_usd=50.0,
             )
 
     def test_rejects_negative_risk(self):
         with pytest.raises(ValueError, match="risk_amount_usd"):
             OrderRequest(
-                symbol="EURUSD", side="buy", size=0.1,
-                entry_price=1.10, stop_loss_price=1.09, risk_amount_usd=-1.0,
+                symbol="EURUSD",
+                side="buy",
+                size=0.1,
+                entry_price=1.10,
+                stop_loss_price=1.09,
+                risk_amount_usd=-1.0,
             )
 
     def test_rejects_negative_slippage(self):
         with pytest.raises(ValueError, match="estimated_slippage_pips"):
             OrderRequest(
-                symbol="EURUSD", side="buy", size=0.1,
-                entry_price=1.10, stop_loss_price=1.09, risk_amount_usd=50.0,
+                symbol="EURUSD",
+                side="buy",
+                size=0.1,
+                entry_price=1.10,
+                stop_loss_price=1.09,
+                risk_amount_usd=50.0,
                 estimated_slippage_pips=-1.0,
             )
 
@@ -230,8 +244,11 @@ class TestDailyDDRejection:
         """
         engine._daily_pnl = -250.0  # 2.5% daily loss
         order = OrderRequest(
-            symbol="GBPUSD", side="buy", size=0.1,
-            entry_price=1.30, stop_loss_price=1.29,
+            symbol="GBPUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.30,
+            stop_loss_price=1.29,
             risk_amount_usd=50.0,  # 0.5% — at per-trade cap
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -246,8 +263,11 @@ class TestDailyDDRejection:
         """
         engine._daily_pnl = -260.0  # 2.6%
         order = OrderRequest(
-            symbol="GBPUSD", side="buy", size=0.1,
-            entry_price=1.30, stop_loss_price=1.29,
+            symbol="GBPUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.30,
+            stop_loss_price=1.29,
             risk_amount_usd=50.0,  # 0.5% — at per-trade cap
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -259,8 +279,11 @@ class TestDailyDDRejection:
         """At 2.6% daily DD, no new entries (configurable stop threshold)."""
         engine._daily_pnl = -260.0  # 2.6%
         order = OrderRequest(
-            symbol="GBPUSD", side="buy", size=0.05,
-            entry_price=1.30, stop_loss_price=1.29,
+            symbol="GBPUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.30,
+            stop_loss_price=1.29,
             risk_amount_usd=10.0,  # Tiny risk, but DD already past stop
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -278,8 +301,11 @@ class TestTotalDDRejection:
         engine._peak_balance = 11_000.0
         engine._current_balance = 9_800.0
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -292,8 +318,11 @@ class TestTotalDDRejection:
         engine._peak_balance = 11_000.0
         engine._current_balance = 10_065.0  # 8.5% DD from peak
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -306,8 +335,11 @@ class TestTotalDDRejection:
         engine._peak_balance = 11_000.0
         engine._current_balance = 10_131.0  # 7.9% DD
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -366,8 +398,12 @@ class TestMaxConcurrentPositions:
         for _ in range(5):
             engine.register_open_position()
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09, risk_amount_usd=10.0,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
+            risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
         result = engine.check_order(order)
@@ -381,8 +417,11 @@ class TestMaxConcurrentPositions:
 class TestPerTradeRisk:
     def test_allows_within_per_trade_cap(self, engine):
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.1,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=50.0,  # Exactly 0.5% of $10k
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -391,8 +430,11 @@ class TestPerTradeRisk:
 
     def test_rejects_above_per_trade_cap(self, engine):
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.5,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.5,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=200.0,  # 2% of $10k, way over 0.5% cap
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -405,8 +447,11 @@ class TestPerTradeRisk:
         engine._current_balance = 9_500.0  # 5% loss
         # 0.5% of $9,500 = $47.50 cap
         order_just_over = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.1,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=48.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -428,8 +473,11 @@ class TestDrawdownScaling:
     def test_halves_size_at_1_5pct(self, engine):
         engine._daily_pnl = -160.0  # 1.6%
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.10,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.10,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=20.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -441,8 +489,11 @@ class TestDrawdownScaling:
     def test_blocks_at_2_5pct(self, engine):
         engine._daily_pnl = -260.0  # 2.6%
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -454,8 +505,11 @@ class TestDrawdownScaling:
         """At 1.6% DD with size that, when halved, still respects 0.5% cap."""
         engine._daily_pnl = -160.0  # 1.6%
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.10,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.10,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=20.0,  # halved = $10, well under $50 cap
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -474,8 +528,11 @@ class TestDrawdownScaling:
         # Place risk ABOVE cap so per-trade check rejects (before scaling)
         engine._daily_pnl = -160.0  # 1.6%
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.5,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.5,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=200.0,  # way over $50 cap
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -530,8 +587,11 @@ class TestKillSwitch:
         """Even with everything else looking fine, kill switch wins."""
         engine.kill_switch(reason="emergency")
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
         )
@@ -613,8 +673,11 @@ class TestSessionFilter:
             clock=fixed_clock,
         )
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 8, 7, 13, 30, tzinfo=timezone.utc),
         )
@@ -637,8 +700,11 @@ class TestSessionFilter:
             clock=fixed_clock,
         )
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 8, 7, 12, 30, tzinfo=timezone.utc),
         )
@@ -659,8 +725,11 @@ class TestSessionFilter:
             clock=fixed_clock,
         )
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
         )
         assert engine.is_in_blackout() is True
@@ -703,8 +772,11 @@ class TestSessionFilter:
         )
         # Order with naive datetime inside the window
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             timestamp=datetime(2026, 8, 7, 13, 30),  # NAIVE
         )
@@ -742,8 +814,11 @@ class TestSlippageThreshold:
 
     def test_allows_at_threshold(self, engine):
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.1,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             estimated_slippage_pips=3.0,  # Exactly at threshold
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
@@ -753,8 +828,11 @@ class TestSlippageThreshold:
 
     def test_rejects_above_threshold(self, engine):
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.1,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             estimated_slippage_pips=3.5,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
@@ -765,8 +843,11 @@ class TestSlippageThreshold:
 
     def test_rejects_way_above_threshold(self, engine):
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.1,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.1,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             estimated_slippage_pips=10.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
@@ -783,8 +864,11 @@ class TestSlippageThreshold:
             clock=clock_monday_noon,
         )
         order = OrderRequest(
-            symbol="EURUSD", side="buy", size=0.05,
-            entry_price=1.10, stop_loss_price=1.09,
+            symbol="EURUSD",
+            side="buy",
+            size=0.05,
+            entry_price=1.10,
+            stop_loss_price=1.09,
             risk_amount_usd=10.0,
             estimated_slippage_pips=2.0,
             timestamp=datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc),
@@ -812,7 +896,10 @@ class TestValidOrderPassesAllChecks:
         assert sample_order.risk_amount_usd <= (
             engine.current_balance * engine._config.per_trade_risk_pct
         )
-        assert sample_order.estimated_slippage_pips <= engine._config.slippage_threshold_pips
+        assert (
+            sample_order.estimated_slippage_pips
+            <= engine._config.slippage_threshold_pips
+        )
 
     def test_full_round_trip_open_close(self, engine, sample_order):
         """Open → close updates state correctly."""

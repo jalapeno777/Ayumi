@@ -20,36 +20,47 @@ from scipy import stats
 logger = logging.getLogger(__name__)
 
 
-def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) -> float:
+def _deflated_sharpe(
+    sr_annual: float, n: int, skew: float, kurt_excess: float
+) -> float:
     """Compute the Deflated Sharpe Ratio (Bailey & López de Prado 2014)."""
     if n < 3 or sr_annual == 0:
         return 0.0
-    sr_var = (1 - skew * sr_annual * math.sqrt(1 / 252)
-              + ((kurt_excess) / 4) * (sr_annual ** 2) / 252) / (n - 1)
+    sr_var = (
+        1
+        - skew * sr_annual * math.sqrt(1 / 252)
+        + ((kurt_excess) / 4) * (sr_annual**2) / 252
+    ) / (n - 1)
     if sr_var <= 0:
         return 0.0
     z = sr_annual * math.sqrt(n) / math.sqrt(252)
     return round(float(stats.norm.cdf(z)), 6)
 
 
-def _composite_score(sharpe: float, sortino: float, calmar: float,
-                     win_rate: float, go_rate: float) -> float:
+def _composite_score(
+    sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float
+) -> float:
     s_sharpe = min(max(sharpe / 3.0, 0), 1)
     s_sortino = min(max(sortino / 4.0, 0), 1)
     s_calmar = min(max(calmar / 5.0, 0), 1)
     s_wr = min(max((win_rate - 40) / 40, 0), 1)
     s_go = go_rate
-    weights = {'sharpe': 0.25, 'sortino': 0.25, 'calmar': 0.15, 'wr': 0.15, 'go': 0.20}
-    return round(float(
-        weights['sharpe'] * s_sharpe +
-        weights['sortino'] * s_sortino +
-        weights['calmar'] * s_calmar +
-        weights['wr'] * s_wr +
-        weights['go'] * s_go
-    ), 6)
+    weights = {"sharpe": 0.25, "sortino": 0.25, "calmar": 0.15, "wr": 0.15, "go": 0.20}
+    return round(
+        float(
+            weights["sharpe"] * s_sharpe
+            + weights["sortino"] * s_sortino
+            + weights["calmar"] * s_calmar
+            + weights["wr"] * s_wr
+            + weights["go"] * s_go
+        ),
+        6,
+    )
 
 
-def backfill(db_path: str = "data/research/research.duckdb", dry_run: bool = False) -> dict:
+def backfill(
+    db_path: str = "data/research/research.duckdb", dry_run: bool = False
+) -> dict:
     """Backfill missing risk metrics for all completed runs."""
     import duckdb
 
@@ -79,7 +90,9 @@ def backfill(db_path: str = "data/research/research.duckdb", dry_run: bool = Fal
             skipped += 1
             continue
 
-        wrs = [r[0] for r in win_rows if r[5] is not None and r[5] != 0]  # total_pnl > 0
+        wrs = [
+            r[0] for r in win_rows if r[5] is not None and r[5] != 0
+        ]  # total_pnl > 0
         pnls = [r[5] or 0.0 for r in win_rows]
         dds = [r[3] or 0.0 for r in win_rows]
         total_windows = len(win_rows)
@@ -115,7 +128,9 @@ def backfill(db_path: str = "data/research/research.duckdb", dry_run: bool = Fal
             icir = statistics.mean(ic_proxy) / statistics.stdev(ic_proxy)
 
         score = _composite_score(
-            observed_sharpe, sortino, calmar or 0.0,
+            observed_sharpe,
+            sortino,
+            calmar or 0.0,
             statistics.mean(wrs) if wrs else 0.0,
             windows_passed / total_windows if total_windows > 0 else 0.0,
         )
@@ -124,15 +139,30 @@ def backfill(db_path: str = "data/research/research.duckdb", dry_run: bool = Fal
         if n >= 4:
             mid = n // 2
             fh, sh_ = pnl_arr[:mid], pnl_arr[mid:]
-            s1 = float(np.mean(fh) / np.std(fh, ddof=1)) if np.std(fh, ddof=1) > 0 and len(fh) > 1 else 0.0
-            s2 = float(np.mean(sh_) / np.std(sh_, ddof=1)) if np.std(sh_, ddof=1) > 0 and len(sh_) > 1 else 0.0
+            s1 = (
+                float(np.mean(fh) / np.std(fh, ddof=1))
+                if np.std(fh, ddof=1) > 0 and len(fh) > 1
+                else 0.0
+            )
+            s2 = (
+                float(np.mean(sh_) / np.std(sh_, ddof=1))
+                if np.std(sh_, ddof=1) > 0 and len(sh_) > 1
+                else 0.0
+            )
             oos_decay = s1 - s2 if s1 > 0 else 0.0
         else:
             oos_decay = None
 
         if dry_run:
-            logger.info("[DRY] %s: dsr=%.4f sortino=%.4f calmar=%s icir=%.4f score=%.4f",
-                        run_id, dsr, sortino, f"{calmar:.4f}" if calmar else "None", icir, score)
+            logger.info(
+                "[DRY] %s: dsr=%.4f sortino=%.4f calmar=%s icir=%.4f score=%.4f",
+                run_id,
+                dsr,
+                sortino,
+                f"{calmar:.4f}" if calmar else "None",
+                icir,
+                score,
+            )
             updated += 1
             continue
 

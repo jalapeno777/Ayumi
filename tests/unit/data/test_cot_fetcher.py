@@ -103,7 +103,9 @@ class TestLegacyParsing:
     def test_total_open_interest_calculated(self):
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
         jpy = [r for r in records if r.market_name == "JAPANESE YEN"][0]
-        expected = jpy.non_comm_long + jpy.non_comm_short + jpy.comm_long + jpy.comm_short
+        expected = (
+            jpy.non_comm_long + jpy.non_comm_short + jpy.comm_long + jpy.comm_short
+        )
         assert jpy.total_open_interest == expected
 
     def test_net_ratio(self):
@@ -157,7 +159,9 @@ class TestPositioning:
 
     def test_get_usdjpy_positioning(self, fetcher_no_cache):
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             pos = fetcher_no_cache.get_positioning("USDJPY", COTFormat.LEGACY)
         assert pos is not None
         assert pos.market_name == "JAPANESE YEN"
@@ -165,7 +169,9 @@ class TestPositioning:
 
     def test_get_eurusd_positioning(self, fetcher_no_cache):
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             pos = fetcher_no_cache.get_positioning("EURUSD", COTFormat.LEGACY)
         assert pos is not None
         assert pos.market_name == "EURO FX"
@@ -177,19 +183,31 @@ class TestPositioning:
 
     def test_specific_report_date(self, fetcher_no_cache):
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
-            pos = fetcher_no_cache.get_positioning("USDJPY", COTFormat.LEGACY, report_date="2026-01-06")
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
+            pos = fetcher_no_cache.get_positioning(
+                "USDJPY", COTFormat.LEGACY, report_date="2026-01-06"
+            )
         assert pos is not None
         assert pos.report_date == "2026-01-06"
 
     def test_missing_report_date_returns_none(self, fetcher_no_cache):
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
-            pos = fetcher_no_cache.get_positioning("USDJPY", COTFormat.LEGACY, report_date="2025-01-01")
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
+            pos = fetcher_no_cache.get_positioning(
+                "USDJPY", COTFormat.LEGACY, report_date="2025-01-01"
+            )
         assert pos is None
 
     def test_download_failure_returns_none(self, fetcher_no_cache):
-        with patch.object(fetcher_no_cache, "_download_and_parse", side_effect=Exception("Network error")):
+        with patch.object(
+            fetcher_no_cache,
+            "_download_and_parse",
+            side_effect=Exception("Network error"),
+        ):
             pos = fetcher_no_cache.get_positioning("USDJPY", COTFormat.LEGACY)
         assert pos is None
 
@@ -212,8 +230,12 @@ class TestDivergenceSignal:
         With the regime change sample (net-long → net-short flip for JPY),
         the inverted signal should show a USDJPY bias shift.
         """
-        records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        records = COTFetcher._parse_csv(
+            SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY
+        )
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         assert signal.currency == "USDJPY"
@@ -225,8 +247,12 @@ class TestDivergenceSignal:
     def test_regime_change_amplifies_signal(self, fetcher_no_cache):
         """A positioning flip (regime change) should produce a detectable
         confidence adjustment — not zero."""
-        records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        records = COTFetcher._parse_csv(
+            SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY
+        )
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         # Regime change should produce non-zero adjustment
@@ -240,7 +266,9 @@ JAPANESE YEN,095741,01/13/2026,2026-01-13t00:00:00,50000,30000,5000,100000,80000
 JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,50000,30000,5000,100000,80000,,
 """
         records = COTFetcher._parse_csv(stable_csv, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         # Stable positioning → small or zero adjustment
@@ -251,7 +279,9 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,50000,30000,5000,100000,80000
         single_week = """JAPANESE YEN,095741,01/06/2026,2026-01-06t00:00:00,50000,30000,5000,100000,80000,,
 """
         records = COTFetcher._parse_csv(single_week, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         assert signal.bias == "neutral"
@@ -265,7 +295,9 @@ JAPANESE YEN,095741,01/13/2026,2026-01-13t00:00:00,1000000,1000,0,0,0,,
 JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,1000,1000000,0,0,0,,
 """
         records = COTFetcher._parse_csv(extreme_csv, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         assert signal.confidence_adjustment <= 0.05
@@ -274,7 +306,9 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,1000,1000000,0,0,0,,
     def test_signal_has_valid_date(self, fetcher_no_cache):
         """Signal date matches the most recent COT report date."""
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
         assert signal.signal_date == "2026-01-20"
 
@@ -290,11 +324,17 @@ class TestConfidenceMultiplier:
     multiplier to the raw strategy score.
     """
 
-    def test_usdjpy_divergence_reduces_confidence_on_misaligned_trade(self, fetcher_no_cache):
+    def test_usdjpy_divergence_reduces_confidence_on_misaligned_trade(
+        self, fetcher_no_cache
+    ):
         """If COT signal is bearish USDJPY but strategy says long,
         confidence should be reduced."""
-        records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        records = COTFetcher._parse_csv(
+            SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY
+        )
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         # Strategy says "long USDJPY" with 0.7 confidence
@@ -320,7 +360,9 @@ JAPANESE YEN,095741,01/13/2026,2026-01-13t00:00:00,20000,80000,0,50000,50000,,
 JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,
 """
         records = COTFetcher._parse_csv(bullish_csv, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
 
         # JPY net-short → inverted = USDJPY long bias
@@ -340,7 +382,9 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,
             "JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,\n",
             COTFormat.LEGACY,
         )
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             adjusted = fetcher_no_cache.apply_to_confidence(0.65, "USDJPY", "long")
         # Aligned (long) and COT says long → confidence stays or grows
         assert 0.65 <= adjusted <= 1.0
@@ -349,8 +393,12 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,
         """apply_to_confidence: opposed trade gets penalised."""
         # Regime change: JPY flips from net-short to net-long
         # (i.e. USDJPY flips from bullish to bearish in inversion)
-        records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        records = COTFetcher._parse_csv(
+            SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY
+        )
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             signal = fetcher_no_cache.get_divergence_signal("USDJPY")
             # Strategy says long USDJPY
             adjusted = fetcher_no_cache.apply_to_confidence(0.65, "USDJPY", "long")
@@ -363,8 +411,12 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,
 
     def test_apply_to_confidence_clamps_to_unit_interval(self, fetcher_no_cache):
         """apply_to_confidence: output clamped to [0.0, 1.0]."""
-        records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        records = COTFetcher._parse_csv(
+            SAMPLE_LEGACY_CSV_REGIME_CHANGE, COTFormat.LEGACY
+        )
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             # High confidence + boost → clamps to 1.0
             high = fetcher_no_cache.apply_to_confidence(0.99, "USDJPY", "long")
             assert 0.0 <= high <= 1.0
@@ -376,9 +428,13 @@ JAPANESE YEN,095741,01/20/2026,2026-01-20t00:00:00,15000,85000,0,50000,50000,,
         """apply_to_confidence: neutral COT returns raw confidence unchanged."""
         single_week = "JAPANESE YEN,095741,01/06/2026,2026-01-06t00:00:00,50000,30000,5000,100000,80000,,\n"
         records = COTFetcher._parse_csv(single_week, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             adjusted_long = fetcher_no_cache.apply_to_confidence(0.7, "USDJPY", "long")
-            adjusted_short = fetcher_no_cache.apply_to_confidence(0.7, "USDJPY", "short")
+            adjusted_short = fetcher_no_cache.apply_to_confidence(
+                0.7, "USDJPY", "short"
+            )
         # Insufficient history → neutral → no adjustment
         assert adjusted_long == pytest.approx(0.7)
         assert adjusted_short == pytest.approx(0.7)
@@ -391,7 +447,9 @@ EURO FX,099741,01/13/2026,2026-01-13t00:00:00,82000,18000,0,50000,50000,,
 EURO FX,099741,01/20/2026,2026-01-20t00:00:00,85000,15000,0,50000,50000,,
 """
         records = COTFetcher._parse_csv(bullish_eur, COTFormat.LEGACY)
-        with patch.object(fetcher_no_cache, "_download_and_parse", return_value=records):
+        with patch.object(
+            fetcher_no_cache, "_download_and_parse", return_value=records
+        ):
             # Strategy long EURUSD, COT says long (EUR net-long) → aligned
             adjusted = fetcher_no_cache.apply_to_confidence(0.6, "EURUSD", "long")
         # Aligned (both long) → no reduction
@@ -513,12 +571,16 @@ class TestCOTCache:
         records = COTFetcher._parse_csv(SAMPLE_LEGACY_CSV, COTFormat.LEGACY)
 
         # First call downloads
-        with patch.object(fetcher_with_cache, "_download_and_parse", return_value=records) as mock_dl:
+        with patch.object(
+            fetcher_with_cache, "_download_and_parse", return_value=records
+        ) as mock_dl:
             fetcher_with_cache.get_positioning("USDJPY", COTFormat.LEGACY)
             assert mock_dl.call_count == 1
 
         # Second call uses cache
-        with patch.object(fetcher_with_cache, "_download_and_parse", return_value=records) as mock_dl:
+        with patch.object(
+            fetcher_with_cache, "_download_and_parse", return_value=records
+        ) as mock_dl:
             fetcher_with_cache.get_positioning("USDJPY", COTFormat.LEGACY)
             assert mock_dl.call_count == 0  # served from cache
 

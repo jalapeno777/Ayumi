@@ -1,9 +1,7 @@
 """Tests for equity curve tracking (A8)."""
 
 import json
-import os
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -12,7 +10,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from reporting.equity_tracker import EquityTracker, EquitySnapshot
+from reporting.equity_tracker import EquityTracker
 
 
 @pytest.fixture
@@ -22,6 +20,7 @@ def tracker(tmp_path):
 
 
 # ── Test 1: record() appends to JSONL file ────────────────────────────────
+
 
 def test_record_appends_to_jsonl(tracker, tmp_path):
     """Each call to record() appends one JSON line to the snapshots file."""
@@ -45,6 +44,7 @@ def test_record_appends_to_jsonl(tracker, tmp_path):
 
 
 # ── Test 2: daily_summary() computes correct P&L ──────────────────────────
+
 
 def test_daily_summary_computes_pnl(tracker):
     """daily_summary() should compute open/close/P&L from same-day snapshots."""
@@ -74,6 +74,7 @@ def test_daily_summary_ftmo_warning_on_large_loss(tracker):
 
 # ── Test 3: weekly_summary() aggregates days correctly ────────────────────
 
+
 def test_weekly_summary_aggregates(tracker):
     """weekly_summary() should aggregate across the full week."""
     # Simulate a week of data using direct JSONL injection
@@ -86,14 +87,18 @@ def test_weekly_summary_aggregates(tracker):
         d = f"2025-01-{6 + day_offset:02d}"
         for hour in range(9, 17, 2):
             trades += 1
-            lines.append(json.dumps({
-                "timestamp": f"{d}T{hour:02d}:00:00+00:00",
-                "balance": round(bal, 2),
-                "daily_pnl": 50.0,
-                "peak_balance": round(bal, 2),
-                "drawdown_pct": 0.0,
-                "trade_count": trades,
-            }))
+            lines.append(
+                json.dumps(
+                    {
+                        "timestamp": f"{d}T{hour:02d}:00:00+00:00",
+                        "balance": round(bal, 2),
+                        "daily_pnl": 50.0,
+                        "peak_balance": round(bal, 2),
+                        "drawdown_pct": 0.0,
+                        "trade_count": trades,
+                    }
+                )
+            )
             bal += 50.0
     snapshots_file.write_text("\n".join(lines) + "\n")
 
@@ -111,12 +116,13 @@ def test_weekly_summary_aggregates(tracker):
 
 # ── Test 4: drawdown_pct calculated correctly from peak ───────────────────
 
+
 def test_drawdown_calculated_from_peak(tracker):
     """drawdown_pct should reflect drop from peak, not from day open."""
     # Rise to peak then drawdown
     tracker.record(10_000.0, 0)
-    tracker.record(10_500.0, 1)   # new peak
-    tracker.record(10_200.0, 2)   # drawdown from peak
+    tracker.record(10_500.0, 1)  # new peak
+    tracker.record(10_200.0, 2)  # drawdown from peak
 
     snapshots_file = tracker._snapshots_path
     lines = snapshots_file.read_text().strip().split("\n")
@@ -140,6 +146,7 @@ def test_drawdown_zero_when_at_peak(tracker):
 
 
 # ── Test 5: write_daily_report produces markdown ──────────────────────────
+
 
 def test_write_daily_report(tracker, tmp_path):
     """write_daily_report should produce a markdown file."""

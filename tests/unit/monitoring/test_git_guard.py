@@ -24,7 +24,9 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 def _init_repo(repo: Path) -> None:
     repo.mkdir()
-    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "init", str(repo)], check=True, capture_output=True, text=True
+    )
     _git(repo, "config", "user.name", "Test Author")
     _git(repo, "config", "user.email", "test@example.com")
 

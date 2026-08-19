@@ -49,24 +49,42 @@ class ProfileRouter:
         Returns Profile or None if rejected (below threshold or at capacity).
         """
         if confidence < 0.0 or confidence > 1.0:
-            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {confidence}")
+            raise ValueError(
+                f"Confidence must be between 0.0 and 1.0, got {confidence}"
+            )
 
         if confidence < self.swarm_threshold:
-            logger.debug("Signal rejected: confidence %.2f below swarm threshold %.2f", confidence, self.swarm_threshold)
+            logger.debug(
+                "Signal rejected: confidence %.2f below swarm threshold %.2f",
+                confidence,
+                self.swarm_threshold,
+            )
             return None
 
         if confidence >= self.sniper_threshold:
             profile = Profile.SNIPER
             if self._sniper_open >= self.max_sniper:
-                logger.info("Sniper at capacity (%d/%d), falling back to swarm", self._sniper_open, self.max_sniper)
+                logger.info(
+                    "Sniper at capacity (%d/%d), falling back to swarm",
+                    self._sniper_open,
+                    self.max_sniper,
+                )
                 profile = Profile.SWARM
                 if self._swarm_open >= self.max_swarm:
-                    logger.info("Swarm also at capacity (%d/%d), signal rejected", self._swarm_open, self.max_swarm)
+                    logger.info(
+                        "Swarm also at capacity (%d/%d), signal rejected",
+                        self._swarm_open,
+                        self.max_swarm,
+                    )
                     return None
         else:
             profile = Profile.SWARM
             if self._swarm_open >= self.max_swarm:
-                logger.info("Swarm at capacity (%d/%d), signal rejected", self._swarm_open, self.max_swarm)
+                logger.info(
+                    "Swarm at capacity (%d/%d), signal rejected",
+                    self._swarm_open,
+                    self.max_swarm,
+                )
                 return None
 
         return profile

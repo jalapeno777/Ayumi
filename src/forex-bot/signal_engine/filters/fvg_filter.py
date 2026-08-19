@@ -45,8 +45,9 @@ class FVGFilter:
     def name(self) -> str:
         return "fvg"
 
-    def detect_fvg(self, highs: list[float], lows: list[float],
-                   closes: list[float]) -> FVGResult:
+    def detect_fvg(
+        self, highs: list[float], lows: list[float], closes: list[float]
+    ) -> FVGResult:
         """Scan the last N bars for a Fair Value Gap.
 
         A bullish FVG: low[i] > high[i-2] (gap up).
@@ -86,8 +87,13 @@ class FVGFilter:
 
         return FVGResult(found=False, direction="none")
 
-    def evaluate(self, signal_direction: str, highs: list[float],
-                 lows: list[float], closes: list[float]) -> bool:
+    def evaluate(
+        self,
+        signal_direction: str,
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+    ) -> bool:
         """Return True if the signal direction aligns with a recent FVG.
 
         If no FVG is found, the filter passes (no opinion).
@@ -104,6 +110,9 @@ class FVGFilter:
 
         logger.debug(
             "FVGFilter REJECT: dir=%s but fvg=%s (gap_high=%.5f gap_low=%.5f)",
-            direction, result.direction, result.gap_high, result.gap_low,
+            direction,
+            result.direction,
+            result.gap_high,
+            result.gap_low,
         )
         return False

@@ -4,10 +4,10 @@ Classifies error codes from cTrader OpenAPI into actionable buckets.
 Each classification defines whether refresh, reconnect, order-sending,
 and kill/freeze activation are allowed.
 """
+
 from __future__ import annotations
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional
 
 
 class AuthFaultType(Enum):
@@ -23,6 +23,7 @@ class AuthFaultType(Enum):
 @dataclass
 class AuthFaultPolicy:
     """Defines what actions are allowed for a given fault type."""
+
     can_refresh: bool = False
     can_reconnect: bool = False
     can_send_orders: bool = False
@@ -52,27 +53,41 @@ POLICIES: dict[AuthFaultType, AuthFaultPolicy] = {
         can_refresh=True, can_reconnect=True, can_send_orders=False
     ),
     AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT: AuthFaultPolicy(
-        can_refresh=False, can_reconnect=False, can_send_orders=False,
-        activate_kill_switch=True, requires_escalation=True
+        can_refresh=False,
+        can_reconnect=False,
+        can_send_orders=False,
+        activate_kill_switch=True,
+        requires_escalation=True,
     ),
     AuthFaultType.PERMISSION_OR_ACCESS_DENIED: AuthFaultPolicy(
-        can_refresh=False, can_reconnect=False, can_send_orders=False,
-        activate_kill_switch=True, requires_escalation=True
+        can_refresh=False,
+        can_reconnect=False,
+        can_send_orders=False,
+        activate_kill_switch=True,
+        requires_escalation=True,
     ),
     AuthFaultType.MALFORMED_REQUEST: AuthFaultPolicy(
-        can_refresh=False, can_reconnect=False, can_send_orders=False,
-        requires_escalation=True
+        can_refresh=False,
+        can_reconnect=False,
+        can_send_orders=False,
+        requires_escalation=True,
     ),
     AuthFaultType.CONFIGURATION_FAULT: AuthFaultPolicy(
-        can_refresh=False, can_reconnect=False, can_send_orders=False,
-        activate_kill_switch=True, requires_escalation=True
+        can_refresh=False,
+        can_reconnect=False,
+        can_send_orders=False,
+        activate_kill_switch=True,
+        requires_escalation=True,
     ),
     AuthFaultType.TRANSIENT_CONNECTION_FAULT: AuthFaultPolicy(
         can_refresh=False, can_reconnect=True, can_send_orders=False
     ),
     AuthFaultType.UNKNOWN_FATAL_AUTH_FAULT: AuthFaultPolicy(
-        can_refresh=False, can_reconnect=False, can_send_orders=False,
-        activate_kill_switch=True, requires_escalation=True
+        can_refresh=False,
+        can_reconnect=False,
+        can_send_orders=False,
+        activate_kill_switch=True,
+        requires_escalation=True,
     ),
 }
 
@@ -95,7 +110,9 @@ def classify_error(error_code: str, description: str = "") -> AuthFaultType:
     return AuthFaultType.UNKNOWN_FATAL_AUTH_FAULT
 
 
-def get_policy(error_code: str, description: str = "") -> tuple[AuthFaultType, AuthFaultPolicy]:
+def get_policy(
+    error_code: str, description: str = ""
+) -> tuple[AuthFaultType, AuthFaultPolicy]:
     """Classify an error and return both the fault type and its policy."""
     fault_type = classify_error(error_code, description)
     return fault_type, POLICIES[fault_type]

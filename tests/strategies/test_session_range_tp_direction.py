@@ -118,11 +118,13 @@ class TestBuildSignalTPDirection(unittest.TestCase):
         self.assertIsNotNone(sig, "Signal should not be dropped by guard")
         ask = 3983.87 + 0.02  # 3983.89
         self.assertGreater(
-            sig.take_profit_1, ask,
+            sig.take_profit_1,
+            ask,
             f"TP={sig.take_profit_1} must be > ASK={ask} for BUY to be accepted",
         )
         self.assertGreater(
-            sig.take_profit_2, ask,
+            sig.take_profit_2,
+            ask,
             f"TP2={sig.take_profit_2} must be > ASK={ask} for BUY to be accepted",
         )
 
@@ -142,11 +144,13 @@ class TestBuildSignalTPDirection(unittest.TestCase):
         self.assertIsNotNone(sig)
         bid = 3984.21 - 0.02  # 3984.19
         self.assertLess(
-            sig.take_profit_1, bid,
+            sig.take_profit_1,
+            bid,
             f"TP={sig.take_profit_1} must be < BID={bid} for SELL to be accepted",
         )
         self.assertLess(
-            sig.take_profit_2, bid,
+            sig.take_profit_2,
+            bid,
             f"TP2={sig.take_profit_2} must be < BID={bid} for SELL to be accepted",
         )
 
@@ -254,9 +258,9 @@ class TestBuildSignalTPDirection(unittest.TestCase):
                 self.assertIsNotNone(sig)
                 ask = 3983.87 + spread / 2.0
                 self.assertGreater(
-                    sig.take_profit_1, ask,
-                    f"TP={sig.take_profit_1} must exceed ASK={ask} "
-                    f"at spread={spread}",
+                    sig.take_profit_1,
+                    ask,
+                    f"TP={sig.take_profit_1} must exceed ASK={ask} at spread={spread}",
                 )
 
 
@@ -284,28 +288,46 @@ class TestEvaluatePropagatesSpreadFromBar(unittest.TestCase):
         for h in range(24):
             t = datetime(2026, 7, 16, h, 0, tzinfo=timezone.utc)
             if h == 15:  # LONDON open hour
-                bars.append(Bar(
-                    time=t, open=3980.0, high=london_high,
-                    low=london_low, close=3982.0, volume=1000,
-                    spread_pips=0.0,  # history bars have no spread
-                ))
+                bars.append(
+                    Bar(
+                        time=t,
+                        open=3980.0,
+                        high=london_high,
+                        low=london_low,
+                        close=3982.0,
+                        volume=1000,
+                        spread_pips=0.0,  # history bars have no spread
+                    )
+                )
             else:
-                bars.append(Bar(
-                    time=t, open=3980.0, high=3982.0,
-                    low=3978.0, close=3980.0, volume=1000,
-                    spread_pips=0.0,
-                ))
+                bars.append(
+                    Bar(
+                        time=t,
+                        open=3980.0,
+                        high=3982.0,
+                        low=3978.0,
+                        close=3980.0,
+                        volume=1000,
+                        spread_pips=0.0,
+                    )
+                )
 
         # Day-of bars in Asian / early-London (00:00 - 08:00 UTC)
         for h in range(8):
             t = datetime(2026, 7, 17, h, 0, tzinfo=timezone.utc)
             # last bar (h=7 = 07:00 UTC, inside early-London window 08:00)
             # Actually early-london ends at 08:00, so h=7 = 07:00 is in window.
-            bars.append(Bar(
-                time=t, open=3982.0, high=3983.5,
-                low=3976.0, close=3976.5, volume=1000,  # near low, RSI low
-                spread_pips=4.0,  # 4-pip XAUUSD spread
-            ))
+            bars.append(
+                Bar(
+                    time=t,
+                    open=3982.0,
+                    high=3983.5,
+                    low=3976.0,
+                    close=3976.5,
+                    volume=1000,  # near low, RSI low
+                    spread_pips=4.0,  # 4-pip XAUUSD spread
+                )
+            )
 
         state = MarketState(bars=bars)
         sig = strategy.evaluate(state)
@@ -316,7 +338,8 @@ class TestEvaluatePropagatesSpreadFromBar(unittest.TestCase):
             self.assertEqual(sig.direction, TradeDirection.LONG)
             ask = sig.entry_price + (4.0 * 0.01) / 2.0  # spread_pips=4 → 0.04
             self.assertGreater(
-                sig.take_profit_1, ask,
+                sig.take_profit_1,
+                ask,
                 f"End-to-end TP={sig.take_profit_1} must exceed ASK={ask}",
             )
 

@@ -9,20 +9,18 @@ All network calls are mocked.  No real HTTP requests or connections are made.
 from __future__ import annotations
 
 import json
-import sys
+import os
 import tempfile
 import time
 import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.connection_manager import ConnectionManager, ConnectionRole
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.connection_watchdog import ConnectionWatchdog
 from adapters.ctrader.reconnect_strategy import ReconnectAction
 from common.resource_limits import memory_capped
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -184,7 +182,9 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
 # ── OAuth refresh wiring tests ───────────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle")
+@pytest.mark.skip(
+    reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle"
+)
 class TestOAuthRefreshWiring(unittest.TestCase):
     """Verify refresh_oauth_if_needed() updates manager auth state."""
 
@@ -361,7 +361,6 @@ class TestHandleDisconnect(unittest.TestCase):
 # ── Import the ErrorTier for the metrics test ───────────────────────────────
 
 from adapters.ctrader.error_classifier import ErrorTier
-
 
 if __name__ == "__main__":
     unittest.main()

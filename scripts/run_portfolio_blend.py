@@ -52,42 +52,65 @@ def get_strategy_factory(strategy_name: str, pair: str):
     try:
         if strategy_name == "ttc_xauusd" and pair == "XAUUSD":
             from strategies.ttc_xauusd import TTCXAUUSDStrategy
+
             return lambda: TTCXAUUSDStrategy()
 
         if strategy_name == "killzone_momentum":
-            from strategies.killzone_momentum import KillzoneMomentumConfig, KillzoneMomentumStrategy
+            from strategies.killzone_momentum import (
+                KillzoneMomentumConfig,
+                KillzoneMomentumStrategy,
+            )
+
             return lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig())
 
         if strategy_name == "volatility_squeeze":
             from strategies.volatility_squeeze import VolatilitySqueezeStrategy
+
             return lambda: VolatilitySqueezeStrategy()
 
         if strategy_name == "bb_rsi_reversion":
             from strategies.bb_rsi_reversion import BBRSIConfig, BBRSIReversionStrategy
+
             return lambda: BBRSIReversionStrategy(BBRSIConfig())
 
         if strategy_name == "volatility_regime_breakout":
-            from strategies.volatility_regime_breakout import VolatilityRegimeBreakoutStrategy
+            from strategies.volatility_regime_breakout import (
+                VolatilityRegimeBreakoutStrategy,
+            )
+
             return lambda: VolatilityRegimeBreakoutStrategy()
 
         if strategy_name == "srmr_plus" and pair != "XAUUSD":
             from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
+
             return lambda: SRMRPlusStrategy(SRMRPlusConfig())
 
         if strategy_name == "donchian_atr_trend":
             from strategies.donchian_atr_trend import DonchianATRTrendStrategy
+
             return lambda: DonchianATRTrendStrategy()
 
         if strategy_name == "london_breakout_retest":
-            from strategies.london_breakout_retest import LondonBreakoutRetestStrategy, LondonBreakoutConfig
-            return lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig(symbol=pair))
+            from strategies.london_breakout_retest import (
+                LondonBreakoutRetestStrategy,
+                LondonBreakoutConfig,
+            )
+
+            return lambda: LondonBreakoutRetestStrategy(
+                LondonBreakoutConfig(symbol=pair)
+            )
 
         if strategy_name == "session_breakout":
             from strategies.session_breakout import SessionBreakoutConfig
             import strategies.session_breakout as sb_mod
+
             for name in dir(sb_mod):
                 obj = getattr(sb_mod, name)
-                if isinstance(obj, type) and "Breakout" in name and "Config" not in name:
+                if (
+                    isinstance(obj, type)
+                    and "Breakout" in name
+                    and "Config" not in name
+                ):
                     return lambda: obj(SessionBreakoutConfig())
     except ImportError:
         return None
@@ -209,6 +232,7 @@ def run_self_test() -> bool:
 
     # Generate synthetic bars (1000 bars, simple random walk)
     import random
+
     random.seed(42)
     bars = []
     price = 1.1000
@@ -219,10 +243,16 @@ def run_self_test() -> bool:
         h = o + abs(random.gauss(0, 0.0003))
         l = o - abs(random.gauss(0, 0.0003))
         c = o + change
-        bars.append(Bar(
-            time=base_time + timedelta(minutes=15 * i),
-            open=o, high=h, low=l, close=c, volume=1000.0,
-        ))
+        bars.append(
+            Bar(
+                time=base_time + timedelta(minutes=15 * i),
+                open=o,
+                high=h,
+                low=l,
+                close=c,
+                volume=1000.0,
+            )
+        )
         price = c
 
     # Write temp CSV for CsvDataLoader
@@ -236,15 +266,22 @@ def run_self_test() -> bool:
         writer = csv_mod.writer(f)
         writer.writerow(["timestamp", "open", "high", "low", "close", "volume"])
         for b in bars:
-            writer.writerow([
-                b.time.strftime("%Y-%m-%d %H:%M:%S"),
-                b.open, b.high, b.low, b.close, b.volume,
-            ])
+            writer.writerow(
+                [
+                    b.time.strftime("%Y-%m-%d %H:%M:%S"),
+                    b.open,
+                    b.high,
+                    b.low,
+                    b.close,
+                    b.volume,
+                ]
+            )
 
     # Build 2 dummy strategy specs using simple strategy stubs
     # We use the portfolio_blend's own internal types
     class StubStrategy:
         """Minimal strategy that emits no signals — tests blend plumbing."""
+
         name = "stub"
 
         def reset(self):
@@ -306,6 +343,7 @@ def run_self_test() -> bool:
     except Exception as e:
         print(f"  FAIL: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -324,7 +362,7 @@ def main() -> None:
         type=str,
         default=None,
         help="Comma-separated strategy names (e.g. ttc_xauusd,killzone_momentum). "
-             "If omitted, uses all passing strategies from build_passing_strategy_specs.",
+        "If omitted, uses all passing strategies from build_passing_strategy_specs.",
     )
     parser.add_argument(
         "--symbols",
@@ -376,9 +414,7 @@ def main() -> None:
     parser.add_argument(
         "--output", type=str, default=None, help="Output JSON file path"
     )
-    parser.add_argument(
-        "--no-db", action="store_true", help="Skip DuckDB persistence"
-    )
+    parser.add_argument("--no-db", action="store_true", help="Skip DuckDB persistence")
     parser.add_argument(
         "--no-filter", action="store_true", help="Disable strategy filtering"
     )
@@ -386,7 +422,9 @@ def main() -> None:
         "--compare", action="store_true", help="Compare all weight methods"
     )
     parser.add_argument(
-        "--list-strategies", action="store_true", help="List available strategies and exit"
+        "--list-strategies",
+        action="store_true",
+        help="List available strategies and exit",
     )
     parser.add_argument(
         "--self-test", action="store_true", help="Run built-in unit test and exit"
@@ -435,7 +473,9 @@ def main() -> None:
     print()
 
     if not specs:
-        print("ERROR: No strategy specs to run. Check --strategies/--symbols/--timeframes.")
+        print(
+            "ERROR: No strategy specs to run. Check --strategies/--symbols/--timeframes."
+        )
         sys.exit(1)
 
     # ── Run blend ────────────────────────────────────────────────────────

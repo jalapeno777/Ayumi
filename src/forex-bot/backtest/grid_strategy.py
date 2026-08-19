@@ -68,6 +68,19 @@ class GridConfig:
             pair=pair,
         )
 
+    @classmethod
+    def ftmo(cls, pair: str = "EURUSD") -> "GridConfig":
+        """FTMO-constrained conservative grid preset for the given pair."""
+        presets = GRID_PRESETS.get(pair, GRID_PRESETS["EURUSD"])
+        return cls(
+            grid_spacing_pips=presets["grid_spacing_pips"],
+            num_levels=presets["num_levels"],
+            atr_multiplier=presets.get("atr_multiplier", 0.5),
+            max_concurrent_positions=presets.get("max_concurrent_positions", 5),
+            initial_spacing_type="fixed",
+            position_sizing_type="equal",
+        )
+
 
 GRID_PRESETS: dict[str, dict] = {
     "EURUSD": {

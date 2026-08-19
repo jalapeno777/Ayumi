@@ -46,22 +46,23 @@ def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
 @dataclass(frozen=True)
 class VolatilitySqueezeConfig:
     bb_period: int = 20
-    bb_std_dev: float = 2.0
+    bb_std_dev: float = 1.8
     kc_period: int = 20
-    kc_atr_multiplier: float = 2.0
+    kc_atr_multiplier: float = 1.8
     squeeze_threshold: float = 0.0
-    min_squeeze_bars: int = 3
+    min_squeeze_bars: int = 2
     ema_period: int = 20
     adx_period: int = 14
-    adx_min: float = 20.0
+    rsi_period: int = 14
+    adx_min: float = 15.0
     atr_period: int = 14
     atr_sl_multiplier: float = 1.5
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
     session_filter: bool = True
-    min_confidence: float = 0.55
-    squeeze_release_mode: str = "moderate"
+    min_confidence: float = 0.40
+    squeeze_release_mode: str = "any_release"
 
 
 GBPJPY_H1_PRESET = VolatilitySqueezeConfig(
@@ -431,7 +432,7 @@ class VolatilitySqueezeStrategy:
         if direction is None:
             return None
 
-        rsi = _calculate_rsi(bars, self.config.adx_period)
+        rsi = _calculate_rsi(bars, self.config.rsi_period)
         if direction == TradeDirection.LONG and rsi >= 70:
             return None
         if direction == TradeDirection.SHORT and rsi <= 30:

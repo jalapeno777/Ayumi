@@ -322,4 +322,5 @@ if __name__ == "__main__":
     def _run():
         report = run_full_backtest()
         sys.exit(0 if report["acceptance"]["go_nogo"] else 1)
+
     _run()

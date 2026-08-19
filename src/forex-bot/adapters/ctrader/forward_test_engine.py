@@ -40,11 +40,18 @@ from .token_lifecycle import TokenLifecycle
 from .kill_switch import KillSwitchManager
 from .market_data_feed import Tick
 from .open_api_spot_feed import OpenApiSpotFeed
-from .models import OrderStatus, cTraderCredentials, CTraderTradeSignal, TradeDirection, get_symbol_info
+from .models import (
+    OrderStatus,
+    cTraderCredentials,
+    CTraderTradeSignal,
+    TradeDirection,
+    get_symbol_info,
+)
 from .order_manager import PositionSizeConfig
 from .paper_trader import PaperTrader
 from .position_monitor import PositionMonitor
 from .risk_guard import FTMOConfig
+
 # Import the canonical trading-date helper from risk.ftmo_guard.
 # The daily reset boundary is 00:00 America/Toronto (Craig decision Jul 17).
 from risk.ftmo_guard import _trading_date
@@ -91,12 +98,19 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[4]
 # remediation is validated; the launcher refuses live mode if it is absent.
 # Absolute paths ensure auto-recreate works from any CWD (fixes PermissionError
 # when the service is launched from a non-project working directory).
-_REMEDIATION_VALIDATED_FLAG = str(_PROJECT_ROOT / "data" / "ayumi" / "remediation_validated.flag")
+_REMEDIATION_VALIDATED_FLAG = str(
+    _PROJECT_ROOT / "data" / "ayumi" / "remediation_validated.flag"
+)
 # Fallback: the audit doc is the source of truth. If the flag file is missing
 # (e.g. deleted by git clean, systemd cleanup, or process restart) but the
 # audit doc exists, the flag is auto-recreated with a warning instead of
 # crashing. This makes the forward test survivable across unplanned restarts.
-_REMEDIATION_AUDIT_DOC = str(_PROJECT_ROOT / "docs" / "audits" / "ayumi-live-remediation-session-audit-2026-06-30.md")
+_REMEDIATION_AUDIT_DOC = str(
+    _PROJECT_ROOT
+    / "docs"
+    / "audits"
+    / "ayumi-live-remediation-session-audit-2026-06-30.md"
+)
 
 
 # Heartbeat writer defaults
@@ -129,7 +143,9 @@ class ForwardTestConfig:
     stats_interval_sec: float = 60.0
     live_mode: bool = False
     execution_mode: str = "paper"  # "paper" | "live" — must be explicit
-    live_fire_min_confidence: float = 0.55  # Lowered per Phase 4 — allow more signals through (was 0.65)
+    live_fire_min_confidence: float = (
+        0.55  # Lowered per Phase 4 — allow more signals through (was 0.65)
+    )
     trade_host: Optional[str] = None
     trade_port: Optional[int] = None
     evaluation_interval_sec: float = 1.0
@@ -141,10 +157,14 @@ class ForwardTestConfig:
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
-    health_monitor_interval_sec: float = 5.0  # Runs every 5s for heartbeat + error monitoring
+    health_monitor_interval_sec: float = (
+        5.0  # Runs every 5s for heartbeat + error monitoring
+    )
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
-    strategy_timeframes: dict[str, int] = None  # strategy_name -> period_minutes; empty/None = all use bar_period_minutes
+    strategy_timeframes: dict[str, int] = (
+        None  # strategy_name -> period_minutes; empty/None = all use bar_period_minutes
+    )
     use_openapi_feed: bool = False  # True = Open API spot feed, False = FIX feed
     openapi_host: str = "demo.ctraderapi.com"
     openapi_port: int = 5035
@@ -173,6 +193,10 @@ class ForwardTestHealth:
     evaluation_errors: int = 0
     reconnection_attempts: int = 0
     reconnection_successes: int = 0
+    # Last reconnect failure reason (set by the health monitor before
+    # _attempt_reconnect so diagnostic logs can surface why we're
+    # retrying). Added for card ecbecd01 reconnect instrumentation.
+    last_error: Optional[str] = None
     bars_built: int = 0
     consecutive_risk_rejections: int = 0
     # T1/T2/T7 — counters distinguishing sent / pending / filled / failed live
@@ -182,7 +206,34 @@ class ForwardTestHealth:
     signals_failed_live: int = 0
     signals_pending: int = 0
     signals_cancelled: int = 0
+    # Card ce6de98d (B): indeterminate timeout counter. Incremented when
+    # the spot feed's event.wait expires (event.wait returned False) but
+    # the order may still arrive via late_fill_registry. Distinct from
+    # signals_sent (genuine SENT awaiting ack) and signals_failed_live
+    # (terminal REJECTED). Operators see this as a diagnostic for
+    # "broker has not yet acknowledged" — late-fill callbacks downgrade
+    # indeterminate to FILLED if the order eventually confirms.
+    signals_indeterminate: int = 0
     signals_accepted: int = 0  # blend runner accepted the signal (T2)
+    # Card 0d7d7557 (iter2): NOT_CONNECTED attempts (broker unreachability,
+    # pre- or post-contact). Distinct from signals_failed_live (broker
+    # rejection: REJECTED / CANCELLED outcomes), so the B5 warning can
+    # tell operators "broker unreachable" vs "broker rejected" instead
+    # of conflating both into the rejected bucket. Counted in the daily
+    # reset family — operators want to see per-trading-day unreachability
+    # churn, and reset_daily_counters zeroes it alongside signals_sent
+    # and signals_failed_live.
+    signals_unreachable: int = 0
+    # Card 0d7d7557: regime-gate rejection counter. Bumped by the
+    # eval loop in scripts/launch_blend_forward_test.py when the
+    # regime-gate check rejects a strategy emit (choppy / trending
+    # mismatch). IS a daily-reset counter — it is read-path
+    # observability for the B5 health line and reset_daily_counters
+    # zeroes it alongside the rest of the daily family, so operators
+    # can see per-trading-day gate churn. (Card 0d7d7557 iter2 L4: the
+    # original comment incorrectly said "NOT a daily-reset counter";
+    # this field IS in the daily-reset family.)
+    signals_filtered_by_regime_gate: int = 0
     symbol_resolution_failures: int = 0  # total failed symbol resolutions (Task 2)
     # Phase 1d wiring — diagnostics for KillCriteria + BehavioralPolicy gates.
     # ``signals_killed_by_criteria`` counts signals blocked by any
@@ -209,27 +260,47 @@ class ForwardTestHealth:
     # process restart; the B5 health loop resets the daily counters when
     # this lags the current trading day (see 17:00 America/Toronto boundary
     # in risk_guard._TRADING_DAY_RESET_HOUR).
-    _last_health_trading_day: Optional[date] = field(default=None, repr=False, compare=False)
+    _last_health_trading_day: Optional[date] = field(
+        default=None, repr=False, compare=False
+    )
 
     def reset_daily_counters(self) -> None:
         """Reset per-trading-day counters to zero.
 
         Mirrors risk_guard._current_trading_day() boundary (17:00
-        America/Toronto). Counters touched: signals_sent,
-        signals_failed_live, signals_pending, signals_cancelled,
-        signals_rejected, signals_traded, signals_accepted.
+        America/Toronto). Counters touched (in order of declaration):
+        signals_sent, signals_failed_live, signals_pending,
+        signals_cancelled, signals_accepted, signals_unreachable,
+        signals_filtered_by_regime_gate, signals_rejected,
+        signals_traded.
 
         NOTE: signals_generated is intentionally NOT reset — it is a
         lifetime diagnostic of strategy productivity across the session,
         not a daily guardrail metric. See BQ-1175 follow-up discussion.
+
+        Card 0d7d7557 iter2 L4: docstring previously omitted
+        ``signals_filtered_by_regime_gate`` (the comment on the field
+        even incorrectly said it was NOT a daily-reset counter). Both
+        ``signals_filtered_by_regime_gate`` (regime-gate churn) and
+        ``signals_unreachable`` (broker unreachability churn) are reset
+        here so operators see per-trading-day gate/unreachability
+        counters in the B5 health line, not session-lifetime totals.
         """
         self.signals_sent = 0
         self.signals_failed_live = 0
         self.signals_pending = 0
         self.signals_cancelled = 0
+        self.signals_accepted = 0
+        self.signals_unreachable = 0
+        self.signals_filtered_by_regime_gate = 0
         self.signals_rejected = 0
         self.signals_traded = 0
-        self.signals_accepted = 0
+        # Card ce6de98d (B): reset the new indeterminate counter alongside
+        # the other daily counters so operators see per-trading-day
+        # indeterminate churn in the B5 health line (rather than
+        # session-lifetime totals that conflate today's broker stalls
+        # with last week's).
+        self.signals_indeterminate = 0
 
 
 class LiveExecutionStatus(Enum):
@@ -334,7 +405,8 @@ class ForwardTestEngine:
         # Derive required timeframes
         self._strategy_timeframes: dict[str, int] = config.strategy_timeframes or {}
         self._required_timeframes: set[int] = (
-            set(self._strategy_timeframes.values()) if self._strategy_timeframes
+            set(self._strategy_timeframes.values())
+            if self._strategy_timeframes
             else {config.bar_period_minutes}
         )
 
@@ -372,12 +444,16 @@ class ForwardTestEngine:
 
         self._callbacks: list[tuple[str, "Callable"]] = []
         self._health = ForwardTestHealth()
-        self._stats_fail_count: int = 0  # consecutive stats recording failures (resets on success)
-        self._last_known_good_confidence: Optional[float] = None  # cached confidence from last successful stats recording
+        # Consecutive stats recording failures (resets on success).
+        self._stats_fail_count: int = 0
+        # Cached confidence from last successful stats recording.
+        self._last_known_good_confidence: Optional[float] = None
 
         # Retry configuration for stats recording (env-overridable)
         self._stats_retry_max: int = int(os.environ.get("STATS_RETRY_MAX", "3"))
-        self._stats_retry_base_delay: float = float(os.environ.get("STATS_RETRY_BASE_DELAY", "2.0"))
+        self._stats_retry_base_delay: float = float(
+            os.environ.get("STATS_RETRY_BASE_DELAY", "2.0")
+        )
 
         self._last_evaluation_at: float = 0.0
 
@@ -392,7 +468,6 @@ class ForwardTestEngine:
 
         # Phase 6B: track last daily-reset date for day-boundary detection.
         self._last_reset_date: Optional[str] = None
-
 
         # Rejection circuit breaker (T5)
         self._consecutive_risk_rejections: int = 0
@@ -416,7 +491,7 @@ class ForwardTestEngine:
         if self._kill_switch.is_globally_killed():
             logger.warning(
                 "STARTUP: Kill switch ACTIVE (%s) — orders will be BLOCKED",
-                self._kill_switch.get_status().get('reason', 'unknown'),
+                self._kill_switch.get_status().get("reason", "unknown"),
             )
         else:
             logger.info("STARTUP: Kill switch CLEAR — enforcement active")
@@ -426,13 +501,19 @@ class ForwardTestEngine:
         self._heartbeat_pid = os.getpid()
 
         # Error rate monitor — rolling 60s window
-        self._eval_timestamps: deque[float] = deque()  # monotonic timestamps of evaluations
+        self._eval_timestamps: deque[float] = (
+            deque()
+        )  # monotonic timestamps of evaluations
         self._eval_errors: deque[float] = deque()  # monotonic timestamps of errors
-        self._feed_disconnect_frozen = False  # track if we already froze for feed disconnect
+        self._feed_disconnect_frozen = (
+            False  # track if we already froze for feed disconnect
+        )
 
         # S1: Per-strategy diagnostic counters
         self._strategy_eval_counts: dict[str, int] = {s.name: 0 for s in strategies}
-        self._strategy_no_signal_counts: dict[str, int] = {s.name: 0 for s in strategies}
+        self._strategy_no_signal_counts: dict[str, int] = {
+            s.name: 0 for s in strategies
+        }
         self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
 
         # B5 Pipeline warning: rate-limit + grace period
@@ -510,6 +591,9 @@ class ForwardTestEngine:
                 signals_pending=self._health.signals_pending,
                 signals_cancelled=self._health.signals_cancelled,
                 signals_accepted=self._health.signals_accepted,
+                signals_unreachable=self._health.signals_unreachable,
+                signals_filtered_by_regime_gate=self._health.signals_filtered_by_regime_gate,
+                signals_indeterminate=self._health.signals_indeterminate,
                 signals_killed_by_criteria=self._health.signals_killed_by_criteria,
                 behavioral_adjustments=self._health.behavioral_adjustments,
                 last_kill_reasons=list(self._health.last_kill_reasons),
@@ -613,14 +697,20 @@ class ForwardTestEngine:
         )
 
         # B5: Startup diagnostic
-        logger.info("[B5 Startup] Strategy list: %s", [s.name for s in self._strategies])
+        logger.info(
+            "[B5 Startup] Strategy list: %s", [s.name for s in self._strategies]
+        )
         logger.info("[B5 Startup] Symbols: %s", self._config.symbols)
         logger.info("[B5 Startup] Bar period: %dm", self._config.bar_period_minutes)
         logger.info("[B5 Startup] Min confidence: %.2f", self._config.min_confidence)
-        logger.info("[B5 Startup] Min bars for evaluation: %d", self._config.min_bars_for_evaluation)
+        logger.info(
+            "[B5 Startup] Min bars for evaluation: %d",
+            self._config.min_bars_for_evaluation,
+        )
         logger.info(
             "[B5 Startup] Strategy timeframes: %s",
-            self._strategy_timeframes or {s.name: self._config.bar_period_minutes for s in self._strategies},
+            self._strategy_timeframes
+            or {s.name: self._config.bar_period_minutes for s in self._strategies},
         )
         logger.info(
             "[B5 Startup] Required timeframes: %s",
@@ -715,6 +805,7 @@ class ForwardTestEngine:
             return
         try:
             from .account_state import get_balance
+
             live_balance = get_balance(
                 self._market_feed.connection,
                 self._market_feed.ctid_account_id,
@@ -725,7 +816,7 @@ class ForwardTestEngine:
                 self._live_balance = live_balance
 
                 # Update RiskGuard current balance (starting_balance stays at prop-firm baseline)
-                if self._paper_trader and hasattr(self._paper_trader, '_risk_guard'):
+                if self._paper_trader and hasattr(self._paper_trader, "_risk_guard"):
                     rg = self._paper_trader._risk_guard
                     rg.update_balance(live_balance)
                     # Reset daily_start_balance on new trading day (not just first-ever sync).
@@ -747,14 +838,18 @@ class ForwardTestEngine:
                     dd_pct = rg.current_drawdown_pct * 100
                     logger.info(
                         "[Balance Sync] RiskGuard synced: live=$%.2f starting=$%.2f dd=%.2f%%",
-                        live_balance, rg._starting_balance, dd_pct,
+                        live_balance,
+                        rg._starting_balance,
+                        dd_pct,
                     )
 
                 # Update PaperTrader internal balance
                 if self._paper_trader:
                     self._paper_trader._current_balance = live_balance
             else:
-                logger.warning("[Balance Sync] cTrader returned None balance — using starting balance")
+                logger.warning(
+                    "[Balance Sync] cTrader returned None balance — using starting balance"
+                )
         except Exception as exc:
             logger.warning("[Balance Sync] Failed to fetch live balance: %s", exc)
 
@@ -785,7 +880,7 @@ class ForwardTestEngine:
     def _build_live_credentials(self) -> dict | None:
         """Build kwargs dict for the cTrader Open API spot feed."""
         try:
-            store = CredentialStore('.env')
+            store = CredentialStore(".env")
             lifecycle = TokenLifecycle(store)
             access_token = lifecycle.ensure_valid()
             creds = store.get()
@@ -828,7 +923,11 @@ class ForwardTestEngine:
         current process environment.  Used to surface a useful error message
         when ``live_mode=True`` but the operator forgot to populate ``.env``.
         """
-        return [name for name in self._REQUIRED_LIVE_CRED_ENV_VARS if not os.environ.get(name)]
+        return [
+            name
+            for name in self._REQUIRED_LIVE_CRED_ENV_VARS
+            if not os.environ.get(name)
+        ]
 
     def _build_components(self):
         cfg = self._config
@@ -868,10 +967,13 @@ class ForwardTestEngine:
             self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
             from .execution_permission import ExecutionPermissionPolicy
+
             policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
             self._market_feed.set_permission_policy(policy)
             api_client = cTraderAPIClient(**live_creds)
-            api_client.set_permission_policy(policy)   # Phase 6: close defense-in-depth gap
+            api_client.set_permission_policy(
+                policy
+            )  # Phase 6: close defense-in-depth gap
             self._api_client = api_client
             logger.info("OpenApiSpotFeed + cTraderAPIClient constructed for live_mode")
 
@@ -933,7 +1035,7 @@ class ForwardTestEngine:
         cfg = self._config
 
         # Use OpenAPI feed by default (FIX feed archived)
-        use_fix = getattr(cfg, 'use_fix_feed', False)
+        use_fix = getattr(cfg, "use_fix_feed", False)
         if not use_fix:
             return self._start_openapi_feed()
 
@@ -982,6 +1084,7 @@ class ForwardTestEngine:
             self._market_feed.validate_wiring()
             self._market_feed.set_kill_switch(self._kill_switch)
             from .execution_permission import ExecutionPermissionPolicy
+
             policy = ExecutionPermissionPolicy(kill_switch=self._kill_switch)
             self._market_feed.set_permission_policy(policy)
             # Reconstruct _api_client on reconnect so OrderManager and
@@ -1025,9 +1128,14 @@ class ForwardTestEngine:
             os.environ.get("CTRADER_READONLY_SSL_PORT", str(self._config.quote_port))
         )
 
-        quote_sender_sub_id = os.environ.get("CTRADER_QUOTE_SENDER_SUB_ID") or self._config.quote_sender_sub_id
+        quote_sender_sub_id = (
+            os.environ.get("CTRADER_QUOTE_SENDER_SUB_ID")
+            or self._config.quote_sender_sub_id
+        )
         _raw_target = os.environ.get("CTRADER_QUOTE_TARGET_SUB_ID")
-        quote_target_sub_id = _raw_target or self._config.quote_target_sub_id or quote_sender_sub_id
+        quote_target_sub_id = (
+            _raw_target or self._config.quote_target_sub_id or quote_sender_sub_id
+        )
 
         return cTraderCredentials(
             host=host,
@@ -1165,8 +1273,16 @@ class ForwardTestEngine:
                 )
 
         # Evaluation trigger: purely event-driven — only on bar completion
-        # Per-timeframe evaluation threshold (Rei #7): check primary timeframe
-        primary_key = self._bar_key(symbol_name, self._config.bar_period_minutes)
+        # Per-timeframe evaluation threshold (Rei #7): check primary timeframe.
+        # Use the minimum required timeframe so the gate reflects the actual
+        # strategy timeframe, not the legacy default bar_period_minutes which
+        # may have no bars when running a subset of strategies (card 18ac48b1).
+        min_tf = (
+            min(self._required_timeframes)
+            if self._required_timeframes
+            else self._config.bar_period_minutes
+        )
+        primary_key = self._bar_key(symbol_name, min_tf)
         with self._lock:
             bar_count = len(self._bars.get(primary_key, []))
             current_bar = self._current_bar.get(primary_key)
@@ -1217,7 +1333,8 @@ class ForwardTestEngine:
                 logger.warning(
                     "[Symbol Resolution] symbol_id=%d not found in feed symbols. "
                     "known_ids=%s (failures for this id: %d)",
-                    sid, known_ids,
+                    sid,
+                    known_ids,
                     self._symbol_resolution_failures[sid],
                 )
             return None
@@ -1241,7 +1358,8 @@ class ForwardTestEngine:
             logger.warning(
                 "[Symbol Resolution] feed_name='%s' normalized='%s' "
                 "not in config symbols %s (symbol_id=%d, failures: %d)",
-                feed_name, no_slash,
+                feed_name,
+                no_slash,
                 sorted(self._cfg_symbols_normalized),
                 sid,
                 self._symbol_resolution_failures[sid],
@@ -1292,7 +1410,7 @@ class ForwardTestEngine:
 
         # Determine pip size and pip value per lot from SymbolInfo when available
         # so that crypto and other non-FX symbols calculate correct position sizes.
-        pip_value = 0.0001          # forex default (1 pip = 0.0001)
+        pip_value = 0.0001  # forex default (1 pip = 0.0001)
         dollar_per_pip_per_lot = 10.0  # standard FX lot pip value in USD
         if self._market_feed is not None:
             sym_id = None
@@ -1349,7 +1467,10 @@ class ForwardTestEngine:
                 logger.warning(
                     "Preflight: position %s (%s %.4f lots) has no stop loss — "
                     "using conservative risk estimate $%.2f",
-                    position_id, symbol, lots, risk_amount,
+                    position_id,
+                    symbol,
+                    lots,
+                    risk_amount,
                 )
 
             signal_id = f"seeded_{position_id}"
@@ -1360,12 +1481,15 @@ class ForwardTestEngine:
             except ValueError as exc:
                 logger.warning(
                     "Preflight: could not seed position %s under %s: %s",
-                    position_id, signal_id, exc,
+                    position_id,
+                    signal_id,
+                    exc,
                 )
 
         logger.info(
             "Preflight: seeded %d open cTrader positions totaling $%.2f risk",
-            seeded_count, total_seeded_risk,
+            seeded_count,
+            total_seeded_risk,
         )
         # Record seeded positions in health so operators can distinguish
         # session fills from carry-over (card 2bb667ce AC2).
@@ -1377,14 +1501,38 @@ class ForwardTestEngine:
         """Place a real cTrader order via the OpenApiSpotFeed.
 
         Returns ``None`` for pre-flight failures (no feed, unknown symbol,
-        zero calculated volume, kill switch active) — no outcome object is created
-        in those cases because there is no ``Order`` to carry forward to a late callback.
+        zero calculated volume, kill switch active, NEUTRAL direction) — no
+        outcome object is created in those cases because there is no
+        ``Order`` to carry forward to a late callback.
         """
+        # Phase 1 (card eaceb5fa): NEUTRAL-direction guard.
+        #
+        # Blend/amalgamation can produce `direction == TradeDirection.NEUTRAL`
+        # when long/short votes are tied. The legacy mapping at line ~1428
+        # (`side = BUY if direction == LONG else SELL`) silently coerced
+        # NEUTRAL → SELL while preserving the original LONG-style SL/TP,
+        # which the broker then rejected with TRADING_BAD_STOPS. Skipping
+        # NEUTRAL signals here is the smallest safe change: no re-pricing,
+        # no LLM cost, no fill — just don't place an order we know will be
+        # rejected. Phase 2 will recompute SL/TP for tied blends.
+        if signal.direction == TradeDirection.NEUTRAL:
+            logger.info(
+                "Skipping live execution for NEUTRAL signal %s %s (strategy=%s): "
+                "NEUTRAL direction has no side mapping; not safe to place live order.",
+                signal.symbol,
+                signal.direction,
+                strategy_id or "<none>",
+            )
+            return None
+
         # P5A: primary permission gate — block before any broker interaction
         # or volume/state mutation. This closes the TOCTOU window between
         # _evaluate_strategies()'s kill-switch check and order dispatch.
         from .execution_permission import ExecutionPermissionPolicy
-        policy = ExecutionPermissionPolicy(kill_switch=getattr(self, '_kill_switch', None))
+
+        policy = ExecutionPermissionPolicy(
+            kill_switch=getattr(self, "_kill_switch", None)
+        )
         allowed, reason = policy.can_send_order()
         if not allowed:
             logger.warning("_execute_signal_live blocked: %s", reason)
@@ -1396,7 +1544,9 @@ class ForwardTestEngine:
             else str(signal.direction)
         )
 
-        if self._market_feed is None or not isinstance(self._market_feed, OpenApiSpotFeed):
+        if self._market_feed is None or not isinstance(
+            self._market_feed, OpenApiSpotFeed
+        ):
             logger.warning("Cannot execute live order: no OpenApiSpotFeed available")
             return None
 
@@ -1408,7 +1558,8 @@ class ForwardTestEngine:
         if state_mgr is not None and not getattr(state_mgr, "is_operational", True):
             logger.warning(
                 "Live order skipped: spot feed not operational for %s %s",
-                direction_str, signal.symbol,
+                direction_str,
+                signal.symbol,
             )
             return LiveExecutionOutcome(
                 status=LiveExecutionStatus.NOT_CONNECTED,
@@ -1422,10 +1573,16 @@ class ForwardTestEngine:
         try:
             symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
         except Exception as exc:
-            logger.warning("Live order rejected: unknown symbol %s (%s)", signal.symbol, exc)
+            logger.warning(
+                "Live order rejected: unknown symbol %s (%s)", signal.symbol, exc
+            )
             return None
 
-        side = ProtoOATradeSide.BUY if signal.direction == TradeDirection.LONG else ProtoOATradeSide.SELL
+        side = (
+            ProtoOATradeSide.BUY
+            if signal.direction == TradeDirection.LONG
+            else ProtoOATradeSide.SELL
+        )
 
         volume_lots = self._calculate_live_volume(signal)
         if volume_lots <= 0.0:
@@ -1461,9 +1618,8 @@ class ForwardTestEngine:
         # (Task 1.5). If inline SL/TP were absent, fall through to the
         # amend path below for strategies without protection.
         if outcome.status == LiveExecutionStatus.FILLED and inline_sl and inline_tp:
-            position_id = (
-                getattr(order, "position_id", None)
-                or getattr(order, "order_id", None)
+            position_id = getattr(order, "position_id", None) or getattr(
+                order, "order_id", None
             )
             # Phase 1A audit §5.4 fix: wire cTrader positionId → blend
             # signal_id in live mode (paper_trader on_trade_executed never
@@ -1471,7 +1627,10 @@ class ForwardTestEngine:
             self._register_blend_position_mapping(signal, position_id)
             logger.info(
                 "SL/TP attached inline on MARKET order %s (position %s): sl=%.5f tp=%.5f",
-                getattr(order, "order_id", ""), position_id, inline_sl, inline_tp,
+                getattr(order, "order_id", ""),
+                position_id,
+                inline_sl,
+                inline_tp,
             )
             # cTrader's amend proto only accepts a single TP, so TP2/TP3 are
             # NOT sent to the broker. Instead, stash them on the Position via
@@ -1483,7 +1642,9 @@ class ForwardTestEngine:
                 order_manager = self._resolve_order_manager()
                 if order_manager is not None:
                     stored = order_manager.update_position_tp_levels(
-                        position_id, tp2, tp3,
+                        position_id,
+                        tp2,
+                        tp3,
                     )
                     if not stored:
                         logger.warning(
@@ -1497,9 +1658,15 @@ class ForwardTestEngine:
                         "stored on Position %s (non-fatal)",
                         position_id,
                     )
-        elif outcome.status == LiveExecutionStatus.FILLED and signal.stop_loss and signal.take_profit_1:
+        elif (
+            outcome.status == LiveExecutionStatus.FILLED
+            and signal.stop_loss
+            and signal.take_profit_1
+        ):
             # Fallback: strategies without inline SL/TP require amend
-            position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
+            position_id = getattr(order, "position_id", None) or getattr(
+                order, "order_id", None
+            )
             # Phase 1A audit §5.4 fix: same wiring as the inline-SL/TP branch.
             self._register_blend_position_mapping(signal, position_id)
             try:
@@ -1510,15 +1677,21 @@ class ForwardTestEngine:
                 amended = False
                 for attempt in range(3):
                     amended = self._market_feed.amend_sl_tp(
-                        position_id, signal.stop_loss, signal.take_profit_1,
+                        position_id,
+                        signal.stop_loss,
+                        signal.take_profit_1,
                         symbol_id=symbol_id,
                     )
                     if amended:
                         break
                     time.sleep(0.2 * (attempt + 1))
                 if amended:
-                    logger.info("SL/TP attached to position %s: sl=%.5f tp=%.5f",
-                                position_id, signal.stop_loss, signal.take_profit_1)
+                    logger.info(
+                        "SL/TP attached to position %s: sl=%.5f tp=%.5f",
+                        position_id,
+                        signal.stop_loss,
+                        signal.take_profit_1,
+                    )
                     # F1 fix (Sprint Task 1.3, card a7b8e896): the cTrader
                     # amend proto only accepts a single TP, so TP2/TP3 are
                     # NOT sent to the broker.  Instead, stash them on the
@@ -1533,7 +1706,9 @@ class ForwardTestEngine:
                         order_manager = self._resolve_order_manager()
                         if order_manager is not None:
                             stored = order_manager.update_position_tp_levels(
-                                position_id, tp2, tp3,
+                                position_id,
+                                tp2,
+                                tp3,
                             )
                             if not stored:
                                 logger.warning(
@@ -1554,21 +1729,30 @@ class ForwardTestEngine:
                         position_id,
                     )
             except Exception as amend_err:
-                logger.warning("SL/TP amend error for position %s: %s (non-fatal)", position_id, amend_err)
+                logger.warning(
+                    "SL/TP amend error for position %s: %s (non-fatal)",
+                    position_id,
+                    amend_err,
+                )
 
         # Log the outcome so operators can correlate with cTrader terminal
         # state and the engine's health counters.
         if outcome.status == LiveExecutionStatus.FILLED:
             logger.info(
                 "Live order FILLED: %s %s %s lots=%.2f raw_volume=%d order_id=%s",
-                direction_str, signal.symbol, signal.rationale,
-                volume_lots, volume_raw,
+                direction_str,
+                signal.symbol,
+                signal.rationale,
+                volume_lots,
+                volume_raw,
                 getattr(order, "order_id", ""),
             )
         elif outcome.status == LiveExecutionStatus.SENT:
             logger.info(
                 "Live order SENT (awaiting cTrader ack): %s %s order_id=%s",
-                direction_str, signal.symbol, getattr(order, "order_id", ""),
+                direction_str,
+                signal.symbol,
+                getattr(order, "order_id", ""),
             )
             # Late-fill guard: register callbacks so when the execution event
             # arrives after event.wait() timed out, we still count it as a
@@ -1579,13 +1763,13 @@ class ForwardTestEngine:
         elif outcome.status == LiveExecutionStatus.REJECTED:
             logger.warning(
                 "Live order REJECTED: %s %s reason=%s order_id=%s",
-                direction_str, signal.symbol, outcome.reason,
+                direction_str,
+                signal.symbol,
+                outcome.reason,
                 getattr(order, "order_id", ""),
             )
             # Record rejection in signal stats so rejection rate is non-zero.
-            _rej_signal_id = (
-                getattr(order, "order_id", None) or signal.strategy_id
-            )
+            _rej_signal_id = getattr(order, "order_id", None) or signal.strategy_id
             _rej_error_code = (
                 getattr(order, "error_code", None)
                 or getattr(order, "errorCode", None)
@@ -1593,8 +1777,7 @@ class ForwardTestEngine:
             )
             try:
                 _rej_recorder = (
-                    getattr(self, "_stats_recorder", None)
-                    or SignalStatsRecorder()
+                    getattr(self, "_stats_recorder", None) or SignalStatsRecorder()
                 )
                 _rej_recorder.record_rejection(
                     signal_id=_rej_signal_id,
@@ -1604,12 +1787,15 @@ class ForwardTestEngine:
             except Exception:
                 logger.debug(
                     "Rejection stats recording failed (non-fatal): %s %s",
-                    signal.symbol, _rej_signal_id,
+                    signal.symbol,
+                    _rej_signal_id,
                 )
         elif outcome.status == LiveExecutionStatus.TIMEOUT:
             logger.warning(
                 "Live order TIMEOUT: %s %s order_id=%s (no execution event in window)",
-                direction_str, signal.symbol, getattr(order, "order_id", ""),
+                direction_str,
+                signal.symbol,
+                getattr(order, "order_id", ""),
             )
             # Same late-fill protection as SENT — a TIMEOUT may be followed
             # by a real fill arriving a few ms later.
@@ -1617,12 +1803,16 @@ class ForwardTestEngine:
         elif outcome.status == LiveExecutionStatus.NOT_CONNECTED:
             logger.warning(
                 "Live order NOT_CONNECTED: %s %s order_id=%s",
-                direction_str, signal.symbol, getattr(order, "order_id", ""),
+                direction_str,
+                signal.symbol,
+                getattr(order, "order_id", ""),
             )
         elif outcome.status == LiveExecutionStatus.CANCELLED:
             logger.warning(
                 "Live order CANCELLED: %s %s order_id=%s",
-                direction_str, signal.symbol, getattr(order, "order_id", ""),
+                direction_str,
+                signal.symbol,
+                getattr(order, "order_id", ""),
             )
 
         # Phase 0 signal-stats hook: record the open line for this signal.
@@ -1643,8 +1833,12 @@ class ForwardTestEngine:
                 )
                 self._stats_recorder.record_signal(
                     SignalRecord(
-                        signal_id=order.order_id if order and order.order_id else signal.strategy_id,
-                        timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                        signal_id=order.order_id
+                        if order and order.order_id
+                        else signal.strategy_id,
+                        timestamp=signal.timestamp.isoformat()
+                        if signal.timestamp
+                        else "",
                         strategy=signal.strategy_id or strategy_id or "unknown",
                         symbol=signal.symbol,
                         direction=direction_str.upper() if direction_str else "",
@@ -1665,10 +1859,13 @@ class ForwardTestEngine:
                 break
             except Exception as stats_err:
                 if attempt < self._stats_retry_max - 1:
-                    delay = self._stats_retry_base_delay * (2 ** attempt)
+                    delay = self._stats_retry_base_delay * (2**attempt)
                     logger.warning(
                         "Signal stats recording attempt %d/%d failed (retry in %.1fs): %s",
-                        attempt + 1, self._stats_retry_max, delay, stats_err,
+                        attempt + 1,
+                        self._stats_retry_max,
+                        delay,
+                        stats_err,
                     )
                     time.sleep(delay)
                 else:
@@ -1679,14 +1876,17 @@ class ForwardTestEngine:
                         logger.warning(
                             "Signal stats recording failed after %d attempts "
                             "(consecutive_fails=%d, using last-known-good confidence=%.4f): %s",
-                            self._stats_retry_max, self._stats_fail_count,
-                            last_good, stats_err,
+                            self._stats_retry_max,
+                            self._stats_fail_count,
+                            last_good,
+                            stats_err,
                         )
                     else:
                         logger.warning(
                             "Signal stats recording failed after %d attempts "
                             "(consecutive_fails=%d, no prior confidence cached): %s",
-                            self._stats_retry_max, self._stats_fail_count,
+                            self._stats_retry_max,
+                            self._stats_fail_count,
                             stats_err,
                         )
 
@@ -1696,6 +1896,14 @@ class ForwardTestEngine:
     _NOT_CONNECTED_REASON = "not_connected"
     _TIMEOUT_REASON = "timeout_awaiting_event"
     _CANCELLED_REASON = "order_cancelled"
+    # Card ce6de98d (B): distinct reason string for the new INDETERMINATE
+    # timeout semantics. The spot feed leaves order.status = PENDING and
+    # tags reason = _INDETERMINATE_REASON when event.wait expires but
+    # the order may still arrive via the late-fill registry. The
+    # classifier below detects this string and routes to the
+    # signals_indeterminate counter (additive) instead of the legacy
+    # signals_sent (which was conflating genuine SENT with TIMEOUT).
+    _INDETERMINATE_REASON = "indeterminate_awaiting_event"
 
     # Rejection log path — JSONL file written alongside trade logs so
     # operators have a dedicated, greppable record of every broker
@@ -1713,12 +1921,36 @@ class ForwardTestEngine:
         paths agree on what each status means.
         """
         with self._lock:
+            # Card ce6de98d (B): TIMEOUT with indeterminate reason gets its
+            # own counter (signals_indeterminate) and does NOT bump
+            # signals_sent or signals_failed_live. The indeterminate state
+            # is non-terminal: the order may still arrive via the
+            # late_fill_registry. The late-fill callback path still
+            # upgrades it to FILLED, so the indeterminate counter is
+            # purely a diagnostic for "we waited the timeout window and
+            # did not yet hear back from the broker".
+            if (
+                outcome.status == LiveExecutionStatus.TIMEOUT
+                and outcome.reason == self._INDETERMINATE_REASON
+            ):
+                self._health.signals_indeterminate += 1
+                # Keep signals_pending unchanged for indeterminate: the
+                # order is still in flight and the late-fill callback may
+                # still resolve it. We do NOT bump signals_sent (would
+                # conflate with genuine SENT awaiting ack).
+                logger.info(
+                    "Live order indeterminate (TIMEOUT but pending late-fill): "
+                    "%s %s reason=%s signals_indeterminate=%d",
+                    outcome.symbol,
+                    outcome.direction,
+                    outcome.reason,
+                    self._health.signals_indeterminate,
+                )
+                return
             if outcome.status == LiveExecutionStatus.FILLED:
                 self._health.live_fills += 1
                 self._health.signals_traded += 1
-                self._health.signals_pending = max(
-                    0, self._health.signals_pending - 1
-                )
+                self._health.signals_pending = max(0, self._health.signals_pending - 1)
                 # Backward-compat: keep ``_live_fill_count`` in sync so
                 # the launch script's ``getattr(engine, '_live_fill_count', 0)``
                 # reads correctly until it is migrated to ``health.live_fills``.
@@ -1732,9 +1964,7 @@ class ForwardTestEngine:
             else:
                 # REJECTED, CANCELLED, NOT_CONNECTED — terminal failures.
                 self._health.signals_failed_live += 1
-                self._health.signals_pending = max(
-                    0, self._health.signals_pending - 1
-                )
+                self._health.signals_pending = max(0, self._health.signals_pending - 1)
                 # Surface the broker errorCode so operators don't have to
                 # grep through 30K+ log lines (card 45aad19f).
                 code = outcome.reason or "unknown"
@@ -1751,7 +1981,9 @@ class ForwardTestEngine:
                 # log that was never created — this writes it.
                 self._write_rejection_log(outcome, short_code)
 
-    def _write_rejection_log(self, outcome: LiveExecutionOutcome, short_code: str) -> None:
+    def _write_rejection_log(
+        self, outcome: LiveExecutionOutcome, short_code: str
+    ) -> None:
         """Append a rejection event to the JSONL rejection log.
 
         Called from :meth:`_process_live_outcome` for every terminal failure
@@ -1768,6 +2000,7 @@ class ForwardTestEngine:
         """
         try:
             from pathlib import Path
+
             log_path = Path(_PROJECT_ROOT) / self._REJECTION_LOG_PATH
             log_path.parent.mkdir(parents=True, exist_ok=True)
             entry = {
@@ -1846,6 +2079,25 @@ class ForwardTestEngine:
             )
 
         if reason == self._TIMEOUT_REASON:
+            return LiveExecutionOutcome(
+                status=LiveExecutionStatus.TIMEOUT,
+                order=order,
+                symbol=signal.symbol,
+                direction=direction_str,
+                strategy_id=strategy_id,
+                reason=reason,
+            )
+
+        # Card ce6de98d (B): indeterminate timeout semantics. The spot feed
+        # leaves order.status = PENDING and tags reason =
+        # "indeterminate_awaiting_event" when event.wait expires but the
+        # order may still arrive via late_fill_registry. We classify this
+        # as TIMEOUT with the indeterminate reason so _process_live_outcome
+        # can bump the new signals_indeterminate counter (instead of
+        # signals_sent, which conflates genuine SENT with TIMEOUT). The
+        # late-fill callback path still upgrades to FILLED if the broker
+        # eventually confirms the fill.
+        if reason == self._INDETERMINATE_REASON:
             return LiveExecutionOutcome(
                 status=LiveExecutionStatus.TIMEOUT,
                 order=order,
@@ -1990,7 +2242,9 @@ class ForwardTestEngine:
                 if rv_status == LiveExecutionStatus.FILLED:
                     self._health.live_fills += 1
                     self._health.signals_traded += 1
-                    self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    self._health.signals_pending = max(
+                        0, self._health.signals_pending - 1
+                    )
                     # Backward-compat: keep _live_fill_count in sync.
                     self._live_fill_count = self._health.live_fills
                     # Reconciliation defense: if the synchronous TIMEOUT path
@@ -2005,7 +2259,9 @@ class ForwardTestEngine:
                     )
                     logger.info(
                         "Late fill detected for order %s (%s %s) — live_fills=%d",
-                        order_id, direction_str, signal.symbol,
+                        order_id,
+                        direction_str,
+                        signal.symbol,
                         self._health.live_fills,
                     )
                     # Phase 1A audit §5.4 fix: wire the cTrader
@@ -2017,13 +2273,17 @@ class ForwardTestEngine:
                     # path does this in execute_live_order, but late fills
                     # arrive via this callback path and were previously left
                     # naked without risk protection.
-                    if (signal.stop_loss is not None
-                            and signal.take_profit_1 is not None
-                            and self._market_feed is not None
-                            and isinstance(ctrader_position_id, int)
-                            and ctrader_position_id != 0):
+                    if (
+                        signal.stop_loss is not None
+                        and signal.take_profit_1 is not None
+                        and self._market_feed is not None
+                        and isinstance(ctrader_position_id, int)
+                        and ctrader_position_id != 0
+                    ):
                         try:
-                            symbol_id = self._market_feed.resolve_symbol_id(signal.symbol)
+                            symbol_id = self._market_feed.resolve_symbol_id(
+                                signal.symbol
+                            )
                             # Bounded retry (defense in depth — the inline
                             # attach on the sync path is the primary fix;
                             # late fills reach this branch via the fill
@@ -2033,7 +2293,9 @@ class ForwardTestEngine:
                             amended = False
                             for attempt in range(3):
                                 amended = self._market_feed.amend_sl_tp(
-                                    ctrader_position_id, signal.stop_loss, signal.take_profit_1,
+                                    ctrader_position_id,
+                                    signal.stop_loss,
+                                    signal.take_profit_1,
                                     symbol_id=symbol_id,
                                 )
                                 if amended:
@@ -2042,7 +2304,10 @@ class ForwardTestEngine:
                             if amended:
                                 logger.info(
                                     "Late SL/TP attached to position %s (order %s): sl=%.5f tp=%.5f",
-                                    ctrader_position_id, order_id, signal.stop_loss, signal.take_profit_1,
+                                    ctrader_position_id,
+                                    order_id,
+                                    signal.stop_loss,
+                                    signal.take_profit_1,
                                 )
                                 # F2 fix (Sprint Task 1.3, card a7b8e896):
                                 # mirror the F1 immediate-path fix — store
@@ -2056,8 +2321,12 @@ class ForwardTestEngine:
                                 if tp2 is not None or tp3 is not None:
                                     order_manager = self._resolve_order_manager()
                                     if order_manager is not None:
-                                        stored = order_manager.update_position_tp_levels(
-                                            ctrader_position_id, tp2, tp3,
+                                        stored = (
+                                            order_manager.update_position_tp_levels(
+                                                ctrader_position_id,
+                                                tp2,
+                                                tp3,
+                                            )
                                         )
                                         if not stored:
                                             logger.warning(
@@ -2080,9 +2349,14 @@ class ForwardTestEngine:
                         except Exception as amend_err:
                             logger.warning(
                                 "Late SL/TP amend error for position %s (order %s): %s (non-fatal)",
-                                ctrader_position_id, order_id, amend_err,
+                                ctrader_position_id,
+                                order_id,
+                                amend_err,
                             )
-                    elif rv_status == LiveExecutionStatus.FILLED and signal.stop_loss is not None:
+                    elif (
+                        rv_status == LiveExecutionStatus.FILLED
+                        and signal.stop_loss is not None
+                    ):
                         logger.warning(
                             "Late fill for order %s but no cTrader positionId — SL/TP skipped",
                             order_id,
@@ -2094,18 +2368,26 @@ class ForwardTestEngine:
                     LiveExecutionStatus.TIMEOUT,
                 ):
                     self._health.signals_failed_live += 1
-                    self._health.signals_pending = max(0, self._health.signals_pending - 1)
+                    self._health.signals_pending = max(
+                        0, self._health.signals_pending - 1
+                    )
                     # Surface the broker errorCode in health output (card 45aad19f).
                     late_reason = getattr(message, "description", "") or rv_status.value
                     if late_reason:
-                        short_code = late_reason.split(":")[0].split("_")[0].strip() or late_reason
+                        short_code = (
+                            late_reason.split(":")[0].split("_")[0].strip()
+                            or late_reason
+                        )
                         self._health.last_rejection_errorcode = short_code
                         self._health.rejection_breakdown[short_code] = (
                             self._health.rejection_breakdown.get(short_code, 0) + 1
                         )
                     logger.warning(
                         "Late outcome for order %s: %s (%s %s) reason=%s",
-                        order_id, rv_status.value, direction_str, signal.symbol,
+                        order_id,
+                        rv_status.value,
+                        direction_str,
+                        signal.symbol,
                         late_reason,
                     )
             # Free correlation / risk on the launcher side, if it exists.
@@ -2124,21 +2406,35 @@ class ForwardTestEngine:
                     if hasattr(blend_runner, "cancel_risk"):
                         blend_runner.cancel_risk(
                             signal_id,
-                            getattr(signal, "risk_amount", self._config.starting_balance * 0.01),
+                            getattr(
+                                signal,
+                                "risk_amount",
+                                self._config.starting_balance * 0.01,
+                            ),
                         )
                 except Exception:
                     pass
 
         try:
-            feed.register_callback("on_order_filled", lambda *a, **k: _release_late(LiveExecutionStatus.FILLED, *a, **k))
-            feed.register_callback("on_order_rejected", lambda *a, **k: _release_late(LiveExecutionStatus.REJECTED, *a, **k))
-            feed.register_callback("on_order_cancelled", lambda *a, **k: _release_late(LiveExecutionStatus.CANCELLED, *a, **k))
+            feed.register_callback(
+                "on_order_filled",
+                lambda *a, **k: _release_late(LiveExecutionStatus.FILLED, *a, **k),
+            )
+            feed.register_callback(
+                "on_order_rejected",
+                lambda *a, **k: _release_late(LiveExecutionStatus.REJECTED, *a, **k),
+            )
+            feed.register_callback(
+                "on_order_cancelled",
+                lambda *a, **k: _release_late(LiveExecutionStatus.CANCELLED, *a, **k),
+            )
         except Exception as exc:
             # Best-effort: if the feed has been stopped or the callback path
             # raises, fall back to logging so we don't crash the engine.
             logger.warning(
                 "Could not register late-fill callbacks for order %s: %s",
-                order_id, exc,
+                order_id,
+                exc,
             )
 
     def _evaluate_strategies(self, symbol: str):
@@ -2146,7 +2442,10 @@ class ForwardTestEngine:
             return
 
         # Kill switch gate — checked before any strategy evaluation
-        if getattr(self, '_kill_switch', None) and self._kill_switch.is_globally_killed():
+        if (
+            getattr(self, "_kill_switch", None)
+            and self._kill_switch.is_globally_killed()
+        ):
             logger.debug("Kill switch active — skipping strategy evaluation")
             return
 
@@ -2173,7 +2472,10 @@ class ForwardTestEngine:
                 forming = self._current_bar.get(tf_key)
                 if forming is not None and tf_bars[tf_key]:
                     if forming.time == tf_bars[tf_key][-1].time:
-                        logger.error("Bar-close invariant violated: forming bar leaked into evaluation for %s", tf_key)
+                        logger.error(
+                            "Bar-close invariant violated: forming bar leaked into evaluation for %s",
+                            tf_key,
+                        )
                         tf_bars[tf_key] = tf_bars[tf_key][:-1]  # remove the leaked bar
 
             if not any(tf_bars.values()):
@@ -2193,8 +2495,8 @@ class ForwardTestEngine:
             # Resolve each strategy's timeframe
             strategy_tf_map: dict[str, int] = {}
             for s in self._strategies:
-                strategy_tf_map[s.name] = (
-                    self._strategy_timeframes.get(s.name, self._config.bar_period_minutes)
+                strategy_tf_map[s.name] = self._strategy_timeframes.get(
+                    s.name, self._config.bar_period_minutes
                 )
 
             # Per-strategy evaluation with correct timeframe bars
@@ -2207,13 +2509,16 @@ class ForwardTestEngine:
                     continue
 
                 _latest = bars[-1] if bars else None
-                _session = determine_session(_latest.time) if _latest else SessionType.OUTSIDE
+                _session = (
+                    determine_session(_latest.time) if _latest else SessionType.OUTSIDE
+                )
                 state = MarketState(bars=bars, current_session=_session)
 
                 # T5: Capture risk block count before evaluation
                 _pre_risk_blocks = (
                     self._paper_trader.get_stats().signals_blocked_by_risk
-                    if self._paper_trader else 0
+                    if self._paper_trader
+                    else 0
                 )
 
                 try:
@@ -2229,7 +2534,10 @@ class ForwardTestEngine:
                     self._eval_errors.append(time.monotonic())
                     logger.error(
                         "Strategy %s evaluation error (total=%d): %s",
-                        strategy.name, self._health.evaluation_errors, exc, exc_info=True,
+                        strategy.name,
+                        self._health.evaluation_errors,
+                        exc,
+                        exc_info=True,
                     )
                     continue
 
@@ -2252,9 +2560,7 @@ class ForwardTestEngine:
                     no_signal_reason = "strategy_conditions_not_met"
                     # Last-bar snapshot for diagnosing "why no signal"
                     _last_bar = bars[-1] if bars else None
-                    _last_bar_time = (
-                        _last_bar.time.isoformat() if _last_bar else "none"
-                    )
+                    _last_bar_time = _last_bar.time.isoformat() if _last_bar else "none"
                     logger.debug(
                         "[S1] no_signal reason=%s strategy=%s symbol=%s "
                         "bar_count=%d last_bar_time=%s last_eval_ts=%.0f",
@@ -2278,7 +2584,8 @@ class ForwardTestEngine:
                 # T5: Check if risk guard blocked any signals (circuit breaker tracking)
                 _post_risk_blocks = (
                     self._paper_trader.get_stats().signals_blocked_by_risk
-                    if self._paper_trader else 0
+                    if self._paper_trader
+                    else 0
                 )
                 _new_risk_rejections = _post_risk_blocks - _pre_risk_blocks
 
@@ -2287,13 +2594,19 @@ class ForwardTestEngine:
                     self._consecutive_risk_rejections += _new_risk_rejections
                     with self._lock:
                         self._health.signals_rejected += _new_risk_rejections
-                        self._health.consecutive_risk_rejections = self._consecutive_risk_rejections
+                        self._health.consecutive_risk_rejections = (
+                            self._consecutive_risk_rejections
+                        )
                     logger.warning(
                         "Risk guard rejected %d signal(s) (consecutive=%d/%d)",
-                        _new_risk_rejections, self._consecutive_risk_rejections,
+                        _new_risk_rejections,
+                        self._consecutive_risk_rejections,
                         self._REJECTION_BREAKER_THRESHOLD,
                     )
-                    if self._consecutive_risk_rejections >= self._REJECTION_BREAKER_THRESHOLD:
+                    if (
+                        self._consecutive_risk_rejections
+                        >= self._REJECTION_BREAKER_THRESHOLD
+                    ):
                         self._rejection_cooldown_until = (
                             time.monotonic() + self._REJECTION_COOLDOWN_SEC
                         )
@@ -2306,10 +2619,14 @@ class ForwardTestEngine:
                         # Check if daily loss limit is the cause
                         if self._paper_trader:
                             stats = self._paper_trader.get_stats()
-                            drawdown_pct = abs(
-                                (stats.current_balance - stats.starting_balance)
-                                / stats.starting_balance
-                            ) if stats.starting_balance > 0 else 0
+                            drawdown_pct = (
+                                abs(
+                                    (stats.current_balance - stats.starting_balance)
+                                    / stats.starting_balance
+                                )
+                                if stats.starting_balance > 0
+                                else 0
+                            )
                             if drawdown_pct > 0.03:
                                 logger.critical(
                                     "Daily drawdown %.1f%% — possible daily loss limit breach",
@@ -2386,7 +2703,10 @@ class ForwardTestEngine:
                                 with self._lock:
                                     self._health.signals_rejected += 1
                                 continue
-                            if conf_result.final_score < self._config.live_fire_min_confidence:
+                            if (
+                                conf_result.final_score
+                                < self._config.live_fire_min_confidence
+                            ):
                                 logger.warning(
                                     "[ConfidenceEngine] Signal REJECTED — "
                                     "final_score %.3f < live_fire_min_confidence "
@@ -2466,7 +2786,11 @@ class ForwardTestEngine:
                             # the paper trader or its guard is not yet
                             # constructed (early-startup race window).
                             paper_trader = getattr(self, "_paper_trader", None)
-                            rg = getattr(paper_trader, "_risk_guard", None) if paper_trader else None
+                            rg = (
+                                getattr(paper_trader, "_risk_guard", None)
+                                if paper_trader
+                                else None
+                            )
                             if rg is not None:
                                 dd_pct = rg.current_daily_loss_pct * 100
                             bp_context = {
@@ -2513,7 +2837,9 @@ class ForwardTestEngine:
             self._eval_errors.append(time.monotonic())
             logger.error(
                 "Strategy evaluation outer error (total=%d): %s",
-                self._health.evaluation_errors, exc, exc_info=True,
+                self._health.evaluation_errors,
+                exc,
+                exc_info=True,
             )
         finally:
             self._eval_semaphore.release()
@@ -2527,8 +2853,16 @@ class ForwardTestEngine:
             for tf in self._required_timeframes:
                 # Skip if already preloaded by launcher
                 key = self._bar_key(sym, tf)
-                if key in self._bars and len(self._bars[key]) >= self._config.min_bars_for_evaluation:
-                    logger.info("Skipping preload for %s %dm — already has %d bars", sym, tf, len(self._bars[key]))
+                if (
+                    key in self._bars
+                    and len(self._bars[key]) >= self._config.min_bars_for_evaluation
+                ):
+                    logger.info(
+                        "Skipping preload for %s %dm — already has %d bars",
+                        sym,
+                        tf,
+                        len(self._bars[key]),
+                    )
                     continue
                 try:
                     bars = self._market_feed.fetch_trendbars(
@@ -2540,17 +2874,22 @@ class ForwardTestEngine:
                         self.preload_bars(sym, tf, bars)
                         logger.info(
                             "Preloaded %d bars for %s %dm",
-                            len(bars), sym, tf,
+                            len(bars),
+                            sym,
+                            tf,
                         )
                     else:
                         logger.warning(
                             "No bars returned for %s %dm — evaluation may be delayed",
-                            sym, tf,
+                            sym,
+                            tf,
                         )
                 except Exception as exc:
                     logger.warning(
                         "Failed to preload bars for %s %dm: %s",
-                        sym, tf, exc,
+                        sym,
+                        tf,
+                        exc,
                     )
 
         self._preload_complete = True
@@ -2568,7 +2907,9 @@ class ForwardTestEngine:
                 "ticks_received": self._health.ticks_received,
                 "engine_running": self._running,
                 "stats_fails": getattr(self, "_stats_fail_count", 0),
-                "stats_last_known_good": getattr(self, "_last_known_good_confidence", None),
+                "stats_last_known_good": getattr(
+                    self, "_last_known_good_confidence", None
+                ),
                 # Health-observability fields (cards 45aad19f / 2bb667ce / a8a757c4).
                 # These mirror ``ForwardTestHealth`` so downstream consumers
                 # (Hayate daily audit, dashboard) can read fill counts,
@@ -2578,10 +2919,31 @@ class ForwardTestEngine:
                 "trades": self._health.signals_traded,
                 "signals_sent": self._health.signals_sent,
                 "signals_failed_live": self._health.signals_failed_live,
+                "signals_unreachable": self._health.signals_unreachable,
                 "signals_pending": self._health.signals_pending,
+                "signals_filtered_by_regime_gate": self._health.signals_filtered_by_regime_gate,
+                # Card ce6de98d (B): surface signals_indeterminate so the
+                # heartbeat JSON (Hayate daily audit / dashboard) can see
+                # the new diagnostic counter without grepping logs.
+                "signals_indeterminate": self._health.signals_indeterminate,
                 "seeded_positions": self._health.seeded_positions,
                 "last_rejection_errorcode": self._health.last_rejection_errorcode,
                 "rejection_breakdown": dict(self._health.rejection_breakdown),
+                # Card 8ad140c5 finding #5 (sprint reina-2026-08-18-106):
+                # surface the spot-feed counters (order_error_session_conflict,
+                # unmatched_late_fills) in the ACTIVE blend heartbeat JSON so
+                # downstream consumers see them without grepping logs.
+                # Additive — no existing keys are renamed or removed. The
+                # counters live on the OpenApiSpotFeed instance held by
+                # the engine (``self._market_feed``); we read via getattr
+                # with a default of 0 so the heartbeat file is always
+                # written even if the spot feed is not yet wired.
+                "order_error_session_conflict": self._safe_spot_feed_counter(
+                    "_order_error_session_conflict_count"
+                ),
+                "unmatched_late_fills": self._safe_spot_feed_counter(
+                    "_unmatched_late_fills_count"
+                ),
             }
             json_str = json.dumps(heartbeat, indent=2)
 
@@ -2607,6 +2969,41 @@ class ForwardTestEngine:
                 raise
         except Exception as exc:
             logger.warning("Failed to write heartbeat: %s", exc)
+
+    def _safe_spot_feed_counter(self, attr_name: str) -> int:
+        """Read a counter attribute from the live spot feed safely.
+
+        Card 8ad140c5 finding #5 (sprint reina-2026-08-18-106): the
+        spot-feed counters (``_order_error_session_conflict_count``,
+        ``_unmatched_late_fills_count``) live on the OpenApiSpotFeed
+        instance stored at ``self._market_feed``. We expose them via
+        the ACTIVE blend heartbeat JSON so downstream consumers (Hayate
+        daily audit, dashboard) can see them without grepping logs.
+
+        Returns 0 when:
+          * the engine has not yet wired the spot feed (start() hasn't
+            been called yet — heartbeat file is still written, just
+            with a 0 value);
+          * the spot feed exists but does not expose the named
+            attribute (defensive against forward/backward-compat
+            drift);
+          * any exception is raised (log + return 0 so heartbeat
+            write never fails because of a counter read).
+        """
+        try:
+            feed = getattr(self, "_market_feed", None)
+            if feed is None:
+                return 0
+            value = getattr(feed, attr_name, 0)
+            # Numeric guard: a MagicMock would return a MagicMock for any
+            # attribute access; coerce to int with fallback to 0 so the
+            # heartbeat JSON shape stays integer.
+            return int(value) if isinstance(value, (int, float)) else 0
+        except Exception as exc:
+            logger.debug(
+                "Safe-counter read failed for attr=%s: %s", attr_name, exc
+            )
+            return 0
 
     def _check_error_rate(self):
         """Check evaluation error rate in rolling 60s window.
@@ -2700,7 +3097,10 @@ class ForwardTestEngine:
                 # regardless of host timezone.
                 now_dt = datetime.now(timezone.utc)
                 day_str = _trading_date(now_dt)
-                if self._last_reset_date is not None and day_str != self._last_reset_date:
+                if (
+                    self._last_reset_date is not None
+                    and day_str != self._last_reset_date
+                ):
                     blend_runner = getattr(self, "_blend_runner", None)
                     if blend_runner is not None:
                         if hasattr(blend_runner, "daily_reset"):
@@ -2719,7 +3119,10 @@ class ForwardTestEngine:
                                     "Daily risk reset: daily_used=%.2f→0.00, "
                                     "open_risk=%.2f, positions_carried=%d, "
                                     "trading_date=%s",
-                                    pre_daily, pre_open, positions_carried, day_str,
+                                    pre_daily,
+                                    pre_open,
+                                    positions_carried,
+                                    day_str,
                                 )
                 self._last_reset_date = day_str
 
@@ -2745,7 +3148,11 @@ class ForwardTestEngine:
                         errors = self._health.evaluation_errors
                     logger.info(
                         "[B5 Periodic] ticks=%d bars_built=%d signals=%d traded=%d eval_errors=%d",
-                        ticks, bars, signals, traded, errors,
+                        ticks,
+                        bars,
+                        signals,
+                        traded,
+                        errors,
                     )
                     # B5 Amendment 4: tick-to-bar pipeline health (revised)
                     # Count TOTAL bars across all keys + preloaded bars
@@ -2755,7 +3162,9 @@ class ForwardTestEngine:
                         with self._lock:
                             total_bars = sum(len(v) for v in self._bars.values())
                             # Include current (forming) bars in the count
-                            total_bars += sum(1 for v in self._current_bar.values() if v is not None)
+                            total_bars += sum(
+                                1 for v in self._current_bar.values() if v is not None
+                            )
                         uptime = self._health.uptime_sec
                         in_grace = uptime < 1200  # 20-minute startup grace
 
@@ -2764,7 +3173,8 @@ class ForwardTestEngine:
                                 logger.debug(
                                     "[B5 Pipeline] %d ticks, 0 total bars — "
                                     "within startup grace (%.0fs < 1200s)",
-                                    ticks, uptime,
+                                    ticks,
+                                    uptime,
                                 )
                             else:
                                 # Rate-limit WARNING to once per 5 minutes
@@ -2776,20 +3186,24 @@ class ForwardTestEngine:
                                             k: len(v) for k, v in self._bars.items()
                                         }
                                         current_keys = {
-                                            k for k, v in self._current_bar.items() if v is not None
+                                            k
+                                            for k, v in self._current_bar.items()
+                                            if v is not None
                                         }
                                         last_tick = self._health.last_tick_at
                                     cfg_symbols = list(self._cfg_symbols_normalized)
                                     logger.warning(
                                         "[B5 Pipeline] STALLED: %d ticks, 0 total bars "
-                                    "(uptime=%.0fs, grace_expired). "
-                                    "symbols=%s timeframes=%s "
-                                    "bar_keys=%s current_forming=%s "
-                                    "last_tick=%s",
-                                        ticks, uptime,
+                                        "(uptime=%.0fs, grace_expired). "
+                                        "symbols=%s timeframes=%s "
+                                        "bar_keys=%s current_forming=%s "
+                                        "last_tick=%s",
+                                        ticks,
+                                        uptime,
                                         cfg_symbols,
                                         sorted(self._required_timeframes),
-                                        bar_keys, current_keys,
+                                        bar_keys,
+                                        current_keys,
                                         last_tick.isoformat() if last_tick else "None",
                                     )
                                 else:
@@ -2816,7 +3230,9 @@ class ForwardTestEngine:
 
                     # S1: Per-strategy diagnostic in B5 Periodic health
                     for sname in sorted(self._strategy_eval_counts):
-                        last_eval_ago = time.monotonic() - self._strategy_last_eval.get(sname, 0)
+                        last_eval_ago = time.monotonic() - self._strategy_last_eval.get(
+                            sname, 0
+                        )
                         logger.info(
                             "[S1 Health] %s: evals=%d no_signal=%d last=%.0fs ago",
                             sname,
@@ -2952,6 +3368,23 @@ class ForwardTestEngine:
             self._health.reconnection_attempts,
             self._reconnect_delay,
         )
+        # Structured diagnostic for post-mortem analysis (card ecbecd01).
+        # Surfaces attempt number, current backoff, the last failure reason,
+        # and how stale the auth token is so operators can correlate
+        # ALREADY_LOGGED_IN / token-expiry-driven reconnect storms in logs.
+        logger.info(
+            "Reconnect diagnostic: %s",
+            json.dumps(
+                {
+                    "attempt_no": self._health.reconnection_attempts,
+                    "backoff_s": self._reconnect_delay,
+                    "last_error": str(self._health.last_error or "unknown"),
+                    "token_age_s": getattr(
+                        self._market_feed, "_token_expires_at", None
+                    ),
+                }
+            ),
+        )
 
         if self._market_feed:
             try:
@@ -2971,15 +3404,17 @@ class ForwardTestEngine:
         else:
             # Full-jitter backoff per AWS recommendations
             import random
+
             base = self._config.reconnect_delay_sec  # 5.0
             cap = self._config.max_reconnect_delay_sec  # 120.0
             attempts = self._health.reconnection_attempts
             exponent = min(attempts, 8)  # cap exponent to prevent overflow
-            backoff_cap = min(cap, base * (2 ** exponent))
+            backoff_cap = min(cap, base * (2**exponent))
             self._reconnect_delay = random.uniform(0, backoff_cap)
             logger.warning(
                 "Reconnection failed — next attempt in %.1fs (full-jitter, attempt=%d)",
-                self._reconnect_delay, attempts,
+                self._reconnect_delay,
+                attempts,
             )
 
     def _register_blend_position_mapping(
@@ -3016,18 +3451,18 @@ class ForwardTestEngine:
         except Exception as exc:
             logger.warning(
                 "Could not build blend signal_id for cTrader position %s: %s",
-                ctrader_position_id, exc,
+                ctrader_position_id,
+                exc,
             )
             return
         try:
-            blend_runner.register_position_mapping(
-                str(ctrader_position_id), signal_id
-            )
+            blend_runner.register_position_mapping(str(ctrader_position_id), signal_id)
         except Exception as exc:
             # Defensive — never let a mapping failure break the trade path.
             logger.warning(
                 "register_position_mapping failed for cTrader position %s: %s",
-                ctrader_position_id, exc,
+                ctrader_position_id,
+                exc,
             )
 
     def _on_trade_executed(self, result):
@@ -3035,17 +3470,25 @@ class ForwardTestEngine:
         # The blend_runner registers risk under signal_id = strategy_id + "_" +
         # timestamp.  PaperTrader creates a Position with position_id = "POS_...".
         # We capture the mapping here so _on_position_closed can resolve it.
-        if (hasattr(result, "position") and result.position
-                and hasattr(result, "signal") and result.signal):
+        if (
+            hasattr(result, "position")
+            and result.position
+            and hasattr(result, "signal")
+            and result.signal
+        ):
             position_id = result.position.position_id
             signal = result.signal
-            signal_id = (signal.strategy_id or "") + "_" + str(
-                signal.timestamp.timestamp() if signal.timestamp else ""
+            signal_id = (
+                (signal.strategy_id or "")
+                + "_"
+                + str(signal.timestamp.timestamp() if signal.timestamp else "")
             )
             self._position_id_to_signal_id[position_id] = signal_id
 
             blend_runner = getattr(self, "_blend_runner", None)
-            if blend_runner is not None and hasattr(blend_runner, "register_position_mapping"):
+            if blend_runner is not None and hasattr(
+                blend_runner, "register_position_mapping"
+            ):
                 blend_runner.register_position_mapping(position_id, signal_id)
 
         if self._trade_logger and result.order:
@@ -3066,9 +3509,8 @@ class ForwardTestEngine:
             elif hasattr(blend_runner, "on_fill"):
                 # Backward-compat: resolve signal_id from engine mapping
                 signal_id = self._position_id_to_signal_id.pop(position_id, position_id)
-                close_price = (
-                    getattr(position, "closed_price", None)
-                    or getattr(position, "current_price", 0.0)
+                close_price = getattr(position, "closed_price", None) or getattr(
+                    position, "current_price", 0.0
                 )
                 blend_runner.on_fill(signal_id, close_price, pnl)
 
@@ -3078,7 +3520,9 @@ class ForwardTestEngine:
             signal_id = self._position_id_to_signal_id.get(position_id, position_id)
             logger.info(
                 "Position closed: signal_id=%s pnl=%.2f open_risk=%.2f",
-                signal_id, pnl, remaining_open_risk,
+                signal_id,
+                pnl,
+                remaining_open_risk,
             )
         # Persist closed trade to trading.db (DEBT card 248d4f98)
         try:
@@ -3110,7 +3554,6 @@ class ForwardTestEngine:
             )
         except Exception as db_exc:
             logger.warning("trading.db write failed (non-fatal): %s", db_exc)
-
 
         if self._trade_logger:
             self._trade_logger.log_position_closed(position)

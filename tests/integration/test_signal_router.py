@@ -1,15 +1,9 @@
-import pytest
 from core.types import TradeDirection
 from engine.protocol import CanonicalSignal
-from engine.signal_router import SignalRouter, RouteResult
+from engine.signal_router import SignalRouter
 from adapters.ctrader.risk_guard import FTMOConfig
 from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
 from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
-from adapters.ctrader.models import (
-    Position,
-    PositionStatus,
-    TradeDirection as CTradeDirection,
-)
 
 
 def _make_signal(

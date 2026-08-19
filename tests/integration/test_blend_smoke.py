@@ -32,15 +32,17 @@ def load_bars(csv_path: str, symbol: str = "XAUUSD", count: int = 200) -> list:
             if i >= count:
                 break
             ts = datetime.fromisoformat(row["Date"])
-            bars.append(Bar(
-                time=ts,
-                open=float(row["Open"]),
-                high=float(row["High"]),
-                low=float(row["Low"]),
-                close=float(row["Close"]),
-                volume=float(row.get("Volume", 0)),
-                period=BarPeriod.M15,  # close enough, just needs a value
-            ))
+            bars.append(
+                Bar(
+                    time=ts,
+                    open=float(row["Open"]),
+                    high=float(row["High"]),
+                    low=float(row["Low"]),
+                    close=float(row["Close"]),
+                    volume=float(row.get("Volume", 0)),
+                    period=BarPeriod.M15,  # close enough, just needs a value
+                )
+            )
     return bars
 
 
@@ -93,7 +95,7 @@ def main():
 
     # Feed bars one at a time, growing the window
     for i in range(50, len(bars)):
-        window = bars[:i + 1]
+        window = bars[: i + 1]
         result = runner.evaluate_bars(window, latest_bar=bars[i])
         if result:
             orders.extend(result)

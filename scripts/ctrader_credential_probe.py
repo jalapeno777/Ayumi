@@ -64,7 +64,9 @@ def _write_health_record(record: dict) -> None:
         f.write(json.dumps(record, default=str) + "\n")
 
 
-def _api_reachable(url: str = CTRADER_OAUTH_REFRESH_URL, timeout: float = 10.0) -> tuple[bool, str]:
+def _api_reachable(
+    url: str = CTRADER_OAUTH_REFRESH_URL, timeout: float = 10.0
+) -> tuple[bool, str]:
     """Lightweight HTTPS reachability check; no credentials sent."""
     parsed = urlparse(url)
     host = parsed.hostname or "openapi.ctrader.com"
@@ -175,7 +177,12 @@ def main() -> int:
     }
     _write_health_record(record)
 
-    logger.info("Probe complete: status=%s exit_code=%d duration_ms=%s", summary, exit_code, duration_ms)
+    logger.info(
+        "Probe complete: status=%s exit_code=%d duration_ms=%s",
+        summary,
+        exit_code,
+        duration_ms,
+    )
     return exit_code
 
 

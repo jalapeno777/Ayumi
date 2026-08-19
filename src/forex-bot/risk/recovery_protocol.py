@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger("ayumi.risk.recovery")
@@ -32,9 +31,11 @@ MIN_MARGIN_LEVEL_PCT = 200.0  # Minimum margin level (%) to proceed with recover
 
 # ── Data Classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class PositionInfo:
     """Position information for reconciliation."""
+
     symbol: str
     volume: float
     side: str  # "buy" or "sell"
@@ -47,6 +48,7 @@ class PositionInfo:
 @dataclass
 class ReconciliationResult:
     """Result of position reconciliation between local and broker state."""
+
     matched: bool
     local_positions: list[PositionInfo] = field(default_factory=list)
     broker_positions: list[PositionInfo] = field(default_factory=list)
@@ -64,6 +66,7 @@ class ReconciliationResult:
 @dataclass
 class MarginInfo:
     """Margin state from broker."""
+
     available_margin: float
     used_margin: float
     margin_level_pct: float
@@ -72,6 +75,7 @@ class MarginInfo:
 @dataclass
 class CooldownState:
     """Tracks the cooldown period for a recovering strategy."""
+
     strategy_id: str
     started_at: float  # unix timestamp
     risk_multiplier: float = COOLDOWN_RISK_MULTIPLIER
@@ -100,6 +104,7 @@ class CooldownState:
 @dataclass
 class RecoveryResult:
     """Outcome of a recovery attempt."""
+
     success: bool
     strategy_id: str
     step: str  # which step completed or failed
@@ -113,7 +118,9 @@ class RecoveryResult:
             "success": self.success,
             "strategy_id": self.strategy_id,
             "step": self.step,
-            "reconciliation": self.reconciliation.to_dict() if self.reconciliation else None,
+            "reconciliation": self.reconciliation.to_dict()
+            if self.reconciliation
+            else None,
             "margin_level_pct": self.margin.margin_level_pct if self.margin else None,
             "risk_multiplier": self.risk_multiplier,
             "message": self.message,
@@ -121,6 +128,7 @@ class RecoveryResult:
 
 
 # ── Recovery Protocol ────────────────────────────────────────────────────────
+
 
 class RecoveryProtocol:
     """Controlled unfreeze protocol for frozen strategies.
@@ -190,7 +198,8 @@ class RecoveryProtocol:
             logger.warning(
                 "Recovery aborted for '%s': position reconciliation failed — "
                 "%d mismatches",
-                strategy_id, len(reconciliation.mismatches),
+                strategy_id,
+                len(reconciliation.mismatches),
             )
             return RecoveryResult(
                 success=False,
@@ -229,7 +238,8 @@ class RecoveryProtocol:
 
         logger.info(
             "Step 2 passed: margin verified for '%s' (%.1f%%)",
-            strategy_id, margin_info.margin_level_pct,
+            strategy_id,
+            margin_info.margin_level_pct,
         )
 
         # ── Step 3: Gradual Unfreeze at 50% Risk ─────────────────────
@@ -286,7 +296,8 @@ class RecoveryProtocol:
         cooldown = self._cooldowns.get(strategy_id)
         if cooldown is None:
             logger.warning(
-                "restore_full_risk: strategy '%s' not in cooldown", strategy_id,
+                "restore_full_risk: strategy '%s' not in cooldown",
+                strategy_id,
             )
             return False
 
@@ -295,7 +306,8 @@ class RecoveryProtocol:
             logger.info(
                 "restore_full_risk: cooldown still active for '%s' — "
                 "%.0f seconds remaining",
-                strategy_id, remaining,
+                strategy_id,
+                remaining,
             )
             return False
 
@@ -327,8 +339,7 @@ class RecoveryProtocol:
         """Return all active cooldowns."""
         now = time.time()
         return {
-            sid: cd for sid, cd in self._cooldowns.items()
-            if not cd.is_expired(now)
+            sid: cd for sid, cd in self._cooldowns.items() if not cd.is_expired(now)
         }
 
     # ── Internal Methods ───────────────────────────────────────────────────
@@ -358,29 +369,35 @@ class RecoveryProtocol:
             broker = broker_map.get(key)
 
             if local and not broker:
-                mismatches.append({
-                    "type": "missing_in_broker",
-                    "symbol": local.symbol,
-                    "side": local.side,
-                    "volume": local.volume,
-                })
+                mismatches.append(
+                    {
+                        "type": "missing_in_broker",
+                        "symbol": local.symbol,
+                        "side": local.side,
+                        "volume": local.volume,
+                    }
+                )
             elif broker and not local:
-                mismatches.append({
-                    "type": "unexpected_in_broker",
-                    "symbol": broker.symbol,
-                    "side": broker.side,
-                    "volume": broker.volume,
-                })
+                mismatches.append(
+                    {
+                        "type": "unexpected_in_broker",
+                        "symbol": broker.symbol,
+                        "side": broker.side,
+                        "volume": broker.volume,
+                    }
+                )
             elif local and broker:
                 vol_diff = abs(local.volume - broker.volume)
                 if vol_diff > 0.01:  # tolerance: 0.01 lot
-                    mismatches.append({
-                        "type": "volume_mismatch",
-                        "symbol": local.symbol,
-                        "side": local.side,
-                        "local_volume": local.volume,
-                        "broker_volume": broker.volume,
-                    })
+                    mismatches.append(
+                        {
+                            "type": "volume_mismatch",
+                            "symbol": local.symbol,
+                            "side": local.side,
+                            "local_volume": local.volume,
+                            "broker_volume": broker.volume,
+                        }
+                    )
 
         return ReconciliationResult(
             matched=len(mismatches) == 0,

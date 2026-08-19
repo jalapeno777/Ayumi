@@ -5,15 +5,13 @@ across multiple config variants, trains per-pair ConfidenceLearner models,
 and determines the optimal configuration per symbol.
 
 Usage:
-    cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate
-    python -c "import sys; sys.path.insert(0, 'src/forex-bot'); from ml.per_symbol_optimizer import main; main()"
+    cd /home/TacoPants/projects/Ayumi/src/forex-bot && python3 -m ml.per_symbol_optimizer
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +20,6 @@ from typing import Any
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtest.engine import Bar, TradeOutcome, get_spread_for_pair
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine

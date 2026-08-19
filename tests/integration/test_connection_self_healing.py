@@ -21,10 +21,20 @@ from dataclasses import dataclass as _dataclass
 from datetime import datetime as _datetime
 from enum import Enum as _Enum
 
+
 # pandas stub
-class _FakeDataFrame: pass
-class _FakeSeries: pass
-class _FakeDatetimeIndex: pass
+class _FakeDataFrame:
+    pass
+
+
+class _FakeSeries:
+    pass
+
+
+class _FakeDatetimeIndex:
+    pass
+
+
 _pandas = _types.ModuleType("pandas")
 _pandas.DataFrame = _FakeDataFrame
 _pandas.Series = _FakeSeries
@@ -34,16 +44,25 @@ _pandas.DatetimeIndex = _FakeDatetimeIndex
 _signal_engine = _types.ModuleType("signal_engine")
 _signal_stats = _types.ModuleType("signal_engine.signal_stats")
 _swing_detector = _types.ModuleType("signal_engine.swing_detector")
-class _SwingDetector: pass
+
+
+class _SwingDetector:
+    pass
+
+
 _swing_detector.SwingDetector = _SwingDetector
 
 # backtest stub
 _backtest = _types.ModuleType("backtest")
 _backtest_engine = _types.ModuleType("backtest.engine")
 _backtest_strategies = _types.ModuleType("backtest.strategies")
+
+
 class _TradeDirection(_Enum):
     LONG = "long"
     SHORT = "short"
+
+
 @_dataclass
 class _Bar:
     time: _datetime
@@ -52,10 +71,17 @@ class _Bar:
     low: float
     close: float
     volume: float = 0
+
+
 @_dataclass
 class _MarketState:
     bars: list = None
-class _ISignalStrategy: pass
+
+
+class _ISignalStrategy:
+    pass
+
+
 _backtest_engine.Bar = _Bar
 _backtest_engine.MarketState = _MarketState
 _backtest_engine.TradeDirection = _TradeDirection
@@ -63,55 +89,102 @@ _backtest_strategies.ISignalStrategy = _ISignalStrategy
 
 # ctrader_open_api stub
 _ctrader = _types.ModuleType("ctrader_open_api")
+
+
 class _Client:
-    def __init__(self, host, port, protocol): pass
-    def setConnectedCallback(self, cb): pass
-    def setDisconnectedCallback(self, cb): pass
-    def startService(self): pass
-    def stopService(self): pass
-    def send(self, msg, **kwargs): pass
-class _TcpProtocol: pass
+    def __init__(self, host, port, protocol):
+        pass
+
+    def setConnectedCallback(self, cb):
+        pass
+
+    def setDisconnectedCallback(self, cb):
+        pass
+
+    def startService(self):
+        pass
+
+    def stopService(self):
+        pass
+
+    def send(self, msg, **kwargs):
+        pass
+
+
+class _TcpProtocol:
+    pass
+
+
 _ctrader.Client = _Client
 _ctrader.TcpProtocol = _TcpProtocol
 _protobuf_mod = _types.ModuleType("ctrader_open_api.protobuf")
+
+
 class _Protobuf:
     @staticmethod
-    def extract(msg): return msg
+    def extract(msg):
+        return msg
+
+
 _protobuf_mod.Protobuf = _Protobuf
 _messages_mod = _types.ModuleType("ctrader_open_api.messages")
 _msg_names = [
-    "ProtoOAAccountAuthReq", "ProtoOAAmendOrderReq", "ProtoOAAmendPositionSLTPReq",
-    "ProtoOAApplicationAuthReq", "ProtoOACancelOrderReq", "ProtoOAClosePositionReq",
-    "ProtoOAExecutionEvent", "ProtoOAGetTrendbarsReq", "ProtoOANewOrderReq",
-    "ProtoOAOrderErrorEvent", "ProtoOAReconcileReq", "ProtoOASubscribeSpotsReq",
-    "ProtoOASymbolByIdReq", "ProtoOASymbolsListReq", "ProtoOAUnsubscribeSpotsReq",
+    "ProtoOAAccountAuthReq",
+    "ProtoOAAmendOrderReq",
+    "ProtoOAAmendPositionSLTPReq",
+    "ProtoOAApplicationAuthReq",
+    "ProtoOACancelOrderReq",
+    "ProtoOAClosePositionReq",
+    "ProtoOAExecutionEvent",
+    "ProtoOAGetTrendbarsReq",
+    "ProtoOANewOrderReq",
+    "ProtoOAOrderErrorEvent",
+    "ProtoOAReconcileReq",
+    "ProtoOASubscribeSpotsReq",
+    "ProtoOASymbolByIdReq",
+    "ProtoOASymbolsListReq",
+    "ProtoOAUnsubscribeSpotsReq",
 ]
 _openapi_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiMessages_pb2")
 for _name in _msg_names:
     _cls = type(_name, (), {"__init__": lambda self, **kw: None})
     setattr(_openapi_msgs, _name, _cls)
 _model_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
+
+
 class _ProtoOAOrderType:
-    MARKET = 0; LIMIT = 1; STOP = 2
+    MARKET = 0
+    LIMIT = 1
+    STOP = 2
+
+
 class _ProtoOATradeSide:
-    BUY = 0; SELL = 1
+    BUY = 0
+    SELL = 1
+
+
 class _ProtoOATimeInForce:
     GOOD_TILL_CANCEL = 0
+
+
 class _ProtoOAExecutionType:
-    ORDER_CANCELLED = 0; ORDER_REJECTED = 1
+    ORDER_CANCELLED = 0
+    ORDER_REJECTED = 1
+
+
 _model_msgs.ProtoOAOrderType = _ProtoOAOrderType
 _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 
-import sys
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
+from adapters.ctrader.connection_state import ConnectionState
+
 # Sprint 1A.1: The orchestrator at adapters.ctrader.open_api_spot_feed uses
 # ConnectionStateManager from adapters.ctrader.connection_state (ModernCS).
 # Its _VALID_TRANSITIONS dict is keyed by ModernCS enum members, so the
@@ -139,15 +212,21 @@ def _install_mock_stubs(monkeypatch):
     monkeypatch.setitem(_sys.modules, "ctrader_open_api", _ctrader)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.protobuf", _protobuf_mod)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages", _messages_mod)
-    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
-    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
+    monkeypatch.setitem(
+        _sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs
+    )
+    monkeypatch.setitem(
+        _sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs
+    )
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 def _state_value(state):
     """Return the string value of a ConnectionState (modern or archived)."""
     return state.value if hasattr(state, "value") else state
+
 
 # Alias: tests below call transition_to() with this so the modern
 # _VALID_TRANSITIONS dict (keyed by ModernCS enum members) actually hits.
@@ -182,6 +261,7 @@ def mock_kill_switch():
 
 # ── State Transitions on Connect/Auth/Disconnect ─────────────────────────────
 
+
 class TestStateTransitions:
     """Verify that lifecycle events drive the ConnectionStateManager correctly."""
 
@@ -202,7 +282,8 @@ class TestStateTransitions:
         # We can't actually connect, but we can test the transition
         # by simulating what _connect does
         feed.state_manager.transition_to(
-            CS.CONNECTING, reason="test",
+            CS.CONNECTING,
+            reason="test",
         )
         assert _state_value(feed.state_manager.state) == "connecting"
 
@@ -286,6 +367,7 @@ class TestStateTransitions:
 
 # ── Heartbeat Timeout Detection ───────────────────────────────────────────────
 
+
 class TestHeartbeatMonitor:
     """Test heartbeat timeout → DEGRADED → RECONNECTING sequence."""
 
@@ -316,7 +398,9 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
         # Simulate very stale heartbeat on CTraderConnection
-        feed._conn._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
+        feed._conn._last_heartbeat_recv = (
+            time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
+        )
         feed._client = None  # prevent actual stopService call
 
         feed._check_heartbeat_health()
@@ -372,6 +456,7 @@ class TestHeartbeatMonitor:
 
 # ── Stale Tick Detection ──────────────────────────────────────────────────────
 
+
 class TestStaleTickDetector:
     """Test stale tick detection during market hours and weekend skip."""
 
@@ -404,11 +489,15 @@ class TestStaleTickDetector:
         feed.set_kill_switch(mock_kill_switch)
 
         # Mock weekday (not weekend)
-        with patch('adapters.ctrader.open_api_spot_feed.datetime') as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 6, 3, 12, 0, tzinfo=timezone.utc)  # Wednesday
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
+            mock_dt.now.return_value = datetime(
+                2026, 6, 3, 12, 0, tzinfo=timezone.utc
+            )  # Wednesday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
-            feed._last_tick_recv_monotonic = time.monotonic() - _STALE_TICK_FREEZE_SEC - 1
+            feed._last_tick_recv_monotonic = (
+                time.monotonic() - _STALE_TICK_FREEZE_SEC - 1
+            )
             feed._check_stale_ticks()
 
         mock_kill_switch.activate_global_freeze.assert_called_once()
@@ -428,7 +517,7 @@ class TestStaleTickDetector:
 
         # Mock weekend (Saturday)
         saturday = datetime(2026, 6, 6, 12, 0, tzinfo=timezone.utc)  # Saturday
-        with patch('adapters.ctrader.open_api_spot_feed.datetime') as mock_dt:
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
             mock_dt.now.return_value = saturday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
@@ -450,6 +539,7 @@ class TestStaleTickDetector:
 
 
 # ── Reconciliation After Reconnect ────────────────────────────────────────────
+
 
 class TestReconciliation:
     """Test reconnection callbacks."""
@@ -490,6 +580,7 @@ class TestReconciliation:
 
     def test_reconciliation_callback_exception_doesnt_crash(self, feed):
         """Exception in reconciliation callback doesn't crash."""
+
         def bad_callback(duration):
             raise RuntimeError("boom")
 
@@ -514,6 +605,7 @@ class TestReconciliation:
 
 
 # ── Auth Error Escalation ─────────────────────────────────────────────────────
+
 
 class TestAuthErrorEscalation:
     """Test auth error count → state machine escalation."""
@@ -610,6 +702,7 @@ class TestAuthErrorEscalation:
 
 # ── Kill Switch Integration ───────────────────────────────────────────────────
 
+
 class TestKillSwitchIntegration:
     """Test kill switch FREEZE integration."""
 
@@ -658,6 +751,7 @@ class TestKillSwitchIntegration:
 
 # ── Health Endpoint ───────────────────────────────────────────────────────────
 
+
 class TestHealthEndpoint:
     """Test enhanced get_health() endpoint."""
 
@@ -697,6 +791,7 @@ class TestHealthEndpoint:
 
 # ── State Manager Callbacks ───────────────────────────────────────────────────
 
+
 class TestStateChangeCallbacks:
     """Test that state change callbacks fire correctly."""
 
@@ -720,9 +815,7 @@ class TestStateChangeCallbacks:
         sm = feed.state_manager
         events = []
 
-        sm.on_state_change(
-            lambda old, new, reason, meta: events.append((old, new))
-        )
+        sm.on_state_change(lambda old, new, reason, meta: events.append((old, new)))
 
         # Self-transition (DISCONNECTED → DISCONNECTED)
         result = sm.transition_to(CS.DISCONNECTED, reason="noop")

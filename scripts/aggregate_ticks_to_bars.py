@@ -35,15 +35,16 @@ DB_PATH = PROJECT_ROOT / "data" / "ayumi_market.duckdb"
 
 # Timeframe definitions: (name, milliseconds)
 TIMEFRAMES = {
-    "M1":  60_000,
-    "M3":  180_000,
-    "M5":  300_000,
+    "M1": 60_000,
+    "M3": 180_000,
+    "M5": 300_000,
     "M15": 900_000,
     "M30": 1_800_000,
-    "H1":  3_600_000,
-    "H4":  14_400_000,
-    "D1":  86_400_000,
+    "H1": 3_600_000,
+    "H4": 14_400_000,
+    "D1": 86_400_000,
 }
+
 
 # Pip values per symbol family for spread calculation
 def _pip_size(symbol: str) -> float:
@@ -51,30 +52,39 @@ def _pip_size(symbol: str) -> float:
     if "XAU" in symbol or "XAG" in symbol:
         return 0.01  # gold/silver: 1 pip = 0.01
     if "JPY" in symbol:
-        return 0.01   # JPY pairs: 1 pip = 0.01
+        return 0.01  # JPY pairs: 1 pip = 0.01
     return 0.0001  # standard FX: 1 pip = 0.0001
 
 
 def get_available_symbols(con: duckdb.DuckDBPyConnection) -> list[str]:
     """Get all symbols that have tick data."""
-    return [r[0] for r in con.execute(
-        "SELECT DISTINCT symbol FROM ticks ORDER BY symbol"
-    ).fetchall()]
+    return [
+        r[0]
+        for r in con.execute(
+            "SELECT DISTINCT symbol FROM ticks ORDER BY symbol"
+        ).fetchall()
+    ]
 
 
 def get_aggregated(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
     """Get (symbol, timeframe) pairs already in bars table."""
-    return [(r[0], r[1]) for r in con.execute(
-        "SELECT DISTINCT symbol, timeframe FROM bars ORDER BY symbol, timeframe"
-    ).fetchall()]
+    return [
+        (r[0], r[1])
+        for r in con.execute(
+            "SELECT DISTINCT symbol, timeframe FROM bars ORDER BY symbol, timeframe"
+        ).fetchall()
+    ]
 
 
 def check_tick_coverage(con: duckdb.DuckDBPyConnection, symbol: str) -> dict:
     """Get tick data coverage for a symbol."""
-    row = con.execute("""
+    row = con.execute(
+        """
         SELECT count(*), min(timestamp_ms), max(timestamp_ms)
         FROM ticks WHERE symbol = ?
-    """, [symbol]).fetchone()
+    """,
+        [symbol],
+    ).fetchone()
     if not row or row[0] == 0:
         return {"count": 0, "earliest": None, "latest": None}
     return {"count": row[0], "earliest": row[1], "latest": row[2]}
@@ -100,11 +110,21 @@ def aggregate_symbol_timeframe(
     ).fetchone()[0]
 
     if existing > 0 and not force:
-        logger.info("  %s %s: already aggregated (%d bars), skipping", symbol, timeframe, existing)
+        logger.info(
+            "  %s %s: already aggregated (%d bars), skipping",
+            symbol,
+            timeframe,
+            existing,
+        )
         return existing
 
     if existing > 0 and force:
-        logger.info("  %s %s: force=True, deleting %d existing bars", symbol, timeframe, existing)
+        logger.info(
+            "  %s %s: force=True, deleting %d existing bars",
+            symbol,
+            timeframe,
+            existing,
+        )
         con.execute(
             "DELETE FROM bars WHERE symbol = ? AND timeframe = ?",
             [symbol, timeframe],
@@ -117,8 +137,7 @@ def aggregate_symbol_timeframe(
         return 0
 
     logger.info(
-        "  %s %s: aggregating from %d ticks...",
-        symbol, timeframe, coverage["count"]
+        "  %s %s: aggregating from %d ticks...", symbol, timeframe, coverage["count"]
     )
 
     start = time.monotonic()
@@ -171,13 +190,20 @@ def aggregate_symbol_timeframe(
     # Log to import_log
     con.execute(
         "INSERT INTO import_log (filename, symbol, row_count, imported_at) VALUES (?, ?, ?, ?)",
-        [f"tick_aggregation:{symbol}:{timeframe}", symbol, created,
-         time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())],
+        [
+            f"tick_aggregation:{symbol}:{timeframe}",
+            symbol,
+            created,
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        ],
     )
 
     logger.info(
         "  %s %s: created %d bars in %.1fs (%.0f ticks/bar avg)",
-        symbol, timeframe, created, elapsed,
+        symbol,
+        timeframe,
+        created,
+        elapsed,
         coverage["count"] / max(created, 1),
     )
 
@@ -204,7 +230,8 @@ def aggregate_symbol(
 
         logger.info(
             "Aggregating %s: %d ticks (%s to %s)",
-            symbol, coverage["count"],
+            symbol,
+            coverage["count"],
             time.strftime("%Y-%m-%d", time.gmtime(coverage["earliest"] / 1000)),
             time.strftime("%Y-%m-%d", time.gmtime(coverage["latest"] / 1000)),
         )
@@ -235,11 +262,16 @@ def main():
     parser = argparse.ArgumentParser(description="Aggregate ticks to bars in DuckDB")
     parser.add_argument("--symbol", help="Symbol to aggregate (e.g., GBPUSD)")
     parser.add_argument(
-        "--timeframes", default="M1,M5,M15,M30,H1,H4,D1",
+        "--timeframes",
+        default="M1,M5,M15,M30,H1,H4,D1",
         help="Comma-separated timeframes to aggregate",
     )
-    parser.add_argument("--force", action="store_true", help="Re-aggregate even if bars exist")
-    parser.add_argument("--list", action="store_true", help="List aggregated bars and exit")
+    parser.add_argument(
+        "--force", action="store_true", help="Re-aggregate even if bars exist"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List aggregated bars and exit"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -264,17 +296,28 @@ def main():
             print("  (no bars aggregated yet)")
         else:
             import datetime
+
             for _, row in df.iterrows():
-                e = datetime.datetime.fromtimestamp(row["earliest_s"], tz=datetime.timezone.utc)
-                l = datetime.datetime.fromtimestamp(row["latest_s"], tz=datetime.timezone.utc)
-                print(f"  {row['symbol']:<8} {row['timeframe']:<4} {row['bars']:>8} bars  {e.date()} → {l.date()}")
+                e = datetime.datetime.fromtimestamp(
+                    row["earliest_s"], tz=datetime.timezone.utc
+                )
+                l = datetime.datetime.fromtimestamp(
+                    row["latest_s"], tz=datetime.timezone.utc
+                )
+                print(
+                    f"  {row['symbol']:<8} {row['timeframe']:<4} {row['bars']:>8} bars  {e.date()} → {l.date()}"
+                )
 
         print("\n=== Available Tick Data ===")
         symbols = get_available_symbols(con)
         for sym in symbols:
             cov = check_tick_coverage(con, sym)
-            e = datetime.datetime.fromtimestamp(cov["earliest"] / 1000, tz=datetime.timezone.utc)
-            l = datetime.datetime.fromtimestamp(cov["latest"] / 1000, tz=datetime.timezone.utc)
+            e = datetime.datetime.fromtimestamp(
+                cov["earliest"] / 1000, tz=datetime.timezone.utc
+            )
+            l = datetime.datetime.fromtimestamp(
+                cov["latest"] / 1000, tz=datetime.timezone.utc
+            )
             print(f"  {sym:<8} {cov['count']:>12,} ticks  {e.date()} → {l.date()}")
 
         con.close()

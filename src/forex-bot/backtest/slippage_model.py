@@ -109,9 +109,7 @@ class SlippageConfig:
                 f"max_slippage_pips must be positive, got {self.max_slippage_pips}"
             )
         if self.adv_lots <= 0:
-            raise ValueError(
-                f"adv_lots must be positive, got {self.adv_lots}"
-            )
+            raise ValueError(f"adv_lots must be positive, got {self.adv_lots}")
 
 
 @dataclass
@@ -169,7 +167,9 @@ def compute_slippage(
 
     elif config.model == SlippageModel.LINEAR:
         volume_fraction = context.trade_lots / config.adv_lots
-        volume_impact = config.volume_coefficient * volume_fraction * 100  # scale to pips
+        volume_impact = (
+            config.volume_coefficient * volume_fraction * 100
+        )  # scale to pips
         slippage_pips = config.base_slippage_pips + volume_impact
 
     elif config.model == SlippageModel.SQUARE_ROOT:

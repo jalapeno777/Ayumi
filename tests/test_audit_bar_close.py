@@ -27,11 +27,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 from backtest.audit_bar_close import (
-    AuditRecord,
-    AuditSummary,
-    DEFAULT_TOLERANCE_MS,
-    DEFAULT_TIMEFRAME,
-    TIMEFRAME_SECONDS,
     _generate_signal_id,
     _get_spread_for_pair,
     _parse_timestamp,
@@ -47,6 +42,7 @@ from backtest.audit_bar_close import (
 # ---------------------------------------------------------------------------
 # Timestamp parsing
 # ---------------------------------------------------------------------------
+
 
 class TestParseTimestamp:
     def test_iso_naive(self):
@@ -107,6 +103,7 @@ class TestParseTimestamp:
 # ---------------------------------------------------------------------------
 # Bar-close computation
 # ---------------------------------------------------------------------------
+
 
 class TestComputeBarClose:
     def test_h1_exact(self):
@@ -178,6 +175,7 @@ class TestComputeBarClose:
 # Timing categorization
 # ---------------------------------------------------------------------------
 
+
 class TestCategorizeTiming:
     def test_exact_match_valid(self):
         ts = datetime(2025, 1, 6, 7, 0, 0, tzinfo=timezone.utc)
@@ -246,21 +244,34 @@ class TestCategorizeTiming:
 # Signal ID generation
 # ---------------------------------------------------------------------------
 
+
 class TestSignalIdGeneration:
     def test_deterministic(self):
-        signal = {"timestamp": "2025-01-06T07:00:00", "symbol": "EURUSD", "direction": "LONG"}
+        signal = {
+            "timestamp": "2025-01-06T07:00:00",
+            "symbol": "EURUSD",
+            "direction": "LONG",
+        }
         id1 = _generate_signal_id(signal, "test.jsonl", 1)
         id2 = _generate_signal_id(signal, "test.jsonl", 1)
         assert id1 == id2
 
     def test_different_line_different_id(self):
-        signal = {"timestamp": "2025-01-06T07:00:00", "symbol": "EURUSD", "direction": "LONG"}
+        signal = {
+            "timestamp": "2025-01-06T07:00:00",
+            "symbol": "EURUSD",
+            "direction": "LONG",
+        }
         id1 = _generate_signal_id(signal, "test.jsonl", 1)
         id2 = _generate_signal_id(signal, "test.jsonl", 2)
         assert id1 != id2
 
     def test_different_file_different_id(self):
-        signal = {"timestamp": "2025-01-06T07:00:00", "symbol": "EURUSD", "direction": "LONG"}
+        signal = {
+            "timestamp": "2025-01-06T07:00:00",
+            "symbol": "EURUSD",
+            "direction": "LONG",
+        }
         id1 = _generate_signal_id(signal, "a.jsonl", 1)
         id2 = _generate_signal_id(signal, "b.jsonl", 1)
         assert id1 != id2
@@ -276,6 +287,7 @@ class TestSignalIdGeneration:
 # Spread lookup
 # ---------------------------------------------------------------------------
 
+
 class TestSpreadLookup:
     def test_known_pair(self):
         assert _get_spread_for_pair("EURUSD") == 1.5
@@ -287,7 +299,11 @@ class TestSpreadLookup:
         assert _get_spread_for_pair("eurusd") == 1.5
 
     def test_unknown_pair(self):
-        assert _get_spread_for_pair("UNKNOWN") == DEFAULT_SPREAD_PIPS if (DEFAULT_SPREAD_PIPS := 1.5) else None
+        assert (
+            _get_spread_for_pair("UNKNOWN") == DEFAULT_SPREAD_PIPS
+            if (DEFAULT_SPREAD_PIPS := 1.5)
+            else None
+        )
 
     def test_gold(self):
         assert _get_spread_for_pair("XAUUSD") == 2.5
@@ -296,6 +312,7 @@ class TestSpreadLookup:
 # ---------------------------------------------------------------------------
 # Signal iteration
 # ---------------------------------------------------------------------------
+
 
 class TestIterSignals:
     def test_normal_file(self, tmp_path):
@@ -314,31 +331,20 @@ class TestIterSignals:
     def test_empty_lines_skipped(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text(
-            '\n'
-            '{"strategy_id": "test", "timestamp": "2025-01-06T07:00:00"}\n'
-            '\n'
-            '   \n'
+            '\n{"strategy_id": "test", "timestamp": "2025-01-06T07:00:00"}\n\n   \n'
         )
         signals = list(iter_signals(tmp_path))
         assert len(signals) == 1
 
     def test_malformed_json_skipped(self, tmp_path):
         f = tmp_path / "test.jsonl"
-        f.write_text(
-            '{"valid": true}\n'
-            '{bad json}\n'
-            '{"also_valid": true}\n'
-        )
+        f.write_text('{"valid": true}\n{bad json}\n{"also_valid": true}\n')
         signals = list(iter_signals(tmp_path))
         assert len(signals) == 2  # malformed line skipped
 
     def test_non_object_skipped(self, tmp_path):
         f = tmp_path / "test.jsonl"
-        f.write_text(
-            '[1, 2, 3]\n'
-            '{"valid": true}\n'
-            '"just a string"\n'
-        )
+        f.write_text('[1, 2, 3]\n{"valid": true}\n"just a string"\n')
         signals = list(iter_signals(tmp_path))
         assert len(signals) == 1
 
@@ -369,9 +375,12 @@ class TestIterSignals:
 # DB spread lookup
 # ---------------------------------------------------------------------------
 
+
 class TestFetchSpreadFromDB:
     def test_nonexistent_db(self, tmp_path):
-        result = fetch_spread_from_db(tmp_path / "nope.db", "EURUSD", "2025-01-06T07:00:00")
+        result = fetch_spread_from_db(
+            tmp_path / "nope.db", "EURUSD", "2025-01-06T07:00:00"
+        )
         assert result is None
 
     def test_db_without_spread_column(self, tmp_path):
@@ -393,6 +402,7 @@ class TestFetchSpreadFromDB:
 # ---------------------------------------------------------------------------
 # Full audit run
 # ---------------------------------------------------------------------------
+
 
 class TestRunAudit:
     @pytest.fixture
@@ -439,8 +449,13 @@ class TestRunAudit:
         run_audit(signals_dir, output, trading_db)
         first = json.loads(output.read_text().strip().split("\n")[0])
         required_fields = {
-            "signal_id", "timestamp", "instrument", "direction",
-            "timeframe", "timing_status", "spread_at_entry"
+            "signal_id",
+            "timestamp",
+            "instrument",
+            "direction",
+            "timeframe",
+            "timing_status",
+            "spread_at_entry",
         }
         assert required_fields.issubset(first.keys())
 
@@ -537,6 +552,7 @@ class TestRunAudit:
 # CLI tests
 # ---------------------------------------------------------------------------
 
+
 class TestCLI:
     def test_cli_runs_successfully(self, tmp_path):
         d = tmp_path / "signals"
@@ -552,12 +568,17 @@ class TestCLI:
         conn.commit()
         conn.close()
 
-        code = main([
-            "--signals-dir", str(d),
-            "--output", str(output),
-            "--trading-db", str(db),
-            "--summary",
-        ])
+        code = main(
+            [
+                "--signals-dir",
+                str(d),
+                "--output",
+                str(output),
+                "--trading-db",
+                str(db),
+                "--summary",
+            ]
+        )
         assert code == 0
         assert output.exists()
 
@@ -571,11 +592,16 @@ class TestCLI:
         conn.commit()
         conn.close()
 
-        code = main([
-            "--signals-dir", str(empty),
-            "--output", str(output),
-            "--trading-db", str(db),
-        ])
+        code = main(
+            [
+                "--signals-dir",
+                str(empty),
+                "--output",
+                str(output),
+                "--trading-db",
+                str(db),
+            ]
+        )
         assert code == 1  # no signals → exit 1
 
     def test_cli_custom_tolerance(self, tmp_path):
@@ -593,12 +619,18 @@ class TestCLI:
         conn.close()
 
         # With tolerance 100, 500ms is LATE
-        main([
-            "--signals-dir", str(d),
-            "--output", str(output),
-            "--trading-db", str(db),
-            "--tolerance-ms", "100",
-        ])
+        main(
+            [
+                "--signals-dir",
+                str(d),
+                "--output",
+                str(output),
+                "--trading-db",
+                str(db),
+                "--tolerance-ms",
+                "100",
+            ]
+        )
         lines = output.read_text().strip().split("\n")
         rec = json.loads(lines[0])
         assert rec["timing_status"] == "LATE"
@@ -617,11 +649,16 @@ class TestCLI:
         conn.close()
 
         # Default tolerance 1000ms, 500ms is VALID
-        main([
-            "--signals-dir", str(d),
-            "--output", str(output),
-            "--trading-db", str(db),
-        ])
+        main(
+            [
+                "--signals-dir",
+                str(d),
+                "--output",
+                str(output),
+                "--trading-db",
+                str(db),
+            ]
+        )
         lines = output.read_text().strip().split("\n")
         rec = json.loads(lines[0])
         assert rec["timing_status"] == "VALID"
@@ -630,6 +667,7 @@ class TestCLI:
 # ---------------------------------------------------------------------------
 # Realistic input tests (mandatory)
 # ---------------------------------------------------------------------------
+
 
 class TestRealisticInputs:
     """Test with realistic signal data matching actual data/signals/*.jsonl format."""
@@ -726,4 +764,6 @@ class TestRealisticInputs:
         r4 = results[3]
         assert r4["timestamp"] == "2025-01-06T07:00:00+00:00"
         assert r4["timing_status"] == "VALID"
-        assert r1["signal_id"] != r4["signal_id"]  # different IDs despite same timestamp
+        assert (
+            r1["signal_id"] != r4["signal_id"]
+        )  # different IDs despite same timestamp

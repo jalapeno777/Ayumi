@@ -8,6 +8,7 @@ from srf.pbo import compute_pbo, PBOScore, store_pbo_score, _sharpe_ratio
 
 # ── Sharpe helper ────────────────────────────────────────────────────────
 
+
 class TestSharpeHelper:
     def test_basic(self):
         rng = np.random.default_rng(42)
@@ -24,6 +25,7 @@ class TestSharpeHelper:
 
 
 # ── PBO computation ──────────────────────────────────────────────────────
+
 
 class TestComputePBO:
     def test_robust_strategy_low_pbo(self):
@@ -77,6 +79,7 @@ class TestComputePBO:
         score = compute_pbo(returns, n_blocks=16, max_combinations=1000)
         # Should reduce blocks to keep combinations manageable
         from math import comb
+
         actual_comb = comb(2 * score.n_blocks, score.n_blocks) // 2
         assert actual_comb <= 1000
 
@@ -91,19 +94,32 @@ class TestComputePBO:
 
 # ── PBOScore dataclass ───────────────────────────────────────────────────
 
+
 class TestPBOScore:
     def test_is_overfit(self):
         score = PBOScore(
-            pbo=0.7, logit=0.85, ci_lower=0.5, ci_upper=0.9,
-            n_strategies=30, n_periods=200, n_combinations=6435, n_blocks=8,
+            pbo=0.7,
+            logit=0.85,
+            ci_lower=0.5,
+            ci_upper=0.9,
+            n_strategies=30,
+            n_periods=200,
+            n_combinations=6435,
+            n_blocks=8,
         )
         assert score.is_overfit()
         assert not score.is_overfit(threshold=0.8)
 
     def test_summary(self):
         score = PBOScore(
-            pbo=0.3, logit=-0.85, ci_lower=0.15, ci_upper=0.5,
-            n_strategies=10, n_periods=100, n_combinations=1287, n_blocks=8,
+            pbo=0.3,
+            logit=-0.85,
+            ci_lower=0.15,
+            ci_upper=0.5,
+            n_strategies=10,
+            n_periods=100,
+            n_combinations=1287,
+            n_blocks=8,
         )
         s = score.summary()
         assert s["pbo"] == 0.3
@@ -112,9 +128,9 @@ class TestPBOScore:
 
 # ── DuckDB storage ───────────────────────────────────────────────────────
 
+
 class TestStorePBOScore:
     def test_store_and_retrieve(self, tmp_path):
-        import duckdb
         from srf.schema import SRFDatabase
 
         db_path = str(tmp_path / "test_pbo.duckdb")
@@ -130,8 +146,14 @@ class TestStorePBOScore:
                 "('study:test_study', 'SRMR+', 'GBPUSD', 15, 'abc', 'def', '{}', 'completed')"
             )
             score = PBOScore(
-                pbo=0.35, logit=-0.62, ci_lower=0.2, ci_upper=0.55,
-                n_strategies=30, n_periods=200, n_combinations=6435, n_blocks=8,
+                pbo=0.35,
+                logit=-0.62,
+                ci_lower=0.2,
+                ci_upper=0.55,
+                n_strategies=30,
+                n_periods=200,
+                n_combinations=6435,
+                n_blocks=8,
             )
             store_pbo_score(conn, "test_study", score)
 

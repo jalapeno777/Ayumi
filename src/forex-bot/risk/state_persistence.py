@@ -11,12 +11,12 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from risk.sl_position_sizer import SLPositionSizer
 
 if TYPE_CHECKING:
-    from risk.recovery_protocol import PositionInfo, ReconciliationResult
+    pass
 
 logger = logging.getLogger("ayumi.risk")
 
@@ -128,7 +128,9 @@ class StatePersistence:
             "open_risk": sizer._open_risk,
             "circuit_breaker": {
                 "halted": breaker.halted,
-                "halted_until": breaker.halted_until.isoformat() if breaker.halted_until else None,
+                "halted_until": breaker.halted_until.isoformat()
+                if breaker.halted_until
+                else None,
                 "halt_reason": breaker.halt_reason,
                 "recent_trades": breaker.recent_trades,
                 "daily_dd_pct": breaker.daily_dd_pct,
@@ -136,7 +138,9 @@ class StatePersistence:
             },
         }
 
-    def save(self, sizer: SLPositionSizer, strategy_tracker: StrategyTracker | None = None) -> None:
+    def save(
+        self, sizer: SLPositionSizer, strategy_tracker: StrategyTracker | None = None
+    ) -> None:
         """Persist current sizer state atomically.
 
         If ``strategy_tracker`` is provided, per-strategy metrics are
@@ -176,7 +180,8 @@ class StatePersistence:
 
             halted_until = cb.get("halted_until")
             if halted_until:
-                from datetime import datetime, timezone
+                from datetime import datetime
+
                 breaker.halted_until = datetime.fromisoformat(halted_until)
             else:
                 breaker.halted_until = None
@@ -240,20 +245,24 @@ class StatePersistence:
         mismatches: list[dict] = []
 
         if local_count != broker_count:
-            mismatches.append({
-                "type": "count_mismatch",
-                "strategy_id": strategy_id,
-                "local_count": local_count,
-                "broker_count": broker_count,
-            })
+            mismatches.append(
+                {
+                    "type": "count_mismatch",
+                    "strategy_id": strategy_id,
+                    "local_count": local_count,
+                    "broker_count": broker_count,
+                }
+            )
 
         # Flag high slippage as a potential reconciliation concern
         if local and local.get("last_slippage_pips", 0) > 5.0:
-            mismatches.append({
-                "type": "high_slippage_flag",
-                "strategy_id": strategy_id,
-                "last_slippage_pips": local["last_slippage_pips"],
-            })
+            mismatches.append(
+                {
+                    "type": "high_slippage_flag",
+                    "strategy_id": strategy_id,
+                    "last_slippage_pips": local["last_slippage_pips"],
+                }
+            )
 
         return {
             "matched": len(mismatches) == 0,
@@ -266,7 +275,8 @@ class StatePersistence:
         """Write state atomically via temp file + rename."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(
-            dir=self._path.parent, suffix=".tmp",
+            dir=self._path.parent,
+            suffix=".tmp",
         )
         try:
             with os.fdopen(fd, "w") as f:

@@ -82,6 +82,7 @@ def _base_htf(**overrides):
 # Core structure tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_score_returns_tuple(scorer):
     result = scorer.score(_base_candidate())
     assert isinstance(result, tuple)
@@ -122,7 +123,9 @@ def test_all_15_booster_names_present(scorer):
         # bonus (5% slack)
         "pattern_type",
     }
-    assert names == expected, f"Missing boosters: {expected - names}, Extra: {names - expected}"
+    assert names == expected, (
+        f"Missing boosters: {expected - names}, Extra: {names - expected}"
+    )
 
 
 def test_booster_count_is_15(scorer):
@@ -134,6 +137,7 @@ def test_booster_count_is_15(scorer):
 # ──────────────────────────────────────────────────────────────
 # 1. mtf_alignment booster tests
 # ──────────────────────────────────────────────────────────────
+
 
 def test_mtf_alignment_all_agree(scorer):
     _, res = scorer.score(
@@ -168,9 +172,7 @@ def test_mtf_alignment_2_of_4_ltf_only(scorer):
 
 
 def test_mtf_alignment_none_agree(scorer):
-    _, res = scorer.score(
-        _base_candidate(), mtf_state=_base_mtf(tf_agreement_count=0)
-    )
+    _, res = scorer.score(_base_candidate(), mtf_state=_base_mtf(tf_agreement_count=0))
     b = next(b for b in res if b.name == "mtf_alignment")
     assert b.score == 0.0
 
@@ -178,6 +180,7 @@ def test_mtf_alignment_none_agree(scorer):
 # ──────────────────────────────────────────────────────────────
 # 2. multi_session booster tests
 # ──────────────────────────────────────────────────────────────
+
 
 def test_multi_session_3_plus(scorer):
     _, res = scorer.score(_base_candidate(multi_session_count=3))
@@ -201,6 +204,7 @@ def test_multi_session_1(scorer):
 # 3. svc_present booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_svc_present_explicit_true(scorer):
     _, res = scorer.score(_base_candidate(svc_present=True, volume_ratio=0.5))
     b = next(b for b in res if b.name == "svc_present")
@@ -223,6 +227,7 @@ def test_svc_present_via_volume_proxy(scorer):
 # ──────────────────────────────────────────────────────────────
 # 4. hits_to_level booster tests
 # ──────────────────────────────────────────────────────────────
+
 
 def test_hits_to_level_3_plus(scorer):
     _, res = scorer.score(_base_candidate(hits_to_level=3))
@@ -252,6 +257,7 @@ def test_hits_to_level_0(scorer):
 # 5. hits_with_volume booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_hits_volume_increasing(scorer):
     _, res = scorer.score(_base_candidate(hits_volume_trend="increasing"))
     b = next(b for b in res if b.name == "hits_with_volume")
@@ -274,9 +280,11 @@ def test_hits_volume_decreasing(scorer):
 # 6. near_period_extreme booster tests (formerly level_proximity)
 # ──────────────────────────────────────────────────────────────
 
+
 def test_near_period_extreme_t1(scorer):
     """Closer than T1 = score 1.0."""
     from signal_engine.thresholds import PERIOD_EXTREME_T1
+
     _, res = scorer.score(_base_candidate(level_proximity_pct=PERIOD_EXTREME_T1))
     b = next(b for b in res if b.name == "near_period_extreme")
     assert b.score == 1.0
@@ -284,6 +292,7 @@ def test_near_period_extreme_t1(scorer):
 
 def test_near_period_extreme_t2(scorer):
     from signal_engine.thresholds import PERIOD_EXTREME_T1, PERIOD_EXTREME_T2
+
     _, res = scorer.score(
         _base_candidate(level_proximity_pct=(PERIOD_EXTREME_T1 + PERIOD_EXTREME_T2) / 2)
     )
@@ -293,6 +302,7 @@ def test_near_period_extreme_t2(scorer):
 
 def test_near_period_extreme_t3(scorer):
     from signal_engine.thresholds import PERIOD_EXTREME_T2, PERIOD_EXTREME_T3
+
     _, res = scorer.score(
         _base_candidate(level_proximity_pct=(PERIOD_EXTREME_T2 + PERIOD_EXTREME_T3) / 2)
     )
@@ -302,6 +312,7 @@ def test_near_period_extreme_t3(scorer):
 
 def test_near_period_extreme_far(scorer):
     from signal_engine.thresholds import PERIOD_EXTREME_T3
+
     _, res = scorer.score(_base_candidate(level_proximity_pct=PERIOD_EXTREME_T3 + 0.01))
     b = next(b for b in res if b.name == "near_period_extreme")
     assert b.score == 0.0
@@ -310,6 +321,7 @@ def test_near_period_extreme_far(scorer):
 # ──────────────────────────────────────────────────────────────
 # 7. htf_not_consolidating booster tests (formerly boardroom)
 # ──────────────────────────────────────────────────────────────
+
 
 def test_htf_not_consolidating_clear(scorer):
     _, res = scorer.score(_base_candidate(htf_consolidating=False))
@@ -352,14 +364,19 @@ def test_htf_not_consolidating_boardroom_fallback(scorer):
 # 8. kill_zone booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_kill_zone_active(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(kill_zone_active=True))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(kill_zone_active=True)
+    )
     b = next(b for b in res if b.name == "kill_zone")
     assert b.score == 1.0
 
 
 def test_kill_zone_inactive(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(kill_zone_active=False))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(kill_zone_active=False)
+    )
     b = next(b for b in res if b.name == "kill_zone")
     assert b.score == 0.0
 
@@ -368,14 +385,19 @@ def test_kill_zone_inactive(scorer):
 # 9. session_overlap booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_session_overlap_active(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(session_overlap=True))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(session_overlap=True)
+    )
     b = next(b for b in res if b.name == "session_overlap")
     assert b.score == 1.0
 
 
 def test_session_overlap_inactive(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(session_overlap=False))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(session_overlap=False)
+    )
     b = next(b for b in res if b.name == "session_overlap")
     assert b.score == 0.0
 
@@ -384,8 +406,11 @@ def test_session_overlap_inactive(scorer):
 # 10. session_phase booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_session_phase_opening(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(phase="opening"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(phase="opening")
+    )
     b = next(b for b in res if b.name == "session_phase")
     assert b.score == 1.0
 
@@ -397,7 +422,9 @@ def test_session_phase_mid(scorer):
 
 
 def test_session_phase_closing(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(phase="closing"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(phase="closing")
+    )
     b = next(b for b in res if b.name == "session_phase")
     assert b.score == 0.2
 
@@ -420,32 +447,43 @@ def test_session_phase_fallback(scorer):
 # 11. day_of_week booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_day_of_week_wednesday_best(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(day_of_week="wednesday"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(day_of_week="wednesday")
+    )
     b = next(b for b in res if b.name == "day_of_week")
     assert b.score == 0.9
 
 
 def test_day_of_week_tuesday(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(day_of_week="tuesday"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(day_of_week="tuesday")
+    )
     b = next(b for b in res if b.name == "day_of_week")
     assert b.score == 0.7
 
 
 def test_day_of_week_monday_low(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(day_of_week="monday"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(day_of_week="monday")
+    )
     b = next(b for b in res if b.name == "day_of_week")
     assert b.score == 0.2
 
 
 def test_day_of_week_friday_worst(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(day_of_week="friday"))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(day_of_week="friday")
+    )
     b = next(b for b in res if b.name == "day_of_week")
     assert b.score == 0.1
 
 
 def test_day_of_week_unknown(scorer):
-    _, res = scorer.score(_base_candidate(), session_state=_base_session(day_of_week=""))
+    _, res = scorer.score(
+        _base_candidate(), session_state=_base_session(day_of_week="")
+    )
     b = next(b for b in res if b.name == "day_of_week")
     assert b.score == 0.3
 
@@ -454,35 +492,28 @@ def test_day_of_week_unknown(scorer):
 # 12. asia_control booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_asia_control_tight_consolidating(scorer):
-    _, res = scorer.score(
-        _base_candidate(asia_range_pct=0.015, asia_trending=False)
-    )
+    _, res = scorer.score(_base_candidate(asia_range_pct=0.015, asia_trending=False))
     b = next(b for b in res if b.name == "asia_control")
     assert b.score == 1.0
 
 
 def test_asia_control_trending(scorer):
-    _, res = scorer.score(
-        _base_candidate(asia_range_pct=0.025, asia_trending=True)
-    )
+    _, res = scorer.score(_base_candidate(asia_range_pct=0.025, asia_trending=True))
     b = next(b for b in res if b.name == "asia_control")
     assert b.score == 0.0
 
 
 def test_asia_control_neutral(scorer):
     # Range >= 0.02 and not trending = neutral (not tight, not trending)
-    _, res = scorer.score(
-        _base_candidate(asia_range_pct=0.025, asia_trending=False)
-    )
+    _, res = scorer.score(_base_candidate(asia_range_pct=0.025, asia_trending=False))
     b = next(b for b in res if b.name == "asia_control")
     assert b.score == 0.5
 
 
 def test_asia_control_unknown(scorer):
-    _, res = scorer.score(
-        _base_candidate(asia_range_pct=None, asia_trending=None)
-    )
+    _, res = scorer.score(_base_candidate(asia_range_pct=None, asia_trending=None))
     b = next(b for b in res if b.name == "asia_control")
     assert b.score == 0.5
 
@@ -490,6 +521,7 @@ def test_asia_control_unknown(scorer):
 # ──────────────────────────────────────────────────────────────
 # 13. ema_bounce booster tests (formerly ema_proximity)
 # ──────────────────────────────────────────────────────────────
+
 
 def test_ema_bounce_with_rejection_candle(scorer):
     _, res = scorer.score(_base_candidate(ema_rejection_candle=True))
@@ -506,6 +538,7 @@ def test_ema_bounce_no_rejection_candle(scorer):
 def test_ema_bounce_at_ema_fallback(scorer):
     """Without explicit flag, use distance as proxy."""
     from signal_engine.thresholds import EMA_TOUCH_THRESHOLD
+
     _, res = scorer.score(
         _base_candidate(ema_rejection_candle=None, ema_distance_pct=EMA_TOUCH_THRESHOLD)
     )
@@ -515,8 +548,11 @@ def test_ema_bounce_at_ema_fallback(scorer):
 
 def test_ema_bounce_near_ema_fallback(scorer):
     from signal_engine.thresholds import EMA_TOUCH_THRESHOLD
+
     _, res = scorer.score(
-        _base_candidate(ema_rejection_candle=None, ema_distance_pct=EMA_TOUCH_THRESHOLD * 2)
+        _base_candidate(
+            ema_rejection_candle=None, ema_distance_pct=EMA_TOUCH_THRESHOLD * 2
+        )
     )
     b = next(b for b in res if b.name == "ema_bounce")
     assert b.score == 0.5
@@ -534,8 +570,11 @@ def test_ema_bounce_far_from_ema_fallback(scorer):
 # 14. dxy_correlation booster tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_dxy_correlation_agrees(scorer):
-    _, res = scorer.score(_base_candidate(), dxy_state=_base_dxy(agrees=True, flat=False))
+    _, res = scorer.score(
+        _base_candidate(), dxy_state=_base_dxy(agrees=True, flat=False)
+    )
     b = next(b for b in res if b.name == "dxy_correlation")
     assert b.score == 1.0
 
@@ -549,9 +588,7 @@ def test_dxy_correlation_opposes(scorer):
 
 
 def test_dxy_correlation_flat(scorer):
-    _, res = scorer.score(
-        _base_candidate(), dxy_state={"agrees": False, "flat": True}
-    )
+    _, res = scorer.score(_base_candidate(), dxy_state={"agrees": False, "flat": True})
     b = next(b for b in res if b.name == "dxy_correlation")
     assert b.score == 0.5
 
@@ -565,6 +602,7 @@ def test_dxy_correlation_unknown(scorer):
 # ──────────────────────────────────────────────────────────────
 # 15. pattern_type booster tests (bonus)
 # ──────────────────────────────────────────────────────────────
+
 
 def test_pattern_type_m(scorer):
     _, res = scorer.score(_base_candidate(pattern_type="M"))
@@ -594,6 +632,7 @@ def test_pattern_type_unknown(scorer):
 # Weight verification tests
 # ──────────────────────────────────────────────────────────────
 
+
 def test_spec_weights_sum_to_0_95(scorer):
     """Spec §7.1 weight total should be 0.95 (5% slack)."""
     spec_weights = [
@@ -612,7 +651,9 @@ def test_spec_weights_sum_to_0_95(scorer):
         WEIGHT_EMA_BOUNCE,
         WEIGHT_DXY_CORRELATION,
     ]
-    assert abs(sum(spec_weights) - 0.95) < 0.001, f"Spec weights sum to {sum(spec_weights)}, expected 0.95"
+    assert abs(sum(spec_weights) - 0.95) < 0.001, (
+        f"Spec weights sum to {sum(spec_weights)}, expected 0.95"
+    )
 
 
 def test_total_weights_sum_to_1_0(scorer):
@@ -634,12 +675,15 @@ def test_total_weights_sum_to_1_0(scorer):
         WEIGHT_DXY_CORRELATION,
         WEIGHT_PATTERN_TYPE,
     ]
-    assert abs(sum(all_weights) - 1.00) < 0.001, f"All weights sum to {sum(all_weights)}, expected 1.00"
+    assert abs(sum(all_weights) - 1.00) < 0.001, (
+        f"All weights sum to {sum(all_weights)}, expected 1.00"
+    )
 
 
 # ──────────────────────────────────────────────────────────────
 # Edge case + integration tests
 # ──────────────────────────────────────────────────────────────
+
 
 def test_zero_confluence_low_score(scorer):
     """A candidate with all-zero factors should produce a low score."""
@@ -666,7 +710,9 @@ def test_zero_confluence_low_score(scorer):
     mtf = _base_mtf(tf_agreement_count=1, includes_htf=False)
     dxy = _base_dxy(agrees=False, flat=False, opposes=True)
 
-    score, boosters = scorer.score(candidate, session_state=session, mtf_state=mtf, dxy_state=dxy)
+    score, boosters = scorer.score(
+        candidate, session_state=session, mtf_state=mtf, dxy_state=dxy
+    )
     assert score < 0.15, f"Expected low score with all-zero factors, got {score}"
 
 
@@ -702,6 +748,7 @@ def test_backward_compat_htf_state(scorer):
 # ──────────────────────────────────────────────────────────────
 # BoosterResult dataclass tests
 # ──────────────────────────────────────────────────────────────
+
 
 def test_booster_result_dataclass():
     br = BoosterResult(name="test", score=0.5, weight=0.1, raw_detail="info")

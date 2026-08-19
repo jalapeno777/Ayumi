@@ -18,7 +18,6 @@ import pytest
 from signal_engine.signal_stats import (
     SignalRecord,
     SignalStatsRecorder,
-    VALID_OUTCOMES,
 )
 
 
@@ -221,12 +220,22 @@ class TestSignalStatsRecorder:
         recorder = SignalStatsRecorder(log_path=str(log))
 
         # 2 GBPUSD
-        recorder.record_signal(_make_signal(signal_id="g-1", symbol="GBPUSD", strategy="S1"))
-        recorder.record_signal(_make_signal(signal_id="g-2", symbol="GBPUSD", strategy="S1"))
+        recorder.record_signal(
+            _make_signal(signal_id="g-1", symbol="GBPUSD", strategy="S1")
+        )
+        recorder.record_signal(
+            _make_signal(signal_id="g-2", symbol="GBPUSD", strategy="S1")
+        )
         # 3 USDJPY (two different strategies)
-        recorder.record_signal(_make_signal(signal_id="u-1", symbol="USDJPY", strategy="S1"))
-        recorder.record_signal(_make_signal(signal_id="u-2", symbol="USDJPY", strategy="S2"))
-        recorder.record_signal(_make_signal(signal_id="u-3", symbol="USDJPY", strategy="S2"))
+        recorder.record_signal(
+            _make_signal(signal_id="u-1", symbol="USDJPY", strategy="S1")
+        )
+        recorder.record_signal(
+            _make_signal(signal_id="u-2", symbol="USDJPY", strategy="S2")
+        )
+        recorder.record_signal(
+            _make_signal(signal_id="u-3", symbol="USDJPY", strategy="S2")
+        )
 
         # No filter — total should be 5
         all_stats = recorder.get_stats()

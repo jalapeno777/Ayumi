@@ -11,12 +11,11 @@ and the second-app configuration path.
 
 import os
 import sys
-import threading
 import time
 import types
 import unittest
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,6 +25,7 @@ import pytest
 # We install real module objects (not MagicMock) so that `from X import Y`
 # works correctly, including enum-like attribute access.
 # Using monkeypatch.setitem ensures auto-restore after each test.
+
 
 @pytest.fixture(autouse=True)
 def _install_ctrader_stubs(monkeypatch):
@@ -57,7 +57,9 @@ def _install_ctrader_stubs(monkeypatch):
     msgs_mod = _mkmod("ctrader_open_api.messages.OpenApiMessages_pb2")
     # Auto-generate any ProtoOA* attribute on access (there are dozens)
     msgs_mod.__getattr__ = lambda name: MagicMock()  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
+    monkeypatch.setitem(
+        sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod
+    )
 
     model_mod = _mkmod("ctrader_open_api.messages.OpenApiModelMessages_pb2")
     # ProtoOATrendbarPeriod needs real int-like attributes
@@ -66,7 +68,9 @@ def _install_ctrader_stubs(monkeypatch):
     )
     _model_cache = {"ProtoOATrendbarPeriod": _period_ns}
     model_mod.__getattr__ = lambda name: _model_cache.get(name, MagicMock())  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
+    monkeypatch.setitem(
+        sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod
+    )
 
     proto_mod = _mkmod("ctrader_open_api.protobuf")
     proto_mod.Protobuf = MagicMock
@@ -116,6 +120,7 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
     def _make_client(self, **kwargs):
         """Create a CTraderOpenApiClient with minimal args."""
         from adapters.ctrader.open_api_client import CTraderOpenApiClient
+
         defaults = dict(
             client_id="primary_app_id",
             client_secret="primary_secret",
@@ -319,8 +324,14 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         data_conn.get_trendbars("GBPUSD", "M15")
         data_conn.messages_sent += 1
         data_conn.get_trendbars.return_value = [
-            {"timestamp": 1700000000000, "open": 1.2700, "high": 1.2760,
-             "low": 1.2690, "close": 1.2750, "volume": 100}
+            {
+                "timestamp": 1700000000000,
+                "open": 1.2700,
+                "high": 1.2760,
+                "low": 1.2690,
+                "close": 1.2750,
+                "volume": 100,
+            }
         ]
         bars = data_conn.get_trendbars("GBPUSD", "M15")
         self.assertEqual(len(bars), 1)
@@ -344,13 +355,18 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
 
         active_sessions = [
             {"app_id": spot_app, "account_id": 46877902, "connection": "spot_feed_tcp"},
-            {"app_id": trade_app, "account_id": 46877902, "connection": "data_client_tcp"},
+            {
+                "app_id": trade_app,
+                "account_id": 46877902,
+                "connection": "data_client_tcp",
+            },
         ]
 
         app_ids_in_use = [s["app_id"] for s in active_sessions]
         self.assertEqual(len(app_ids_in_use), 2)
-        self.assertEqual(len(set(app_ids_in_use)), 2,
-                         "Each session uses a distinct app_id")
+        self.assertEqual(
+            len(set(app_ids_in_use)), 2, "Each session uses a distinct app_id"
+        )
 
         for session in active_sessions:
             self.assertIsNotNone(session["app_id"])
@@ -364,25 +380,25 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         """
         same_app = "primary_app_id"
 
-        active_sessions = [{
-            "app_id": same_app,
-            "account_id": 46877902,
-            "connection": "first_tcp",
-        }]
+        active_sessions = [
+            {
+                "app_id": same_app,
+                "account_id": 46877902,
+                "connection": "first_tcp",
+            }
+        ]
 
         # Second connection with same app_id would be rejected by cTrader
         second_app_id = same_app
-        conflict_found = any(
-            s["app_id"] == second_app_id
-            for s in active_sessions
-        )
+        conflict_found = any(s["app_id"] == second_app_id for s in active_sessions)
 
-        self.assertTrue(conflict_found, "Same app_id reuse should be flagged as conflict")
+        self.assertTrue(
+            conflict_found, "Same app_id reuse should be flagged as conflict"
+        )
 
         # The fix: use a different app_id
         trade_app_id = "trade_app_id"
-        self.assertNotEqual(same_app, trade_app_id,
-                            "The fix requires distinct app_ids")
+        self.assertNotEqual(same_app, trade_app_id, "The fix requires distinct app_ids")
 
 
 class TestConnectionManagerConcurrentLifecycle(unittest.TestCase):
@@ -433,7 +449,10 @@ class TestConnectionManagerConcurrentLifecycle(unittest.TestCase):
             ConnectionManager,
             ConnectionRole,
         )
-        from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
+        from adapters.ctrader.connection_state import (
+            ConnectionState,
+            ConnectionStateManager,
+        )
 
         mgr = ConnectionManager()
         market_mgr = ConnectionStateManager(name="market_data")
@@ -457,7 +476,10 @@ class TestConnectionManagerConcurrentLifecycle(unittest.TestCase):
             ConnectionManager,
             ConnectionRole,
         )
-        from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
+        from adapters.ctrader.connection_state import (
+            ConnectionState,
+            ConnectionStateManager,
+        )
 
         mgr = ConnectionManager()
         market_mgr = ConnectionStateManager(name="market_data")
@@ -482,6 +504,7 @@ class TestDesignDocumentation(unittest.TestCase):
     def test_open_api_client_docstring_documents_strategy(self):
         """open_api_client.py module docstring must mention BQ-1329 strategy."""
         import adapters.ctrader.open_api_client as mod
+
         docstring = mod.__doc__ or ""
         self.assertIn("BQ-1329", docstring)
         self.assertIn("single-session", docstring.lower())
@@ -490,6 +513,7 @@ class TestDesignDocumentation(unittest.TestCase):
     def test_open_api_spot_feed_docstring_documents_approach(self):
         """open_api_spot_feed.py must document the concurrent-session context."""
         import adapters.ctrader.open_api_spot_feed as mod
+
         docstring = mod.__doc__ or ""
         self.assertIn("BQ-1329", docstring)
         self.assertIn("single-session", docstring.lower())
@@ -497,6 +521,7 @@ class TestDesignDocumentation(unittest.TestCase):
     def test_connection_manager_has_stop_method(self):
         """ConnectionManager must have stop() for clean concurrent lifecycle."""
         from adapters.ctrader.connection_manager import ConnectionManager
+
         self.assertTrue(hasattr(ConnectionManager, "stop"))
         self.assertTrue(callable(getattr(ConnectionManager, "stop")))
 
@@ -548,7 +573,9 @@ class TestCredentialIsolation(unittest.TestCase):
         from adapters.ctrader.open_api_client import CTraderOpenApiClient
 
         client1 = CTraderOpenApiClient(
-            client_id="p1", client_secret="s1", account_id=1,
+            client_id="p1",
+            client_secret="s1",
+            account_id=1,
         )
         self.assertFalse(client1.using_trade_app)
 
@@ -556,7 +583,9 @@ class TestCredentialIsolation(unittest.TestCase):
         os.environ["CTRADER_TRADE_SECRET"] = "env_secret"
 
         client2 = CTraderOpenApiClient(
-            client_id="p2", client_secret="s2", account_id=2,
+            client_id="p2",
+            client_secret="s2",
+            account_id=2,
         )
         self.assertTrue(client2.using_trade_app)
         self.assertEqual(client2.app_client_id, "env_trade")

@@ -3,7 +3,6 @@ from backtest.engine import (
     Bar,
     MarketState,
     SessionType,
-    TradeDirection,
     StrategySignal,
 )
 from strategies.session_range_mr_ict_filtered import (
@@ -174,7 +173,7 @@ class TestSessionRangeMRWithICTFilter:
             result = s.evaluate(state)
             if result is not None:
                 assert 0.0 < result.confidence <= 0.95
-                assert str(result.direction) in ('long', 'short', 'neutral')
+                assert str(result.direction) in ("long", "short", "neutral")
                 assert result.stop_loss != 0.0
                 break
 

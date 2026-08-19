@@ -12,7 +12,6 @@ import fcntl
 import logging
 import os
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -26,7 +25,9 @@ logger = logging.getLogger("ayumi.token_lifecycle")
 # ── Constants ──────────────────────────────────────────────────────────────
 
 OAUTH_URL = "https://openapi.ctrader.com/apps/token"
-REFRESH_BUFFER = timedelta(days=5)  # refresh when < 5 days remaining (token TTL is 30 days)
+REFRESH_BUFFER = timedelta(
+    days=5
+)  # refresh when < 5 days remaining (token TTL is 30 days)
 REQUEST_TIMEOUT = 10  # seconds
 PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min)
 
@@ -74,15 +75,19 @@ class TokenLifecycle:
     serialized via a lock. If a refresh is already in progress, subsequent
     callers wait for it to complete and return the freshly-refreshed token.
 
-    ``_refresh_disabled`` is a class-level kill switch. When True (current
-    default), ALL refresh logic is bypassed: ``ensure_valid()`` always
-    returns the current token, ``force_refresh()`` logs and returns False,
-    and ``start_proactive_timer()`` is a no-op. The full refresh internals
-    are preserved unchanged for easy re-enablement — just set the flag to
-    False.
+    ``_refresh_disabled`` is a class-level kill switch. When True, ALL
+    refresh logic is bypassed: ``ensure_valid()`` always returns the current
+    token, ``force_refresh()`` logs and returns False, and
+    ``start_proactive_timer()`` is a no-op. The full refresh internals are
+    preserved unchanged for easy re-enablement — just set the flag to False.
+
+    Default is ``False`` (refresh ENABLED) as of 2026-07-30 (card 64a235ea).
+    Previously True (disabled) — flipped after 4 token-expiration outages
+    (~26h total downtime Jul 2026) demonstrated the kill switch causes more
+    harm than it prevents. See ``docs/forex/ayumi-ctrader-token-rotation-runbook.md``.
     """
 
-    _refresh_disabled: bool = True
+    _refresh_disabled: bool = False
 
     def __init__(self, credential_store: CredentialStore):
         """Initialize with a CredentialStore.
@@ -184,7 +189,9 @@ class TokenLifecycle:
                           token after each successful proactive refresh.
         """
         if self._refresh_disabled:
-            logger.info("start_proactive_timer() skipped — refresh disabled (_refresh_disabled=True)")
+            logger.info(
+                "start_proactive_timer() skipped — refresh disabled (_refresh_disabled=True)"
+            )
             return
 
         # NOTE: OpenApiSpotFeed manages its own proactive refresh via
@@ -224,11 +231,12 @@ class TokenLifecycle:
         Only refresh when expires_at is known AND within the buffer.
         """
         if self._expires_at is None:
-            # No expiry info — assume fresh (Craig just wrote it)
-            # Phase 4 migration: first-run with no EXPIRES_AT in .env is treated
-            # as valid. The OAuth server will reject if actually expired.
-            logger.info(
-                "No EXPIRES_AT in credentials — treating as fresh (first-run migration)"
+            # No expiry info — assume fresh (Craig wrote the token manually
+            # to .env without an EXPIRES_AT field). Demoting to DEBUG because
+            # this branch fires on every proactive-check cycle (5 min) in
+            # manual-token mode — the INFO-level message is misleading noise.
+            logger.debug(
+                "No EXPIRES_AT in credentials — assuming token valid (manual token mode)"
             )
             return True
         now = datetime.now(timezone.utc)
@@ -324,9 +332,7 @@ class TokenLifecycle:
         # HTTP 400 = invalid grant (permanent failure)
         if resp.status_code == 400:
             body = resp.text[:500]
-            logger.error(
-                "Token refresh failed — HTTP 400: %s", body
-            )
+            logger.error("Token refresh failed — HTTP 400: %s", body)
             raise TokenRefreshError(
                 "Refresh token invalid — manual intervention required",
                 retry=False,
@@ -378,9 +384,7 @@ class TokenLifecycle:
         # Validate the refreshed token before committing to .env.
         # If validation fails, keep the old tokens and raise.
         if not self._validate_token(new_access):
-            logger.error(
-                "Refreshed token failed validation — keeping old tokens"
-            )
+            logger.error("Refreshed token failed validation — keeping old tokens")
             raise TokenRefreshError(
                 "Refreshed token failed validation — old tokens retained",
                 retry=False,
@@ -407,9 +411,7 @@ class TokenLifecycle:
         On network errors, returns True (optimistic — don't reject a
         token just because the validation endpoint is unreachable).
         """
-        validation_url = (
-            "https://openapi.ctrader.com/apps/metadata/account-list"
-        )
+        validation_url = "https://openapi.ctrader.com/apps/metadata/account-list"
         try:
             resp = requests.get(
                 validation_url,
@@ -434,14 +436,10 @@ class TokenLifecycle:
                 )
                 return True
         except requests.RequestException as exc:
-            logger.warning(
-                "Token validation network error — assuming valid: %s", exc
-            )
+            logger.warning("Token validation network error — assuming valid: %s", exc)
             return True
 
-    def _timer_loop(
-        self, on_refreshed: Optional[Callable[[str], None]]
-    ) -> None:
+    def _timer_loop(self, on_refreshed: Optional[Callable[[str], None]]) -> None:
         """Proactive timer loop — runs in a daemon thread.
 
         Checks every PROACTIVE_CHECK_INTERVAL (5min). If the token expires within 5 days, calls
@@ -450,9 +448,7 @@ class TokenLifecycle:
         while not self._timer_stop.is_set():
             try:
                 if not self._is_valid():
-                    logger.debug(
-                        "Proactive timer: token expiring soon, refreshing"
-                    )
+                    logger.debug("Proactive timer: token expiring soon, refreshing")
                     # force_refresh acquires the lock internally
                     new_token = self.force_refresh()
                     if on_refreshed is not None:
@@ -461,7 +457,8 @@ class TokenLifecycle:
                 logger.error("Proactive refresh failed: %s", exc)
             except Exception as exc:
                 logger.error(
-                    "Proactive timer unexpected error: %s", exc,
+                    "Proactive timer unexpected error: %s",
+                    exc,
                     exc_info=True,
                 )
 

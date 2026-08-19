@@ -1,16 +1,12 @@
 """Tests for CTraderConnection — TCP connection management."""
 
-import threading
 import time
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from adapters.ctrader.connection import (
     CTraderConnection,
-    _MAX_RECONNECT_ATTEMPTS,
-    _BACKOFF_BASE_SEC,
-    _BACKOFF_MAX_SEC,
 )
 from adapters.ctrader.connection_state import (
     ConnectionState,

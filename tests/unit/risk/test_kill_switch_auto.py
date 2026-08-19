@@ -12,10 +12,7 @@ Tests cover:
 """
 
 import json
-import logging
-import os
 from pathlib import Path
-import tempfile
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -32,6 +29,7 @@ from adapters.ctrader.risk_guard import (
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _enable_kill_switch_for_tests():
@@ -79,7 +77,9 @@ def watchdog(tmp_heartbeat_file, tmp_state_dir):
     )
 
 
-def _write_heartbeat(filepath: str, age_seconds: float = 0, engine_running: bool = True):
+def _write_heartbeat(
+    filepath: str, age_seconds: float = 0, engine_running: bool = True
+):
     """Helper: write a heartbeat file with a given age."""
     ts = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
     data = {
@@ -93,6 +93,7 @@ def _write_heartbeat(filepath: str, age_seconds: float = 0, engine_running: bool
 
 
 # ── Watchdog: Stale Heartbeat → Kill ─────────────────────────────────────────
+
 
 class TestWatchdogStaleHeartbeat:
     @pytest.fixture(autouse=True)
@@ -110,7 +111,9 @@ class TestWatchdogStaleHeartbeat:
         ):
             yield
 
-    def test_stale_heartbeat_activates_kill(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_stale_heartbeat_activates_kill(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Watchdog detects stale heartbeat and activates global kill."""
         # Write a heartbeat that's 60s old (stale > 30s threshold)
         _write_heartbeat(tmp_heartbeat_file, age_seconds=60)
@@ -149,9 +152,7 @@ class TestWatchdogStaleHeartbeat:
 
     def test_clean_shutdown_no_kill(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
         """Watchdog ignores stale heartbeat when engine_running=false (clean shutdown)."""
-        _write_heartbeat(
-            tmp_heartbeat_file, age_seconds=120, engine_running=False
-        )
+        _write_heartbeat(tmp_heartbeat_file, age_seconds=120, engine_running=False)
 
         result = watchdog.check_once()
         assert result is True
@@ -170,7 +171,9 @@ class TestWatchdogStaleHeartbeat:
         ksm = KillSwitchManager(state_dir=tmp_state_dir)
         assert ksm.is_globally_killed()
 
-    def test_audit_log_entry_for_watchdog_trigger(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_audit_log_entry_for_watchdog_trigger(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Verify audit log entry is created when watchdog triggers kill."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=60)
 
@@ -189,14 +192,19 @@ class TestWatchdogStaleHeartbeat:
 
 # ── Watchdog: Weekend / Market Closed ────────────────────────────────────────
 
+
 class TestWatchdogWeekend:
-    def test_stale_heartbeat_ignored_on_saturday(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_stale_heartbeat_ignored_on_saturday(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Watchdog ignores stale heartbeat on Saturday (market closed)."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=120)
 
         # Mock Saturday
         saturday = datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)  # Saturday
-        with patch("scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True):
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True
+        ):
             result = watchdog.check_once()
 
         assert result is True
@@ -204,11 +212,15 @@ class TestWatchdogWeekend:
         ksm = KillSwitchManager(state_dir=tmp_state_dir)
         assert not ksm.is_active()
 
-    def test_stale_heartbeat_ignored_friday_late(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_stale_heartbeat_ignored_friday_late(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Watchdog ignores stale heartbeat on Friday after 21:55 UTC."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=120)
 
-        with patch("scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True):
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True
+        ):
             result = watchdog.check_once()
 
         assert result is True
@@ -216,20 +228,28 @@ class TestWatchdogWeekend:
         ksm = KillSwitchManager(state_dir=tmp_state_dir)
         assert not ksm.is_active()
 
-    def test_stale_heartbeat_ignored_sunday_early(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_stale_heartbeat_ignored_sunday_early(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Watchdog ignores stale heartbeat on Sunday before 21:00 UTC."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=120)
 
-        with patch("scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True):
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True
+        ):
             result = watchdog.check_once()
 
         assert result is True
 
-    def test_kill_not_re_triggered_on_weekend(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_kill_not_re_triggered_on_weekend(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Verify no audit log entries are created during weekend."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=120)
 
-        with patch("scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True):
+        with patch(
+            "scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True
+        ):
             watchdog.check_once()
 
         history_file = Path(tmp_state_dir) / "history.jsonl"
@@ -240,44 +260,53 @@ class TestWatchdogWeekend:
 
 # ── Watchdog: Market Hours Helper ────────────────────────────────────────────
 
+
 class TestMarketHoursHelper:
     def test_saturday_is_closed(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         saturday = datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(saturday) is True
 
     def test_tuesday_is_open(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         tuesday = datetime(2026, 6, 2, 12, 0, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(tuesday) is False
 
     def test_friday_before_close_is_open(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         friday_early = datetime(2026, 6, 5, 18, 0, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(friday_early) is False
 
     def test_friday_at_close_is_closed(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         friday_close = datetime(2026, 6, 5, 21, 55, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(friday_close) is True
 
     def test_friday_after_close_is_closed(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         friday_late = datetime(2026, 6, 5, 22, 30, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(friday_late) is True
 
     def test_sunday_before_open_is_closed(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         sunday_early = datetime(2026, 6, 7, 18, 0, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(sunday_early) is True
 
     def test_sunday_after_open_is_open(self):
         from scripts.kill_switch_watchdog import _is_forex_market_closed
+
         sunday_late = datetime(2026, 6, 7, 22, 0, 0, tzinfo=timezone.utc)
         assert _is_forex_market_closed(sunday_late) is False
 
 
 # ── RiskGuard Circuit Breaker → Kill Switch ──────────────────────────────────
+
 
 class TestRiskGuardKillSwitch:
     def test_daily_loss_breach_activates_kill(self, tmp_state_dir):
@@ -292,9 +321,7 @@ class TestRiskGuardKillSwitch:
             )
 
         # Patch KillSwitchManager to use our tmp dir
-        with patch(
-            "adapters.ctrader.kill_switch.KillSwitchManager"
-        ) as MockKS:
+        with patch("adapters.ctrader.kill_switch.KillSwitchManager") as MockKS:
             mock_instance = MagicMock()
             MockKS.return_value = mock_instance
 
@@ -323,9 +350,7 @@ class TestRiskGuardKillSwitch:
             starting_balance=100_000.0,
         )
 
-        with patch(
-            "adapters.ctrader.kill_switch.KillSwitchManager"
-        ) as MockKS:
+        with patch("adapters.ctrader.kill_switch.KillSwitchManager") as MockKS:
             mock_instance = MagicMock()
             MockKS.return_value = mock_instance
 
@@ -343,17 +368,13 @@ class TestRiskGuardKillSwitch:
         """If kill switch activation raises, risk guard continues."""
         rg = RiskGuard(starting_balance=100_000.0)
 
-        with patch(
-            "adapters.ctrader.kill_switch.KillSwitchManager"
-        ) as MockKS:
+        with patch("adapters.ctrader.kill_switch.KillSwitchManager") as MockKS:
             mock_instance = MagicMock()
             mock_instance.activate_global_kill.side_effect = RuntimeError("boom")
             MockKS.return_value = mock_instance
 
             # Should NOT raise
-            rg._trigger_circuit_breaker(
-                RiskLimitType.DAILY_LOSS, 0.06, 0.05
-            )
+            rg._trigger_circuit_breaker(RiskLimitType.DAILY_LOSS, 0.06, 0.05)
 
             # R2: Daily loss sets time-based block until UTC midnight,
             # not permanent circuit_breaker_triggered.
@@ -364,21 +385,18 @@ class TestRiskGuardKillSwitch:
         """Non-loss circuit breaker (e.g. max_trades) does not activate kill."""
         rg = RiskGuard(starting_balance=100_000.0)
 
-        with patch(
-            "adapters.ctrader.kill_switch.KillSwitchManager"
-        ) as MockKS:
+        with patch("adapters.ctrader.kill_switch.KillSwitchManager") as MockKS:
             mock_instance = MagicMock()
             MockKS.return_value = mock_instance
 
             # MAX_TRADES is not DAILY_LOSS or TOTAL_DRAWDOWN
-            rg._trigger_circuit_breaker(
-                RiskLimitType.MAX_TRADES, 10, 10
-            )
+            rg._trigger_circuit_breaker(RiskLimitType.MAX_TRADES, 10, 10)
 
             mock_instance.activate_global_kill.assert_not_called()
 
 
 # ── Feed Disconnect → Freeze ─────────────────────────────────────────────────
+
 
 class TestFeedDisconnectFreeze:
     def _make_engine_mock(self, tmp_state_dir):
@@ -402,7 +420,9 @@ class TestFeedDisconnectFreeze:
         engine._running = True
         return engine
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    @pytest.mark.xfail(
+        reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout."
+    )
     def test_feed_disconnect_activates_freeze(self, tmp_state_dir):
         """Feed disconnect triggers GLOBAL FREEZE."""
         engine = self._make_engine_mock(tmp_state_dir)
@@ -426,7 +446,9 @@ class TestFeedDisconnectFreeze:
         # Should NOT freeze — feed is still initializing
         assert not engine._kill_switch.is_active()
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    @pytest.mark.xfail(
+        reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout."
+    )
     def test_feed_reconnect_no_auto_recovery(self, tmp_state_dir):
         """Feed reconnect does NOT auto-recover (manual recovery required)."""
         engine = self._make_engine_mock(tmp_state_dir)
@@ -446,7 +468,9 @@ class TestFeedDisconnectFreeze:
         # Kill switch should STILL be active (no auto-recovery)
         assert engine._kill_switch.is_globally_frozen()
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    @pytest.mark.xfail(
+        reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout."
+    )
     def test_feed_freeze_not_re_triggered(self, tmp_state_dir):
         """Feed disconnect freeze should not re-activate every cycle."""
         engine = self._make_engine_mock(tmp_state_dir)
@@ -463,6 +487,7 @@ class TestFeedDisconnectFreeze:
 
 
 # ── Error Rate Monitor → Freeze ──────────────────────────────────────────────
+
 
 class TestErrorRateFreeze:
     def _make_engine_mock(self, tmp_state_dir):
@@ -482,7 +507,9 @@ class TestErrorRateFreeze:
         engine._running = True
         return engine
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    @pytest.mark.xfail(
+        reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout."
+    )
     def test_high_error_rate_activates_freeze(self, tmp_state_dir):
         """Error rate > 50% in 60s window activates freeze."""
         engine = self._make_engine_mock(tmp_state_dir)
@@ -546,7 +573,9 @@ class TestErrorRateFreeze:
         # Old errors should be pruned, current rate is 0%
         assert not engine._kill_switch.is_active()
 
-    @pytest.mark.xfail(reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout.")
+    @pytest.mark.xfail(
+        reason="P5A scope-out: freeze activation code intentionally remains commented out per Phase 4 priority list. Tracked in P5A closeout."
+    )
     def test_counters_clear_after_freeze(self, tmp_state_dir):
         """Counters are cleared after freeze to prevent re-trigger every cycle."""
         engine = self._make_engine_mock(tmp_state_dir)
@@ -565,6 +594,7 @@ class TestErrorRateFreeze:
 
 
 # ── Heartbeat Atomic Write ───────────────────────────────────────────────────
+
 
 class TestHeartbeatAtomicWrite:
     def _make_engine_mock(self, tmp_path, tmp_state_dir):
@@ -634,6 +664,7 @@ class TestHeartbeatAtomicWrite:
 
 # ── Audit Log Entries for Auto-Triggers ──────────────────────────────────────
 
+
 class TestAutoTriggerAuditLog:
     @pytest.fixture(autouse=True)
     def _force_market_open(self):
@@ -665,7 +696,9 @@ class TestAutoTriggerAuditLog:
         assert event["mode"] == "kill"
         assert event["close_positions"] is True
 
-    def test_multiple_auto_triggers_in_audit_log(self, watchdog, tmp_heartbeat_file, tmp_state_dir):
+    def test_multiple_auto_triggers_in_audit_log(
+        self, watchdog, tmp_heartbeat_file, tmp_state_dir
+    ):
         """Multiple auto-triggers are all logged in audit history."""
         _write_heartbeat(tmp_heartbeat_file, age_seconds=60)
         watchdog.check_once()

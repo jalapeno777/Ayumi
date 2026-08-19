@@ -1,0 +1,12 @@
+{
+  "service_status": "up",
+  "ticks_received": 1,
+  "bars_built": 0,
+  "signals_generated": 0,
+  "trades_executed": 0,
+  "closed_trades_live": 0,
+  "last_tick_time": "2026-08-13T21:26:08.941624+00:00",
+  "connection_state": "failed",
+  "market_closed": false,
+  "updated_at": "2026-08-13T21:29:12.216602+00:00"
+}

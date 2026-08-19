@@ -48,6 +48,7 @@ from types import SimpleNamespace  # noqa: E402
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────
 
+
 class TestSpreadRegimeEnum:
     def test_all_regimes_exist(self):
         names = {r.name for r in SpreadRegime}
@@ -60,6 +61,7 @@ class TestSpreadRegimeEnum:
 
 # ── Default Penalties ───────────────────────────────────────────────
 
+
 class TestDefaultPenalties:
     def test_tight_no_penalty(self):
         assert _DEFAULT_PENALTIES[SpreadRegime.TIGHT] == 1.0
@@ -68,12 +70,22 @@ class TestDefaultPenalties:
         assert _DEFAULT_PENALTIES[SpreadRegime.EXTREME] == 0.50
 
     def test_penalty_ordering(self):
-        assert _DEFAULT_PENALTIES[SpreadRegime.TIGHT] >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
-        assert _DEFAULT_PENALTIES[SpreadRegime.NORMAL] >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
-        assert _DEFAULT_PENALTIES[SpreadRegime.WIDE] >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
+        assert (
+            _DEFAULT_PENALTIES[SpreadRegime.TIGHT]
+            >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
+        )
+        assert (
+            _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
+            >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
+        )
+        assert (
+            _DEFAULT_PENALTIES[SpreadRegime.WIDE]
+            >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
+        )
 
 
 # ── Classification ──────────────────────────────────────────────────
+
 
 class TestClassification:
     def setup_method(self):
@@ -102,6 +114,7 @@ class TestClassification:
 
 # ── Window Behavior ─────────────────────────────────────────────────
 
+
 class TestWindowBehavior:
     def test_window_size(self):
         clf = SpreadRegimeClassifier(window=50)
@@ -116,6 +129,7 @@ class TestWindowBehavior:
 
 
 # ── Timeframe Integration ───────────────────────────────────────────
+
 
 class TestTimeframeIntegration:
     def test_default_window(self):

@@ -7,7 +7,6 @@ Each test uses a shared module-scoped fixture for the TCP connection.
 """
 
 import os
-import time
 import threading
 
 import pytest
@@ -15,9 +14,11 @@ import pytest
 # Skip entire module if dependencies unavailable
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
     from ctrader_open_api import Client, TcpProtocol
     from twisted.internet import reactor
+
     HAS_DEPS = True
 except ImportError:
     HAS_DEPS = False
@@ -29,7 +30,9 @@ CLIENT_SECRET = os.getenv("CTRADER_OPENAPI_CLIENT_SECRET", "")
 ACCESS_TOKEN = os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN", "")
 ACCOUNT_ID = os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "")
 
-SHOULD_RUN = HAS_DEPS and bool(CLIENT_ID and CLIENT_SECRET and ACCESS_TOKEN and ACCOUNT_ID)
+SHOULD_RUN = HAS_DEPS and bool(
+    CLIENT_ID and CLIENT_SECRET and ACCESS_TOKEN and ACCOUNT_ID
+)
 
 pytestmark = pytest.mark.live
 
@@ -59,50 +62,69 @@ class _ConnectionHelper:
         assert self.connected.wait(timeout), "TCP connect timeout"
 
     def app_auth(self, timeout=10):
-        from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAApplicationAuthReq
+        from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+            ProtoOAApplicationAuthReq,
+        )
+
         req = ProtoOAApplicationAuthReq(clientId=CLIENT_ID, clientSecret=CLIENT_SECRET)
         ev = threading.Event()
+
         def ok(r):
             ev.set()
+
         def fail(f):
             ev.set()
+
         def do():
             d = self.client.send(req)
             d.addCallbacks(ok, fail)
+
         reactor.callFromThread(do)
         assert ev.wait(timeout), "App auth timeout"
 
     def account_auth(self, timeout=10):
         from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
+
         req = ProtoOAAccountAuthReq(
             ctidTraderAccountId=int(ACCOUNT_ID),
             accessToken=ACCESS_TOKEN,
         )
         ev = threading.Event()
+
         def ok(r):
             ev.set()
+
         def fail(f):
             ev.set()
+
         def do():
             d = self.client.send(req)
             d.addCallbacks(ok, fail)
+
         reactor.callFromThread(do)
         assert ev.wait(timeout), "Account auth timeout"
 
     def subscribe(self, symbol_id, timeout=10):
-        from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOASubscribeSpotsReq
+        from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+            ProtoOASubscribeSpotsReq,
+        )
+
         req = ProtoOASubscribeSpotsReq(
             ctidTraderAccountId=int(ACCOUNT_ID),
             symbolId=[symbol_id],
         )
         ev = threading.Event()
+
         def ok(r):
             ev.set()
+
         def fail(f):
             ev.set()
+
         def do():
             d = self.client.send(req)
             d.addCallbacks(ok, fail)
+
         reactor.callFromThread(do)
         assert ev.wait(timeout), "Subscribe timeout"
 
@@ -132,6 +154,7 @@ def conn():
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 def test_tcp_connect_and_auth(conn):
     """Verify TCP connect + full auth succeeded (fixture does the work)."""
@@ -172,6 +195,7 @@ def test_place_and_close_market_order(conn):
     def on_open(r):
         open_result[0] = r
         open_ev.set()
+
     def on_open_fail(f):
         open_result[1] = str(f)
         open_ev.set()
@@ -179,13 +203,18 @@ def test_place_and_close_market_order(conn):
     def do_open():
         d = conn.client.send(req)
         d.addCallbacks(on_open, on_open_fail)
+
     reactor.callFromThread(do_open)
     assert open_ev.wait(15), "Order open timeout"
 
     if open_result[1] is not None:
         pytest.skip(f"Order rejected (demo may not support symbol): {open_result[1]}")
 
-    payload = Protobuf.extract(open_result[0]) if hasattr(open_result[0], "payloadType") else open_result[0]
+    payload = (
+        Protobuf.extract(open_result[0])
+        if hasattr(open_result[0], "payloadType")
+        else open_result[0]
+    )
     position_id = getattr(payload, "positionId", None)
     if position_id is None:
         pytest.skip("No positionId in response — demo may handle differently")
@@ -199,11 +228,13 @@ def test_place_and_close_market_order(conn):
 
     def on_close(r):
         close_ev.set()
+
     def on_close_fail(f):
         close_ev.set()
 
     def do_close():
         d = conn.client.send(close_req)
         d.addCallbacks(on_close, on_close_fail)
+
     reactor.callFromThread(do_close)
     assert close_ev.wait(15), "Position close timeout"

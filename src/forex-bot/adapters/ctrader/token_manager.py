@@ -12,14 +12,10 @@ Design: lightweight wrapper (Option A), not a framework.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
-import os
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 
 logger = logging.getLogger("ayumi.token_manager")
@@ -44,6 +40,7 @@ _PLACEHOLDER_VALUES = {
 
 
 # ── Data structures ─────────────────────────────────────────────────────────
+
 
 class TokenStatus:
     """Enumeration-style constants for token validation results."""
@@ -157,7 +154,9 @@ class TokenManager:
             "message": message,
             "days_remaining": round(days_remaining, 2),
             "issued_at": record.get("issued_at"),
-            "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+            "expires_at": datetime.fromtimestamp(
+                expires_at, tz=timezone.utc
+            ).isoformat(),
             "token_hash": token_hash,
         }
 
@@ -169,7 +168,11 @@ class TokenManager:
         This method is kept for backward compatibility but does not write state.
         """
         token_hash = access_token[:8]
-        logger.debug("Tracked token %s… (expires_in=%ds) [state write disabled]", token_hash, expires_in)
+        logger.debug(
+            "Tracked token %s… (expires_in=%ds) [state write disabled]",
+            token_hash,
+            expires_in,
+        )
 
     def needs_refresh(self, warning_days: int = 7) -> bool:
         """Return True if the current token expires within *warning_days*.
@@ -278,7 +281,10 @@ class TokenManager:
         try:
             return max(
                 tokens.keys(),
-                key=lambda h: self._parse_iso(tokens[h].get("issued_at")) or datetime.min.replace(tzinfo=timezone.utc),
+                key=lambda h: (
+                    self._parse_iso(tokens[h].get("issued_at"))
+                    or datetime.min.replace(tzinfo=timezone.utc)
+                ),
             )
         except Exception:
             return next(iter(tokens.keys()), None)
@@ -303,19 +309,27 @@ class TokenManager:
     def _append_refresh_history(self, *, success: bool, error: str | None) -> None:
         """Append a refresh record, capping history at MAX_REFRESH_HISTORY (L-2)."""
         self._state.setdefault("refresh_history", [])
-        self._state["refresh_history"].append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "success": success,
-            "error": error,
-        })
+        self._state["refresh_history"].append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success": success,
+                "error": error,
+            }
+        )
         if len(self._state["refresh_history"]) > MAX_REFRESH_HISTORY:
-            self._state["refresh_history"] = self._state["refresh_history"][-MAX_REFRESH_HISTORY:]
+            self._state["refresh_history"] = self._state["refresh_history"][
+                -MAX_REFRESH_HISTORY:
+            ]
         self._save_state(self._state)
 
     def _load_state(self) -> dict:
         """Load token state from disk. Returns empty dict on missing / corrupt file."""
         if not self._token_path.exists():
-            self._state = {"version": TOKEN_STATE_VERSION, "tokens": {}, "refresh_history": []}
+            self._state = {
+                "version": TOKEN_STATE_VERSION,
+                "tokens": {},
+                "refresh_history": [],
+            }
             return self._state
 
         try:
@@ -323,7 +337,11 @@ class TokenManager:
                 loaded = json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("Failed to load token state (%s) — starting fresh", exc)
-            self._state = {"version": TOKEN_STATE_VERSION, "tokens": {}, "refresh_history": []}
+            self._state = {
+                "version": TOKEN_STATE_VERSION,
+                "tokens": {},
+                "refresh_history": [],
+            }
             return self._state
 
         # Schema migration (L-1): ensure version key exists

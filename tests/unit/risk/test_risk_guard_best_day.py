@@ -25,6 +25,7 @@ from unittest.mock import patch
 import pytest
 
 import sys
+
 sys.path.insert(0, "src/forex-bot")
 sys.path.insert(0, "src/forex-bot/adapters/ctrader")
 
@@ -37,6 +38,7 @@ from adapters.ctrader.risk_guard import (
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def guard():
@@ -52,12 +54,11 @@ def guard():
 
 def _add_day(guard: RiskGuard, d: date, pnl: float) -> None:
     """Append a DailyTradingStats entry to _daily_stats."""
-    guard._daily_stats.append(
-        DailyTradingStats(date=d, trades_count=3, pnl=pnl)
-    )
+    guard._daily_stats.append(DailyTradingStats(date=d, trades_count=3, pnl=pnl))
 
 
 # ── 1. Enforcement at >40% ratio ───────────────────────────────────────────
+
 
 class TestEnforcementTriggered:
     """Best-day ratio > 40% (default enforce threshold) → _blocked_until set."""
@@ -102,6 +103,7 @@ class TestEnforcementTriggered:
 
 # ── 2. No enforcement at exactly 40% ───────────────────────────────────────
 
+
 class TestBoundaryNoEnforcement:
     """Ratio exactly at the enforcement threshold → no enforcement (strictly >)."""
 
@@ -118,6 +120,7 @@ class TestBoundaryNoEnforcement:
 
 
 # ── 3. No enforcement below 40% ────────────────────────────────────────────
+
 
 class TestBelowEnforcementThreshold:
     """Ratio below 40% → no enforcement."""
@@ -146,6 +149,7 @@ class TestBelowEnforcementThreshold:
 
 # ── 4. CRITICAL log at >50% (FTMO hard cap) ────────────────────────────────
 
+
 class TestHardCapLogging:
     """Ratio > 50% → CRITICAL log in addition to enforcement."""
 
@@ -163,6 +167,7 @@ class TestHardCapLogging:
 
 
 # ── 5. Custom enforce_pct configuration ────────────────────────────────────
+
 
 class TestCustomEnforcePct:
     """Custom ``best_day_enforce_pct`` overrides default 40%."""
@@ -217,13 +222,12 @@ class TestCustomEnforcePct:
 
 # ── 6. Blocked trading prevents signals ────────────────────────────────────
 
+
 class TestBlockedTradingPreventsSignals:
     """When _blocked_until is set by best-day rule, check_signal blocks trades."""
 
     def test_check_signal_blocked_after_enforcement(self, guard):
         """After best-day enforcement, check_signal should reject."""
-        from adapters.ctrader.models import TradeDirection
-        from adapters.ctrader.risk_guard import RiskLimitType
 
         _add_day(guard, date(2026, 7, 8), 200.0)
         _add_day(guard, date(2026, 7, 9), 50.0)  # 80% → enforcement
@@ -233,14 +237,18 @@ class TestBlockedTradingPreventsSignals:
 
         # Try to trade — should be blocked
         from unittest.mock import MagicMock
+
         mock_signal = MagicMock()
         result = guard.check_signal(mock_signal)
 
         assert result.allowed is False
-        assert "blocked" in result.message.lower() or "circuit" in result.message.lower()
+        assert (
+            "blocked" in result.message.lower() or "circuit" in result.message.lower()
+        )
 
 
 # ── 7. Minimum 2 positive days still required ──────────────────────────────
+
 
 class TestMinimumPositiveDays:
     """Best-day rule enforcement requires ≥2 positive days."""
@@ -264,6 +272,7 @@ class TestMinimumPositiveDays:
 
 # ── 8. Auto-recovery after _blocked_until expiry ───────────────────────────
 
+
 class TestAutoRecovery:
     """_blocked_until from best-day rule auto-recovers after expiry."""
 
@@ -275,6 +284,7 @@ class TestAutoRecovery:
         # check_signal_internal checks _blocked_until and clears it if expired
         # The guard should allow trading after expiry
         from unittest.mock import MagicMock
+
         mock_signal = MagicMock()
         # Set up mock to pass other checks
         mock_signal.direction = None
@@ -294,13 +304,14 @@ class TestAutoRecovery:
 
 # ── 9. Negative days excluded ──────────────────────────────────────────────
 
+
 class TestNegativeDaysExcluded:
     """Negative-PnL days are excluded from best-day ratio computation."""
 
     def test_negative_day_does_not_affect_ratio(self, guard):
         """Negative day excluded: 200+100 (positive only) → 66.7% → enforce."""
         _add_day(guard, date(2026, 7, 7), -500.0)  # excluded
-        _add_day(guard, date(2026, 7, 8), 200.0)   # best
+        _add_day(guard, date(2026, 7, 8), 200.0)  # best
         _add_day(guard, date(2026, 7, 9), 100.0)
 
         guard._check_best_day_rule(guard._daily_stats[-1])
@@ -310,6 +321,7 @@ class TestNegativeDaysExcluded:
 
 
 # ── 10. Integration: can_trade() respects enforcement ──────────────────────
+
 
 class TestCanTradeIntegration:
     """can_trade / check_signal respects _blocked_until from best-day rule."""
@@ -328,6 +340,7 @@ class TestCanTradeIntegration:
 
         # check_signal should reject
         from unittest.mock import MagicMock
+
         mock_signal = MagicMock()
         result = guard.check_signal(mock_signal)
         assert result.allowed is False

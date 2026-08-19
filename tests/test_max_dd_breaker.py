@@ -8,7 +8,6 @@ Verifies council decision R2 (Kaito):
 """
 
 import json
-from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -23,6 +22,7 @@ from adapters.ctrader.risk_guard import (
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_state(tmp_path):
@@ -44,6 +44,7 @@ def guard(tmp_state):
 # Test 1 — Max drawdown breach sets permanent block (no _blocked_until)
 # ---------------------------------------------------------------------------
 
+
 class TestMaxDrawdownPermanentBlock:
     def test_max_dd_breach_sets_permanent_block(self, guard):
         """When total drawdown limit is breached, _circuit_breaker_triggered
@@ -63,10 +64,9 @@ class TestMaxDrawdownPermanentBlock:
 
     def test_max_dd_breach_is_blocked_in_check_signal(self, guard):
         """After max drawdown breach, check_signal must reject."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
@@ -86,10 +86,9 @@ class TestMaxDrawdownPermanentBlock:
 
     def test_max_dd_breach_is_blocked_in_check_trade_allowed(self, guard):
         """After max drawdown breach, check_trade_allowed must reject."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         from adapters.ctrader.models import TradeDirection
+
         result = guard.check_trade_allowed(
             direction=TradeDirection.LONG,
             volume=0.1,
@@ -107,12 +106,11 @@ class TestMaxDrawdownPermanentBlock:
 # Test 2 — Max drawdown block does NOT auto-recover after time passes
 # ---------------------------------------------------------------------------
 
+
 class TestNoAutoRecovery:
     def test_no_auto_recovery_after_time_passes(self, guard):
         """Simulate time passing — permanent block must still be active."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         # Simulate time passing: mutate internal state as if hours passed.
         # Since _blocked_until is None, there is no time-based expiry.
         # The only way to clear is reset_circuit_breaker().
@@ -126,10 +124,9 @@ class TestNoAutoRecovery:
 
     def test_no_auto_recovery_persists_in_check_signal(self, guard):
         """Even after simulating time passage, check_signal still blocks."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+
         signal = CTraderTradeSignal(
             symbol="USDJPY",
             direction=TradeDirection.SHORT,
@@ -157,26 +154,26 @@ class TestNoAutoRecovery:
 # Test 3 — reset_circuit_breaker() clears the permanent block
 # ---------------------------------------------------------------------------
 
+
 class TestResetCircuitBreaker:
     def test_reset_clears_permanent_block(self, guard):
         """reset_circuit_breaker() clears a permanent (total drawdown) block."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         assert guard._circuit_breaker_triggered is True
 
         result = guard.reset_circuit_breaker(reason="test reset")
-        assert result is True, "reset_circuit_breaker must return True for permanent block"
+        assert result is True, (
+            "reset_circuit_breaker must return True for permanent block"
+        )
         assert guard._circuit_breaker_triggered is False, (
             "Circuit breaker must be cleared after reset"
         )
 
     def test_reset_allows_trading_again(self, guard):
         """After reset, check_signal must allow trades again."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
@@ -202,9 +199,7 @@ class TestResetCircuitBreaker:
 
     def test_reset_persists_to_state(self, guard, tmp_state):
         """reset_circuit_breaker saves the cleared state."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         guard.reset_circuit_breaker(reason="persisted reset")
 
         raw = json.loads(Path(tmp_state).read_text())
@@ -221,12 +216,11 @@ class TestResetCircuitBreaker:
 # Test 4 — reset_circuit_breaker() does NOT clear daily loss block
 # ---------------------------------------------------------------------------
 
+
 class TestResetRefusesDailyLoss:
     def test_reset_refuses_daily_loss_block(self, guard):
         """reset_circuit_breaker() must refuse to clear a daily loss time-based block."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.DAILY_LOSS, 0.06, 0.05
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.DAILY_LOSS, 0.06, 0.05)
         # Daily loss sets _blocked_until but NOT _circuit_breaker_triggered
         assert guard._blocked_until is not None
         assert guard._circuit_breaker_triggered is False
@@ -242,12 +236,11 @@ class TestResetRefusesDailyLoss:
 
     def test_daily_loss_still_blocks_after_reset_attempt(self, guard):
         """After a failed reset attempt, daily loss block still rejects trades."""
-        guard._trigger_circuit_breaker(
-            RiskLimitType.DAILY_LOSS, 0.06, 0.05
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.DAILY_LOSS, 0.06, 0.05)
         guard.reset_circuit_breaker(reason="should fail")
 
         from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
@@ -270,6 +263,7 @@ class TestResetRefusesDailyLoss:
 # Test 5 — State persistence across restart for permanent block
 # ---------------------------------------------------------------------------
 
+
 class TestPermanentBlockPersistence:
     def test_permanent_block_survives_restart(self, tmp_state):
         """Permanent circuit breaker survives a simulated restart."""
@@ -278,9 +272,7 @@ class TestPermanentBlockPersistence:
             starting_balance=10000.0,
             state_path=tmp_state,
         )
-        g1._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        g1._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
 
         # New instance — restore from state
         g2 = RiskGuard(

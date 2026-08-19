@@ -42,12 +42,13 @@ logger = logging.getLogger("ayumi.connection.watchdog")
 # opens. The connection.py health monitor degrades at 35s and reconnects at
 # 60s. These watchdog thresholds provide an earlier warning layer.
 PRE_EMPTIVE_THRESHOLD_S = 12.0  # silence → pre-emptive reconnect callback
-DEGRADED_THRESHOLD_S = 15.0     # silence → DEGRADED
-FAILED_THRESHOLD_S = 45.0       # silence → FAILED
-POLL_INTERVAL_S = 5.0           # how often the watchdog loop checks
+DEGRADED_THRESHOLD_S = 15.0  # silence → DEGRADED
+FAILED_THRESHOLD_S = 45.0  # silence → FAILED
+POLL_INTERVAL_S = 5.0  # how often the watchdog loop checks
 
 
 # ── Per-role tracking ──────────────────────────────────────────────────────
+
 
 @dataclass
 class _RoleTracker:
@@ -61,6 +62,7 @@ class _RoleTracker:
 
 
 # ── Watchdog ───────────────────────────────────────────────────────────────
+
 
 class ConnectionWatchdog:
     """Daemon-thread heartbeat watchdog for cTrader connections.
@@ -140,12 +142,15 @@ class ConnectionWatchdog:
                     ConnectionState.AUTHENTICATED,
                     reason="heartbeat_recovered",
                 )
-            logger.info("[Watchdog] %s heartbeat recovered — resetting timer", role.value)
+            logger.info(
+                "[Watchdog] %s heartbeat recovered — resetting timer", role.value
+            )
 
     # ── Pre-emptive reconnect API ──────────────────────────────────────────
 
     def on_preemptive_reconnect(
-        self, callback: Callable[[ConnectionRole, float], None],
+        self,
+        callback: Callable[[ConnectionRole, float], None],
     ) -> None:
         """Register a callback fired when silence exceeds the pre-emptive threshold.
 
@@ -172,8 +177,10 @@ class ConnectionWatchdog:
         self._thread.start()
         logger.info(
             "[Watchdog] Started (preemptive=%ss, degraded=%ss, failed=%ss, poll=%ss)",
-            self._preemptive_threshold, self._degraded_threshold,
-            self._failed_threshold, self._poll_interval,
+            self._preemptive_threshold,
+            self._degraded_threshold,
+            self._failed_threshold,
+            self._poll_interval,
         )
 
     def stop(self) -> None:
@@ -215,7 +222,9 @@ class ConnectionWatchdog:
                 tracker.notified_preemptive = True
                 logger.error(
                     "[Watchdog] %s FAILED — %.1fs of silence (threshold: %ss)",
-                    role.value, silence, self._failed_threshold,
+                    role.value,
+                    silence,
+                    self._failed_threshold,
                 )
                 tracker.state_mgr.transition_to(
                     ConnectionState.FAILED,
@@ -227,7 +236,9 @@ class ConnectionWatchdog:
                 tracker.notified_degraded = True
                 logger.warning(
                     "[Watchdog] %s DEGRADED — %.1fs of silence (threshold: %ss)",
-                    role.value, silence, self._degraded_threshold,
+                    role.value,
+                    silence,
+                    self._degraded_threshold,
                 )
                 tracker.state_mgr.transition_to(
                     ConnectionState.DEGRADED,
@@ -244,7 +255,9 @@ class ConnectionWatchdog:
                 tracker.notified_preemptive = True
                 logger.info(
                     "[Watchdog] %s pre-emptive alert — %.1fs of silence (threshold: %ss)",
-                    role.value, silence, self._preemptive_threshold,
+                    role.value,
+                    silence,
+                    self._preemptive_threshold,
                 )
                 for cb in list(self._preemptive_callbacks):
                     try:
@@ -252,7 +265,8 @@ class ConnectionWatchdog:
                     except Exception as exc:
                         logger.error(
                             "[Watchdog] Pre-emptive callback error for %s: %s",
-                            role.value, exc,
+                            role.value,
+                            exc,
                         )
 
     # ── Diagnostics ────────────────────────────────────────────────────────

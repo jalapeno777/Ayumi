@@ -9,7 +9,7 @@ Card: AYUAA-278
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from core.types import (
@@ -127,9 +127,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     dx_list: list[float] = []
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
         smoothed_minus_dm = (
             smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
         )
@@ -242,11 +240,7 @@ class MomentumM15Strategy:
             return None
 
         # Indicators
-        atr = (
-            state.atr
-            if state.atr > 0
-            else _calculate_atr(state.bars, cfg.atr_period)
-        )
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars, cfg.atr_period)
         if atr <= 0:
             return None
 
@@ -256,7 +250,7 @@ class MomentumM15Strategy:
         adx = _calculate_adx(state.bars, cfg.adx_period)
 
         # Range (exclude current bar to avoid look-ahead)
-        lookback = state.bars[-(cfg.lookback_period + 1):-1]
+        lookback = state.bars[-(cfg.lookback_period + 1) : -1]
         range_high = max(b.high for b in lookback)
         range_low = min(b.low for b in lookback)
         latest = state.latest_bar
@@ -291,7 +285,10 @@ class MomentumM15Strategy:
             tp2 = entry + risk * cfg.tp_rr
             tp3 = entry + risk * (cfg.tp_rr + 1.0)
             penetration = min((latest.close - range_high) / atr, 1.0)
-            confidence = min(0.90, 0.50 + penetration * 0.30 + min((adx - cfg.min_adx) / 30.0, 1.0) * 0.10)
+            confidence = min(
+                0.90,
+                0.50 + penetration * 0.30 + min((adx - cfg.min_adx) / 30.0, 1.0) * 0.10,
+            )
             rationale = (
                 f"M15 momentum LONG: close={latest.close:.5f} > "
                 f"range_high={range_high:.5f} ({cfg.lookback_period}-bar), "
@@ -306,7 +303,10 @@ class MomentumM15Strategy:
             tp2 = entry - risk * cfg.tp_rr
             tp3 = entry - risk * (cfg.tp_rr + 1.0)
             penetration = min((range_low - latest.close) / atr, 1.0)
-            confidence = min(0.90, 0.50 + penetration * 0.30 + min((adx - cfg.min_adx) / 30.0, 1.0) * 0.10)
+            confidence = min(
+                0.90,
+                0.50 + penetration * 0.30 + min((adx - cfg.min_adx) / 30.0, 1.0) * 0.10,
+            )
             rationale = (
                 f"M15 momentum SHORT: close={latest.close:.5f} < "
                 f"range_low={range_low:.5f} ({cfg.lookback_period}-bar), "
@@ -329,7 +329,9 @@ class MomentumM15Strategy:
 
     # -- FTMO tracking -----------------------------------------------------
 
-    def record_trade_result(self, pnl: float, trade_time: datetime | None = None) -> None:
+    def record_trade_result(
+        self, pnl: float, trade_time: datetime | None = None
+    ) -> None:
         """Record a closed trade's P&L for daily drawdown tracking.
 
         Should be called after every closed trade to keep the circuit-breaker
@@ -358,7 +360,9 @@ class MomentumM15Strategy:
         today = datetime.now(timezone.utc).date()
         if self._daily_pnl_date.date() != today:
             return False  # Reset on new day
-        return self._daily_pnl < -(self.config.account_balance * self.config.max_daily_dd)
+        return self._daily_pnl < -(
+            self.config.account_balance * self.config.max_daily_dd
+        )
 
     @property
     def daily_pnl(self) -> float:

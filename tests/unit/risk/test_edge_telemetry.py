@@ -1,12 +1,10 @@
 """Tests for edge telemetry — R-multiple expectancy tracking."""
 
 import json
-import tempfile
-import os
 import pytest
 from pathlib import Path
 
-from risk.edge_telemetry import EdgeTelemetryTracker, TradeRecord, EdgeStats
+from risk.edge_telemetry import EdgeTelemetryTracker
 
 
 @pytest.fixture
@@ -42,8 +40,9 @@ class TestRecordClose:
 
     def test_persistence_to_jsonl(self, tracker, tmp_path):
         """Recorded trades should persist to JSONL."""
-        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=50.0,
-                             signal_id="sig_001")
+        tracker.record_close(
+            "strat", "SYM", risk_amount=100.0, pnl=50.0, signal_id="sig_001"
+        )
         persist_path = Path(tracker._persist_path)
         assert persist_path.exists()
         with open(persist_path) as f:
@@ -65,9 +64,9 @@ class TestExpectancy:
     def test_mixed_win_loss_expectancy(self, tracker):
         """Expectancy should be the mean of R-multiples."""
         # Win: +1R, Loss: -0.5R, Win: +2R → avg = (1 - 0.5 + 2) / 3 = 0.833
-        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=100.0)   # +1R
-        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=-50.0)   # -0.5R
-        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=200.0)   # +2R
+        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=100.0)  # +1R
+        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=-50.0)  # -0.5R
+        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=200.0)  # +2R
         exp = tracker.get_expectancy("strat", "SYM")
         assert abs(exp - (1.0 - 0.5 + 2.0) / 3.0) < 1e-6
 
@@ -92,13 +91,17 @@ class TestRiskMultiplier:
     def test_high_edge_returns_1_5(self, tracker):
         """Expectancy > 0.5R should return 1.5 multiplier."""
         for _ in range(5):
-            tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=100.0)  # +1R each
+            tracker.record_close(
+                "strat", "SYM", risk_amount=100.0, pnl=100.0
+            )  # +1R each
         assert tracker.get_risk_multiplier("strat", "SYM") == 1.5
 
     def test_negative_edge_returns_0_6(self, tracker):
         """Negative expectancy should return 0.6 multiplier."""
         for _ in range(5):
-            tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=-50.0)  # -0.5R each
+            tracker.record_close(
+                "strat", "SYM", risk_amount=100.0, pnl=-50.0
+            )  # -0.5R each
         assert tracker.get_risk_multiplier("strat", "SYM") == 0.6
 
     def test_positive_edge_returns_1_0(self, tracker):
@@ -118,13 +121,20 @@ class TestLoadHistory:
         """Tracker should load existing JSONL on init."""
         persist = tmp_path / "edge.jsonl"
         with open(persist, "w") as f:
-            f.write(json.dumps({
-                "strategy_id": "strat", "symbol": "SYM",
-                "risk_amount": 50.0, "pnl": 100.0,
-                "r_multiple": 2.0,
-                "timestamp": "2026-07-08T12:00:00+00:00",
-                "signal_id": "sig_001"
-            }) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "strategy_id": "strat",
+                        "symbol": "SYM",
+                        "risk_amount": 50.0,
+                        "pnl": 100.0,
+                        "r_multiple": 2.0,
+                        "timestamp": "2026-07-08T12:00:00+00:00",
+                        "signal_id": "sig_001",
+                    }
+                )
+                + "\n"
+            )
 
         tracker = EdgeTelemetryTracker(persist_path=str(persist))
         stats = tracker.get_stats("strat", "SYM")
@@ -136,9 +146,11 @@ class TestLoadHistory:
         """Corrupt JSONL lines should be skipped, not crash."""
         persist = tmp_path / "edge.jsonl"
         with open(persist, "w") as f:
-            f.write('{"valid": "json", "strategy_id": "s", "symbol": "X", "risk_amount": 10, "pnl": 5, "r_multiple": 0.5, "timestamp": "2026-01-01T00:00:00Z"}\n')
+            f.write(
+                '{"valid": "json", "strategy_id": "s", "symbol": "X", "risk_amount": 10, "pnl": 5, "r_multiple": 0.5, "timestamp": "2026-01-01T00:00:00Z"}\n'
+            )
             f.write('{"invalid json\n')
-            f.write('not json at all\n')
+            f.write("not json at all\n")
 
         tracker = EdgeTelemetryTracker(persist_path=str(persist))
         # Should have loaded 1 valid record

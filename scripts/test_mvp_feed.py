@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test if the feed works when imported via the MVP module's bootstrap."""
+
 import sys
 from pathlib import Path
 
@@ -10,6 +11,7 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 # Simulate run_paper_mvp.py's module-level bootstrap
 try:
     from dotenv import load_dotenv
+
     load_dotenv(_PROJECT_ROOT / ".env")
 except ImportError:
     pass
@@ -44,11 +46,14 @@ feed._symbols[31] = SymbolInfo(symbol_id=31, name="XAU/USD")
 feed._name_to_id["XAU/USD"] = 31
 
 count = 0
+
+
 def on_tick(tick):
     global count
     count += 1
     if count <= 3:
         print(f"TICK #{count}: bid={tick.bid}", flush=True)
+
 
 feed.on_tick(on_tick)
 result = feed.start(auto_subscribe=["XAU/USD"])

@@ -1,7 +1,6 @@
 """Tests for SymbolInfo metadata and XAUUSD pip calculation fix (T4)."""
-import pytest
 
-from adapters.ctrader.models import SymbolInfo, SYMBOL_METADATA, get_symbol_info
+from adapters.ctrader.models import SYMBOL_METADATA, get_symbol_info
 
 
 class TestSymbolInfo:

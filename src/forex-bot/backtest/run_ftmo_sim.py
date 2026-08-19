@@ -32,10 +32,10 @@ import sys
 import types
 from pathlib import Path
 
-# Project root for imports
+# Project root for path resolution
 # File: src/forex-bot/backtest/run_ftmo_sim.py → up 3 levels = workspace root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
+_BT_DIR = PROJECT_ROOT / "src" / "forex-bot" / "backtest"
 
 # ── Import the ftmo_simulation module without triggering backtest/__init__.py
 # The backtest package's __init__.py imports heavy deps (statsmodels etc.)
@@ -44,17 +44,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 if "backtest" not in sys.modules:
     _backtest_pkg = types.ModuleType("backtest")
-    _backtest_pkg.__path__ = [
-        str(PROJECT_ROOT / "src" / "forex-bot" / "backtest")
-    ]
+    _backtest_pkg.__path__ = [str(_BT_DIR)]
     sys.modules["backtest"] = _backtest_pkg
 
-_sim_path = (
-    PROJECT_ROOT / "src" / "forex-bot" / "backtest" / "ftmo_simulation.py"
-)
-_spec = importlib.util.spec_from_file_location(
-    "backtest.ftmo_simulation", _sim_path
-)
+_sim_path = _BT_DIR / "ftmo_simulation.py"
+_spec = importlib.util.spec_from_file_location("backtest.ftmo_simulation", _sim_path)
 _mod = importlib.util.module_from_spec(_spec)
 sys.modules["backtest.ftmo_simulation"] = _mod
 _spec.loader.exec_module(_mod)
@@ -74,40 +68,56 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Run FTMO challenge simulation on walk-forward backtest results.",
     )
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         default=DEFAULT_INPUT,
         help=f"Path to walk-forward results CSV (default: {DEFAULT_INPUT})",
     )
     parser.add_argument(
-        "--account-size", type=float, default=10_000.0,
+        "--account-size",
+        type=float,
+        default=10_000.0,
         help="Starting account size in account currency (default: 10000)",
     )
     parser.add_argument(
-        "--daily-loss-limit", type=float, default=0.05,
+        "--daily-loss-limit",
+        type=float,
+        default=0.05,
         help="Daily loss limit as fraction, e.g. 0.05 = 5%% (default: 0.05)",
     )
     parser.add_argument(
-        "--max-drawdown", type=float, default=0.10,
+        "--max-drawdown",
+        type=float,
+        default=0.10,
         help="Max total drawdown as fraction (default: 0.10)",
     )
     parser.add_argument(
-        "--profit-target", type=float, default=0.10,
+        "--profit-target",
+        type=float,
+        default=0.10,
         help="Profit target as fraction (default: 0.10)",
     )
     parser.add_argument(
-        "--strategy", "-s", default=None,
+        "--strategy",
+        "-s",
+        default=None,
         help="Filter to a specific strategy (default: all + per-strategy)",
     )
     parser.add_argument(
-        "--output", "-o", default=None,
+        "--output",
+        "-o",
+        default=None,
         help="Output JSON file path (default: stdout)",
     )
     parser.add_argument(
-        "--no-stop-on-violation", action="store_true",
+        "--no-stop-on-violation",
+        action="store_true",
         help="Continue processing trades after violations (default: stop)",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Enable verbose logging",
     )
     return parser.parse_args(argv)
@@ -152,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if not trades:
-        print("WARNING: No trades loaded from CSV. Output will be empty.", file=sys.stderr)
+        print(
+            "WARNING: No trades loaded from CSV. Output will be empty.", file=sys.stderr
+        )
 
     sim = FTMOSimulation(config)
 
@@ -173,7 +185,11 @@ def main(argv: list[str] | None = None) -> int:
         }
 
     # Summary
-    all_passed = all(r["passed"] for r in output["results"].values()) if output["results"] else False
+    all_passed = (
+        all(r["passed"] for r in output["results"].values())
+        if output["results"]
+        else False
+    )
     output["summary"] = {
         "total_strategies": len(output["results"]),
         "passed": sum(1 for r in output["results"].values() if r["passed"]),

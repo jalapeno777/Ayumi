@@ -21,16 +21,15 @@ sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 sys.path.insert(0, str(scripts_dir))
 
+from backtest import CsvDataLoader
 from backtest.engine import BacktestConfig
 from backtest.parameter_sweep.grid import ParameterGrid
+from common.resource_limits import add_resource_args, run_limited
 from strategies.session_range_mean_reversion import (
     SessionRangeMRWithRegimeFilter,
     SessionRangeMRWithRegimeFilterConfig,
 )
-from backtest import CsvDataLoader
-from common.resource_limits import add_resource_args, run_limited
 from volatility_sweep_runner import SweepRunner
-
 
 EURUSD_PATH = "data/forex/historical/EURUSD_H1.csv"
 GBPUSD_PATH = "data/forex/historical/GBPUSD_H1.csv"
@@ -53,6 +52,7 @@ def run_sweep(
     pair: str,
     param_grid: dict[str, list[Any]],
     report_path: Path | None = None,
+    max_workers: int = 2,  # F821 fix (card 9cdbfd0a): was `args.max_workers` (undefined in this scope)
 ) -> dict:
     sweep_bars = bars[:SWEEP_BARS_SUBSET]
 
@@ -76,7 +76,10 @@ def run_sweep(
 
     grid = ParameterGrid(param_grid)
     runner = SweepRunner(
-        config=config, bars=sweep_bars, strategy_factory=strategy_factory, max_workers=args.max_workers
+        config=config,
+        bars=sweep_bars,
+        strategy_factory=strategy_factory,
+        max_workers=max_workers,
     )
     result = runner.run(grid)
 
@@ -207,9 +210,13 @@ def top_n_with_scores(trade_results, n: int = 5) -> list:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Session Range MR with Regime Filter sweep + walk-forward")
+    parser = argparse.ArgumentParser(
+        description="Session Range MR with Regime Filter sweep + walk-forward"
+    )
     add_resource_args(parser)
-    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    parser.add_argument(
+        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
+    )
     args = parser.parse_args()
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -239,6 +246,7 @@ def main() -> None:
             pair=pair,
             param_grid=PARAM_GRID,
             report_path=sweep_report_path,
+            max_workers=args.max_workers,
         )
 
         trade_results = sweep_result["trade_results"]
@@ -394,4 +402,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

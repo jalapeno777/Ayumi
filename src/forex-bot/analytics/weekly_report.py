@@ -10,8 +10,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -65,6 +65,7 @@ class WeeklyAnalytics:
         if not os.path.exists(self._trade_log):
             return []
         import json
+
         trades = []
         with open(self._trade_log) as f:
             for line in f:
@@ -109,7 +110,8 @@ class WeeklyAnalytics:
         sunday = monday + timedelta(days=6)
         all_trades = self._load_trades()
         week_trades = [
-            t for t in all_trades
+            t
+            for t in all_trades
             if (t_date := self._trade_date(t)) is not None
             and monday.isoformat() <= t_date <= sunday.isoformat()
         ]
@@ -385,9 +387,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
-    trade_log = Path(args.trade_log) if args.trade_log else project_root / "logs" / "trades.jsonl"
-    reports_root = Path(args.reports_root) if args.reports_root else project_root / "data" / "forex" / "equity_reports"
+    project_root = (
+        Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
+    )
+    trade_log = (
+        Path(args.trade_log)
+        if args.trade_log
+        else project_root / "logs" / "trades.jsonl"
+    )
+    reports_root = (
+        Path(args.reports_root)
+        if args.reports_root
+        else project_root / "data" / "forex" / "equity_reports"
+    )
 
     analytics = WeeklyAnalytics(
         trade_log_path=str(trade_log),

@@ -7,8 +7,6 @@ import pytest
 from sklearn.mixture import GaussianMixture
 
 from stress.regime_generator import (
-    DEFAULT_N_REGIMES,
-    MIN_OBSERVATIONS,
     RegimeParams,
     _sample_regime_sequence,
     _to_log_returns,
@@ -67,7 +65,7 @@ def synthetic_prices_fixture(returns: np.ndarray) -> np.ndarray:
 
 class TestToLogReturns:
     def test_basic_conversion(self):
-        prices = np.array([1.0, np.e, np.e ** 2])
+        prices = np.array([1.0, np.e, np.e**2])
         rets = _to_log_returns(prices)
         np.testing.assert_allclose(rets, [1.0, 1.0], atol=1e-10)
 
@@ -199,7 +197,10 @@ class TestSynthesizePrices:
 class TestBootstrapSyntheticReturns:
     def test_output_shapes(self, synthetic_prices):
         paths, params = bootstrap_synthetic_returns(
-            synthetic_prices, n_regimes=3, n_paths=50, random_state=42,
+            synthetic_prices,
+            n_regimes=3,
+            n_paths=50,
+            random_state=42,
         )
         assert paths.shape == (50, len(synthetic_prices) - 1)
         assert isinstance(params, RegimeParams)
@@ -208,7 +209,10 @@ class TestBootstrapSyntheticReturns:
     def test_state_labels_in_range(self, synthetic_prices):
         """Generated regime sequences must produce valid state indices."""
         paths, params = bootstrap_synthetic_returns(
-            synthetic_prices, n_regimes=3, n_paths=5, random_state=42,
+            synthetic_prices,
+            n_regimes=3,
+            n_paths=5,
+            random_state=42,
         )
         # params.means has 3 entries → regime indices 0-2
         assert params.means.shape == (3,)
@@ -224,7 +228,11 @@ class TestBootstrapSyntheticReturns:
         prices = 1.0 * np.exp(np.cumsum(log_rets))
 
         paths, params = bootstrap_synthetic_returns(
-            prices, n_regimes=2, n_paths=500, path_length=2000, random_state=999,
+            prices,
+            n_regimes=2,
+            n_paths=500,
+            path_length=2000,
+            random_state=999,
         )
 
         # The overall mean of synthetic returns should be close to the

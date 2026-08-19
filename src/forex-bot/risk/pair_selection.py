@@ -159,9 +159,7 @@ class PairSelectionPolicy:
         both ``usd_strong`` and ``commodity_linked``).
         """
         p = pair.upper()
-        return [
-            name for name, members in self.clusters.items() if p in members
-        ]
+        return [name for name, members in self.clusters.items() if p in members]
 
     def get_unassigned_pairs(self, pairs: list[str]) -> list[str]:
         """Return pairs that do not belong to any defined cluster.

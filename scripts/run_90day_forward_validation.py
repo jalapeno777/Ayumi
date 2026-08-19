@@ -10,11 +10,10 @@ Simulates 90 trading days (Jan-Mar 2026) with:
 """
 
 import argparse
-from common.resource_limits import add_resource_args, run_limited
+from common.resource_limits import add_resource_args
 import json
 import sys
 import warnings
-from datetime import datetime, time
 from pathlib import Path
 
 import numpy as np
@@ -721,7 +720,7 @@ def main():
         json.dump(result, f, indent=2, default=str)
 
     print(f"\nResults written to {out_file}")
-    print(f"\n=== 90-DAY FORWARD VALIDATION RESULTS ===")
+    print("\n=== 90-DAY FORWARD VALIDATION RESULTS ===")
     print(f"Trades: {metrics['total_trades']}")
     print(f"PnL: ${metrics['total_pnl']:.2f} ({metrics['total_pnl_pct']:.2f}%)")
     print(f"Win Rate: {metrics['win_rate']:.1%}")

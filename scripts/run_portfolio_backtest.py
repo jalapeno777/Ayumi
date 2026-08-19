@@ -7,11 +7,21 @@ a portfolio backtest with FTMO compliance, and runs walk-forward validation.
 """
 
 import argparse
-from common.resource_limits import add_resource_args, run_limited
 import json
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from common.resource_limits import add_resource_args
+
+if TYPE_CHECKING:
+    # F821 fix (card 9cdbfd0a): names used in string annotations only; runtime
+    # imports happen lazily inside functions (backtest.engine, backtest.portfolio_blend,
+    # quant.walk_forward).
+    from backtest.engine import BacktestConfig, BacktestMetrics
+    from backtest.portfolio_blend import CorrelationResult, SelectionResult
+    from quant.walk_forward import WalkForwardResults
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
@@ -22,17 +32,17 @@ REPORTS_DIR = project_root / "reports"
 
 
 def build_strategy_factories() -> dict:
-    from strategies.session_range_mean_reversion import (
-        SessionRangeMeanReversionStrategy,
-    )
-    from strategies.srmr_plus import SRMRPlusStrategy
+    from strategies.gbpusd_bb_reversion import BBMeanReversionStrategy
     from strategies.killzone_momentum import KillzoneMomentumStrategy
-    from strategies.volatility_squeeze import VolatilitySqueezeStrategy
     from strategies.momentum import (
         DonchianBreakoutStrategy,
         MATrendFollowingStrategy,
     )
-    from strategies.gbpusd_bb_reversion import BBMeanReversionStrategy
+    from strategies.session_range_mean_reversion import (
+        SessionRangeMeanReversionStrategy,
+    )
+    from strategies.srmr_plus import SRMRPlusStrategy
+    from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
     return {
         "SRM": SessionRangeMeanReversionStrategy,
@@ -128,17 +138,17 @@ def run_walk_forward(
     initial_balance: float,
     n_windows: int = 5,
 ):
+    from backtest.portfolio_blend import (
+        compute_signal_correlation,
+        inventory_strategies_on_data,
+        select_least_correlated,
+    )
     from quant.walk_forward import (
         WalkForwardResults,
         WalkForwardValidator,
         WindowMetrics,
         _mean,
         _std,
-    )
-    from backtest.portfolio_blend import (
-        inventory_strategies_on_data,
-        compute_signal_correlation,
-        select_least_correlated,
     )
 
     validator = WalkForwardValidator(
@@ -339,7 +349,7 @@ def format_report(
             marker = "*" if abs(val) > 0.5 else " "
             row += f"{val:>12.3f}{marker}"
         lines.append(row)
-    lines.append(f"\n  * = |correlation| > 0.5 (high)")
+    lines.append("\n  * = |correlation| > 0.5 (high)")
     lines.append(f"  Average |correlation|: {correlation.average_correlation:.3f}")
     lines.append("")
 
@@ -477,11 +487,10 @@ def main() -> None:
 
     from backtest.data_loader import CsvDataLoader
     from backtest.portfolio_blend import (
-        inventory_strategies_on_data,
         compute_signal_correlation,
+        inventory_strategies_on_data,
         select_least_correlated,
     )
-    from backtest.engine import Bar
 
     data_path = f"{DATA_DIR}/{args.pair}_{args.timeframe}.csv"
     print(f"Loading {args.pair} {args.timeframe} from {data_path}")

@@ -7,7 +7,7 @@ breaking collection of other test files that needed the real ctrader_open_api
 package. Fixed by importing the real module — ctrader_open_api is installed
 and the import works fine.)
 """
-import os
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +19,7 @@ class TestOpenApiSpotFeedLiveProperties:
     def feed(self):
         """Create a minimal OpenApiSpotFeed without connecting."""
         from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
+
         with patch("adapters.ctrader.connection.ReactorManager"):
             feed = OpenApiSpotFeed(
                 ctid_account_id=12345,
@@ -36,6 +37,7 @@ class TestOpenApiSpotFeedLiveProperties:
     def test_is_connected_reflects_auth_state(self, feed):
         """is_connected mirrors ConnectionStateManager.is_authenticated."""
         from adapters.ctrader.connection_state import ConnectionState
+
         # DISCONNECTED → not authenticated
         feed._state_mgr._state = ConnectionState.DISCONNECTED
         assert feed.is_connected is False

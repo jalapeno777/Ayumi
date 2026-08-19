@@ -41,6 +41,7 @@ _ENV_KEYS = {
 @dataclass(frozen=True)
 class Credentials:
     """Frozen credential snapshot."""
+
     client_id: str
     client_secret: str
     access_token: str

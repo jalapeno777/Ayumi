@@ -4,37 +4,39 @@ Tests backward compatibility of --live flag and the new --mode flag,
 plus fail-closed behavior for paper mode + live endpoint.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 
 class TestForwardTestConfigExecutionMode:
     """Test ForwardTestConfig.execution_mode field and consistency check."""
 
     def test_default_execution_mode_is_paper(self):
         from adapters.ctrader.forward_test_engine import ForwardTestConfig
+
         cfg = ForwardTestConfig()
         assert cfg.execution_mode == "paper"
 
     def test_live_mode_implies_live_execution_mode(self):
         from adapters.ctrader.forward_test_engine import ForwardTestConfig
+
         cfg = ForwardTestConfig(live_mode=True)
         # __post_init__ should have corrected execution_mode
         assert cfg.execution_mode == "live"
 
     def test_explicit_execution_mode_live(self):
         from adapters.ctrader.forward_test_engine import ForwardTestConfig
+
         cfg = ForwardTestConfig(execution_mode="live", live_mode=True)
         assert cfg.execution_mode == "live"
 
     def test_explicit_execution_mode_paper(self):
         from adapters.ctrader.forward_test_engine import ForwardTestConfig
+
         cfg = ForwardTestConfig(execution_mode="paper", live_mode=False)
         assert cfg.execution_mode == "paper"
 
     def test_live_mode_overrides_paper_execution_mode(self):
         """If live_mode=True but execution_mode='paper', __post_init__ corrects it."""
         from adapters.ctrader.forward_test_engine import ForwardTestConfig
+
         cfg = ForwardTestConfig(live_mode=True, execution_mode="paper")
         assert cfg.execution_mode == "live"
 
@@ -87,7 +89,6 @@ class TestFailClosedOnPaperLiveEndpoint:
 
     def test_paper_mode_on_live_endpoint_exits(self, caplog):
         """Simulate the fail-closed check logic."""
-        import os
         from adapters.ctrader.environment import (
             Environment,
             _infer_environment,
@@ -102,7 +103,7 @@ class TestFailClosedOnPaperLiveEndpoint:
         assert execution_mode == "paper"
 
         # In the launcher, this condition would cause sys.exit(1)
-        condition = (execution_mode == "paper" and env == Environment.LIVE)
+        condition = execution_mode == "paper" and env == Environment.LIVE
         assert condition is True
 
     def test_paper_mode_on_demo_endpoint_ok(self):
@@ -115,7 +116,7 @@ class TestFailClosedOnPaperLiveEndpoint:
         host = "demo.ctraderapi.com"
         env = _infer_environment(host)
 
-        condition = (execution_mode == "paper" and env == Environment.LIVE)
+        condition = execution_mode == "paper" and env == Environment.LIVE
         assert condition is False
 
     def test_live_mode_on_live_endpoint_ok(self):
@@ -128,5 +129,5 @@ class TestFailClosedOnPaperLiveEndpoint:
         host = "live.ctraderapi.com"
         env = _infer_environment(host)
 
-        condition = (execution_mode == "paper" and env == Environment.LIVE)
+        condition = execution_mode == "paper" and env == Environment.LIVE
         assert condition is False

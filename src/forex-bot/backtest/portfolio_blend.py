@@ -42,7 +42,6 @@ from quant.walk_forward import (
 )
 
 from .best_day_rule import (
-    DEFAULT_THRESHOLD as BEST_DAY_DEFAULT_THRESHOLD,
     BestDayCheckResult,
     BestDayRuleTracker,
 )
@@ -53,7 +52,6 @@ from .engine import (
     Bar,
     MarketState,
     SimulatedTrade,
-    StrategySignal,
     TradeDirection,
     determine_session,
     get_spread_for_pair,
@@ -412,6 +410,7 @@ def run_single_strategy_backtest(
     # strategy before it can trade. Use tighter spread that reflects actual
     # demo account conditions.
     from backtest.types import get_spread_for_pair as _gsp
+
     pair_spread = _gsp(pair)
     # XAUUSD default in the table is 2.5 pips but actual demo spread is ~0.3-0.5
     if pair == "XAUUSD":
@@ -1119,7 +1118,9 @@ def inventory_strategies_on_data(
                     # FTMO guard: reject entry if it would breach daily or total loss limits
                     if ftmo_guard is not None:
                         planned_risk = config.risk_per_trade_pct * engine.balance
-                        if not ftmo_guard.check_entry(planned_risk, balance=engine.balance):
+                        if not ftmo_guard.check_entry(
+                            planned_risk, balance=engine.balance
+                        ):
                             continue
                     direction_val = (
                         1

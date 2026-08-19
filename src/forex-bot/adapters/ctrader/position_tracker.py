@@ -70,7 +70,11 @@ class PositionTracker:
             }
             logger.info(
                 "Position opened: id=%s symbol=%s dir=%s vol=%.2f entry=%.5f",
-                position_id, symbol, direction, volume, entry_price,
+                position_id,
+                symbol,
+                direction,
+                volume,
+                entry_price,
             )
 
     def on_position_closed(self, position_id: int, pnl: float = 0.0) -> None:
@@ -84,11 +88,13 @@ class PositionTracker:
             if removed:
                 logger.info(
                     "Position closed: id=%s pnl=%.2f",
-                    position_id, pnl,
+                    position_id,
+                    pnl,
                 )
             else:
                 logger.warning(
-                    "Close for unknown position id=%s", position_id,
+                    "Close for unknown position id=%s",
+                    position_id,
                 )
 
     # ── Read API ───────────────────────────────────────────────────────────

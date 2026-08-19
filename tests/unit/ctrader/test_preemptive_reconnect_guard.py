@@ -19,7 +19,6 @@ import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 # Ensure src/forex-bot is importable
 _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
@@ -98,9 +97,12 @@ class TestPreemptiveReconnectGuard:
             feed._check_preemptive_reconnect()
 
         # Verify reconnect was NOT triggered
-        trigger_mock.assert_not_called(), (
-            "Pre-emptive reconnect fired while orders are pending — "
-            "this is the root cause of timeout_awaiting_event (card d88336dc)"
+        (
+            trigger_mock.assert_not_called(),
+            (
+                "Pre-emptive reconnect fired while orders are pending — "
+                "this is the root cause of timeout_awaiting_event (card d88336dc)"
+            ),
         )
 
     def test_reconnect_fires_when_no_orders_pending(self):

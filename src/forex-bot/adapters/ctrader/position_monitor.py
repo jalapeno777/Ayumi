@@ -10,13 +10,12 @@ or run autonomously via its background monitoring thread.
 
 import logging
 import threading
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from .models import Position, PositionStatus, TradeDirection
+from .models import Position, TradeDirection
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ class PositionMonitor:
         order_manager,
         risk_guard=None,
         kill_switch=None,
-        max_trade_duration_sec: float = 14400,   # 4 hours default
+        max_trade_duration_sec: float = 14400,  # 4 hours default
         check_interval_sec: float = 5.0,
         contract_sizes: dict[str, float] | None = None,
         market_feed=None,
@@ -208,12 +207,11 @@ class PositionMonitor:
             )
             positions_by_symbol: dict[str, int] = {}
             for p in open_positions:
-                positions_by_symbol[p.symbol] = (
-                    positions_by_symbol.get(p.symbol, 0) + 1
-                )
+                positions_by_symbol[p.symbol] = positions_by_symbol.get(p.symbol, 0) + 1
 
             largest_position = max(
-                (p.volume * self._contract_size_for(p.symbol) for p in open_positions), default=0.0
+                (p.volume * self._contract_size_for(p.symbol) for p in open_positions),
+                default=0.0,
             )
 
             total_mfe = sum(p.max_favorable_excursion for p in open_positions)
@@ -255,12 +253,8 @@ class PositionMonitor:
             "entry_price": position.entry_price,
             "current_price": position.current_price,
             "unrealized_pnl": round(position.unrealized_pnl, 2),
-            "max_favorable_excursion (MFE)": round(
-                position.max_favorable_excursion, 2
-            ),
-            "max_adverse_excursion (MAE)": round(
-                position.max_adverse_excursion, 2
-            ),
+            "max_favorable_excursion (MFE)": round(position.max_favorable_excursion, 2),
+            "max_adverse_excursion (MAE)": round(position.max_adverse_excursion, 2),
             "high_water_mark": position.high_water_mark,
             "low_water_mark": position.low_water_mark,
             "time_in_trade_sec": round(position.time_in_trade_sec, 1),
@@ -341,9 +335,7 @@ class PositionMonitor:
 
         return actions
 
-    def _maybe_ratchet(
-        self, position: Position, price: float
-    ) -> list[TpRatchetAction]:
+    def _maybe_ratchet(self, position: Position, price: float) -> list[TpRatchetAction]:
         """Evaluate one position against the TP2/TP3 ladder.
 
         Helper kept out of the lock so the broker amend (which can block for
@@ -360,7 +352,8 @@ class PositionMonitor:
         if not isinstance(fired, list):
             logger.warning(
                 "Position %s has non-list tp_levels_fired=%r — resetting",
-                position.position_id, fired,
+                position.position_id,
+                fired,
             )
             position.tp_levels_fired = []
             fired = position.tp_levels_fired
@@ -392,8 +385,8 @@ class PositionMonitor:
 
             # Determine target SL/TP for the broker amend.
             if level == 2:
-                new_sl = entry_price          # breakeven (original entry)
-                new_tp = tp_value             # TP2
+                new_sl = entry_price  # breakeven (original entry)
+                new_tp = tp_value  # TP2
             else:  # level == 3
                 # Lock in TP1 profit (SL = TP2) and push TP to TP3.
                 tp2 = position.take_profit_2
@@ -409,7 +402,10 @@ class PositionMonitor:
                 new_tp = tp_value
 
             action = self._fire_ratchet(
-                position, level=level, new_sl=new_sl, new_tp=new_tp,
+                position,
+                level=level,
+                new_sl=new_sl,
+                new_tp=new_tp,
                 direction=position.direction.value,
                 entry_price=entry_price,
             )
@@ -439,7 +435,8 @@ class PositionMonitor:
             logger.warning(
                 "Position %s: TP%d ratchet detected but no market_feed on "
                 "PositionMonitor \u2014 cannot amend SL/TP. Will retry next tick.",
-                position.position_id, level,
+                position.position_id,
+                level,
             )
             return TpRatchetAction(
                 position_id=position.position_id,
@@ -457,7 +454,10 @@ class PositionMonitor:
             logger.warning(
                 "Position %s: TP%d ratchet \u2014 cannot resolve symbol_id "
                 "for %r (%s); will retry next tick",
-                position.position_id, level, position.symbol, exc,
+                position.position_id,
+                level,
+                position.symbol,
+                exc,
             )
             return TpRatchetAction(
                 position_id=position.position_id,
@@ -471,16 +471,25 @@ class PositionMonitor:
 
         logger.info(
             "Position %s: TP%d crossed \u2014 amending broker SL=%.5f TP=%.5f",
-            position.position_id, level, new_sl, new_tp,
+            position.position_id,
+            level,
+            new_sl,
+            new_tp,
         )
         try:
             amended = self._market_feed.amend_sl_tp(
-                position.position_id, new_sl, new_tp, symbol_id=symbol_id,
+                position.position_id,
+                new_sl,
+                new_tp,
+                symbol_id=symbol_id,
             )
         except Exception as exc:
             logger.warning(
                 "Position %s: TP%d amend raised %s: %s \u2014 will retry next tick",
-                position.position_id, level, type(exc).__name__, exc,
+                position.position_id,
+                level,
+                type(exc).__name__,
+                exc,
             )
             return TpRatchetAction(
                 position_id=position.position_id,
@@ -495,7 +504,8 @@ class PositionMonitor:
         if not amended:
             logger.warning(
                 "Position %s: TP%d amend returned False \u2014 will retry next tick",
-                position.position_id, level,
+                position.position_id,
+                level,
             )
             return TpRatchetAction(
                 position_id=position.position_id,
@@ -511,7 +521,11 @@ class PositionMonitor:
         position.tp_levels_fired.append(level)
         logger.info(
             "Position %s: TP%d ratchet FIRED (sl=%.5f tp=%.5f fired=%s)",
-            position.position_id, level, new_sl, new_tp, position.tp_levels_fired,
+            position.position_id,
+            level,
+            new_sl,
+            new_tp,
+            position.tp_levels_fired,
         )
         return TpRatchetAction(
             position_id=position.position_id,
@@ -552,11 +566,11 @@ class PositionMonitor:
                     drawdown = 0.0
                     if position.max_adverse_excursion < 0:
                         # Express as fraction of notional
-                        notional = position.volume * self._contract_size_for(position.symbol)
+                        notional = position.volume * self._contract_size_for(
+                            position.symbol
+                        )
                         if notional > 0:
-                            drawdown = abs(
-                                position.max_adverse_excursion
-                            ) / notional
+                            drawdown = abs(position.max_adverse_excursion) / notional
 
                 if drawdown >= critical_threshold:
                     alert = {

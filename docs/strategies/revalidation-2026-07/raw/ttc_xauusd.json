@@ -1,0 +1,107 @@
+{
+  "strategy": "ttc_xauusd",
+  "pair": "XAUUSD",
+  "timeframe": "M15",
+  "params": {
+    "initial_balance": 100000.0,
+    "risk_per_trade_pct": 0.005,
+    "daily_dd_limit_pct": 0.03,
+    "max_open_trades": 3
+  },
+  "n_windows": 5,
+  "total_trades": 49,
+  "bootstrap_ci": {
+    "profit_factor": 13.382636,
+    "ci_lower": 5.55307,
+    "ci_upper": 53.971703,
+    "confidence": 0.95,
+    "iterations": 10000,
+    "n_trades": 49,
+    "gross_profit": 13308.74636,
+    "gross_loss": 994.478673
+  },
+  "go_nogo": true,
+  "aggregated": {
+    "mean_win_rate": 0.511389,
+    "mean_profit_factor": 2.843288,
+    "std_profit_factor": 2.607387,
+    "mean_max_drawdown": 0.008853,
+    "std_max_drawdown": 0.004127,
+    "mean_sharpe_ratio": 6.256294,
+    "std_sharpe_ratio": 6.936408,
+    "mean_trade_count": 9.8,
+    "std_trade_count": 7.190271,
+    "mean_total_pnl": 2462.853537,
+    "std_total_pnl": 2984.101267,
+    "windows_passed": 3,
+    "total_windows": 5
+  },
+  "per_window": [
+    {
+      "window_index": 0,
+      "win_rate": 0.8125,
+      "profit_factor": 5.026537,
+      "max_drawdown": 0.009342,
+      "sharpe_ratio": 11.805475,
+      "trade_count": 16,
+      "total_pnl": 6039.866141,
+      "passed_go_nogo": true,
+      "regime_volatility": "extreme",
+      "regime_trend": "trending_up",
+      "regime_session": "london"
+    },
+    {
+      "window_index": 1,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "max_drawdown": 0.005,
+      "sharpe_ratio": 0.0,
+      "trade_count": 1,
+      "total_pnl": -500.005481,
+      "passed_go_nogo": false,
+      "regime_volatility": "extreme",
+      "regime_trend": "trending_down",
+      "regime_session": "london"
+    },
+    {
+      "window_index": 2,
+      "win_rate": 0.333333,
+      "profit_factor": 0.820194,
+      "max_drawdown": 0.014925,
+      "sharpe_ratio": -1.428727,
+      "trade_count": 9,
+      "total_pnl": -494.473192,
+      "passed_go_nogo": false,
+      "regime_volatility": "normal",
+      "regime_trend": "ranging",
+      "regime_session": "asian"
+    },
+    {
+      "window_index": 3,
+      "win_rate": 0.611111,
+      "profit_factor": 2.361328,
+      "max_drawdown": 0.01,
+      "sharpe_ratio": 6.694242,
+      "trade_count": 18,
+      "total_pnl": 4764.6784,
+      "passed_go_nogo": true,
+      "regime_volatility": "low",
+      "regime_trend": "ranging",
+      "regime_session": "off_hours"
+    },
+    {
+      "window_index": 4,
+      "win_rate": 0.8,
+      "profit_factor": 6.008382,
+      "max_drawdown": 0.005,
+      "sharpe_ratio": 14.21048,
+      "trade_count": 5,
+      "total_pnl": 2504.20182,
+      "passed_go_nogo": true,
+      "regime_volatility": "normal",
+      "regime_trend": "trending_down",
+      "regime_session": "off_hours"
+    }
+  ],
+  "elapsed_seconds": 21.08
+}

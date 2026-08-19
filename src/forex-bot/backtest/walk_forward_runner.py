@@ -127,6 +127,7 @@ def run_strategy_walk_forward(
     commission_per_lot: float | None = None,
     min_confidence: float = 0.30,
     risk_sizer: ConfidencePositionSizer | None = None,
+    embargo_bars: int = 0,
 ) -> WalkForwardResults:
     factory_params = len(inspect.signature(strategy_factory).parameters)
 
@@ -150,6 +151,7 @@ def run_strategy_walk_forward(
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         overlap_ratio=overlap_ratio,
+        embargo_bars=embargo_bars,
     )
 
     per_window = []
@@ -294,6 +296,7 @@ def run_multi_strategy_walk_forward(
     spread_pips: float | None = None,
     commission_per_lot: float | None = None,
     min_confidence: float = 0.30,
+    embargo_bars: int = 0,
 ) -> WalkForwardResults:
     """Walk-forward with multiple strategies run independently, trades merged.
 
@@ -320,6 +323,7 @@ def run_multi_strategy_walk_forward(
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         overlap_ratio=overlap_ratio,
+        embargo_bars=embargo_bars,
     )
 
     per_window = []
@@ -456,6 +460,7 @@ def run_named_strategy_walk_forward(
     initial_balance: float = 10000,
     spread_pips: float | None = None,
     commission_per_lot: float | None = None,
+    embargo_bars: int = 0,
 ) -> WalkForwardResults:
     if strategy_name not in STRATEGY_REGISTRY:
         available = ", ".join(get_registered_strategies())
@@ -469,4 +474,5 @@ def run_named_strategy_walk_forward(
         initial_balance=initial_balance,
         spread_pips=spread_pips,
         commission_per_lot=commission_per_lot,
+        embargo_bars=embargo_bars,
     )

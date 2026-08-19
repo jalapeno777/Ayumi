@@ -23,7 +23,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 
 # Outcome vocabulary. ``OPEN`` is a sentinel used internally for lines
@@ -298,9 +298,7 @@ class SignalStatsRecorder:
             "wins": len(wins),
             "losses": len(closed) - len(wins) - len(rejections),
             "rejections": len(rejections),
-            "rejection_rate": (
-                len(rejections) / len(closed) if closed else 0.0
-            ),
+            "rejection_rate": (len(rejections) / len(closed) if closed else 0.0),
             "hit_rate": (len(wins) / len(closed)) if closed else 0.0,
             "avg_pips": avg_pips,
             "avg_time_to_close_seconds": avg_time_to_close,
@@ -374,7 +372,10 @@ class SignalStatsRecorder:
         winning line by append order)."""
         rows = self._read_all_rows()
         for row in rows:
-            if row.get("signal_id") == signal_id and row.get("outcome") in (None, _OPEN):
+            if row.get("signal_id") == signal_id and row.get("outcome") in (
+                None,
+                _OPEN,
+            ):
                 return row
         return None
 
@@ -425,6 +426,7 @@ __all__ = [
 # Or:  python3 -c "from signal_engine.signal_stats import test_rejection_recording; test_rejection_recording()"
 # ------------------------------------------------------------------
 
+
 def test_rejection_recording(tmp_path=None):
     """Verify that rejected orders are recorded in stats with rejection metadata."""
     import tempfile
@@ -435,14 +437,16 @@ def test_rejection_recording(tmp_path=None):
     recorder = SignalStatsRecorder(log_path=log_path)
 
     # Record a normal signal (open line)
-    sig_id = recorder.record_signal(SignalRecord(
-        signal_id="test-sig-001",
-        timestamp="2026-07-16T12:00:00Z",
-        strategy="test_strategy",
-        symbol="GBPUSD",
-        direction="BUY",
-        confidence=0.75,
-    ))
+    sig_id = recorder.record_signal(
+        SignalRecord(
+            signal_id="test-sig-001",
+            timestamp="2026-07-16T12:00:00Z",
+            strategy="test_strategy",
+            symbol="GBPUSD",
+            direction="BUY",
+            confidence=0.75,
+        )
+    )
 
     # Record a rejection outcome
     recorder.record_rejection(
@@ -452,27 +456,37 @@ def test_rejection_recording(tmp_path=None):
     )
 
     # Record a second signal that fills normally
-    recorder.record_signal(SignalRecord(
-        signal_id="test-sig-002",
-        timestamp="2026-07-16T12:01:00Z",
-        strategy="test_strategy",
-        symbol="GBPUSD",
-        direction="SELL",
-        confidence=0.65,
-    ))
+    recorder.record_signal(
+        SignalRecord(
+            signal_id="test-sig-002",
+            timestamp="2026-07-16T12:01:00Z",
+            strategy="test_strategy",
+            symbol="GBPUSD",
+            direction="SELL",
+            confidence=0.65,
+        )
+    )
     recorder.record_outcome("test-sig-002", "tp_hit", pips=25.0, time_to_close=3600)
 
     # Verify stats
     stats = recorder.get_stats()
-    assert stats["total_signals"] == 2, f"Expected 2 signals, got {stats['total_signals']}"
-    assert stats["closed_signals"] == 2, f"Expected 2 closed, got {stats['closed_signals']}"
+    assert stats["total_signals"] == 2, (
+        f"Expected 2 signals, got {stats['total_signals']}"
+    )
+    assert stats["closed_signals"] == 2, (
+        f"Expected 2 closed, got {stats['closed_signals']}"
+    )
     assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"
-    assert stats["rejection_rate"] == 0.5, f"Expected 0.5 rejection rate, got {stats['rejection_rate']}"
+    assert stats["rejection_rate"] == 0.5, (
+        f"Expected 0.5 rejection rate, got {stats['rejection_rate']}"
+    )
 
     # Verify rejection metadata is persisted in the JSONL
     rows = recorder._read_all_rows()
     rejection_rows = [r for r in rows if r.get("outcome") == "rejected"]
-    assert len(rejection_rows) == 1, f"Expected 1 rejection row, got {len(rejection_rows)}"
+    assert len(rejection_rows) == 1, (
+        f"Expected 1 rejection row, got {len(rejection_rows)}"
+    )
     assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"
     assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"
 

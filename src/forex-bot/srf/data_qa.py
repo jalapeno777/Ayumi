@@ -7,7 +7,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -37,13 +36,13 @@ class QAResult:
         return self.passed
 
 
-def _log_failure(failure: ValidationFailure, pair: str, timeframe: str) -> None:
+def _log_failure(failure: ValidationFailure, pair: str, timeframe: int | str) -> None:
     """Append failure to qa_failures.jsonl."""
     Path(QA_LOG_PATH).parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "pair": pair,
-        "timeframe": timeframe,
+        "timeframe": str(timeframe),
         **failure.__dict__,
     }
     with open(QA_LOG_PATH, "a") as f:
@@ -140,7 +139,7 @@ def validate_data(
             ts_ns = df["timestamp"].astype("int64").values
         else:
             ts_ns = pd.to_datetime(df["timestamp"]).astype("int64").values
-        diffs = ns_diffs = ts_ns[1:] - ts_ns[:-1]
+        ns_diffs = ts_ns[1:] - ts_ns[:-1]
         expected_ns = timeframe * 60 * 1_000_000_000  # timeframe in minutes
         gap_mask = ns_diffs > 3 * expected_ns
         gap_count = gap_mask.sum()
@@ -179,12 +178,17 @@ def validate_data(
     if result.passed:
         logger.info(
             "QA passed: %s %dm — %d bars, %s",
-            pair, timeframe, result.row_count, result.date_range,
+            pair,
+            timeframe,
+            result.row_count,
+            result.date_range,
         )
     else:
         logger.warning(
             "QA FAILED: %s %dm — %d hard failures, %d soft",
-            pair, timeframe, len(hard_failures),
+            pair,
+            timeframe,
+            len(hard_failures),
             len([f for f in result.failures if f.severity == "soft"]),
         )
 

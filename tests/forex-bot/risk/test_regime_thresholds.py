@@ -20,7 +20,9 @@ from risk.correlation_sizer import CorrelationAwareSizer, Direction
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
-def _build_matrix(symbol_returns: dict[str, list[float]], window: int = 30) -> CorrelationMatrix:
+def _build_matrix(
+    symbol_returns: dict[str, list[float]], window: int = 30
+) -> CorrelationMatrix:
     cm = CorrelationMatrix(window=window)
     for sym, rets in symbol_returns.items():
         cm.add_returns(sym, rets)
@@ -115,22 +117,32 @@ class TestSizerBreakdownIntegration:
         """In BREAKDOWN, the aggregate risk cap is halved."""
         cm = _build_matrix(_perfectly_correlated())
         sizer = CorrelationAwareSizer(
-            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01,
+            cm,
+            per_trade_risk_pct=0.005,
+            aggregate_risk_pct=0.01,
         )
 
         # Register one position to consume part of the budget
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
+        )
 
         # Without regime: remaining = 0.01 - 0.005 = 0.005 → fits
         result_normal = sizer.compute_adjusted_size(
-            pair="GBPUSD", direction="long", base_size_lots=0.50, base_risk_pct=0.005,
+            pair="GBPUSD",
+            direction="long",
+            base_size_lots=0.50,
+            base_risk_pct=0.005,
         )
         assert not result_normal.blocked
         assert result_normal.scale_factor == pytest.approx(1.0)
 
         # With BREAKDOWN: effective cap = 0.005, remaining = 0.005 - 0.005 = 0 → blocked
         result_bd = sizer.compute_adjusted_size(
-            pair="GBPUSD", direction="long", base_size_lots=0.50, base_risk_pct=0.005,
+            pair="GBPUSD",
+            direction="long",
+            base_size_lots=0.50,
+            base_risk_pct=0.005,
             regime="BREAKDOWN",
         )
         assert result_bd.blocked
@@ -140,16 +152,23 @@ class TestSizerBreakdownIntegration:
         """BREAKDOWN with no existing positions still has 50% cap."""
         cm = _build_matrix(_perfectly_correlated())
         sizer = CorrelationAwareSizer(
-            cm, per_trade_risk_pct=0.005, aggregate_risk_pct=0.01,
+            cm,
+            per_trade_risk_pct=0.005,
+            aggregate_risk_pct=0.01,
         )
 
-        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.30, risk_pct=0.003)
+        sizer.register_position(
+            "strat_a", "EURUSD", Direction.LONG, size_lots=0.30, risk_pct=0.003
+        )
 
         # Normal: remaining = 0.01 - 0.003 = 0.007
         # BREAKDOWN: effective cap = 0.005, remaining = 0.005 - 0.003 = 0.002
         # scale = 0.002 / 0.005 = 0.4
         result = sizer.compute_adjusted_size(
-            pair="GBPUSD", direction="long", base_size_lots=0.50, base_risk_pct=0.005,
+            pair="GBPUSD",
+            direction="long",
+            base_size_lots=0.50,
+            base_risk_pct=0.005,
             regime="BREAKDOWN",
         )
         assert not result.blocked
@@ -161,7 +180,10 @@ class TestSizerBreakdownIntegration:
         sizer = CorrelationAwareSizer(cm)
 
         result = sizer.compute_adjusted_size(
-            pair="EURUSD", direction="long", base_size_lots=0.50, base_risk_pct=0.005,
+            pair="EURUSD",
+            direction="long",
+            base_size_lots=0.50,
+            base_risk_pct=0.005,
         )
         assert result.scale_factor == pytest.approx(1.0)
         assert not any("BREAKDOWN" in w for w in result.warnings)
@@ -208,10 +230,16 @@ class TestClassifySignal:
         """BREAKDOWN needs 2.5σ — a 2.0σ signal that passes STABLE should fail."""
         rat = RegimeAwareThresholds()
         passes_stable, _ = rat.classify_signal(
-            regime=Regime.STABLE, z_score=2.0, correlation=0.80, price_move_pct=0.05,
+            regime=Regime.STABLE,
+            z_score=2.0,
+            correlation=0.80,
+            price_move_pct=0.05,
         )
         passes_bd, reason_bd = rat.classify_signal(
-            regime=Regime.BREAKDOWN, z_score=2.0, correlation=0.80, price_move_pct=0.05,
+            regime=Regime.BREAKDOWN,
+            z_score=2.0,
+            correlation=0.80,
+            price_move_pct=0.05,
         )
         assert passes_stable
         assert not passes_bd

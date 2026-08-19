@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import logging
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import date, datetime
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from backtest.strategies.isignal_strategy import ISignalStrategy
 from config.sessions import SessionRangeHours
@@ -15,6 +19,8 @@ from core.types import (
     TradeDirection,
 )
 from utils.pip_value import DEFAULT_PIP, JPY_PIP, pip_value_for_symbol
+
+_DEFAULT_STRATEGIES_YAML = Path("src/forex-bot/config/strategies.yaml")
 
 try:
     from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar
@@ -30,12 +36,18 @@ class SRMRPlusConfig:
     # Tuned per research §A.5 (strategy-optimization-research.md)
     atr_period: int = 14
     rsi_period: int = 14
-    rsi_long_level: float = 30.0  # was 35.0 — tighter oversold requirement, fewer better signals
+    rsi_long_level: float = (
+        30.0  # was 35.0 — tighter oversold requirement, fewer better signals
+    )
     rsi_short_level: float = 70.0  # was 65.0 — tighter overbought requirement
     adx_period: int = 14
     adx_max_threshold: float = 20.0  # was 25.0 — only fire in low-trend conditions
-    session_range_min_pips: float = 10.0  # was 15.0 — allow quieter sessions (especially EURUSD M15)
-    entry_near_extreme_pips: float = 8.0  # was 15.0 — tighter proximity = more exhaustion, less mid-range
+    session_range_min_pips: float = (
+        10.0  # was 15.0 — allow quieter sessions (especially EURUSD M15)
+    )
+    entry_near_extreme_pips: float = (
+        8.0  # was 15.0 — tighter proximity = more exhaustion, less mid-range
+    )
     hard_cap_sl_pips: float = 18.0  # was 25.0 — tighter cap for mean reversion
     tp1_rr: float = 1.5  # was 1.0; raised to pass min_risk_reward=1.5 gate
     tp2_rr: float = 1.5
@@ -66,6 +78,163 @@ _NY_CLOSE_END = SessionRangeHours.NY_CLOSE_END
 logger = logging.getLogger(__name__)
 
 _MIN_SL_PIPS = 5.0  # Minimum SL distance in pips
+
+
+# ── strategies.yaml config loader (card 25cbea7a) ──────────────────────────
+# The forward test launcher historically hard-coded SRMRPlusConfig() defaults,
+# producing 0 signals for XAUUSD because the validated Optuna-tuned params
+# (PF=7.16, WR=73.4%) live in src/forex-bot/config/strategies.yaml and were
+# never loaded. This helper resolves an SRMRPlusConfig from the YAML so the
+# validated config is used in production. Falls back to ``None`` so callers
+# can keep their default-config behavior when no validated entry exists for
+# the requested symbol/timeframe.
+_STRATEGY_TYPE = "srmr_plus"
+_VALID_FIELDS = {f.name for f in fields(SRMRPlusConfig)}
+
+
+def _resolve_strategies_yaml_path(config_path: Path | str | None) -> Path:
+    """Return an absolute path to ``strategies.yaml``.
+
+    Tries ``config_path`` first (relative paths resolved against CWD), then
+    walks upward from this module looking for the conventional
+    ``src/forex-bot/config/strategies.yaml`` location so the helper works
+    whether invoked from the repo root, from ``scripts/``, or from inside
+    a test under ``tests/test_signal_engine/``.
+    """
+    if config_path is not None:
+        candidate = Path(config_path)
+        if not candidate.is_absolute():
+            candidate = Path.cwd() / candidate
+        if candidate.exists():
+            return candidate
+
+    module_path = Path(__file__).resolve()
+    for parent in module_path.parents:
+        candidate = parent / "config" / "strategies.yaml"
+        if candidate.exists():
+            return candidate
+    return Path("src/forex-bot/config/strategies.yaml")
+
+
+def _find_strategy_entry(
+    raw: dict[str, Any],
+    *,
+    config_id: str,
+) -> dict[str, Any] | None:
+    """Locate the entry in ``forward_test.strategies`` matching ``config_id``.
+
+    Returns the raw entry dict (with ``params`` and friends) or ``None``.
+    Only entries with ``type: srmr_plus`` are considered so a future
+    non-SRMR strategy that reuses the id pattern doesn't get returned.
+    """
+    forward_test = raw.get("forward_test", {}) if isinstance(raw, dict) else {}
+    strategies = forward_test.get("strategies", []) or []
+    for entry in strategies:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") != _STRATEGY_TYPE:
+            continue
+        if entry.get("id") != config_id:
+            continue
+        return entry
+    return None
+
+
+def load_srmr_config_from_yaml(
+    symbol: str,
+    *,
+    timeframe: str = "M15",
+    config_path: Path | str | None = None,
+) -> SRMRPlusConfig | None:
+    """Load an ``SRMRPlusConfig`` from ``strategies.yaml`` for the given symbol.
+
+    Looks up the entry ``forward_test.strategies[*]`` whose ``id`` matches
+    ``srmr_{symbol.lower()}_{timeframe.lower()}`` and ``type`` is
+    ``srmr_plus``. Returns an ``SRMRPlusConfig`` populated with the entry's
+    ``params`` dict (filtered to known dataclass fields, with ``symbol``
+    forced to the requested value so ``pip_value_for_symbol`` keeps working)
+    or ``None`` if no enabled, validated entry exists — the caller is then
+    expected to fall back to defaults.
+
+    Parameters
+    ----------
+    symbol : str
+        Trading symbol, case-insensitive (e.g. ``"XAUUSD"``).
+    timeframe : str
+        Strategy timeframe, case-insensitive (e.g. ``"M15"``).
+    config_path : Path | str | None
+        Optional explicit path to ``strategies.yaml``. When ``None``, the
+        helper searches upward from this module for the conventional
+        location.
+
+    Returns
+    -------
+    SRMRPlusConfig | None
+        Configured dataclass instance or ``None`` when no matching entry
+        is present (the caller must fall back to defaults).
+    """
+    config_id = f"srmr_{symbol.lower()}_{timeframe.lower()}"
+    yaml_path = _resolve_strategies_yaml_path(config_path)
+
+    try:
+        with open(yaml_path) as fh:
+            raw = yaml.safe_load(fh)
+    except FileNotFoundError:
+        logger.warning(
+            "strategies.yaml not found at %s — falling back to SRMR+ defaults",
+            yaml_path,
+        )
+        return None
+    except (OSError, yaml.YAMLError) as exc:
+        logger.warning(
+            "Failed to load strategies.yaml (%s): %s — falling back to defaults",
+            yaml_path,
+            exc,
+        )
+        return None
+
+    entry = _find_strategy_entry(raw, config_id=config_id)
+    if entry is None:
+        logger.info(
+            "No SRMR+ config entry '%s' in %s — falling back to defaults",
+            config_id,
+            yaml_path,
+        )
+        return None
+
+    if not entry.get("enabled", True):
+        logger.info(
+            "SRMR+ config entry '%s' is disabled in %s — falling back to defaults",
+            config_id,
+            yaml_path,
+        )
+        return None
+
+    params = dict(entry.get("params", {}) or {})
+    # Drop keys that aren't SRMRPlusConfig fields so the constructor can't
+    # raise ``TypeError: unexpected keyword argument`` on schema drift.
+    unknown = sorted(set(params) - _VALID_FIELDS)
+    if unknown:
+        logger.debug(
+            "Ignoring unknown SRMR+ config keys for '%s': %s",
+            config_id,
+            unknown,
+        )
+        for key in unknown:
+            params.pop(key, None)
+
+    # Force ``symbol`` so symbol-aware pip-size lookup resolves correctly
+    # regardless of whether the YAML entry carried it.
+    params["symbol"] = symbol
+
+    logger.info(
+        "Loaded SRMR+ config '%s' for %s %s from %s",
+        config_id,
+        symbol,
+        timeframe,
+        yaml_path,
+    )
+    return SRMRPlusConfig(**params)
 
 
 def _resolve_pip_size(symbol: str | None, price: float) -> float:
@@ -409,14 +578,20 @@ def _build_signal(
         logger.warning(
             "SRMR+ _build_signal: LONG tp1=%.5f <= entry=%.5f after spread anchoring "
             "(spread=%.5f, sl_distance=%.5f) — dropping signal",
-            tp1, entry, spread_price, sl_distance,
+            tp1,
+            entry,
+            spread_price,
+            sl_distance,
         )
         return None
     if direction == TradeDirection.SHORT and tp1 >= entry:
         logger.warning(
             "SRMR+ _build_signal: SHORT tp1=%.5f >= entry=%.5f after spread anchoring "
             "(spread=%.5f, sl_distance=%.5f) — dropping signal",
-            tp1, entry, spread_price, sl_distance,
+            tp1,
+            entry,
+            spread_price,
+            sl_distance,
         )
         return None
 
@@ -482,12 +657,21 @@ class SRMRPlusStrategy(ISignalStrategy):
             self.config.ema_trend_period + 1,
         )
         if len(state.bars) < min_required:
-            logger.info("SRMR+ %s: insufficient bars (have=%d, need=%d)", getattr(state.bars[-1], 'symbol', '?') if state.bars else '?', len(state.bars), min_required)
+            logger.info(
+                "SRMR+ %s: insufficient bars (have=%d, need=%d)",
+                getattr(state.bars[-1], "symbol", "?") if state.bars else "?",
+                len(state.bars),
+                min_required,
+            )
             return None
 
         latest = state.latest_bar
         if not _is_trading_session(latest.time):
-            logger.info("SRMR+ %s: outside trading hours (hour=%d)", getattr(latest, 'symbol', '?'), latest.time.hour)
+            logger.info(
+                "SRMR+ %s: outside trading hours (hour=%d)",
+                getattr(latest, "symbol", "?"),
+                latest.time.hour,
+            )
             return None
 
         current_session = _get_bar_session_type(latest.time)
@@ -497,7 +681,12 @@ class SRMRPlusStrategy(ISignalStrategy):
             state.bars, current_day, current_session
         )
         if session_high == 0:
-            logger.debug("SRMR+ %s: no previous session range (day=%s session=%s)", getattr(latest, 'symbol', '?'), current_day, current_session)
+            logger.debug(
+                "SRMR+ %s: no previous session range (day=%s session=%s)",
+                getattr(latest, "symbol", "?"),
+                current_day,
+                current_session,
+            )
             return None
 
         session_range_price = session_high - session_low
@@ -508,22 +697,41 @@ class SRMRPlusStrategy(ISignalStrategy):
         )
         session_range_width = session_range_price / pip
         if session_range_width < self.config.session_range_min_pips:
-            logger.debug("SRMR+ %s: session range too narrow (%.1f pips < %.1f min)", getattr(latest, 'symbol', '?'), session_range_width, self.config.session_range_min_pips)
+            logger.debug(
+                "SRMR+ %s: session range too narrow (%.1f pips < %.1f min)",
+                getattr(latest, "symbol", "?"),
+                session_range_width,
+                self.config.session_range_min_pips,
+            )
             return None
 
         adx = _calculate_adx(state.bars, self.config.adx_period)
         if adx > self.config.adx_max_threshold:
-            logger.debug("SRMR+ %s: ADX too high (%.1f > %.1f)", getattr(latest, 'symbol', '?'), adx, self.config.adx_max_threshold)
+            logger.debug(
+                "SRMR+ %s: ADX too high (%.1f > %.1f)",
+                getattr(latest, "symbol", "?"),
+                adx,
+                self.config.adx_max_threshold,
+            )
             return None
 
         atr = _calculate_atr(state.bars, self.config.atr_period)
         if atr <= 0:
-            logger.debug("SRMR+ %s: ATR is zero or negative (%.6f)", getattr(latest, 'symbol', '?'), atr)
+            logger.debug(
+                "SRMR+ %s: ATR is zero or negative (%.6f)",
+                getattr(latest, "symbol", "?"),
+                atr,
+            )
             return None
 
         rsi = _calculate_rsi(state.bars, self.config.rsi_period)
         if rsi is None:
-            logger.debug("SRMR+ %s: RSI calculation returned None (bars=%d, period=%d)", getattr(latest, 'symbol', '?'), len(state.bars), self.config.rsi_period)
+            logger.debug(
+                "SRMR+ %s: RSI calculation returned None (bars=%d, period=%d)",
+                getattr(latest, "symbol", "?"),
+                len(state.bars),
+                self.config.rsi_period,
+            )
             return None
 
         price = latest.close
@@ -563,7 +771,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 if bars_since <= self.config.min_bars_since_extreme_touch:
                     logger.debug(
                         "SRMR+ %s: long blocked — only %d bars since low touch (need >%d)",
-                        getattr(latest, 'symbol', '?'),
+                        getattr(latest, "symbol", "?"),
                         bars_since,
                         self.config.min_bars_since_extreme_touch,
                     )
@@ -598,7 +806,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 if bars_since <= self.config.min_bars_since_extreme_touch:
                     logger.debug(
                         "SRMR+ %s: short blocked — only %d bars since high touch (need >%d)",
-                        getattr(latest, 'symbol', '?'),
+                        getattr(latest, "symbol", "?"),
                         bars_since,
                         self.config.min_bars_since_extreme_touch,
                     )
@@ -622,7 +830,14 @@ class SRMRPlusStrategy(ISignalStrategy):
                 spread_price=spread_price,
             )
 
-        logger.debug("SRMR+ %s: no signal condition met (price=%.5f session_low=%.5f session_high=%.5f rsi=%.1f)", getattr(latest, 'symbol', '?'), price, session_low, session_high, rsi)
+        logger.debug(
+            "SRMR+ %s: no signal condition met (price=%.5f session_low=%.5f session_high=%.5f rsi=%.1f)",
+            getattr(latest, "symbol", "?"),
+            price,
+            session_low,
+            session_high,
+            rsi,
+        )
         return None
 
     def apply_dxy_overlay(
@@ -643,7 +858,9 @@ class SRMRPlusStrategy(ISignalStrategy):
         try:
             dxy_data = [
                 DxyBar(
-                    time_ms=int(b["time_ms"]) if isinstance(b, dict) else int(b.time_ms),
+                    time_ms=int(b["time_ms"])
+                    if isinstance(b, dict)
+                    else int(b.time_ms),
                     open=b["open"] if isinstance(b, dict) else b.open,
                     high=b["high"] if isinstance(b, dict) else b.high,
                     low=b["low"] if isinstance(b, dict) else b.low,

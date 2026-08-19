@@ -22,7 +22,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from .trend_filter import TrendFilter, TrendConfig
@@ -75,10 +75,13 @@ def build_chain_from_config(config: dict) -> "FilterChain":
     if orb_cfg.get("enabled", False):
         # Import here to avoid circular dependency at module load time
         from ..orb_filter import ORBFilter
-        chain.add(ORBFilter(
-            min_score_threshold=orb_cfg.get("min_score_threshold", 0.3),
-            breakout_min_fraction=orb_cfg.get("breakout_min_fraction", 0.10),
-        ))
+
+        chain.add(
+            ORBFilter(
+                min_score_threshold=orb_cfg.get("min_score_threshold", 0.3),
+                breakout_min_fraction=orb_cfg.get("breakout_min_fraction", 0.10),
+            )
+        )
 
     return chain
 
@@ -86,6 +89,7 @@ def build_chain_from_config(config: dict) -> "FilterChain":
 @dataclass
 class FilterResult:
     """Outcome of a chain evaluation."""
+
     passed: bool
     filter_name: str = ""
     reason: str = ""
@@ -120,7 +124,8 @@ class FilterChain:
         logger.debug(
             "FilterChain: added %s (priority=%d) at position %d",
             getattr(signal_filter, "name", type(signal_filter).__name__),
-            priority, insert_at,
+            priority,
+            insert_at,
         )
 
     @property
@@ -155,7 +160,9 @@ class FilterChain:
                     logger.debug("FilterChain short-circuit at %s", name)
                     return False
             except Exception as exc:
-                logger.warning("FilterChain: %s raised %s — treating as pass", name, exc)
+                logger.warning(
+                    "FilterChain: %s raised %s — treating as pass", name, exc
+                )
                 # Don't fail the chain on a filter error — fail open
                 continue
 

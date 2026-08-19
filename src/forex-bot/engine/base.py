@@ -176,8 +176,6 @@ class EngineCore:
         if signal.is_volatile:
             risk_amount *= 0.5
 
-        pip_value = PipCalculator.pip_value(signal.entry_price)
-
         if signal.direction == TradeDirection.LONG:
             effective_entry = self.spread_model.adjust_entry_long(signal.entry_price)
         else:

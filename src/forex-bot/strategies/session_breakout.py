@@ -12,9 +12,11 @@ from utils.pip_value import DEFAULT_PIP, pip_value_for_symbol
 # being emitted. A range width of 4400 pips or a TP at 0.66 for a 1.32 entry
 # are clear signatures of data corruption, not legitimate market conditions.
 
-_FX_MIN_PRICE = 0.01       # Below any legitimate forex instrument
-_FX_MAX_PRICE = 500.0      # Above any legitimate forex instrument (covers XAUUSD, high JPY crosses)
-_MAX_RANGE_PIPS = 500      # Max 500 pips range width (catches unit-mismatch bugs)
+_FX_MIN_PRICE = 0.01  # Below any legitimate forex instrument
+_FX_MAX_PRICE = (
+    500.0  # Above any legitimate forex instrument (covers XAUUSD, high JPY crosses)
+)
+_MAX_RANGE_PIPS = 500  # Max 500 pips range width (catches unit-mismatch bugs)
 _MAX_TP_DISTANCE_PIPS = 1000  # Max 1000 pips from entry to TP
 
 
@@ -121,7 +123,9 @@ class SessionBreakoutStrategy:
             # Wrapping window (e.g. 21–0 means hours 21, 22, 23)
             return hour >= start or hour < end
 
-    def _compute_range(self, bars: list[Bar], date_str: str, symbol: str) -> dict | None:
+    def _compute_range(
+        self, bars: list[Bar], date_str: str, symbol: str
+    ) -> dict | None:
         """Compute session range from bars in the range window. Returns None on failure."""
         cache_key = (date_str, symbol)
         if cache_key in self._range_cache:

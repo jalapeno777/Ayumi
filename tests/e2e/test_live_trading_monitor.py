@@ -2,7 +2,6 @@ import importlib.util
 import os
 import sys
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -18,7 +17,9 @@ spec.loader.exec_module(live_trading_monitor)
 @pytest.fixture(autouse=True)
 def _register_live_trading_monitor(monkeypatch):
     """Register live_trading_monitor in sys.modules via monkeypatch (auto-restored)."""
-    monkeypatch.setitem(sys.modules, "scripts.live_trading_monitor", live_trading_monitor)
+    monkeypatch.setitem(
+        sys.modules, "scripts.live_trading_monitor", live_trading_monitor
+    )
 
 
 TradingState = live_trading_monitor.TradingState

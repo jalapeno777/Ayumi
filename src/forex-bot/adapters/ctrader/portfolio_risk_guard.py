@@ -8,7 +8,6 @@ from .risk_guard import (
     FTMOConfig,
     RiskGuard,
     RiskLimitResult,
-    RiskLimitType,
 )
 from .models import TradeDirection
 
@@ -50,7 +49,6 @@ class PortfolioRiskGuard:
         signal: CanonicalSignal,
         volume: float,
     ) -> RiskLimitResult:
-        trade_signal = self._to_trade_signal(signal)
         tp = signal.take_profit_1 or signal.entry_price
         return self._guard.check_trade_allowed(
             direction=self._convert_direction(signal.direction),

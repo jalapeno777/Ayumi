@@ -45,7 +45,9 @@ logger = logging.getLogger("ayumi.trading_db")
 # Configurable via TRADING_DB_PATH env var for testing.
 # This must match the path used by readers (trade_store.py, audit_bar_close.py).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DB_PATH = Path(os.environ.get("TRADING_DB_PATH", str(_PROJECT_ROOT / "data" / "trading.db")))
+_DB_PATH = Path(
+    os.environ.get("TRADING_DB_PATH", str(_PROJECT_ROOT / "data" / "trading.db"))
+)
 
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS trades (
@@ -183,7 +185,10 @@ def insert_closed_trade(
             conn.commit()
             logger.info(
                 "trading.db: inserted close trade_id=%s symbol=%s pnl=%.2f pips=%s",
-                trade_id, symbol, pnl, pnl_pips,
+                trade_id,
+                symbol,
+                pnl,
+                pnl_pips,
             )
             return True
         finally:
@@ -246,7 +251,9 @@ def _self_test() -> None:
         assert row[3] == 1.2750, f"entry_price mismatch: {row[3]}"
         assert row[4] == 1.2760, f"exit_price mismatch: {row[4]}"
         assert row[5] == 10.0, f"pnl mismatch: {row[5]}"
-        assert row[6] == 10.0, f"pnl_pips mismatch: {row[6]}"  # (1.2760-1.2750)/0.0001 = 10.0
+        assert row[6] == 10.0, (
+            f"pnl_pips mismatch: {row[6]}"
+        )  # (1.2760-1.2750)/0.0001 = 10.0
         assert row[7] == "closed", f"status mismatch: {row[7]}"
         assert row[8] == "tp_hit", f"close_reason mismatch: {row[8]}"
         assert row[9] == "test_strategy", f"strategy_name mismatch: {row[9]}"

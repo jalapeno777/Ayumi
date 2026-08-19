@@ -32,11 +32,12 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
 LAUNCHER = WORKSPACE / "scripts" / "launch_blend_forward_test.py"
-ENGINE = WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
+ENGINE = (
+    WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +92,9 @@ def test_blend_runner_on_signal_uses_make_signal_id():
     """The on_signal() registration MUST use make_signal_id() — otherwise
     the helper and the actual registration can drift.
     """
-    src = (WORKSPACE / "src" / "forex-bot" / "forward_test" / "blend_runner.py").read_text()
+    src = (
+        WORKSPACE / "src" / "forex-bot" / "forward_test" / "blend_runner.py"
+    ).read_text()
     # Find the on_signal function body
     tree = ast.parse(src)
     on_signal_node = None
@@ -102,10 +105,13 @@ def test_blend_runner_on_signal_uses_make_signal_id():
     assert on_signal_node is not None, "Could not find on_signal in blend_runner.py"
 
     # Find calls to make_signal_id inside on_signal
-    calls = [n for n in ast.walk(on_signal_node)
-             if isinstance(n, ast.Call) and
-             isinstance(n.func, ast.Attribute) and
-             n.func.attr == "make_signal_id"]
+    calls = [
+        n
+        for n in ast.walk(on_signal_node)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "make_signal_id"
+    ]
     assert calls, (
         "on_signal() must call self.make_signal_id() to build the signal_id "
         "it registers with the sizer.  If you construct the id locally, "
@@ -134,10 +140,13 @@ def test_launcher_does_not_construct_signal_id_locally():
     assert helper_node is not None, "Launcher must have _blend_signal_id method"
 
     # The helper must contain a call to make_signal_id (the delegation).
-    calls = [n for n in ast.walk(helper_node)
-             if isinstance(n, ast.Call) and
-             isinstance(n.func, ast.Attribute) and
-             n.func.attr == "make_signal_id"]
+    calls = [
+        n
+        for n in ast.walk(helper_node)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "make_signal_id"
+    ]
     assert calls, (
         "Launcher._blend_signal_id() must delegate to blend_runner.make_signal_id(). "
         "Local construction has caused pattern drift in the past (Phase 5 regression)."

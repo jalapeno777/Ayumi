@@ -8,11 +8,11 @@ cooldown behavior, retest window expiry (16 bars), risk calculation
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
 
-from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
+from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.london_breakout_retest import (
     LondonBreakoutConfig,
     LondonBreakoutRetestStrategy,
@@ -25,6 +25,7 @@ from utils.pip_value import DEFAULT_PIP
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _bar(
     close: float = 2000.0,
@@ -161,6 +162,7 @@ def _make_session_bars(
 # Helper function tests
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateATR:
     def test_returns_default_for_short_input(self):
         bars = [_bar() for _ in range(5)]
@@ -193,6 +195,7 @@ class TestPipSize:
 # ---------------------------------------------------------------------------
 # Strategy basic tests
 # ---------------------------------------------------------------------------
+
 
 class TestLondonBreakoutRetestBasics:
     def test_name_property(self):
@@ -250,8 +253,12 @@ class TestAsianRangeComputation:
         bars = [
             Bar(
                 time=datetime(2026, 7, 14, 3, 0, tzinfo=timezone.utc),
-                open=2000.0, high=2005.0, low=1998.0, close=2002.0,
-                volume=100.0, period=BarPeriod.M15,
+                open=2000.0,
+                high=2005.0,
+                low=1998.0,
+                close=2002.0,
+                volume=100.0,
+                period=BarPeriod.M15,
             )
         ]
         result = strategy._compute_asian_range(bars, target_day=15)
@@ -341,7 +348,11 @@ class TestSessionAndRangeFiltering:
         state = MarketState(bars=bars)
         # All bars at hour < 7 should be filtered
         last_bar = bars[-1]
-        assert last_bar.time.hour < 7 or last_bar.time.hour >= 11 or strategy.evaluate(state) is None
+        assert (
+            last_bar.time.hour < 7
+            or last_bar.time.hour >= 11
+            or strategy.evaluate(state) is None
+        )
 
     def test_no_signal_for_too_small_range(self):
         """Asian range below min_asian_range_pips blocks signals."""

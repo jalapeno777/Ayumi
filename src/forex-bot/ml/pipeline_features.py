@@ -37,10 +37,16 @@ class PipelineFeatureExtractor:
             "gate_session_pass": 1.0 if trade.get("gate_session_pass") else 0.0,
             "gate_volatility_pass": 1.0 if trade.get("gate_volatility_pass") else 0.0,
             "lots_normalized": min(lots / MAX_LOT, 1.0) if MAX_LOT > 0 else 0.0,
-            "risk_amount_normalized": min(risk_amount / account_balance, 1.0) if account_balance > 0 else 0.0,
+            "risk_amount_normalized": min(risk_amount / account_balance, 1.0)
+            if account_balance > 0
+            else 0.0,
             "sl_distance_pips_normalized": min(sl_distance / 50.0, 1.0),
-            "confluence_score": max(0.0, min(float(trade.get("confluence_score", 0.0)), 1.0)),
-            "num_agreeing_strategies": min(float(trade.get("num_agreeing_strategies", 0)), 1.0),
+            "confluence_score": max(
+                0.0, min(float(trade.get("confluence_score", 0.0)), 1.0)
+            ),
+            "num_agreeing_strategies": min(
+                float(trade.get("num_agreeing_strategies", 0)), 1.0
+            ),
         }
 
     @property

@@ -26,14 +26,13 @@ sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
 from quant.walk_forward import WalkForwardValidator
 
-from backtest.engine import BacktestConfig, Bar, TradeDirection
+from backtest.engine import BacktestConfig, Bar
 from backtest.parameter_sweep.grid import ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import MomentumBreakoutStrategy
 from backtest.trade_management import (
     TradeManagementConfig,
-    TrailingStopConfig,
     TrailingStopMethod,
 )
 from backtest.data_loader import CsvDataLoader
@@ -175,7 +174,6 @@ def run_walk_forward(
     pair: str,
     config: BacktestConfig,
 ) -> dict[str, Any]:
-    from quant.walk_forward import WalkForwardValidator
 
     tm_config = make_tm_config(method, params)
     strategy = MomentumBreakoutStrategy(**BASE_STRATEGY_PARAMS)
@@ -332,7 +330,7 @@ def main():
     print(f"\n  Sweep report saved: {sweep_path}")
 
     print(f"\n{'=' * 70}")
-    print(f"  WALK-FORWARD VALIDATION (top 3 per method)")
+    print("  WALK-FORWARD VALIDATION (top 3 per method)")
     print(f"{'=' * 70}")
 
     wf_all: list[dict] = []
@@ -375,7 +373,7 @@ def main():
     print(f"\n  Walk-forward report saved: {wf_path}")
 
     print(f"\n{'=' * 70}")
-    print(f"  FINAL SUMMARY")
+    print("  FINAL SUMMARY")
     print(f"{'=' * 70}")
 
     go_sets = [r for r in wf_all if r["go_nogo"]]
@@ -386,10 +384,10 @@ def main():
                 f"     {r['method']}: {r['params']} -> WR={r['avg_wr']:.1f}%, PF={r['avg_pf']:.2f}, DD={r['avg_dd']:.2f}%"
             )
     else:
-        print(f"\n  NO parameter sets passed 3/5 windows - NO-GO")
+        print("\n  NO parameter sets passed 3/5 windows - NO-GO")
 
     print(f"\n{'=' * 70}")
-    print(f"  Done. Reports saved to:")
+    print("  Done. Reports saved to:")
     print(f"    {sweep_path}")
     print(f"    {wf_path}")
     print(f"{'=' * 70}")
@@ -403,4 +401,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

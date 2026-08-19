@@ -20,7 +20,7 @@ import json
 import logging
 import sqlite3
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -76,9 +76,11 @@ def _get_spread_for_pair(pair: str) -> float:
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AuditRecord:
     """Single signal audit result."""
+
     signal_id: str
     timestamp: str
     instrument: str
@@ -95,6 +97,7 @@ class AuditRecord:
 @dataclass
 class AuditSummary:
     """Aggregate statistics."""
+
     total_signals: int
     valid: int
     forming: int
@@ -110,6 +113,7 @@ class AuditSummary:
 # ---------------------------------------------------------------------------
 # Signal loading
 # ---------------------------------------------------------------------------
+
 
 def _parse_timestamp(raw: Any) -> Optional[datetime]:
     """Parse an ISO-format timestamp into a timezone-aware UTC datetime.
@@ -201,6 +205,7 @@ def iter_signals(signals_dir: Path) -> Iterator[tuple[dict, str, int]]:
 # Bar-close computation
 # ---------------------------------------------------------------------------
 
+
 def compute_bar_close(signal_ts: datetime, timeframe: str) -> Optional[datetime]:
     """Compute the nearest bar-close time for *signal_ts* given *timeframe*.
 
@@ -245,7 +250,10 @@ def categorize_timing(
 # Trading DB integration
 # ---------------------------------------------------------------------------
 
-def fetch_spread_from_db(db_path: Path, symbol: str, entry_time: str) -> Optional[float]:
+
+def fetch_spread_from_db(
+    db_path: Path, symbol: str, entry_time: str
+) -> Optional[float]:
     """Try to look up spread from trade data.
 
     Currently the trades table does not store spread directly, so this
@@ -271,6 +279,7 @@ def fetch_spread_from_db(db_path: Path, symbol: str, entry_time: str) -> Optiona
 # ---------------------------------------------------------------------------
 # Audit runner
 # ---------------------------------------------------------------------------
+
 
 def run_audit(
     signals_dir: Path,
@@ -333,7 +342,9 @@ def run_audit(
             spread = _get_spread_for_pair(instrument)
 
         # Generate signal ID
-        signal_id = signal.get("signal_id") or _generate_signal_id(signal, source, line_num)
+        signal_id = signal.get("signal_id") or _generate_signal_id(
+            signal, source, line_num
+        )
 
         # Strategy
         strategy_id = signal.get("strategy_id", signal.get("strategy_name", "unknown"))
@@ -437,7 +448,9 @@ def _print_summary(summary: AuditSummary) -> None:
             pct_v = (t_valid / t_total * 100) if t_total else 0
             pct_f = (t_forming / t_total * 100) if t_total else 0
             pct_l = (t_late / t_total * 100) if t_total else 0
-            print(f"    {tf:<10s}              V:{pct_v:5.1f}%  F:{pct_f:5.1f}%  L:{pct_l:5.1f}%")
+            print(
+                f"    {tf:<10s}              V:{pct_v:5.1f}%  F:{pct_f:5.1f}%  L:{pct_l:5.1f}%"
+            )
 
     print("\n" + "=" * 60 + "\n")
 
@@ -445,6 +458,7 @@ def _print_summary(summary: AuditSummary) -> None:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(

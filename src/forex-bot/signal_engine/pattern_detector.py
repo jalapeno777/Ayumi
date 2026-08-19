@@ -1195,14 +1195,6 @@ class PatternDetector:
                 continue
             if not (asia.asia_low <= sl2.price <= asia.asia_high):
                 continue
-            sh1 = (
-                self._find_low_between.__func__(
-                    self, sl1.bar_index, sl2.bar_index, highs
-                )
-                if hasattr(self._find_low_between, "__func__")
-                else None
-            )
-            # Use _find_high_between
             in_range = [h for h in highs if sl1.bar_index < h.bar_index < sl2.bar_index]
             sh1 = max(in_range, key=lambda h: h.price) if in_range else None
             if sh1 is None or not (asia.asia_low <= sh1.price <= asia.asia_high):

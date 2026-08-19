@@ -1,8 +1,7 @@
 """Integration tests for multi-timeframe forward test architecture."""
 
-import threading
-from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,6 +10,7 @@ from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestE
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 class FakeStrategy:
     def __init__(self, name: str):
@@ -47,6 +47,7 @@ def make_bar(time: datetime, period_minutes: int = 60, price: float = 1.2600) ->
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 
+
 class TestMultiTFBarBuilding:
     """T1: Engine builds bars for all required timeframes from each tick."""
 
@@ -76,7 +77,9 @@ class TestMultiTFBarBuilding:
 
     def test_required_timeframes_derived_from_config(self):
         config = ForwardTestConfig(strategy_timeframes={"A": 60, "B": 15})
-        engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")])
+        engine = ForwardTestEngine(
+            config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")]
+        )
         assert engine._required_timeframes == {60, 15}
 
     def test_backward_compat_empty_timeframes(self):
@@ -91,13 +94,27 @@ class TestBarIntegrityAssertion:
     def test_valid_bar_passes(self):
         config = ForwardTestConfig(strategy_timeframes={"X": 60})
         engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("X")])
-        bar = Bar(time=datetime.now(timezone.utc), open=1.0, high=1.1, low=0.9, close=1.05, volume=1)
+        bar = Bar(
+            time=datetime.now(timezone.utc),
+            open=1.0,
+            high=1.1,
+            low=0.9,
+            close=1.05,
+            volume=1,
+        )
         engine._assert_bar_integrity(bar)  # should not raise
 
     def test_invalid_bar_fails(self):
         config = ForwardTestConfig(strategy_timeframes={"X": 60})
         engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("X")])
-        bar = Bar(time=datetime.now(timezone.utc), open=1.0, high=0.95, low=0.9, close=1.05, volume=1)
+        bar = Bar(
+            time=datetime.now(timezone.utc),
+            open=1.0,
+            high=0.95,
+            low=0.9,
+            close=1.05,
+            volume=1,
+        )
         with pytest.raises(AssertionError, match="high"):
             engine._assert_bar_integrity(bar)
 
@@ -110,7 +127,10 @@ class TestPerTFEvaluationThreshold:
             strategy_timeframes={"H1Strat": 60, "M15Strat": 15},
             min_bars_for_evaluation=10,
         )
-        engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("H1Strat"), FakeStrategy("M15Strat")])
+        engine = ForwardTestEngine(
+            config=config,
+            strategies=[FakeStrategy("H1Strat"), FakeStrategy("M15Strat")],
+        )
 
         # Preload enough H1 bars but not enough M15 bars
         for i in range(15):
@@ -155,7 +175,10 @@ class TestBackwardCompatibility:
         config = ForwardTestConfig()
         engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("X")])
 
-        bars = [make_bar(datetime(2026, 4, 28, i, 0, tzinfo=timezone.utc)) for i in range(10)]
+        bars = [
+            make_bar(datetime(2026, 4, 28, i, 0, tzinfo=timezone.utc))
+            for i in range(10)
+        ]
         engine.preload_bars("GBPUSD", 60, bars)
 
         loaded = engine.get_bars_including_forming("GBPUSD", 60)
@@ -183,7 +206,9 @@ class TestCallSiteMigration:
 
     def test_stop_finalizes_all_composite_keys(self):
         config = ForwardTestConfig(strategy_timeframes={"A": 60, "B": 15})
-        engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")])
+        engine = ForwardTestEngine(
+            config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")]
+        )
 
         ts = datetime(2026, 4, 28, 10, 0, 30, tzinfo=timezone.utc)
         tick = make_tick(ts)

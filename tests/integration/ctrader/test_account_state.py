@@ -16,23 +16,21 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import MagicMock, call
+from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
-
 from adapters.ctrader.account_state import (  # noqa: E402
     AccountStateError,
     BalanceQueryError,
     BalanceSubscriptionError,
     BalanceUpdate,
-    PositionsQueryError,
     Position,
     get_balance,
     get_open_positions,
     read_account_snapshot,
     subscribe_balance_updates,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -129,7 +127,9 @@ def _make_trader_updated_event(
     return envelope
 
 
-def _make_session_client(response: Any = None, *, raises: Exception | None = None) -> MagicMock:
+def _make_session_client(
+    response: Any = None, *, raises: Exception | None = None
+) -> MagicMock:
     """Build a MagicMock shaped like CTraderSession (has ``send``)."""
     client = MagicMock()
     if raises is not None:
@@ -154,7 +154,9 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_usd(self):
         """USD account with moneyDigits=2 — balance / 100 = Decimal."""
-        client = _make_session_client(_make_trader_res(balance=100_000_00, money_digits=2))
+        client = _make_session_client(
+            _make_trader_res(balance=100_000_00, money_digits=2)
+        )
 
         result = get_balance(client, 5795523)
 
@@ -163,7 +165,9 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_jpy(self):
         """JPY account with moneyDigits=0 — balance is the integer directly."""
-        client = _make_session_client(_make_trader_res(balance=10_000_000, money_digits=0))
+        client = _make_session_client(
+            _make_trader_res(balance=10_000_000, money_digits=0)
+        )
 
         result = get_balance(client, 5795523)
 
@@ -172,7 +176,9 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_high_precision(self):
         """Account with moneyDigits=8 (crypto-style) — full precision preserved."""
-        client = _make_session_client(_make_trader_res(balance=123_456_789, money_digits=8))
+        client = _make_session_client(
+            _make_trader_res(balance=123_456_789, money_digits=8)
+        )
 
         result = get_balance(client, 5795523)
 
@@ -189,7 +195,9 @@ class TestGetBalance:
 
     def test_uses_session_style_send(self):
         """Verify the session.send(message, client_msg_id=..., timeout=...) signature."""
-        client = _make_session_client(_make_trader_res(balance=50_000_00, money_digits=2))
+        client = _make_session_client(
+            _make_trader_res(balance=50_000_00, money_digits=2)
+        )
 
         get_balance(client, 5795523, timeout=5.0)
 
@@ -326,10 +334,19 @@ class TestGetOpenPositions:
         assert positions == []
 
     def test_single_buy_position(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1001", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1001",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -344,10 +361,19 @@ class TestGetOpenPositions:
         assert pos.tp is None
 
     def test_single_sell_position(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "2002", "symbol_id": 2, "trade_side": 2,
-             "volume": 50_000, "price": 1.30000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "2002",
+                        "symbol_id": 2,
+                        "trade_side": 2,
+                        "volume": 50_000,
+                        "price": 1.30000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -358,29 +384,61 @@ class TestGetOpenPositions:
         assert pos.volume_lots == Decimal("0.5")  # 50_000 / 100_000
 
     def test_multiple_positions(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000},
-            {"position_id": "2", "symbol_id": 2, "trade_side": 2,
-             "volume": 200_000, "price": 1.30000},
-            {"position_id": "3", "symbol_id": 4, "trade_side": 1,
-             "volume": 10_000, "price": 150.000},  # USDJPY, 0.10 lots
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                    },
+                    {
+                        "position_id": "2",
+                        "symbol_id": 2,
+                        "trade_side": 2,
+                        "volume": 200_000,
+                        "price": 1.30000,
+                    },
+                    {
+                        "position_id": "3",
+                        "symbol_id": 4,
+                        "trade_side": 1,
+                        "volume": 10_000,
+                        "price": 150.000,
+                    },  # USDJPY, 0.10 lots
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
         assert len(positions) == 3
         assert [p.position_id for p in positions] == ["1", "2", "3"]
         assert [p.volume_lots for p in positions] == [
-            Decimal("1.0"), Decimal("2.0"), Decimal("0.1"),
+            Decimal("1.0"),
+            Decimal("2.0"),
+            Decimal("0.1"),
         ]
         assert [p.side for p in positions] == ["BUY", "SELL", "BUY"]
 
     def test_position_with_sl_and_tp(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000, "sl": 1.09500, "tp": 1.11000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "sl": 1.09500,
+                        "tp": 1.11000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -390,10 +448,21 @@ class TestGetOpenPositions:
 
     def test_position_without_sl_tp_returns_none(self):
         """0 SL/TP from cTrader maps to None (not Decimal('0'))."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000, "sl": 0, "tp": 0},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "sl": 0,
+                        "tp": 0,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -401,11 +470,20 @@ class TestGetOpenPositions:
         assert positions[0].tp is None
 
     def test_open_time_parsed_as_utc_datetime(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000,
-             "open_timestamp_ms": 1_700_000_000_000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "open_timestamp_ms": 1_700_000_000_000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -419,31 +497,60 @@ class TestGetOpenPositions:
 
     def test_open_time_none_for_zero_timestamp(self):
         """cTrader sends 0 when timestamp is unset."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000,
-             "open_timestamp_ms": 0},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "open_timestamp_ms": 0,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
         assert positions[0].open_time is None
 
     def test_closed_positions_filtered_out(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000, "position_status": 2},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "position_status": 2,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
         assert positions == []
 
     def test_error_positions_filtered_out(self):
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000, "position_status": 4},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "position_status": 4,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -451,10 +558,20 @@ class TestGetOpenPositions:
 
     def test_created_positions_kept(self):
         """POSITION_STATUS_CREATED (3) is kept — order accepted, not yet open."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000, "position_status": 3},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                        "position_status": 3,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -462,10 +579,19 @@ class TestGetOpenPositions:
 
     def test_unknown_side_filtered_out(self):
         """tradeSide not in {BUY=1, SELL=2} → position is skipped."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 99,
-             "volume": 100_000, "price": 1.10000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 99,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -490,10 +616,19 @@ class TestGetOpenPositions:
 
     def test_partial_volume_lots(self):
         """Volume of 12_345 units = 0.12345 lots."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 12_345, "price": 1.10000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 12_345,
+                        "price": 1.10000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -501,10 +636,19 @@ class TestGetOpenPositions:
 
     def test_price_precision_preserved(self):
         """5-digit price: 1.23456 stored as float 1.23456 → Decimal preserves precision."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.23456},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.23456,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -512,10 +656,19 @@ class TestGetOpenPositions:
 
     def test_unrealized_pnl_default_zero(self):
         """Position.unrealized_pnl defaults to Decimal('0') — safe default."""
-        client = _make_session_client(_make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000},
-        ]))
+        client = _make_session_client(
+            _make_reconcile_res(
+                positions=[
+                    {
+                        "position_id": "1",
+                        "symbol_id": 1,
+                        "trade_side": 1,
+                        "volume": 100_000,
+                        "price": 1.10000,
+                    },
+                ]
+            )
+        )
 
         positions = get_open_positions(client, 5795523)
 
@@ -571,9 +724,15 @@ class TestPositionDataclass:
 
     def test_position_is_frozen(self):
         pos = Position(
-            position_id="1", symbol="EURUSD", side="BUY",
-            volume_lots=Decimal("0.1"), entry_price=Decimal("1.1"),
-            sl=None, tp=None, open_time=None, unrealized_pnl=Decimal("0"),
+            position_id="1",
+            symbol="EURUSD",
+            side="BUY",
+            volume_lots=Decimal("0.1"),
+            entry_price=Decimal("1.1"),
+            sl=None,
+            tp=None,
+            open_time=None,
+            unrealized_pnl=Decimal("0"),
         )
 
         with pytest.raises(Exception):  # FrozenInstanceError
@@ -582,10 +741,15 @@ class TestPositionDataclass:
     def test_position_fields(self):
         ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
         pos = Position(
-            position_id="42", symbol="GBPUSD", side="SELL",
-            volume_lots=Decimal("0.5"), entry_price=Decimal("1.3"),
-            sl=Decimal("1.31"), tp=Decimal("1.29"),
-            open_time=ts, unrealized_pnl=Decimal("-100.50"),
+            position_id="42",
+            symbol="GBPUSD",
+            side="SELL",
+            volume_lots=Decimal("0.5"),
+            entry_price=Decimal("1.3"),
+            sl=Decimal("1.31"),
+            tp=Decimal("1.29"),
+            open_time=ts,
+            unrealized_pnl=Decimal("-100.50"),
         )
 
         assert pos.position_id == "42"
@@ -612,6 +776,7 @@ class TestSubscribeBalanceUpdates:
         module-level ``_BalanceDispatcher._registry``.
         """
         from adapters.ctrader.account_state import _BalanceDispatcher
+
         _BalanceDispatcher._registry.clear()
 
     def test_subscribe_installs_callback(self):
@@ -619,7 +784,9 @@ class TestSubscribeBalanceUpdates:
         received: list[BalanceUpdate] = []
 
         unsubscribe = subscribe_balance_updates(
-            client, 5795523, lambda u: received.append(u),
+            client,
+            5795523,
+            lambda u: received.append(u),
         )
 
         # The dispatcher installed itself on the client.
@@ -673,7 +840,8 @@ class TestSubscribeBalanceUpdates:
 
         # Push for account 9999999 — not 5795523.
         event = _make_trader_updated_event(
-            ctid_account_id=9999999, balance=200_000_00,
+            ctid_account_id=9999999,
+            balance=200_000_00,
         )
         dispatcher_cb(client, event)
 
@@ -689,7 +857,8 @@ class TestSubscribeBalanceUpdates:
 
         # Same account — should deliver.
         event = _make_trader_updated_event(
-            ctid_account_id=5795523, balance=150_000_00,
+            ctid_account_id=5795523,
+            balance=150_000_00,
         )
         dispatcher_cb(client, event)
 
@@ -715,7 +884,9 @@ class TestSubscribeBalanceUpdates:
         received: list[BalanceUpdate] = []
 
         unsubscribe = subscribe_balance_updates(
-            client, 5795523, lambda u: received.append(u),
+            client,
+            5795523,
+            lambda u: received.append(u),
         )
 
         dispatcher_cb = client.setMessageReceivedCallback.call_args.args[0]
@@ -770,14 +941,18 @@ class TestSubscribeBalanceUpdates:
         class BadClient:
             pass
 
-        with pytest.raises(BalanceSubscriptionError, match="setMessageReceivedCallback"):
+        with pytest.raises(
+            BalanceSubscriptionError, match="setMessageReceivedCallback"
+        ):
             subscribe_balance_updates(BadClient(), 5795523, lambda u: None)
 
     def test_setMessageReceivedCallback_exception_raises(self):
         client = MagicMock()
         client.setMessageReceivedCallback.side_effect = RuntimeError("boom")
 
-        with pytest.raises(BalanceSubscriptionError, match="setMessageReceivedCallback failed"):
+        with pytest.raises(
+            BalanceSubscriptionError, match="setMessageReceivedCallback failed"
+        ):
             subscribe_balance_updates(client, 5795523, lambda u: None)
 
     def test_message_without_trader_skipped(self):
@@ -862,10 +1037,17 @@ class TestReadAccountSnapshot:
         client = MagicMock()
 
         trader_res = _make_trader_res(balance=100_000_00, money_digits=2)
-        reconcile_res = _make_reconcile_res(positions=[
-            {"position_id": "1", "symbol_id": 1, "trade_side": 1,
-             "volume": 100_000, "price": 1.10000},
-        ])
+        reconcile_res = _make_reconcile_res(
+            positions=[
+                {
+                    "position_id": "1",
+                    "symbol_id": 1,
+                    "trade_side": 1,
+                    "volume": 100_000,
+                    "price": 1.10000,
+                },
+            ]
+        )
         client.send.side_effect = [trader_res, reconcile_res]
 
         snapshot = read_account_snapshot(client, 5795523)

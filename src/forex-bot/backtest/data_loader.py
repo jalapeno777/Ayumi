@@ -287,7 +287,9 @@ class CsvDataLoader(AbstractDataLoader):
         """
         table = pq.read_table(str(filepath))
         df = table.to_pandas(timestamp_as_object=True)
-        df = df.reset_index(drop=True)  # Phase 0: fix KeyError 'timestamp' when parquet index is unnamed
+        df = df.reset_index(
+            drop=True
+        )  # Phase 0: fix KeyError 'timestamp' when parquet index is unnamed
         ts_col = _find_column(df, "timestamp")
         timestamps = pd.to_datetime(df[ts_col], utc=True).dt.tz_convert(_UTC)
         has_ask = _detect_ask_columns(df)
@@ -539,15 +541,11 @@ def load_holdout(
     db_p, csv_d = _resolve_paths(db_path, csv_dir)
     df = _query_bars_db(symbol, timeframe, True, db_p)
     if not df.empty:
-        _log_db_hit(
-            "load_holdout", symbol, timeframe, db_p, len(df), is_holdout=True
-        )
+        _log_db_hit("load_holdout", symbol, timeframe, db_p, len(df), is_holdout=True)
         return _bars_from_dataframe(df)
     holdout_csv = csv_d / f"{symbol}_{timeframe}_2026.csv"
     if holdout_csv.exists():
-        return _csv_fallback(
-            symbol, timeframe, holdout_csv, context="load_holdout"
-        )
+        return _csv_fallback(symbol, timeframe, holdout_csv, context="load_holdout")
     # Last resort: fall back to the unsuffixed CSV. We still log a warning so
     # the operator can tell the difference between a real _2026.csv fallback
     # and a "we grabbed whatever we had" fallback.
@@ -589,9 +587,7 @@ def load_training(
     db_p, csv_d = _resolve_paths(db_path, csv_dir)
     df = _query_bars_db(symbol, timeframe, False, db_p)
     if not df.empty:
-        _log_db_hit(
-            "load_training", symbol, timeframe, db_p, len(df), is_holdout=False
-        )
+        _log_db_hit("load_training", symbol, timeframe, db_p, len(df), is_holdout=False)
         return _bars_from_dataframe(df)
     return _csv_fallback(
         symbol,

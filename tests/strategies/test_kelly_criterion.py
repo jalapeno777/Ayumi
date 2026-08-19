@@ -7,12 +7,18 @@ Covers:
   breakeven trades, fractional Kelly bounds
 - KellyConfig defaults and field validation
 """
+
 from __future__ import annotations
 
 import pytest
 from datetime import datetime
 
-from backtest.engine import Bar, ExitReason, SimulatedTrade, TradeDirection, TradeOutcome
+from backtest.engine import (
+    ExitReason,
+    SimulatedTrade,
+    TradeDirection,
+    TradeOutcome,
+)
 from backtest.multi_strategy_engine import KellyConfig, MultiStrategyBacktestEngine
 from quant.position_sizing import kelly_criterion
 
@@ -51,6 +57,7 @@ def _make_trade(
 # kelly_criterion helper
 # ---------------------------------------------------------------------------
 
+
 def test_kelly_criterion_known_inputs():
     """Classic example: W=0.6, b=2 => full Kelly=0.4, half=0.2."""
     result = kelly_criterion(win_rate=0.6, avg_win=200.0, avg_loss=100.0)
@@ -87,6 +94,7 @@ def test_kelly_criterion_caps_half_kelly():
 # ---------------------------------------------------------------------------
 # _compute_kelly_multiplier engine method
 # ---------------------------------------------------------------------------
+
 
 def test_compute_kelly_multiplier_with_known_trades():
     """Known trade history maps to predictable multiplier via normalization."""
@@ -180,6 +188,7 @@ def test_compute_kelly_multiplier_rolling_window():
 # ---------------------------------------------------------------------------
 # KellyConfig validation
 # ---------------------------------------------------------------------------
+
 
 def test_kelly_config_defaults():
     """Default config is enabled with conservative thresholds."""

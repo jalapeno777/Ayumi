@@ -15,7 +15,6 @@ import json
 import logging
 import os
 import tempfile
-import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,9 +44,11 @@ SOURCE_FTMO = "ftmo_guard"
 
 # ── Data Classes ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class StrategyFreezeState:
     """Serializable per-strategy freeze state."""
+
     strategy_id: str = ""
     frozen: bool = False
     reason: str = ""
@@ -79,10 +80,11 @@ class StrategyFreezeState:
 @dataclass
 class GlobalKillState:
     """Serializable global kill switch state."""
+
     version: int = STATE_VERSION
     active: bool = False
     level: str = "global"
-    mode: str = "kill"          # "kill" or "freeze"
+    mode: str = "kill"  # "kill" or "freeze"
     reason: str = ""
     triggered_by: str = ""
     triggered_at: Optional[str] = None
@@ -111,6 +113,7 @@ class GlobalKillState:
 
 # ── KillSwitchManager ────────────────────────────────────────────────────────
 
+
 class KillSwitchManager:
     """Centralized kill switch state manager.
 
@@ -125,7 +128,9 @@ class KillSwitchManager:
     system from operating. Set to False to re-enable.
     """
 
-    _disabled: bool = True  # Craig directive Jun 27: disabled until properly investigated
+    _disabled: bool = (
+        True  # Craig directive Jun 27: disabled until properly investigated
+    )
 
     # Kill levels
     LEVEL_GLOBAL = "global"
@@ -153,8 +158,12 @@ class KillSwitchManager:
         self._load_state()
 
         # Cached flags for ultra-fast path (< 0.01ms)
-        self._killed_cache: bool = self._state.active and self._state.mode == self.MODE_KILL
-        self._frozen_cache: bool = self._state.active and self._state.mode == self.MODE_FREEZE
+        self._killed_cache: bool = (
+            self._state.active and self._state.mode == self.MODE_KILL
+        )
+        self._frozen_cache: bool = (
+            self._state.active and self._state.mode == self.MODE_FREEZE
+        )
 
         # Per-strategy freeze states
         self._strategy_state_file = self._state_dir / STRATEGY_STATE_FILE
@@ -218,7 +227,11 @@ class KillSwitchManager:
             close_positions: If True, signal that positions should be closed.
         """
         if self._disabled:
-            logger.info("activate_global_kill suppressed (kill switch disabled): reason=%s by=%s", reason, triggered_by)
+            logger.info(
+                "activate_global_kill suppressed (kill switch disabled): reason=%s by=%s",
+                reason,
+                triggered_by,
+            )
             return
 
         with self._lock:
@@ -242,26 +255,31 @@ class KillSwitchManager:
             self._frozen_cache = False
 
             self._save_state()
-            self._append_history({
-                "ts": now,
-                "event": "activated",
-                "level": self.LEVEL_GLOBAL,
-                "mode": self.MODE_KILL,
-                "reason": reason,
-                "triggered_by": triggered_by,
-                "close_positions": close_positions,
-                "was_reactivation": was_active,
-            })
+            self._append_history(
+                {
+                    "ts": now,
+                    "event": "activated",
+                    "level": self.LEVEL_GLOBAL,
+                    "mode": self.MODE_KILL,
+                    "reason": reason,
+                    "triggered_by": triggered_by,
+                    "close_positions": close_positions,
+                    "was_reactivation": was_active,
+                }
+            )
 
             if was_active:
                 logger.warning(
                     "Global kill RE-ACTIVATED (was already active): reason=%s, by=%s",
-                    reason, triggered_by,
+                    reason,
+                    triggered_by,
                 )
             else:
                 logger.critical(
                     "GLOBAL KILL ACTIVATED: reason=%s, by=%s, close_positions=%s",
-                    reason, triggered_by, close_positions,
+                    reason,
+                    triggered_by,
+                    close_positions,
                 )
 
     def activate_profit_target_freeze(
@@ -292,10 +310,13 @@ class KillSwitchManager:
         return True
 
     def activate_global_freeze(self, reason: str, triggered_by: str) -> None:
-        """Activate global FREEZE — stops new trades, holds existing positions.
-        """
+        """Activate global FREEZE — stops new trades, holds existing positions."""
         if self._disabled:
-            logger.info("activate_global_freeze suppressed (kill switch disabled): reason=%s by=%s", reason, triggered_by)
+            logger.info(
+                "activate_global_freeze suppressed (kill switch disabled): reason=%s by=%s",
+                reason,
+                triggered_by,
+            )
             return
 
         with self._lock:
@@ -319,19 +340,22 @@ class KillSwitchManager:
             self._frozen_cache = True
 
             self._save_state()
-            self._append_history({
-                "ts": now,
-                "event": "activated",
-                "level": self.LEVEL_GLOBAL,
-                "mode": self.MODE_FREEZE,
-                "reason": reason,
-                "triggered_by": triggered_by,
-                "was_reactivation": was_active,
-            })
+            self._append_history(
+                {
+                    "ts": now,
+                    "event": "activated",
+                    "level": self.LEVEL_GLOBAL,
+                    "mode": self.MODE_FREEZE,
+                    "reason": reason,
+                    "triggered_by": triggered_by,
+                    "was_reactivation": was_active,
+                }
+            )
 
             logger.warning(
                 "GLOBAL FREEZE ACTIVATED: reason=%s, by=%s",
-                reason, triggered_by,
+                reason,
+                triggered_by,
             )
 
     def deactivate(self, reason: str = "manual_recovery") -> None:
@@ -358,18 +382,22 @@ class KillSwitchManager:
             self._frozen_cache = False
 
             self._save_state()
-            self._append_history({
-                "ts": now,
-                "event": "deactivated",
-                "level": self.LEVEL_GLOBAL,
-                "previous_mode": prev_mode,
-                "previous_reason": prev_reason,
-                "reason": reason,
-            })
+            self._append_history(
+                {
+                    "ts": now,
+                    "event": "deactivated",
+                    "level": self.LEVEL_GLOBAL,
+                    "previous_mode": prev_mode,
+                    "previous_reason": prev_reason,
+                    "reason": reason,
+                }
+            )
 
             logger.info(
                 "Kill switch DEACTIVATED: previous_mode=%s, previous_reason=%s, reason=%s",
-                prev_mode, prev_reason, reason,
+                prev_mode,
+                prev_reason,
+                reason,
             )
 
     # ── Public API: Per-Strategy Freeze ───────────────────────────────────
@@ -419,17 +447,21 @@ class KillSwitchManager:
             st.triggered_at = now
 
             self._save_strategy_states()
-            self._append_history({
-                "ts": now,
-                "event": "strategy_frozen",
-                "level": self.LEVEL_STRATEGY,
-                "strategy_id": strategy_id,
-                "reason": reason,
-                "triggered_by": triggered_by,
-            })
+            self._append_history(
+                {
+                    "ts": now,
+                    "event": "strategy_frozen",
+                    "level": self.LEVEL_STRATEGY,
+                    "strategy_id": strategy_id,
+                    "reason": reason,
+                    "triggered_by": triggered_by,
+                }
+            )
             logger.warning(
                 "STRATEGY FROZEN: %s — reason=%s, by=%s",
-                strategy_id, reason, triggered_by,
+                strategy_id,
+                reason,
+                triggered_by,
             )
             return True
 
@@ -446,7 +478,9 @@ class KillSwitchManager:
         with self._lock:
             st = self._strategy_states.get(strategy_id)
             if st is None or not st.frozen:
-                logger.info("Strategy '%s' not frozen — nothing to unfreeze", strategy_id)
+                logger.info(
+                    "Strategy '%s' not frozen — nothing to unfreeze", strategy_id
+                )
                 return False
 
             now = datetime.now(timezone.utc).isoformat()
@@ -459,17 +493,21 @@ class KillSwitchManager:
             st.daily_dd_pct = 0.0
 
             self._save_strategy_states()
-            self._append_history({
-                "ts": now,
-                "event": "strategy_unfrozen",
-                "level": self.LEVEL_STRATEGY,
-                "strategy_id": strategy_id,
-                "previous_reason": prev_reason,
-                "reason": reason,
-            })
+            self._append_history(
+                {
+                    "ts": now,
+                    "event": "strategy_unfrozen",
+                    "level": self.LEVEL_STRATEGY,
+                    "strategy_id": strategy_id,
+                    "previous_reason": prev_reason,
+                    "reason": reason,
+                }
+            )
             logger.info(
                 "STRATEGY UNFROZEN: %s — previous_reason=%s, reason=%s",
-                strategy_id, prev_reason, reason,
+                strategy_id,
+                prev_reason,
+                reason,
             )
             return True
 
@@ -486,7 +524,11 @@ class KillSwitchManager:
         with self._lock:
             st = self._strategy_states.get(strategy_id)
             if st is None:
-                return {"strategy_id": strategy_id, "frozen": False, "registered": False}
+                return {
+                    "strategy_id": strategy_id,
+                    "frozen": False,
+                    "registered": False,
+                }
             result = st.to_dict()
             result["registered"] = True
             return result
@@ -494,10 +536,7 @@ class KillSwitchManager:
     def get_all_frozen_strategies(self) -> list[str]:
         """Return list of all currently frozen strategy IDs."""
         with self._lock:
-            return [
-                sid for sid, st in self._strategy_states.items()
-                if st.frozen
-            ]
+            return [sid for sid, st in self._strategy_states.items() if st.frozen]
 
     def check_auto_freeze(
         self,
@@ -532,7 +571,8 @@ class KillSwitchManager:
             # Check triggers
             if consecutive_losses >= AUTO_FREEZE_CONSECUTIVE_LOSSES:
                 self._auto_freeze(
-                    strategy_id, st,
+                    strategy_id,
+                    st,
                     reason=f"auto: {consecutive_losses} consecutive losses",
                     trigger="consecutive_losses",
                 )
@@ -540,7 +580,8 @@ class KillSwitchManager:
 
             if daily_dd_pct >= AUTO_FREEZE_DAILY_DD_PCT:
                 self._auto_freeze(
-                    strategy_id, st,
+                    strategy_id,
+                    st,
                     reason=f"auto: daily DD {daily_dd_pct:.2f}% >= {AUTO_FREEZE_DAILY_DD_PCT}%",
                     trigger="daily_dd",
                 )
@@ -548,7 +589,8 @@ class KillSwitchManager:
 
             if slippage_pips >= AUTO_FREEZE_SLIPPAGE_PIPS:
                 self._auto_freeze(
-                    strategy_id, st,
+                    strategy_id,
+                    st,
                     reason=f"auto: slippage {slippage_pips:.1f} pips >= {AUTO_FREEZE_SLIPPAGE_PIPS}",
                     trigger="slippage",
                 )
@@ -571,20 +613,24 @@ class KillSwitchManager:
         st.triggered_at = now
 
         self._save_strategy_states()
-        self._append_history({
-            "ts": now,
-            "event": "strategy_auto_frozen",
-            "level": self.LEVEL_STRATEGY,
-            "strategy_id": strategy_id,
-            "reason": reason,
-            "trigger": trigger,
-            "consecutive_losses": st.consecutive_losses,
-            "daily_dd_pct": st.daily_dd_pct,
-            "slippage_pips": st.last_slippage_pips,
-        })
+        self._append_history(
+            {
+                "ts": now,
+                "event": "strategy_auto_frozen",
+                "level": self.LEVEL_STRATEGY,
+                "strategy_id": strategy_id,
+                "reason": reason,
+                "trigger": trigger,
+                "consecutive_losses": st.consecutive_losses,
+                "daily_dd_pct": st.daily_dd_pct,
+                "slippage_pips": st.last_slippage_pips,
+            }
+        )
         logger.warning(
             "STRATEGY AUTO-FROZEN: %s — trigger=%s, reason=%s",
-            strategy_id, trigger, reason,
+            strategy_id,
+            trigger,
+            reason,
         )
 
     # ── Public API: Position Close Tracking ────────────────────────────────
@@ -595,11 +641,13 @@ class KillSwitchManager:
             self._state.positions_closed = True
             self._state.close_count = count
             self._save_state()
-            self._append_history({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "positions_closed",
-                "count": count,
-            })
+            self._append_history(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "event": "positions_closed",
+                    "count": count,
+                }
+            )
 
     # ── Persistence ────────────────────────────────────────────────────────
 
@@ -676,8 +724,11 @@ class KillSwitchManager:
                         self._state.triggered_at,
                     )
 
-            logger.info("Kill switch state loaded: active=%s, mode=%s",
-                        self._state.active, self._state.mode)
+            logger.info(
+                "Kill switch state loaded: active=%s, mode=%s",
+                self._state.active,
+                self._state.mode,
+            )
 
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             # Corrupt file → fail-safe: default to KILL
@@ -695,15 +746,17 @@ class KillSwitchManager:
                 triggered_at=datetime.now(timezone.utc).isoformat(),
             )
             self._save_state()
-            self._append_history({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "event": "fail_safe_activated",
-                "level": self.LEVEL_GLOBAL,
-                "mode": self.MODE_KILL,
-                "reason": "corrupt_state_file",
-                "triggered_by": "system_fail_safe",
-                "error": str(exc),
-            })
+            self._append_history(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "event": "fail_safe_activated",
+                    "level": self.LEVEL_GLOBAL,
+                    "mode": self.MODE_KILL,
+                    "reason": "corrupt_state_file",
+                    "triggered_by": "system_fail_safe",
+                    "error": str(exc),
+                }
+            )
 
     def _append_history(self, event: dict) -> None:
         """Append event to history.jsonl (append-only audit log).
@@ -724,8 +777,7 @@ class KillSwitchManager:
             data = {
                 "version": STATE_VERSION,
                 "strategies": {
-                    sid: st.to_dict()
-                    for sid, st in self._strategy_states.items()
+                    sid: st.to_dict() for sid, st in self._strategy_states.items()
                 },
             }
             json_str = json.dumps(data, indent=2)
@@ -777,7 +829,8 @@ class KillSwitchManager:
             frozen_count = sum(1 for s in self._strategy_states.values() if s.frozen)
             logger.info(
                 "Strategy states loaded: %d registered, %d frozen",
-                len(self._strategy_states), frozen_count,
+                len(self._strategy_states),
+                frozen_count,
             )
 
         except (json.JSONDecodeError, KeyError, TypeError) as exc:

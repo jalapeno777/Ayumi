@@ -40,6 +40,7 @@ Tier definitions follow the research doc §8:
 - Tier C (paper trading): ``min_windows_passed=3``, ``min_aggregate_sharpe=0.50``,
   ``dsr_alpha=0.10``.
 """
+
 from __future__ import annotations
 
 import math
@@ -168,9 +169,7 @@ def deflated_sharpe_ratio(
     # Bailey & López de Prado (2014) Eq. 5 — variance of SR estimator with
     # non-normality adjustment. ``kurtosis_regular`` is γ₄ (3 for normal).
     sr_var = (
-        1.0
-        - skewness * observed_sr
-        + (kurtosis_regular - 1.0) / 4.0 * observed_sr ** 2
+        1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2
     ) / (n_obs - 1)
     se_sr = math.sqrt(max(sr_var, 1e-12))
 
@@ -238,14 +237,12 @@ def min_track_record_length(
 
     # Non-normality-adjusted variance term (same as DSR's SE² numerator).
     variance_term = (
-        1.0
-        - skewness * observed_sr
-        + (kurtosis_regular - 1.0) / 4.0 * observed_sr ** 2
+        1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2
     )
     # Ensure variance term is positive (it can go negative for extreme skew/kurt).
     variance_term = max(variance_term, 1e-12)
 
-    n_min = (z_alpha ** 2 * variance_term) / (sr_excess ** 2)
+    n_min = (z_alpha**2 * variance_term) / (sr_excess**2)
     return int(math.ceil(n_min)) + 1
 
 

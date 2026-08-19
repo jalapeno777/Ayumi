@@ -115,6 +115,7 @@ def test_load_trades_errors_on_missing_file(tmp_path):
 
 def test_is_loss_recognises_outcome_field():
     from scripts.categorize_losses import _is_loss
+
     assert _is_loss(_base_loss()) is True
     assert _is_loss(_base_loss(outcome="win", profit_loss=20.0)) is False
     assert _is_loss(_base_loss(outcome=None, profit_loss=-25.0)) is True
@@ -123,6 +124,7 @@ def test_is_loss_recognises_outcome_field():
 
 def test_pip_size_matches_engine():
     from scripts.categorize_losses import _pip_size
+
     assert _pip_size(1.1000) == 0.0001
     assert _pip_size(150.0) == 0.01
     assert _pip_size(0.5) == 0.00000001
@@ -137,7 +139,7 @@ def test_bad_entry_fires_beyond_threshold():
     trade = _base_loss(
         session_mean=1.1000,
         session_std=0.00050,  # 5 pips
-        entry_price=1.1100,   # 100 pips away, 20 sigma
+        entry_price=1.1100,  # 100 pips away, 20 sigma
     )
     result = categorize_trade(trade)
     assert result.category == CATEGORY_BAD_ENTRY
@@ -149,7 +151,7 @@ def test_bad_entry_does_not_fire_within_threshold():
     trade = _base_loss(
         session_mean=1.1000,
         session_std=0.00500,  # 50 pips
-        entry_price=1.1010,   # 10 pips = 0.2 sigma
+        entry_price=1.1010,  # 10 pips = 0.2 sigma
     )
     # No other rule fires -> 'other'
     result = categorize_trade(trade)
@@ -183,8 +185,8 @@ def test_stop_placement_fires_when_sl_inside_one_atr():
 def test_stop_placement_does_not_fire_with_wide_stop():
     trade = _base_loss(
         entry_price=1.1000,
-        stop_loss=1.0900,   # 100 pips
-        atr=0.0010,         # 10 pips
+        stop_loss=1.0900,  # 100 pips
+        atr=0.0010,  # 10 pips
     )
     result = categorize_trade(trade)
     assert result.category != CATEGORY_STOP_PLACEMENT
@@ -287,7 +289,7 @@ def test_slippage_fires_when_exit_beyond_tolerance():
     trade = _base_loss(
         entry_price=1.1000,
         stop_loss=1.0950,
-        exit_price=1.0935,   # 15 pips beyond SL
+        exit_price=1.0935,  # 15 pips beyond SL
         exit_reason="sl",
     )
     result = categorize_trade(trade)
@@ -310,7 +312,7 @@ def test_slippage_fires_for_tp1_with_deviation():
     trade = _base_loss(
         entry_price=1.1000,
         take_profit_1=1.1050,
-        exit_price=1.1065,   # 15 pips beyond TP1
+        exit_price=1.1065,  # 15 pips beyond TP1
         exit_reason="tp1",
     )
     result = categorize_trade(trade)
@@ -389,8 +391,8 @@ def test_below_confidence_floor_falls_back_to_other():
     # All categories returning low confidence -> 'other'
     trade = _base_loss(
         session_mean=1.1000,
-        session_std=0.0005,   # 5 pips sigma
-        entry_price=1.1003,   # only 0.6 sigma (below 1.5 threshold)
+        session_std=0.0005,  # 5 pips sigma
+        entry_price=1.1003,  # only 0.6 sigma (below 1.5 threshold)
     )
     result = categorize_trade(trade)
     # bad_entry didn't fire; no other rule should fire
@@ -413,7 +415,9 @@ def test_summarize_counts_only_losses():
 
 
 def test_summarize_percentages_add_to_100():
-    trades = [_base_loss(spread_at_entry=5.0, spread_avg_rolling=1.0) for _ in range(10)]
+    trades = [
+        _base_loss(spread_at_entry=5.0, spread_avg_rolling=1.0) for _ in range(10)
+    ]
     summary = summarize(trades)
     total_pct = sum(summary.category_percentages.values())
     assert math.isclose(total_pct, 100.0, abs_tol=0.01)
@@ -430,15 +434,17 @@ def test_summarize_detects_skipped_categories():
 
 
 def test_summarize_does_not_skip_when_data_present():
-    trades = [_base_loss(
-        atr=0.0010,
-        stop_loss=1.0995,
-        h4_trend="short",
-        session_mean=1.1000,
-        session_std=0.0005,
-        spread_at_entry=1.5,
-        spread_avg_rolling=1.5,
-    )]
+    trades = [
+        _base_loss(
+            atr=0.0010,
+            stop_loss=1.0995,
+            h4_trend="short",
+            session_mean=1.1000,
+            session_std=0.0005,
+            spread_at_entry=1.5,
+            spread_avg_rolling=1.5,
+        )
+    ]
     summary = summarize(trades)
     # news_event is a marker-only field — when no marker exists it is
     # correctly reported as skipped.  All evidence-driven categories

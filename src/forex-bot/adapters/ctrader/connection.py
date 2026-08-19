@@ -19,7 +19,6 @@ from typing import Optional, Callable
 
 from twisted.internet import reactor
 from ctrader_open_api import Client, TcpProtocol
-from ctrader_open_api.protobuf import Protobuf
 
 from .connection_state import ConnectionState, ConnectionStateManager
 from .reactor_manager import ReactorManager
@@ -153,11 +152,14 @@ class CTraderConnection:
         self._connected.clear()
         self._stop_event.clear()
         self._state_mgr.transition_to(
-            ConnectionState.CONNECTING, reason="tcp_connect_initiated",
+            ConnectionState.CONNECTING,
+            reason="tcp_connect_initiated",
         )
 
         self._client = Client(
-            self._host, self._port, TcpProtocol,
+            self._host,
+            self._port,
+            TcpProtocol,
         )
         self._client.setConnectedCallback(self._handle_connected)
         self._client.setDisconnectedCallback(self._handle_disconnected)
@@ -188,7 +190,8 @@ class CTraderConnection:
 
         self._connected.clear()
         self._state_mgr.transition_to(
-            ConnectionState.DISCONNECTED, reason="explicit_disconnect",
+            ConnectionState.DISCONNECTED,
+            reason="explicit_disconnect",
         )
 
     # ── Message I/O ────────────────────────────────────────────────────────
@@ -223,7 +226,8 @@ class CTraderConnection:
 
         def do_send():
             d = self._client.send(
-                message, clientMsgId=msg_id,
+                message,
+                clientMsgId=msg_id,
                 responseTimeoutInSeconds=timeout,
             )
             d.addCallbacks(on_success, on_error)
@@ -273,7 +277,8 @@ class CTraderConnection:
         self._connected.set()
         self._last_heartbeat_recv = time.monotonic()
         self._state_mgr.transition_to(
-            ConnectionState.CONNECTED, reason="tcp_connected",
+            ConnectionState.CONNECTED,
+            reason="tcp_connected",
         )
 
         for cb in self._on_connected_callbacks:
@@ -310,10 +315,12 @@ class CTraderConnection:
         if self._reconnect_count > self._max_reconnect_attempts:
             logger.critical(
                 "Reconnect exhausted: %d attempts (max=%d) — emitting feed_dead",
-                self._reconnect_count, self._max_reconnect_attempts,
+                self._reconnect_count,
+                self._max_reconnect_attempts,
             )
             self._state_mgr.transition_to(
-                ConnectionState.FAILED, reason="reconnect_exhausted",
+                ConnectionState.FAILED,
+                reason="reconnect_exhausted",
             )
             for cb in self._on_feed_dead_callbacks:
                 try:
@@ -331,8 +338,10 @@ class CTraderConnection:
         delay = backoff + jitter
         logger.info(
             "Reconnect attempt %d/%d in %.1fs (backoff=%.1fs)",
-            self._reconnect_count, self._max_reconnect_attempts,
-            delay, backoff,
+            self._reconnect_count,
+            self._max_reconnect_attempts,
+            delay,
+            backoff,
         )
         time.sleep(delay)
 
@@ -367,7 +376,8 @@ class CTraderConnection:
         if not self._running:
             return
         self._health_timer = threading.Timer(
-            self._health_check_interval, self._health_check_loop,
+            self._health_check_interval,
+            self._health_check_loop,
         )
         self._health_timer.daemon = True
         self._health_timer.start()
@@ -379,8 +389,11 @@ class CTraderConnection:
             # Send heartbeat to server (fire-and-forget)
             if self._running and self._client and self.is_connected:
                 try:
-                    from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoHeartbeatEvent
+                    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+                        ProtoHeartbeatEvent,
+                    )
                     from twisted.internet import reactor
+
                     reactor.callFromThread(self.send, ProtoHeartbeatEvent())
                 except Exception:
                     pass  # fire-and-forget, don't let heartbeat send failure crash health check
@@ -412,7 +425,8 @@ class CTraderConnection:
         if elapsed >= self._heartbeat_timeout_sec:
             logger.warning(
                 "No heartbeat for %.1fs (threshold: %.0fs) — triggering reconnect",
-                elapsed, self._heartbeat_timeout_sec,
+                elapsed,
+                self._heartbeat_timeout_sec,
             )
             self._state_mgr.transition_to(
                 ConnectionState.RECONNECTING,
@@ -420,7 +434,8 @@ class CTraderConnection:
             )
         elif elapsed >= _HEARTBEAT_DEGRADED_SEC:
             logger.warning(
-                "No heartbeat for %.1fs — DEGRADED", elapsed,
+                "No heartbeat for %.1fs — DEGRADED",
+                elapsed,
             )
             self._state_mgr.transition_to(
                 ConnectionState.DEGRADED,

@@ -7,11 +7,8 @@ fixture and the ``pytest_pycollect_makemodule`` hook below.
 """
 
 import sys
-from pathlib import Path
 
 import pytest
-
-from _project_root import PROJECT_ROOT
 
 
 # Autouse: ensure RiskGuard default state file doesn't leak between tests.
@@ -108,5 +105,6 @@ def tmp_state_dir(tmp_path):
 @pytest.fixture
 def mock_kill_switch(tmp_state_dir):
     from adapters.ctrader.kill_switch import KillSwitchManager
+
     mgr = KillSwitchManager(state_dir=tmp_state_dir)
     return mgr

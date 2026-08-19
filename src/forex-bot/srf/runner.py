@@ -25,7 +25,10 @@ logger = logging.getLogger(__name__)
 
 # ── Risk metric helpers ──────────────────────────────────────────────────
 
-def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) -> float:
+
+def _deflated_sharpe(
+    sr_annual: float, n: int, skew: float, kurt_excess: float
+) -> float:
     """Compute the Deflated Sharpe Ratio (Bailey & López de Prado 2014).
 
     Adjusts observed Sharpe for skew/kurtosis bias and sample size.
@@ -35,8 +38,11 @@ def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) 
         return 0.0
     # Expected Sharpe under null (zero-mean): 0
     # Variance of Sharpe estimator under non-normality
-    sr_var = (1 - skew * sr_annual * math.sqrt(1 / 252)
-              + ((kurt_excess) / 4) * (sr_annual ** 2) / 252) / (n - 1)
+    sr_var = (
+        1
+        - skew * sr_annual * math.sqrt(1 / 252)
+        + ((kurt_excess) / 4) * (sr_annual**2) / 252
+    ) / (n - 1)
     if sr_var <= 0:
         return 0.0
     # DSR = CDF of observed SR under the deflated null
@@ -45,26 +51,29 @@ def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) 
     return round(float(dsr), 6)
 
 
-def _composite_score(sharpe: float, sortino: float, calmar: float,
-                     win_rate: float, go_rate: float) -> float:
+def _composite_score(
+    sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float
+) -> float:
     """Weighted composite score for strategy ranking.
 
     Blends risk-adjusted return metrics with consistency metrics.
     Scale: roughly 0-1, higher is better.
     """
     # Normalize components to ~[0,1] range
-    s_sharpe = min(max(sharpe / 3.0, 0), 1)      # Sharpe ~3 = excellent
-    s_sortino = min(max(sortino / 4.0, 0), 1)     # Sortino ~4 = excellent
-    s_calmar = min(max(calmar / 5.0, 0), 1)        # Calmar ~5 = excellent
-    s_wr = min(max((win_rate - 40) / 40, 0), 1)    # 40-80% win rate range
-    s_go = go_rate                                  # 0-1 pass rate
+    s_sharpe = min(max(sharpe / 3.0, 0), 1)  # Sharpe ~3 = excellent
+    s_sortino = min(max(sortino / 4.0, 0), 1)  # Sortino ~4 = excellent
+    s_calmar = min(max(calmar / 5.0, 0), 1)  # Calmar ~5 = excellent
+    s_wr = min(max((win_rate - 40) / 40, 0), 1)  # 40-80% win rate range
+    s_go = go_rate  # 0-1 pass rate
 
-    weights = {'sharpe': 0.25, 'sortino': 0.25, 'calmar': 0.15, 'wr': 0.15, 'go': 0.20}
-    score = (weights['sharpe'] * s_sharpe +
-             weights['sortino'] * s_sortino +
-             weights['calmar'] * s_calmar +
-             weights['wr'] * s_wr +
-             weights['go'] * s_go)
+    weights = {"sharpe": 0.25, "sortino": 0.25, "calmar": 0.15, "wr": 0.15, "go": 0.20}
+    score = (
+        weights["sharpe"] * s_sharpe
+        + weights["sortino"] * s_sortino
+        + weights["calmar"] * s_calmar
+        + weights["wr"] * s_wr
+        + weights["go"] * s_go
+    )
     return round(float(score), 6)
 
 
@@ -135,9 +144,13 @@ class StrategyRunner:
         qa = validate_data(df, pair, timeframe)
         if not qa.passed:
             failures_str = "; ".join(
-                f"{f.check_name}: {f.detail}" for f in qa.failures if f.severity == "hard"
+                f"{f.check_name}: {f.detail}"
+                for f in qa.failures
+                if f.severity == "hard"
             )
-            raise RuntimeError(f"Data QA failed for {pair} {timeframe}m: {failures_str}")
+            raise RuntimeError(
+                f"Data QA failed for {pair} {timeframe}m: {failures_str}"
+            )
 
         data_hash = compute_data_hash(data_path)
 
@@ -159,8 +172,13 @@ class StrategyRunner:
                     git_commit, data_hash, status, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 'running', now())""",
                 [
-                    run_id, strategy_name, pair, timeframe,
-                    json.dumps(params or {}), git_commit, data_hash,
+                    run_id,
+                    strategy_name,
+                    pair,
+                    timeframe,
+                    json.dumps(params or {}),
+                    git_commit,
+                    data_hash,
                 ],
             )
 
@@ -189,7 +207,8 @@ class StrategyRunner:
 
                 logger.info(
                     "SRF run %s completed in %.1fs — %d windows, go_nogo=%s",
-                    run_id, compute_seconds,
+                    run_id,
+                    compute_seconds,
                     len(results.per_window),
                     results.go_nogo,
                 )
@@ -216,7 +235,9 @@ class StrategyRunner:
                     result_dict["overfit_spike"] = psr.is_overfit_spike
                     logger.info(
                         "SRF run %s perturbation stability: score=%.3f, overfit_spike=%s",
-                        run_id, psr.stability_score, psr.is_overfit_spike,
+                        run_id,
+                        psr.stability_score,
+                        psr.is_overfit_spike,
                     )
 
                 return result_dict
@@ -243,11 +264,15 @@ class StrategyRunner:
             if diff:
                 return None
             # Get commit hash
-            commit = subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=str(self.repo_path),
-                stderr=subprocess.DEVNULL,
-            ).decode().strip()
+            commit = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=str(self.repo_path),
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode()
+                .strip()
+            )
             return commit
         except (subprocess.CalledProcessError, FileNotFoundError):
             return None
@@ -386,16 +411,23 @@ class StrategyRunner:
         window_rows: list[list] = []
         for w in results.per_window:
             wd = window_dates.get(w.window_index, {})
-            window_rows.append([
-                run_id, w.window_index,
-                wd.get("train_start"),
-                wd.get("train_end"),
-                wd.get("test_start"),
-                wd.get("test_end"),
-                w.win_rate, w.profit_factor, w.sharpe_ratio,
-                w.max_drawdown, w.trade_count, w.total_pnl,
-                w.passed_go_nogo,
-            ])
+            window_rows.append(
+                [
+                    run_id,
+                    w.window_index,
+                    wd.get("train_start"),
+                    wd.get("train_end"),
+                    wd.get("test_start"),
+                    wd.get("test_end"),
+                    w.win_rate,
+                    w.profit_factor,
+                    w.sharpe_ratio,
+                    w.max_drawdown,
+                    w.trade_count,
+                    w.total_pnl,
+                    w.passed_go_nogo,
+                ]
+            )
 
         # ── Trades ────────────────────────────────────────────────────────
         # Pull trade records off the results object; the walk-forward runner
@@ -413,17 +445,19 @@ class StrategyRunner:
                 # downstream aggregations.
                 if pnl is None:
                     continue
-                trade_rows.append([
-                    run_id,
-                    t.get("window_id"),
-                    t.get("entry_time"),
-                    t.get("exit_time"),
-                    t.get("direction"),
-                    t.get("entry_price"),
-                    t.get("exit_price"),
-                    pnl,
-                    t.get("exit_reason"),
-                ])
+                trade_rows.append(
+                    [
+                        run_id,
+                        t.get("window_id"),
+                        t.get("entry_time"),
+                        t.get("exit_time"),
+                        t.get("direction"),
+                        t.get("entry_price"),
+                        t.get("exit_price"),
+                        pnl,
+                        t.get("exit_reason"),
+                    ]
+                )
 
         # ── Metrics summary ───────────────────────────────────────────────
         windows_passed = sum(1 for w in results.per_window if w.passed_go_nogo)
@@ -454,25 +488,41 @@ class StrategyRunner:
             n = len(pnl_arr)
             skew_val = float(stats.skew(pnl_arr)) if n >= 3 else 0.0
             kurt_val = float(stats.kurtosis(pnl_arr, fisher=True)) if n >= 4 else 0.0
-            observed_sharpe = (mean_pnl / std_pnl * math.sqrt(n)) if std_pnl > 0 else 0.0
+            observed_sharpe = (
+                (mean_pnl / std_pnl * math.sqrt(n)) if std_pnl > 0 else 0.0
+            )
             # DSR approximation: Sharpe adjusted for skew/kurtosis bias
             sr_annual = observed_sharpe * math.sqrt(252)  # annualize daily-equivalent
             dsr = _deflated_sharpe(sr_annual, n, skew_val, kurt_val)
             # Sortino: downside deviation only
             downside = pnl_arr[pnl_arr < 0]
-            downside_std = float(np.std(downside, ddof=1)) if len(downside) > 1 else std_pnl or 0.0
-            sortino = (mean_pnl / downside_std * math.sqrt(n)) if downside_std > 0 else 0.0
+            downside_std = (
+                float(np.std(downside, ddof=1)) if len(downside) > 1 else std_pnl or 0.0
+            )
+            sortino = (
+                (mean_pnl / downside_std * math.sqrt(n)) if downside_std > 0 else 0.0
+            )
             # Calmar: total return / max drawdown
             cumulative_pnl = float(np.sum(pnl_arr))
             max_dd = max(dds) if dds else 0.0
             calmar = (cumulative_pnl / max_dd) if max_dd > 0 else None
             # ICIR (Information Coefficient Information Ratio): mean IC / std IC
             # Approximated from win-rate consistency
-            ic_proxy = [(w.win_rate - 50.0) / 50.0 for w in results.per_window if w.trade_count > 0]
-            icir = (statistics.mean(ic_proxy) / statistics.stdev(ic_proxy)) if len(ic_proxy) > 1 and statistics.stdev(ic_proxy) > 0 else 0.0
+            ic_proxy = [
+                (w.win_rate - 50.0) / 50.0
+                for w in results.per_window
+                if w.trade_count > 0
+            ]
+            icir = (
+                (statistics.mean(ic_proxy) / statistics.stdev(ic_proxy))
+                if len(ic_proxy) > 1 and statistics.stdev(ic_proxy) > 0
+                else 0.0
+            )
             # Composite score: weighted blend
             score = _composite_score(
-                observed_sharpe, sortino, calmar or 0.0,
+                observed_sharpe,
+                sortino,
+                calmar or 0.0,
                 statistics.mean(wrs) if wrs else 0.0,
                 windows_passed / windows_total if windows_total > 0 else 0.0,
             )
@@ -488,15 +538,23 @@ class StrategyRunner:
             mid = len(pnl_arr) // 2
             first_half = pnl_arr[:mid]
             second_half = pnl_arr[mid:]
-            s1 = float(np.mean(first_half) / np.std(first_half, ddof=1)) if np.std(first_half, ddof=1) > 0 and len(first_half) > 1 else 0.0
-            s2 = float(np.mean(second_half) / np.std(second_half, ddof=1)) if np.std(second_half, ddof=1) > 0 and len(second_half) > 1 else 0.0
+            s1 = (
+                float(np.mean(first_half) / np.std(first_half, ddof=1))
+                if np.std(first_half, ddof=1) > 0 and len(first_half) > 1
+                else 0.0
+            )
+            s2 = (
+                float(np.mean(second_half) / np.std(second_half, ddof=1))
+                if np.std(second_half, ddof=1) > 0 and len(second_half) > 1
+                else 0.0
+            )
             oos_sharpe_decay = s1 - s2 if s1 > 0 else 0.0
         else:
             oos_sharpe_decay = None
 
         # Param stability CV (from perturbation stability if available)
         param_stability_cv = None
-        if hasattr(results, 'aggregated') and results.aggregated:
+        if hasattr(results, "aggregated") and results.aggregated:
             # If aggregated metrics carry stability info, extract it
             pass  # perturbation_evaluate_fn handles this separately
 
@@ -516,7 +574,10 @@ class StrategyRunner:
             statistics.stdev(shrs) if len(shrs) > 1 else None,
             statistics.mean(dds) if dds else None,
             statistics.stdev(dds) if len(dds) > 1 else None,
-            total_trades, windows_passed, windows_total, go_nogo_str,
+            total_trades,
+            windows_passed,
+            windows_total,
+            go_nogo_str,
             # Additional new columns
             score,
             param_stability_cv,
@@ -540,15 +601,19 @@ class StrategyRunner:
             except Exception:
                 pass
             logger.exception(
-                "SRF persistence failed for run %s "
-                "(windows=%d, trades=%d): %s",
-                run_id, len(window_rows), len(trade_rows), exc,
+                "SRF persistence failed for run %s (windows=%d, trades=%d): %s",
+                run_id,
+                len(window_rows),
+                len(trade_rows),
+                exc,
             )
             raise
 
         logger.info(
             "SRF run %s persisted: %d windows, %d trades, summary written",
-            run_id, len(window_rows), len(trade_rows),
+            run_id,
+            len(window_rows),
+            len(trade_rows),
         )
 
     # ── per-table inserts (split out for testability + clarity) ─────────
@@ -708,7 +773,10 @@ class StrategyRunner:
                 if not bar_data:
                     summary["failed"] += n_windows
                     summary["details"].append(
-                        {"run_id": run_id, "error": f"Empty bar data for {pair} {tf_str}"}
+                        {
+                            "run_id": run_id,
+                            "error": f"Empty bar data for {pair} {tf_str}",
+                        }
                     )
                     continue
 
@@ -778,8 +846,14 @@ class StrategyRunner:
                                SET train_start = ?, train_end = ?,
                                    test_start = ?, test_end = ?
                                WHERE run_id = ? AND window_idx = ?""",
-                            [train_start, train_end, test_start, test_end,
-                             run_id, window_idx],
+                            [
+                                train_start,
+                                train_end,
+                                test_start,
+                                test_end,
+                                run_id,
+                                window_idx,
+                            ],
                         )
                     summary["updated"] += 1
         finally:

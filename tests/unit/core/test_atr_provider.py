@@ -1,8 +1,6 @@
 """Tests for ATRProvider."""
 
 import json
-import os
-import tempfile
 
 import pytest
 
@@ -15,7 +13,6 @@ def cache_dir(tmp_path):
 
 
 class TestATRProvider:
-
     def test_loads_existing_cache(self, cache_dir):
         path = cache_dir / "atr.json"
         path.write_text(json.dumps({"EURUSD": 0.0012}))

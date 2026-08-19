@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 from typing import Any, Callable, Optional
 
 from twisted.internet import reactor
@@ -26,6 +25,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOASubscribeSpotsReq,
 )
 from ctrader_open_api.protobuf import Protobuf
+from .reactor_manager import ReactorManager
 
 from .credential_store import CredentialStore
 from .token_lifecycle import TokenLifecycle
@@ -146,6 +146,10 @@ class cTraderSession:
         self._client.setConnectedCallback(self._on_tcp_connected)
         self._client.setDisconnectedCallback(self._on_tcp_disconnected)
 
+        ReactorManager().ensure_running()
+        if not reactor.running:
+            raise RuntimeError("reactor must be running before connect")
+
         reactor.callFromThread(self._client.startService)
 
         if not self._tcp_connected.wait(timeout=15):
@@ -202,7 +206,10 @@ class cTraderSession:
         Returns True on success, False on failure.
         """
         if not self.is_operational:
-            logger.error("Cannot subscribe: session not operational (state=%s)", self._state.value)
+            logger.error(
+                "Cannot subscribe: session not operational (state=%s)",
+                self._state.value,
+            )
             return False
 
         if not symbol_ids:
@@ -269,7 +276,9 @@ class cTraderSession:
                     event.set()
 
                 def on_error(failure: Any) -> None:
-                    logger.warning("Send failed (msg_id=%s): %s", client_msg_id, failure)
+                    logger.warning(
+                        "Send failed (msg_id=%s): %s", client_msg_id, failure
+                    )
                     error_holder[0] = str(failure)
                     event.set()  # MUST fire on BOTH paths
 
@@ -281,7 +290,9 @@ class cTraderSession:
         reactor.callFromThread(do_send)
 
         if not event.wait(timeout=timeout):
-            logger.warning("Send timed out (msg_id=%s, timeout=%.1fs)", client_msg_id, timeout)
+            logger.warning(
+                "Send timed out (msg_id=%s, timeout=%.1fs)", client_msg_id, timeout
+            )
             return None
 
         if error_holder[0] is not None:
@@ -343,6 +354,7 @@ class cTraderSession:
         """
         if self._client is not None:
             try:
+                ReactorManager().ensure_running()
                 reactor.callFromThread(self._client.stopService)
             except Exception:
                 logger.debug("Error stopping client service", exc_info=True)

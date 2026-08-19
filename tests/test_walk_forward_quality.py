@@ -9,7 +9,6 @@ Covers:
 import math
 import sys
 
-import pytest
 
 sys.path.insert(0, "src/forex-bot")
 
@@ -25,6 +24,7 @@ from quant.walk_forward import _compute_metrics
 # ---------------------------------------------------------------------------
 # Test 1: PF with zero loss returns a capped value, not Infinity
 # ---------------------------------------------------------------------------
+
 
 class TestProfitFactorZeroLoss:
     """When gross_loss == 0 and gross_profit > 0, PF must be finite."""
@@ -50,16 +50,19 @@ class TestProfitFactorZeroLoss:
             {"pnl": 30.0},
         ]
         metrics = _compute_metrics(0, trades, initial_balance=10000.0)
-        assert not math.isinf(metrics.profit_factor), \
+        assert not math.isinf(metrics.profit_factor), (
             f"PF is Infinity for all-win trades: {metrics.profit_factor}"
+        )
         assert metrics.profit_factor > 0.0
-        assert metrics.profit_factor <= PF_CAP, \
+        assert metrics.profit_factor <= PF_CAP, (
             f"PF {metrics.profit_factor} exceeds cap {PF_CAP}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Test 2: PF with both zero returns 0.0
 # ---------------------------------------------------------------------------
+
 
 class TestProfitFactorBothZero:
     """When gross_loss == 0 AND gross_profit == 0, PF must be 0.0."""
@@ -82,6 +85,7 @@ class TestProfitFactorBothZero:
 # ---------------------------------------------------------------------------
 # Test 3: < 15 trades produces warning
 # ---------------------------------------------------------------------------
+
 
 class TestTradeCountWarning:
     """Windows with fewer than 15 trades must trigger a warning."""

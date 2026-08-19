@@ -160,10 +160,16 @@ def suggest_bollinger_params(trial: Any, pair: str) -> dict[str, Any]:
         "bb_period": trial.suggest_int("bb_period", bb_period_lo, bb_period_hi),
         "bb_std_dev": trial.suggest_float("bb_std_dev", bb_std_lo, bb_std_hi),
         "rsi_period": trial.suggest_int("rsi_period", rsi_period_lo, rsi_period_hi),
-        "rsi_long_level": trial.suggest_float("rsi_long_level", rsi_long_lo, rsi_long_hi),
-        "rsi_short_level": trial.suggest_float("rsi_short_level", rsi_short_lo, rsi_short_hi),
+        "rsi_long_level": trial.suggest_float(
+            "rsi_long_level", rsi_long_lo, rsi_long_hi
+        ),
+        "rsi_short_level": trial.suggest_float(
+            "rsi_short_level", rsi_short_lo, rsi_short_hi
+        ),
         "atr_period": trial.suggest_int("atr_period", atr_period_lo, atr_period_hi),
-        "atr_sl_multiplier": trial.suggest_float("atr_sl_multiplier", atr_sl_lo, atr_sl_hi),
+        "atr_sl_multiplier": trial.suggest_float(
+            "atr_sl_multiplier", atr_sl_lo, atr_sl_hi
+        ),
         "tp1_rr": tp1_rr,
         "tp2_rr": tp2_rr,
         "ema_trend_period": trial.suggest_int("ema_trend_period", ema_lo, ema_hi),
@@ -203,7 +209,9 @@ def _wf_aggregated_metric(wf: Any, key: str, default: float = 0.0) -> float:
         }
         win_key = mapping.get(key)
         if win_key == "windows_passed" or key == "windows_passed":
-            return float(sum(1 for m in per_window if getattr(m, "passed_go_nogo", False)))
+            return float(
+                sum(1 for m in per_window if getattr(m, "passed_go_nogo", False))
+            )
         if win_key == "total_windows" or key == "total_windows":
             return float(len(per_window))
         if win_key:
@@ -301,9 +309,13 @@ def run_optuna_for_timeframe(
 
         result["status"] = "complete"
         result["windows_passed"] = int(_wf_aggregated_metric(wf, "windows_passed", 0))
-        result["windows_total"] = int(_wf_aggregated_metric(wf, "total_windows", n_windows))
+        result["windows_total"] = int(
+            _wf_aggregated_metric(wf, "total_windows", n_windows)
+        )
         result["go_nogo"] = bool(getattr(wf, "go_nogo", False))
-        result["mean_profit_factor"] = _wf_aggregated_metric(wf, "mean_profit_factor", 0)
+        result["mean_profit_factor"] = _wf_aggregated_metric(
+            wf, "mean_profit_factor", 0
+        )
         result["mean_win_rate"] = _wf_aggregated_metric(wf, "mean_win_rate", 0)
         result["mean_sharpe"] = _wf_aggregated_metric(wf, "mean_sharpe_ratio", 0)
         result["mean_max_drawdown"] = _wf_aggregated_metric(wf, "mean_max_drawdown", 0)
@@ -391,8 +403,12 @@ def main() -> None:
         and r.get("windows_passed", 0) >= 3
     ]
     print(f"\n{'=' * 60}")
-    print(f"Reportable (trades > 0): {len(reportable)} of {len(all_results)} timeframes")
-    print(f"Viable (trades > 0, PF > 1.0, >=3 WF windows passed): {len(viable)} of {len(all_results)} timeframes")
+    print(
+        f"Reportable (trades > 0): {len(reportable)} of {len(all_results)} timeframes"
+    )
+    print(
+        f"Viable (trades > 0, PF > 1.0, >=3 WF windows passed): {len(viable)} of {len(all_results)} timeframes"
+    )
     for v in viable:
         print(
             f"  ✅ {v['timeframe']} — PF={v['mean_profit_factor']:.2f} "

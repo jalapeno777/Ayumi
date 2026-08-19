@@ -36,13 +36,15 @@ BLOCK_SIZE_DEFAULT = 20  # bars per block for block-bootstrap
 # Data structures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class TradeRecord:
     """Minimal trade representation for MC simulation."""
+
     pnl: float
     entry_time: float = 0.0  # unix timestamp
     exit_time: float = 0.0
-    direction: int = 1   # +1 long, -1 short
+    direction: int = 1  # +1 long, -1 short
     entry_price: float = 0.0
     exit_price: float = 0.0
 
@@ -50,6 +52,7 @@ class TradeRecord:
 @dataclass
 class MCResult:
     """Aggregated Monte Carlo results."""
+
     n_iterations: int
     # Distributions (length = n_iterations)
     max_drawdowns: np.ndarray
@@ -86,7 +89,10 @@ class MCResult:
 # Core simulation primitives
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _equity_curve(pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE) -> np.ndarray:
+
+def _equity_curve(
+    pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE
+) -> np.ndarray:
     """Build equity curve from PnL array."""
     return initial + np.cumsum(pnls)
 
@@ -114,8 +120,9 @@ def _sharpe(pnls: np.ndarray, periods_per_year: int = 252) -> float:
     return float(np.mean(pnls) / np.std(pnls) * math.sqrt(periods_per_year))
 
 
-def _cagr(pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE,
-          years: float = 1.0) -> float:
+def _cagr(
+    pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE, years: float = 1.0
+) -> float:
     """Compound annual growth rate."""
     final = initial + pnls.sum()
     if initial <= 0 or years <= 0 or final <= 0:
@@ -123,8 +130,11 @@ def _cagr(pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE,
     return float((final / initial) ** (1.0 / years) - 1.0)
 
 
-def _daily_pnl_breach(pnls: np.ndarray, loss_limit: float = DEFAULT_DAILY_LOSS_LIMIT,
-                      initial: float = DEFAULT_ACCOUNT_SIZE) -> bool:
+def _daily_pnl_breach(
+    pnls: np.ndarray,
+    loss_limit: float = DEFAULT_DAILY_LOSS_LIMIT,
+    initial: float = DEFAULT_ACCOUNT_SIZE,
+) -> bool:
     """Check if any contiguous block reaches the daily loss limit.
 
     We treat each MC iteration as one "day" of trades; if the cumulative
@@ -139,9 +149,12 @@ def _daily_pnl_breach(pnls: np.ndarray, loss_limit: float = DEFAULT_DAILY_LOSS_L
 # MC methods
 # ═══════════════════════════════════════════════════════════════════════════
 
-def trade_shuffle(trades: Sequence[TradeRecord],
-                  n_iter: int = DEFAULT_N_ITERATIONS,
-                  rng: np.random.Generator | None = None) -> list[np.ndarray]:
+
+def trade_shuffle(
+    trades: Sequence[TradeRecord],
+    n_iter: int = DEFAULT_N_ITERATIONS,
+    rng: np.random.Generator | None = None,
+) -> list[np.ndarray]:
     """Plain trade-order shuffle — destroys serial dependence."""
     if rng is None:
         rng = np.random.default_rng()
@@ -149,10 +162,12 @@ def trade_shuffle(trades: Sequence[TradeRecord],
     return [rng.permutation(pnls) for _ in range(n_iter)]
 
 
-def block_bootstrap(trades: Sequence[TradeRecord],
-                    n_iter: int = DEFAULT_N_ITERATIONS,
-                    block_size: int = BLOCK_SIZE_DEFAULT,
-                    rng: np.random.Generator | None = None) -> list[np.ndarray]:
+def block_bootstrap(
+    trades: Sequence[TradeRecord],
+    n_iter: int = DEFAULT_N_ITERATIONS,
+    block_size: int = BLOCK_SIZE_DEFAULT,
+    rng: np.random.Generator | None = None,
+) -> list[np.ndarray]:
     """Block-bootstrap — preserves short-range serial dependence."""
     if rng is None:
         rng = np.random.default_rng()
@@ -174,10 +189,12 @@ def block_bootstrap(trades: Sequence[TradeRecord],
     return results
 
 
-def slippage_stress(trades: Sequence[TradeRecord],
-                    pip_size: float = DEFAULT_PIP_SIZE,
-                    slippage_pips: tuple[float, ...] = DEFAULT_SLIPPAGE_PIPS,
-                    rng: np.random.Generator | None = None) -> list[np.ndarray]:
+def slippage_stress(
+    trades: Sequence[TradeRecord],
+    pip_size: float = DEFAULT_PIP_SIZE,
+    slippage_pips: tuple[float, ...] = DEFAULT_SLIPPAGE_PIPS,
+    rng: np.random.Generator | None = None,
+) -> list[np.ndarray]:
     """Apply random slippage per trade and return PnL arrays."""
     if rng is None:
         rng = np.random.default_rng()
@@ -192,9 +209,11 @@ def slippage_stress(trades: Sequence[TradeRecord],
     return results
 
 
-def spread_stress(trades: Sequence[TradeRecord],
-                  widen_factors: tuple[float, ...] = DEFAULT_SPREAD_STRESS,
-                  pip_size: float = DEFAULT_PIP_SIZE) -> list[np.ndarray]:
+def spread_stress(
+    trades: Sequence[TradeRecord],
+    widen_factors: tuple[float, ...] = DEFAULT_SPREAD_STRESS,
+    pip_size: float = DEFAULT_PIP_SIZE,
+) -> list[np.ndarray]:
     """Widen effective spread, reducing each trade's PnL proportionally."""
     base_pnls = np.array([t.pnl for t in trades])
     # Approximate: each trade loses extra half-spread × widen_factor
@@ -207,10 +226,12 @@ def spread_stress(trades: Sequence[TradeRecord],
     return results
 
 
-def missed_trade_sim(trades: Sequence[TradeRecord],
-                     drop_fraction: float = DEFAULT_DROP_FRACTION,
-                     n_iter: int = DEFAULT_N_ITERATIONS,
-                     rng: np.random.Generator | None = None) -> list[np.ndarray]:
+def missed_trade_sim(
+    trades: Sequence[TradeRecord],
+    drop_fraction: float = DEFAULT_DROP_FRACTION,
+    n_iter: int = DEFAULT_N_ITERATIONS,
+    rng: np.random.Generator | None = None,
+) -> list[np.ndarray]:
     """Randomly drop a fraction of trades to simulate missed fills."""
     if rng is None:
         rng = np.random.default_rng()
@@ -227,6 +248,7 @@ def missed_trade_sim(trades: Sequence[TradeRecord],
 # ═══════════════════════════════════════════════════════════════════════════
 # Orchestrator
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def run_monte_carlo(
     trades: Sequence[TradeRecord],
@@ -312,6 +334,7 @@ def run_monte_carlo(
 # DuckDB storage
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def store_mc_results(conn, run_id: str, result: MCResult) -> None:
     """Store MC summary metrics in the ``monte_carlo_samples`` table.
 
@@ -328,7 +351,14 @@ def store_mc_results(conn, run_id: str, result: MCResult) -> None:
         (run_id, 0, "p5_profit_factor", metrics["p5_profit_factor"], None, None),
         (run_id, 0, "p5_sharpe", metrics["p5_sharpe"], None, None),
         (run_id, 0, "p5_cagr", metrics["p5_cagr"], None, None),
-        (run_id, 0, "prop_rule_breach_prob", metrics["prop_rule_breach_prob"], None, None),
+        (
+            run_id,
+            0,
+            "prop_rule_breach_prob",
+            metrics["prop_rule_breach_prob"],
+            None,
+            None,
+        ),
         (run_id, 0, "mean_max_drawdown", metrics["mean_max_drawdown"], None, None),
         (run_id, 0, "mean_profit_factor", metrics["mean_profit_factor"], None, None),
         (run_id, 0, "mean_sharpe", metrics["mean_sharpe"], None, None),

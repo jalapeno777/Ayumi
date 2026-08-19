@@ -1,10 +1,5 @@
 """Tests for HistoricalSignalProvider."""
 
-import json
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from strategies.registry import StrategyConfig, StrategyRegistry
@@ -15,16 +10,26 @@ from ml.blend_optimizer import BlendConfig
 @pytest.fixture
 def registry():
     reg = StrategyRegistry()
-    reg.register(StrategyConfig(
-        strategy_id="momentum_v1", name="Momentum V1",
-        strategy_type="momentum", symbols=["EURUSD", "GBPUSD"],
-        timeframes=["H1"], typical_confidence_range=(0.55, 0.85),
-    ))
-    reg.register(StrategyConfig(
-        strategy_id="mean_rev_v1", name="Mean Reversion V1",
-        strategy_type="mean_reversion", symbols=["USDJPY"],
-        timeframes=["H4"], typical_confidence_range=(0.50, 0.75),
-    ))
+    reg.register(
+        StrategyConfig(
+            strategy_id="momentum_v1",
+            name="Momentum V1",
+            strategy_type="momentum",
+            symbols=["EURUSD", "GBPUSD"],
+            timeframes=["H1"],
+            typical_confidence_range=(0.55, 0.85),
+        )
+    )
+    reg.register(
+        StrategyConfig(
+            strategy_id="mean_rev_v1",
+            name="Mean Reversion V1",
+            strategy_type="mean_reversion",
+            symbols=["USDJPY"],
+            timeframes=["H4"],
+            typical_confidence_range=(0.50, 0.75),
+        )
+    )
     return reg
 
 

@@ -9,6 +9,7 @@ Usage:
     report_text = generate_regime_report(results)
     # Also writes JSON to data/backtest/regime_report_2026-06-19.json
 """
+
 from __future__ import annotations
 
 import json

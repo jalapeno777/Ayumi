@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -12,7 +11,7 @@ if TYPE_CHECKING:
     from strategies.registry import StrategyRegistry
 
 if TYPE_CHECKING:
-    from ml.blend_optimizer import BlendConfig
+    pass
 
 
 class HistoricalSignalProvider:
@@ -22,7 +21,9 @@ class HistoricalSignalProvider:
     always produce the same signals. No randomness per trial.
     """
 
-    def __init__(self, registry: StrategyRegistry, data_dir: str = "data/signals") -> None:
+    def __init__(
+        self, registry: StrategyRegistry, data_dir: str = "data/signals"
+    ) -> None:
         self._registry = registry
         self._data_dir = Path(data_dir)
         self._cache: dict[str, list[dict]] = {}
@@ -121,7 +122,9 @@ class HistoricalSignalProvider:
                 tp_pips = sl_pips * rng.uniform(1.0, 2.5)
                 confidence = round(rng.uniform(0.4, 0.95), 3)
 
-                entry = base_entry + rng.uniform(-0.005, 0.005) * (100 if "JPY" in symbol.upper() else 1)
+                entry = base_entry + rng.uniform(-0.005, 0.005) * (
+                    100 if "JPY" in symbol.upper() else 1
+                )
                 if direction == "LONG":
                     sl = entry - sl_pips * pip_mult
                     tp = entry + tp_pips * pip_mult
@@ -132,20 +135,26 @@ class HistoricalSignalProvider:
                 # Deterministic outcome
                 win_prob = 0.4 + confidence * 0.3
                 if rng.random() < win_prob:
-                    pnl = round(tp_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2)
+                    pnl = round(
+                        tp_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2
+                    )
                 else:
-                    pnl = round(-sl_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2)
+                    pnl = round(
+                        -sl_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2
+                    )
 
-                signals.append({
-                    "strategy_id": strategy_id,
-                    "symbol": symbol,
-                    "direction": direction,
-                    "entry_price": round(entry, 5),
-                    "stop_loss": round(sl, 5),
-                    "take_profit": round(tp, 5),
-                    "confidence": confidence,
-                    "timestamp": f"{date_str}T{hour:02d}:00:00",
-                    "outcome_pnl": pnl,
-                })
+                signals.append(
+                    {
+                        "strategy_id": strategy_id,
+                        "symbol": symbol,
+                        "direction": direction,
+                        "entry_price": round(entry, 5),
+                        "stop_loss": round(sl, 5),
+                        "take_profit": round(tp, 5),
+                        "confidence": confidence,
+                        "timestamp": f"{date_str}T{hour:02d}:00:00",
+                        "outcome_pnl": pnl,
+                    }
+                )
 
         return signals

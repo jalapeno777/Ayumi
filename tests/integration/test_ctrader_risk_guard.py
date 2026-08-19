@@ -219,13 +219,12 @@ class TestRiskGuard:
         They expire automatically at UTC midnight.
         """
         from adapters.ctrader.risk_guard import RiskLimitType
+
         config = FTMOConfig(daily_loss_limit_pct=0.05)
         guard = RiskGuard(ftmo_config=config, starting_balance=100000.0)
 
         # Trigger permanent circuit breaker directly (total drawdown)
-        guard._trigger_circuit_breaker(
-            RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10
-        )
+        guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
         assert guard.is_blocked is True
         assert guard._circuit_breaker_triggered is True
 

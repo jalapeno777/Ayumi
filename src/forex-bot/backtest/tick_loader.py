@@ -28,8 +28,14 @@ _CSV_DIR = _PROJECT_ROOT / "data" / "forex" / "historical"
 
 # Timeframe to minutes
 TF_MINUTES = {
-    "M1": 1, "M3": 3, "M5": 5, "M15": 15, "M30": 30,
-    "H1": 60, "H4": 240, "D1": 1440,
+    "M1": 1,
+    "M3": 3,
+    "M5": 5,
+    "M15": 15,
+    "M30": 30,
+    "H1": 60,
+    "H4": 240,
+    "D1": 1440,
 }
 
 
@@ -75,7 +81,8 @@ def load_bars_from_db(
 
     bars = []
     for _, row in df.iterrows():
-        ts = datetime.fromtimestamp(row["timestamp_utc"] / 1000, tz=timezone.utc)
+        # DuckDB timestamp_utc is stored in epoch seconds (not milliseconds)
+        ts = datetime.fromtimestamp(row["timestamp_utc"], tz=timezone.utc)
         spread = row.get("spread_pips", 0)
         spread = spread if pd.notna(spread) else 0.0
 
@@ -92,7 +99,9 @@ def load_bars_from_db(
 
     logger.info(
         "Loaded %d %s bars for %s from DuckDB (avg spread: %.2f pips)",
-        len(bars), timeframe, symbol,
+        len(bars),
+        timeframe,
+        symbol,
         df["spread_pips"].mean() if "spread_pips" in df.columns else 0,
     )
     return bars
@@ -150,7 +159,9 @@ def load_bars_from_csv(symbol: str, timeframe: str) -> list[Bar]:
 
     logger.warning(
         "Loaded %d bars from CSV for %s %s (no spread/volume data)",
-        len(bars), symbol, timeframe,
+        len(bars),
+        symbol,
+        timeframe,
     )
     return bars
 
@@ -169,7 +180,9 @@ def load_bars(symbol: str, timeframe: str) -> list[Bar]:
             if bars:
                 return bars
             logger.info(
-                "No %s %s bars in DuckDB, trying CSV", symbol, timeframe,
+                "No %s %s bars in DuckDB, trying CSV",
+                symbol,
+                timeframe,
             )
         except Exception as e:
             logger.warning("DuckDB load failed (%s), trying CSV", e)

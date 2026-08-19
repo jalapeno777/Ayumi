@@ -11,7 +11,6 @@ than being inflated by double-counting.
 
 import sys
 import types
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -134,7 +133,7 @@ class TestRootB_PaperTraderNoDoubleCount:
         pt._order_manager.close_position = MagicMock(return_value=mock_position)
         pt._position_signal_id = {}
 
-        with patch.object(pt, '_map_close_reason_to_outcome', return_value='tp'):
+        with patch.object(pt, "_map_close_reason_to_outcome", return_value="tp"):
             pt.close_position("test-001", 1.1050, "take_profit")
 
         # After close: realized_pnl should be 50, _current_balance unchanged.

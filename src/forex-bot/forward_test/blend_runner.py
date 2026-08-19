@@ -20,6 +20,7 @@ from risk.sl_position_sizer import SLPositionSizer
 from risk.regime_thresholds import Regime, RegimeAwareThresholds
 from risk.edge_telemetry import EdgeTelemetryTracker
 from risk.state_persistence import StatePersistence
+
 # Import the canonical trading-date helper from ftmo_guard — do NOT duplicate it.
 # The daily reset boundary is FTMO-defined: America/Toronto midnight (Eastern).
 from risk.ftmo_guard import _trading_date
@@ -36,6 +37,7 @@ class BlendForwardTestRunner:
     Supports registering ISignalStrategy instances (e.g. TTCXAUUSDStrategy)
     which are evaluated on each bar and routed through the blend pipeline.
     """
+
     """Production forward test runner wiring the full Ayumi signal pipeline.
 
     Wires: confidence engine → profile router → position sizer → orchestrator.
@@ -121,7 +123,8 @@ class BlendForwardTestRunner:
         self._balance = self._sizer.account_balance
         self._orchestrator.update_balance(self._balance)
         logger.info(
-            "BlendForwardTestRunner started — balance=$%.2f", self._balance,
+            "BlendForwardTestRunner started — balance=$%.2f",
+            self._balance,
         )
 
     # ── Broker reconciliation (card 0e0338d4) ─────────────────────────
@@ -169,7 +172,10 @@ class BlendForwardTestRunner:
             logger.info(
                 "Daily risk cap reset — new trading day: %s (daily_used=%.2f→0.00, "
                 "open_risk=%.2f, positions_carried=%d)",
-                trading_day, pre_daily, pre_open, positions_carried,
+                trading_day,
+                pre_daily,
+                pre_open,
+                positions_carried,
             )
         self._current_day = trading_day
 
@@ -193,7 +199,10 @@ class BlendForwardTestRunner:
         logger.info(
             "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, "
             "positions_carried=%d, trading_day=%s",
-            pre_daily, pre_open, positions_carried, trading_day,
+            pre_daily,
+            pre_open,
+            positions_carried,
+            trading_day,
         )
 
     def make_signal_id(self, signal: OrchestratorTradeSignal) -> str:
@@ -214,7 +223,10 @@ class BlendForwardTestRunner:
         When a strategy produces a signal, it is routed through on_signal().
         """
         self._strategies.append(strategy)
-        logger.info("Strategy registered: %s", getattr(strategy, 'name', type(strategy).__name__))
+        logger.info(
+            "Strategy registered: %s",
+            getattr(strategy, "name", type(strategy).__name__),
+        )
 
     def evaluate_bars(self, bars: list, latest_bar=None) -> list:
         """Evaluate all registered strategies on the latest bar data.
@@ -238,11 +250,15 @@ class BlendForwardTestRunner:
         self.update_regime(bars)
 
         # Build a simple state object that strategies can evaluate
-        state = type('BarState', (), {
-            'bars': bars,
-            'latest_bar': bar,
-            'symbol': getattr(bar, 'symbol', 'XAUUSD'),
-        })()
+        state = type(
+            "BarState",
+            (),
+            {
+                "bars": bars,
+                "latest_bar": bar,
+                "symbol": getattr(bar, "symbol", "XAUUSD"),
+            },
+        )()
 
         for strategy in self._strategies:
             try:
@@ -250,7 +266,8 @@ class BlendForwardTestRunner:
             except Exception as exc:
                 logger.warning(
                     "Strategy %s raised during evaluate: %s",
-                    getattr(strategy, 'name', '?'), exc,
+                    getattr(strategy, "name", "?"),
+                    exc,
                 )
                 continue
 
@@ -262,7 +279,7 @@ class BlendForwardTestRunner:
             if signal_data is None:
                 continue
 
-            strategy_id = getattr(strategy, 'name', strategy.__class__.__name__)
+            strategy_id = getattr(strategy, "name", strategy.__class__.__name__)
             order = self.on_signal(strategy_id, signal_data)
             orders.append(order)
 
@@ -278,34 +295,40 @@ class BlendForwardTestRunner:
             return None
 
         # Extract spread from bar (core.types.Bar has spread_pips)
-        bar_spread = getattr(bar, 'spread_pips', 0.0)
+        bar_spread = getattr(bar, "spread_pips", 0.0)
 
         if isinstance(result, dict):
             # Ensure spread is present; bar value is the fallback
-            if 'spread' not in result:
-                result['spread'] = bar_spread
+            if "spread" not in result:
+                result["spread"] = bar_spread
             return result
 
         # Try dataclass-style or object attribute access
         as_dict = {}
-        for key in ('symbol', 'direction', 'entry_price', 'stop_loss',
-                     'take_profit', 'confidence'):
+        for key in (
+            "symbol",
+            "direction",
+            "entry_price",
+            "stop_loss",
+            "take_profit",
+            "confidence",
+        ):
             val = getattr(result, key, None)
             if val is not None:
                 as_dict[key] = val
 
         # Fall back to bar values for required fields
-        as_dict.setdefault('symbol', getattr(bar, 'symbol', 'XAUUSD'))
-        as_dict.setdefault('direction', getattr(result, 'direction', 'LONG'))
-        as_dict.setdefault('entry_price', getattr(bar, 'close', 0.0))
-        as_dict.setdefault('stop_loss', getattr(result, 'stop_loss', 0.0))
-        as_dict.setdefault('take_profit', getattr(result, 'take_profit', 0.0))
-        as_dict.setdefault('confidence', getattr(result, 'confidence', 0.5))
+        as_dict.setdefault("symbol", getattr(bar, "symbol", "XAUUSD"))
+        as_dict.setdefault("direction", getattr(result, "direction", "LONG"))
+        as_dict.setdefault("entry_price", getattr(bar, "close", 0.0))
+        as_dict.setdefault("stop_loss", getattr(result, "stop_loss", 0.0))
+        as_dict.setdefault("take_profit", getattr(result, "take_profit", 0.0))
+        as_dict.setdefault("confidence", getattr(result, "confidence", 0.5))
 
         # Always include spread so downstream gates receive actual data
-        as_dict.setdefault('spread', bar_spread)
+        as_dict.setdefault("spread", bar_spread)
 
-        if not as_dict.get('entry_price') or not as_dict.get('stop_loss'):
+        if not as_dict.get("entry_price") or not as_dict.get("stop_loss"):
             return None
 
         return as_dict
@@ -323,7 +346,7 @@ class BlendForwardTestRunner:
             return  # Not enough data
 
         recent = bars[-20:]
-        ranges = [getattr(b, 'high', 0) - getattr(b, 'low', 0) for b in recent]
+        ranges = [getattr(b, "high", 0) - getattr(b, "low", 0) for b in recent]
         if not ranges or max(ranges) == 0:
             return
 
@@ -343,7 +366,9 @@ class BlendForwardTestRunner:
         if new_regime != self._current_regime:
             logger.info(
                 "Regime shift: %s → %s (range ratio %.2f)",
-                self._current_regime.value, new_regime.value, ratio,
+                self._current_regime.value,
+                new_regime.value,
+                ratio,
             )
             self._current_regime = new_regime
             self._regime_history.append((new_regime.value, ratio))
@@ -356,10 +381,14 @@ class BlendForwardTestRunner:
 
         if not order.rejected:
             # Phase 4: Apply regime-aware exposure multiplier
-            exposure_mult = self._regime_thresholds.get_exposure_multiplier(self._current_regime)
+            exposure_mult = self._regime_thresholds.get_exposure_multiplier(
+                self._current_regime
+            )
 
             # Phase 4.2: Apply edge-based risk multiplier
-            edge_mult = self._edge_tracker.get_risk_multiplier(strategy_id, signal.symbol)
+            edge_mult = self._edge_tracker.get_risk_multiplier(
+                strategy_id, signal.symbol
+            )
 
             combined_mult = exposure_mult * edge_mult
             if combined_mult < 1.0:
@@ -367,15 +396,21 @@ class BlendForwardTestRunner:
                 order.lots *= combined_mult
                 logger.info(
                     "Regime+edge sizing: %s %.0f%% × %.1f%% = %.0f%% exposure (risk=$%.2f lots=%.4f)",
-                    self._current_regime.value, exposure_mult * 100, edge_mult * 100,
-                    combined_mult * 100, order.risk_amount, order.lots,
+                    self._current_regime.value,
+                    exposure_mult * 100,
+                    edge_mult * 100,
+                    combined_mult * 100,
+                    order.risk_amount,
+                    order.lots,
                 )
             elif edge_mult > 1.0:
                 order.risk_amount *= edge_mult
                 order.lots *= edge_mult
                 logger.info(
                     "Edge sizing: %.1fx multiplier (high edge, risk=$%.2f lots=%.4f)",
-                    edge_mult, order.risk_amount, order.lots,
+                    edge_mult,
+                    order.risk_amount,
+                    order.lots,
                 )
 
             # Register position tracking under a unique signal_id
@@ -387,12 +422,16 @@ class BlendForwardTestRunner:
             self._sizer.register(signal_id, order.risk_amount)
             logger.info(
                 "Order accepted: %s %s %.4f lots risk=$%.2f",
-                signal.symbol, signal.direction, order.lots, order.risk_amount,
+                signal.symbol,
+                signal.direction,
+                order.lots,
+                order.risk_amount,
             )
         else:
             logger.info(
                 "Order rejected: %s — %s",
-                signal.symbol, order.rejection_reason,
+                signal.symbol,
+                order.rejection_reason,
             )
 
         return order
@@ -402,7 +441,9 @@ class BlendForwardTestRunner:
         self._sizer.cancel(signal_id)
         logger.info(
             "Risk cancelled: signal_id=%s risk=$%.2f freed, daily remaining=$%.2f",
-            signal_id, risk_amount, self._sizer.daily_risk_remaining,
+            signal_id,
+            risk_amount,
+            self._sizer.daily_risk_remaining,
         )
 
     def register_position_mapping(self, position_id: str, signal_id: str) -> None:
@@ -445,7 +486,10 @@ class BlendForwardTestRunner:
         risk_amount = pos["risk_amount"] if pos else 0.0
         logger.info(
             "Position closed: signal_id=%s symbol=%s pnl=%.2f open_risk=%.2f",
-            order_id, symbol, pnl, self._sizer.open_risk,
+            order_id,
+            symbol,
+            pnl,
+            self._sizer.open_risk,
         )
 
         # Phase 4.2: Record edge telemetry

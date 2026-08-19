@@ -1,0 +1,235 @@
+{
+  "generated_at": "2026-08-03T02:02:12.158046+00:00",
+  "duckdb_path": "/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb",
+  "detector_config": {
+    "adx_period": 14,
+    "atr_period": 14,
+    "atr_lookback": 50,
+    "trending_adx": 25.0,
+    "choppy_adx": 20.0,
+    "volatile_atr_pct": 0.8,
+    "quiet_atr_pct": 0.2
+  },
+  "warmup_bars": 64,
+  "conceptual_thresholds": {
+    "volatile_realized_vol_pctl": 0.8,
+    "trending_rolling_r2_tercile": 0.6666666666666666,
+    "rolling_r2_lookback": 50,
+    "realized_vol_lookback": 50
+  },
+  "accuracy_gate": 0.7,
+  "distribution_gate": 0.15,
+  "events": [
+    {
+      "name": "2020 COVID Crash",
+      "symbol": "EURUSD",
+      "timeframe": "M15",
+      "window_start": "2020-03-01",
+      "window_end": "2020-04-15",
+      "n_bars_total": 2532,
+      "n_bars_warmup": 64,
+      "n_bars_scored": 2468,
+      "detector_label_counts": {
+        "trending": 422,
+        "choppy": 348,
+        "volatile": 755,
+        "quiet": 943
+      },
+      "detector_label_pct": {
+        "trending": 0.170989,
+        "choppy": 0.141005,
+        "volatile": 0.305916,
+        "quiet": 0.382091
+      },
+      "consistency_volatile": {
+        "true_positive": 755,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1713
+      },
+      "consistency_trending": {
+        "true_positive": 422,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 2046
+      },
+      "conceptual_volatile": {
+        "true_positive": 475,
+        "false_positive": 280,
+        "false_negative": 382,
+        "true_negative": 1331
+      },
+      "conceptual_trending": {
+        "true_positive": 211,
+        "false_positive": 211,
+        "false_negative": 595,
+        "true_negative": 1451
+      },
+      "accuracy_consistency_volatile": 1.0,
+      "accuracy_consistency_trending": 1.0,
+      "accuracy_conceptual_volatile": 0.7317666126418152,
+      "accuracy_conceptual_trending": 0.673419773095624,
+      "accuracy_conceptual_combined": 0.7025931928687196,
+      "expectations_met": {
+        "volatile": true
+      },
+      "overall_pass": true,
+      "reason": ""
+    },
+    {
+      "name": "2022 Fed Rate Shock",
+      "symbol": "XAUUSD",
+      "timeframe": "M15",
+      "window_start": "2022-06-01",
+      "window_end": "2022-09-30",
+      "n_bars_total": 7918,
+      "n_bars_warmup": 64,
+      "n_bars_scored": 7854,
+      "detector_label_counts": {
+        "trending": 1534,
+        "choppy": 1099,
+        "volatile": 2086,
+        "quiet": 3135
+      },
+      "detector_label_pct": {
+        "trending": 0.195314,
+        "choppy": 0.139929,
+        "volatile": 0.265597,
+        "quiet": 0.39916
+      },
+      "consistency_volatile": {
+        "true_positive": 2086,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 5768
+      },
+      "consistency_trending": {
+        "true_positive": 1534,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 6320
+      },
+      "conceptual_volatile": {
+        "true_positive": 945,
+        "false_positive": 1141,
+        "false_negative": 2080,
+        "true_negative": 3688
+      },
+      "conceptual_trending": {
+        "true_positive": 785,
+        "false_positive": 749,
+        "false_negative": 1817,
+        "true_negative": 4503
+      },
+      "accuracy_consistency_volatile": 1.0,
+      "accuracy_consistency_trending": 1.0,
+      "accuracy_conceptual_volatile": 0.5898905016552075,
+      "accuracy_conceptual_trending": 0.6732874968169086,
+      "accuracy_conceptual_combined": 0.631588999236058,
+      "expectations_met": {
+        "volatile": true,
+        "trending": false
+      },
+      "overall_pass": false,
+      "reason": ""
+    },
+    {
+      "name": "2023 SVB Collapse",
+      "symbol": "XAUUSD",
+      "timeframe": "M15",
+      "window_start": "2023-03-08",
+      "window_end": "2023-04-15",
+      "n_bars_total": 2440,
+      "n_bars_warmup": 64,
+      "n_bars_scored": 2376,
+      "detector_label_counts": {
+        "trending": 551,
+        "choppy": 273,
+        "volatile": 674,
+        "quiet": 878
+      },
+      "detector_label_pct": {
+        "trending": 0.231902,
+        "choppy": 0.114899,
+        "volatile": 0.28367,
+        "quiet": 0.369529
+      },
+      "consistency_volatile": {
+        "true_positive": 674,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1702
+      },
+      "consistency_trending": {
+        "true_positive": 551,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1825
+      },
+      "conceptual_volatile": {
+        "true_positive": 340,
+        "false_positive": 334,
+        "false_negative": 630,
+        "true_negative": 1072
+      },
+      "conceptual_trending": {
+        "true_positive": 276,
+        "false_positive": 275,
+        "false_negative": 500,
+        "true_negative": 1325
+      },
+      "accuracy_consistency_volatile": 1.0,
+      "accuracy_consistency_trending": 1.0,
+      "accuracy_conceptual_volatile": 0.5942760942760943,
+      "accuracy_conceptual_trending": 0.6738215488215489,
+      "accuracy_conceptual_combined": 0.6340488215488216,
+      "expectations_met": {
+        "volatile": true,
+        "trending": true
+      },
+      "overall_pass": false,
+      "reason": ""
+    }
+  ],
+  "distribution_audit": [
+    {
+      "symbol": "XAUUSD",
+      "timeframe": "M15",
+      "n_bars": 104380,
+      "n_warmup": 64,
+      "counts": {
+        "trending": 22839,
+        "choppy": 17636,
+        "volatile": 25719,
+        "quiet": 38122
+      },
+      "pct": {
+        "trending": 0.2189405268606925,
+        "choppy": 0.16906323095210707,
+        "volatile": 0.24654894742896583,
+        "quiet": 0.3654472947582346
+      },
+      "passes": true
+    },
+    {
+      "symbol": "EURUSD",
+      "timeframe": "M15",
+      "n_bars": 100798,
+      "n_warmup": 64,
+      "counts": {
+        "trending": 14650,
+        "choppy": 11402,
+        "volatile": 34011,
+        "quiet": 40671
+      },
+      "pct": {
+        "trending": 0.14543252526455813,
+        "choppy": 0.11318919133559673,
+        "volatile": 0.3376317827148728,
+        "quiet": 0.4037465006849723
+      },
+      "passes": false
+    }
+  ],
+  "overall_pass": false
+}

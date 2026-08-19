@@ -8,9 +8,9 @@ Covers:
 Deterministic, isolated tests — no live trading, no broker/network access, no
 persistent state across tests.
 """
+
 import sqlite3
 import statistics
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -21,6 +21,7 @@ from storage.trade_store import _row_to_dict, _simple_sharpe, TradeStore
 # ---------------------------------------------------------------------------
 # _simple_sharpe
 # ---------------------------------------------------------------------------
+
 
 class TestSimpleSharpe:
     """Tests for _simple_sharpe — empty/insufficient, zero variance, known series."""
@@ -86,6 +87,7 @@ class TestSimpleSharpe:
 # ---------------------------------------------------------------------------
 # _row_to_dict
 # ---------------------------------------------------------------------------
+
 
 class TestRowToDict:
     """Tests for _row_to_dict — sqlite3.Row conversion + JSON deserialization."""
@@ -168,6 +170,7 @@ class TestRowToDict:
 # TradeStore (minimal — tmp_path, deterministic)
 # ---------------------------------------------------------------------------
 
+
 class TestTradeStore:
     """Smoke tests for TradeStore — confirm init, basic query, clean close."""
 
@@ -204,6 +207,7 @@ class TestTradeStore:
             store.close()
         # Cleanup the auto-created data dir
         import shutil
+
         data_dir = tmp_path / "data"
         if data_dir.exists():
             shutil.rmtree(data_dir)
@@ -291,6 +295,7 @@ class TestTradeStore:
     def test_concurrent_threads_get_separate_connections(self, tmp_path: Path):
         """Each thread should get its own SQLite connection (thread-local)."""
         import threading
+
         store = TradeStore(db_path=str(tmp_path / "trades.db"))
         try:
             conn_ids: list = []

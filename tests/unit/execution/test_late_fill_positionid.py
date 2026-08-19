@@ -9,7 +9,6 @@ Verifies that:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,9 +23,7 @@ class TestLateFillPositionIdValidation:
         from adapters.ctrader.forward_test_engine import (
             ForwardTestConfig,
             ForwardTestEngine,
-            LiveExecutionStatus,
         )
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 
         # Create a minimal mock engine — we only need the callback registration
         config = ForwardTestConfig(
@@ -73,7 +70,6 @@ class TestLateFillPositionIdValidation:
 
     def test_string_position_id_skips_amend(self, engine_mock, caplog):
         """When positionId is a UUID-like string, amend_sl_tp must not be called."""
-        from adapters.ctrader.forward_test_engine import LiveExecutionStatus
 
         # Build a mock order
         order = MagicMock()
@@ -88,8 +84,10 @@ class TestLateFillPositionIdValidation:
 
         # Capture the registered callback closures
         registered_callbacks = {}
+
         def capture_callback(event_name, func):
             registered_callbacks[event_name] = func
+
         feed.register_callback.side_effect = capture_callback
 
         engine_mock._register_late_fill_callbacks(order, signal, "test_strategy")
@@ -116,13 +114,15 @@ class TestLateFillPositionIdValidation:
 
         # Verify warning was logged about missing/invalid positionId
         assert any(
-            "no cTrader positionId" in record.message or "positionId" in record.message.lower()
+            "no cTrader positionId" in record.message
+            or "positionId" in record.message.lower()
             for record in caplog.records
-        ), f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
+        ), (
+            f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
+        )
 
     def test_valid_int_position_id_proceeds_with_amend(self, engine_mock, caplog):
         """When positionId is a valid integer string, amend_sl_tp proceeds."""
-        from adapters.ctrader.forward_test_engine import LiveExecutionStatus
 
         order = MagicMock()
         order.order_id = "test-order-002"
@@ -131,8 +131,10 @@ class TestLateFillPositionIdValidation:
 
         feed = MagicMock()
         registered_callbacks = {}
+
         def capture_callback(event_name, func):
             registered_callbacks[event_name] = func
+
         feed.register_callback.side_effect = capture_callback
         feed.resolve_symbol_id.return_value = 2
         feed.amend_sl_tp.return_value = True
@@ -168,8 +170,10 @@ class TestLateFillPositionIdValidation:
 
         feed = MagicMock()
         registered_callbacks = {}
+
         def capture_callback(event_name, func):
             registered_callbacks[event_name] = func
+
         feed.register_callback.side_effect = capture_callback
         engine_mock._market_feed = feed
 
@@ -200,8 +204,10 @@ class TestLateFillPositionIdValidation:
 
         feed = MagicMock()
         registered_callbacks = {}
+
         def capture_callback(event_name, func):
             registered_callbacks[event_name] = func
+
         feed.register_callback.side_effect = capture_callback
         engine_mock._market_feed = feed
 
@@ -224,6 +230,7 @@ class TestLateFillPositionIdValidation:
         engine_mock._market_feed.amend_sl_tp.assert_not_called()
 
         assert any(
-            "no cTrader positionId" in record.message
-            for record in caplog.records
-        ), f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
+            "no cTrader positionId" in record.message for record in caplog.records
+        ), (
+            f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
+        )

@@ -214,6 +214,7 @@ class TestVRBBugfix:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -241,6 +242,7 @@ class TestVRBBugfix:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -276,6 +278,7 @@ class TestVRBBugfix:
             range_position_max=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -305,6 +308,7 @@ class TestVRBBugfix:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=5,  # very short window
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -353,6 +357,7 @@ class TestVRBBugfix:
             tp1_rr=1.5,
             tp2_rr=2.0,
             tp3_rr=3.0,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -394,6 +399,7 @@ class TestVRBTrendFilter:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -428,6 +434,7 @@ class TestVRBTrendFilter:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
@@ -458,15 +465,14 @@ class TestVRBFilters:
             min_confidence=0.50,
             breakout_period=10,
             setup_max_bars=30,
+            vol_expansion_ratio=1.0,
         )
         strategy = VolatilityRegimeBreakoutStrategy(config)
 
         bars = _make_bars_with_regimes(seed=42)
         _append_upside_breakout(bars, magnitude=0.0010)
 
-        _, signal = _drive_then_evaluate(
-            strategy, bars, session=SessionType.OUTSIDE
-        )
+        _, signal = _drive_then_evaluate(strategy, bars, session=SessionType.OUTSIDE)
         assert signal is None, (
             "Session filter must reject OUTSIDE before signal evaluation"
         )
@@ -483,10 +489,7 @@ class TestVRBFilters:
         assert strategy._setup_bars_remaining == 0
 
     def test_strategy_name_preserved(self):
-        assert (
-            VolatilityRegimeBreakoutStrategy().name
-            == "Volatility Regime Breakout"
-        )
+        assert VolatilityRegimeBreakoutStrategy().name == "Volatility Regime Breakout"
 
     def test_insufficient_bars_returns_none(self):
         config = VRBConfig()

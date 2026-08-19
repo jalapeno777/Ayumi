@@ -19,7 +19,6 @@ from adapters.ctrader.protocols import (
     OrderResult,
     OrderStatus,
     Position,
-    PositionStatus,
     SessionProtocol,
     SessionState,
     Tick,
@@ -73,7 +72,9 @@ class _StubMarketFeed:
     def resolve_symbol_id(self, name: str) -> int:
         return 1
 
-    def fetch_trendbars(self, symbol: str, period_minutes: int, count: int) -> list[Bar]:
+    def fetch_trendbars(
+        self, symbol: str, period_minutes: int, count: int
+    ) -> list[Bar]:
         return []
 
     def on_tick(self, callback) -> None:
@@ -204,8 +205,12 @@ class TestDataclassImmutability:
     """Frozen dataclasses are hashable and immutable."""
 
     def test_tick_is_frozen(self):
-        t = Tick(symbol="EURUSD", bid=1.0850, ask=1.0851,
-                 timestamp=datetime(2026, 6, 16, tzinfo=timezone.utc))
+        t = Tick(
+            symbol="EURUSD",
+            bid=1.0850,
+            ask=1.0851,
+            timestamp=datetime(2026, 6, 16, tzinfo=timezone.utc),
+        )
         with pytest.raises(AttributeError):
             t.bid = 1.0900  # type: ignore[misc]
 
@@ -215,7 +220,11 @@ class TestDataclassImmutability:
             r.status = OrderStatus.REJECTED  # type: ignore[misc]
 
     def test_tick_spread_and_mid(self):
-        t = Tick(symbol="GBPUSD", bid=1.2700, ask=1.2702,
-                 timestamp=datetime(2026, 6, 16, tzinfo=timezone.utc))
+        t = Tick(
+            symbol="GBPUSD",
+            bid=1.2700,
+            ask=1.2702,
+            timestamp=datetime(2026, 6, 16, tzinfo=timezone.utc),
+        )
         assert t.spread == pytest.approx(0.0002)
         assert t.mid == pytest.approx(1.2701)

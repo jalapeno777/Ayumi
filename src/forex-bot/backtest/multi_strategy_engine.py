@@ -1,9 +1,25 @@
-import math
-from dataclasses import dataclass, field
+"""Multi-strategy backtest engine with Kelly Criterion overlay.
 
-from .engine import (
-    BacktestConfig,
-    BacktestMetrics,
+Refactored to compose with canonical ``engine.base.EngineCore`` and
+``engine.mixins.ProgressiveSLMixin``, eliminating ~400 lines of
+duplicated infrastructure code (trade management, daily tracking,
+metrics, Sharpe calculation, etc.).
+
+The multi-strategy-specific concerns retained here are:
+
+* ``MultiStrategyConfig``        — weights, confidence threshold
+* ``KellyConfig`` / Kelly overlay — diminish lot size based on edge
+* ``run_all_strategies()``        — per-strategy results with last_signal
+* ``run_combined_strategies()``   — combined run with individual results
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from core.config import BacktestConfig, BacktestMetrics
+from core.pip import PipCalculator
+from core.types import (
     Bar,
     ExitReason,
     MarketState,
@@ -11,11 +27,19 @@ from .engine import (
     StrategySignal,
     TradeDirection,
     TradeOutcome,
-    determine_session,
 )
+
+from engine.base import EngineCore, determine_session
+from engine.mixins import ProgressiveSLMixin
+
 from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
 from quant.position_sizing import kelly_criterion
+
+
+# ────────────────────────────────────────────────────────────────────
+# Configuration dataclasses
+# ────────────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -29,8 +53,8 @@ class KellyConfig:
     """
 
     enabled: bool = True
-    min_trades: int = 20       # minimum closed trades before Kelly activates
-    rolling_window: int = 50   # recent trades used for edge estimation
+    min_trades: int = 20  # minimum closed trades before Kelly activates
+    rolling_window: int = 50  # recent trades used for edge estimation
 
 
 @dataclass
@@ -51,7 +75,20 @@ class StrategyBacktestResult:
     last_signal: StrategySignal | None
 
 
-class MultiStrategyBacktestEngine:
+# ────────────────────────────────────────────────────────────────────
+# Engine — composes EngineCore + ProgressiveSLMixin
+# ────────────────────────────────────────────────────────────────────
+
+
+class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
+    """Multi-strategy backtest engine with Kelly overlay.
+
+    Composes ``EngineCore`` (trade lifecycle, metrics, daily tracking)
+    and ``ProgressiveSLMixin`` (progressive SL, trade-exit checks) from
+    the canonical engine package, adding only multi-strategy signal
+    combination and Kelly-based position diminishing.
+    """
+
     def __init__(
         self,
         config: BacktestConfig,
@@ -60,30 +97,91 @@ class MultiStrategyBacktestEngine:
         risk_sizer: ConfidencePositionSizer | None = None,
         kelly_config: KellyConfig | None = None,
     ):
-        self.config = config
+        EngineCore.__init__(self, config)
+        ProgressiveSLMixin.__init__(self, config)
         self.strategies = strategies
         self.multi_config = multi_config or MultiStrategyConfig()
         self.risk_sizer = risk_sizer or ConfidencePositionSizer(
             account_size=config.starting_balance
         )
         self._kelly_config = kelly_config or KellyConfig()
-        self.balance = config.starting_balance
-        self.peak_balance = config.starting_balance
-        self.max_drawdown = 0.0
-        self.current_day = None
-        self.daily_start_balance = config.starting_balance
-        self.max_daily_loss = 0.0
-        self.total_spread_cost = 0.0
-        self.total_commission_cost = 0.0
         self._kelly_closed_trades: list[SimulatedTrade] = []
-        self._kelly_skips: int = 0
+        self._kelly_skips = 0
+
+    # ── public API ──────────────────────────────────────────────────
 
     def run_all_strategies(self, bars: list[Bar]) -> dict[str, StrategyBacktestResult]:
-        results = {}
+        """Run each strategy independently, returning per-strategy results."""
+        results: dict[str, StrategyBacktestResult] = {}
         for strategy in self.strategies:
             result = self._run_single_strategy(strategy, bars)
             results[strategy.name] = result
         return results
+
+    def run_combined_strategies(
+        self, strategies: list[ISignalStrategy], bars: list[Bar]
+    ) -> tuple[dict[str, StrategyBacktestResult], BacktestMetrics]:
+        """Run strategies with signal combination, also returning individual results."""
+        individual = self.run_all_strategies(bars)
+
+        self._reset()
+        self._kelly_closed_trades = []
+        self._kelly_skips = 0
+
+        trades: list[SimulatedTrade] = []
+        equity_curve: list[float] = [self.balance]
+        open_trades: list[SimulatedTrade] = []
+
+        for i in range(len(bars)):
+            bar = bars[i]
+            self._update_daily_tracking(bar.time)
+
+            if self.balance <= 0:
+                break
+            if self._is_max_drawdown_breached():
+                break
+            if self._is_max_daily_loss_breached():
+                continue
+
+            self._check_open_trades_kelly(open_trades, bar, i, trades, equity_curve)
+
+            if (
+                len(open_trades) < self.config.max_open_trades
+                and i >= self.config.min_bars_before_signal
+            ):
+                state = MarketState(
+                    bars=bars[: i + 1],
+                    current_session=determine_session(bar.time),
+                )
+
+                all_signals: list[StrategySignal] = []
+                for strategy in strategies:
+                    signal = strategy.evaluate(state)
+                    if signal is not None:
+                        all_signals.append(signal)
+
+                if all_signals:
+                    combined = self._combine_signals(all_signals)
+                    if (
+                        combined is not None
+                        and combined.confidence
+                        >= self.multi_config.min_combined_confidence
+                    ):
+                        trade = self._open_trade_kelly(combined, bar, i)
+                        if trade is not None:
+                            open_trades.append(trade)
+
+            equity_curve.append(self.balance)
+
+        trades.extend(
+            self._close_all_open_trades(
+                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
+            )
+        )
+        combined_metrics = self._calculate_metrics(trades, equity_curve)
+        return individual, combined_metrics
+
+    # ── single-strategy runner (private) ────────────────────────────
 
     def _run_single_strategy(
         self, strategy: ISignalStrategy, bars: list[Bar]
@@ -92,8 +190,11 @@ class MultiStrategyBacktestEngine:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
         self._reset()
+        self._kelly_closed_trades = []
+        self._kelly_skips = 0
+
         trades: list[SimulatedTrade] = []
-        equity_curve = [self.balance]
+        equity_curve: list[float] = [self.balance]
         open_trades: list[SimulatedTrade] = []
         last_signal: StrategySignal | None = None
 
@@ -108,19 +209,23 @@ class MultiStrategyBacktestEngine:
             if self._is_max_daily_loss_breached():
                 continue
 
-            self._check_open_trades(open_trades, bar, i, trades, equity_curve)
+            self._check_open_trades_kelly(open_trades, bar, i, trades, equity_curve)
 
             if (
                 len(open_trades) < self.config.max_open_trades
                 and i >= self.config.min_bars_before_signal
             ):
                 state = MarketState(
-                    bars=bars[: i + 1], current_session=determine_session(bars[i].time)
+                    bars=bars[: i + 1],
+                    current_session=determine_session(bar.time),
                 )
 
                 signal = strategy.evaluate(state)
-                if signal is not None and self._passes_filters(signal):
-                    trade = self._open_trade(signal, bar, i)
+                if (
+                    signal is not None
+                    and signal.confidence >= self.config.min_confidence
+                ):
+                    trade = self._open_trade_kelly(signal, bar, i)
                     if trade is not None:
                         open_trades.append(trade)
                         last_signal = signal
@@ -132,74 +237,12 @@ class MultiStrategyBacktestEngine:
                 open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
             )
         )
-        metrics = self._calculate_metrics(trades, equity_curve, 0)
-
+        metrics = self._calculate_metrics(trades, equity_curve)
         return StrategyBacktestResult(
             strategy_name=strategy.name, metrics=metrics, last_signal=last_signal
         )
 
-    def run_combined_strategies(
-        self, strategies: list[ISignalStrategy], bars: list[Bar]
-    ) -> tuple[dict[str, StrategyBacktestResult], BacktestMetrics]:
-        individual = {}
-        all_signals: list[StrategySignal] = []
-
-        self._reset()
-        trades: list[SimulatedTrade] = []
-        equity_curve = [self.balance]
-        open_trades: list[SimulatedTrade] = []
-
-        for i in range(len(bars)):
-            bar = bars[i]
-            self._update_daily_tracking(bar.time)
-
-            if self.balance <= 0:
-                break
-            if self._is_max_drawdown_breached():
-                break
-            if self._is_max_daily_loss_breached():
-                continue
-
-            self._check_open_trades(open_trades, bar, i, trades, equity_curve)
-
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
-                state = MarketState(
-                    bars=bars[: i + 1], current_session=determine_session(bars[i].time)
-                )
-
-                all_signals.clear()
-                for strategy in strategies:
-                    signal = strategy.evaluate(state)
-                    if signal is not None:
-                        all_signals.append(signal)
-
-                if len(all_signals) > 0:
-                    combined = self._combine_signals(all_signals)
-                    if (
-                        combined is not None
-                        and combined.confidence
-                        >= self.multi_config.min_combined_confidence
-                    ):
-                        trade = self._open_trade(combined, bar, i)
-                        if trade is not None:
-                            open_trades.append(trade)
-
-            equity_curve.append(self.balance)
-
-        for strategy in strategies:
-            individual[strategy.name] = self._run_single_strategy(strategy, bars)
-
-        trades.extend(
-            self._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
-        combined_metrics = self._calculate_metrics(trades, equity_curve, 0)
-
-        return (individual, combined_metrics)
+    # ── signal combination (multi-strategy specific) ────────────────
 
     def _combine_signals(self, signals: list[StrategySignal]) -> StrategySignal | None:
         if len(signals) == 0:
@@ -238,7 +281,10 @@ class MultiStrategyBacktestEngine:
         else:
             return None
 
-        rationale = f"Combined {len(signals)} signals: {len(long_signals)} long, {len(short_signals)} short"
+        rationale = (
+            f"Combined {len(signals)} signals: "
+            f"{len(long_signals)} long, {len(short_signals)} short"
+        )
 
         return StrategySignal(
             direction=direction,
@@ -251,211 +297,7 @@ class MultiStrategyBacktestEngine:
             rationale=rationale,
         )
 
-    def _reset(self):
-        self.balance = self.config.starting_balance
-        self.peak_balance = self.config.starting_balance
-        self.max_drawdown = 0.0
-        self.max_daily_loss = 0.0
-        self.current_day = None
-        self.daily_start_balance = self.config.starting_balance
-        self.total_spread_cost = 0.0
-        self.total_commission_cost = 0.0
-        self._kelly_closed_trades = []
-        self._kelly_skips = 0
-
-    def _update_daily_tracking(self, bar_time):
-        day = bar_time.date()
-        if self.current_day is None:
-            self.current_day = day
-            self.daily_start_balance = self.balance
-        elif day != self.current_day:
-            daily_loss = self.daily_start_balance - self.balance
-            if daily_loss > self.max_daily_loss:
-                self.max_daily_loss = daily_loss
-            self.current_day = day
-            self.daily_start_balance = self.balance
-
-    def _is_max_drawdown_breached(self) -> bool:
-        drawdown_pct = (self.peak_balance - self.balance) / self.peak_balance
-        return drawdown_pct >= self.config.max_total_drawdown_pct
-
-    def _is_max_daily_loss_breached(self) -> bool:
-        daily_loss_pct = (
-            self.daily_start_balance - self.balance
-        ) / self.daily_start_balance
-        return daily_loss_pct >= self.config.max_daily_drawdown_pct
-
-    def _check_open_trades(
-        self,
-        open_trades: list[SimulatedTrade],
-        bar: Bar,
-        bar_index: int,
-        closed_trades: list[SimulatedTrade],
-        equity_curve: list[float],
-    ):
-        to_close = []
-        for trade in open_trades:
-            # Progressive SL management: move SL when TP1 or TP2 is hit
-            self._progressive_sl_update(trade, bar)
-            hit, exit_price, reason = self._check_trade_exit(trade, bar)
-            if hit:
-                self._close_trade(trade, bar_index, bar.time, exit_price, reason)
-                closed_trades.append(trade)
-                to_close.append(trade)
-                equity_curve.append(self.balance)
-        for t in to_close:
-            open_trades.remove(t)
-            # Track closed trades for Kelly overlay
-            self._kelly_closed_trades.append(t)
-
-    def _progressive_sl_update(self, trade: SimulatedTrade, bar: Bar) -> None:
-        """Move SL progressively as TP levels are approached/hit.
-
-        When price reaches TP1 → move SL to breakeven + 1 pip
-        When price reaches TP2 → move SL to TP1 price (lock profit)
-        """
-        if not hasattr(trade, "_sl_moved_to_be"):
-            trade._sl_moved_to_be = False
-            trade._sl_moved_to_tp1 = False
-
-        abs(trade.entry_price - trade.stop_loss)
-        pip_size = self._get_pip_value(trade.entry_price)
-
-        if trade.direction == TradeDirection.LONG:
-            if bar.high >= trade.take_profit_2 and not trade._sl_moved_to_tp1:
-                trade.stop_loss = trade.take_profit_1
-                trade._sl_moved_to_tp1 = True
-                trade._sl_moved_to_be = True
-            elif bar.high >= trade.take_profit_1 and not trade._sl_moved_to_be:
-                # Move to breakeven + 1 pip
-                trade.stop_loss = max(trade.stop_loss, trade.entry_price + pip_size)
-                trade._sl_moved_to_be = True
-        else:
-            if bar.low <= trade.take_profit_2 and not trade._sl_moved_to_tp1:
-                trade.stop_loss = trade.take_profit_1
-                trade._sl_moved_to_tp1 = True
-                trade._sl_moved_to_be = True
-            elif bar.low <= trade.take_profit_1 and not trade._sl_moved_to_be:
-                trade.stop_loss = min(trade.stop_loss, trade.entry_price - pip_size)
-                trade._sl_moved_to_be = True
-
-    def _check_trade_exit(self, trade: SimulatedTrade, bar: Bar):
-        if trade.direction == TradeDirection.LONG:
-            if bar.low <= trade.stop_loss:
-                return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.high >= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
-            if bar.high >= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
-            if bar.high >= trade.take_profit_1:
-                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
-        else:
-            if bar.high >= trade.stop_loss:
-                return (True, trade.stop_loss, ExitReason.STOP_LOSS)
-            if bar.low <= trade.take_profit_3:
-                return (True, trade.take_profit_3, ExitReason.TAKE_PROFIT_3)
-            if bar.low <= trade.take_profit_2:
-                return (True, trade.take_profit_2, ExitReason.TAKE_PROFIT_2)
-            if bar.low <= trade.take_profit_1:
-                return (True, trade.take_profit_1, ExitReason.TAKE_PROFIT_1)
-        return (False, 0, ExitReason.STOP_LOSS)
-
-    def _close_trade(
-        self,
-        trade: SimulatedTrade,
-        bar_index: int,
-        exit_time,
-        exit_price: float,
-        reason: ExitReason,
-    ):
-        trade.exit_bar_index = bar_index
-        trade.exit_time = exit_time
-        trade.exit_reason = reason
-
-        pip_value = self._get_pip_value(trade.entry_price)
-        standard_lots = trade.lot_size / self.config.units_per_lot
-        spread_pips = self.config.effective_spread_pips
-        commission_cost = standard_lots * self.config.commission_per_lot
-        self.total_commission_cost += commission_cost
-
-        if self.config.round_trip_spread:
-            spread_price = spread_pips * pip_value
-            if trade.direction == TradeDirection.LONG:
-                exit_price -= spread_price
-            else:
-                exit_price += spread_price
-            spread_dollars = spread_pips * pip_value * trade.lot_size
-            self.total_spread_cost += spread_dollars
-        else:
-            spread_dollars = spread_pips * pip_value * trade.lot_size
-            self.total_spread_cost += spread_dollars
-
-        slippage_price = self.config.slippage_pips * pip_value
-        if trade.direction == TradeDirection.LONG:
-            exit_price -= slippage_price
-        else:
-            exit_price += slippage_price
-
-        trade.exit_price = exit_price
-
-        holding_days = (exit_time.date() - trade.entry_time.date()).days
-        if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
-            swap_cost = standard_lots * self.config.swap_per_lot_per_day * holding_days
-        else:
-            swap_cost = 0.0
-
-        if trade.direction == TradeDirection.LONG:
-            trade.pips = (exit_price - trade.entry_price) / pip_value
-        else:
-            trade.pips = (trade.entry_price - exit_price) / pip_value
-
-        trade.profit_loss = (
-            trade.pips * standard_lots * pip_value * self.config.units_per_lot
-            - commission_cost
-            + swap_cost
-        )
-        self.balance = max(0.0, self.balance + trade.profit_loss)
-
-        trade.outcome = (
-            TradeOutcome.WIN
-            if trade.profit_loss > 0.01
-            else TradeOutcome.LOSS
-            if trade.profit_loss < -0.01
-            else TradeOutcome.BREAKEVEN
-        )
-
-        if self.balance > self.peak_balance:
-            self.peak_balance = self.balance
-        drawdown = (
-            (self.peak_balance - self.balance) / self.peak_balance
-            if self.peak_balance > 0
-            else 0.0
-        )
-        if drawdown > self.max_drawdown:
-            self.max_drawdown = drawdown
-
-    def _close_all_open_trades(
-        self,
-        open_trades: list[SimulatedTrade],
-        bar_index: int,
-        exit_time,
-        exit_price: float,
-    ):
-        closed = []
-        for trade in open_trades:
-            self._close_trade(
-                trade,
-                bar_index,
-                exit_time,
-                exit_price,
-                ExitReason.END_OF_DATA,
-            )
-            closed.append(trade)
-        open_trades.clear()
-        return closed
-
-    def _passes_filters(self, signal: StrategySignal) -> bool:
-        return signal.confidence >= self.config.min_confidence
+    # ── Kelly-aware trade opening ───────────────────────────────────
 
     def _compute_kelly_multiplier(self, closed_trades: list[SimulatedTrade]) -> float:
         """Compute a Kelly-based position multiplier from recent closed trades.
@@ -463,17 +305,17 @@ class MultiStrategyBacktestEngine:
         Returns a value in [0.0, 1.0] where 1.0 means full confidence size
         (strong edge) and 0.0 means no edge — skip the trade.
         """
-        recent = closed_trades[-self._kelly_config.rolling_window:]
+        recent = closed_trades[-self._kelly_config.rolling_window :]
         wins = [t for t in recent if t.outcome == TradeOutcome.WIN]
         losses = [t for t in recent if t.outcome == TradeOutcome.LOSS]
 
         n = len(recent)
         win_rate = len(wins) / n if n > 0 else 0.0
         avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
-        avg_loss = abs(sum(t.profit_loss for t in losses) / len(losses)) if losses else 0.0
+        avg_loss = (
+            abs(sum(t.profit_loss for t in losses) / len(losses)) if losses else 0.0
+        )
 
-        # Guard: if avg_win == 0, kelly_criterion would divide by zero;
-        # there's no edge anyway, so return 0.0 directly.
         if avg_win <= 0.0 or win_rate <= 0.0:
             return 0.0
         kelly_frac = kelly_criterion(win_rate, avg_win, avg_loss)
@@ -482,24 +324,31 @@ class MultiStrategyBacktestEngine:
         # Normalize: kelly_criterion returns [0.0, 0.5].  Map to [0.0, 1.0].
         return min(kelly_frac / 0.5, 1.0)
 
-    def _open_trade(
+    def _open_trade_kelly(
         self, signal: StrategySignal, bar: Bar, bar_index: int
     ) -> SimulatedTrade | None:
+        """Open a trade with confidence-based sizing + Kelly overlay.
+
+        Uses ``ConfidencePositionSizer`` (unlike ``EngineCore._open_trade``
+        which uses fixed ``risk_per_trade_pct``) and applies Kelly-based
+        position diminishing when enough trades have been recorded.
+        """
         risk = abs(signal.entry_price - signal.stop_loss)
         if risk == 0:
             return None
 
-        pip_value = self._get_pip_value(signal.entry_price)
+        pip_value = PipCalculator.pip_value(signal.entry_price)
         stop_pips = risk / pip_value
 
-        # Confidence-based risk sizing — reduce by 50% during high-volatility bars
         vol_multiplier = 0.5 if signal.is_volatile else 1.0
-        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence) * vol_multiplier
+        risk_amount = (
+            self.risk_sizer.get_risk_amount(signal.confidence) * vol_multiplier
+        )
         lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None
 
-        if self.config.round_trip_spread:
+        if getattr(self.config, "round_trip_spread", True):
             effective_entry = signal.entry_price
             adjusted_risk = risk
         else:
@@ -516,7 +365,6 @@ class MultiStrategyBacktestEngine:
         if adjusted_risk == 0:
             return None
 
-        # Recalculate lot size based on adjusted risk
         lot_size = risk_amount / adjusted_risk
         margin_required = lot_size * effective_entry / self.config.leverage
         if margin_required > self.balance:
@@ -559,103 +407,25 @@ class MultiStrategyBacktestEngine:
             rationale=signal.rationale,
         )
 
-    def _calculate_metrics(
+    # ── Kelly-aware trade checking ──────────────────────────────────
+
+    def _check_open_trades_kelly(
         self,
-        trades: list[SimulatedTrade],
+        open_trades: list[SimulatedTrade],
+        bar: Bar,
+        bar_index: int,
+        closed_trades: list[SimulatedTrade],
         equity_curve: list[float],
-        rejected_signals: int,
-    ) -> BacktestMetrics:
-        metrics = BacktestMetrics(
-            starting_balance=self.config.starting_balance,
-            ending_balance=self.balance,
-            total_pnl=self.balance - self.config.starting_balance,
-            total_pnl_pct=(self.balance - self.config.starting_balance)
-            / self.config.starting_balance,
-            win_rate=0.0,
-            total_trades=len(trades),
-            winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
-            losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
-            ),
-            avg_win=0.0,
-            avg_loss=0.0,
-            largest_win=0.0,
-            largest_loss=0.0,
-            profit_factor=0.0,
-            max_drawdown_pct=self.max_drawdown * 100,
-            max_drawdown_dollar=self.max_drawdown * self.peak_balance,
-            max_daily_loss_dollar=self.max_daily_loss,
-            sharpe_ratio=0.0,
-            avg_risk_reward=0.0,
-            expectancy=0.0,
-            avg_holding_bars=0.0,
-            equity_curve=equity_curve,
-            trades=trades,
-            total_spread_cost=self.total_spread_cost,
-            total_commission_cost=self.total_commission_cost,
-            rejected_signals=rejected_signals,
+    ) -> None:
+        """Check open trades for exits, tracking Kelly closed trades.
+
+        Delegates to ``ProgressiveSLMixin._check_open_trades`` for the
+        actual SL/exit logic, then records closed trades for Kelly.
+        """
+        trades_before = len(closed_trades)
+        self._check_open_trades(
+            open_trades, bar, bar_index, closed_trades, equity_curve
         )
-
-        if len(trades) > 0:
-            wins = [t for t in trades if t.outcome == TradeOutcome.WIN]
-            losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
-
-            metrics.win_rate = metrics.winning_trades / len(trades) * 100
-            metrics.avg_win = (
-                sum(t.profit_loss for t in wins) / len(wins) if wins else 0
-            )
-            metrics.avg_loss = (
-                sum(t.profit_loss for t in losses) / len(losses) if losses else 0
-            )
-            metrics.largest_win = max(t.profit_loss for t in wins) if wins else 0
-            metrics.largest_loss = min(t.profit_loss for t in losses) if losses else 0
-
-            total_wins = sum(t.profit_loss for t in wins)
-            total_losses = abs(sum(t.profit_loss for t in losses))
-            metrics.profit_factor = (
-                total_wins / total_losses
-                if total_losses > 0
-                else total_wins
-                if total_wins > 0
-                else 0
-            )
-
-            metrics.avg_risk_reward = (
-                abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
-            )
-            metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
-                (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
-            )
-            metrics.avg_holding_bars = sum(
-                t.exit_bar_index - t.entry_bar_index for t in trades
-            ) / len(trades)
-
-        metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
-        return metrics
-
-    def _calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
-        if len(equity_curve) < 2:
-            return 0.0
-        returns = []
-        for i in range(1, len(equity_curve)):
-            if equity_curve[i - 1] != 0:
-                returns.append(
-                    (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
-                )
-        if not returns:
-            return 0.0
-        mean_return = sum(returns) / len(returns)
-        std_dev = math.sqrt(sum((r - mean_return) ** 2 for r in returns) / len(returns))
-        if std_dev == 0:
-            return 999.0 if mean_return > 0 else 0.0
-        return (mean_return / std_dev) * math.sqrt(252)
-
-    @staticmethod
-    def _get_pip_value(price: float) -> float:
-        if price >= 50:
-            return 0.01
-        elif price >= 1:
-            return 0.0001
-        else:
-            return 0.00000001
+        # Track newly closed trades for Kelly overlay
+        for t in closed_trades[trades_before:]:
+            self._kelly_closed_trades.append(t)

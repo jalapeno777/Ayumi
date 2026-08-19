@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
+from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.dual_tf_squeeze_pro import (
     DualTFSqueezeProConfig,
     DualTFSqueezeProStrategy,
@@ -31,6 +31,7 @@ from strategies.dual_tf_squeeze_pro import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _bar(
     close: float = 1.1000,
@@ -83,6 +84,7 @@ def _m15_bars(
 # ---------------------------------------------------------------------------
 # Helper function tests
 # ---------------------------------------------------------------------------
+
 
 class TestSMA:
     def test_simple_average(self):
@@ -193,7 +195,13 @@ class TestADXHelper:
     def test_positive_for_trending_data(self):
         bars: list[Bar] = []
         for i in range(40):
-            bars.append(_bar(close=1.0 + i * 0.002, high=1.0 + i * 0.002 + 0.001, low=1.0 + i * 0.002 - 0.0005))
+            bars.append(
+                _bar(
+                    close=1.0 + i * 0.002,
+                    high=1.0 + i * 0.002 + 0.001,
+                    low=1.0 + i * 0.002 - 0.0005,
+                )
+            )
         result = _adx(bars, period=14)
         assert result > 0
 
@@ -214,6 +222,7 @@ class TestKeltner:
 # ---------------------------------------------------------------------------
 # Strategy basic tests
 # ---------------------------------------------------------------------------
+
 
 class TestDualTFSqueezeProBasics:
     def test_name_property(self):
@@ -246,10 +255,42 @@ class TestH1Aggregation:
         # Feed 4 M15 bars in the same hour
         dt = datetime(2026, 1, 1, 6, 0, tzinfo=timezone.utc)
         bars = [
-            Bar(time=dt, open=1.0, high=1.002, low=0.999, close=1.001, volume=100, period=BarPeriod.M15),
-            Bar(time=dt + timedelta(minutes=15), open=1.001, high=1.003, low=1.0, close=1.002, volume=100, period=BarPeriod.M15),
-            Bar(time=dt + timedelta(minutes=30), open=1.002, high=1.004, low=1.001, close=1.003, volume=100, period=BarPeriod.M15),
-            Bar(time=dt + timedelta(minutes=45), open=1.003, high=1.005, low=1.002, close=1.004, volume=100, period=BarPeriod.M15),
+            Bar(
+                time=dt,
+                open=1.0,
+                high=1.002,
+                low=0.999,
+                close=1.001,
+                volume=100,
+                period=BarPeriod.M15,
+            ),
+            Bar(
+                time=dt + timedelta(minutes=15),
+                open=1.001,
+                high=1.003,
+                low=1.0,
+                close=1.002,
+                volume=100,
+                period=BarPeriod.M15,
+            ),
+            Bar(
+                time=dt + timedelta(minutes=30),
+                open=1.002,
+                high=1.004,
+                low=1.001,
+                close=1.003,
+                volume=100,
+                period=BarPeriod.M15,
+            ),
+            Bar(
+                time=dt + timedelta(minutes=45),
+                open=1.003,
+                high=1.005,
+                low=1.002,
+                close=1.004,
+                volume=100,
+                period=BarPeriod.M15,
+            ),
         ]
         for b in bars:
             strategy._update_h1(b)
@@ -257,26 +298,44 @@ class TestH1Aggregation:
         assert len(strategy._h1_bars) == 1
         h1 = strategy._h1_bars[0]
         assert h1.high == 1.005  # max of all highs
-        assert h1.low == 0.999   # min of all lows
+        assert h1.low == 0.999  # min of all lows
         assert h1.close == 1.004  # last close
 
     def test_new_hour_creates_new_h1_bar(self):
         strategy = DualTFSqueezeProStrategy()
         # First hour
         dt1 = datetime(2026, 1, 1, 6, 0, tzinfo=timezone.utc)
-        strategy._update_h1(Bar(time=dt1, open=1.0, high=1.01, low=0.99, close=1.005, volume=100, period=BarPeriod.M15))
+        strategy._update_h1(
+            Bar(
+                time=dt1,
+                open=1.0,
+                high=1.01,
+                low=0.99,
+                close=1.005,
+                volume=100,
+                period=BarPeriod.M15,
+            )
+        )
         # Second hour
         dt2 = datetime(2026, 1, 1, 7, 0, tzinfo=timezone.utc)
-        strategy._update_h1(Bar(time=dt2, open=1.005, high=1.02, low=1.0, close=1.01, volume=100, period=BarPeriod.M15))
+        strategy._update_h1(
+            Bar(
+                time=dt2,
+                open=1.005,
+                high=1.02,
+                low=1.0,
+                close=1.01,
+                volume=100,
+                period=BarPeriod.M15,
+            )
+        )
         assert len(strategy._h1_bars) == 2
 
 
 class TestSqueezeDetection:
     def test_squeeze_detected_when_bb_inside_kc(self):
         """BB width narrower than KC width → squeeze active."""
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=0)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=0))
         # Feed enough M15 bars to build H1 history
         bars = _m15_bars(n=250, trend=0.0001, vol=0.0001)
         state = MarketState(bars=bars)
@@ -289,9 +348,7 @@ class TestSqueezeDetection:
 
     def test_no_squeeze_when_bb_outside_kc(self):
         """High volatility should push BB outside KC → no squeeze."""
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=0)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=0))
         # High volatility bars
         bars = _m15_bars(n=250, trend=0.0, vol=0.005)
         state = MarketState(bars=bars)
@@ -304,9 +361,7 @@ class TestSqueezeDetection:
 class TestSignalStructure:
     def test_signal_has_all_required_fields(self):
         """If a signal is produced, it must have all StrategySignal fields."""
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=0)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=0))
         bars = _m15_bars(n=250, trend=0.0002, vol=0.0003)
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -323,9 +378,7 @@ class TestSignalStructure:
             assert "DTSQ Pro" in signal.rationale
 
     def test_take_profits_at_r_multiples(self):
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=0)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=0))
         bars = _m15_bars(n=250, trend=0.0003, vol=0.0005)
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -343,9 +396,7 @@ class TestSignalStructure:
 
     def test_stop_loss_direction_correct(self):
         """Long: stop below entry. Short: stop above entry."""
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=0)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=0))
         bars = _m15_bars(n=250, trend=0.0003, vol=0.0005)
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
@@ -371,9 +422,7 @@ class TestCooldown:
         assert result is None
 
     def test_cooldown_reset_after_signal(self):
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=5)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=5))
         bars = _m15_bars(n=250, trend=0.0003, vol=0.0005)
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)

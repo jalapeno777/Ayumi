@@ -28,7 +28,7 @@ from .connection_state import ConnectionState, ConnectionStateManager
 from .error_classifier import ErrorTier, classify_error
 from .credential_store import CredentialStore
 from .token_lifecycle import TokenLifecycle
-from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction
+from .reconnect_strategy import ReconnectStrategy, ReconnectDecision
 
 # BQ-1330a: Auth retry constants
 AUTH_RETRY_MAX_ATTEMPTS = 3
@@ -50,16 +50,19 @@ class ConnectionStateSnapshot:
 
     Captures a point-in-time view of both connections for post-hoc analysis.
     """
-    market_data_state: str      # ConnectionState value
+
+    market_data_state: str  # ConnectionState value
     trade_execution_state: str  # ConnectionState value
     fully_operational: bool
     is_tradeable: bool
-    timestamp: str              # ISO-8601
+    timestamp: str  # ISO-8601
+
 
 logger = logging.getLogger("ayumi.connection_manager")
 
 
 # ── Data types ────────────────────────────────────────────────────────────────
+
 
 class ConnectionRole(Enum):
     MARKET_DATA = "market_data"
@@ -69,6 +72,7 @@ class ConnectionRole(Enum):
 @dataclass
 class ConnectionHealth:
     """Health snapshot for a single connection."""
+
     role: ConnectionRole
     state: ConnectionState
     uptime_pct_1h: float = 0.0
@@ -83,6 +87,7 @@ class ConnectionHealth:
 @dataclass
 class DualConnectionHealth:
     """Health snapshot for both connections."""
+
     market_data: ConnectionHealth
     trade_execution: ConnectionHealth
     fully_operational: bool = False
@@ -91,9 +96,11 @@ class DualConnectionHealth:
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class _StateTransition:
     """Record of a state transition for metrics."""
+
     timestamp: float  # monotonic
     old_state: ConnectionState
     new_state: ConnectionState
@@ -117,12 +124,14 @@ class ConnectionMetrics:
         reason: str,
     ) -> None:
         with self._lock:
-            self._transitions.append(_StateTransition(
-                timestamp=time.monotonic(),
-                old_state=old_state,
-                new_state=new_state,
-                reason=reason,
-            ))
+            self._transitions.append(
+                _StateTransition(
+                    timestamp=time.monotonic(),
+                    old_state=old_state,
+                    new_state=new_state,
+                    reason=reason,
+                )
+            )
             self._current_state = new_state
 
     def get_health(self, state_mgr: ConnectionStateManager) -> ConnectionHealth:
@@ -133,15 +142,17 @@ class ConnectionMetrics:
 
         with self._lock:
             transitions_1h = [t for t in self._transitions if t.timestamp >= window_1h]
-            transitions_24h = [t for t in self._transitions if t.timestamp >= window_24h]
+            transitions_24h = [
+                t for t in self._transitions if t.timestamp >= window_24h
+            ]
 
             # Reconnect count = transitions into RECONNECTING
             reconnects_1h = sum(
-                1 for t in transitions_1h
-                if t.new_state == ConnectionState.RECONNECTING
+                1 for t in transitions_1h if t.new_state == ConnectionState.RECONNECTING
             )
             reconnects_24h = sum(
-                1 for t in transitions_24h
+                1
+                for t in transitions_24h
                 if t.new_state == ConnectionState.RECONNECTING
             )
 
@@ -151,7 +162,10 @@ class ConnectionMetrics:
             for t in transitions_1h:
                 if t.new_state == ConnectionState.DEGRADED:
                     degraded_start = t.timestamp
-                elif degraded_start is not None and t.new_state != ConnectionState.DEGRADED:
+                elif (
+                    degraded_start is not None
+                    and t.new_state != ConnectionState.DEGRADED
+                ):
                     degraded_time_1h += t.timestamp - degraded_start
                     degraded_start = None
             # If still degraded, count to now
@@ -162,7 +176,9 @@ class ConnectionMetrics:
             # Simple approximation: ratio of AUTHENTICATED+DEGRADED transitions
             good_states = {ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED}
             uptime_1h = self._calc_uptime(transitions_1h, window_1h, now, good_states)
-            uptime_24h = self._calc_uptime(transitions_24h, window_24h, now, good_states)
+            uptime_24h = self._calc_uptime(
+                transitions_24h, window_24h, now, good_states
+            )
 
             # Last transition
             last_ts = None
@@ -217,6 +233,7 @@ class ConnectionMetrics:
 
 
 # ── Connection Manager ────────────────────────────────────────────────────────
+
 
 class ConnectionManager:
     """Owns both cTrader connections and provides unified health view.
@@ -285,7 +302,10 @@ class ConnectionManager:
         """
         self._stop_event.set()
         if self._metrics_thread is not None:
-            if self._metrics_thread.is_alive() and self._metrics_thread is not threading.current_thread():
+            if (
+                self._metrics_thread.is_alive()
+                and self._metrics_thread is not threading.current_thread()
+            ):
                 self._metrics_thread.join(timeout=2.0)
             self._metrics_thread = None
         logger.info("[ConnectionManager] Stopped")
@@ -311,7 +331,9 @@ class ConnectionManager:
 
         # Subscribe to state changes
         state_manager.on_state_change(
-            lambda old, new, reason, meta, r=role: self._on_state_change(r, old, new, reason)
+            lambda old, new, reason, meta, r=role: self._on_state_change(
+                r, old, new, reason
+            )
         )
         logger.info("[ConnectionManager] Registered %s connection", role.value)
 
@@ -389,8 +411,12 @@ class ConnectionManager:
             market_metrics = self._metrics.get(ConnectionRole.MARKET_DATA)
             trade_metrics = self._metrics.get(ConnectionRole.TRADE_EXECUTION)
 
-        market_health = ConnectionHealth(role=ConnectionRole.MARKET_DATA, state=ConnectionState.DISCONNECTED)
-        trade_health = ConnectionHealth(role=ConnectionRole.TRADE_EXECUTION, state=ConnectionState.DISCONNECTED)
+        market_health = ConnectionHealth(
+            role=ConnectionRole.MARKET_DATA, state=ConnectionState.DISCONNECTED
+        )
+        trade_health = ConnectionHealth(
+            role=ConnectionRole.TRADE_EXECUTION, state=ConnectionState.DISCONNECTED
+        )
 
         if market_mgr and market_metrics:
             market_health = market_metrics.get_health(market_mgr)
@@ -431,12 +457,18 @@ class ConnectionManager:
         if new_state in (ConnectionState.FAILED, ConnectionState.RECONNECTING):
             logger.warning(
                 "[ConnectionManager] %s: %s → %s (reason: %s)",
-                role.value, old_state.value, new_state.value, reason,
+                role.value,
+                old_state.value,
+                new_state.value,
+                reason,
             )
         elif old_state != new_state:
             logger.info(
                 "[ConnectionManager] %s: %s → %s (reason: %s)",
-                role.value, old_state.value, new_state.value, reason,
+                role.value,
+                old_state.value,
+                new_state.value,
+                reason,
             )
 
         # Fire callbacks
@@ -509,7 +541,7 @@ class ConnectionManager:
 
     # ─── Decision context ──────────────────────────────────────────────────────
 
-    def get_decision_context(self) -> 'ConnectionStateSnapshot':
+    def get_decision_context(self) -> "ConnectionStateSnapshot":
         """Get current connection state for embedding in trading decisions.
 
         Called by the trading engine before every decision.
@@ -518,7 +550,9 @@ class ConnectionManager:
         with self._lock:
             market_mgr = self._connections.get(ConnectionRole.MARKET_DATA)
             trade_mgr = self._connections.get(ConnectionRole.TRADE_EXECUTION)
-            market_state = market_mgr.state if market_mgr else ConnectionState.DISCONNECTED
+            market_state = (
+                market_mgr.state if market_mgr else ConnectionState.DISCONNECTED
+            )
             trade_state = trade_mgr.state if trade_mgr else ConnectionState.DISCONNECTED
             fully_op = self.is_fully_operational
             tradeable = self.is_tradeable
@@ -639,7 +673,7 @@ class ConnectionManager:
         oauth_logger = logging.getLogger("ayumi.connection.oauth")
 
         if self._cred_store is None:
-            self._cred_store = CredentialStore('.env')
+            self._cred_store = CredentialStore(".env")
         if self._token_lifecycle is None:
             self._token_lifecycle = TokenLifecycle(self._cred_store)
 
@@ -742,8 +776,7 @@ class ConnectionManager:
         """
         if self._consecutive_auth_failures > 0:
             logger.info(
-                "[ConnectionManager] Auth success — resetting failure counter "
-                "(was %d)",
+                "[ConnectionManager] Auth success — resetting failure counter (was %d)",
                 self._consecutive_auth_failures,
             )
         self._consecutive_auth_failures = 0

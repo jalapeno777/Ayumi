@@ -124,9 +124,7 @@ class OrderGateway:
             # Send via reactor bridge
             self._session.send(req, client_msg_id, timeout=_ORDER_TIMEOUT)
         except Exception as exc:
-            logger.error(
-                "Order send failed (msg_id=%s): %s", client_msg_id, exc
-            )
+            logger.error("Order send failed (msg_id=%s): %s", client_msg_id, exc)
             self._event_handler.cleanup_pending(client_msg_id)
             return OrderResult(
                 status=OrderStatus.REJECTED,
@@ -159,9 +157,7 @@ class OrderGateway:
 
         if result is None:
             # Event fired but no result — treat as rejection
-            logger.error(
-                "Event fired but no result (msg_id=%s)", client_msg_id
-            )
+            logger.error("Event fired but no result (msg_id=%s)", client_msg_id)
             return OrderResult(
                 status=OrderStatus.REJECTED,
                 error_code="NO_RESULT",
@@ -249,7 +245,9 @@ class OrderGateway:
             logger.warning("Amend position timed out (position_id=%d)", position_id)
             return False
 
-        logger.info("Position amended (position_id=%d, sl=%s, tp=%s)", position_id, sl, tp)
+        logger.info(
+            "Position amended (position_id=%d, sl=%s, tp=%s)", position_id, sl, tp
+        )
         return True
 
     # ── Close position ─────────────────────────────────────────────────────

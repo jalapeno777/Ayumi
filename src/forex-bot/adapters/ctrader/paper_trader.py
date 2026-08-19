@@ -6,7 +6,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
 from .kill_switch import KillSwitchManager
-from .models import Order, Position, PositionStatus, CTraderTradeSignal, TradeDirection
+from .models import Order, Position, CTraderTradeSignal, TradeDirection
 from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
 from .risk_guard import FTMOConfig, RiskGuard
 
@@ -62,7 +62,8 @@ class PaperTrader:
         )
         self._order_manager = OrderManager(self._position_config, api_client=api_client)
         self._risk_guard = RiskGuard(
-            self._ftmo_config, starting_balance,
+            self._ftmo_config,
+            starting_balance,
             state_path=state_path or "data/state/risk_guard_state.json",
         )
         self._starting_balance = starting_balance
@@ -140,7 +141,10 @@ class PaperTrader:
 
             # Kill switch second gate — blocks order execution even if signal passed evaluation
             if self._kill_switch.is_globally_killed():
-                logger.warning("Order blocked by kill switch: %s", self._kill_switch.get_status().get('reason', 'active'))
+                logger.warning(
+                    "Order blocked by kill switch: %s",
+                    self._kill_switch.get_status().get("reason", "active"),
+                )
                 return PaperTradeResult(
                     success=False,
                     signal=signal,
@@ -181,7 +185,11 @@ class PaperTrader:
                 # write the matching outcome row.
                 try:
                     recorder = self._get_stats_recorder()
-                    position_id = position.position_id if position else (trade_result.order.order_id if trade_result.order else "")
+                    position_id = (
+                        position.position_id
+                        if position
+                        else (trade_result.order.order_id if trade_result.order else "")
+                    )
                     signal_id = position_id or signal.strategy_id or ""
                     if position_id and signal_id:
                         self._position_signal_id[position_id] = signal_id
@@ -189,12 +197,18 @@ class PaperTrader:
                         recorder.record_signal(
                             SignalRecord(
                                 signal_id=signal_id,
-                                timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
+                                timestamp=signal.timestamp.isoformat()
+                                if signal.timestamp
+                                else "",
                                 strategy=signal.strategy_id or "unknown",
                                 symbol=signal.symbol,
-                                direction="BUY" if signal.direction == TradeDirection.LONG else "SELL",
+                                direction="BUY"
+                                if signal.direction == TradeDirection.LONG
+                                else "SELL",
                                 confidence=float(signal.confidence),
-                                rationale_tags=[signal.rationale] if signal.rationale else [],
+                                rationale_tags=[signal.rationale]
+                                if signal.rationale
+                                else [],
                                 confluence_score=0.0,
                                 lots=float(volume),
                                 entry_price=float(signal.entry_price),
@@ -203,14 +217,18 @@ class PaperTrader:
                             )
                         )
                 except Exception as _stats_exc:  # noqa: BLE001
-                    logger.warning("Signal-stats record_signal failed (non-fatal): %s", _stats_exc)
+                    logger.warning(
+                        "Signal-stats record_signal failed (non-fatal): %s", _stats_exc
+                    )
                 self._trigger_callback("on_trade_executed", result)
             else:
                 self._stats.trades_rejected += 1
                 result = PaperTradeResult(
                     success=False,
                     signal=signal,
-                    rejection_reason=trade_result.rejection_reason or trade_result.error_message or "Order execution failed",
+                    rejection_reason=trade_result.rejection_reason
+                    or trade_result.error_message
+                    or "Order execution failed",
                     risk_guard_result=risk_result,
                 )
                 logger.warning(
@@ -277,16 +295,79 @@ class PaperTrader:
         asks = asks or {}
         with self._lock:
             total_unrealized = 0.0
-            for position in self._order_manager.get_open_positions():
+            # Snapshot open positions before updating — update_position may
+            # close some of them via SL/TP, and we need to detect that.
+            open_positions = self._order_manager.get_open_positions()
+            for position in open_positions:
                 if position.symbol in prices:
                     current_price = prices[position.symbol]
+                    # Derive bid/ask from mid price when the caller doesn't
+                    # supply them.  This ensures _check_stop_loss_hit and
+                    # _check_take_profit_hit always receive usable data
+                    # instead of silently skipping (card 9310bdd0).
                     bid = bids.get(position.symbol, 0)
                     ask = asks.get(position.symbol, 0)
+                    if bid <= 0:
+                        bid = current_price
+                    if ask <= 0:
+                        ask = current_price
+
                     self._order_manager.update_position(
                         position.position_id, current_price, bid=bid, ask=ask
                     )
                     updated_pos = self._order_manager.get_position(position.position_id)
-                    if updated_pos:
+                    if updated_pos and updated_pos.status.is_closed:
+                        # Position was auto-closed by SL/TP inside
+                        # OrderManager.update_position.  Propagate the
+                        # realized P&L and risk-guard update that would
+                        # normally happen in PaperTrader.close_position().
+                        self._stats.realized_pnl += updated_pos.closed_pnl
+                        is_win = updated_pos.closed_pnl > 0
+                        self._risk_guard.record_trade(updated_pos.closed_pnl, is_win)
+
+                        # Phase 0: signal-stats close record.
+                        try:
+                            signal_id = self._position_signal_id.pop(
+                                updated_pos.position_id, updated_pos.position_id
+                            )
+                            if signal_id:
+                                outcome = self._map_close_reason_to_outcome(
+                                    reason=getattr(updated_pos, "close_reason", "")
+                                    or "",
+                                    position_status=getattr(
+                                        updated_pos.status, "value", ""
+                                    ),
+                                    is_win=is_win,
+                                )
+                                opened_at = getattr(updated_pos, "opened_at", None)
+                                closed_at = (
+                                    getattr(updated_pos, "closed_at", None)
+                                    or datetime.utcnow()
+                                )
+                                time_to_close = 0
+                                if opened_at is not None:
+                                    time_to_close = max(
+                                        0,
+                                        int((closed_at - opened_at).total_seconds()),
+                                    )
+                                self._get_stats_recorder().record_outcome(
+                                    signal_id=signal_id,
+                                    outcome=outcome,
+                                    pips=float(updated_pos.closed_pnl),
+                                    time_to_close=time_to_close,
+                                )
+                        except Exception as _stats_exc:  # noqa: BLE001
+                            logger.warning(
+                                "Signal-stats record_outcome failed (non-fatal): %s",
+                                _stats_exc,
+                            )
+
+                        self._trigger_callback("on_position_closed", updated_pos)
+                        logger.info(
+                            f"[PAPER] Auto-closed: {updated_pos.symbol} "
+                            f"PnL: {updated_pos.closed_pnl:.2f}"
+                        )
+                    elif updated_pos:
                         total_unrealized += updated_pos.unrealized_pnl
 
             self._stats.unrealized_pnl = total_unrealized
@@ -338,7 +419,9 @@ class PaperTrader:
                         )
                         # Best-effort time-to-close calculation.
                         opened_at = getattr(position, "opened_at", None)
-                        closed_at = getattr(position, "closed_at", None) or datetime.utcnow()
+                        closed_at = (
+                            getattr(position, "closed_at", None) or datetime.utcnow()
+                        )
                         time_to_close = 0
                         if opened_at is not None:
                             time_to_close = max(

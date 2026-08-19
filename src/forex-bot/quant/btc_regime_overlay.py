@@ -12,6 +12,7 @@ Usage:
     regime = overlay.regime_at_timestamp(ts_ms)
     regime = overlay.regime_for_window(start_ms, end_ms)
 """
+
 from __future__ import annotations
 
 import json

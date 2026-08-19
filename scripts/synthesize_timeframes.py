@@ -39,6 +39,7 @@ Usage::
 Tests with the data that already exists in ``data/forex/historical/`` —
 no Dukascopy download required.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -160,14 +161,16 @@ def load_csv(path: Path) -> pd.DataFrame:
     except (ValueError, KeyError):
         df = pd.read_csv(path)
 
-    df = df.rename(columns={
-        ts_col: "timestamp",
-        "Open": "open",
-        "High": "high",
-        "Low": "low",
-        "Close": "close",
-        "Volume": "volume",
-    })
+    df = df.rename(
+        columns={
+            ts_col: "timestamp",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
+        }
+    )
     if "timestamp" not in df.columns:
         df = df.rename(columns={df.columns[0]: "timestamp"})
 
@@ -184,7 +187,9 @@ def load_csv(path: Path) -> pd.DataFrame:
     for col in ("open", "high", "low", "close"):
         df[col] = pd.to_numeric(df[col], errors="coerce")
     if "volume" in df.columns:
-        df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
+        df["volume"] = (
+            pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
+        )
     else:
         df["volume"] = 0
 
@@ -213,13 +218,15 @@ def resample(df: pd.DataFrame, source_tf: str, target_tf: str) -> pd.DataFrame:
     """
     freq = TF_FREQ[target_tf]
     indexed = df.set_index("timestamp")
-    agg = indexed.resample(freq).agg({
-        "open": "first",
-        "high": "max",
-        "low": "min",
-        "close": "last",
-        "volume": "sum",
-    })
+    agg = indexed.resample(freq).agg(
+        {
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum",
+        }
+    )
     # Empty buckets have NaN open (no "first" value) — drop them.
     return agg.dropna(subset=["open"]).reset_index()
 
@@ -233,14 +240,16 @@ def write_csv(df: pd.DataFrame, path: Path) -> None:
         w = csv.writer(f)
         w.writerow(["timestamp", "open", "high", "low", "close", "volume"])
         for ts, o, h, low_val, c, v in df.itertuples(index=False, name=None):
-            w.writerow([
-                pd.Timestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                f"{o:.5f}",
-                f"{h:.5f}",
-                f"{low_val:.5f}",
-                f"{c:.5f}",
-                int(v),
-            ])
+            w.writerow(
+                [
+                    pd.Timestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    f"{o:.5f}",
+                    f"{h:.5f}",
+                    f"{low_val:.5f}",
+                    f"{c:.5f}",
+                    int(v),
+                ]
+            )
 
 
 # -----------------------------------------------------------------------------
@@ -272,21 +281,25 @@ def import_to_duckdb(
     # `tz_convert(None)` would give a tz-naive timestamp in UTC; explicit
     # `.tz_localize(None)` after UTC conversion avoids pandas' strict-mode
     # complaint about converting from a tz-aware to tz-naive dtype.
-    ts_naive_ns = ts_utc.dt.tz_convert("UTC").dt.tz_localize(None).astype("datetime64[ns]")
+    ts_naive_ns = (
+        ts_utc.dt.tz_convert("UTC").dt.tz_localize(None).astype("datetime64[ns]")
+    )
     seconds_int64 = (ts_naive_ns.astype("int64") // 1_000_000_000).astype("int64")
     is_holdout = pd.DatetimeIndex(ts_naive_ns).year >= 2023
-    out = pd.DataFrame({
-        "timestamp_utc": seconds_int64,
-        "symbol": pair,
-        "timeframe": target_tf,
-        "open": df["open"].astype("float64"),
-        "high": df["high"].astype("float64"),
-        "low": df["low"].astype("float64"),
-        "close": df["close"].astype("float64"),
-        "volume": df["volume"].astype("int64"),
-        "spread_pips": 0.0,
-        "is_holdout": is_holdout,
-    })
+    out = pd.DataFrame(
+        {
+            "timestamp_utc": seconds_int64,
+            "symbol": pair,
+            "timeframe": target_tf,
+            "open": df["open"].astype("float64"),
+            "high": df["high"].astype("float64"),
+            "low": df["low"].astype("float64"),
+            "close": df["close"].astype("float64"),
+            "volume": df["volume"].astype("int64"),
+            "spread_pips": 0.0,
+            "is_holdout": is_holdout,
+        }
+    )
 
     con = duckdb.connect(str(db_path))
     try:
@@ -391,13 +404,18 @@ def synthesise_pair(
     if not feasible:
         log.warning(
             "[%s] source tf=%s cannot synthesize any of %s; skipping",
-            csv_path.name, source_tf, targets,
+            csv_path.name,
+            source_tf,
+            targets,
         )
         return []
 
     log.info(
         "[%s] source tf=%s rows=%d  targets=%s",
-        pair, source_tf, len(df), feasible,
+        pair,
+        source_tf,
+        len(df),
+        feasible,
     )
 
     results: list[SynthResult] = []
@@ -424,51 +442,67 @@ def synthesise_pair(
             except Exception as e:
                 log.error("  -> %s duckdb import failed: %s", tgt, e)
 
-        results.append(SynthResult(
-            pair=pair,
-            source_tf=source_tf,
-            target_tf=tgt,
-            source_rows=len(df),
-            target_rows=len(synth),
-            csv_path=out_path,
-            db_rows_inserted=n_db,
-        ))
+        results.append(
+            SynthResult(
+                pair=pair,
+                source_tf=source_tf,
+                target_tf=tgt,
+                source_rows=len(df),
+                target_rows=len(synth),
+                csv_path=out_path,
+                db_rows_inserted=n_db,
+            )
+        )
         log.info(
             "  -> %s: %d bars  csv=%s  db+=%d",
-            tgt, len(synth), out_path.name if do_write_csv else "(skipped)", n_db,
+            tgt,
+            len(synth),
+            out_path.name if do_write_csv else "(skipped)",
+            n_db,
         )
 
     return results
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
-        "--source-dir", default=str(DEFAULT_SOURCE_DIR),
+        "--source-dir",
+        default=str(DEFAULT_SOURCE_DIR),
         help="Where to read source CSVs from (default: %(default)s)",
     )
     parser.add_argument(
-        "--out-dir", default=str(DEFAULT_OUTPUT_DIR),
+        "--out-dir",
+        default=str(DEFAULT_OUTPUT_DIR),
         help="Where to write synthesised CSVs (default: %(default)s)",
     )
     parser.add_argument(
-        "--pairs", nargs="*", default=[],
+        "--pairs",
+        nargs="*",
+        default=[],
         help="Restrict to these pairs (e.g. EURUSD XAUUSD). Default: all pairs.",
     )
     parser.add_argument(
-        "--targets", nargs="*", default=list(ALL_TARGETS),
+        "--targets",
+        nargs="*",
+        default=list(ALL_TARGETS),
         help=f"Target timeframes to produce (default: {' '.join(ALL_TARGETS)})",
     )
     parser.add_argument(
-        "--duckdb", action="store_true",
+        "--duckdb",
+        action="store_true",
         help="Also import synthesised bars into the market DuckDB.",
     )
     parser.add_argument(
-        "--db-path", default=str(DEFAULT_DB_PATH),
+        "--db-path",
+        default=str(DEFAULT_DB_PATH),
         help="DuckDB path (default: %(default)s)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Skip both CSV writes and DuckDB imports (report only).",
     )
     args = parser.parse_args(argv)
@@ -490,7 +524,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.duckdb and not args.dry_run:
         db_path = Path(args.db_path)
         if not db_path.exists():
-            log.error("DuckDB not found at %s; rerun without --duckdb or migrate first.", db_path)
+            log.error(
+                "DuckDB not found at %s; rerun without --duckdb or migrate first.",
+                db_path,
+            )
             return 2
 
     all_results: list[SynthResult] = []
@@ -509,13 +546,21 @@ def main(argv: list[str] | None = None) -> int:
                 except Exception as e:
                     log.error("  -> %s resample failed: %s", tgt, e)
                     continue
-                all_results.append(SynthResult(
-                    pair=pair, source_tf=tf, target_tf=tgt,
-                    source_rows=len(df), target_rows=len(synth),
-                ))
+                all_results.append(
+                    SynthResult(
+                        pair=pair,
+                        source_tf=tf,
+                        target_tf=tgt,
+                        source_rows=len(df),
+                        target_rows=len(synth),
+                    )
+                )
                 log.info(
                     "  [dry] %s -> %s: %d bars (from %d source rows)",
-                    pair, tgt, len(synth), len(df),
+                    pair,
+                    tgt,
+                    len(synth),
+                    len(df),
                 )
             continue
         all_results.extend(
@@ -532,7 +577,10 @@ def main(argv: list[str] | None = None) -> int:
         avg = sum(r.target_rows for r in rows) // max(1, len(rows))
         log.info(
             "  %s: %d pair(s), avg %d bars/pair (db_inserted=%d)",
-            tf, len(rows), avg, sum(r.db_rows_inserted for r in rows),
+            tf,
+            len(rows),
+            avg,
+            sum(r.db_rows_inserted for r in rows),
         )
 
     return 0

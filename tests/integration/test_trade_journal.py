@@ -1,8 +1,6 @@
 import os
-import pytest
-from datetime import datetime, timezone
 from adapters.ctrader.models import Order, Position, PositionStatus, TradeDirection
-from adapters.ctrader.trade_journal import TradeJournal, JournalEntry
+from adapters.ctrader.trade_journal import TradeJournal
 
 
 def _make_order(symbol="GBPUSD", direction=TradeDirection.LONG):

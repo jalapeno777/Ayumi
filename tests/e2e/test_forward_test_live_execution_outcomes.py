@@ -11,7 +11,6 @@ classifier function which is the heart of the fix.
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -49,8 +48,9 @@ def _make_signal(symbol: str = "EURUSD") -> CTraderTradeSignal:
     )
 
 
-def _make_order(*, status: OrderStatus, reason: str | None = None,
-                order_id: str = "ord_test") -> Order:
+def _make_order(
+    *, status: OrderStatus, reason: str | None = None, order_id: str = "ord_test"
+) -> Order:
     o = Order(
         order_id=order_id,
         symbol="EURUSD",
@@ -68,6 +68,7 @@ def _make_order(*, status: OrderStatus, reason: str | None = None,
 def engine(tmp_path):
     """Build a forward test engine without calling start(), with isolated kill switch state."""
     from adapters.ctrader.kill_switch import KillSwitchManager
+
     isolated_dir = tmp_path / "kill_switches"
     isolated_dir.mkdir(parents=True, exist_ok=True)
     cfg = ForwardTestConfig(live_mode=True)
@@ -104,7 +105,9 @@ class TestExecuteSignalLiveOutcomes:
         outcome = engine._classify_live_order_outcome(order, sig, "test_strategy")
         assert outcome.status is LiveExecutionStatus.SENT
 
-    def test_returns_timeout_outcome_when_reason_is_timeout_awaiting_event(self, engine):
+    def test_returns_timeout_outcome_when_reason_is_timeout_awaiting_event(
+        self, engine
+    ):
         """If Order.reason == 'timeout_awaiting_event', outcome.terminal_status == TIMEOUT."""
         order = _make_order(status=OrderStatus.PENDING, reason="timeout_awaiting_event")
         sig = _make_signal()
@@ -175,8 +178,9 @@ class TestExecuteSignalLiveOutcomes:
 
     def test_outcome_carries_order_for_logging(self, engine):
         """Outcome.order is the Order object, so the caller can log it."""
-        order = _make_order(status=OrderStatus.FILLED, reason="order_filled",
-                            order_id="ord_carry_test")
+        order = _make_order(
+            status=OrderStatus.FILLED, reason="order_filled", order_id="ord_carry_test"
+        )
         sig = _make_signal()
         outcome = engine._classify_live_order_outcome(order, sig, "test_strategy")
         assert outcome.order is order
@@ -229,7 +233,8 @@ class TestLateFillCallbacks:
 
         # Pull out the on_order_filled callback the engine just registered
         filled_calls = [
-            c for c in feed.register_callback.call_args_list
+            c
+            for c in feed.register_callback.call_args_list
             if c.args[0] == "on_order_filled"
         ]
         assert len(filled_calls) == 1
@@ -252,7 +257,8 @@ class TestLateFillCallbacks:
             engine._register_late_fill_callbacks(order, sig, "test_strategy")
 
         rejected_calls = [
-            c for c in feed.register_callback.call_args_list
+            c
+            for c in feed.register_callback.call_args_list
             if c.args[0] == "on_order_rejected"
         ]
         cb = rejected_calls[0].args[1]
@@ -271,7 +277,8 @@ class TestLateFillCallbacks:
             engine._register_late_fill_callbacks(order, sig, "test_strategy")
 
         cancelled_calls = [
-            c for c in feed.register_callback.call_args_list
+            c
+            for c in feed.register_callback.call_args_list
             if c.args[0] == "on_order_cancelled"
         ]
         cb = cancelled_calls[0].args[1]
@@ -301,4 +308,7 @@ class TestCANCELLEDOutcome:
         # reporting cancellation via a deferred error path — we classify
         # by status first, so this stays SENT.  The order will fire a
         # late-fill callback to upgrade it.
-        assert outcome.status in (LiveExecutionStatus.SENT, LiveExecutionStatus.CANCELLED)
+        assert outcome.status in (
+            LiveExecutionStatus.SENT,
+            LiveExecutionStatus.CANCELLED,
+        )

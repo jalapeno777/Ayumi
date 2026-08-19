@@ -507,7 +507,9 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Regime Router parameter sweep")
     add_resource_args(parser)
-    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
+    parser.add_argument(
+        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
+    )
     args = parser.parse_args()
 
     config = RegimeRouterSweepConfig(
@@ -540,4 +542,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

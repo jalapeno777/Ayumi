@@ -7,7 +7,6 @@ Usage: PYTHONPATH=src python tests/regression/generate_golden.py
 from __future__ import annotations
 
 import pickle
-from pathlib import Path
 
 import numpy as np
 import pandas as pd

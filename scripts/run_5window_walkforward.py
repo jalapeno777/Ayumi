@@ -29,7 +29,9 @@ from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="5-window walk-forward evaluation (ICT/SMC hybrid)")
+    parser = argparse.ArgumentParser(
+        description="5-window walk-forward evaluation (ICT/SMC hybrid)"
+    )
     add_resource_args(parser)
     args = parser.parse_args()
 
@@ -110,4 +112,5 @@ if __name__ == "__main__":
     @run_limited(cpu_percent=_known.max_cpu, memory_mb=_known.max_memory_mb)
     def _run():
         main()
+
     _run()

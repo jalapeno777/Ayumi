@@ -1,10 +1,10 @@
 """BQ-508: Regime labels on walk-forward windows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import pytest
 
 from quant.walk_forward import (
     WindowMetrics,
@@ -16,9 +16,11 @@ from quant.walk_forward import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeBar:
     """Minimal Bar-like object for testing."""
+
     time: datetime
     open: float
     high: float
@@ -45,7 +47,9 @@ def _make_bar(
     )
 
 
-def _make_bars(n: int, start_price: float = 1.1000, trend: float = 0.0) -> list[FakeBar]:
+def _make_bars(
+    n: int, start_price: float = 1.1000, trend: float = 0.0
+) -> list[FakeBar]:
     """Generate n fake bars with optional trend."""
     bars = []
     price = start_price
@@ -58,6 +62,7 @@ def _make_bars(n: int, start_price: float = 1.1000, trend: float = 0.0) -> list[
 # ---------------------------------------------------------------------------
 # Tests: WindowMetrics regime fields
 # ---------------------------------------------------------------------------
+
 
 class TestWindowMetricsRegimeFields:
     def test_default_regime_values(self):
@@ -104,6 +109,7 @@ class TestWindowMetricsRegimeFields:
 # Tests: detect_regime_for_window
 # ---------------------------------------------------------------------------
 
+
 class TestDetectRegimeForWindow:
     def test_short_window_returns_defaults(self):
         """<14 bars → all defaults (council amendment K-3)."""
@@ -130,10 +136,17 @@ class TestDetectRegimeForWindow:
         result = detect_regime_for_window(bars)
         assert result["regime_volatility"] in {"low", "normal", "high", "extreme"}
         assert result["regime_trend"] in {
-            "trending", "trending_up", "trending_down", "ranging", "neutral",
+            "trending",
+            "trending_up",
+            "trending_down",
+            "ranging",
+            "neutral",
         }
         assert result["regime_session"] in {
-            "asian", "london", "new_york", "off_hours",
+            "asian",
+            "london",
+            "new_york",
+            "off_hours",
         }
         assert len(result["regime_combined"]) > 0
         assert 0.0 <= result["regime_quality"] <= 1.0
@@ -166,6 +179,7 @@ class TestDetectRegimeForWindow:
 # ---------------------------------------------------------------------------
 # Tests: Regime labels in walk-forward output
 # ---------------------------------------------------------------------------
+
 
 class TestRegimeInWalkForwardOutput:
     def test_window_metrics_in_results(self):

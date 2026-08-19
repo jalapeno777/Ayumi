@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from srf.param_stability import (
-    StabilityResult,
     coefficient_of_variation,
     plateau_detection,
     neighbor_robustness,
@@ -111,7 +110,7 @@ class TestGenerateHeatmap:
         best = {"x": 10.0, "y": 5.0}
 
         def eval_fn(params):
-            return -(params["x"] - 10) ** 2 - (params["y"] - 5) ** 2
+            return -((params["x"] - 10) ** 2) - (params["y"] - 5) ** 2
 
         hm = generate_heatmap(eval_fn, best)
         assert hm.shape == (5, 2)  # 5 perturbations × 2 params

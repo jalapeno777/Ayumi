@@ -16,11 +16,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-import sys
 import duckdb
 
 # Flush stdout immediately so we see output in real-time
 import functools
+
 print = functools.partial(print, flush=True)
 
 # ---------------------------------------------------------------------------
@@ -39,9 +39,9 @@ _UTC = timezone.utc
 SYMBOL_INFO = {
     "EURUSD": {"pip_value": 0.0001, "description": "Euro / US Dollar"},
     "GBPUSD": {"pip_value": 0.0001, "description": "British Pound / US Dollar"},
-    "USDJPY": {"pip_value": 0.01,   "description": "US Dollar / Japanese Yen"},
-    "GBPJPY": {"pip_value": 0.01,   "description": "British Pound / Japanese Yen"},
-    "XAUUSD": {"pip_value": 0.01,   "description": "Gold / US Dollar"},
+    "USDJPY": {"pip_value": 0.01, "description": "US Dollar / Japanese Yen"},
+    "GBPJPY": {"pip_value": 0.01, "description": "British Pound / Japanese Yen"},
+    "XAUUSD": {"pip_value": 0.01, "description": "Gold / US Dollar"},
     "USDCAD": {"pip_value": 0.0001, "description": "US Dollar / Canadian Dollar"},
     "USDCHF": {"pip_value": 0.0001, "description": "US Dollar / Swiss Franc"},
 }
@@ -57,6 +57,7 @@ FILENAME_RE = re.compile(r"^([A-Z]+)_(M\d+|H\d+|D\d+)(?:_\w+)?\.csv$")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def parse_filename(filename: str):
     """Extract symbol and timeframe from CSV filename."""
     m = FILENAME_RE.match(filename)
@@ -70,7 +71,7 @@ def csv_to_utc_epoch(date_str: str) -> int:
     Handles strings with optional timezone suffixes (e.g. '+00:00').
     """
     # Strip timezone suffix if present (DuckDB may add it when casting to VARCHAR)
-    date_str = str(date_str).split('+')[0].rstrip()
+    date_str = str(date_str).split("+")[0].rstrip()
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
             dt = datetime.strptime(date_str, fmt)
@@ -84,6 +85,7 @@ def csv_to_utc_epoch(date_str: str) -> int:
 # ---------------------------------------------------------------------------
 # Schema
 # ---------------------------------------------------------------------------
+
 
 def create_schema(con):
     """Create DuckDB tables and indexes."""
@@ -119,7 +121,9 @@ def create_schema(con):
     """)
     con.execute("CREATE INDEX IF NOT EXISTS idx_bars_sym_tf ON bars(symbol, timeframe)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_bars_ts ON bars(timestamp_utc)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_bars_sym_tf_ts ON bars(symbol, timeframe, timestamp_utc)")
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_bars_sym_tf_ts ON bars(symbol, timeframe, timestamp_utc)"
+    )
 
 
 def populate_symbols(con):
@@ -214,6 +218,7 @@ def import_bar_csv_sql(con, csv_path: Path, symbol: str, timeframe: str) -> dict
 # Parity Checks
 # ---------------------------------------------------------------------------
 
+
 def check_row_count_parity(csv_results: list) -> list:
     """Row count parity per file (delta-based for shared symbol/timeframe)."""
     return [
@@ -245,17 +250,19 @@ def check_random_sample_diff(con, csv_results: list, n: int = 10) -> list:
             USING SAMPLE 1
         """).fetchone()
         if row:
-            candidates.append({
-                "file": r["file"],
-                "symbol": r["symbol"],
-                "timeframe": r["timeframe"],
-                "date_str": str(row[0]),
-                "csv_open": float(row[1]),
-                "csv_high": float(row[2]),
-                "csv_low":  float(row[3]),
-                "csv_close": float(row[4]),
-                "csv_volume": int(row[5]),
-            })
+            candidates.append(
+                {
+                    "file": r["file"],
+                    "symbol": r["symbol"],
+                    "timeframe": r["timeframe"],
+                    "date_str": str(row[0]),
+                    "csv_open": float(row[1]),
+                    "csv_high": float(row[2]),
+                    "csv_low": float(row[3]),
+                    "csv_close": float(row[4]),
+                    "csv_volume": int(row[5]),
+                }
+            )
 
     samples = random.sample(candidates, min(n, len(candidates)))
     results = []
@@ -271,28 +278,45 @@ def check_random_sample_diff(con, csv_results: list, n: int = 10) -> list:
         if db_rows:
             # Check if ANY matching row has the same values (handles duplicate timestamps from variant files)
             match = any(
-                abs(s["csv_open"]   - r[0]) < 1e-10 and
-                abs(s["csv_high"]   - r[1]) < 1e-10 and
-                abs(s["csv_low"]    - r[2]) < 1e-10 and
-                abs(s["csv_close"]  - r[3]) < 1e-10 and
-                s["csv_volume"]     == r[4]
+                abs(s["csv_open"] - r[0]) < 1e-10
+                and abs(s["csv_high"] - r[1]) < 1e-10
+                and abs(s["csv_low"] - r[2]) < 1e-10
+                and abs(s["csv_close"] - r[3]) < 1e-10
+                and s["csv_volume"] == r[4]
                 for r in db_rows
             )
             # Report the first row for debugging
             r0 = db_rows[0]
-            db_vals = {"open": r0[0], "high": r0[1], "low": r0[2],
-                       "close": r0[3], "volume": r0[4], "matches_found": len(db_rows)}
+            db_vals = {
+                "open": r0[0],
+                "high": r0[1],
+                "low": r0[2],
+                "close": r0[3],
+                "volume": r0[4],
+                "matches_found": len(db_rows),
+            }
         else:
             match = False
             db_vals = None
 
-        results.append({
-            "file": s["file"],
-            "date": s["date_str"],
-            "csv_values": {k: s[k] for k in ("csv_open", "csv_high", "csv_low", "csv_close", "csv_volume")},
-            "db_values": db_vals,
-            "match": match,
-        })
+        results.append(
+            {
+                "file": s["file"],
+                "date": s["date_str"],
+                "csv_values": {
+                    k: s[k]
+                    for k in (
+                        "csv_open",
+                        "csv_high",
+                        "csv_low",
+                        "csv_close",
+                        "csv_volume",
+                    )
+                },
+                "db_values": db_vals,
+                "match": match,
+            }
+        )
 
     return results
 
@@ -331,17 +355,19 @@ def check_dst_boundaries(con) -> list:
             [ts_utc - 3600, ts_utc + 3600, ts_utc],
         ).fetchall()
 
-        results.append({
-            "label": label,
-            "csv_date_eastern": date_str,
-            "utc_epoch": ts_utc,
-            "utc_readable": utc_dt.strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "expected_utc_hour": expected_utc_hour,
-            "actual_utc_hour": actual_utc_hour,
-            "hour_match": actual_utc_hour == expected_utc_hour,
-            "nearest_bars_found": len(nearest),
-            "nearest_samples": [list(r) for r in nearest[:3]] if nearest else None,
-        })
+        results.append(
+            {
+                "label": label,
+                "csv_date_eastern": date_str,
+                "utc_epoch": ts_utc,
+                "utc_readable": utc_dt.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "expected_utc_hour": expected_utc_hour,
+                "actual_utc_hour": actual_utc_hour,
+                "hour_match": actual_utc_hour == expected_utc_hour,
+                "nearest_bars_found": len(nearest),
+                "nearest_samples": [list(r) for r in nearest[:3]] if nearest else None,
+            }
+        )
 
     return results
 
@@ -366,6 +392,7 @@ def check_spread_pips(con) -> dict:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     print("=" * 72)
@@ -407,7 +434,9 @@ def main():
         else:
             skipped.append(p.name)
 
-    print(f"    Found {len(bar_files)} bar data CSVs ({len(skipped)} skipped: {', '.join(skipped)})")
+    print(
+        f"    Found {len(bar_files)} bar data CSVs ({len(skipped)} skipped: {', '.join(skipped)})"
+    )
 
     csv_results = []
     total_rows = 0
@@ -419,7 +448,9 @@ def main():
         elapsed = time.perf_counter() - t0
         total_rows += result["csv_rows"]
         status = "✅" if result["parity"] else "❌"
-        print(f"    {status} {result['file']:40s} {result['csv_rows']:>8,} rows  ({elapsed:.2f}s)")
+        print(
+            f"    {status} {result['file']:40s} {result['csv_rows']:>8,} rows  ({elapsed:.2f}s)"
+        )
         csv_results.append(result)
 
     t_total = time.perf_counter() - t_start
@@ -431,29 +462,39 @@ def main():
     # 4a: Row count parity
     rc_results = check_row_count_parity(csv_results)
     rc_all = all(r["match"] for r in rc_results)
-    print(f"    Row count parity: {'✅ ALL MATCH' if rc_all else '❌ MISMATCH'} ({len(rc_results)} files)")
+    print(
+        f"    Row count parity: {'✅ ALL MATCH' if rc_all else '❌ MISMATCH'} ({len(rc_results)} files)"
+    )
 
     # 4b: Random sample diff (10 samples)
     rs_results = check_random_sample_diff(con, csv_results, n=10)
     rs_all = all(r["match"] for r in rs_results)
-    print(f"    Random sample diff: {'✅ ALL MATCH' if rs_all else '❌ MISMATCH'} ({len(rs_results)} samples)")
+    print(
+        f"    Random sample diff: {'✅ ALL MATCH' if rs_all else '❌ MISMATCH'} ({len(rs_results)} samples)"
+    )
     if not rs_all:
         for r in rs_results:
             if not r["match"]:
-                print(f"      ❌ {r['file']} @ {r['date']}: csv={r['csv_values']} db={r['db_values']}")
+                print(
+                    f"      ❌ {r['file']} @ {r['date']}: csv={r['csv_values']} db={r['db_values']}"
+                )
 
     # 4c: DST boundary spot-check
     dst_results = check_dst_boundaries(con)
     print(f"    DST boundary checks ({len(dst_results)} dates):")
     for d in dst_results:
         hour_ok = "✅" if d["hour_match"] else "❌"
-        print(f"      {hour_ok} {d['label']}: {d['csv_date_eastern']} → {d['utc_readable']} "
-              f"(UTC hour {d['actual_utc_hour']}, expected {d['expected_utc_hour']}) "
-              f"— {d['nearest_bars_found']} bars near")
+        print(
+            f"      {hour_ok} {d['label']}: {d['csv_date_eastern']} → {d['utc_readable']} "
+            f"(UTC hour {d['actual_utc_hour']}, expected {d['expected_utc_hour']}) "
+            f"— {d['nearest_bars_found']} bars near"
+        )
 
     # 4d: spread_pips check
     sp_result = check_spread_pips(con)
-    print(f"    spread_pips: {sp_result['zero_pips']:,} zero / {sp_result['nonzero_pips']} nonzero (expected all zero)")
+    print(
+        f"    spread_pips: {sp_result['zero_pips']:,} zero / {sp_result['nonzero_pips']} nonzero (expected all zero)"
+    )
 
     # --- Summary ---
     db_size_mb = DB_PATH.stat().st_size / 1024 / 1024

@@ -1,101 +1,192 @@
-"""Dual-timeframe Squeeze Pro strategy.
+"""Dual-Timeframe Squeeze Pro (research candidate B.2).
 
-Two-stage squeeze with HTF (H1) confirmation. M15 bars drive entry; H1
-context is maintained incrementally inside the strategy so the strategy can
-be evaluated bar-by-bar without O(N^2) re-aggregation.
+Two-stage squeeze strategy with H1 context determining *whether* to trade,
+and M15 driving the actual entry trigger. The strategy is fed M15 bars
+only; H1 bars are rebuilt incrementally inside the strategy so the engine
+does not need to be changed (the ``MarketState`` only exposes a single
+``bars`` list).
 
-Reference: docs/research/strategy-optimization-research.md §B.2.
+Reference: docs/research/strategy-optimization-research.md section B.2.
 
-Stage 1 (H1 context):
-  - H1 BB inside H1 KC  = squeeze active
-  - H1 EMA(50) slope    = trend direction
-  - H1 ADX              >= 18
+Stage 1 (H1 context — *whether* to trade)
+-----------------------------------------
+  - H1 BB(20, 2.0) inside H1 KC(20, ATR mult 1.5) → ``H1_SQUEEZE`` is True.
+  - H1 EMA(50) slope → ``H1_DIRECTION`` ∈ {-1, 0, +1}.
+  - H1 ADX(14) >= ``adx_min_h1`` (default 18.0).
 
-Stage 2 (M15 entry trigger):
-  - Squeeze active      -> M15 close breaks H1 KC boundary
-  - Squeeze not active  -> H1 trend direction + M15 close near H1 Keltner
-                            middle (pullback continuation)
+Stage 2 (M15 entry trigger — *when* to trade)
+---------------------------------------------
+  - If ``H1_SQUEEZE`` is active:
+        long when M15 close breaks H1 KC upper
+        short when M15 close breaks H1 KC lower
+  - Else (squeeze released):
+        pullback long/short when M15 close is within 0.5*ATR(M15) of the
+        H1 Keltner middle **and** aligned with ``H1_DIRECTION``.
 
-Confirmation:
-  - H1 ADX >= 18
-  - M15 RSI in [40, 60]
+Confirmation gates
+------------------
+  - H1 ADX >= ``adx_min_h1`` (mild trend — avoids the "no trend
+    confirmation" bug from ``volatility_squeeze.py``).
+  - M15 RSI(14) in ``[rsi_zone_min, rsi_zone_max]`` (default 40-60, i.e.
+    breakout territory, not overbought / oversold).
 
-Risk:
-  - Stop = opposite H1 Keltner band OR 1.5*ATR(M15), whichever is closer
-  - TP1/TP2/TP3 = 1R / 2R / 3R
-  - Time exit handled by backtest engine
+Risk
+----
+  - Stop = whichever is *closer* of: opposite H1 Keltner band, or
+    1.5 * ATR(M15) from entry.
+  - TP1 / TP2 / TP3 at 1R / 2R / 3R.
+  - Hard cap on SL distance in pips (default 50) prevents runaway
+    stops on gold flash events.
+  - ``time_exit_bars`` is the engine-level deadline
+    (``max_bars_to_tp1``); the framework's trade manager enforces it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import List, Optional, Tuple
 
+from backtest.strategies.isignal_strategy import ISignalStrategy
 from core.types import (
     Bar,
+    BarPeriod,
     MarketState,
     StrategySignal,
     TradeDirection,
 )
+from utils.pip_value import pip_value_for_symbol
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Indicator helpers
 # ---------------------------------------------------------------------------
 
 
 def _sma(values: List[float], period: int) -> float:
+    """Simple moving average over the most recent ``period`` values.
+
+    Returns 0.0 when ``len(values) < period`` (matches the legacy test
+    contract; the strategy's indicator code is robust to either return).
+    """
     if len(values) < period:
         return 0.0
     return sum(values[-period:]) / period
 
 
-def _ema(values: List[float], period: int) -> List[float]:
-    """Return full EMA series (same length as values)."""
+def _ema_last(values: List[float], period: int) -> Optional[float]:
+    """Last value of a standard EMA. Returns ``None`` if insufficient data."""
     if len(values) < period:
-        return [0.0] * len(values)
+        return None
     multiplier = 2.0 / (period + 1)
-    ema = [0.0] * len(values)
-    s = sum(values[:period]) / period
-    for i in range(period):
-        ema[i] = s
-    for i in range(period, len(values)):
-        ema[i] = (values[i] - ema[i - 1]) * multiplier + ema[i - 1]
+    ema = sum(values[:period]) / period
+    for v in values[period:]:
+        ema = (v - ema) * multiplier + ema
     return ema
 
 
-def _std(values: List[float], period: int) -> float:
+def _stddev(values: List[float], period: int) -> float:
+    """Population standard deviation over the most recent ``period`` values."""
     if len(values) < period:
         return 0.0
     subset = values[-period:]
     mean = sum(subset) / period
     var = sum((v - mean) ** 2 for v in subset) / period
-    return var ** 0.5
+    return var**0.5
 
 
-def _atr_from_true_ranges(trs: List[float], period: int) -> float:
-    if len(trs) < period:
-        return 0.0
-    atr = sum(trs[:period]) / period
-    for i in range(period, len(trs)):
-        atr = (atr * (period - 1) + trs[i]) / period
-    return atr
-
-
-def _true_range(bars: List[Bar]) -> float:
-    if len(bars) < 2:
-        return 0.0
-    b = bars[-1]
-    p = bars[-2]
+def _true_range_bar(bar: Bar, prev_close: Optional[float]) -> float:
+    """True range for a single bar (private helper used internally by
+    the strategy). The public ``_true_range`` takes a list of bars
+    (legacy contract for downstream tests)."""
+    if prev_close is None:
+        return bar.high - bar.low
     return max(
-        b.high - b.low,
-        abs(b.high - p.close),
-        abs(b.low - p.close),
+        bar.high - bar.low,
+        abs(bar.high - prev_close),
+        abs(bar.low - prev_close),
     )
 
 
-def _rsi(bars: List[Bar], period: int) -> float:
+def _bb_inside_kc(
+    closes: List[float],
+    atr_value: float,
+    bb_period: int,
+    bb_std: float,
+    kc_period: int,
+    kc_atr_mult: float,
+) -> Tuple[bool, float, float, float, float]:
+    """Return (squeeze, bb_upper, bb_lower, kc_upper, kc_lower).
+
+    The Keltner middle is the EMA of the close (it also serves as the
+    Keltner middle for trend-filter purposes).
+    """
+    if len(closes) < max(bb_period, kc_period) or atr_value <= 0:
+        return False, 0.0, 0.0, 0.0, 0.0
+
+    sma = _sma(closes[-bb_period:], bb_period) or 0.0
+    sd = _stddev(closes[-bb_period:], bb_period)
+    bb_upper = sma + bb_std * sd
+    bb_lower = sma - bb_std * sd
+
+    kc_mid = _ema_last(closes, kc_period) or sma
+    kc_upper = kc_mid + kc_atr_mult * atr_value
+    kc_lower = kc_mid - kc_atr_mult * atr_value
+
+    squeeze = bb_upper <= kc_upper and bb_lower >= kc_lower
+    return squeeze, bb_upper, bb_lower, kc_upper, kc_lower
+
+
+def _calculate_adx(bars: List[Bar], period: int = 14) -> float:
+    """Simplified ADX over the most recent ``period`` windows.
+
+    Matches the convention used by ``donchian_atr_trend_v2.py``: windowed
+    average of DX values.
+    """
+    if len(bars) < period * 2 + 1:
+        return 0.0
+
+    true_ranges: List[float] = []
+    plus_dms: List[float] = []
+    minus_dms: List[float] = []
+
+    for i in range(1, len(bars)):
+        up = bars[i].high - bars[i - 1].high
+        down = bars[i - 1].low - bars[i].low
+        tr = max(
+            bars[i].high - bars[i].low,
+            abs(bars[i].high - bars[i - 1].close),
+            abs(bars[i].low - bars[i - 1].close),
+        )
+        true_ranges.append(tr)
+        plus_dms.append(up if up > down and up > 0 else 0.0)
+        minus_dms.append(down if down > up and down > 0 else 0.0)
+
+    if len(true_ranges) < period:
+        return 0.0
+
+    dx_values: List[float] = []
+    window = period
+    for j in range(len(true_ranges) - window + 1):
+        seg_tr = true_ranges[j : j + window]
+        seg_pdm = plus_dms[j : j + window]
+        seg_mdm = minus_dms[j : j + window]
+        seg_atr = sum(seg_tr) / window
+        if seg_atr <= 0:
+            dx_values.append(0.0)
+            continue
+        seg_pdi = 100.0 * (sum(seg_pdm) / window) / seg_atr
+        seg_mdi = 100.0 * (sum(seg_mdm) / window) / seg_atr
+        denom = seg_pdi + seg_mdi
+        if denom == 0:
+            dx_values.append(0.0)
+        else:
+            dx_values.append(100.0 * abs(seg_pdi - seg_mdi) / denom)
+
+    return sum(dx_values) / len(dx_values) if dx_values else 0.0
+
+
+def _calculate_rsi(bars: List[Bar], period: int = 14) -> float:
+    """Wilder-style RSI on close-to-close deltas."""
     if len(bars) < period + 1:
         return 50.0
     gains: List[float] = []
@@ -117,365 +208,491 @@ def _rsi(bars: List[Bar], period: int) -> float:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _adx(h1_bars: List[Bar], period: int = 14) -> float:
-    """Wilder ADX from a list of H1 bars."""
-    if len(h1_bars) < period * 2 + 1:
-        return 0.0
-    trs: List[float] = []
-    plus_dms: List[float] = []
-    minus_dms: List[float] = []
-    for i in range(1, len(h1_bars)):
-        b = h1_bars[i]
-        p = h1_bars[i - 1]
-        tr = max(
-            b.high - b.low,
-            abs(b.high - p.close),
-            abs(b.low - p.close),
-        )
-        trs.append(tr)
-        up = b.high - p.high
-        down = p.low - b.low
-        plus_dms.append(up if (up > down and up > 0) else 0.0)
-        minus_dms.append(down if (down > up and down > 0) else 0.0)
+# ---------------------------------------------------------------------------
+# Legacy helper aliases — kept so that pre-existing tests (which import
+# short names like ``_sma``, ``_ema``, ``_std``, ``_adx`` etc.) continue
+# to work. The implementation of these helpers is identical to the
+# functions above; the names differ only in the entry-point signature.
+# ---------------------------------------------------------------------------
 
-    s_tr = sum(trs[:period])
-    s_plus = sum(plus_dms[:period])
-    s_minus = sum(minus_dms[:period])
-    dxs: List[float] = []
+
+def _std(values: List[float], period: int) -> float:
+    """Alias for ``_stddev`` that returns 0.0 on insufficient data."""
+    result = _stddev(values, period)
+    return result if result is not None else 0.0
+
+
+def _ema(values: List[float], period: int) -> List[float]:
+    """Return the full EMA series (``len == len(values)``).
+
+    The first ``period - 1`` entries are filled with the SMA-of-first-period
+    value (matching the convention used by the legacy test suite).
+    """
+    if len(values) < period:
+        return [0.0] * len(values)
+    multiplier = 2.0 / (period + 1)
+    out: List[float] = [0.0] * len(values)
+    seed = sum(values[:period]) / period
+    for i in range(period):
+        out[i] = seed
+    out[period - 1] = seed
+    ema = seed
+    for i in range(period, len(values)):
+        ema = (values[i] - ema) * multiplier + ema
+        out[i] = ema
+    return out
+
+
+def _atr_from_true_ranges(trs: List[float], period: int) -> float:
+    """Wilder ATR seeded from a list of historical true ranges."""
+    if len(trs) < period:
+        return 0.0
+    atr = sum(trs[:period]) / period
     for i in range(period, len(trs)):
-        s_tr = s_tr - (s_tr / period) + trs[i]
-        s_plus = s_plus - (s_plus / period) + plus_dms[i]
-        s_minus = s_minus - (s_minus / period) + minus_dms[i]
-        if s_tr == 0:
-            dxs.append(0.0)
-            continue
-        pdi = 100.0 * (s_plus / s_tr)
-        mdi = 100.0 * (s_minus / s_tr)
-        denom = pdi + mdi
-        if denom == 0:
-            dxs.append(0.0)
-        else:
-            dxs.append(100.0 * (abs(pdi - mdi) / denom))
-    if len(dxs) < period:
-        return 0.0
-    adx = sum(dxs[:period]) / period
-    for i in range(period, len(dxs)):
-        adx = (adx * (period - 1) + dxs[i]) / period
-    return adx
+        atr = (atr * (period - 1) + trs[i]) / period
+    return atr
 
 
-def _keltner(closes: List[float], atrs: List[float], period: int, atr_mult: float) -> Tuple[float, float, float]:
-    """Return (upper, middle, lower) on latest bar using pre-computed EMAs and ATRs."""
+def _rsi(bars: List[Bar], period: int = 14) -> float:
+    """Alias for ``_calculate_rsi``."""
+    return _calculate_rsi(bars, period)
+
+
+def _adx(h1_bars: List[Bar], period: int = 14) -> float:
+    """Alias for ``_calculate_adx``."""
+    return _calculate_adx(h1_bars, period)
+
+
+def _keltner(
+    closes: List[float],
+    atrs: List[float],
+    period: int,
+    atr_mult: float,
+) -> Tuple[float, float, float]:
+    """Compute Keltner upper / middle / lower using pre-computed EMAs and ATRs.
+
+    ``closes`` and ``atrs`` are aligned such that ``closes[i]`` is the close
+    of the bar with ``atrs[i]`` true-range. This entry-point matches the
+    legacy test-suite contract.
+    """
     if len(closes) < period or len(atrs) < 1:
         return (0.0, 0.0, 0.0)
-    mid = _ema(closes, period)[-1]
+    middle = _ema(closes, period)[-1]
     a = atrs[-1]
-    return (mid + a * atr_mult, mid, mid - a * atr_mult)
+    return (middle + a * atr_mult, middle, middle - a * atr_mult)
+
+
+def _sma_full(values: List[float], period: int) -> float:
+    """Return SMA over the most recent ``period`` values. Returns 0.0
+    when ``len(values) < period``. Equivalent to the legacy test alias.
+    """
+    if len(values) < period:
+        return 0.0
+    return sum(values[-period:]) / period
+
+
+def _true_range(bars: List[Bar]) -> float:
+    """Compute the most recent bar's true range from a list of bars.
+
+    Returns 0.0 for a list of length < 2; otherwise standard true range
+    using the previous bar's close. Matches the legacy test contract.
+    """
+    if len(bars) < 2:
+        return 0.0
+    b = bars[-1]
+    p = bars[-2]
+    return max(
+        b.high - b.low,
+        abs(b.high - p.close),
+        abs(b.low - p.close),
+    )
 
 
 # ---------------------------------------------------------------------------
-# Config & Strategy
+# Config dataclass (frozen; use dataclasses.replace for tuning)
 # ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class DualTFSqueezeProConfig:
-    # H1 context
+    """Tunable parameters for the Dual-Timeframe Squeeze Pro strategy.
+
+    Defaults are tuned for XAUUSD M15.
+    """
+
+    # Symbol — drives pip resolution for the SL hard cap.
+    symbol: str = "XAUUSD"
+    # H1 Bollinger / Keltner parameters (context).
     h1_bb_period: int = 20
     h1_bb_std: float = 2.0
+    h1_kc_period: int = 20
     h1_kc_atr_mult: float = 1.5
+    # H1 EMA slope period for trend direction.
     h1_ema_period: int = 50
-    h1_adx_period: int = 14
+    # H1 ADX threshold (confirmation gate, not the strategy's own threshold).
     adx_min_h1: float = 18.0
-
-    # M15 entry context
-    m15_rsi_period: int = 14
+    # M15 ATR for SL and pullback tolerance.
     m15_atr_period: int = 14
+    # M15 RSI zone for confirmation gate.
     rsi_zone_min: float = 40.0
     rsi_zone_max: float = 60.0
-
-    # Risk
-    atr_sl_multiplier: float = 1.5
+    # Minimum confidence to emit a signal.
+    min_confidence: float = 0.40
+    # Bars to wait between signals (cooldown).
+    cooldown_bars_m15: int = 10
+    # Recommended engine-level time exit (bars). The trade manager's
+    # ``max_bars_to_tp1`` should be set to at least this value for the
+    # strategy to honor its time discipline. The strategy itself does
+    # not enforce this — it documents it.
+    time_exit_bars: int = 30
+    # TP R-multiples (partial exits at 1R / 2R / 3R).
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
-    min_confidence: float = 0.40
+    # Hard cap on stop-loss distance (pips) — prevents runaway stops.
+    hard_cap_sl_pips: float = 50.0
+    # ATR multiple for the stop when the opposite H1 Keltner band is
+    # further away than ATR * mult from entry. Stored here so the
+    # behaviour is auditable from config alone.
+    atr_sl_multiplier: float = 1.5
+    # Pullback tolerance in ATR(M15) units when the squeeze is released.
+    pullback_atr_tolerance: float = 0.5
+    # Minimum bars before evaluating. Largest warmup among all windows.
+    min_bars_for_setup: int = 60
 
-    # Behavior
-    cooldown_bars_m15: int = 10
+
+# ---------------------------------------------------------------------------
+# Strategy
+# ---------------------------------------------------------------------------
 
 
-XAUUSD_DTSQ_PRO = DualTFSqueezeProConfig()
-GBPUSD_DTSQ_PRO = DualTFSqueezeProConfig()
+class DualTFSqueezeProStrategy(ISignalStrategy):
+    """Dual-timeframe Squeeze Pro — formal ``ISignalStrategy``.
 
-
-class DualTFSqueezeProStrategy:
-    """Dual-timeframe Squeeze Pro. Feed M15 bars; H1 is rebuilt incrementally."""
+    The engine feeds **M15** bars only; the strategy aggregates them into
+    H1 bars on the fly. Each M15 close re-evaluates the strategy state
+    incrementally through ``on_bar()``.
+    """
 
     def __init__(self, config: DualTFSqueezeProConfig | None = None):
+        super().__init__()
         self.config = config or DualTFSqueezeProConfig()
-        self._h1_bars: List[Bar] = []
-        self._h1_hour: Optional[datetime] = None
-        self._h1_trs: List[float] = []
-        self._h1_closes: List[float] = []
-        self._h1_atrs: List[float] = []
-        self._h1_emas: List[float] = []
-        self._m15_bars: List[Bar] = []
-        self._bars_since_signal: int = 999
-
-        # Incremental M15 ATR state
+        # --- M15 incremental state ---
+        self._m15_bars_seen: int = 0
         self._m15_atr: float = 0.0
         self._m15_prev_close: Optional[float] = None
-        # Incremental M15 RSI state
-        self._m15_avg_gain: float = 0.0
-        self._m15_avg_loss: float = 0.0
-        self._m15_gain_history: List[float] = []
-        self._m15_loss_history: List[float] = []
+        self._m15_prev_prev_close: Optional[float] = None  # for ATR rolling warm-up
+        # True-range warm-up buffer (simple average until period met).
+        self._m15_tr_buffer: List[float] = []
+        # --- H1 incremental state ---
+        self._h1_bars: List[Bar] = []
+        self._h1_closes: List[float] = []
+        self._h1_current: Optional[Bar] = None
+        self._h1_prev_close: Optional[float] = None
+        self._h1_trs: List[float] = []
+        self._h1_atr: float = 0.0
+        # --- Cooldown ---
+        self._bars_since_signal: int = 999
+
+    # --- Lifecycle --------------------------------------------------------
 
     @property
     def name(self) -> str:
         return "Dual-TF Squeeze Pro"
 
     def reset(self) -> None:
-        self._h1_bars.clear()
-        self._h1_hour = None
-        self._h1_trs.clear()
-        self._h1_closes.clear()
-        self._h1_atrs.clear()
-        self._h1_emas.clear()
-        self._m15_bars.clear()
-        self._bars_since_signal = 999
+        """Reset all incremental state. Called between backtest runs."""
+        super().reset()
+        self._m15_bars_seen = 0
         self._m15_atr = 0.0
         self._m15_prev_close = None
-        self._m15_avg_gain = 0.0
-        self._m15_avg_loss = 0.0
-        self._m15_gain_history.clear()
-        self._m15_loss_history.clear()
+        self._m15_prev_prev_close = None
+        self._m15_tr_buffer.clear()
+        self._h1_bars.clear()
+        self._h1_current = None
+        self._h1_prev_close = None
+        self._h1_trs.clear()
+        self._h1_atr = 0.0
+        self._bars_since_signal = self.config.cooldown_bars_m15 + 1
 
-    def _min_required(self) -> int:
-        h1_lookback = max(
-            self.config.h1_bb_period,
-            self.config.h1_ema_period,
-            self.config.h1_adx_period * 2,
-        )
-        return h1_lookback * 4 + self.config.m15_atr_period + 4
+    def on_bar(self, bar: Bar) -> None:
+        """Update incremental indicators and the synthetic H1 series.
+
+        Called by the engine for each completed bar before ``evaluate()``.
+        Keeping the per-bar updates O(1) (or O(period) for the initial
+        warm-up) means ``evaluate()`` does not need to walk the entire
+        history each bar.
+        """
+        super().on_bar(bar)
+        # Mark M15 if not tagged (the engine should set BarPeriod but
+        # some tests leave it at the dataclass default of H1).
+        self._update_m15_atr(bar)
+        self._update_h1(bar)
+        self._m15_bars_seen += 1
+
+    # --- Incremental indicator updates -----------------------------------
+
+    def _update_m15_atr(self, bar: Bar) -> None:
+        """Update the rolling M15 ATR (Wilder smoothing)."""
+        tr = _true_range_bar(bar, self._m15_prev_close)
+        period = self.config.m15_atr_period
+
+        if self._m15_prev_close is None:
+            # First bar — nothing to update against.
+            self._m15_prev_close = bar.close
+            return
+
+        self._m15_tr_buffer.append(tr)
+        if len(self._m15_tr_buffer) > period:
+            self._m15_tr_buffer = self._m15_tr_buffer[-period:]
+
+        if len(self._m15_tr_buffer) < period:
+            # Simple-average warm-up until we have ``period`` true ranges.
+            self._m15_atr = sum(self._m15_tr_buffer) / len(self._m15_tr_buffer)
+        else:
+            # Wilder smoothing.
+            self._m15_atr = (self._m15_atr * (period - 1) + tr) / period
+
+        self._m15_prev_prev_close = self._m15_prev_close
+        self._m15_prev_close = bar.close
 
     def _update_h1(self, bar: Bar) -> None:
-        """Ingest one M15 bar and update the synthetic H1 series."""
+        """Aggregate M15 bar into synthetic H1 bar and update H1 ATR."""
+        # Use the bar.time to bucket by hour. If bar.time is naive,
+        # ``replace(minute=0, second=0, microsecond=0)`` is fine.
         hour = bar.time.replace(minute=0, second=0, microsecond=0)
-        if self._h1_hour is None or hour != self._h1_hour:
-            # Finalize previous hour if any
-            if self._h1_bars:
-                self._h1_closes.append(self._h1_bars[-1].close)
-                tr = _true_range(self._h1_bars)
-                self._h1_trs.append(tr)
-                atr_period = self.config.h1_ema_period
-                if len(self._h1_trs) >= atr_period:
-                    if len(self._h1_trs) == atr_period:
-                        atr = sum(self._h1_trs) / atr_period
-                    else:
-                        atr = (self._h1_atrs[-1] * (atr_period - 1) + tr) / atr_period
-                    self._h1_atrs.append(atr)
+
+        if self._h1_current is None or self._h1_current.time != hour:
+            # Finalize the previous hour.
+            if self._h1_current is not None:
+                self._h1_bars.append(self._h1_current)
+                # Compute the previous hour's true range from the
+                # freshly-completed bar's close vs the close before it.
+                if len(self._h1_bars) >= 2:
+                    prev_close = self._h1_bars[-2].close
+                    cur = self._h1_current
+                    tr = max(
+                        cur.high - cur.low,
+                        abs(cur.high - prev_close),
+                        abs(cur.low - prev_close),
+                    )
                 else:
-                    self._h1_atrs.append(0.0)
-                self._h1_emas.append(_ema(self._h1_closes, self.config.h1_ema_period)[-1])
-            # Start new hour
-            self._h1_hour = hour
-            self._h1_bars.append(
-                Bar(
-                    time=hour,
-                    open=bar.open,
-                    high=bar.high,
-                    low=bar.low,
-                    close=bar.close,
-                    volume=bar.volume,
-                )
+                    tr = self._h1_current.high - self._h1_current.low
+                self._h1_trs.append(tr)
+                self._step_h1_atr()
+            # Start a new synthetic H1 bar.
+            self._h1_current = Bar(
+                time=hour,
+                open=bar.open,
+                high=bar.high,
+                low=bar.low,
+                close=bar.close,
+                volume=bar.volume,
+                period=BarPeriod.H1(),
             )
         else:
-            cur = self._h1_bars[-1]
+            # Extend the current hour: take max/min/latest close.
+            cur = self._h1_current
             cur.high = max(cur.high, bar.high)
             cur.low = min(cur.low, bar.low)
             cur.close = bar.close
             cur.volume += bar.volume
 
-    def _update_m15_indicators(self, bar: Bar) -> None:
-        """Update incremental M15 ATR and RSI state."""
-        if self._m15_prev_close is None:
-            self._m15_prev_close = bar.close
-            return
-
-        tr = max(
-            bar.high - bar.low,
-            abs(bar.high - self._m15_prev_close),
-            abs(bar.low - self._m15_prev_close),
-        )
-        n = len(self._m15_bars)
-        period = self.config.m15_atr_period
-        if n < period:
-            # Simple average during warm-up
-            self._m15_atr = (self._m15_atr * n + tr) / (n + 1)
+    def _step_h1_atr(self) -> None:
+        """Wilder ATR over the appended H1 true-range series."""
+        period = max(self.config.h1_bb_period, self.config.h1_kc_period)
+        period = max(period, self.config.h1_ema_period)
+        period = max(period, 14)
+        if self._h1_atr == 0.0:
+            if len(self._h1_trs) < period:
+                self._h1_atr = 0.0
+                return
+            self._h1_atr = sum(self._h1_trs[-period:]) / period
         else:
-            self._m15_atr = (self._m15_atr * (period - 1) + tr) / period
+            latest = self._h1_trs[-1]
+            self._h1_atr = (self._h1_atr * (period - 1) + latest) / period
 
-        delta = bar.close - self._m15_prev_close
-        gain = max(delta, 0.0)
-        loss = max(-delta, 0.0)
-        self._m15_gain_history.append(gain)
-        self._m15_loss_history.append(loss)
-        rsi_period = self.config.m15_rsi_period
-        if len(self._m15_gain_history) >= rsi_period:
-            if len(self._m15_gain_history) == rsi_period:
-                self._m15_avg_gain = sum(self._m15_gain_history) / rsi_period
-                self._m15_avg_loss = sum(self._m15_loss_history) / rsi_period
-            else:
-                self._m15_avg_gain = (self._m15_avg_gain * (rsi_period - 1) + gain) / rsi_period
-                self._m15_avg_loss = (self._m15_avg_loss * (rsi_period - 1) + loss) / rsi_period
-        self._m15_prev_close = bar.close
+    # --- Evaluation -------------------------------------------------------
 
-    def _m15_rsi(self) -> float:
-        if self._m15_avg_loss == 0:
-            return 100.0
-        rs = self._m15_avg_gain / self._m15_avg_loss
-        return 100.0 - (100.0 / (1.0 + rs))
-
-    def evaluate(self, state: MarketState) -> StrategySignal | None:
+    def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
+        cfg = self.config
         m15_bars = state.bars
-        if len(m15_bars) < self._min_required():
+
+        # Warm-up: need enough H1 bars for every H1 indicator.
+        adx_lookback_bars_h1 = max(14 * 2 + 1, cfg.h1_ema_period + 6)
+        h1_required = max(
+            cfg.h1_bb_period,
+            cfg.h1_kc_period,
+            cfg.h1_ema_period + 6,
+            28,  # H1 ADX lookback minimum
+        )
+        # Bar count is in M15 bars. Approximate requirement: enough M15
+        # bars to have produced ``h1_required`` synthetic H1 bars
+        # (4 M15 bars per H1 bar).
+        min_m15 = max(
+            cfg.min_bars_for_setup, h1_required * 4 + cfg.m15_atr_period * 2 + 4
+        )
+        if len(m15_bars) < min_m15:
             return None
 
-        # Cooldown
-        if self._bars_since_signal < self.config.cooldown_bars_m15:
+        # Cooldown.
+        if self._bars_since_signal < cfg.cooldown_bars_m15:
             self._bars_since_signal += 1
             return None
+
         self._bars_since_signal += 1
 
-        latest_m15 = m15_bars[-1]
-
-        # Incremental rebuild only if we moved forward
-        if len(self._m15_bars) != len(m15_bars):
-            # Update from where we left off
-            start = len(self._m15_bars)
-            for b in m15_bars[start:]:
-                self._update_m15_indicators(b)
+        # If the engine bypassed on_bar (e.g. in tests), make sure the
+        # incremental state is in sync with the MarketState.bars.
+        if self._m15_bars_seen < len(m15_bars):
+            for b in m15_bars[self._m15_bars_seen :]:
+                self._update_m15_atr(b)
                 self._update_h1(b)
-            self._m15_bars = list(m15_bars)
+            self._m15_bars_seen = len(m15_bars)
 
-        h1_bars = self._h1_bars
-        h1_closes = self._h1_closes
-        h1_atrs = self._h1_atrs
-        h1_emas = self._h1_emas
-
-        if len(h1_bars) < max(
-            self.config.h1_bb_period,
-            self.config.h1_ema_period,
-            self.config.h1_adx_period * 2,
-        ):
+        # --- H1 snapshot ----------------------------------------------------
+        if len(self._h1_bars) < h1_required or self._h1_atr <= 0:
             return None
 
-        # Squeeze: latest H1 BB inside KC
-        closes_window = [b.close for b in h1_bars[-self.config.h1_bb_period :]]
-        if len(closes_window) < self.config.h1_bb_period:
-            return None
-        sma = _sma(closes_window, self.config.h1_bb_period)
-        sd = _std(closes_window, self.config.h1_bb_period)
-        bb_u = sma + sd * self.config.h1_bb_std
-        bb_l = sma - sd * self.config.h1_bb_std
-        kc_u, kc_m, kc_l = _keltner(h1_closes, h1_atrs, self.config.h1_ema_period, self.config.h1_kc_atr_mult)
-        h1_in_squeeze = bb_u <= kc_u and bb_l >= kc_l
-
-        h1_adx = _adx(h1_bars, self.config.h1_adx_period)
-        if h1_adx < self.config.adx_min_h1:
+        h1_closes = [b.close for b in self._h1_bars]
+        squeeze, _, _, kc_u, kc_l = _bb_inside_kc(
+            h1_closes,
+            self._h1_atr,
+            cfg.h1_bb_period,
+            cfg.h1_bb_std,
+            cfg.h1_kc_period,
+            cfg.h1_kc_atr_mult,
+        )
+        kc_mid = _ema_last(h1_closes, cfg.h1_kc_period)
+        if kc_mid is None:
             return None
 
-        # H1 trend direction: compare EMA now vs 5 H1 bars ago
-        if len(h1_emas) < self.config.h1_ema_period + 5:
+        h1_adx = _calculate_adx(self._h1_bars, period=14)
+        if h1_adx < cfg.adx_min_h1:
             return None
-        ema_now = h1_emas[-1]
-        ema_prev = h1_emas[-6] if len(h1_emas) >= 6 else h1_emas[-2]
+
+        # H1 trend direction = sign(EMA(50) slope over recent window).
+        ema_now = _ema_last(h1_closes, cfg.h1_ema_period)
+        ema_prev_window = (
+            h1_closes[-(cfg.h1_ema_period + 5) : -5]
+            if len(h1_closes) > cfg.h1_ema_period + 5
+            else h1_closes[: max(1, len(h1_closes) - cfg.h1_ema_period)]
+        )
+        ema_prev = (
+            _ema_last(ema_prev_window, cfg.h1_ema_period) if ema_prev_window else None
+        )
+        if ema_now is None or ema_prev is None:
+            return None
         if ema_now > ema_prev:
             h1_direction = 1
         elif ema_now < ema_prev:
             h1_direction = -1
         else:
-            return None
+            h1_direction = 0
 
-        # M15 confirmation (incremental)
-        if len(self._m15_bars) < self.config.m15_atr_period + 1:
-            return None
-        m15_rsi = self._m15_rsi()
-        if not (self.config.rsi_zone_min <= m15_rsi <= self.config.rsi_zone_max):
-            return None
+        # --- M15 snapshot ---------------------------------------------------
         m15_atr = self._m15_atr
         if m15_atr <= 0:
             return None
 
-        direction: Optional[TradeDirection] = None
-        signal_type = ""
-        squeeze_break = False
+        m15_rsi = _calculate_rsi(m15_bars, period=14)
+        if not (cfg.rsi_zone_min <= m15_rsi <= cfg.rsi_zone_max):
+            return None
 
-        if h1_in_squeeze:
-            if latest_m15.close > kc_u:
+        latest = m15_bars[-1]
+        entry = latest.close
+        direction: Optional[TradeDirection] = None
+        signal_kind = ""
+
+        if squeeze:
+            # Squeeze breakout: M15 close breaches the H1 Keltner band.
+            if entry > kc_u:
                 direction = TradeDirection.LONG
-                signal_type = "squeeze_break_long"
-                squeeze_break = True
-            elif latest_m15.close < kc_l:
+                signal_kind = "squeeze_break_long"
+            elif entry < kc_l:
                 direction = TradeDirection.SHORT
-                signal_type = "squeeze_break_short"
-                squeeze_break = True
+                signal_kind = "squeeze_break_short"
         else:
-            pullback_tol = m15_atr * 0.5
-            if h1_direction == 1 and abs(latest_m15.close - kc_m) <= pullback_tol:
+            # Pullback continuation: M15 close near H1 Keltner middle in H1 trend direction.
+            tol = cfg.pullback_atr_tolerance * m15_atr
+            if h1_direction == 1 and abs(entry - kc_mid) <= tol:
                 direction = TradeDirection.LONG
-                signal_type = "pullback_long"
-            elif h1_direction == -1 and abs(latest_m15.close - kc_m) <= pullback_tol:
+                signal_kind = "pullback_long"
+            elif h1_direction == -1 and abs(entry - kc_mid) <= tol:
                 direction = TradeDirection.SHORT
-                signal_type = "pullback_short"
+                signal_kind = "pullback_short"
 
         if direction is None:
             return None
 
-        entry = latest_m15.close
+        # --- Stop: opposite H1 KC band OR 1.5 * ATR(M15), whichever is closer.
         if direction == TradeDirection.LONG:
             sl_kc = kc_l
-            sl_atr = entry - m15_atr * self.config.atr_sl_multiplier
-            sl = max(sl_kc, sl_atr)
+            sl_atr = entry - cfg.atr_sl_multiplier * m15_atr
+            raw_sl = max(sl_kc, sl_atr)  # closer stop = higher price for longs
+            if raw_sl >= entry:
+                return None
         else:
             sl_kc = kc_u
-            sl_atr = entry + m15_atr * self.config.atr_sl_multiplier
-            sl = min(sl_kc, sl_atr)
+            sl_atr = entry + cfg.atr_sl_multiplier * m15_atr
+            raw_sl = min(sl_kc, sl_atr)  # closer stop = lower price for shorts
+            if raw_sl <= entry:
+                return None
+
+        # --- Hard cap on SL distance (pips).
+        pip = pip_value_for_symbol(cfg.symbol)
+        risk = abs(entry - raw_sl)
+        sl_pips = risk / pip if pip > 0 else 0.0
+        if sl_pips > cfg.hard_cap_sl_pips:
+            capped_risk = cfg.hard_cap_sl_pips * pip
+            if direction == TradeDirection.LONG:
+                sl = entry - capped_risk
+            else:
+                sl = entry + capped_risk
+            # After tightening the SL, ensure it still goes the right way.
+            if (direction == TradeDirection.LONG and sl >= entry) or (
+                direction == TradeDirection.SHORT and sl <= entry
+            ):
+                return None
+        else:
+            sl = raw_sl
 
         risk = abs(entry - sl)
         if risk <= 0:
             return None
 
         if direction == TradeDirection.LONG:
-            tp1 = entry + risk * self.config.tp1_rr
-            tp2 = entry + risk * self.config.tp2_rr
-            tp3 = entry + risk * self.config.tp3_rr
+            tp1 = entry + risk * cfg.tp1_rr
+            tp2 = entry + risk * cfg.tp2_rr
+            tp3 = entry + risk * cfg.tp3_rr
         else:
-            tp1 = entry - risk * self.config.tp1_rr
-            tp2 = entry - risk * self.config.tp2_rr
-            tp3 = entry - risk * self.config.tp3_rr
+            tp1 = entry - risk * cfg.tp1_rr
+            tp2 = entry - risk * cfg.tp2_rr
+            tp3 = entry - risk * cfg.tp3_rr
 
-        confidence = self.config.min_confidence
-        if squeeze_break:
+        # --- Confidence ---------------------------------------------------
+        # Base = min_confidence. Boost for squeeze break (+0.10), ADX
+        # strength above the threshold, and how close RSI is to 50.
+        confidence = cfg.min_confidence
+        if squeeze:
             confidence += 0.10
-        adx_excess = (h1_adx - self.config.adx_min_h1) / self.config.adx_min_h1
-        confidence += min(adx_excess * 0.10, 0.15)
+        adx_excess_norm = max(0.0, (h1_adx - cfg.adx_min_h1) / cfg.adx_min_h1)
+        confidence += min(adx_excess_norm * 0.10, 0.15)
+        # RSI mid-distance bonus: closer to 50 = stronger "not overbought".
         rsi_mid_dist = abs(m15_rsi - 50.0) / 10.0
         confidence += max(0.0, 0.10 - rsi_mid_dist * 0.05)
         confidence = min(confidence, 0.85)
-
-        if confidence < self.config.min_confidence:
+        if confidence < cfg.min_confidence:
             return None
 
+        self._bars_since_signal = 0
+
         rationale = (
-            f"DTSQ Pro {signal_type}: H1 squeeze={h1_in_squeeze} dir={h1_direction} "
-            f"ADX={h1_adx:.1f} KC=({kc_l:.5f}/{kc_m:.5f}/{kc_u:.5f}); "
+            f"DTSQ-Pro {signal_kind}: H1 squeeze={squeeze} dir={h1_direction} "
+            f"ADX={h1_adx:.1f} KC=({kc_l:.5f}/{kc_mid:.5f}/{kc_u:.5f}); "
             f"M15 RSI={m15_rsi:.1f} close={entry:.5f} stop={sl:.5f} risk={risk:.5f}"
         )
 
-        self._bars_since_signal = 0
         return StrategySignal(
             direction=direction,
             confidence=confidence,

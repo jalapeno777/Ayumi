@@ -17,10 +17,8 @@ Market-hours aware: skips stale-heartbeat triggers on weekends
 import argparse
 import json
 import logging
-import os
 import signal as sig_module
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +34,9 @@ logger = logging.getLogger("ayumi.kill_switch_watchdog")
 
 DEFAULT_HEARTBEAT_FILE = "data/heartbeat_trading.json"
 DEFAULT_CHECK_INTERVAL = 5  # seconds
-DEFAULT_STALE_THRESHOLD = 30  # seconds — heartbeat older than this during market hours = kill
+DEFAULT_STALE_THRESHOLD = (
+    30  # seconds — heartbeat older than this during market hours = kill
+)
 
 _WEEKEND_CLOSE_HOUR_UTC = 21
 _WEEKEND_CLOSE_MINUTE_UTC = 55
@@ -106,13 +106,13 @@ def _heartbeat_age_seconds(heartbeat: dict) -> float:
 
     try:
         # Parse ISO 8601 timestamp
-        last_beat = datetime.fromisoformat(
-            last_beat_str.replace("Z", "+00:00")
-        )
+        last_beat = datetime.fromisoformat(last_beat_str.replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
         return (now - last_beat).total_seconds()
     except (ValueError, TypeError) as exc:
-        logger.warning("Failed to parse heartbeat timestamp '%s': %s", last_beat_str, exc)
+        logger.warning(
+            "Failed to parse heartbeat timestamp '%s': %s", last_beat_str, exc
+        )
         return float("inf")
 
 
@@ -178,7 +178,9 @@ class KillSwitchWatchdog:
 
             # Check if engine_running flag is False — that's a clean shutdown, not a crash
             if heartbeat and heartbeat.get("engine_running") is False:
-                logger.info("Engine reports engine_running=false — clean shutdown, not activating kill")
+                logger.info(
+                    "Engine reports engine_running=false — clean shutdown, not activating kill"
+                )
                 return True
 
             # Activate global kill

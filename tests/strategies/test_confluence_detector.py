@@ -4,28 +4,52 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from confidence.confluence import ConfluenceDetector, ConfluenceResult
+from confidence.confluence import ConfluenceDetector
 from strategies.registry import StrategyConfig, StrategyRegistry
 
 
 def _make_registry() -> StrategyRegistry:
     reg = StrategyRegistry()
-    reg.register(StrategyConfig(
-        strategy_id="mr1", name="MR1", strategy_type="mean_reversion",
-        symbols=["EURUSD"], timeframes=["H1"], typical_confidence_range=(0.4, 0.7),
-    ))
-    reg.register(StrategyConfig(
-        strategy_id="mr2", name="MR2", strategy_type="mean_reversion",
-        symbols=["EURUSD"], timeframes=["M15"], typical_confidence_range=(0.4, 0.7),
-    ))
-    reg.register(StrategyConfig(
-        strategy_id="mom1", name="Mom1", strategy_type="momentum",
-        symbols=["EURUSD"], timeframes=["H1"], typical_confidence_range=(0.5, 0.8),
-    ))
-    reg.register(StrategyConfig(
-        strategy_id="trend1", name="Trend1", strategy_type="trend",
-        symbols=["EURUSD"], timeframes=["D1"], typical_confidence_range=(0.5, 0.8),
-    ))
+    reg.register(
+        StrategyConfig(
+            strategy_id="mr1",
+            name="MR1",
+            strategy_type="mean_reversion",
+            symbols=["EURUSD"],
+            timeframes=["H1"],
+            typical_confidence_range=(0.4, 0.7),
+        )
+    )
+    reg.register(
+        StrategyConfig(
+            strategy_id="mr2",
+            name="MR2",
+            strategy_type="mean_reversion",
+            symbols=["EURUSD"],
+            timeframes=["M15"],
+            typical_confidence_range=(0.4, 0.7),
+        )
+    )
+    reg.register(
+        StrategyConfig(
+            strategy_id="mom1",
+            name="Mom1",
+            strategy_type="momentum",
+            symbols=["EURUSD"],
+            timeframes=["H1"],
+            typical_confidence_range=(0.5, 0.8),
+        )
+    )
+    reg.register(
+        StrategyConfig(
+            strategy_id="trend1",
+            name="Trend1",
+            strategy_type="trend",
+            symbols=["EURUSD"],
+            timeframes=["D1"],
+            typical_confidence_range=(0.5, 0.8),
+        )
+    )
     return reg
 
 
@@ -63,10 +87,16 @@ class TestConfluenceDetector:
         reg = _make_registry()
         det = ConfluenceDetector(reg)
         # Two MR + add a third MR via a second registry entry
-        reg.register(StrategyConfig(
-            strategy_id="mr3", name="MR3", strategy_type="mean_reversion",
-            symbols=["EURUSD"], timeframes=["M5"], typical_confidence_range=(0.4, 0.7),
-        ))
+        reg.register(
+            StrategyConfig(
+                strategy_id="mr3",
+                name="MR3",
+                strategy_type="mean_reversion",
+                symbols=["EURUSD"],
+                timeframes=["M5"],
+                typical_confidence_range=(0.4, 0.7),
+            )
+        )
         det.record_signal("mr1", "EURUSD", "long", 0.6, NOW)
         det.record_signal("mr2", "EURUSD", "long", 0.5, NOW)
         det.record_signal("mr3", "EURUSD", "long", 0.5, NOW)

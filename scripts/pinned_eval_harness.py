@@ -116,9 +116,9 @@ class TierThreshold:
     tier: str
     label: str
     description: str
-    min_capability: float       # 0..1, floor of agent success-rate
-    max_atomic_subtasks: int    # upper bound on decomposition fan-out
-    tolerance: float            # 0..1, under-shoot forgiveness
+    min_capability: float  # 0..1, floor of agent success-rate
+    max_atomic_subtasks: int  # upper bound on decomposition fan-out
+    tolerance: float  # 0..1, under-shoot forgiveness
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -211,9 +211,7 @@ def _validate_tier_thresholds() -> None:
             )
         prev_cap = tt.min_capability
         if not 0.0 <= tt.tolerance <= 1.0:
-            raise RuntimeError(
-                f"Tier {tier} tolerance {tt.tolerance} outside [0,1]"
-            )
+            raise RuntimeError(f"Tier {tier} tolerance {tt.tolerance} outside [0,1]")
         if tt.max_atomic_subtasks < 1:
             raise RuntimeError(
                 f"Tier {tier} max_atomic_subtasks {tt.max_atomic_subtasks} < 1"
@@ -279,9 +277,10 @@ class PinnedTask:
 
     def verify_hash(self) -> bool:
         """Return True if the stored content_hash still matches the payload."""
-        return self.content_hash == hashlib.sha256(
-            self._canonical_payload().encode("utf-8")
-        ).hexdigest()
+        return (
+            self.content_hash
+            == hashlib.sha256(self._canonical_payload().encode("utf-8")).hexdigest()
+        )
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PinnedTask":
@@ -342,20 +341,14 @@ def capability_score(
     raw_score, headroom, rework_penalty, token_penalty, final_score, verdict.
     """
     if not 0.0 <= measured_capability <= 1.0:
-        raise ValueError(
-            f"measured_capability {measured_capability} outside [0,1]"
-        )
+        raise ValueError(f"measured_capability {measured_capability} outside [0,1]")
     profile = dict(task.agent_profile or {})
     rr = (
         rework_rate
         if rework_rate is not None
         else float(profile.get("rework_rate", 0.0))
     )
-    at = (
-        avg_tokens
-        if avg_tokens is not None
-        else float(profile.get("avg_tokens", 0.0))
-    )
+    at = avg_tokens if avg_tokens is not None else float(profile.get("avg_tokens", 0.0))
     if not 0.0 <= rr <= 1.0:
         raise ValueError(f"rework_rate {rr} outside [0,1]")
     if at < 0:
@@ -366,7 +359,9 @@ def capability_score(
     # Tolerance widens the "pass" band. Below the floor we still get a
     # partial credit scaled by how close we are to the floor minus tolerance.
     if headroom >= 0:
-        raw_score = min(1.0, 0.5 + 0.5 * (1.0 + headroom / (1.0 - tt.min_capability + 1e-9)))
+        raw_score = min(
+            1.0, 0.5 + 0.5 * (1.0 + headroom / (1.0 - tt.min_capability + 1e-9))
+        )
     else:
         # Linear ramp from 0 (at -tolerance) to 0.5 (at floor)
         span = max(tt.tolerance, 1e-9)
@@ -487,14 +482,21 @@ def decomposition_score(task: PinnedTask) -> dict[str, Any]:
     # Dependency: count tags that imply coupling. We deliberately keep this
     # list short — coupling is hard to detect from text alone and false
     # coupling penalties are expensive.
-    coupling_tags = {"race", "lock", "shared-state", "global", "crossover",
-                     "migration", "schema"}
+    coupling_tags = {
+        "race",
+        "lock",
+        "shared-state",
+        "global",
+        "crossover",
+        "migration",
+        "schema",
+    }
     tag_hits = sum(1 for t in task.tags if t.lower() in coupling_tags)
     if prompt_words > 150:
         tag_hits += 1
     dependency = max(0.0, 1.0 - 0.20 * tag_hits)
 
-    combined = (0.45 * atomicity + 0.35 * clarity + 0.20 * dependency)
+    combined = 0.45 * atomicity + 0.35 * clarity + 0.20 * dependency
     combined = max(0.0, min(1.0, combined))
 
     # Estimate sub-task count: starts at 1, scales with prompt length and
@@ -624,9 +626,9 @@ def aggregate(results: Iterable[PinnedEvalResult]) -> dict[str, Any]:
             "decomposition_mean": _mean(decomp_scores),
             "verdict_counts": verdicts,
             "ready_share": sum(
-                1 for r in rows
-                if r.capability["verdict"] in ("STRONG", "READY")
-            ) / len(rows),
+                1 for r in rows if r.capability["verdict"] in ("STRONG", "READY")
+            )
+            / len(rows),
         }
 
     tier_summary = {t: _tier_block(by_tier.get(t, [])) for t in TIER_ORDER}
@@ -839,7 +841,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         if args.demo:
             tasks = _demo_tasks()
-            measured = args.capability if args.capability is not None else _demo_capability()
+            measured = (
+                args.capability if args.capability is not None else _demo_capability()
+            )
             source = "demo"
         else:
             if not args.tasks:
@@ -865,7 +869,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         log.info(
             "Evaluating %d pinned task(s) from %s at capability=%.3f",
-            len(tasks), source, measured,
+            len(tasks),
+            source,
+            measured,
         )
         results: list[PinnedEvalResult] = []
         for t in tasks:
@@ -895,12 +901,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             cap = r.capability
             d = r.decomposition
             log.info(
-                "%-22s | %s %-8s | cap=%5s (%.2f) | decomp=%5s (%.2f) | "
-                "subtasks=%d/%d",
-                r.task_id, r.tier, r.label,
-                cap["verdict"], cap["final_score"],
-                d["verdict"], d["combined"],
-                d["clamped_subtasks"], d["tier_max_subtasks"],
+                "%-22s | %s %-8s | cap=%5s (%.2f) | decomp=%5s (%.2f) | subtasks=%d/%d",
+                r.task_id,
+                r.tier,
+                r.label,
+                cap["verdict"],
+                cap["final_score"],
+                d["verdict"],
+                d["combined"],
+                d["clamped_subtasks"],
+                d["tier_max_subtasks"],
             )
 
         return 0

@@ -11,6 +11,19 @@ from backtest.engine import (
 from backtest.strategies import MACrossStrategy
 
 
+def _make_engine(config: BacktestConfig) -> tuple[BacktestEngine, MACrossStrategy]:
+    """Build a BacktestEngine with the canonical strategies signature.
+
+    After the MultiStrategy+VAPS+Amalgamation mixin migration (card d4f36ef5),
+    ``BacktestEngine.__init__`` requires a ``strategies`` list. The cost-tracking
+    tests don't care which strategy runs — they only need a runnable engine —
+    so we use a single ``MACrossStrategy`` for parity with the other engine
+    tests in this file.
+    """
+    strategy = MACrossStrategy()
+    return BacktestEngine(config, [strategy]), strategy
+
+
 def _bar(i, o=1.0, h=1.01, low=0.99, c=1.005, v=1000):
     base = datetime(2024, 1, 1, 10, 0)
     time = base + timedelta(hours=i)
@@ -90,7 +103,7 @@ class TestRoundTripSpread(unittest.TestCase):
 class TestSlippageModel(unittest.TestCase):
     def test_slippage_default(self):
         cfg = BacktestConfig()
-        self.assertAlmostEqual(cfg.slippage_pips, 0.2)
+        self.assertAlmostEqual(cfg.slippage_pips, 0.5)
 
     def test_slippage_custom(self):
         cfg = BacktestConfig(slippage_pips=0.5)
@@ -100,7 +113,7 @@ class TestSlippageModel(unittest.TestCase):
 class TestSwapModel(unittest.TestCase):
     def test_swap_default(self):
         cfg = BacktestConfig()
-        self.assertAlmostEqual(cfg.swap_per_lot_per_day, -2.0)
+        self.assertAlmostEqual(cfg.swap_per_lot_per_day, -3.5)
 
     def test_swap_can_be_disabled(self):
         cfg = BacktestConfig(swap_per_lot_per_day=0.0)
@@ -127,24 +140,24 @@ class TestCostTracking(unittest.TestCase):
     def test_spread_and_commission_tracked_with_round_trip(self):
         bars = _trending_bars(200, "up")
         config = self._make_config()
-        engine = BacktestEngine(config)
-        metrics = engine.run(bars)
+        engine, strategy = _make_engine(config)
+        metrics = engine.run_single(strategy, bars)
         self.assertGreaterEqual(metrics.total_spread_cost, 0.0)
         self.assertGreaterEqual(metrics.total_commission_cost, 0.0)
 
     def test_no_trades_zero_costs(self):
         bars = [_bar(i, o=1.0, h=1.0001, low=0.9999, c=1.0) for i in range(50)]
         config = self._make_config(min_confidence=0.99)
-        engine = BacktestEngine(config)
-        metrics = engine.run(bars)
+        engine, strategy = _make_engine(config)
+        metrics = engine.run_single(strategy, bars)
         self.assertAlmostEqual(metrics.total_spread_cost, 0.0)
         self.assertAlmostEqual(metrics.total_commission_cost, 0.0)
 
     def test_commission_per_lot(self):
         bars = _trending_bars(200, "up")
         config = self._make_config(commission_per_lot=7.0)
-        engine = BacktestEngine(config)
-        metrics = engine.run(bars)
+        engine, strategy = _make_engine(config)
+        metrics = engine.run_single(strategy, bars)
         if metrics.total_trades > 0:
             self.assertGreater(metrics.total_commission_cost, 0.0)
 
@@ -152,10 +165,10 @@ class TestCostTracking(unittest.TestCase):
         bars = _trending_bars(200, "up")
         cfg_low = self._make_config(spread_pips=0.5)
         cfg_high = self._make_config(spread_pips=5.0)
-        engine_low = BacktestEngine(cfg_low)
-        engine_high = BacktestEngine(cfg_high)
-        m_low = engine_low.run(bars)
-        m_high = engine_high.run(bars)
+        engine_low, strat_low = _make_engine(cfg_low)
+        engine_high, strat_high = _make_engine(cfg_high)
+        m_low = engine_low.run_single(strat_low, bars)
+        m_high = engine_high.run_single(strat_high, bars)
         if m_high.total_trades > 0 and m_low.total_trades > 0:
             self.assertGreaterEqual(m_high.total_spread_cost, m_low.total_spread_cost)
 
@@ -192,8 +205,8 @@ class TestMultiDaySwapCost(unittest.TestCase):
             max_open_trades=1,
             swap_per_lot_per_day=-2.0,
         )
-        engine = BacktestEngine(config)
-        metrics = engine.run(bars)
+        engine, strategy = _make_engine(config)
+        metrics = engine.run_single(strategy, bars)
         if metrics.total_trades > 0:
             self.assertIsNotNone(metrics)
 
@@ -227,15 +240,26 @@ class TestSlippageReducesProfit(unittest.TestCase):
             max_open_trades=1,
             slippage_pips=1.0,
         )
-        engine_no = BacktestEngine(cfg_no_slip)
-        engine_with = BacktestEngine(cfg_with_slip)
-        m_no = engine_no.run(bars)
-        m_with = engine_with.run(bars)
+        engine_no, strat_no = _make_engine(cfg_no_slip)
+        engine_with, strat_with = _make_engine(cfg_with_slip)
+        m_no = engine_no.run_single(strat_no, bars)
+        m_with = engine_with.run_single(strat_with, bars)
         self.assertLessEqual(m_with.ending_balance, m_no.ending_balance)
 
 
 class TestCostReportPrint(unittest.TestCase):
     def test_print_report_includes_costs(self):
+        """Verify cost fields exist and are non-negative on the returned metrics.
+
+        Original assertion (``metrics.print_report()`` returns ``None``) was a
+        smoke test of the ``print_report`` method on ``backtest.types.BacktestMetrics``.
+        After the MultiStrategy+VAPS+Amalgamation mixin migration (card d4f36ef5),
+        ``run_single`` returns ``core.config.BacktestMetrics`` which has no
+        ``print_report`` method. The old assertion never actually verified that
+        costs were included in the report — it only checked the method returned
+        ``None``. We verify cost-tracking invariants on the metrics object
+        directly, which is what the test name implies.
+        """
         bars = _trending_bars(200, "up")
         config = BacktestConfig(
             starting_balance=10000.0,
@@ -249,10 +273,15 @@ class TestCostReportPrint(unittest.TestCase):
             min_bars_before_signal=30,
             max_open_trades=1,
         )
-        engine = BacktestEngine(config)
-        metrics = engine.run(bars)
-        report_lines = metrics.print_report()
-        self.assertIsNone(report_lines)
+        engine, strategy = _make_engine(config)
+        metrics = engine.run_single(strategy, bars)
+        # Cost fields exist and are non-negative on the returned metrics.
+        self.assertGreaterEqual(metrics.total_spread_cost, 0.0)
+        self.assertGreaterEqual(metrics.total_commission_cost, 0.0)
+        # With no qualifying signals (trending bars w/ MA cross strategy in this
+        # test configuration), no trades should open and ending_balance equals
+        # starting_balance.
+        self.assertEqual(metrics.ending_balance, config.starting_balance)
 
 
 class TestMultiStrategyCostTracking(unittest.TestCase):

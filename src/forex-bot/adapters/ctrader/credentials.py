@@ -20,7 +20,6 @@ import stat
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("ayumi.credentials")
 
@@ -28,18 +27,20 @@ logger = logging.getLogger("ayumi.credentials")
 
 CREDENTIALS_VERSION = 1
 
-_PLACEHOLDER_VALUES = frozenset({
-    "",
-    "new-access",
-    "new-refresh",
-    "REPLACE",
-    "xxx",
-    "***",
-    "none",
-    "null",
-    "todo",
-    "changeme",
-})
+_PLACEHOLDER_VALUES = frozenset(
+    {
+        "",
+        "new-access",
+        "new-refresh",
+        "REPLACE",
+        "xxx",
+        "***",
+        "none",
+        "null",
+        "todo",
+        "changeme",
+    }
+)
 
 # Environment variable keys that hold cTrader credentials
 _CTRADER_ENV_KEYS = {
@@ -52,13 +53,16 @@ _CTRADER_ENV_KEYS = {
 }
 
 # Keys whose VALUES are considered sensitive (never log)
-_SENSITIVE_KEYS = frozenset({
-    "client_secret",
-    "access_token",
-    "refresh_token",
-})
+_SENSITIVE_KEYS = frozenset(
+    {
+        "client_secret",
+        "access_token",
+        "refresh_token",
+    }
+)
 
 # ── Exceptions ─────────────────────────────────────────────────────────────
+
 
 class CredentialError(Exception):
     """Base exception for credential errors."""
@@ -73,6 +77,7 @@ class DualSourceError(CredentialError):
 
 
 # ── CredentialManager ──────────────────────────────────────────────────────
+
 
 class CredentialManager:
     """Manage cTrader credentials in a dedicated JSON file.
@@ -104,17 +109,13 @@ class CredentialManager:
             CredentialError: If the file is missing or corrupt.
         """
         if not self._path.exists():
-            raise CredentialError(
-                f"Credentials file not found: {self._path}"
-            )
+            raise CredentialError(f"Credentials file not found: {self._path}")
 
         try:
             with open(self._path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
-            raise CredentialError(
-                f"Failed to load credentials: {exc}"
-            ) from exc
+            raise CredentialError(f"Failed to load credentials: {exc}") from exc
 
         if data.get("version") != CREDENTIALS_VERSION:
             raise CredentialError(
@@ -158,7 +159,10 @@ class CredentialManager:
             access_token: New access token.
             refresh_token: New refresh token.
         """
-        for label, val in [("access_token", access_token), ("refresh_token", refresh_token)]:
+        for label, val in [
+            ("access_token", access_token),
+            ("refresh_token", refresh_token),
+        ]:
             if self._is_placeholder(val):
                 raise PlaceholderCredentialError(
                     f"Cannot save placeholder {label}: '{val}'"
@@ -240,7 +244,8 @@ class CredentialManager:
             if val and self._is_placeholder(val):
                 logger.warning(
                     "Skipping placeholder %s during migration: '%s'",
-                    field, val[:8] + "…" if val else "(empty)",
+                    field,
+                    val[:8] + "…" if val else "(empty)",
                 )
 
         # Save to credentials file

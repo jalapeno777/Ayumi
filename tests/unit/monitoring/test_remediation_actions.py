@@ -8,7 +8,11 @@ from monitoring import remediation_actions as remediation
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
 
 
 def test_stale_audit_log_recreates_missing_remediation_flag(tmp_path):
@@ -46,7 +50,9 @@ def test_signal_stats_owner_remediation_chowns_runtime_file(tmp_path, monkeypatc
 
     monkeypatch.setattr(remediation.os, "chown", fake_chown)
 
-    result = remediation.detect_and_remediate("signal_stats_root_owned", project_root=tmp_path)
+    result = remediation.detect_and_remediate(
+        "signal_stats_root_owned", project_root=tmp_path
+    )
 
     assert result.applied is True
     assert result.action_taken == "chown_to_runtime_user(data/signal_stats.jsonl)"
@@ -54,7 +60,9 @@ def test_signal_stats_owner_remediation_chowns_runtime_file(tmp_path, monkeypatc
     assert "expected runtime:runtime" in result.evidence
 
 
-def test_stale_pid_file_remediation_removes_dead_forward_test_pid(tmp_path, monkeypatch):
+def test_stale_pid_file_remediation_removes_dead_forward_test_pid(
+    tmp_path, monkeypatch
+):
     pid_file = tmp_path / remediation.FORWARD_TEST_PID_PATH
     pid_file.parent.mkdir(parents=True)
     pid_file.write_text("424242\n", encoding="utf-8")
@@ -84,11 +92,15 @@ def test_balance_snapshot_stale_remediation_refreshes_last_save_ts(tmp_path):
         encoding="utf-8",
     )
 
-    result = remediation.detect_and_remediate("balance_snapshot_stale", project_root=tmp_path)
+    result = remediation.detect_and_remediate(
+        "balance_snapshot_stale", project_root=tmp_path
+    )
 
     assert result.applied is True
     assert result.action_taken == "force_risk_guard_save()"
     payload = json.loads(state_file.read_text(encoding="utf-8"))
     assert payload["current_balance"] == 100000.0
-    assert datetime.fromisoformat(payload["last_save_ts"]) > datetime.fromisoformat(old_ts)
+    assert datetime.fromisoformat(payload["last_save_ts"]) > datetime.fromisoformat(
+        old_ts
+    )
     assert "exceeds 60 minutes" in result.evidence

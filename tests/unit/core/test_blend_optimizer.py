@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import time
 
 import pytest
 
@@ -46,8 +45,11 @@ class TestScoreCalculation:
     def test_score_formula(self):
         """Score = profit_factor * win_rate * sqrt(trades) * dd_factor * strategy_penalty."""
         score = StrategyBlendOptimizer._compute_score(
-            win_rate=0.6, total_trades=100, max_dd_pct=10.0,
-            gross_profit=200.0, gross_loss=100.0,
+            win_rate=0.6,
+            total_trades=100,
+            max_dd_pct=10.0,
+            gross_profit=200.0,
+            gross_loss=100.0,
         )
         pf = 200.0 / 100.0
         dd_factor = 1.0 / (1.0 + 10.0 / 100.0)
@@ -58,8 +60,12 @@ class TestScoreCalculation:
         assert StrategyBlendOptimizer._compute_score(0.5, 0, 5.0) == 0.0
 
     def test_high_drawdown_penalized(self):
-        score_low_dd = StrategyBlendOptimizer._compute_score(0.6, 50, 5.0, gross_profit=200.0, gross_loss=100.0)
-        score_high_dd = StrategyBlendOptimizer._compute_score(0.6, 50, 30.0, gross_profit=200.0, gross_loss=100.0)
+        score_low_dd = StrategyBlendOptimizer._compute_score(
+            0.6, 50, 5.0, gross_profit=200.0, gross_loss=100.0
+        )
+        score_high_dd = StrategyBlendOptimizer._compute_score(
+            0.6, 50, 30.0, gross_profit=200.0, gross_loss=100.0
+        )
         assert score_low_dd > score_high_dd
 
 
@@ -86,16 +92,18 @@ class TestOptimizerIntegration:
 
     def test_single_strategy(self):
         """Single strategy should work."""
-        reg = _make_registry([
-            StrategyConfig(
-                strategy_id="solo",
-                name="Solo",
-                strategy_type="mean_reversion",
-                symbols=["EURUSD"],
-                timeframes=["H1"],
-                typical_confidence_range=(0.4, 0.7),
-            ),
-        ])
+        reg = _make_registry(
+            [
+                StrategyConfig(
+                    strategy_id="solo",
+                    name="Solo",
+                    strategy_type="mean_reversion",
+                    symbols=["EURUSD"],
+                    timeframes=["H1"],
+                    typical_confidence_range=(0.4, 0.7),
+                ),
+            ]
+        )
         opt = StrategyBlendOptimizer(reg, BlendOptConfig(min_trades_for_score=1))
         result = opt.optimize(n_trials=3, timeout=30)
         assert isinstance(result, BlendResult)

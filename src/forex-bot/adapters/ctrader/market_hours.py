@@ -6,6 +6,7 @@ otherwise trigger the heartbeat-based kill switch.
 
 Use this to gate kill switch triggers and feed health checks.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from datetime import datetime, timezone
 # Mon 20:59 UTC). It also closed 5 minutes early on Friday (21:55 instead of
 # 22:00). Card: ee53643d (fix-weekend-market-closed).
 _WEEKEND_CLOSE_HOUR_UTC = 22  # Friday on/after this hour → closed
-_WEEKEND_OPEN_HOUR_UTC = 21   # Sunday before this hour → closed
+_WEEKEND_OPEN_HOUR_UTC = 21  # Sunday before this hour → closed
 
 
 def is_forex_market_closed(now: datetime | None = None) -> bool:

@@ -1,0 +1,207 @@
+{
+  "generated_at": "2026-08-05T09:31:49.129034+00:00",
+  "duckdb_path": "/home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb",
+  "mtf_mode": "hard",
+  "diagnostic_only": true,
+  "note": "ATR-sensitivity sweep \u2014 diagnostic only.  No validation gate is applied.  Tuning on validation events would be overfitting and is forbidden by AC 0.2.",
+  "thresholds": [
+    0.7,
+    0.75,
+    0.8,
+    0.85
+  ],
+  "sweep": [
+    {
+      "volatile_atr_pct": 0.7,
+      "mtf_mode": "hard",
+      "events": [
+        {
+          "name": "2020 COVID Crash",
+          "symbol": "EURUSD",
+          "accuracy_conceptual_volatile": 0.7431118314424635,
+          "accuracy_conceptual_trending": 0.679902755267423,
+          "accuracy_conceptual_combined": 0.7115072933549433,
+          "overall_pass": true,
+          "label_counts": {
+            "trending": 230,
+            "choppy": 400,
+            "volatile": 895,
+            "quiet": 943
+          }
+        },
+        {
+          "name": "2022 Fed Rate Shock",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5946014769544181,
+          "accuracy_conceptual_trending": 0.6853832442067737,
+          "accuracy_conceptual_combined": 0.6399923605805959,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 793,
+            "choppy": 1423,
+            "volatile": 2503,
+            "quiet": 3135
+          }
+        },
+        {
+          "name": "2023 SVB Collapse",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.6077441077441077,
+          "accuracy_conceptual_trending": 0.6872895622895623,
+          "accuracy_conceptual_combined": 0.647516835016835,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 333,
+            "choppy": 355,
+            "volatile": 810,
+            "quiet": 878
+          }
+        }
+      ]
+    },
+    {
+      "volatile_atr_pct": 0.75,
+      "mtf_mode": "hard",
+      "events": [
+        {
+          "name": "2020 COVID Crash",
+          "symbol": "EURUSD",
+          "accuracy_conceptual_volatile": 0.7382495948136143,
+          "accuracy_conceptual_trending": 0.6847649918962723,
+          "accuracy_conceptual_combined": 0.7115072933549433,
+          "overall_pass": true,
+          "label_counts": {
+            "trending": 258,
+            "choppy": 438,
+            "volatile": 829,
+            "quiet": 943
+          }
+        },
+        {
+          "name": "2022 Fed Rate Shock",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5910364145658263,
+          "accuracy_conceptual_trending": 0.6851285968933027,
+          "accuracy_conceptual_combined": 0.6380825057295645,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 871,
+            "choppy": 1563,
+            "volatile": 2285,
+            "quiet": 3135
+          }
+        },
+        {
+          "name": "2023 SVB Collapse",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.6031144781144782,
+          "accuracy_conceptual_trending": 0.6835016835016835,
+          "accuracy_conceptual_combined": 0.6433080808080809,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 364,
+            "choppy": 383,
+            "volatile": 751,
+            "quiet": 878
+          }
+        }
+      ]
+    },
+    {
+      "volatile_atr_pct": 0.8,
+      "mtf_mode": "hard",
+      "events": [
+        {
+          "name": "2020 COVID Crash",
+          "symbol": "EURUSD",
+          "accuracy_conceptual_volatile": 0.7317666126418152,
+          "accuracy_conceptual_trending": 0.6855753646677472,
+          "accuracy_conceptual_combined": 0.7086709886547812,
+          "overall_pass": true,
+          "label_counts": {
+            "trending": 288,
+            "choppy": 482,
+            "volatile": 755,
+            "quiet": 943
+          }
+        },
+        {
+          "name": "2022 Fed Rate Shock",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5898905016552075,
+          "accuracy_conceptual_trending": 0.6846193022663611,
+          "accuracy_conceptual_combined": 0.6372549019607843,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 953,
+            "choppy": 1680,
+            "volatile": 2086,
+            "quiet": 3135
+          }
+        },
+        {
+          "name": "2023 SVB Collapse",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5942760942760943,
+          "accuracy_conceptual_trending": 0.6881313131313131,
+          "accuracy_conceptual_combined": 0.6412037037037037,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 403,
+            "choppy": 421,
+            "volatile": 674,
+            "quiet": 878
+          }
+        }
+      ]
+    },
+    {
+      "volatile_atr_pct": 0.85,
+      "mtf_mode": "hard",
+      "events": [
+        {
+          "name": "2020 COVID Crash",
+          "symbol": "EURUSD",
+          "accuracy_conceptual_volatile": 0.7228525121555915,
+          "accuracy_conceptual_trending": 0.6884116693679092,
+          "accuracy_conceptual_combined": 0.7056320907617504,
+          "overall_pass": true,
+          "label_counts": {
+            "trending": 311,
+            "choppy": 529,
+            "volatile": 685,
+            "quiet": 943
+          }
+        },
+        {
+          "name": "2022 Fed Rate Shock",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5920550038197097,
+          "accuracy_conceptual_trending": 0.6828367710720652,
+          "accuracy_conceptual_combined": 0.6374458874458875,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 1049,
+            "choppy": 1809,
+            "volatile": 1861,
+            "quiet": 3135
+          }
+        },
+        {
+          "name": "2023 SVB Collapse",
+          "symbol": "XAUUSD",
+          "accuracy_conceptual_volatile": 0.5989057239057239,
+          "accuracy_conceptual_trending": 0.6881313131313131,
+          "accuracy_conceptual_combined": 0.6435185185185186,
+          "overall_pass": false,
+          "label_counts": {
+            "trending": 455,
+            "choppy": 458,
+            "volatile": 585,
+            "quiet": 878
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -10,11 +10,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from confidence.engine import ConfidenceEngine, ConfidenceResult
 from confidence.gates import GateConfig
-from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 from orchestrator.strategy_adapter import StrategyAdapter
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
@@ -23,13 +21,18 @@ from risk.sl_position_sizer import SLPositionSizer
 @dataclass
 class BacktestConfig:
     starting_balance: float = 10000.0
-    risk_per_trade_pct: float = 0.005   # 0.5%
-    daily_risk_cap_pct: float = 0.03    # 3%
+    risk_per_trade_pct: float = 0.005  # 0.5%
+    daily_risk_cap_pct: float = 0.03  # 3%
     max_sniper: int = 3
     max_swarm: int = 5
-    spread_pips: dict = field(default_factory=lambda: {
-        "EURUSD": 1.0, "GBPUSD": 1.5, "USDJPY": 1.2, "XAUUSD": 3.0,
-    })
+    spread_pips: dict = field(
+        default_factory=lambda: {
+            "EURUSD": 1.0,
+            "GBPUSD": 1.5,
+            "USDJPY": 1.2,
+            "XAUUSD": 3.0,
+        }
+    )
     london_open: int = 7
     london_close: int = 16
     ny_open: int = 13
@@ -151,17 +154,21 @@ class BlendBacktest:
 
             # Build confluences if present
             confluences = None
-            if sig_dict.get("confluence_strategies") and sig_dict.get("confluence_timeframes"):
+            if sig_dict.get("confluence_strategies") and sig_dict.get(
+                "confluence_timeframes"
+            ):
                 confluences = []
                 for strat, tf in zip(
                     sig_dict["confluence_strategies"],
                     sig_dict["confluence_timeframes"],
                 ):
-                    confluences.append({
-                        "strategy": strat,
-                        "direction": signal.direction.lower(),
-                        "timeframe": tf,
-                    })
+                    confluences.append(
+                        {
+                            "strategy": strat,
+                            "direction": signal.direction.lower(),
+                            "timeframe": tf,
+                        }
+                    )
 
             conf_result: ConfidenceResult = engine.score(
                 raw_confidence=signal.confidence,
@@ -224,8 +231,11 @@ class BlendBacktest:
             sid = sig_dict["strategy_id"]
             if sid not in per_strategy:
                 per_strategy[sid] = {
-                    "trades": 0, "wins": 0, "losses": 0,
-                    "total_pnl": 0.0, "pnls": [],
+                    "trades": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "total_pnl": 0.0,
+                    "pnls": [],
                 }
             per_strategy[sid]["trades"] += 1
             per_strategy[sid]["pnls"].append(outcome_pnl)
@@ -263,7 +273,13 @@ class BlendBacktest:
 
         gross_profit = sum(win_pnls)
         gross_loss = abs(sum(loss_pnls))
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
+        profit_factor = (
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else float("inf")
+            if gross_profit > 0
+            else 0.0
+        )
 
         # Sharpe ratio (simplified — assumes equal time between trades)
         sharpe = 0.0

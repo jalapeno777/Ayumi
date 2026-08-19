@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from adapters.ctrader.protocols import Position, PositionStatus
+from adapters.ctrader.protocols import PositionStatus
 from adapters.ctrader.position_tracker import PositionTracker
 
 
@@ -88,8 +88,11 @@ class TestPositionTracker:
         tracker = PositionTracker(session=_make_mock_session())
 
         tracker.on_position_opened(
-            position_id=2002, symbol="EURUSD", direction="SELL",
-            volume=0.05, entry_price=1.1000,
+            position_id=2002,
+            symbol="EURUSD",
+            direction="SELL",
+            volume=0.05,
+            entry_price=1.1000,
         )
         assert len(tracker.get_open_positions()) == 1
 
@@ -101,8 +104,11 @@ class TestPositionTracker:
         tracker = PositionTracker(session=_make_mock_session())
 
         tracker.on_position_opened(
-            position_id=3003, symbol="EURUSD", direction="BUY",
-            volume=0.10, entry_price=1.1000,
+            position_id=3003,
+            symbol="EURUSD",
+            direction="BUY",
+            volume=0.10,
+            entry_price=1.1000,
         )
 
         tracker.update_prices({"EURUSD": 1.1050})
@@ -119,12 +125,18 @@ class TestPositionTracker:
         tracker = PositionTracker(session=_make_mock_session())
 
         tracker.on_position_opened(
-            position_id=4001, symbol="USDJPY", direction="BUY",
-            volume=0.20, entry_price=150.00,
+            position_id=4001,
+            symbol="USDJPY",
+            direction="BUY",
+            volume=0.20,
+            entry_price=150.00,
         )
         tracker.on_position_opened(
-            position_id=4002, symbol="GBPUSD", direction="SELL",
-            volume=0.15, entry_price=1.2800,
+            position_id=4002,
+            symbol="GBPUSD",
+            direction="SELL",
+            volume=0.15,
+            entry_price=1.2800,
         )
 
         pos = tracker.get_position(4002)
@@ -140,8 +152,11 @@ class TestPositionTracker:
         tracker = PositionTracker(session=_make_mock_session())
 
         tracker.on_position_opened(
-            position_id=5001, symbol="EURUSD", direction="BUY",
-            volume=1.0, entry_price=1.1000,
+            position_id=5001,
+            symbol="EURUSD",
+            direction="BUY",
+            volume=1.0,
+            entry_price=1.1000,
         )
 
         tracker.update_prices({"EURUSD": 1.1050})
@@ -153,8 +168,11 @@ class TestPositionTracker:
 
         # SELL direction should be opposite
         tracker.on_position_opened(
-            position_id=5002, symbol="EURUSD", direction="SELL",
-            volume=1.0, entry_price=1.1000,
+            position_id=5002,
+            symbol="EURUSD",
+            direction="SELL",
+            volume=1.0,
+            entry_price=1.1000,
         )
         tracker.update_prices({"EURUSD": 1.1050})
 
@@ -169,14 +187,19 @@ class TestPositionTracker:
         tracker = PositionTracker(session=_make_mock_session())
 
         tracker.on_position_opened(
-            position_id=6001, symbol="EURUSD", direction="BUY",
-            volume=1.0, entry_price=1.1000,
+            position_id=6001,
+            symbol="EURUSD",
+            direction="BUY",
+            volume=1.0,
+            entry_price=1.1000,
         )
 
         # cTrader returns the same position
-        ctrader_resp = _make_reconcile_response([
-            {"position_id": "6001", "price": 1.1000, "volume": 100_000},
-        ])
+        ctrader_resp = _make_reconcile_response(
+            [
+                {"position_id": "6001", "price": 1.1000, "volume": 100_000},
+            ]
+        )
         tracker._session.send.return_value = ctrader_resp
 
         discrepancies = tracker.reconcile_with_ctrader()
@@ -188,16 +211,25 @@ class TestPositionTracker:
 
         # Locally we track position 7001
         tracker.on_position_opened(
-            position_id=7001, symbol="EURUSD", direction="BUY",
-            volume=1.0, entry_price=1.1000,
+            position_id=7001,
+            symbol="EURUSD",
+            direction="BUY",
+            volume=1.0,
+            entry_price=1.1000,
         )
 
         # cTrader returns position 7001 (known) + 7002 (unknown)
-        ctrader_resp = _make_reconcile_response([
-            {"position_id": "7001", "price": 1.1000, "volume": 100_000},
-            {"position_id": "7002", "price": 1.2500, "volume": 100_000,
-             "symbol_id": 2},
-        ])
+        ctrader_resp = _make_reconcile_response(
+            [
+                {"position_id": "7001", "price": 1.1000, "volume": 100_000},
+                {
+                    "position_id": "7002",
+                    "price": 1.2500,
+                    "volume": 100_000,
+                    "symbol_id": 2,
+                },
+            ]
+        )
         tracker._session.send.return_value = ctrader_resp
 
         discrepancies = tracker.reconcile_with_ctrader()

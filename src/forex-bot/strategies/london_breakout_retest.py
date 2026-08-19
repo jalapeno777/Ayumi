@@ -9,12 +9,10 @@ Best on: XAUUSD M15 (primary), EURUSD M15
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from core.types import (
     Bar,
     MarketState,
-    SessionType,
     StrategySignal,
     TradeDirection,
 )
@@ -57,14 +55,14 @@ def _pip_size(symbol_hint: str | None = "") -> float:
 class LondonBreakoutConfig:
     # Session boundaries (UTC hours)
     asian_start_utc: int = 0
-    asian_end_utc: int = 7       # Asian session ends, London opens
+    asian_end_utc: int = 7  # Asian session ends, London opens
     trade_start_utc: int = 7
-    trade_end_utc: int = 11      # Last retest window: 4h after London open
+    trade_end_utc: int = 11  # Last retest window: 4h after London open
 
     # Range filters
     min_asian_range_pips: float = 8.0
     max_asian_range_pips: float = 60.0
-    buffer_pips: float = 3.0     # breakout buffer above/below Asian range
+    buffer_pips: float = 3.0  # breakout buffer above/below Asian range
 
     # ATR / SL
     atr_period: int = 14
@@ -102,7 +100,9 @@ class LondonBreakoutRetestStrategy:
         self._breakout_dir = None
         self._breakout_bar_idx = -1
 
-    def _compute_asian_range(self, bars: list[Bar], target_day: int) -> tuple[float, float] | None:
+    def _compute_asian_range(
+        self, bars: list[Bar], target_day: int
+    ) -> tuple[float, float] | None:
         """Compute Asian session high/low for the target day."""
         asian_high = None
         asian_low = None
@@ -226,9 +226,21 @@ class LondonBreakoutRetestStrategy:
         if risk <= 0:
             return None
 
-        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
-        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
-        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
+        tp1 = (
+            entry + risk * 1.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 1.0
+        )
+        tp2 = (
+            entry + risk * 2.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 2.0
+        )
+        tp3 = (
+            entry + risk * 3.0
+            if direction == TradeDirection.LONG
+            else entry - risk * 3.0
+        )
 
         # Confidence based on range size and breakout direction alignment
         confidence = self.config.min_confidence

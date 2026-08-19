@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List, Optional
 
-from config.sessions import KillzoneHours
+from config.sessions import (
+    DSTAwareKillzoneHours,
+    KillzoneHours,
+    get_killzone_hours_for_date,
+)
 from core.types import (
     Bar,
     MarketState,
@@ -12,10 +16,14 @@ from core.types import (
     StrategySignal,
     TradeDirection,
 )
+from utils.pip_value import pip_value_for_symbol
 
 
 @dataclass(frozen=True)
 class KillzoneMomentumConfig:
+    # Symbol for pip-size resolution. Defaults to XAUUSD since this
+    # strategy is primarily registered for gold (see strategies/registry.py).
+    symbol: str = "XAUUSD"
     # Tuned per research §A.4 (strategy-optimization-research.md)
     atr_period: int = 14
     atr_breakout_multiplier: float = 0.3  # was 0.5 — catch cleaner (smaller) breakouts
@@ -24,13 +32,19 @@ class KillzoneMomentumConfig:
     min_session_range_pips: float = 8.0  # was 12.0 — allow quieter sessions
     hard_cap_sl_pips: float = 35.0
     atr_sl_multiplier: float = 1.5
-    retest_tolerance_atr: float = 1.0  # was 0.5 — allow retest up to 1×ATR from breakout
+    retest_tolerance_atr: float = (
+        1.0  # was 0.5 — allow retest up to 1×ATR from breakout
+    )
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
     adx_period: int = 14
-    adx_threshold: float = 15.0  # was 20.0 — 20 too restrictive on M5; 15 still requires mild trend
-    min_bars_for_setup: int = 40  # was 80 — cut setup time without sacrificing indicator stability
+    adx_threshold: float = (
+        15.0  # was 20.0 — 20 too restrictive on M5; 15 still requires mild trend
+    )
+    min_bars_for_setup: int = (
+        40  # was 80 — cut setup time without sacrificing indicator stability
+    )
     breakout_lookback_bars: int = 12  # was 6 — more bars for breakout to develop on H1
 
     # Per-pair/per-timeframe presets per research §A.4.
@@ -50,14 +64,17 @@ class KillzoneMomentumConfig:
         Differences from H1 FX defaults:
         - ``min_session_range_pips`` 8.0 → 25.0 (gold M5 sessions are wider)
         - ``breakout_lookback_bars`` 12 → 8 (M5 resolves breakouts faster)
+        - ``adx_threshold`` 15.0 → 20.0 (gold M5 noise is higher; stricter gate)
         - ``min_bars_for_setup`` stays at 40 (still appropriate for M5)
         """
         return cls(
             min_session_range_pips=25.0,
             breakout_lookback_bars=8,
+            adx_threshold=20.0,
         )
 
 
+# Static fallback hours (used when date context is unavailable)
 _LONDON_OPEN_START = KillzoneHours.LONDON_OPEN_START
 _LONDON_OPEN_END = KillzoneHours.LONDON_OPEN_END
 _NY_OPEN_START = KillzoneHours.NY_OPEN_START
@@ -70,19 +87,22 @@ _ASIAN_END_HOUR = 7
 _LONDON_START_HOUR = 7
 _LONDON_END_HOUR = 12
 
-_DEFAULT_PIP = 0.0001
-_JPY_PIP = 0.01
 _MIN_SL_PIPS = 5.0
 
 
-def _pip_for_price(price: float) -> float:
-    if price >= 50:
-        return _JPY_PIP
-    return _DEFAULT_PIP
-
-
-# Keep _PIP as deprecated alias for backward compat
-_PIP = _DEFAULT_PIP
+def _resolve_kz_hours(d: date | None = None) -> DSTAwareKillzoneHours:
+    """Return DST-aware killzone hours for the given date (or static fallback)."""
+    if d is not None:
+        return get_killzone_hours_for_date(d)
+    # Fallback: return the static defaults as a DSTAwareKillzoneHours
+    return DSTAwareKillzoneHours(
+        LONDON_OPEN_START=_LONDON_OPEN_START,
+        LONDON_OPEN_END=_LONDON_OPEN_END,
+        NY_OPEN_START=_NY_OPEN_START,
+        NY_OPEN_END=_NY_OPEN_END,
+        OVERLAP_START=_OVERLAP_START,
+        OVERLAP_END=_OVERLAP_END,
+    )
 
 
 def _get_bar_session(bar_time: datetime) -> SessionType:
@@ -99,6 +119,11 @@ def _get_bar_session(bar_time: datetime) -> SessionType:
 
 
 def _is_killzone(state: MarketState) -> bool:
+    """Check if the bar is within any killzone using STATIC hours.
+
+    This function preserves backward compatibility with existing test expectations.
+    For DST-aware killzone detection, use ``_is_killzone_dst()``.
+    """
     utc_hour = state.latest_bar.time.hour
     return (
         _LONDON_OPEN_START.hour <= utc_hour < _LONDON_OPEN_END.hour
@@ -107,13 +132,42 @@ def _is_killzone(state: MarketState) -> bool:
     )
 
 
+def _is_killzone_dst(state: MarketState) -> bool:
+    """Check if the bar is within any killzone using DST-aware hours."""
+    kz = _resolve_kz_hours(state.latest_bar.time.date())
+    utc_hour = state.latest_bar.time.hour
+    return (
+        kz.LONDON_OPEN_START.hour <= utc_hour < kz.LONDON_OPEN_END.hour
+        or kz.NY_OPEN_START.hour <= utc_hour < kz.NY_OPEN_END.hour
+        or kz.OVERLAP_START.hour <= utc_hour < kz.OVERLAP_END.hour
+    )
+
+
 def _get_killzone_name(state: MarketState) -> Optional[str]:
+    """Get killzone name using STATIC hours.
+
+    This function preserves backward compatibility with existing test expectations.
+    For DST-aware killzone detection, use ``_get_killzone_name_dst()``.
+    """
     utc_hour = state.latest_bar.time.hour
     if _LONDON_OPEN_START.hour <= utc_hour < _LONDON_OPEN_END.hour:
         return "london_open"
     if _NY_OPEN_START.hour <= utc_hour < _NY_OPEN_END.hour:
         return "ny_open"
     if _OVERLAP_START.hour <= utc_hour < _OVERLAP_END.hour:
+        return "overlap"
+    return None
+
+
+def _get_killzone_name_dst(state: MarketState) -> Optional[str]:
+    """Get killzone name using DST-aware hours."""
+    kz = _resolve_kz_hours(state.latest_bar.time.date())
+    utc_hour = state.latest_bar.time.hour
+    if kz.LONDON_OPEN_START.hour <= utc_hour < kz.LONDON_OPEN_END.hour:
+        return "london_open"
+    if kz.NY_OPEN_START.hour <= utc_hour < kz.NY_OPEN_END.hour:
+        return "ny_open"
+    if kz.OVERLAP_START.hour <= utc_hour < kz.OVERLAP_END.hour:
         return "overlap"
     return None
 
@@ -330,15 +384,15 @@ class KillzoneMomentumStrategy:
         if len(state.bars) < min_required:
             return None
 
-        if not _is_killzone(state):
+        if not _is_killzone_dst(state):
             return None
 
-        kz_name = _get_killzone_name(state)
+        kz_name = _get_killzone_name_dst(state)
         if kz_name is None:
             return None
 
         latest = state.latest_bar
-        pip = _pip_for_price(latest.close)
+        pip = pip_value_for_symbol(self.config.symbol)
         current_day = latest.time.date()
 
         atr = _calculate_atr(state.bars, self.config.atr_period)
@@ -457,6 +511,16 @@ class KillzoneMomentumStrategy:
 
         if direction is None:
             return None
+
+        # H4 cross-timeframe filter: when H4 bars are available, require
+        # the H4 candle direction to align with the breakout direction.
+        # If h4_bars is None or empty (backward-compatible), skip this filter.
+        if state.h4_bars and len(state.h4_bars) >= 2:
+            h4_trend = _get_trend_direction(
+                state.h4_bars, min(10, len(state.h4_bars) - 1)
+            )
+            if h4_trend is not None and h4_trend != breakout_direction:
+                return None
 
         entry = price
         sl_distance = min(

@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass, field, asdict
@@ -43,6 +42,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TradeRecord:
     """Single closed trade record for edge tracking."""
+
     strategy_id: str
     symbol: str
     risk_amount: float
@@ -59,6 +59,7 @@ class TradeRecord:
 @dataclass
 class EdgeStats:
     """Rolling edge statistics for a strategy × symbol pair."""
+
     strategy_id: str
     symbol: str
     trades: deque = field(default_factory=lambda: deque(maxlen=50))
@@ -90,7 +91,7 @@ class EdgeStats:
         gross_profit = sum(t.pnl for t in self.trades if t.pnl > 0)
         gross_loss = abs(sum(t.pnl for t in self.trades if t.pnl < 0))
         if gross_loss == 0:
-            return float('inf') if gross_profit > 0 else 0.0
+            return float("inf") if gross_profit > 0 else 0.0
         return gross_profit / gross_loss
 
     @property
@@ -110,7 +111,9 @@ class EdgeStats:
             "losses": self.losses,
             "win_rate": round(self.win_rate, 4),
             "expectancy": round(self.expectancy, 4),
-            "profit_factor": round(self.profit_factor, 4) if self.profit_factor != float('inf') else None,
+            "profit_factor": round(self.profit_factor, 4)
+            if self.profit_factor != float("inf")
+            else None,
             "total_pnl": round(self.total_pnl, 2),
             "avg_risk": round(self.avg_risk, 2),
             "best_r": round(self.best_r, 4),
@@ -241,8 +244,12 @@ class EdgeTelemetryTracker:
             stats = self._stats[(strategy_id, symbol)]
             logger.info(
                 "EdgeTelemetry: %s %s R=%.2f pnl=$%.2f expectancy=%.3f (%d trades)",
-                strategy_id, symbol, record.r_multiple, pnl,
-                stats.expectancy, stats.total_trades,
+                strategy_id,
+                symbol,
+                record.r_multiple,
+                pnl,
+                stats.expectancy,
+                stats.total_trades,
             )
 
             return record

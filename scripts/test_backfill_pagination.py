@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Smoke test: verify backward pagination works across multiple chunks."""
-import sys, os
+
+import sys
+import os
 from pathlib import Path
 from dotenv import load_dotenv
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
@@ -44,28 +46,33 @@ for chunk_num in range(1, 4):
 
     # Sort by timestamp
     bars.sort(key=lambda b: b["timestamp"])
-    
+
     # Convert to datetime for display
     first_ts = datetime.fromtimestamp(bars[0]["timestamp"] / 1000, tz=timezone.utc)
     last_ts = datetime.fromtimestamp(bars[-1]["timestamp"] / 1000, tz=timezone.utc)
-    
-    print(f"Chunk {chunk_num}: {len(bars)} bars, {first_ts.strftime('%Y-%m-%d %H:%M')} → {last_ts.strftime('%Y-%m-%d %H:%M')}")
-    
+
+    print(
+        f"Chunk {chunk_num}: {len(bars)} bars, {first_ts.strftime('%Y-%m-%d %H:%M')} → {last_ts.strftime('%Y-%m-%d %H:%M')}"
+    )
+
     total_bars += len(bars)
     if earliest_overall is None:
         earliest_overall = first_ts
     latest_overall = last_ts
-    
+
     # Move cursor backward
     period_ms = 60 * 1000  # M1
     cursor_end = int(bars[0]["timestamp"]) - period_ms
-    
+
     import time
+
     time.sleep(0.3)
 
 chunk_num_final = chunk_num
 print(f"\nTotal: {total_bars} bars across {min(chunk_num_final, 3)} chunks")
-print(f"Range: {earliest_overall.strftime('%Y-%m-%d %H:%M')} → {latest_overall.strftime('%Y-%m-%d %H:%M')}")
+print(
+    f"Range: {earliest_overall.strftime('%Y-%m-%d %H:%M')} → {latest_overall.strftime('%Y-%m-%d %H:%M')}"
+)
 print(f"Span: {(latest_overall - earliest_overall).total_seconds() / 3600:.1f} hours")
 
 if total_bars > 10000:

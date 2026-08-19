@@ -18,6 +18,7 @@ from common.resource_limits import (
 
 # ── cpu_limited ─────────────────────────────────────────────────────────
 
+
 class TestCpuLimited:
     def test_cpu_limited_is_context_manager(self):
         """cpu_limited returns a context manager that can be entered and exited."""
@@ -44,6 +45,7 @@ class TestCpuLimited:
 
 
 # ── cgroup v2 helpers ───────────────────────────────────────────────────
+
 
 class TestCgroupV2:
     def test_cgroup_v2_available_returns_bool(self):
@@ -79,12 +81,14 @@ class TestCgroupV2:
         # Verify process is in this cgroup
         with open(f"/proc/{os.getpid()}/cgroup") as f:
             cgroup_line = f.read().strip()
-        assert "ayumi_cpu" in cgroup_line, \
+        assert "ayumi_cpu" in cgroup_line, (
             f"Process should be in ayumi_cpu cgroup, got: {cgroup_line}"
+        )
 
         _cleanup_cgroup(path)
-        assert not os.path.exists(path), \
+        assert not os.path.exists(path), (
             f"cgroup dir {path} should be removed after cleanup"
+        )
 
     def test_cpu_limited_uses_cgroup_when_available(self):
         """cpu_limited creates and cleans up a cgroup when v2 is available."""
@@ -95,15 +99,17 @@ class TestCgroupV2:
             # During the block, process should be in an ayumi_cpu cgroup
             with open(f"/proc/{os.getpid()}/cgroup") as f:
                 cgroup_line = f.read().strip()
-            assert "ayumi_cpu" in cgroup_line, \
+            assert "ayumi_cpu" in cgroup_line, (
                 f"Process should be in cgroup during cpu_limited, got: {cgroup_line}"
+            )
 
         # After the block, cgroup should be cleaned up
         # Process should be back in root or original cgroup
         pid = os.getpid()
         expected_stale = f"/sys/fs/cgroup/ayumi_cpu_{pid}"
-        assert not os.path.exists(expected_stale), \
+        assert not os.path.exists(expected_stale), (
             "cgroup should be cleaned up after cpu_limited exits"
+        )
 
     def test_cgroup_fallback_on_permission_error(self):
         """cpu_limited falls back to advisory when cgroup creation fails."""
@@ -117,6 +123,7 @@ class TestCgroupV2:
 
 
 # ── memory_capped ───────────────────────────────────────────────────────
+
 
 class TestMemoryCapped:
     def test_memory_capped_is_context_manager(self):
@@ -152,9 +159,11 @@ class TestMemoryCapped:
 
 # ── run_limited decorator ───────────────────────────────────────────────
 
+
 class TestRunLimited:
     def test_run_limited_decorates_function(self):
         """run_limited wraps a function and it still returns the correct value."""
+
         @run_limited(cpu_percent=50, memory_mb=4096)
         def add(a, b):
             return a + b
@@ -163,6 +172,7 @@ class TestRunLimited:
 
     def test_run_limited_preserves_function_name(self):
         """The decorator preserves the wrapped function's name via functools.wraps."""
+
         @run_limited(cpu_percent=50, memory_mb=4096)
         def my_special_function():
             """My docstring."""
@@ -173,6 +183,7 @@ class TestRunLimited:
 
     def test_run_limited_passes_args_and_kwargs(self):
         """The decorator forwards positional and keyword arguments."""
+
         @run_limited(cpu_percent=50, memory_mb=4096)
         def combine(a, b, c=0):
             return a + b + c
@@ -182,6 +193,7 @@ class TestRunLimited:
 
     def test_run_limited_default_params(self):
         """run_limited works with default parameters (cpu=20, memory=2048)."""
+
         @run_limited()
         def noop():
             return 42
@@ -191,6 +203,7 @@ class TestRunLimited:
 
 # ── configure_pytest_defaults ───────────────────────────────────────────
 
+
 class TestConfigurePytestDefaults:
     def test_configure_pytest_defaults_runs_without_error(self):
         """configure_pytest_defaults does not raise."""
@@ -199,10 +212,12 @@ class TestConfigurePytestDefaults:
 
 # ── add_resource_args ───────────────────────────────────────────────────
 
+
 class TestAddResourceArgs:
     def test_add_resource_args_adds_flags(self):
         """add_resource_args adds --max-cpu and --max-memory-mb to a parser."""
         import argparse
+
         parser = argparse.ArgumentParser()
         add_resource_args(parser)
 
@@ -213,6 +228,7 @@ class TestAddResourceArgs:
     def test_add_resource_args_has_defaults(self):
         """Default values are cpu=20, memory=2048."""
         import argparse
+
         parser = argparse.ArgumentParser()
         add_resource_args(parser)
 

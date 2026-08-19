@@ -9,7 +9,6 @@ import time
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import duckdb
 
@@ -240,9 +239,7 @@ class SRFDatabase:
     def acquire_lock(self, timeout: float = 5.0) -> None:
         """Acquire exclusive file lock. Raises RuntimeError if locked."""
         deadline = time.monotonic() + timeout
-        self._lock_fd = os.open(
-            str(self._lock_path), os.O_CREAT | os.O_RDWR, 0o644
-        )
+        self._lock_fd = os.open(str(self._lock_path), os.O_CREAT | os.O_RDWR, 0o644)
         while True:
             try:
                 fcntl.flock(self._lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -301,9 +298,7 @@ class SRFDatabase:
 
         # Check current version
         try:
-            cur.execute(
-                "SELECT MAX(version) FROM _srf_schema_version"
-            )
+            cur.execute("SELECT MAX(version) FROM _srf_schema_version")
             row = cur.fetchone()
             current = row[0] if row and row[0] is not None else 0
         except duckdb.Error:
@@ -335,6 +330,7 @@ class SRFDatabase:
     def backup(self) -> Path:
         """Copy DB to .bak. Must be called while connected."""
         import shutil
+
         bak = self.db_path.with_suffix(".duckdb.bak")
         # DuckDB CHECKPOINT ensures all data is flushed to disk
         if self._conn:

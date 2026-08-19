@@ -243,7 +243,9 @@ class TestDailyReset:
 
     def test_daily_reset_after_losses_allows_new_trades(self):
         """After daily reset, daily_risk_remaining should reflect the reset."""
-        daily_cap = self.runner._sizer.account_balance * self.runner._sizer.daily_risk_cap_pct
+        daily_cap = (
+            self.runner._sizer.account_balance * self.runner._sizer.daily_risk_cap_pct
+        )
         self.runner._sizer._daily_risk_used = daily_cap * 0.95
 
         remaining_before = self.runner._sizer.daily_risk_remaining

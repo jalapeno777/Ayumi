@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import os
 import sys
-import types
 from unittest.mock import MagicMock
 
 import pytest
 
 # Ensure src/forex-bot is importable (same pattern as test_amend_sl_tp.py)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
+)
 
 
 @pytest.fixture
@@ -58,9 +59,8 @@ class TestClosePositionFloatConversion:
 
         # Patch the protobuf class so we get a MagicMock req, not a real proto.
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
-        monkeypatch.setattr(
-            spot_feed_mod, "ProtoOAClosePositionReq", MagicMock
-        )
+
+        monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         # Act
         result = feed_mock.close_position(
@@ -76,7 +76,9 @@ class TestClosePositionFloatConversion:
         assert captured[0].ctidTraderAccountId == 12345
         assert captured[0].positionId == "pos-1"
 
-    def test_close_position_float_crypto_uses_smaller_lot_size(self, feed_mock, monkeypatch):
+    def test_close_position_float_crypto_uses_smaller_lot_size(
+        self, feed_mock, monkeypatch
+    ):
         """0.5 lots on a crypto symbol (lot_size=100) → volume=50."""
         # Crypto lot_size=100: 0.5 * 100 = 50
         feed_mock._volume_calc.lots_to_volume = MagicMock(return_value=50)
@@ -89,6 +91,7 @@ class TestClosePositionFloatConversion:
 
         feed_mock._conn.send_and_wait = fake_send_and_wait
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         result = feed_mock.close_position("pos-2", 0.5, symbol_id=42)
@@ -102,9 +105,12 @@ class TestClosePositionFloatConversion:
         feed_mock._volume_calc.lots_to_volume = MagicMock(return_value=100_000)
 
         captured: list = []
-        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: captured.append(req) or object()
+        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: (
+            captured.append(req) or object()
+        )
 
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         feed_mock.close_position("pos-3", 1.0, symbol_id=1)
@@ -124,9 +130,12 @@ class TestClosePositionIntPassthrough:
     ):
         """32_000_000 (int) → req.volume = 32_000_000, lots_to_volume NOT called."""
         captured: list = []
-        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: captured.append(req) or object()
+        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: (
+            captured.append(req) or object()
+        )
 
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         # No symbol_id provided — int path must not require it.
@@ -140,9 +149,12 @@ class TestClosePositionIntPassthrough:
     def test_close_position_int_works_without_symbol_id(self, feed_mock, monkeypatch):
         """Backward compat: int callers do not need to pass symbol_id."""
         captured: list = []
-        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: captured.append(req) or object()
+        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: (
+            captured.append(req) or object()
+        )
 
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         # No symbol_id — should still work for int
@@ -154,9 +166,12 @@ class TestClosePositionIntPassthrough:
     def test_close_position_int_full_lot(self, feed_mock, monkeypatch):
         """100_000 (int, 1 standard forex lot) → req.volume = 100_000."""
         captured: list = []
-        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: captured.append(req) or object()
+        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: (
+            captured.append(req) or object()
+        )
 
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         feed_mock.close_position("pos-full", 100_000)
@@ -179,10 +194,13 @@ class TestClosePositionErrors:
         # No network call should have been made
         feed_mock._conn.send_and_wait.assert_not_called()
 
-    def test_close_position_returns_false_on_broker_timeout(self, feed_mock, monkeypatch):
+    def test_close_position_returns_false_on_broker_timeout(
+        self, feed_mock, monkeypatch
+    ):
         """When send_and_wait returns None (timeout), close_position returns False."""
         feed_mock._conn.send_and_wait = MagicMock(return_value=None)
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         result = feed_mock.close_position("pos-1", 32_000_000)
@@ -202,11 +220,16 @@ class TestClosePositionBoolSubclass:
     and the int path is the safe one.
     """
 
-    def test_close_position_bool_takes_int_passthrough_path(self, feed_mock, monkeypatch):
+    def test_close_position_bool_takes_int_passthrough_path(
+        self, feed_mock, monkeypatch
+    ):
         """True/False (bool, subclass of int) should NOT trigger lots_to_volume."""
         captured: list = []
-        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: captured.append(req) or object()
+        feed_mock._conn.send_and_wait = lambda req, timeout=None, prefix=None: (
+            captured.append(req) or object()
+        )
         from adapters.ctrader import open_api_spot_feed as spot_feed_mod
+
         monkeypatch.setattr(spot_feed_mod, "ProtoOAClosePositionReq", MagicMock)
 
         feed_mock.close_position("pos-bool", True)

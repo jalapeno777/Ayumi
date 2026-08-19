@@ -2,6 +2,7 @@ import unittest
 import dataclasses
 
 import pytest
+
 pytest.skip("strategies.gbpusd_bb_reversion module removed", allow_module_level=True)
 
 from datetime import datetime

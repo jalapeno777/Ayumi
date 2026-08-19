@@ -13,10 +13,7 @@ import pytest
 
 from risk.correlation_matrix import CorrelationMatrix
 from risk.pair_selection import (
-    DEFAULT_CLUSTERS,
-    DEFAULT_MAX_PER_CLUSTER,
     PairSelectionPolicy,
-    PairSelectionResult,
 )
 
 
@@ -47,7 +44,12 @@ def over_clustered_portfolio() -> list[str]:
     custom_clusters = {
         "usd_weak_majors": {"EURUSD", "GBPUSD"},
         "usd_strong": {
-            "USDJPY", "USDCHF", "USDCAD", "USDMXN", "USDSGD", "USDHKD",
+            "USDJPY",
+            "USDCHF",
+            "USDCAD",
+            "USDMXN",
+            "USDSGD",
+            "USDHKD",
         },
         "commodity_linked": {"AUDUSD", "XAUUSD", "USDCAD"},
         "jpy_crosses": {"GBPJPY", "EURJPY", "EURGBP"},
@@ -111,10 +113,14 @@ class TestPortfolioValidation:
         """Acceptance criterion: valid 4-cluster portfolio (2 per cluster) passes."""
         # Pick exactly 2 from each cluster
         portfolio = [
-            "EURUSD", "GBPUSD",           # usd_weak_majors
-            "USDJPY", "USDCHF",           # usd_strong
-            "AUDUSD", "XAUUSD",           # commodity_linked
-            "GBPJPY", "EURJPY",           # jpy_crosses
+            "EURUSD",
+            "GBPUSD",  # usd_weak_majors
+            "USDJPY",
+            "USDCHF",  # usd_strong
+            "AUDUSD",
+            "XAUUSD",  # commodity_linked
+            "GBPJPY",
+            "EURJPY",  # jpy_crosses
         ]
         result = policy.validate_portfolio(portfolio)
         assert result.is_valid
@@ -165,9 +171,7 @@ class TestMultiClusterMembership:
 # ------------------------------------------------------------------ #
 class TestUnassignedPairs:
     def test_unassigned_detected(self, policy):
-        unassigned = policy.get_unassigned_pairs(
-            ["EURUSD", "NZDUSD", "USDMXN"]
-        )
+        unassigned = policy.get_unassigned_pairs(["EURUSD", "NZDUSD", "USDMXN"])
         assert "NZDUSD" in unassigned
         assert "USDMXN" in unassigned
         assert "EURUSD" not in unassigned
@@ -200,6 +204,7 @@ class TestCorrelationMatrixDualWindow:
         cm = CorrelationMatrix(window=30)
         # Generate synthetic return data (100 days)
         import random
+
         random.seed(42)
         for sym in ["EURUSD", "GBPUSD", "USDJPY"]:
             returns = [random.gauss(0, 0.001) for _ in range(100)]
@@ -219,6 +224,7 @@ class TestCorrelationMatrixDualWindow:
     def test_compute_multi_window_default_windows(self):
         cm = CorrelationMatrix()
         import random
+
         random.seed(42)
         for sym in ["EURUSD", "GBPUSD"]:
             returns = [random.gauss(0, 0.001) for _ in range(100)]
@@ -230,6 +236,7 @@ class TestCorrelationMatrixDualWindow:
     def test_compute_multi_window_restores_window(self):
         cm = CorrelationMatrix(window=30)
         import random
+
         random.seed(42)
         for sym in ["EURUSD", "GBPUSD"]:
             returns = [random.gauss(0, 0.001) for _ in range(100)]
@@ -260,6 +267,7 @@ class TestCorrelationMatrixDualWindow:
         """Existing compute() method should still work unchanged."""
         cm = CorrelationMatrix(window=30)
         import random
+
         random.seed(42)
         for sym in ["EURUSD", "GBPUSD"]:
             returns = [random.gauss(0, 0.001) for _ in range(50)]
@@ -282,6 +290,7 @@ class TestIntegration:
         cm = CorrelationMatrix(window=30)
         # Simulate highly correlated EURUSD and GBPUSD
         import random
+
         random.seed(42)
         base = [random.gauss(0, 0.001) for _ in range(60)]
         cm.add_returns("EURUSD", base)

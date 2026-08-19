@@ -7,10 +7,8 @@ Rewritten for post-refactor API (card 99a4d28d).
 
 from __future__ import annotations
 
-import pytest
 
 from core.config import BacktestConfig
-from core.types import TradeDirection
 from engine.base import EngineCore
 from engine.trade_mgmt import TradeManagementMixin
 

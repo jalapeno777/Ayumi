@@ -7,6 +7,7 @@ Covers:
 - evaluate_calibration: integration with WalkForwardResults dataclass
 - Hand-computed Brier example from the module docstring
 """
+
 from __future__ import annotations
 
 import math
@@ -404,9 +405,7 @@ class TestEvaluateCalibration:
         # the function used the explicit one.
         confs = [0.9, 0.9, 0.1, 0.1]
         outcomes = [1, 1, 0, 0]
-        report = evaluate_calibration(
-            wf, confidences=confs, outcomes=outcomes
-        )
+        report = evaluate_calibration(wf, confidences=confs, outcomes=outcomes)
         # This is the perfect-calibration example: BS = 0.01
         assert report.brier_score == pytest.approx(0.01)
         assert report.n_signals == 4
@@ -460,20 +459,14 @@ class TestEvaluateCalibration:
         """Confidences must match outcomes length when both given."""
         wf = _make_wf(per_window_returns=[[0.01, -0.005]])
         with pytest.raises(ValueError, match="same shape"):
-            evaluate_calibration(
-                wf, confidences=[0.5, 0.5, 0.5], outcomes=[1, 0]
-            )
+            evaluate_calibration(wf, confidences=[0.5, 0.5, 0.5], outcomes=[1, 0])
 
     def test_n_bins_parameter_respected(self):
         """n_bins propagates to the calibration curve length."""
         wf = _make_wf(per_window_returns=[[0.01, -0.005, 0.02, -0.01]])
-        report = evaluate_calibration(
-            wf, confidences=[0.7, 0.3, 0.8, 0.2], n_bins=5
-        )
+        report = evaluate_calibration(wf, confidences=[0.7, 0.3, 0.8, 0.2], n_bins=5)
         assert len(report.calibration_curve) == 5
-        report = evaluate_calibration(
-            wf, confidences=[0.7, 0.3, 0.8, 0.2], n_bins=20
-        )
+        report = evaluate_calibration(wf, confidences=[0.7, 0.3, 0.8, 0.2], n_bins=20)
         assert len(report.calibration_curve) == 20
 
     def test_perfect_calibration_synthetic(self):

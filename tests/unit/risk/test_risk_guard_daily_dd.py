@@ -31,6 +31,7 @@ from risk.ftmo_guard import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def guard():
     """Fresh FTMOGuard with $10k starting balance."""
@@ -40,6 +41,7 @@ def guard():
 # ---------------------------------------------------------------------------
 # 1. _trading_date — spring-forward boundary (March 8, 2026)
 # ---------------------------------------------------------------------------
+
 
 class TestTradingDateSpringForward:
     """Verify _trading_date across the EST→EDT transition on March 8, 2026.
@@ -103,6 +105,7 @@ class TestTradingDateSpringForward:
 # 2. _trading_date — fall-back boundary (November 1, 2026)
 # ---------------------------------------------------------------------------
 
+
 class TestTradingDateFallBack:
     """Verify _trading_date across the EDT→EST transition on November 1, 2026.
 
@@ -160,6 +163,7 @@ class TestTradingDateFallBack:
 # 3. _toronto_midnight_utc — DST boundary correctness
 # ---------------------------------------------------------------------------
 
+
 class TestTorontoMidnightUTCDST:
     """Verify _toronto_midnight_utc returns correct UTC instant at DST boundaries."""
 
@@ -192,6 +196,7 @@ class TestTorontoMidnightUTCDST:
 # 4. FTMOGuard daily reset — spring-forward boundary
 # ---------------------------------------------------------------------------
 
+
 class TestFTMOGuardDailyResetSpringForward:
     """Verify FTMOGuard resets daily loss across the spring-forward boundary."""
 
@@ -202,43 +207,64 @@ class TestFTMOGuardDailyResetSpringForward:
         at 07:00 UTC, the day is still March 8 — no double reset.
         """
         # March 7 10:00 UTC (05:00 EST) — trigger daily loss
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 3, 7, 10, 0, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 3, 7, 10, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0
         assert guard.action_level == FTMOAction.FREEZE
 
         # March 8 04:59 UTC (23:59 EST March 7) — still March 7, loss persists
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 3, 8, 4, 59, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 3, 8, 4, 59, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0  # not reset yet
 
         # March 8 05:00 UTC (00:00 EST March 8) — new day, loss resets
-        action = guard.update(current_balance=10000.0, open_positions=0,
-                              now=datetime(2026, 3, 8, 5, 0, tzinfo=timezone.utc))
+        action = guard.update(
+            current_balance=10000.0,
+            open_positions=0,
+            now=datetime(2026, 3, 8, 5, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct == 0.0
         assert action == FTMOAction.ALLOW
 
         # March 8 07:00 UTC (03:00 EDT) — still March 8, no second reset
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 3, 8, 7, 0, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 3, 8, 7, 0, tzinfo=timezone.utc),
+        )
         # New daily loss triggered on March 8
         assert guard.daily_loss_pct >= 5.0
 
     def test_daily_loss_persists_through_spring_forward_day(self, guard):
         """Loss triggered after spring forward (EDT) resets at 04:00 UTC next day."""
         # March 8 08:00 UTC (04:00 EDT) — trigger loss
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 3, 8, 8, 0, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 3, 8, 8, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0
 
         # March 9 03:59 UTC (23:59 EDT March 8) — still March 8, loss persists
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 3, 9, 3, 59, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 3, 9, 3, 59, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0  # not reset
 
         # March 9 04:00 UTC (00:00 EDT March 9) — new day
-        action = guard.update(current_balance=10000.0, open_positions=0,
-                              now=datetime(2026, 3, 9, 4, 0, tzinfo=timezone.utc))
+        action = guard.update(
+            current_balance=10000.0,
+            open_positions=0,
+            now=datetime(2026, 3, 9, 4, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct == 0.0
         assert action == FTMOAction.ALLOW
 
@@ -246,6 +272,7 @@ class TestFTMOGuardDailyResetSpringForward:
 # ---------------------------------------------------------------------------
 # 5. FTMOGuard daily reset — fall-back boundary
 # ---------------------------------------------------------------------------
+
 
 class TestFTMOGuardDailyResetFallBack:
     """Verify FTMOGuard resets daily loss across the fall-back boundary."""
@@ -257,18 +284,27 @@ class TestFTMOGuardDailyResetFallBack:
         The next midnight (Nov 2) is at 05:00 UTC (EST).
         """
         # Oct 31 15:00 UTC (11:00 EDT) — trigger daily loss
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 10, 31, 15, 0, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 10, 31, 15, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0
 
         # Nov 1 03:59 UTC (23:59 EDT Oct 31) — still Oct 31, loss persists
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 11, 1, 3, 59, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 11, 1, 3, 59, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0  # not reset
 
         # Nov 1 04:00 UTC (00:00 EDT Nov 1) — new day
-        action = guard.update(current_balance=10000.0, open_positions=0,
-                              now=datetime(2026, 11, 1, 4, 0, tzinfo=timezone.utc))
+        action = guard.update(
+            current_balance=10000.0,
+            open_positions=0,
+            now=datetime(2026, 11, 1, 4, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct == 0.0
         assert action == FTMOAction.ALLOW
 
@@ -278,18 +314,27 @@ class TestFTMOGuardDailyResetFallBack:
         Nov 1 afternoon is EST. The midnight for Nov 2 should be 05:00 UTC.
         """
         # Nov 1 18:00 UTC (13:00 EST) — trigger loss (after fall back)
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 11, 1, 18, 0, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 11, 1, 18, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0
 
         # Nov 2 04:59 UTC (23:59 EST Nov 1) — still Nov 1, loss persists
-        guard.update(current_balance=9500.0, open_positions=0,
-                     now=datetime(2026, 11, 2, 4, 59, tzinfo=timezone.utc))
+        guard.update(
+            current_balance=9500.0,
+            open_positions=0,
+            now=datetime(2026, 11, 2, 4, 59, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct >= 5.0  # not reset
 
         # Nov 2 05:00 UTC (00:00 EST Nov 2) — new day
-        action = guard.update(current_balance=10000.0, open_positions=0,
-                              now=datetime(2026, 11, 2, 5, 0, tzinfo=timezone.utc))
+        action = guard.update(
+            current_balance=10000.0,
+            open_positions=0,
+            now=datetime(2026, 11, 2, 5, 0, tzinfo=timezone.utc),
+        )
         assert guard.daily_loss_pct == 0.0
         assert action == FTMOAction.ALLOW
 
@@ -297,6 +342,7 @@ class TestFTMOGuardDailyResetFallBack:
 # ---------------------------------------------------------------------------
 # 6. DST offset verification
 # ---------------------------------------------------------------------------
+
 
 class TestDSTOffsetVerification:
     """Document and verify the UTC offsets at each DST phase."""

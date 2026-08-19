@@ -2,7 +2,12 @@
 
 from strategies.registry import StrategyConfig, StrategyRegistry, default_registry
 
-__all__ = ["StrategyRegistry", "StrategyConfig", "default_registry", "get_default_registry"]
+__all__ = [
+    "StrategyRegistry",
+    "StrategyConfig",
+    "default_registry",
+    "get_default_registry",
+]
 
 
 def get_default_registry() -> StrategyRegistry:

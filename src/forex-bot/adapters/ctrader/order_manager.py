@@ -356,7 +356,10 @@ class OrderManager:
 
         # Check for timeout — the spot feed sets reason="timeout_awaiting_event"
         # when the deferred event never fires within the timeout window.
-        if order.status == OrderStatus.PENDING and getattr(order, "reason", "") == "timeout_awaiting_event":
+        if (
+            order.status == OrderStatus.PENDING
+            and getattr(order, "reason", "") == "timeout_awaiting_event"
+        ):
             logger.warning("[ORDER_MGR] Live order timed out — not counting as success")
             return OrderExecutionResult(
                 success=False,
@@ -542,7 +545,9 @@ class OrderManager:
                 "update_position_tp_levels: no Position found for lookup=%r "
                 "(positions=%d, orders=%d) — TP ratcheting will not activate "
                 "for this trade (broker TP1 still protects the position)",
-                position_id, len(self._positions), len(self._orders),
+                position_id,
+                len(self._positions),
+                len(self._orders),
             )
             return False
 
@@ -564,24 +569,32 @@ class OrderManager:
             if position.direction == TradeDirection.LONG:
                 exit_price = bid if bid > 0 else current_price
                 position.unrealized_pnl = (
-                    (exit_price - position.entry_price) * position.volume * contract_size
+                    (exit_price - position.entry_price)
+                    * position.volume
+                    * contract_size
                 )
             else:
                 exit_price = ask if ask > 0 else current_price
                 position.unrealized_pnl = (
-                    (position.entry_price - exit_price) * position.volume * contract_size
+                    (position.entry_price - exit_price)
+                    * position.volume
+                    * contract_size
                 )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
                 sl_fill = bid if position.direction == TradeDirection.LONG else ask
                 self._close_position(
-                    position, sl_fill if sl_fill > 0 else position.stop_loss,
+                    position,
+                    sl_fill if sl_fill > 0 else position.stop_loss,
+                    reason="sl_hit",
                     contract_size=contract_size,
                 )
             elif self._check_take_profit_hit(position, current_price, bid, ask):
                 tp_fill = ask if position.direction == TradeDirection.LONG else bid
                 self._close_position(
-                    position, tp_fill if tp_fill > 0 else position.take_profit,
+                    position,
+                    tp_fill if tp_fill > 0 else position.take_profit,
+                    reason="tp_hit",
                     contract_size=contract_size,
                 )
 
@@ -593,10 +606,11 @@ class OrderManager:
         if position.stop_loss is None:
             return False
 
-        # No reliable market data — skip check to avoid false triggers
-        if bid <= 0 and ask <= 0:
-            return False
-
+        # Fall back to current_price when bid/ask unavailable instead of
+        # skipping the check entirely.  The previous guard (``if bid <= 0
+        # and ask <= 0: return False``) caused positions to stay open
+        # indefinitely when the caller only passed a mid price — the
+        # paper-trader SL/TP enforcement failure (card 9310bdd0).
         if position.direction == TradeDirection.LONG:
             # For long: SL triggers when price falls to SL level
             fill_price = bid if bid > 0 else current_price
@@ -612,10 +626,8 @@ class OrderManager:
         if position.take_profit is None:
             return False
 
-        # No reliable market data — skip check to avoid false triggers
-        if bid <= 0 and ask <= 0:
-            return False
-
+        # Fall back to current_price when bid/ask unavailable (same fix
+        # as _check_stop_loss_hit — see card 9310bdd0).
         if position.direction == TradeDirection.LONG:
             # For long: TP triggers when price rises to TP level
             fill_price = ask if ask > 0 else current_price
@@ -637,7 +649,9 @@ class OrderManager:
                 return None
 
             position = self._positions[position_id]
-            return self._close_position(position, exit_price, reason, contract_size=contract_size)
+            return self._close_position(
+                position, exit_price, reason, contract_size=contract_size
+            )
 
     def _close_position(
         self,
@@ -658,6 +672,11 @@ class OrderManager:
         position.closed_at = datetime.utcnow()
         position.closed_price = exit_price
         position.closed_pnl = pnl
+
+        # Store close reason on the position for downstream consumers
+        # (PaperTrader stats mapping, signal-stats recorder).  Not a
+        # dataclass field — set dynamically to avoid touching models.py.
+        setattr(position, "close_reason", reason)
 
         logger.info(
             f"Position {position.position_id} closed: {reason} @ {exit_price}, PnL: {pnl:.2f}"
@@ -687,9 +706,7 @@ class OrderManager:
     def get_total_realized_pnl(self) -> float:
         with self._lock:
             return sum(
-                p.closed_pnl
-                for p in self._positions.values()
-                if p.status.is_closed
+                p.closed_pnl for p in self._positions.values() if p.status.is_closed
             )
 
     def get_pending_orders(self) -> list[Order]:

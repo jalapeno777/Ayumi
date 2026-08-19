@@ -43,8 +43,14 @@ SYMBOL_MAP = {
 }
 
 PERIOD_SECONDS = {
-    "M1": 60, "M5": 300, "M15": 900, "M30": 1800,
-    "H1": 3600, "H4": 14400, "D1": 86400, "W1": 604800,
+    "M1": 60,
+    "M5": 300,
+    "M15": 900,
+    "M30": 1800,
+    "H1": 3600,
+    "H4": 14400,
+    "D1": 86400,
+    "W1": 604800,
 }
 
 MAX_BARS_PER_REQUEST = 5001  # conservative; API max is 5760
@@ -83,18 +89,20 @@ def upsert_bars(conn, symbol: str, timeframe: str, bars: list[dict]) -> int:
 
     values = []
     for b in bars:
-        values.append((
-            symbol,
-            timeframe,
-            BROKER,
-            b["timestamp"],       # datetime
-            b["close_time"],      # datetime
-            b["open"],
-            b["high"],
-            b["low"],
-            b["close"],
-            b.get("volume", 0),
-        ))
+        values.append(
+            (
+                symbol,
+                timeframe,
+                BROKER,
+                b["timestamp"],  # datetime
+                b["close_time"],  # datetime
+                b["open"],
+                b["high"],
+                b["low"],
+                b["close"],
+                b.get("volume", 0),
+            )
+        )
 
     sql = """
         INSERT INTO market_bars
@@ -139,7 +147,9 @@ def backfill_symbol_period(
     else:
         from_dt = datetime.now(timezone.utc) - timedelta(days=lookback_days)
         from_ts = int(from_dt.timestamp() * 1000)
-        logger.info(f"  Starting from {from_dt.isoformat()} ({lookback_days}d lookback)")
+        logger.info(
+            f"  Starting from {from_dt.isoformat()} ({lookback_days}d lookback)"
+        )
 
     cursor_end = int(datetime.now(timezone.utc).timestamp() * 1000)
     iteration = 0
@@ -162,22 +172,29 @@ def backfill_symbol_period(
                 break  # success
             except Exception as e:
                 err_str = str(e).lower()
-                if 'rate' in err_str or '429' in err_str or 'limit' in err_str or 'blocked' in err_str:
+                if (
+                    "rate" in err_str
+                    or "429" in err_str
+                    or "limit" in err_str
+                    or "blocked" in err_str
+                ):
                     wait = retry_delays[retry] if retry < len(retry_delays) else 160
-                    logger.warning(f"  Rate limited, retry {retry+1}/{MAX_RETRIES}, waiting {wait}s...")
+                    logger.warning(
+                        f"  Rate limited, retry {retry + 1}/{MAX_RETRIES}, waiting {wait}s..."
+                    )
                     time.sleep(wait)
                     continue
                 logger.error(f"  API error: {e}")
                 break
         else:
-            logger.error(f"  Max retries exceeded, skipping this chunk")
+            logger.error("  Max retries exceeded, skipping this chunk")
             break
 
         if raw_bars is None:
             break
 
         if not raw_bars:
-            logger.info(f"  No bars returned — gap or end of data")
+            logger.info("  No bars returned — gap or end of data")
             break
 
         # Convert timestamps from ms (int) to datetime objects
@@ -188,15 +205,17 @@ def backfill_symbol_period(
                 ts_dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
             else:
                 ts_dt = ts_ms
-            bars.append({
-                "timestamp": ts_dt,
-                "close_time": ts_dt + timedelta(seconds=period_secs),
-                "open": b["open"],
-                "high": b["high"],
-                "low": b["low"],
-                "close": b["close"],
-                "volume": b.get("volume", 0),
-            })
+            bars.append(
+                {
+                    "timestamp": ts_dt,
+                    "close_time": ts_dt + timedelta(seconds=period_secs),
+                    "open": b["open"],
+                    "high": b["high"],
+                    "low": b["low"],
+                    "close": b["close"],
+                    "volume": b.get("volume", 0),
+                }
+            )
 
         # Sort bars ascending by timestamp (earliest first)
         bars.sort(key=lambda b: b["timestamp"])
@@ -221,10 +240,12 @@ def backfill_symbol_period(
         # The API consistently returns (count - 1) bars, so len-based threshold is unreliable.
         # Rely on: (1) empty response, (2) cursor not moving backwards, or (3) past lookback start.
         if new_cursor_end <= from_ts:
-            logger.info(f"  Reached lookback start — done")
+            logger.info("  Reached lookback start — done")
             break
         if new_cursor_end >= cursor_end:
-            logger.info(f"  Cursor didn't move backwards (got {len(bars)} bars) — all data fetched")
+            logger.info(
+                f"  Cursor didn't move backwards (got {len(bars)} bars) — all data fetched"
+            )
             break
         cursor_end = new_cursor_end
 
@@ -236,26 +257,35 @@ def backfill_symbol_period(
 
         time.sleep(REQUEST_DELAY_SECONDS)
 
-    logger.info(f"  ✅ {symbol}/{period}: {total_fetched} fetched, ~{total_inserted} inserted")
+    logger.info(
+        f"  ✅ {symbol}/{period}: {total_fetched} fetched, ~{total_inserted} inserted"
+    )
     return total_inserted
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backfill historical bars into TimescaleDB")
+    parser = argparse.ArgumentParser(
+        description="Backfill historical bars into TimescaleDB"
+    )
     parser.add_argument(
-        "--symbols", default="GBPUSD,USDJPY",
+        "--symbols",
+        default="GBPUSD,USDJPY",
         help="Comma-separated symbols (default: GBPUSD,USDJPY)",
     )
     parser.add_argument(
-        "--periods", default="M1,M5,M15,M30,H1,H4,D1,W1",
+        "--periods",
+        default="M1,M5,M15,M30,H1,H4,D1,W1",
         help="Comma-separated periods (default: M1,M5,M15,M30,H1,H4,D1,W1)",
     )
     parser.add_argument(
-        "--lookback-days", type=int, default=DEFAULT_LOOKBACK_DAYS,
+        "--lookback-days",
+        type=int,
+        default=DEFAULT_LOOKBACK_DAYS,
         help=f"Days of history to fetch (default: {DEFAULT_LOOKBACK_DAYS})",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Connect to API but don't write to DB",
     )
     args = parser.parse_args()
@@ -273,14 +303,19 @@ def main():
             logger.error(f"Unknown period: {p}. Known: {list(PERIOD_SECONDS.keys())}")
             sys.exit(1)
 
-    logger.info(f"Backfill: {len(symbols)} symbols × {len(periods)} periods = {len(symbols)*len(periods)} combos")
+    logger.info(
+        f"Backfill: {len(symbols)} symbols × {len(periods)} periods = {len(symbols) * len(periods)} combos"
+    )
     logger.info(f"Symbols: {symbols}")
     logger.info(f"Periods: {periods}")
     logger.info(f"Lookback: {args.lookback_days} days")
-    logger.info(f"{'DRY RUN — no writes' if args.dry_run else 'LIVE — writing to TimescaleDB'}")
+    logger.info(
+        f"{'DRY RUN — no writes' if args.dry_run else 'LIVE — writing to TimescaleDB'}"
+    )
 
     # Load .env from project root
     from dotenv import load_dotenv
+
     load_dotenv(PROJECT_ROOT / ".env")
 
     # Connect to cTrader
@@ -310,11 +345,16 @@ def main():
             try:
                 if not args.dry_run:
                     count = backfill_symbol_period(
-                        client, conn, symbol, symbol_id, period, args.lookback_days,
+                        client,
+                        conn,
+                        symbol,
+                        symbol_id,
+                        period,
+                        args.lookback_days,
                     )
                     grand_total += count
                 else:
-                    logger.info(f"  (dry run — skipping)")
+                    logger.info("  (dry run — skipping)")
             except Exception as e:
                 logger.error(f"  ❌ Failed: {e}")
                 conn.rollback()

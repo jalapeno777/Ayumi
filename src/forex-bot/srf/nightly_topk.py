@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
-def get_top_candidates(conn, top_k: int = 10, pairs: list[str] | None = None) -> list[dict]:
+def get_top_candidates(
+    conn, top_k: int = 10, pairs: list[str] | None = None
+) -> list[dict]:
     """Fetch top-K candidates by DSR from research.duckdb."""
     query = """
         SELECT r.run_id, r.strategy_name, r.pair, r.timeframe,
@@ -57,11 +59,13 @@ def re_evaluate_candidate(conn, candidate: dict) -> dict | None:
     try:
         # TODO: wire to actual strategy re-run
         # For now, log that we'd re-evaluate
-        logger.info("Re-evaluating %s %s %dm (DSR was %.3f)",
-                     candidate["strategy_name"],
-                     candidate["pair"],
-                     candidate["timeframe"],
-                     candidate.get("dsr", 0))
+        logger.info(
+            "Re-evaluating %s %s %dm (DSR was %.3f)",
+            candidate["strategy_name"],
+            candidate["pair"],
+            candidate["timeframe"],
+            candidate.get("dsr", 0),
+        )
         return None
     except Exception as e:
         logger.error("Re-evaluation failed for %s: %s", candidate["run_id"], e)
@@ -78,7 +82,9 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
     db_path = PROJECT_ROOT / "data" / "research" / "research.duckdb"
 
     if not db_path.exists():
-        logger.warning("research.duckdb not found at %s — nothing to re-evaluate", db_path)
+        logger.warning(
+            "research.duckdb not found at %s — nothing to re-evaluate", db_path
+        )
         return {"status": "no_db", "candidates": 0}
 
     started_at = datetime.now(timezone.utc)
@@ -102,8 +108,7 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
         conn.execute(
             "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) "
             "VALUES (?, ?, ?, ?, ?)",
-            [started_at, datetime.now(timezone.utc), 0,
-             len(candidates), "ok"],
+            [started_at, datetime.now(timezone.utc), 0, len(candidates), "ok"],
         )
 
     summary = {
@@ -114,8 +119,12 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
         "started_at": started_at.isoformat(),
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
-    logger.info("Nightly top-K done: %d checked, %d re-evaluated, %d promoted",
-                len(candidates), re_evaluated, promoted)
+    logger.info(
+        "Nightly top-K done: %d checked, %d re-evaluated, %d promoted",
+        len(candidates),
+        re_evaluated,
+        promoted,
+    )
     return summary
 
 
@@ -126,19 +135,24 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
 
     pairs = args.pairs.split(",") if args.pairs else None
 
     if args.dry_run:
         from srf.schema import SRFDatabase
+
         db_path = PROJECT_ROOT / "data" / "research" / "research.duckdb"
         if db_path.exists():
             with SRFDatabase(str(db_path)) as conn:
                 candidates = get_top_candidates(conn, args.top_k, pairs)
                 print(f"Dry run: {len(candidates)} candidates would be re-evaluated")
                 for c in candidates:
-                    print(f"  {c['strategy_name']} {c['pair']} {c['timeframe']}m DSR={c.get('dsr', 'N/A')}")
+                    print(
+                        f"  {c['strategy_name']} {c['pair']} {c['timeframe']}m DSR={c.get('dsr', 'N/A')}"
+                    )
         else:
             print("No research.duckdb found")
         return

@@ -12,6 +12,7 @@ oos_gate.py):
 5. Skewness/kurtosis computed from per-trade returns (fallback only when
    ``n < 30``).
 """
+
 from __future__ import annotations
 
 import math
@@ -64,7 +65,9 @@ def _make_wf(
     )
 
 
-def _positive_returns(n: int, *, mean: float = 0.01, std: float = 0.005, seed: int = 42):
+def _positive_returns(
+    n: int, *, mean: float = 0.01, std: float = 0.005, seed: int = 42
+):
     """Generate ``n`` positive-ish trade returns (mean > 0, low std)."""
     rng = np.random.default_rng(seed)
     returns = rng.normal(loc=mean, scale=std, size=n)
@@ -146,13 +149,13 @@ class TestDefect3Annualization:
     @pytest.mark.parametrize(
         "bar_period_minutes, expected",
         [
-            (1, MINUTES_PER_YEAR),                # M1
-            (5, MINUTES_PER_YEAR / 5),            # M5
-            (15, MINUTES_PER_YEAR / 15),          # M15
-            (30, MINUTES_PER_YEAR / 30),          # M30
-            (60, MINUTES_PER_YEAR / 60),          # H1
-            (240, MINUTES_PER_YEAR / 240),        # H4
-            (1440, MINUTES_PER_YEAR / 1440),      # D1
+            (1, MINUTES_PER_YEAR),  # M1
+            (5, MINUTES_PER_YEAR / 5),  # M5
+            (15, MINUTES_PER_YEAR / 15),  # M15
+            (30, MINUTES_PER_YEAR / 30),  # M30
+            (60, MINUTES_PER_YEAR / 60),  # H1
+            (240, MINUTES_PER_YEAR / 240),  # H4
+            (1440, MINUTES_PER_YEAR / 1440),  # D1
         ],
     )
     def test_known_bar_periods(self, bar_period_minutes, expected):
@@ -212,7 +215,7 @@ class TestDefect4PerTradeSharpe:
         # 5 windows, each 12 trades of +0.01 with tiny std. Aggregate Sharpe
         # should reflect per-trade Sharpe × sqrt(trades_per_year).
         per_trade_returns = _positive_returns(60, mean=0.01, std=0.005)
-        windows = [per_trade_returns[i * 12:(i + 1) * 12] for i in range(5)]
+        windows = [per_trade_returns[i * 12 : (i + 1) * 12] for i in range(5)]
         wf = _make_wf(
             per_window_returns=windows,
             per_window_pf=[1.5] * 5,
@@ -259,7 +262,9 @@ class TestDefect4PerTradeSharpe:
         )
         result = evaluate_oos_gate(wf)
         expected_tpy = 50 / (252 / 365.25)
-        assert result.details["trades_per_year"] == pytest.approx(expected_tpy, rel=1e-6)
+        assert result.details["trades_per_year"] == pytest.approx(
+            expected_tpy, rel=1e-6
+        )
 
     def test_fallback_annualization_when_no_sample_duration(self):
         """Without sample_duration_days, fallback uses bar_period_minutes."""
@@ -344,7 +349,9 @@ class TestDefect5Moments:
             all_returns.extend(w)
         excess = float(stats.kurtosis(all_returns, bias=False))
         # Regular kurtosis = excess + 3 (normal distribution has regular = 3).
-        assert result.details["kurtosis_regular"] == pytest.approx(excess + 3.0, rel=1e-9)
+        assert result.details["kurtosis_regular"] == pytest.approx(
+            excess + 3.0, rel=1e-9
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -382,18 +389,14 @@ class TestDeflatedSharpeRatio:
     def test_observed_sr_below_null_max_has_high_p(self):
         """Observed SR below E[max SR | null] should yield a large p-value."""
         e_max = expected_max_sharpe(160)
-        p = deflated_sharpe_ratio(
-            observed_sr=e_max * 0.5, n_trials=160, n_obs=100
-        )
+        p = deflated_sharpe_ratio(observed_sr=e_max * 0.5, n_trials=160, n_obs=100)
         # If we're below null expectation, p should be > 0.5.
         assert p > 0.5
 
     def test_observed_sr_far_above_null_max_has_low_p(self):
         """Observed SR >> E[max SR | null] should yield a small p-value."""
         e_max = expected_max_sharpe(160)
-        p = deflated_sharpe_ratio(
-            observed_sr=e_max + 5.0, n_trials=160, n_obs=100
-        )
+        p = deflated_sharpe_ratio(observed_sr=e_max + 5.0, n_trials=160, n_obs=100)
         assert p < 0.05
 
 
@@ -492,8 +495,8 @@ class TestEvaluateOOSGate:
                 _positive_returns(15, seed=0),  # passes
                 _positive_returns(15, seed=1),  # passes
                 _positive_returns(15, seed=2),  # passes (this makes 3 actually)
-                [0.001] * 15,                   # small positive (still passes per-window)
-                [-0.05] * 15,                   # large losses → PF fails
+                [0.001] * 15,  # small positive (still passes per-window)
+                [-0.05] * 15,  # large losses → PF fails
             ],
             per_window_pf=[1.5, 1.5, 1.5, 1.5, 0.5],
             per_window_win_rate=[0.60, 0.60, 0.60, 0.60, 0.30],
@@ -527,9 +530,7 @@ class TestEvaluateOOSGate:
         """Even with all 5 windows passing, < min_total_oos_trades rejects."""
         # 5 windows × 5 trades each = 25 total (< 50)
         wf = _make_wf(
-            per_window_returns=[
-                [0.01, 0.02, 0.015, -0.005, 0.01] for _ in range(5)
-            ],
+            per_window_returns=[[0.01, 0.02, 0.015, -0.005, 0.01] for _ in range(5)],
             per_window_pf=[1.5] * 5,
             per_window_win_rate=[0.60] * 5,
         )
@@ -673,8 +674,18 @@ class TestEdgeCases:
         wf = _make_wf(
             per_window_returns=[
                 [
-                    -0.01, -0.02, -0.005, -0.015, -0.01, -0.02,
-                    -0.008, -0.012, -0.015, -0.005, -0.01, -0.02,
+                    -0.01,
+                    -0.02,
+                    -0.005,
+                    -0.015,
+                    -0.01,
+                    -0.02,
+                    -0.008,
+                    -0.012,
+                    -0.015,
+                    -0.005,
+                    -0.01,
+                    -0.02,
                 ]
                 for _ in range(5)
             ],
@@ -725,8 +736,7 @@ class TestTierRanking:
         # Generate high-Sharpe returns: mean=0.05, std=0.005
         wf = _make_wf(
             per_window_returns=[
-                _positive_returns(15, mean=0.05, std=0.005, seed=i)
-                for i in range(5)
+                _positive_returns(15, mean=0.05, std=0.005, seed=i) for i in range(5)
             ],
             per_window_pf=[2.0] * 5,
             per_window_win_rate=[0.70] * 5,
@@ -744,8 +754,7 @@ class TestTierRanking:
         # to Sharpe magnitude. The point is the tier *mechanism* works.
         wf = _make_wf(
             per_window_returns=[
-                _positive_returns(15, mean=0.02, std=0.01, seed=i)
-                for i in range(5)
+                _positive_returns(15, mean=0.02, std=0.01, seed=i) for i in range(5)
             ],
             per_window_pf=[1.5] * 5,
             per_window_win_rate=[0.60] * 5,

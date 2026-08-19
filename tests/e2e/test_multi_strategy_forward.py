@@ -1,9 +1,5 @@
 """Tests for multi-strategy forward test components."""
 
-import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime, timezone
-
 from launch_blend_forward_test import CorrelationGate, HeartbeatTracker
 
 
@@ -59,6 +55,7 @@ class TestCorrelationGate:
 class TestHeartbeatTracker:
     def test_logs_at_interval(self, caplog):
         import logging
+
         caplog.set_level(logging.INFO, logger="ayumi.blend_launcher")
         hb = HeartbeatTracker(interval=3)
         hb.record_bar()
@@ -69,6 +66,7 @@ class TestHeartbeatTracker:
 
     def test_no_log_before_interval(self, caplog):
         import logging
+
         caplog.set_level(logging.INFO, logger="ayumi.blend_launcher")
         hb = HeartbeatTracker(interval=100)
         hb.record_bar()
@@ -115,7 +113,10 @@ class TestSignalConversion:
 class TestStrategyRegistration:
     def test_three_strategies_instantiated(self):
         from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
-        from strategies.killzone_momentum import KillzoneMomentumStrategy, KillzoneMomentumConfig
+        from strategies.killzone_momentum import (
+            KillzoneMomentumStrategy,
+            KillzoneMomentumConfig,
+        )
         from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
 
         strategies = [
@@ -129,6 +130,7 @@ class TestStrategyRegistration:
 
     def test_strategy_id_map_complete(self):
         from launch_blend_forward_test import STRATEGY_ID_MAP
+
         assert len(STRATEGY_ID_MAP) == 9
         assert "srmr_plus" in STRATEGY_ID_MAP.values()
         assert "killzone_momentum" in STRATEGY_ID_MAP.values()

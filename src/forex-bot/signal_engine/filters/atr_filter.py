@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ATRConfig:
-    atr_min: float = 0.0008   # ~8 pips on GBPUSD
-    atr_max: float = 0.0060   # ~60 pips — storm filter
+    atr_min: float = 0.0008  # ~8 pips on GBPUSD
+    atr_max: float = 0.0060  # ~60 pips — storm filter
     pip_value: float = 0.0001  # 1 pip for 4-digit pairs
 
 
@@ -50,14 +50,18 @@ class ATRFilter:
         if atr_pips < min_pips:
             logger.debug(
                 "ATRFilter REJECT: atr=%.5f (%.1f pips) below min %.1f pips",
-                atr_value, atr_pips, min_pips,
+                atr_value,
+                atr_pips,
+                min_pips,
             )
             return False
 
         if atr_pips > max_pips:
             logger.debug(
                 "ATRFilter REJECT: atr=%.5f (%.1f pips) above max %.1f pips",
-                atr_value, atr_pips, max_pips,
+                atr_value,
+                atr_pips,
+                max_pips,
             )
             return False
 

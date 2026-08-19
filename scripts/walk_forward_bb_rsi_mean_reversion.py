@@ -113,7 +113,7 @@ def run_walk_forward(pair: str, tf: str, preset: BBRSIConfig) -> dict:
     report = {"pair": pair, "timeframe": tf, "skipped": False}
     if results.aggregated:
         a = results.aggregated
-        print(f"\n  Aggregated:")
+        print("\n  Aggregated:")
         print(f"    Mean WR:       {a.mean_win_rate:.1%} (+/-{a.std_win_rate:.1%})")
         print(
             f"    Mean PF:       {a.mean_profit_factor:.2f} (+/-{a.std_profit_factor:.2f})"

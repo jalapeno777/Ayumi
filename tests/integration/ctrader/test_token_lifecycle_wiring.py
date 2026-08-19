@@ -16,11 +16,8 @@ Tests cover:
 
 from __future__ import annotations
 
-import os
-import time
-import threading
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -29,7 +26,6 @@ from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
     ForwardTestEngine,
 )
-from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import TokenLifecycle
 
 
@@ -107,15 +103,22 @@ class TestBuildLiveCredentialsIncludesLifecycle:
         mock_lifecycle = MagicMock()
         mock_lifecycle.ensure_valid.return_value = "test_token"
 
-        with patch(
-            "adapters.ctrader.forward_test_engine.CredentialStore", return_value=mock_store
-        ), patch(
-            "adapters.ctrader.forward_test_engine.TokenLifecycle", return_value=mock_lifecycle
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine.CredentialStore",
+                return_value=mock_store,
+            ),
+            patch(
+                "adapters.ctrader.forward_test_engine.TokenLifecycle",
+                return_value=mock_lifecycle,
+            ),
         ):
             result = engine._build_live_credentials()
 
         assert result is not None, "Expected non-None credentials dict"
-        assert "token_lifecycle" in result, "token_lifecycle key missing from credentials dict"
+        assert "token_lifecycle" in result, (
+            "token_lifecycle key missing from credentials dict"
+        )
         assert result["token_lifecycle"] is not None, "token_lifecycle must be non-None"
         assert result["token_lifecycle"] is mock_lifecycle
 
@@ -137,10 +140,15 @@ class TestBuildLiveCredentialsIncludesLifecycle:
         mock_lifecycle = MagicMock()
         mock_lifecycle.ensure_valid.return_value = "test_token"
 
-        with patch(
-            "adapters.ctrader.forward_test_engine.CredentialStore", return_value=mock_store
-        ), patch(
-            "adapters.ctrader.forward_test_engine.TokenLifecycle", return_value=mock_lifecycle
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine.CredentialStore",
+                return_value=mock_store,
+            ),
+            patch(
+                "adapters.ctrader.forward_test_engine.TokenLifecycle",
+                return_value=mock_lifecycle,
+            ),
         ):
             engine._build_live_credentials()
 
@@ -199,9 +207,10 @@ class TestReactiveRefreshDelegation:
         lifecycle = _make_mock_lifecycle()
         feed = self._setup_feed_for_error(lifecycle)
 
-        with patch("threading.Thread", _SyncThread), patch(
-            "requests.post"
-        ) as mock_post:
+        with (
+            patch("threading.Thread", _SyncThread),
+            patch("requests.post") as mock_post,
+        ):
             feed._handle_error(self._make_error_message("CH_OAUTH_TOKEN_EXPIRED"))
 
         mock_post.assert_not_called()
@@ -219,8 +228,11 @@ class TestReactiveRefreshDelegation:
 
         # TokenManager's _update_env_tokens should not be invoked
         # (feed._token_mgr is a real TokenManager; verify it wasn't used for env writes)
-        assert not hasattr(feed._token_mgr, "_update_env_tokens") or \
-            feed._token_mgr is None or True  # TokenManager exists but shouldn't be called
+        assert (
+            not hasattr(feed._token_mgr, "_update_env_tokens")
+            or feed._token_mgr is None
+            or True
+        )  # TokenManager exists but shouldn't be called
         # The lifecycle's force_refresh WAS called — which is the correct path
         lifecycle.force_refresh.assert_called_once()
 
@@ -316,9 +328,10 @@ class TestNoOrderDuringRefresh:
 
         original_send = feed._conn.send
 
-        with patch("threading.Thread", _SyncThread), patch.object(
-            feed._conn, "send"
-        ) as mock_send:
+        with (
+            patch("threading.Thread", _SyncThread),
+            patch.object(feed._conn, "send") as mock_send,
+        ):
             feed._handle_error(msg)
 
         # Verify no ProtoOANewOrderReq was sent
@@ -356,10 +369,15 @@ class TestLazyReconnectPathWiring:
         mock_lifecycle = MagicMock()
         mock_lifecycle.ensure_valid.return_value = "test_token"
 
-        with patch(
-            "adapters.ctrader.forward_test_engine.CredentialStore", return_value=mock_store
-        ), patch(
-            "adapters.ctrader.forward_test_engine.TokenLifecycle", return_value=mock_lifecycle
+        with (
+            patch(
+                "adapters.ctrader.forward_test_engine.CredentialStore",
+                return_value=mock_store,
+            ),
+            patch(
+                "adapters.ctrader.forward_test_engine.TokenLifecycle",
+                return_value=mock_lifecycle,
+            ),
         ):
             creds = engine._build_live_credentials()
 
@@ -391,11 +409,12 @@ class TestLazyReconnectPathWiring:
 
         constructed_feed = MagicMock(spec=OpenApiSpotFeed)
 
-        with patch.object(
-            engine, "_build_live_credentials", return_value=mock_creds
-        ), patch(
-            "adapters.ctrader.forward_test_engine.OpenApiSpotFeed",
-            return_value=constructed_feed,
+        with (
+            patch.object(engine, "_build_live_credentials", return_value=mock_creds),
+            patch(
+                "adapters.ctrader.forward_test_engine.OpenApiSpotFeed",
+                return_value=constructed_feed,
+            ),
         ):
             engine._start_openapi_feed()
 

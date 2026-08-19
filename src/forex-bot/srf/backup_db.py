@@ -39,7 +39,9 @@ def backup_db(keep_days: int = DEFAULT_KEEP) -> dict:
     backup_path = BACKUP_DIR / f"research_{timestamp}.duckdb"
 
     shutil.copy2(DB_PATH, backup_path)
-    logger.info("Backup created: %s (%.1f MB)", backup_path, backup_path.stat().st_size / 1e6)
+    logger.info(
+        "Backup created: %s (%.1f MB)", backup_path, backup_path.stat().st_size / 1e6
+    )
 
     # Cleanup old backups
     cutoff = datetime.now().timestamp() - (keep_days * 86400)
@@ -61,10 +63,14 @@ def backup_db(keep_days: int = DEFAULT_KEEP) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="SRF DuckDB Backup")
-    parser.add_argument("--keep", type=int, default=DEFAULT_KEEP, help="Days to keep backups")
+    parser.add_argument(
+        "--keep", type=int, default=DEFAULT_KEEP, help="Days to keep backups"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
     result = backup_db(args.keep)
     print(f"Backup: {result}")
 

@@ -9,9 +9,7 @@ BQ-1042 fix: timeout returns TIMEOUT, never PENDING.
 
 from __future__ import annotations
 
-import logging
 import threading
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -176,9 +174,7 @@ def test_send_market_order_cleans_up_pending_on_send_error(
     """Cleanup is called when session.send raises."""
     mock_session.send.side_effect = RuntimeError("not connected")
 
-    result = gateway.send_market_order(
-        symbol_id=1, side=TradeSide.BUY, volume=100000
-    )
+    result = gateway.send_market_order(symbol_id=1, side=TradeSide.BUY, volume=100000)
 
     assert result.status == OrderStatus.REJECTED
     assert result.error_code == "SEND_ERROR"
@@ -301,8 +297,10 @@ def test_order_result_never_returns_pending(gateway, mock_session, mock_event_ha
 
     # The caller checks `result.status == OrderStatus.FILLED` for success.
     # A timed-out order will NOT be counted as a fill.
-    assert result.status == OrderStatus.FILLED or result.status != OrderStatus.FILLED  # sanity
-    is_success = (result.status == OrderStatus.FILLED)
+    assert (
+        result.status == OrderStatus.FILLED or result.status != OrderStatus.FILLED
+    )  # sanity
+    is_success = result.status == OrderStatus.FILLED
     assert is_success is False  # timed-out order is NOT a success
 
 

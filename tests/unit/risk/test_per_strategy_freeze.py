@@ -12,10 +12,7 @@ Tests cover:
   9. StrategyTracker in state_persistence
 """
 
-import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -27,10 +24,6 @@ if str(src_dir) not in sys.path:
 
 from adapters.ctrader.kill_switch import (  # noqa: E402
     KillSwitchManager,
-    StrategyFreezeState,
-    AUTO_FREEZE_CONSECUTIVE_LOSSES,
-    AUTO_FREEZE_DAILY_DD_PCT,
-    AUTO_FREEZE_SLIPPAGE_PIPS,
 )
 from risk.state_persistence import StrategyTracker  # noqa: E402
 
@@ -44,6 +37,7 @@ def ks_manager(tmp_path):
 
 
 # ── Test 1: Strategy Registration ─────────────────────────────────────────
+
 
 def test_register_strategy(ks_manager):
     """Registering a strategy creates an entry in the registry."""
@@ -65,6 +59,7 @@ def test_register_strategy_idempotent(ks_manager):
 
 
 # ── Test 2: Manual Freeze/Unfreeze ────────────────────────────────────────
+
 
 def test_freeze_and_unfreeze_strategy(ks_manager):
     """freeze_strategy and unfreeze_strategy work correctly."""
@@ -95,20 +90,23 @@ def test_freeze_already_frozen_returns_false(ks_manager):
 
 # ── Test 3: Auto-freeze on Consecutive Losses ──────────────────────────────
 
+
 def test_auto_freeze_consecutive_losses(ks_manager):
     """Auto-freeze triggers on 3 consecutive losses."""
     ks_manager.register_strategy("trend_eurusd")
 
     # 2 losses — should not freeze
     frozen = ks_manager.check_auto_freeze(
-        "trend_eurusd", consecutive_losses=2,
+        "trend_eurusd",
+        consecutive_losses=2,
     )
     assert frozen is False
     assert ks_manager.is_strategy_frozen("trend_eurusd") is False
 
     # 3 losses — should freeze
     frozen = ks_manager.check_auto_freeze(
-        "trend_eurusd", consecutive_losses=3,
+        "trend_eurusd",
+        consecutive_losses=3,
     )
     assert frozen is True
     assert ks_manager.is_strategy_frozen("trend_eurusd") is True
@@ -119,19 +117,22 @@ def test_auto_freeze_consecutive_losses(ks_manager):
 
 # ── Test 4: Auto-freeze on Daily Drawdown ──────────────────────────────────
 
+
 def test_auto_freeze_daily_dd(ks_manager):
     """Auto-freeze triggers when daily DD >= 1.5%."""
     ks_manager.register_strategy("scalper_gbpusd")
 
     # 1.0% DD — should not freeze
     frozen = ks_manager.check_auto_freeze(
-        "scalper_gbpusd", daily_dd_pct=1.0,
+        "scalper_gbpusd",
+        daily_dd_pct=1.0,
     )
     assert frozen is False
 
     # 1.5% DD — should freeze (>= threshold)
     frozen = ks_manager.check_auto_freeze(
-        "scalper_gbpusd", daily_dd_pct=1.5,
+        "scalper_gbpusd",
+        daily_dd_pct=1.5,
     )
     assert frozen is True
     assert ks_manager.is_strategy_frozen("scalper_gbpusd") is True
@@ -142,19 +143,22 @@ def test_auto_freeze_daily_dd(ks_manager):
 
 # ── Test 5: Auto-freeze on Slippage ────────────────────────────────────────
 
+
 def test_auto_freeze_slippage(ks_manager):
     """Auto-freeze triggers when slippage >= 5.0 pips."""
     ks_manager.register_strategy("grid_xauusd")
 
     # 4.0 pips — should not freeze
     frozen = ks_manager.check_auto_freeze(
-        "grid_xauusd", slippage_pips=4.0,
+        "grid_xauusd",
+        slippage_pips=4.0,
     )
     assert frozen is False
 
     # 5.0 pips — should freeze (>= threshold)
     frozen = ks_manager.check_auto_freeze(
-        "grid_xauusd", slippage_pips=5.0,
+        "grid_xauusd",
+        slippage_pips=5.0,
     )
     assert frozen is True
     assert ks_manager.is_strategy_frozen("grid_xauusd") is True
@@ -164,6 +168,7 @@ def test_auto_freeze_slippage(ks_manager):
 
 
 # ── Test 6: Strategy Isolation ─────────────────────────────────────────────
+
 
 def test_strategy_isolation(ks_manager):
     """When one strategy is frozen, others continue running."""
@@ -183,6 +188,7 @@ def test_strategy_isolation(ks_manager):
 
 
 # ── Test 7: Persistence Across Restart ─────────────────────────────────────
+
 
 def test_strategy_freeze_persists_across_restart(tmp_path):
     """Strategy freeze state survives KillSwitchManager restart."""
@@ -208,6 +214,7 @@ def test_strategy_freeze_persists_across_restart(tmp_path):
 
 # ── Test 8: Unfreeze Resets Counters ───────────────────────────────────────
 
+
 def test_unfreeze_resets_counters(ks_manager):
     """Unfreezing a strategy resets its consecutive_losses and daily_dd_pct."""
     ks_manager.register_strategy("counter_test")
@@ -229,6 +236,7 @@ def test_unfreeze_resets_counters(ks_manager):
 
 
 # ── Test 9: StrategyTracker in state_persistence ───────────────────────────
+
 
 def test_strategy_tracker_roundtrip(tmp_path):
     """StrategyTracker saves and restores through StatePersistence."""
@@ -280,6 +288,7 @@ def test_strategy_tracker_reset_daily():
 
 
 # ── Test 10: Unregistered Strategy Queries ─────────────────────────────────
+
 
 def test_unregistered_strategy_not_frozen(ks_manager):
     """Querying an unregistered strategy returns False."""

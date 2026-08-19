@@ -47,13 +47,16 @@ def _make_signal(confidence: float = 0.8, symbol: str = "EURUSD") -> CTraderTrad
 def isolated_engine(tmp_path):
     """Build a forward test engine with live mode and isolated kill switch."""
     from adapters.ctrader.kill_switch import KillSwitchManager
+
     isolated_dir = tmp_path / "kill_switches"
     isolated_dir.mkdir(parents=True, exist_ok=True)
 
     # Patch _build_live_credentials and _enforce_remediation_gate so __init__
     # does not try to connect or check remediation flags.
-    with patch.object(ForwardTestEngine, "_build_live_credentials", return_value=None), \
-         patch.object(ForwardTestEngine, "_enforce_remediation_gate", return_value=None):
+    with (
+        patch.object(ForwardTestEngine, "_build_live_credentials", return_value=None),
+        patch.object(ForwardTestEngine, "_enforce_remediation_gate", return_value=None),
+    ):
         cfg = ForwardTestConfig(live_mode=True, starting_balance=10000.0)
         engine = ForwardTestEngine(config=cfg, strategies=[])
 
@@ -65,6 +68,7 @@ def isolated_engine(tmp_path):
 def paper_engine(tmp_path):
     """Build a forward test engine in paper mode."""
     from adapters.ctrader.kill_switch import KillSwitchManager
+
     isolated_dir = tmp_path / "kill_switches"
     isolated_dir.mkdir(parents=True, exist_ok=True)
 

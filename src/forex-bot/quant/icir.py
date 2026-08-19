@@ -40,6 +40,7 @@ See Also
 * :mod:`quant.dsr_integration` — deflated-Sharpe companion filter.
 * ``docs/research/icir-research-2026-07-08.md`` — full research note.
 """
+
 from __future__ import annotations
 
 import math
@@ -155,9 +156,7 @@ def _nan_to_none(x: float | None) -> Any:
     """
     if x is None:
         return None
-    if isinstance(x, (int, float)) and (
-        math.isnan(x) or math.isinf(x)
-    ):
+    if isinstance(x, (int, float)) and (math.isnan(x) or math.isinf(x)):
         return None
     return x
 
@@ -506,7 +505,9 @@ def evaluate_icir(wf_results: Sequence[dict[str, Any]]) -> dict[str, Any]:
     note = summary.get("note", "")
     return EvaluateIcirResult(
         icir=float(summary["icir"]) if summary["icir"] is not None else math.nan,
-        mean_ic=float(summary["mean_ic"]) if summary["mean_ic"] is not None else math.nan,
+        mean_ic=float(summary["mean_ic"])
+        if summary["mean_ic"] is not None
+        else math.nan,
         std_ic=float(summary["std_ic"]) if summary["std_ic"] is not None else math.nan,
         # ``n_windows`` is the total window count in the input;
         # ``n_windows_with_ic`` is the count of windows that contributed

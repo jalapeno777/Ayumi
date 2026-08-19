@@ -66,6 +66,7 @@ class WalkForwardValidator:
     train_ratio: float = 0.7
     val_ratio: float = 0.15
     overlap_ratio: float = 0.2
+    embargo_bars: int = 0
 
     def __post_init__(self) -> None:
         if self.n_windows < 3:
@@ -80,6 +81,8 @@ class WalkForwardValidator:
             raise ValueError(
                 f"overlap_ratio must be in [0, 1), got {self.overlap_ratio}"
             )
+        if self.embargo_bars < 0:
+            raise ValueError(f"embargo_bars must be >= 0, got {self.embargo_bars}")
 
     def split(
         self, data: list[Any] | None = None
@@ -127,7 +130,10 @@ class WalkForwardValidator:
 
             train = window[:actual_train]
             val = window[actual_train : actual_train + actual_val]
-            test = window[actual_train + actual_val :]
+            # Embargo: skip embargo_bars between val end and test start
+            # to prevent autocorrelation leakage at train/test boundaries.
+            test_start = actual_train + actual_val + self.embargo_bars
+            test = window[test_start:]
 
             if not train or not val or not test:
                 continue
@@ -229,6 +235,7 @@ def run_strategy(
     overlap_ratio: float = 0.2,
     initial_balance: float = 10000.0,
     risk_per_trade_pct: float = 0.005,
+    embargo_bars: int = 0,
 ) -> WalkForwardResults:
     validator = WalkForwardValidator(
         data=bars,
@@ -236,6 +243,7 @@ def run_strategy(
         train_ratio=train_ratio,
         val_ratio=val_ratio,
         overlap_ratio=overlap_ratio,
+        embargo_bars=embargo_bars,
     )
 
     per_window: list[WindowMetrics] = []
@@ -450,14 +458,12 @@ def detect_regime_for_window(
     via :class:`~quant.btc_regime_overlay.BtcRegimeOverlay`.
     """
     from quant.regime import (
-        VolatilityRegime,
         TrendDirection,
         SessionName,
         combined_regime,
         session_regime,
         trend_regime,
         volatility_regime,
-        VolatilityThresholds,
     )
 
     default = {

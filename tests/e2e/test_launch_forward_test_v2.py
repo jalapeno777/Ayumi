@@ -8,20 +8,16 @@ health format, and shutdown handling.
 from __future__ import annotations
 
 import logging
-import signal
-import threading
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
-import pytest
+from adapters.ctrader.protocols import OrderStatus
 
 from scripts.launch_forward_test_v2 import (
-    lots_to_volume,
     CorrelationGate,
     ForwardTestV2,
-    query_symbol_specs,
+    connect_and_resolve_symbols,
+    lots_to_volume,
 )
-from adapters.ctrader.protocols import OrderStatus, TradeSide
-
 
 # ── Test 1: Startup sequence — modules instantiated in correct order ───────
 
@@ -52,7 +48,9 @@ class TestStartupSequence:
             correlation_gate=corr,
             strategies=strategies,
             symbol_id_map={"GBPUSD": 2},
-            symbol_specs={2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}},
+            symbol_specs={
+                2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}
+            },
             live_mode=False,
         )
 
@@ -158,7 +156,9 @@ class TestVolumeConversion:
             correlation_gate=CorrelationGate(),
             strategies=[],
             symbol_id_map={"GBPUSD": 2},
-            symbol_specs={2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}},
+            symbol_specs={
+                2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}
+            },
             live_mode=True,
         )
 
@@ -184,10 +184,11 @@ class TestVolumeConversion:
         # Verify gateway was called with correct volume
         gateway.send_market_order.assert_called_once()
         call_kwargs = gateway.send_market_order.call_args
-        sent_volume = call_kwargs.kwargs.get("volume") or call_kwargs[1].get("volume", 0)
+        sent_volume = call_kwargs.kwargs.get("volume") or call_kwargs[1].get(
+            "volume", 0
+        )
         assert sent_volume == 100_000, (
-            f"Expected volume=100000 for 0.01 lots with lotSize=10M, "
-            f"got {sent_volume}"
+            f"Expected volume=100000 for 0.01 lots with lotSize=10M, got {sent_volume}"
         )
 
 
@@ -229,7 +230,9 @@ class TestSignalRouting:
             correlation_gate=CorrelationGate(),
             strategies=[],
             symbol_id_map={"GBPUSD": 2},
-            symbol_specs={2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}},
+            symbol_specs={
+                2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}
+            },
             live_mode=True,
         )
 
@@ -241,8 +244,11 @@ class TestSignalRouting:
             entry_price=1.2700,
             stop_loss=1.2650,
             take_profit_1=1.2800,
-            take_profit_2=0.0, take_profit_3=0.0,
-            volume=0.01, confidence=0.8, rationale="test",
+            take_profit_2=0.0,
+            take_profit_3=0.0,
+            volume=0.01,
+            confidence=0.8,
+            rationale="test",
         )
 
         engine._route_signal(signal, "SRMR+", "srmr_plus")
@@ -285,9 +291,14 @@ class TestSignalRouting:
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
-            entry_price=1.2700, stop_loss=1.2650,
-            take_profit_1=1.2800, take_profit_2=0.0, take_profit_3=0.0,
-            volume=0.01, confidence=0.6, rationale="test",
+            entry_price=1.2700,
+            stop_loss=1.2650,
+            take_profit_1=1.2800,
+            take_profit_2=0.0,
+            take_profit_3=0.0,
+            volume=0.01,
+            confidence=0.6,
+            rationale="test",
         )
 
         engine._route_signal(signal, "SRMR+", "srmr_plus")
@@ -300,7 +311,9 @@ class TestSignalRouting:
         gateway = MagicMock()
         blend = MagicMock()
         blend.on_signal.return_value = MagicMock(
-            rejected=False, lots=0.01, risk_amount=50.0,
+            rejected=False,
+            lots=0.01,
+            risk_amount=50.0,
         )
 
         engine = ForwardTestV2(
@@ -323,9 +336,14 @@ class TestSignalRouting:
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
             direction=TradeDirection.LONG,
-            entry_price=1.2700, stop_loss=1.2650,
-            take_profit_1=1.2800, take_profit_2=0.0, take_profit_3=0.0,
-            volume=0.01, confidence=0.8, rationale="test",
+            entry_price=1.2700,
+            stop_loss=1.2650,
+            take_profit_1=1.2800,
+            take_profit_2=0.0,
+            take_profit_3=0.0,
+            volume=0.01,
+            confidence=0.8,
+            rationale="test",
         )
 
         engine._route_signal(signal, "SRMR+", "srmr_plus")
@@ -347,7 +365,12 @@ class TestHealthFormat:
         hm = HealthMonitor(interval_seconds=1)
         hm.attach(
             session=MagicMock(state="SUBSCRIBED"),
-            market_data_feed=MagicMock(ticks_received=100, ticks_per_second=2.5, bars_built=10, signals_generated=5),
+            market_data_feed=MagicMock(
+                ticks_received=100,
+                ticks_per_second=2.5,
+                bars_built=10,
+                signals_generated=5,
+            ),
             order_gateway=MagicMock(pending_orders=0),
             position_tracker=MagicMock(open_positions=0),
         )
@@ -385,6 +408,124 @@ class TestHealthFormat:
         s1_lines = [r for r in caplog.records if "[S1 Health]" in r.getMessage()]
         assert len(s1_lines) >= 1
         assert any("srmr_plus" in r.getMessage() for r in s1_lines)
+
+
+# ── Test 6: Symbol resolution sequencing (rework, Rin HIGH finding) ────────
+
+
+class TestSymbolResolutionSequencing:
+    """connect() must precede the symbol queries; subscription follows them.
+
+    Rework for card 9cdbfd0a round 2 (Rin HIGH): the original F821 fix queried
+    the symbol list before any ``session.connect()`` — ``send()`` raised
+    SendError (``_client is None``), the query swallowed it, returned an empty
+    map, and the launcher exited. These tests pin the corrected ordering:
+    connect → symbols list → specs → subscribe.
+    """
+
+    _SPECS = {2: {"lotSize": 10_000_000, "minVolume": 100_000, "stepVolume": 100_000}}
+
+    def test_connect_precedes_queries_and_subscribe_follows(self):
+        """Request ordering: connect → symbol list → specs → subscribe."""
+        session = MagicMock()
+        order: list[str] = []
+        session.connect.side_effect = lambda: (order.append("connect"), True)[1]
+        session.subscribe_market_data.side_effect = lambda ids: (
+            order.append("subscribe"),
+            True,
+        )[1]
+
+        with (
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_id_map",
+                side_effect=lambda *a, **k: (
+                    order.append("symbols_list"),
+                    {"GBPUSD": 2},
+                )[1],
+            ) as qmap,
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_specs",
+                side_effect=lambda *a, **k: (order.append("specs"), self._SPECS)[1],
+            ),
+        ):
+            result = connect_and_resolve_symbols(session, 46877902, ["GBPUSD"])
+
+        assert result == ({"GBPUSD": 2}, self._SPECS)
+        qmap.assert_called_once()
+        session.subscribe_market_data.assert_called_once_with([2])
+        assert order == ["connect", "symbols_list", "specs", "subscribe"], order
+
+    def test_connect_failure_aborts_before_any_query(self):
+        """If connect() fails, no symbol queries or subscribe are attempted."""
+        session = MagicMock()
+        session.connect.return_value = False
+
+        with (
+            patch("scripts.launch_forward_test_v2.query_symbol_id_map") as qmap,
+            patch("scripts.launch_forward_test_v2.query_symbol_specs") as qspec,
+        ):
+            assert connect_and_resolve_symbols(session, 1, ["GBPUSD"]) is None
+
+        qmap.assert_not_called()
+        qspec.assert_not_called()
+        session.subscribe_market_data.assert_not_called()
+
+    def test_empty_resolution_aborts_before_specs_and_subscribe(self):
+        """Empty symbol map (the old SendError failure mode) aborts the launch."""
+        session = MagicMock()
+        session.connect.return_value = True
+
+        with (
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_id_map", return_value={}
+            ) as qmap,
+            patch("scripts.launch_forward_test_v2.query_symbol_specs") as qspec,
+        ):
+            assert connect_and_resolve_symbols(session, 1, ["GBPUSD"]) is None
+
+        qmap.assert_called_once()
+        qspec.assert_not_called()
+        session.subscribe_market_data.assert_not_called()
+
+    def test_partial_resolution_proceeds_with_resolved_subset(self):
+        """Partial resolution keeps the resolved subset and subscribes only those IDs."""
+        session = MagicMock()
+        session.connect.return_value = True
+
+        with (
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_id_map",
+                return_value={"GBPUSD": 2},  # USDJPY unresolved
+            ) as qmap,
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_specs",
+                return_value=self._SPECS,
+            ) as qspec,
+        ):
+            result = connect_and_resolve_symbols(session, 1, ["GBPUSD", "USDJPY"])
+
+        assert result == ({"GBPUSD": 2}, self._SPECS)
+        qspec.assert_called_once()
+        # Only the resolved symbol's ID is subscribed — USDJPY is not traded.
+        session.subscribe_market_data.assert_called_once_with([2])
+
+    def test_subscribe_failure_aborts_launch(self):
+        """If spot subscription fails after resolution, the launch aborts."""
+        session = MagicMock()
+        session.connect.return_value = True
+        session.subscribe_market_data.return_value = False
+
+        with (
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_id_map",
+                return_value={"GBPUSD": 2},
+            ),
+            patch(
+                "scripts.launch_forward_test_v2.query_symbol_specs",
+                return_value=self._SPECS,
+            ),
+        ):
+            assert connect_and_resolve_symbols(session, 1, ["GBPUSD"]) is None
 
 
 # ── Test 5: Clean shutdown ──────────────────────────────────────────────────

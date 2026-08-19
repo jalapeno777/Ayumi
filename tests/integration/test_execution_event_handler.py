@@ -12,13 +12,13 @@ import logging
 import threading
 from unittest.mock import MagicMock
 
-import pytest
 
 from adapters.ctrader.execution_event_handler import ExecutionEventHandler
 from adapters.ctrader.protocols import OrderResult, OrderStatus
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def make_order_payload(
     client_order_id: str = "",

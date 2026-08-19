@@ -32,10 +32,10 @@ contain the same logic inline; this module exposes it through a stable
 class-based API so it can be unit-tested and reused by the backtest
 pipeline.
 """
+
 from __future__ import annotations
 
 import csv
-import io
 import lzma
 import logging
 import struct
@@ -63,6 +63,7 @@ DEFAULT_RETRY_BACKOFF: tuple[int, ...] = (5, 15, 30)
 
 # ── Data model ──────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True, slots=True)
 class Tick:
     """Normalised tick record.
@@ -81,11 +82,13 @@ class Tick:
 
 # ── Exceptions ──────────────────────────────────────────────────────────────
 
+
 class DukascopyFetchError(Exception):
     """Raised when the Dukascopy API cannot be reached after all retries."""
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
+
 
 class DukascopyImporter:
     """Download, parse, and persist Dukascopy bi5 tick data.
@@ -147,9 +150,7 @@ class DukascopyImporter:
         """
         for attempt in range(self._max_retries):
             try:
-                req = urllib.request.Request(
-                    url, headers={"User-Agent": "Mozilla/5.0"}
-                )
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     return resp.read()
             except urllib.error.HTTPError as exc:
@@ -157,18 +158,22 @@ class DukascopyImporter:
                     return b""
                 logger.warning(
                     "HTTP %d for %s (attempt %d/%d)",
-                    exc.code, url, attempt + 1, self._max_retries,
+                    exc.code,
+                    url,
+                    attempt + 1,
+                    self._max_retries,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "%s: %s (attempt %d/%d)",
-                    exc.__class__.__name__, exc, attempt + 1, self._max_retries,
+                    exc.__class__.__name__,
+                    exc,
+                    attempt + 1,
+                    self._max_retries,
                 )
 
             if attempt < self._max_retries - 1:
-                wait = self._retry_backoff[
-                    min(attempt, len(self._retry_backoff) - 1)
-                ]
+                wait = self._retry_backoff[min(attempt, len(self._retry_backoff) - 1)]
                 time.sleep(wait)
 
         return None
@@ -208,8 +213,8 @@ class DukascopyImporter:
 
         for i in range(n_records):
             offset = i * _TICK_SIZE
-            ms_within_hour, ask_raw, bid_raw, ask_vol, bid_vol = (
-                struct.unpack_from(_RECORD_FORMAT, decompressed, offset)
+            ms_within_hour, ask_raw, bid_raw, ask_vol, bid_vol = struct.unpack_from(
+                _RECORD_FORMAT, decompressed, offset
             )
 
             ticks.append(
@@ -227,9 +232,7 @@ class DukascopyImporter:
 
     # -- High-level download ------------------------------------------------
 
-    def fetch_hour_ticks(
-        self, symbol: str, dt: date, hour: int
-    ) -> list[Tick]:
+    def fetch_hour_ticks(self, symbol: str, dt: date, hour: int) -> list[Tick]:
         """Download and parse a single hour of ticks.
 
         Raises :class:`DukascopyFetchError` on total network failure.
@@ -244,9 +247,7 @@ class DukascopyImporter:
             )
 
         hour_start = int(
-            datetime(
-                dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc
-            ).timestamp()
+            datetime(dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc).timestamp()
         )
         ticks = self.parse_bi5(raw, symbol, hour_start)
 
@@ -288,7 +289,9 @@ class DukascopyImporter:
         current = start
         while current <= end:
             if self.output_dir is not None:
-                fname = f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
+                fname = (
+                    f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
+                )
                 if (self.output_dir / fname).exists():
                     current += timedelta(days=1)
                     continue
@@ -297,9 +300,7 @@ class DukascopyImporter:
 
     # -- CSV writing --------------------------------------------------------
 
-    def write_csv(
-        self, symbol: str, dt: date, ticks: Sequence[Tick]
-    ) -> Path | None:
+    def write_csv(self, symbol: str, dt: date, ticks: Sequence[Tick]) -> Path | None:
         """Write ticks for one day to CSV.
 
         Returns the path written, or ``None`` if ``output_dir`` was not
@@ -325,6 +326,7 @@ class DukascopyImporter:
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _is_weekend(dt: date) -> bool:
     """Return *True* for Saturday or Sunday."""

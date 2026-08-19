@@ -12,11 +12,10 @@ Usage:
     cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate
     python scripts/verify_live_state.py
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -26,8 +25,6 @@ sys.path.insert(0, str(ROOT))
 
 from adapters.ctrader.account_state import (  # type: ignore # noqa: E402
     AccountStateError,
-    get_balance,
-    get_open_positions,
     read_account_snapshot,
 )
 
@@ -38,6 +35,7 @@ log = logging.getLogger("verify_live_state")
 def load_credentials() -> dict:
     """Load cTrader creds from .env or data/.credentials/."""
     from dotenv import dotenv_values
+
     env = dotenv_values(ROOT / ".env")
     return {
         "client_id": env.get("CTRADER_OPENAPI_CLIENT_ID"),
@@ -56,7 +54,6 @@ def build_client(creds: dict):
     (the well-trodden path) instead of inventing our own client lifecycle.
     Returns the underlying connection (feed._conn) which exposes send_and_wait.
     """
-    from ctrader_open_api import Protobuf
     from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed  # type: ignore
 
     feed = OpenApiSpotFeed(
@@ -70,6 +67,7 @@ def build_client(creds: dict):
     conn = feed._conn
     conn.connect()
     import time
+
     for _ in range(50):
         if conn.is_connected:
             break
@@ -81,6 +79,7 @@ def build_client(creds: dict):
         ProtoOAApplicationAuthReq,
         ProtoOAAccountAuthReq,
     )
+
     app_req = ProtoOAApplicationAuthReq(
         clientId=creds["client_id"],
         clientSecret=creds["client_secret"],
@@ -100,7 +99,11 @@ def build_client(creds: dict):
 
 def main() -> int:
     creds = load_credentials()
-    missing = [k for k in ("client_id", "client_secret", "access_token", "account_id") if not creds.get(k)]
+    missing = [
+        k
+        for k in ("client_id", "client_secret", "access_token", "account_id")
+        if not creds.get(k)
+    ]
     if missing:
         log.error("Missing credentials: %s", missing)
         return 1
@@ -123,8 +126,13 @@ def main() -> int:
     for pos in positions:
         log.info(
             "    - %s %s %s @ %s sl=%s tp=%s vol=%s",
-            pos.position_id, pos.side, pos.symbol,
-            pos.entry_price, pos.sl, pos.tp, pos.volume_lots,
+            pos.position_id,
+            pos.side,
+            pos.symbol,
+            pos.entry_price,
+            pos.sl,
+            pos.tp,
+            pos.volume_lots,
         )
 
     # Compare against signal_stats.jsonl — phantom LIVE positions here = the bug.
@@ -135,11 +143,11 @@ def main() -> int:
         for line in stats_file.read_text().strip().split("\n"):
             try:
                 import json
+
                 entry = json.loads(line)
-                if (
-                    entry.get("outcome") == "open"
-                    and not entry.get("signal_id", "").startswith("POS_PAPER_")
-                ):
+                if entry.get("outcome") == "open" and not entry.get(
+                    "signal_id", ""
+                ).startswith("POS_PAPER_"):
                     live_open_in_stats.append(entry)
             except json.JSONDecodeError:
                 pass
@@ -152,7 +160,8 @@ def main() -> int:
             return 3
         log.info(
             "✓ signal_stats.jsonl live open count matches cTrader (%d in stats, %d on broker)",
-            len(live_open_in_stats), len(positions),
+            len(live_open_in_stats),
+            len(positions),
         )
 
     log.info("✓ ALL CHECKS PASSED")

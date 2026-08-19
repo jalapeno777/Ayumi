@@ -40,8 +40,10 @@ def test_cpu_limited_20_percent_measured_under_cap():
     time.sleep(0.5)
     measured_final = process.cpu_percent(interval=None)
 
-    print(f"\nCPU E2E: elapsed={elapsed:.1f}s, cpu_percent={measured:.1f}%, "
-          f"final_cpu_percent={measured_final:.1f}%")
+    print(
+        f"\nCPU E2E: elapsed={elapsed:.1f}s, cpu_percent={measured:.1f}%, "
+        f"final_cpu_percent={measured_final:.1f}%"
+    )
 
     # Soft assertion — advisory enforcement may fail; result is documented.
     assert measured <= 20.0, (

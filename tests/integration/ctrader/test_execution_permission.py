@@ -5,6 +5,7 @@ Covers the three critical safety properties:
 2. Uses KillSwitchManager.is_active() (not mode-specific caches).
 3. Never propagates exceptions.
 """
+
 from unittest.mock import MagicMock
 from adapters.ctrader.execution_permission import ExecutionPermissionPolicy
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
@@ -71,12 +72,17 @@ def test_policy_uses_is_active_not_globally_killed():
 # Phase 6: Broker-mutating gate tests
 # ------------------------------------------------------------------
 
+
 def test_cancel_order_blocked_by_policy():
     """cancel_order must return False without broker communication when kill switch is active."""
     feed = OpenApiSpotFeed(
-        ctid_account_id=12345, client_id="x", client_secret="x",
-        access_token="x", refresh_token="x",
-        host="demo.ctraderapi.com", port=5035,
+        ctid_account_id=12345,
+        client_id="x",
+        client_secret="x",
+        access_token="x",
+        refresh_token="x",
+        host="demo.ctraderapi.com",
+        port=5035,
         token_lifecycle=MagicMock(),
     )
     mock_ks = MagicMock()
@@ -92,9 +98,13 @@ def test_cancel_order_blocked_by_policy():
 def test_close_position_blocked_by_policy():
     """close_position must return False without broker communication when kill switch is active."""
     feed = OpenApiSpotFeed(
-        ctid_account_id=12345, client_id="x", client_secret="x",
-        access_token="x", refresh_token="x",
-        host="demo.ctraderapi.com", port=5035,
+        ctid_account_id=12345,
+        client_id="x",
+        client_secret="x",
+        access_token="x",
+        refresh_token="x",
+        host="demo.ctraderapi.com",
+        port=5035,
         token_lifecycle=MagicMock(),
     )
     mock_ks = MagicMock()

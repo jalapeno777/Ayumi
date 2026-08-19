@@ -85,13 +85,10 @@ class BestDayRuleTracker:
             ValueError: If threshold or account_phase is invalid.
         """
         if not 0.0 < threshold <= 1.0:
-            raise ValueError(
-                f"threshold must be in (0, 1], got {threshold!r}"
-            )
+            raise ValueError(f"threshold must be in (0, 1], got {threshold!r}")
         if account_phase not in VALID_PHASES:
             raise ValueError(
-                f"account_phase must be one of {VALID_PHASES}, "
-                f"got {account_phase!r}"
+                f"account_phase must be one of {VALID_PHASES}, got {account_phase!r}"
             )
 
         self._account_phase: str = account_phase
@@ -160,9 +157,7 @@ class BestDayRuleTracker:
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    def record_trade_close(
-        self, close_time: datetime, pnl_dollars: float
-    ) -> None:
+    def record_trade_close(self, close_time: datetime, pnl_dollars: float) -> None:
         """Record a closed trade's realized P/L.
 
         Args:

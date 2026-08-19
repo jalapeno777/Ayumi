@@ -18,11 +18,8 @@ path and is intentionally left alone.
 
 from __future__ import annotations
 
-import os
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
@@ -41,6 +38,7 @@ def _load_launcher_module():
     """Load scripts/launch_blend_forward_test.py without running main()."""
     import importlib.util
     from _project_root import PROJECT_ROOT
+
     path = str(PROJECT_ROOT / "scripts" / "launch_blend_forward_test.py")
     spec = importlib.util.spec_from_file_location("launch_blend_forward_test", path)
     mod = importlib.util.module_from_spec(spec)

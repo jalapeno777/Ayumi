@@ -82,9 +82,7 @@ def zero_slippage_trader():
         starting_balance=100_000.0,
     )
     # Eliminate slippage so fill prices are deterministic for assertions.
-    trader._order_manager._slippage_model = SlippageModel(
-        base_pips=0, random_pips=0
-    )
+    trader._order_manager._slippage_model = SlippageModel(base_pips=0, random_pips=0)
     return trader
 
 
@@ -146,21 +144,13 @@ class TestSignalToPaperTrade:
 
     def test_process_signal_succeeds(self, zero_slippage_trader):
         signal = _gbpusd_long_signal()
-        result = zero_slippage_trader.process_signal(
-            signal, bid=1.2750, ask=1.2750
-        )
-        assert result.success is True, (
-            f"Signal rejected: {result.rejection_reason}"
-        )
+        result = zero_slippage_trader.process_signal(signal, bid=1.2750, ask=1.2750)
+        assert result.success is True, f"Signal rejected: {result.rejection_reason}"
         assert result.position is not None
 
-    def test_position_has_correct_direction_entry_sl_tp(
-        self, zero_slippage_trader
-    ):
+    def test_position_has_correct_direction_entry_sl_tp(self, zero_slippage_trader):
         signal = _gbpusd_long_signal()
-        result = zero_slippage_trader.process_signal(
-            signal, bid=1.2750, ask=1.2750
-        )
+        result = zero_slippage_trader.process_signal(signal, bid=1.2750, ask=1.2750)
 
         pos = result.position
         assert pos.direction == TradeDirection.LONG
@@ -171,9 +161,7 @@ class TestSignalToPaperTrade:
         assert pos.symbol == "GBPUSD"
         assert pos.status == PositionStatus.OPEN
 
-    def test_position_appears_in_open_positions_list(
-        self, zero_slippage_trader
-    ):
+    def test_position_appears_in_open_positions_list(self, zero_slippage_trader):
         signal = _gbpusd_long_signal()
         zero_slippage_trader.process_signal(signal, bid=1.2750, ask=1.2750)
 
@@ -192,9 +180,7 @@ class TestSignalToPaperTrade:
         assert stats.signals_blocked_by_risk == 0
         assert stats.starting_balance == 100_000.0
 
-    def test_balance_tracks_unrealized_pnl_after_open(
-        self, zero_slippage_trader
-    ):
+    def test_balance_tracks_unrealized_pnl_after_open(self, zero_slippage_trader):
         signal = _gbpusd_long_signal()
         zero_slippage_trader.process_signal(signal, bid=1.2750, ask=1.2750)
 
@@ -207,9 +193,7 @@ class TestSignalToPaperTrade:
 
         stats = zero_slippage_trader.get_stats()
         # At entry, unrealized PnL is ~0, so balance should remain ~starting.
-        assert stats.current_balance == pytest.approx(
-            stats.starting_balance, abs=1.0
-        )
+        assert stats.current_balance == pytest.approx(stats.starting_balance, abs=1.0)
 
 
 # ── Test 2: Position monitoring — TP hit ─────────────────────────────────────
@@ -243,9 +227,7 @@ class TestPositionMonitoringTPHit:
         open_positions = zero_slippage_trader.get_open_positions()
         assert len(open_positions) == 0
 
-        all_positions = list(
-            zero_slippage_trader._order_manager._positions.values()
-        )
+        all_positions = list(zero_slippage_trader._order_manager._positions.values())
         closed = [p for p in all_positions if p.status.is_closed]
         assert len(closed) == 1
         assert closed[0].symbol == "GBPUSD"
@@ -263,9 +245,7 @@ class TestPositionMonitoringTPHit:
             asks={"GBPUSD": 1.2850},
         )
 
-        all_positions = list(
-            zero_slippage_trader._order_manager._positions.values()
-        )
+        all_positions = list(zero_slippage_trader._order_manager._positions.values())
         closed = [p for p in all_positions if p.status.is_closed]
         assert len(closed) == 1
 
@@ -320,9 +300,7 @@ class TestPositionMonitoringSLHit:
         open_positions = zero_slippage_trader.get_open_positions()
         assert len(open_positions) == 0
 
-        all_positions = list(
-            zero_slippage_trader._order_manager._positions.values()
-        )
+        all_positions = list(zero_slippage_trader._order_manager._positions.values())
         closed = [p for p in all_positions if p.status.is_closed]
         assert len(closed) == 1
         assert closed[0].symbol == "USDJPY"
@@ -341,9 +319,7 @@ class TestPositionMonitoringSLHit:
             asks={"USDJPY": 158.00},
         )
 
-        all_positions = list(
-            zero_slippage_trader._order_manager._positions.values()
-        )
+        all_positions = list(zero_slippage_trader._order_manager._positions.values())
         closed = [p for p in all_positions if p.status.is_closed]
         assert len(closed) == 1
 

@@ -19,7 +19,6 @@ temp DB so we can assert exact row counts on every code path:
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +44,7 @@ from srf.schema import SRFDatabase
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_db_path(tmp_path):
@@ -125,17 +125,25 @@ def make_results(
 
     per_window = [make_window(i, go=(i % 2 == 0)) for i in range(n_windows)]
     agg = AggregatedMetrics(
-        mean_win_rate=0.56, std_win_rate=0.05,
-        mean_profit_factor=1.4, std_profit_factor=0.1,
-        mean_max_drawdown=0.05, std_max_drawdown=0.01,
-        mean_sharpe_ratio=1.4, std_sharpe_ratio=0.2,
-        mean_trade_count=22.0, std_trade_count=2.0,
-        mean_total_pnl=400.0, std_total_pnl=200.0,
+        mean_win_rate=0.56,
+        std_win_rate=0.05,
+        mean_profit_factor=1.4,
+        std_profit_factor=0.1,
+        mean_max_drawdown=0.05,
+        std_max_drawdown=0.01,
+        mean_sharpe_ratio=1.4,
+        std_sharpe_ratio=0.2,
+        mean_trade_count=22.0,
+        std_trade_count=2.0,
+        mean_total_pnl=400.0,
+        std_total_pnl=200.0,
         windows_passed=sum(1 for w in per_window if w.passed_go_nogo),
         total_windows=n_windows,
     )
     results = WalkForwardResults(
-        per_window=per_window, aggregated=agg, go_nogo=go,
+        per_window=per_window,
+        aggregated=agg,
+        go_nogo=go,
     )
     # Round-robin window assignment to exercise multi-window trade persistence.
     directions = ["long", "short", "long", "short"]
@@ -173,11 +181,14 @@ def make_results(
 # Happy path — windows + trades + metrics_summary in a single transaction
 # ---------------------------------------------------------------------------
 
+
 class TestRunnerPersistenceHappyPath:
     """The default happy-path: every table gets rows and they match the input."""
 
     def test_windows_table_populated(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """``_write_results`` must insert one row per WindowMetrics."""
         results = make_results(n_windows=5, n_trades=0)
@@ -193,7 +204,9 @@ class TestRunnerPersistenceHappyPath:
         assert count == 5, f"Expected 5 window rows, got {count}"
 
     def test_trades_table_populated(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """``_write_results`` must insert one row per ``_trade_records`` entry."""
         results = make_results(n_windows=5, n_trades=8)
@@ -209,7 +222,9 @@ class TestRunnerPersistenceHappyPath:
         assert count == 8, f"Expected 8 trade rows, got {count}"
 
     def test_metrics_summary_still_written(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """metrics_summary insert is preserved (no regression on existing path)."""
         results = make_results(n_windows=5, n_trades=0, go=True)
@@ -235,7 +250,9 @@ class TestRunnerPersistenceHappyPath:
         assert total_trades == 110
 
     def test_full_persistence_atomic(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """All three tables populated from a single successful call."""
         results = make_results(n_windows=5, n_trades=12)
@@ -262,11 +279,14 @@ class TestRunnerPersistenceHappyPath:
 # Multi-run isolation
 # ---------------------------------------------------------------------------
 
+
 class TestMultiRunIsolation:
     """Two different runs must not bleed rows into each other."""
 
     def test_two_runs_independent(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """Run 001 and 002 each get their own windows/trades, no cross-pollination."""
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -297,7 +317,9 @@ class TestMultiRunIsolation:
         assert trades_002 == 4
 
     def test_metrics_summary_per_run(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """Each run gets exactly one metrics_summary row."""
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -318,24 +340,34 @@ class TestMultiRunIsolation:
 # Defensive handling of bad / missing trade records
 # ---------------------------------------------------------------------------
 
+
 class TestTradeRecordDefensive:
     """Trade-record defects must not block the windows/summary write."""
 
     def test_missing_trade_records_attribute(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """A bare WalkForwardResults (no ``_trade_records``) writes 0 trades."""
         # Plain WalkForwardResults - no _trade_records attached.
         results = WalkForwardResults(
             per_window=[make_window(i) for i in range(3)],
             aggregated=AggregatedMetrics(
-                mean_win_rate=0.5, std_win_rate=0.0,
-                mean_profit_factor=1.0, std_profit_factor=0.0,
-                mean_max_drawdown=0.0, std_max_drawdown=0.0,
-                mean_sharpe_ratio=1.0, std_sharpe_ratio=0.0,
-                mean_trade_count=20.0, std_trade_count=0.0,
-                mean_total_pnl=0.0, std_total_pnl=0.0,
-                windows_passed=2, total_windows=3,
+                mean_win_rate=0.5,
+                std_win_rate=0.0,
+                mean_profit_factor=1.0,
+                std_profit_factor=0.0,
+                mean_max_drawdown=0.0,
+                std_max_drawdown=0.0,
+                mean_sharpe_ratio=1.0,
+                std_sharpe_ratio=0.0,
+                mean_trade_count=20.0,
+                std_trade_count=0.0,
+                mean_total_pnl=0.0,
+                std_total_pnl=0.0,
+                windows_passed=2,
+                total_windows=3,
             ),
             go_nogo=False,
         )
@@ -359,19 +391,28 @@ class TestTradeRecordDefensive:
         assert summary == 1
 
     def test_trade_records_with_null_pnl_skipped(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """Trades with ``pnl=None`` are skipped; valid ones still persist."""
         results = WalkForwardResults(
             per_window=[make_window(i) for i in range(3)],
             aggregated=AggregatedMetrics(
-                mean_win_rate=0.5, std_win_rate=0.0,
-                mean_profit_factor=1.0, std_profit_factor=0.0,
-                mean_max_drawdown=0.0, std_max_drawdown=0.0,
-                mean_sharpe_ratio=1.0, std_sharpe_ratio=0.0,
-                mean_trade_count=20.0, std_trade_count=0.0,
-                mean_total_pnl=0.0, std_total_pnl=0.0,
-                windows_passed=2, total_windows=3,
+                mean_win_rate=0.5,
+                std_win_rate=0.0,
+                mean_profit_factor=1.0,
+                std_profit_factor=0.0,
+                mean_max_drawdown=0.0,
+                std_max_drawdown=0.0,
+                mean_sharpe_ratio=1.0,
+                std_sharpe_ratio=0.0,
+                mean_trade_count=20.0,
+                std_trade_count=0.0,
+                mean_total_pnl=0.0,
+                std_total_pnl=0.0,
+                windows_passed=2,
+                total_windows=3,
             ),
             go_nogo=False,
         )
@@ -379,7 +420,7 @@ class TestTradeRecordDefensive:
             {"pnl": 10.0, "direction": "long", "window_id": 0},
             {"pnl": None, "direction": "long", "window_id": 1},  # skip
             {"pnl": 5.0, "direction": "short", "window_id": 1},
-            "not-a-dict",                                          # skip
+            "not-a-dict",  # skip
             {"pnl": -3.5, "direction": "long", "window_id": 2, "exit_reason": "stop"},
         ]
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -398,7 +439,9 @@ class TestTradeRecordDefensive:
         assert sorted(pnls) == [-3.5, 5.0, 10.0]
 
     def test_trade_columns_are_correct(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """Stored trades have run_id, window_idx, direction, pnl, exit_reason.
 
@@ -448,11 +491,14 @@ class TestTradeRecordDefensive:
 # Per-window column integrity
 # ---------------------------------------------------------------------------
 
+
 class TestWindowColumnIntegrity:
     """window_idx uniqueness + column-mapping sanity check."""
 
     def test_window_rows_cover_all_indexes(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """All 5 WindowMetrics window_indexes appear in the persisted rows."""
         results = make_results(n_windows=5, n_trades=0)
@@ -463,14 +509,17 @@ class TestWindowColumnIntegrity:
 
         with seeded_db as conn:
             indexes = sorted(
-                r[0] for r in conn.execute(
+                r[0]
+                for r in conn.execute(
                     "SELECT window_idx FROM windows WHERE run_id='mock_run_001'"
                 ).fetchall()
             )
         assert indexes == [0, 1, 2, 3, 4]
 
     def test_window_metrics_round_trip(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """A window's persisted row mirrors the input WindowMetrics fields."""
         results = WalkForwardResults(
@@ -487,13 +536,20 @@ class TestWindowColumnIntegrity:
                 ),
             ],
             aggregated=AggregatedMetrics(
-                mean_win_rate=0.618, std_win_rate=0.0,
-                mean_profit_factor=1.95, std_profit_factor=0.0,
-                mean_max_drawdown=0.08, std_max_drawdown=0.0,
-                mean_sharpe_ratio=1.42, std_sharpe_ratio=0.0,
-                mean_trade_count=42.0, std_trade_count=0.0,
-                mean_total_pnl=987.0, std_total_pnl=0.0,
-                windows_passed=0, total_windows=1,
+                mean_win_rate=0.618,
+                std_win_rate=0.0,
+                mean_profit_factor=1.95,
+                std_profit_factor=0.0,
+                mean_max_drawdown=0.08,
+                std_max_drawdown=0.0,
+                mean_sharpe_ratio=1.42,
+                std_sharpe_ratio=0.0,
+                mean_trade_count=42.0,
+                std_trade_count=0.0,
+                mean_total_pnl=987.0,
+                std_total_pnl=0.0,
+                windows_passed=0,
+                total_windows=1,
             ),
             go_nogo=False,
         )
@@ -523,11 +579,14 @@ class TestWindowColumnIntegrity:
 # Transactional rollback — partial failures are atomic
 # ---------------------------------------------------------------------------
 
+
 class TestTransactionalRollback:
     """If any single insert raises, the prior writes must roll back."""
 
     def test_failure_in_trades_rolls_back(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """A failure during the trades insert must roll back windows + summary."""
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -560,7 +619,9 @@ class TestTransactionalRollback:
         assert summary == 0, "metrics_summary row leaked despite transaction failure"
 
     def test_failure_in_summary_rolls_back(
-        self, seeded_db, tmp_db_path,
+        self,
+        seeded_db,
+        tmp_db_path,
     ):
         """A failure during the metrics_summary insert also rolls back."""
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -590,7 +651,10 @@ class TestTransactionalRollback:
         assert summary == 0
 
     def test_failure_is_logged(
-        self, seeded_db, tmp_db_path, caplog,
+        self,
+        seeded_db,
+        tmp_db_path,
+        caplog,
     ):
         """A rollback path must emit an error log so silent failures are gone."""
         runner = StrategyRunner(db_path=tmp_db_path)
@@ -607,8 +671,7 @@ class TestTransactionalRollback:
                     runner._write_results(conn, "mock_run_001", results)
 
         assert any(
-            "SRF persistence failed" in record.message
-            for record in caplog.records
+            "SRF persistence failed" in record.message for record in caplog.records
         ), (
             f"Expected 'SRF persistence failed' in logs, "
             f"got {[r.message for r in caplog.records]}"
@@ -618,6 +681,7 @@ class TestTransactionalRollback:
 # ---------------------------------------------------------------------------
 # Helper-method smoke tests — exercise each insert in isolation
 # ---------------------------------------------------------------------------
+
 
 class TestInsertHelpers:
     """Per-table helpers are exposed as static methods for clarity + testing."""
@@ -651,7 +715,8 @@ class TestInsertHelpers:
             with db as conn:
                 with pytest.raises(ValueError, match="20 elements"):
                     StrategyRunner._insert_metrics_summary(
-                        conn, ["too", "short"],
+                        conn,
+                        ["too", "short"],
                     )
                 with pytest.raises(ValueError, match="20 elements"):
                     StrategyRunner._insert_metrics_summary(conn, None)
@@ -662,6 +727,7 @@ class TestInsertHelpers:
 # ---------------------------------------------------------------------------
 # Window date columns (train_start/end, test_start/end)
 # ---------------------------------------------------------------------------
+
 
 class TestWindowDateColumns:
     """Verify that the 4 date columns are populated when _window_dates sidecar
@@ -710,13 +776,15 @@ class TestWindowDateColumns:
         """Specific date values survive the round-trip through the DB."""
         results = make_results(n_windows=1, n_trades=0, with_dates=True)
         # Override with known values
-        results._window_dates = [{
-            "window_index": 0,
-            "train_start": datetime(2024, 6, 1, 0, 0, tzinfo=timezone.utc),
-            "train_end": datetime(2024, 9, 30, 0, 0, tzinfo=timezone.utc),
-            "test_start": datetime(2024, 10, 1, 0, 0, tzinfo=timezone.utc),
-            "test_end": datetime(2024, 12, 31, 0, 0, tzinfo=timezone.utc),
-        }]
+        results._window_dates = [
+            {
+                "window_index": 0,
+                "train_start": datetime(2024, 6, 1, 0, 0, tzinfo=timezone.utc),
+                "train_end": datetime(2024, 9, 30, 0, 0, tzinfo=timezone.utc),
+                "test_start": datetime(2024, 10, 1, 0, 0, tzinfo=timezone.utc),
+                "test_end": datetime(2024, 12, 31, 0, 0, tzinfo=timezone.utc),
+            }
+        ]
         runner = StrategyRunner(db_path=tmp_db_path)
 
         with seeded_db as conn:
@@ -825,9 +893,7 @@ class TestNamingNormalization:
                                'GBPUSD', 15, '{}', 'abc', 'h1', 'completed', now())"""
                 )
 
-            result = StrategyRunner.normalize_strategy_names(
-                tmp_db_path, dry_run=True
-            )
+            result = StrategyRunner.normalize_strategy_names(tmp_db_path, dry_run=True)
 
             assert len(result["variants_found"]) == 1
             assert result["variants_found"][0]["from"] == "killzonemomentum"
@@ -907,4 +973,3 @@ class TestNamingNormalization:
             assert names[0][0] == "volatility_squeeze"
         finally:
             db.close()
-

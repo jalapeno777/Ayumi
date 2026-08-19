@@ -21,11 +21,10 @@ adds CSV I/O, ``run_all_pairs``, and command-line plumbing.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Sequence
 
 import numpy as np
-from scipy import stats
 from sklearn.mixture import GaussianMixture
 from hmmlearn.hmm import GaussianHMM
 
@@ -41,6 +40,7 @@ MIN_OBSERVATIONS = 100
 # ═══════════════════════════════════════════════════════════════════════════
 # Data structures
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class RegimeParams:
@@ -80,7 +80,9 @@ class RegimeParams:
         if self.stds.shape != (n,):
             raise ValueError(f"stds must have shape ({n},), got {self.stds.shape}")
         if self.weights.shape != (n,):
-            raise ValueError(f"weights must have shape ({n},), got {self.weights.shape}")
+            raise ValueError(
+                f"weights must have shape ({n},), got {self.weights.shape}"
+            )
         if self.transmat.shape != (n, n):
             raise ValueError(
                 f"transmat must have shape ({n},{n}), got {self.transmat.shape}"
@@ -94,25 +96,20 @@ class RegimeParams:
             raise ValueError("All stds must be positive")
         # Weights sum ~ 1
         if not np.isclose(self.weights.sum(), 1.0, atol=1e-6):
-            raise ValueError(
-                f"weights must sum to 1, got {self.weights.sum()}"
-            )
+            raise ValueError(f"weights must sum to 1, got {self.weights.sum()}")
         # Each transmat row sums to 1
         row_sums = self.transmat.sum(axis=1)
         if not np.allclose(row_sums, 1.0, atol=1e-6):
-            raise ValueError(
-                f"transmat rows must sum to 1, got {row_sums}"
-            )
+            raise ValueError(f"transmat rows must sum to 1, got {row_sums}")
         # startprob sums to 1
         if not np.isclose(self.startprob.sum(), 1.0, atol=1e-6):
-            raise ValueError(
-                f"startprob must sum to 1, got {self.startprob.sum()}"
-            )
+            raise ValueError(f"startprob must sum to 1, got {self.startprob.sum()}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fitting
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _to_log_returns(prices: np.ndarray | Sequence[float]) -> np.ndarray:
     """Convert price array to log-returns.
@@ -195,7 +192,9 @@ def fit_gmm_returns(
     bic = float(gmm.bic(X))
     logger.debug(
         "GMM fit: %d regimes, BIC=%.2f, means=%s",
-        n_regimes, bic, gmm.means_.ravel(),
+        n_regimes,
+        bic,
+        gmm.means_.ravel(),
     )
     return gmm, bic
 
@@ -255,7 +254,8 @@ def fit_hmm_returns(
 
     logger.debug(
         "HMM fit: %d states, transmat diag=%s",
-        n_regimes, np.diag(hmm.transmat_).round(4),
+        n_regimes,
+        np.diag(hmm.transmat_).round(4),
     )
     return hmm
 
@@ -263,6 +263,7 @@ def fit_hmm_returns(
 # ═══════════════════════════════════════════════════════════════════════════
 # Synthetic generation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _sample_regime_sequence(
     transmat: np.ndarray,
@@ -363,6 +364,7 @@ def synthesize_prices(
 # Full pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def bootstrap_synthetic_returns(
     prices: np.ndarray | Sequence[float],
     n_regimes: int = DEFAULT_N_REGIMES,
@@ -424,7 +426,9 @@ def bootstrap_synthetic_returns(
     weights = gmm.weights_.ravel().copy()
 
     # ── HMM ────────────────────────────────────────────────────────────
-    hmm = fit_hmm_returns(returns, component_labels, n_regimes, random_state=random_state)
+    hmm = fit_hmm_returns(
+        returns, component_labels, n_regimes, random_state=random_state
+    )
     transmat = hmm.transmat_.copy()
     startprob = hmm.startprob_.copy()
 
@@ -446,6 +450,9 @@ def bootstrap_synthetic_returns(
 
     logger.info(
         "Generated %d synthetic paths (T=%d, n_regimes=%d, BIC=%.2f)",
-        n_paths, T, n_regimes, bic,
+        n_paths,
+        T,
+        n_regimes,
+        bic,
     )
     return all_returns, params

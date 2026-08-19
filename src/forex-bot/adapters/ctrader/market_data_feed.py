@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from .protocols import Bar as _ProtoBar
-from .protocols import MarketFeedProtocol
 from .protocols import Tick as _ProtoTick
 
 logger = logging.getLogger("ayumi.market_data")
@@ -316,10 +315,10 @@ class SymbolInfo:
     name: str
     pip_size: float = 0.0001
     digits: int = 5
-    lot_size: int = 100_000           # contract size per lot (100k FX, 100 crypto)
-    min_volume: int = 0               # minimum cTrader volume (0 = unspecified)
-    max_volume: int = 0               # maximum cTrader volume (0 = unlimited)
-    step_volume: int = 1              # volume step increment
+    lot_size: int = 100_000  # contract size per lot (100k FX, 100 crypto)
+    min_volume: int = 0  # minimum cTrader volume (0 = unspecified)
+    max_volume: int = 0  # maximum cTrader volume (0 = unlimited)
+    step_volume: int = 1  # volume step increment
 
     @property
     def contract_size(self) -> float:

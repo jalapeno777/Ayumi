@@ -30,6 +30,7 @@ from signals.spread_regime_classifier import (
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────
 
+
 class TestSpreadRegimeEnum:
     def test_all_regimes_exist(self):
         names = {r.name for r in SpreadRegime}
@@ -43,6 +44,7 @@ class TestSpreadRegimeEnum:
 
 
 # ── Default Penalties ───────────────────────────────────────────────
+
 
 class TestDefaultPenalties:
     def test_tight_no_penalty(self):
@@ -72,6 +74,7 @@ class TestDefaultPenalties:
 
 
 # ── Classification ──────────────────────────────────────────────────
+
 
 class TestClassification:
     def setup_method(self):
@@ -107,6 +110,7 @@ class TestClassification:
 
 # ── Window Behavior ─────────────────────────────────────────────────
 
+
 class TestWindowBehavior:
     def test_window_size(self):
         clf = SpreadRegimeClassifier(window=50)
@@ -138,6 +142,7 @@ class TestWindowBehavior:
 
 # ── Timeframe Integration ───────────────────────────────────────────
 
+
 class TestTimeframeIntegration:
     def test_default_window_positive(self):
         assert DEFAULT_WINDOW > 0
@@ -152,6 +157,7 @@ class TestTimeframeIntegration:
 
 
 # ── Confidence Penalty Method ───────────────────────────────────────
+
 
 class TestConfidencePenalty:
     def test_penalty_for_known_regime(self):

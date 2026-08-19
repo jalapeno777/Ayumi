@@ -1,6 +1,5 @@
-import pytest
 from datetime import datetime, timedelta, timezone
-from backtest.engine import Bar, BarPeriod, TradeDirection
+from backtest.engine import TradeDirection
 from engine.strategy_executor import StrategyExecutor
 from engine.strategy_registry import StrategySlot
 from engine.protocol import CanonicalSignal

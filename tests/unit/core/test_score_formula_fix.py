@@ -8,8 +8,11 @@ class TestComputeScoreNonCircular:
     def test_score_uses_raw_gross_values(self):
         # With raw values: gp=200, gl=100 → pf=2.0
         score_raw = StrategyBlendOptimizer._compute_score(
-            win_rate=0.6, total_trades=50, max_dd_pct=5.0,
-            gross_profit=200.0, gross_loss=100.0,
+            win_rate=0.6,
+            total_trades=50,
+            max_dd_pct=5.0,
+            gross_profit=200.0,
+            gross_loss=100.0,
         )
 
         # The old circular formula would have been:
@@ -27,14 +30,19 @@ class TestComputeScoreNonCircular:
 
     def test_zero_gross_loss(self):
         score = StrategyBlendOptimizer._compute_score(
-            win_rate=0.8, total_trades=30, max_dd_pct=2.0,
-            gross_profit=500.0, gross_loss=0.0,
+            win_rate=0.8,
+            total_trades=30,
+            max_dd_pct=2.0,
+            gross_profit=500.0,
+            gross_loss=0.0,
         )
         # Should not crash — pf uses max(gross_loss, 1.0)
         assert score > 0
 
     def test_zero_trades(self):
         score = StrategyBlendOptimizer._compute_score(
-            win_rate=0.5, total_trades=0, max_dd_pct=0.0,
+            win_rate=0.5,
+            total_trades=0,
+            max_dd_pct=0.0,
         )
         assert score == 0.0

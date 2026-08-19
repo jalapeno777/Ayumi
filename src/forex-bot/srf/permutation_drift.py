@@ -33,7 +33,6 @@ Threshold defaults (from SRB-AYU-002):
 
 from __future__ import annotations
 
-import math
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Callable, Sequence
@@ -108,7 +107,11 @@ class ImportanceResult:
         return "clear"
 
     def __str__(self) -> str:
-        flag = "🔴" if self.severity() == "red" else ("⚠️" if self.severity() == "yellow" else "✅")
+        flag = (
+            "🔴"
+            if self.severity() == "red"
+            else ("⚠️" if self.severity() == "yellow" else "✅")
+        )
         return (
             f"{flag}  {self.feature}: "
             f"ref={self.reference_importance:.4f} → cur={self.current_importance:.4f} "
@@ -125,7 +128,9 @@ class ImportanceReport:
 
     def alerts(self) -> list[ImportanceResult]:
         """Return only results where importance is declining or in red zone."""
-        return [r for r in self.results if r.is_declining or r.is_red_zone or r.is_negative]
+        return [
+            r for r in self.results if r.is_declining or r.is_red_zone or r.is_negative
+        ]
 
     def red_alerts(self) -> list[ImportanceResult]:
         """Return only red-zone results (feature may need replacement)."""
@@ -188,6 +193,7 @@ class ShapDriftChecker:
         """Check if the shap library is installed."""
         try:
             import shap  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -241,8 +247,12 @@ class ShapDriftChecker:
 
         result: dict[str, dict[str, float]] = {}
         for i, feat in enumerate(ref.columns):
-            ref_vals = ref_shap.values[:, i] if ref_shap.values.ndim > 1 else ref_shap.values
-            cur_vals = cur_shap.values[:, i] if cur_shap.values.ndim > 1 else cur_shap.values
+            ref_vals = (
+                ref_shap.values[:, i] if ref_shap.values.ndim > 1 else ref_shap.values
+            )
+            cur_vals = (
+                cur_shap.values[:, i] if cur_shap.values.ndim > 1 else cur_shap.values
+            )
 
             ref_flat = np.asarray(ref_vals).ravel()
             cur_flat = np.asarray(cur_vals).ravel()
@@ -315,7 +325,9 @@ class PermutationDriftMonitor:
     ) -> None:
         self.model = model
         self.scoring = scoring
-        self.features = list(features) if features is not None else _infer_features(reference_X)
+        self.features = (
+            list(features) if features is not None else _infer_features(reference_X)
+        )
         self.decay_threshold = decay_threshold
         self.red_zone = red_zone
         self.n_repeats = n_repeats
@@ -417,9 +429,7 @@ class PermutationDriftMonitor:
             raise ValueError("X and y must be non-empty")
 
         if len(X) != len(y):
-            raise ValueError(
-                f"X has {len(X)} samples but y has {len(y)}"
-            )
+            raise ValueError(f"X has {len(X)} samples but y has {len(y)}")
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -505,7 +515,9 @@ class CompositeDriftMonitor:
         CompositeReport
         """
         dist_report = self.drift_monitor.check_drift(current_dist_df)
-        imp_report = self.importance_monitor.check_importance_drift(current_X, current_y)
+        imp_report = self.importance_monitor.check_importance_drift(
+            current_X, current_y
+        )
 
         return CompositeReport(
             distribution=dist_report,

@@ -28,10 +28,6 @@ from datetime import datetime, timezone
 import pytest
 
 # ── cTrader protobuf imports ─────────────────────────────────────────────
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAOrderType,
-    ProtoOATradeSide,
-)
 
 # ── Ayumi imports ────────────────────────────────────────────────────────
 from adapters.ctrader.forward_test_engine import (
@@ -58,6 +54,7 @@ pytestmark = pytest.mark.live
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def spot_feed() -> OpenApiSpotFeed:
@@ -98,8 +95,9 @@ def spot_feed() -> OpenApiSpotFeed:
             try:
                 feed.close_position(pos.position_id, int(pos.volume * 100_000))
             except Exception as exc:
-                logger.warning("Teardown: failed to close position %s: %s",
-                               pos.position_id, exc)
+                logger.warning(
+                    "Teardown: failed to close position %s: %s", pos.position_id, exc
+                )
     except Exception as exc:
         logger.warning("Teardown: reconcile failed: %s", exc)
 
@@ -140,7 +138,9 @@ def engine(spot_feed) -> ForwardTestEngine:
     return eng
 
 
-def _make_signal(symbol: str, entry_price: float, stop_loss: float) -> CTraderTradeSignal:
+def _make_signal(
+    symbol: str, entry_price: float, stop_loss: float
+) -> CTraderTradeSignal:
     """Fabricate a minimal BUY CTraderTradeSignal for integration testing."""
     return CTraderTradeSignal(
         symbol=symbol,
@@ -159,6 +159,7 @@ def _make_signal(symbol: str, entry_price: float, stop_loss: float) -> CTraderTr
 
 
 # ── Integration tests ────────────────────────────────────────────────────
+
 
 class TestForwardTestOrderIntegration:
     """Live integration tests that place real orders through the pipeline.
@@ -196,7 +197,7 @@ class TestForwardTestOrderIntegration:
 
         # Use a wide SL so volume calculation produces >= min volume
         entry = 1.0800  # fallback dummy; overwritten by live tick if available
-        if hasattr(spot_feed, '_latest_tick') and spot_feed._latest_tick:
+        if hasattr(spot_feed, "_latest_tick") and spot_feed._latest_tick:
             tick = spot_feed._latest_tick.get(eurusd_id)
             if tick:
                 entry = tick.ask
@@ -207,7 +208,9 @@ class TestForwardTestOrderIntegration:
 
         # Pre-flight failure is acceptable if feed state changed — skip rather than fail
         if outcome is None:
-            pytest.skip("Pre-flight failure (feed not operational or zero volume) — check demo account state")
+            pytest.skip(
+                "Pre-flight failure (feed not operational or zero volume) — check demo account state"
+            )
 
         assert outcome.status in (
             LiveExecutionStatus.FILLED,
@@ -217,19 +220,23 @@ class TestForwardTestOrderIntegration:
         if outcome.status == LiveExecutionStatus.FILLED:
             order = outcome.order
             assert order is not None, "FILLED outcome has no Order object"
-            assert order.status == OrderStatus.FILLED, \
+            assert order.status == OrderStatus.FILLED, (
                 f"Order status mismatch: expected FILLED, got {order.status}"
+            )
 
         # Reconcile to verify the position exists
         time.sleep(1)
         positions = spot_feed.reconcile()
-        eurusd_positions = [p for p in positions if "EURUSD" in p.symbol.upper().replace("/", "")]
+        eurusd_positions = [
+            p for p in positions if "EURUSD" in p.symbol.upper().replace("/", "")
+        ]
 
         if outcome.status == LiveExecutionStatus.FILLED and eurusd_positions:
             pos = eurusd_positions[0]
             assert pos.volume > 0, "Position has zero volume"
-            assert pos.direction == TradeDirection.LONG, \
+            assert pos.direction == TradeDirection.LONG, (
                 f"Expected LONG position, got {pos.direction}"
+            )
 
             # Cleanup: close the position
             # Volume for close_position must be in raw cTrader units
@@ -264,12 +271,13 @@ class TestForwardTestOrderIntegration:
         assert sym_info is not None, "BTCUSD SymbolInfo not populated"
 
         # Verify lot_size is correctly fetched (should NOT be 100,000 for crypto)
-        assert sym_info.lot_size == 100, \
+        assert sym_info.lot_size == 100, (
             f"BTCUSD lot_size should be 100, got {sym_info.lot_size}"
+        )
 
         # Use live tick for entry if available
         entry = 60000.0  # fallback
-        if hasattr(spot_feed, '_latest_tick') and spot_feed._latest_tick:
+        if hasattr(spot_feed, "_latest_tick") and spot_feed._latest_tick:
             tick = spot_feed._latest_tick.get(btcusd_id)
             if tick:
                 entry = tick.ask
@@ -280,7 +288,9 @@ class TestForwardTestOrderIntegration:
         outcome = engine._execute_signal_live(signal, strategy_id="integration_test")
 
         if outcome is None:
-            pytest.skip("Pre-flight failure (feed not operational or zero volume) — check demo account state")
+            pytest.skip(
+                "Pre-flight failure (feed not operational or zero volume) — check demo account state"
+            )
 
         assert outcome.status in (
             LiveExecutionStatus.FILLED,
@@ -290,13 +300,16 @@ class TestForwardTestOrderIntegration:
         if outcome.status == LiveExecutionStatus.FILLED:
             order = outcome.order
             assert order is not None, "FILLED outcome has no Order object"
-            assert order.status == OrderStatus.FILLED, \
+            assert order.status == OrderStatus.FILLED, (
                 f"Order status mismatch: expected FILLED, got {order.status}"
+            )
 
         # Reconcile to verify position
         time.sleep(1)
         positions = spot_feed.reconcile()
-        btcusd_positions = [p for p in positions if "BTCUSD" in p.symbol.upper().replace("/", "")]
+        btcusd_positions = [
+            p for p in positions if "BTCUSD" in p.symbol.upper().replace("/", "")
+        ]
 
         if outcome.status == LiveExecutionStatus.FILLED and btcusd_positions:
             pos = btcusd_positions[0]

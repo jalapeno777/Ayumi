@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
-from confidence.engine import ConfidenceEngine, ConfidenceResult
+from confidence.engine import ConfidenceEngine
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
 
@@ -17,6 +16,7 @@ logger = logging.getLogger("ayumi.orchestrator")
 @dataclass
 class OrchestratorTradeSignal:
     """Raw signal from a strategy."""
+
     strategy_id: str
     symbol: str
     direction: str  # "long" or "short"
@@ -31,6 +31,7 @@ class OrchestratorTradeSignal:
 @dataclass
 class OrchestratedOrder:
     """Final order ready for execution."""
+
     signal: OrchestratorTradeSignal
     profile: Profile
     confidence_final: float
@@ -62,7 +63,10 @@ class SignalOrchestrator:
 
         logger.info(
             "Signal received: strategy=%s symbol=%s direction=%s confidence=%.3f",
-            signal.strategy_id, signal.symbol, signal.direction, signal.confidence,
+            signal.strategy_id,
+            signal.symbol,
+            signal.direction,
+            signal.confidence,
         )
 
         # Step 1: Run through confidence engine
@@ -70,24 +74,30 @@ class SignalOrchestrator:
             raw_confidence=signal.confidence,
             symbol=signal.symbol,
             direction=signal.direction,
-            spread=signal.metadata.get('spread', 0.0),
-            atr=signal.metadata.get('atr', 0.0),
-            confluences=signal.metadata.get('confluences'),
+            spread=signal.metadata.get("spread", 0.0),
+            atr=signal.metadata.get("atr", 0.0),
+            confluences=signal.metadata.get("confluences"),
         )
 
         if confidence_result.blocked:
             gates_str = ",".join(confidence_result.gates_failed)
             logger.warning(
                 "Signal rejected: strategy=%s symbol=%s reason=confidence_gate gate=%s final_score=%.3f",
-                signal.strategy_id, signal.symbol, gates_str,
+                signal.strategy_id,
+                signal.symbol,
+                gates_str,
                 confidence_result.final_score,
             )
             return OrchestratedOrder(
-                signal=signal, profile=Profile.SNIPER,
+                signal=signal,
+                profile=Profile.SNIPER,
                 confidence_final=confidence_result.final_score,
-                lots=0.0, risk_amount=0.0, sl_distance_pips=0.0,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=0.0,
                 gates_passed=confidence_result.gates_passed,
-                rejected=True, rejection_reason=confidence_result.block_reason,
+                rejected=True,
+                rejection_reason=confidence_result.block_reason,
             )
 
         # Step 2: Route to profile
@@ -95,21 +105,29 @@ class SignalOrchestrator:
         if profile is None:
             logger.warning(
                 "Signal rejected: strategy=%s symbol=%s reason=routing_threshold score=%.3f threshold=%.2f",
-                signal.strategy_id, signal.symbol, confidence_result.final_score,
+                signal.strategy_id,
+                signal.symbol,
+                confidence_result.final_score,
                 ProfileRouter.SWARM_THRESHOLD,
             )
             return OrchestratedOrder(
-                signal=signal, profile=Profile.SNIPER,
+                signal=signal,
+                profile=Profile.SNIPER,
                 confidence_final=confidence_result.final_score,
-                lots=0.0, risk_amount=0.0, sl_distance_pips=0.0,
+                lots=0.0,
+                risk_amount=0.0,
+                sl_distance_pips=0.0,
                 gates_passed=confidence_result.gates_passed,
-                rejected=True, rejection_reason="Below minimum confidence threshold",
+                rejected=True,
+                rejection_reason="Below minimum confidence threshold",
             )
 
         # Step 3: Size position
         logger.info(
             "Routing: strategy=%s symbol=%s → profile=%s",
-            signal.strategy_id, signal.symbol, profile,
+            signal.strategy_id,
+            signal.symbol,
+            profile,
         )
         size_result = self._sizer.calculate(
             symbol=signal.symbol,
@@ -122,7 +140,9 @@ class SignalOrchestrator:
             logger.warning(
                 "Signal rejected: strategy=%s symbol=%s reason=sizing_block=%s "
                 "sl_pips=%.1f daily_risk_remaining=%.2f open_risk=%.2f",
-                signal.strategy_id, signal.symbol, size_result.block_reason,
+                signal.strategy_id,
+                signal.symbol,
+                size_result.block_reason,
                 size_result.sl_distance_pips,
                 self._sizer.daily_risk_remaining,
                 self._sizer.open_risk,
@@ -130,8 +150,11 @@ class SignalOrchestrator:
         else:
             logger.info(
                 "Signal accepted: strategy=%s symbol=%s lots=%.4f risk=$%.2f sl=%.1fpips",
-                signal.strategy_id, signal.symbol, size_result.lots,
-                size_result.risk_amount, size_result.sl_distance_pips,
+                signal.strategy_id,
+                signal.symbol,
+                size_result.lots,
+                size_result.risk_amount,
+                size_result.sl_distance_pips,
             )
 
         return OrchestratedOrder(

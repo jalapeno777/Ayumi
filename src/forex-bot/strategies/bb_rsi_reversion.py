@@ -12,17 +12,17 @@
     Replacement: Dual-timeframe Squeeze Pro (dual_df_squeeze_pro.py) per §B.2.
     This file is kept for reference but should not be registered in new sweeps.
 """
+
 from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from backtest.strategies.isignal_strategy import ISignalStrategy
 from core.types import (
     Bar,
     MarketState,
-    SessionType,
     StrategySignal,
     TradeDirection,
 )
@@ -316,9 +316,9 @@ class BBRSIMeanReversion(ISignalStrategy):
         # ceiling signals trend continuation — we already filter by ADX
         # above, so the penalty here is a secondary safety net.
         if rsi_distance <= 5:
-            confidence = 0.50 + rsi_distance / 25.0          # 0.50 → 0.70
+            confidence = 0.50 + rsi_distance / 25.0  # 0.50 → 0.70
         elif rsi_distance <= 15:
-            confidence = 0.70                                  # peak band
+            confidence = 0.70  # peak band
         else:
             confidence = 0.70 - min((rsi_distance - 15) / 50.0, 0.20)  # 0.70 → 0.50
         confidence = max(0.40, min(confidence, 0.90))

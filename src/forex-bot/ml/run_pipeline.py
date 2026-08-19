@@ -6,9 +6,8 @@ import sys
 
 ml_dir = os.path.dirname(os.path.abspath(__file__))
 forex_bot_dir = os.path.dirname(ml_dir)
-sys.path.insert(0, forex_bot_dir)
 
-from ml.train_model import run_full_pipeline  # noqa: E402
+from ml.train_model import run_full_pipeline
 
 
 def main():

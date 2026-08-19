@@ -17,13 +17,12 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 
 def _import_trading_db():
     """Import trading_db fresh to pick up env var changes."""
     import importlib
     import data.trading_db as mod
+
     importlib.reload(mod)
     return mod
 
@@ -40,7 +39,9 @@ def test_db_path_resolves_to_project_root():
         assert db_path.parent.name == "data"
         # Must NOT be inside src/forex-bot/data/
         assert "src" not in str(db_path), f"_DB_PATH still points into src: {db_path}"
-        assert "forex-bot" not in str(db_path), f"_DB_PATH still points into forex-bot: {db_path}"
+        assert "forex-bot" not in str(db_path), (
+            f"_DB_PATH still points into forex-bot: {db_path}"
+        )
 
 
 def test_env_var_override():
@@ -49,7 +50,9 @@ def test_env_var_override():
         custom = Path(tmpdir) / "custom_test.db"
         with mock.patch.dict(os.environ, {"TRADING_DB_PATH": str(custom)}):
             mod = _import_trading_db()
-            assert mod._DB_PATH == custom, f"Env var override failed: {mod._DB_PATH} != {custom}"
+            assert mod._DB_PATH == custom, (
+                f"Env var override failed: {mod._DB_PATH} != {custom}"
+            )
 
 
 def test_write_and_read_same_db():
@@ -99,5 +102,6 @@ def test_db_path_not_in_src_directory():
         mod = _import_trading_db()
         path_str = str(mod._DB_PATH)
         # The path should not contain src/forex-bot/data
-        assert "src/forex-bot/data" not in path_str, \
+        assert "src/forex-bot/data" not in path_str, (
             f"Regression: _DB_PATH resolves into src/forex-bot/data/: {path_str}"
+        )

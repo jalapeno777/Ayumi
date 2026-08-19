@@ -10,12 +10,12 @@ Test scenarios (see ``_enforce_remediation_gate`` in ``forward_test_engine.py``)
 3. Flag missing + audit doc present                     → flag is auto-recreated.
 4. Flag missing + audit doc missing  (live_mode=True)  → RuntimeError.
 """
+
 from __future__ import annotations
 
 import os
 import sys
 import types
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,7 +26,9 @@ import pytest
 # which transitively pulls statsmodels. The shim is idempotent.
 # ---------------------------------------------------------------------------
 def _install_backtest_stub():
-    if "backtest" in sys.modules and getattr(sys.modules["backtest"], "_tsukasa_stub", False):
+    if "backtest" in sys.modules and getattr(
+        sys.modules["backtest"], "_tsukasa_stub", False
+    ):
         return
 
     class _Fake:
@@ -43,7 +45,13 @@ def _install_backtest_stub():
             setattr(mod, k, v)
         sys.modules[name] = mod
 
-    _make("backtest.engine", Bar=_Fake, MarketState=_Fake, TradeDirection=_Fake, TradeAction=_Fake)
+    _make(
+        "backtest.engine",
+        Bar=_Fake,
+        MarketState=_Fake,
+        TradeDirection=_Fake,
+        TradeAction=_Fake,
+    )
     _make(
         "backtest.types",
         determine_session=lambda *a, **k: None,
@@ -112,7 +120,9 @@ _install_backtest_stub()
 
 
 # Now safe to import the module under test
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
+)
 
 from adapters.ctrader import forward_test_engine as fte_module  # noqa: E402
 from adapters.ctrader.forward_test_engine import ForwardTestEngine  # noqa: E402
@@ -134,6 +144,7 @@ def tmp_flag_paths(tmp_path, monkeypatch):
 # Tests
 # ---------------------------------------------------------------------------
 
+
 def test_paper_mode_is_unconditional(tmp_flag_paths):
     """live_mode=False → no flag check, no audit doc required."""
     flag_path, audit_path = tmp_flag_paths
@@ -153,7 +164,9 @@ def test_flag_present_is_noop(tmp_flag_paths):
     original = flag_path.read_text()
 
     ForwardTestEngine._enforce_remediation_gate(live_mode=True)
-    assert flag_path.read_text() == original, "existing flag must be preserved byte-for-byte"
+    assert flag_path.read_text() == original, (
+        "existing flag must be preserved byte-for-byte"
+    )
 
 
 def test_flag_auto_recreated_from_audit_doc(tmp_flag_paths):
@@ -197,7 +210,7 @@ def test_nested_directory_created(tmp_flag_paths):
     nested_flag = nested_dir / "remediation_validated.flag"
 
     # Redirect flag path only; keep audit doc at the simpler temp_path.
-    import importlib
+
     fte_module._REMEDIATION_VALIDATED_FLAG = str(nested_flag)
     audit_path.write_text("# Audit\n")
 

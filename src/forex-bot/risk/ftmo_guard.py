@@ -22,19 +22,31 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
-from typing import Optional, Protocol
+from typing import Literal, Optional, Protocol
 from zoneinfo import ZoneInfo
 
 from risk.ftmo_params import (
     FTMO_DAILY_DD_LIMIT_PCT,
     FTMO_TOTAL_DD_LIMIT_PCT,
-    FTMO_REFERENCE_ACCOUNT_SIZE,
     FTMO_MAX_CONCURRENT_POSITIONS,
-    FTMO_RISK_PER_TRADE_PCT,
     FTMO_BEST_DAY_CAP_PCT,
 )
 
 logger = logging.getLogger("ayumi.risk.ftmo_guard")
+
+# ── Challenge type ───────────────────────────────────────────────────────────
+
+ChallengeType = Literal["1-step", "2-step"]
+
+#: Per-challenge daily loss percentages (fraction of starting balance).
+#: 1-Step: 3% (FTMO spec, matches :data:`FTMO_DAILY_DD_LIMIT_PCT`).
+#: 2-Step: 5% (FTMO spec).
+#: TODO: centralize 2-step value in ``risk.ftmo_params`` (out of scope for this card —
+#: ftmo_params.py not in allowed_files).
+_CHALLENGE_DAILY_LOSS_PCT: dict[ChallengeType, float] = {
+    "1-step": FTMO_DAILY_DD_LIMIT_PCT * 100,  # 3.0%
+    "2-step": 5.0,
+}
 
 # ── Trading-day timezone helpers ─────────────────────────────────────────────
 
@@ -62,27 +74,33 @@ def _toronto_midnight_utc(now: Optional[datetime] = None) -> datetime:
     return next_midnight.astimezone(timezone.utc)
 
 
-
 # ── Enums ────────────────────────────────────────────────────────────────────
+
 
 class FTMOBreachType(str, Enum):
     """Type of FTMO rule breach."""
+
     DAILY_LOSS = "daily_loss"
     POSITION_LIMIT = "position_limit"
     DD_REDUCE = "dd_reduce"
     DD_FREEZE = "dd_freeze"
     BEST_DAY_RULE = "best_day_rule"  # Phase 0: FTMO 1-Step best-day rule (50% cap)
+    TRAILING_DD_FLOOR = (
+        "trailing_dd_floor"  # Max-loss floor breach (trailing or static)
+    )
 
 
 class FTMOAction(str, Enum):
     """Action level dictated by FTMO guard."""
-    ALLOW = "allow"          # Normal trading
+
+    ALLOW = "allow"  # Normal trading
     REDUCE_50 = "reduce_50"  # Reduce new position size by 50%
-    FREEZE = "freeze"        # No new positions, hold existing
-    KILL = "kill"            # Close all positions
+    FREEZE = "freeze"  # No new positions, hold existing
+    KILL = "kill"  # Close all positions
 
 
 # ── Protocol for kill_switch integration ─────────────────────────────────────
+
 
 class KillSwitchLike(Protocol):
     """Protocol for kill switch objects (duck-typed)."""
@@ -96,22 +114,31 @@ class KillSwitchLike(Protocol):
 
 # ── State ────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class FTMOState:
     """Serializable FTMO guard state."""
+
     starting_balance: float = 0.0
     peak_balance: float = 0.0
     current_balance: float = 0.0
     daily_loss_pct: float = 0.0
-    daily_loss_date: Optional[str] = None    # Trading date for the current daily loss tracking
+    daily_loss_date: Optional[str] = (
+        None  # Trading date for the current daily loss tracking
+    )
     open_position_count: int = 0
     current_dd_pct: float = 0.0
     action_level: str = FTMOAction.ALLOW.value
     breach_history: list = field(default_factory=list)
     # Phase 0: Best-day rule tracking (FTMO 1-Step: best day ≤ 50% of total positive-days profit)
-    daily_pnl: float = 0.0                          # P&L for current trading day
-    daily_pnl_date: Optional[str] = None            # Trading date for daily_pnl tracking
-    daily_pnl_history: list = field(default_factory=list)  # [{date, pnl}] for completed days
+    daily_pnl: float = 0.0  # P&L for current trading day
+    daily_pnl_date: Optional[str] = None  # Trading date for daily_pnl tracking
+    daily_pnl_history: list = field(
+        default_factory=list
+    )  # [{date, pnl}] for completed days
+    # Trailing-DD floor tracking (enabled via FTMOGuard(trailing_dd=True))
+    challenge_type: str = "1-step"  # FTMO challenge type
+    highest_midnight_balance: float = 0.0  # Peak midnight balance for trailing floor
 
     def to_dict(self) -> dict:
         return {
@@ -127,16 +154,20 @@ class FTMOState:
             "daily_pnl": self.daily_pnl,
             "daily_pnl_date": self.daily_pnl_date,
             "daily_pnl_history": list(self.daily_pnl_history),
+            "challenge_type": self.challenge_type,
+            "highest_midnight_balance": self.highest_midnight_balance,
         }
 
 
 # ── FTMOGuard ────────────────────────────────────────────────────────────────
 
+
 class FTMOGuard:
     """FTMO rule enforcement guard.
 
     Monitors account metrics and enforces FTMO challenge rules:
-    daily loss limit, concurrent position cap, and drawdown breaker.
+    daily loss limit, concurrent position cap, drawdown breaker,
+    best-day rule, and optional trailing-DD max-loss floor.
 
     Call :meth:`update` after every fill or periodic check to keep
     state current.  Call :meth:`should_allow_new_position` before
@@ -145,21 +176,27 @@ class FTMOGuard:
     Args:
         kill_switch: KillSwitchManager (or compatible) for global activation.
         starting_balance: Account starting balance (for daily loss % calc).
-        max_daily_loss_pct: Daily loss threshold (default 4.0%).
+        max_daily_loss_pct: Daily loss threshold. If ``None``, derived from
+            ``challenge_type`` (3% for 1-step, 5% for 2-step).
         max_concurrent_positions: Max simultaneous positions (default 3).
         dd_reduce_pct: Drawdown % that triggers size reduction (default 8.0).
         dd_freeze_pct: Drawdown % that triggers freeze (default 9.0).
+        best_day_cap_pct: Best-day rule cap (default 0.50 = 50%).
+        challenge_type: FTMO challenge type (``'1-step'`` or ``'2-step'``).
+        trailing_dd: When ``True``, enforce the FTMO max-loss floor (10%).
+            For 1-step, the floor trails the highest midnight balance.
+            For 2-step, the floor is static from the initial balance.
     """
 
     # Default FTMO parameters — imported from canonical source (risk.ftmo_params)
     # ftmo_guard uses percentage points (0-100 scale) for daily_loss_pct,
     # so we convert the fraction (0.03) to percentage points (3.0).
     DEFAULT_MAX_DAILY_LOSS_PCT = FTMO_DAILY_DD_LIMIT_PCT * 100  # 3.0%
-    DEFAULT_MAX_POSITIONS = FTMO_MAX_CONCURRENT_POSITIONS       # 3
+    DEFAULT_MAX_POSITIONS = FTMO_MAX_CONCURRENT_POSITIONS  # 3
     DEFAULT_DD_REDUCE_PCT = 8.0
     DEFAULT_DD_FREEZE_PCT = 9.0
     # Phase 0: Best-day rule (FTMO 1-Step: best day's profit ≤ 50% of total positive-days profit)
-    DEFAULT_BEST_DAY_CAP_PCT = FTMO_BEST_DAY_CAP_PCT            # 0.50
+    DEFAULT_BEST_DAY_CAP_PCT = FTMO_BEST_DAY_CAP_PCT  # 0.50
     # Max daily P&L history to retain (days)
     MAX_PNL_HISTORY = 60
 
@@ -167,26 +204,36 @@ class FTMOGuard:
         self,
         kill_switch: Optional[KillSwitchLike] = None,
         starting_balance: float = 10000.0,
-        max_daily_loss_pct: float = DEFAULT_MAX_DAILY_LOSS_PCT,
+        max_daily_loss_pct: Optional[float] = None,
         max_concurrent_positions: int = DEFAULT_MAX_POSITIONS,
         dd_reduce_pct: float = DEFAULT_DD_REDUCE_PCT,
         dd_freeze_pct: float = DEFAULT_DD_FREEZE_PCT,
         best_day_cap_pct: float = DEFAULT_BEST_DAY_CAP_PCT,
+        challenge_type: ChallengeType = "1-step",
+        trailing_dd: bool = False,
     ):
         if dd_reduce_pct >= dd_freeze_pct:
             raise ValueError(
                 f"dd_reduce_pct ({dd_reduce_pct}) must be < dd_freeze_pct ({dd_freeze_pct})"
             )
-        if max_daily_loss_pct <= 0:
-            raise ValueError("max_daily_loss_pct must be positive")
+
+        # Derive daily loss pct from challenge type if not explicitly provided
+        if max_daily_loss_pct is not None:
+            if max_daily_loss_pct <= 0:
+                raise ValueError("max_daily_loss_pct must be positive")
+            resolved_daily_loss_pct = max_daily_loss_pct
+        else:
+            resolved_daily_loss_pct = _CHALLENGE_DAILY_LOSS_PCT[challenge_type]
 
         self._lock = threading.RLock()
         self._kill_switch = kill_switch
-        self._max_daily_loss_pct = max_daily_loss_pct
+        self._max_daily_loss_pct = resolved_daily_loss_pct
         self._max_positions = max_concurrent_positions
         self._dd_reduce_pct = dd_reduce_pct
         self._dd_freeze_pct = dd_freeze_pct
         self._best_day_cap_pct = best_day_cap_pct
+        self._challenge_type: ChallengeType = challenge_type
+        self._trailing_dd_enabled = trailing_dd
 
         self._state = FTMOState(
             starting_balance=starting_balance,
@@ -194,6 +241,8 @@ class FTMOGuard:
             current_balance=starting_balance,
             daily_loss_date=_trading_date(),
             daily_pnl_date=_trading_date(),
+            challenge_type=challenge_type,
+            highest_midnight_balance=starting_balance,
         )
 
     # ── Public API: State queries ──────────────────────────────────────────
@@ -267,13 +316,20 @@ class FTMOGuard:
                     today_str,
                 )
                 # Phase 0: Roll over daily P&L before resetting
-                if self._state.daily_pnl_date is not None and self._state.daily_pnl_date != today_str:
-                    self._state.daily_pnl_history.append({
-                        "date": self._state.daily_pnl_date,
-                        "pnl": self._state.daily_pnl,
-                    })
+                if (
+                    self._state.daily_pnl_date is not None
+                    and self._state.daily_pnl_date != today_str
+                ):
+                    self._state.daily_pnl_history.append(
+                        {
+                            "date": self._state.daily_pnl_date,
+                            "pnl": self._state.daily_pnl,
+                        }
+                    )
                     if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
-                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY:]
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[
+                            -self.MAX_PNL_HISTORY :
+                        ]
                     logger.info(
                         "FTMO daily P&L rollover: %s P&L=%.2f",
                         self._state.daily_pnl_date,
@@ -285,7 +341,9 @@ class FTMOGuard:
                 self._state.daily_pnl_date = today_str
                 # If we were frozen due to daily loss, allow trading again
                 if self._state.action_level == FTMOAction.FREEZE.value:
-                    self._set_action(FTMOAction.ALLOW, "Daily reset at America/Toronto midnight")
+                    self._set_action(
+                        FTMOAction.ALLOW, "Daily reset at America/Toronto midnight"
+                    )
 
             # ── Update balance metrics ─────────────────────────────────────
             self._state.current_balance = current_balance
@@ -303,7 +361,11 @@ class FTMOGuard:
 
             # ── Calculate drawdown from peak ───────────────────────────────
             if self._state.peak_balance > 0:
-                dd = (self._state.peak_balance - current_balance) / self._state.peak_balance * 100.0
+                dd = (
+                    (self._state.peak_balance - current_balance)
+                    / self._state.peak_balance
+                    * 100.0
+                )
                 self._state.current_dd_pct = max(0.0, dd)
             else:
                 self._state.current_dd_pct = 0.0
@@ -339,6 +401,16 @@ class FTMOGuard:
                 self._breach(
                     FTMOBreachType.DAILY_LOSS,
                     f"Daily loss {self._state.daily_loss_pct:.2f}% ≥ limit {self._max_daily_loss_pct}%",
+                    FTMOAction.FREEZE,
+                )
+                return self.action_level
+
+            # Trailing-DD floor check (max-loss rule)
+            if self._trailing_dd_enabled and self._is_trailing_floor_breached():
+                floor = self.compute_floor()
+                self._breach(
+                    FTMOBreachType.TRAILING_DD_FLOOR,
+                    f"Balance {current_balance:.2f} < trailing floor {floor:.2f}",
                     FTMOAction.FREEZE,
                 )
                 return self.action_level
@@ -389,13 +461,19 @@ class FTMOGuard:
             level = FTMOAction(self._state.action_level)
 
             if level == FTMOAction.FREEZE:
-                return False, f"FTMO freeze active: daily_loss={self._state.daily_loss_pct:.2f}%, dd={self._state.current_dd_pct:.2f}%"
+                return (
+                    False,
+                    f"FTMO freeze active: daily_loss={self._state.daily_loss_pct:.2f}%, dd={self._state.current_dd_pct:.2f}%",
+                )
 
             if level == FTMOAction.KILL:
                 return False, "FTMO kill active — all positions should be closed"
 
             if self._state.open_position_count >= self._max_positions:
-                return False, f"Position limit reached: {self._state.open_position_count}/{self._max_positions}"
+                return (
+                    False,
+                    f"Position limit reached: {self._state.open_position_count}/{self._max_positions}",
+                )
 
             if level == FTMOAction.REDUCE_50:
                 return True, "FTMO reduce mode — halve position size"
@@ -434,18 +512,24 @@ class FTMOGuard:
             if self._state.daily_pnl_date != date:
                 # Rollover if date changed without an update() call
                 if self._state.daily_pnl_date is not None:
-                    self._state.daily_pnl_history.append({
-                        "date": self._state.daily_pnl_date,
-                        "pnl": self._state.daily_pnl,
-                    })
+                    self._state.daily_pnl_history.append(
+                        {
+                            "date": self._state.daily_pnl_date,
+                            "pnl": self._state.daily_pnl,
+                        }
+                    )
                     if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
-                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY:]
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[
+                            -self.MAX_PNL_HISTORY :
+                        ]
                 self._state.daily_pnl = 0.0
                 self._state.daily_pnl_date = date
             self._state.daily_pnl += pnl
             logger.debug(
                 "FTMO daily P&L update: %s += %.2f → total %.2f",
-                date, pnl, self._state.daily_pnl,
+                date,
+                pnl,
+                self._state.daily_pnl,
             )
 
     def check_best_day_rule(self) -> Optional[str]:
@@ -464,15 +548,16 @@ class FTMOGuard:
         """Internal best-day rule check (caller holds lock)."""
         # Need at least 2 positive days to evaluate
         positive_days = [
-            d for d in self._state.daily_pnl_history
-            if d.get("pnl", 0) > 0
+            d for d in self._state.daily_pnl_history if d.get("pnl", 0) > 0
         ]
         # Include today if positive
         if self._state.daily_pnl > 0:
-            positive_days.append({
-                "date": self._state.daily_pnl_date or _trading_date(),
-                "pnl": self._state.daily_pnl,
-            })
+            positive_days.append(
+                {
+                    "date": self._state.daily_pnl_date or _trading_date(),
+                    "pnl": self._state.daily_pnl,
+                }
+            )
 
         if len(positive_days) < 2:
             return None  # Can't violate with <2 positive days
@@ -488,6 +573,62 @@ class FTMOGuard:
                 f"(cap: {self._best_day_cap_pct:.0%})"
             )
         return None
+
+    # ── Trailing-DD floor API ──────────────────────────────────────────
+
+    @property
+    def challenge_type(self) -> ChallengeType:
+        """FTMO challenge type ('1-step' or '2-step')."""
+        return self._challenge_type
+
+    @property
+    def highest_midnight_balance(self) -> float:
+        """Highest midnight balance recorded (for trailing floor)."""
+        with self._lock:
+            return self._state.highest_midnight_balance
+
+    def compute_floor(self) -> float:
+        """Absolute balance floor below which the FTMO challenge is failed.
+
+        - **1-step:** ``highest_midnight_balance × (1 - max_loss_pct)`` (trailing).
+        - **2-step:** ``starting_balance × (1 - max_loss_pct)`` (static).
+
+        Uses :data:`FTMO_TOTAL_DD_LIMIT_PCT` (10%) as the max-loss fraction.
+        """
+        with self._lock:
+            if self._challenge_type == "1-step":
+                base = self._state.highest_midnight_balance
+            else:
+                base = self._state.starting_balance
+            return base * (1.0 - FTMO_TOTAL_DD_LIMIT_PCT)
+
+    def record_midnight_balance(self, balance: float) -> None:
+        """Record the account balance at America/Toronto midnight.
+
+        For 1-step challenge, updates the trailing highest when balance
+        exceeds the previous peak.  This should be called once per trading
+        day at midnight to checkpoint the floor.
+
+        Args:
+            balance: Account balance at midnight.
+        """
+        with self._lock:
+            if balance > self._state.highest_midnight_balance:
+                old_floor = self.compute_floor()
+                self._state.highest_midnight_balance = balance
+                new_floor = self.compute_floor()
+                if new_floor > old_floor:
+                    logger.info(
+                        "FTMO trailing floor raised: %.2f → %.2f (balance %.2f)",
+                        old_floor,
+                        new_floor,
+                        balance,
+                    )
+
+    def _is_trailing_floor_breached(self) -> bool:
+        """Check if current balance is below the trailing/static floor."""
+        with self._lock:
+            return self._state.current_balance < self.compute_floor()
 
     # ── Internal ───────────────────────────────────────────────────────────
 
@@ -510,7 +651,9 @@ class FTMOGuard:
         self._state.breach_history.append(event)
         self._set_action(action, detail)
 
-        logger.warning("FTMO BREACH [%s]: %s → action=%s", breach_type.value, detail, action.value)
+        logger.warning(
+            "FTMO BREACH [%s]: %s → action=%s", breach_type.value, detail, action.value
+        )
 
         # Activate kill switch for freeze/kill actions
         if self._kill_switch is not None:

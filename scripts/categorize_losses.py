@@ -339,7 +339,8 @@ def _categorize_wrong_direction(trade: dict[str, Any]) -> CategoryResult | None:
                 confidence = min(
                     1.0,
                     _CONFIDENCE_BASE
-                    + _CONFIDENCE_EVIDENCE_BONUS * (1.0 if h4_ema_value is not None else 0.5),
+                    + _CONFIDENCE_EVIDENCE_BONUS
+                    * (1.0 if h4_ema_value is not None else 0.5),
                 )
                 return CategoryResult(
                     category=CATEGORY_WRONG_DIRECTION,
@@ -364,13 +365,13 @@ def _categorize_wrong_direction(trade: dict[str, Any]) -> CategoryResult | None:
             if (direction == "long" and entry_price < ema) or (
                 direction == "short" and entry_price > ema
             ):
-                confidence = min(1.0, _CONFIDENCE_BASE + _CONFIDENCE_EVIDENCE_BONUS * 0.6)
+                confidence = min(
+                    1.0, _CONFIDENCE_BASE + _CONFIDENCE_EVIDENCE_BONUS * 0.6
+                )
                 return CategoryResult(
                     category=CATEGORY_WRONG_DIRECTION,
                     confidence=confidence,
-                    rationale=(
-                        f"trade direction '{direction}' against H4 EMA {ema}"
-                    ),
+                    rationale=(f"trade direction '{direction}' against H4 EMA {ema}"),
                     contributing_evidence={
                         "trade_direction": direction,
                         "h4_ema_value": ema,
@@ -419,7 +420,10 @@ def _categorize_spread_widening(trade: dict[str, Any]) -> CategoryResult | None:
     ratio = spread / rolling
     if ratio >= SPREAD_WIDENING_MULTIPLIER:
         # How far past the threshold — stronger multiplier -> higher confidence
-        bonus = min(_CONFIDENCE_EVIDENCE_BONUS, _CONFIDENCE_EVIDENCE_BONUS * (ratio / (SPREAD_WIDENING_MULTIPLIER * 2)))
+        bonus = min(
+            _CONFIDENCE_EVIDENCE_BONUS,
+            _CONFIDENCE_EVIDENCE_BONUS * (ratio / (SPREAD_WIDENING_MULTIPLIER * 2)),
+        )
         confidence = min(1.0, _CONFIDENCE_BASE + bonus)
         return CategoryResult(
             category=CATEGORY_SPREAD_WIDENING,
@@ -453,7 +457,14 @@ def _categorize_slippage(trade: dict[str, Any]) -> CategoryResult | None:
     expected = None
     if exit_reason in {"sl", "stop_loss"} and sl != 0:
         expected = sl
-    elif exit_reason in {"tp1", "tp2", "tp3", "take_profit_1", "take_profit_2", "take_profit_3"}:
+    elif exit_reason in {
+        "tp1",
+        "tp2",
+        "tp3",
+        "take_profit_1",
+        "take_profit_2",
+        "take_profit_3",
+    }:
         if exit_reason == "tp1" and tp1 != 0:
             expected = tp1
         elif exit_reason == "tp2":
@@ -731,9 +742,7 @@ def main(argv: list[str] | None = None) -> int:
 
     input_path = Path(args.input)
     records, notes = load_trades(input_path)
-    summary = summarize(
-        records, input_path=str(input_path), schema_notes=notes
-    )
+    summary = summarize(records, input_path=str(input_path), schema_notes=notes)
 
     if args.dry_run:
         sys.stdout.write(render_text_report(summary))

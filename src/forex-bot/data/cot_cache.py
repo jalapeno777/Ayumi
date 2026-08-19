@@ -34,6 +34,7 @@ CACHE_VERSION = 2  # bump when schema changes
 @dataclass
 class CacheEntry:
     """Versioned cache entry for a year of COT data."""
+
     version: int
     format: str
     year: str
@@ -82,7 +83,11 @@ class COTCache:
             return None
 
         if entry.version != CACHE_VERSION:
-            logger.info("Cache version mismatch (%d ≠ %d), invalidating", entry.version, CACHE_VERSION)
+            logger.info(
+                "Cache version mismatch (%d ≠ %d), invalidating",
+                entry.version,
+                CACHE_VERSION,
+            )
             path.unlink(missing_ok=True)
             return None
 

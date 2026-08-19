@@ -7,7 +7,6 @@ from core.types import Bar, StrategySignal
 if TYPE_CHECKING:
     from backtest.trade_management import (
         TradeManagementConfig,
-        TradeManager,
     )
 
 

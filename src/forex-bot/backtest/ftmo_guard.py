@@ -24,8 +24,8 @@ Walk-through example (from research doc):
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import timedelta
 from typing import Literal, Optional
 
 logger = logging.getLogger("ayumi.backtest.ftmo_guard")
@@ -86,7 +86,9 @@ class FTMOGuard:
             daily_override = None
             max_override = None
 
-        self._daily_loss_limit_pct = daily_override or _DAILY_LOSS_PCT[self._challenge_type]
+        self._daily_loss_limit_pct = (
+            daily_override or _DAILY_LOSS_PCT[self._challenge_type]
+        )
         self._max_loss_limit_pct = max_override or _MAX_LOSS_PCT[self._challenge_type]
 
         # Highest midnight balance seen (for trailing floor)
@@ -151,7 +153,9 @@ class FTMOGuard:
         is the expected loss in account currency if the stop-loss is hit.
         ``balance`` defaults to the last recorded midnight balance.
         """
-        effective_balance = balance if balance is not None else self._daily_start_balance
+        effective_balance = (
+            balance if balance is not None else self._daily_start_balance
+        )
 
         # Daily loss headroom must cover the planned risk (including open P/L)
         daily_remaining = self.remaining_daily_loss(effective_balance, open_pnl)
@@ -197,8 +201,7 @@ class FTMOGuard:
             new_floor = self.compute_floor()
             if new_floor > old_floor:
                 logger.info(
-                    "FTMO trailing floor raised: $%.2f → $%.2f "
-                    "(balance $%.2f, %s)",
+                    "FTMO trailing floor raised: $%.2f → $%.2f (balance $%.2f, %s)",
                     old_floor,
                     new_floor,
                     balance,

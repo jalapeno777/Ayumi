@@ -43,9 +43,8 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -62,18 +61,34 @@ DEFAULT_BLACKOUT_MINUTES = 5  # Safety margin before AND after each event
 FOREXFACTORY_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
 # High-impact event keywords that trigger blackout windows
-HIGH_IMPACT_KEYWORDS = frozenset({
-    "nonfarm payroll", "nfp", "employment change",
-    "fomc", "federal funds rate", "interest rate",
-    "ecb rate decision", "minimum bid rate", "main refinancing rate",
-    "boe rate decision", "official bank rate",
-    "boj rate decision", "policy rate",
-    "cpi", "consumer price index", "core cpi",
-    "ppi", "producer price index",
-    "gdp", "gross domestic product",
-    "ism manufacturing pmi", "ism services pmi",
-    "unemployment rate", "claimant count",
-})
+HIGH_IMPACT_KEYWORDS = frozenset(
+    {
+        "nonfarm payroll",
+        "nfp",
+        "employment change",
+        "fomc",
+        "federal funds rate",
+        "interest rate",
+        "ecb rate decision",
+        "minimum bid rate",
+        "main refinancing rate",
+        "boe rate decision",
+        "official bank rate",
+        "boj rate decision",
+        "policy rate",
+        "cpi",
+        "consumer price index",
+        "core cpi",
+        "ppi",
+        "producer price index",
+        "gdp",
+        "gross domestic product",
+        "ism manufacturing pmi",
+        "ism services pmi",
+        "unemployment rate",
+        "claimant count",
+    }
+)
 
 # Map currency codes to central bank rate decision keywords
 CENTRAL_BANK_EVENTS = {
@@ -95,18 +110,21 @@ SUPPORTED_CURRENCIES = frozenset({"USD", "EUR", "GBP", "JPY"})
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class CalendarEvent:
     """A single economic-calendar event."""
+
     timestamp: datetime
-    currency: str        # ISO 4217 (e.g. "USD", "EUR")
-    title: str           # Human-readable event title
-    impact: str          # "high", "medium", "low", "holiday"
+    currency: str  # ISO 4217 (e.g. "USD", "EUR")
+    title: str  # Human-readable event title
+    impact: str  # "high", "medium", "low", "holiday"
 
 
 @dataclass(frozen=True)
 class BlackoutWindow:
     """A computed blackout period for display / logging."""
+
     start: datetime
     end: datetime
     currency: str
@@ -119,6 +137,7 @@ class BlackoutWindow:
 # ---------------------------------------------------------------------------
 # Filter
 # ---------------------------------------------------------------------------
+
 
 class NewsCalendarFilter:
     """FTMO news-blackout filter with daily caching.
@@ -212,7 +231,9 @@ class NewsCalendarFilter:
             if window_start <= now <= window_end:
                 logger.info(
                     "News blackout active: %s (%s) at %s — blocking entry",
-                    event.title, event.currency, event.timestamp.isoformat(),
+                    event.title,
+                    event.currency,
+                    event.timestamp.isoformat(),
                 )
                 return True
 
@@ -257,12 +278,14 @@ class NewsCalendarFilter:
             window_end = event.timestamp + timedelta(minutes=self.blackout_minutes)
             # Include windows that haven't fully ended yet
             if window_end >= now:
-                candidates.append(BlackoutWindow(
-                    start=window_start,
-                    end=window_end,
-                    currency=event.currency,
-                    title=event.title,
-                ))
+                candidates.append(
+                    BlackoutWindow(
+                        start=window_start,
+                        end=window_end,
+                        currency=event.currency,
+                        title=event.title,
+                    )
+                )
 
         if not candidates:
             return None
@@ -296,12 +319,14 @@ class NewsCalendarFilter:
             window_start = event.timestamp - timedelta(minutes=self.blackout_minutes)
             window_end = event.timestamp + timedelta(minutes=self.blackout_minutes)
             if window_start <= now <= window_end:
-                active.append(BlackoutWindow(
-                    start=window_start,
-                    end=window_end,
-                    currency=event.currency,
-                    title=event.title,
-                ))
+                active.append(
+                    BlackoutWindow(
+                        start=window_start,
+                        end=window_end,
+                        currency=event.currency,
+                        title=event.title,
+                    )
+                )
         return active
 
     # ------------------------------------------------------------------
@@ -332,9 +357,7 @@ class NewsCalendarFilter:
         """Check if the cache file mtime exceeds ``cache_ttl_hours``."""
         if not self.cache_path or not self.cache_path.exists():
             return True
-        mtime = datetime.fromtimestamp(
-            self.cache_path.stat().st_mtime, tz=timezone.utc
-        )
+        mtime = datetime.fromtimestamp(self.cache_path.stat().st_mtime, tz=timezone.utc)
         age = now - mtime
         return age > timedelta(hours=self.cache_ttl_hours)
 
@@ -347,9 +370,7 @@ class NewsCalendarFilter:
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
             self._events = self._parse_calendar(raw)
-            logger.debug(
-                "Loaded %d calendar events from %s", len(self._events), path
-            )
+            logger.debug("Loaded %d calendar events from %s", len(self._events), path)
             return True
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             logger.warning("Failed to parse calendar cache %s: %s", path, exc)
@@ -372,9 +393,7 @@ class NewsCalendarFilter:
             # Validate it's JSON before saving
             parsed = json.loads(data)
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-            self.cache_path.write_text(
-                json.dumps(parsed, indent=2), encoding="utf-8"
-            )
+            self.cache_path.write_text(json.dumps(parsed, indent=2), encoding="utf-8")
             logger.info("Fetched %d bytes of calendar data", len(data))
             return True
         except Exception as exc:
@@ -419,7 +438,11 @@ class NewsCalendarFilter:
                     continue
 
                 # Combine date + time; handle "All Day" or missing time
-                ts_str = f"{date_str}T{time_str}:00" if time_str and ":" in time_str else f"{date_str}T00:00:00"
+                ts_str = (
+                    f"{date_str}T{time_str}:00"
+                    if time_str and ":" in time_str
+                    else f"{date_str}T00:00:00"
+                )
                 # ForexFactory times are US/Eastern; we store as naive then
                 # treat them as UTC for simplicity (the 5-min window is
                 # generous enough to absorb timezone offsets).
@@ -427,12 +450,14 @@ class NewsCalendarFilter:
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
 
-                events.append(CalendarEvent(
-                    timestamp=ts,
-                    currency=currency,
-                    title=title,
-                    impact=impact,
-                ))
+                events.append(
+                    CalendarEvent(
+                        timestamp=ts,
+                        currency=currency,
+                        title=title,
+                        impact=impact,
+                    )
+                )
             except (ValueError, TypeError):
                 continue
 

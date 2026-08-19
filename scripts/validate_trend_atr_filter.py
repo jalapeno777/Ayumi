@@ -58,6 +58,7 @@ class TradeDirection(Enum):
 @dataclass
 class Bar:
     """OHLCV bar — mirrors backtest.types.Bar."""
+
     time: datetime
     open: float
     high: float
@@ -65,11 +66,18 @@ class Bar:
     close: float
     volume: float = 0.0
 
+
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
 DEFAULT_DATA_PATH = (
-    PROJECT_ROOT / "worktrees" / "media" / "data" / "forex" / "historical" / "EURUSD_H1.csv"
+    PROJECT_ROOT
+    / "worktrees"
+    / "media"
+    / "data"
+    / "forex"
+    / "historical"
+    / "EURUSD_H1.csv"
 )
 DEFAULT_FAST_MA = 5
 DEFAULT_SLOW_MA = 13
@@ -87,6 +95,7 @@ _UTC = timezone.utc
 # ---------------------------------------------------------------------------
 # Data loading (lightweight — avoids heavy deps for simple CSVs)
 # ---------------------------------------------------------------------------
+
 
 def load_csv_bars(filepath: str | Path) -> list[Bar]:
     """Load OHLCV bars from a tick-data CSV with Eastern timestamps."""
@@ -112,7 +121,10 @@ def load_csv_bars(filepath: str | Path) -> list[Bar]:
         except (ValueError, IndexError):
             dropped += 1
     if dropped:
-        print(f"WARNING: dropped {dropped} malformed rows from {filepath}", file=sys.stderr)
+        print(
+            f"WARNING: dropped {dropped} malformed rows from {filepath}",
+            file=sys.stderr,
+        )
     return bars
 
 
@@ -130,6 +142,7 @@ def _parse_timestamp(ts_str: str) -> datetime:
 # ---------------------------------------------------------------------------
 # Indicator helpers (standalone — no dependency on strategy objects)
 # ---------------------------------------------------------------------------
+
 
 def sma(bars: list[Bar], period: int) -> float:
     if len(bars) < period:
@@ -225,9 +238,11 @@ def pip_value(price: float) -> float:
 # Signal generators
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BaselineSignal:
     """MA crossover signal — no filters."""
+
     direction: TradeDirection
     entry: float
     fast_ma: float
@@ -237,6 +252,7 @@ class BaselineSignal:
 @dataclass
 class FilteredSignal:
     """MA crossover signal that passed trend + ATR gates."""
+
     direction: TradeDirection
     entry: float
     fast_ma: float
@@ -264,7 +280,9 @@ def evaluate_baseline(bars: list[Bar], fast: int, slow: int) -> BaselineSignal |
         return None
 
     direction = TradeDirection.LONG if bullish else TradeDirection.SHORT
-    return BaselineSignal(direction=direction, entry=bars[-1].close, fast_ma=f_ma, slow_ma=s_ma)
+    return BaselineSignal(
+        direction=direction, entry=bars[-1].close, fast_ma=f_ma, slow_ma=s_ma
+    )
 
 
 def evaluate_filtered(
@@ -324,6 +342,7 @@ def evaluate_filtered(
 # ---------------------------------------------------------------------------
 # Lightweight trade simulator
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TradeRecord:
@@ -427,7 +446,13 @@ def simulate(
 
         if is_filtered:
             sig = signal_fn(
-                window, fast, slow, trend_ema_period, atr_period, atr_min_pips, adx_threshold
+                window,
+                fast,
+                slow,
+                trend_ema_period,
+                atr_period,
+                atr_min_pips,
+                adx_threshold,
             )
         else:
             sig = signal_fn(window, fast, slow)
@@ -534,7 +559,9 @@ def _compute_stats(
     total_l = abs(sum(t.profit_loss for t in losses))
 
     win_rate = len(wins) / len(trades) * 100
-    profit_factor = total_w / total_l if total_l > 0 else (total_w if total_w > 0 else 0.0)
+    profit_factor = (
+        total_w / total_l if total_l > 0 else (total_w if total_w > 0 else 0.0)
+    )
     avg_win = total_w / len(wins) if wins else 0.0
     avg_loss = total_l / len(losses) if losses else 0.0
     expectancy = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * avg_loss)
@@ -557,6 +584,7 @@ def _compute_stats(
 # ---------------------------------------------------------------------------
 # Statistical significance (simplified)
 # ---------------------------------------------------------------------------
+
 
 def statistical_significance(baseline: BacktestStats, filtered: BacktestStats) -> dict:
     """Compute basic statistical comparison.
@@ -612,6 +640,7 @@ def _normal_cdf(x: float) -> float:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def build_report(
     baseline: BacktestStats,
@@ -674,7 +703,9 @@ def build_report(
         },
         "comparison": {
             "win_rate_delta": round(filtered.win_rate - baseline.win_rate, 2),
-            "profit_factor_delta": round(filtered.profit_factor - baseline.profit_factor, 2),
+            "profit_factor_delta": round(
+                filtered.profit_factor - baseline.profit_factor, 2
+            ),
             "max_drawdown_delta": round(
                 filtered.max_drawdown_pct - baseline.max_drawdown_pct, 2
             ),
@@ -708,7 +739,8 @@ def main() -> int:
         help=f"Path to OHLCV CSV (default: {DEFAULT_DATA_PATH})",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default=None,
         help="Output JSON file path (default: stdout)",
     )
@@ -732,7 +764,9 @@ def main() -> int:
     print(f"Loading bars from {data_path}...", file=sys.stderr)
     bars = load_csv_bars(data_path)
     if len(bars) < 200:
-        print(f"ERROR: only {len(bars)} bars loaded — need at least 200", file=sys.stderr)
+        print(
+            f"ERROR: only {len(bars)} bars loaded — need at least 200", file=sys.stderr
+        )
         return 1
     print(f"Loaded {len(bars)} bars.", file=sys.stderr)
 
@@ -761,7 +795,10 @@ def main() -> int:
         file=sys.stderr,
     )
 
-    print("Running filtered backtest (MA cross + trend EMA + ATR gate)...", file=sys.stderr)
+    print(
+        "Running filtered backtest (MA cross + trend EMA + ATR gate)...",
+        file=sys.stderr,
+    )
     filtered = simulate(
         bars,
         evaluate_filtered,

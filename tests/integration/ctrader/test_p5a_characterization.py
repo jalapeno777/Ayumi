@@ -11,9 +11,9 @@ surfaces so that enabling the kill switch produces a verifiable, minimal delta:
 The pre-enforcement baseline was captured in this file before any production
 changes and verified against P4.1 code.
 """
+
 from unittest.mock import MagicMock
 
-import pytest
 
 from adapters.ctrader.forward_test_engine import ForwardTestEngine
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
@@ -90,4 +90,5 @@ def test_execute_signal_live_blocked_by_policy_after_p5a(tmp_path):
 def test_execution_permission_policy_class_exists_after_p5a():
     """After P5A implementation, the policy class is importable."""
     from adapters.ctrader.execution_permission import ExecutionPermissionPolicy  # noqa: F401
+
     assert True

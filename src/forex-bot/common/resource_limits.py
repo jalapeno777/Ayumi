@@ -48,6 +48,7 @@ def _set_cpu_affinity(percent: int = 20) -> None:
     """
     try:
         import psutil
+
         proc = psutil.Process(os.getpid())
         allowed = max(1, int(_NCPUS * percent / 100))
         all_cores = list(range(_NCPUS))
@@ -85,7 +86,11 @@ def _cgroup_v2_available() -> bool:
         with open("/proc/mounts") as f:
             for line in f:
                 parts = line.split()
-                if len(parts) >= 3 and parts[1] == _CGROUP_ROOT and parts[2] == "cgroup2":
+                if (
+                    len(parts) >= 3
+                    and parts[1] == _CGROUP_ROOT
+                    and parts[2] == "cgroup2"
+                ):
                     break
             else:
                 return False
@@ -179,7 +184,10 @@ def _set_cgroup_cpu_limit(percent: int = 20) -> Optional[str]:
 
             logger.debug(
                 "cgroup v2 CPU limit set: %d%% via %s (quota=%d, period=%d)",
-                percent, cgroup_path, quota, period,
+                percent,
+                cgroup_path,
+                quota,
+                period,
             )
             return cgroup_path
         except (OSError, PermissionError) as e:
@@ -278,13 +286,16 @@ def run_limited(cpu_percent: int = 20, memory_mb: int = 2048):
 
     Useful for wrapping backtest runners, walk-forward scripts, Optuna optimization.
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             with cpu_limited(percent=cpu_percent):
                 with memory_capped(mb=memory_mb):
                     return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -297,6 +308,7 @@ def configure_pytest_defaults(max_memory_mb: int = 2048) -> None:
 
 
 # ── CLI helper for argparse-based scripts ────────────────────────────────
+
 
 def add_resource_args(parser) -> None:
     """Add --max-cpu and --max-memory-mb flags to an argparse parser.
@@ -315,10 +327,14 @@ def add_resource_args(parser) -> None:
                 main()
     """
     parser.add_argument(
-        "--max-cpu", type=int, default=20,
-        help="Max CPU percentage (default: 20%% of server)"
+        "--max-cpu",
+        type=int,
+        default=20,
+        help="Max CPU percentage (default: 20%% of server)",
     )
     parser.add_argument(
-        "--max-memory-mb", type=int, default=2048,
-        help="Max memory in MB per process (default: 2048)"
+        "--max-memory-mb",
+        type=int,
+        default=2048,
+        help="Max memory in MB per process (default: 2048)",
     )

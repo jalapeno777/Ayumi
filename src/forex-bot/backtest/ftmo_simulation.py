@@ -37,14 +37,20 @@ logger = logging.getLogger("ayumi.ftmo_simulation")
 # ── Constants ──────────────────────────────────────────────────────────
 
 DEFAULT_ACCOUNT_SIZE = 10_000.0
-DEFAULT_DAILY_LOSS_LIMIT_PCT = 0.05      # 5 % of day-start equity
-DEFAULT_MAX_DRAWDOWN_PCT = 0.10          # 10 % from peak equity
-DEFAULT_PROFIT_TARGET_PCT = 0.10         # 10 % from starting balance
+DEFAULT_DAILY_LOSS_LIMIT_PCT = 0.05  # 5 % of day-start equity
+DEFAULT_MAX_DRAWDOWN_PCT = 0.10  # 10 % from peak equity
+DEFAULT_PROFIT_TARGET_PCT = 0.10  # 10 % from starting balance
 
 # CSV column names expected in the walk-forward results file
 CSV_COLUMNS = [
-    "timestamp", "pair", "direction", "entry_price",
-    "exit_price", "size", "pnl", "strategy",
+    "timestamp",
+    "pair",
+    "direction",
+    "entry_price",
+    "exit_price",
+    "size",
+    "pnl",
+    "strategy",
 ]
 
 
@@ -82,11 +88,11 @@ class Trade:
 
     timestamp: datetime
     pair: str
-    direction: str          # "long" or "short"
+    direction: str  # "long" or "short"
     entry_price: float
     exit_price: float
-    size: float             # lot size
-    pnl: float              # realised P&L in account currency
+    size: float  # lot size
+    pnl: float  # realised P&L in account currency
     strategy: str = "unknown"
 
 
@@ -222,22 +228,26 @@ class FTMOSimulation:
             dd_pct = dd_abs / peak_equity if peak_equity > 0 else 0.0
 
             # Record equity curve point
-            equity_curve.append({
-                "timestamp": trade.timestamp.isoformat(),
-                "equity": round(equity, 2),
-                "daily_pnl": round(daily_pnl[day_key], 2),
-                "peak": round(peak_equity, 2),
-            })
+            equity_curve.append(
+                {
+                    "timestamp": trade.timestamp.isoformat(),
+                    "equity": round(equity, 2),
+                    "daily_pnl": round(daily_pnl[day_key], 2),
+                    "peak": round(peak_equity, 2),
+                }
+            )
 
             # Record trade
-            trade_log.append({
-                "timestamp": trade.timestamp.isoformat(),
-                "pair": trade.pair,
-                "direction": trade.direction,
-                "pnl": round(trade.pnl, 2),
-                "equity_after": round(equity, 2),
-                "strategy": trade.strategy,
-            })
+            trade_log.append(
+                {
+                    "timestamp": trade.timestamp.isoformat(),
+                    "pair": trade.pair,
+                    "direction": trade.direction,
+                    "pnl": round(trade.pnl, 2),
+                    "equity_after": round(equity, 2),
+                    "strategy": trade.strategy,
+                }
+            )
 
             # ── Rule checks ───────────────────────────────────────────
 
@@ -245,32 +255,36 @@ class FTMOSimulation:
             daily_loss = day_start_equity - equity
             daily_loss_limit_abs = day_start_equity * cfg.daily_loss_limit_pct
             if daily_loss >= daily_loss_limit_abs:
-                violations.append({
-                    "rule": "daily_loss",
-                    "timestamp": trade.timestamp.isoformat(),
-                    "details": (
-                        f"Daily loss {daily_loss:.2f} exceeds limit "
-                        f"{daily_loss_limit_abs:.2f} (5% of "
-                        f"{day_start_equity:.2f})"
-                    ),
-                    "value": round(daily_loss, 2),
-                })
+                violations.append(
+                    {
+                        "rule": "daily_loss",
+                        "timestamp": trade.timestamp.isoformat(),
+                        "details": (
+                            f"Daily loss {daily_loss:.2f} exceeds limit "
+                            f"{daily_loss_limit_abs:.2f} (5% of "
+                            f"{day_start_equity:.2f})"
+                        ),
+                        "value": round(daily_loss, 2),
+                    }
+                )
                 if stop_on_violation:
                     stopped = True
 
             # 2. Max total drawdown
             if dd_abs >= cfg.max_drawdown:
-                violations.append({
-                    "rule": "max_drawdown",
-                    "timestamp": trade.timestamp.isoformat(),
-                    "details": (
-                        f"Drawdown {dd_abs:.2f} ({dd_pct:.1%}) exceeds "
-                        f"max {cfg.max_drawdown:.2f} "
-                        f"({cfg.max_drawdown_pct:.0%}) from peak "
-                        f"{peak_equity:.2f}"
-                    ),
-                    "value": round(dd_abs, 2),
-                })
+                violations.append(
+                    {
+                        "rule": "max_drawdown",
+                        "timestamp": trade.timestamp.isoformat(),
+                        "details": (
+                            f"Drawdown {dd_abs:.2f} ({dd_pct:.1%}) exceeds "
+                            f"max {cfg.max_drawdown:.2f} "
+                            f"({cfg.max_drawdown_pct:.0%}) from peak "
+                            f"{peak_equity:.2f}"
+                        ),
+                        "value": round(dd_abs, 2),
+                    }
+                )
                 if stop_on_violation:
                     stopped = True
 
@@ -286,9 +300,7 @@ class FTMOSimulation:
         # Compute final metrics
         profit_abs = equity - cfg.account_size
         profit_pct = profit_abs / cfg.account_size if cfg.account_size > 0 else 0.0
-        final_max_dd_pct = (
-            max_dd_abs / peak_equity if peak_equity > 0 else 0.0
-        )
+        final_max_dd_pct = max_dd_abs / peak_equity if peak_equity > 0 else 0.0
 
         # Profit target overrides violations only if no hard violations
         # occurred
@@ -328,13 +340,15 @@ class FTMOSimulation:
 
         for strat in strategies:
             results[strat] = self.run(
-                trades, strategy_filter=strat,
+                trades,
+                strategy_filter=strat,
                 stop_on_violation=stop_on_violation,
             )
 
         # Blended (all strategies together)
         results["blended"] = self.run(
-            trades, strategy_filter=None,
+            trades,
+            strategy_filter=None,
             stop_on_violation=stop_on_violation,
         )
 
@@ -365,9 +379,7 @@ class FTMOSimulation:
         """
         csv_path = Path(csv_path)
         if not csv_path.exists():
-            raise FileNotFoundError(
-                f"Walk-forward results CSV not found: {csv_path}"
-            )
+            raise FileNotFoundError(f"Walk-forward results CSV not found: {csv_path}")
 
         trades: list[Trade] = []
         with open(csv_path, "r", newline="") as f:
@@ -377,9 +389,7 @@ class FTMOSimulation:
 
             missing = set(CSV_COLUMNS) - set(reader.fieldnames)
             if missing:
-                raise ValueError(
-                    f"CSV missing required columns: {missing}"
-                )
+                raise ValueError(f"CSV missing required columns: {missing}")
 
             for row_num, row in enumerate(reader, start=2):
                 try:
@@ -388,21 +398,22 @@ class FTMOSimulation:
                     ts_str_normalised = ts_str.replace("T", " ")
                     timestamp = datetime.fromisoformat(ts_str_normalised)
 
-                    trades.append(Trade(
-                        timestamp=timestamp,
-                        pair=row["pair"].strip(),
-                        direction=row["direction"].strip().lower(),
-                        entry_price=float(row["entry_price"]),
-                        exit_price=float(row["exit_price"]),
-                        size=float(row["size"]),
-                        pnl=float(row["pnl"]),
-                        strategy=row["strategy"].strip()
-                        if row.get("strategy") else "unknown",
-                    ))
-                except (ValueError, KeyError) as exc:
-                    logger.warning(
-                        "Skipping malformed CSV row %d: %s", row_num, exc
+                    trades.append(
+                        Trade(
+                            timestamp=timestamp,
+                            pair=row["pair"].strip(),
+                            direction=row["direction"].strip().lower(),
+                            entry_price=float(row["entry_price"]),
+                            exit_price=float(row["exit_price"]),
+                            size=float(row["size"]),
+                            pnl=float(row["pnl"]),
+                            strategy=row["strategy"].strip()
+                            if row.get("strategy")
+                            else "unknown",
+                        )
                     )
+                except (ValueError, KeyError) as exc:
+                    logger.warning("Skipping malformed CSV row %d: %s", row_num, exc)
 
         trades.sort(key=lambda t: t.timestamp)
         logger.info("Loaded %d trades from %s", len(trades), csv_path)

@@ -12,9 +12,7 @@ Tests cover:
 """
 
 import json
-import os
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
@@ -29,6 +27,7 @@ from adapters.ctrader.kill_switch import (
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _enable_kill_switch_for_tests():
@@ -58,6 +57,7 @@ def ksm(tmp_state_dir):
 
 
 # ── Activate/Deactivate Global Kill ──────────────────────────────────────────
+
 
 class TestGlobalKill:
     def test_inactive_on_fresh_start(self, ksm):
@@ -106,6 +106,7 @@ class TestGlobalKill:
 
 # ── Activate/Deactivate Global Freeze ────────────────────────────────────────
 
+
 class TestGlobalFreeze:
     def test_activate_global_freeze(self, ksm):
         ksm.activate_global_freeze(
@@ -142,6 +143,7 @@ class TestGlobalFreeze:
 
 
 # ── State Persistence ─────────────────────────────────────────────────────────
+
 
 class TestStatePersistence:
     def test_state_persists_to_file(self, tmp_state_dir):
@@ -187,6 +189,7 @@ class TestStatePersistence:
 
 # ── Corrupt File Handling ────────────────────────────────────────────────────
 
+
 class TestCorruptFile:
     def test_corrupt_file_defaults_to_kill(self, tmp_state_dir):
         # Write corrupt state file
@@ -199,6 +202,7 @@ class TestCorruptFile:
 
     def test_corrupt_file_logs_critical(self, tmp_state_dir, caplog):
         import logging
+
         state_file = Path(tmp_state_dir) / "global.state"
         state_file.write_text("not json at all")
 
@@ -224,6 +228,7 @@ class TestCorruptFile:
 
 
 # ── Atomic Write ──────────────────────────────────────────────────────────────
+
 
 class TestAtomicWrite:
     def test_no_temp_files_left_after_write(self, ksm, tmp_state_dir):
@@ -257,6 +262,7 @@ class TestAtomicWrite:
 
 
 # ── History Audit Log ────────────────────────────────────────────────────────
+
 
 class TestHistoryLog:
     def test_history_logged_on_activate(self, ksm, tmp_state_dir):
@@ -318,6 +324,7 @@ class TestHistoryLog:
 
 # ── Performance ───────────────────────────────────────────────────────────────
 
+
 class TestPerformance:
     def test_is_globally_killed_under_1ms(self, ksm):
         ksm.activate_global_kill(reason="perf_test", triggered_by="test")
@@ -336,8 +343,7 @@ class TestPerformance:
 
         # Must be well under 1ms (1000μs). Target is < 0.01ms (10μs).
         assert per_call_us < 1000, (
-            f"is_globally_killed() took {per_call_us:.2f}μs per call "
-            f"(target: < 1000μs)"
+            f"is_globally_killed() took {per_call_us:.2f}μs per call (target: < 1000μs)"
         )
 
     def test_is_globally_frozen_under_1ms(self, ksm):
@@ -355,8 +361,7 @@ class TestPerformance:
         per_call_us = (elapsed / iterations) * 1_000_000
 
         assert per_call_us < 1000, (
-            f"is_globally_frozen() took {per_call_us:.2f}μs per call "
-            f"(target: < 1000μs)"
+            f"is_globally_frozen() took {per_call_us:.2f}μs per call (target: < 1000μs)"
         )
 
     def test_inactive_check_under_1ms(self, ksm):
@@ -372,6 +377,7 @@ class TestPerformance:
 
 
 # ── CLI Tool Integration ─────────────────────────────────────────────────────
+
 
 @pytest.mark.skipif(
     KillSwitchManager._disabled,
@@ -389,10 +395,15 @@ class TestCLI:
 
     def test_cli_status_inactive(self, cli_env):
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "status"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "status",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "INACTIVE" in result.stdout
@@ -400,20 +411,32 @@ class TestCLI:
     def test_cli_kill(self, cli_env):
         # Activate kill
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "kill", "--reason", "cli_test"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "kill",
+                "--reason",
+                "cli_test",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "KILL" in result.stdout
 
         # Verify via status
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "status"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "status",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "ACTIVE" in result.stdout
@@ -422,52 +445,82 @@ class TestCLI:
 
     def test_cli_freeze(self, cli_env):
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "freeze", "--reason", "freeze_cli"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "freeze",
+                "--reason",
+                "freeze_cli",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "FREEZE" in result.stdout
 
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "status"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "status",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "FREEZE" in result.stdout
 
     def test_cli_recover(self, cli_env):
         # Kill first
         subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "kill", "--reason", "temp"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "kill",
+                "--reason",
+                "temp",
+            ],
+            capture_output=True,
+            text=True,
         )
 
         # Recover
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "recover"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "recover",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         assert "DEACTIVATED" in result.stdout
 
         # Verify inactive
         result = subprocess.run(
-            [cli_env["python"], cli_env["script"],
-             "--state-dir", cli_env["state_dir"],
-             "status"],
-            capture_output=True, text=True,
+            [
+                cli_env["python"],
+                cli_env["script"],
+                "--state-dir",
+                cli_env["state_dir"],
+                "status",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "INACTIVE" in result.stdout
 
 
 # ── GlobalKillState Dataclass ────────────────────────────────────────────────
+
 
 class TestGlobalKillState:
     def test_default_state(self):

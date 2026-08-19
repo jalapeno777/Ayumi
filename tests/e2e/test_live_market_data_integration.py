@@ -23,9 +23,7 @@ from adapters.ctrader.risk_guard import FTMOConfig
 def _disable_global_kill_switch(monkeypatch):
     from adapters.ctrader.kill_switch import KillSwitchManager
 
-    monkeypatch.setattr(
-        KillSwitchManager, "is_globally_killed", lambda self: False
-    )
+    monkeypatch.setattr(KillSwitchManager, "is_globally_killed", lambda self: False)
     yield
 
 

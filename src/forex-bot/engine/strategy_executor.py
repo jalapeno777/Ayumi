@@ -7,7 +7,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from backtest.engine import Bar, BarPeriod, MarketState, TradeDirection, determine_session
+from backtest.engine import (
+    Bar,
+    BarPeriod,
+    MarketState,
+    TradeDirection,
+    determine_session,
+)
 from backtest.strategies import ISignalStrategy
 
 from .protocol import CanonicalSignal
@@ -273,8 +279,12 @@ class StrategyExecutor:
             for f in getattr(self._filter_chain, "filters", []):
                 fname = getattr(f, "name", "")
                 if fname == "trend" and hasattr(f, "_config"):
-                    ema_fast_period = getattr(f._config, "ema_fast_period", ema_fast_period)
-                    ema_slow_period = getattr(f._config, "ema_slow_period", ema_slow_period)
+                    ema_fast_period = getattr(
+                        f._config, "ema_fast_period", ema_fast_period
+                    )
+                    ema_slow_period = getattr(
+                        f._config, "ema_slow_period", ema_slow_period
+                    )
 
         ema_fast = self._compute_ema(closes, ema_fast_period)
         ema_slow = self._compute_ema(closes, ema_slow_period)

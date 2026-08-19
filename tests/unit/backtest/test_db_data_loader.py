@@ -15,6 +15,7 @@ written defensively: if the DB is missing they skip with a clear message
 instead of failing — the goal is to ship the loader with parity coverage,
 not to gate the suite on a specific environment.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -247,9 +248,7 @@ class TestDbDataLoaderFilenameParsing(unittest.TestCase):
             DbDataLoader._parse_filename("not-a-csv-name.csv")
 
     def test_parse_accepts_full_path(self) -> None:
-        sym, tf = DbDataLoader._parse_filename(
-            "data/forex/historical/XAUUSD_M15.csv"
-        )
+        sym, tf = DbDataLoader._parse_filename("data/forex/historical/XAUUSD_M15.csv")
         self.assertEqual(sym, "XAUUSD")
         self.assertEqual(tf, "M15")
 

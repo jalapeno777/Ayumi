@@ -15,8 +15,6 @@ from datetime import datetime, time, timezone
 import pytest
 
 from signal_engine.orb_filter import (
-    BREAKOUT_MIN_FRACTION,
-    DEFAULT_ORB_WINDOW_MINUTES,
     ORBFilter,
     ORBScore,
     OpeningRange,
@@ -25,6 +23,7 @@ from signal_engine.data_types import Signal
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def orbf():
@@ -40,14 +39,16 @@ def london_bars():
     """
     bars = []
     for i in range(60):
-        bars.append({
-            "open": 1.0855,
-            "high": 1.0862,   # below the OR high of 1.0870
-            "low": 1.0852,    # above the OR low of 1.0850
-            "close": 1.0858,
-            "volume": 900 + (i * 5) % 300,   # 900–1195 range
-            "timestamp": datetime(2026, 1, 5, 7, i, tzinfo=timezone.utc),
-        })
+        bars.append(
+            {
+                "open": 1.0855,
+                "high": 1.0862,  # below the OR high of 1.0870
+                "low": 1.0852,  # above the OR low of 1.0850
+                "close": 1.0858,
+                "volume": 900 + (i * 5) % 300,  # 900–1195 range
+                "timestamp": datetime(2026, 1, 5, 7, i, tzinfo=timezone.utc),
+            }
+        )
     # Force the extreme high and low for predictable calculations
     bars[10]["high"] = 1.0870
     bars[20]["low"] = 1.0850
@@ -76,6 +77,7 @@ def _make_signal(direction="long", entry=1.0, **kw) -> Signal:
 
 # ── Opening Range Calculation ───────────────────────────────────────────────
 
+
 class TestOpeningRangeCalculation:
     def test_valid_range(self, orbf, london_bars):
         rng = orbf.calculate_opening_range("LONDON", london_bars)
@@ -95,7 +97,9 @@ class TestOpeningRangeCalculation:
 
     def test_too_few_bars(self, orbf):
         assert orbf.calculate_opening_range("LONDON", []) is None
-        assert orbf.calculate_opening_range("LONDON", [{"high": 1.0, "low": 0.9}]) is None
+        assert (
+            orbf.calculate_opening_range("LONDON", [{"high": 1.0, "low": 0.9}]) is None
+        )
 
     def test_unknown_session_uses_default_window(self, orbf, london_bars):
         """Unknown session should not crash — falls back to 60-bar window."""
@@ -108,11 +112,16 @@ class TestOpeningRangeCalculation:
         orbf_custom = ORBFilter(orb_windows={"LONDON": 30})
         bars = []
         for i in range(60):
-            bars.append({
-                "open": 1.0, "high": 1.001 * (1 + i * 0.0001),
-                "low": 0.999, "close": 1.0, "volume": 100,
-                "timestamp": datetime(2026, 1, 5, 7, i, tzinfo=timezone.utc),
-            })
+            bars.append(
+                {
+                    "open": 1.0,
+                    "high": 1.001 * (1 + i * 0.0001),
+                    "low": 0.999,
+                    "close": 1.0,
+                    "volume": 100,
+                    "timestamp": datetime(2026, 1, 5, 7, i, tzinfo=timezone.utc),
+                }
+            )
         rng = orbf_custom.calculate_opening_range("LONDON", bars)
         # Only first 30 bars — high should be from bar 29
         assert rng is not None
@@ -120,6 +129,7 @@ class TestOpeningRangeCalculation:
 
 
 # ── Signal Scoring ──────────────────────────────────────────────────────────
+
 
 class TestSignalScoring:
     def test_aligned_breakout_long(self, orbf, london_range):
@@ -188,6 +198,7 @@ class TestSignalScoring:
 
 # ── Volume Confirmation ─────────────────────────────────────────────────────
 
+
 class TestVolumeConfirmation:
     def test_strong_volume_boosts(self, orbf, london_range):
         sig = _make_signal("long", entry=1.0880)
@@ -210,6 +221,7 @@ class TestVolumeConfirmation:
 
 
 # ── Session Windows ─────────────────────────────────────────────────────────
+
 
 class TestSessionWindows:
     def test_get_session_window_known(self, orbf):
@@ -243,13 +255,14 @@ class TestSessionWindows:
 
 # ── Batch Prioritization ────────────────────────────────────────────────────
 
+
 class TestPrioritization:
     def test_sorted_descending(self, orbf, london_range):
         signals = [
-            _make_signal("short", entry=1.0830),   # strong short breakout
-            _make_signal("long", entry=1.0860),     # inside range
-            _make_signal("long", entry=1.0880),     # strong long breakout
-            _make_signal("short", entry=1.0855),    # inside range (short)
+            _make_signal("short", entry=1.0830),  # strong short breakout
+            _make_signal("long", entry=1.0860),  # inside range
+            _make_signal("long", entry=1.0880),  # strong long breakout
+            _make_signal("short", entry=1.0855),  # inside range (short)
         ]
         scored = orbf.prioritize(signals, london_range, current_volume=1800)
         assert len(scored) == 4
@@ -259,8 +272,8 @@ class TestPrioritization:
 
     def test_min_score_filter(self, orbf, london_range):
         signals = [
-            _make_signal("long", entry=1.0860),     # inside — low score
-            _make_signal("long", entry=1.0880),     # breakout — high score
+            _make_signal("long", entry=1.0860),  # inside — low score
+            _make_signal("long", entry=1.0880),  # breakout — high score
         ]
         scored = orbf.prioritize(signals, london_range, min_score=0.5)
         assert len(scored) == 1
@@ -278,6 +291,7 @@ class TestPrioritization:
 
 
 # ── Edge Cases ──────────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_overlapping_sessions(self, orbf):

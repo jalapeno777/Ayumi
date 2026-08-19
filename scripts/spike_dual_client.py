@@ -56,15 +56,20 @@ env = load_env(ENV_PATH)
 
 CTRADER_DEMO_HOST = "demo.ctraderapi.com"
 CTRADER_DEMO_PORT = 5035
-CTID_ACCOUNT_ID = int(env.get("CTRADER_OPENAPI_ACCOUNT_ID", env.get("CTRADER_CTID_ACCOUNT_ID", "0")))
+CTID_ACCOUNT_ID = int(
+    env.get("CTRADER_OPENAPI_ACCOUNT_ID", env.get("CTRADER_CTID_ACCOUNT_ID", "0"))
+)
 CLIENT_ID = env.get("CTRADER_OPENAPI_CLIENT_ID", env.get("CTRADER_CLIENT_ID", ""))
-CLIENT_SECRET = env.get("CTRADER_OPENAPI_CLIENT_SECRET", env.get("CTRADER_CLIENT_SECRET", ""))
-ACCESS_TOKEN = env.get("CTRADER_OPENAPI_ACCESS_TOKEN", env.get("CTRADER_ACCESS_TOKEN", ""))
+CLIENT_SECRET = env.get(
+    "CTRADER_OPENAPI_CLIENT_SECRET", env.get("CTRADER_CLIENT_SECRET", "")
+)
+ACCESS_TOKEN = env.get(
+    "CTRADER_OPENAPI_ACCESS_TOKEN", env.get("CTRADER_ACCESS_TOKEN", "")
+)
 
 
 def run_spike():
     """Run the dual-instance spike test."""
-    from twisted.internet import reactor
 
     from ctrader_open_api import Client, TcpProtocol
     from ctrader_open_api.messages.OpenApiMessages_pb2 import (
@@ -101,7 +106,9 @@ def run_spike():
     def on_a_message(client, message):
         msg_type = message.payloadType
         with lock:
-            results["client_a_messages"].append((msg_type, time.monotonic() - start_time))
+            results["client_a_messages"].append(
+                (msg_type, time.monotonic() - start_time)
+            )
             if msg_type == 2:  # Heartbeat
                 results["client_a_heartbeat_count"] += 1
         if msg_type == 2101:  # ProtoOAApplicationAuthRes
@@ -127,7 +134,9 @@ def run_spike():
     def on_b_message(client, message):
         msg_type = message.payloadType
         with lock:
-            results["client_b_messages"].append((msg_type, time.monotonic() - start_time))
+            results["client_b_messages"].append(
+                (msg_type, time.monotonic() - start_time)
+            )
             if msg_type == 2:  # Heartbeat
                 results["client_b_heartbeat_count"] += 1
         if msg_type == 2101:  # ProtoOAApplicationAuthRes
@@ -240,16 +249,20 @@ def run_spike():
     logger.info("=" * 60)
 
     with lock:
-        logger.info("ClientA: connected=%s authed=%s msgs=%d heartbeats=%d",
-                     results["client_a_connected"].is_set(),
-                     results["client_a_authenticated"].is_set(),
-                     len(results["client_a_messages"]),
-                     results["client_a_heartbeat_count"])
-        logger.info("ClientB: connected=%s authed=%s msgs=%d heartbeats=%d",
-                     results["client_b_connected"].is_set(),
-                     results["client_b_authenticated"].is_set(),
-                     len(results["client_b_messages"]),
-                     results["client_b_heartbeat_count"])
+        logger.info(
+            "ClientA: connected=%s authed=%s msgs=%d heartbeats=%d",
+            results["client_a_connected"].is_set(),
+            results["client_a_authenticated"].is_set(),
+            len(results["client_a_messages"]),
+            results["client_a_heartbeat_count"],
+        )
+        logger.info(
+            "ClientB: connected=%s authed=%s msgs=%d heartbeats=%d",
+            results["client_b_connected"].is_set(),
+            results["client_b_authenticated"].is_set(),
+            len(results["client_b_messages"]),
+            results["client_b_heartbeat_count"],
+        )
 
         if results["errors"]:
             logger.warning("Errors:")
@@ -272,7 +285,9 @@ def run_spike():
         a_got_auth = results["client_a_authenticated"].is_set()
         b_got_auth = results["client_b_authenticated"].is_set()
         if a_got_auth and b_got_auth:
-            logger.info("✅ Both clients received independent auth responses — no cross-contamination")
+            logger.info(
+                "✅ Both clients received independent auth responses — no cross-contamination"
+            )
         elif not a_got_auth and not b_got_auth:
             logger.error("❌ Neither client authenticated — possible SDK issue")
             cross_contamination = True

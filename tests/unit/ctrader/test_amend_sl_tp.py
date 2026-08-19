@@ -13,12 +13,14 @@ import sys
 import os
 import time
 import types
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Ensure src/forex-bot is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
+)
 
 
 @pytest.fixture
@@ -52,14 +54,24 @@ class TestAmendCooldown:
         response.payloadType = 2111
         payload = types.SimpleNamespace(errorCode="", description="")
 
-        with patch("adapters.ctrader.open_api_spot_feed.time.sleep", side_effect=lambda s: sleep_calls.append(s)), \
-             patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.time.sleep",
+                side_effect=lambda s: sleep_calls.append(s),
+            ),
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+        ):
             feed_mock._conn.send_and_wait = MagicMock(return_value=response)
 
             result = feed_mock.amend_sl_tp(100, 1.0, 2.0)
 
         assert result is True, "amend should return True on success"
-        assert len(sleep_calls) == 1, f"Expected exactly 1 sleep call, got {len(sleep_calls)}"
+        assert len(sleep_calls) == 1, (
+            f"Expected exactly 1 sleep call, got {len(sleep_calls)}"
+        )
         assert sleep_calls[0] == 1.0, f"Expected 1.0s sleep, got {sleep_calls[0]}"
 
     def test_five_rapid_calls_spaced_at_least_1s(self, feed_mock):
@@ -83,16 +95,28 @@ class TestAmendCooldown:
         def fake_sleep(seconds):
             fake_now[0] += seconds
 
-        with patch("adapters.ctrader.open_api_spot_feed.time.sleep", side_effect=fake_sleep), \
-             patch("adapters.ctrader.open_api_spot_feed.time.monotonic", side_effect=lambda: fake_now[0]), \
-             patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.time.sleep", side_effect=fake_sleep
+            ),
+            patch(
+                "adapters.ctrader.open_api_spot_feed.time.monotonic",
+                side_effect=lambda: fake_now[0],
+            ),
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+        ):
             for i in range(5):
                 feed_mock.amend_sl_tp(100 + i, 1.0 + i * 0.1, 2.0 + i * 0.1)
 
         # Verify each call is ≥1s after the previous
         for i in range(1, len(call_times)):
             gap = call_times[i] - call_times[i - 1]
-            assert gap >= 1.0, f"Call {i} started only {gap:.3f}s after call {i-1} (expected ≥1.0s)"
+            assert gap >= 1.0, (
+                f"Call {i} started only {gap:.3f}s after call {i - 1} (expected ≥1.0s)"
+            )
 
 
 # ── 2B: Broker response handling ─────────────────────────────────────
@@ -109,8 +133,13 @@ class TestAmendBrokerResponse:
         payload = types.SimpleNamespace(errorCode="", description="")
         feed_mock._conn.send_and_wait = MagicMock(return_value=response)
 
-        with patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload), \
-             patch("adapters.ctrader.open_api_spot_feed.time.sleep"):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+            patch("adapters.ctrader.open_api_spot_feed.time.sleep"),
+        ):
             result = feed_mock.amend_sl_tp(100, 1.0, 2.0)
 
         assert result is True, "Expected True for successful amend"
@@ -119,34 +148,52 @@ class TestAmendBrokerResponse:
         """When broker rejects with errorCode, return False."""
         response = MagicMock()
         response.payloadType = 2142  # error response
-        payload = types.SimpleNamespace(errorCode="TRADING_BAD_STOPS", description="SL or TP price is invalid")
+        payload = types.SimpleNamespace(
+            errorCode="TRADING_BAD_STOPS", description="SL or TP price is invalid"
+        )
         feed_mock._conn.send_and_wait = MagicMock(return_value=response)
 
-        with patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload), \
-             patch("adapters.ctrader.open_api_spot_feed.time.sleep"):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+            patch("adapters.ctrader.open_api_spot_feed.time.sleep"),
+        ):
             result = feed_mock.amend_sl_tp(100, 1.0, 2.0)
 
         assert result is False, "Expected False for rejected amend"
 
-    def test_rejection_log_includes_positionid_errorcode_description(self, feed_mock, caplog):
+    def test_rejection_log_includes_positionid_errorcode_description(
+        self, feed_mock, caplog
+    ):
         """Rejection log must include positionId, errorCode, and description."""
         response = MagicMock()
         response.payloadType = 2142
-        payload = types.SimpleNamespace(errorCode="TRADING_BAD_STOPS", description="SL or TP price is invalid")
+        payload = types.SimpleNamespace(
+            errorCode="TRADING_BAD_STOPS", description="SL or TP price is invalid"
+        )
         feed_mock._conn.send_and_wait = MagicMock(return_value=response)
 
-        with patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload), \
-             patch("adapters.ctrader.open_api_spot_feed.time.sleep"):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+            patch("adapters.ctrader.open_api_spot_feed.time.sleep"),
+        ):
             with caplog.at_level(logging.WARNING, logger="ayumi.openapi_spot_feed"):
                 feed_mock.amend_sl_tp(100, 1.0, 2.0)
 
         # Find the rejection log record
         rejection_records = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if "TRADING_BAD_STOPS" in r.message or "amend" in r.message.lower()
         ]
-        assert len(rejection_records) >= 1, \
+        assert len(rejection_records) >= 1, (
             f"Expected rejection log, got: {[r.message for r in caplog.records]}"
+        )
 
         msg = rejection_records[0].message
         assert "100" in msg, f"Log missing positionId '100': {msg}"
@@ -190,8 +237,13 @@ class TestAmendBrokerResponse:
         )
         feed_mock._conn.send_and_wait = MagicMock(return_value=response)
 
-        with patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload), \
-             patch("adapters.ctrader.open_api_spot_feed.time.sleep"):
+        with (
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=payload,
+            ),
+            patch("adapters.ctrader.open_api_spot_feed.time.sleep"),
+        ):
             with caplog.at_level(logging.WARNING, logger="ayumi.openapi_spot_feed"):
                 result = feed_mock.amend_sl_tp(100, 1.0, 2.0)
 
@@ -200,7 +252,8 @@ class TestAmendBrokerResponse:
 
         # Check that log mentions the details
         rejection_records = [
-            r for r in caplog.records
+            r
+            for r in caplog.records
             if "TRADING_BAD_STOPS" in r.message or "amend" in r.message.lower()
         ]
         assert len(rejection_records) >= 1

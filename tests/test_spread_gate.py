@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 # Ensure src is on the path
 SRC = Path(__file__).resolve().parent.parent / "src" / "forex-bot"
@@ -26,12 +25,12 @@ if str(SRC) not in sys.path:
 from confidence.gates import GateConfig, SpreadGate
 from adapters.ctrader.risk_guard import RiskGuard, RiskLimitType
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
-from datetime import timedelta
 
 
 # ---------------------------------------------------------------------------
 # SpreadGate unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestSpreadGate:
     """Direct tests on SpreadGate.check()."""
@@ -76,6 +75,7 @@ class TestSpreadGate:
 # ---------------------------------------------------------------------------
 # RiskGuard spread integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestRiskGuardSpread:
     """Tests that RiskGuard enforces spread limits."""
@@ -142,9 +142,11 @@ class TestRiskGuardSpread:
 # _strategy_result_to_dict spread wiring test
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MockBar:
     """Minimal bar stand-in for blend_runner tests."""
+
     symbol: str = "GBPUSD"
     close: float = 1.1000
     spread_pips: float = 1.5
@@ -158,8 +160,14 @@ class TestStrategyResultSpreadWiring:
         from forward_test.blend_runner import BlendForwardTestRunner
 
         bar = MockBar(symbol="GBPUSD", spread_pips=1.8)
-        result = {"symbol": "GBPUSD", "direction": "LONG", "entry_price": 1.1,
-                  "stop_loss": 1.09, "take_profit": 1.12, "confidence": 0.8}
+        result = {
+            "symbol": "GBPUSD",
+            "direction": "LONG",
+            "entry_price": 1.1,
+            "stop_loss": 1.09,
+            "take_profit": 1.12,
+            "confidence": 0.8,
+        }
         out = BlendForwardTestRunner._strategy_result_to_dict(result, bar)
         assert out is not None
         assert out["spread"] == 1.8
@@ -169,9 +177,15 @@ class TestStrategyResultSpreadWiring:
         from forward_test.blend_runner import BlendForwardTestRunner
 
         bar = MockBar(symbol="GBPUSD", spread_pips=1.8)
-        result = {"symbol": "GBPUSD", "direction": "LONG", "entry_price": 1.1,
-                  "stop_loss": 1.09, "take_profit": 1.12, "confidence": 0.8,
-                  "spread": 3.5}
+        result = {
+            "symbol": "GBPUSD",
+            "direction": "LONG",
+            "entry_price": 1.1,
+            "stop_loss": 1.09,
+            "take_profit": 1.12,
+            "confidence": 0.8,
+            "spread": 3.5,
+        }
         out = BlendForwardTestRunner._strategy_result_to_dict(result, bar)
         assert out is not None
         assert out["spread"] == 3.5

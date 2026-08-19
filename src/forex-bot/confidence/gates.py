@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
 class GateCheck:
     """Result of a gate check."""
+
     gate_name: str
     passed: bool
     reason: str = ""
@@ -18,6 +19,7 @@ class GateCheck:
 @dataclass
 class GateConfig:
     """Configuration for quality gates."""
+
     # Spread gate
     default_max_spread: float = 2.0  # pips
     symbol_max_spreads: dict[str, float] = None
@@ -56,7 +58,9 @@ class SpreadGate:
         symbol = ctx.get("symbol", "")
         spread = ctx.get("spread", 0.0)
 
-        max_spread = self._config.symbol_max_spreads.get(symbol, self._config.default_max_spread)
+        max_spread = self._config.symbol_max_spreads.get(
+            symbol, self._config.default_max_spread
+        )
 
         if spread > max_spread:
             return GateCheck(
@@ -125,28 +129,32 @@ class VolatilityGate:
 
         if atr is None or atr <= 0:
             return GateCheck(
-                gate_name="volatility", passed=True,
-                reason="No ATR data available, gate skipped"
+                gate_name="volatility",
+                passed=True,
+                reason="No ATR data available, gate skipped",
             )
 
         # Per-symbol ATR range check (takes priority when configured)
         min_atr = self._config.volatility_min_atr.get(symbol, 0.0)
-        max_atr = self._config.volatility_max_atr.get(symbol, float('inf'))
+        max_atr = self._config.volatility_max_atr.get(symbol, float("inf"))
 
-        if min_atr > 0 or max_atr < float('inf'):
+        if min_atr > 0 or max_atr < float("inf"):
             if atr < min_atr:
                 return GateCheck(
-                    gate_name="volatility", passed=False,
-                    reason=f"ATR {atr:.4f} below minimum {min_atr} for {symbol}"
+                    gate_name="volatility",
+                    passed=False,
+                    reason=f"ATR {atr:.4f} below minimum {min_atr} for {symbol}",
                 )
             if atr > max_atr:
                 return GateCheck(
-                    gate_name="volatility", passed=False,
-                    reason=f"ATR {atr:.4f} above maximum {max_atr} for {symbol}"
+                    gate_name="volatility",
+                    passed=False,
+                    reason=f"ATR {atr:.4f} above maximum {max_atr} for {symbol}",
                 )
             return GateCheck(
-                gate_name="volatility", passed=True,
-                reason=f"ATR {atr:.4f} within range for {symbol}"
+                gate_name="volatility",
+                passed=True,
+                reason=f"ATR {atr:.4f} within range for {symbol}",
             )
 
         # Fallback: multiplier-based check against lookback default
@@ -158,7 +166,8 @@ class VolatilityGate:
         # with realistic price-domain ATR.  Skip the multiplier check.
         if atr < 0.01 and default >= 0.01:
             return GateCheck(
-                gate_name="volatility", passed=True,
+                gate_name="volatility",
+                passed=True,
                 reason=(
                     f"ATR {atr:.5f} appears to be in price domain while "
                     f"lookback default {default} is in a different scale "
@@ -197,6 +206,7 @@ class NewsBlackoutGate:
     def check(self, ctx: dict[str, Any]) -> GateCheck:
         # TODO: integrate economic calendar feed
         return GateCheck(
-            gate_name="news_blackout", passed=True,
-            reason="News gate stub — no calendar configured"
+            gate_name="news_blackout",
+            passed=True,
+            reason="News gate stub — no calendar configured",
         )

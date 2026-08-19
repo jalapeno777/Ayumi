@@ -61,6 +61,7 @@ _USD_PER_UNIT: dict[str, float] = {
 # Dataclasses
 # --------------------------------------------------------------------------- #
 
+
 @dataclass
 class PositionExposure:
     """A position registered with the exposure tracker.
@@ -193,9 +194,7 @@ class CurrencyExposureTracker:
         If no existing positions meet the threshold, returns *new_risk_pct*
         unchanged.
         """
-        existing = [
-            pos for pos in self._positions.values() if pos.pair != new_pair
-        ]
+        existing = [pos for pos in self._positions.values() if pos.pair != new_pair]
         if not existing:
             return new_risk_pct
 
@@ -212,7 +211,10 @@ class CurrencyExposureTracker:
         adjusted = new_risk_pct * (1.0 - avg_rho)
         logger.debug(
             "Correlation penalty for %s: avg_ρ=%.3f, base=%.5f → adjusted=%.5f",
-            new_pair, avg_rho, new_risk_pct, adjusted,
+            new_pair,
+            avg_rho,
+            new_risk_pct,
+            adjusted,
         )
         return adjusted
 
@@ -232,9 +234,7 @@ class CurrencyExposureTracker:
             - ``reason`` — human-readable explanation
             - ``avg_correlation`` — average ρ with correlated existing positions
         """
-        existing = [
-            pos for pos in self._positions.values() if pos.pair != new_pair
-        ]
+        existing = [pos for pos in self._positions.values() if pos.pair != new_pair]
         correlations: list[float] = []
         for pos in existing:
             rho = self.cm.get_correlation(pos.pair, new_pair)

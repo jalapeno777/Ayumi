@@ -34,7 +34,6 @@ import os
 import threading
 import time
 import typing
-from datetime import datetime, timedelta, timezone
 
 from ctrader_open_api.client import Client
 from ctrader_open_api.endpoints import EndPoints
@@ -60,26 +59,36 @@ _ACCT_AUTH_RES_PAYLOAD_TYPE = 2103
 
 # Period string → ProtoOATrendbarPeriod enum value
 PERIOD_MAP = {
-    "M1":  ProtoOATrendbarPeriod.M1,
-    "M5":  ProtoOATrendbarPeriod.M5,
+    "M1": ProtoOATrendbarPeriod.M1,
+    "M5": ProtoOATrendbarPeriod.M5,
     "M15": ProtoOATrendbarPeriod.M15,
     "M30": ProtoOATrendbarPeriod.M30,
-    "H1":  ProtoOATrendbarPeriod.H1,
-    "H4":  ProtoOATrendbarPeriod.H4,
-    "D1":  ProtoOATrendbarPeriod.D1,
-    "W1":  ProtoOATrendbarPeriod.W1,
+    "H1": ProtoOATrendbarPeriod.H1,
+    "H4": ProtoOATrendbarPeriod.H4,
+    "D1": ProtoOATrendbarPeriod.D1,
+    "W1": ProtoOATrendbarPeriod.W1,
 }
 
 # Period string → bar duration in seconds
 PERIOD_SECONDS = {
-    "M1": 60, "M5": 300, "M15": 900, "M30": 1800,
-    "H1": 3600, "H4": 14400, "D1": 86400, "W1": 604800,
+    "M1": 60,
+    "M5": 300,
+    "M15": 900,
+    "M30": 1800,
+    "H1": 3600,
+    "H4": 14400,
+    "D1": 86400,
+    "W1": 604800,
 }
 
 # Max bars per single API request per period
 MAX_BARS = {
-    "M1": 5760, "M5": 5760, "M15": 5760,
-    "H1": 5760, "H4": 5760, "D1": 5760,
+    "M1": 5760,
+    "M5": 5760,
+    "M15": 5760,
+    "H1": 5760,
+    "H4": 5760,
+    "D1": 5760,
 }
 
 
@@ -133,7 +142,9 @@ class CTraderOpenApiClient:
             or os.environ.get("CTRADER_TRADE_SECRET")
             or os.environ.get("CTRADER_OPENAPI_TRADE_CLIENT_SECRET")
         )
-        self._using_trade_app = bool(self._trade_client_id and self._trade_client_secret)
+        self._using_trade_app = bool(
+            self._trade_client_id and self._trade_client_secret
+        )
         if self._using_trade_app:
             logger.info(
                 "BQ-1329: Using separate OpenAPI app for historical-data client: %s...",
@@ -158,7 +169,9 @@ class CTraderOpenApiClient:
     @property
     def app_client_secret(self) -> str:
         """Return the app client_secret used for application authentication."""
-        return self._trade_client_secret if self._using_trade_app else self._client_secret
+        return (
+            self._trade_client_secret if self._using_trade_app else self._client_secret
+        )
 
     # --- Connection lifecycle ---
 
@@ -228,7 +241,9 @@ class CTraderOpenApiClient:
                 logger.error("Application auth failed — no response")
                 return False
             # BQ-1327: Validate payload type matches expected app auth response
-            if not self._is_valid_auth_response(app_auth_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"):
+            if not self._is_valid_auth_response(
+                app_auth_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"
+            ):
                 return False
         except Exception as e:
             logger.error(f"Application auth failed: {e}")
@@ -248,7 +263,9 @@ class CTraderOpenApiClient:
                 logger.error("Account auth failed — no response")
                 return False
             # BQ-1327: Validate payload type matches expected account auth response
-            if not self._is_valid_auth_response(account_auth_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"):
+            if not self._is_valid_auth_response(
+                account_auth_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"
+            ):
                 return False
         except Exception as e:
             logger.error(f"Account auth failed: {e}")
@@ -306,7 +323,9 @@ class CTraderOpenApiClient:
             except Exception as exc:
                 logger.warning("Disconnected callback error: %s", exc)
 
-    def _is_valid_auth_response(self, response, expected_payload_type: int, stage: str) -> bool:
+    def _is_valid_auth_response(
+        self, response, expected_payload_type: int, stage: str
+    ) -> bool:
         """Validate that an auth response has the expected payload type.
 
         BQ-1327: Mirrors the _is_expected_auth_response check from the
@@ -324,7 +343,9 @@ class CTraderOpenApiClient:
             return False
         logger.error(
             "%s auth unexpected payloadType=%s (expected %s)",
-            stage, payload_type, expected_payload_type,
+            stage,
+            payload_type,
+            expected_payload_type,
         )
         return False
 
@@ -345,7 +366,9 @@ class CTraderOpenApiClient:
 
         # Send via the Twisted thread
         client_msg_id = f"{id(message)}_{time.monotonic()}"
-        deferred = self._client.send(message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
+        deferred = self._client.send(
+            message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout
+        )
 
         def capture_result(proto_res):
             self._send_result[0] = proto_res
@@ -355,7 +378,6 @@ class CTraderOpenApiClient:
             logger.error(f"API request failed: {failure}")
             self._send_event.set()
 
-        from twisted.internet import threads
         reactor.callFromThread(
             lambda: deferred.addCallbacks(capture_result, capture_error)
         )
@@ -393,19 +415,25 @@ class CTraderOpenApiClient:
         symbols = []
 
         for s in payload.symbol:
-            pip_position = getattr(s, "pipPosition", None) or getattr(s, "pipPositionSize", None) or 4
+            pip_position = (
+                getattr(s, "pipPosition", None)
+                or getattr(s, "pipPositionSize", None)
+                or 4
+            )
             pip_size = 10 ** (-pip_position)
-            symbols.append({
-                "symbol_id": s.symbolId,
-                "name": s.symbolName,
-                "description": getattr(s, "description", ""),
-                "digits": getattr(s, "digits", None) or 5,
-                "pip_size": pip_size,
-                "enabled": getattr(s, "enabled", True),
-                "base_asset_id": getattr(s, "baseAssetId", 0),
-                "quote_asset_id": getattr(s, "quoteAssetId", 0),
-                "category_id": s.symbolCategoryId,
-            })
+            symbols.append(
+                {
+                    "symbol_id": s.symbolId,
+                    "name": s.symbolName,
+                    "description": getattr(s, "description", ""),
+                    "digits": getattr(s, "digits", None) or 5,
+                    "pip_size": pip_size,
+                    "enabled": getattr(s, "enabled", True),
+                    "base_asset_id": getattr(s, "baseAssetId", 0),
+                    "quote_asset_id": getattr(s, "quoteAssetId", 0),
+                    "category_id": s.symbolCategoryId,
+                }
+            )
 
         logger.info(f"Fetched {len(symbols)} symbols")
         return symbols
@@ -427,16 +455,18 @@ class CTraderOpenApiClient:
             return None
 
         payload = Protobuf.extract(response)
-        msg_type = getattr(payload, 'payloadType', None)
+        msg_type = getattr(payload, "payloadType", None)
         if msg_type == 2142:  # ProtoOAErrorRes — symbol not found or auth error
-            error_code = getattr(payload, 'errorCode', 'UNKNOWN')
-            description = getattr(payload, 'description', '')
+            error_code = getattr(payload, "errorCode", "UNKNOWN")
+            description = getattr(payload, "description", "")
             logger.warning(
                 "Symbol details error for symbol_id=%d: %s — %s",
-                symbol_id, error_code, description,
+                symbol_id,
+                error_code,
+                description,
             )
             return None
-        if not hasattr(payload, 'symbol') or not payload.symbol:
+        if not hasattr(payload, "symbol") or not payload.symbol:
             return None
 
         s = payload.symbol[0]
@@ -477,7 +507,9 @@ class CTraderOpenApiClient:
             raise RuntimeError("Not connected")
 
         if period not in PERIOD_MAP:
-            raise ValueError(f"Invalid period '{period}'. Must be one of {list(PERIOD_MAP.keys())}")
+            raise ValueError(
+                f"Invalid period '{period}'. Must be one of {list(PERIOD_MAP.keys())}"
+            )
 
         if max_bars is None:
             max_bars = MAX_BARS.get(period, 5760)
@@ -513,7 +545,7 @@ class CTraderOpenApiClient:
             return []
 
         payload = Protobuf.extract(response)
-        trendbars = getattr(payload, 'trendbar', None)
+        trendbars = getattr(payload, "trendbar", None)
         if not trendbars:
             logger.warning(f"No trendbar data in response for symbol {symbol_id}")
             return []
@@ -530,14 +562,16 @@ class CTraderOpenApiClient:
 
             # divisor is set above (always 100000.0 for cTrader raw encoding)
 
-            bars.append({
-                "timestamp": tb.utcTimestampInMinutes * 60 * 1000,  # to ms
-                "open": round(open_raw / divisor, digits),
-                "high": round(high_raw / divisor, digits),
-                "low": round(low_raw / divisor, digits),
-                "close": round(close_raw / divisor, digits),
-                "volume": tb.volume,
-            })
+            bars.append(
+                {
+                    "timestamp": tb.utcTimestampInMinutes * 60 * 1000,  # to ms
+                    "open": round(open_raw / divisor, digits),
+                    "high": round(high_raw / divisor, digits),
+                    "low": round(low_raw / divisor, digits),
+                    "close": round(close_raw / divisor, digits),
+                    "volume": tb.volume,
+                }
+            )
 
         return bars
 

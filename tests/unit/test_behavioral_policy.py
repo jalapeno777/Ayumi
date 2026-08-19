@@ -38,9 +38,7 @@ class TestStreakPenalty:
     def test_streak_3_losses(self):
         """Exactly 3 losses hits the first threshold (0.5×), one adjustment."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 3}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 3})
         assert result.multiplier == pytest.approx(0.5)
         assert len(result.adjustments) == 1
         assert "3 consecutive losses" in result.adjustments[0]
@@ -49,9 +47,7 @@ class TestStreakPenalty:
     def test_streak_5_losses(self):
         """5 losses hits the deepest configured threshold (0.25×)."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 5}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 5})
         assert result.multiplier == pytest.approx(0.25)
         assert len(result.adjustments) == 1
         assert "5 consecutive losses" in result.adjustments[0]
@@ -61,9 +57,7 @@ class TestStreakPenalty:
         """7 losses: deeper than any threshold, but floor holds — multiplier
         does NOT drop below 0.25."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 7}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 7})
         assert result.multiplier == pytest.approx(0.25)
         assert result.multiplier >= FLOOR
         assert len(result.adjustments) == 1
@@ -71,9 +65,7 @@ class TestStreakPenalty:
     def test_streak_2_losses_no_penalty(self):
         """Below the first threshold (3) — no cooldown applied."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 2}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 2})
         assert result.multiplier == pytest.approx(1.0)
         assert result.adjustments == []
 
@@ -89,9 +81,7 @@ class TestDrawdownPenalty:
     def test_dd_4_pct(self):
         """4.0% > 3.0% → 0.5× multiplier, single DD adjustment."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 4.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 4.0})
         assert result.multiplier == pytest.approx(0.5)
         assert len(result.adjustments) == 1
         assert "4.0%" in result.adjustments[0]
@@ -100,9 +90,7 @@ class TestDrawdownPenalty:
     def test_dd_6_pct(self):
         """6.0% > 5.0% → deepest configured threshold (0.25×)."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 6.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 6.0})
         assert result.multiplier == pytest.approx(0.25)
         assert len(result.adjustments) == 1
         assert "6.0%" in result.adjustments[0]
@@ -111,18 +99,14 @@ class TestDrawdownPenalty:
     def test_dd_exactly_3_pct_no_penalty(self):
         """Strict ``>``: 3.0% does NOT trigger the 3.0% threshold."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 3.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 3.0})
         assert result.multiplier == pytest.approx(1.0)
         assert result.adjustments == []
 
     def test_dd_2_pct_no_penalty(self):
         """2.0% is below the first DD threshold — no cooldown."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 2.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 2.0})
         assert result.multiplier == pytest.approx(1.0)
         assert result.adjustments == []
 
@@ -210,8 +194,11 @@ class TestMultiplierCeiling:
             {"consecutive_losses": 4, "daily_drawdown_pct": 4.0},
             {"consecutive_losses": 10, "daily_drawdown_pct": 10.0},
             {"session_type": "london"},  # session_type ignored in Phase 1b
-            {"consecutive_losses": 2, "daily_drawdown_pct": 2.0,
-             "session_type": "ny_am"},
+            {
+                "consecutive_losses": 2,
+                "daily_drawdown_pct": 2.0,
+                "session_type": "ny_am",
+            },
         ],
     )
     def test_multiplier_never_exceeds_one_parametric(self, context):
@@ -246,18 +233,14 @@ class TestMultiplierFloor:
     def test_multiplier_never_below_floor(self):
         """Streak far beyond thresholds — floor holds at 0.25."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 1000}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 1000})
         assert result.multiplier >= FLOOR
         assert result.multiplier == pytest.approx(FLOOR)
 
     def test_floor_holds_for_dd_too(self):
         """DD far beyond thresholds — floor holds at 0.25."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 99.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 99.0})
         assert result.multiplier >= FLOOR
         assert result.multiplier == pytest.approx(FLOOR)
 
@@ -282,45 +265,29 @@ class TestCustomConfig:
 
     def test_custom_config(self):
         """Override streak thresholds to {2: 0.7, 4: 0.4}; verify behavior."""
-        policy = BehavioralPolicy(
-            config={"streak_loss_thresholds": {2: 0.7, 4: 0.4}}
-        )
+        policy = BehavioralPolicy(config={"streak_loss_thresholds": {2: 0.7, 4: 0.4}})
         # 3 losses with custom config: only threshold 2 matches → 0.7×
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 3}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 3})
         assert result.multiplier == pytest.approx(0.7)
         # 4 losses: both 2 and 4 match → lowest matching = 0.4×
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 4}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 4})
         assert result.multiplier == pytest.approx(0.4)
 
     def test_custom_dd_thresholds(self):
         """Override DD thresholds to {2.0: 0.8, 4.0: 0.3}."""
-        policy = BehavioralPolicy(
-            config={"dd_thresholds": {2.0: 0.8, 4.0: 0.3}}
-        )
+        policy = BehavioralPolicy(config={"dd_thresholds": {2.0: 0.8, 4.0: 0.3}})
         # 3.0% > 2.0 only → 0.8×
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 3.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 3.0})
         assert result.multiplier == pytest.approx(0.8)
         # 5.0% > both → min(0.8, 0.3) = 0.3×
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 5.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 5.0})
         assert result.multiplier == pytest.approx(0.3)
 
     def test_custom_min_max_multiplier(self):
         """Tighten the band: floor=0.5, ceiling=1.0."""
-        policy = BehavioralPolicy(
-            config={"min_multiplier": 0.5, "max_multiplier": 1.0}
-        )
+        policy = BehavioralPolicy(config={"min_multiplier": 0.5, "max_multiplier": 1.0})
         # 100 losses → would be 0.25× by default, but floor=0.5 wins.
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 100}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 100})
         assert result.multiplier == pytest.approx(0.5)
         # Base case still capped at 1.0 (no amplification).
         result = policy.evaluate(base_size=1.0, context={})
@@ -342,9 +309,7 @@ class TestCustomConfig:
         cfg["streak_loss_thresholds"][3] = 0.5
         # Policy still sees only its original threshold {2: 0.9}.
         # 3 losses with policy: only threshold 2 matches → 0.9×
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 3}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 3})
         assert result.multiplier == pytest.approx(0.9)
 
 
@@ -359,9 +324,7 @@ class TestAdjustmentsContract:
     def test_adjustments_are_human_readable_streak(self):
         """Streak adjustment contains the streak count and the multiplier."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"consecutive_losses": 4}
-        )
+        result = policy.evaluate(base_size=1.0, context={"consecutive_losses": 4})
         assert len(result.adjustments) == 1
         msg = result.adjustments[0]
         assert "Streak cooldown" in msg
@@ -371,9 +334,7 @@ class TestAdjustmentsContract:
     def test_adjustments_are_human_readable_dd(self):
         """DD adjustment contains the DD percentage and the multiplier."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"daily_drawdown_pct": 6.0}
-        )
+        result = policy.evaluate(base_size=1.0, context={"daily_drawdown_pct": 6.0})
         assert len(result.adjustments) == 1
         msg = result.adjustments[0]
         assert "DD cooldown" in msg
@@ -403,9 +364,7 @@ class TestAdjustmentsContract:
         """session_type is accepted but unused in Phase 1b — no spurious
         adjustments even when supplied."""
         policy = BehavioralPolicy()
-        result = policy.evaluate(
-            base_size=1.0, context={"session_type": "london"}
-        )
+        result = policy.evaluate(base_size=1.0, context={"session_type": "london"})
         assert result.adjustments == []
         assert result.multiplier == pytest.approx(1.0)
 

@@ -23,7 +23,9 @@ class FakeTick:
 
 
 def _tick(bid: float, ask: float, minutes_offset: int = 0) -> FakeTick:
-    ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc) + timedelta(minutes=minutes_offset)
+    ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc) + timedelta(
+        minutes=minutes_offset
+    )
     return FakeTick(symbol_id=1, bid=bid, ask=ask, timestamp=ts)
 
 
@@ -103,7 +105,9 @@ class TestMaxBars:
         b.add_timeframe("GBPUSD", 1)
 
         for i in range(10):
-            b.process_tick(_tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD")
+            b.process_tick(
+                _tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD"
+            )
 
         assert b.bar_count("GBPUSD", 1) <= 3
 
@@ -113,7 +117,9 @@ class TestMaxBars:
         b.set_burst_mode(True)
 
         for i in range(12):
-            b.process_tick(_tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD")
+            b.process_tick(
+                _tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD"
+            )
 
         # max_bars * 1.5 = 7
         assert b.bar_count("GBPUSD", 1) <= 7
@@ -127,25 +133,38 @@ class TestMultiTimeframe:
 
         # 4 ticks at 15-min boundaries
         for i in range(4):
-            b.process_tick(_tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i * 15), "GBPUSD")
+            b.process_tick(
+                _tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i * 15),
+                "GBPUSD",
+            )
 
         assert b.bar_count("GBPUSD", 15) == 3  # 3 completed 15-min bars
-        assert b.bar_count("GBPUSD", 60) == 0   # still forming 60-min bar
+        assert b.bar_count("GBPUSD", 60) == 0  # still forming 60-min bar
 
 
 class TestPreload:
     def test_preload_historical_bars(self):
         b = BarBuilder(max_bars=100)
-        bars = [{"time": datetime(2026, 1, 1, i % 24, i // 24 * 15, tzinfo=timezone.utc),
-                 "open": 1.26, "high": 1.27, "low": 1.25, "close": 1.26, "volume": 100}
-                for i in range(50)]
+        bars = [
+            {
+                "time": datetime(2026, 1, 1, i % 24, i // 24 * 15, tzinfo=timezone.utc),
+                "open": 1.26,
+                "high": 1.27,
+                "low": 1.25,
+                "close": 1.26,
+                "volume": 100,
+            }
+            for i in range(50)
+        ]
         b.preload_bars("GBPUSD", 60, bars)
         assert b.bar_count("GBPUSD", 60) == 50
 
     def test_preload_trims_to_max(self):
         b = BarBuilder(max_bars=10)
-        bars = [{"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1}
-                for i in range(50)]
+        bars = [
+            {"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1}
+            for i in range(50)
+        ]
         b.preload_bars("GBPUSD", 60, bars)
         assert b.bar_count("GBPUSD", 60) == 10
 
@@ -180,16 +199,37 @@ class TestCallback:
 
 class TestBarIntegrity:
     def test_integrity_assertion_passes(self):
-        bar = {"time": 0, "open": 1.26, "high": 1.27, "low": 1.25, "close": 1.26, "volume": 1}
+        bar = {
+            "time": 0,
+            "open": 1.26,
+            "high": 1.27,
+            "low": 1.25,
+            "close": 1.26,
+            "volume": 1,
+        }
         BarBuilder._assert_bar_integrity(bar)  # should not raise
 
     def test_integrity_assertion_fails_high(self):
-        bar = {"time": 0, "open": 1.28, "high": 1.27, "low": 1.25, "close": 1.26, "volume": 1}
+        bar = {
+            "time": 0,
+            "open": 1.28,
+            "high": 1.27,
+            "low": 1.25,
+            "close": 1.26,
+            "volume": 1,
+        }
         with pytest.raises(AssertionError):
             BarBuilder._assert_bar_integrity(bar)
 
     def test_integrity_assertion_fails_low(self):
-        bar = {"time": 0, "open": 1.24, "high": 1.27, "low": 1.25, "close": 1.26, "volume": 1}
+        bar = {
+            "time": 0,
+            "open": 1.24,
+            "high": 1.27,
+            "low": 1.25,
+            "close": 1.26,
+            "volume": 1,
+        }
         with pytest.raises(AssertionError):
             BarBuilder._assert_bar_integrity(bar)
 
@@ -204,7 +244,14 @@ class TestThreadSafety:
         def worker(offset):
             try:
                 for i in range(100):
-                    b.process_tick(_tick(1.26 + (offset + i) * 0.0001, 1.26 + (offset + i) * 0.0001, minutes_offset=i), "GBPUSD")
+                    b.process_tick(
+                        _tick(
+                            1.26 + (offset + i) * 0.0001,
+                            1.26 + (offset + i) * 0.0001,
+                            minutes_offset=i,
+                        ),
+                        "GBPUSD",
+                    )
             except Exception as e:
                 errors.append(e)
 

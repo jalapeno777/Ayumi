@@ -32,16 +32,18 @@ def cmd_status(ksm: KillSwitchManager, args):
     triggered_at = status.get("triggered_at", "unknown")
 
     if mode == "KILL":
-        print(f"🔴 Kill switch: ACTIVE (KILL)")
+        print("🔴 Kill switch: ACTIVE (KILL)")
     else:
-        print(f"🟡 Kill switch: ACTIVE (FREEZE)")
+        print("🟡 Kill switch: ACTIVE (FREEZE)")
 
     print(f"   Reason:        {reason}")
     print(f"   Triggered by:  {triggered_by}")
     print(f"   Triggered at:  {triggered_at}")
     print(f"   Level:         {status.get('level', 'global')}")
-    print(f"   Positions closed: {status.get('positions_closed', False)}"
-          f" (count: {status.get('close_count', 0)})")
+    print(
+        f"   Positions closed: {status.get('positions_closed', False)}"
+        f" (count: {status.get('close_count', 0)})"
+    )
 
     if status.get("metadata"):
         print(f"   Metadata:      {json.dumps(status['metadata'])}")
@@ -55,9 +57,9 @@ def cmd_kill(ksm: KillSwitchManager, args):
     triggered_by = args.triggered_by or "cli"
 
     if ksm.is_globally_killed():
-        print(f"⚠️  Kill switch already ACTIVE (KILL) — re-activating with new reason")
+        print("⚠️  Kill switch already ACTIVE (KILL) — re-activating with new reason")
     elif ksm.is_globally_frozen():
-        print(f"⚠️  Kill switch was ACTIVE (FREEZE) — escalating to KILL")
+        print("⚠️  Kill switch was ACTIVE (FREEZE) — escalating to KILL")
 
     ksm.activate_global_kill(
         reason=reason,
@@ -74,9 +76,9 @@ def cmd_freeze(ksm: KillSwitchManager, args):
     triggered_by = args.triggered_by or "cli"
 
     if ksm.is_globally_killed():
-        print(f"⚠️  Kill switch was ACTIVE (KILL) — downgrading to FREEZE")
+        print("⚠️  Kill switch was ACTIVE (KILL) — downgrading to FREEZE")
     elif ksm.is_globally_frozen():
-        print(f"⚠️  Kill switch already ACTIVE (FREEZE) — re-activating with new reason")
+        print("⚠️  Kill switch already ACTIVE (FREEZE) — re-activating with new reason")
 
     ksm.activate_global_freeze(
         reason=reason,
@@ -121,22 +123,35 @@ def main():
     sp_status.set_defaults(func=cmd_status)
 
     # kill
-    sp_kill = subparsers.add_parser("kill", help="Activate global KILL (stop trading, close positions)")
+    sp_kill = subparsers.add_parser(
+        "kill", help="Activate global KILL (stop trading, close positions)"
+    )
     sp_kill.add_argument("--reason", default="manual_cli", help="Reason for the kill")
     sp_kill.add_argument("--triggered-by", default="cli", help="Who triggered the kill")
-    sp_kill.add_argument("--no-close-positions", action="store_true",
-                          help="Don't close existing positions (just block new trades)")
+    sp_kill.add_argument(
+        "--no-close-positions",
+        action="store_true",
+        help="Don't close existing positions (just block new trades)",
+    )
     sp_kill.set_defaults(func=cmd_kill)
 
     # freeze
-    sp_freeze = subparsers.add_parser("freeze", help="Activate global FREEZE (block new trades, hold positions)")
-    sp_freeze.add_argument("--reason", default="manual_cli", help="Reason for the freeze")
-    sp_freeze.add_argument("--triggered-by", default="cli", help="Who triggered the freeze")
+    sp_freeze = subparsers.add_parser(
+        "freeze", help="Activate global FREEZE (block new trades, hold positions)"
+    )
+    sp_freeze.add_argument(
+        "--reason", default="manual_cli", help="Reason for the freeze"
+    )
+    sp_freeze.add_argument(
+        "--triggered-by", default="cli", help="Who triggered the freeze"
+    )
     sp_freeze.set_defaults(func=cmd_freeze)
 
     # recover
     sp_recover = subparsers.add_parser("recover", help="Deactivate kill switch")
-    sp_recover.add_argument("--reason", default="manual_recovery", help="Reason for recovery")
+    sp_recover.add_argument(
+        "--reason", default="manual_recovery", help="Reason for recovery"
+    )
     sp_recover.set_defaults(func=cmd_recover)
 
     args = parser.parse_args()

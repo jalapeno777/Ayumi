@@ -1,10 +1,11 @@
 """Tests for GateTuner."""
 
 import json
-import os
-import tempfile
-import pytest
-from confidence.gate_tuner import GateTuner, GateTuneResult, DEFAULT_MAX_SPREADS, DEFAULT_SESSION_HOURS, DEFAULT_ATR_RANGE, MIN_TRADES_PER_SYMBOL
+from confidence.gate_tuner import (
+    GateTuner,
+    GateTuneResult,
+    DEFAULT_MAX_SPREADS,
+)
 
 
 def _make_trades(symbol="EURUSD", count=30, spread=1.0, atr=0.5, win_rate=0.6, hour=10):
@@ -12,13 +13,15 @@ def _make_trades(symbol="EURUSD", count=30, spread=1.0, atr=0.5, win_rate=0.6, h
     trades = []
     for i in range(count):
         pnl = 10.0 if i / count < win_rate else -8.0
-        trades.append({
-            "symbol": symbol,
-            "spread": spread + i * 0.1,
-            "atr": atr,
-            "pnl": pnl,
-            "timestamp": f"2025-01-{1 + i % 28:02d}T{hour:02d}:00:00",
-        })
+        trades.append(
+            {
+                "symbol": symbol,
+                "spread": spread + i * 0.1,
+                "atr": atr,
+                "pnl": pnl,
+                "timestamp": f"2025-01-{1 + i % 28:02d}T{hour:02d}:00:00",
+            }
+        )
     return trades
 
 

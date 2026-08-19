@@ -2,25 +2,19 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-import pytest
 
 from backtest.engine import (
     BacktestConfig,
     BacktestMetrics,
     Bar,
     MarketState,
-    SimulatedTrade,
     StrategySignal,
     TradeDirection,
-    TradeOutcome,
-    ExitReason,
 )
 from backtest.portfolio_blend import (
     CorrelationResult,
-    SelectionResult,
     SignalRecord,
     StrategyInventoryResult,
-    StrategySpec,
     compute_signal_correlation,
     inventory_strategies_on_data,
     select_least_correlated,

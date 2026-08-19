@@ -15,11 +15,8 @@ Tests cover:
 from __future__ import annotations
 
 import json
-import logging
-import os
 import sys
-import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -30,13 +27,8 @@ if str(FOREX_BOT_SRC) not in sys.path:
     sys.path.insert(0, str(FOREX_BOT_SRC))
 
 from data.news_calendar import (
-    BlackoutWindow,
     CalendarEvent,
     NewsCalendarFilter,
-    DEFAULT_BLACKOUT_MINUTES,
-    FOREXFACTORY_URL,
-    HIGH_IMPACT_KEYWORDS,
-    SUPPORTED_CURRENCIES,
 )
 
 
@@ -140,6 +132,7 @@ def filter_with_cache(tmp_cal_file: Path) -> NewsCalendarFilter:
 # Calendar parsing
 # ---------------------------------------------------------------------------
 
+
 class TestCalendarParsing:
     def test_parses_valid_calendar(self, tmp_cal_file: Path):
         nf = NewsCalendarFilter(cache_path=tmp_cal_file, auto_fetch=False)
@@ -148,10 +141,21 @@ class TestCalendarParsing:
 
     def test_skips_malformed_entries(self, tmp_path: Path):
         bad_data = [
-            {"title": "Good", "country": "USD", "date": "2024-01-01", "time": "10:00", "impact": "High"},
+            {
+                "title": "Good",
+                "country": "USD",
+                "date": "2024-01-01",
+                "time": "10:00",
+                "impact": "High",
+            },
             {"title": "No country", "date": "2024-01-01", "time": "10:00"},
             {"title": "No date", "country": "EUR", "time": "10:00"},
-            {"title": "Bad date", "country": "GBP", "date": "not-a-date", "time": "10:00"},
+            {
+                "title": "Bad date",
+                "country": "GBP",
+                "date": "not-a-date",
+                "time": "10:00",
+            },
         ]
         p = tmp_path / "bad.json"
         p.write_text(json.dumps(bad_data))
@@ -160,7 +164,15 @@ class TestCalendarParsing:
         assert len(nf._events) == 1
 
     def test_handles_missing_time(self, tmp_path: Path):
-        data = [{"title": "All Day Event", "country": "USD", "date": "2024-06-15", "time": "", "impact": "High"}]
+        data = [
+            {
+                "title": "All Day Event",
+                "country": "USD",
+                "date": "2024-06-15",
+                "time": "",
+                "impact": "High",
+            }
+        ]
         p = tmp_path / "notime.json"
         p.write_text(json.dumps(data))
         nf = NewsCalendarFilter(cache_path=p, auto_fetch=False)
@@ -175,7 +187,15 @@ class TestCalendarParsing:
         assert timestamps == sorted(timestamps)
 
     def test_country_field_fallback_to_currency(self, tmp_path: Path):
-        data = [{"title": "Test", "currency": "JPY", "date": "2024-01-01", "time": "10:00", "impact": "High"}]
+        data = [
+            {
+                "title": "Test",
+                "currency": "JPY",
+                "date": "2024-01-01",
+                "time": "10:00",
+                "impact": "High",
+            }
+        ]
         p = tmp_path / "cur.json"
         p.write_text(json.dumps(data))
         nf = NewsCalendarFilter(cache_path=p, auto_fetch=False)
@@ -187,6 +207,7 @@ class TestCalendarParsing:
 # ---------------------------------------------------------------------------
 # High-impact classification
 # ---------------------------------------------------------------------------
+
 
 class TestHighImpactClassification:
     def test_high_impact_field(self):
@@ -257,6 +278,7 @@ class TestHighImpactClassification:
 # Blackout detection
 # ---------------------------------------------------------------------------
 
+
 class TestBlackoutDetection:
     def test_inside_blackout_window(self, filter_with_cache: NewsCalendarFilter):
         """Exactly at event time → blocked."""
@@ -305,7 +327,9 @@ class TestBlackoutDetection:
         now = datetime(2024, 12, 19, 3, 0, tzinfo=timezone.utc)
         assert filter_with_cache.is_blackout_now(["USDJPY"], now=now)
 
-    def test_jpy_event_does_not_block_eurusd(self, filter_with_cache: NewsCalendarFilter):
+    def test_jpy_event_does_not_block_eurusd(
+        self, filter_with_cache: NewsCalendarFilter
+    ):
         """BoJ event should NOT block EURUSD (no JPY)."""
         now = datetime(2024, 12, 19, 3, 0, tzinfo=timezone.utc)
         assert not filter_with_cache.is_blackout_now(["EURUSD"], now=now)
@@ -326,6 +350,7 @@ class TestBlackoutDetection:
 # ---------------------------------------------------------------------------
 # Currency extraction
 # ---------------------------------------------------------------------------
+
 
 class TestCurrencyExtraction:
     def test_standard_pair(self):
@@ -360,6 +385,7 @@ class TestCurrencyExtraction:
 # next_blackout_window
 # ---------------------------------------------------------------------------
 
+
 class TestNextBlackoutWindow:
     def test_returns_next_upcoming(self, filter_with_cache: NewsCalendarFilter):
         """Before NFP → next window is NFP."""
@@ -375,7 +401,9 @@ class TestNextBlackoutWindow:
         window = filter_with_cache.next_blackout_window(["EURUSD"], now=now)
         assert window is None
 
-    def test_returns_none_for_unrelated_currency(self, filter_with_cache: NewsCalendarFilter):
+    def test_returns_none_for_unrelated_currency(
+        self, filter_with_cache: NewsCalendarFilter
+    ):
         """If no tracked currency matches, returns None."""
         now = datetime(2024, 12, 6, 12, 0, tzinfo=timezone.utc)
         window = filter_with_cache.next_blackout_window(["AUDNZD"], now=now)
@@ -398,6 +426,7 @@ class TestNextBlackoutWindow:
 # ---------------------------------------------------------------------------
 # Caching behavior
 # ---------------------------------------------------------------------------
+
 
 class TestCachingBehavior:
     def test_no_cache_permissive(self):
@@ -444,12 +473,15 @@ class TestCachingBehavior:
 
         # 6 min before event (13:24) — not blocked with 5-min default
         nf5 = NewsCalendarFilter(cache_path=p, auto_fetch=False, blackout_minutes=5)
-        assert not nf5.is_blackout_now(["EURUSD"], now=datetime(2024, 12, 6, 13, 24, tzinfo=timezone.utc))
+        assert not nf5.is_blackout_now(
+            ["EURUSD"], now=datetime(2024, 12, 6, 13, 24, tzinfo=timezone.utc)
+        )
 
 
 # ---------------------------------------------------------------------------
 # get_active_blackouts
 # ---------------------------------------------------------------------------
+
 
 class TestGetActiveBlackouts:
     def test_returns_all_active(self, filter_with_cache: NewsCalendarFilter):
@@ -470,6 +502,7 @@ class TestGetActiveBlackouts:
 # ---------------------------------------------------------------------------
 # Integration-style tests
 # ---------------------------------------------------------------------------
+
 
 class TestIntegration:
     def test_realistic_usage_pattern(self, tmp_cal_file: Path):

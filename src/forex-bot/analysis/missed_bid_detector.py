@@ -107,9 +107,7 @@ class MissedBidDetector:
                     entry_price=signal.entry_price,
                     signal_time=signal.timestamp,
                     direction=signal.direction,
-                    bars_to_expiry=min(
-                        self._max_bars_to_fill, len(symbol_bars)
-                    ),
+                    bars_to_expiry=min(self._max_bars_to_fill, len(symbol_bars)),
                     reason=reason,
                 )
             )
@@ -148,10 +146,7 @@ class MissedBidDetector:
             pos_direction = pos.get("direction", "")
             for sig in signals:
                 sig_id = MissedBidDetector._signal_id(sig)
-                if (
-                    sig.symbol == pos_symbol
-                    and sig.direction == pos_direction
-                ):
+                if sig.symbol == pos_symbol and sig.direction == pos_direction:
                     matched.add(sig_id)
 
         return matched

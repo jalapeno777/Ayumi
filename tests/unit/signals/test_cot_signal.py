@@ -11,8 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 from data.cot_fetcher import (
     COTFetcher,
@@ -22,7 +21,6 @@ from data.cot_fetcher import (
 )
 from confidence.gates import GateCheck
 from signals.cot_signal import (
-    COTSignalResult,
     COTConfidenceGate,
     assess_cot,
     adjust_confidence,
@@ -82,7 +80,10 @@ def mock_fetcher() -> MagicMock:
     """A mock COTFetcher that returns pre-configured divergence signals."""
     fetcher = MagicMock(spec=COTFetcher)
     fetcher.get_divergence_signal.return_value = make_divergence(
-        pair="USDJPY", bias="long", strength=0.3, adjustment=0.03,
+        pair="USDJPY",
+        bias="long",
+        strength=0.3,
+        adjustment=0.03,
     )
     return fetcher
 
@@ -107,7 +108,10 @@ def divergent_fetcher() -> MagicMock:
     """A mock COTFetcher where COT opposes the trade direction."""
     fetcher = MagicMock(spec=COTFetcher)
     fetcher.get_divergence_signal.return_value = make_divergence(
-        pair="USDJPY", bias="short", strength=-0.4, adjustment=-0.04,
+        pair="USDJPY",
+        bias="short",
+        strength=-0.4,
+        adjustment=-0.04,
     )
     return fetcher
 
@@ -134,6 +138,7 @@ class TestCOTFetcherIntegration:
     def test_supported_pairs_mapping(self):
         """All supported pairs map to CFTC market names."""
         from data.cot_fetcher import USD_QUOTED_PAIRS
+
         assert len(USD_QUOTED_PAIRS) >= 7
         assert USD_QUOTED_PAIRS["USDJPY"] == "JAPANESE YEN"
         assert USD_QUOTED_PAIRS["EURUSD"] == "EURO FX"
@@ -154,7 +159,8 @@ class TestCOTFetcherIntegration:
     def test_positioning_net_ratio_zero_oi(self):
         """net_ratio returns 0 when total OI is zero."""
         pos = COTPositioning(
-            market_name="TEST", report_date="2026-01-01",
+            market_name="TEST",
+            report_date="2026-01-01",
             format=COTFormat.LEGACY,
         )
         assert pos.net_ratio == 0.0
@@ -200,7 +206,10 @@ class TestAssessCOT:
         """Every pair in SUPPORTED_PAIRS produces a result."""
         for pair in SUPPORTED_PAIRS:
             mock_fetcher.get_divergence_signal.return_value = make_divergence(
-                pair=pair, bias="long", strength=0.2, adjustment=0.02,
+                pair=pair,
+                bias="long",
+                strength=0.2,
+                adjustment=0.02,
             )
             result = assess_cot(pair, "long", fetcher=mock_fetcher)
             assert result.pair == pair
@@ -324,7 +333,9 @@ class TestCOTConfidenceGate:
         """Divergent COT passes in hard mode when strength is below threshold."""
         fetcher = MagicMock(spec=COTFetcher)
         fetcher.get_divergence_signal.return_value = make_divergence(
-            bias="short", strength=-0.2, adjustment=-0.02,
+            bias="short",
+            strength=-0.2,
+            adjustment=-0.02,
         )
         gate = COTConfidenceGate(
             fetcher,

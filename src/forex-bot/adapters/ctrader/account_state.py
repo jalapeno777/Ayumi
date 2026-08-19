@@ -250,7 +250,8 @@ def get_balance(
     if response is None:
         logger.warning(
             "get_balance: no response from cTrader (timeout=%.1fs) account=%d",
-            timeout, ctid_trader_account_id,
+            timeout,
+            ctid_trader_account_id,
         )
         return None
 
@@ -297,7 +298,8 @@ def get_open_positions(
     if response is None:
         logger.warning(
             "get_open_positions: no response from cTrader (timeout=%.1fs) account=%d",
-            timeout, ctid_trader_account_id,
+            timeout,
+            ctid_trader_account_id,
         )
         return []
 
@@ -493,6 +495,7 @@ class _BalanceDispatcher:
                 # Real envelope — try Protobuf.extract.
                 try:
                     from ctrader_open_api.protobuf import Protobuf
+
                     payload = Protobuf.extract(message)
                 except Exception:
                     # Either the message wasn't bytes (mock) or the
@@ -532,7 +535,8 @@ class _BalanceDispatcher:
                 except Exception as exc:  # pragma: no cover — defensive
                     logger.error(
                         "Balance update callback raised: %s (account=%d)",
-                        exc, update.ctid_trader_account_id,
+                        exc,
+                        update.ctid_trader_account_id,
                     )
         except Exception as exc:  # pragma: no cover — last-resort guard
             logger.exception("Balance dispatcher swallowed exception: %s", exc)
@@ -621,6 +625,7 @@ def _is_magicmock_with_spec(client: Any) -> bool:
     CTraderConnection.
     """
     from unittest.mock import MagicMock
+
     if not isinstance(client, MagicMock):
         return False
     spec = getattr(client, "_spec_class", None) or client._mock_spec
@@ -723,7 +728,8 @@ def _parse_reconcile_response(
         except Exception as exc:
             logger.warning(
                 "Reconcile parse error (account=%d): %s",
-                ctid_trader_account_id, exc,
+                ctid_trader_account_id,
+                exc,
             )
             continue
         if position is not None:
@@ -774,13 +780,18 @@ def _parse_one_position(
         # Unknown side — skip rather than guess.
         logger.warning(
             "Reconcile: unknown tradeSide=%r for positionId=%s",
-            side_value, getattr(raw, "positionId", "?"),
+            side_value,
+            getattr(raw, "positionId", "?"),
         )
         return None
 
     raw_volume = getattr(td, "volume", 0) or 0
     if lot_size_lookup is not None:
-        contract_size = lot_size_lookup(raw_symbol_id) if raw_symbol_id is not None else _CONTRACT_SIZE
+        contract_size = (
+            lot_size_lookup(raw_symbol_id)
+            if raw_symbol_id is not None
+            else _CONTRACT_SIZE
+        )
     else:
         contract_size = _CONTRACT_SIZE
     volume_lots = Decimal(int(raw_volume)) / Decimal(contract_size)
@@ -933,10 +944,14 @@ def read_account_snapshot(
         ``positions`` (``list[Position]``), ``read_at`` (:class:`datetime`).
     """
     balance = get_balance(
-        client, ctid_trader_account_id, timeout=timeout,
+        client,
+        ctid_trader_account_id,
+        timeout=timeout,
     )
     positions = get_open_positions(
-        client, ctid_trader_account_id, timeout=timeout,
+        client,
+        ctid_trader_account_id,
+        timeout=timeout,
     )
     return {
         "balance": balance,

@@ -75,6 +75,9 @@ class Bar:
 class MarketState:
     bars: list[Bar]
     current_session: SessionType = SessionType.OUTSIDE
+    # Optional H4 bars for cross-timeframe filtering (backward-compatible).
+    # When provided, strategies can use H4 trend alignment as a confluence filter.
+    h4_bars: list[Bar] | None = None
 
     @property
     def latest_bar(self) -> Bar:

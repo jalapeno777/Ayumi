@@ -8,7 +8,6 @@ and trailing SL logic for lock-in behavior (§9.3).
 from __future__ import annotations
 
 
-
 DEFAULT_RR_RATIO = 2.0
 SPREAD_BUFFER_PIPS = 0.5
 

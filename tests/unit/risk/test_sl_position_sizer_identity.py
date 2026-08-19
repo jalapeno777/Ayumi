@@ -7,7 +7,6 @@ introduced in the Phase 5 risk-sizer refactor.
 from __future__ import annotations
 
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 

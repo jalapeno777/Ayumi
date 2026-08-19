@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from collections import defaultdict
-from typing import Optional
 
 
 # Default gate values when data is insufficient
 DEFAULT_MAX_SPREADS = {
-    "EURUSD": 2.0, "GBPUSD": 2.5, "USDJPY": 2.0, "XAUUSD": 4.0,
+    "EURUSD": 2.0,
+    "GBPUSD": 2.5,
+    "USDJPY": 2.0,
+    "XAUUSD": 4.0,
 }
 DEFAULT_SESSION_HOURS = list(range(7, 22))  # London+NY
 DEFAULT_ATR_RANGE = (0.0, 5.0)
@@ -20,6 +22,7 @@ MIN_TRADES_PER_SYMBOL = 20
 @dataclass
 class GateTuneResult:
     """Result of gate tuning."""
+
     spread_gates: dict[str, float]
     session_gates: dict[str, list[int]]
     volatility_gates: dict[str, tuple[float, float]]
@@ -41,6 +44,7 @@ class GateTuner:
             return []
         trades = []
         import json
+
         with open(self._trade_log) as f:
             for line in f:
                 line = line.strip()
@@ -120,7 +124,8 @@ class GateTuner:
                 sum(s["total"] for s in hour_stats.values()), 1
             )
             good_hours = [
-                h for h, s in hour_stats.items()
+                h
+                for h, s in hour_stats.items()
                 if s["total"] >= 3 and (s["wins"] / s["total"]) >= avg_wr
             ]
             result[sym] = sorted(good_hours) if good_hours else DEFAULT_SESSION_HOURS
@@ -144,7 +149,11 @@ class GateTuner:
                 result[sym] = DEFAULT_ATR_RANGE
                 continue
 
-            winning_atrs = [t.get("atr", 0) for t in sym_trades if t.get("pnl", 0) > 0 and t.get("atr")]
+            winning_atrs = [
+                t.get("atr", 0)
+                for t in sym_trades
+                if t.get("pnl", 0) > 0 and t.get("atr")
+            ]
             if len(winning_atrs) < 5:
                 result[sym] = DEFAULT_ATR_RANGE
                 continue
@@ -164,10 +173,13 @@ class GateTuner:
             warnings.append("No trade data available — returning all defaults")
 
         from collections import Counter
+
         symbols = Counter(t.get("symbol", "") for t in trades if t.get("symbol"))
         for sym, count in symbols.items():
             if count < MIN_TRADES_PER_SYMBOL:
-                warnings.append(f"{sym}: only {count} trades (need {MIN_TRADES_PER_SYMBOL}), using defaults")
+                warnings.append(
+                    f"{sym}: only {count} trades (need {MIN_TRADES_PER_SYMBOL}), using defaults"
+                )
 
         return GateTuneResult(
             spread_gates=self.tune_spread_gates(),

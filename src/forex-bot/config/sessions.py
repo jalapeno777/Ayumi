@@ -4,7 +4,7 @@ All times are UTC.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from zoneinfo import ZoneInfo
 
@@ -20,6 +20,7 @@ class SessionDefinition:
 
 
 # Killzone session times (when major exchanges have high volume)
+# Static defaults in UTC — use get_killzone_hours_for_date() for DST-aware values
 class KillzoneHours:
     LONDON_OPEN_START = time(7, 0)
     LONDON_OPEN_END = time(9, 0)
@@ -27,6 +28,76 @@ class KillzoneHours:
     NY_OPEN_END = time(14, 0)
     OVERLAP_START = time(13, 0)
     OVERLAP_END = time(16, 0)
+
+
+# ---------------------------------------------------------------------------
+# DST-aware killzone hours
+# ---------------------------------------------------------------------------
+
+_LONDON_TZ = ZoneInfo("Europe/London")
+_NY_TZ = ZoneInfo("America/New_York")
+
+
+def is_london_dst(d: date) -> bool:
+    """Return True if London is in BST (DST) on the given date."""
+    dt = datetime(d.year, d.month, d.day, 12, 0, tzinfo=_LONDON_TZ)
+    return dt.dst() != timedelta(0)
+
+
+def is_ny_dst(d: date) -> bool:
+    """Return True if New York is in EDT (DST) on the given date."""
+    dt = datetime(d.year, d.month, d.day, 12, 0, tzinfo=_NY_TZ)
+    return dt.dst() != timedelta(0)
+
+
+@dataclass(frozen=True)
+class DSTAwareKillzoneHours:
+    """Killzone hours in UTC, adjusted for DST on a given date.
+
+    London Open killzone is 8:00–10:00 London local.
+    In GMT (winter): 8–10 UTC.
+    In BST (summer): 7–9 UTC.
+
+    NY Open killzone is 8:00–10:00 NY local.
+    In EST (winter): 13–15 UTC.
+    In EDT (summer): 12–14 UTC.
+    """
+
+    LONDON_OPEN_START: time
+    LONDON_OPEN_END: time
+    NY_OPEN_START: time
+    NY_OPEN_END: time
+    OVERLAP_START: time
+    OVERLAP_END: time
+
+
+def get_killzone_hours_for_date(d: date) -> DSTAwareKillzoneHours:
+    """Return killzone hours in UTC adjusted for London/NY DST status.
+
+    Handles the spring/fall mismatch periods where one region has
+    transitioned but the other has not (typically 1–2 weeks in
+    March and November).
+    """
+    london_offset = 1 if is_london_dst(d) else 0  # London UTC offset
+    ny_utc_offset = -4 if is_ny_dst(d) else -5  # NY UTC offset
+
+    london_start = 8 - london_offset
+    london_end = 10 - london_offset
+    ny_start = 8 - ny_utc_offset  # 8 - (-4) = 12 summer, 8 - (-5) = 13 winter
+    ny_end = 10 - ny_utc_offset  # 10 - (-4) = 14 summer, 10 - (-5) = 15 winter
+
+    # Overlap: NY open to ~London afternoon close
+    overlap_start = ny_start
+    overlap_end = max(ny_end, min(ny_start + 4, 16))
+
+    return DSTAwareKillzoneHours(
+        LONDON_OPEN_START=time(london_start, 0),
+        LONDON_OPEN_END=time(london_end, 0),
+        NY_OPEN_START=time(ny_start, 0),
+        NY_OPEN_END=time(ny_end, 0),
+        OVERLAP_START=time(overlap_start, 0),
+        OVERLAP_END=time(overlap_end, 0),
+    )
 
 
 # Session range mean reversion times

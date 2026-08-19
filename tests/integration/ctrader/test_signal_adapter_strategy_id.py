@@ -4,9 +4,8 @@ Verifies that the strategy name is correctly threaded through to
 the CTraderTradeSignal.strategy_id field when signals are adapted.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from adapters.ctrader.signal_adapter import cTraderSignalAdapter
@@ -14,6 +13,7 @@ from backtest.types import StrategySignal, TradeDirection as BacktestTradeDirect
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
+
 
 def _make_strategy(name: str = "Session Breakout Asian"):
     """Create a mock ISignalStrategy with the given name."""

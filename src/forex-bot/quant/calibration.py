@@ -41,6 +41,7 @@ returns or aggregate metrics, not per-trade confidence data. When confidence
 data is wired into the walk-forward pipeline, the integration card can
 populate these parameters directly from per-trade signal records.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

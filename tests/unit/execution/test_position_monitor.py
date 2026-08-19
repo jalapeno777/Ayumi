@@ -14,9 +14,8 @@ Tests cover:
   - Kill switch FREEZE on portfolio drawdown breach
 """
 
-import time as time_mod
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -31,6 +30,7 @@ from adapters.ctrader.risk_guard import FTMOConfig, RiskGuard
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def order_manager():
@@ -92,8 +92,8 @@ def _make_short_position(order_manager, symbol="EURUSD", entry=1.1000, volume=0.
 
 # ── 1. PositionStatus enum ────────────────────────────────────────────────────
 
-class TestPositionStatusEnum:
 
+class TestPositionStatusEnum:
     def test_has_all_seven_statuses(self):
         statuses = {s for s in PositionStatus}
         assert len(statuses) == 7
@@ -123,8 +123,8 @@ class TestPositionStatusEnum:
 
 # ── 2. Position field defaults ────────────────────────────────────────────────
 
-class TestPositionDefaults:
 
+class TestPositionDefaults:
     def test_new_position_has_zero_mfe_mae(self):
         pos = Position(
             position_id="test_1",
@@ -175,8 +175,8 @@ class TestPositionDefaults:
 
 # ── 3. PositionMonitor init ───────────────────────────────────────────────────
 
-class TestPositionMonitorInit:
 
+class TestPositionMonitorInit:
     def test_init_with_defaults(self, order_manager):
         pm = PositionMonitor(order_manager=order_manager)
         assert pm._max_trade_duration_sec == 14400
@@ -200,8 +200,8 @@ class TestPositionMonitorInit:
 
 # ── 4. update_positions — MAE/MFE tracking ────────────────────────────────────
 
-class TestMAEMFETRacking:
 
+class TestMAEMFETRacking:
     def test_long_mfe_increases_when_price_rises(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Price goes up → favorable for long
@@ -265,7 +265,9 @@ class TestMAEMFETRacking:
         monitor.update_positions(
             prices={"EURUSD": 1.0900}, bids={"EURUSD": 1.0900}, asks={"EURUSD": 1.0901}
         )
-        current_mfe = order_manager.get_position(pos.position_id).max_favorable_excursion
+        current_mfe = order_manager.get_position(
+            pos.position_id
+        ).max_favorable_excursion
         assert current_mfe == peak_mfe  # MFE never decreases
 
     def test_mae_does_not_increase(self, monitor, order_manager):
@@ -287,8 +289,8 @@ class TestMAEMFETRacking:
 
 # ── 5. update_positions — water marks ─────────────────────────────────────────
 
-class TestWaterMarks:
 
+class TestWaterMarks:
     def test_long_high_water_mark_tracks_highest(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         monitor.update_positions(
@@ -332,8 +334,8 @@ class TestWaterMarks:
 
 # ── 6. time_in_trade calculation ──────────────────────────────────────────────
 
-class TestTimeInTrade:
 
+class TestTimeInTrade:
     def test_time_in_trade_increases(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Immediately after creation, time should be near 0
@@ -361,9 +363,11 @@ class TestTimeInTrade:
 
 # ── 7. check_time_exits ───────────────────────────────────────────────────────
 
-class TestTimeExits:
 
-    def test_returns_positions_exceeding_duration(self, order_manager, risk_guard, kill_switch):
+class TestTimeExits:
+    def test_returns_positions_exceeding_duration(
+        self, order_manager, risk_guard, kill_switch
+    ):
         # Create monitor with short duration for testing
         pm = PositionMonitor(
             order_manager=order_manager,
@@ -398,8 +402,8 @@ class TestTimeExits:
 
 # ── 8. check_drawdown_alerts ──────────────────────────────────────────────────
 
-class TestDrawdownAlerts:
 
+class TestDrawdownAlerts:
     def test_warning_at_threshold(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Run price up to establish MFE
@@ -454,8 +458,8 @@ class TestDrawdownAlerts:
 
 # ── 9. get_portfolio_summary ──────────────────────────────────────────────────
 
-class TestPortfolioSummary:
 
+class TestPortfolioSummary:
     def test_empty_portfolio(self, monitor):
         summary = monitor.get_portfolio_summary()
         assert summary["position_count"] == 0
@@ -506,7 +510,9 @@ class TestPortfolioSummary:
         assert summary["total_mfe"] > 0
         assert summary["total_mae"] == 0
 
-    def test_summary_includes_kill_switch_status(self, monitor, order_manager, kill_switch):
+    def test_summary_includes_kill_switch_status(
+        self, monitor, order_manager, kill_switch
+    ):
         kill_switch.is_globally_killed.return_value = False
         kill_switch.is_globally_frozen.return_value = False
         summary = monitor.get_portfolio_summary()
@@ -522,8 +528,8 @@ class TestPortfolioSummary:
 
 # ── 10. get_position_report ───────────────────────────────────────────────────
 
-class TestPositionReport:
 
+class TestPositionReport:
     def test_returns_detailed_report(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         monitor.update_positions(
@@ -568,11 +574,9 @@ class TestPositionReport:
 
 # ── 11. Kill switch FREEZE on portfolio drawdown ──────────────────────────────
 
-class TestKillSwitchIntegration:
 
-    def test_freeze_on_portfolio_drawdown_breach(
-        self, order_manager, kill_switch
-    ):
+class TestKillSwitchIntegration:
+    def test_freeze_on_portfolio_drawdown_breach(self, order_manager, kill_switch):
         # Create a risk_guard with a very low drawdown limit for easy triggering
         config = FTMOConfig(total_drawdown_limit_pct=0.01)  # 1% drawdown limit
         rg = RiskGuard(ftmo_config=config, starting_balance=100000.0)
@@ -649,8 +653,8 @@ class TestKillSwitchIntegration:
 
 # ── 12. Background monitoring ─────────────────────────────────────────────────
 
-class TestBackgroundMonitoring:
 
+class TestBackgroundMonitoring:
     def test_start_stop_monitoring(self, monitor):
         monitor._check_interval_sec = 0.1  # Fast for testing
         monitor.start_monitoring()
@@ -675,8 +679,8 @@ class TestBackgroundMonitoring:
 
 # ── 13. Callbacks ─────────────────────────────────────────────────────────────
 
-class TestCallbacks:
 
+class TestCallbacks:
     def test_register_callback(self, monitor):
         called = []
         monitor.register_callback("on_time_exit", lambda pid: called.append(pid))

@@ -1,6 +1,6 @@
 """Tests for strategy return-None logging (T3)."""
+
 import logging
-import pytest
 from unittest.mock import MagicMock
 
 
@@ -41,8 +41,9 @@ class TestSRMRPlusLogging:
             )
 
         assert result is None
-        assert any("ATR" in r.message for r in caplog.records), \
+        assert any("ATR" in r.message for r in caplog.records), (
             "Expected ATR-related log message"
+        )
 
 
 class TestTTCXAUUSDLogging:
@@ -68,7 +69,7 @@ class TestTTCXAUUSDLogging:
         import strategies.srmr_plus as srmr_mod
         import strategies.ttc_xauusd as ttc_mod
 
-        assert hasattr(srmr_mod, 'logger'), "srmr_plus missing logger"
-        assert hasattr(ttc_mod, 'logger'), "ttc_xauusd missing logger"
+        assert hasattr(srmr_mod, "logger"), "srmr_plus missing logger"
+        assert hasattr(ttc_mod, "logger"), "ttc_xauusd missing logger"
         assert isinstance(srmr_mod.logger, logging.Logger)
         assert isinstance(ttc_mod.logger, logging.Logger)

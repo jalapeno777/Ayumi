@@ -59,7 +59,16 @@ def _make_cm_with_pair_corr(
 class TestCurrencyLegs:
     def test_currency_legs_has_all_8_pairs(self):
         """AC 2: CURRENCY_LEGS covers all 8 pairs including XAU/AUD/CAD."""
-        expected = {"GBPUSD", "EURUSD", "USDJPY", "EURCHF", "GBPJPY", "AUDUSD", "USDCAD", "XAUUSD"}
+        expected = {
+            "GBPUSD",
+            "EURUSD",
+            "USDJPY",
+            "EURCHF",
+            "GBPJPY",
+            "AUDUSD",
+            "USDCAD",
+            "XAUUSD",
+        }
         assert expected.issubset(CURRENCY_LEGS)
 
     def test_legs_decompose_correctly(self):
@@ -184,7 +193,11 @@ class TestWouldBlock:
         """AC 8 (test 8): 3 uncorrelated positions → would_block False."""
         cm = _make_cm_with_pair_corr(
             ["EURUSD", "USDJPY", "USDCAD"],
-            {("EURUSD", "USDJPY"): 0.0, ("EURUSD", "USDCAD"): 0.0, ("USDJPY", "USDCAD"): 0.0},
+            {
+                ("EURUSD", "USDJPY"): 0.0,
+                ("EURUSD", "USDCAD"): 0.0,
+                ("USDJPY", "USDCAD"): 0.0,
+            },
         )
         tracker = CurrencyExposureTracker(cm)
         tracker.register_position(PositionExposure("EURUSD", "long", 10_000))

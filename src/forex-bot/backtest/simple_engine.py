@@ -1,16 +1,9 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from enum import Enum
-from typing import Any
 import math
 
-from core.types import ExitReason
-
-
-class TradeDirection(Enum):
-    LONG = "long"
-    SHORT = "short"
-    NEUTRAL = "neutral"
+from core.types import ExitReason, TradeDirection
 
 
 class TradeOutcome(Enum):

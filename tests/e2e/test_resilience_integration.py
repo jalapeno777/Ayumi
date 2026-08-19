@@ -25,10 +25,20 @@ from dataclasses import dataclass as _dataclass
 from datetime import datetime as _datetime
 from enum import Enum as _Enum
 
+
 # pandas stub
-class _FakeDataFrame: pass
-class _FakeSeries: pass
-class _FakeDatetimeIndex: pass
+class _FakeDataFrame:
+    pass
+
+
+class _FakeSeries:
+    pass
+
+
+class _FakeDatetimeIndex:
+    pass
+
+
 _pandas = _types.ModuleType("pandas")
 _pandas.DataFrame = _FakeDataFrame
 _pandas.Series = _FakeSeries
@@ -38,16 +48,25 @@ _pandas.DatetimeIndex = _FakeDatetimeIndex
 _signal_engine = _types.ModuleType("signal_engine")
 _signal_stats = _types.ModuleType("signal_engine.signal_stats")
 _swing_detector = _types.ModuleType("signal_engine.swing_detector")
-class _SwingDetector: pass
+
+
+class _SwingDetector:
+    pass
+
+
 _swing_detector.SwingDetector = _SwingDetector
 
 # backtest stub
 _backtest = _types.ModuleType("backtest")
 _backtest_engine = _types.ModuleType("backtest.engine")
 _backtest_strategies = _types.ModuleType("backtest.strategies")
+
+
 class _TradeDirection(_Enum):
     LONG = "long"
     SHORT = "short"
+
+
 @_dataclass
 class _Bar:
     time: _datetime
@@ -56,10 +75,17 @@ class _Bar:
     low: float
     close: float
     volume: float = 0
+
+
 @_dataclass
 class _MarketState:
     bars: list = None
-class _ISignalStrategy: pass
+
+
+class _ISignalStrategy:
+    pass
+
+
 _backtest_engine.Bar = _Bar
 _backtest_engine.MarketState = _MarketState
 _backtest_engine.TradeDirection = _TradeDirection
@@ -67,42 +93,89 @@ _backtest_strategies.ISignalStrategy = _ISignalStrategy
 
 # ctrader_open_api stub
 _ctrader = _types.ModuleType("ctrader_open_api")
+
+
 class _Client:
-    def __init__(self, host, port, protocol): pass
-    def setConnectedCallback(self, cb): pass
-    def setDisconnectedCallback(self, cb): pass
-    def startService(self): pass
-    def stopService(self): pass
-    def send(self, msg, **kwargs): pass
-class _TcpProtocol: pass
+    def __init__(self, host, port, protocol):
+        pass
+
+    def setConnectedCallback(self, cb):
+        pass
+
+    def setDisconnectedCallback(self, cb):
+        pass
+
+    def startService(self):
+        pass
+
+    def stopService(self):
+        pass
+
+    def send(self, msg, **kwargs):
+        pass
+
+
+class _TcpProtocol:
+    pass
+
+
 _ctrader.Client = _Client
 _ctrader.TcpProtocol = _TcpProtocol
 _protobuf_mod = _types.ModuleType("ctrader_open_api.protobuf")
+
+
 class _Protobuf:
     @staticmethod
-    def extract(msg): return msg
+    def extract(msg):
+        return msg
+
+
 _protobuf_mod.Protobuf = _Protobuf
 _messages_mod = _types.ModuleType("ctrader_open_api.messages")
 _msg_names = [
-    "ProtoOAAccountAuthReq", "ProtoOAAmendOrderReq", "ProtoOAAmendPositionSLTPReq",
-    "ProtoOAApplicationAuthReq", "ProtoOACancelOrderReq", "ProtoOAClosePositionReq",
-    "ProtoOAExecutionEvent", "ProtoOAGetTrendbarsReq", "ProtoOANewOrderReq",
-    "ProtoOAOrderErrorEvent", "ProtoOAReconcileReq", "ProtoOASubscribeSpotsReq",
-    "ProtoOASymbolByIdReq", "ProtoOASymbolsListReq", "ProtoOAUnsubscribeSpotsReq",
+    "ProtoOAAccountAuthReq",
+    "ProtoOAAmendOrderReq",
+    "ProtoOAAmendPositionSLTPReq",
+    "ProtoOAApplicationAuthReq",
+    "ProtoOACancelOrderReq",
+    "ProtoOAClosePositionReq",
+    "ProtoOAExecutionEvent",
+    "ProtoOAGetTrendbarsReq",
+    "ProtoOANewOrderReq",
+    "ProtoOAOrderErrorEvent",
+    "ProtoOAReconcileReq",
+    "ProtoOASubscribeSpotsReq",
+    "ProtoOASymbolByIdReq",
+    "ProtoOASymbolsListReq",
+    "ProtoOAUnsubscribeSpotsReq",
 ]
 _openapi_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiMessages_pb2")
 for _name in _msg_names:
     _cls = type(_name, (), {"__init__": lambda self, **kw: None})
     setattr(_openapi_msgs, _name, _cls)
 _model_msgs = _types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
+
+
 class _ProtoOAOrderType:
-    MARKET = 0; LIMIT = 1; STOP = 2
+    MARKET = 0
+    LIMIT = 1
+    STOP = 2
+
+
 class _ProtoOATradeSide:
-    BUY = 0; SELL = 1
+    BUY = 0
+    SELL = 1
+
+
 class _ProtoOATimeInForce:
     GOOD_TILL_CANCEL = 0
+
+
 class _ProtoOAExecutionType:
-    ORDER_CANCELLED = 0; ORDER_REJECTED = 1
+    ORDER_CANCELLED = 0
+    ORDER_REJECTED = 1
+
+
 _model_msgs.ProtoOAOrderType = _ProtoOAOrderType
 _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
@@ -113,19 +186,14 @@ import threading
 import time
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.connection_state import (
     ConnectionState,
     ConnectionStateManager,
-    is_valid_transition,
 )
 from adapters.ctrader.open_api_spot_feed import (
     OpenApiSpotFeed,
-    _STALE_TICK_FREEZE_SEC,
-    _STALE_TICK_WARN_SEC,
-    _HEARTBEAT_DEGRADED_SEC,
-    _HEARTBEAT_RECONNECT_SEC,
 )
 
 
@@ -142,13 +210,18 @@ def _install_mock_stubs(monkeypatch):
     monkeypatch.setitem(_sys.modules, "ctrader_open_api", _ctrader)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.protobuf", _protobuf_mod)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages", _messages_mod)
-    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
-    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
+    monkeypatch.setitem(
+        _sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs
+    )
+    monkeypatch.setitem(
+        _sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs
+    )
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_feed(**overrides):
     """Create an OpenApiSpotFeed with dummy credentials (no network)."""
@@ -179,6 +252,7 @@ def _make_kill_switch():
 # Suite 1: Startup Token Validation (5 tests)
 # ===================================================================
 
+
 class TestStartupTokenValidation(unittest.TestCase):
     """Verify start() rejects invalid/placeholder tokens before any network."""
 
@@ -208,8 +282,10 @@ class TestStartupTokenValidation(unittest.TestCase):
         """start() accepts valid tokens and attempts to connect."""
         feed = _make_feed()
         # Patch _conn.connect so token validation passes and connect is attempted
-        with patch.object(feed._conn, "connect", return_value=True) as mock_connect, \
-             patch.object(feed, "_auth", return_value=False):
+        with (
+            patch.object(feed._conn, "connect", return_value=True) as mock_connect,
+            patch.object(feed, "_auth", return_value=False),
+        ):
             feed.start()
             # _conn.connect was called, meaning token validation passed
             mock_connect.assert_called_once()
@@ -227,6 +303,7 @@ class TestStartupTokenValidation(unittest.TestCase):
 # Suite 2: Kill Switch Auto-Clear (3 tests)
 # ===================================================================
 
+
 class TestKillSwitchAutoClear(unittest.TestCase):
     """Verify successful auth auto-clears stale kill switch."""
 
@@ -243,12 +320,17 @@ class TestKillSwitchAutoClear(unittest.TestCase):
 
         mock_payload = MagicMock()
         mock_payload.expiresIn = 3600
-        with patch.object(feed._conn, "connect", return_value=True), \
-             patch.object(feed._conn, "send_and_wait", return_value=MagicMock()), \
-             patch.object(feed, "_is_expected_auth_response", return_value=True), \
-             patch("adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=mock_payload), \
-             patch.object(feed, "_fetch_symbol_list", return_value=True), \
-             patch.object(feed, "_schedule_proactive_refresh"):
+        with (
+            patch.object(feed._conn, "connect", return_value=True),
+            patch.object(feed._conn, "send_and_wait", return_value=MagicMock()),
+            patch.object(feed, "_is_expected_auth_response", return_value=True),
+            patch(
+                "adapters.ctrader.open_api_spot_feed.Protobuf.extract",
+                return_value=mock_payload,
+            ),
+            patch.object(feed, "_fetch_symbol_list", return_value=True),
+            patch.object(feed, "_schedule_proactive_refresh"),
+        ):
             feed.start()
 
         ks.deactivate.assert_called_once_with(reason="auto_cleared_on_successful_auth")
@@ -260,9 +342,11 @@ class TestKillSwitchAutoClear(unittest.TestCase):
         ks.is_active.return_value = False
         feed.set_kill_switch(ks)
 
-        with patch.object(feed._conn, "connect", return_value=True), \
-             patch.object(feed, "_auth", return_value=True), \
-             patch.object(feed, "_fetch_symbol_list", return_value=True):
+        with (
+            patch.object(feed._conn, "connect", return_value=True),
+            patch.object(feed, "_auth", return_value=True),
+            patch.object(feed, "_fetch_symbol_list", return_value=True),
+        ):
             feed.start()
 
         ks.deactivate.assert_not_called()
@@ -274,8 +358,10 @@ class TestKillSwitchAutoClear(unittest.TestCase):
         ks.is_active.return_value = True
         feed.set_kill_switch(ks)
 
-        with patch.object(feed._conn, "connect", return_value=True), \
-             patch.object(feed._conn, "send_and_wait", return_value=None):
+        with (
+            patch.object(feed._conn, "connect", return_value=True),
+            patch.object(feed._conn, "send_and_wait", return_value=None),
+        ):
             result = feed.start()
 
         self.assertFalse(result)
@@ -285,6 +371,7 @@ class TestKillSwitchAutoClear(unittest.TestCase):
 # ===================================================================
 # Suite 3: Stale Tick → FREEZE (5 tests)
 # ===================================================================
+
 
 class TestStaleTickFreeze(unittest.TestCase):
     """Verify stale tick detection triggers FREEZE at 120s threshold."""
@@ -305,9 +392,7 @@ class TestStaleTickFreeze(unittest.TestCase):
         # Set last tick to 120s ago
         feed._last_tick_recv_monotonic = time.monotonic() - 120.1
 
-        with patch(
-            "adapters.ctrader.open_api_spot_feed.datetime"
-        ) as mock_dt:
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
             # Weekday so stale check runs
             mock_now = MagicMock()
             mock_now.weekday.return_value = 1  # Tuesday
@@ -325,9 +410,7 @@ class TestStaleTickFreeze(unittest.TestCase):
         # Set last tick to 60s ago
         feed._last_tick_recv_monotonic = time.monotonic() - 60.5
 
-        with patch(
-            "adapters.ctrader.open_api_spot_feed.datetime"
-        ) as mock_dt:
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
             mock_now = MagicMock()
             mock_now.weekday.return_value = 1
             mock_dt.now.return_value = mock_now
@@ -344,9 +427,7 @@ class TestStaleTickFreeze(unittest.TestCase):
         # Very stale ticks
         feed._last_tick_recv_monotonic = time.monotonic() - 500.0
 
-        with patch(
-            "adapters.ctrader.open_api_spot_feed.datetime"
-        ) as mock_dt:
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
             mock_now = MagicMock()
             mock_now.weekday.return_value = 5  # Saturday
             mock_dt.now.return_value = mock_now
@@ -362,13 +443,15 @@ class TestStaleTickFreeze(unittest.TestCase):
         feed._running = True
         feed._last_tick_recv_monotonic = time.monotonic() - 500.0
 
-        for state in [ConnectionState.DISCONNECTED, ConnectionState.CONNECTING,
-                       ConnectionState.RECONNECTING, ConnectionState.FAILED]:
+        for state in [
+            ConnectionState.DISCONNECTED,
+            ConnectionState.CONNECTING,
+            ConnectionState.RECONNECTING,
+            ConnectionState.FAILED,
+        ]:
             with self.subTest(state=state):
                 feed._state_mgr._state = state
-                with patch(
-                    "adapters.ctrader.open_api_spot_feed.datetime"
-                ) as mock_dt:
+                with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
                     mock_now = MagicMock()
                     mock_now.weekday.return_value = 1
                     mock_dt.now.return_value = mock_now
@@ -384,9 +467,7 @@ class TestStaleTickFreeze(unittest.TestCase):
         # Exactly at threshold
         feed._last_tick_recv_monotonic = time.monotonic() - 120.0
 
-        with patch(
-            "adapters.ctrader.open_api_spot_feed.datetime"
-        ) as mock_dt:
+        with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
             mock_now = MagicMock()
             mock_now.weekday.return_value = 1
             mock_dt.now.return_value = mock_now
@@ -399,12 +480,16 @@ class TestStaleTickFreeze(unittest.TestCase):
 # Suite 4: Feed Disconnect → FREEZE (4 tests)
 # ===================================================================
 
+
 class TestFeedDisconnectFreeze(unittest.TestCase):
     """Verify feed disconnect detection and FREEZE activation in ForwardTestEngine."""
 
     def _make_engine(self):
         """Build a ForwardTestEngine with mocked internals."""
-        from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig
+        from adapters.ctrader.forward_test_engine import (
+            ForwardTestEngine,
+            ForwardTestConfig,
+        )
         from backtest.strategies import ISignalStrategy
 
         strategy = MagicMock(spec=ISignalStrategy)
@@ -422,7 +507,9 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
     # BLOCKED: _check_feed_health_kill_switch freeze-activation code is intentionally
     # commented out (P5A scope-out). Requires implementing feed-disconnect detection
     # in ForwardTestEngine. Tracked in P5A closeout notes.
-    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out). Requires code change in production, not a test fix.")
+    @pytest.mark.xfail(
+        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out). Requires code change in production, not a test fix."
+    )
     def test_feed_disconnect_detected_via_is_running(self):
         """Feed disconnect detected when market_feed.is_running is False."""
         engine = self._make_engine()
@@ -440,7 +527,9 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         self.assertTrue(engine._feed_disconnect_frozen)
 
     # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
-    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
+    @pytest.mark.xfail(
+        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out)."
+    )
     def test_reconnect_does_not_auto_clear_disconnect_freeze(self):
         """Reconnect does NOT auto-clear disconnect freeze."""
         engine = self._make_engine()
@@ -458,7 +547,9 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         self.assertTrue(engine._feed_disconnect_frozen)
 
     # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
-    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
+    @pytest.mark.xfail(
+        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out)."
+    )
     def test_disconnect_frozen_flag_prevents_duplicate_activations(self):
         """_feed_disconnect_frozen flag prevents duplicate freeze activations."""
         engine = self._make_engine()
@@ -472,7 +563,9 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
         engine._kill_switch.activate_global_freeze.assert_not_called()
 
     # BLOCKED: same P5A scope-out as test_feed_disconnect_detected_via_is_running.
-    @pytest.mark.xfail(reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out).")
+    @pytest.mark.xfail(
+        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out)."
+    )
     def test_disconnect_freeze_logged_appropriately(self):
         """Disconnect freeze activation is logged."""
         engine = self._make_engine()
@@ -489,6 +582,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
 # ===================================================================
 # Suite 5: State Machine Transitions (6 tests)
 # ===================================================================
+
 
 class TestStateMachineTransitions(unittest.TestCase):
     """Verify ConnectionStateManager transition logic."""
@@ -551,6 +645,7 @@ class TestStateMachineTransitions(unittest.TestCase):
     def test_all_valid_transitions_from_each_state(self):
         """All transitions defined in the transition table are accepted."""
         from adapters.ctrader.connection_state import _VALID_TRANSITIONS
+
         mgr = ConnectionStateManager(name="test_all")
 
         for (from_state, to_state), expected in _VALID_TRANSITIONS.items():
@@ -559,7 +654,11 @@ class TestStateMachineTransitions(unittest.TestCase):
                 continue
             mgr._state = from_state
             result = mgr.transition_to(to_state)
-            self.assertEqual(result, expected, f"transition {from_state.value} → {to_state.value} expected {expected}, got {result}")
+            self.assertEqual(
+                result,
+                expected,
+                f"transition {from_state.value} → {to_state.value} expected {expected}, got {result}",
+            )
             if expected:
                 self.assertEqual(mgr.state, to_state)
 
@@ -580,9 +679,13 @@ class TestStateMachineTransitions(unittest.TestCase):
         mgr._state = ConnectionState.CONNECTING
 
         threads = [
-            threading.Thread(target=do_transition, args=(ConnectionState.CONNECTED, True)),
+            threading.Thread(
+                target=do_transition, args=(ConnectionState.CONNECTED, True)
+            ),
             threading.Thread(target=do_transition, args=(ConnectionState.FAILED, True)),
-            threading.Thread(target=do_transition, args=(ConnectionState.DISCONNECTED, True)),
+            threading.Thread(
+                target=do_transition, args=(ConnectionState.DISCONNECTED, True)
+            ),
         ]
         for t in threads:
             t.start()
@@ -592,14 +695,26 @@ class TestStateMachineTransitions(unittest.TestCase):
         self.assertEqual(len(errors), 0, f"Thread errors: {errors}")
         # At least one transition must succeed; all must be valid transitions
         successful = [r for r in results if r[1] is True]
-        self.assertGreaterEqual(len(successful), 1, f"Expected >=1 success, got {len(successful)}: {results}")
+        self.assertGreaterEqual(
+            len(successful),
+            1,
+            f"Expected >=1 success, got {len(successful)}: {results}",
+        )
         # Final state must be one of the valid targets from CONNECTING
-        self.assertIn(mgr.state, {ConnectionState.CONNECTED, ConnectionState.FAILED, ConnectionState.DISCONNECTED})
+        self.assertIn(
+            mgr.state,
+            {
+                ConnectionState.CONNECTED,
+                ConnectionState.FAILED,
+                ConnectionState.DISCONNECTED,
+            },
+        )
 
 
 # ===================================================================
 # Suite 6: Disconnect Recovery (4 tests)
 # ===================================================================
+
 
 class TestDisconnectRecovery(unittest.TestCase):
     """Verify reconnect restores state, circuit breaker, health, and tick flow."""
@@ -616,15 +731,18 @@ class TestDisconnectRecovery(unittest.TestCase):
         feed._client = mock_client
 
         call_count = [0]
+
         def fake_send_and_wait(msg, **kwargs):
             call_count[0] += 1
             return MagicMock()  # non-None = success
 
-        with patch.object(feed._conn, "send_and_wait", side_effect=fake_send_and_wait), \
-             patch.object(feed, "_is_expected_auth_response", return_value=True), \
-             patch.object(feed, "_subscribe_by_id"), \
-             patch.object(feed, "_schedule_proactive_refresh"), \
-             patch.object(feed, "reconcile", return_value=[]):
+        with (
+            patch.object(feed._conn, "send_and_wait", side_effect=fake_send_and_wait),
+            patch.object(feed, "_is_expected_auth_response", return_value=True),
+            patch.object(feed, "_subscribe_by_id"),
+            patch.object(feed, "_schedule_proactive_refresh"),
+            patch.object(feed, "reconcile", return_value=[]),
+        ):
             feed._reconnect_restore()
 
         self.assertEqual(feed._state_mgr.state, ConnectionState.AUTHENTICATED)
@@ -664,7 +782,6 @@ class TestDisconnectRecovery(unittest.TestCase):
         feed.on_tick(lambda t: received_ticks.append(t))
 
         # Simulate a tick arriving
-        from adapters.ctrader.market_data_feed import Tick
 
         mock_payload = MagicMock()
         mock_payload.symbolId = 1

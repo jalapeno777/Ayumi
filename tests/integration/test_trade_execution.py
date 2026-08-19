@@ -33,7 +33,12 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _normalize_symbol_name
 from adapters.ctrader.connection_state import ConnectionState
-from adapters.ctrader.models import TradeDirection, OrderType, OrderStatus, PositionStatus
+from adapters.ctrader.models import (
+    TradeDirection,
+    OrderType,
+    OrderStatus,
+    PositionStatus,
+)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -187,7 +192,9 @@ class TestNewOrder:
         _set_connected(feed)
         _capture_send(feed)
 
-        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01)
+        order = feed.new_order(
+            symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01
+        )
         assert order.symbol == "EURUSD"
         assert order.direction == TradeDirection.LONG
         assert order.order_type == OrderType.MARKET
@@ -199,7 +206,9 @@ class TestNewOrder:
         _set_connected(feed)
         _capture_send(feed)
 
-        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.SELL, volume=100_000, timeout=0.01)
+        order = feed.new_order(
+            symbol_id=1, side=ProtoOATradeSide.SELL, volume=100_000, timeout=0.01
+        )
         assert order.direction == TradeDirection.SHORT
 
     def test_new_order_not_connected_returns_order_with_reason(self):
@@ -207,7 +216,9 @@ class TestNewOrder:
         _set_connected(feed, connected=False)
         _capture_send(feed)
 
-        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01)
+        order = feed.new_order(
+            symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01
+        )
 
         assert len(_capture_send(feed)) == 0
         assert order.status == OrderStatus.PENDING
@@ -224,20 +235,32 @@ class TestSendOrder:
 
         new_order_calls = []
 
-        def fake_new_order(symbol_id, side, volume, *, order_type=ProtoOAOrderType.MARKET,
-                           price=None, sl=None, tp=None, time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
-                           comment="", timeout=10.0):
-            new_order_calls.append({
-                "symbol_id": symbol_id,
-                "side": side,
-                "volume": volume,
-                "order_type": order_type,
-                "price": price,
-                "sl": sl,
-                "tp": tp,
-                "time_in_force": time_in_force,
-                "comment": comment,
-            })
+        def fake_new_order(
+            symbol_id,
+            side,
+            volume,
+            *,
+            order_type=ProtoOAOrderType.MARKET,
+            price=None,
+            sl=None,
+            tp=None,
+            time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
+            comment="",
+            timeout=10.0,
+        ):
+            new_order_calls.append(
+                {
+                    "symbol_id": symbol_id,
+                    "side": side,
+                    "volume": volume,
+                    "order_type": order_type,
+                    "price": price,
+                    "sl": sl,
+                    "tp": tp,
+                    "time_in_force": time_in_force,
+                    "comment": comment,
+                }
+            )
             return MagicMock()
 
         feed.new_order = fake_new_order
@@ -268,16 +291,28 @@ class TestSendOrder:
 
         new_order_calls = []
 
-        def fake_new_order(symbol_id, side, volume, *, order_type=ProtoOAOrderType.MARKET,
-                           price=None, sl=None, tp=None, time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
-                           comment="", timeout=10.0):
-            new_order_calls.append({
-                "symbol_id": symbol_id,
-                "side": side,
-                "volume": volume,
-                "order_type": order_type,
-                "price": price,
-            })
+        def fake_new_order(
+            symbol_id,
+            side,
+            volume,
+            *,
+            order_type=ProtoOAOrderType.MARKET,
+            price=None,
+            sl=None,
+            tp=None,
+            time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
+            comment="",
+            timeout=10.0,
+        ):
+            new_order_calls.append(
+                {
+                    "symbol_id": symbol_id,
+                    "side": side,
+                    "volume": volume,
+                    "order_type": order_type,
+                    "price": price,
+                }
+            )
             return MagicMock()
 
         feed.new_order = fake_new_order
@@ -407,7 +442,9 @@ class TestReconcile:
         _set_connected(feed, connected=False)
 
         def should_not_be_called(*a, **kw):
-            raise AssertionError("send_and_wait should not be called when not operational")
+            raise AssertionError(
+                "send_and_wait should not be called when not operational"
+            )
 
         feed._conn.send_and_wait = should_not_be_called
         assert feed.reconcile() == []

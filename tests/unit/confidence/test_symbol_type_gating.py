@@ -32,6 +32,7 @@ from models.instrument import (
 # SymbolType enum
 # ---------------------------------------------------------------------------
 
+
 class TestSymbolTypeEnum:
     """Verify the enum has all required variants."""
 
@@ -60,6 +61,7 @@ class TestSymbolTypeEnum:
 # classify_symbol() heuristic
 # ---------------------------------------------------------------------------
 
+
 class TestClassifySymbol:
     """Verify the heuristic classifier routes symbols correctly."""
 
@@ -75,7 +77,9 @@ class TestClassifySymbol:
     )
     def test_forex_major_classification(self, symbol, expected):
         result = classify_symbol(symbol)
-        assert result == expected, f"{symbol} should be {expected.value}, got {result.value}"
+        assert result == expected, (
+            f"{symbol} should be {expected.value}, got {result.value}"
+        )
 
     @pytest.mark.parametrize(
         "symbol,expected",
@@ -88,7 +92,9 @@ class TestClassifySymbol:
     )
     def test_crypto_classification(self, symbol, expected):
         result = classify_symbol(symbol)
-        assert result == expected, f"{symbol} should be {expected.value}, got {result.value}"
+        assert result == expected, (
+            f"{symbol} should be {expected.value}, got {result.value}"
+        )
 
     def test_metal_classification(self):
         assert classify_symbol("XAUUSD") == SymbolType.metal
@@ -107,6 +113,7 @@ class TestClassifySymbol:
 # ---------------------------------------------------------------------------
 # SymbolTypeGate — crypto routing
 # ---------------------------------------------------------------------------
+
 
 class TestSymbolTypeGateCrypto:
     """AC: test_symbol_type_gating.py: crypto_perp routes to crypto detectors"""
@@ -140,7 +147,9 @@ class TestSymbolTypeGateCrypto:
     def test_crypto_spot_routes_to_oi_only(self):
         """Crypto spot symbols get only open_interest (no funding/liquidations)."""
         gate = SymbolTypeGate()
-        routing = gate.route({"symbol": "BTCUSD", "symbol_type": SymbolType.crypto_spot})
+        routing = gate.route(
+            {"symbol": "BTCUSD", "symbol_type": SymbolType.crypto_spot}
+        )
         assert routing.is_crypto is True
         assert routing.detectors == ["open_interest"]
 
@@ -148,6 +157,7 @@ class TestSymbolTypeGateCrypto:
 # ---------------------------------------------------------------------------
 # SymbolTypeGate — forex routing
 # ---------------------------------------------------------------------------
+
 
 class TestSymbolTypeGateForex:
     """AC: test_symbol_type_gating.py: forex_major routes to forex detectors"""
@@ -172,7 +182,9 @@ class TestSymbolTypeGateForex:
     def test_forex_major_does_not_route_to_crypto_detectors(self):
         """Forex symbols must NOT route to crypto-native detectors."""
         gate = SymbolTypeGate()
-        routing = gate.route({"symbol": "USDJPY", "symbol_type": SymbolType.forex_major})
+        routing = gate.route(
+            {"symbol": "USDJPY", "symbol_type": SymbolType.forex_major}
+        )
 
         assert "open_interest" not in routing.detectors
         assert "funding_rate" not in routing.detectors
@@ -181,7 +193,9 @@ class TestSymbolTypeGateForex:
     def test_forex_cross_routes_correctly(self):
         """Forex cross pairs get same detector stack as majors."""
         gate = SymbolTypeGate()
-        routing = gate.route({"symbol": "EURJPY", "symbol_type": SymbolType.forex_cross})
+        routing = gate.route(
+            {"symbol": "EURJPY", "symbol_type": SymbolType.forex_cross}
+        )
         assert routing.is_forex is True
         assert "cot_positioning" in routing.detectors
 
@@ -196,6 +210,7 @@ class TestSymbolTypeGateForex:
 # ---------------------------------------------------------------------------
 # SymbolTypeGate — heuristic fallback
 # ---------------------------------------------------------------------------
+
 
 class TestSymbolTypeGateHeuristic:
     """Gate should fall back to heuristic classification for unregistered symbols."""
@@ -233,6 +248,7 @@ class TestSymbolTypeGateHeuristic:
 # Instrument dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestInstrument:
     """Test Instrument properties and detector_stack."""
 
@@ -263,6 +279,7 @@ class TestInstrument:
 # Gate always passes
 # ---------------------------------------------------------------------------
 
+
 class TestGateBehavior:
     """SymbolTypeGate is a routing gate — it should always pass."""
 
@@ -285,6 +302,7 @@ class TestGateBehavior:
 # ---------------------------------------------------------------------------
 # DETECTOR_STACK completeness
 # ---------------------------------------------------------------------------
+
 
 class TestDetectorStack:
     """Verify every SymbolType has a detector stack entry."""

@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
-pytest.skip("adapters.ctrader.session_range_gbpusd module removed", allow_module_level=True)
+
+pytest.skip(
+    "adapters.ctrader.session_range_gbpusd module removed", allow_module_level=True
+)
 
 from backtest.engine import (
     Bar,

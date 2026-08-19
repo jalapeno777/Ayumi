@@ -56,10 +56,14 @@ class ExecutionPermissionPolicy:
                 return (False, f"policy:not_initialized:{op_name}")
             if not self._kill_switch.is_active():
                 return (True, "clear")
-            mode = self._kill_switch.get_status().get('mode', 'unknown')
+            mode = self._kill_switch.get_status().get("mode", "unknown")
             return (False, f"kill_switch_active:{mode}:{op_name}")
         except Exception as exc:
-            logger.error("ExecutionPermissionPolicy error (%s) — defaulting to DENY: %s", op_name, exc)
+            logger.error(
+                "ExecutionPermissionPolicy error (%s) — defaulting to DENY: %s",
+                op_name,
+                exc,
+            )
             return (False, f"policy_error:{type(exc).__name__}:{op_name}")
 
     # ------------------------------------------------------------------

@@ -32,10 +32,10 @@ from typing import Any, Iterable
 
 # ── Thresholds — sourced from the Hayate design doc (§3.7) ──────────────────
 
-CARD_WARN_DAYS = 3          # KH-001 / KH-002 — flag in audit
-CARD_AUTO_CREATE_DAYS = 7   # KH-003 — auto-create [STALE] follow-up card
-PHASE_WARN_DAYS = 2         # KH-004 — flag
-PHASE_ESCALATE_DAYS = 5     # KH-004 — escalate to Craig
+CARD_WARN_DAYS = 3  # KH-001 / KH-002 — flag in audit
+CARD_AUTO_CREATE_DAYS = 7  # KH-003 — auto-create [STALE] follow-up card
+PHASE_WARN_DAYS = 2  # KH-004 — flag
+PHASE_ESCALATE_DAYS = 5  # KH-004 — escalate to Craig
 
 # Workboard sqlite location (read-only). The OpenClaw gateway owns this file;
 # we never write to it from this module.
@@ -54,6 +54,7 @@ DEFAULT_PLANS_DIR = Path("docs/plans")
 
 # ── Result dataclasses ──────────────────────────────────────────────────────
 
+
 @dataclass
 class StaleCard:
     """A workboard card that is sitting in todo/ready beyond the warn window."""
@@ -63,8 +64,8 @@ class StaleCard:
     status: str
     board_id: str
     age_days: float
-    updated_at: int                       # unix ms (workboard convention)
-    level: str                            # "warn" | "auto_create"
+    updated_at: int  # unix ms (workboard convention)
+    level: str  # "warn" | "auto_create"
     labels: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -75,17 +76,18 @@ class StaleCard:
 class StalePhase:
     """A quest phase whose audit_trail has not been touched in N days."""
 
-    phase_id: str                         # e.g. "Phase 6"
-    source_file: str                     # docs/plans/quest-*.md
-    last_audit_ts: str | None             # ISO timestamp of last audit entry
+    phase_id: str  # e.g. "Phase 6"
+    source_file: str  # docs/plans/quest-*.md
+    last_audit_ts: str | None  # ISO timestamp of last audit entry
     age_days: float
-    level: str                            # "warn" | "escalate"
+    level: str  # "warn" | "escalate"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _now_epoch_ms() -> int:
     return int(time.time() * 1000)
@@ -111,6 +113,7 @@ def _append_jsonl(path: Path, record: dict[str, Any]) -> None:
 
 
 # ── Workboard read-only helpers ─────────────────────────────────────────────
+
 
 def _open_workboard(db_path: str = DEFAULT_WORKBOARD_DB) -> sqlite3.Connection:
     """Open the workboard DB read-only via uri mode so a lock contention
@@ -196,7 +199,9 @@ def _fetch_active_cards(
 # ── Quest plan parsing ──────────────────────────────────────────────────────
 
 # Matches a section header like "### Phase 6: Daily Audit + North-Star Tracking"
-_PHASE_HEADER_RE = re.compile(r"^#{2,4}\s*Phase\s+(\d+[A-Za-z]?)\s*[:\-–]\s*(.+?)\s*$", re.IGNORECASE)
+_PHASE_HEADER_RE = re.compile(
+    r"^#{2,4}\s*Phase\s+(\d+[A-Za-z]?)\s*[:\-–]\s*(.+?)\s*$", re.IGNORECASE
+)
 # Matches an audit trail line: "- 2026-07-08T..." or "- 2026-07-08 …"
 _AUDIT_LINE_RE = re.compile(
     r"^\s*-\s*(?P<ts>\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?)"
@@ -259,6 +264,7 @@ def _iso_age_days(ts: str | None, now: datetime | None = None) -> float:
 
 
 # ── The DriftDetector class ─────────────────────────────────────────────────
+
 
 class DriftDetector:
     """Card and quest-phase staleness auditor.

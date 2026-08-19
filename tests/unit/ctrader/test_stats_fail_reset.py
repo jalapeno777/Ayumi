@@ -10,8 +10,7 @@ that _stats_fail_count resets to 0 on success.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
-from decimal import Decimal
+from unittest.mock import MagicMock
 
 
 @pytest.fixture
@@ -42,15 +41,18 @@ class TestStatsFailReset:
         """Fresh engine should have _stats_fail_count == 0."""
         import sys
         from pathlib import Path
+
         src = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
         if src not in sys.path:
             sys.path.insert(0, src)
 
         from adapters.ctrader.forward_test_engine import ForwardTestEngine
+
         # Check the class-level default
         assert ForwardTestEngine.__init__.__defaults__ is not None or True
         # Verify via source inspection that _stats_fail_count initializes to 0
         import inspect
+
         source = inspect.getsource(ForwardTestEngine.__init__)
         assert "_stats_fail_count: int = 0" in source
 
@@ -59,6 +61,7 @@ class TestStatsFailReset:
         import sys
         import inspect
         from pathlib import Path
+
         src = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
         if src not in sys.path:
             sys.path.insert(0, src)
@@ -85,12 +88,18 @@ class TestStatsFailReset:
             try:
                 raise RuntimeError("simulated I/O error")
             except Exception:
-                _stats_fail_count = getattr(
-                    type('obj', (), {'_stats_fail_count': _stats_fail_count}),
-                    '_stats_fail_count', 0
-                ) + 1
+                _stats_fail_count = (
+                    getattr(
+                        type("obj", (), {"_stats_fail_count": _stats_fail_count}),
+                        "_stats_fail_count",
+                        0,
+                    )
+                    + 1
+                )
 
-        assert _stats_fail_count == 3, f"Expected 3 after 3 failures, got {_stats_fail_count}"
+        assert _stats_fail_count == 3, (
+            f"Expected 3 after 3 failures, got {_stats_fail_count}"
+        )
 
         # Simulate success → reset
         _stats_fail_count = 0  # This is the fix line
@@ -124,6 +133,7 @@ class TestStatsRecorderIntegration:
         """A successful record_signal should not raise."""
         import sys
         from pathlib import Path
+
         src = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
         if src not in sys.path:
             sys.path.insert(0, src)
@@ -156,6 +166,7 @@ class TestStatsRecorderIntegration:
         import sys
         from pathlib import Path
         from unittest.mock import MagicMock
+
         src = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
         if src not in sys.path:
             sys.path.insert(0, src)

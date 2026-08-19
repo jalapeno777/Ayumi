@@ -1,16 +1,14 @@
 """Integration tests for Kelly Criterion wiring in MultiStrategyBacktestEngine."""
-import pytest
+
 from unittest.mock import MagicMock
 from datetime import datetime, timezone
 
 from backtest.multi_strategy_engine import (
     KellyConfig,
     MultiStrategyBacktestEngine,
-    MultiStrategyConfig,
 )
 from backtest.engine import (
     BacktestConfig,
-    BacktestMetrics,
     Bar,
     ExitReason,
     SimulatedTrade,
@@ -153,7 +151,9 @@ class TestKellyActivation:
                 pips=30 if outcome == TradeOutcome.WIN else -50,
                 profit_loss=pnl,
                 outcome=outcome,
-                exit_reason=ExitReason.TAKE_PROFIT_1 if outcome == TradeOutcome.WIN else ExitReason.STOP_LOSS,
+                exit_reason=ExitReason.TAKE_PROFIT_1
+                if outcome == TradeOutcome.WIN
+                else ExitReason.STOP_LOSS,
                 entry_time=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
                 exit_time=datetime(2026, 1, 1, 12, 1, tzinfo=timezone.utc),
                 confidence_score=0.8,

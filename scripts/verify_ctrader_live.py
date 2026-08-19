@@ -31,7 +31,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
 import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
+)
 log = logging.getLogger("ayumi.verify_live")
 
 
@@ -59,8 +62,11 @@ def get_env_or_cred(key: str, creds: dict) -> str | None:
     if env_val:
         return env_val
     # Try various key formats
-    for cred_key in [key, key.replace("CTRADER_OPENAPI_", "").lower(),
-                      key.replace("CTRADER_OPENAPI_", "")]:
+    for cred_key in [
+        key,
+        key.replace("CTRADER_OPENAPI_", "").lower(),
+        key.replace("CTRADER_OPENAPI_", ""),
+    ]:
         if cred_key in creds:
             return creds[cred_key]
     return None
@@ -76,11 +82,12 @@ def check_connection_and_balance(creds: dict) -> dict:
     # The ctrader_open_api package is only installed in the venv.
     # If not available, we fall back to log-based checks only.
     try:
-        from ctrader_open_api import Client, Protobuf, TcpProtocol, TcpClient
+        from ctrader_open_api import Client, Protobuf, TcpClient, TcpProtocol
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-            ProtoOAApplicationAuthReq,
             ProtoOAAccountAuthReq,
+            ProtoOAApplicationAuthReq,
         )
+
         _HAS_CTRADER_SDK = True
     except ImportError:
         _HAS_CTRADER_SDK = False
@@ -98,7 +105,14 @@ def check_connection_and_balance(creds: dict) -> dict:
         log.error(f"  access_token: {'✓' if access_token else '✗'}")
         log.error(f"  account_id: {'✓' if account_id else '✗'}")
         # Don't exit — continue with log-based checks
-        return result
+        # F821 fix (card 9cdbfd0a): `result` was returned before assignment on this
+        # early-exit path; report the missing-credential state explicitly.
+        return {
+            "error": "missing_credentials",
+            "client_id": client_id,
+            "account_id": account_id,
+            "connected": False,
+        }
 
     log.info("Connecting to cTrader (demo.ctraderapi.com:5035)...")
     log.info(f"  client_id: {client_id}")
@@ -117,7 +131,9 @@ def check_connection_and_balance(creds: dict) -> dict:
     log.info("✓ Credentials loaded")
     log.info(f"  Account ID: {account_id or 'N/A'}")
     log.info(f"  Access token: {'present' if access_token else 'MISSING'}")
-    log.info(f"  SDK available: {'yes' if _HAS_CTRADER_SDK else 'no (install in venv for full check)'}")
+    log.info(
+        f"  SDK available: {'yes' if _HAS_CTRADER_SDK else 'no (install in venv for full check)'}"
+    )
 
     return result
 
@@ -149,8 +165,10 @@ def check_forward_test_health() -> dict:
         try:
             hb = json.loads(hb_file.read_text())
             health["heartbeat"] = hb
-            log.info(f"  Heartbeat: {hb.get('ticks_received', '?')} ticks, "
-                     f"engine={'running' if hb.get('engine_running') else 'stopped'}")
+            log.info(
+                f"  Heartbeat: {hb.get('ticks_received', '?')} ticks, "
+                f"engine={'running' if hb.get('engine_running') else 'stopped'}"
+            )
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -160,9 +178,12 @@ def check_forward_test_health() -> dict:
         try:
             # Read last 200 lines for health
             import subprocess
+
             result = subprocess.run(
                 ["tail", "-200", str(log_file)],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             lines = result.stdout.strip().split("\n")
 
@@ -170,7 +191,9 @@ def check_forward_test_health() -> dict:
             date_prefix = time.strftime("%Y-%m-%d")
             grep_result = subprocess.run(
                 ["grep", "-c", f"{date_prefix}.*ORDER_ERROR.*DROP", str(log_file)],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             dropped_count = 0
             try:
@@ -190,17 +213,22 @@ def check_forward_test_health() -> dict:
                     # Check for live_fills warning
                     if "live_fills=0" in line and "paper_trades=" in line:
                         import re
+
                         pt = re.search(r"paper_trades=(\d+)", line)
                         if pt and int(pt.group(1)) > 0:
                             health["execution_warning"] = True
-                            log.warning("  ⚠️  live_fills=0 despite paper_trades>0 — execution may be broken")
+                            log.warning(
+                                "  ⚠️  live_fills=0 despite paper_trades>0 — execution may be broken"
+                            )
                     break
 
             # Check for ORDER_ERROR drops
             order_errors = [l for l in lines if "[ORDER_ERROR]" in l and "DROP" in l]
             if order_errors:
                 health["dropped_orders"] = len(order_errors)
-                log.warning(f"  ⚠️  {len(order_errors)} dropped order events in recent logs")
+                log.warning(
+                    f"  ⚠️  {len(order_errors)} dropped order events in recent logs"
+                )
                 health["dropped_order_examples"] = order_errors[-3:]
 
         except Exception as exc:
@@ -211,10 +239,14 @@ def check_forward_test_health() -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="cTrader end-to-end sanity check")
-    parser.add_argument("--send-test", action="store_true",
-                        help="Send a 0.01 lot test market order (use with caution)")
-    parser.add_argument("--symbol", default="GBPUSD",
-                        help="Symbol for test order (default: GBPUSD)")
+    parser.add_argument(
+        "--send-test",
+        action="store_true",
+        help="Send a 0.01 lot test market order (use with caution)",
+    )
+    parser.add_argument(
+        "--symbol", default="GBPUSD", help="Symbol for test order (default: GBPUSD)"
+    )
     args = parser.parse_args()
 
     print("=" * 60)

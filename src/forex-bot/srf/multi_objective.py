@@ -12,8 +12,6 @@ Uses optuna.study with directions=['maximize', 'maximize', 'minimize', 'maximize
 from __future__ import annotations
 
 import logging
-import math
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -24,16 +22,19 @@ from optuna.study import StudyDirection
 
 logger = logging.getLogger(__name__)
 
+# F821 fix (card 9cdbfd0a): PROJECT_ROOT was referenced but never defined.
+# Same convention as sibling srf modules (backup_db.py, nightly_topk.py, weekly_sweep.py).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 
 # ── Pareto front utilities ─────────────────────────────────────────────────
 
+
 def pareto_front_trials(study: optuna.Study) -> list[optuna.trial.FrozenTrial]:
     """Extract non-dominated Pareto front trials from a multi-objective study."""
     trials = [
-        t for t in study.trials
+        t
+        for t in study.trials
         if t.state == optuna.trial.TrialState.COMPLETE and t.values is not None
     ]
     if not trials:
@@ -84,16 +85,19 @@ def summarize_pareto_front(
 
     results = []
     for t in front[:top_k]:
-        results.append({
-            "trial_number": t.number,
-            "values": t.values,
-            "params": dict(t.params),
-            "user_attrs": dict(t.user_attrs),
-        })
+        results.append(
+            {
+                "trial_number": t.number,
+                "values": t.values,
+                "params": dict(t.params),
+                "user_attrs": dict(t.user_attrs),
+            }
+        )
     return results
 
 
 # ── Multi-objective objective builder ──────────────────────────────────────
+
 
 def build_multi_objective(
     pair: str,
@@ -121,8 +125,13 @@ def build_multi_objective(
     n_windows, train_ratio : walk-forward params
     stability_fn : optional callable(performance_list) -> float stability score
     """
-    spread_pips_default = {"GBPUSD": 1.5, "EURUSD": 1.2, "USDJPY": 1.5,
-                           "XAUUSD": 25, "GBPJPY": 2.5}.get(pair, 2.0)
+    spread_pips_default = {
+        "GBPUSD": 1.5,
+        "EURUSD": 1.2,
+        "USDJPY": 1.5,
+        "XAUUSD": 25,
+        "GBPJPY": 2.5,
+    }.get(pair, 2.0)
 
     def objective(trial: optuna.Trial) -> tuple[float, float, float, float]:
         try:
@@ -179,6 +188,7 @@ def build_multi_objective(
 
 # ── Multi-objective study runner ───────────────────────────────────────────
 
+
 def run_multi_objective_study(
     pair: str,
     tf: str = "M15",
@@ -210,7 +220,9 @@ def run_multi_objective_study(
             storage=f"sqlite:///{study_path}",
             sampler=NSGAIISampler(seed=seed),
         )
-        logger.info("Resuming Pareto study for %s/%s (%d trials)", pair, tf, len(study.trials))
+        logger.info(
+            "Resuming Pareto study for %s/%s (%d trials)", pair, tf, len(study.trials)
+        )
     else:
         study = optuna.create_study(
             study_name=study_name,
@@ -223,13 +235,17 @@ def run_multi_objective_study(
     # If no custom factories provided, try the existing TTS optimizer path
     if bars is None:
         from ml.optuna_optimizer import load_bars
+
         bars = load_bars(pair, tf)
 
     if strategy_factory_fn is None or walk_forward_fn is None:
         # Default: use existing TTS optimizer internals
         from ml.optuna_optimizer import build_wf_objective as build_scalar
+
         # Wrap the existing scalar objective to extract multi-objective values
-        scalar_obj = build_scalar(pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio)
+        scalar_obj = build_scalar(
+            pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio
+        )
 
         def wrapped_objective(trial: optuna.Trial) -> tuple[float, float, float, float]:
             """Wrap scalar TTS objective to produce 4D Pareto values."""
@@ -245,22 +261,45 @@ def run_multi_objective_study(
         objective = wrapped_objective
     else:
         objective = build_multi_objective(
-            pair, bars, strategy_factory_fn, walk_forward_fn,
-            n_windows, train_ratio, stability_fn,
+            pair,
+            bars,
+            strategy_factory_fn,
+            walk_forward_fn,
+            n_windows,
+            train_ratio,
+            stability_fn,
         )
 
     logger.info("Running %d trials (%d-objective Pareto)...", n_trials, len(directions))
-    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True)
+    study.optimize(
+        objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True
+    )
 
     # Extract Pareto front
     pareto_summary = summarize_pareto_front(study, top_k=20)
 
     # Best per-objective
     completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-    best_pf = max(completed, key=lambda t: t.values[0] if t.values else 0) if completed else None
-    best_dsr = max(completed, key=lambda t: t.values[1] if t.values else 0) if completed else None
-    best_dd = min(completed, key=lambda t: t.values[2] if t.values else float("inf")) if completed else None
-    best_stab = max(completed, key=lambda t: t.values[3] if t.values else 0) if completed else None
+    best_pf = (
+        max(completed, key=lambda t: t.values[0] if t.values else 0)
+        if completed
+        else None
+    )
+    best_dsr = (
+        max(completed, key=lambda t: t.values[1] if t.values else 0)
+        if completed
+        else None
+    )
+    best_dd = (
+        min(completed, key=lambda t: t.values[2] if t.values else float("inf"))
+        if completed
+        else None
+    )
+    best_stab = (
+        max(completed, key=lambda t: t.values[3] if t.values else 0)
+        if completed
+        else None
+    )
 
     result = {
         "pair": pair,
@@ -274,29 +313,38 @@ def run_multi_objective_study(
             "values": best_pf.values,
             "params": dict(best_pf.params),
             "attrs": dict(best_pf.user_attrs),
-        } if best_pf else None,
+        }
+        if best_pf
+        else None,
         "best_dsr_trial": {
             "number": best_dsr.number,
             "values": best_dsr.values,
             "params": dict(best_dsr.params),
-        } if best_dsr else None,
+        }
+        if best_dsr
+        else None,
         "best_dd_trial": {
             "number": best_dd.number,
             "values": best_dd.values,
             "params": dict(best_dd.params),
-        } if best_dd else None,
+        }
+        if best_dd
+        else None,
         "best_stability_trial": {
             "number": best_stab.number,
             "values": best_stab.values,
             "params": dict(best_stab.params),
-        } if best_stab else None,
+        }
+        if best_stab
+        else None,
     }
 
     # Save report
-    from datetime import datetime
+
     report_dir = PROJECT_ROOT / "reports" / "optuna_studies"
     report_path = report_dir / f"{pair}_{tf}_pareto_report.json"
     import json
+
     report_path.write_text(json.dumps(result, indent=2, default=str))
     logger.info("Pareto report saved: %s", report_path)
 
@@ -305,8 +353,10 @@ def run_multi_objective_study(
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="SRF Multi-Objective Optuna")
     parser.add_argument("--pair", required=True)
     parser.add_argument("--tf", default="M15")
@@ -315,7 +365,9 @@ def main():
     parser.add_argument("--timeout", type=int, default=None)
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
 
     result = run_multi_objective_study(
         pair=args.pair,
@@ -325,14 +377,18 @@ def main():
         timeout=args.timeout,
     )
 
-    print(f"\n{'='*60}")
-    print(f"  Pareto Front: {result['n_pareto']} solutions from {result['n_complete']} trials")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print(
+        f"  Pareto Front: {result['n_pareto']} solutions from {result['n_complete']} trials"
+    )
+    print(f"{'=' * 60}")
 
     for i, t in enumerate(result["pareto_front"][:5]):
-        print(f"\n  #{i+1} Trial #{t['trial_number']}")
-        print(f"    Values: PF={t['values'][0]:.2f} DSR={t['values'][1]:.3f} "
-              f"DD={t['values'][2]:.3f} Stab={t['values'][3]:.3f}")
+        print(f"\n  #{i + 1} Trial #{t['trial_number']}")
+        print(
+            f"    Values: PF={t['values'][0]:.2f} DSR={t['values'][1]:.3f} "
+            f"DD={t['values'][2]:.3f} Stab={t['values'][3]:.3f}"
+        )
 
 
 if __name__ == "__main__":

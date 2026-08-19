@@ -28,6 +28,7 @@ logger = logging.getLogger("ayumi.connection_state")
 
 class ConnectionState(Enum):
     """Connection lifecycle states."""
+
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
     CONNECTED = "connected"
@@ -60,7 +61,6 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.ACCT_AUTHENTICATING, ConnectionState.AUTHENTICATED): True,
     (ConnectionState.ACCT_AUTHENTICATING, ConnectionState.FAILED): True,
     (ConnectionState.ACCT_AUTHENTICATING, ConnectionState.RECONNECTING): True,
-
     # Operational transitions
     (ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.RECONNECTING): True,
@@ -68,39 +68,33 @@ _VALID_TRANSITIONS: dict[tuple[ConnectionState, ConnectionState], bool] = {
     (ConnectionState.AUTHENTICATED, ConnectionState.FAILED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.SUSPENDED): True,
     (ConnectionState.AUTHENTICATED, ConnectionState.SUBSCRIBING): True,
-
     # Suspended transitions
     (ConnectionState.SUSPENDED, ConnectionState.CONNECTING): True,
     (ConnectionState.SUSPENDED, ConnectionState.DISCONNECTED): True,
-
     # Subscription replay transitions
     (ConnectionState.SUBSCRIBING, ConnectionState.AUTHENTICATED): True,
     (ConnectionState.SUBSCRIBING, ConnectionState.RECONNECTING): True,
-
     # Degraded transitions
     (ConnectionState.DEGRADED, ConnectionState.AUTHENTICATED): True,
     (ConnectionState.DEGRADED, ConnectionState.RECONNECTING): True,
     (ConnectionState.DEGRADED, ConnectionState.DISCONNECTED): True,
     (ConnectionState.DEGRADED, ConnectionState.FAILED): True,
-
     # Reconnecting transitions
     (ConnectionState.RECONNECTING, ConnectionState.CONNECTING): True,
     (ConnectionState.RECONNECTING, ConnectionState.CONNECTED): True,
     (ConnectionState.RECONNECTING, ConnectionState.APP_AUTHENTICATING): True,
     (ConnectionState.RECONNECTING, ConnectionState.FAILED): True,
     (ConnectionState.RECONNECTING, ConnectionState.DISCONNECTED): True,
-
     # Failed transitions — allow recovery paths so transient auth bursts
     # don't permanently trap the connection (BQ: failed-state-sticky bug).
     # The FAILED state must permit re-entry into the normal reconnect/auth
     # lifecycle; without these, TCP reconnects but state transitions are
     # rejected, causing the connection to fight itself.
     (ConnectionState.FAILED, ConnectionState.DISCONNECTED): True,
-    (ConnectionState.FAILED, ConnectionState.CONNECTING): True,    # manual retry
+    (ConnectionState.FAILED, ConnectionState.CONNECTING): True,  # manual retry
     (ConnectionState.FAILED, ConnectionState.RECONNECTING): True,  # recovery
-    (ConnectionState.FAILED, ConnectionState.CONNECTED): True,     # TCP reconnected
+    (ConnectionState.FAILED, ConnectionState.CONNECTED): True,  # TCP reconnected
     (ConnectionState.FAILED, ConnectionState.APP_AUTHENTICATING): True,  # re-auth
-
     # Allow self-transitions for idempotent calls (no-op)
     (ConnectionState.DISCONNECTED, ConnectionState.DISCONNECTED): True,
     (ConnectionState.CONNECTING, ConnectionState.CONNECTING): True,
@@ -177,7 +171,10 @@ class ConnectionStateManager:
             if not is_valid_transition(old_state, new_state):
                 logger.warning(
                     "[%s] Rejected state transition: %s → %s (reason: %s)",
-                    self._name, old_state.value, new_state.value, reason,
+                    self._name,
+                    old_state.value,
+                    new_state.value,
+                    reason,
                 )
                 return False
 
@@ -188,7 +185,10 @@ class ConnectionStateManager:
         if old_state != new_state:
             logger.info(
                 "[%s] State transition: %s → %s (reason: %s)",
-                self._name, old_state.value, new_state.value, reason,
+                self._name,
+                old_state.value,
+                new_state.value,
+                reason,
             )
             for callback in callbacks:
                 try:
@@ -196,7 +196,8 @@ class ConnectionStateManager:
                 except Exception as exc:
                     logger.error(
                         "[%s] State change callback error: %s",
-                        self._name, exc,
+                        self._name,
+                        exc,
                     )
         return True
 

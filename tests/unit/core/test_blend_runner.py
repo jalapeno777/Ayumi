@@ -4,16 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 from datetime import datetime
 
-import pytest
 
 from confidence.engine import ConfidenceEngine
-from confidence.gates import GateConfig
-from orchestrator.signal_orchestrator import OrchestratorTradeSignal
 from orchestrator.strategy_adapter import StrategyAdapter
-from risk.profile_router import Profile, ProfileRouter
+from risk.profile_router import ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
 
 from backtest.blend_backtest import BlendBacktest, BacktestConfig
@@ -23,6 +19,7 @@ from forward_test.blend_runner import BlendForwardTestRunner
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_signal(
     strategy_id: str = "ema_cross",
@@ -66,6 +63,7 @@ def _runner_config(tmp_path: str, **overrides) -> dict:
 # Task 1: Daily Risk Cap Reset in Backtest
 # ---------------------------------------------------------------------------
 
+
 class TestDailyRiskCapReset:
     """Multi-day backtest should reset daily risk cap on new day."""
 
@@ -83,11 +81,13 @@ class TestDailyRiskCapReset:
         # Each trade risks $50, loses $50
         day1_signals = []
         for i in range(5):
-            day1_signals.append(_make_signal(
-                timestamp=datetime(2026, 4, 24, 10 + i, 0),
-                stop_loss=1.0950,  # 50 pips SL
-                outcome_pnl=-50.0,
-            ))
+            day1_signals.append(
+                _make_signal(
+                    timestamp=datetime(2026, 4, 24, 10 + i, 0),
+                    stop_loss=1.0950,  # 50 pips SL
+                    outcome_pnl=-50.0,
+                )
+            )
 
         # Day 2: a winning trade that should still be accepted
         day2_signal = _make_signal(
@@ -130,8 +130,8 @@ class TestDailyRiskCapReset:
 # Task 3 & 4: BlendForwardTestRunner tests
 # ---------------------------------------------------------------------------
 
-class TestBlendForwardTestRunner:
 
+class TestBlendForwardTestRunner:
     def test_init_from_config(self, tmp_path):
         """Runner initializes all components from config dict."""
         runner = BlendForwardTestRunner(_runner_config(str(tmp_path)))

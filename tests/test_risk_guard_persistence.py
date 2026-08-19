@@ -26,6 +26,7 @@ from adapters.ctrader.risk_guard import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tmp_state(tmp_path):
     """Return a temp file path for RiskGuard state."""
@@ -45,6 +46,7 @@ def guard(tmp_state):
 # ---------------------------------------------------------------------------
 # Test 1 — save_state writes valid JSON
 # ---------------------------------------------------------------------------
+
 
 class TestSaveState:
     def test_save_state_writes_valid_json(self, guard, tmp_state):
@@ -81,6 +83,7 @@ class TestSaveState:
 # ---------------------------------------------------------------------------
 # Test 2 — restore_state recovers all fields correctly
 # ---------------------------------------------------------------------------
+
 
 class TestRestoreState:
     def test_restore_state_recovers_all_fields(self, tmp_state):
@@ -123,12 +126,15 @@ class TestRestoreState:
         assert g2._daily_trade_count == 5
         assert g2._total_trades == 30
         assert g2._circuit_breaker_triggered is True
-        assert g2._blocked_until == datetime(2026, 7, 1, 23, 59, 59, tzinfo=timezone.utc)
+        assert g2._blocked_until == datetime(
+            2026, 7, 1, 23, 59, 59, tzinfo=timezone.utc
+        )
 
 
 # ---------------------------------------------------------------------------
 # Test 3 — daily loss halt blocks until UTC midnight (not 5 min)
 # ---------------------------------------------------------------------------
+
 
 class TestDailyLossHalt:
     def test_daily_loss_blocks_until_utc_midnight(self, guard):
@@ -179,6 +185,7 @@ class TestDailyLossHalt:
 # ---------------------------------------------------------------------------
 # Test 4 — state survives simulated restart
 # ---------------------------------------------------------------------------
+
 
 class TestStateSurvivesRestart:
     def test_state_survives_simulated_restart(self, tmp_state):
@@ -247,6 +254,7 @@ class TestStateSurvivesRestart:
 # Test R3 — UTC date consistency
 # ---------------------------------------------------------------------------
 
+
 class TestTradingDayConsistency:
     """Trading day boundary is 00:00 America/Toronto (changed from 17:00 in
     commit 4216e55 to align with engine and FTMO guard).
@@ -279,9 +287,7 @@ class TestTradingDayConsistency:
         from adapters.ctrader import risk_guard as rg_module
 
         tz_name = rg_module._TRADING_TZ.key
-        assert tz_name == "America/Toronto", (
-            f"Expected America/Toronto, got {tz_name}"
-        )
+        assert tz_name == "America/Toronto", f"Expected America/Toronto, got {tz_name}"
 
     def test_trading_day_boundary_uses_midnight(self, guard):
         """Reset hour is 0 (midnight Toronto) — changed from 17 in commit 4216e55."""
@@ -289,6 +295,4 @@ class TestTradingDayConsistency:
 
         reset_hour = rg_module._TRADING_DAY_RESET_HOUR
         # Convention changed from 17:00 to 00:00 America/Toronto midnight
-        assert reset_hour == 0, (
-            f"Expected 0 (midnight Toronto), got {reset_hour}:00"
-        )
+        assert reset_hour == 0, f"Expected 0 (midnight Toronto), got {reset_hour}:00"
