@@ -15,14 +15,14 @@ import random
 import threading
 import time
 import uuid
-from typing import Optional, Callable
+from typing import Callable, Optional
 
-from twisted.internet import reactor
 from ctrader_open_api import Client, TcpProtocol
+from twisted.internet import reactor
 
 from .connection_state import ConnectionState, ConnectionStateManager
-from .reactor_manager import ReactorManager
 from .market_hours import is_forex_market_closed
+from .reactor_manager import ReactorManager
 
 logger = logging.getLogger("ayumi.ctrader_connection")
 
@@ -184,7 +184,7 @@ class CTraderConnection:
         if self._client:
             try:
                 reactor.callFromThread(self._client.stopService)
-            except Exception:
+            except Exception:  # noqa: S110 — fire-and-forget stopService during explicit disconnect; client already gone
                 pass
             self._client = None
 
@@ -334,7 +334,7 @@ class CTraderConnection:
             self._backoff_base * (2 ** (self._reconnect_count - 1)),
             self._backoff_max,
         )
-        jitter = random.uniform(0, backoff * 0.25)
+        jitter = random.uniform(0, backoff * 0.25)  # noqa: S311 — non-cryptographic jitter on reconnection backoff timer
         delay = backoff + jitter
         logger.info(
             "Reconnect attempt %d/%d in %.1fs (backoff=%.1fs)",
@@ -349,7 +349,7 @@ class CTraderConnection:
         if self._client:
             try:
                 reactor.callFromThread(self._client.stopService)
-            except Exception:
+            except Exception:  # noqa: S110 — fire-and-forget stopService during reconnect; old client about to be replaced
                 pass
             self._client = None
 
@@ -395,8 +395,8 @@ class CTraderConnection:
                     from twisted.internet import reactor
 
                     reactor.callFromThread(self.send, ProtoHeartbeatEvent())
-                except Exception:
-                    pass  # fire-and-forget, don't let heartbeat send failure crash health check
+                except Exception:  # noqa: S110 — fire-and-forget heartbeat send; don't let send failure crash health check
+                    pass
             self._check_heartbeat()
         except Exception as exc:
             logger.error("Health check error: %s", exc, exc_info=True)

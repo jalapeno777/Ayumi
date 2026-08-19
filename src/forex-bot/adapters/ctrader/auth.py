@@ -22,8 +22,8 @@ import logging
 from pathlib import Path
 
 from .credentials import (
-    CredentialManager,
     CredentialError,
+    CredentialManager,
 )
 from .token_manager import TokenManager
 
@@ -124,7 +124,7 @@ class CTraderAuth:
             if not auto_migrate:
                 raise CredentialError(
                     "Credentials file not found and auto_migrate=False"
-                )
+                ) from None
 
         # Auto-migrate from .env if needed
         if credentials is None and auto_migrate:

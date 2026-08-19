@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import logging
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Optional
 

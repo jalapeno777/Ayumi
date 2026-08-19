@@ -5,13 +5,11 @@ from typing import TYPE_CHECKING
 from core.config import BacktestConfig, BacktestMetrics
 from core.spread import RealisticSpreadModel, SpreadModel
 from core.types import Bar, MarketState, SimulatedTrade, StrategySignal
-
 from engine.base import EngineCore, determine_session
 from engine.mixins import CombinedSignalMixin, CombineMethod, ProgressiveSLMixin
 from engine.trade_mgmt import TradeManagementMixin
-
-from policy.kill_criteria import KillCriteriaChecker
 from policy.behavioral import BehavioralPolicy
+from policy.kill_criteria import KillCriteriaChecker
 
 if TYPE_CHECKING:
     from core.protocol import IStrategy

@@ -17,7 +17,6 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 logger = logging.getLogger("ayumi.token_manager")
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -63,7 +62,7 @@ class TokenManager:
 
     def __init__(
         self,
-        token_path: str = "data/token_state.json",
+        token_path: str = "data/token_state.json",  # noqa: S107 — default file path for token state JSON, not a credential; the heuristic matches "_token_" in the parameter name
         env_path: str = ".env",
     ):
         self._token_path = Path(token_path)

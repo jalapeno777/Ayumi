@@ -5,13 +5,13 @@ from datetime import datetime
 from threading import RLock
 from typing import TYPE_CHECKING, Any, Optional
 
-from .kill_switch import KillSwitchManager
-from .models import Order, Position, CTraderTradeSignal, TradeDirection
-from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
-from .risk_guard import FTMOConfig, RiskGuard
-
 # Phase 0 forward-test diagnostics — see signal_engine/signal_stats.py
 from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
+
+from .kill_switch import KillSwitchManager
+from .models import CTraderTradeSignal, Order, Position, TradeDirection
+from .order_manager import OrderExecutionResult, OrderManager, PositionSizeConfig
+from .risk_guard import FTMOConfig, RiskGuard
 
 if TYPE_CHECKING:
     from .api_client import cTraderAPIClient

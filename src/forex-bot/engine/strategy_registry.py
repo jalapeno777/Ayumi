@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Callable, TypeAlias
 
 import yaml
-
 from backtest.strategies import ISignalStrategy
 
 logger = logging.getLogger(__name__)
@@ -41,7 +40,7 @@ def _default_factories() -> dict[str, StrategyFactory]:
     factories = dict(_BUILTIN_FACTORIES)
 
     if "srmr_plus" not in factories:
-        from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
+        from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
         def _make_srmr(params: dict[str, Any]) -> ISignalStrategy:
             return SRMRPlusStrategy(config=SRMRPlusConfig(**params))

@@ -15,7 +15,7 @@ warn+fallback on price decoding.
 from __future__ import annotations
 
 import logging
-from typing import Dict, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Tuple
 
 if TYPE_CHECKING:
     from .market_data_feed import SymbolInfo

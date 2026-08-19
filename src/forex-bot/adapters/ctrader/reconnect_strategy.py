@@ -193,7 +193,7 @@ class ReconnectStrategy:
         The multiplier allows TIER_2 errors to back off more aggressively.
         """
         upper = self._prev_sleep * multiplier * 3
-        sleep = min(self._cap, random.uniform(self._base, max(self._base, upper)))
+        sleep = min(self._cap, random.uniform(self._base, max(self._base, upper)))  # noqa: S311 — non-cryptographic reconnect sleep jitter
         self._prev_sleep = sleep
         return round(sleep, 2)
 

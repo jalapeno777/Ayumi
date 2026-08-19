@@ -25,10 +25,10 @@ from pathlib import Path
 from typing import Optional
 
 from .connection_state import ConnectionState, ConnectionStateManager
-from .error_classifier import ErrorTier, classify_error
 from .credential_store import CredentialStore
+from .error_classifier import ErrorTier, classify_error
+from .reconnect_strategy import ReconnectDecision, ReconnectStrategy
 from .token_lifecycle import TokenLifecycle
-from .reconnect_strategy import ReconnectStrategy, ReconnectDecision
 
 # BQ-1330a: Auth retry constants
 AUTH_RETRY_MAX_ATTEMPTS = 3

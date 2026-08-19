@@ -1,12 +1,11 @@
 import csv
 import logging
 import os
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Optional
-from dataclasses import dataclass, asdict
 
-from .models import Position, Order
-
+from .models import Order, Position
 
 logger = logging.getLogger(__name__)
 

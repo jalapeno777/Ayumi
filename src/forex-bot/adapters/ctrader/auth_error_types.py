@@ -6,12 +6,13 @@ and kill/freeze activation are allowed.
 """
 
 from __future__ import annotations
-from enum import Enum
+
 from dataclasses import dataclass
+from enum import Enum
 
 
 class AuthFaultType(Enum):
-    REFRESHABLE_TOKEN_FAULT = "refreshable_token_fault"
+    REFRESHABLE_TOKEN_FAULT = "refreshable_token_fault"  # noqa: S105 — enum identifier string, not a credential; the heuristic matches "_token_" in the name
     ACCOUNT_AUTHORIZATION_FAULT = "account_authorization_fault"
     PERMISSION_OR_ACCESS_DENIED = "permission_or_access_denied"
     MALFORMED_REQUEST = "malformed_request"

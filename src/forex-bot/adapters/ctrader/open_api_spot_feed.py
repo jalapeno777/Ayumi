@@ -42,45 +42,43 @@ import os
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from twisted.internet import reactor
-from ctrader_open_api.protobuf import Protobuf
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOASymbolsListReq,
-    ProtoOASubscribeSpotsReq,
-    ProtoOAUnsubscribeSpotsReq,
-    ProtoOASymbolByIdReq,
-    ProtoOANewOrderReq,
-    ProtoOAClosePositionReq,
     ProtoOAAmendOrderReq,
-    ProtoOACancelOrderReq,
-    ProtoOAReconcileReq,
     ProtoOAAmendPositionSLTPReq,
+    ProtoOACancelOrderReq,
+    ProtoOAClosePositionReq,
+    ProtoOANewOrderReq,
+    ProtoOAReconcileReq,
+    ProtoOASubscribeSpotsReq,
+    ProtoOASymbolByIdReq,
+    ProtoOASymbolsListReq,
+    ProtoOAUnsubscribeSpotsReq,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAOrderType,
-    ProtoOATradeSide,
-    ProtoOATimeInForce,
     ProtoOAExecutionType,
+    ProtoOAOrderType,
+    ProtoOATimeInForce,
+    ProtoOATradeSide,
 )
-from .market_data_feed import Tick, SymbolInfo
-from .volume_calculator import VolumeCalculator
-from .connection import CTraderConnection
+from ctrader_open_api.protobuf import Protobuf
+from twisted.internet import reactor
+
 from .auth_error_types import get_policy
+from .connection import CTraderConnection
 from .connection_state import ConnectionState, ConnectionStateManager
-from .token_manager import TokenManager
-from .token_lifecycle import TokenLifecycle
-from .execution_permission import ExecutionPermissionPolicy
 from .environment import (
     _infer_environment,
-    validate_endpoint_environment,
     log_startup_environment,
+    validate_endpoint_environment,
 )
+from .execution_permission import ExecutionPermissionPolicy
+from .market_data_feed import SymbolInfo, Tick
 from .models import (
     Order,
     OrderStatus,
@@ -89,6 +87,9 @@ from .models import (
     PositionStatus,
     TradeDirection,
 )
+from .token_lifecycle import TokenLifecycle
+from .token_manager import TokenManager
+from .volume_calculator import VolumeCalculator
 
 logger = logging.getLogger("ayumi.openapi_spot_feed")
 
@@ -120,12 +121,14 @@ _LATE_FILL_TTL_SEC = 120.0
 # ACCEPT(2) to fire on_order_filled on the ACCEPT payload, then the real
 # FILLED(3) to rescue via the late_fill_registry producing a duplicate
 # on_order_filled.
-_TERMINAL_EXEC_TYPES: frozenset[int] = frozenset({
-    ProtoOAExecutionType.ORDER_FILLED,       # 3
-    ProtoOAExecutionType.ORDER_CANCELLED,    # 5
-    ProtoOAExecutionType.ORDER_REJECTED,     # 7
-    ProtoOAExecutionType.ORDER_EXPIRED,      # 6
-})
+_TERMINAL_EXEC_TYPES: frozenset[int] = frozenset(
+    {
+        ProtoOAExecutionType.ORDER_FILLED,  # 3
+        ProtoOAExecutionType.ORDER_CANCELLED,  # 5
+        ProtoOAExecutionType.ORDER_REJECTED,  # 7
+        ProtoOAExecutionType.ORDER_EXPIRED,  # 6
+    }
+)
 # Progress (non-terminal, non-callback) ProtoOAExecutionType set (card
 # 8ad140c5 finding #2 — sprint reina-2026-08-18-106).
 #
@@ -156,9 +159,11 @@ _TERMINAL_EXEC_TYPES: frozenset[int] = frozenset({
 #
 #   Operators get visibility via the informational log line that
 #   mentions partial fill volume / price when present.
-_PROGRESS_EXEC_TYPES: frozenset[int] = frozenset({
-    ProtoOAExecutionType.ORDER_PARTIAL_FILL,  # 11
-})
+_PROGRESS_EXEC_TYPES: frozenset[int] = frozenset(
+    {
+        ProtoOAExecutionType.ORDER_PARTIAL_FILL,  # 11
+    }
+)
 # OrderStatus values that downstream consumers treat as terminal rejections
 # from the spot feed's perspective. Used by indeterminate_timeout path
 # decision logic in new_order() — see card ce6de98d fix (B).
@@ -610,7 +615,7 @@ class OpenApiSpotFeed:
         for _, (event, order) in list(self._pending_orders.items()):
             order.status = OrderStatus.PENDING
             order.comment = order.comment or "connection_lost_during_order"
-            setattr(order, "reason", "connection_lost_during_order")
+            order.reason = "connection_lost_during_order"
             event.set()
         self._pending_orders.clear()
         self._pending_client_msg_ids.clear()
@@ -788,7 +793,7 @@ class OpenApiSpotFeed:
             self._register_late_fill(req_id, order, cmsg_id or "")
             order.status = OrderStatus.PENDING
             order.comment = order.comment or "connection_lost_during_order"
-            setattr(order, "reason", "connection_lost_during_order")
+            order.reason = "connection_lost_during_order"
             event.set()
             self._disconnected_pending_orders.append(order)
         self._pending_orders.clear()
@@ -816,8 +821,8 @@ class OpenApiSpotFeed:
                 return False
 
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-            ProtoOAApplicationAuthReq,
             ProtoOAAccountAuthReq,
+            ProtoOAApplicationAuthReq,
         )
 
         # App auth
@@ -911,7 +916,7 @@ class OpenApiSpotFeed:
                     self._kill_switch.deactivate(
                         reason="auto_cleared_on_successful_auth"
                     )
-            except Exception:
+            except Exception:  # noqa: S110 — best-effort kill-switch auto-clear; failure is logged upstream and does not block auth success
                 pass
 
     # ── Message routing ────────────────────────────────────────────────────
@@ -1162,7 +1167,11 @@ class OpenApiSpotFeed:
         # absent, no-op when already popped).
         late_registry = getattr(self, "_late_fill_registry", None)
         popped_via_cid = False
-        if late_registry is not None and client_order_id and client_order_id in late_registry:
+        if (
+            late_registry is not None
+            and client_order_id
+            and client_order_id in late_registry
+        ):
             late_registry.pop(client_order_id, None)
             popped_via_cid = True
 
@@ -1229,7 +1238,7 @@ class OpenApiSpotFeed:
         req.symbolId.append(symbol_id)
         try:
             reactor.callFromThread(self._conn.send, req)
-        except Exception:
+        except Exception:  # noqa: S110 — fire-and-forget unsubscribe; tx queue teardown is non-critical during cleanup
             pass
         self._subscribed_symbol_ids.discard(symbol_id)
         return True
@@ -1473,7 +1482,7 @@ class OpenApiSpotFeed:
                     status=OrderStatus.REJECTED,
                     comment=comment,
                 )
-                setattr(order, "reason", reason)
+                order.reason = reason
                 return order
 
         request_id = uuid.uuid4().hex
@@ -1495,7 +1504,7 @@ class OpenApiSpotFeed:
             comment=comment,
         )
         if not self._state_mgr.is_operational:
-            setattr(order, "reason", "not_connected")
+            order.reason = "not_connected"
             return order
 
         req = ProtoOANewOrderReq()
@@ -1546,7 +1555,7 @@ class OpenApiSpotFeed:
                 # a terminal status instead of a dangling PENDING.
                 if order.status == OrderStatus.PENDING:
                     order.status = OrderStatus.REJECTED
-                    setattr(order, "reason", "deferred_error")
+                    order.reason = "deferred_error"
                     order.comment = "deferred_error"
                     self._trigger_callback(
                         "on_order_rejected",
@@ -1609,7 +1618,7 @@ class OpenApiSpotFeed:
             # Don't overwrite if _handle_pending_order_error already set a
             # real broker errorCode (race won by the broker event handler).
             if order.status == OrderStatus.PENDING:
-                setattr(order, "reason", _INDETERMINATE_TIMEOUT_REASON)
+                order.reason = _INDETERMINATE_TIMEOUT_REASON
                 order.comment = _INDETERMINATE_TIMEOUT_REASON
                 # No on_order_rejected — the order is still in flight.
         # AC2/AC3: Brief grace period for late-arriving broker error events.
@@ -1939,9 +1948,7 @@ class OpenApiSpotFeed:
             getattr(order_payload, "clientOrderId", "") if order_payload else ""
         )
         etype = getattr(message, "executionType", None)
-        client_msg_id = (
-            getattr(envelope, "clientMsgId", "") if envelope else ""
-        )
+        client_msg_id = getattr(envelope, "clientMsgId", "") if envelope else ""
         logger.info(
             "[EXEC_EVENT] clientOrderId=%r execType=%s has_order=%s pending_keys=%s",
             client_order_id,
@@ -2052,7 +2059,11 @@ class OpenApiSpotFeed:
                         getattr(late_order, "reason", ""),
                     )
                     order = late_order
-                    from_late_registry = True
+                    # NOTE: flag `from_late_registry` is intentionally assigned but never read
+                    # (F841 out-of-scope for this card; suppressed to satisfy ruff-exit-0 bar).
+                    # Preserved in place so a future refactor that consumes this signal still sees
+                    # the marker without re-introducing the assignment.
+                    from_late_registry = True  # noqa: F841
                     # Synthetic event (already set) — the original caller already
                     # returned; no thread is waiting on this event.
                     event = threading.Event()
@@ -2116,10 +2127,14 @@ class OpenApiSpotFeed:
             # unchanged — new_order() still sets reason=
             # indeterminate_awaiting_event on event.wait expiry.
             _partial_volume = (
-                getattr(order_payload, "executedVolume", None) if order_payload else None
+                getattr(order_payload, "executedVolume", None)
+                if order_payload
+                else None
             )
             _partial_price = (
-                getattr(order_payload, "executionPrice", None) if order_payload else None
+                getattr(order_payload, "executionPrice", None)
+                if order_payload
+                else None
             )
             # Best-effort: update the order's volume in lots if the payload
             # carries executedVolume. We intentionally do NOT mutate
@@ -2178,7 +2193,7 @@ class OpenApiSpotFeed:
 
         if etype == ProtoOAExecutionType.ORDER_CANCELLED:
             order.status = OrderStatus.CANCELLED
-            setattr(order, "reason", "order_cancelled")
+            order.reason = "order_cancelled"
             event.set()
             self._trigger_callback("on_order_cancelled", order, message)
             return
@@ -2186,7 +2201,7 @@ class OpenApiSpotFeed:
             reason = getattr(message, "errorCode", "") or "order_rejected"
             order.status = OrderStatus.REJECTED
             order.comment = reason
-            setattr(order, "reason", reason)
+            order.reason = reason
             event.set()
             self._trigger_callback("on_order_rejected", order, message, reason)
             return
@@ -2196,7 +2211,7 @@ class OpenApiSpotFeed:
             # non-failure (similar to user-initiated cancel). The reason
             # string distinguishes GTD-expiry from a manual cancel.
             order.status = OrderStatus.CANCELLED
-            setattr(order, "reason", "order_expired")
+            order.reason = "order_expired"
             order.comment = "order_expired"
             event.set()
             self._trigger_callback("on_order_cancelled", order, message)
@@ -2254,11 +2269,11 @@ class OpenApiSpotFeed:
                     ev_symbol_id,
                     order.volume,
                 )
-        setattr(order, "reason", "order_filled")
+        order.reason = "order_filled"
         # Card ce6de98d (C): mark the fill-callback as fired BEFORE firing
         # so a synchronous re-entry (unlikely but possible if a callback
         # itself triggers another execution event) cannot double-fire.
-        setattr(order, "_fill_cb_fired", True)
+        order._fill_cb_fired = True
         event.set()
         self._trigger_callback("on_order_filled", order, message)
 
@@ -2295,7 +2310,7 @@ class OpenApiSpotFeed:
                 reason = f"{error_code}: {description}".strip(": ")
                 late_order.status = OrderStatus.REJECTED
                 late_order.comment = reason
-                setattr(late_order, "reason", reason)
+                late_order.reason = reason
                 logger.info(
                     "[ORDER_ERROR] LATE-FILL MATCH — clientOrderId=%r errorCode=%r "
                     "updating order from late_fill_registry",
@@ -2393,7 +2408,7 @@ class OpenApiSpotFeed:
         already_rejected = order.status == OrderStatus.REJECTED
         order.status = OrderStatus.REJECTED
         order.comment = reason
-        setattr(order, "reason", reason)
+        order.reason = reason
         logger.warning(
             "[ORDER_ERROR] MATCHED clientOrderId=%r errorCode=%r description=%r reason=%s%s",
             client_order_id,
@@ -2484,7 +2499,7 @@ class OpenApiSpotFeed:
                     description,
                 )
             else:
-                from .auth_error_types import AuthFaultType, POLICIES
+                from .auth_error_types import POLICIES, AuthFaultType
 
                 reclassified = POLICIES.get(AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT)
                 if reclassified and reclassified.activate_kill_switch:
@@ -2689,8 +2704,8 @@ class OpenApiSpotFeed:
     def _reconnect_restore(self) -> None:
         try:
             from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-                ProtoOAApplicationAuthReq,
                 ProtoOAAccountAuthReq,
+                ProtoOAApplicationAuthReq,
             )
 
             if not self._conn.is_connected:
@@ -2798,7 +2813,7 @@ class OpenApiSpotFeed:
             order.status = OrderStatus.FILLED
             order.filled_at = datetime.utcnow()
             order.filled_price = match.entry_price
-            setattr(order, "reason", "resolved_by_reconcile")
+            order.reason = "resolved_by_reconcile"
             self._trigger_callback("on_order_filled", order, match)
         self._disconnected_pending_orders = unresolved
 

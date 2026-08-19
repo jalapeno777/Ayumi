@@ -174,7 +174,7 @@ class CredentialManager:
             raise CredentialError(
                 "Cannot update tokens: credentials file does not exist. "
                 "Call save() first."
-            )
+            ) from None
 
         data["access_token"] = access_token
         data["refresh_token"] = refresh_token

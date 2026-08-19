@@ -17,19 +17,19 @@ import logging
 import threading
 from typing import Any, Callable, Optional
 
-from twisted.internet import reactor
 from ctrader_open_api import Client, TcpProtocol
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAApplicationAuthReq,
     ProtoOAAccountAuthReq,
+    ProtoOAApplicationAuthReq,
     ProtoOASubscribeSpotsReq,
 )
 from ctrader_open_api.protobuf import Protobuf
-from .reactor_manager import ReactorManager
+from twisted.internet import reactor
 
 from .credential_store import CredentialStore
-from .token_lifecycle import TokenLifecycle
 from .protocols import SessionState
+from .reactor_manager import ReactorManager
+from .token_lifecycle import TokenLifecycle
 
 logger = logging.getLogger("ayumi.session")
 
