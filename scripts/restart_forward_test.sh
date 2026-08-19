@@ -98,14 +98,8 @@ else
     echo "  Mode: live"
 fi
 
-# Try v2 launcher first, fall back to v1
-if [ -f "scripts/launch_forward_test_v2.py" ]; then
-    LAUNCHER="scripts/launch_forward_test_v2.py"
-    echo "  Using v2 launcher (new infrastructure)"
-else
-    LAUNCHER="scripts/launch_blend_forward_test.py"
-    echo "  Using v1 launcher (legacy)"
-fi
+# Launcher pinned to blend launcher (legacy launcher removed per card a7c12aea)
+LAUNCHER="scripts/launch_blend_forward_test.py"
 
 export PYTHONPATH="src/forex-bot:src"
 nohup "$PYTHON" "$LAUNCHER" --symbols GBPUSD,USDJPY $MODE >> "$LOG_FILE" 2>&1 &
