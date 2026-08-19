@@ -4,7 +4,15 @@ Prevents unit tests from consuming more than 20% CPU / 2GB memory on the shared 
 Individual tests or modules can override by calling resource_limits directly.
 """
 
+# ── BLAS thread guard (card 53505568) ─────────────────────────────────────
+# Must precede any import that could pull BLAS in (numpy, scipy, pandas, ...).
+# Without this, OpenBLAS/MKL/OpenMP spawn worker threads that share memory and
+# corrupt state under pytest's suite ordering, manifesting as exit-139 segfaults
+# (see diagnosis card 92243d36). setdefault preserves any caller-supplied value.
 import os
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+
 import sys
 
 # Ensure src is on path
