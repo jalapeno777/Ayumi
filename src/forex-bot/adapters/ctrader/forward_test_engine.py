@@ -455,6 +455,17 @@ class ForwardTestEngine:
 
         self._last_evaluation_at: float = 0.0
 
+        # Card dcc7817d (2/3): Capture the process-init monotonic clock so
+        # per-strategy ``_strategy_last_eval`` can be seeded from it. The
+        # health monitor reads ``time.monotonic() - last_eval`` to compute
+        # ``last_eval_ago``; a seed of ``0.0`` would yield ``uptime``
+        # (~13.3d observed) before the first eval lands, polluting the
+        # S1 health log and the ``last_eval_ago_sec`` state field. With a
+        # monotonic-at-init seed the first health tick reads ~0s and the
+        # value becomes accurate the moment the first eval updates the
+        # entry at :func:`_evaluate_strategies`.
+        self._strategy_init_monotonic: float = time.monotonic()
+
         # Bar-completion flags: set when a bar is finalized for a timeframe
         # key = _bar_key(symbol, timeframe), value = True when new bar completed
         self._bar_completed: dict[str, bool] = {}
@@ -512,7 +523,9 @@ class ForwardTestEngine:
         self._strategy_no_signal_counts: dict[str, int] = {
             s.name: 0 for s in strategies
         }
-        self._strategy_last_eval: dict[str, float] = {s.name: 0.0 for s in strategies}
+        self._strategy_last_eval: dict[str, float] = {
+            s.name: self._strategy_init_monotonic for s in strategies
+        }
 
         # B5 Pipeline warning: rate-limit + grace period
         self._last_pipeline_warning_time: float = 0.0
