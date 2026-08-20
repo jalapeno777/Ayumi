@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 import tempfile
 import unittest
 from datetime import datetime, timezone
@@ -42,7 +42,7 @@ class TestCsvDataLoader(unittest.TestCase):
         self.assertEqual(bars[0].time.tzinfo, timezone.utc)
 
     def test_load_from_file_produces_utc_bars(self):
-        csv = "Date,Open,High,Low,Close,Volume\n2024-01-01 17:00,1.0697,1.07066,1.06788,1.06929,100\n2024-01-01 18:00,1.06896,1.07047,1.06829,1.07005,200\n"
+        csv = "Date,Open,High,Low,Close,Volume\n2024-01-01 17:00,1.0697,1.07066,1.06788,1.06929,100\n2024-01-01 18:00,1.06896,1.07047,1.06829,1.07005,200\n"  # noqa: E501
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv)
             f.flush()

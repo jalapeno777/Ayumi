@@ -71,9 +71,7 @@ def create_signal(
     if not pattern_type or not session:
         import logging
 
-        logging.getLogger(__name__).warning(
-            "create_signal called without pattern_type or session"
-        )
+        logging.getLogger(__name__).warning("create_signal called without pattern_type or session")
     return Signal(
         symbol=symbol,
         direction=direction,

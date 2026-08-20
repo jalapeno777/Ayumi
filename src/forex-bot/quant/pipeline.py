@@ -152,8 +152,7 @@ class QuantPipeline:
             regime_confidence = self._check_regime(bar_time)
             if regime_confidence < self._config.regime.min_confidence:
                 reject_reason = (
-                    f"Regime confidence {regime_confidence:.2f} below "
-                    f"minimum {self._config.regime.min_confidence:.2f}"
+                    f"Regime confidence {regime_confidence:.2f} below minimum {self._config.regime.min_confidence:.2f}"
                 )
                 return TradeDecision(
                     action=TradeAction.REJECT,
@@ -161,11 +160,7 @@ class QuantPipeline:
                     reject_reason=reject_reason,
                 )
 
-        if (
-            self._config.correlation.enabled
-            and self._corr_tracker is not None
-            and self._corr_tracker.is_initialized
-        ):
+        if self._config.correlation.enabled and self._corr_tracker is not None and self._corr_tracker.is_initialized:
             positions = [
                 CorrelationPosition(
                     symbol=sym,
@@ -233,7 +228,7 @@ class QuantPipeline:
             walk_forward_passed=results.go_nogo,
             aggregated_metrics=results.aggregated,
             per_window_metrics=tuple(results.per_window),
-            details=f"Walk-forward: {sum(1 for m in results.per_window if m.passed_go_nogo)}/{len(results.per_window)} windows passed",
+            details=f"Walk-forward: {sum(1 for m in results.per_window if m.passed_go_nogo)}/{len(results.per_window)} windows passed",  # noqa: E501
         )
 
     def on_trade_closed(
@@ -281,8 +276,7 @@ class QuantPipeline:
                     self._markov_filter.observe(self._last_markov_state, current_state)
                 except ValueError:
                     logger.warning(
-                        "Markov filter rejected state %r — likely regime.py "
-                        "output changed. Skipping transition.",
+                        "Markov filter rejected state %r — likely regime.py output changed. Skipping transition.",
                         current_state,
                     )
             self._last_markov_state = current_state
@@ -332,9 +326,7 @@ class QuantPipeline:
             if decision.action == TradeAction.REJECT:
                 continue
 
-            lot_size = self._strategy_portfolio.calculate_position_size(
-                ps.signal, allocation
-            )
+            lot_size = self._strategy_portfolio.calculate_position_size(ps.signal, allocation)
             if decision.lot_size is not None:
                 lot_size = min(lot_size, decision.lot_size)
 
@@ -351,9 +343,7 @@ class QuantPipeline:
 
     def _check_regime(self, bar_time: datetime | None = None) -> float:
         if bar_time is None:
-            logger.warning(
-                "_check_regime called without bar_time, using fabricated noon Monday"
-            )
+            logger.warning("_check_regime called without bar_time, using fabricated noon Monday")
         vol_result = calc_volatility_regime(
             list(self._atr_history),
             lookback=self._config.regime.atr_lookback,
@@ -376,10 +366,7 @@ class QuantPipeline:
 
     def _calculate_base_lot(self, entry_price: float, stop_loss: float) -> float:
         sizing_cfg = self._config.position_sizing
-        if (
-            sizing_cfg.mode == SizingMode.KELLY
-            and self._portfolio.total_wins + self._portfolio.total_losses > 0
-        ):
+        if sizing_cfg.mode == SizingMode.KELLY and self._portfolio.total_wins + self._portfolio.total_losses > 0:
             total_trades = self._portfolio.total_wins + self._portfolio.total_losses
             win_rate = self._portfolio.total_wins / total_trades
             avg_win = self._portfolio.avg_win if self._portfolio.avg_win > 0 else 1.0
@@ -418,9 +405,7 @@ class QuantPipeline:
                 min_multiplier=sizing_cfg.vaps_min_multiplier,
                 max_multiplier=sizing_cfg.vaps_max_multiplier,
             )
-            adapted_lot, _regime, _pct = vaps_multiply(
-                base_lot, list(self._atr_history), config=vaps_config
-            )
+            adapted_lot, _regime, _pct = vaps_multiply(base_lot, list(self._atr_history), config=vaps_config)
             return adapted_lot
 
         if sizing_cfg.mode == SizingMode.DYNAMIC:

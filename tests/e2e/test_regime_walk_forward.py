@@ -1,6 +1,6 @@
 """BQ-508: Regime labels on walk-forward windows."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -47,9 +47,7 @@ def _make_bar(
     )
 
 
-def _make_bars(
-    n: int, start_price: float = 1.1000, trend: float = 0.0
-) -> list[FakeBar]:
+def _make_bars(n: int, start_price: float = 1.1000, trend: float = 0.0) -> list[FakeBar]:
     """Generate n fake bars with optional trend."""
     bars = []
     price = start_price

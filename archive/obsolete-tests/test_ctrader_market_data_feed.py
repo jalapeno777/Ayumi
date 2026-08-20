@@ -28,7 +28,7 @@ def quote_credentials():
         target_comp_id="cServer",
         sender_sub_id="QUOTE",
         username="17087404",
-        password="test_password",
+        password="test_password",  # noqa: S106
     )
 
 
@@ -51,16 +51,16 @@ def mock_feed(quote_credentials):
 class TestTick:
     def test_tick_properties(self):
         tick = Tick(symbol_id=1, bid=1.15250, ask=1.15252)
-        assert tick.spread == pytest.approx(0.00002, abs=1e-8)
-        assert tick.mid == pytest.approx(1.15251, abs=1e-8)
+        assert tick.spread == pytest.approx(0.00002, abs=1e-8)  # noqa: S101
+        assert tick.mid == pytest.approx(1.15251, abs=1e-8)  # noqa: S101
 
     def test_tick_default_timestamp(self):
         tick = Tick(symbol_id=1, bid=1.0, ask=1.0)
-        assert tick.timestamp is not None
+        assert tick.timestamp is not None  # noqa: S101
 
     def test_tick_zero_spread(self):
         tick = Tick(symbol_id=1, bid=1.0, ask=1.0)
-        assert tick.spread == 0.0
+        assert tick.spread == 0.0  # noqa: S101
 
 
 # ---------------------------------------------------------------------------
@@ -70,16 +70,16 @@ class TestTick:
 
 class TestSymbolInfo:
     def test_default_symbols_populated(self):
-        assert len(DEFAULT_SYMBOLS) >= 6
-        assert DEFAULT_SYMBOLS[1] == "EUR/USD"
-        assert DEFAULT_SYMBOLS[2] == "GBP/USD"
+        assert len(DEFAULT_SYMBOLS) >= 6  # noqa: S101
+        assert DEFAULT_SYMBOLS[1] == "EUR/USD"  # noqa: S101
+        assert DEFAULT_SYMBOLS[2] == "GBP/USD"  # noqa: S101
 
     def test_symbol_info_creation(self):
         info = SymbolInfo(symbol_id=1, name="EUR/USD")
-        assert info.symbol_id == 1
-        assert info.name == "EUR/USD"
-        assert info.pip_size == 0.0001
-        assert info.digits == 5
+        assert info.symbol_id == 1  # noqa: S101
+        assert info.name == "EUR/USD"  # noqa: S101
+        assert info.pip_size == 0.0001  # noqa: S101
+        assert info.digits == 5  # noqa: S101
 
 
 # ---------------------------------------------------------------------------
@@ -90,37 +90,37 @@ class TestSymbolInfo:
 class TestLiveMarketDataFeed:
     def test_init_resolves_symbols(self, quote_credentials):
         feed = LiveMarketDataFeed(quote_credentials)
-        assert feed.name_to_id["EUR/USD"] == 1
-        assert feed.name_to_id["GBP/USD"] == 2
-        assert feed._resolve_id("EUR/USD") == 1
-        assert feed._resolve_id("UNKNOWN") is None
+        assert feed.name_to_id["EUR/USD"] == 1  # noqa: S101
+        assert feed.name_to_id["GBP/USD"] == 2  # noqa: S101
+        assert feed._resolve_id("EUR/USD") == 1  # noqa: S101
+        assert feed._resolve_id("UNKNOWN") is None  # noqa: S101
 
     def test_subscribe_sends_correct_message(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
-        assert mock_feed._client._send_message.called
+        assert mock_feed._client._send_message.called  # noqa: S101
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.msg_type == "V"
-        assert 1 in mock_feed._subscriptions
+        assert msg.msg_type == "V"  # noqa: S101
+        assert 1 in mock_feed._subscriptions  # noqa: S101
 
     def test_subscribe_unknown_symbol(self, mock_feed):
         result = mock_feed.subscribe("UNKNOWN/PAIR")
-        assert result is False
-        assert not mock_feed._client._send_message.called
+        assert result is False  # noqa: S101
+        assert not mock_feed._client._send_message.called  # noqa: S101
 
     def test_subscribe_idempotent(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         mock_feed.subscribe("EUR/USD")
         # Should only send once
-        assert mock_feed._client._send_message.call_count == 1
+        assert mock_feed._client._send_message.call_count == 1  # noqa: S101
 
     def test_unsubscribe(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         mock_feed._client._send_message.reset_mock()
         mock_feed.unsubscribe("EUR/USD")
-        assert 1 not in mock_feed._subscriptions
+        assert 1 not in mock_feed._subscriptions  # noqa: S101
 
     def test_get_tick_empty(self, mock_feed):
-        assert mock_feed.get_tick("EUR/USD") is None
+        assert mock_feed.get_tick("EUR/USD") is None  # noqa: S101
 
     def test_on_snapshot_updates_tick(self, mock_feed):
         # Simulate a MarketDataSnapshot
@@ -142,9 +142,9 @@ class TestLiveMarketDataFeed:
         mock_feed._on_snapshot(msg)
 
         tick = mock_feed.get_tick("EUR/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.15250, abs=1e-8)
-        assert tick.ask == pytest.approx(1.15252, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.15250, abs=1e-8)  # noqa: S101
+        assert tick.ask == pytest.approx(1.15252, abs=1e-8)  # noqa: S101
 
     def test_on_snapshot_incomplete_ignored(self, mock_feed):
         msg = FIXMessage()
@@ -152,7 +152,7 @@ class TestLiveMarketDataFeed:
         msg._raw_fields = [(55, "1"), (269, "0"), (270, "1.15250")]
 
         mock_feed._on_snapshot(msg)
-        assert mock_feed.get_tick("EUR/USD") is None
+        assert mock_feed.get_tick("EUR/USD") is None  # noqa: S101
 
     def test_get_all_ticks(self, mock_feed):
         msg = FIXMessage()
@@ -168,7 +168,7 @@ class TestLiveMarketDataFeed:
         mock_feed._on_snapshot(msg)
 
         all_ticks = mock_feed.get_all_ticks()
-        assert "EUR/USD" in all_ticks
+        assert "EUR/USD" in all_ticks  # noqa: S101
 
     def test_tick_callback(self, mock_feed):
         received = []
@@ -186,13 +186,13 @@ class TestLiveMarketDataFeed:
         ]
         mock_feed._on_snapshot(msg)
 
-        assert len(received) == 1
-        assert received[0].symbol_id == 1
+        assert len(received) == 1  # noqa: S101
+        assert received[0].symbol_id == 1  # noqa: S101
 
     def test_forex_pairs_constant(self):
-        assert "EUR/USD" in FOREX_PAIRS
-        assert "GBP/USD" in FOREX_PAIRS
-        assert len(FOREX_PAIRS) == 6
+        assert "EUR/USD" in FOREX_PAIRS  # noqa: S101
+        assert "GBP/USD" in FOREX_PAIRS  # noqa: S101
+        assert len(FOREX_PAIRS) == 6  # noqa: S101
 
 
 # ---------------------------------------------------------------------------
@@ -206,10 +206,10 @@ class TestFIXMessageRepeatingGroups:
         msg.set_body_field(267, "2")
         msg.set_body_field(269, "0")
         msg.set_body_field(269, "1")
-        assert len(msg._body_field_list) == 3
-        assert msg._body_field_list[0] == (267, "2")
-        assert msg._body_field_list[1] == (269, "0")
-        assert msg._body_field_list[2] == (269, "1")
+        assert len(msg._body_field_list) == 3  # noqa: S101
+        assert msg._body_field_list[0] == (267, "2")  # noqa: S101
+        assert msg._body_field_list[1] == (269, "0")  # noqa: S101
+        assert msg._body_field_list[2] == (269, "1")  # noqa: S101
 
     def test_to_wire_includes_repeated_fields(self):
         msg = FIXMessage(msg_type="V")
@@ -217,17 +217,17 @@ class TestFIXMessageRepeatingGroups:
         msg.set_body_field(269, "1")
         wire = msg.to_wire()
         # Both 269 values should appear in wire format
-        assert wire.count("269=0") == 1
-        assert wire.count("269=1") == 1
+        assert wire.count("269=0") == 1  # noqa: S101
+        assert wire.count("269=1") == 1  # noqa: S101
 
     def test_from_wire_preserves_raw_fields(self):
         wire = f"35=W{SOH}55=1{SOH}268=2{SOH}269=0{SOH}270=1.15250{SOH}269=1{SOH}270=1.15252{SOH}"
         msg = FIXMessage.from_wire(wire)
-        assert hasattr(msg, "_raw_fields")
-        assert len(msg._raw_fields) >= 6
+        assert hasattr(msg, "_raw_fields")  # noqa: S101
+        assert len(msg._raw_fields) >= 6  # noqa: S101
         # Flat dict should have last value for repeated tags
-        assert msg.get_field(269) == "1"
-        assert msg.get_field(270) == "1.15252"
+        assert msg.get_field(269) == "1"  # noqa: S101
+        assert msg.get_field(270) == "1.15252"  # noqa: S101
 
 
 # ---------------------------------------------------------------------------
@@ -239,36 +239,36 @@ class TestMarketDataRequestWireFormat:
     def test_market_depth_is_zero(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.get_field(264) == "0"
+        assert msg.get_field(264) == "0"  # noqa: S101
 
     def test_md_update_type_is_zero(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.get_field(265) == "0"
+        assert msg.get_field(265) == "0"  # noqa: S101
 
     def test_subscription_type_is_snapshot_plus_updates(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.get_field(263) == "1"
+        assert msg.get_field(263) == "1"  # noqa: S101
 
     def test_no_md_entry_types_is_two(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.get_field(267) == "2"
+        assert msg.get_field(267) == "2"  # noqa: S101
 
     def test_bid_and_ask_entry_types_in_wire(self, mock_feed):
         mock_feed.subscribe("EUR/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
         wire = msg.to_wire()
-        assert "269=0" in wire
-        assert "269=1" in wire
+        assert "269=0" in wire  # noqa: S101
+        assert "269=1" in wire  # noqa: S101
 
     def test_symbol_id_in_related_sym_group(self, mock_feed):
         mock_feed.subscribe("GBP/USD")
         msg = mock_feed._client._send_message.call_args[0][0]
-        assert msg.get_field(146) == "1"
+        assert msg.get_field(146) == "1"  # noqa: S101
         wire = msg.to_wire()
-        assert "55=2" in wire
+        assert "55=2" in wire  # noqa: S101
 
 
 # ---------------------------------------------------------------------------
@@ -277,9 +277,7 @@ class TestMarketDataRequestWireFormat:
 
 
 class TestMarketDataIncrementalRefresh:
-    def _make_incremental_msg(
-        self, entries: list[dict], symbol_id: int = 2, md_req_id: str = "SUB_0001"
-    ) -> FIXMessage:
+    def _make_incremental_msg(self, entries: list[dict], symbol_id: int = 2, md_req_id: str = "SUB_0001") -> FIXMessage:
         """Build a FIXMessage mimicking a 35=X incremental refresh."""
         raw_fields: list[tuple[int, str]] = [
             (262, md_req_id),
@@ -318,9 +316,9 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
-        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)  # noqa: S101
 
     def test_new_ask_updates_tick(self, mock_feed):
         mock_feed._order_book[2] = {"bids": {}, "asks": {}}
@@ -339,9 +337,9 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
-        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)  # noqa: S101
 
     def test_change_updates_price(self, mock_feed):
         mock_feed._order_book[2] = {
@@ -362,8 +360,8 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
 
     def test_delete_removes_order(self, mock_feed):
         mock_feed._order_book[2] = {
@@ -379,8 +377,8 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
 
     def test_multiple_entries_in_one_message(self, mock_feed):
         mock_feed._order_book[2] = {"bids": {}, "asks": {}}
@@ -396,9 +394,9 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
-        assert tick.ask == pytest.approx(1.35648, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
+        assert tick.ask == pytest.approx(1.35648, abs=1e-8)  # noqa: S101
 
     def test_incremental_tick_callback_fired(self, mock_feed):
         received = []
@@ -415,9 +413,9 @@ class TestMarketDataIncrementalRefresh:
         )
         mock_feed._on_incremental(msg)
 
-        assert len(received) == 1
-        assert received[0].symbol_id == 2
-        assert received[0].bid == pytest.approx(1.35643, abs=1e-8)
+        assert len(received) == 1  # noqa: S101
+        assert received[0].symbol_id == 2  # noqa: S101
+        assert received[0].bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
 
     def test_incremental_ignored_for_non_x_messages(self, mock_feed):
         msg = FIXMessage()
@@ -431,13 +429,13 @@ class TestMarketDataIncrementalRefresh:
             (270, "1.1"),
         ]
         mock_feed._on_incremental(msg)
-        assert mock_feed.get_tick("EUR/USD") is None
+        assert mock_feed.get_tick("EUR/USD") is None  # noqa: S101
 
     def test_incremental_no_raw_fields_ignored(self, mock_feed):
         msg = FIXMessage()
         msg.fields = {35: "X", 55: "2", 52: "20260415-03:30:00.000"}
         mock_feed._on_incremental(msg)
-        assert mock_feed.get_tick("GBP/USD") is None
+        assert mock_feed.get_tick("GBP/USD") is None  # noqa: S101
 
     def test_incremental_incomplete_book_no_update(self, mock_feed):
         mock_feed._order_book[2] = {"bids": {}, "asks": {}}
@@ -447,7 +445,7 @@ class TestMarketDataIncrementalRefresh:
             ]
         )
         mock_feed._on_incremental(msg)
-        assert mock_feed.get_tick("GBP/USD") is None
+        assert mock_feed.get_tick("GBP/USD") is None  # noqa: S101
 
     def test_snapshot_clears_order_book(self, mock_feed):
         mock_feed._order_book[2] = {"bids": {"b1": 1.35643}, "asks": {"a1": 1.35650}}
@@ -462,12 +460,12 @@ class TestMarketDataIncrementalRefresh:
             (270, "1.35650"),
         ]
         mock_feed._on_snapshot(msg)
-        assert 2 not in mock_feed._order_book
+        assert 2 not in mock_feed._order_book  # noqa: S101
 
     def test_stop_clears_order_book(self, mock_feed):
         mock_feed._order_book[2] = {"bids": {"b1": 1.0}, "asks": {"a1": 1.1}}
         mock_feed.stop()
-        assert mock_feed._order_book == {}
+        assert mock_feed._order_book == {}  # noqa: S101
 
     def test_unknown_entry_type_skipped(self, mock_feed):
         mock_feed._order_book[2] = {
@@ -485,8 +483,8 @@ class TestMarketDataIncrementalRefresh:
             ]
         )
         mock_feed._on_incremental(msg)
-        assert mock_feed._order_book[2]["bids"] == {"b1": 1.35643}
-        assert mock_feed._order_book[2]["asks"] == {"a1": 1.35650}
+        assert mock_feed._order_book[2]["bids"] == {"b1": 1.35643}  # noqa: S101
+        assert mock_feed._order_book[2]["asks"] == {"a1": 1.35650}  # noqa: S101
 
     def test_delete_nonexistent_order_no_error(self, mock_feed):
         mock_feed._order_book[2] = {
@@ -500,8 +498,8 @@ class TestMarketDataIncrementalRefresh:
         )
         mock_feed._on_incremental(msg)
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
 
     def test_cross_symbol_entries_isolated(self, mock_feed):
         """Entries with per-entry symbol_id go to their own order book."""
@@ -531,12 +529,12 @@ class TestMarketDataIncrementalRefresh:
 
         tick_eur = mock_feed.get_tick("EUR/USD")
         tick_gbp = mock_feed.get_tick("GBP/USD")
-        assert tick_eur is not None
-        assert tick_eur.bid == pytest.approx(1.15250, abs=1e-8)
-        assert tick_eur.ask == pytest.approx(1.15255, abs=1e-8)
-        assert tick_gbp is not None
-        assert tick_gbp.bid == pytest.approx(1.35643, abs=1e-8)
-        assert tick_gbp.ask == pytest.approx(1.35650, abs=1e-8)
+        assert tick_eur is not None  # noqa: S101
+        assert tick_eur.bid == pytest.approx(1.15250, abs=1e-8)  # noqa: S101
+        assert tick_eur.ask == pytest.approx(1.15255, abs=1e-8)  # noqa: S101
+        assert tick_gbp is not None  # noqa: S101
+        assert tick_gbp.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
+        assert tick_gbp.ask == pytest.approx(1.35650, abs=1e-8)  # noqa: S101
 
     def test_cross_symbol_no_contamination(self, mock_feed):
         """Multi-symbol X message must not mix bids/asks across symbols."""
@@ -580,12 +578,12 @@ class TestMarketDataIncrementalRefresh:
 
         tick_eur = mock_feed.get_tick("EUR/USD")
         tick_gbp = mock_feed.get_tick("GBP/USD")
-        assert tick_eur is not None
-        assert tick_eur.spread == pytest.approx(0.00005, abs=1e-8)
-        assert tick_gbp is not None
-        assert tick_gbp.spread == pytest.approx(0.00007, abs=1e-8)
-        assert tick_eur.spread > 0
-        assert tick_gbp.spread > 0
+        assert tick_eur is not None  # noqa: S101
+        assert tick_eur.spread == pytest.approx(0.00005, abs=1e-8)  # noqa: S101
+        assert tick_gbp is not None  # noqa: S101
+        assert tick_gbp.spread == pytest.approx(0.00007, abs=1e-8)  # noqa: S101
+        assert tick_eur.spread > 0  # noqa: S101
+        assert tick_gbp.spread > 0  # noqa: S101
 
     def test_inverted_spread_skipped(self, mock_feed):
         """Spread guard prevents emitting a tick when bid >= ask."""
@@ -614,7 +612,7 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is None
+        assert tick is None  # noqa: S101
 
     def test_inverted_spread_does_not_corrupt_other_symbols(self, mock_feed):
         """Inverted spread on one symbol must not block a valid spread on another."""
@@ -658,9 +656,9 @@ class TestMarketDataIncrementalRefresh:
 
         tick_gbp = mock_feed.get_tick("GBP/USD")
         tick_eur = mock_feed.get_tick("EUR/USD")
-        assert tick_gbp is None
-        assert tick_eur is not None
-        assert tick_eur.spread > 0
+        assert tick_gbp is None  # noqa: S101
+        assert tick_eur is not None  # noqa: S101
+        assert tick_eur.spread > 0  # noqa: S101
 
     def test_entry_without_symbol_id_falls_back_to_msg_level(self, mock_feed):
         msg = self._make_incremental_msg(
@@ -684,6 +682,6 @@ class TestMarketDataIncrementalRefresh:
         mock_feed._on_incremental(msg)
 
         tick = mock_feed.get_tick("GBP/USD")
-        assert tick is not None
-        assert tick.bid == pytest.approx(1.35643, abs=1e-8)
-        assert tick.ask == pytest.approx(1.35650, abs=1e-8)
+        assert tick is not None  # noqa: S101
+        assert tick.bid == pytest.approx(1.35643, abs=1e-8)  # noqa: S101
+        assert tick.ask == pytest.approx(1.35650, abs=1e-8)  # noqa: S101

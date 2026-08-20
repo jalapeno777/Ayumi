@@ -1,6 +1,6 @@
 """Tests for session_logic: session detection, kill zones, DST, weekly modifiers."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, time
 
@@ -141,15 +141,11 @@ class TestPhaseScoring:
         assert result["phase_score"] == 0.0
 
     def test_bar_closed_false_returns_zero(self):
-        result = self.sa.score_session_phase_with_time(
-            "LONDON", _utc(2026, 6, 1, 8, 0), bar_closed=False
-        )
+        result = self.sa.score_session_phase_with_time("LONDON", _utc(2026, 6, 1, 8, 0), bar_closed=False)
         assert result["phase_score"] == 0.0
         assert result.get("bar_closed") is False
 
     def test_asia_control_tight_range(self):
-        result = self.sa.score_session_phase(
-            "ASIA", price_action={"asia_range_pct": 0.01, "asia_direction": "bullish"}
-        )
+        result = self.sa.score_session_phase("ASIA", price_action={"asia_range_pct": 0.01, "asia_direction": "bullish"})
         assert result.get("asia_control_score") == 1.0
         assert result["directional_bias"] == "bullish"

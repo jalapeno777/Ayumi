@@ -18,7 +18,7 @@ These tests cover:
 
 import json
 import logging
-import re
+import re  # noqa: F401
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -66,17 +66,13 @@ class TestReconnectDiagnosticTokenValidity(unittest.TestCase):
         previous_level = logger.level
         logger.setLevel(logging.INFO)
         try:
-            with patch(
-                "adapters.ctrader.forward_test_engine.time"
-            ) as mock_time_mod:
+            with patch("adapters.ctrader.forward_test_engine.time") as mock_time_mod:
                 mock_time_mod.monotonic.return_value = monotonic_value
                 # Any other time attribute touched by the path
                 # (``time.sleep`` etc.) should fall through to real time.
                 mock_time_mod.side_effect = lambda *a, **kw: (
                     monotonic_value
-                    if a == ()
-                    and kw == {}
-                    and False  # never hit; below is the safe default
+                    if a == () and kw == {} and False  # never hit; below is the safe default
                     else __import__("time").time(*a, **kw)
                 )
                 # Simpler: allow all other attrs to be real time functions
@@ -107,12 +103,8 @@ class TestReconnectDiagnosticTokenValidity(unittest.TestCase):
 
         payload = self._capture_diagnostic_payload(engine, monotonic_value=800.0)
 
-        assert "token_validity_remaining_s" in payload, (
-            f"missing new diagnostic key in {payload!r}"
-        )
-        assert "token_age_s" not in payload, (
-            f"old mislabeled key must be gone, got {payload!r}"
-        )
+        assert "token_validity_remaining_s" in payload, f"missing new diagnostic key in {payload!r}"
+        assert "token_age_s" not in payload, f"old mislabeled key must be gone, got {payload!r}"
         assert payload["token_validity_remaining_s"] == 200.0
         assert isinstance(payload["token_validity_remaining_s"], (int, float))
 
@@ -138,9 +130,7 @@ class TestReconnectDiagnosticTokenValidity(unittest.TestCase):
         # Strict decrease by exactly the clock delta — proves the value is
         # recomputed at log emission time and not cached.
         assert r2 < r1, f"expected strictly decreasing, got {r1} → {r2}"
-        assert abs((r1 - r2) - delta) < 1e-9, (
-            f"expected delta {delta}, got {r1 - r2}"
-        )
+        assert abs((r1 - r2) - delta) < 1e-9, f"expected delta {delta}, got {r1 - r2}"
 
     def test_value_strictly_decreases_across_three_emissions(self):
         """Triple-emission variant: prove the recompute happens every emit,
@@ -156,10 +146,8 @@ class TestReconnectDiagnosticTokenValidity(unittest.TestCase):
             self._capture_diagnostic_payload(engine, monotonic_value=1025.0),
         ]
         values = [e["token_validity_remaining_s"] for e in emissions]
-        assert values == [9000.0, 8990.0, 8975.0], (
-            f"expected strictly decreasing by clock delta, got {values}"
-        )
-        for prev, nxt in zip(values, values[1:]):
+        assert values == [9000.0, 8990.0, 8975.0], f"expected strictly decreasing by clock delta, got {values}"
+        for prev, nxt in zip(values, values[1:]):  # noqa: B905
             assert nxt < prev
 
     # ------------------------------------------------------------------
@@ -223,9 +211,7 @@ class TestDiagnosticPayloadShape(unittest.TestCase):
         previous_level = logger.level
         logger.setLevel(logging.INFO)
         try:
-            with patch(
-                "adapters.ctrader.forward_test_engine.time"
-            ) as mock_time_mod:
+            with patch("adapters.ctrader.forward_test_engine.time") as mock_time_mod:
                 mock_time_mod.monotonic.return_value = 100.0
                 real_time = __import__("time")
                 for attr in dir(real_time):

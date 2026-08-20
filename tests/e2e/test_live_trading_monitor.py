@@ -1,4 +1,4 @@
-import importlib.util
+import importlib.util  # noqa: I001
 import os
 import sys
 from datetime import datetime, timezone
@@ -17,9 +17,7 @@ spec.loader.exec_module(live_trading_monitor)
 @pytest.fixture(autouse=True)
 def _register_live_trading_monitor(monkeypatch):
     """Register live_trading_monitor in sys.modules via monkeypatch (auto-restored)."""
-    monkeypatch.setitem(
-        sys.modules, "scripts.live_trading_monitor", live_trading_monitor
-    )
+    monkeypatch.setitem(sys.modules, "scripts.live_trading_monitor", live_trading_monitor)
 
 
 TradingState = live_trading_monitor.TradingState
@@ -176,23 +174,17 @@ class TestCheckCircuitBreaker:
 class TestIsActiveTradingHours:
     def test_within_active_hours(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(
-                2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc
-            )
+            mock_dt.now.return_value = datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is True
 
     def test_outside_active_hours_early(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(
-                2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc
-            )
+            mock_dt.now.return_value = datetime(2024, 1, 1, 3, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is False
 
     def test_outside_active_hours_late(self):
         with patch.object(live_trading_monitor, "datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(
-                2024, 1, 1, 23, 0, 0, tzinfo=timezone.utc
-            )
+            mock_dt.now.return_value = datetime(2024, 1, 1, 23, 0, 0, tzinfo=timezone.utc)
             assert is_active_trading_hours() is False
 
 

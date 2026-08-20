@@ -27,9 +27,7 @@ if TYPE_CHECKING:
         QuantPipeline = None
 
 
-class BacktestEngine(
-    EngineCore, ProgressiveSLMixin, TradeManagementMixin, CombinedSignalMixin
-):
+class BacktestEngine(EngineCore, ProgressiveSLMixin, TradeManagementMixin, CombinedSignalMixin):
     def __init__(
         self,
         config: BacktestConfig,
@@ -46,9 +44,7 @@ class BacktestEngine(
 
         # Phase 3 parity: kill criteria + behavioral policy (matches live
         # ForwardTestEngine wiring, commit 679245c).
-        self._kill_criteria_checker = KillCriteriaChecker(
-            global_config={"max_spread_bps": 2.0}
-        )
+        self._kill_criteria_checker = KillCriteriaChecker(global_config={"max_spread_bps": 2.0})
         self._behavioral_policy = BehavioralPolicy()
         self._consecutive_losses: int = 0
         self._pending_lot_multiplier: float = 1.0
@@ -58,9 +54,7 @@ class BacktestEngine(
             from quant.pipeline import QuantPipeline
 
             if not isinstance(quant_config, QC):
-                raise TypeError(
-                    f"Expected QuantConfig, got {type(quant_config).__name__}"
-                )
+                raise TypeError(f"Expected QuantConfig, got {type(quant_config).__name__}")
             self._quant_pipeline = QuantPipeline(quant_config)
 
     def run_single(self, strategy: "IStrategy", bars: list[Bar]) -> BacktestMetrics:
@@ -88,10 +82,7 @@ class BacktestEngine(
             self._check_open_trades(open_trades, bar, i, trades, equity_curve)
             self._update_loss_streak(trades, trades_before)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
@@ -114,11 +105,7 @@ class BacktestEngine(
 
             equity_curve.append(self.balance)
 
-        trades.extend(
-            self._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
+        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
         return self._calculate_metrics(trades, equity_curve)
 
     def run_all(self, bars: list[Bar]) -> dict[str, BacktestMetrics]:
@@ -157,10 +144,7 @@ class BacktestEngine(
             self._check_open_trades(open_trades, bar, i, trades, equity_curve)
             self._update_loss_streak(trades, trades_before)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
@@ -196,11 +180,7 @@ class BacktestEngine(
 
             equity_curve.append(self.balance)
 
-        trades.extend(
-            self._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
+        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
         return self._calculate_metrics(trades, equity_curve)
 
     def _passes_filters(self, signal: StrategySignal) -> bool:

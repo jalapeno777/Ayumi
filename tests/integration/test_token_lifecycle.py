@@ -3,7 +3,7 @@
 All HTTP calls are mocked. No real OAuth requests are made.
 """
 
-import json
+import json  # noqa: I001
 import threading
 import time
 from unittest.mock import MagicMock, patch
@@ -39,8 +39,8 @@ def _make_store(tmp_path) -> CredentialStore:
 
 
 def _mock_oauth_response(
-    access_token="new_access_token",
-    refresh_token="new_refresh_token",
+    access_token="new_access_token",  # noqa: S107
+    refresh_token="new_refresh_token",  # noqa: S107
     expires_in=3600,
     status_code=200,
 ):
@@ -78,9 +78,7 @@ def _make_expiring_store(tmp_path, minutes_to_expiry: int) -> CredentialStore:
     """
     store = _make_store(tmp_path)
     expires_in = max(minutes_to_expiry * 60, 1)  # at least 1 second
-    store.update_tokens(
-        "test_access_token", "test_refresh_token", expires_in=expires_in
-    )
+    store.update_tokens("test_access_token", "test_refresh_token", expires_in=expires_in)
     return store
 
 
@@ -95,7 +93,7 @@ def test_ensure_valid_returns_cached_token(tmp_path):
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         token = tl.ensure_valid()
 
-    assert token == "test_access_token"
+    assert token == "test_access_token"  # noqa: S105
     # OAuth endpoint should NOT have been called
     mock_req.post.assert_not_called()
 
@@ -107,14 +105,15 @@ def test_ensure_valid_refreshes_when_expiring_soon(tmp_path):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="refreshed_token", expires_in=3600
+            access_token="refreshed_token",  # noqa: S106
+            expires_in=3600,  # noqa: S106
         )
         mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception  # needed for except clause
 
         token = tl.ensure_valid()
 
-    assert token == "refreshed_token"
+    assert token == "refreshed_token"  # noqa: S105
     mock_req.post.assert_called_once()
 
     # Verify the OAuth call used the right endpoint and payload
@@ -123,7 +122,7 @@ def test_ensure_valid_refreshes_when_expiring_soon(tmp_path):
     sent_data = call_args[1]["data"]
     assert sent_data["grant_type"] == "refresh_token"
     assert sent_data["client_id"] == "test_client_id"
-    assert sent_data["client_secret"] == "test_secret"
+    assert sent_data["client_secret"] == "test_secret"  # noqa: S105
 
 
 def test_force_refresh_updates_credential_store(tmp_path):
@@ -133,8 +132,8 @@ def test_force_refresh_updates_credential_store(tmp_path):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="forced_new_token",
-            refresh_token="forced_new_refresh",
+            access_token="forced_new_token",  # noqa: S106
+            refresh_token="forced_new_refresh",  # noqa: S106
             expires_in=7200,
         )
         mock_req.get.return_value = _mock_validation_response(200)
@@ -142,12 +141,12 @@ def test_force_refresh_updates_credential_store(tmp_path):
 
         token = tl.force_refresh()
 
-    assert token == "forced_new_token"
+    assert token == "forced_new_token"  # noqa: S105
 
     # Verify the store was updated
     creds = store.get()
-    assert creds.access_token == "forced_new_token"
-    assert creds.refresh_token == "forced_new_refresh"
+    assert creds.access_token == "forced_new_token"  # noqa: S105
+    assert creds.refresh_token == "forced_new_refresh"  # noqa: S105
     assert creds.expires_at is not None
 
 
@@ -199,7 +198,7 @@ def test_concurrent_refresh_is_serialized(tmp_path):
         # Simulate small network latency
         time.sleep(0.05)
         # Use 30-day expiry so other threads see token as valid (> 5-day buffer)
-        return _mock_oauth_response(access_token="concurrent_token", expires_in=2592000)
+        return _mock_oauth_response(access_token="concurrent_token", expires_in=2592000)  # noqa: S106
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.side_effect = fake_post
@@ -243,7 +242,8 @@ def test_proactive_timer_refreshes_before_expiry(tmp_path):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="timer_refreshed_token", expires_in=3600
+            access_token="timer_refreshed_token",  # noqa: S106
+            expires_in=3600,  # noqa: S106
         )
         mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception
@@ -252,9 +252,7 @@ def test_proactive_timer_refreshes_before_expiry(tmp_path):
 
         # Wait up to 10s for the callback to fire
         # (timer checks every 60s but first check is immediate on loop entry)
-        assert callback_event.wait(timeout=15), (
-            "Proactive timer did not refresh within timeout"
-        )
+        assert callback_event.wait(timeout=15), "Proactive timer did not refresh within timeout"
 
         tl.stop_proactive_timer()
 

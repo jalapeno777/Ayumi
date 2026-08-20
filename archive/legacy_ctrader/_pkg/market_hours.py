@@ -6,6 +6,7 @@ otherwise trigger the heartbeat-based kill switch.
 
 Use this to gate kill switch triggers and feed health checks.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -24,8 +25,7 @@ def is_forex_market_closed() -> bool:
     if now.weekday() == 4:  # Friday
         if now.hour > _WEEKEND_CLOSE_HOUR_UTC:
             return True
-        if (now.hour == _WEEKEND_CLOSE_HOUR_UTC
-                and now.minute >= _WEEKEND_CLOSE_MINUTE_UTC):
+        if now.hour == _WEEKEND_CLOSE_HOUR_UTC and now.minute >= _WEEKEND_CLOSE_MINUTE_UTC:
             return True
     if now.weekday() == 5:  # Saturday
         return True

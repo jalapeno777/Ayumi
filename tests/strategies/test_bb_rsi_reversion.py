@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone  # noqa: I001
 
 import pytest
 
@@ -19,7 +19,7 @@ from strategies.bb_rsi_reversion import (
 
 def _make_bars(closes: list[float], hour: int = 10) -> list[Bar]:
     bars = []
-    for i, c in enumerate(closes):
+    for i, c in enumerate(closes):  # noqa: B007
         t = datetime(2026, 4, 1, hour, 0, tzinfo=timezone.utc)
         bars.append(
             Bar(
@@ -89,9 +89,7 @@ class TestHelperFunctions:
         assert _adx(bars, 14) == 0.0
 
     def test_is_low_volatility_detects_decreasing_atr(self):
-        closes = [1.0 + i * 0.001 for i in range(35)] + [
-            1.035 - i * 0.0001 for i in range(15)
-        ]
+        closes = [1.0 + i * 0.001 for i in range(35)] + [1.035 - i * 0.0001 for i in range(15)]
         bars = _make_bars(closes, hour=10)
         result = _is_low_volatility(bars, 14, 20)
         assert isinstance(result, bool)
@@ -227,13 +225,9 @@ class TestBBRSIMeanReversion:
             risk = abs(result.entry_price - result.stop_loss)
             expected_tp1_dist = risk * cfg.tp1_rr
             if result.direction == TradeDirection.LONG:
-                assert result.take_profit_1 == pytest.approx(
-                    result.entry_price + expected_tp1_dist, rel=1e-4
-                )
+                assert result.take_profit_1 == pytest.approx(result.entry_price + expected_tp1_dist, rel=1e-4)
             else:
-                assert result.take_profit_1 == pytest.approx(
-                    result.entry_price - expected_tp1_dist, rel=1e-4
-                )
+                assert result.take_profit_1 == pytest.approx(result.entry_price - expected_tp1_dist, rel=1e-4)
 
     def test_confidence_in_range(self):
         cfg = BBRSIConfig(

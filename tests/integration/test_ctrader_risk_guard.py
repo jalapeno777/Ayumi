@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date  # noqa: I001
 
 import pytest
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
@@ -35,10 +35,7 @@ class TestFTMOProfile:
             daily_loss_limit_pct=0.05,
             max_trades_per_day=10,
         )
-        assert (
-            profile.risk_per_trade_pct * profile.max_trades_per_day
-            == profile.daily_loss_limit_pct
-        )
+        assert profile.risk_per_trade_pct * profile.max_trades_per_day == profile.daily_loss_limit_pct
 
     def test_exceeds_daily_limit_raises(self):
         with pytest.raises(ValueError, match="exceeds daily_loss_limit_pct"):
@@ -84,9 +81,7 @@ class TestFTMOProfile:
 class TestFTMOConfig:
     def test_default_config_uses_profile(self):
         config = FTMOConfig()
-        assert (
-            config.daily_loss_limit_pct == FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct
-        )
+        assert config.daily_loss_limit_pct == FTMO_PROFILE_CHALLENGE.daily_loss_limit_pct
         assert config.max_position_size_pct == FTMO_PROFILE_CHALLENGE.risk_per_trade_pct
         assert config.max_trades_per_day == FTMO_PROFILE_CHALLENGE.max_trades_per_day
 
@@ -261,9 +256,7 @@ class TestDailyLossNoTradesGuard:
             stop_loss=1.0950,
             take_profit=1.1100,
         )
-        assert result.allowed is True, (
-            f"Daily loss should be skipped with 0 trades, got: {result.message}"
-        )
+        assert result.allowed is True, f"Daily loss should be skipped with 0 trades, got: {result.message}"
         assert not guard.is_blocked
 
     def test_daily_loss_still_triggers_after_trades(self):

@@ -135,18 +135,10 @@ class ORBStrategy:
         defaults = SESSION_DEFAULTS.get(session, SESSION_DEFAULTS["london"])
 
         self.session = session
-        self.range_start_hour: int = config.get(
-            "range_start_hour", defaults["range_start_hour"]
-        )
-        self.range_end_hour: int = config.get(
-            "range_end_hour", defaults["range_end_hour"]
-        )
-        self.trade_start_hour: int = config.get(
-            "trade_start_hour", defaults["trade_start_hour"]
-        )
-        self.trade_end_hour: int = config.get(
-            "trade_end_hour", defaults["trade_end_hour"]
-        )
+        self.range_start_hour: int = config.get("range_start_hour", defaults["range_start_hour"])
+        self.range_end_hour: int = config.get("range_end_hour", defaults["range_end_hour"])
+        self.trade_start_hour: int = config.get("trade_start_hour", defaults["trade_start_hour"])
+        self.trade_end_hour: int = config.get("trade_end_hour", defaults["trade_end_hour"])
 
         self.breakout_buffer_pips: float = config.get("breakout_buffer_pips", 2.0)
         self.min_range_pips: float = config.get("min_range_pips", 5.0)
@@ -191,9 +183,7 @@ class ORBStrategy:
             # Wrapping window (e.g. 23–2)
             return hour >= start or hour < end
 
-    def _compute_range(
-        self, bars: list[Bar], date_str: str, symbol: str
-    ) -> dict | None:
+    def _compute_range(self, bars: list[Bar], date_str: str, symbol: str) -> dict | None:
         """Compute opening range from bars in the range window."""
         cache_key = (date_str, symbol)
         if cache_key in self._range_cache:

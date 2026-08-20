@@ -1,6 +1,6 @@
 """Tests for edge telemetry — R-multiple expectancy tracking."""
 
-import json
+import json  # noqa: I001
 import pytest
 from pathlib import Path
 
@@ -40,9 +40,7 @@ class TestRecordClose:
 
     def test_persistence_to_jsonl(self, tracker, tmp_path):
         """Recorded trades should persist to JSONL."""
-        tracker.record_close(
-            "strat", "SYM", risk_amount=100.0, pnl=50.0, signal_id="sig_001"
-        )
+        tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=50.0, signal_id="sig_001")
         persist_path = Path(tracker._persist_path)
         assert persist_path.exists()
         with open(persist_path) as f:
@@ -91,17 +89,13 @@ class TestRiskMultiplier:
     def test_high_edge_returns_1_5(self, tracker):
         """Expectancy > 0.5R should return 1.5 multiplier."""
         for _ in range(5):
-            tracker.record_close(
-                "strat", "SYM", risk_amount=100.0, pnl=100.0
-            )  # +1R each
+            tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=100.0)  # +1R each
         assert tracker.get_risk_multiplier("strat", "SYM") == 1.5
 
     def test_negative_edge_returns_0_6(self, tracker):
         """Negative expectancy should return 0.6 multiplier."""
         for _ in range(5):
-            tracker.record_close(
-                "strat", "SYM", risk_amount=100.0, pnl=-50.0
-            )  # -0.5R each
+            tracker.record_close("strat", "SYM", risk_amount=100.0, pnl=-50.0)  # -0.5R each
         assert tracker.get_risk_multiplier("strat", "SYM") == 0.6
 
     def test_positive_edge_returns_1_0(self, tracker):
@@ -147,7 +141,7 @@ class TestLoadHistory:
         persist = tmp_path / "edge.jsonl"
         with open(persist, "w") as f:
             f.write(
-                '{"valid": "json", "strategy_id": "s", "symbol": "X", "risk_amount": 10, "pnl": 5, "r_multiple": 0.5, "timestamp": "2026-01-01T00:00:00Z"}\n'
+                '{"valid": "json", "strategy_id": "s", "symbol": "X", "risk_amount": 10, "pnl": 5, "r_multiple": 0.5, "timestamp": "2026-01-01T00:00:00Z"}\n'  # noqa: E501
             )
             f.write('{"invalid json\n')
             f.write("not json at all\n")

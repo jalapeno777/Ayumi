@@ -14,7 +14,7 @@ Covers:
     - ATR-buffered stop-loss distance validation
 """
 
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime, timedelta, timezone
 
 from core.types import Bar, MarketState, SessionType, TradeDirection
@@ -26,7 +26,7 @@ from strategies.orb import ORBStrategy, _calculate_atr, _pip_size_for_symbol
 # ---------------------------------------------------------------------------
 
 
-def _make_bar(time, o, h, l, c, vol=1000):
+def _make_bar(time, o, h, l, c, vol=1000):  # noqa: E741
     return Bar(time=time, open=o, high=h, low=l, close=c, volume=vol)
 
 
@@ -50,7 +50,7 @@ def _make_range_bars(
             # Most bars trade inside the range
             o = base_price
             h = min(rh, base_price + 5 * symbol_pip)
-            l = max(rl, base_price - 5 * symbol_pip)
+            l = max(rl, base_price - 5 * symbol_pip)  # noqa: E741
             c = base_price
             bars.append(_make_bar(t, o, h, l, c))
     # Ensure the range high/low are actually hit
@@ -221,13 +221,9 @@ class TestBreakoutEntry(unittest.TestCase):
 
         # Breakout bar at 8:00
         if direction == "long":
-            breakout_price = (
-                1.2515 + penetration_pips * pip + strategy.breakout_buffer_pips * pip
-            )
+            breakout_price = 1.2515 + penetration_pips * pip + strategy.breakout_buffer_pips * pip
         else:
-            breakout_price = (
-                1.2485 - penetration_pips * pip - strategy.breakout_buffer_pips * pip
-            )
+            breakout_price = 1.2485 - penetration_pips * pip - strategy.breakout_buffer_pips * pip
 
         breakout_bar = _make_bar(
             date.replace(hour=8, minute=0),
@@ -262,9 +258,7 @@ class TestBreakoutEntry(unittest.TestCase):
         preroll = _make_preroll_bars(date.replace(hour=5, minute=0), n=20)
         range_bars = _make_range_bars(date, 7, 8, range_high=1.2515, range_low=1.2485)
         # Bar at 8:00 inside the range
-        inside_bar = _make_bar(
-            date.replace(hour=8, minute=0), 1.2500, 1.2510, 1.2490, 1.2500
-        )
+        inside_bar = _make_bar(date.replace(hour=8, minute=0), 1.2500, 1.2510, 1.2490, 1.2500)
 
         all_bars = preroll + range_bars + [inside_bar]
         state = _build_market_state(all_bars)
@@ -281,9 +275,7 @@ class TestBreakoutEntry(unittest.TestCase):
         range_bars = _make_range_bars(date, 7, 8, range_high=1.2515, range_low=1.2485)
         # Price 1 pip above range high, buffer is 2 pips → no breakout
         buffer_price = 1.2515 + 1 * pip
-        buffer_bar = _make_bar(
-            date.replace(hour=8, minute=0), 1.2500, buffer_price, 1.2500, buffer_price
-        )
+        buffer_bar = _make_bar(date.replace(hour=8, minute=0), 1.2500, buffer_price, 1.2500, buffer_price)
 
         all_bars = preroll + range_bars + [buffer_bar]
         state = _build_market_state(all_bars)
@@ -365,17 +357,11 @@ class TestSignalDeduplication(unittest.TestCase):
         range_bars = _make_range_bars(date, 7, 8, range_high=1.2515, range_low=1.2485)
 
         bp = 1.2515 + 7 * pip
-        breakout_bar_1 = _make_bar(
-            date.replace(hour=8, minute=0), 1.2500, bp, 1.2500, bp
-        )
-        breakout_bar_2 = _make_bar(
-            date.replace(hour=9, minute=0), 1.2500, bp + 5 * pip, 1.2500, bp + 5 * pip
-        )
+        breakout_bar_1 = _make_bar(date.replace(hour=8, minute=0), 1.2500, bp, 1.2500, bp)
+        breakout_bar_2 = _make_bar(date.replace(hour=9, minute=0), 1.2500, bp + 5 * pip, 1.2500, bp + 5 * pip)
 
         state1 = _build_market_state(preroll + range_bars + [breakout_bar_1])
-        state2 = _build_market_state(
-            preroll + range_bars + [breakout_bar_1, breakout_bar_2]
-        )
+        state2 = _build_market_state(preroll + range_bars + [breakout_bar_1, breakout_bar_2])
 
         signal1 = strategy.evaluate(state1)
         signal2 = strategy.evaluate(state2)
@@ -405,12 +391,8 @@ class TestSignalDeduplication(unittest.TestCase):
 
         long_bp = 1.2515 + 7 * pip
         short_bp = 1.2485 - 7 * pip
-        long_bar = _make_bar(
-            date.replace(hour=8, minute=0), 1.2500, long_bp, 1.2500, long_bp
-        )
-        short_bar = _make_bar(
-            date.replace(hour=10, minute=0), 1.2500, 1.2500, short_bp, short_bp
-        )
+        long_bar = _make_bar(date.replace(hour=8, minute=0), 1.2500, long_bp, 1.2500, long_bp)
+        short_bar = _make_bar(date.replace(hour=10, minute=0), 1.2500, 1.2500, short_bp, short_bp)
 
         state1 = _build_market_state(preroll + range_bars + [long_bar])
         signal1 = strategy.evaluate(state1)
@@ -485,12 +467,8 @@ class TestStopLossAndTakeProfit(unittest.TestCase):
         signal = strategy.evaluate(state)
 
         self.assertIsNotNone(signal)
-        self.assertLess(
-            signal.stop_loss, signal.entry_price, "Long SL must be below entry"
-        )
-        self.assertGreater(
-            signal.take_profit_1, signal.entry_price, "Long TP1 must be above entry"
-        )
+        self.assertLess(signal.stop_loss, signal.entry_price, "Long SL must be below entry")
+        self.assertGreater(signal.take_profit_1, signal.entry_price, "Long TP1 must be above entry")
         self.assertGreater(signal.take_profit_2, signal.take_profit_1, "TP2 > TP1")
         self.assertGreater(signal.take_profit_3, signal.take_profit_2, "TP3 > TP2")
 
@@ -521,18 +499,10 @@ class TestStopLossAndTakeProfit(unittest.TestCase):
         signal = strategy.evaluate(state)
 
         self.assertIsNotNone(signal)
-        self.assertGreater(
-            signal.stop_loss, signal.entry_price, "Short SL must be above entry"
-        )
-        self.assertLess(
-            signal.take_profit_1, signal.entry_price, "Short TP1 must be below entry"
-        )
-        self.assertLess(
-            signal.take_profit_2, signal.take_profit_1, "TP2 < TP1 for short"
-        )
-        self.assertLess(
-            signal.take_profit_3, signal.take_profit_2, "TP3 < TP2 for short"
-        )
+        self.assertGreater(signal.stop_loss, signal.entry_price, "Short SL must be above entry")
+        self.assertLess(signal.take_profit_1, signal.entry_price, "Short TP1 must be below entry")
+        self.assertLess(signal.take_profit_2, signal.take_profit_1, "TP2 < TP1 for short")
+        self.assertLess(signal.take_profit_3, signal.take_profit_2, "TP3 < TP2 for short")
 
 
 class TestStrategyReset(unittest.TestCase):
@@ -582,11 +552,7 @@ class TestATRHelper(unittest.TestCase):
 
     def test_atr_with_insufficient_bars(self):
         """ATR returns a small default with insufficient bars."""
-        bars = [
-            _make_bar(
-                datetime(2026, 1, 1, tzinfo=timezone.utc), 1.25, 1.251, 1.249, 1.25
-            )
-        ]
+        bars = [_make_bar(datetime(2026, 1, 1, tzinfo=timezone.utc), 1.25, 1.251, 1.249, 1.25)]
         atr = _calculate_atr(bars, 14)
         self.assertAlmostEqual(atr, 0.0001)
 

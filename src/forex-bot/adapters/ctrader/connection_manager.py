@@ -142,19 +142,11 @@ class ConnectionMetrics:
 
         with self._lock:
             transitions_1h = [t for t in self._transitions if t.timestamp >= window_1h]
-            transitions_24h = [
-                t for t in self._transitions if t.timestamp >= window_24h
-            ]
+            transitions_24h = [t for t in self._transitions if t.timestamp >= window_24h]
 
             # Reconnect count = transitions into RECONNECTING
-            reconnects_1h = sum(
-                1 for t in transitions_1h if t.new_state == ConnectionState.RECONNECTING
-            )
-            reconnects_24h = sum(
-                1
-                for t in transitions_24h
-                if t.new_state == ConnectionState.RECONNECTING
-            )
+            reconnects_1h = sum(1 for t in transitions_1h if t.new_state == ConnectionState.RECONNECTING)
+            reconnects_24h = sum(1 for t in transitions_24h if t.new_state == ConnectionState.RECONNECTING)
 
             # Time in DEGRADED state (approximate from transitions)
             degraded_time_1h = 0.0
@@ -162,10 +154,7 @@ class ConnectionMetrics:
             for t in transitions_1h:
                 if t.new_state == ConnectionState.DEGRADED:
                     degraded_start = t.timestamp
-                elif (
-                    degraded_start is not None
-                    and t.new_state != ConnectionState.DEGRADED
-                ):
+                elif degraded_start is not None and t.new_state != ConnectionState.DEGRADED:
                     degraded_time_1h += t.timestamp - degraded_start
                     degraded_start = None
             # If still degraded, count to now
@@ -176,9 +165,7 @@ class ConnectionMetrics:
             # Simple approximation: ratio of AUTHENTICATED+DEGRADED transitions
             good_states = {ConnectionState.AUTHENTICATED, ConnectionState.DEGRADED}
             uptime_1h = self._calc_uptime(transitions_1h, window_1h, now, good_states)
-            uptime_24h = self._calc_uptime(
-                transitions_24h, window_24h, now, good_states
-            )
+            uptime_24h = self._calc_uptime(transitions_24h, window_24h, now, good_states)
 
             # Last transition
             last_ts = None
@@ -261,7 +248,9 @@ class ConnectionManager:
         metrics_log_path: str | Path | None = None,
         emit_interval: float = 60.0,
     ):
-        self._lock = threading.RLock()  # BQ-1329: RLock needed because get_decision_context() calls properties that also acquire lock
+        self._lock = (
+            threading.RLock()
+        )  # BQ-1329: RLock needed because get_decision_context() calls properties that also acquire lock  # noqa: E501
         self._connections: dict[ConnectionRole, ConnectionStateManager] = {}
         self._metrics: dict[ConnectionRole, ConnectionMetrics] = {}
         self._callbacks: list[callable] = []
@@ -302,10 +291,7 @@ class ConnectionManager:
         """
         self._stop_event.set()
         if self._metrics_thread is not None:
-            if (
-                self._metrics_thread.is_alive()
-                and self._metrics_thread is not threading.current_thread()
-            ):
+            if self._metrics_thread.is_alive() and self._metrics_thread is not threading.current_thread():
                 self._metrics_thread.join(timeout=2.0)
             self._metrics_thread = None
         logger.info("[ConnectionManager] Stopped")
@@ -330,11 +316,7 @@ class ConnectionManager:
             self._metrics[role] = ConnectionMetrics(role)
 
         # Subscribe to state changes
-        state_manager.on_state_change(
-            lambda old, new, reason, meta, r=role: self._on_state_change(
-                r, old, new, reason
-            )
-        )
+        state_manager.on_state_change(lambda old, new, reason, meta, r=role: self._on_state_change(r, old, new, reason))
         logger.info("[ConnectionManager] Registered %s connection", role.value)
 
     def unregister(self, role: str | ConnectionRole) -> None:
@@ -361,10 +343,7 @@ class ConnectionManager:
         with self._lock:
             if not self._connections:
                 return False
-            return all(
-                mgr.state == ConnectionState.AUTHENTICATED
-                for mgr in self._connections.values()
-            )
+            return all(mgr.state == ConnectionState.AUTHENTICATED for mgr in self._connections.values())
 
     @property
     def is_tradeable(self) -> bool:
@@ -411,12 +390,8 @@ class ConnectionManager:
             market_metrics = self._metrics.get(ConnectionRole.MARKET_DATA)
             trade_metrics = self._metrics.get(ConnectionRole.TRADE_EXECUTION)
 
-        market_health = ConnectionHealth(
-            role=ConnectionRole.MARKET_DATA, state=ConnectionState.DISCONNECTED
-        )
-        trade_health = ConnectionHealth(
-            role=ConnectionRole.TRADE_EXECUTION, state=ConnectionState.DISCONNECTED
-        )
+        market_health = ConnectionHealth(role=ConnectionRole.MARKET_DATA, state=ConnectionState.DISCONNECTED)
+        trade_health = ConnectionHealth(role=ConnectionRole.TRADE_EXECUTION, state=ConnectionState.DISCONNECTED)
 
         if market_mgr and market_metrics:
             market_health = market_metrics.get_health(market_mgr)
@@ -550,9 +525,7 @@ class ConnectionManager:
         with self._lock:
             market_mgr = self._connections.get(ConnectionRole.MARKET_DATA)
             trade_mgr = self._connections.get(ConnectionRole.TRADE_EXECUTION)
-            market_state = (
-                market_mgr.state if market_mgr else ConnectionState.DISCONNECTED
-            )
+            market_state = market_mgr.state if market_mgr else ConnectionState.DISCONNECTED
             trade_state = trade_mgr.state if trade_mgr else ConnectionState.DISCONNECTED
             fully_op = self.is_fully_operational
             tradeable = self.is_tradeable
@@ -798,8 +771,7 @@ class ConnectionManager:
 
         if self._consecutive_auth_failures >= AUTH_FULL_RECONNECT_THRESHOLD:
             logger.warning(
-                "[ConnectionManager] Auth failure threshold reached (%d/%d) "
-                "— recommending full reconnect",
+                "[ConnectionManager] Auth failure threshold reached (%d/%d) — recommending full reconnect",
                 self._consecutive_auth_failures,
                 AUTH_FULL_RECONNECT_THRESHOLD,
             )

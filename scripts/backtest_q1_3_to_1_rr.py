@@ -37,9 +37,7 @@ class SwingPoint:
 
 
 class MWFormation:
-    def __init__(
-        self, points: list[SwingPoint], formation_type: str, sessions: set[SessionType]
-    ):
+    def __init__(self, points: list[SwingPoint], formation_type: str, sessions: set[SessionType]):
         self.points = points
         self.formation_type = formation_type
         self.sessions = sessions
@@ -99,13 +97,7 @@ def find_mw_formations(
         pt4 = swing_points[i + 3]
         pt5 = swing_points[i + 4]
 
-        if (
-            not pt1.is_high
-            and not pt2.is_high
-            and not pt3.is_high
-            and not pt4.is_high
-            and not pt5.is_high
-        ):
+        if not pt1.is_high and not pt2.is_high and not pt3.is_high and not pt4.is_high and not pt5.is_high:
             continue
 
         w_condition = (
@@ -283,9 +275,7 @@ def analyze_3_to_1_rr(bars: list[Bar]) -> dict:
             tp2 = entry_price - risk * 2
             tp3 = entry_price - risk * 3
 
-        outcome = evaluate_trade_outcome(
-            bars, entry_idx, entry_direction, stop, tp1, tp2, tp3
-        )
+        outcome = evaluate_trade_outcome(bars, entry_idx, entry_direction, stop, tp1, tp2, tp3)
 
         if outcome is None:
             outcomes["open"] += 1

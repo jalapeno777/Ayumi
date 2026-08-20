@@ -9,7 +9,7 @@ instead of XAUUSD:15 (199 bars), so evaluation never fired.
 Fix: use min(_required_timeframes) instead of bar_period_minutes.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
@@ -118,9 +118,7 @@ class TestEvalGateTimeframeKey:
         engine_m15_strategy._bars[key_15] = bars_15
 
         # Old logic: use bar_period_minutes
-        old_key = engine_m15_strategy._bar_key(
-            symbol, engine_m15_strategy._config.bar_period_minutes
-        )
+        old_key = engine_m15_strategy._bar_key(symbol, engine_m15_strategy._config.bar_period_minutes)
         old_count = len(engine_m15_strategy._bars.get(old_key, []))
 
         # With old logic, gate would see 0 bars < 55 → evaluation never fires

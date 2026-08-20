@@ -226,9 +226,7 @@ def available_model_types() -> list[str]:
     return list(MODEL_REGISTRY.keys())
 
 
-def prepare_dataset(
-    symbol: str, data_dir: str, timeframe: str = "H1", max_holding_bars: int = 50
-) -> pd.DataFrame:
+def prepare_dataset(symbol: str, data_dir: str, timeframe: str = "H1", max_holding_bars: int = 50) -> pd.DataFrame:
     tf_map = {"M15": "M15", "H1": "H1", "H4": "H4", "D1": "D1"}
     tf_file = tf_map.get(timeframe, timeframe)
 
@@ -264,9 +262,7 @@ def train_single_model(
     model_type: str = MODEL_TYPE_DEFAULT,
 ) -> dict:
     if model_type not in MODEL_REGISTRY:
-        raise ValueError(
-            f"Unknown model type '{model_type}'. Available: {available_model_types()}"
-        )
+        raise ValueError(f"Unknown model type '{model_type}'. Available: {available_model_types()}")
 
     registry = MODEL_REGISTRY[model_type]
     best_model = None
@@ -293,9 +289,7 @@ def train_single_model(
     }
 
 
-def optimize_threshold(
-    y_prob: np.ndarray, test_trades: pd.DataFrame, risk: np.ndarray
-) -> tuple[float, dict]:
+def optimize_threshold(y_prob: np.ndarray, test_trades: pd.DataFrame, risk: np.ndarray) -> tuple[float, dict]:
     best_threshold = 0.5
     best_score = -999
     best_metrics = {}
@@ -361,11 +355,7 @@ def evaluate_model(
 
     baseline_wr = test_trades["outcome"].mean() * 100
     filtered_mask = y_pred == 1
-    filtered_wr = (
-        test_trades.loc[filtered_mask, "outcome"].mean() * 100
-        if filtered_mask.sum() > 0
-        else 0
-    )
+    filtered_wr = test_trades.loc[filtered_mask, "outcome"].mean() * 100 if filtered_mask.sum() > 0 else 0
     filter_rate = 1 - filtered_mask.sum() / len(y_pred) if len(y_pred) > 0 else 0
 
     filtered_trades = test_trades[filtered_mask]
@@ -386,38 +376,26 @@ def evaluate_model(
     all_losses = test_trades[test_trades["outcome"] == 0]
     baseline_pf = 0
     if len(all_wins) > 0 and len(all_losses) > 0:
-        baseline_pf = (
-            all_wins["pnl"].sum() / abs(all_losses["pnl"].sum())
-            if abs(all_losses["pnl"].sum()) > 0
-            else 999
-        )
+        baseline_pf = all_wins["pnl"].sum() / abs(all_losses["pnl"].sum()) if abs(all_losses["pnl"].sum()) > 0 else 999
 
     try:
-        perm_result = permutation_importance(
-            model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=-1
-        )
-        importance = dict(zip(feature_names, perm_result.importances_mean))
+        perm_result = permutation_importance(model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=-1)
+        importance = dict(zip(feature_names, perm_result.importances_mean))  # noqa: B905
         importance = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True))
     except Exception:
-        importance = dict(zip(feature_names, model.feature_importances_))
+        importance = dict(zip(feature_names, model.feature_importances_))  # noqa: B905
 
     cm = confusion_matrix(y_test, y_pred)
 
     filtered_mask_opt = y_pred_opt == 1
     opt_mask_indices = np.where(filtered_mask_opt)[0]
-    filtered_trades_opt = (
-        test_trades.iloc[opt_mask_indices]
-        if len(opt_mask_indices) > 0
-        else test_trades.iloc[:0]
-    )
+    filtered_trades_opt = test_trades.iloc[opt_mask_indices] if len(opt_mask_indices) > 0 else test_trades.iloc[:0]
     if len(filtered_trades_opt) > 0:
         wins_opt = filtered_trades_opt[filtered_trades_opt["outcome"] == 1]
         losses_opt = filtered_trades_opt[filtered_trades_opt["outcome"] == 0]
         total_win_pnl_opt = wins_opt["pnl"].sum() if len(wins_opt) > 0 else 0
         total_loss_pnl_opt = abs(losses_opt["pnl"].sum()) if len(losses_opt) > 0 else 0
-        pf_opt = (
-            total_win_pnl_opt / total_loss_pnl_opt if total_loss_pnl_opt > 0 else 999
-        )
+        pf_opt = total_win_pnl_opt / total_loss_pnl_opt if total_loss_pnl_opt > 0 else 999
         wr_opt = len(wins_opt) / len(filtered_trades_opt) * 100
         pnl_opt = filtered_trades_opt["pnl"].sum()
     else:
@@ -439,18 +417,14 @@ def evaluate_model(
         "filtered_total_pnl": round(total_pnl, 2),
         "n_total_trades": len(test_trades),
         "n_filtered_trades": int(filtered_mask.sum()),
-        "n_wins_filtered": int((filtered_trades["outcome"] == 1).sum())
-        if len(filtered_trades) > 0
-        else 0,
+        "n_wins_filtered": int((filtered_trades["outcome"] == 1).sum()) if len(filtered_trades) > 0 else 0,
         "confusion_matrix": cm.tolist(),
         "feature_importance": importance,
         "opt_threshold": opt_threshold,
         "opt_win_rate": round(wr_opt, 2),
         "opt_profit_factor": round(pf_opt, 2),
         "opt_total_pnl": round(float(pnl_opt), 4),
-        "opt_filter_rate": round(1 - filtered_mask_opt.sum() / len(y_pred), 4)
-        if len(y_pred) > 0
-        else 0,
+        "opt_filter_rate": round(1 - filtered_mask_opt.sum() / len(y_pred), 4) if len(y_pred) > 0 else 0,
         "opt_trade_count": len(filtered_trades_opt),
     }
 
@@ -467,9 +441,7 @@ def walk_forward_train(
 
     for mt in model_types:
         if mt not in MODEL_REGISTRY:
-            raise ValueError(
-                f"Unknown model type '{mt}'. Available: {available_model_types()}"
-            )
+            raise ValueError(f"Unknown model type '{mt}'. Available: {available_model_types()}")
 
     feature_names = [f for f in FEATURE_COLUMNS if f in dataset.columns]
     X = dataset[feature_names].values
@@ -516,9 +488,7 @@ def walk_forward_train(
                 stratify=y_train if len(np.unique(y_train)) >= 2 else None,
             )
 
-            result = train_single_model(
-                X_tr, y_tr, X_val, y_val, random_state + fold, model_type=mt
-            )
+            result = train_single_model(X_tr, y_tr, X_val, y_val, random_state + fold, model_type=mt)
             model = result["model"]
             test_trades = dataset_clean.iloc[test_start:test_end]
 
@@ -538,9 +508,7 @@ def walk_forward_train(
 
         avg_metrics = {}
         numeric_keys = [
-            k
-            for k in fold_metrics[0]
-            if isinstance(fold_metrics[0][k], (int, float)) and k not in ("fold",)
+            k for k in fold_metrics[0] if isinstance(fold_metrics[0][k], (int, float)) and k not in ("fold",)
         ]
         for key in numeric_keys:
             values = [m[key] for m in fold_metrics if key in m]
@@ -609,9 +577,7 @@ def build_comparison_table(model_results: dict[str, dict]) -> pd.DataFrame:
                 "model_type": mt,
                 "avg_f1": summary.get("avg_f1", 0),
                 "avg_filtered_win_rate": summary.get("avg_filtered_win_rate", 0),
-                "avg_filtered_profit_factor": summary.get(
-                    "avg_filtered_profit_factor", 0
-                ),
+                "avg_filtered_profit_factor": summary.get("avg_filtered_profit_factor", 0),
                 "avg_filtered_total_pnl": summary.get("avg_filtered_total_pnl", 0),
                 "avg_opt_profit_factor": summary.get("avg_opt_profit_factor", 0),
                 "avg_opt_win_rate": summary.get("avg_opt_win_rate", 0),
@@ -639,9 +605,7 @@ def save_model(
         "metrics_summary": {k: v for k, v in metrics.get("summary", {}).items()},
         "n_features": len(feature_names),
         "model_type": model_type,
-        "display_name": MODEL_REGISTRY.get(model_type, {}).get(
-            "display_name", model_type
-        ),
+        "display_name": MODEL_REGISTRY.get(model_type, {}).get("display_name", model_type),
     }
 
     meta_path = os.path.join(output_dir, "signal_filter_meta.json")
@@ -656,7 +620,7 @@ def load_model(model_dir: str) -> tuple:
     meta_path = os.path.join(model_dir, "signal_filter_meta.json")
 
     with open(model_path, "rb") as f:
-        model = pickle.load(f)  # nosec B301
+        model = pickle.load(f)  # nosec B301  # noqa: S301
 
     with open(meta_path) as f:
         meta = json.load(f)

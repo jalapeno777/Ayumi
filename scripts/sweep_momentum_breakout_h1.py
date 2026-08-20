@@ -16,7 +16,7 @@ Parameter mapping (parent params -> existing strategy params):
 GO Criteria: 3/5 windows pass (WR>55%, PF>1.2, DD<10%)
 """
 
-import sys
+import sys  # noqa: I001
 import json
 from pathlib import Path
 from typing import List, Dict, Any
@@ -37,7 +37,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig  # noqa: E402
+from backtest.engine import BacktestConfig  # noqa: E402, I001
 from backtest.strategies import MomentumBreakoutStrategy  # noqa: E402
 from backtest.data_loader import CsvDataLoader  # noqa: E402
 from backtest.parameter_sweep import ParameterGrid, SweepRunner, SweepResult  # noqa: E402
@@ -107,9 +107,7 @@ def run_sweep(
     def factory(point):
         return create_strategy(point.params)
 
-    runner = SweepRunner(
-        config=config, bars=bars, strategy_factory=factory, max_workers=max_workers
-    )
+    runner = SweepRunner(config=config, bars=bars, strategy_factory=factory, max_workers=max_workers)
     result = runner.run(grid)
 
     return result, grid
@@ -157,19 +155,9 @@ def run_walk_forward_for_params(
         )
 
     windows_passed = sum(1 for r in per_window if r["passed_go_nogo"])
-    avg_wr = (
-        sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
-    )
-    avg_pf = (
-        sum(r["profit_factor"] for r in per_window) / len(per_window)
-        if per_window
-        else 0
-    )
-    avg_dd = (
-        sum(r["max_drawdown"] for r in per_window) / len(per_window)
-        if per_window
-        else 0
-    )
+    avg_wr = sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
+    avg_pf = sum(r["profit_factor"] for r in per_window) / len(per_window) if per_window else 0
+    avg_dd = sum(r["max_drawdown"] for r in per_window) / len(per_window) if per_window else 0
 
     return {
         "params": {k: v for k, v in params.items()},
@@ -212,12 +200,8 @@ def main() -> None:
         merged_rows = []
 
         for sweep_name, param_space in param_spaces:
-            print(
-                f"\n  Running {sweep_name} sweep ({len(ParameterGrid(param_space))} combos)..."
-            )
-            sweep_result, grid = run_sweep(
-                sweep_bars, pair, config, param_space, max_workers=None
-            )
+            print(f"\n  Running {sweep_name} sweep ({len(ParameterGrid(param_space))} combos)...")
+            sweep_result, grid = run_sweep(sweep_bars, pair, config, param_space, max_workers=None)
 
             print(f"  {sweep_name}: {len(sweep_result)} parameter sets with trades")
             for row in sweep_result:
@@ -252,9 +236,7 @@ def main() -> None:
 
         all_sweep_results[pair] = sweep_data
 
-        profitable = combined.filter(
-            lambda r: r.profit_factor > 1.0 and r.trade_count >= 10
-        )
+        profitable = combined.filter(lambda r: r.profit_factor > 1.0 and r.trade_count >= 10)
         print(f"  Profitable sets (PF>1.0, trades>=10): {len(profitable)}")
 
         viable = combined.filter(lambda r: r.trade_count >= 10)
@@ -287,9 +269,7 @@ def main() -> None:
             wf_result = run_walk_forward_for_params(bars, row.params, pair, config)
 
             status = "GO" if wf_result["go_nogo"] else "NO-GO"
-            print(
-                f"      Windows passed: {wf_result['windows_passed']}/{wf_result['total_windows']}"
-            )
+            print(f"      Windows passed: {wf_result['windows_passed']}/{wf_result['total_windows']}")
             print(
                 f"      Avg WR: {wf_result['avg_wr']:.1f}%, PF: {wf_result['avg_pf']:.2f}, "
                 f"DD: {wf_result['avg_dd']:.2f}%"
@@ -315,16 +295,12 @@ def main() -> None:
         for i, r in enumerate(results):
             status = "GO" if r["go_nogo"] else "NO-GO"
             print(f"    Param set {i + 1}: {r['params']}")
-            print(
-                f"      -> {status} ({r['windows_passed']}/{r['total_windows']} windows passed)"
-            )
+            print(f"      -> {status} ({r['windows_passed']}/{r['total_windows']} windows passed)")
 
         go_sets = [r for r in results if r["go_nogo"]]
         if go_sets:
             any_go = True
-            print(
-                f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***"
-            )
+            print(f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***")
         else:
             print(f"\n  {pair}: No parameter sets passed - NO-GO")
 

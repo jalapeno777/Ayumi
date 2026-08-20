@@ -41,7 +41,7 @@ See Also
 * ``docs/research/icir-research-2026-07-08.md`` — full research note.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 from collections.abc import Sequence
@@ -335,10 +335,7 @@ def icir(ic_values: Sequence[float]) -> dict[str, Any]:
             icir=math.nan,
             n_windows=n_valid,
             confidence=_confidence_tier(n_valid),
-            note=(
-                f"only {n_valid} valid IC observations "
-                f"(need >= {MIN_PERIODS_FOR_ICIR}); not enough for ICIR"
-            ),
+            note=(f"only {n_valid} valid IC observations (need >= {MIN_PERIODS_FOR_ICIR}); not enough for ICIR"),
         ).to_dict()
 
     mean_ic = float(np.mean(valid))
@@ -352,10 +349,7 @@ def icir(ic_values: Sequence[float]) -> dict[str, Any]:
         # number as the goal; production triage compares the magnitude.
         if abs(mean_ic) < _STD_EPSILON:
             icir_value: float = math.nan
-            constant_note = (
-                "IC vector has zero variance and mean near zero; no signal. "
-                "ICIR undefined."
-            )
+            constant_note = "IC vector has zero variance and mean near zero; no signal. ICIR undefined."
         else:
             icir_value = math.copysign(math.inf, mean_ic)
             constant_note = (
@@ -443,7 +437,7 @@ def evaluate_icir(wf_results: Sequence[dict[str, Any]]) -> dict[str, Any]:
     aggregate_confs: list[float] = []
     aggregate_rs: list[float] = []
 
-    for idx, window in enumerate(wf_list):
+    for idx, window in enumerate(wf_list):  # noqa: B007
         if not isinstance(window, dict):
             per_window_ic.append(math.nan)
             continue
@@ -451,9 +445,7 @@ def evaluate_icir(wf_results: Sequence[dict[str, Any]]) -> dict[str, Any]:
         # Path 1: per-trade data
         if "confidences" in window and "r_multiples" in window:
             try:
-                ic = information_coefficient(
-                    window["confidences"], window["r_multiples"]
-                )
+                ic = information_coefficient(window["confidences"], window["r_multiples"])
             except Exception:  # noqa: BLE001 — never let one window kill the run
                 ic = math.nan
             if not math.isnan(ic):
@@ -505,9 +497,7 @@ def evaluate_icir(wf_results: Sequence[dict[str, Any]]) -> dict[str, Any]:
     note = summary.get("note", "")
     return EvaluateIcirResult(
         icir=float(summary["icir"]) if summary["icir"] is not None else math.nan,
-        mean_ic=float(summary["mean_ic"])
-        if summary["mean_ic"] is not None
-        else math.nan,
+        mean_ic=float(summary["mean_ic"]) if summary["mean_ic"] is not None else math.nan,
         std_ic=float(summary["std_ic"]) if summary["std_ic"] is not None else math.nan,
         # ``n_windows`` is the total window count in the input;
         # ``n_windows_with_ic`` is the count of windows that contributed

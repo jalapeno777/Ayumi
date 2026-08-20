@@ -50,9 +50,7 @@ for p in (str(_REPO / "src" / "forex-bot"), str(_REPO / "src")):
 
 from backtest.types import Bar, MarketState  # noqa: E402
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("ayumi.audit.bar_close")
 
 # Strategies required by the sprint spec (BQ-345). The display name on the
@@ -200,9 +198,7 @@ def _build_session_breakout_factories() -> dict[str, Callable[[], Any]]:
     }
 
 
-def _resolve_factory(
-    module: str, cls_name: str, custom: Optional[Callable[[], Any]]
-) -> Optional[Callable[[], Any]]:
+def _resolve_factory(module: str, cls_name: str, custom: Optional[Callable[[], Any]]) -> Optional[Callable[[], Any]]:
     """Return a factory that instantiates the strategy, or None on failure."""
     if custom is not None:
         return custom
@@ -287,11 +283,7 @@ def _load_bars_csv(path: Path, n: int) -> Optional[list[Bar]]:
                 if raw_t is None:
                     continue
                 # Date-only values get a midnight UTC stamp
-                t = datetime.fromisoformat(
-                    raw_t.replace(" ", "T")
-                    if " " in raw_t and "T" not in raw_t
-                    else raw_t
-                )
+                t = datetime.fromisoformat(raw_t.replace(" ", "T") if " " in raw_t and "T" not in raw_t else raw_t)
                 if t.tzinfo is None:
                     t = t.replace(tzinfo=timezone.utc)
                 rows.append(
@@ -346,25 +338,19 @@ def _load_bars_parquet(path: Path, n: int) -> Optional[list[Bar]]:
 def _load_bars(symbol: str, timeframe_minutes: int, n: int) -> list[Bar]:
     """Try CSV, then parquet, then fall back to synthetic."""
     # CSV first (already in repo under data/forex/historical)
-    tf_label = {15: "M15", 60: "H1", 240: "H4", 1440: "D1"}.get(
-        timeframe_minutes, f"M{timeframe_minutes}"
-    )
+    tf_label = {15: "M15", 60: "H1", 240: "H4", 1440: "D1"}.get(timeframe_minutes, f"M{timeframe_minutes}")
     csv_path = _REPO / "data" / "forex" / "historical" / f"{symbol}_{tf_label}.csv"
     bars = _load_bars_csv(csv_path, n)
     if bars:
         log.info("Loaded %d bars from %s", len(bars), csv_path)
         return bars
     # Parquet fallback
-    pq_path = (
-        _REPO / "data" / "forex" / "parquet" / f"{symbol}_{tf_label.lower()}.parquet"
-    )
+    pq_path = _REPO / "data" / "forex" / "parquet" / f"{symbol}_{tf_label.lower()}.parquet"
     bars = _load_bars_parquet(pq_path, n)
     if bars:
         log.info("Loaded %d bars from %s", len(bars), pq_path)
         return bars
-    log.warning(
-        "No preloaded data for %s %s — using synthetic series", symbol, tf_label
-    )
+    log.warning("No preloaded data for %s %s — using synthetic series", symbol, tf_label)
     return _synthetic_bars(n, period_minutes=timeframe_minutes)
 
 
@@ -384,9 +370,7 @@ class AuditRow:
     note: str = ""
 
 
-def _audit_strategy(
-    name: str, factory: Callable[[], Any], bars: list[Bar], symbol: str
-) -> AuditRow:
+def _audit_strategy(name: str, factory: Callable[[], Any], bars: list[Bar], symbol: str) -> AuditRow:
     """Run a strategy across the bar series and classify each signal.
 
     Walks all bar indices and re-evaluates on the prefix ending at each
@@ -468,9 +452,7 @@ def _audit_strategy(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Audit Ayumi strategies for bar-close timing discipline."
-    )
+    parser = argparse.ArgumentParser(description="Audit Ayumi strategies for bar-close timing discipline.")
     parser.add_argument(
         "--bars",
         type=int,

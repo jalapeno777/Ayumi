@@ -23,9 +23,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Default path to BTC regime labels from crypto-monitor pipeline
-DEFAULT_BTC_REGIME_PATH = (
-    "/root/.openclaw/workspace/src/crypto-monitor/data/crypto/regime_labels.jsonl"
-)
+DEFAULT_BTC_REGIME_PATH = "/root/.openclaw/workspace/src/crypto-monitor/data/crypto/regime_labels.jsonl"
 
 # Raw crypto-monitor regimes → simplified macro classes
 _REGIME_MAP: dict[str, str] = {
@@ -119,8 +117,8 @@ class BtcRegimeOverlay:
         if not self._ensure_loaded():
             return "neutral"
 
-        assert self._timestamps is not None
-        assert self._entries is not None
+        assert self._timestamps is not None  # noqa: S101
+        assert self._entries is not None  # noqa: S101
 
         # Binary search for nearest-prior timestamp
         import bisect
@@ -147,8 +145,8 @@ class BtcRegimeOverlay:
         if not self._ensure_loaded():
             return "neutral"
 
-        assert self._timestamps is not None
-        assert self._entries is not None
+        assert self._timestamps is not None  # noqa: S101
+        assert self._entries is not None  # noqa: S101
 
         import bisect
         from collections import Counter
@@ -161,9 +159,7 @@ class BtcRegimeOverlay:
             return self.regime_at_timestamp(start_ms)
 
         in_range = self._entries[lo:hi]
-        classified = [
-            self._classify(e.get("regime", "sideways_low_vol")) for e in in_range
-        ]
+        classified = [self._classify(e.get("regime", "sideways_low_vol")) for e in in_range]
 
         most_common = Counter(classified).most_common(1)
         return most_common[0][0] if most_common else "neutral"
@@ -243,5 +239,5 @@ class BtcRegimeOverlay:
         """Number of loaded entries (0 if not loadable)."""
         if not self._ensure_loaded():
             return 0
-        assert self._entries is not None
+        assert self._entries is not None  # noqa: S101
         return len(self._entries)

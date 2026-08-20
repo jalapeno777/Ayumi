@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # noqa: I001
 from backtest.engine import TradeDirection
 from engine.strategy_executor import StrategyExecutor
 from engine.strategy_registry import StrategySlot
@@ -52,9 +52,7 @@ class TestStrategyExecutor:
 
     def test_on_tick_builds_bars(self):
         slot = self._make_slot()
-        executor = StrategyExecutor(
-            slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2
-        )
+        executor = StrategyExecutor(slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2)
         base = datetime(2026, 4, 21, 10, 0, tzinfo=timezone.utc)
 
         for i in range(5):
@@ -65,18 +63,14 @@ class TestStrategyExecutor:
 
     def test_try_evaluate_returns_none_before_ready(self):
         slot = self._make_slot()
-        executor = StrategyExecutor(
-            slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=100
-        )
+        executor = StrategyExecutor(slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=100)
         base = datetime(2026, 4, 21, 10, 0, tzinfo=timezone.utc)
         executor.on_tick(1.1, 1.0999, 1.1001, base)
         assert executor.try_evaluate() is None
 
     def test_try_evaluate_returns_signal_when_ready(self):
         slot = self._make_slot()
-        executor = StrategyExecutor(
-            slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2
-        )
+        executor = StrategyExecutor(slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2)
         base = datetime(2026, 4, 21, 10, 0, tzinfo=timezone.utc)
 
         for i in range(5):
@@ -92,9 +86,7 @@ class TestStrategyExecutor:
 
     def test_bar_trimming(self):
         slot = self._make_slot()
-        executor = StrategyExecutor(
-            slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2, max_bars=3
-        )
+        executor = StrategyExecutor(slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2, max_bars=3)
         base = datetime(2026, 4, 21, 10, 0, tzinfo=timezone.utc)
 
         for i in range(10):
@@ -105,9 +97,7 @@ class TestStrategyExecutor:
 
     def test_different_timeframes(self):
         slot = self._make_slot(timeframe="M15")
-        executor = StrategyExecutor(
-            slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2
-        )
+        executor = StrategyExecutor(slot=slot, strategy=_AlwaysSignalStrategy(), min_bars=2)
         base = datetime(2026, 4, 21, 10, 0, tzinfo=timezone.utc)
 
         for i in range(10):

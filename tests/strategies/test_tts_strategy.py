@@ -1,6 +1,6 @@
 """Tests for TTSStrategy signal engine adapter — HTF, session, quality gates, and ConfidenceBuilder."""
 
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime, timedelta
 
 from backtest.engine import Bar, MarketState
@@ -16,9 +16,7 @@ def _make_bars(n: int, base_price: float = 1.1000, trend: float = 0.0) -> list[B
     bars = []
     price = base_price
     for i in range(n):
-        change = trend * 0.0001 + 0.0002 * (
-            1 if i % 3 == 0 else -1 if i % 3 == 1 else 0
-        )
+        change = trend * 0.0001 + 0.0002 * (1 if i % 3 == 0 else -1 if i % 3 == 1 else 0)
         high = price + abs(change) + 0.0001
         low = price - abs(change) - 0.0001
         close = price + change

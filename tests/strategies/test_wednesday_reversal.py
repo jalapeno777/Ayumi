@@ -245,9 +245,7 @@ class TestWednesdayReversalStudyAnalyze(unittest.TestCase):
         ]
         result = study.run(bars)
         expected_pips = abs(1.1000 - 1.0900) / 0.0001
-        self.assertAlmostEqual(
-            result.results["avg_reversal_pips"], expected_pips, places=1
-        )
+        self.assertAlmostEqual(result.results["avg_reversal_pips"], expected_pips, places=1)
 
     def test_wrong_prev_prev_weekday_skipped(self):
         study = WednesdayReversalStudy()

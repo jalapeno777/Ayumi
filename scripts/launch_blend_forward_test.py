@@ -8,7 +8,7 @@ Uses existing BlendForwardTestRunner for confidence/risk/sizing and
 existing cTraderLiveAdapter for strategy evaluation.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import sys
@@ -52,7 +52,7 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import (
+from adapters.ctrader.forward_test_engine import (  # noqa: I001
     ForwardTestConfig,
     ForwardTestEngine,
     _is_forex_market_closed,
@@ -105,9 +105,7 @@ class CorrelationGate:
     """Blocks duplicate symbol-direction signals — max 1 position per (symbol, direction)."""
 
     def __init__(self):
-        self._active: dict[
-            tuple[str, str], str
-        ] = {}  # (symbol, direction) -> strategy_id
+        self._active: dict[tuple[str, str], str] = {}  # (symbol, direction) -> strategy_id
         self._lock = threading.Lock()
 
     def check(self, symbol: str, direction: str, strategy_id: str) -> tuple[bool, str]:
@@ -231,7 +229,7 @@ class RegimeGate:
                     current_adx = float(adx_vals[-1])
                     if current_adx < adx_range[0] or current_adx > adx_range[1]:
                         return False, f"adx_{current_adx:.1f}_outside_{adx_range}"
-            except Exception:
+            except Exception:  # noqa: S110
                 # Don't block on ADX calculation failure — regime check already passed.
                 pass
 
@@ -302,9 +300,7 @@ SYMBOL_IDS = {
 }
 
 
-def raw_bars_to_bar_objects(
-    raw_bars: list[dict], period: BarPeriod | None = None
-) -> list[Bar]:
+def raw_bars_to_bar_objects(raw_bars: list[dict], period: BarPeriod | None = None) -> list[Bar]:
     """Convert OpenAPI raw bar dicts to Bar objects."""
     if period is None:
         period = BarPeriod.H1()
@@ -331,9 +327,7 @@ def trade_signal_to_blend_dict(signal: CTraderTradeSignal, strategy_name: str) -
     """Convert cTrader CTraderTradeSignal to the dict format BlendForwardTestRunner.on_signal() expects."""
     return {
         "symbol": signal.symbol,
-        "direction": signal.direction.value
-        if hasattr(signal.direction, "value")
-        else str(signal.direction),
+        "direction": signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction),
         "entry_price": signal.entry_price,
         "stop_loss": signal.stop_loss,
         "take_profit": signal.take_profit_1 or 0.0,
@@ -377,11 +371,7 @@ def _evaluate_b5_health_warning(health, live_fills: int, live_mode: bool) -> dic
     """
     if not live_mode:
         return None
-    attempted = (
-        health.signals_sent
-        + health.signals_failed_live
-        + getattr(health, "signals_unreachable", 0)
-    )
+    attempted = health.signals_sent + health.signals_failed_live + getattr(health, "signals_unreachable", 0)
     if attempted == 0 or live_fills > 0:
         return None
     if health.signals_failed_live > 0:
@@ -464,9 +454,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
             generated = 0
             for strategy_name in self._live_adapter._strategies.keys():
                 # Resolve this strategy's timeframe
-                tf = self._strategy_timeframes.get(
-                    strategy_name, self._config.bar_period_minutes
-                )
+                tf = self._strategy_timeframes.get(strategy_name, self._config.bar_period_minutes)
                 bars = tf_bars.get(tf, [])
 
                 # Per-timeframe evaluation threshold (Rei #7)
@@ -499,9 +487,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                 # regardless of whether a signal was generated. This is what makes
                 # the [S1 Health] log show non-zero evals. (BQ-1037)
                 with self._lock:
-                    self._strategy_eval_counts[strategy_name] = (
-                        self._strategy_eval_counts.get(strategy_name, 0) + 1
-                    )
+                    self._strategy_eval_counts[strategy_name] = self._strategy_eval_counts.get(strategy_name, 0) + 1
                     if s is None:
                         self._strategy_no_signal_counts[strategy_name] = (
                             self._strategy_no_signal_counts.get(strategy_name, 0) + 1
@@ -574,21 +560,13 @@ class BlendForwardTestEngine(ForwardTestEngine):
 
     def _route_signal(self, signal: CTraderTradeSignal, strategy_name: str):
         """Route a single signal through correlation gate → blend runner."""
-        strategy_id = self._strategy_id_map.get(
-            strategy_name, strategy_name.lower().replace(" ", "_")
-        )
+        strategy_id = self._strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
 
-        direction_str = (
-            signal.direction.value
-            if hasattr(signal.direction, "value")
-            else str(signal.direction)
-        )
+        direction_str = signal.direction.value if hasattr(signal.direction, "value") else str(signal.direction)
 
         if self._blend_runner:
             # Check correlation gate
-            allowed, reason = self._correlation_gate.check(
-                signal.symbol, direction_str, strategy_id
-            )
+            allowed, reason = self._correlation_gate.check(signal.symbol, direction_str, strategy_id)
             if not allowed:
                 logger.info(
                     "Signal blocked: %s | %s %s conf=%.2f — %s",
@@ -640,9 +618,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     # success).  ``signals_accepted`` captures the blend-side
                     # accept count for operators who want to see it.
                     with self._lock:
-                        self._health.signals_accepted = (
-                            getattr(self._health, "signals_accepted", 0) + 1
-                        )
+                        self._health.signals_accepted = getattr(self._health, "signals_accepted", 0) + 1
                     self._heartbeat.record_signal(accepted=True)
 
                     # Execute directly: live → cTrader, paper → PaperTrader
@@ -682,9 +658,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 LiveExecutionStatus,
                             )
 
-                            outcome = self._execute_signal_live(
-                                exec_signal, strategy_id=strategy_id
-                            )
+                            outcome = self._execute_signal_live(exec_signal, strategy_id=strategy_id)
                             if outcome is None:
                                 logger.warning(
                                     "Live execution skipped (pre-flight): %s %s %.4f lots",
@@ -696,13 +670,9 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(
-                                    signal.symbol, direction_str
-                                )
+                                self._correlation_gate.release(signal.symbol, direction_str)
                             elif outcome.status == LiveExecutionStatus.FILLED:
-                                self._live_fill_count = (
-                                    getattr(self, "_live_fill_count", 0) + 1
-                                )
+                                self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
                                 with self._lock:
                                     self._health.signals_traded += 1
                                 logger.info(
@@ -744,7 +714,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._health.signals_sent += 1
                                     self._health.signals_pending += 1
                                 logger.warning(
-                                    "Live order TIMEOUT awaiting ack: %s %s %.4f lots order_id=%s — deferring verdict to late-fill callback",
+                                    "Live order TIMEOUT awaiting ack: %s %s %.4f lots order_id=%s — deferring verdict to late-fill callback",  # noqa: E501
                                     strategy_id,
                                     direction_str,
                                     order.lots,
@@ -779,9 +749,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(
-                                    signal.symbol, direction_str
-                                )
+                                self._correlation_gate.release(signal.symbol, direction_str)
                             else:
                                 # REJECTED / CANCELLED — terminal broker
                                 # rejection only. SENT, TIMEOUT, and
@@ -804,13 +772,9 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(
-                                    signal.symbol, direction_str
-                                )
+                                self._correlation_gate.release(signal.symbol, direction_str)
                         except Exception as exec_err:
-                            logger.error(
-                                "Live execution error: %s", exec_err, exc_info=True
-                            )
+                            logger.error("Live execution error: %s", exec_err, exc_info=True)
                             # Card 0d7d7557 (iter2): the exception path
                             # around _execute_signal_live bypasses both
                             # signals_sent and signals_failed_live
@@ -832,9 +796,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 self._blend_signal_id(signal),
                                 order.risk_amount,
                             )
-                            self._correlation_gate.release(
-                                signal.symbol, direction_str
-                            )
+                            self._correlation_gate.release(signal.symbol, direction_str)
                     else:
                         # Paper mode — exceptions here are paper-trader
                         # state bugs / network simulation issues, NOT
@@ -857,9 +819,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 confidence=signal.confidence,
                                 rationale=getattr(signal, "rationale", ""),
                             )
-                            exec_result = self._paper_trader.process_signal(
-                                exec_signal, spread=self._current_spread
-                            )
+                            exec_result = self._paper_trader.process_signal(exec_signal, spread=self._current_spread)
                             if exec_result.success:
                                 with self._lock:
                                     self._health.signals_traded += 1
@@ -878,13 +838,9 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(
-                                    signal.symbol, direction_str
-                                )
+                                self._correlation_gate.release(signal.symbol, direction_str)
                         except Exception as exec_err:
-                            logger.error(
-                                "Paper execution error: %s", exec_err, exc_info=True
-                            )
+                            logger.error("Paper execution error: %s", exec_err, exc_info=True)
                             # Paper-mode exceptions must NOT touch live
                             # counters. Only release risk + correlation
                             # gate so subsequent signals aren't blocked.
@@ -892,9 +848,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 self._blend_signal_id(signal),
                                 order.risk_amount,
                             )
-                            self._correlation_gate.release(
-                                signal.symbol, direction_str
-                            )
+                            self._correlation_gate.release(signal.symbol, direction_str)
 
                     # Write last_signal.txt for watchdog health check
                     try:
@@ -914,7 +868,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         _sig_path = Path(PROJECT_ROOT) / "data" / "last_signal.txt"
                         _sig_path.parent.mkdir(parents=True, exist_ok=True)
                         _sig_path.write_text(_json.dumps(_sig_data, indent=2) + "\n")
-                    except Exception:
+                    except Exception:  # noqa: S110
                         pass  # Non-critical — don't break signal flow
             except Exception as exc:
                 logger.error("Blend runner error: %s", exc, exc_info=True)
@@ -939,11 +893,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
     def on_position_closed_release(self, position):
         """Release correlation gate on position close to avoid stale blocks."""
         try:
-            direction = (
-                position.direction.value
-                if hasattr(position.direction, "value")
-                else str(position.direction)
-            )
+            direction = position.direction.value if hasattr(position.direction, "value") else str(position.direction)
             self._correlation_gate.release(position.symbol, direction)
             logger.info(
                 "Correlation gate released: %s %s (active=%d)",
@@ -1052,9 +1002,7 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
             try:
                 paper = getattr(engine, "_paper_trader", None)
                 open_positions = (
-                    len(paper.get_open_positions())
-                    if paper is not None and hasattr(paper, "get_open_positions")
-                    else 0
+                    len(paper.get_open_positions()) if paper is not None and hasattr(paper, "get_open_positions") else 0
                 )
             except Exception:
                 open_positions = 0
@@ -1071,9 +1019,7 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
             "signals_generated": health.signals_generated,
             "trades_executed": trades_executed,
             "closed_trades_live": closed_trades_live,
-            "last_tick_time": health.last_tick_at.isoformat()
-            if health.last_tick_at
-            else None,
+            "last_tick_time": health.last_tick_at.isoformat() if health.last_tick_at else None,
             "connection_state": connection_state,
             "market_closed": _is_forex_market_closed(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -1100,9 +1046,7 @@ _STALE_LOG_MAX_AGE_DAYS = 7
 _STALE_LOG_MIN_SIZE_BYTES = 1024  # skip empty / sub-KB stubs
 
 
-def compress_stale_logs(
-    log_dir: Path, max_age_days: int = _STALE_LOG_MAX_AGE_DAYS
-) -> int:
+def compress_stale_logs(log_dir: Path, max_age_days: int = _STALE_LOG_MAX_AGE_DAYS) -> int:
     """Gzip-compress ``*.log`` files in ``log_dir`` older than ``max_age_days``.
 
     Skips files that are already compressed (``*.log.gz``), tiny stubs below
@@ -1194,7 +1138,7 @@ def main():
     parser.add_argument(
         "--live",
         action="store_true",
-        help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)",
+        help="Send real orders to cTrader via OpenAPI using account id from CTRADER_OPENAPI_ACCOUNT_ID (default: paper-only)",  # noqa: E501
     )
     parser.add_argument(
         "--paper-only",
@@ -1220,15 +1164,12 @@ def main():
         _infer_environment,
     )
 
-    _startup_host = os.getenv("CTRADER_HOST", "") or os.getenv(
-        "CTRADER_OPENAPI_HOST", ""
-    )
+    _startup_host = os.getenv("CTRADER_HOST", "") or os.getenv("CTRADER_OPENAPI_HOST", "")
     if _startup_host:
         _startup_env = _infer_environment(_startup_host)
         if execution_mode == "paper" and _startup_env == Environment.LIVE:
             logger.error(
-                "Cannot start in paper mode on a live endpoint (%s). "
-                "Use --mode live or --live.",
+                "Cannot start in paper mode on a live endpoint (%s). Use --mode live or --live.",
                 _startup_host,
             )
             sys.exit(1)
@@ -1275,16 +1216,14 @@ def main():
                     )
                     _log_f.unlink()
                     logger.info(
-                        "Removed foreign-owned %s (uid=%d) — will be recreated "
-                        "with correct ownership (uid=%d)",
+                        "Removed foreign-owned %s (uid=%d) — will be recreated with correct ownership (uid=%d)",
                         _log_f.name,
                         _lst.st_uid,
                         _current_uid,
                     )
             except (KeyError, OSError) as _log_fix_err:
                 logger.error(
-                    "Could not remove foreign-owned %s: %s — "
-                    "run 'sudo chown %s:%s %s' to fix manually",
+                    "Could not remove foreign-owned %s: %s — run 'sudo chown %s:%s %s' to fix manually",
                     _log_f,
                     _log_fix_err,
                     os.getenv("USER", "TacoPants"),
@@ -1343,10 +1282,7 @@ def main():
     )
     if _srmr_yaml_config is not None:
         _srmr_config = _srmr_yaml_config
-        logger.info(
-            "SRMR+ using validated strategies.yaml config 'srmr_xauusd_m15' "
-            "(PF=7.16, WR=73.4%)"
-        )
+        logger.info("SRMR+ using validated strategies.yaml config 'srmr_xauusd_m15' (PF=7.16, WR=73.4%)")
     else:
         _srmr_config = SRMRPlusConfig(symbol="XAUUSD")
         logger.info("SRMR+ using default config (no validated strategies.yaml entry)")
@@ -1378,22 +1314,14 @@ def main():
 
     # Verify .name properties match STRATEGY_ID_MAP keys
     for s in strategies:
-        assert s.name in STRATEGY_ID_MAP, (
-            f"Strategy .name '{s.name}' not in STRATEGY_ID_MAP"
-        )
-        assert s.name in STRATEGY_TIMEFRAMES, (
-            f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
-        )
+        assert s.name in STRATEGY_ID_MAP, f"Strategy .name '{s.name}' not in STRATEGY_ID_MAP"
+        assert s.name in STRATEGY_TIMEFRAMES, f"Strategy .name '{s.name}' not in STRATEGY_TIMEFRAMES"
     logger.info("All strategy .name properties verified against maps")
 
     # When --only is used, filter the maps to match the active pool
     active_names = {s.name for s in strategies}
-    active_strategy_timeframes = {
-        k: v for k, v in STRATEGY_TIMEFRAMES.items() if k in active_names
-    }
-    active_strategy_id_map = {
-        k: v for k, v in STRATEGY_ID_MAP.items() if k in active_names
-    }
+    active_strategy_timeframes = {k: v for k, v in STRATEGY_TIMEFRAMES.items() if k in active_names}
+    active_strategy_id_map = {k: v for k, v in STRATEGY_ID_MAP.items() if k in active_names}
 
     # 4. Build blend runner
     blend_runner = build_blend_runner()
@@ -1457,9 +1385,7 @@ def main():
 
     # ── Startup diagnostics (B5) ──────────────────────────────────────────
     logger.info("=== STARTING MULTI-STRATEGY FORWARD TEST (Single-Connection) ===")
-    logger.info(
-        "Pipeline: KZ + DualTF + Donchian + SRMR+ (regime-gated) → Correlation Gate → Blend Runner → cTrader"
-    )
+    logger.info("Pipeline: KZ + DualTF + Donchian + SRMR+ (regime-gated) → Correlation Gate → Blend Runner → cTrader")
     logger.info("Startup diagnostic: strategies=%s", [s.name for s in strategies])
     logger.info("Startup diagnostic: symbols=%s", symbols)
     logger.info(
@@ -1470,9 +1396,7 @@ def main():
     logger.info("Startup diagnostic: strategy_timeframes=%s", STRATEGY_TIMEFRAMES)
     started = engine.start()
     if not started:
-        logger.error(
-            "Engine failed to start. See logs above for the specific failure reason."
-        )
+        logger.error("Engine failed to start. See logs above for the specific failure reason.")
         logger.error(
             "For live mode, verify: CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, "
             "CTRADER_OPENAPI_ACCESS_TOKEN, CTRADER_OPENAPI_REFRESH_TOKEN, "
@@ -1492,8 +1416,7 @@ def main():
         starting_balance=FTMO_REFERENCE_ACCOUNT_SIZE,
     )
     logger.info(
-        "FTMOGuard active: starting_balance=$%.2f dd_reduce=%.1f%% dd_freeze=%.1f%% "
-        "daily_loss=%.1f%% kill_switch=%s",
+        "FTMOGuard active: starting_balance=$%.2f dd_reduce=%.1f%% dd_freeze=%.1f%% daily_loss=%.1f%% kill_switch=%s",
         FTMO_REFERENCE_ACCOUNT_SIZE,
         _ftmo_guard._dd_reduce_pct,
         _ftmo_guard._dd_freeze_pct,
@@ -1526,8 +1449,7 @@ def main():
     try:
         _recon_result = blend_runner.reconcile_with_broker(_broker_positions)
         logger.info(
-            "Startup reconciliation result: positions %d→%d (seeded=%d, "
-            "diverged=%s, open_risk $%.2f→$%.2f)",
+            "Startup reconciliation result: positions %d→%d (seeded=%d, diverged=%s, open_risk $%.2f→$%.2f)",
             _recon_result["before_count"],
             _recon_result["after_count"],
             _recon_result["seeded_count"],
@@ -1581,11 +1503,7 @@ def main():
 
                     # Fetch real cTrader balance in live mode
                     _balance_str = f"balance=${_paper_balance:.2f}"
-                    if (
-                        _live_mode
-                        and hasattr(engine, "_market_feed")
-                        and engine._market_feed is not None
-                    ):
+                    if _live_mode and hasattr(engine, "_market_feed") and engine._market_feed is not None:
                         try:
                             from adapters.ctrader.account_state import (
                                 get_balance as _get_balance,
@@ -1625,26 +1543,17 @@ def main():
                         # signals_pending, signals_cancelled, signals_rejected,
                         # signals_traded, signals_accepted).
                         if hasattr(engine, "_paper_trader") and engine._paper_trader:
-                            _rg_for_reset = getattr(
-                                engine._paper_trader, "_risk_guard", None
-                            )
+                            _rg_for_reset = getattr(engine._paper_trader, "_risk_guard", None)
                             if _rg_for_reset is not None:
-                                _current_trading_day = (
-                                    _rg_for_reset._current_trading_day()
-                                )
+                                _current_trading_day = _rg_for_reset._current_trading_day()
                                 _last_health_day = getattr(
                                     engine._health,
                                     "_last_health_trading_day",
                                     None,
                                 )
-                                if (
-                                    _last_health_day is None
-                                    or _current_trading_day != _last_health_day
-                                ):
+                                if _last_health_day is None or _current_trading_day != _last_health_day:
                                     engine._health.reset_daily_counters()
-                                    engine._health._last_health_trading_day = (
-                                        _current_trading_day
-                                    )
+                                    engine._health._last_health_trading_day = _current_trading_day
                                     logger.info(
                                         "[B5 Daily Reset] counters reset at trading_day=%s "
                                         "(17:00 America/Toronto boundary crossed)",
@@ -1663,16 +1572,11 @@ def main():
                         try:
                             _ftmo_balance = float(
                                 getattr(engine, "_live_balance", 0.0)
-                                or (
-                                    engine._paper_trader._current_balance
-                                    if engine._paper_trader
-                                    else 0.0
-                                )
+                                or (engine._paper_trader._current_balance if engine._paper_trader else 0.0)
                             )
                             _ftmo_open = (
                                 len(engine._paper_trader._open_positions)
-                                if engine._paper_trader
-                                and hasattr(engine._paper_trader, "_open_positions")
+                                if engine._paper_trader and hasattr(engine._paper_trader, "_open_positions")
                                 else 0
                             )
                             _ftmo_prev_action = _ftmo_guard.action_level.value
@@ -1706,11 +1610,7 @@ def main():
                         _start_bal = _rg._starting_balance
                         _bal = _rg._current_balance
                         _daily_pnl = _bal - _rg._daily_start_balance
-                        _dd_pct = (
-                            (_start_bal - _bal) / _start_bal * 100
-                            if _start_bal > 0
-                            else 0.0
-                        )
+                        _dd_pct = (_start_bal - _bal) / _start_bal * 100 if _start_bal > 0 else 0.0
                         _breaker = "ON" if _rg._circuit_breaker_triggered else "OFF"
                         _halt = "NONE"
                         if _rg._blocked_until is not None:
@@ -1785,9 +1685,7 @@ def main():
                     # points operators at the spot-feed connection state
                     # instead of the rejection log, so they diagnose the
                     # actual failure mode.
-                    _warn = _evaluate_b5_health_warning(
-                        engine.health, _live_fills, _live_mode
-                    )
+                    _warn = _evaluate_b5_health_warning(engine.health, _live_fills, _live_mode)
                     if _warn is not None:
                         if _warn["branch"] == "rejected":
                             logger.warning(
@@ -1835,9 +1733,7 @@ def main():
                         # Count total bars across all keys, including preloaded
                         # and currently-forming bars (mirrors engine's internal
                         # B5 check at line ~2756 in forward_test_engine.py).
-                        _total_bars_all = sum(
-                            len(v) for v in engine._bars.values()
-                        ) + sum(
+                        _total_bars_all = sum(len(v) for v in engine._bars.values()) + sum(
                             1 for v in engine._current_bar.values() if v is not None
                         )
                         if _total_bars_all > 0:
@@ -1852,8 +1748,7 @@ def main():
                             )
                         elif _is_forex_market_closed():
                             logger.info(
-                                "[B5 Pipeline] Market closed — ticks=%d bars=%d "
-                                "(idle, expected)",
+                                "[B5 Pipeline] Market closed — ticks=%d bars=%d (idle, expected)",
                                 h.get("ticks_received", 0),
                                 engine.health.bars_built,
                             )
@@ -1878,14 +1773,10 @@ def main():
                     if now - _last_reconcile >= _reconcile_interval:
                         _last_reconcile = now
                         _feed_recon = getattr(engine, "_market_feed", None)
-                        if _feed_recon is not None and hasattr(
-                            _feed_recon, "reconcile"
-                        ):
+                        if _feed_recon is not None and hasattr(_feed_recon, "reconcile"):
                             try:
                                 _positions_now = _feed_recon.reconcile() or []
-                                _recon = blend_runner.reconcile_with_broker(
-                                    _positions_now
-                                )
+                                _recon = blend_runner.reconcile_with_broker(_positions_now)
                                 if _recon.get("diverged"):
                                     logger.warning(
                                         "[B5 Reconcile] sizer/broker drift: "
@@ -1899,8 +1790,7 @@ def main():
                                     )
                                 else:
                                     logger.info(
-                                        "[B5 Reconcile] sizer/broker in sync: "
-                                        "positions=%d, open_risk=$%.2f",
+                                        "[B5 Reconcile] sizer/broker in sync: positions=%d, open_risk=$%.2f",
                                         _recon["after_count"],
                                         _recon["after_open_risk"],
                                     )
@@ -1939,12 +1829,12 @@ def main():
             _report_path = _equity_tracker.write_daily_report()
             if _report_path:
                 logger.info("[A8 Equity] Daily report written: %s", _report_path)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         # Release PID lock on exit
         try:
             _pid_ctx.__exit__(None, None, None)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
 

@@ -158,9 +158,7 @@ DEFAULT_INSTRUMENTS: dict[str, Instrument] = {
         pip_value_per_lot=6.5,
     ),
     # Metals
-    "XAUUSD": Instrument(
-        "XAUUSD", SymbolType.metal, pip_size=0.1, lot_size=100, pip_value_per_lot=10.0
-    ),
+    "XAUUSD": Instrument("XAUUSD", SymbolType.metal, pip_size=0.1, lot_size=100, pip_value_per_lot=10.0),
 }
 
 

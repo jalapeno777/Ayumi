@@ -6,7 +6,7 @@ except ImportError:
     GridConfig = None  # type: ignore
     GridStrategyAdapter = None  # type: ignore
 
-from strategies.session_range_mean_reversion import (
+from strategies.session_range_mean_reversion import (  # noqa: I001
     SessionRangeMeanReversionStrategy,
     SessionRangeMRWithRegimeFilter,
 )
@@ -43,9 +43,7 @@ def _make_rsi() -> ISignalStrategy:
 
 
 def _make_sr_breakout() -> ISignalStrategy:
-    return SRBreakoutStrategy(
-        lookback=50, confirmation_bars=1, breakout_threshold=0.0001
-    )
+    return SRBreakoutStrategy(lookback=50, confirmation_bars=1, breakout_threshold=0.0001)
 
 
 def _make_roc() -> ISignalStrategy:
@@ -112,8 +110,6 @@ def register_builtin_strategies(pair: str = "EURUSD") -> None:
     register_strategy("stat_arb", _make_stat_arb)
     register_strategy("volatility_squeeze", _make_volatility_squeeze)
     register_strategy("session_range_mr", _make_session_range_mr)
-    register_strategy(
-        "session_range_mr_with_regime", _make_session_range_mr_with_regime_filter
-    )
+    register_strategy("session_range_mr_with_regime", _make_session_range_mr_with_regime_filter)
     register_strategy("high_conviction", _make_high_conviction)
     register_strategy("regime_router", _make_regime_router)

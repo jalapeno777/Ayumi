@@ -1,4 +1,4 @@
-import pytest
+import pytest  # noqa: I001
 from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 from adapters.ctrader.paper_trader import (
@@ -70,9 +70,7 @@ class TestPaperTradeResult:
             confidence=0.85,
             rationale="Test",
         )
-        result = PaperTradeResult(
-            success=False, signal=signal, rejection_reason="Daily loss limit"
-        )
+        result = PaperTradeResult(success=False, signal=signal, rejection_reason="Daily loss limit")
         assert result.success is False
         assert result.rejection_reason == "Daily loss limit"
 
@@ -103,10 +101,7 @@ class TestPaperTrader:
         )
         result = trader.process_signal(signal)
         assert result.success is False
-        assert (
-            "Risk:Reward" in result.rejection_reason
-            or "below minimum" in result.rejection_reason
-        )
+        assert "Risk:Reward" in result.rejection_reason or "below minimum" in result.rejection_reason
 
     def test_process_signal_accepts_good_risk_reward(self):
         config = FTMOConfig(

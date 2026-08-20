@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from typing import List, Optional, Set
@@ -102,9 +102,7 @@ def _calculate_rsi(closes: List[float], period: int = 14) -> float:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _calculate_bollinger_bands(
-    closes: List[float], period: int, std_dev: float
-) -> tuple[float, float, float]:
+def _calculate_bollinger_bands(closes: List[float], period: int, std_dev: float) -> tuple[float, float, float]:
     sma = _calculate_sma(closes, period)
     std = _calculate_std(closes, period)
     upper = sma + std * std_dev
@@ -180,9 +178,7 @@ class BBMeanReversionStrategy:
 
     def evaluate(self, state: MarketState) -> Optional[StrategySignal]:
         min_required = (
-            max(self.config.bb_period, self.config.atr_period, self.config.rsi_period)
-            + self.config.atr_sma_period
-            + 5
+            max(self.config.bb_period, self.config.atr_period, self.config.rsi_period) + self.config.atr_sma_period + 5
         )
 
         if len(state.bars) < min_required:
@@ -201,29 +197,19 @@ class BBMeanReversionStrategy:
 
         rsi = _calculate_rsi(closes, self.config.rsi_period)
 
-        low_vol = _is_low_volatility(
-            bars, self.config.atr_period, self.config.atr_sma_period
-        )
+        low_vol = _is_low_volatility(bars, self.config.atr_period, self.config.atr_sma_period)
 
-        atr = (
-            state.atr if state.atr > 0 else _calculate_atr(bars, self.config.atr_period)
-        )
+        atr = state.atr if state.atr > 0 else _calculate_atr(bars, self.config.atr_period)
 
         direction = None
         signal_reason = ""
 
         long_condition = (
-            latest.low <= bb_lower
-            and rsi < self.config.rsi_long_threshold
-            and low_vol
-            and latest.close > bb_lower
+            latest.low <= bb_lower and rsi < self.config.rsi_long_threshold and low_vol and latest.close > bb_lower
         )
 
         short_condition = (
-            latest.high >= bb_upper
-            and rsi > self.config.rsi_short_threshold
-            and low_vol
-            and latest.close < bb_upper
+            latest.high >= bb_upper and rsi > self.config.rsi_short_threshold and low_vol and latest.close < bb_upper
         )
 
         if long_condition:
@@ -252,6 +238,4 @@ class BBMeanReversionStrategy:
             rsi_distance = rsi - self.config.rsi_short_threshold
         confidence += min(rsi_distance / 40.0, 0.15)
 
-        return _build_signal(
-            direction, latest.close, atr, self.config, confidence, signal_reason
-        )
+        return _build_signal(direction, latest.close, atr, self.config, confidence, signal_reason)

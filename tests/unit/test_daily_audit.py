@@ -10,7 +10,7 @@ Each checkpoint is tested for:
 3. Warning/Critical thresholds
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import os
@@ -32,7 +32,7 @@ SRC_DIR = Path(__file__).resolve().parent.parent.parent / "src"
 sys.path.insert(0, str(SRC_DIR / "forex-bot"))
 sys.path.insert(0, str(SRC_DIR))
 
-from daily_audit import (
+from daily_audit import (  # noqa: I001
     _ch_dh_tick_feed_latency,
     _ch_dh_bar_building_rate,
     _ch_dh_signal_stats_write_health,
@@ -308,7 +308,7 @@ class TestFT002OpenPositions:
             metadata TEXT
         )""")
         conn.execute(
-            "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES ('t1', 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'closed')"
+            "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES ('t1', 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'closed')"  # noqa: E501
         )
         conn.commit()
         conn.close()
@@ -343,7 +343,7 @@ class TestFT002OpenPositions:
         )""")
         for i in range(3):
             conn.execute(
-                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",
+                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",  # noqa: E501
                 (f"t{i}",),
             )
         conn.commit()
@@ -379,7 +379,7 @@ class TestFT002OpenPositions:
         )""")
         for i in range(4):
             conn.execute(
-                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",
+                "INSERT INTO trades (trade_id, strategy_name, symbol, direction, entry_price, entry_time, lot_size, status) VALUES (?, 'test', 'EURUSD', 'BUY', 1.1, '2026-07-08', 1.0, 'open')",  # noqa: E501
                 (f"t{i}",),
             )
         conn.commit()
@@ -417,9 +417,7 @@ class TestFT005BestDayRatio:
             worst_trade_pnl REAL,
             strategies_used TEXT
         )""")
-        conn.execute(
-            "INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 9950, 2, 0, 2, -50, 0.5, 0, 0, -30, '[]')"
-        )
+        conn.execute("INSERT INTO daily_summary VALUES ('2026-07-01', 10000, 9950, 2, 0, 2, -50, 0.5, 0, 0, -30, '[]')")
         conn.commit()
         conn.close()
         result = _ch_ft_best_day_ratio()

@@ -4,42 +4,42 @@ from adapters.ctrader.api_client import SOH, FIXClient, FIXMessage
 class TestFIXMessage:
     def test_create_empty_message(self):
         msg = FIXMessage()
-        assert msg.fields == {}
+        assert msg.fields == {}  # noqa: S101
 
     def test_create_with_msg_type(self):
         msg = FIXMessage(msg_type="D")
-        assert msg.get_field(35) == "D"
+        assert msg.get_field(35) == "D"  # noqa: S101
 
     def test_set_and_get_field(self):
         msg = FIXMessage()
         msg.set_field(35, "D")
-        assert msg.get_field(35) == "D"
+        assert msg.get_field(35) == "D"  # noqa: S101
 
     def test_set_field_returns_self(self):
         msg = FIXMessage()
         result = msg.set_field(35, "D")
-        assert result is msg
+        assert result is msg  # noqa: S101
 
     def test_get_nonexistent_field(self):
         msg = FIXMessage()
-        assert msg.get_field(999) is None
+        assert msg.get_field(999) is None  # noqa: S101
 
     def test_set_body_field(self):
         msg = FIXMessage(msg_type="D")
         msg.set_body_field(55, "EURUSD")
-        assert msg.get_field(55) == "EURUSD"
+        assert msg.get_field(55) == "EURUSD"  # noqa: S101
 
     def test_to_wire_includes_header(self):
         msg = FIXMessage(msg_type="A")
         msg.set_field(49, "sender")
         msg.set_field(56, "target")
         wire = msg.to_wire()
-        assert wire.startswith("8=FIX.4.4\x01")
-        assert "35=A\x01" in wire
-        assert "49=sender\x01" in wire
-        assert "56=target\x01" in wire
-        assert "10=" in wire
-        assert wire.endswith(SOH)
+        assert wire.startswith("8=FIX.4.4\x01")  # noqa: S101
+        assert "35=A\x01" in wire  # noqa: S101
+        assert "49=sender\x01" in wire  # noqa: S101
+        assert "56=target\x01" in wire  # noqa: S101
+        assert "10=" in wire  # noqa: S101
+        assert wire.endswith(SOH)  # noqa: S101
 
     def test_to_wire_checksum(self):
         """Verify checksum is correctly calculated."""
@@ -53,7 +53,7 @@ class TestFIXMessage:
         # Recalculate
         msg_without_checksum = wire[: wire.rfind("10=")]
         expected = sum(msg_without_checksum.encode("ascii")) % 256
-        assert checksum_val == expected
+        assert checksum_val == expected  # noqa: S101
 
     def test_to_wire_body_length(self):
         """Verify BodyLength is correct."""
@@ -70,7 +70,7 @@ class TestFIXMessage:
         after_9 = wire.find(SOH, bl_end) + 1
         before_10 = wire.rfind("10=")
         actual_body_len = len(wire[after_9:before_10].encode("ascii"))
-        assert body_length == actual_body_len
+        assert body_length == actual_body_len  # noqa: S101
 
     def test_to_wire_uses_soh_not_pipe(self):
         """Wire format must use SOH, not pipe separators."""
@@ -78,56 +78,56 @@ class TestFIXMessage:
         msg.set_field(49, "sender")
         msg.set_field(56, "target")
         wire = msg.to_wire()
-        assert "|" not in wire
-        assert SOH in wire
+        assert "|" not in wire  # noqa: S101
+        assert SOH in wire  # noqa: S101
 
     def test_from_wire(self):
         wire = "35=D\x0154=1\x0155=EURUSD\x0110=XXX\x01"
         msg = FIXMessage.from_wire(wire)
-        assert msg.get_field(35) == "D"
-        assert msg.get_field(54) == "1"
-        assert msg.get_field(55) == "EURUSD"
+        assert msg.get_field(35) == "D"  # noqa: S101
+        assert msg.get_field(54) == "1"  # noqa: S101
+        assert msg.get_field(55) == "EURUSD"  # noqa: S101
 
     def test_from_wire_ignores_invalid(self):
         wire = "35=D\x01invalid\x0154=1\x01"
         msg = FIXMessage.from_wire(wire)
-        assert msg.get_field(35) == "D"
-        assert msg.get_field(54) == "1"
+        assert msg.get_field(35) == "D"  # noqa: S101
+        assert msg.get_field(54) == "1"  # noqa: S101
 
     def test_msg_type_property(self):
         msg = FIXMessage(msg_type="D")
-        assert msg.msg_type == "D"
+        assert msg.msg_type == "D"  # noqa: S101
 
     def test_msg_type_none_when_missing(self):
         msg = FIXMessage()
-        assert msg.msg_type is None
+        assert msg.msg_type is None  # noqa: S101
 
 
 class TestFIXClientConstants:
     def test_protocol_version(self):
-        assert FIXClient.PROTOCOL_VERSION == "FIX.4.4"
+        assert FIXClient.PROTOCOL_VERSION == "FIX.4.4"  # noqa: S101
 
     def test_message_types(self):
-        assert FIXClient.MSG_TYPE_LOGON == "A"
-        assert FIXClient.MSG_TYPE_LOGOUT == "5"
-        assert FIXClient.MSG_TYPE_HEARTBEAT == "0"
-        assert FIXClient.MSG_TYPE_TEST_REQUEST == "1"
-        assert FIXClient.MSG_TYPE_REJECT == "3"
-        assert FIXClient.MSG_TYPE_EXECUTION_REPORT == "8"
-        assert FIXClient.MSG_TYPE_ORDER_CANCEL_REJECT == "9"
-        assert FIXClient.MSG_TYPE_NEW_ORDER_SINGLE == "D"
-        assert FIXClient.MSG_TYPE_ORDER_CANCEL_REQUEST == "F"
+        assert FIXClient.MSG_TYPE_LOGON == "A"  # noqa: S101
+        assert FIXClient.MSG_TYPE_LOGOUT == "5"  # noqa: S101
+        assert FIXClient.MSG_TYPE_HEARTBEAT == "0"  # noqa: S101
+        assert FIXClient.MSG_TYPE_TEST_REQUEST == "1"  # noqa: S101
+        assert FIXClient.MSG_TYPE_REJECT == "3"  # noqa: S101
+        assert FIXClient.MSG_TYPE_EXECUTION_REPORT == "8"  # noqa: S101
+        assert FIXClient.MSG_TYPE_ORDER_CANCEL_REJECT == "9"  # noqa: S101
+        assert FIXClient.MSG_TYPE_NEW_ORDER_SINGLE == "D"  # noqa: S101
+        assert FIXClient.MSG_TYPE_ORDER_CANCEL_REQUEST == "F"  # noqa: S101
 
     def test_fix_tags(self):
-        assert FIXClient.TAG_MSG_TYPE == 35
-        assert FIXClient.TAG_SENDER_COMP_ID == 49
-        assert FIXClient.TAG_TARGET_COMP_ID == 56
-        assert FIXClient.TAG_CLORD_ID == 11
-        assert FIXClient.TAG_ORDER_ID == 37
-        assert FIXClient.TAG_SYMBOL == 55
-        assert FIXClient.TAG_SIDE == 54
-        assert FIXClient.TAG_EXEC_ID == 17
+        assert FIXClient.TAG_MSG_TYPE == 35  # noqa: S101
+        assert FIXClient.TAG_SENDER_COMP_ID == 49  # noqa: S101
+        assert FIXClient.TAG_TARGET_COMP_ID == 56  # noqa: S101
+        assert FIXClient.TAG_CLORD_ID == 11  # noqa: S101
+        assert FIXClient.TAG_ORDER_ID == 37  # noqa: S101
+        assert FIXClient.TAG_SYMBOL == 55  # noqa: S101
+        assert FIXClient.TAG_SIDE == 54  # noqa: S101
+        assert FIXClient.TAG_EXEC_ID == 17  # noqa: S101
 
     def test_auth_tags(self):
-        assert FIXClient.TAG_USERNAME == 553
-        assert FIXClient.TAG_PASSWORD == 554
+        assert FIXClient.TAG_USERNAME == 553  # noqa: S101
+        assert FIXClient.TAG_PASSWORD == 554  # noqa: S101

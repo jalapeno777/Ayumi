@@ -78,15 +78,11 @@ class WalkForwardValidator:
         if self.train_ratio + self.val_ratio >= 1:
             raise ValueError("train_ratio + val_ratio must be < 1")
         if self.overlap_ratio < 0 or self.overlap_ratio >= 1:
-            raise ValueError(
-                f"overlap_ratio must be in [0, 1), got {self.overlap_ratio}"
-            )
+            raise ValueError(f"overlap_ratio must be in [0, 1), got {self.overlap_ratio}")
         if self.embargo_bars < 0:
             raise ValueError(f"embargo_bars must be >= 0, got {self.embargo_bars}")
 
-    def split(
-        self, data: list[Any] | None = None
-    ) -> Generator[tuple[list[Any], list[Any], list[Any]], None, None]:
+    def split(self, data: list[Any] | None = None) -> Generator[tuple[list[Any], list[Any], list[Any]], None, None]:
         source = data if data is not None else self.data
         n = len(source)
         if n == 0:
@@ -95,9 +91,7 @@ class WalkForwardValidator:
         test_ratio = 1.0 - self.train_ratio - self.val_ratio
         full_window_size = int(n / self.n_windows)
         if full_window_size == 0:
-            raise ValueError(
-                f"Data length ({n}) is too small for {self.n_windows} windows"
-            )
+            raise ValueError(f"Data length ({n}) is too small for {self.n_windows} windows")
 
         train_size = int(full_window_size * self.train_ratio)
         val_size = int(full_window_size * self.val_ratio)
@@ -195,13 +189,7 @@ def _compute_metrics(
         sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
 
     min_trades = 5
-    passed = (
-        trade_count >= min_trades
-        and win_rate > 0.55
-        and profit_factor > 1.0
-        and total_pnl > 0
-        and max_dd < 0.10
-    )
+    passed = trade_count >= min_trades and win_rate > 0.55 and profit_factor > 1.0 and total_pnl > 0 and max_dd < 0.10
 
     return WindowMetrics(
         window_index=window_index,
@@ -248,7 +236,7 @@ def run_strategy(
 
     per_window: list[WindowMetrics] = []
     all_oos_pnls: list[float] = []
-    for idx, (train, val, test) in enumerate(validator.split(bars)):
+    for idx, (train, val, test) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test) < 10:
             metrics = WindowMetrics(
                 window_index=idx,
@@ -457,7 +445,7 @@ def detect_regime_for_window(
     If ``btc_bars`` is provided, also computes the BTC macro regime overlay
     via :class:`~quant.btc_regime_overlay.BtcRegimeOverlay`.
     """
-    from quant.regime import (
+    from quant.regime import (  # noqa: I001
         TrendDirection,
         SessionName,
         combined_regime,

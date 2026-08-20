@@ -162,9 +162,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if not trades:
-        print(
-            "WARNING: No trades loaded from CSV. Output will be empty.", file=sys.stderr
-        )
+        print("WARNING: No trades loaded from CSV. Output will be empty.", file=sys.stderr)
 
     sim = FTMOSimulation(config)
 
@@ -185,11 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         }
 
     # Summary
-    all_passed = (
-        all(r["passed"] for r in output["results"].values())
-        if output["results"]
-        else False
-    )
+    all_passed = all(r["passed"] for r in output["results"].values()) if output["results"] else False
     output["summary"] = {
         "total_strategies": len(output["results"]),
         "passed": sum(1 for r in output["results"].values() if r["passed"]),

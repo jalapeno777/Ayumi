@@ -1,4 +1,4 @@
-import dataclasses
+import dataclasses  # noqa: I001
 import unittest
 
 from datetime import datetime
@@ -94,9 +94,7 @@ def _make_squeeze_bars(
     return bars
 
 
-def _make_state(
-    bars: list[Bar], session: SessionType = SessionType.LONDON
-) -> MarketState:
+def _make_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -290,9 +288,7 @@ class TestBuildSignal(unittest.TestCase):
 
     def test_short_signal(self):
         config = VolatilitySqueezeConfig()
-        signal = _build_signal(
-            TradeDirection.SHORT, 1.1000, 0.001, config, 0.70, "test"
-        )
+        signal = _build_signal(TradeDirection.SHORT, 1.1000, 0.001, config, 0.70, "test")
         self.assertIsNotNone(signal)
         self.assertEqual(signal.direction, TradeDirection.SHORT)
         self.assertGreater(signal.stop_loss, signal.entry_price)
@@ -347,18 +343,14 @@ class TestVolatilitySqueezeStrategy(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_returns_none_outside_session_with_filter(self):
-        strategy = VolatilitySqueezeStrategy(
-            VolatilitySqueezeConfig(session_filter=True)
-        )
+        strategy = VolatilitySqueezeStrategy(VolatilitySqueezeConfig(session_filter=True))
         bars = _make_bars(100)
         state = _make_state(bars, SessionType.OUTSIDE)
         result = strategy.evaluate(state)
         self.assertIsNone(result)
 
     def test_allows_outside_session_without_filter(self):
-        strategy = VolatilitySqueezeStrategy(
-            VolatilitySqueezeConfig(session_filter=False)
-        )
+        strategy = VolatilitySqueezeStrategy(VolatilitySqueezeConfig(session_filter=False))
         bars = _make_bars(100)
         state = _make_state(bars, SessionType.OUTSIDE)
         result = strategy.evaluate(state)
@@ -402,7 +394,7 @@ class TestPresets(unittest.TestCase):
         import dataclasses
 
         self.assertTrue(dataclasses.is_dataclass(VolatilitySqueezeConfig))
-        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)
+        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)  # noqa: B009
 
 
 class TestVolatilitySqueezeConfig(unittest.TestCase):

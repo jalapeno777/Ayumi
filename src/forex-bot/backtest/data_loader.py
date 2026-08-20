@@ -1,4 +1,4 @@
-import logging
+import logging  # noqa: I001
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -287,9 +287,7 @@ class CsvDataLoader(AbstractDataLoader):
         """
         table = pq.read_table(str(filepath))
         df = table.to_pandas(timestamp_as_object=True)
-        df = df.reset_index(
-            drop=True
-        )  # Phase 0: fix KeyError 'timestamp' when parquet index is unnamed
+        df = df.reset_index(drop=True)  # Phase 0: fix KeyError 'timestamp' when parquet index is unnamed
         ts_col = _find_column(df, "timestamp")
         timestamps = pd.to_datetime(df[ts_col], utc=True).dt.tz_convert(_UTC)
         has_ask = _detect_ask_columns(df)
@@ -368,8 +366,7 @@ def _query_bars_db(
         return pd.DataFrame()
 
     sql = (
-        "SELECT timestamp_utc, open, high, low, close, volume, spread_pips "
-        "FROM bars WHERE symbol = ? AND timeframe = ?"
+        "SELECT timestamp_utc, open, high, low, close, volume, spread_pips FROM bars WHERE symbol = ? AND timeframe = ?"
     )
     params: list = [symbol, timeframe]
     if is_holdout is not None:
@@ -413,7 +410,7 @@ def _bars_from_dataframe(df: pd.DataFrame) -> list[Bar]:
     volumes = df["volume"].astype("float64")
     spreads = df["spread_pips"].astype("float64")
     bars: list[Bar] = []
-    for ts, o, h, lo, c, v, s in zip(
+    for ts, o, h, lo, c, v, s in zip(  # noqa: B905
         timestamps, opens, highs, lows, closes, volumes, spreads
     ):
         bars.append(
@@ -560,8 +557,7 @@ def load_holdout(
         )
         return CsvDataLoader().load(str(fallback_csv))
     logger.warning(
-        "load_holdout: DB miss and no CSV (held or unsuffixed) for %s/%s; "
-        "returning empty list",
+        "load_holdout: DB miss and no CSV (held or unsuffixed) for %s/%s; returning empty list",
         symbol,
         timeframe,
     )

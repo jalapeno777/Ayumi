@@ -1,6 +1,6 @@
 """Direct unit coverage for previously untested signal_engine components."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -42,9 +42,7 @@ class TestConfidencePositionSizer:
         sizer = ConfidencePositionSizer(account_size=20_000)
 
         assert sizer.get_risk_amount(0.85) == pytest.approx(300.0)
-        assert sizer.get_lot_size(0.85, stop_pips=20, pip_size=0.0001) == pytest.approx(
-            150000.0
-        )
+        assert sizer.get_lot_size(0.85, stop_pips=20, pip_size=0.0001) == pytest.approx(150000.0)
 
     def test_get_lot_size_returns_zero_for_zero_stop_distance(self):
         sizer = ConfidencePositionSizer()
@@ -134,9 +132,7 @@ class TestHTFAnalyzer:
     def test_analyze_phase_returns_neutral_for_short_series(self):
         analyzer = HTFAnalyzer()
 
-        state = analyzer.analyze_phase(
-            {"highs": [1, 2], "lows": [1, 1], "closes": [1, 2]}
-        )
+        state = analyzer.analyze_phase({"highs": [1, 2], "lows": [1, 1], "closes": [1, 2]})
 
         assert state == HTFState(HTFPhase.NEUTRAL, 0.0, 0.0, 0.0)
 
@@ -147,9 +143,7 @@ class TestHTFAnalyzer:
         closes = [99.96 + (i % 2) * 0.01 for i in range(20)]
         ema = [100.0] * 20
 
-        state = analyzer.analyze_phase(
-            {"highs": highs, "lows": lows, "closes": closes, "ema_50": ema}
-        )
+        state = analyzer.analyze_phase({"highs": highs, "lows": lows, "closes": closes, "ema_50": ema})
 
         assert state.phase == HTFPhase.CONSOLIDATING
         assert state.ema_slope == 0.0
@@ -162,9 +156,7 @@ class TestHTFAnalyzer:
         closes = list(range(100, 149)) + [149.0]
         ema = [100.0] * 50
 
-        state = analyzer.analyze_phase(
-            {"highs": highs, "lows": lows, "closes": closes, "ema_50": ema}
-        )
+        state = analyzer.analyze_phase({"highs": highs, "lows": lows, "closes": closes, "ema_50": ema})
 
         assert state.phase == HTFPhase.EXHAUSTION
 
@@ -175,9 +167,7 @@ class TestHTFAnalyzer:
         closes = [99.5 + i for i in range(20)]
         ema = [100.0 + i for i in range(20)]
 
-        state = analyzer.analyze_phase(
-            {"highs": highs, "lows": lows, "closes": closes, "ema_50": ema}
-        )
+        state = analyzer.analyze_phase({"highs": highs, "lows": lows, "closes": closes, "ema_50": ema})
 
         assert state.phase == HTFPhase.ALIGNED
         assert state.ema_slope > 0.0001
@@ -210,15 +200,9 @@ class TestHTFAnalyzer:
     def test_reconcile_dual_mechanism_handles_phase_specific_paths(self):
         analyzer = HTFAnalyzer()
 
-        consolidating = analyzer.reconcile_dual_mechanism(
-            HTFPhase.CONSOLIDATING, "long"
-        )
-        conflicting = analyzer.reconcile_dual_mechanism(
-            HTFPhase.ALIGNED, "long", htf_direction="short"
-        )
-        aligned = analyzer.reconcile_dual_mechanism(
-            HTFPhase.ALIGNED, "long", htf_direction="long"
-        )
+        consolidating = analyzer.reconcile_dual_mechanism(HTFPhase.CONSOLIDATING, "long")
+        conflicting = analyzer.reconcile_dual_mechanism(HTFPhase.ALIGNED, "long", htf_direction="short")
+        aligned = analyzer.reconcile_dual_mechanism(HTFPhase.ALIGNED, "long", htf_direction="long")
 
         assert consolidating == {
             "htf_phase": HTFPhase.CONSOLIDATING,
@@ -286,24 +270,9 @@ class TestSessionAnalyzer:
     def test_get_current_session_prioritizes_overlap_names(self):
         analyzer = SessionAnalyzer()
 
-        assert (
-            analyzer.get_current_session(
-                datetime(2026, 5, 14, 7, 30, tzinfo=timezone.utc)
-            )
-            == "ASIA_LONDON"
-        )
-        assert (
-            analyzer.get_current_session(
-                datetime(2026, 5, 14, 12, 30, tzinfo=timezone.utc)
-            )
-            == "LONDON_NY"
-        )
-        assert (
-            analyzer.get_current_session(
-                datetime(2026, 5, 14, 22, 0, tzinfo=timezone.utc)
-            )
-            == "OUTSIDE"
-        )
+        assert analyzer.get_current_session(datetime(2026, 5, 14, 7, 30, tzinfo=timezone.utc)) == "ASIA_LONDON"
+        assert analyzer.get_current_session(datetime(2026, 5, 14, 12, 30, tzinfo=timezone.utc)) == "LONDON_NY"
+        assert analyzer.get_current_session(datetime(2026, 5, 14, 22, 0, tzinfo=timezone.utc)) == "OUTSIDE"
 
     def test_get_ny_kz_hours_switches_with_dst(self):
         assert get_ny_kz_hours(True) == (
@@ -342,15 +311,9 @@ class TestSessionAnalyzer:
     def test_score_session_phase_with_time_scores_open_mid_close(self):
         analyzer = SessionAnalyzer()
 
-        opening = analyzer.score_session_phase_with_time(
-            "LONDON", datetime(2026, 5, 14, 7, 30, tzinfo=timezone.utc)
-        )
-        mid = analyzer.score_session_phase_with_time(
-            "LONDON", datetime(2026, 5, 14, 10, 0, tzinfo=timezone.utc)
-        )
-        closing = analyzer.score_session_phase_with_time(
-            "LONDON", datetime(2026, 5, 14, 15, 30, tzinfo=timezone.utc)
-        )
+        opening = analyzer.score_session_phase_with_time("LONDON", datetime(2026, 5, 14, 7, 30, tzinfo=timezone.utc))
+        mid = analyzer.score_session_phase_with_time("LONDON", datetime(2026, 5, 14, 10, 0, tzinfo=timezone.utc))
+        closing = analyzer.score_session_phase_with_time("LONDON", datetime(2026, 5, 14, 15, 30, tzinfo=timezone.utc))
 
         assert opening["phase_score"] == 1.0
         assert mid["phase_score"] == 0.5
@@ -359,24 +322,9 @@ class TestSessionAnalyzer:
     def test_get_weekly_modifier_uses_weekday_mapping(self):
         analyzer = SessionAnalyzer()
 
-        assert (
-            analyzer.get_weekly_modifier(
-                datetime(2026, 5, 11, 12, 0, tzinfo=timezone.utc)
-            )
-            == -0.10
-        )
-        assert (
-            analyzer.get_weekly_modifier(
-                datetime(2026, 5, 13, 12, 0, tzinfo=timezone.utc)
-            )
-            == 0.05
-        )
-        assert (
-            analyzer.get_weekly_modifier(
-                datetime(2026, 5, 16, 12, 0, tzinfo=timezone.utc)
-            )
-            == 0.0
-        )
+        assert analyzer.get_weekly_modifier(datetime(2026, 5, 11, 12, 0, tzinfo=timezone.utc)) == -0.10
+        assert analyzer.get_weekly_modifier(datetime(2026, 5, 13, 12, 0, tzinfo=timezone.utc)) == 0.05
+        assert analyzer.get_weekly_modifier(datetime(2026, 5, 16, 12, 0, tzinfo=timezone.utc)) == 0.0
 
     def test_check_ny_open_manipulation_detects_wicky_context(self):
         analyzer = SessionAnalyzer()
@@ -398,27 +346,21 @@ class TestSessionAnalyzer:
 
 class TestTPManager:
     def test_long_initializes_tp_levels_from_stop_distance(self):
-        manager = TPManager(
-            entry_price=1.1000, stop_price=1.0950, pip_size=0.0001, direction="long"
-        )
+        manager = TPManager(entry_price=1.1000, stop_price=1.0950, pip_size=0.0001, direction="long")
 
         assert manager.tp1_price == pytest.approx(1.1050)
         assert manager.tp2_price == pytest.approx(1.1075)
         assert manager.tp3_price == pytest.approx(1.1100)
 
     def test_short_initializes_tp_levels_from_stop_distance(self):
-        manager = TPManager(
-            entry_price=1.1000, stop_price=1.1050, pip_size=0.0001, direction="short"
-        )
+        manager = TPManager(entry_price=1.1000, stop_price=1.1050, pip_size=0.0001, direction="short")
 
         assert manager.tp1_price == pytest.approx(1.0950)
         assert manager.tp2_price == pytest.approx(1.0925)
         assert manager.tp3_price == pytest.approx(1.0900)
 
     def test_update_marks_tp1_and_moves_stop_for_long(self):
-        manager = TPManager(
-            entry_price=1.1000, stop_price=1.0950, pip_size=0.0001, direction="long"
-        )
+        manager = TPManager(entry_price=1.1000, stop_price=1.0950, pip_size=0.0001, direction="long")
 
         hit = manager.update(high=1.1051, low=1.0990, close=1.1040)
 
@@ -428,9 +370,7 @@ class TestTPManager:
         assert manager.stop == pytest.approx(1.0999)
 
     def test_update_marks_tp2_and_locks_stop_at_tp1_for_short(self):
-        manager = TPManager(
-            entry_price=1.1000, stop_price=1.1050, pip_size=0.0001, direction="short"
-        )
+        manager = TPManager(entry_price=1.1000, stop_price=1.1050, pip_size=0.0001, direction="short")
 
         hit = manager.update(high=1.1010, low=1.0924, close=1.0930)
 
@@ -441,18 +381,8 @@ class TestTPManager:
         assert manager.stop == pytest.approx(manager.tp1_price)
 
     def test_should_mandatory_exit_respects_new_york_time(self):
-        assert (
-            TPManager.should_mandatory_exit(
-                datetime(2026, 7, 1, 12, 30, tzinfo=timezone.utc)
-            )
-            is True
-        )
-        assert (
-            TPManager.should_mandatory_exit(
-                datetime(2026, 7, 1, 11, 59, tzinfo=timezone.utc)
-            )
-            is False
-        )
+        assert TPManager.should_mandatory_exit(datetime(2026, 7, 1, 12, 30, tzinfo=timezone.utc)) is True
+        assert TPManager.should_mandatory_exit(datetime(2026, 7, 1, 11, 59, tzinfo=timezone.utc)) is False
 
 
 class TestSignalEngineBridge:
@@ -469,12 +399,8 @@ class TestSignalEngineBridge:
 
         assert bridge.run(df) == []
 
-    def test_run_orchestrates_components_and_filters_by_min_confidence(
-        self, monkeypatch
-    ):
-        bridge = SignalEngineBridge(
-            {"lookback": 5, "min_confidence": 0.5, "symbol": "GBPUSD"}
-        )
+    def test_run_orchestrates_components_and_filters_by_min_confidence(self, monkeypatch):
+        bridge = SignalEngineBridge({"lookback": 5, "min_confidence": 0.5, "symbol": "GBPUSD"})
         df = pd.DataFrame(
             {
                 "open": [1.0] * 60,
@@ -553,9 +479,7 @@ class TestSignalEngineBridge:
 
     def test_get_signals_for_bar_returns_none_before_lookback(self):
         bridge = SignalEngineBridge({"lookback": 5})
-        df = pd.DataFrame(
-            {"high": [1, 2, 3], "low": [0, 1, 2], "close": [0.5, 1.5, 2.5]}
-        )
+        df = pd.DataFrame({"high": [1, 2, 3], "low": [0, 1, 2], "close": [0.5, 1.5, 2.5]})
 
         assert bridge.get_signals_for_bar(df, 2) is None
 
@@ -584,22 +508,10 @@ class TestSignalEngineBridge:
         timestamp = bridge._get_timestamp(df, 1)
 
         assert nearest.level_type == LevelType.R2
-        assert (
-            bridge._determine_direction(Level(1.1000, LevelType.R2, 0.01, 0), 1.0990)
-            == "long"
-        )
-        assert (
-            bridge._determine_direction(Level(1.1000, LevelType.D2, 0.01, 0), 1.1010)
-            == "short"
-        )
-        assert (
-            bridge._determine_direction(Level(1.1000, LevelType.R3, 0.01, 0), 1.0990)
-            == "short"
-        )
-        assert (
-            bridge._determine_direction(Level(1.1000, LevelType.D3, 0.01, 0), 1.1010)
-            == "long"
-        )
+        assert bridge._determine_direction(Level(1.1000, LevelType.R2, 0.01, 0), 1.0990) == "long"
+        assert bridge._determine_direction(Level(1.1000, LevelType.D2, 0.01, 0), 1.1010) == "short"
+        assert bridge._determine_direction(Level(1.1000, LevelType.R3, 0.01, 0), 1.0990) == "short"
+        assert bridge._determine_direction(Level(1.1000, LevelType.D3, 0.01, 0), 1.1010) == "long"
         assert stop_distance > 0
         assert confidence == pytest.approx(0.60)
         assert timestamp == datetime(2026, 1, 1, 1, 0, tzinfo=timezone.utc)

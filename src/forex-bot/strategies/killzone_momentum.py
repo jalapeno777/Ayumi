@@ -32,19 +32,13 @@ class KillzoneMomentumConfig:
     min_session_range_pips: float = 8.0  # was 12.0 — allow quieter sessions
     hard_cap_sl_pips: float = 35.0
     atr_sl_multiplier: float = 1.5
-    retest_tolerance_atr: float = (
-        1.0  # was 0.5 — allow retest up to 1×ATR from breakout
-    )
+    retest_tolerance_atr: float = 1.0  # was 0.5 — allow retest up to 1×ATR from breakout
     tp1_rr: float = 1.0
     tp2_rr: float = 2.0
     tp3_rr: float = 3.0
     adx_period: int = 14
-    adx_threshold: float = (
-        15.0  # was 20.0 — 20 too restrictive on M5; 15 still requires mild trend
-    )
-    min_bars_for_setup: int = (
-        40  # was 80 — cut setup time without sacrificing indicator stability
-    )
+    adx_threshold: float = 15.0  # was 20.0 — 20 too restrictive on M5; 15 still requires mild trend
+    min_bars_for_setup: int = 40  # was 80 — cut setup time without sacrificing indicator stability
     breakout_lookback_bars: int = 12  # was 6 — more bars for breakout to develop on H1
 
     # Per-pair/per-timeframe presets per research §A.4.
@@ -267,12 +261,8 @@ def _calculate_adx(bars: List[Bar], period: int = 14) -> Optional[float]:
         if smoothed_tr == 0:
             continue
         smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
-        )
-        smoothed_minus_dm = (
-            smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
+        smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
         if smoothed_tr == 0:
             continue
         plus_di = (smoothed_plus_dm / smoothed_tr) * 100
@@ -407,9 +397,7 @@ class KillzoneMomentumStrategy:
             prev_day = _find_previous_trading_day(state.bars, current_day)
             if prev_day is None:
                 return None
-            high, low, _ = _calculate_session_range(
-                state.bars, SessionType.ASIAN, prev_day
-            )
+            high, low, _ = _calculate_session_range(state.bars, SessionType.ASIAN, prev_day)
             if high == 0:
                 return None
             prior_session_range_high = high
@@ -417,16 +405,12 @@ class KillzoneMomentumStrategy:
             session_range_width = (high - low) / pip
 
         elif kz_name == "ny_open":
-            high, low, _ = _calculate_session_range(
-                state.bars, SessionType.LONDON, current_day
-            )
+            high, low, _ = _calculate_session_range(state.bars, SessionType.LONDON, current_day)
             if high == 0:
                 prev_day = _find_previous_trading_day(state.bars, current_day)
                 if prev_day is None:
                     return None
-                high, low, _ = _calculate_session_range(
-                    state.bars, SessionType.LONDON, prev_day
-                )
+                high, low, _ = _calculate_session_range(state.bars, SessionType.LONDON, prev_day)
                 if high == 0:
                     return None
             prior_session_range_high = high
@@ -434,16 +418,12 @@ class KillzoneMomentumStrategy:
             session_range_width = (high - low) / pip
 
         elif kz_name == "overlap":
-            high_london, low_london, _ = _calculate_session_range(
-                state.bars, SessionType.LONDON, current_day
-            )
+            high_london, low_london, _ = _calculate_session_range(state.bars, SessionType.LONDON, current_day)
             if high_london == 0:
                 prev_day = _find_previous_trading_day(state.bars, current_day)
                 if prev_day is None:
                     return None
-                high_london, low_london, _ = _calculate_session_range(
-                    state.bars, SessionType.LONDON, prev_day
-                )
+                high_london, low_london, _ = _calculate_session_range(state.bars, SessionType.LONDON, prev_day)
             prior_session_range_high = high_london
             prior_session_range_low = low_london
             session_range_width = (high_london - low_london) / pip
@@ -484,9 +464,7 @@ class KillzoneMomentumStrategy:
         if (
             breakout_direction == "long"
             and trend == "long"
-            and prior_session_range_high - retest_tolerance
-            <= price
-            <= prior_session_range_high + retest_tolerance * 2
+            and prior_session_range_high - retest_tolerance <= price <= prior_session_range_high + retest_tolerance * 2
             and _is_bullish_rejection_bar(latest)
         ):
             direction = TradeDirection.LONG
@@ -498,9 +476,7 @@ class KillzoneMomentumStrategy:
         elif (
             breakout_direction == "short"
             and trend == "short"
-            and prior_session_range_low - retest_tolerance * 2
-            <= price
-            <= prior_session_range_low + retest_tolerance
+            and prior_session_range_low - retest_tolerance * 2 <= price <= prior_session_range_low + retest_tolerance
             and _is_bearish_rejection_bar(latest)
         ):
             direction = TradeDirection.SHORT
@@ -516,9 +492,7 @@ class KillzoneMomentumStrategy:
         # the H4 candle direction to align with the breakout direction.
         # If h4_bars is None or empty (backward-compatible), skip this filter.
         if state.h4_bars and len(state.h4_bars) >= 2:
-            h4_trend = _get_trend_direction(
-                state.h4_bars, min(10, len(state.h4_bars) - 1)
-            )
+            h4_trend = _get_trend_direction(state.h4_bars, min(10, len(state.h4_bars) - 1))
             if h4_trend is not None and h4_trend != breakout_direction:
                 return None
 
@@ -536,27 +510,17 @@ class KillzoneMomentumStrategy:
         if sl_distance < min_sl:
             sl_distance = min_sl
 
-        sl = (
-            entry - sl_distance
-            if direction == TradeDirection.LONG
-            else entry + sl_distance
-        )
+        sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
         risk = sl_distance
 
         tp1 = (
-            entry + risk * self.config.tp1_rr
-            if direction == TradeDirection.LONG
-            else entry - risk * self.config.tp1_rr
+            entry + risk * self.config.tp1_rr if direction == TradeDirection.LONG else entry - risk * self.config.tp1_rr
         )
         tp2 = (
-            entry + risk * self.config.tp2_rr
-            if direction == TradeDirection.LONG
-            else entry - risk * self.config.tp2_rr
+            entry + risk * self.config.tp2_rr if direction == TradeDirection.LONG else entry - risk * self.config.tp2_rr
         )
         tp3 = (
-            entry + risk * self.config.tp3_rr
-            if direction == TradeDirection.LONG
-            else entry - risk * self.config.tp3_rr
+            entry + risk * self.config.tp3_rr if direction == TradeDirection.LONG else entry - risk * self.config.tp3_rr
         )
 
         confidence = 0.65

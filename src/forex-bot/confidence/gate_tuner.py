@@ -1,6 +1,6 @@
 """Confidence gate tuner — finds optimal thresholds from historical trade data."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 from dataclasses import dataclass
@@ -120,14 +120,8 @@ class GateTuner:
                 if t.get("pnl", 0) > 0:
                     hour_stats[hour]["wins"] += 1
 
-            avg_wr = sum(s["wins"] for s in hour_stats.values()) / max(
-                sum(s["total"] for s in hour_stats.values()), 1
-            )
-            good_hours = [
-                h
-                for h, s in hour_stats.items()
-                if s["total"] >= 3 and (s["wins"] / s["total"]) >= avg_wr
-            ]
+            avg_wr = sum(s["wins"] for s in hour_stats.values()) / max(sum(s["total"] for s in hour_stats.values()), 1)
+            good_hours = [h for h, s in hour_stats.items() if s["total"] >= 3 and (s["wins"] / s["total"]) >= avg_wr]
             result[sym] = sorted(good_hours) if good_hours else DEFAULT_SESSION_HOURS
         return result
 
@@ -149,11 +143,7 @@ class GateTuner:
                 result[sym] = DEFAULT_ATR_RANGE
                 continue
 
-            winning_atrs = [
-                t.get("atr", 0)
-                for t in sym_trades
-                if t.get("pnl", 0) > 0 and t.get("atr")
-            ]
+            winning_atrs = [t.get("atr", 0) for t in sym_trades if t.get("pnl", 0) > 0 and t.get("atr")]
             if len(winning_atrs) < 5:
                 result[sym] = DEFAULT_ATR_RANGE
                 continue
@@ -177,9 +167,7 @@ class GateTuner:
         symbols = Counter(t.get("symbol", "") for t in trades if t.get("symbol"))
         for sym, count in symbols.items():
             if count < MIN_TRADES_PER_SYMBOL:
-                warnings.append(
-                    f"{sym}: only {count} trades (need {MIN_TRADES_PER_SYMBOL}), using defaults"
-                )
+                warnings.append(f"{sym}: only {count} trades (need {MIN_TRADES_PER_SYMBOL}), using defaults")
 
         return GateTuneResult(
             spread_gates=self.tune_spread_gates(),

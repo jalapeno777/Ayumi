@@ -1,7 +1,7 @@
 """Backtest strategies package."""
 
 # Import the formal ABC first (no circular deps)
-from .isignal_strategy import ISignalStrategy, Tick, StrategyConfig
+from .isignal_strategy import ISignalStrategy, Tick, StrategyConfig  # noqa: I001
 
 # Load legacy strategies (ISignalStrategy re-exported from line above)
 from ..strategy_legacy import (

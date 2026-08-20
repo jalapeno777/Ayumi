@@ -6,7 +6,7 @@ between tests to prevent memory accumulation from connection objects, thread
 pools, and Twisted reactor references.
 """
 
-import gc
+import gc  # noqa: I001
 import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -20,34 +20,26 @@ from adapters.ctrader.open_api_spot_feed import (
 
 # Reconnect constants were removed from the module; provide defaults for tests.
 _MAX_RECONNECT_ATTEMPTS = getattr(
-    __import__(
-        "adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_ATTEMPTS"]
-    ),
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_ATTEMPTS"]),
     "_MAX_RECONNECT_ATTEMPTS",
     20,
 )
 _INITIAL_RECONNECT_DELAY = getattr(
-    __import__(
-        "adapters.ctrader.open_api_spot_feed", fromlist=["_INITIAL_RECONNECT_DELAY"]
-    ),
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_INITIAL_RECONNECT_DELAY"]),
     "_INITIAL_RECONNECT_DELAY",
     5.0,
 )
 _MAX_RECONNECT_DELAY = getattr(
-    __import__(
-        "adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_DELAY"]
-    ),
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_MAX_RECONNECT_DELAY"]),
     "_MAX_RECONNECT_DELAY",
     120.0,
 )
 _STABLE_CONNECTION_SECONDS = getattr(
-    __import__(
-        "adapters.ctrader.open_api_spot_feed", fromlist=["_STABLE_CONNECTION_SECONDS"]
-    ),
+    __import__("adapters.ctrader.open_api_spot_feed", fromlist=["_STABLE_CONNECTION_SECONDS"]),
     "_STABLE_CONNECTION_SECONDS",
     60,
 )
-from adapters.ctrader.market_data_feed import Tick
+from adapters.ctrader.market_data_feed import Tick  # noqa: I001
 from adapters.ctrader.market_data_feed import SymbolInfo
 
 logger = logging.getLogger(__name__)
@@ -75,8 +67,8 @@ def feed_factory():
         defaults = dict(
             ctid_account_id=99999,
             client_id="test-client",
-            client_secret="test-secret",
-            access_token="test-access-token",
+            client_secret="test-secret",  # noqa: S106
+            access_token="test-access-token",  # noqa: S106
         )
         defaults.update(kwargs)
 
@@ -85,12 +77,8 @@ def feed_factory():
         # Must patch the archive module directly since that's where the names
         # are looked up, not the shim in src/forex-bot/adapters/.
         with (
-            patch(
-                "archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection"
-            ) as mock_conn_cls,
-            patch(
-                "archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager"
-            ) as mock_token_cls,
+            patch("archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection") as mock_conn_cls,
+            patch("archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager") as mock_token_cls,
         ):
             mock_conn = MagicMock()
             mock_conn_cls.return_value = mock_conn
@@ -123,7 +111,7 @@ def feed_factory():
         if timer is not None:
             try:
                 timer.cancel()
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
             f._refresh_timer = None
         # Clear callbacks and data structures to break reference cycles
@@ -288,9 +276,7 @@ class TestOnTickCallback:
         self.feed.on_tick(received.append)
 
         # Full tick first
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108500, ask=108520))
         # Partial tick — only bid updated
         self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108510, ask=0))
 
@@ -314,9 +300,7 @@ class TestOnTickCallback:
         assert counts["GBPUSD"] == 1
 
     def test_get_tick_returns_latest(self):
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108500, ask=108520))
         tick = self.feed.get_tick("EUR/USD")
         assert tick is not None
         assert tick.bid == pytest.approx(1.08500)
@@ -337,8 +321,8 @@ class TestTokenRefresh:
         # B2: refresh_token is now passed explicitly by the caller via CTraderAuth,
         # not read from os.environ inside OpenApiSpotFeed.
         with patch.dict("os.environ", {"CTRADER_OPENAPI_REFRESH_TOKEN": "env-token"}):
-            feed = feed_factory(refresh_token="env-token")
-        assert feed._refresh_token == "env-token"
+            feed = feed_factory(refresh_token="env-token")  # noqa: S106
+        assert feed._refresh_token == "env-token"  # noqa: S105
 
     def test_refresh_token_defaults_empty(self, feed_factory):
         with patch.dict("os.environ", {}, clear=True):
@@ -347,7 +331,7 @@ class TestTokenRefresh:
 
     def test_refresh_success_updates_tokens(self, feed_factory):
         feed = feed_factory()
-        feed._refresh_token = "old-refresh"
+        feed._refresh_token = "old-refresh"  # noqa: S105
 
         # Mock TokenLifecycle delegation — replaces direct HTTP calls
         from datetime import datetime, timedelta, timezone
@@ -356,7 +340,7 @@ class TestTokenRefresh:
         mock_lifecycle._refresh_disabled = False
         mock_lifecycle.force_refresh.return_value = "new-access"
         mock_creds = MagicMock()
-        mock_creds.refresh_token = "new-refresh"
+        mock_creds.refresh_token = "new-refresh"  # noqa: S105
         mock_lifecycle._store.get.return_value = mock_creds
         mock_lifecycle.expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         feed._token_lifecycle = mock_lifecycle
@@ -369,7 +353,7 @@ class TestTokenRefresh:
 
         _time.sleep(0.1)  # allow background thread to complete
 
-        assert feed._access_token == "new-access"
+        assert feed._access_token == "new-access"  # noqa: S105
         mock_lifecycle.force_refresh.assert_called_once()
 
     def test_refresh_api_error_handled_gracefully(self, feed_factory):
@@ -379,7 +363,7 @@ class TestTokenRefresh:
         mock_lifecycle.force_refresh.side_effect = Exception("OAuth error")
         feed._token_lifecycle = mock_lifecycle
 
-        feed._refresh_token = "old-refresh"
+        feed._refresh_token = "old-refresh"  # noqa: S105
         feed._refresh_token_and_reauth()  # should not raise
 
         import time as _time
@@ -387,7 +371,7 @@ class TestTokenRefresh:
         _time.sleep(0.1)  # allow background thread
 
         # access_token unchanged
-        assert feed._access_token == "test-access-token"
+        assert feed._access_token == "test-access-token"  # noqa: S105
 
     def test_refresh_network_failure_handled_gracefully(self, feed_factory):
         feed = feed_factory()
@@ -396,7 +380,7 @@ class TestTokenRefresh:
         mock_lifecycle.force_refresh.side_effect = ConnectionError("network down")
         feed._token_lifecycle = mock_lifecycle
 
-        feed._refresh_token = "old-refresh"
+        feed._refresh_token = "old-refresh"  # noqa: S105
         feed._refresh_token_and_reauth()  # should not raise
 
         import time as _time
@@ -436,18 +420,14 @@ class TestMultiSymbolSubscription:
         _seed_symbol_mappings(self.feed, {1: "EUR/USD", 2: "GBP/USD", 3: "USD/JPY"})
 
     def test_subscribe_multiple_symbols(self):
-        with patch(
-            "archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"
-        ) as _:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as _:
             assert self.feed.subscribe("EUR/USD")
             assert self.feed.subscribe("GBP/USD")
             assert 1 in self.feed._subscribed_symbol_ids
             assert 2 in self.feed._subscribed_symbol_ids
 
     def test_unsubscribe_removes_symbol(self):
-        with patch(
-            "archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"
-        ) as _:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as _:
             self.feed.subscribe("EUR/USD")
             self.feed.subscribe("GBP/USD")
             self.feed.unsubscribe("EUR/USD")
@@ -462,12 +442,8 @@ class TestMultiSymbolSubscription:
             ).append(t)
         )
 
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
-        )
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=2, bid=126500, ask=126520)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108500, ask=108520))
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=2, bid=126500, ask=126520))
 
         assert len(received["EURUSD"]) == 1
         assert len(received["GBPUSD"]) == 1
@@ -490,9 +466,7 @@ class TestMultiSymbolSubscription:
         assert "GBPUSD" in all_ticks
 
     def test_get_spread(self):
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108500, ask=108520))
         assert self.feed.get_spread("EUR/USD") == pytest.approx(0.00020)
 
     def test_get_spread_no_tick(self):
@@ -562,9 +536,7 @@ class TestJpyTickDecode:
 
         # raw_bid=16_209_900 → $162.0990 in 5-digit encoding
         # raw_ask=16_210_050 → $162.1005
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050))
 
         assert len(received) == 1, "expected exactly one tick callback fire"
         tick = received[0]
@@ -583,9 +555,7 @@ class TestJpyTickDecode:
         self.feed.on_tick(received.append)
 
         # raw_bid=108500, raw_ask=108520 → $1.08500 / $1.08520
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=1, bid=108500, ask=108520)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=1, bid=108500, ask=108520))
 
         assert len(received) == 1
         tick = received[0]
@@ -608,9 +578,7 @@ class TestJpyTickDecode:
         # by re-running the real handler and confirming the correct result.
         received = []
         self.feed.on_tick(received.append)
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=4, bid=raw_bid, ask=raw_bid + 15)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=4, bid=raw_bid, ask=raw_bid + 15))
         fixed_bid = received[0].bid
 
         assert inflated_bid == pytest.approx(16209.900, rel=1e-3)
@@ -622,9 +590,7 @@ class TestJpyTickDecode:
         """After a USDJPY tick arrives, get_latest_tick() must reflect the
         ~162.10 price band — operators see this in the [B5 Health] line via
         feed.get_all_ticks()."""
-        self.feed._handle_spot_event(
-            _make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050)
-        )
+        self.feed._handle_spot_event(_make_spot_event(symbol_id=4, bid=16_209_900, ask=16_210_050))
 
         # _ticks_by_id is keyed by symbol_id after _handle_spot_event.
         latest = self.feed._ticks_by_id[4]
@@ -827,9 +793,7 @@ class TestProperties:
         feed._conn.send_and_wait = fake_send_and_wait
 
         # Patch reactor.callFromThread to run immediately
-        with patch(
-            "archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"
-        ) as mock_reactor:
+        with patch("archive.legacy_ctrader._pkg.open_api_spot_feed.reactor") as mock_reactor:
             mock_reactor.callFromThread = lambda fn: fn()
             feed._conn.send_and_wait(MagicMock(), timeout=1, prefix="spot")
             feed._conn.send_and_wait(MagicMock(), timeout=1, prefix="spot")

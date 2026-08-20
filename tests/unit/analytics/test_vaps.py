@@ -117,17 +117,11 @@ class TestVAPSRegime(unittest.TestCase):
         self.assertLessEqual(multiplier, 1.5)
 
     def test_custom_pctile_thresholds_shift_regime_boundaries(self):
-        atr_series = _make_atr_series(
-            [0.005] * 28 + [0.006] * 1 + [0.007] * 20 + [0.008]
-        )
+        atr_series = _make_atr_series([0.005] * 28 + [0.006] * 1 + [0.007] * 20 + [0.008])
         default_cfg = VAPSConfig()
         custom_cfg = VAPSConfig(low_pctile=30.0, normal_pctile=70.0, high_pctile=90.0)
-        _reg_default, pct_default, _mult_default = vaps_regime(
-            atr_series, config=default_cfg
-        )
-        _reg_custom, pct_custom, _mult_custom = vaps_regime(
-            atr_series, config=custom_cfg
-        )
+        _reg_default, pct_default, _mult_default = vaps_regime(atr_series, config=default_cfg)
+        _reg_custom, pct_custom, _mult_custom = vaps_regime(atr_series, config=custom_cfg)
         self.assertEqual(pct_default, pct_custom)
 
 

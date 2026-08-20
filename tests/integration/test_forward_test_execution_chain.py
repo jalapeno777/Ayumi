@@ -14,7 +14,7 @@ Run:
     python3 -m pytest tests/integration/test_forward_test_execution_chain.py -v
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -358,9 +358,7 @@ class TestLiveExecutionPath:
         # start() via _build_components; we skip that to avoid the live
         # credential bootstrap path).
         trader = PaperTrader(starting_balance=100_000.0)
-        trader._order_manager._slippage_model = SlippageModel(
-            base_pips=0, random_pips=0
-        )
+        trader._order_manager._slippage_model = SlippageModel(base_pips=0, random_pips=0)
         engine._paper_trader = trader
 
         # Mock spot feed — MagicMock(spec=OpenApiSpotFeed) makes

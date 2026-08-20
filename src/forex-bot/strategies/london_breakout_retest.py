@@ -100,9 +100,7 @@ class LondonBreakoutRetestStrategy:
         self._breakout_dir = None
         self._breakout_bar_idx = -1
 
-    def _compute_asian_range(
-        self, bars: list[Bar], target_day: int
-    ) -> tuple[float, float] | None:
+    def _compute_asian_range(self, bars: list[Bar], target_day: int) -> tuple[float, float] | None:
         """Compute Asian session high/low for the target day."""
         asian_high = None
         asian_low = None
@@ -226,21 +224,9 @@ class LondonBreakoutRetestStrategy:
         if risk <= 0:
             return None
 
-        tp1 = (
-            entry + risk * 1.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 1.0
-        )
-        tp2 = (
-            entry + risk * 2.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 2.0
-        )
-        tp3 = (
-            entry + risk * 3.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
+        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
 
         # Confidence based on range size and breakout direction alignment
         confidence = self.config.min_confidence

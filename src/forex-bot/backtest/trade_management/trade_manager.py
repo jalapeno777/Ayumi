@@ -103,14 +103,12 @@ class TradeManager:
         if not self._exit_refiner.check_entry_spread(bar, atr, spread_pips):
             return SessionFilterResult(
                 allow_entry=False,
-                reason=f"Spread too wide: {spread_pips} pips exceeds {self.config.exit_refinement.max_spread_atr_pct:.0%} of ATR",
+                reason=f"Spread too wide: {spread_pips} pips exceeds {self.config.exit_refinement.max_spread_atr_pct:.0%} of ATR",  # noqa: E501
             )
 
         return SessionFilterResult(allow_entry=True)
 
-    def open_trade(
-        self, bar_index: int, bar: Bar, signal: StrategySignal, lot_size: float
-    ) -> ManagedTrade:
+    def open_trade(self, bar_index: int, bar: Bar, signal: StrategySignal, lot_size: float) -> ManagedTrade:
         trade = ManagedTrade(
             entry_bar_index=bar_index,
             direction=signal.direction,
@@ -125,9 +123,7 @@ class TradeManager:
             confidence_score=signal.confidence,
             rationale=signal.rationale,
             tier_state=self._partial_exit.create_state(),
-            trailing_state=self._trailing_stop.create_state(
-                signal.direction, signal.entry_price, signal.stop_loss
-            ),
+            trailing_state=self._trailing_stop.create_state(signal.direction, signal.entry_price, signal.stop_loss),
             exit_refiner_state=self._exit_refiner.create_state(),
         )
         return trade
@@ -145,9 +141,7 @@ class TradeManager:
 
         trade.bars_held = bar_index - trade.entry_bar_index
 
-        session_hold = self._session_filter.check_hold(
-            bar, trade.entry_time, trade.direction
-        )
+        session_hold = self._session_filter.check_hold(bar, trade.entry_time, trade.direction)
         if session_hold.force_close:
             trade.is_closed = True
             trade.exit_price = bar.close
@@ -170,11 +164,7 @@ class TradeManager:
                 message="Stop loss hit",
             )
 
-        if (
-            trade.tier_state is None
-            or trade.trailing_state is None
-            or trade.exit_refiner_state is None
-        ):
+        if trade.tier_state is None or trade.trailing_state is None or trade.exit_refiner_state is None:
             return ManagementResult(action=TradeAction.NO_ACTION)
 
         tier_state = trade.tier_state
@@ -238,14 +228,8 @@ class TradeManager:
         if partial_result.action == PartialExitAction.ENABLE_TRAIL:
             trailing_state.is_active = True
 
-        if (
-            trailing_state.is_active
-            and partial_result.tier_reached.value
-            >= self.config.trailing_stop.only_after_tier
-        ):
-            trail_result = self._trailing_stop.evaluate(
-                bar, trailing_state, trade.direction, atr, trade.entry_price
-            )
+        if trailing_state.is_active and partial_result.tier_reached.value >= self.config.trailing_stop.only_after_tier:
+            trail_result = self._trailing_stop.evaluate(bar, trailing_state, trade.direction, atr, trade.entry_price)
             if trail_result.triggered:
                 trade.is_closed = True
                 trade.exit_price = trail_result.exit_price
@@ -264,9 +248,7 @@ class TradeManager:
                     message=f"Trailing SL updated to {trail_result.new_sl:.5f}",
                 )
 
-        refiner_result = self._exit_refiner.on_bar(
-            bar, exit_refiner_state, trade.direction, atr, recent_bars
-        )
+        refiner_result = self._exit_refiner.on_bar(bar, exit_refiner_state, trade.direction, atr, recent_bars)
         if refiner_result.should_exit:
             trade.is_closed = True
             trade.exit_price = refiner_result.exit_price

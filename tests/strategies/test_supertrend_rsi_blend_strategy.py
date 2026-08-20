@@ -349,8 +349,7 @@ class TestSupertrendATRConsistency(unittest.TestCase):
         self.assertEqual(
             prev_window_st,
             prev_st,
-            "Supertrend at bar N-1 must be identical whether computed "
-            "with bars[0:N] or bars[0:N-1] (varying ATR data)",
+            "Supertrend at bar N-1 must be identical whether computed with bars[0:N] or bars[0:N-1] (varying ATR data)",
         )
 
     def test_supertrend_consistent_multi_step(self):
@@ -393,9 +392,7 @@ class TestSupertrendATRConsistency(unittest.TestCase):
 
         for step in range(1, 6):
             full_st, full_prev = strategy._calculate_supertrend(bars[: n - step])
-            shifted_st, shifted_prev = strategy._calculate_supertrend(
-                bars[: n - step - 1]
-            )
+            shifted_st, shifted_prev = strategy._calculate_supertrend(bars[: n - step - 1])
             self.assertEqual(
                 shifted_st,
                 full_prev,
@@ -446,8 +443,7 @@ class TestSupertrendRealH1Data(unittest.TestCase):
         self.assertGreater(
             len(flips),
             0,
-            f"Supertrend must produce direction flips on EURUSD H1 data. "
-            f"Tested 450 bars and found {len(flips)} flips.",
+            f"Supertrend must produce direction flips on EURUSD H1 data. Tested 450 bars and found {len(flips)} flips.",
         )
 
 

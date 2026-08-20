@@ -179,10 +179,7 @@ class MarkovRegimeFilter:
             raise ValueError("min_history must be non-negative")
 
         # Phase 0 config compatibility warning (init-time, non-fatal).
-        if (
-            regime_atr_lookback is not None
-            and regime_atr_lookback != _PHASE0_ATR_LOOKBACK
-        ):
+        if regime_atr_lookback is not None and regime_atr_lookback != _PHASE0_ATR_LOOKBACK:
             logger.warning(
                 "MarkovRegimeFilter: regime.atr_lookback=%d differs from "
                 "Phase 0 default (%d). Transition probabilities may be "
@@ -206,9 +203,7 @@ class MarkovRegimeFilter:
         self._total_observations: int = 0
         # Laplace smoothing: every cell starts at 1.
         self._counts: np.ndarray = np.ones((self._n, self._n), dtype=np.float64)
-        self._matrix: np.ndarray = self._counts / self._counts.sum(
-            axis=1, keepdims=True
-        )
+        self._matrix: np.ndarray = self._counts / self._counts.sum(axis=1, keepdims=True)
         self._dirty: bool = False  # Lazy refresh flag
 
     # ------------------------------------------------------------------ #
@@ -313,9 +308,7 @@ class MarkovRegimeFilter:
         clamped to ``[_MULTIPLIER_FLOOR, _MULTIPLIER_CEILING]``.
         """
         if not self.is_ready():
-            logger.debug(
-                "size_multiplier cold-start: returning %.1f", _COLD_START_MULTIPLIER
-            )
+            logger.debug("size_multiplier cold-start: returning %.1f", _COLD_START_MULTIPLIER)
             return _COLD_START_MULTIPLIER
 
         persistence = self.confidence(current_state)
@@ -368,10 +361,7 @@ class MarkovRegimeFilter:
     def summary(self) -> MarkovRegimeSummary:
         """Frozen snapshot of the filter state for logging / downstream use."""
         self._ensure_fresh()
-        rows = tuple(
-            tuple(float(self._matrix[i, j]) for j in range(self._n))
-            for i in range(self._n)
-        )
+        rows = tuple(tuple(float(self._matrix[i, j]) for j in range(self._n)) for i in range(self._n))
         return MarkovRegimeSummary(
             states=self._states,
             transition_matrix=rows,
@@ -386,9 +376,7 @@ class MarkovRegimeFilter:
         try:
             return self._state_to_idx[state]
         except KeyError as exc:
-            raise ValueError(
-                f"unknown state {state!r}; expected one of {list(self._states)}"
-            ) from exc
+            raise ValueError(f"unknown state {state!r}; expected one of {list(self._states)}") from exc
 
     def _bump(self, from_state: str, to_state: str) -> None:
         i = self._require_state(from_state)
@@ -412,7 +400,7 @@ class MarkovRegimeFilter:
         #   0.65 <= p < 0.80      -> 1.1
         #   0.80 <= p             -> 1.2
         mult: float = _TIER_MULTIPLIERS[0]
-        for floor, next_mult in zip(_PERSISTENCE_TIER_FLOOR, _TIER_MULTIPLIERS[1:]):
+        for floor, next_mult in zip(_PERSISTENCE_TIER_FLOOR, _TIER_MULTIPLIERS[1:]):  # noqa: B905
             if persistence >= floor:
                 mult = next_mult
         return mult

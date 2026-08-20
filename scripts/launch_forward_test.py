@@ -13,7 +13,7 @@ Usage:
     --dry-run: Validate config and imports without connecting to cTrader
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import os
@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine  # noqa: I001
 from adapters.ctrader.models import cTraderCredentials
 from adapters.ctrader.risk_guard import FTMOConfig
 from adapters.ctrader.order_manager import PositionSizeConfig
@@ -95,9 +95,7 @@ def check_market_open() -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Forward Test Launcher")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Validate without connecting"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Validate without connecting")
     args = parser.parse_args()
 
     setup_logging(level="INFO")

@@ -4,7 +4,7 @@ Test cTrader FIX connection using Spotware's official cTraderFixPy library forma
 Falls back to manual connection if ctrader-fix not installed.
 """
 
-import os
+import os  # noqa: I001
 import ssl
 import socket
 import sys
@@ -24,9 +24,7 @@ if env_path.exists():
 HOST = os.environ.get("CTRADER_FIX_HOST", "demo-uk-eqx-01.p.c-trader.com")
 ACCOUNT = os.environ.get("CTRADER_ACCOUNT", "5795523")
 PASSWORD = os.environ.get("CTRADER_PASSWORD", "44J*aldC3Req9osKd")
-SENDER_COMP_ID = os.environ.get(
-    "CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}"
-)
+SENDER_COMP_ID = os.environ.get("CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}")
 
 config = {
     "Host": HOST,
@@ -83,7 +81,7 @@ def main():
 
     # Try official library first
     try:
-        from ctrader_fix.messages import LogonRequest
+        from ctrader_fix.messages import LogonRequest  # noqa: I001
         from ctrader_fix import Client
         from twisted.internet import reactor
 

@@ -181,9 +181,7 @@ class OAuthRefreshManager:
         refresh_token = creds.get("refresh_token", "")
 
         if not refresh_token:
-            raise NoRefreshTokenError(
-                f"No refresh_token in credentials file: {self._path}"
-            )
+            raise NoRefreshTokenError(f"No refresh_token in credentials file: {self._path}")
 
         logger.info("[OAuth] Refreshing token (refresh_token=%s…)", refresh_token[:8])
 
@@ -293,6 +291,4 @@ class OAuthRefreshManager:
                 os.unlink(tmp_path)
             except OSError:
                 pass
-            raise OAuthRefreshError(
-                f"Failed to write credentials atomically: {exc}"
-            ) from exc
+            raise OAuthRefreshError(f"Failed to write credentials atomically: {exc}") from exc

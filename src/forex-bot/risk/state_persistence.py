@@ -128,9 +128,7 @@ class StatePersistence:
             "open_risk": sizer._open_risk,
             "circuit_breaker": {
                 "halted": breaker.halted,
-                "halted_until": breaker.halted_until.isoformat()
-                if breaker.halted_until
-                else None,
+                "halted_until": breaker.halted_until.isoformat() if breaker.halted_until else None,
                 "halt_reason": breaker.halt_reason,
                 "recent_trades": breaker.recent_trades,
                 "daily_dd_pct": breaker.daily_dd_pct,
@@ -138,9 +136,7 @@ class StatePersistence:
             },
         }
 
-    def save(
-        self, sizer: SLPositionSizer, strategy_tracker: StrategyTracker | None = None
-    ) -> None:
+    def save(self, sizer: SLPositionSizer, strategy_tracker: StrategyTracker | None = None) -> None:
         """Persist current sizer state atomically.
 
         If ``strategy_tracker`` is provided, per-strategy metrics are

@@ -14,7 +14,7 @@ guarded with ``@unittest.skipUnless`` so the suite still passes when the
 ``data/ayumi_market.duckdb`` file is absent.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import tempfile
 import unittest
@@ -507,14 +507,11 @@ class TestLiveDbIntegration(unittest.TestCase):
             for bar in bars[:5]:
                 ts = int(bar.time.timestamp())
                 row = con.execute(
-                    "SELECT is_holdout FROM bars WHERE symbol = ? "
-                    "AND timeframe = ? AND timestamp_utc = ?",
+                    "SELECT is_holdout FROM bars WHERE symbol = ? AND timeframe = ? AND timestamp_utc = ?",
                     ["XAUUSD", "H1", ts],
                 ).fetchone()
                 self.assertIsNotNone(row, f"DB row missing for ts={ts}")
-                self.assertTrue(
-                    row[0], f"is_holdout must be true for ts={ts}, got {row[0]}"
-                )
+                self.assertTrue(row[0], f"is_holdout must be true for ts={ts}, got {row[0]}")
         finally:
             con.close()
 

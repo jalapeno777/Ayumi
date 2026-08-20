@@ -1,6 +1,6 @@
 """Tests for the loss categorization script (BQ-344)."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import math
@@ -415,9 +415,7 @@ def test_summarize_counts_only_losses():
 
 
 def test_summarize_percentages_add_to_100():
-    trades = [
-        _base_loss(spread_at_entry=5.0, spread_avg_rolling=1.0) for _ in range(10)
-    ]
+    trades = [_base_loss(spread_at_entry=5.0, spread_avg_rolling=1.0) for _ in range(10)]
     summary = summarize(trades)
     total_pct = sum(summary.category_percentages.values())
     assert math.isclose(total_pct, 100.0, abs_tol=0.01)
@@ -605,7 +603,7 @@ def test_cli_runs_via_subprocess(tmp_path):
     p.write_text(json.dumps(payload))
     out = tmp_path / "report.json"
     script = PROJECT_ROOT / "scripts" / "categorize_losses.py"
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         [
             sys.executable,
             str(script),
@@ -633,7 +631,7 @@ def test_cli_dry_run_does_not_write(tmp_path):
     p.write_text(json.dumps(payload))
     out = tmp_path / "report.json"
     script = PROJECT_ROOT / "scripts" / "categorize_losses.py"
-    subprocess.run(
+    subprocess.run(  # noqa: S603
         [
             sys.executable,
             str(script),
@@ -655,7 +653,7 @@ def test_cli_text_output_default(tmp_path):
     p = tmp_path / "in.json"
     p.write_text(json.dumps(payload))
     script = PROJECT_ROOT / "scripts" / "categorize_losses.py"
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         [sys.executable, str(script), "--input", str(p)],
         check=True,
         capture_output=True,

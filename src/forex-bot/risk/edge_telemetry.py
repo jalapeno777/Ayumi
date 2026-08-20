@@ -111,9 +111,7 @@ class EdgeStats:
             "losses": self.losses,
             "win_rate": round(self.win_rate, 4),
             "expectancy": round(self.expectancy, 4),
-            "profit_factor": round(self.profit_factor, 4)
-            if self.profit_factor != float("inf")
-            else None,
+            "profit_factor": round(self.profit_factor, 4) if self.profit_factor != float("inf") else None,
             "total_pnl": round(self.total_pnl, 2),
             "avg_risk": round(self.avg_risk, 2),
             "best_r": round(self.best_r, 4),
@@ -129,9 +127,7 @@ class EdgeTelemetryTracker:
 
     def __init__(self, persist_path: str = "data/edge_telemetry.jsonl"):
         self._persist_path = Path(persist_path)
-        self._stats: dict[tuple[str, str], EdgeStats] = defaultdict(
-            lambda: EdgeStats("", "")
-        )
+        self._stats: dict[tuple[str, str], EdgeStats] = defaultdict(lambda: EdgeStats("", ""))
         self._lock = threading.RLock()
         self._load_history()
 
@@ -229,9 +225,7 @@ class EdgeTelemetryTracker:
             TradeRecord for the closed trade
         """
         with self._lock:
-            record = self._apply_record(
-                strategy_id, symbol, risk_amount, pnl, signal_id
-            )
+            record = self._apply_record(strategy_id, symbol, risk_amount, pnl, signal_id)
 
             # Persist to JSONL
             try:

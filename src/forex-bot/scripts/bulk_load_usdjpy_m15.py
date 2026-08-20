@@ -154,9 +154,7 @@ def load_usdjpy_m15(
             required = {"Date", "Open", "High", "Low", "Close", "Volume"}
             missing = required - set(reader.fieldnames or [])
             if missing:
-                raise ValueError(
-                    f"CSV {csv_path.name} missing required columns: {sorted(missing)}"
-                )
+                raise ValueError(f"CSV {csv_path.name} missing required columns: {sorted(missing)}")
 
             for row in reader:
                 line_no += 1
@@ -164,7 +162,7 @@ def load_usdjpy_m15(
                     ts = _parse_date_to_epoch_seconds(row["Date"])
                     o = float(row["Open"])
                     h = float(row["High"])
-                    l = float(row["Low"])
+                    l = float(row["Low"])  # noqa: E741
                     c = float(row["Close"])
                     v = int(float(row["Volume"]))
                 except (KeyError, ValueError) as exc:

@@ -11,7 +11,7 @@ Run:
     PYTHONPATH=src/forex-bot python3 -m pytest tests/test_signal_pipeline_with_filter_chain.py -v
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 from datetime import datetime, timezone
@@ -23,7 +23,7 @@ _forex_bot = Path(__file__).resolve().parents[1] / "src" / "forex-bot"
 if str(_forex_bot) not in sys.path:
     sys.path.insert(0, str(_forex_bot))
 
-from backtest.engine import Bar, MarketState, TradeDirection
+from backtest.engine import Bar, MarketState, TradeDirection  # noqa: I001
 from engine.protocol import CanonicalSignal
 from engine.strategy_executor import StrategyExecutor
 from engine.strategy_registry import StrategySlot

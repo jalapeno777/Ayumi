@@ -1,13 +1,13 @@
 """Walk-forward test for BB+RSI Mean Reversion strategy on GBPUSD H1, EURUSD H1, XAUUSD H1."""
 
-import sys
+import sys  # noqa: I001
 import os
 import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
+from backtest.data_loader import CsvDataLoader  # noqa: I001
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
 
@@ -115,18 +115,10 @@ def run_walk_forward(pair: str, tf: str, preset: BBRSIConfig) -> dict:
         a = results.aggregated
         print("\n  Aggregated:")
         print(f"    Mean WR:       {a.mean_win_rate:.1%} (+/-{a.std_win_rate:.1%})")
-        print(
-            f"    Mean PF:       {a.mean_profit_factor:.2f} (+/-{a.std_profit_factor:.2f})"
-        )
-        print(
-            f"    Mean DD:       {a.mean_max_drawdown:.1%} (+/-{a.std_max_drawdown:.1%})"
-        )
-        print(
-            f"    Mean Sharpe:   {a.mean_sharpe_ratio:.2f} (+/-{a.std_sharpe_ratio:.2f})"
-        )
-        print(
-            f"    Mean Trades:   {a.mean_trade_count:.0f} (+/-{a.std_trade_count:.0f})"
-        )
+        print(f"    Mean PF:       {a.mean_profit_factor:.2f} (+/-{a.std_profit_factor:.2f})")
+        print(f"    Mean DD:       {a.mean_max_drawdown:.1%} (+/-{a.std_max_drawdown:.1%})")
+        print(f"    Mean Sharpe:   {a.mean_sharpe_ratio:.2f} (+/-{a.std_sharpe_ratio:.2f})")
+        print(f"    Mean Trades:   {a.mean_trade_count:.0f} (+/-{a.std_trade_count:.0f})")
         print(f"    Mean PnL:      ${a.mean_total_pnl:.2f}")
         print(f"    Windows Pass:  {a.windows_passed}/{a.total_windows}")
 
@@ -192,15 +184,10 @@ def main():
             wp = agg.get("windows_passed", 0)
             wt = agg.get("total_windows", 0)
             print(
-                f"  {r['pair']} {r['timeframe']}: "
-                f"WR={wr:.1%} PF={pf:.2f} "
-                f"Windows={wp}/{wt} "
-                f"{'GO' if go else 'NO-GO'}"
+                f"  {r['pair']} {r['timeframe']}: WR={wr:.1%} PF={pf:.2f} Windows={wp}/{wt} {'GO' if go else 'NO-GO'}"
             )
 
-    reports_dir = os.path.join(
-        os.path.dirname(__file__), "..", "reports", "bb_rsi_mean_reversion"
-    )
+    reports_dir = os.path.join(os.path.dirname(__file__), "..", "reports", "bb_rsi_mean_reversion")
     os.makedirs(reports_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     report_path = os.path.join(reports_dir, f"bb_rsi_mr_{ts}.json")

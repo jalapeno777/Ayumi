@@ -7,7 +7,7 @@ Covers SRB-AYUMI-001 acceptance criteria:
 - Edge cases: empty portfolio, unknown pairs, multi-cluster membership
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -100,9 +100,7 @@ class TestPortfolioValidation:
         """Acceptance criterion: 6 USD-strong pairs flagged as over-clustered."""
         custom_clusters = over_clustered_portfolio
         policy = PairSelectionPolicy(clusters=custom_clusters)
-        result = policy.validate_portfolio(
-            ["USDJPY", "USDCHF", "USDCAD", "USDMXN", "USDSGD", "USDHKD"]
-        )
+        result = policy.validate_portfolio(["USDJPY", "USDCHF", "USDCAD", "USDMXN", "USDSGD", "USDHKD"])
         assert not result.is_valid
         assert len(result.violations) == 1
         assert result.violations[0].cluster_name == "usd_strong"

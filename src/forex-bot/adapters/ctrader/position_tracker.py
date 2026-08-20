@@ -174,9 +174,7 @@ class PositionTracker:
             return []
 
         remote_positions = self._parse_reconcile_response(response)
-        discrepancies = [
-            rp for rp in remote_positions if rp.position_id not in local_ids
-        ]
+        discrepancies = [rp for rp in remote_positions if rp.position_id not in local_ids]
 
         if discrepancies:
             logger.warning(

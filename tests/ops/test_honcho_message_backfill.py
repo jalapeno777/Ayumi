@@ -16,6 +16,7 @@ Test layout:
   - Synthetic JSONL transcripts written to a tmp dir.
   - HonchoClient stubbed via monkey-patching in run_backfill's client param.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,7 +43,7 @@ from honcho_message_backfill import (  # noqa: E402
     LIVE_ENV_VALUE,
     LIVE_ENV_VAR,
     HonchoAPIError,
-    MessageEvent,
+    MessageEvent,  # noqa: F401
     ScanStats,
     detect_gap,
     extract_text_content,
@@ -53,6 +54,7 @@ from honcho_message_backfill import (  # noqa: E402
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def make_msg_event_dict(
     seq: int,
@@ -79,12 +81,17 @@ def write_transcript(path: Path, messages: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         # OpenClaw session transcripts start with a `session` event header.
-        f.write(json.dumps({
-            "type": "session",
-            "version": 3,
-            "id": path.stem,
-            "timestamp": "2026-08-15T19:55:00.000Z",
-        }) + "\n")
+        f.write(
+            json.dumps(
+                {
+                    "type": "session",
+                    "version": 3,
+                    "id": path.stem,
+                    "timestamp": "2026-08-15T19:55:00.000Z",
+                }
+            )
+            + "\n"
+        )
         for m in messages:
             f.write(json.dumps(m) + "\n")
 
@@ -92,6 +99,7 @@ def write_transcript(path: Path, messages: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # Gap detection tests (HR37 §5.2 + §3 watermark corruption)
 # ---------------------------------------------------------------------------
+
 
 class TestDetectGap(unittest.TestCase):
     """Pure-function tests for the gap-detection algorithm."""
@@ -164,6 +172,7 @@ class TestDetectGap(unittest.TestCase):
 # Transcript parsing tests
 # ---------------------------------------------------------------------------
 
+
 class TestReadTranscript(unittest.TestCase):
     """Verify transcript parser matches openclaw-honcho/extractMessages semantics."""
 
@@ -176,11 +185,14 @@ class TestReadTranscript(unittest.TestCase):
     def test_parses_user_and_assistant_messages(self):
         # Mimic production layout: <tmp>/agents/<agent>/sessions/<file>.jsonl
         path = Path(self.tmp) / "agents" / "main" / "sessions" / "abc.jsonl"
-        write_transcript(path, [
-            make_msg_event_dict(0, role="user", content="hi"),
-            make_msg_event_dict(1, role="assistant", content="hello!"),
-            make_msg_event_dict(2, role="user", content="how are you?"),
-        ])
+        write_transcript(
+            path,
+            [
+                make_msg_event_dict(0, role="user", content="hi"),
+                make_msg_event_dict(1, role="assistant", content="hello!"),
+                make_msg_event_dict(2, role="user", content="how are you?"),
+            ],
+        )
         events = read_transcript_messages(path)
         self.assertEqual(len(events), 3)
         self.assertEqual([e.role for e in events], ["user", "assistant", "user"])
@@ -193,21 +205,24 @@ class TestReadTranscript(unittest.TestCase):
     def test_filters_out_tool_result_messages(self):
         # openclaw-honcho/extractMessages skips toolResult; we must too.
         path = Path(self.tmp) / "agents" / "main" / "sessions" / "abc.jsonl"
-        write_transcript(path, [
-            make_msg_event_dict(0, role="user", content="hi"),
-            {
-                "type": "message",
-                "id": "tool-1",
-                "timestamp": "2026-08-15T20:00:01.000Z",
-                "message": {
-                    "role": "toolResult",
-                    "content": [],
-                    "toolCallId": "call-1",
-                    "toolName": "exec",
+        write_transcript(
+            path,
+            [
+                make_msg_event_dict(0, role="user", content="hi"),
+                {
+                    "type": "message",
+                    "id": "tool-1",
+                    "timestamp": "2026-08-15T20:00:01.000Z",
+                    "message": {
+                        "role": "toolResult",
+                        "content": [],
+                        "toolCallId": "call-1",
+                        "toolName": "exec",
+                    },
                 },
-            },
-            make_msg_event_dict(2, role="assistant", content="done"),
-        ])
+                make_msg_event_dict(2, role="assistant", content="done"),
+            ],
+        )
         events = read_transcript_messages(path)
         self.assertEqual(len(events), 2)
         # seq is reassigned contiguously after filter.
@@ -215,33 +230,39 @@ class TestReadTranscript(unittest.TestCase):
 
     def test_drops_empty_content(self):
         path = Path(self.tmp) / "agents" / "main" / "sessions" / "abc.jsonl"
-        write_transcript(path, [
-            make_msg_event_dict(0, role="user", content="hi"),
-            make_msg_event_dict(1, role="assistant", content="   "),  # whitespace-only
-            make_msg_event_dict(2, role="assistant", content=""),  # empty
-            make_msg_event_dict(3, role="assistant", content="real answer"),
-        ])
+        write_transcript(
+            path,
+            [
+                make_msg_event_dict(0, role="user", content="hi"),
+                make_msg_event_dict(1, role="assistant", content="   "),  # whitespace-only
+                make_msg_event_dict(2, role="assistant", content=""),  # empty
+                make_msg_event_dict(3, role="assistant", content="real answer"),
+            ],
+        )
         events = read_transcript_messages(path)
         self.assertEqual(len(events), 2)
         self.assertEqual([e.content for e in events], ["hi", "real answer"])
 
     def test_handles_list_content_blocks(self):
         path = Path(self.tmp) / "agents" / "main" / "sessions" / "abc.jsonl"
-        write_transcript(path, [
-            {
-                "type": "message",
-                "id": "evt-1",
-                "timestamp": "2026-08-15T20:00:00.000Z",
-                "message": {
-                    "role": "assistant",
-                    "content": [
-                        {"type": "thinking", "thinking": "internal monologue"},
-                        {"type": "text", "text": "visible answer"},
-                        {"type": "text", "text": "second paragraph"},
-                    ],
+        write_transcript(
+            path,
+            [
+                {
+                    "type": "message",
+                    "id": "evt-1",
+                    "timestamp": "2026-08-15T20:00:00.000Z",
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "thinking", "thinking": "internal monologue"},
+                            {"type": "text", "text": "visible answer"},
+                            {"type": "text", "text": "second paragraph"},
+                        ],
+                    },
                 },
-            },
-        ])
+            ],
+        )
         events = read_transcript_messages(path)
         self.assertEqual(len(events), 1)
         # thinking blocks are skipped (per spec mirroring openclaw-honcho).
@@ -269,6 +290,7 @@ class TestReadTranscript(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Content extraction tests
 # ---------------------------------------------------------------------------
+
 
 class TestExtractTextContent(unittest.TestCase):
     def test_plain_string(self):
@@ -305,6 +327,7 @@ class TestExtractTextContent(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # find_session_files tests (mtime window + Codex exclusion)
 # ---------------------------------------------------------------------------
+
 
 class TestFindSessionFiles(unittest.TestCase):
     """Verify file scanning rules (mtime filter + Codex rollout exclusion)."""
@@ -357,10 +380,7 @@ class TestFindSessionFiles(unittest.TestCase):
         # Codex rollouts live under agents/<x>/agent/codex-home/sessions/...
         f1 = self.agents / "main" / "sessions" / "regular.jsonl"
         self._touch(f1, "2026-08-15T20:00:00+00:00")
-        f2 = (
-            self.agents / "rin" / "agent" / "codex-home" / "sessions"
-            / "2026" / "08" / "15" / "rollout-test.jsonl"
-        )
+        f2 = self.agents / "rin" / "agent" / "codex-home" / "sessions" / "2026" / "08" / "15" / "rollout-test.jsonl"
         self._touch(f2, "2026-08-15T20:00:00+00:00")
         results = find_session_files(self.agents, self.start, self.end)
         # Only the regular session is included.
@@ -382,6 +402,7 @@ class TestFindSessionFiles(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # End-to-end run_backfill tests with stubbed HonchoClient
 # ---------------------------------------------------------------------------
+
 
 class _StubHonchoClient:
     """Minimal stub for HonchoClient used by run_backfill tests."""
@@ -419,25 +440,17 @@ class TestRunBackfillDryRun(unittest.TestCase):
         self.agents = Path(self.tmp) / "agents"
         self.agents.mkdir()
         # Three transcripts: one corrupted-watermark gap, one intact, one empty.
-        self.corrupted_path = (
-            self.agents / "main" / "sessions" / "session-corrupted.jsonl"
+        self.corrupted_path = self.agents / "main" / "sessions" / "session-corrupted.jsonl"
+        write_transcript(
+            self.corrupted_path,
+            [make_msg_event_dict(i, role="user" if i % 2 == 0 else "assistant", content=f"msg-{i}") for i in range(10)],
         )
-        write_transcript(self.corrupted_path, [
-            make_msg_event_dict(i, role="user" if i % 2 == 0 else "assistant",
-                                content=f"msg-{i}")
-            for i in range(10)
-        ])
-        self.intact_path = (
-            self.agents / "main" / "sessions" / "session-intact.jsonl"
+        self.intact_path = self.agents / "main" / "sessions" / "session-intact.jsonl"
+        write_transcript(
+            self.intact_path,
+            [make_msg_event_dict(i, role="user" if i % 2 == 0 else "assistant", content=f"msg-{i}") for i in range(5)],
         )
-        write_transcript(self.intact_path, [
-            make_msg_event_dict(i, role="user" if i % 2 == 0 else "assistant",
-                                content=f"msg-{i}")
-            for i in range(5)
-        ])
-        self.empty_path = (
-            self.agents / "main" / "sessions" / "session-empty.jsonl"
-        )
+        self.empty_path = self.agents / "main" / "sessions" / "session-empty.jsonl"
         write_transcript(self.empty_path, [])
 
         # Touch all files into the outage window so find_session_files picks them.
@@ -466,7 +479,7 @@ class TestRunBackfillDryRun(unittest.TestCase):
             ],
             count_overrides={
                 "honcho-corrupted": 4,  # count < lsi -> CORRUPTED, gap = 10-8 = 2
-                "honcho-intact": 5,    # count == lsi -> INTACT, gap = 0
+                "honcho-intact": 5,  # count == lsi -> INTACT, gap = 0
             },
         )
 
@@ -518,24 +531,29 @@ class TestRunBackfillDryRun(unittest.TestCase):
             big_agents = Path(big_tmp) / "agents"
             big_agents.mkdir()
             big_path = big_agents / "main" / "sessions" / "session-big.jsonl"
-            write_transcript(big_path, [
-                make_msg_event_dict(
-                    i,
-                    role="user" if i % 2 == 0 else "assistant",
-                    content=f"msg-{i}",
-                )
-                for i in range(250)
-            ])
+            write_transcript(
+                big_path,
+                [
+                    make_msg_event_dict(
+                        i,
+                        role="user" if i % 2 == 0 else "assistant",
+                        content=f"msg-{i}",
+                    )
+                    for i in range(250)
+                ],
+            )
             ts = datetime(2026, 8, 15, 20, 30, 0, tzinfo=timezone.utc).timestamp()
             os.utime(big_path, (ts, ts))
             big_client = _StubHonchoClient(
-                honcho_sessions=[{
-                    "id": "honcho-big",
-                    "metadata": {
-                        "oc_session_id": "session-big",
-                        "lastSavedIndex": 0,  # All 250 messages are the gap.
-                    },
-                }],
+                honcho_sessions=[
+                    {
+                        "id": "honcho-big",
+                        "metadata": {
+                            "oc_session_id": "session-big",
+                            "lastSavedIndex": 0,  # All 250 messages are the gap.
+                        },
+                    }
+                ],
                 count_overrides={"honcho-big": 0},
             )
             hmb.run_backfill(big_agents, big_client, apply=True)
@@ -564,20 +582,19 @@ class TestRunBackfillFilters(unittest.TestCase):
         self.tmp = tempfile.mkdtemp(prefix="honcho-bf-filt-")
         self.agents = Path(self.tmp) / "agents"
         self.agents.mkdir()
-        self.empty_path = (
-            self.agents / "main" / "sessions" / "session-empty.jsonl"
-        )
+        self.empty_path = self.agents / "main" / "sessions" / "session-empty.jsonl"
         write_transcript(self.empty_path, [])
         ts = datetime(2026, 8, 15, 20, 30, 0, tzinfo=timezone.utc).timestamp()
         os.utime(self.empty_path, (ts, ts))
 
-        self.no_honcho_path = (
-            self.agents / "main" / "sessions" / "session-no-honcho.jsonl"
+        self.no_honcho_path = self.agents / "main" / "sessions" / "session-no-honcho.jsonl"
+        write_transcript(
+            self.no_honcho_path,
+            [
+                make_msg_event_dict(0, role="user", content="orphan"),
+                make_msg_event_dict(1, role="assistant", content="orphan-reply"),
+            ],
         )
-        write_transcript(self.no_honcho_path, [
-            make_msg_event_dict(0, role="user", content="orphan"),
-            make_msg_event_dict(1, role="assistant", content="orphan-reply"),
-        ])
         os.utime(self.no_honcho_path, (ts, ts))
 
         self.client = _StubHonchoClient(honcho_sessions=[])
@@ -632,6 +649,7 @@ class TestApplyGate(unittest.TestCase):
         os.environ.pop(LIVE_ENV_VAR, None)
         # Invoke main() with --apply and no env var — must return non-zero.
         from honcho_message_backfill import main
+
         rc = main(["--apply"])
         self.assertEqual(rc, 2)
 
@@ -641,6 +659,7 @@ class TestApplyGate(unittest.TestCase):
         os.environ[LIVE_ENV_VAR] = LIVE_ENV_VALUE
         # Point at a nonexistent agents dir to abort early before any network call.
         from honcho_message_backfill import main
+
         rc = main(["--apply", "--agents-dir", "/nonexistent"])
         # 0 = no sessions discovered, no writes attempted, no failure.
         self.assertEqual(rc, 0)
@@ -649,6 +668,7 @@ class TestApplyGate(unittest.TestCase):
         # Dry-run should work even without the env var (it's the default).
         os.environ.pop(LIVE_ENV_VAR, None)
         from honcho_message_backfill import main
+
         rc = main(["--agents-dir", "/nonexistent"])
         self.assertEqual(rc, 0)
 
@@ -676,6 +696,7 @@ class TestFormatStatsTable(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # End-to-end CLI smoke test (real subprocess)
 # ---------------------------------------------------------------------------
+
 
 class TestCliSmoke(unittest.TestCase):
     """End-to-end smoke test: --apply without env var exits with code 2."""

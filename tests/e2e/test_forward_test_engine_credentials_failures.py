@@ -7,7 +7,7 @@ state.  T5 raises a ``RuntimeError`` with an actionable message instead,
 listing the missing env vars.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 from unittest.mock import patch
@@ -72,11 +72,7 @@ class TestLoudFailureOnMissingCredentials:
             with pytest.raises(RuntimeError) as excinfo:
                 engine._build_components()
         msg = str(excinfo.value)
-        assert (
-            "CTRADER_OPENAPI_CLIENT_ID" not in msg.split("Missing:")[-1]
-            if "Missing:" in msg
-            else True
-        )
+        assert "CTRADER_OPENAPI_CLIENT_ID" not in msg.split("Missing:")[-1] if "Missing:" in msg else True
         # If Missing: section exists, it should not include CLIENT_ID
         if "Missing:" in msg:
             missing_section = msg.split("Missing:")[1].split(".")[0]
@@ -90,10 +86,7 @@ class TestLoudFailureOnMissingCredentials:
         with patch.object(engine, "_build_live_credentials", return_value=None):
             with pytest.raises(RuntimeError) as excinfo:
                 engine._build_components()
-        assert (
-            "paper" in str(excinfo.value).lower()
-            or "paper-only" in str(excinfo.value).lower()
-        )
+        assert "paper" in str(excinfo.value).lower() or "paper-only" in str(excinfo.value).lower()
 
 
 class TestPaperModeIsUnaffected:

@@ -18,7 +18,7 @@ def make_usdjpy_bars(n=300, seed=42, trend="up"):
 
     price = 130.0
     prices = []
-    for i in range(len(dates)):
+    for i in range(len(dates)):  # noqa: B007
         drift = 0.05 if trend == "up" else -0.05
         price += drift + np.random.normal(0, 0.3)
         prices.append(price)
@@ -143,15 +143,9 @@ class TestUSDJPYD1TrendStrategy(unittest.TestCase):
         result = strategy.evaluate(state)
         if result is not None:
             risk = abs(result.entry_price - result.stop_loss)
-            self.assertAlmostEqual(
-                result.take_profit_1, result.entry_price + risk * 2.0, places=3
-            )
-            self.assertAlmostEqual(
-                result.take_profit_2, result.entry_price + risk * 3.0, places=3
-            )
-            self.assertAlmostEqual(
-                result.take_profit_3, result.entry_price + risk * 4.0, places=3
-            )
+            self.assertAlmostEqual(result.take_profit_1, result.entry_price + risk * 2.0, places=3)
+            self.assertAlmostEqual(result.take_profit_2, result.entry_price + risk * 3.0, places=3)
+            self.assertAlmostEqual(result.take_profit_3, result.entry_price + risk * 4.0, places=3)
 
     def test_confidence_bounds(self):
         strategy = USDJPYD1TrendStrategy(
@@ -233,9 +227,7 @@ class TestUSDJPYD1TrendStrategy(unittest.TestCase):
         bars = []
         price = 130.0
         for i in range(300):
-            dt = __import__("pandas").date_range("2022-01-01", periods=300, freq="1D")[
-                i
-            ]
+            dt = __import__("pandas").date_range("2022-01-01", periods=300, freq="1D")[i]
             if dt.weekday() == 4:
                 continue
             bars.append(

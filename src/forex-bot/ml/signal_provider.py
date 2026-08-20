@@ -21,9 +21,7 @@ class HistoricalSignalProvider:
     always produce the same signals. No randomness per trial.
     """
 
-    def __init__(
-        self, registry: StrategyRegistry, data_dir: str = "data/signals"
-    ) -> None:
+    def __init__(self, registry: StrategyRegistry, data_dir: str = "data/signals") -> None:
         self._registry = registry
         self._data_dir = Path(data_dir)
         self._cache: dict[str, list[dict]] = {}
@@ -95,11 +93,9 @@ class HistoricalSignalProvider:
             for s in signals:
                 f.write(json.dumps(s) + "\n")
 
-    def _deterministic_signals(
-        self, strategy_id: str, symbol: str, start_date: str, end_date: str
-    ) -> list[dict]:
+    def _deterministic_signals(self, strategy_id: str, symbol: str, start_date: str, end_date: str) -> list[dict]:
         """Generate deterministic signals using a seeded approach."""
-        seed = int(hashlib.md5(strategy_id.encode()).hexdigest()[:8], 16)
+        seed = int(hashlib.md5(strategy_id.encode()).hexdigest()[:8], 16)  # noqa: S324
         rng = __import__("random").Random(seed)
 
         # Determine pip multiplier
@@ -122,9 +118,7 @@ class HistoricalSignalProvider:
                 tp_pips = sl_pips * rng.uniform(1.0, 2.5)
                 confidence = round(rng.uniform(0.4, 0.95), 3)
 
-                entry = base_entry + rng.uniform(-0.005, 0.005) * (
-                    100 if "JPY" in symbol.upper() else 1
-                )
+                entry = base_entry + rng.uniform(-0.005, 0.005) * (100 if "JPY" in symbol.upper() else 1)
                 if direction == "LONG":
                     sl = entry - sl_pips * pip_mult
                     tp = entry + tp_pips * pip_mult
@@ -135,13 +129,9 @@ class HistoricalSignalProvider:
                 # Deterministic outcome
                 win_prob = 0.4 + confidence * 0.3
                 if rng.random() < win_prob:
-                    pnl = round(
-                        tp_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2
-                    )
+                    pnl = round(tp_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2)
                 else:
-                    pnl = round(
-                        -sl_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2
-                    )
+                    pnl = round(-sl_pips * (10 if "JPY" in symbol.upper() else 1) * 0.1, 2)
 
                 signals.append(
                     {

@@ -106,11 +106,7 @@ class WednesdayReversalStudy(StatisticalStudy):
             return DayReversalStats(total=0, reversals=0, rate=0.0, avg_pips=0.0)
 
         rate = len(reversal_pips_list) / total
-        avg_pips = (
-            sum(reversal_pips_list) / len(reversal_pips_list)
-            if reversal_pips_list
-            else 0.0
-        )
+        avg_pips = sum(reversal_pips_list) / len(reversal_pips_list) if reversal_pips_list else 0.0
         return DayReversalStats(
             total=total,
             reversals=len(reversal_pips_list),
@@ -119,15 +115,9 @@ class WednesdayReversalStudy(StatisticalStudy):
         )
 
     def analyze(self, bars: list[Bar]) -> dict[str, Any]:
-        wed = self._compute_day_stats(
-            bars, target_weekday=2, prev_weekday=1, prev_prev_weekday=0
-        )
-        tue = self._compute_day_stats(
-            bars, target_weekday=1, prev_weekday=0, prev_prev_weekday=4
-        )
-        thu = self._compute_day_stats(
-            bars, target_weekday=3, prev_weekday=2, prev_prev_weekday=1
-        )
+        wed = self._compute_day_stats(bars, target_weekday=2, prev_weekday=1, prev_prev_weekday=0)
+        tue = self._compute_day_stats(bars, target_weekday=1, prev_weekday=0, prev_prev_weekday=4)
+        thu = self._compute_day_stats(bars, target_weekday=3, prev_weekday=2, prev_prev_weekday=1)
 
         return {
             "sample_size": wed.total,

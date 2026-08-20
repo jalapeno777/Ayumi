@@ -24,9 +24,7 @@ sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
 import logging
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
 log = logging.getLogger("ayumi.t3d")
 
 
@@ -53,17 +51,17 @@ def main():
     # Step 2: Import SDK and connect
     print("\n── Step 2: Connect to cTrader ──")
     try:
-        from twisted.internet import reactor
+        from twisted.internet import reactor  # noqa: I001
         from ctrader_open_api import Client, TcpProtocol
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
             ProtoOAApplicationAuthReq,
-            ProtoOAApplicationAuthRes,
+            ProtoOAApplicationAuthRes,  # noqa: F401
             ProtoOAAccountAuthReq,
-            ProtoOAAccountAuthRes,
+            ProtoOAAccountAuthRes,  # noqa: F401
             ProtoOANewOrderReq,
             ProtoOASubscribeSpotsReq,
         )
-        from ctrader_open_api.protobuf import Protobuf
+        from ctrader_open_api.protobuf import Protobuf  # noqa: F401
 
         print("✓ SDK imported")
     except ImportError as e:
@@ -214,9 +212,7 @@ def main():
     if not reactor.running:
         import threading
 
-        reactor_thread = threading.Thread(
-            target=reactor.run, args=(False,), daemon=True
-        )
+        reactor_thread = threading.Thread(target=reactor.run, args=(False,), daemon=True)
         reactor_thread.start()
         time.sleep(1)
         log.info("Reactor started in background thread")
@@ -226,7 +222,7 @@ def main():
         log.error("✗ Timed out waiting for order response (45s)")
         try:
             client.stopService()
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         return 3
 
@@ -234,7 +230,7 @@ def main():
     time.sleep(2)
     try:
         client.stopService()
-    except Exception:
+    except Exception:  # noqa: S110
         pass
     time.sleep(1)
 

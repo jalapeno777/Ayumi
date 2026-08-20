@@ -1,6 +1,6 @@
 """Tests for HistoricalSignalProvider."""
 
-import pytest
+import pytest  # noqa: I001
 
 from strategies.registry import StrategyConfig, StrategyRegistry
 from ml.signal_provider import HistoricalSignalProvider
@@ -65,7 +65,7 @@ def test_deterministic_generation(registry, tmp_path):
     s2 = p2.load_signals("momentum_v1", "EURUSD")
 
     assert len(s1) == len(s2)
-    for a, b in zip(s1, s2):
+    for a, b in zip(s1, s2):  # noqa: B905
         assert a == b
 
 

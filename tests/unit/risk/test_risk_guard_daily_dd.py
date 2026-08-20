@@ -13,7 +13,7 @@ Covers acceptance criterion: "New DST boundary test added (spring forward,
 fall back)"
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone  # noqa: I001
 
 import pytest
 from zoneinfo import ZoneInfo

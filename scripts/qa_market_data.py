@@ -152,9 +152,7 @@ class FileReport:
 class ParsedBars:
     """Parsed OHLCV rows + the timestamp column name used."""
 
-    df: (
-        pd.DataFrame
-    )  # columns: timestamp (datetime64[ns, UTC]), open, high, low, close, volume
+    df: pd.DataFrame  # columns: timestamp (datetime64[ns, UTC]), open, high, low, close, volume
     ts_col: str
 
 
@@ -195,9 +193,7 @@ def _load_csv(path: Path) -> ParsedBars | None:
 
     ts_col = _detect_timestamp_col(header)
     if ts_col is None:
-        print(
-            f"  [skip] {path}: no timestamp column (header={header})", file=sys.stderr
-        )
+        print(f"  [skip] {path}: no timestamp column (header={header})", file=sys.stderr)
         return None
 
     # Read the rest with pandas using only the columns we want.
@@ -250,15 +246,11 @@ def _load_csv(path: Path) -> ParsedBars | None:
         else:
             df[col] = float("nan")
     if "volume" in df.columns:
-        df["volume"] = (
-            pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
-        )
+        df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
     else:
         df["volume"] = 0
 
-    df = df[["timestamp", "open", "high", "low", "close", "volume"]].reset_index(
-        drop=True
-    )
+    df = df[["timestamp", "open", "high", "low", "close", "volume"]].reset_index(drop=True)
     return ParsedBars(df=df, ts_col=ts_col)
 
 
@@ -334,9 +326,7 @@ def _check_timestamp_integrity(df: pd.DataFrame, rep: FileReport) -> None:
         rep.timestamp_ok = False
         rep.duplicate_count = int(len(dup_idx))
         for i in dup_idx[:ANOMALY_DETAIL_CAP]:
-            rep.timestamp_issues.append(
-                f"duplicate timestamp at row {int(i) + 1}: {pd.Timestamp(ts[i]).isoformat()}"
-            )
+            rep.timestamp_issues.append(f"duplicate timestamp at row {int(i) + 1}: {pd.Timestamp(ts[i]).isoformat()}")
 
     # Negative delta = backward step.
     neg_idx = (diffs < pd.Timedelta(0)).nonzero()[0]
@@ -355,9 +345,7 @@ def _check_price_sanity(df: pd.DataFrame, rep: FileReport) -> None:
     neg_mask = (prices < 0).any(axis=1)
     if neg_mask.any():
         rep.negative_price_count = int(neg_mask.sum())
-        rep.timestamp_issues.append(
-            f"{rep.negative_price_count} rows with negative OHLC values"
-        )
+        rep.timestamp_issues.append(f"{rep.negative_price_count} rows with negative OHLC values")
 
     close = df["close"].to_numpy()
     ts = df["timestamp"].to_numpy()
@@ -549,16 +537,12 @@ def render_markdown(reports: list[FileReport], generated_at: datetime) -> str:
                 str(rep.weekend_gap_count),
                 f"{rep.gap_density:.4f}",
                 f"{rep.weekend_gap_density:.4f}",
-                f"{rep.inferred_period_min:.2f}"
-                if rep.inferred_period_min is not None
-                else "n/a",
+                f"{rep.inferred_period_min:.2f}" if rep.inferred_period_min is not None else "n/a",
             ]
         )
     lines.append("## Gap density per pair")
     lines.append("")
-    lines.append(
-        "Gap density = gaps per 1000 bars. Weekend gaps (Sat / Sun UTC) are expected and reported separately."
-    )
+    lines.append("Gap density = gaps per 1000 bars. Weekend gaps (Sat / Sun UTC) are expected and reported separately.")
     lines.append("")
     lines.append(
         _format_table(
@@ -590,9 +574,7 @@ def render_markdown(reports: list[FileReport], generated_at: datetime) -> str:
         if rep.negative_price_count:
             bits.append(f"{rep.negative_price_count} negative-price rows")
         if rep.big_jump_count:
-            bits.append(
-                f"{rep.big_jump_count} >{int(PRICE_JUMP_THRESHOLD * 100)}% close jumps"
-            )
+            bits.append(f"{rep.big_jump_count} >{int(PRICE_JUMP_THRESHOLD * 100)}% close jumps")
         if bits:
             any_anom = True
             lines.append(f"- **{rep.pair} {rep.timeframe}** — {', '.join(bits)}  ")
@@ -674,9 +656,7 @@ def filter_by_pair(paths: Iterable[Path], pairs: list[str]) -> list[Path]:
 def main(argv: list[str] | None = None) -> int:
     _ensure_numpy()
 
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--pairs",
         nargs="*",
@@ -733,18 +713,12 @@ def main(argv: list[str] | None = None) -> int:
             rep.skipped = True
             rep.skip_reason = f"unhandled exception: {type(e).__name__}: {e}"
         reports.append(rep)
-        tag = (
-            "skipped"
-            if rep.skipped
-            else f"rows={rep.rows} gaps={rep.gap_count}+{rep.weekend_gap_count}w"
-        )
+        tag = "skipped" if rep.skipped else f"rows={rep.rows} gaps={rep.gap_count}+{rep.weekend_gap_count}w"
         print(f"  {p}  [{tag}]", file=sys.stderr)
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
-    out_path = (
-        report_dir / f"qa-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
-    )
+    out_path = report_dir / f"qa-report-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
 
     md = render_markdown(reports, datetime.now(timezone.utc))
     out_path.write_text(md)
@@ -755,11 +729,7 @@ def main(argv: list[str] | None = None) -> int:
         scan = [r for r in reports if not r.skipped]
         total = sum(r.gap_count for r in scan)
         wknd = sum(r.weekend_gap_count for r in scan)
-        anom = sum(
-            1
-            for r in scan
-            if r.duplicate_count or r.negative_price_count or r.big_jump_count
-        )
+        anom = sum(1 for r in scan if r.duplicate_count or r.negative_price_count or r.big_jump_count)
         print(
             json.dumps(
                 {

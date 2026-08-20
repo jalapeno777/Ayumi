@@ -16,7 +16,7 @@ These tests verify:
 * TPs more than 1000 pips from entry are rejected.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, timezone
 
@@ -185,9 +185,7 @@ class TestSessionBreakoutTP:
         # Distance from entry should be at most 3 * range = 90 pips.
         pip = 0.0001
         max_distance_pips = abs(signal.take_profit_3 - signal.entry_price) / pip
-        assert max_distance_pips <= 200, (
-            f"TP3 is {max_distance_pips:.1f} pips from entry — too far"
-        )
+        assert max_distance_pips <= 200, f"TP3 is {max_distance_pips:.1f} pips from entry — too far"
 
     def test_gbpusd_bullish_breakout_produces_sane_tps(self):
         strategy = SessionBreakoutStrategy(_BASE_CONFIG)
@@ -229,9 +227,7 @@ class TestSessionBreakoutTP:
             assert tp < signal.entry_price
         # TP3 = entry - 3 * range_pips * pip = entry - 0.90 (90 pips)
         max_distance_pips = abs(signal.take_profit_3 - signal.entry_price) / 0.01
-        assert max_distance_pips <= 200, (
-            f"TP3 is {max_distance_pips:.1f} pips from entry — too far"
-        )
+        assert max_distance_pips <= 200, f"TP3 is {max_distance_pips:.1f} pips from entry — too far"
 
     def test_tps_are_monotonic_in_distance(self):
         """TP1, TP2, TP3 should be at increasing distance from entry."""
@@ -283,8 +279,7 @@ class TestReportedBugRegression:
 
         signal = strategy.evaluate(state)
         assert signal is None, (
-            f"Expected None (rejected) for buggy input, got signal with "
-            f"tp1={signal.take_profit_1 if signal else 'n/a'}"
+            f"Expected None (rejected) for buggy input, got signal with tp1={signal.take_profit_1 if signal else 'n/a'}"
         )
 
     def test_tp_below_fx_min_price_is_rejected(self):
@@ -352,10 +347,7 @@ class TestEdgeCases:
         signal = strategy.evaluate(state)
         if signal is not None:
             assert _FX_MIN_PRICE <= signal.take_profit_1 <= _FX_MAX_PRICE
-            assert (
-                abs(signal.take_profit_1 - signal.entry_price) / 0.0001
-                < _MAX_TP_DISTANCE_PIPS
-            )
+            assert abs(signal.take_profit_1 - signal.entry_price) / 0.0001 < _MAX_TP_DISTANCE_PIPS
 
     def test_one_signal_per_direction_per_day(self):
         """Re-calling evaluate after a fired signal returns None for that direction."""

@@ -1,6 +1,6 @@
 """Tests for CTraderHistoricalClient with mocked API responses."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import patch
@@ -29,8 +29,8 @@ def client(mock_credentials):
     return CTraderHistoricalClient(
         client_id=mock_credentials["client_id"],
         client_secret=mock_credentials["client_secret"],
-        access_token="test_access_token",
-        refresh_token="test_refresh_token",
+        access_token="test_access_token",  # noqa: S106
+        refresh_token="test_refresh_token",  # noqa: S106
         trader_login=mock_credentials["account_id"],
     )
 
@@ -141,9 +141,7 @@ class TestDownloadAndSave:
         client._symbol_cache = {"EUR/USD": (1, 5)}
 
         filepath = str(tmp_path / "EURUSD_M15.csv")
-        client.download_and_save(
-            "EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=False
-        )
+        client.download_and_save("EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=False)
 
         saved = pd.read_csv(filepath)
         assert len(saved) == 1
@@ -180,9 +178,7 @@ class TestDownloadAndSave:
         )
         existing.to_csv(filepath, index=False)
 
-        client.download_and_save(
-            "EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=True
-        )
+        client.download_and_save("EURUSD", "M15", "2026-01-01", "2026-02-01", filepath, append=True)
 
         saved = pd.read_csv(filepath)
         assert len(saved) == 2

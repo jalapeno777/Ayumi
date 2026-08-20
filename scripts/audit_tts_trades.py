@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar, BacktestConfig
+from backtest.engine import Bar, BacktestConfig  # noqa: I001
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies.tts_strategy import TTSStrategy
 from quant.walk_forward import WalkForwardValidator
@@ -63,7 +63,7 @@ def main():
     )
 
     all_results = {}
-    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         print(f"\n{'=' * 60}")
         print(f"Window {idx}: train={len(train_bars)}, test={len(test_bars)}")
         print(
@@ -101,11 +101,7 @@ def main():
             direction_raw = "unknown"
 
             # Parse pattern type from rationale: "TTC/TBD EURUSD: M long @ ..."
-            if (
-                "pattern_type=" in rationale
-                or ": M " in rationale
-                or ": W " in rationale
-            ):
+            if "pattern_type=" in rationale or ": M " in rationale or ": W " in rationale:
                 # Standard format: "TTC/TBD EURUSD: M long @ ..."
                 parts = rationale.split(": ", 1)
                 if len(parts) >= 2:
@@ -147,12 +143,12 @@ def main():
         # Print trade table for this window
         if trades:
             print(
-                f"\n  {'#':>3} {'Time':<20} {'Pattern':<8} {'Dir':<5} {'Conf':>5} {'Entry':>10} {'SL':>10} {'Exit':>10} {'Pips':>8} {'PnL':>10} {'Result':<6} {'ExitWhy':<12}"
+                f"\n  {'#':>3} {'Time':<20} {'Pattern':<8} {'Dir':<5} {'Conf':>5} {'Entry':>10} {'SL':>10} {'Exit':>10} {'Pips':>8} {'PnL':>10} {'Result':<6} {'ExitWhy':<12}"  # noqa: E501
             )
             print(f"  {'─' * 120}")
             for i, td in enumerate(trade_details):
                 print(
-                    f"  {i + 1:>3} {td['entry_time']:<20} {td['pattern_type']:<8} {td['direction']:<5} {td['confidence']:>5.2f} {td['entry_price']:>10.5f} {td['stop_loss']:>10.5f} {td['exit_price']:>10.5f} {td['pips']:>8.1f} {td['pnl']:>10.2f} {td['outcome']:<6} {td['exit_reason']:<12}"
+                    f"  {i + 1:>3} {td['entry_time']:<20} {td['pattern_type']:<8} {td['direction']:<5} {td['confidence']:>5.2f} {td['entry_price']:>10.5f} {td['stop_loss']:>10.5f} {td['exit_price']:>10.5f} {td['pips']:>8.1f} {td['pnl']:>10.2f} {td['outcome']:<6} {td['exit_reason']:<12}"  # noqa: E501
                 )
 
     # ── Analysis ──
@@ -197,9 +193,7 @@ def main():
         n = s["wins"] + s["losses"]
         wr = s["wins"] / n if n > 0 else 0
         avg_pips = sum(s["pips"]) / n if n > 0 else 0
-        print(
-            f"  {pt:<12}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}, avg_pips={avg_pips:>7.1f}"
-        )
+        print(f"  {pt:<12}: {n:>3} trades, WR={wr:>5.1%}, PnL=${s['pnl']:>8.2f}, avg_pips={avg_pips:>7.1f}")
 
     # By direction
     print("\n--- By Direction ---")

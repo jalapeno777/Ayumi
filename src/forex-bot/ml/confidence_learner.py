@@ -70,7 +70,7 @@ class ConfidenceLearner:
         self.is_trained = True
 
         importances = self.model.feature_importances_
-        self.learned_weights = dict(zip(feature_names, importances.tolist()))
+        self.learned_weights = dict(zip(feature_names, importances.tolist()))  # noqa: B905
 
         return self.learned_weights
 

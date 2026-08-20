@@ -10,7 +10,7 @@ Usage:
     python scripts/run_multi_strategy_wf.py --dry-run
 """
 
-import argparse
+import argparse  # noqa: I001
 import json
 import sys
 import time
@@ -22,7 +22,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.builtin_strategies import register_builtin_strategies
+from backtest.builtin_strategies import register_builtin_strategies  # noqa: I001
 from backtest.walk_forward_runner import (
     run_named_strategy_walk_forward,
 )
@@ -50,9 +50,7 @@ EVALUATION_MATRIX = [
     {
         "strategy": "session_range_mr",
         "pair": "USDJPY",
-        "data": "data/forex/historical/USDJPY_H1.csv"
-        if Path("data/forex/historical/USDJPY_H1.csv").exists()
-        else None,
+        "data": "data/forex/historical/USDJPY_H1.csv" if Path("data/forex/historical/USDJPY_H1.csv").exists() else None,
     },
     {
         "strategy": "session_range_mr",
@@ -306,23 +304,13 @@ def run_single_wf(strategy: str, pair: str, data_path: str, windows: int = 5) ->
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Multi-strategy WF evaluation (sequential, CPU-capped)"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="List evaluations without running"
-    )
-    parser.add_argument(
-        "--windows", type=int, default=5, help="Number of WF windows (default: 5)"
-    )
+    parser = argparse.ArgumentParser(description="Multi-strategy WF evaluation (sequential, CPU-capped)")
+    parser.add_argument("--dry-run", action="store_true", help="List evaluations without running")
+    parser.add_argument("--windows", type=int, default=5, help="Number of WF windows (default: 5)")
     args = parser.parse_args()
 
     # Filter out entries with no data
-    evaluations = [
-        e
-        for e in EVALUATION_MATRIX
-        if e["data"] is not None and Path(e["data"]).exists()
-    ]
+    evaluations = [e for e in EVALUATION_MATRIX if e["data"] is not None and Path(e["data"]).exists()]
     skipped = [e for e in EVALUATION_MATRIX if e not in evaluations]
 
     print("Multi-Strategy WF Evaluation")
@@ -366,9 +354,7 @@ def main():
                     passed = result.get("windows_passed", 0)
                     total = result.get("windows_total", 0)
                     pnl = result.get("mean_total_pnl", 0)
-                    print(
-                        f"DONE ({elapsed:.1f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f}"
-                    )
+                    print(f"DONE ({elapsed:.1f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f}")
                 elif result["status"] == "skipped":
                     print(f"SKIP — {result.get('reason', 'unknown')}")
                 else:
@@ -394,9 +380,7 @@ def main():
     viable = [
         r
         for r in all_results
-        if r["status"] == "complete"
-        and r.get("mean_profit_factor", 0) > 1.0
-        and r.get("windows_passed", 0) >= 3
+        if r["status"] == "complete" and r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3
     ]
     summary["viable_strategies"] = viable
 
@@ -404,13 +388,11 @@ def main():
         json.dump(summary, f, indent=2)
 
     print(f"\n{'=' * 60}")
-    print(
-        f"SUMMARY: {summary['completed']} complete, {summary['skipped']} skipped, {summary['errors']} errors"
-    )
+    print(f"SUMMARY: {summary['completed']} complete, {summary['skipped']} skipped, {summary['errors']} errors")
     print(f"Viable strategies (PF>1.0, 3+ windows): {len(viable)}")
     for v in viable:
         print(
-            f"  ✅ {v['strategy']} on {v['pair']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS"
+            f"  ✅ {v['strategy']} on {v['pair']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS"  # noqa: E501
         )
     print(f"\nFull report: {REPORT_DIR / 'summary.json'}")
 

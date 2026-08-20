@@ -33,9 +33,7 @@ class TestParseShortstat:
         assert stat.deletions == 0
 
     def test_large_insertions(self):
-        stat = _parse_shortstat(
-            " 81 files changed, 12345 insertions(+), 89 deletions(-)"
-        )
+        stat = _parse_shortstat(" 81 files changed, 12345 insertions(+), 89 deletions(-)")
         assert stat.files_changed == 81
         assert stat.insertions == 12345
         assert stat.deletions == 89
@@ -51,14 +49,7 @@ class TestFunctionDefs:
         assert _function_defs(source) == {"outer"}
 
     def test_ignores_class_methods(self):
-        source = (
-            "class Foo:\n"
-            "    def method(self):\n"
-            "        pass\n"
-            "\n"
-            "def standalone():\n"
-            "    pass\n"
-        )
+        source = "class Foo:\n    def method(self):\n        pass\n\ndef standalone():\n    pass\n"
         assert _function_defs(source) == {"standalone"}
 
     def test_no_functions(self):

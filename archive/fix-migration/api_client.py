@@ -327,7 +327,7 @@ class FIXClient:
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
                 # Restrict to cTrader-compatible ciphers
-                ctx.set_ciphers('DEFAULT@SECLEVEL=1')
+                ctx.set_ciphers("DEFAULT@SECLEVEL=1")
                 self._socket = ctx.wrap_socket(self._socket, server_hostname=host)
 
             self._socket.connect((host, port))
@@ -379,14 +379,14 @@ class FIXClient:
         self._heartbeat_timer_thread = t
 
     def _stop_heartbeat_timer(self):
-        stop_event = getattr(self, '_heartbeat_timer_stop', None)
+        stop_event = getattr(self, "_heartbeat_timer_stop", None)
         if stop_event:
             stop_event.set()
 
     def _recv_loop(self):
         buffer = b""
         sock = self._socket
-        assert sock is not None
+        assert sock is not None  # noqa: S101
         sock.settimeout(3)
         last_recv_log = time.time()
         while self._running:
@@ -628,8 +628,7 @@ class FIXClient:
             self._positions[pos_id] = position
 
         logger.info(
-            f"Position report: pos_id={pos_id} symbol={symbol} side={direction.value} "
-            f"entry={entry_px} pnl={pnl}"
+            f"Position report: pos_id={pos_id} symbol={symbol} side={direction.value} entry={entry_px} pnl={pnl}"
         )
         self._trigger_callback("on_position_update", position, msg)
 
@@ -725,17 +724,13 @@ class FIXClient:
         with self._send_lock:
             need_heartbeat = now - self._last_heartbeat_sent > self._heartbeat_interval
             hb_timeout = (
-                self._last_heartbeat_received > 0
-                and now - self._last_heartbeat_received > self._heartbeat_interval * 3
+                self._last_heartbeat_received > 0 and now - self._last_heartbeat_received > self._heartbeat_interval * 3
             )
         if need_heartbeat:
             self._send_heartbeat()
         if hb_timeout:
             logger.warning("Heartbeat timeout — connection may be lost")
-        if (
-            self._last_heartbeat_received > 0
-            and now - self._last_heartbeat_received > self._heartbeat_interval * 3
-        ):
+        if self._last_heartbeat_received > 0 and now - self._last_heartbeat_received > self._heartbeat_interval * 3:
             logger.warning("Heartbeat timeout - connection may be lost")
 
     def send_order(
@@ -781,15 +776,11 @@ class FIXClient:
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
         msg.set_body_field(self.TAG_CLORD_ID, order_id)
         msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_body_field(
-            self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2"
-        )
+        msg.set_body_field(self.TAG_SIDE, "1" if direction == TradeDirection.LONG else "2")
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
         msg.set_body_field(59, "1")  # TimeInForce = Good Till Cancel
-        msg.set_body_field(
-            60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        )  # TransactTime
+        msg.set_body_field(60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3])  # TransactTime
 
         if order_type == OrderType.LIMIT:
             msg.set_body_field(self.TAG_ORD_TYPE, "2")
@@ -813,9 +804,7 @@ class FIXClient:
 
         with self._lock:
             self._pending_orders.pop(order_id, None)
-        logger.error(
-            f"Failed to send order: {order_id} {direction.value} {volume} {symbol}"
-        )
+        logger.error(f"Failed to send order: {order_id} {direction.value} {volume} {symbol}")
         return None
 
     def close_position(
@@ -831,14 +820,8 @@ class FIXClient:
         cTrader opens a NEW position instead of closing the existing one.
         For netting accounts, position_id can be omitted.
         """
-        close_direction = (
-            TradeDirection.SHORT
-            if direction == TradeDirection.LONG
-            else TradeDirection.LONG
-        )
-        order_id = (
-            f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
-        )
+        close_direction = TradeDirection.SHORT if direction == TradeDirection.LONG else TradeDirection.LONG
+        order_id = f"CLOSE_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{symbol}"
 
         order = Order(
             order_id=order_id,
@@ -855,22 +838,16 @@ class FIXClient:
         msg = FIXMessage(msg_type=self.MSG_TYPE_NEW_ORDER_SINGLE)
         msg.set_body_field(self.TAG_CLORD_ID, order_id)
         msg.set_body_field(self.TAG_SYMBOL, _resolve_symbol_id(symbol))
-        msg.set_body_field(
-            self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2"
-        )
+        msg.set_body_field(self.TAG_SIDE, "1" if close_direction == TradeDirection.LONG else "2")
         msg.set_body_field(self.TAG_ORD_QTY, str(_lots_to_units(volume)))
         msg.set_body_field(self.TAG_ORD_TYPE, "1")  # Market order
         if position_id:
             msg.set_body_field(721, position_id)  # PositionID — REQUIRED for hedging
         msg.set_body_field(59, "3")  # TimeInForce = Immediate Or Cancel
-        msg.set_body_field(
-            60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3]
-        )  # TransactTime
+        msg.set_body_field(60, datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3])  # TransactTime
 
         if self._send_message(msg):
-            logger.info(
-                f"Close order sent: {order_id} {close_direction.value} {volume} {symbol}"
-            )
+            logger.info(f"Close order sent: {order_id} {close_direction.value} {volume} {symbol}")
             return order
 
         with self._lock:

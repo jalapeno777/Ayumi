@@ -11,7 +11,7 @@ Covers:
     - ISignalStrategy lifecycle (reset)
 """
 
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime
 
 from core.types import Bar, MarketState, SessionType, TradeDirection
@@ -31,7 +31,7 @@ from strategies.donchian_atr_trend_v2 import (
 # ---------------------------------------------------------------------------
 
 
-def _make_bar(time, o, h, l, c, vol=1000):
+def _make_bar(time, o, h, l, c, vol=1000):  # noqa: E741
     return Bar(
         time=time,
         open=o,
@@ -306,9 +306,7 @@ class TestDonchianATRTrendV2(unittest.TestCase):
         if signal is not None:
             self.assertEqual(signal.direction, TradeDirection.LONG)
             self.assertGreater(signal.confidence, 0.0)
-            self.assertLess(
-                signal.stop_loss, signal.entry_price
-            )  # long: SL below entry
+            self.assertLess(signal.stop_loss, signal.entry_price)  # long: SL below entry
             self.assertGreater(signal.take_profit_1, signal.entry_price)
             self.assertGreater(signal.take_profit_2, signal.take_profit_1)
             self.assertGreater(signal.take_profit_3, signal.take_profit_2)
@@ -325,9 +323,7 @@ class TestDonchianATRTrendV2(unittest.TestCase):
         last_bar = bars[-1]
         new_high = max(b.high for b in bars[-21:-1]) * 1.001
         new_close = ema_val * 0.95  # below EMA
-        bars[-1] = _make_bar(
-            last_bar.time, new_close, new_high, last_bar.low, new_close
-        )
+        bars[-1] = _make_bar(last_bar.time, new_close, new_high, last_bar.low, new_close)
         state = MarketState(bars=bars, current_session=SessionType.LONDON)
         sig = self.strategy.evaluate(state)
         # Should be rejected because close < EMA
@@ -431,9 +427,7 @@ class TestSyntheticXAUUSD(unittest.TestCase):
     def test_fires_on_strong_gold_trend(self):
         cfg = DonchianATRConfig(symbol="XAUUSD")
         strategy = DonchianATRTrendV2Strategy(cfg)
-        bars = _make_strong_trend_bars(
-            n=500, base_price=2000.0, drift=0.5, volatility=2.0, seed=42
-        )
+        bars = _make_strong_trend_bars(n=500, base_price=2000.0, drift=0.5, volatility=2.0, seed=42)
 
         signals = 0
         for i in range(0, len(bars) - 200, 1):

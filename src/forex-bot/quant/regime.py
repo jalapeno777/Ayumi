@@ -135,11 +135,7 @@ def trend_regime(
     close: list[float],
     adx_period: int = 14,
 ) -> TrendRegimeResult:
-    if (
-        len(high) < adx_period + 1
-        or len(low) < adx_period + 1
-        or len(close) < adx_period + 1
-    ):
+    if len(high) < adx_period + 1 or len(low) < adx_period + 1 or len(close) < adx_period + 1:
         return TrendRegimeResult(
             adx_value=0.0,
             direction=TrendDirection.NEUTRAL,
@@ -174,12 +170,8 @@ def trend_regime(
 
     for i in range(adx_period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / adx_period) + true_ranges[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - (smoothed_plus_dm / adx_period) + plus_dms[i]
-        )
-        smoothed_minus_dm = (
-            smoothed_minus_dm - (smoothed_minus_dm / adx_period) + minus_dms[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / adx_period) + plus_dms[i]
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / adx_period) + minus_dms[i]
 
     if smoothed_tr == 0:
         plus_di = 0.0
@@ -263,11 +255,7 @@ def combined_regime(
 
     session_score = min(session_regime.vol_multiplier, 1.5) / 1.5
 
-    confidence = (
-        weights.volatility * vol_score
-        + weights.trend * trend_score
-        + weights.session * session_score
-    )
+    confidence = weights.volatility * vol_score + weights.trend * trend_score + weights.session * session_score
     confidence = max(0.0, min(1.0, confidence))
 
     return CombinedRegime(

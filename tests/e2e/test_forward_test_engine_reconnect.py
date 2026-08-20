@@ -1,6 +1,6 @@
 """Tests for ForwardTestEngine reconnect circuit-breaker (AYUAA-787)."""
 
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -88,9 +88,7 @@ class TestCheckConnectionHealthResetsCounter(unittest.TestCase):
         mock_feed = MagicMock()
         mock_feed.is_running = True
         engine._market_feed = mock_feed
-        engine._health.last_tick_at = __import__("datetime").datetime.now(
-            __import__("datetime").timezone.utc
-        )
+        engine._health.last_tick_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
 
         engine._check_connection_health()
         assert engine._health.reconnection_attempts == 0
@@ -200,9 +198,7 @@ class TestMarketClosedSuppressesReconnect(unittest.TestCase):
         mock_feed = MagicMock()
         mock_feed.is_running = True
         engine._market_feed = mock_feed
-        engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(
-            seconds=120
-        )
+        engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(seconds=120)
 
         engine._check_connection_health()
         assert engine._health.reconnection_attempts == 0
@@ -219,9 +215,7 @@ class TestMarketClosedSuppressesReconnect(unittest.TestCase):
         mock_feed = MagicMock()
         mock_feed.is_running = True
         engine._market_feed = mock_feed
-        engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(
-            seconds=120
-        )
+        engine._health.last_tick_at = datetime.now(timezone.utc) - timedelta(seconds=120)
 
         engine._check_connection_health()
         assert engine._health.reconnection_attempts == 0
@@ -245,9 +239,7 @@ class TestMarketClosedSuppressesReconnect(unittest.TestCase):
         "adapters.ctrader.forward_test_engine._is_forex_market_closed",
         return_value=True,
     )
-    def test_reconnect_fires_when_market_closed_and_feed_disconnected(
-        self, mock_closed
-    ):
+    def test_reconnect_fires_when_market_closed_and_feed_disconnected(self, mock_closed):
         engine = self._make_engine()
 
         mock_feed = MagicMock()

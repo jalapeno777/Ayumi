@@ -112,10 +112,7 @@ class ConsolidationFilter:
                 consolidation_start = scan_start + i + 1
                 break
 
-        if (
-            consolidation_start == pattern_start_idx
-            and len(pre_bars) >= self.min_duration_bars
-        ):
+        if consolidation_start == pattern_start_idx and len(pre_bars) >= self.min_duration_bars:
             consolidation_start = scan_start
 
         duration_bars = pattern_start_idx - consolidation_start
@@ -151,9 +148,7 @@ class MWPatternDetector:
         self.max_bar_span = max_bar_span
         self.consolidation_filter = consolidation_filter
 
-    def detect(
-        self, bars: list[Bar], atr_values: list[float] | None = None
-    ) -> list[MWPattern]:
+    def detect(self, bars: list[Bar], atr_values: list[float] | None = None) -> list[MWPattern]:
         if len(bars) < self.swing_lookback * 2 + 5:
             return []
 
@@ -218,10 +213,7 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = (
-                self._find_valley_between(bars, left_idx, right_idx, swing_highs)
-                - left_price
-            )
+            depth = self._find_valley_between(bars, left_idx, right_idx, swing_highs) - left_price
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
 
@@ -235,9 +227,7 @@ class MWPatternDetector:
             peak_idx, peak_price = self._find_highest_between(bars, left_idx, right_idx)
 
             neckline_level = (left_price + right_price) / 2
-            sessions = [
-                determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)
-            ]
+            sessions = [determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)]
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
 
@@ -288,9 +278,7 @@ class MWPatternDetector:
                 continue
 
             avg_atr = atr_values[(left_idx + right_idx) // 2]
-            depth = left_price - self._find_peak_between(
-                bars, left_idx, right_idx, swing_lows
-            )
+            depth = left_price - self._find_peak_between(bars, left_idx, right_idx, swing_lows)
             if avg_atr > 0 and depth / avg_atr < self.min_depth_atr:
                 continue
 
@@ -304,9 +292,7 @@ class MWPatternDetector:
             peak_idx, peak_price = self._find_lowest_between(bars, left_idx, right_idx)
 
             neckline_level = (left_price + right_price) / 2
-            sessions = [
-                determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)
-            ]
+            sessions = [determine_session(bars[k].time) for k in range(left_idx, right_idx + 1)]
 
             depth_pips = depth / StatisticalStudy.pip_value(bars[left_idx].close)
 
@@ -364,9 +350,7 @@ class MWPatternDetector:
             return min(bars[i].low for i in range(start, end + 1))
         return min(price for _, price in relevant)
 
-    def _find_lowest_between(
-        self, bars: list[Bar], start: int, end: int
-    ) -> tuple[int, float]:
+    def _find_lowest_between(self, bars: list[Bar], start: int, end: int) -> tuple[int, float]:
         min_idx = start
         min_price = bars[start].low
         for i in range(start, end + 1):
@@ -375,9 +359,7 @@ class MWPatternDetector:
                 min_idx = i
         return min_idx, min_price
 
-    def _find_highest_between(
-        self, bars: list[Bar], start: int, end: int
-    ) -> tuple[int, float]:
+    def _find_highest_between(self, bars: list[Bar], start: int, end: int) -> tuple[int, float]:
         max_idx = start
         max_price = bars[start].high
         for i in range(start, end + 1):

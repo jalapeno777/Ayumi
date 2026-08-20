@@ -31,6 +31,7 @@ Usage:
     python3 scripts/ops/honcho_message_backfill.py --dry-run
     HONCHO_BACKFILL_LIVE=1 python3 scripts/ops/honcho_message_backfill.py --apply
 """
+
 from __future__ import annotations
 
 import argparse
@@ -76,6 +77,7 @@ LIST_PAGE_SIZE = 200
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class MessageEvent:
     """Single parsed message from a session transcript.
@@ -84,37 +86,37 @@ class MessageEvent:
     and non-empty content after extraction.
     """
 
-    seq: int                # 0-based position in transcript (after filtering)
-    role: str               # "user" | "assistant"
-    content: str            # extracted text content
-    timestamp: str | None   # ISO 8601 timestamp from event (or None)
-    idempotency_key: str    # transcript event id (unique per message)
-    session_stem: str       # JSONL filename stem (the oc_session_id)
-    agent_id: str           # OpenClaw agent id (parent dir of sessions/)
-    source_path: str        # absolute path to transcript
+    seq: int  # 0-based position in transcript (after filtering)
+    role: str  # "user" | "assistant"
+    content: str  # extracted text content
+    timestamp: str | None  # ISO 8601 timestamp from event (or None)
+    idempotency_key: str  # transcript event id (unique per message)
+    session_stem: str  # JSONL filename stem (the oc_session_id)
+    agent_id: str  # OpenClaw agent id (parent dir of sessions/)
+    source_path: str  # absolute path to transcript
 
 
 @dataclass(frozen=True)
 class SessionRecord:
     """Honcho session metadata snapshot for one transcript."""
 
-    oc_session_id: str           # JSONL stem
-    agent_id: str                # OpenClaw agent id
-    honcho_session_id: str        # Honcho session id (digest-derived or direct)
-    last_saved_index: int         # lastSavedIndex watermark (0 if missing)
-    message_count: int             # current honcho.messages count for this session
-    transcript_length: int        # total message events in transcript
+    oc_session_id: str  # JSONL stem
+    agent_id: str  # OpenClaw agent id
+    honcho_session_id: str  # Honcho session id (digest-derived or direct)
+    last_saved_index: int  # lastSavedIndex watermark (0 if missing)
+    message_count: int  # current honcho.messages count for this session
+    transcript_length: int  # total message events in transcript
 
 
 @dataclass(frozen=True)
 class GapInfo:
     """Result of gap-detection on one session."""
 
-    status: str                  # "watermark_intact" | "watermark_corrupted"
+    status: str  # "watermark_intact" | "watermark_corrupted"
     last_saved_index: int
     current_count: int
     transcript_length: int
-    gap_size: int                 # number of messages to insert (0 = skip)
+    gap_size: int  # number of messages to insert (0 = skip)
     reason: str
 
 
@@ -123,12 +125,12 @@ class ScanStats:
     """Aggregate counters for one backfill run."""
 
     sessions_discovered: int = 0
-    sessions_empty: int = 0            # filtered (0 messages)
-    sessions_no_honcho: int = 0        # no matching Honcho session
+    sessions_empty: int = 0  # filtered (0 messages)
+    sessions_no_honcho: int = 0  # no matching Honcho session
     sessions_watermark_intact: int = 0  # count >= lastSavedIndex, skip
     sessions_watermark_corrupted: int = 0  # count < lastSavedIndex, gap fill
-    messages_missing: int = 0          # sum of gap_size across all sessions
-    writes_attempted: int = 0          # how many addMessages calls actually executed
+    messages_missing: int = 0  # sum of gap_size across all sessions
+    writes_attempted: int = 0  # how many addMessages calls actually executed
     writes_succeeded: int = 0
     writes_failed: int = 0
     per_session: list[dict] = field(default_factory=list)
@@ -137,6 +139,7 @@ class ScanStats:
 # ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------
+
 
 def parse_iso_timestamp(ts):
     """Parse an ISO-8601 timestamp string into a tz-aware datetime.
@@ -196,6 +199,7 @@ def agent_id_for_path(path: Path) -> str:
 # File scanning
 # ---------------------------------------------------------------------------
 
+
 def find_session_files(agents_dir, start, end):
     """Discover session JSONL files with mtime in [start, end] (UTC, tz-aware).
 
@@ -228,6 +232,7 @@ def find_session_files(agents_dir, start, end):
 # ---------------------------------------------------------------------------
 # Transcript parsing
 # ---------------------------------------------------------------------------
+
 
 def read_transcript_messages(path: Path) -> list:
     """Parse a session JSONL transcript into MessageEvent objects.
@@ -265,16 +270,18 @@ def read_transcript_messages(path: Path) -> list:
                 content = extract_text_content(msg.get("content"))
                 if not content:
                     continue
-                events.append(MessageEvent(
-                    seq=len(events),
-                    role=role,
-                    content=content,
-                    timestamp=obj.get("timestamp") or msg.get("timestamp"),
-                    idempotency_key=str(obj.get("id") or ""),
-                    session_stem=session_stem,
-                    agent_id=agent_id,
-                    source_path=str(path),
-                ))
+                events.append(
+                    MessageEvent(
+                        seq=len(events),
+                        role=role,
+                        content=content,
+                        timestamp=obj.get("timestamp") or msg.get("timestamp"),
+                        idempotency_key=str(obj.get("id") or ""),
+                        session_stem=session_stem,
+                        agent_id=agent_id,
+                        source_path=str(path),
+                    )
+                )
     except OSError:
         return []
 
@@ -284,6 +291,7 @@ def read_transcript_messages(path: Path) -> list:
 # ---------------------------------------------------------------------------
 # Honcho API client
 # ---------------------------------------------------------------------------
+
 
 class HonchoClient:
     """Minimal Honcho HTTP client for the backfill script.
@@ -332,13 +340,9 @@ class HonchoClient:
                 detail = exc.read().decode("utf-8", errors="replace")[:500]
             except Exception:
                 detail = "<unreadable>"
-            raise HonchoAPIError(
-                f"Honcho HTTP {exc.code} on {method} {path}: {detail}"
-            ) from exc
+            raise HonchoAPIError(f"Honcho HTTP {exc.code} on {method} {path}: {detail}") from exc
         except urllib.error.URLError as exc:
-            raise HonchoAPIError(
-                f"Honcho unreachable at {self.base_url}: {exc}"
-            ) from exc
+            raise HonchoAPIError(f"Honcho unreachable at {self.base_url}: {exc}") from exc
 
     def list_sessions(self):
         """Fetch all sessions in the workspace (paginated)."""
@@ -403,6 +407,7 @@ class HonchoAPIError(RuntimeError):
 # Gap detection
 # ---------------------------------------------------------------------------
 
+
 def detect_gap(last_saved_index, transcript_length, current_count):
     """Apply HR37 §5.2 + §3 watermark corruption logic.
 
@@ -444,10 +449,7 @@ def detect_gap(last_saved_index, transcript_length, current_count):
             current_count=current_count,
             transcript_length=transcript_length,
             gap_size=0,
-            reason=(
-                f"watermark ({last_saved_index}) >= transcript length "
-                f"({transcript_length}); nothing to backfill"
-            ),
+            reason=(f"watermark ({last_saved_index}) >= transcript length ({transcript_length}); nothing to backfill"),
         )
 
     # Watermark INTACT (count >= lastSavedIndex, with lsi > 0) -> skip.
@@ -475,8 +477,7 @@ def detect_gap(last_saved_index, transcript_length, current_count):
             transcript_length=transcript_length,
             gap_size=0,
             reason=(
-                f"watermark intact (count={current_count} >= "
-                f"lastSavedIndex={last_saved_index}); skip conservatively"
+                f"watermark intact (count={current_count} >= lastSavedIndex={last_saved_index}); skip conservatively"
             ),
         )
 
@@ -499,6 +500,7 @@ def detect_gap(last_saved_index, transcript_length, current_count):
 # ---------------------------------------------------------------------------
 # Main flow
 # ---------------------------------------------------------------------------
+
 
 def build_session_lookup(sessions):
     """Build a {oc_session_id: session} map from Honcho sessions list.
@@ -586,27 +588,29 @@ def events_to_honcho_payload(events, recovered_at):
             peer_id = "owner"
         else:
             peer_id = f"agent-{ev.agent_id}"
-        payload.append({
-            "peer_id": peer_id,
-            "content": ev.content,
-            "metadata": {
-                "idempotency_key": ev.idempotency_key,
-                "role": ev.role,
-                "source": "honcho_message_backfill",
-                "recovered_from": "hr37_outage_2026_08_15",
-                "recovered_at": recovered_at,
-                "oc_session_id": ev.session_stem,
-                "oc_agent_id": ev.agent_id,
-                "transcript_seq": ev.seq,
-            },
-        })
+        payload.append(
+            {
+                "peer_id": peer_id,
+                "content": ev.content,
+                "metadata": {
+                    "idempotency_key": ev.idempotency_key,
+                    "role": ev.role,
+                    "source": "honcho_message_backfill",
+                    "recovered_from": "hr37_outage_2026_08_15",
+                    "recovered_at": recovered_at,
+                    "oc_session_id": ev.session_stem,
+                    "oc_agent_id": ev.agent_id,
+                    "transcript_seq": ev.seq,
+                },
+            }
+        )
     return payload
 
 
 def chunked(seq, size):
     """Yield consecutive chunks of `seq` of length at most `size`."""
     for i in range(0, len(seq), size):
-        yield seq[i:i + size]
+        yield seq[i : i + size]
 
 
 def run_backfill(agents_dir, client, apply, start=OUTAGE_START, end=OUTAGE_END):
@@ -635,30 +639,32 @@ def run_backfill(agents_dir, client, apply, start=OUTAGE_START, end=OUTAGE_END):
         events = read_transcript_messages(path)
         if not events:
             stats.sessions_empty += 1
-            stats.per_session.append({
-                "transcript": str(path),
-                "oc_session_id": path.stem,
-                "agent_id": agent_id_for_path(path),
-                "status": "empty_transcript",
-                "messages_in_transcript": 0,
-                "writes_attempted": 0,
-            })
+            stats.per_session.append(
+                {
+                    "transcript": str(path),
+                    "oc_session_id": path.stem,
+                    "agent_id": agent_id_for_path(path),
+                    "status": "empty_transcript",
+                    "messages_in_transcript": 0,
+                    "writes_attempted": 0,
+                }
+            )
             continue
 
-        record, gap, status = resolve_session_record(
-            path, events, honcho_lookup, client
-        )
+        record, gap, status = resolve_session_record(path, events, honcho_lookup, client)
         if record is None:
             stats.sessions_no_honcho += 1
-            stats.per_session.append({
-                "transcript": str(path),
-                "oc_session_id": path.stem,
-                "agent_id": agent_id_for_path(path),
-                "status": "no_honcho_session",
-                "skip_reason": status,
-                "messages_in_transcript": len(events),
-                "writes_attempted": 0,
-            })
+            stats.per_session.append(
+                {
+                    "transcript": str(path),
+                    "oc_session_id": path.stem,
+                    "agent_id": agent_id_for_path(path),
+                    "status": "no_honcho_session",
+                    "skip_reason": status,
+                    "messages_in_transcript": len(events),
+                    "writes_attempted": 0,
+                }
+            )
             continue
 
         per_session = {
@@ -690,7 +696,7 @@ def run_backfill(agents_dir, client, apply, start=OUTAGE_START, end=OUTAGE_END):
             continue
 
         # Live apply: insert messages in chunks of ADD_MESSAGES_LIMIT.
-        gap_events = events[gap.last_saved_index:gap.last_saved_index + gap.gap_size]
+        gap_events = events[gap.last_saved_index : gap.last_saved_index + gap.gap_size]
         payload = events_to_honcho_payload(gap_events, recovered_at)
 
         writes_ok = 0
@@ -745,8 +751,7 @@ def format_stats_table(stats, apply):
             wa = s.get("writes_attempted", 0)
             reason = s.get("gap_reason") or s.get("skip_reason") or ""
             lines.append(
-                f"  - [{agent}] {sid[:36]:36} "
-                f"msgs={ms:>4}  gap={gap:>4}  writes={wa}  status={status}  {reason}"
+                f"  - [{agent}] {sid[:36]:36} msgs={ms:>4}  gap={gap:>4}  writes={wa}  status={status}  {reason}"
             )
     lines.append("=" * 70)
     return "\n".join(lines)

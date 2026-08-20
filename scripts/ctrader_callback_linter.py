@@ -82,11 +82,7 @@ def _enclosing_class(node: ast.AST, tree: ast.AST) -> str | None:
 
 def _is_self_attribute(node: ast.expr) -> str | None:
     """Return method name if node is self.<method>."""
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "self"
-    ):
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "self":
         return node.attr
     return None
 
@@ -170,9 +166,7 @@ def _collect_issues(path: Path, source: str) -> list[dict]:
             )
             continue
 
-        if callback_target and callback_target not in class_methods.get(
-            enclosing_class, set()
-        ):
+        if callback_target and callback_target not in class_methods.get(enclosing_class, set()):
             issues.append(
                 {
                     "path": str(path),

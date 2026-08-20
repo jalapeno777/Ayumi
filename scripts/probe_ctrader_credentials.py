@@ -84,9 +84,7 @@ def validate_credentials(creds: dict[str, str]) -> list[str]:
     return [k for k in REQUIRED_CREDS if not creds.get(k)]
 
 
-def check_auth(
-    creds: dict[str, str], host: str | None = None, port: int = 5035
-) -> ProbeResult:
+def check_auth(creds: dict[str, str], host: str | None = None, port: int = 5035) -> ProbeResult:
     """Attempt to authenticate with cTrader OpenAPI.
 
     Imports ``ctrader_open_api`` and ``CTraderOpenApiClient`` lazily so
@@ -217,9 +215,7 @@ def main() -> int:
         )
     elif args.verbose:
         creds = get_credentials()
-        prefixes = {
-            k: (v[:8] + "..." if len(v) > 8 else "(empty)") for k, v in creds.items()
-        }
+        prefixes = {k: (v[:8] + "..." if len(v) > 8 else "(empty)") for k, v in creds.items()}
         print("cTrader Credential Probe")
         print(f"  Stage:   {result.stage}")
         print(f"  Status:  {'PASS' if result.success else 'FAIL'}")

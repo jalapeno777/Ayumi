@@ -7,7 +7,7 @@ filtering, risk calculation (stop at KC band or ATR-based, TP at R
 multiples), confidence bounds, and cooldown behavior.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, timezone
 
@@ -208,13 +208,13 @@ class TestADXHelper:
 
 class TestKeltner:
     def test_returns_zeros_for_short_data(self):
-        u, m, l = _keltner([1.0, 2.0], [], period=20, atr_mult=1.5)
+        u, m, l = _keltner([1.0, 2.0], [], period=20, atr_mult=1.5)  # noqa: E741
         assert u == 0.0 and m == 0.0 and l == 0.0
 
     def test_bands_symmetric_around_middle(self):
         closes = [1.1000 + i * 0.0001 for i in range(25)]
         atrs = [0.0010]
-        u, m, l = _keltner(closes, atrs, period=20, atr_mult=1.5)
+        u, m, l = _keltner(closes, atrs, period=20, atr_mult=1.5)  # noqa: E741
         assert u > m > l
         assert (u - m) == pytest.approx(m - l, rel=0.01)
 
@@ -412,9 +412,7 @@ class TestSignalStructure:
 
 class TestCooldown:
     def test_cooldown_blocks_consecutive_signals(self):
-        strategy = DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig(cooldown_bars_m15=10)
-        )
+        strategy = DualTFSqueezeProStrategy(DualTFSqueezeProConfig(cooldown_bars_m15=10))
         strategy._bars_since_signal = 3  # within cooldown
         bars = _m15_bars(n=250, trend=0.0003, vol=0.0005)
         state = MarketState(bars=bars)

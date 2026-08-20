@@ -49,9 +49,7 @@ class ProfileRouter:
         Returns Profile or None if rejected (below threshold or at capacity).
         """
         if confidence < 0.0 or confidence > 1.0:
-            raise ValueError(
-                f"Confidence must be between 0.0 and 1.0, got {confidence}"
-            )
+            raise ValueError(f"Confidence must be between 0.0 and 1.0, got {confidence}")
 
         if confidence < self.swarm_threshold:
             logger.debug(

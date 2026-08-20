@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from datetime import datetime
@@ -41,9 +41,7 @@ def _make_bar(
     )
 
 
-def _make_rising_bars(
-    n: int, base_price: float = 1.0, step: float = 0.0001
-) -> list[Bar]:
+def _make_rising_bars(n: int, base_price: float = 1.0, step: float = 0.0001) -> list[Bar]:
     bars = []
     for i in range(n):
         h = (i // 24) % 24
@@ -211,12 +209,8 @@ class TestStatisticalStudy:
         study = _DummyStudy(
             question_id="Q1",
             go_nogo_criteria=[
-                GoNoGoCriteria(
-                    metric="hit_rate", threshold=0.6, operator=">=", weight=2.0
-                ),
-                GoNoGoCriteria(
-                    metric="hit_rate", threshold=0.9, operator=">=", weight=1.0
-                ),
+                GoNoGoCriteria(metric="hit_rate", threshold=0.6, operator=">=", weight=2.0),
+                GoNoGoCriteria(metric="hit_rate", threshold=0.9, operator=">=", weight=1.0),
             ],
         )
         bars = _make_rising_bars(100)
@@ -587,52 +581,38 @@ class TestMWPatternDetector:
 
     def test_w_pattern_detected_with_positive_depth(self):
         bars = self._make_clear_w_pattern_bars()
-        detector = MWPatternDetector(
-            swing_lookback=2, min_bar_span=5, min_depth_atr=0.5
-        )
+        detector = MWPatternDetector(swing_lookback=2, min_bar_span=5, min_depth_atr=0.5)
         patterns = detector.detect(bars)
         w_patterns = [p for p in patterns if p.pattern_type == "W"]
         assert len(w_patterns) >= 1, "Expected at least one W pattern to be detected"
         for p in w_patterns:
-            assert p.depth_pips > 0, (
-                f"W pattern depth_pips should be positive, got {p.depth_pips}"
-            )
+            assert p.depth_pips > 0, f"W pattern depth_pips should be positive, got {p.depth_pips}"
             assert p.valley_peak_price > p.left_shoulder_price, (
                 f"W peak ({p.valley_peak_price}) should be above shoulders ({p.left_shoulder_price})"
             )
 
     def test_m_pattern_detected_with_positive_depth(self):
         bars = self._make_clear_m_pattern_bars()
-        detector = MWPatternDetector(
-            swing_lookback=2, min_bar_span=5, min_depth_atr=0.5
-        )
+        detector = MWPatternDetector(swing_lookback=2, min_bar_span=5, min_depth_atr=0.5)
         patterns = detector.detect(bars)
         m_patterns = [p for p in patterns if p.pattern_type == "M"]
         assert len(m_patterns) >= 1, "Expected at least one M pattern to be detected"
         for p in m_patterns:
-            assert p.depth_pips > 0, (
-                f"M pattern depth_pips should be positive, got {p.depth_pips}"
-            )
+            assert p.depth_pips > 0, f"M pattern depth_pips should be positive, got {p.depth_pips}"
             assert p.valley_peak_price < p.left_shoulder_price, (
                 f"M valley ({p.valley_peak_price}) should be below shoulders ({p.left_shoulder_price})"
             )
 
     def test_atr_filter_rejects_shallow_patterns(self):
         bars = self._make_clear_w_pattern_bars()
-        detector_strict = MWPatternDetector(
-            swing_lookback=2, min_bar_span=5, min_depth_atr=100.0
-        )
+        detector_strict = MWPatternDetector(swing_lookback=2, min_bar_span=5, min_depth_atr=100.0)
         patterns = detector_strict.detect(bars)
         w_patterns = [p for p in patterns if p.pattern_type == "W"]
-        assert len(w_patterns) == 0, (
-            "Extremely high ATR threshold should reject all patterns"
-        )
+        assert len(w_patterns) == 0, "Extremely high ATR threshold should reject all patterns"
 
     def test_atr_filter_accepts_deep_patterns(self):
         bars = self._make_clear_w_pattern_bars()
-        detector_relaxed = MWPatternDetector(
-            swing_lookback=2, min_bar_span=5, min_depth_atr=0.1
-        )
+        detector_relaxed = MWPatternDetector(swing_lookback=2, min_bar_span=5, min_depth_atr=0.1)
         patterns = detector_relaxed.detect(bars)
         w_patterns = [p for p in patterns if p.pattern_type == "W"]
         assert len(w_patterns) >= 1, "Low ATR threshold should accept deep patterns"

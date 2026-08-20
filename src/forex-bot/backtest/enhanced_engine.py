@@ -71,9 +71,7 @@ class EnhancedTradeRecord:
             confluence_count=1,
             rationale=self.rationale,
             partial_closed=len(self.partial_closes) > 0,
-            partial_close_price=self.partial_closes[0]["price"]
-            if self.partial_closes
-            else 0.0,
+            partial_close_price=self.partial_closes[0]["price"] if self.partial_closes else 0.0,
             partial_close_pnl=self.partial_realized_pnl,
         )
 
@@ -96,14 +94,10 @@ class EnhancedBacktestEngine:
             from quant.pipeline import QuantPipeline
 
             if not isinstance(quant_config, QC):
-                raise TypeError(
-                    f"Expected QuantConfig, got {type(quant_config).__name__}"
-                )
+                raise TypeError(f"Expected QuantConfig, got {type(quant_config).__name__}")
             self._quant_pipeline = QuantPipeline(quant_config)
 
-    def run_strategy(
-        self, strategy: ISignalStrategy, bars: list[Bar]
-    ) -> BacktestMetrics:
+    def run_strategy(self, strategy: ISignalStrategy, bars: list[Bar]) -> BacktestMetrics:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
@@ -128,23 +122,15 @@ class EnhancedBacktestEngine:
             if self._is_max_daily_loss_breached():
                 continue
 
-            self._process_open_trades(
-                open_trades, bar, i, bars, trade_records, equity_curve
-            )
+            self._process_open_trades(open_trades, bar, i, bars, trade_records, equity_curve)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
                 )
                 signal = strategy.evaluate(state)
-                if (
-                    signal is not None
-                    and signal.confidence >= self.config.min_confidence
-                ):
+                if signal is not None and signal.confidence >= self.config.min_confidence:
                     if self._quant_pipeline is not None:
                         quant_decision = self._quant_pipeline.pre_trade_check(
                             signal_symbol=self.tm_config.pair,
@@ -172,14 +158,11 @@ class EnhancedBacktestEngine:
                     if entry_allowed.allow_entry:
                         lot_override = (
                             quant_decision.lot_size
-                            if quant_decision is not None
-                            and quant_decision.lot_size is not None
+                            if quant_decision is not None and quant_decision.lot_size is not None
                             else None
                         )
 
-                        trade = self._open_trade(
-                            signal, bar, i, lot_size_override=lot_override
-                        )
+                        trade = self._open_trade(signal, bar, i, lot_size_override=lot_override)
                         if trade is not None:
                             open_trades.append(trade)
                     else:
@@ -187,9 +170,7 @@ class EnhancedBacktestEngine:
 
             equity_curve.append(self.balance)
 
-        closed = self._close_all_open_trades(
-            open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-        )
+        closed = self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close)
         trade_records.extend(closed)
         return self._calculate_metrics(trade_records, equity_curve, rejected_signals)
 
@@ -204,9 +185,7 @@ class EnhancedBacktestEngine:
             )
         return results
 
-    def run_ab_comparison(
-        self, strategy: ISignalStrategy, bars: list[Bar]
-    ) -> tuple[BacktestMetrics, BacktestMetrics]:
+    def run_ab_comparison(self, strategy: ISignalStrategy, bars: list[Bar]) -> tuple[BacktestMetrics, BacktestMetrics]:
         from .multi_strategy_engine import MultiStrategyBacktestEngine
 
         baseline_engine = MultiStrategyBacktestEngine(self.config, [strategy])
@@ -242,9 +221,7 @@ class EnhancedBacktestEngine:
         return drawdown_pct >= self.config.max_total_drawdown_pct
 
     def _is_max_daily_loss_breached(self) -> bool:
-        daily_loss_pct = (
-            self.daily_start_balance - self.balance
-        ) / self.daily_start_balance
+        daily_loss_pct = (self.daily_start_balance - self.balance) / self.daily_start_balance
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
     def _open_trade(
@@ -311,9 +288,7 @@ class EnhancedBacktestEngine:
             result = self.trade_manager.on_bar(trade, bar, bar_index, atr, recent_bars)
 
             if result.action == TradeAction.CLOSE_FULL:
-                pnl = self._calculate_pnl(
-                    trade, result.exit_price, trade.remaining_pct, bar.time
-                )
+                pnl = self._calculate_pnl(trade, result.exit_price, trade.remaining_pct, bar.time)
                 pnl += trade.partial_realized_pnl
                 self.balance += pnl
 
@@ -344,9 +319,7 @@ class EnhancedBacktestEngine:
                 equity_curve.append(self.balance)
 
             elif result.action == TradeAction.CLOSE_PARTIAL:
-                partial_pnl = self._calculate_pnl(
-                    trade, result.exit_price, result.close_pct, bar.time
-                )
+                partial_pnl = self._calculate_pnl(trade, result.exit_price, result.close_pct, bar.time)
                 trade.partial_realized_pnl += partial_pnl
                 self.balance += partial_pnl
                 self._update_peak_and_drawdown()
@@ -426,12 +399,7 @@ class EnhancedBacktestEngine:
         if exit_time is not None and trade.entry_time is not None:
             holding_days = (exit_time.date() - trade.entry_time.date()).days
         if holding_days > 0 and self.config.swap_per_lot_per_day != 0.0:
-            swap_cost = (
-                standard_lots
-                * self.config.swap_per_lot_per_day
-                * holding_days
-                * position_pct
-            )
+            swap_cost = standard_lots * self.config.swap_per_lot_per_day * holding_days * position_pct
         else:
             swap_cost = 0.0
 
@@ -440,9 +408,7 @@ class EnhancedBacktestEngine:
         else:
             pips = (trade.entry_price - exit_price) / pip_value
 
-        pnl = (
-            pips * standard_lots * pip_value * self.config.units_per_lot * position_pct
-        )
+        pnl = pips * standard_lots * pip_value * self.config.units_per_lot * position_pct
         pnl -= commission_cost
         pnl += swap_cost
         return pnl
@@ -480,15 +446,12 @@ class EnhancedBacktestEngine:
             starting_balance=self.config.starting_balance,
             ending_balance=self.balance,
             total_pnl=self.balance - self.config.starting_balance,
-            total_pnl_pct=(self.balance - self.config.starting_balance)
-            / self.config.starting_balance,
+            total_pnl_pct=(self.balance - self.config.starting_balance) / self.config.starting_balance,
             win_rate=0.0,
             total_trades=len(trades),
             winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
             losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
-            ),
+            breakeven_trades=sum(1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN),
             avg_win=0.0,
             avg_loss=0.0,
             largest_win=0.0,
@@ -513,34 +476,22 @@ class EnhancedBacktestEngine:
             losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
 
             metrics.win_rate = metrics.winning_trades / len(trades) * 100
-            metrics.avg_win = (
-                sum(t.profit_loss for t in wins) / len(wins) if wins else 0
-            )
-            metrics.avg_loss = (
-                sum(t.profit_loss for t in losses) / len(losses) if losses else 0
-            )
+            metrics.avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0
+            metrics.avg_loss = sum(t.profit_loss for t in losses) / len(losses) if losses else 0
             metrics.largest_win = max(t.profit_loss for t in wins) if wins else 0
             metrics.largest_loss = min(t.profit_loss for t in losses) if losses else 0
 
             total_wins = sum(t.profit_loss for t in wins)
             total_losses = abs(sum(t.profit_loss for t in losses))
             metrics.profit_factor = (
-                total_wins / total_losses
-                if total_losses > 0
-                else total_wins
-                if total_wins > 0
-                else 0
+                total_wins / total_losses if total_losses > 0 else total_wins if total_wins > 0 else 0
             )
 
-            metrics.avg_risk_reward = (
-                abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
-            )
+            metrics.avg_risk_reward = abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0
             metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
                 (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
             )
-            metrics.avg_holding_bars = sum(
-                t.exit_bar_index - t.entry_bar_index for t in trades
-            ) / len(trades)
+            metrics.avg_holding_bars = sum(t.exit_bar_index - t.entry_bar_index for t in trades) / len(trades)
 
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
@@ -551,9 +502,7 @@ class EnhancedBacktestEngine:
         returns = []
         for i in range(1, len(equity_curve)):
             if equity_curve[i - 1] != 0:
-                returns.append(
-                    (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
-                )
+                returns.append((equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1])
         if not returns:
             return 0.0
         mean_return = sum(returns) / len(returns)

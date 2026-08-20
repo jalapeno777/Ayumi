@@ -160,7 +160,7 @@ def render_markdown_report(
 
     # Sort trials by ascending p-value for the table.
     table = sorted(
-        zip(trials, p_values, bonf_decisions, bh_decisions),
+        zip(trials, p_values, bonf_decisions, bh_decisions),  # noqa: B905
         key=lambda row: row[1],
     )
 
@@ -196,9 +196,7 @@ def render_markdown_report(
     lines.append("")
     lines.append("## Per-trial results")
     lines.append("")
-    lines.append(
-        "Sorted ascending by p-value. ✅ = rejected H0 (significant), ❌ = not rejected."
-    )
+    lines.append("Sorted ascending by p-value. ✅ = rejected H0 (significant), ❌ = not rejected.")
     if n_negative > 0:
         lines.append(
             f"_Note: {n_negative} trial(s) have a non-positive mean Sharpe and are reported as p = 1 "
@@ -223,16 +221,14 @@ def render_markdown_report(
             f"{p:.4g} | {mark_bonf} | {mark_bh} |"
         )
     if elided > 0:
-        lines.append(
-            f"| ... | _({elided} non-candidate trials with non-positive Sharpe elided)_ | | | | | |"
-        )
+        lines.append(f"| ... | _({elided} non-candidate trials with non-positive Sharpe elided)_ | | | | | |")
     lines.append("")
 
     # Surviving candidates under each rule.
     lines.append("## Surviving candidates")
     lines.append("")
-    bonf_survivors = [t.name for t, d in zip(trials, bonf_decisions) if d]
-    bh_survivors = [t.name for t, d in zip(trials, bh_decisions) if d]
+    bonf_survivors = [t.name for t, d in zip(trials, bonf_decisions) if d]  # noqa: B905
+    bh_survivors = [t.name for t, d in zip(trials, bh_decisions) if d]  # noqa: B905
     if bonf_survivors:
         lines.append("**Bonferroni survivors** (FWER controlled):")
         for name in bonf_survivors:
@@ -360,9 +356,7 @@ def load_trials_from_json(path: Path) -> list[Trial]:
     with path.open() as fp:
         data = json.load(fp)
     if not isinstance(data, list):
-        raise ValueError(
-            f"Expected a JSON array of trial records, got {type(data).__name__}"
-        )
+        raise ValueError(f"Expected a JSON array of trial records, got {type(data).__name__}")
     trials: list[Trial] = []
     for entry in data:
         if not isinstance(entry, dict):
@@ -414,9 +408,9 @@ def run(
         "n_uncorrected_significant": sum(1 for p in p_values if p < alpha),
         "n_bonferroni_significant": sum(1 for d in bonf if d),
         "n_bh_significant": sum(1 for d in bh if d),
-        "bonferroni_survivors": [t.name for t, d in zip(trials, bonf) if d],
-        "bh_survivors": [t.name for t, d in zip(trials, bh) if d],
-        "p_values": dict(zip([t.name for t in trials], p_values)),
+        "bonferroni_survivors": [t.name for t, d in zip(trials, bonf) if d],  # noqa: B905
+        "bh_survivors": [t.name for t, d in zip(trials, bh) if d],  # noqa: B905
+        "p_values": dict(zip([t.name for t in trials], p_values)),  # noqa: B905
     }
 
 
@@ -426,12 +420,7 @@ def _default_paths() -> tuple[Path, Path]:
     # scripts/quant/multiple_testing_correction.py -> project root is 3 levels up
     project_root = here.parents[2]
     duckdb_path = project_root / "data" / "research" / "research.duckdb"
-    report_path = (
-        project_root
-        / "reports"
-        / "quant"
-        / f"multiple_testing_{date.today().isoformat()}.md"
-    )
+    report_path = project_root / "reports" / "quant" / f"multiple_testing_{date.today().isoformat()}.md"
     return duckdb_path, report_path
 
 
@@ -449,12 +438,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         default=None,
         help="Path to the SRF research DuckDB (used when --input is not given).",
     )
-    parser.add_argument(
-        "--alpha", type=float, default=0.05, help="Per-test significance level."
-    )
-    parser.add_argument(
-        "--q", type=float, default=0.10, help="BH-FDR target proportion."
-    )
+    parser.add_argument("--alpha", type=float, default=0.05, help="Per-test significance level.")
+    parser.add_argument("--q", type=float, default=0.10, help="BH-FDR target proportion.")
     parser.add_argument(
         "--report",
         type=Path,

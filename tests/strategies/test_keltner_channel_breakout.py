@@ -5,9 +5,7 @@ from backtest.engine import Bar, MarketState, TradeDirection
 from backtest.strategies import KeltnerChannelBreakoutStrategy
 
 
-def _make_bars(
-    n=100, seed=42, base_price=1.1000, trend="flat", vol=0.0005, volume=1000
-):
+def _make_bars(n=100, seed=42, base_price=1.1000, trend="flat", vol=0.0005, volume=1000):
     import numpy as np
     import pandas as pd
 
@@ -15,7 +13,7 @@ def _make_bars(
     dates = pd.date_range("2023-01-01", periods=n, freq="1h")
     price = base_price
     prices = []
-    for i in range(n):
+    for i in range(n):  # noqa: B007
         drift = 0
         if trend == "up":
             drift = 0.0003
@@ -49,7 +47,7 @@ def _make_deterministic_breakout_bars(direction="long", n=50):
     base = 1.1000
     price = base
 
-    for i in range(n - 1):
+    for i in range(n - 1):  # noqa: B007
         if direction == "long":
             price += 0.0001
         else:
@@ -172,9 +170,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
     def test_pip_value_calculation(self):
         self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(150.0), 0.01)
         self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(1.1000), 0.0001)
-        self.assertEqual(
-            KeltnerChannelBreakoutStrategy._get_pip_value(0.00001), 0.00000001
-        )
+        self.assertEqual(KeltnerChannelBreakoutStrategy._get_pip_value(0.00001), 0.00000001)
 
     def test_signal_structure_on_strong_trend(self):
         s = KeltnerChannelBreakoutStrategy(
@@ -310,7 +306,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         s = KeltnerChannelBreakoutStrategy()
         bars = []
         dt = datetime(2023, 1, 1, 0, 0)
-        for i in range(100):
+        for i in range(100):  # noqa: B007
             bars.append(
                 Bar(
                     time=dt,
@@ -329,7 +325,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         s = KeltnerChannelBreakoutStrategy()
         bars = []
         dt = datetime(2023, 1, 1, 0, 0)
-        for i in range(100):
+        for i in range(100):  # noqa: B007
             bars.append(
                 Bar(
                     time=dt,
@@ -354,7 +350,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         s = KeltnerChannelBreakoutStrategy(adx_period=14)
         bars = []
         dt = datetime(2023, 1, 1, 0, 0)
-        for i in range(50):
+        for i in range(50):  # noqa: B007
             bars.append(
                 Bar(
                     time=dt,
@@ -432,7 +428,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         bars = []
         dt = datetime(2023, 1, 1, 0, 0)
         base = 1.1000
-        for i in range(48):
+        for i in range(48):  # noqa: B007
             base -= 0.0001
             bars.append(
                 Bar(
@@ -471,7 +467,7 @@ class TestKeltnerChannelBreakoutStrategy(unittest.TestCase):
         bars = []
         dt = datetime(2023, 1, 1, 0, 0)
         base = 1.1000
-        for i in range(48):
+        for i in range(48):  # noqa: B007
             base += 0.0001
             bars.append(
                 Bar(

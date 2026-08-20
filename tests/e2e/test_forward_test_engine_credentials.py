@@ -92,7 +92,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
     def test_host_from_env(self):
         os.environ["CTRADER_HOST"] = "env.host.com"
         os.environ["CTRADER_ACCOUNT"] = "12345"
-        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_PASSWORD"] = "pw"  # noqa: S105
         config = self._make_config()
         engine = ForwardTestEngine(config=config, strategies=[])
         creds = engine._build_quote_credentials()
@@ -100,7 +100,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
 
     def test_host_falls_back_to_config(self):
         os.environ["CTRADER_ACCOUNT"] = "12345"
-        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_PASSWORD"] = "pw"  # noqa: S105
         config = self._make_config(quote_host="fallback.host.com")
         engine = ForwardTestEngine(config=config, strategies=[])
         with patch("dotenv.load_dotenv"):
@@ -109,7 +109,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
 
     def test_reads_ctrader_readonly_ssl_port_not_trade_port(self):
         os.environ["CTRADER_ACCOUNT"] = "12345"
-        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_PASSWORD"] = "pw"  # noqa: S105
         os.environ["CTRADER_READONLY_SSL_PORT"] = "5211"
         config = self._make_config()
         engine = ForwardTestEngine(config=config, strategies=[])
@@ -119,7 +119,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
 
     def test_trade_port_env_var_is_ignored_for_quote_credentials(self):
         os.environ["CTRADER_ACCOUNT"] = "12345"
-        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_PASSWORD"] = "pw"  # noqa: S105
         os.environ["CTRADER_SSL_PORT"] = "5202"
         os.environ["CTRADER_READONLY_SSL_PORT"] = "5211"
         config = self._make_config()
@@ -130,7 +130,7 @@ class TestForwardTestEngineQuoteCredentials(unittest.TestCase):
 
     def test_port_falls_back_to_config_when_no_env_var(self):
         os.environ["CTRADER_ACCOUNT"] = "12345"
-        os.environ["CTRADER_PASSWORD"] = "pw"
+        os.environ["CTRADER_PASSWORD"] = "pw"  # noqa: S105
         config = self._make_config(quote_port=9999)
         engine = ForwardTestEngine(config=config, strategies=[])
         with patch("dotenv.load_dotenv"):

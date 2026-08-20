@@ -388,9 +388,7 @@ class TestGridManager(unittest.TestCase):
             current_time=datetime(2025, 1, 1, 10, 0),
             equity=10000.0,
         )
-        mgr.on_trade_close(
-            trades2[0], second_buy.price - 0.020, datetime(2025, 1, 1, 10, 0)
-        )
+        mgr.on_trade_close(trades2[0], second_buy.price - 0.020, datetime(2025, 1, 1, 10, 0))
         mgr.on_bar(
             high=1.1005,
             low=1.0995,
@@ -551,9 +549,7 @@ class TestGridDirectionalBias(unittest.TestCase):
             symbol="EURUSD",
             grid_spacing=0.0015,
             levels_per_side=5,
-            trend_filter=TrendFilterConfig(
-                directional_threshold=15.0, full_grid_threshold=10.0
-            ),
+            trend_filter=TrendFilterConfig(directional_threshold=15.0, full_grid_threshold=10.0),
         )
         mgr = GridManager(cfg)
         state = mgr.initialize(1.1000, 10000.0)
@@ -564,7 +560,7 @@ def _make_ranging_bars(n=500, center=1.1000, half_range=0.0030):
     bars = []
     import random
 
-    rng = random.Random(42)
+    rng = random.Random(42)  # noqa: S311
     price = center
     for i in range(n):
         change = rng.uniform(-half_range, half_range) * 0.1
@@ -692,7 +688,7 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
 
         from backtest.engine import Bar
 
-        rng = random.Random(42)
+        rng = random.Random(42)  # noqa: S311
         bars = []
         price = center
         for i in range(n):
@@ -753,9 +749,7 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         bars = self._make_xauusd_bars(500, 2350.0, 25.0)
         grid_cfg = GridConfig.ftmo("XAUUSD")
         try:
-            m = self._run_grid_backtest(
-                bars, grid_cfg, spread_pips=35.0, slippage_pips=10.0
-            )
+            m = self._run_grid_backtest(bars, grid_cfg, spread_pips=35.0, slippage_pips=10.0)
             self.assertIsNotNone(m)
         except Exception as e:
             self.fail(f"Backtest raised {e}")
@@ -820,16 +814,10 @@ class TestGridSpreadSlippageTuning(unittest.TestCase):
         adapter_with_slip = GridStrategyAdapter(GridConfig.eurusd())
 
         engine_no_slip = MultiStrategyBacktestEngine(cfg_no_slip, [adapter_no_slip])
-        engine_with_slip = MultiStrategyBacktestEngine(
-            cfg_with_slip, [adapter_with_slip]
-        )
+        engine_with_slip = MultiStrategyBacktestEngine(cfg_with_slip, [adapter_with_slip])
 
-        m_no_slip = engine_no_slip.run_all_strategies(bars)[
-            adapter_no_slip.name
-        ].metrics
-        m_with_slip = engine_with_slip.run_all_strategies(bars)[
-            adapter_with_slip.name
-        ].metrics
+        m_no_slip = engine_no_slip.run_all_strategies(bars)[adapter_no_slip.name].metrics
+        m_with_slip = engine_with_slip.run_all_strategies(bars)[adapter_with_slip.name].metrics
 
         if m_no_slip.total_trades > 0 and m_with_slip.total_trades > 0:
             self.assertLessEqual(
@@ -890,17 +878,13 @@ class TestGridWalkForward(unittest.TestCase):
             train_results = engine.run_all_strategies(window_bars[:train_end])
             test_results = engine.run_all_strategies(test_bars)
 
-            train_results[adapter.name].metrics
+            train_results[adapter.name].metrics  # noqa: B018
             test_m = test_results[adapter.name].metrics
 
-            self.assertGreater(
-                test_m.total_trades, 0, f"Window {w}: no trades in test period"
-            )
+            self.assertGreater(test_m.total_trades, 0, f"Window {w}: no trades in test period")
             windows_passed += 1
 
-        self.assertGreaterEqual(
-            windows_passed, 2, "Need at least 2 valid walk-forward windows"
-        )
+        self.assertGreaterEqual(windows_passed, 2, "Need at least 2 valid walk-forward windows")
 
     def test_walk_forward_reproducible_with_fixed_seed(self):
         from backtest.engine import BacktestConfig, Bar

@@ -14,7 +14,7 @@ Usage:
     df = client.get_historical_bars("EURUSD", "M15", "2026-01-01", "2026-04-10")
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from datetime import datetime, timezone
@@ -67,7 +67,7 @@ SYMBOL_NAME_MAP = {
     "EURJPY": "EUR/JPY",
 }
 
-OAUTH_TOKEN_URL = "https://openapi.ctrader.com/apps/token"
+OAUTH_TOKEN_URL = "https://openapi.ctrader.com/apps/token"  # noqa: S105
 _PROTOBUF_HOST = "live.ctraderapi.com"
 _PROTOBUF_PORT = 5035
 _MAX_BARS_PER_REQUEST = 1000
@@ -86,9 +86,7 @@ def _run_reactor(coro):
         finally:
             reactor.stop()
 
-    reactor.callWhenRunning(
-        lambda: reactor.callLater(0.01, lambda: ensureDeferred(capture()))
-    )
+    reactor.callWhenRunning(lambda: reactor.callLater(0.01, lambda: ensureDeferred(capture())))
     reactor.run(installSignalHandlers=0)
 
     if error_holder[0]:
@@ -153,9 +151,7 @@ class CTraderHistoricalClient:
         )
         data = resp.json()
         if data.get("errorCode"):
-            raise RuntimeError(
-                f"OAuth2 token refresh failed: {data.get('description', data.get('errorCode'))}"
-            )
+            raise RuntimeError(f"OAuth2 token refresh failed: {data.get('description', data.get('errorCode'))}")
         self.access_token = data.get("accessToken") or data.get("access_token")
         self.refresh_token = data.get("refreshToken") or data.get("refresh_token")
         logger.info("OAuth2 token refreshed successfully")
@@ -187,9 +183,7 @@ class CTraderHistoricalClient:
                 )
                 return self._ctid_account_id
         available = [a.traderLogin for a in parsed.ctidTraderAccount]
-        raise ValueError(
-            f"trader_login {self.trader_login} not found. Available: {available}"
-        )
+        raise ValueError(f"trader_login {self.trader_login} not found. Available: {available}")
 
     def _ensure_ctid(self) -> int:
         """Resolve trader_login to ctidTraderAccountId (outside reactor context)."""
@@ -238,9 +232,7 @@ class CTraderHistoricalClient:
         for name, sid in syms.items():
             if name.replace("/", "").upper() == symbol.upper().replace("/", ""):
                 return sid
-        raise ValueError(
-            f"Symbol '{symbol}' not found. Available: {list(syms.keys())[:20]}"
-        )
+        raise ValueError(f"Symbol '{symbol}' not found. Available: {list(syms.keys())[:20]}")
 
     async def _a_fetch_trendbars(
         self,
@@ -263,9 +255,7 @@ class CTraderHistoricalClient:
         if res.payloadType == 2142:
             err = ProtoOAErrorRes()
             err.ParseFromString(res.payload)
-            raise RuntimeError(
-                f"Trendbars request failed: {err.errorCode} - {err.description}"
-            )
+            raise RuntimeError(f"Trendbars request failed: {err.errorCode} - {err.description}")
 
         parsed = ProtoOAGetTrendbarsRes()
         parsed.ParseFromString(res.payload)
@@ -298,15 +288,11 @@ class CTraderHistoricalClient:
         matching the existing CSV format.
         """
         if timeframe not in TIMEFRAME_MAP:
-            raise ValueError(
-                f"Unsupported timeframe '{timeframe}'. Supported: {list(TIMEFRAME_MAP.keys())}"
-            )
+            raise ValueError(f"Unsupported timeframe '{timeframe}'. Supported: {list(TIMEFRAME_MAP.keys())}")
 
         period = TIMEFRAME_MAP[timeframe]
 
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(
-            tzinfo=timezone.utc
-        )
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         from_ts = int(start_dt.timestamp() * 1000)
         to_ts = int(end_dt.timestamp() * 1000)
@@ -322,9 +308,7 @@ class CTraderHistoricalClient:
                 all_bars = []
                 current_from = from_ts
                 while True:
-                    bars_page = await self._a_fetch_trendbars(
-                        client, symbol_id, period, current_from, to_ts
-                    )
+                    bars_page = await self._a_fetch_trendbars(client, symbol_id, period, current_from, to_ts)
                     if not bars_page:
                         break
                     all_bars.extend(bars_page)
@@ -348,12 +332,8 @@ class CTraderHistoricalClient:
         all_bars = _run_reactor(fetch_all)
 
         if not all_bars:
-            logger.warning(
-                "No bars for %s %s [%s → %s]", symbol, timeframe, start_date, end_date
-            )
-            return pd.DataFrame(
-                columns=["Date", "Open", "High", "Low", "Close", "Volume"]
-            )
+            logger.warning("No bars for %s %s [%s → %s]", symbol, timeframe, start_date, end_date)
+            return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume"])
 
         df = pd.DataFrame(all_bars)
         df["Date"] = pd.to_datetime(df["utc_timestamp_ms"], unit="ms", utc=True)
@@ -368,11 +348,7 @@ class CTraderHistoricalClient:
             }
         )
         df = df[["Date", "Open", "High", "Low", "Close", "Volume"]]
-        df = (
-            df.drop_duplicates(subset=["Date"])
-            .sort_values("Date")
-            .reset_index(drop=True)
-        )
+        df = df.drop_duplicates(subset=["Date"]).sort_values("Date").reset_index(drop=True)
         return df
 
     def download_and_save(
@@ -397,11 +373,7 @@ class CTraderHistoricalClient:
         if append and path.exists():
             existing = pd.read_csv(path)
             df = pd.concat([existing, df], ignore_index=True)
-            df = (
-                df.drop_duplicates(subset=["Date"])
-                .sort_values("Date")
-                .reset_index(drop=True)
-            )
+            df = df.drop_duplicates(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
         df.to_csv(path, index=False)
         logger.info("Saved %d bars to %s", len(df), path)

@@ -1,6 +1,6 @@
 """§8 — Session definitions, phase scoring, weekly model, and Asia rules."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytz
 from datetime import datetime, time
@@ -193,13 +193,10 @@ class SessionAnalyzer:
 
         start, end = session_times
         session_duration = (
-            datetime.combine(utc_dt.date(), end)
-            - datetime.combine(utc_dt.date(), start)
+            datetime.combine(utc_dt.date(), end) - datetime.combine(utc_dt.date(), start)
         ).total_seconds()
 
-        elapsed = (
-            datetime.combine(utc_dt.date(), t) - datetime.combine(utc_dt.date(), start)
-        ).total_seconds()
+        elapsed = (datetime.combine(utc_dt.date(), t) - datetime.combine(utc_dt.date(), start)).total_seconds()
 
         if session_duration <= 0:
             return result
@@ -264,8 +261,7 @@ class SessionAnalyzer:
         if wick_count >= 3 or ny_wicky:
             result["manipulation_detected"] = True
             result["notes"] = (
-                "Wick-heavy candles detected around NY open. "
-                "Do not trade the manipulation — wait for it to fail."
+                "Wick-heavy candles detected around NY open. Do not trade the manipulation — wait for it to fail."
             )
 
         return result

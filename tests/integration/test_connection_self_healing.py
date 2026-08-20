@@ -177,7 +177,7 @@ _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 
-import time
+import time  # noqa: I001
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -212,12 +212,8 @@ def _install_mock_stubs(monkeypatch):
     monkeypatch.setitem(_sys.modules, "ctrader_open_api", _ctrader)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.protobuf", _protobuf_mod)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages", _messages_mod)
-    monkeypatch.setitem(
-        _sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs
-    )
-    monkeypatch.setitem(
-        _sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs
-    )
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -239,9 +235,9 @@ def feed():
     f = OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="test_client",
-        client_secret="test_secret",
-        access_token="test_token",
-        refresh_token="test_refresh",
+        client_secret="test_secret",  # noqa: S106
+        access_token="test_token",  # noqa: S106
+        refresh_token="test_refresh",  # noqa: S106
     )
     yield f
     # Cleanup: cancel any timers
@@ -398,9 +394,7 @@ class TestHeartbeatMonitor:
         sm.transition_to(CS.AUTHENTICATED, reason="test")
 
         # Simulate very stale heartbeat on CTraderConnection
-        feed._conn._last_heartbeat_recv = (
-            time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
-        )
+        feed._conn._last_heartbeat_recv = time.monotonic() - _HEARTBEAT_RECONNECT_SEC - 1
         feed._client = None  # prevent actual stopService call
 
         feed._check_heartbeat_health()
@@ -490,14 +484,10 @@ class TestStaleTickDetector:
 
         # Mock weekday (not weekend)
         with patch("adapters.ctrader.open_api_spot_feed.datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(
-                2026, 6, 3, 12, 0, tzinfo=timezone.utc
-            )  # Wednesday
+            mock_dt.now.return_value = datetime(2026, 6, 3, 12, 0, tzinfo=timezone.utc)  # Wednesday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
 
-            feed._last_tick_recv_monotonic = (
-                time.monotonic() - _STALE_TICK_FREEZE_SEC - 1
-            )
+            feed._last_tick_recv_monotonic = time.monotonic() - _STALE_TICK_FREEZE_SEC - 1
             feed._check_stale_ticks()
 
         mock_kill_switch.activate_global_freeze.assert_called_once()
@@ -546,8 +536,10 @@ class TestReconciliation:
 
     def test_on_reconnected_registers_callback(self, feed):
         """on_reconnected() adds callback to list."""
+
         def cb(duration):
             return None
+
         feed.on_reconnected(cb)
         assert cb in feed._on_reconnected_callbacks
 
@@ -800,9 +792,7 @@ class TestStateChangeCallbacks:
         sm = feed.state_manager
         events = []
 
-        sm.on_state_change(
-            lambda old, new, reason, meta: events.append((old, new, reason))
-        )
+        sm.on_state_change(lambda old, new, reason, meta: events.append((old, new, reason)))
 
         sm.transition_to(CS.CONNECTING, reason="test_connect")
         assert len(events) == 1

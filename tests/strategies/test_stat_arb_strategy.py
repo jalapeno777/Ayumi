@@ -177,9 +177,7 @@ class TestStatArbStrategy(unittest.TestCase):
             result = strategy.evaluate(state)
             if result is not None:
                 found_entry = True
-                self.assertIn(
-                    result.direction, [TradeDirection.LONG, TradeDirection.SHORT]
-                )
+                self.assertIn(result.direction, [TradeDirection.LONG, TradeDirection.SHORT])
                 self.assertGreater(result.entry_price, 0)
                 self.assertGreater(result.confidence, 0)
                 self.assertGreater(result.stop_loss, 0)
@@ -283,9 +281,7 @@ class TestStatArbStrategyIntegration(unittest.TestCase):
             if result is not None:
                 signals_found.append((i, result.direction, result.confidence))
 
-        self.assertGreater(
-            len(signals_found), 0, "Cointegrated pairs should produce signals"
-        )
+        self.assertGreater(len(signals_found), 0, "Cointegrated pairs should produce signals")
 
     def test_strategy_state_tracks_position(self):
         strategy = StatArbStrategy(

@@ -7,7 +7,7 @@ each test instantiates a fresh ``SignalStatsRecorder`` and exercises
 the real filesystem code path.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import threading
@@ -184,10 +184,7 @@ class TestSignalStatsRecorder:
             except BaseException as exc:  # noqa: BLE001
                 errors.append(exc)
 
-        threads = [
-            threading.Thread(target=worker, args=(i,), name=f"writer-{i}")
-            for i in range(n_threads)
-        ]
+        threads = [threading.Thread(target=worker, args=(i,), name=f"writer-{i}") for i in range(n_threads)]
         for t in threads:
             t.start()
         for t in threads:
@@ -200,16 +197,12 @@ class TestSignalStatsRecorder:
         with open(log, "r", encoding="utf-8") as f:
             lines = [ln for ln in f.read().splitlines() if ln.strip()]
 
-        assert len(lines) == n_threads * n_per_thread, (
-            f"expected {n_threads * n_per_thread} lines, got {len(lines)}"
-        )
+        assert len(lines) == n_threads * n_per_thread, f"expected {n_threads * n_per_thread} lines, got {len(lines)}"
 
         seen_ids: set[str] = set()
         for line in lines:
             row = json.loads(line)  # raises JSONDecodeError on a torn line
-            assert row["signal_id"] not in seen_ids, (
-                f"duplicate signal_id {row['signal_id']!r} indicates a write race"
-            )
+            assert row["signal_id"] not in seen_ids, f"duplicate signal_id {row['signal_id']!r} indicates a write race"
             seen_ids.add(row["signal_id"])
             assert row["symbol"] == "EURUSD"
             assert row["outcome"] == "open"
@@ -220,22 +213,12 @@ class TestSignalStatsRecorder:
         recorder = SignalStatsRecorder(log_path=str(log))
 
         # 2 GBPUSD
-        recorder.record_signal(
-            _make_signal(signal_id="g-1", symbol="GBPUSD", strategy="S1")
-        )
-        recorder.record_signal(
-            _make_signal(signal_id="g-2", symbol="GBPUSD", strategy="S1")
-        )
+        recorder.record_signal(_make_signal(signal_id="g-1", symbol="GBPUSD", strategy="S1"))
+        recorder.record_signal(_make_signal(signal_id="g-2", symbol="GBPUSD", strategy="S1"))
         # 3 USDJPY (two different strategies)
-        recorder.record_signal(
-            _make_signal(signal_id="u-1", symbol="USDJPY", strategy="S1")
-        )
-        recorder.record_signal(
-            _make_signal(signal_id="u-2", symbol="USDJPY", strategy="S2")
-        )
-        recorder.record_signal(
-            _make_signal(signal_id="u-3", symbol="USDJPY", strategy="S2")
-        )
+        recorder.record_signal(_make_signal(signal_id="u-1", symbol="USDJPY", strategy="S1"))
+        recorder.record_signal(_make_signal(signal_id="u-2", symbol="USDJPY", strategy="S2"))
+        recorder.record_signal(_make_signal(signal_id="u-3", symbol="USDJPY", strategy="S2"))
 
         # No filter — total should be 5
         all_stats = recorder.get_stats()

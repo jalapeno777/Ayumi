@@ -12,7 +12,7 @@ Tests cover:
 - Output file format
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import sqlite3
@@ -294,11 +294,7 @@ class TestSpreadLookup:
         assert _get_spread_for_pair("eurusd") == 1.5
 
     def test_unknown_pair(self):
-        assert (
-            _get_spread_for_pair("UNKNOWN") == DEFAULT_SPREAD_PIPS
-            if (DEFAULT_SPREAD_PIPS := 1.5)
-            else None
-        )
+        assert _get_spread_for_pair("UNKNOWN") == DEFAULT_SPREAD_PIPS if (DEFAULT_SPREAD_PIPS := 1.5) else None
 
     def test_gold(self):
         assert _get_spread_for_pair("XAUUSD") == 2.5
@@ -325,9 +321,7 @@ class TestIterSignals:
 
     def test_empty_lines_skipped(self, tmp_path):
         f = tmp_path / "test.jsonl"
-        f.write_text(
-            '\n{"strategy_id": "test", "timestamp": "2025-01-06T07:00:00"}\n\n   \n'
-        )
+        f.write_text('\n{"strategy_id": "test", "timestamp": "2025-01-06T07:00:00"}\n\n   \n')
         signals = list(iter_signals(tmp_path))
         assert len(signals) == 1
 
@@ -373,9 +367,7 @@ class TestIterSignals:
 
 class TestFetchSpreadFromDB:
     def test_nonexistent_db(self, tmp_path):
-        result = fetch_spread_from_db(
-            tmp_path / "nope.db", "EURUSD", "2025-01-06T07:00:00"
-        )
+        result = fetch_spread_from_db(tmp_path / "nope.db", "EURUSD", "2025-01-06T07:00:00")
         assert result is None
 
     def test_db_without_spread_column(self, tmp_path):
@@ -552,9 +544,7 @@ class TestCLI:
     def test_cli_runs_successfully(self, tmp_path):
         d = tmp_path / "signals"
         d.mkdir()
-        (d / "test.jsonl").write_text(
-            '{"symbol": "EURUSD", "direction": "LONG", "timestamp": "2025-01-06T07:00:00"}\n'
-        )
+        (d / "test.jsonl").write_text('{"symbol": "EURUSD", "direction": "LONG", "timestamp": "2025-01-06T07:00:00"}\n')
         output = tmp_path / "out.jsonl"
         db = tmp_path / "trading.db"
         # Create empty db
@@ -748,7 +738,7 @@ class TestRealisticInputs:
         """Document realistic input → output mapping."""
         output = tmp_path / "audit.jsonl"
         run_audit(realistic_signals, output, empty_db)
-        results = [json.loads(l) for l in output.read_text().strip().split("\n")]
+        results = [json.loads(l) for l in output.read_text().strip().split("\n")]  # noqa: E741
 
         # Sample 1: killzone_momentum at 07:00:00 → VALID
         r1 = results[0]
@@ -759,6 +749,4 @@ class TestRealisticInputs:
         r4 = results[3]
         assert r4["timestamp"] == "2025-01-06T07:00:00+00:00"
         assert r4["timing_status"] == "VALID"
-        assert (
-            r1["signal_id"] != r4["signal_id"]
-        )  # different IDs despite same timestamp
+        assert r1["signal_id"] != r4["signal_id"]  # different IDs despite same timestamp

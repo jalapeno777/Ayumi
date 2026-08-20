@@ -28,7 +28,7 @@ Usage
     bbw_pct = bbw_percentile(highs, lows, closes)   # pd.Series in [0, 1]
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from collections.abc import Sequence
 

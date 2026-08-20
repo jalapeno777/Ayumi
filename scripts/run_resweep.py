@@ -32,7 +32,7 @@ FOREX_BOT = PROJECT_ROOT / "src" / "forex-bot"
 sys.path.insert(0, str(FOREX_BOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from backtest.types import Bar  # noqa: E402
+from backtest.types import Bar  # noqa: E402, I001
 from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 
 # bootstrap_ci lives in the root-level backtest/ package
@@ -44,7 +44,7 @@ _bc_mod = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_bc_mod)
 bootstrap_pf = _bc_mod.bootstrap_pf
 
-from risk.ftmo_params import (  # noqa: E402
+from risk.ftmo_params import (  # noqa: E402, I001
     FTMO_RISK_PER_TRADE_PCT,
     FTMO_DAILY_DD_LIMIT_PCT,
     FTMO_MAX_CONCURRENT_POSITIONS,
@@ -132,16 +132,10 @@ def load_bars(csv_path: Path, pair: str) -> list[Bar]:
     df = df.rename(columns=col_map)
 
     if "timestamp" not in df.columns:
-        raise ValueError(
-            f"No timestamp column in {csv_path}. Columns: {list(df.columns)}"
-        )
+        raise ValueError(f"No timestamp column in {csv_path}. Columns: {list(df.columns)}")
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = (
-        df.sort_values("timestamp")
-        .drop_duplicates(subset=["timestamp"])
-        .reset_index(drop=True)
-    )
+    df = df.sort_values("timestamp").drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
 
     bars = []
     for _, row in df.iterrows():
@@ -229,11 +223,7 @@ def run_single_strategy(name: str, spec: dict, bars: list[Bar]) -> dict:
         window_pnls = []
         if hasattr(wm, "trades") and wm.trades:
             window_pnls = [t.get("pnl", 0) for t in wm.trades if isinstance(t, dict)]
-        elif (
-            hasattr(wm, "total_pnl")
-            and hasattr(wm, "trade_count")
-            and wm.trade_count > 0
-        ):
+        elif hasattr(wm, "total_pnl") and hasattr(wm, "trade_count") and wm.trade_count > 0:
             # Fallback: distribute total PnL evenly if individual trades unavailable
             window_pnls = [wm.total_pnl / wm.trade_count] * wm.trade_count
 
@@ -355,9 +345,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if not csv_path.exists():
             logger.error("Data file missing for %s: %s", name, csv_path)
-            failures.append(
-                {"strategy": name, "error": f"data file missing: {csv_path}"}
-            )
+            failures.append({"strategy": name, "error": f"data file missing: {csv_path}"})
             continue
 
         logger.info("=== %s (%s %s) ===", name, spec["pair"], spec["timeframe"])
@@ -389,22 +377,12 @@ def main(argv: list[str] | None = None) -> int:
                     "profit_factor": result["bootstrap_ci"]["profit_factor"],
                     "ci_lower": result["bootstrap_ci"]["ci_lower"],
                     "ci_upper": result["bootstrap_ci"]["ci_upper"],
-                    "win_rate": result["aggregated"]["mean_win_rate"]
-                    if result["aggregated"]
-                    else None,
-                    "sharpe": result["aggregated"]["mean_sharpe_ratio"]
-                    if result["aggregated"]
-                    else None,
-                    "max_dd": result["aggregated"]["mean_max_drawdown"]
-                    if result["aggregated"]
-                    else None,
+                    "win_rate": result["aggregated"]["mean_win_rate"] if result["aggregated"] else None,
+                    "sharpe": result["aggregated"]["mean_sharpe_ratio"] if result["aggregated"] else None,
+                    "max_dd": result["aggregated"]["mean_max_drawdown"] if result["aggregated"] else None,
                     "go_nogo": result["go_nogo"],
-                    "windows_passed": result["aggregated"]["windows_passed"]
-                    if result["aggregated"]
-                    else 0,
-                    "total_windows": result["aggregated"]["total_windows"]
-                    if result["aggregated"]
-                    else N_WINDOWS,
+                    "windows_passed": result["aggregated"]["windows_passed"] if result["aggregated"] else 0,
+                    "total_windows": result["aggregated"]["total_windows"] if result["aggregated"] else N_WINDOWS,
                     "elapsed_seconds": result["elapsed_seconds"],
                 }
             )
@@ -435,9 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dump(_sanitize(summary), f, indent=2)
 
     logger.info("\n=== SUMMARY ===")
-    logger.info(
-        "Strategies completed: %d, Failures: %d", len(summary_rows), len(failures)
-    )
+    logger.info("Strategies completed: %d, Failures: %d", len(summary_rows), len(failures))
     for row in summary_rows:
         trades = row["total_trades"]
         pf = row["profit_factor"]

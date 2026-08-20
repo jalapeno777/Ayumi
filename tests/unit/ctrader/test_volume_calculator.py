@@ -3,17 +3,15 @@
 All tests construct SymbolInfo objects directly — no cTrader connection required.
 """
 
-import sys
+import sys  # noqa: I001
 import os
 
 import pytest
 
 # Ensure src/forex-bot is importable
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
 
-from adapters.ctrader.market_data_feed import SymbolInfo
+from adapters.ctrader.market_data_feed import SymbolInfo  # noqa: I001
 from adapters.ctrader.volume_calculator import VolumeCalculator
 
 
@@ -87,9 +85,7 @@ def test_round_trip_forex(calc):
     for lots in [0.01, 0.1, 0.5, 1.0, 2.5]:
         vol = calc.lots_to_volume(1, lots)
         back = calc.volume_to_lots(1, vol)
-        assert back == pytest.approx(lots, abs=1e-9), (
-            f"Round-trip failed for {lots} lots"
-        )
+        assert back == pytest.approx(lots, abs=1e-9), f"Round-trip failed for {lots} lots"
 
 
 def test_round_trip_crypto(calc):
@@ -97,9 +93,7 @@ def test_round_trip_crypto(calc):
     for lots in [0.01, 1.0, 10.0]:
         vol = calc.lots_to_volume(2, lots)
         back = calc.volume_to_lots(2, vol)
-        assert back == pytest.approx(lots, abs=1e-9), (
-            f"Round-trip failed for {lots} lots"
-        )
+        assert back == pytest.approx(lots, abs=1e-9), f"Round-trip failed for {lots} lots"
 
 
 # ── Volume validation ───────────────────────────────────────────────────────

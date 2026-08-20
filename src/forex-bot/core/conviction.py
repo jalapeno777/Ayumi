@@ -124,9 +124,4 @@ class KillCriterion:
 
     def __str__(self) -> str:
         status = "FAIL" if self.triggered else "PASS"
-        return (
-            f"{self.name}: {status} "
-            f"value={self.value:.4f} "
-            f"threshold={self.threshold:.4f} "
-            f"({self.evidence})"
-        )
+        return f"{self.name}: {status} value={self.value:.4f} threshold={self.threshold:.4f} ({self.evidence})"

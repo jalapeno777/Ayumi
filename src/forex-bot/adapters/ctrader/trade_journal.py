@@ -82,9 +82,7 @@ class TradeJournal:
             entry.signal_confidence,
         )
 
-    def log_close(
-        self, position: Position, strategy_id: str = "", strategy_type: str = ""
-    ):
+    def log_close(self, position: Position, strategy_id: str = "", strategy_type: str = ""):
         trade_id = position.position_id
         open_info = self._open_trades.pop(trade_id, None)
 
@@ -102,11 +100,7 @@ class TradeJournal:
             strat_id = strat_id or open_info["entry"].strategy_id
             strat_type = strat_type or open_info["entry"].strategy_type
 
-        self._entries = [
-            e
-            for e in self._entries
-            if not (e.trade_id == trade_id and e.status == "open")
-        ]
+        self._entries = [e for e in self._entries if not (e.trade_id == trade_id and e.status == "open")]
 
         entry = JournalEntry(
             trade_id=trade_id,
@@ -138,11 +132,7 @@ class TradeJournal:
         )
 
     def get_strategy_summary(self, strategy_id: str) -> dict:
-        closed = [
-            e
-            for e in self._entries
-            if e.strategy_id == strategy_id and e.status == "closed"
-        ]
+        closed = [e for e in self._entries if e.strategy_id == strategy_id and e.status == "closed"]
         if not closed:
             return {"strategy_id": strategy_id, "total_trades": 0}
         wins = [e for e in closed if e.closed_pnl > 0]
@@ -199,9 +189,7 @@ class TradeJournal:
         if not entry.strategy_id:
             return
         date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        filename = os.path.join(
-            self._log_dir, f"strategy_{entry.strategy_id}_{date_str}.csv"
-        )
+        filename = os.path.join(self._log_dir, f"strategy_{entry.strategy_id}_{date_str}.csv")
         self._append_csv(filename, entry)
 
     @staticmethod

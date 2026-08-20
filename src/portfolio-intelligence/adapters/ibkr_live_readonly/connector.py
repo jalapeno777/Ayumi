@@ -74,7 +74,7 @@ HTTP_TIMEOUT_SECONDS = 30.0
 USER_AGENT = "ayumi-portfolio-intelligence/1.0 (+read-only)"
 
 # Default env keys.
-ENV_TOKEN = "IBKR_FLEX"
+ENV_TOKEN = "IBKR_FLEX"  # noqa: S105
 ENV_QUERY_ID = "IBKR_FLEX_QUERY_ID"
 ENV_PATH_DEFAULT = ".env"
 
@@ -243,13 +243,9 @@ class IBKRFlexConnector:
         self._query_id: str = query_id or env_data.get(ENV_QUERY_ID, "")
 
         if not self._token:
-            raise IBKRFlexConfigError(
-                f"Missing {ENV_TOKEN} in {self._env_path} (or pass token= explicitly)"
-            )
+            raise IBKRFlexConfigError(f"Missing {ENV_TOKEN} in {self._env_path} (or pass token= explicitly)")
         if not self._query_id:
-            raise IBKRFlexConfigError(
-                f"Missing {ENV_QUERY_ID} in {self._env_path} (or pass query_id= explicitly)"
-            )
+            raise IBKRFlexConfigError(f"Missing {ENV_QUERY_ID} in {self._env_path} (or pass query_id= explicitly)")
 
         # Last successful fetch (populated by fetch_statement()).
         self._last_statement: FlexStatement | None = None
@@ -289,7 +285,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None
+        assert self._last_statement is not None  # noqa: S101
         return [p.to_dict() for p in self._last_statement.positions]
 
     def get_cash_summary(self) -> dict[str, float]:
@@ -298,7 +294,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None
+        assert self._last_statement is not None  # noqa: S101
         return {c.currency: c.ending_cash for c in self._last_statement.cash_report}
 
     def get_account_nav(self) -> float:
@@ -312,7 +308,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None
+        assert self._last_statement is not None  # noqa: S101
         positions_total = sum(p.position_value for p in self._last_statement.positions)
         cash_total = sum(c.ending_cash for c in self._last_statement.cash_report)
         return positions_total + cash_total
@@ -324,8 +320,8 @@ class IBKRFlexConnector:
 
         Raises urllib.error.URLError on network errors.
         """
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310  # noqa: S310
             # Flex Web Service returns XML; charset is documented as UTF-8.
             data = resp.read()
             charset = resp.headers.get_content_charset() or "utf-8"
@@ -365,8 +361,7 @@ class IBKRFlexConnector:
             except IBKRFlexStatementNotReady as exc:
                 if time.monotonic() >= deadline:
                     raise IBKRFlexStatementNotReady(
-                        f"Statement {ref_code!r} not ready after "
-                        f"{self._poll_max_wait:.0f}s: {exc}"
+                        f"Statement {ref_code!r} not ready after {self._poll_max_wait:.0f}s: {exc}"
                     ) from exc
                 logger.debug(
                     "Statement %s not ready, sleeping %.1fs",
@@ -388,9 +383,7 @@ class IBKRFlexConnector:
 
         ref_code = _text_of(root, "ReferenceCode")
         if not ref_code:
-            raise IBKRFlexError(
-                f"SendRequest returned no ReferenceCode and no ErrorCode: {body[:200]!r}"
-            )
+            raise IBKRFlexError(f"SendRequest returned no ReferenceCode and no ErrorCode: {body[:200]!r}")
         logger.info("SendRequest OK, ReferenceCode=%s", ref_code)
         return ref_code
 
@@ -403,9 +396,7 @@ class IBKRFlexConnector:
         err_msg = _text_of(root, "ErrorMessage") or "unknown error"
         code_int = _safe_int(err_code)
         try:
-            raise _classify_flex_error(
-                code_int, err_msg, context=f"GetStatement({ref_code})"
-            )
+            raise _classify_flex_error(code_int, err_msg, context=f"GetStatement({ref_code})")
         except IBKRFlexStatementNotReady:
             # Re-raise so the polling loop can catch and retry.
             raise
@@ -421,9 +412,7 @@ class IBKRFlexConnector:
         err_code = _text_of(root, "ErrorCode")
         if err_code:
             err_msg = _text_of(root, "ErrorMessage") or "unknown error"
-            raise _classify_flex_error(
-                _safe_int(err_code), err_msg, context=f"GetStatement({ref_code})"
-            )
+            raise _classify_flex_error(_safe_int(err_code), err_msg, context=f"GetStatement({ref_code})")
 
         # The statement root is <FlexStatement>; child may be <Statement>
         # in some versions or <Account> directly in others. We handle both.
@@ -478,14 +467,9 @@ class IBKRFlexConnector:
             position_value=_safe_float(_text_of(pos_el, "positionValue")),
             asset_category=_text_of(pos_el, "assetCategory"),
             currency=_text_of(pos_el, "currency"),
-            cost_basis=_safe_float(
-                _text_of(pos_el, "costBasisMoney") or _text_of(pos_el, "costBasis")
-            ),
+            cost_basis=_safe_float(_text_of(pos_el, "costBasisMoney") or _text_of(pos_el, "costBasis")),
             mark_price=_safe_float(_text_of(pos_el, "markPrice")),
-            unrealized_pnl=_safe_float(
-                _text_of(pos_el, "fifoPnlUnrealized")
-                or _text_of(pos_el, "unrealizedPnl")
-            ),
+            unrealized_pnl=_safe_float(_text_of(pos_el, "fifoPnlUnrealized") or _text_of(pos_el, "unrealizedPnl")),
         )
 
     def _parse_cash_report(self, account: Element) -> list[CashRow]:
@@ -495,9 +479,7 @@ class IBKRFlexConnector:
                 CashRow(
                     currency=_text_of(cash_el, "currency"),
                     ending_cash=_safe_float(_text_of(cash_el, "endingCash")),
-                    ending_settled_cash=_safe_float(
-                        _text_of(cash_el, "endingSettledCash")
-                    ),
+                    ending_settled_cash=_safe_float(_text_of(cash_el, "endingSettledCash")),
                     ending_trade_cash=_safe_float(_text_of(cash_el, "endingTradeCash")),
                 )
             )
@@ -526,11 +508,9 @@ class IBKRFlexConnector:
     @staticmethod
     def _safe_parse(body: str) -> Element:
         try:
-            return ET.fromstring(body)
+            return ET.fromstring(body)  # noqa: S314
         except ET.ParseError as exc:
-            raise IBKRFlexError(
-                f"Failed to parse Flex XML response: {exc} (body starts: {body[:200]!r})"
-            ) from exc
+            raise IBKRFlexError(f"Failed to parse Flex XML response: {exc} (body starts: {body[:200]!r})") from exc
 
 
 # ── Module-level helpers ─────────────────────────────────────────────────────
@@ -572,9 +552,7 @@ def _classify_flex_error(code: int, message: str, *, context: str) -> IBKRFlexEr
     if code == ERR_QUERY_NOT_FOUND:
         return IBKRFlexQueryInvalidError(f"{context}: query invalid (1014): {message}")
     if code == ERR_STATEMENT_NOT_READY:
-        return IBKRFlexStatementNotReady(
-            f"{context}: statement not ready (1015): {message}"
-        )
+        return IBKRFlexStatementNotReady(f"{context}: statement not ready (1015): {message}")
     return IBKRFlexError(f"{context}: Flex error {code}: {message}")
 
 

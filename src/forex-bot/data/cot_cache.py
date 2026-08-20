@@ -217,7 +217,7 @@ class COTCache:
             try:
                 with open(self._meta_path) as f:
                     return json.load(f)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
         return {"entries": {}}
 

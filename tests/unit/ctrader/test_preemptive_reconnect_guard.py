@@ -12,7 +12,7 @@ AC4 from card d88336dc: Test that reproduces the timeout condition and
 validates the fix.
 """
 
-import sys
+import sys  # noqa: I001
 import threading
 import time
 import uuid
@@ -124,9 +124,7 @@ class TestPreemptiveReconnectGuard:
         # Reconnect SHOULD fire — no orders to disrupt
         trigger_mock.assert_called_once()
         call_args = trigger_mock.call_args
-        assert call_args[0][0] >= 30.0, (
-            f"Expected silence >= 30s, got {call_args[0][0]}"
-        )
+        assert call_args[0][0] >= 30.0, f"Expected silence >= 30s, got {call_args[0][0]}"
 
     def test_reconnect_skipped_when_reauth_in_progress(self):
         """Reconnect must not fire if re-auth is already in progress."""

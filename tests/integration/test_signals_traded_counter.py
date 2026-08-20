@@ -16,7 +16,7 @@ E7 the base-class ``_evaluate_strategies`` is dead code in the launcher
 path and is intentionally left alone.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from unittest.mock import MagicMock
 
@@ -36,7 +36,7 @@ from adapters.ctrader.models import TradeDirection
 # loader the launcher uses.
 def _load_launcher_module():
     """Load scripts/launch_blend_forward_test.py without running main()."""
-    import importlib.util
+    import importlib.util  # noqa: I001
     from _project_root import PROJECT_ROOT
 
     path = str(PROJECT_ROOT / "scripts" / "launch_blend_forward_test.py")

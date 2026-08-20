@@ -13,7 +13,7 @@ Tick-aggregation regression fixture (card d69e3542): documents the
 from the original 4/5 baseline on non-tick-aggregated data.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, timezone
 
@@ -69,18 +69,18 @@ def _make_state(bars: list[Bar] | None = None) -> MarketState:
 def test_module_imports():
     from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
-    assert TTCXAUUSDStrategy is not None
-    assert TTCXAUUSDStrategy.name == "TTC XAUUSD M15"
+    assert TTCXAUUSDStrategy is not None  # noqa: S101
+    assert TTCXAUUSDStrategy.name == "TTC XAUUSD M15"  # noqa: S101
 
 
 def test_strategy_instantiation():
     from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
     strat = TTCXAUUSDStrategy()
-    assert strat is not None
+    assert strat is not None  # noqa: S101
     # Inner strategy must be wired
-    assert hasattr(strat, "_strategy")
-    assert strat._strategy is not None
+    assert hasattr(strat, "_strategy")  # noqa: S101
+    assert strat._strategy is not None  # noqa: S101
 
 
 # ---------- Smoke test: mock tick → signal pipeline ----------
@@ -103,14 +103,14 @@ def test_evaluate_with_sufficient_bars_returns_signal_or_none():
     result = strat.evaluate(state)
 
     if result is not None:
-        assert hasattr(result, "direction")
-        assert result.direction in (
+        assert hasattr(result, "direction")  # noqa: S101
+        assert result.direction in (  # noqa: S101
             TradeDirection.LONG,
             TradeDirection.SHORT,
             TradeDirection.NEUTRAL,
         )
-        assert 0.0 <= result.confidence <= 1.0
-        assert result.entry_price > 0
+        assert 0.0 <= result.confidence <= 1.0  # noqa: S101
+        assert result.entry_price > 0  # noqa: S101
     # else: None is acceptable (strategy filtering it out)
 
 
@@ -124,7 +124,7 @@ def test_evaluate_with_insufficient_bars_returns_none():
     # Should not raise
     result = strat.evaluate(state)
     # No signal expected with no bars
-    assert result is None
+    assert result is None  # noqa: S101
 
 
 def test_evaluate_does_not_leak_tts_module_state():
@@ -134,12 +134,12 @@ def test_evaluate_does_not_leak_tts_module_state():
     restore originals in the finally block — that would silently corrupt
     the shared tts_strategy module for every other caller.
     """
-    from strategies.ttc_xauusd import TTCXAUUSDStrategy
+    from strategies.ttc_xauusd import TTCXAUUSDStrategy  # noqa: I001
     import backtest.strategies.tts_strategy as tts_mod
 
     # Snapshot one of the monkeypatched constants
     original_value = getattr(tts_mod, "MW_BASE_CONFIDENCE", None)
-    assert original_value is not None, "MW_BASE_CONFIDENCE should exist in TTS module"
+    assert original_value is not None, "MW_BASE_CONFIDENCE should exist in TTS module"  # noqa: S101
 
     # Construct two strategies back-to-back
     TTCXAUUSDStrategy()
@@ -147,9 +147,8 @@ def test_evaluate_does_not_leak_tts_module_state():
     TTCXAUUSDStrategy()
 
     final_value = getattr(tts_mod, "MW_BASE_CONFIDENCE", None)
-    assert final_value == original_value, (
-        f"TTS module constant leaked: was {original_value}, "
-        f"mid-init {mid_value}, after {final_value}"
+    assert final_value == original_value, (  # noqa: S101
+        f"TTS module constant leaked: was {original_value}, mid-init {mid_value}, after {final_value}"
     )
 
 
@@ -162,13 +161,13 @@ def test_ttc_xauusd_in_default_registry():
 
     reg = default_registry()
     ttc = reg.get("ttc_xauusd")
-    assert ttc is not None, "ttc_xauusd missing from default registry"
-    assert ttc.strategy_id == "ttc_xauusd"
-    assert ttc.name == "TTC XAUUSD M15"
-    assert ttc.strategy_type == "momentum"
-    assert "XAUUSD" in [s.upper() for s in ttc.symbols]
-    assert "M15" in ttc.timeframes
-    assert ttc.active is True
+    assert ttc is not None, "ttc_xauusd missing from default registry"  # noqa: S101
+    assert ttc.strategy_id == "ttc_xauusd"  # noqa: S101
+    assert ttc.name == "TTC XAUUSD M15"  # noqa: S101
+    assert ttc.strategy_type == "momentum"  # noqa: S101
+    assert "XAUUSD" in [s.upper() for s in ttc.symbols]  # noqa: S101
+    assert "M15" in ttc.timeframes  # noqa: S101
+    assert ttc.active is True  # noqa: S101
 
 
 def test_ttc_xauusd_selectable_for_xauusd():
@@ -178,7 +177,7 @@ def test_ttc_xauusd_selectable_for_xauusd():
     reg = default_registry()
     xauusd_strategies = reg.get_for_symbol("XAUUSD")
     strategy_ids = [s.strategy_id for s in xauusd_strategies]
-    assert "ttc_xauusd" in strategy_ids, (
+    assert "ttc_xauusd" in strategy_ids, (  # noqa: S101
         f"ttc_xauusd not selectable for XAUUSD. Currently selectable: {strategy_ids}"
     )
 
@@ -190,7 +189,7 @@ def test_ttc_xauusd_listed_in_active_strategies():
 
     reg = default_registry()
     all_active_ids = [s.strategy_id for s in reg.get_all_active()]
-    assert "ttc_xauusd" in all_active_ids
+    assert "ttc_xauusd" in all_active_ids  # noqa: S101
 
 
 # ---------- Realistic input sanity checks ----------
@@ -199,21 +198,21 @@ def test_ttc_xauusd_listed_in_active_strategies():
 def test_xauusd_bars_have_realistic_prices():
     """Sanity check: synthetic XAUUSD bar stream is in the right ballpark."""
     bars = _make_xauusd_m15_bars()
-    assert len(bars) == BAR_COUNT
+    assert len(bars) == BAR_COUNT  # noqa: S101
     for bar in bars:
         # XAUUSD is gold — should be in the $1000-$5000 range for synthetic data
-        assert 1000.0 < bar.close < 5000.0, f"Unrealistic XAUUSD price: {bar.close}"
-        assert bar.high >= bar.low
-        assert bar.high >= bar.open
-        assert bar.high >= bar.close
-        assert bar.low <= bar.open
-        assert bar.low <= bar.close
+        assert 1000.0 < bar.close < 5000.0, f"Unrealistic XAUUSD price: {bar.close}"  # noqa: S101
+        assert bar.high >= bar.low  # noqa: S101
+        assert bar.high >= bar.open  # noqa: S101
+        assert bar.high >= bar.close  # noqa: S101
+        assert bar.low <= bar.open  # noqa: S101
+        assert bar.low <= bar.close  # noqa: S101
 
 
 def test_bars_are_chronologically_ordered():
     bars = _make_xauusd_m15_bars()
     for i in range(1, len(bars)):
-        assert bars[i].time > bars[i - 1].time, (
+        assert bars[i].time > bars[i - 1].time, (  # noqa: S101
             f"Bar {i} time {bars[i].time} not after bar {i - 1} time {bars[i - 1].time}"
         )
 
@@ -231,10 +230,10 @@ def test_tts_strategy_documents_pf_cap_decision():
     from backtest.strategies.tts_strategy import TTSStrategy
 
     docstring = TTSStrategy.__doc__ or ""
-    assert "PF-Cap" in docstring or "pf-cap" in docstring.lower(), (
+    assert "PF-Cap" in docstring or "pf-cap" in docstring.lower(), (  # noqa: S101
         "TTSStrategy docstring must document the PF-cap design decision"
     )
-    assert "signal generator" in docstring.lower(), (
+    assert "signal generator" in docstring.lower(), (  # noqa: S101
         "Docstring must clarify TTSStrategy is a signal generator, not risk manager"
     )
 
@@ -246,14 +245,14 @@ def test_ttc_optimizer_has_embargo_parameter():
     leakage prevention. Even though the walk-forward runner doesn't
     wire it through yet, the parameter must exist for forward compatibility.
     """
-    import inspect
+    import inspect  # noqa: I001
     from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
 
     sig = inspect.signature(run_ttc_optuna)
-    assert "embargo_bars" in sig.parameters, (
+    assert "embargo_bars" in sig.parameters, (  # noqa: S101
         "run_ttc_optuna must have embargo_bars parameter for OOS leakage prevention"
     )
-    assert sig.parameters["embargo_bars"].default == 0, (
+    assert sig.parameters["embargo_bars"].default == 0, (  # noqa: S101
         "embargo_bars should default to 0 (no embargo, preserves current behavior)"
     )
 
@@ -263,10 +262,10 @@ def test_ttc_optimizer_documents_embargo_in_docstring():
     from backtest.parameter_sweep import ttc_optimizer
 
     docstring = ttc_optimizer.__doc__ or ""
-    assert "embargo" in docstring.lower(), (
+    assert "embargo" in docstring.lower(), (  # noqa: S101
         "ttc_optimizer module docstring must document embargo / leakage risk"
     )
-    assert "leakage" in docstring.lower() or "autocorrelation" in docstring.lower(), (
+    assert "leakage" in docstring.lower() or "autocorrelation" in docstring.lower(), (  # noqa: S101
         "Docstring must explain why embargo matters for financial data"
     )
 
@@ -276,7 +275,7 @@ def test_ttc_xauusd_has_recommended_embargo_constant():
     from strategies.ttc_xauusd import RECOMMENDED_EMBARGO_BARS_M15
 
     # 96 bars = 24 hours of M15 data
-    assert RECOMMENDED_EMBARGO_BARS_M15 == 96, (
+    assert RECOMMENDED_EMBARGO_BARS_M15 == 96, (  # noqa: S101
         f"Expected 96 (24h of M15), got {RECOMMENDED_EMBARGO_BARS_M15}"
     )
 
@@ -286,7 +285,7 @@ def test_ttc_xauusd_documents_risk_delegation():
     from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
     docstring = TTCXAUUSDStrategy.__doc__ or ""
-    assert "risk" in docstring.lower(), (
+    assert "risk" in docstring.lower(), (  # noqa: S101
         "Docstring must address risk management delegation"
     )
 
@@ -297,14 +296,14 @@ def test_ttc_optimizer_prunes_pf_zero_trials():
     This verifies the code path exists. Full integration testing
     requires historical data and is out of scope for this card.
     """
-    import inspect
+    import inspect  # noqa: I001
     from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
 
     source = inspect.getsource(run_ttc_optuna)
-    assert "mean_profit_factor" in source, (
+    assert "mean_profit_factor" in source, (  # noqa: S101
         "Objective must check mean_profit_factor for PF=0 pruning"
     )
-    assert "TrialPruned" in source, (
+    assert "TrialPruned" in source, (  # noqa: S101
         "Objective must prune trials (raise TrialPruned) for PF=0"
     )
 
@@ -389,10 +388,10 @@ def test_tick_agg_xauusd_data_exists():
     from backtest.parameter_sweep.ttc_optimizer import _DATA_DIR
 
     csv_path = _DATA_DIR / "XAUUSD_M15.csv"
-    assert csv_path.exists(), f"Tick-agg XAUUSD M15 data missing: {csv_path}"
+    assert csv_path.exists(), f"Tick-agg XAUUSD M15 data missing: {csv_path}"  # noqa: S101
 
     line_count = sum(1 for _ in open(csv_path)) - 1  # minus header
-    assert line_count > 100000, (
+    assert line_count > 100000, (  # noqa: S101
         f"Expected ~104K rows in tick-agg data, got {line_count}"
     )
 
@@ -407,22 +406,22 @@ def test_tick_agg_regression_0_of_5_windows():
     This test locks the regression baseline so future improvements can
     measure progress. When the strategy recovers, update the fixture.
     """
-    assert TICK_AGG_AGGREGATED["windows_passed"] == 0
-    assert TICK_AGG_AGGREGATED["total_windows"] == 5
+    assert TICK_AGG_AGGREGATED["windows_passed"] == 0  # noqa: S101
+    assert TICK_AGG_AGGREGATED["total_windows"] == 5  # noqa: S101
 
     # All individual windows also fail
     for w in TICK_AGG_PER_WINDOW:
-        assert w["passed_go_nogo"] is False, (
+        assert w["passed_go_nogo"] is False, (  # noqa: S101
             f"Window {w['window']} unexpectedly passes Go/No-Go"
         )
 
     # Mean P&L is negative — strategy is not profitable on tick-agg data
-    assert TICK_AGG_AGGREGATED["mean_total_pnl"] < 0
+    assert TICK_AGG_AGGREGATED["mean_total_pnl"] < 0  # noqa: S101
 
     # Window 4 is the worst (PnL = -699.92, WR = 10.5%)
     worst = min(TICK_AGG_PER_WINDOW, key=lambda w: w["total_pnl"])
-    assert worst["window"] == 4
-    assert worst["total_pnl"] < -600
+    assert worst["window"] == 4  # noqa: S101
+    assert worst["total_pnl"] < -600  # noqa: S101
 
 
 def test_tick_agg_optimizer_all_trials_failed():
@@ -433,11 +432,11 @@ def test_tick_agg_optimizer_all_trials_failed():
     tick-aggregated data. This suggests the regression is structural
     (data characteristics), not a parameter tuning issue.
     """
-    assert TICK_AGG_OPTIMIZER_SUMMARY["all_go_nogo_false"] is True
-    assert TICK_AGG_OPTIMIZER_SUMMARY["trials_completed"] >= 80, (
+    assert TICK_AGG_OPTIMIZER_SUMMARY["all_go_nogo_false"] is True  # noqa: S101
+    assert TICK_AGG_OPTIMIZER_SUMMARY["trials_completed"] >= 80, (  # noqa: S101
         "Optimizer should have completed most trials"
     )
-    assert TICK_AGG_OPTIMIZER_SUMMARY["best_score"] < 0, (
+    assert TICK_AGG_OPTIMIZER_SUMMARY["best_score"] < 0, (  # noqa: S101
         "Best score should be negative (Go/No-Go penalty dominates)"
     )
 
@@ -451,12 +450,12 @@ def test_tick_agg_low_trade_count_documented():
     that the TTC strategy relies on.
     """
     for w in TICK_AGG_PER_WINDOW:
-        assert w["trade_count"] < 20, (
+        assert w["trade_count"] < 20, (  # noqa: S101
             f"Window {w['window']} has unexpectedly high trade count"
         )
     # Several windows are below the 15-trade minimum for statistical significance
     below_min = sum(1 for w in TICK_AGG_PER_WINDOW if w["trade_count"] < 15)
-    assert below_min >= 2, (
+    assert below_min >= 2, (  # noqa: S101
         f"Expected ≥2 windows below 15-trade minimum, got {below_min}"
     )
 

@@ -6,7 +6,7 @@ Rewritten for post-refactor API (card 99a4d28d).
 - KellyCriterion() → kelly_criterion()
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -115,20 +115,10 @@ class TestDynamicSizing:
 
 class TestCheckPositionLimits:
     def test_within_limits(self):
-        assert (
-            check_position_limits(
-                {"EURUSD": 0.5}, "GBPUSD", max_per_pair=1.0, max_total=3.0
-            )
-            is True
-        )
+        assert check_position_limits({"EURUSD": 0.5}, "GBPUSD", max_per_pair=1.0, max_total=3.0) is True
 
     def test_max_per_pair(self):
-        assert (
-            check_position_limits(
-                {"EURUSD": 1.0}, "EURUSD", max_per_pair=1.0, max_total=3.0
-            )
-            is False
-        )
+        assert check_position_limits({"EURUSD": 1.0}, "EURUSD", max_per_pair=1.0, max_total=3.0) is False
 
     def test_max_total(self):
         assert (
@@ -142,6 +132,4 @@ class TestCheckPositionLimits:
         )
 
     def test_new_pair_no_positions(self):
-        assert (
-            check_position_limits({}, "EURUSD", max_per_pair=1.0, max_total=3.0) is True
-        )
+        assert check_position_limits({}, "EURUSD", max_per_pair=1.0, max_total=3.0) is True

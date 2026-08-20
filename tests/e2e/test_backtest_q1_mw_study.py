@@ -1,6 +1,6 @@
 """Tests for Q1BacktestStudy — M/W Formation 3:1 R&R"""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from datetime import datetime
@@ -119,16 +119,13 @@ class TestQ1BacktestStudy:
         sl_count = sum(
             1
             for p in study.detector.detect(bars, study.compute_atr(bars, 14))
-            if study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"]
-            == "SL"
+            if study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"] == "SL"
         )
         if sl_count > 0:
             closed_count = sum(
                 1
                 for v in [
-                    study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))[
-                        "outcome"
-                    ]
+                    study._evaluate_pattern(p, bars, study.compute_atr(bars, 14))["outcome"]
                     for p in study.detector.detect(bars, study.compute_atr(bars, 14))
                 ]
                 if v != "open"

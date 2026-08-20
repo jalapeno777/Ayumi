@@ -4,7 +4,7 @@ Tests use a temp workboard sqlite fixture so the production DB is not
 read during unit tests.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import sqlite3
@@ -156,11 +156,9 @@ def _make_detector(workboard_db, plans_dir, ops_dir, now):
 # ── Tests ─────────────────────────────────────────────────────────────────
 
 
-def test_check_card_staleness_warns_and_auto_creates(
-    workboard_db: Path, now: datetime
-) -> None:
+def test_check_card_staleness_warns_and_auto_creates(workboard_db: Path, now: datetime) -> None:
     """Cards older than 3d → warn, older than 7d → auto_create."""
-    from monitoring.drift_detector import (
+    from monitoring.drift_detector import (  # noqa: I001
         CARD_WARN_DAYS,
         CARD_AUTO_CREATE_DAYS,
     )
@@ -201,9 +199,7 @@ def test_check_card_staleness_warns_and_auto_creates(
     assert by_id["stale-1"].age_days >= CARD_AUTO_CREATE_DAYS
 
 
-def test_auto_create_stale_card_writes_draft(
-    ops_dir: Path, workboard_db: Path, now: datetime
-) -> None:
+def test_auto_create_stale_card_writes_draft(ops_dir: Path, workboard_db: Path, now: datetime) -> None:
     """auto_create_stale_card should append a draft to stale_cards.jsonl."""
     det = _make_detector(workboard_db, Path("."), ops_dir, now)
     _insert_card(
@@ -231,9 +227,7 @@ def test_auto_create_stale_card_writes_draft(
     assert parsed["parent_card_id"] == "to-auto"
 
 
-def test_auto_create_stale_card_noop_for_warn(
-    workboard_db: Path, ops_dir: Path, now: datetime
-) -> None:
+def test_auto_create_stale_card_noop_for_warn(workboard_db: Path, ops_dir: Path, now: datetime) -> None:
     """auto_create_stale_card should NOT create a draft for warn-level cards."""
     det = _make_detector(workboard_db, Path("."), ops_dir, now)
     _insert_card(
@@ -286,10 +280,7 @@ def test_check_phase_staleness_with_recent_audit(
     iso_now = now.isoformat()
     iso_2d_ago = (now - timedelta(days=2)).isoformat()
     plan.write_text(
-        f"# Quest Test\n\n"
-        f"### Phase 1: Build\n\n"
-        f"- {iso_2d_ago} — audit entry\n"
-        f"- {iso_now} — second audit entry\n"
+        f"# Quest Test\n\n### Phase 1: Build\n\n- {iso_2d_ago} — audit entry\n- {iso_now} — second audit entry\n"
     )
 
     det = _make_detector(workboard_db, plans_dir, ops_dir, now)
@@ -302,9 +293,7 @@ def test_escalate_phase_appends_to_escalation_queue(
     """escalate_phase writes a record to data/ops/escalation_queue.jsonl."""
     plan = plans_dir / "quest-test.md"
     iso_10d_ago = (now - timedelta(days=10)).isoformat()
-    plan.write_text(
-        f"# Quest Test\n\n### Phase 2: Hard Part\n\n- {iso_10d_ago} — very old audit\n"
-    )
+    plan.write_text(f"# Quest Test\n\n### Phase 2: Hard Part\n\n- {iso_10d_ago} — very old audit\n")
 
     det = _make_detector(workboard_db, plans_dir, ops_dir, now)
     phases = det.check_phase_staleness(require_audit_trail=False)

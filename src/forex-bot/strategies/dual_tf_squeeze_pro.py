@@ -41,7 +41,7 @@ Risk
     (``max_bars_to_tp1``); the framework's trade manager enforces it.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -529,9 +529,7 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
         # Bar count is in M15 bars. Approximate requirement: enough M15
         # bars to have produced ``h1_required`` synthetic H1 bars
         # (4 M15 bars per H1 bar).
-        min_m15 = max(
-            cfg.min_bars_for_setup, h1_required * 4 + cfg.m15_atr_period * 2 + 4
-        )
+        min_m15 = max(cfg.min_bars_for_setup, h1_required * 4 + cfg.m15_atr_period * 2 + 4)
         if len(m15_bars) < min_m15:
             return None
 
@@ -578,9 +576,7 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
             if len(h1_closes) > cfg.h1_ema_period + 5
             else h1_closes[: max(1, len(h1_closes) - cfg.h1_ema_period)]
         )
-        ema_prev = (
-            _ema_last(ema_prev_window, cfg.h1_ema_period) if ema_prev_window else None
-        )
+        ema_prev = _ema_last(ema_prev_window, cfg.h1_ema_period) if ema_prev_window else None
         if ema_now is None or ema_prev is None:
             return None
         if ema_now > ema_prev:

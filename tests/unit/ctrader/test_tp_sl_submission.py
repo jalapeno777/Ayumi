@@ -43,7 +43,7 @@ sys.path.insert(
 
 def _make_signal(**overrides):
     """Construct a CTraderTradeSignal with all multi-TP fields populated."""
-    from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+    from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
 
     base = dict(
         symbol="GBPUSD",
@@ -222,9 +222,9 @@ class TestUpdatePositionTpLevelsDirect:
             ok = mgr.update_position_tp_levels(99999, tp2=1.5, tp3=2.5)
 
         assert ok is False
-        assert any(
-            "no Position found" in record.message for record in caplog.records
-        ), f"Expected warning, got: {[r.message for r in caplog.records]}"
+        assert any("no Position found" in record.message for record in caplog.records), (
+            f"Expected warning, got: {[r.message for r in caplog.records]}"
+        )
 
     def test_partial_update_only_tp2(self):
         """Calling with only tp2 keeps tp3 at its current value."""
@@ -317,9 +317,7 @@ class TestF1ImmediatePath:
 
             # The F1 block (extracted for clarity — same logic as the inline
             # code in _execute_signal_live):
-            position_id = getattr(order, "position_id", None) or getattr(
-                order, "order_id", None
-            )
+            position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
             amended = engine._market_feed.amend_sl_tp(
                 position_id,
                 signal.stop_loss,
@@ -364,9 +362,7 @@ class TestF1ImmediatePath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         # Inline F1 logic with amend failure
-        position_id = getattr(order, "position_id", None) or getattr(
-            order, "order_id", None
-        )
+        position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
         amended = engine._market_feed.amend_sl_tp(
             position_id,
             signal.stop_loss,
@@ -520,9 +516,7 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = lambda event_name, func: (
-            registered_callbacks.update({event_name: func})
-        )
+        feed.register_callback.side_effect = lambda event_name, func: registered_callbacks.update({event_name: func})
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
 
@@ -577,9 +571,7 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=None, take_profit_3=None)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = lambda event_name, func: (
-            registered_callbacks.update({event_name: func})
-        )
+        feed.register_callback.side_effect = lambda event_name, func: registered_callbacks.update({event_name: func})
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
 
@@ -617,9 +609,7 @@ class TestF2LateFillPath:
         signal = _make_signal(take_profit_2=1.27500, take_profit_3=1.28500)
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = lambda event_name, func: (
-            registered_callbacks.update({event_name: func})
-        )
+        feed.register_callback.side_effect = lambda event_name, func: registered_callbacks.update({event_name: func})
 
         engine._register_late_fill_callbacks(order, signal, "test_strategy")
 
@@ -634,9 +624,7 @@ class TestF2LateFillPath:
         message.deal = MagicMock()
         message.deal.positionId = None
 
-        with caplog.at_level(
-            logging.WARNING, logger="adapters.ctrader.forward_test_engine"
-        ):
+        with caplog.at_level(logging.WARNING, logger="adapters.ctrader.forward_test_engine"):
             # Must not raise even though there's no OrderManager
             registered_callbacks["on_order_filled"](cb_order, message)
 
@@ -766,9 +754,7 @@ class TestRegressionLateFillExisting:
         engine._market_feed = feed
 
         registered_callbacks: dict = {}
-        feed.register_callback.side_effect = lambda event_name, func: (
-            registered_callbacks.update({event_name: func})
-        )
+        feed.register_callback.side_effect = lambda event_name, func: registered_callbacks.update({event_name: func})
 
         order = MagicMock()
         order.order_id = "ord-uuid"
@@ -788,13 +774,9 @@ class TestRegressionLateFillExisting:
         message.deal = MagicMock()
         message.deal.positionId = None
 
-        with caplog.at_level(
-            logging.WARNING, logger="adapters.ctrader.forward_test_engine"
-        ):
+        with caplog.at_level(logging.WARNING, logger="adapters.ctrader.forward_test_engine"):
             registered_callbacks["on_order_filled"](cb_order, message)
 
         # amend NOT called because positionId wasn't a valid int
         feed.amend_sl_tp.assert_not_called()
-        assert any(
-            "no cTrader positionId" in record.message for record in caplog.records
-        )
+        assert any("no cTrader positionId" in record.message for record in caplog.records)

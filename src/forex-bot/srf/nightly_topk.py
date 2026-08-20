@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
-def get_top_candidates(
-    conn, top_k: int = 10, pairs: list[str] | None = None
-) -> list[dict]:
+def get_top_candidates(conn, top_k: int = 10, pairs: list[str] | None = None) -> list[dict]:
     """Fetch top-K candidates by DSR from research.duckdb."""
     query = """
         SELECT r.run_id, r.strategy_name, r.pair, r.timeframe,
@@ -46,7 +44,7 @@ def get_top_candidates(
 
     rows = conn.execute(query, params).fetchall()
     cols = [d[0] for d in conn.description]
-    return [dict(zip(cols, r)) for r in rows]
+    return [dict(zip(cols, r)) for r in rows]  # noqa: B905
 
 
 def re_evaluate_candidate(conn, candidate: dict) -> dict | None:
@@ -82,9 +80,7 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
     db_path = PROJECT_ROOT / "data" / "research" / "research.duckdb"
 
     if not db_path.exists():
-        logger.warning(
-            "research.duckdb not found at %s — nothing to re-evaluate", db_path
-        )
+        logger.warning("research.duckdb not found at %s — nothing to re-evaluate", db_path)
         return {"status": "no_db", "candidates": 0}
 
     started_at = datetime.now(timezone.utc)
@@ -106,8 +102,7 @@ def nightly_topk(top_k: int = 10, pairs: list[str] | None = None) -> dict:
 
         # Log to cron_runs table
         conn.execute(
-            "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) VALUES (?, ?, ?, ?, ?)",
             [started_at, datetime.now(timezone.utc), 0, len(candidates), "ok"],
         )
 
@@ -135,9 +130,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     pairs = args.pairs.split(",") if args.pairs else None
 
@@ -150,9 +143,7 @@ def main():
                 candidates = get_top_candidates(conn, args.top_k, pairs)
                 print(f"Dry run: {len(candidates)} candidates would be re-evaluated")
                 for c in candidates:
-                    print(
-                        f"  {c['strategy_name']} {c['pair']} {c['timeframe']}m DSR={c.get('dsr', 'N/A')}"
-                    )
+                    print(f"  {c['strategy_name']} {c['pair']} {c['timeframe']}m DSR={c.get('dsr', 'N/A')}")
         else:
             print("No research.duckdb found")
         return

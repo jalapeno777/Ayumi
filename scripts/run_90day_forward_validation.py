@@ -9,7 +9,7 @@ Simulates 90 trading days (Jan-Mar 2026) with:
 - Full statistical analysis + GO/NO-GO assessment
 """
 
-import argparse
+import argparse  # noqa: I001
 from common.resource_limits import add_resource_args
 import json
 import sys
@@ -144,9 +144,7 @@ def load_all_data() -> dict[str, pd.DataFrame]:
 
 
 def compute_atr(high, low, close, period=14) -> pd.Series:
-    tr = pd.concat(
-        [high - low, abs(high - close.shift(1)), abs(low - close.shift(1))], axis=1
-    ).max(axis=1)
+    tr = pd.concat([high - low, abs(high - close.shift(1)), abs(low - close.shift(1))], axis=1).max(axis=1)
     return tr.rolling(period).mean()
 
 
@@ -251,7 +249,7 @@ def generate_realistic_signals(
         session_list.extend([sess] * int(w * 1000))
     session_list = np.array(session_list)
 
-    for day_idx, day in enumerate(trading_days):
+    for day_idx, day in enumerate(trading_days):  # noqa: B007
         day_start = day.normalize()
         day_end = day_start + pd.Timedelta(hours=20)
 
@@ -260,9 +258,7 @@ def generate_realistic_signals(
             mask = (df.index >= day_start) & (df.index < day_end)
             day_data[pair] = df[mask]
 
-            signals_today = max(
-                3, min(5, round(rng.normal(signals_per_day_target, 0.5)))
-            )
+            signals_today = max(3, min(5, round(rng.normal(signals_per_day_target, 0.5))))
             signals_today = int(signals_today)
 
             for _ in range(signals_today):
@@ -376,11 +372,7 @@ def run_simulation(signals: list[dict], data: dict[str, pd.DataFrame]) -> dict:
         try:
             entry_loc = df.index.get_loc(entry_time)
         except KeyError:
-            closest = (
-                df.index[df.index >= entry_time][0]
-                if any(df.index >= entry_time)
-                else df.index[0]
-            )
+            closest = df.index[df.index >= entry_time][0] if any(df.index >= entry_time) else df.index[0]
             entry_loc = df.index.get_loc(closest)
 
         result = simulate_trade(
@@ -459,13 +451,7 @@ def compute_metrics(trades: list[dict]) -> dict:
 
     gross_profit = df[df["outcome"] == 1]["pnl"].sum()
     gross_loss = abs(df[df["outcome"] == 0]["pnl"].sum())
-    profit_factor = (
-        gross_profit / gross_loss
-        if gross_loss > 0
-        else float("inf")
-        if gross_profit > 0
-        else 0
-    )
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0
 
     equity_curve = STARTING_BALANCE + df["pnl"].cumsum()
     running_max = equity_curve.cummax()
@@ -516,9 +502,7 @@ def compute_monthly_breakdown(trades: list[dict]) -> dict:
         }
         gp = grp[grp["outcome"] == 1]["pnl"].sum()
         gl = abs(grp[grp["outcome"] == 0]["pnl"].sum())
-        monthly[str(month)]["profit_factor"] = (
-            gp / gl if gl > 0 else float("inf") if gp > 0 else 0
-        )
+        monthly[str(month)]["profit_factor"] = gp / gl if gl > 0 else float("inf") if gp > 0 else 0
 
     return monthly
 
@@ -563,9 +547,7 @@ def compute_pair_breakdown(trades: list[dict]) -> dict:
 
 def ftmo_compliance_check(trades: list[dict], daily_pnl: dict) -> dict:
     daily_losses = [p for p in daily_pnl.values() if p < 0]
-    violation_count = sum(
-        1 for p in daily_losses if abs(p) > STARTING_BALANCE * FTMO_DAILY_LOSS_LIMIT
-    )
+    violation_count = sum(1 for p in daily_losses if abs(p) > STARTING_BALANCE * FTMO_DAILY_LOSS_LIMIT)
 
     equity = STARTING_BALANCE
     peak = STARTING_BALANCE
@@ -616,17 +598,9 @@ def apply_go_nogo(metrics: dict, ftmo: dict, pair_results: dict) -> dict:
 
     sig_passed = one_tailed_p < 0.10
 
-    pairs_with_positive_pf = {
-        p: r["profit_factor"]
-        for p, r in pair_results.items()
-        if r.get("profit_factor", 0) > 1.0
-    }
+    pairs_with_positive_pf = {p: r["profit_factor"] for p, r in pair_results.items() if r.get("profit_factor", 0) > 1.0}
     multi_pair_status = (
-        "confirmed"
-        if len(pairs_with_positive_pf) >= 2
-        else "weak"
-        if len(pairs_with_positive_pf) == 1
-        else "failed"
+        "confirmed" if len(pairs_with_positive_pf) >= 2 else "weak" if len(pairs_with_positive_pf) == 1 else "failed"
     )
 
     wr_pass = metrics.get("win_rate", 0) > 0.50
@@ -634,14 +608,7 @@ def apply_go_nogo(metrics: dict, ftmo: dict, pair_results: dict) -> dict:
     dd_pass = metrics.get("max_drawdown_pct", 100) < 10
     ftmo_pass = ftmo.get("compliant", False)
 
-    all_pass = (
-        wr_pass
-        and pf_pass
-        and dd_pass
-        and ftmo_pass
-        and sig_passed
-        and (multi_pair_status == "confirmed")
-    )
+    all_pass = wr_pass and pf_pass and dd_pass and ftmo_pass and sig_passed and (multi_pair_status == "confirmed")
 
     return {
         "decision": "GO" if all_pass else "NO-GO",
@@ -659,9 +626,7 @@ def apply_go_nogo(metrics: dict, ftmo: dict, pair_results: dict) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="90-Day Forward Validation Simulation")
     add_resource_args(parser)
-    parser.add_argument(
-        "--trades", type=int, default=270, help="Target number of trades"
-    )
+    parser.add_argument("--trades", type=int, default=270, help="Target number of trades")
     parser.add_argument("--output", type=str, default="", help="Output JSON file")
     args = parser.parse_args()
 

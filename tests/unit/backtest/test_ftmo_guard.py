@@ -1,6 +1,6 @@
 """Unit tests for backtest FTMO guard — trailing drawdown model."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 

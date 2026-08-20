@@ -1,6 +1,6 @@
 """Tests for StrategyBlendOptimizer."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 
@@ -60,12 +60,8 @@ class TestScoreCalculation:
         assert StrategyBlendOptimizer._compute_score(0.5, 0, 5.0) == 0.0
 
     def test_high_drawdown_penalized(self):
-        score_low_dd = StrategyBlendOptimizer._compute_score(
-            0.6, 50, 5.0, gross_profit=200.0, gross_loss=100.0
-        )
-        score_high_dd = StrategyBlendOptimizer._compute_score(
-            0.6, 50, 30.0, gross_profit=200.0, gross_loss=100.0
-        )
+        score_low_dd = StrategyBlendOptimizer._compute_score(0.6, 50, 5.0, gross_profit=200.0, gross_loss=100.0)
+        score_high_dd = StrategyBlendOptimizer._compute_score(0.6, 50, 30.0, gross_profit=200.0, gross_loss=100.0)
         assert score_low_dd > score_high_dd
 
 

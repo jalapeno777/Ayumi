@@ -1,4 +1,4 @@
-import math
+import math  # noqa: I001
 import unittest
 
 import numpy as np
@@ -237,12 +237,8 @@ class TestADX(unittest.TestCase):
         dx_values = []
         for i in range(14, len(tr_list)):
             smoothed_tr = smoothed_tr - smoothed_tr / 14 + tr_list[i]
-            smoothed_plus_dm = (
-                smoothed_plus_dm - smoothed_plus_dm / 14 + plus_dm_list[i]
-            )
-            smoothed_minus_dm = (
-                smoothed_minus_dm - smoothed_minus_dm / 14 + minus_dm_list[i]
-            )
+            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / 14 + plus_dm_list[i]
+            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / 14 + minus_dm_list[i]
             if smoothed_tr == 0:
                 dx_values.append(0.0)
                 continue
@@ -376,14 +372,14 @@ class TestAcceptsSeriesInput(unittest.TestCase):
 
     def test_atr_series(self):
         h = pd.Series(HIGHS_20)
-        l = pd.Series(LOWS_20)
+        l = pd.Series(LOWS_20)  # noqa: E741
         c = pd.Series(CLOSES_20)
         result = atr(h, l, c, 14)
         self.assertIsInstance(result, pd.Series)
 
     def test_adx_series(self):
         h = pd.Series(HIGHS_20)
-        l = pd.Series(LOWS_20)
+        l = pd.Series(LOWS_20)  # noqa: E741
         c = pd.Series(CLOSES_20)
         result = adx(h, l, c, 14)
         self.assertIsInstance(result, pd.Series)

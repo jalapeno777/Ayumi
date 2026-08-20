@@ -6,7 +6,7 @@ Verifies that Wilder smoothing initialization is correct:
 - Subsequent DX values use Wilder smoothing: adx = (adx * (period-1) + dx) / period
 """
 
-import unittest
+import unittest  # noqa: I001
 
 import numpy as np
 import pandas as pd
@@ -58,9 +58,7 @@ def _compute_adx_manually(bars: list[Bar], period: int = 14) -> float:
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        smoothed_minus_dm = (
-            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
-        )
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
 
         if smoothed_tr == 0:
             dx_list.append(0.0)

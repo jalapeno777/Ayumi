@@ -1,6 +1,6 @@
 """Tests for CPU and memory resource limit context managers (BQ-1038)."""
 
-import os
+import os  # noqa: I001
 import resource
 import pytest
 
@@ -81,14 +81,10 @@ class TestCgroupV2:
         # Verify process is in this cgroup
         with open(f"/proc/{os.getpid()}/cgroup") as f:
             cgroup_line = f.read().strip()
-        assert "ayumi_cpu" in cgroup_line, (
-            f"Process should be in ayumi_cpu cgroup, got: {cgroup_line}"
-        )
+        assert "ayumi_cpu" in cgroup_line, f"Process should be in ayumi_cpu cgroup, got: {cgroup_line}"
 
         _cleanup_cgroup(path)
-        assert not os.path.exists(path), (
-            f"cgroup dir {path} should be removed after cleanup"
-        )
+        assert not os.path.exists(path), f"cgroup dir {path} should be removed after cleanup"
 
     def test_cpu_limited_uses_cgroup_when_available(self):
         """cpu_limited creates and cleans up a cgroup when v2 is available."""
@@ -99,17 +95,13 @@ class TestCgroupV2:
             # During the block, process should be in an ayumi_cpu cgroup
             with open(f"/proc/{os.getpid()}/cgroup") as f:
                 cgroup_line = f.read().strip()
-            assert "ayumi_cpu" in cgroup_line, (
-                f"Process should be in cgroup during cpu_limited, got: {cgroup_line}"
-            )
+            assert "ayumi_cpu" in cgroup_line, f"Process should be in cgroup during cpu_limited, got: {cgroup_line}"
 
         # After the block, cgroup should be cleaned up
         # Process should be back in root or original cgroup
         pid = os.getpid()
         expected_stale = f"/sys/fs/cgroup/ayumi_cpu_{pid}"
-        assert not os.path.exists(expected_stale), (
-            "cgroup should be cleaned up after cpu_limited exits"
-        )
+        assert not os.path.exists(expected_stale), "cgroup should be cleaned up after cpu_limited exits"
 
     def test_cgroup_fallback_on_permission_error(self):
         """cpu_limited falls back to advisory when cgroup creation fails."""

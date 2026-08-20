@@ -254,9 +254,7 @@ def calculate_spread_stats(
         stats[pair] = {
             "mean": round(statistics.mean(spreads_sorted), 4),
             "median": round(statistics.median(spreads_sorted), 4),
-            "stdev": round(statistics.stdev(spreads_sorted), 4)
-            if len(spreads_sorted) > 1
-            else 0.0,
+            "stdev": round(statistics.stdev(spreads_sorted), 4) if len(spreads_sorted) > 1 else 0.0,
             "p95": round(_percentile(spreads_sorted, 95), 4),
             "p99": round(_percentile(spreads_sorted, 99), 4),
             "min": round(min(spreads_sorted), 4),
@@ -301,7 +299,7 @@ def detect_spread_events(
         event_start: SpreadSample | None = None
         peak = 0.0
 
-        for i, s in enumerate(pair_samples):
+        for i, s in enumerate(pair_samples):  # noqa: B007
             factor = s.spread_pips / baseline
             if factor >= widening_threshold and not in_event:
                 in_event = True
@@ -366,18 +364,16 @@ def _dry_run_orders(
             expected_spread = cond_def["expected_spread_pips"].get(pair, 1.0)
 
             # Simulate slippage: normally distributed around expected_spread/2
-            slip_pips = max(
-                0, random.gauss(expected_spread * 0.4, expected_spread * 0.3)
-            )
+            slip_pips = max(0, random.gauss(expected_spread * 0.4, expected_spread * 0.3))
             spread = max(0.1, random.gauss(expected_spread, expected_spread * 0.2))
             latency = max(5, random.gauss(50, 30))
 
-            side = random.choice(["buy", "sell"])
-            req_price = base + random.uniform(-pip * 10, pip * 10)
+            side = random.choice(["buy", "sell"])  # noqa: S311
+            req_price = base + random.uniform(-pip * 10, pip * 10)  # noqa: S311
             fill_price = req_price + (slip_pips * pip * (1 if side == "buy" else -1))
 
             # Simulate occasional requotes/partial fills (~5%)
-            roll = random.random()
+            roll = random.random()  # noqa: S311
             if roll < 0.02:
                 status = "rejected"
             elif roll < 0.05:
@@ -402,12 +398,8 @@ def _dry_run_orders(
                     volume_lots=DEFAULT_LOT_SIZE,
                     latency_ms=round(latency, 1),
                     status=status,
-                    requote_price=round(fill_price, 6)
-                    if status == "requoted"
-                    else None,
-                    partial_fill_volume=round(DEFAULT_LOT_SIZE * 0.5, 2)
-                    if status == "partial_fill"
-                    else None,
+                    requote_price=round(fill_price, 6) if status == "requoted" else None,
+                    partial_fill_volume=round(DEFAULT_LOT_SIZE * 0.5, 2) if status == "partial_fill" else None,
                 )
             )
     return records
@@ -439,10 +431,10 @@ def _dry_run_spreads(
             pip = pip_sizes.get(pair, 0.0001)
             expected = cond_def["expected_spread_pips"].get(pair, 1.0)
 
-            for i in range(samples_per_pair):
+            for i in range(samples_per_pair):  # noqa: B007
                 # Occasionally spike spread (simulate news/event)
-                if random.random() < 0.05:
-                    spread = expected * random.uniform(2.5, 4.0)
+                if random.random() < 0.05:  # noqa: S311
+                    spread = expected * random.uniform(2.5, 4.0)  # noqa: S311
                 else:
                     spread = max(0.1, random.gauss(expected, expected * 0.25))
 
@@ -484,9 +476,7 @@ class FTMOBrokerSession:
         self.refresh_token = os.environ.get("FTMO_CTRADER_REFRESH_TOKEN", "")
         account_id_raw = os.environ.get("FTMO_CTRADER_ACCOUNT_ID", "")
 
-        if not all(
-            [self.client_id, self.client_secret, self.access_token, account_id_raw]
-        ):
+        if not all([self.client_id, self.client_secret, self.access_token, account_id_raw]):
             raise CredentialsNotAvailable(
                 "FTMO demo credentials not found in environment. "
                 "Set FTMO_CTRADER_CLIENT_ID, FTMO_CTRADER_CLIENT_SECRET, "
@@ -598,9 +588,7 @@ class FTMOBrokerSession:
                 status="rejected",
             )
 
-    async def sample_spread(
-        self, pair: str, duration_seconds: float = 30.0
-    ) -> list[SpreadSample]:
+    async def sample_spread(self, pair: str, duration_seconds: float = 30.0) -> list[SpreadSample]:
         """Sample bid/ask spread for a pair over a time window."""
         if not self._feed:
             raise RuntimeError("Broker session not connected")
@@ -735,9 +723,7 @@ async def run_validation(
                         await asyncio.sleep(0.5)  # Throttle
 
                     # Sample spreads between order batches
-                    samples = await session.sample_spread(
-                        pair, spread_sampling_duration
-                    )
+                    samples = await session.sample_spread(pair, spread_sampling_duration)
                     for s in samples:
                         s.condition = condition
                     spread_samples.extend(samples)
@@ -852,9 +838,7 @@ def main() -> None:
     # Validate condition names
     invalid = [c for c in conditions if c not in CONDITIONS]
     if invalid:
-        logger.error(
-            "Unknown condition(s): %s. Valid: %s", invalid, list(CONDITIONS.keys())
-        )
+        logger.error("Unknown condition(s): %s. Valid: %s", invalid, list(CONDITIONS.keys()))
         sys.exit(1)
 
     orders_per_condition = args.orders // len(conditions)

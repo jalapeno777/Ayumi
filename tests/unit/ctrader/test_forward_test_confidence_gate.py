@@ -9,7 +9,7 @@ Validates that:
 - live_fire_min_confidence is configurable with default 0.65
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch

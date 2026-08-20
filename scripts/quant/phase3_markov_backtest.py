@@ -22,6 +22,7 @@ and prints a summary table.
 Run:
   PYTHONPATH=src/forex-bot .venv/bin/python scripts/quant/phase3_markov_backtest.py
 """
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader  # noqa: E402
+from backtest.data_loader import CsvDataLoader  # noqa: E402, I001
 from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.engine import Bar  # noqa: E402
 from backtest.strategy_legacy import MACrossStrategy  # noqa: E402
@@ -52,9 +53,7 @@ from quant.config import (  # noqa: E402
     SizingMode,
 )
 
-logging.basicConfig(
-    level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("phase3")
 logger.setLevel(logging.INFO)
 
@@ -117,9 +116,7 @@ class PairResult:
     pearson_n: int
 
 
-def _filter_bars(
-    bars: list[Bar], start: datetime, end: datetime
-) -> list[Bar]:
+def _filter_bars(bars: list[Bar], start: datetime, end: datetime) -> list[Bar]:
     return [b for b in bars if start <= b.time <= end]
 
 
@@ -175,9 +172,7 @@ def _run_backtest(
     )
     strategy = MACrossStrategy(fast_period=5, slow_period=13, atr_multiplier=2.0)
     tm = TradeManagementConfig(pair=pair)
-    engine = EnhancedBacktestEngine(
-        config, [strategy], tm_config=tm, quant_config=quant_config
-    )
+    engine = EnhancedBacktestEngine(config, [strategy], tm_config=tm, quant_config=quant_config)
     metrics = engine.run_all_strategies(bars)  # type: ignore[func-returns-value]
     metrics_obj = metrics["MA Crossover"].metrics  # type: ignore[index]
 
@@ -226,9 +221,7 @@ def _sample_confidences(
         if pipeline._markov_filter is not None and pipeline._markov_filter.is_ready():
             current_state = pipeline._get_current_markov_state()
             if current_state is not None:
-                markov_samples.append(
-                    float(pipeline._markov_filter.confidence(current_state))
-                )
+                markov_samples.append(float(pipeline._markov_filter.confidence(current_state)))
             else:
                 markov_samples.append(0.0)
         else:
@@ -364,24 +357,16 @@ def main() -> int:
         cfg_mkv = _make_quant_config(SizingMode.MARKOV_ADAPTIVE, markov_enabled=True)
 
         m_ff, _, _ = _run_backtest(baseline_bars, pair, cfg_ff, sample_confidences=False)
-        m_mkv, ms, rs = _run_backtest(
-            baseline_bars, pair, cfg_mkv, sample_confidences=True
-        )
+        m_mkv, ms, rs = _run_backtest(baseline_bars, pair, cfg_mkv, sample_confidences=True)
 
         rr_ff = _to_run_result(pair, "2020-2024", "FIXED_FRACTIONAL", m_ff, [], [])
         rr_mkv = _to_run_result(pair, "2020-2024", "MARKOV_ADAPTIVE", m_mkv, ms, rs)
 
         # --- OOS 2025-2026 ---
         m_oos_ff, _, _ = _run_backtest(oos_bars, pair, cfg_ff, sample_confidences=False)
-        m_oos_mkv, ms_oos, rs_oos = _run_backtest(
-            oos_bars, pair, cfg_mkv, sample_confidences=True
-        )
-        rr_oos_ff = _to_run_result(
-            pair, "2025-2026", "FIXED_FRACTIONAL", m_oos_ff, [], []
-        )
-        rr_oos_mkv = _to_run_result(
-            pair, "2025-2026", "MARKOV_ADAPTIVE", m_oos_mkv, ms_oos, rs_oos
-        )
+        m_oos_mkv, ms_oos, rs_oos = _run_backtest(oos_bars, pair, cfg_mkv, sample_confidences=True)
+        rr_oos_ff = _to_run_result(pair, "2025-2026", "FIXED_FRACTIONAL", m_oos_ff, [], [])
+        rr_oos_mkv = _to_run_result(pair, "2025-2026", "MARKOV_ADAPTIVE", m_oos_mkv, ms_oos, rs_oos)
 
         sharpe_imp_baseline = rr_mkv.sharpe_ratio - rr_ff.sharpe_ratio
         sharpe_imp_oos = rr_oos_mkv.sharpe_ratio - rr_oos_ff.sharpe_ratio
@@ -425,22 +410,13 @@ def main() -> int:
             rr_str = "inf" if math.isinf(rr.risk_reward) else f"{rr.risk_reward:.2f}"
             print(
                 f"{rr.period:<11} {rr.sizing_mode:<18} {rr.total_trades:>7d} "
-                f"{rr.win_rate*100:>6.1f}% {rr.sharpe_ratio:>8.3f} "
+                f"{rr.win_rate * 100:>6.1f}% {rr.sharpe_ratio:>8.3f} "
                 f"{rr.max_drawdown_pct:>7.2f}% {rr.profit_factor:>7.2f} "
                 f"{rr_str:>7} {rr.total_pnl_pct:>7.2f}%"
             )
-        print(
-            f"  Sharpe Δ (baseline): {pr.sharpe_improvement_baseline:+.3f}  "
-            f"DD Δ: {pr.dd_delta_baseline:+.2f}%"
-        )
-        print(
-            f"  Sharpe Δ (OOS):      {pr.sharpe_improvement_oos:+.3f}  "
-            f"DD Δ: {pr.dd_delta_oos:+.2f}%"
-        )
-        print(
-            f"  Pearson r (Markov vs regime confidence, OOS n={pr.pearson_n}): "
-            f"{pr.pearson_r_markov_vs_regime:+.3f}"
-        )
+        print(f"  Sharpe Δ (baseline): {pr.sharpe_improvement_baseline:+.3f}  DD Δ: {pr.dd_delta_baseline:+.2f}%")
+        print(f"  Sharpe Δ (OOS):      {pr.sharpe_improvement_oos:+.3f}  DD Δ: {pr.dd_delta_oos:+.2f}%")
+        print(f"  Pearson r (Markov vs regime confidence, OOS n={pr.pearson_n}): {pr.pearson_r_markov_vs_regime:+.3f}")
 
     # Save JSON
     serialised = {
@@ -466,4 +442,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main())  # noqa: W292

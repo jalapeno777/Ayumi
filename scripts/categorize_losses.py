@@ -159,8 +159,7 @@ def load_trades(input_path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     records = _extract_trade_records(payload)
     if not records:
         notes.append(
-            "No trade records found in input. Expected a list, or an object "
-            "with a 'trades' key. Check the input file."
+            "No trade records found in input. Expected a list, or an object with a 'trades' key. Check the input file."
         )
     return records, notes
 
@@ -307,10 +306,7 @@ def _categorize_stop_placement(trade: dict[str, Any]) -> CategoryResult | None:
         return CategoryResult(
             category=CATEGORY_STOP_PLACEMENT,
             confidence=confidence,
-            rationale=(
-                f"stop {ratio:.2f}x ATR from entry "
-                f"(threshold {STOP_PLACEMENT_ATR_MULTIPLIER:.2f}x ATR)"
-            ),
+            rationale=(f"stop {ratio:.2f}x ATR from entry (threshold {STOP_PLACEMENT_ATR_MULTIPLIER:.2f}x ATR)"),
             contributing_evidence={
                 "sl_distance_atr_ratio": round(ratio, 4),
                 "threshold_atr_multiple": STOP_PLACEMENT_ATR_MULTIPLIER,
@@ -338,23 +334,16 @@ def _categorize_wrong_direction(trade: dict[str, Any]) -> CategoryResult | None:
             if normalized != direction:
                 confidence = min(
                     1.0,
-                    _CONFIDENCE_BASE
-                    + _CONFIDENCE_EVIDENCE_BONUS
-                    * (1.0 if h4_ema_value is not None else 0.5),
+                    _CONFIDENCE_BASE + _CONFIDENCE_EVIDENCE_BONUS * (1.0 if h4_ema_value is not None else 0.5),
                 )
                 return CategoryResult(
                     category=CATEGORY_WRONG_DIRECTION,
                     confidence=confidence,
-                    rationale=(
-                        f"trade direction '{direction}' contradicts H4 trend "
-                        f"'{normalized}'"
-                    ),
+                    rationale=(f"trade direction '{direction}' contradicts H4 trend '{normalized}'"),
                     contributing_evidence={
                         "trade_direction": direction,
                         "h4_trend": normalized,
-                        "h4_ema_value": (
-                            float(h4_ema_value) if h4_ema_value is not None else None
-                        ),
+                        "h4_ema_value": (float(h4_ema_value) if h4_ema_value is not None else None),
                     },
                 )
             return None  # direction agrees with trend — no rule fired
@@ -362,12 +351,8 @@ def _categorize_wrong_direction(trade: dict[str, Any]) -> CategoryResult | None:
         # Infer trend from EMA vs entry price
         try:
             ema = float(h4_ema_value)
-            if (direction == "long" and entry_price < ema) or (
-                direction == "short" and entry_price > ema
-            ):
-                confidence = min(
-                    1.0, _CONFIDENCE_BASE + _CONFIDENCE_EVIDENCE_BONUS * 0.6
-                )
+            if (direction == "long" and entry_price < ema) or (direction == "short" and entry_price > ema):
+                confidence = min(1.0, _CONFIDENCE_BASE + _CONFIDENCE_EVIDENCE_BONUS * 0.6)
                 return CategoryResult(
                     category=CATEGORY_WRONG_DIRECTION,
                     confidence=confidence,
@@ -428,10 +413,7 @@ def _categorize_spread_widening(trade: dict[str, Any]) -> CategoryResult | None:
         return CategoryResult(
             category=CATEGORY_SPREAD_WIDENING,
             confidence=confidence,
-            rationale=(
-                f"entry spread {ratio:.2f}x rolling average "
-                f"(threshold {SPREAD_WIDENING_MULTIPLIER:.2f}x)"
-            ),
+            rationale=(f"entry spread {ratio:.2f}x rolling average (threshold {SPREAD_WIDENING_MULTIPLIER:.2f}x)"),
             contributing_evidence={
                 "spread_ratio": round(ratio, 4),
                 "spread_at_entry": spread,
@@ -482,10 +464,7 @@ def _categorize_slippage(trade: dict[str, Any]) -> CategoryResult | None:
     return CategoryResult(
         category=CATEGORY_SLIPPAGE,
         confidence=confidence,
-        rationale=(
-            f"exit {slippage_pips:.2f} pips from expected {expected} "
-            f"(exit_reason={exit_reason})"
-        ),
+        rationale=(f"exit {slippage_pips:.2f} pips from expected {expected} (exit_reason={exit_reason})"),
         contributing_evidence={
             "slippage_pips": round(slippage_pips, 4),
             "expected_price": expected,
@@ -517,8 +496,7 @@ def _categorize_late_exit(trade: dict[str, Any]) -> CategoryResult | None:
         category=CATEGORY_LATE_EXIT,
         confidence=confidence,
         rationale=(
-            f"partial close gained {partial_pnl:.2f} but trade closed at "
-            f"{final_pnl:.2f} \u2014 exit was too late"
+            f"partial close gained {partial_pnl:.2f} but trade closed at {final_pnl:.2f} \u2014 exit was too late"
         ),
         contributing_evidence={
             "partial_close_pnl": partial_pnl,
@@ -601,10 +579,7 @@ def summarize(
         )
 
     total_losses = max(1, len(losing))
-    percentages = {
-        cat: round(counts.get(cat, 0) / total_losses * 100.0, 2)
-        for cat in ALL_CATEGORIES
-    }
+    percentages = {cat: round(counts.get(cat, 0) / total_losses * 100.0, 2) for cat in ALL_CATEGORIES}
 
     return CategorizationSummary(
         total_trades=len(trades),
@@ -642,9 +617,7 @@ def _detect_skipped_categories(trades: list[dict[str, Any]]) -> list[str]:
         skipped.append(CATEGORY_WRONG_DIRECTION)
     if not _any_field("news_event", "news_events"):
         skipped.append(CATEGORY_NEWS_EVENT)
-    if not _any_field("spread_at_entry", "spread_pips") or not _any_field(
-        "spread_avg_rolling"
-    ):
+    if not _any_field("spread_at_entry", "spread_pips") or not _any_field("spread_avg_rolling"):
         skipped.append(CATEGORY_SPREAD_WIDENING)
     return skipped
 

@@ -10,7 +10,7 @@ Covers:
 - Laplace smoothing: unseen transitions are still reachable
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 
@@ -160,7 +160,7 @@ class TestPredictNext:
 
         dist = f.predict_next("normal_ranging", horizon=3)
         probs = [p for _, p in dist]
-        for a, b in zip(probs, probs[1:]):
+        for a, b in zip(probs, probs[1:]):  # noqa: B905
             assert a >= b
 
     def test_predict_next_multi_step_differs_from_one_step(self) -> None:
@@ -171,9 +171,7 @@ class TestPredictNext:
         """
         f = MarkovRegimeFilter(states=["A", "B"])
         # A→A 6 times, A→B 2 times, B→A 1 time, B→B 5 times.
-        f.train(
-            [("A", "A")] * 6 + [("A", "B")] * 2 + [("B", "A")] * 1 + [("B", "B")] * 5
-        )
+        f.train([("A", "A")] * 6 + [("A", "B")] * 2 + [("B", "A")] * 1 + [("B", "B")] * 5)
 
         one_step = dict(f.predict_next("A", horizon=1))
         five_step = dict(f.predict_next("A", horizon=5))
@@ -440,7 +438,7 @@ class TestSummary:
         assert snap.n_states == 6
 
         # Frozen: assignment raises.
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             snap.total_observations = 0  # type: ignore[misc]
 
         # Mutating the returned matrix tuple of tuples must not change

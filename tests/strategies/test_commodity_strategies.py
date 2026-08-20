@@ -99,9 +99,7 @@ class TestCommodityTrendStrategy(unittest.TestCase):
             bars.append(Bar(time=t, open=c, high=c + 0.3, low=c - 0.3, close=c))
         ema_fast = self.strategy._calculate_ema(bars, 20)
         ema_slow = self.strategy._calculate_ema(bars, 50)
-        self.assertGreater(
-            ema_fast, ema_slow, "Fast EMA should be above slow EMA for rising prices"
-        )
+        self.assertGreater(ema_fast, ema_slow, "Fast EMA should be above slow EMA for rising prices")
 
     def test_ema_calculation_falling(self):
         bars = []
@@ -111,9 +109,7 @@ class TestCommodityTrendStrategy(unittest.TestCase):
             bars.append(Bar(time=t, open=c, high=c + 0.3, low=c - 0.3, close=c))
         ema_fast = self.strategy._calculate_ema(bars, 20)
         ema_slow = self.strategy._calculate_ema(bars, 50)
-        self.assertLess(
-            ema_fast, ema_slow, "Fast EMA should be below slow EMA for falling prices"
-        )
+        self.assertLess(ema_fast, ema_slow, "Fast EMA should be below slow EMA for falling prices")
 
     def test_adx_calculation_requires_minimum_bars(self):
         bars = [_make_bar(i, 100, 101, 99, 100) for i in range(5)]
@@ -136,9 +132,7 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         bars = _make_trending_bars_with_crossover()
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
-        self.assertIsNotNone(
-            result, "Signal should be generated on EMA crossover with high ADX"
-        )
+        self.assertIsNotNone(result, "Signal should be generated on EMA crossover with high ADX")
         self.assertEqual(result.direction, TradeDirection.LONG)
         self.assertGreater(result.confidence, 0.0)
         self.assertLess(result.confidence, 1.0)
@@ -147,9 +141,7 @@ class TestCommodityTrendStrategy(unittest.TestCase):
         self.assertIsNotNone(result.take_profit_1)
         self.assertIsNotNone(result.take_profit_2)
         self.assertIsNotNone(result.take_profit_3)
-        self.assertLess(
-            result.stop_loss, result.entry_price, "SL for LONG should be below entry"
-        )
+        self.assertLess(result.stop_loss, result.entry_price, "SL for LONG should be below entry")
         self.assertGreater(
             result.take_profit_1,
             result.entry_price,
@@ -217,9 +209,7 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
             )
         rsi = self.strategy._calculate_rsi(bars)
         self.assertIsNotNone(rsi)
-        self.assertLess(
-            rsi, 50.0, "RSI should be low after sustained decline with stabilization"
-        )
+        self.assertLess(rsi, 50.0, "RSI should be low after sustained decline with stabilization")
 
     def test_rsi_calculation_overbought(self):
         bars = []
@@ -239,9 +229,7 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
             )
         rsi = self.strategy._calculate_rsi(bars)
         self.assertIsNotNone(rsi)
-        self.assertGreater(
-            rsi, 50.0, "RSI should be high after sustained advance with stabilization"
-        )
+        self.assertGreater(rsi, 50.0, "RSI should be high after sustained advance with stabilization")
 
     def test_rsi_calculation_neutral(self):
         bars = []
@@ -295,9 +283,7 @@ class TestCommodityMeanReversionStrategy(unittest.TestCase):
         bars = _make_oversold_bb_reversion_bars()
         state = MarketState(bars=bars)
         result = self.strategy.evaluate(state)
-        self.assertIsNotNone(
-            result, "Signal should be generated on BB oversold + RSI + reversal candle"
-        )
+        self.assertIsNotNone(result, "Signal should be generated on BB oversold + RSI + reversal candle")
         self.assertEqual(result.direction, TradeDirection.LONG)
         self.assertGreater(result.confidence, 0.0)
         self.assertLess(result.confidence, 1.0)

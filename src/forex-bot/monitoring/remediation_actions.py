@@ -6,7 +6,7 @@ cover previously observed, operator-approved file-hygiene failures from the
 Craig approval gate.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import grp
 import json
@@ -44,9 +44,7 @@ KNOWN_PATTERNS = {
 }
 
 REMEDIATION_VALIDATED_FLAG = Path("data/ayumi/remediation_validated.flag")
-REMEDIATION_AUDIT_DOC = Path(
-    "docs/audits/ayumi-live-remediation-session-audit-2026-06-30.md"
-)
+REMEDIATION_AUDIT_DOC = Path("docs/audits/ayumi-live-remediation-session-audit-2026-06-30.md")
 SIGNAL_STATS_PATH = Path("data/signal_stats.jsonl")
 FORWARD_TEST_PID_PATH = Path("data/forward_test.pid")
 RISK_GUARD_STATE_PATH = Path("data/state/risk_guard_state.json")
@@ -70,11 +68,7 @@ def _default_project_root() -> Path:
 
 
 def _resolve_project_root(project_root: Path | str | None = None) -> Path:
-    return (
-        Path(project_root).resolve()
-        if project_root is not None
-        else _default_project_root()
-    )
+    return Path(project_root).resolve() if project_root is not None else _default_project_root()
 
 
 def _utc_now() -> datetime:
@@ -91,9 +85,7 @@ def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
         fh.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
-def _record_result(
-    project_root: Path, pattern_name: str, result: RemediationResult
-) -> None:
+def _record_result(project_root: Path, pattern_name: str, result: RemediationResult) -> None:
     payload = {"pattern_name": pattern_name, **asdict(result)}
     _append_jsonl(project_root / REMEDIATION_LOG_PATH, payload)
 
@@ -222,12 +214,8 @@ def check_signal_stats_owner(project_root: Path) -> tuple[bool, str]:
         )
 
     stat_result = signal_stats_path.stat()
-    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(
-        project_root
-    )
-    current_owner = (
-        f"{_name_for_uid(stat_result.st_uid)}:{_name_for_gid(stat_result.st_gid)}"
-    )
+    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(project_root)
+    current_owner = f"{_name_for_uid(stat_result.st_uid)}:{_name_for_gid(stat_result.st_gid)}"
     runtime_owner = f"{runtime_user}:{runtime_group}"
     if stat_result.st_uid == runtime_uid and stat_result.st_gid == runtime_gid:
         return (
@@ -246,9 +234,7 @@ def _remediate_signal_stats_root_owned(project_root: Path) -> RemediationResult:
         return _result(False, "no_op", evidence)
 
     signal_stats_path = project_root / SIGNAL_STATS_PATH
-    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(
-        project_root
-    )
+    runtime_uid, runtime_gid, runtime_user, runtime_group = _resolve_runtime_identity(project_root)
     os.chown(signal_stats_path, runtime_uid, runtime_gid)
     return _result(
         True,
@@ -362,9 +348,7 @@ def detect_and_remediate(
 
     if pattern_name not in KNOWN_PATTERNS:
         valid_patterns = ", ".join(sorted(KNOWN_PATTERNS))
-        raise ValueError(
-            f"unknown remediation pattern {pattern_name!r}; valid: {valid_patterns}"
-        )
+        raise ValueError(f"unknown remediation pattern {pattern_name!r}; valid: {valid_patterns}")
 
     root = _resolve_project_root(project_root)
     try:

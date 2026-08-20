@@ -10,7 +10,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import logging
+import logging  # noqa: I001
 
 from backtest.engine import BacktestConfig
 from backtest.enhanced_engine import EnhancedBacktestEngine

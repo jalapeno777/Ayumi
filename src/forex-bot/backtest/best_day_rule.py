@@ -22,7 +22,7 @@ Caveat (per research §Caveats):
     for live trading. The threshold is configurable via constructor arg.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -87,9 +87,7 @@ class BestDayRuleTracker:
         if not 0.0 < threshold <= 1.0:
             raise ValueError(f"threshold must be in (0, 1], got {threshold!r}")
         if account_phase not in VALID_PHASES:
-            raise ValueError(
-                f"account_phase must be one of {VALID_PHASES}, got {account_phase!r}"
-            )
+            raise ValueError(f"account_phase must be one of {VALID_PHASES}, got {account_phase!r}")
 
         self._account_phase: str = account_phase
         self._threshold: float = threshold
@@ -241,9 +239,7 @@ class BestDayRuleTracker:
             return BestDayCheckResult(
                 allowed=False,
                 reason=(
-                    f"Best Day Rule: projected today share "
-                    f"{share:.1%} would exceed threshold "
-                    f"{self._threshold:.0%}"
+                    f"Best Day Rule: projected today share {share:.1%} would exceed threshold {self._threshold:.0%}"
                 ),
                 today_pnl=self._today_pnl,
                 cumulative_pnl=self._cumulative_pnl,

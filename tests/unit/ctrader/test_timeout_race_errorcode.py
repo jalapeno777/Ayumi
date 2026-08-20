@@ -65,12 +65,8 @@ class TestTimeoutRaceErrorCodePropagation:
 
         # Track callbacks
         callback_calls = []
-        feed._callbacks["on_order_rejected"] = [
-            lambda o, m, r: callback_calls.append(r)
-        ]
-        feed._trigger_callback = lambda event, *args: callback_calls.append(
-            args[-1] if args else ""
-        )
+        feed._callbacks["on_order_rejected"] = [lambda o, m, r: callback_calls.append(r)]
+        feed._trigger_callback = lambda event, *args: callback_calls.append(args[-1] if args else "")
 
         # Prepare the order that new_order would create
 
@@ -88,7 +84,7 @@ class TestTimeoutRaceErrorCodePropagation:
             status=OrderStatus.REJECTED,
         )
         # Simulate deferred timeout having already set this
-        setattr(order, "reason", "deferred_error")
+        setattr(order, "reason", "deferred_error")  # noqa: B010
         order.comment = "deferred_error"
 
         event = threading.Event()
@@ -113,9 +109,7 @@ class TestTimeoutRaceErrorCodePropagation:
         assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
             f"Expected real errorCode in reason, got: {getattr(order, 'reason', '')}"
         )
-        assert order.comment != "deferred_error", (
-            "Comment should have been updated from generic deferred_error"
-        )
+        assert order.comment != "deferred_error", "Comment should have been updated from generic deferred_error"
 
     def test_genuine_timeout_preserves_timeout_reason(self):
         """AC4(b): Genuine timeout (no broker error) → reason stays timeout_awaiting_event."""
@@ -130,7 +124,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,
         )
-        setattr(order, "reason", "timeout_awaiting_event")
+        setattr(order, "reason", "timeout_awaiting_event")  # noqa: B010
         order.comment = "timeout_awaiting_event"
 
         event = threading.Event()
@@ -138,7 +132,7 @@ class TestTimeoutRaceErrorCodePropagation:
         feed._pending_orders[request_id] = (event, order)
 
         # No broker error event arrives — the order stays as timeout
-        assert getattr(order, "reason") == "timeout_awaiting_event"
+        assert getattr(order, "reason") == "timeout_awaiting_event"  # noqa: B009
         assert order.status == OrderStatus.REJECTED
 
     def test_late_broker_error_does_not_double_callback(self):
@@ -162,7 +156,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,  # Already rejected by deferred timeout
         )
-        setattr(order, "reason", "deferred_error")
+        setattr(order, "reason", "deferred_error")  # noqa: B010
 
         event = threading.Event()
         event.set()
@@ -180,12 +174,8 @@ class TestTimeoutRaceErrorCodePropagation:
         result = feed._handle_pending_order_error(mock_message, mock_envelope)
 
         assert result is True
-        assert callback_count[0] == 0, (
-            "Should NOT have triggered a second callback for late-arriving error"
-        )
-        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
-            "Reason should still be updated to real errorCode"
-        )
+        assert callback_count[0] == 0, "Should NOT have triggered a second callback for late-arriving error"
+        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), "Reason should still be updated to real errorCode"
 
     def test_on_error_does_not_overwrite_real_broker_error(self):
         """Verify on_error callback skips when broker already set a real error."""
@@ -200,7 +190,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,  # Already handled by broker error event
         )
-        setattr(order, "reason", "TRADING_BAD_STOPS: Stops too close")
+        setattr(order, "reason", "TRADING_BAD_STOPS: Stops too close")  # noqa: B010
 
         event = threading.Event()
         feed._pending_orders[request_id] = (event, order)
@@ -212,15 +202,11 @@ class TestTimeoutRaceErrorCodePropagation:
         def on_error_simulated():
             if order.status == OrderStatus.PENDING:
                 order.status = OrderStatus.REJECTED
-                setattr(order, "reason", "deferred_error")
+                setattr(order, "reason", "deferred_error")  # noqa: B010
                 callback_fired[0] = True
             # event.set()
 
         on_error_simulated()
 
-        assert not callback_fired[0], (
-            "on_error should NOT have overwritten the real broker errorCode"
-        )
-        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), (
-            "Real broker errorCode should be preserved"
-        )
+        assert not callback_fired[0], "on_error should NOT have overwritten the real broker errorCode"
+        assert "TRADING_BAD_STOPS" in getattr(order, "reason", ""), "Real broker errorCode should be preserved"

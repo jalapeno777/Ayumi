@@ -77,9 +77,7 @@ class AbstractDataLoader(ABC):
         Raises:
             NotImplementedError: If the data source does not support ticks.
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support tick data loading"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} does not support tick data loading")
 
     @abstractmethod
     def get_available_symbols(self) -> list[str]:

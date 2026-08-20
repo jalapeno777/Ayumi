@@ -9,7 +9,7 @@ Enhanced with:
 - New confluence detections: Asia gap type, ILOD/IHOD boundary, VWAP rejection
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from datetime import datetime
@@ -56,9 +56,7 @@ ILOD_IHOD_AT_BOUNDARY_BOOST = 0.05
 VWAP_REJECTION_BOOST = 0.10
 KILL_ZONE_ACTIVE_BOOST = -0.05
 HTF_OPPOSING_PENALTY = -0.15
-NEGATIVE_WEIGHT = (
-    1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
-)
+NEGATIVE_WEIGHT = 1.0  # global multiplier for negative confluence magnitude (0=off, 1=full)
 
 # New confluence boost constants
 MFI_BOOST = 0.08
@@ -222,9 +220,7 @@ class TTSStrategy(ISignalStrategy):
         self._is_volatile_session = False  # set per-bar in evaluate
 
         # Load per-symbol, per-timeframe ML-optimized config
-        self._symbol_config = PER_SYMBOL_CONFIGS.get(symbol.upper(), {}).get(
-            timeframe, DEFAULT_SYMBOL_CONFIG
-        )
+        self._symbol_config = PER_SYMBOL_CONFIGS.get(symbol.upper(), {}).get(timeframe, DEFAULT_SYMBOL_CONFIG)
 
         # Phase 2 components
         self._pattern_detector = PatternDetector()
@@ -235,18 +231,12 @@ class TTSStrategy(ISignalStrategy):
         # Phase 3 components
         self._confluence_scorer = ConfluenceScorer()
         # Pair-specific pip size
-        pip_size = (
-            0.01
-            if symbol.upper().endswith("JPY") or symbol.upper() == "XAUUSD"
-            else 0.0001
-        )
+        pip_size = 0.01 if symbol.upper().endswith("JPY") or symbol.upper() == "XAUUSD" else 0.0001
         self._stop_target = StopTargetCalculator(pip_size=pip_size, timeframe=timeframe)
         # Session
         self._session_analyzer = SessionAnalyzer()
         # Asia session analyzer (TTC flight-log system)
-        self._asia_analyzer = AsiaSessionAnalyzer(
-            max_range_pct=self._asia_range_thresholds
-        )
+        self._asia_analyzer = AsiaSessionAnalyzer(max_range_pct=self._asia_range_thresholds)
         # HTF
         self._htf_analyzer = HTFAnalyzer()
 
@@ -348,12 +338,8 @@ class TTSStrategy(ISignalStrategy):
         recent = bars[-window:]
         highs = [b.high for b in recent]
         lows = [b.low for b in recent]
-        self._swing_highs, self._swing_lows = self._swing_detector.detect_swings(
-            highs, lows
-        )
-        self._levels = self._level_counter.detect_levels_with_tracking(
-            self._swing_highs, self._swing_lows
-        )
+        self._swing_highs, self._swing_lows = self._swing_detector.detect_swings(highs, lows)
+        self._levels = self._level_counter.detect_levels_with_tracking(self._swing_highs, self._swing_lows)
 
         if not self._levels:
             return None
@@ -384,9 +370,9 @@ class TTSStrategy(ISignalStrategy):
 
         # ── FL pattern priority rule (pair+TF aware) ──
         # Thresholds tuned per pair and timeframe — see FL_CONFIDENCE_THRESHOLDS.
-        fl_threshold = self.FL_CONFIDENCE_THRESHOLDS.get(
-            self.symbol, self.FL_CONFIDENCE_THRESHOLDS["DEFAULT"]
-        ).get(self.timeframe, 0.60)
+        fl_threshold = self.FL_CONFIDENCE_THRESHOLDS.get(self.symbol, self.FL_CONFIDENCE_THRESHOLDS["DEFAULT"]).get(
+            self.timeframe, 0.60
+        )
 
         PATTERN_PRIORITY = {
             "M": 3,
@@ -405,9 +391,7 @@ class TTSStrategy(ISignalStrategy):
             key=lambda p: (PATTERN_PRIORITY.get(p.pattern_type, 0), p.confidence),
         )
 
-        mw_patterns = [
-            p for p in patterns if p.pattern_type in ("M", "W") and not p.flight_log_id
-        ]
+        mw_patterns = [p for p in patterns if p.pattern_type in ("M", "W") and not p.flight_log_id]
         fl_patterns = [p for p in patterns if p.flight_log_id]
 
         if fl_threshold == 0.0:
@@ -415,27 +399,17 @@ class TTSStrategy(ISignalStrategy):
             if mw_patterns:
                 best_pattern = max(mw_patterns, key=lambda p: p.confidence)
             else:
-                best_pattern = (
-                    max(patterns, key=lambda p: p.confidence) if patterns else None
-                )
-        elif mw_patterns and (
-            not fl_patterns or max(p.confidence for p in fl_patterns) < fl_threshold
-        ):
+                best_pattern = max(patterns, key=lambda p: p.confidence) if patterns else None
+        elif mw_patterns and (not fl_patterns or max(p.confidence for p in fl_patterns) < fl_threshold):
             best_pattern = max(mw_patterns, key=lambda p: p.confidence)
         elif fl_patterns and max(p.confidence for p in fl_patterns) >= fl_threshold:
             fl_best = max(fl_patterns, key=lambda p: p.confidence)
             if getattr(fl_best, "consolidation_confirmed", False):
                 best_pattern = fl_best
             else:
-                best_pattern = (
-                    max(mw_patterns, key=lambda p: p.confidence)
-                    if mw_patterns
-                    else fl_best
-                )
+                best_pattern = max(mw_patterns, key=lambda p: p.confidence) if mw_patterns else fl_best
         else:
-            best_pattern = (
-                max(patterns, key=lambda p: p.confidence) if patterns else None
-            )
+            best_pattern = max(patterns, key=lambda p: p.confidence) if patterns else None
 
         # ── Step 3b: Quality gates (pre-ConfidenceBuilder) ─────────────
         # Require minimum pattern confidence
@@ -455,10 +429,7 @@ class TTSStrategy(ISignalStrategy):
             else:
                 pattern_key = f"W:{kl.get('SL1', 0):.5f}:{kl.get('SL2', 0):.5f}"
 
-            if (
-                pattern_key == self._last_mw_pattern_key
-                and bar_idx - self._last_signal_bar <= 3
-            ):
+            if pattern_key == self._last_mw_pattern_key and bar_idx - self._last_signal_bar <= 3:
                 return None
 
             # Update dedup state
@@ -488,16 +459,16 @@ class TTSStrategy(ISignalStrategy):
                     else ("bearish" if htf_state.ema_slope < -0.00003 else None)
                 )
                 if htf_trend is not None:
-                    aligned = (
-                        best_pattern.direction == "long" and htf_trend == "bullish"
-                    ) or (best_pattern.direction == "short" and htf_trend == "bearish")
+                    aligned = (best_pattern.direction == "long" and htf_trend == "bullish") or (
+                        best_pattern.direction == "short" and htf_trend == "bearish"
+                    )
                     if aligned:
                         builder.add_boost("htf_trend_aligned", HTF_TREND_ALIGNED_BOOST)
                 # Conflicting HTF: apply penalty instead of blocking
                 if htf_trend is not None:
-                    opposing = (
-                        best_pattern.direction == "long" and htf_trend == "bearish"
-                    ) or (best_pattern.direction == "short" and htf_trend == "bullish")
+                    opposing = (best_pattern.direction == "long" and htf_trend == "bearish") or (
+                        best_pattern.direction == "short" and htf_trend == "bullish"
+                    )
                     if opposing:
                         builder.add_boost("htf_opposing", HTF_OPPOSING_PENALTY)
                 # HTF phase penalties
@@ -518,10 +489,7 @@ class TTSStrategy(ISignalStrategy):
 
         # SVC at peak boost
         if not top_confluences or "svc_at_peak" in top_confluences:
-            if (
-                getattr(best_pattern, "flight_log_id", None)
-                and "svc=" in best_pattern.notes
-            ):
+            if getattr(best_pattern, "flight_log_id", None) and "svc=" in best_pattern.notes:
                 if "svc=True" in best_pattern.notes:
                     builder.add_boost("svc_at_peak", SVC_AT_PEAK_BOOST)
 
@@ -530,12 +498,8 @@ class TTSStrategy(ISignalStrategy):
         if not top_confluences or "asia_gap_favorable" in top_confluences:
             asia_result = self._get_asia_result(bars)
             if asia_result and asia_result.asia_gap_type != "none":
-                gap_favorable = (
-                    asia_result.asia_gap_type == "bullish"
-                    and best_pattern.direction == "long"
-                ) or (
-                    asia_result.asia_gap_type == "bearish"
-                    and best_pattern.direction == "short"
+                gap_favorable = (asia_result.asia_gap_type == "bullish" and best_pattern.direction == "long") or (
+                    asia_result.asia_gap_type == "bearish" and best_pattern.direction == "short"
                 )
                 if gap_favorable:
                     builder.add_boost("asia_gap_favorable", ASIA_GAP_FAVORABLE_BOOST)
@@ -544,13 +508,9 @@ class TTSStrategy(ISignalStrategy):
 
         # ILOD/IHOD at boundary boost
         if not top_confluences or "ilod_ihod_at_boundary" in top_confluences:
-            if asia_result and (
-                asia_result.ilod is not None or asia_result.ilhod is not None
-            ):
+            if asia_result and (asia_result.ilod is not None or asia_result.ilhod is not None):
                 if self._is_price_near_boundary(latest.close, asia_result):
-                    builder.add_boost(
-                        "ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST
-                    )
+                    builder.add_boost("ilod_ihod_at_boundary", ILOD_IHOD_AT_BOUNDARY_BOOST)
 
         # VWAP rejection boost
         if not top_confluences or "vwap_rejection" in top_confluences:
@@ -575,15 +535,11 @@ class TTSStrategy(ISignalStrategy):
                 builder.add_boost("adx", ADX_BOOST)
 
         if not top_confluences or "volume_spike" in top_confluences:
-            if self._check_volume_spike_confluence(
-                bars, latest, best_pattern.direction
-            ):
+            if self._check_volume_spike_confluence(bars, latest, best_pattern.direction):
                 builder.add_boost("volume_spike", VOLUME_SPIKE_BOOST)
 
         if not top_confluences or "vwap_distance" in top_confluences:
-            if self._check_vwap_distance_confluence(
-                bars, latest, best_pattern.direction
-            ):
+            if self._check_vwap_distance_confluence(bars, latest, best_pattern.direction):
                 builder.add_boost("vwap_distance", VWAP_DISTANCE_BOOST)
 
         if not top_confluences or "rsi_extreme" in top_confluences:
@@ -591,16 +547,12 @@ class TTSStrategy(ISignalStrategy):
                 builder.add_boost("rsi_extreme", RSI_EXTREME_BOOST)
 
         if not top_confluences or "ema_extension" in top_confluences:
-            extension_boost = self._check_ema_extension_confluence(
-                bars, best_pattern.direction
-            )
+            extension_boost = self._check_ema_extension_confluence(bars, best_pattern.direction)
             if extension_boost > 0:
                 builder.add_boost("ema_extension", extension_boost)
 
         if not top_confluences or "ema_cluster" in top_confluences:
-            cluster_boost = self._check_ema_cluster_confluence(
-                bars, best_pattern.direction
-            )
+            cluster_boost = self._check_ema_cluster_confluence(bars, best_pattern.direction)
             if cluster_boost > 0:
                 builder.add_boost("ema_cluster", cluster_boost)
 
@@ -668,18 +620,14 @@ class TTSStrategy(ISignalStrategy):
                 "phase_score": session_state.phase_score,
                 "kill_zone_active": session_state.kill_zone_active,
             }
-            htf_dict = (
-                {"alignment_score": htf_state.alignment_score} if htf_state else {}
-            )
+            htf_dict = {"alignment_score": htf_state.alignment_score} if htf_state else {}
             confluence_score, confluence_boosters = self._confluence_scorer.score(
                 candidate=candidate,
                 htf_state=htf_dict,
                 session_state=session_dict,
             )
             # Add confluence score as a proportional boost (scaled by _CONFLUENCE_SCORER_WEIGHT)
-            builder.add_boost(
-                "confluence_scorer", confluence_score * _CONFLUENCE_SCORER_WEIGHT
-            )
+            builder.add_boost("confluence_scorer", confluence_score * _CONFLUENCE_SCORER_WEIGHT)
 
         # Finalize confidence
         total_confidence = builder.finalize()
@@ -736,11 +684,11 @@ class TTSStrategy(ISignalStrategy):
 
         # Sanity check: SL on correct side
         if best_pattern.direction == "long":
-            assert stop_price < entry_price, (
+            assert stop_price < entry_price, (  # noqa: S101
                 f"SL ({stop_price:.5f}) must be below entry ({entry_price:.5f}) for long"
             )
         else:
-            assert stop_price > entry_price, (
+            assert stop_price > entry_price, (  # noqa: S101
                 f"SL ({stop_price:.5f}) must be above entry ({entry_price:.5f}) for short"
             )
 
@@ -767,11 +715,7 @@ class TTSStrategy(ISignalStrategy):
             tp2_price = tp_mgr.tp2_price
             tp3_price = tp_mgr.tp3_price
 
-        direction = (
-            TradeDirection.LONG
-            if best_pattern.direction == "long"
-            else TradeDirection.SHORT
-        )
+        direction = TradeDirection.LONG if best_pattern.direction == "long" else TradeDirection.SHORT
 
         rationale = (
             f"{self.name}: {best_pattern.pattern_type} "
@@ -863,9 +807,7 @@ class TTSStrategy(ISignalStrategy):
         return False
 
     @staticmethod
-    def _check_bollinger_confluence(
-        bars: list[Bar], latest: Bar, direction: str
-    ) -> bool:
+    def _check_bollinger_confluence(bars: list[Bar], latest: Bar, direction: str) -> bool:
         """Bollinger Band(20, 2σ) bounce/rejection or middle band cross."""
         lookback = min(50, len(bars))
         if lookback < 22:
@@ -912,9 +854,7 @@ class TTSStrategy(ISignalStrategy):
         return False
 
     @staticmethod
-    def _check_volume_spike_confluence(
-        bars: list[Bar], latest: Bar, direction: str
-    ) -> bool:
+    def _check_volume_spike_confluence(bars: list[Bar], latest: Bar, direction: str) -> bool:
         """Volume spike > 1.5x 20-bar average in trade direction."""
         lookback = min(50, len(bars))
         if lookback < 21:
@@ -933,9 +873,7 @@ class TTSStrategy(ISignalStrategy):
         return False
 
     @staticmethod
-    def _check_vwap_distance_confluence(
-        bars: list[Bar], latest: Bar, direction: str
-    ) -> bool:
+    def _check_vwap_distance_confluence(bars: list[Bar], latest: Bar, direction: str) -> bool:
         """Price > 0.10% away from VWAP in trade direction."""
         lookback = min(30, len(bars))
         if lookback < 15:
@@ -1024,11 +962,7 @@ class TTSStrategy(ISignalStrategy):
         ema50_series = TTSStrategy._ema(closes, 50)
         ema200_series = TTSStrategy._ema(closes, 200)
 
-        if (
-            np.isnan(ema20_series[-1])
-            or np.isnan(ema50_series[-1])
-            or np.isnan(ema200_series[-1])
-        ):
+        if np.isnan(ema20_series[-1]) or np.isnan(ema50_series[-1]) or np.isnan(ema200_series[-1]):
             return 0.0
 
         ema20 = float(ema20_series[-1])
@@ -1295,9 +1229,7 @@ class TTSStrategy(ISignalStrategy):
         return mid + std_mult * std, mid, mid - std_mult * std
 
     @staticmethod
-    def _compute_adx(
-        highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14
-    ) -> tuple:
+    def _compute_adx(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int = 14) -> tuple:
         """Compute ADX, +DI, -DI."""
         if len(closes) < period * 2:
             return float("nan"), float("nan"), float("nan")
@@ -1326,11 +1258,7 @@ class TTSStrategy(ISignalStrategy):
             return float("nan"), float("nan"), float("nan")
         plus_di = 100.0 * smooth_plus / atr
         minus_di = 100.0 * smooth_minus / atr
-        dx = (
-            100.0 * abs(plus_di - minus_di) / (plus_di + minus_di)
-            if (plus_di + minus_di) > 0
-            else 0.0
-        )
+        dx = 100.0 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0.0
         # ADX is smoothed DX — single value approximation
         adx = dx  # simplified; full Wilder smoothing needs more bars
         return adx, plus_di, minus_di
@@ -1366,9 +1294,7 @@ class TTSStrategy(ISignalStrategy):
     def _get_session_state(self, ts: datetime) -> SessionState:
         session_name = self._session_analyzer.get_current_session(ts)
         _ = self._session_analyzer.is_kill_zone(ts)
-        session_result = self._session_analyzer.score_session_phase_with_time(
-            session_name, ts
-        )
+        session_result = self._session_analyzer.score_session_phase_with_time(session_name, ts)
         return SessionState(
             session_name=session_name,
             kill_zone_active=session_result["kill_zone_active"],
@@ -1408,9 +1334,7 @@ class TTSStrategy(ISignalStrategy):
             valid = valid[~np.isnan(valid)]
             if len(valid) >= 2:
                 slope_raw = valid[-1] - valid[0]
-                ema_slope = (
-                    slope_raw / (len(valid) * valid[-1]) if valid[-1] > 0 else 0.0
-                )
+                ema_slope = slope_raw / (len(valid) * valid[-1]) if valid[-1] > 0 else 0.0
 
         # Phase: use M15-appropriate thresholds
         # Boardroom: range < 0.3% over 20h is very tight
@@ -1418,11 +1342,7 @@ class TTSStrategy(ISignalStrategy):
         phase = self._classify_htf_phase(range_size, ema_slope, highs, lows, closes)
 
         # Alignment score — include M15 direction alongside D1 for scoring
-        htf_dir = (
-            "bullish"
-            if ema_slope > 0.00003
-            else ("bearish" if ema_slope < -0.00003 else None)
-        )
+        htf_dir = "bullish" if ema_slope > 0.00003 else ("bearish" if ema_slope < -0.00003 else None)
         mtf_data = {}
         if htf_dir:
             mtf_data["D1"] = htf_dir

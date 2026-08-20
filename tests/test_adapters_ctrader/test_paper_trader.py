@@ -20,7 +20,7 @@ _FOREX_SRC = str(Path(__file__).resolve().parent.parent.parent / "src" / "forex-
 if _FOREX_SRC not in sys.path:
     sys.path.insert(0, _FOREX_SRC)
 
-from adapters.ctrader.models import (
+from adapters.ctrader.models import (  # noqa: I001
     CTraderTradeSignal,
     Position,
     TradeDirection,
@@ -64,9 +64,7 @@ def _open_paper_position(
 ) -> Position:
     """Open a paper position and return it."""
     signal = signal or _make_signal()
-    result = trader.process_signal(
-        signal, spread=0.0001, bid=signal.entry_price, ask=signal.entry_price
-    )
+    result = trader.process_signal(signal, spread=0.0001, bid=signal.entry_price, ask=signal.entry_price)
     assert result.success, f"Signal was rejected: {result.rejection_reason}"
     assert result.position is not None
     return result.position
@@ -454,9 +452,7 @@ class TestPaperTraderSLTPEnforcement:
         trader.update_market_prices(prices={"EURUSD": 1.0900})
 
         stats_after = trader.get_stats()
-        assert stats_after.realized_pnl < 0, (
-            "Realized P&L should be negative after SL hit"
-        )
+        assert stats_after.realized_pnl < 0, "Realized P&L should be negative after SL hit"
 
     def test_realized_pnl_updated_on_tp_close(self, trader):
         """Realized P&L is updated when TP closes a position internally."""
@@ -466,9 +462,7 @@ class TestPaperTraderSLTPEnforcement:
         trader.update_market_prices(prices={"EURUSD": 1.1150})
 
         stats_after = trader.get_stats()
-        assert stats_after.realized_pnl > 0, (
-            "Realized P&L should be positive after TP hit"
-        )
+        assert stats_after.realized_pnl > 0, "Realized P&L should be positive after TP hit"
 
     def test_position_stays_open_when_no_sl_tp_hit(self, trader):
         """Position stays open when price is between SL and TP."""

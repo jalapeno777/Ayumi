@@ -97,17 +97,11 @@ class SlippageConfig:
 
     def __post_init__(self) -> None:
         if self.base_slippage_pips < 0:
-            raise ValueError(
-                f"base_slippage_pips must be non-negative, got {self.base_slippage_pips}"
-            )
+            raise ValueError(f"base_slippage_pips must be non-negative, got {self.base_slippage_pips}")
         if self.volume_coefficient < 0:
-            raise ValueError(
-                f"volume_coefficient must be non-negative, got {self.volume_coefficient}"
-            )
+            raise ValueError(f"volume_coefficient must be non-negative, got {self.volume_coefficient}")
         if self.max_slippage_pips <= 0:
-            raise ValueError(
-                f"max_slippage_pips must be positive, got {self.max_slippage_pips}"
-            )
+            raise ValueError(f"max_slippage_pips must be positive, got {self.max_slippage_pips}")
         if self.adv_lots <= 0:
             raise ValueError(f"adv_lots must be positive, got {self.adv_lots}")
 
@@ -167,36 +161,26 @@ def compute_slippage(
 
     elif config.model == SlippageModel.LINEAR:
         volume_fraction = context.trade_lots / config.adv_lots
-        volume_impact = (
-            config.volume_coefficient * volume_fraction * 100
-        )  # scale to pips
+        volume_impact = config.volume_coefficient * volume_fraction * 100  # scale to pips
         slippage_pips = config.base_slippage_pips + volume_impact
 
     elif config.model == SlippageModel.SQUARE_ROOT:
         volume_fraction = context.trade_lots / config.adv_lots
         # Almgren-Chriss style: impact ∝ sqrt(participation rate)
-        volume_impact = config.volume_coefficient * math.sqrt(
-            max(volume_fraction, 0) * 100
-        )
+        volume_impact = config.volume_coefficient * math.sqrt(max(volume_fraction, 0) * 100)
         slippage_pips = config.base_slippage_pips + volume_impact
 
     else:
         raise ValueError(f"Unknown slippage model: {config.model}")
 
     # --- Volatility adjustment ---
-    if (
-        config.volatility_coefficient > 0
-        and context.volatility_pips is not None
-        and context.volatility_pips > 0
-    ):
+    if config.volatility_coefficient > 0 and context.volatility_pips is not None and context.volatility_pips > 0:
         vol_component = config.volatility_coefficient * context.volatility_pips
         slippage_pips += vol_component
 
     # --- Session liquidity adjustment ---
     if config.session_aware and context.session is not None:
-        factor = SESSION_LIQUIDITY_FACTOR.get(
-            context.session.upper(), DEFAULT_SESSION_FACTOR
-        )
+        factor = SESSION_LIQUIDITY_FACTOR.get(context.session.upper(), DEFAULT_SESSION_FACTOR)
         slippage_pips *= factor
 
     # --- Hard cap ---
@@ -294,8 +278,5 @@ def apply_slippage_to_price(
     else:
         result = price - slippage_price
         if result <= 0:
-            raise ValueError(
-                f"Adjusted price non-positive: {result} "
-                f"(price={price}, slippage={slippage_price})"
-            )
+            raise ValueError(f"Adjusted price non-positive: {result} (price={price}, slippage={slippage_price})")
         return result

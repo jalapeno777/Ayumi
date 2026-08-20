@@ -13,7 +13,7 @@ Usage:
     python3 scripts/srmr_confidence_test.py
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 import pickle
 import time
@@ -25,7 +25,7 @@ project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 from core.types import Bar, MarketState, SessionType, BarPeriod
 from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
 from regime.detector import Regime
@@ -57,7 +57,7 @@ print(f"Loaded {len(bars)} bars")
 cache_dir = project_root / "data" / "cache"
 cache_file = next(cache_dir.glob("labels_XAUUSD_M15_*.pkl"), None)
 with open(cache_file, "rb") as f:
-    regimes, adxs, sessions = pickle.load(f)
+    regimes, adxs, sessions = pickle.load(f)  # noqa: S301
 print("Loaded cached labels")
 
 # Precompute per-bar indicators we need for confidence:
@@ -101,15 +101,11 @@ for i in range(100, n):
     median_vol = np.median(vol_arr) if vol_arr else 1.0
     vol_ratio[i] = bars[i].volume / max(median_vol, 1.0)
     # Range ratio: last 10 bars range vs prior 50
-    recent_range = max(bars[j].high for j in range(i - 9, i + 1)) - min(
-        bars[j].low for j in range(i - 9, i + 1)
-    )
+    recent_range = max(bars[j].high for j in range(i - 9, i + 1)) - min(bars[j].low for j in range(i - 9, i + 1))
     prior_high = max(bars[j].high for j in range(i - 59, i - 9))
     prior_low = min(bars[j].low for j in range(i - 59, i - 9))
     prior_range = prior_high - prior_low
-    range_ratio[i] = recent_range / max(
-        prior_range / 5, 0.0001
-    )  # normalize for window difference
+    range_ratio[i] = recent_range / max(prior_range / 5, 0.0001)  # normalize for window difference
 
 print("Done precomputing")
 
@@ -232,7 +228,7 @@ def run_blend(
         )
         try:
             sig = s.evaluate(state)
-        except:
+        except:  # noqa: E722, S112
             continue
         if sig is None:
             continue
@@ -282,9 +278,7 @@ print()
 print("Confidence indicators:")
 print("  ATR ratio: current ATR / median ATR(100). >1.0 = above-average volatility")
 print("  Volume ratio: current vol / median vol(100). >1.0 = high-volume bar")
-print(
-    "  Range ratio: last-10-bar range / avg-10-bar-of-prior-50. >1.0 = range expansion"
-)
+print("  Range ratio: last-10-bar range / avg-10-bar-of-prior-50. >1.0 = range expansion")
 print()
 
 # Variant definitions
@@ -412,9 +406,7 @@ for v in variants:
     args = v[1:] if len(v) > 4 else v[1:]
     r = run_blend(name, *args)
     results.append(r)
-    print(
-        f"| {r['name']} | {r['trades']} | {r['pf']} | ${r['net']} | {r['dd_pct']}% | {r['wr']}% |"
-    )
+    print(f"| {r['name']} | {r['trades']} | {r['pf']} | ${r['net']} | {r['dd_pct']}% | {r['wr']}% |")
 
 # Find best
 print()
@@ -428,9 +420,7 @@ for r in viable[:5]:
 years = len(bars) / (96 * 365)
 print()
 print(
-    f"**Best annualized volume:** {viable[0]['trades'] / years:.1f}/year"
-    if viable
-    else "**No viable variant found**"
+    f"**Best annualized volume:** {viable[0]['trades'] / years:.1f}/year" if viable else "**No viable variant found**"
 )
 print(
     f"**FTMO viability:** {'✅ PASS' if viable and viable[0]['pf'] > 1.0 and viable[0]['dd_pct'] < 10 else '❌ FAIL'}"

@@ -1,11 +1,11 @@
-import sys
+import sys  # noqa: I001
 import os
 import unittest
 import dataclasses
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from datetime import datetime
+from datetime import datetime  # noqa: I001
 
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.gbpusd_bb_reversion import (
@@ -54,9 +54,7 @@ def _make_bars(
     return bars
 
 
-def _make_state(
-    bars: list[Bar], session: SessionType = SessionType.LONDON
-) -> MarketState:
+def _make_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -219,9 +217,7 @@ class TestBuildSignal(unittest.TestCase):
 
     def test_short_signal(self):
         config = BBReversionConfig()
-        signal = _build_signal(
-            TradeDirection.SHORT, 1.2000, 0.001, config, 0.70, "test"
-        )
+        signal = _build_signal(TradeDirection.SHORT, 1.2000, 0.001, config, 0.70, "test")
         self.assertIsNotNone(signal)
         self.assertEqual(signal.direction, TradeDirection.SHORT)
         self.assertGreater(signal.stop_loss, signal.entry_price)
@@ -308,13 +304,11 @@ class TestBBMeanReversionStrategy(unittest.TestCase):
         strategy.reset()
 
     def test_long_signal_when_all_conditions_met(self):
-        strategy = BBMeanReversionStrategy(
-            BBReversionConfig(session_filter=False, min_confidence=0.30)
-        )
+        strategy = BBMeanReversionStrategy(BBReversionConfig(session_filter=False, min_confidence=0.30))
         bars = []
         price = 1.2000
 
-        for i in range(50):
+        for i in range(50):  # noqa: B007
             bars.append(
                 Bar(
                     time=datetime(2023, 1, 1, 9),
@@ -357,10 +351,7 @@ class TestBBMeanReversionStrategy(unittest.TestCase):
             rsi = _calculate_rsi(closes, 14)
             low_vol = _is_low_volatility(bars, 14, 20)
             self.assertFalse(
-                latest.low <= bb_lower
-                and latest.close > bb_lower
-                and rsi < 40
-                and low_vol,
+                latest.low <= bb_lower and latest.close > bb_lower and rsi < 40 and low_vol,
                 "All conditions met but no signal generated",
             )
 
@@ -409,7 +400,7 @@ class TestPresets(unittest.TestCase):
 
     def test_preset_is_frozen(self):
         self.assertTrue(dataclasses.is_dataclass(BBReversionConfig))
-        self.assertTrue(getattr(BBReversionConfig, "__dataclass_params__").frozen)
+        self.assertTrue(getattr(BBReversionConfig, "__dataclass_params__").frozen)  # noqa: B009
 
 
 if __name__ == "__main__":

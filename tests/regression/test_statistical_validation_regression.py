@@ -189,9 +189,7 @@ class TestFullBtConsistencyRegression(unittest.TestCase):
     def test_positive_bt_positive_wf_with_pairs_go(self):
         pnls = [10.0] * 60
         pair_results = {"EUR/USD": 1.5, "GBP/USD": 1.2}
-        result = evaluate_statistical_checks(
-            pnls, full_bt_pnl=5000.0, pair_results=pair_results
-        )
+        result = evaluate_statistical_checks(pnls, full_bt_pnl=5000.0, pair_results=pair_results)
         self.assertEqual(result.decision, GoNogoDecision.GO)
         self.assertTrue(result.full_bt_consistent)
 

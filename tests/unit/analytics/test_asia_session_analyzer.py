@@ -1,6 +1,6 @@
 """Tests for AsiaSessionAnalyzer and flight-log pattern detection."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, time as dt_time
 
@@ -23,9 +23,7 @@ def _et_to_utc(et_hour: int, et_minute: int = 0) -> datetime:
     return t
 
 
-def _make_bar(
-    high: float, low: float, close: float, open_: float, hour: int, minute: int = 0
-) -> dict:
+def _make_bar(high: float, low: float, close: float, open_: float, hour: int, minute: int = 0) -> dict:
     return {
         "high": high,
         "low": low,
@@ -35,9 +33,7 @@ def _make_bar(
     }
 
 
-def _make_asia_bars(
-    price: float = 1.0850, range_pips: float = 10, hours: list[int] | None = None
-) -> list[dict]:
+def _make_asia_bars(price: float = 1.0850, range_pips: float = 10, hours: list[int] | None = None) -> list[dict]:
     """Create bars during Asia window (8pm–1:30am ET, stored as UTC)."""
     if hours is None:
         hours = [20, 20, 21, 21, 22, 22, 23, 23, 0, 0, 1]
@@ -92,15 +88,11 @@ class TestAsiaRangeQualification:
         assert result.low_touches >= 2
 
     def test_no_consolidation_when_one_sided(self):
-        analyzer = AsiaSessionAnalyzer(
-            min_touches_per_side=2, touch_tolerance_pct=0.001
-        )
+        analyzer = AsiaSessionAnalyzer(min_touches_per_side=2, touch_tolerance_pct=0.001)
         # All bars have same high, low varies — only high touched
         bars = []
         for h in [20, 21, 22, 23, 0, 1]:
-            bars.append(
-                _make_bar(1.0860, 1.0840 + 0.0001 * len(bars), 1.0850, 1.0850, h)
-            )
+            bars.append(_make_bar(1.0860, 1.0840 + 0.0001 * len(bars), 1.0850, 1.0850, h))
         result = analyzer.analyze_asia_range(bars)
         assert result is not None
         # With tight tolerance, each unique low should NOT count as a touch to asia_low
@@ -309,12 +301,8 @@ class TestFlightLogPatterns:
         ]
 
         # Trigger bar at SL2, current bar rising
-        trigger = _make_bar(
-            mid, asia_low + 0.0003, asia_low + 0.0004, asia_low + 0.0002, 3
-        )
-        current = _make_bar(
-            mid + 0.0002, asia_low + 0.0004, mid - 0.0001, asia_low + 0.0004, 3
-        )
+        trigger = _make_bar(mid, asia_low + 0.0003, asia_low + 0.0004, asia_low + 0.0002, 3)
+        current = _make_bar(mid + 0.0002, asia_low + 0.0004, mid - 0.0001, asia_low + 0.0004, 3)
 
         pattern = detector._detect_fl001(
             swings,

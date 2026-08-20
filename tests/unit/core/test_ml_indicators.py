@@ -175,9 +175,7 @@ class TestVWAP:
             sample_ohlcv["volume"],
             sample_ohlcv["date"],
         )
-        typical = (
-            sample_ohlcv["high"] + sample_ohlcv["low"] + sample_ohlcv["close"]
-        ) / 3
+        typical = (sample_ohlcv["high"] + sample_ohlcv["low"] + sample_ohlcv["close"]) / 3
         valid = result.dropna()
         idx = valid.index
         diff = abs(valid - typical[idx])

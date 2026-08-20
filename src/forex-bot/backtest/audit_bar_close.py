@@ -164,7 +164,7 @@ def _parse_timestamp(raw: Any) -> Optional[datetime]:
 
 def _generate_signal_id(signal: dict, file_source: str, line_num: int) -> str:
     """Deterministic signal ID from signal content + source location."""
-    raw = f"{file_source}:{line_num}:{signal.get('timestamp', '')}:{signal.get('symbol', '')}:{signal.get('direction', '')}"
+    raw = f"{file_source}:{line_num}:{signal.get('timestamp', '')}:{signal.get('symbol', '')}:{signal.get('direction', '')}"  # noqa: E501
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
@@ -187,14 +187,10 @@ def iter_signals(signals_dir: Path) -> Iterator[tuple[dict, str, int]]:
                     try:
                         obj = json.loads(stripped)
                     except json.JSONDecodeError:
-                        logger.warning(
-                            "Skipping malformed JSON in %s:%d", filepath.name, line_num
-                        )
+                        logger.warning("Skipping malformed JSON in %s:%d", filepath.name, line_num)
                         continue
                     if not isinstance(obj, dict):
-                        logger.warning(
-                            "Skipping non-object line in %s:%d", filepath.name, line_num
-                        )
+                        logger.warning("Skipping non-object line in %s:%d", filepath.name, line_num)
                         continue
                     yield obj, filepath.name, line_num
         except OSError as exc:
@@ -251,9 +247,7 @@ def categorize_timing(
 # ---------------------------------------------------------------------------
 
 
-def fetch_spread_from_db(
-    db_path: Path, symbol: str, entry_time: str
-) -> Optional[float]:
+def fetch_spread_from_db(db_path: Path, symbol: str, entry_time: str) -> Optional[float]:
     """Try to look up spread from trade data.
 
     Currently the trades table does not store spread directly, so this
@@ -315,9 +309,7 @@ def run_audit(
         # Parse timestamp
         signal_ts = _parse_timestamp(signal.get("timestamp"))
         if signal_ts is None:
-            logger.warning(
-                "Skipping signal with unparseable timestamp in %s:%d", source, line_num
-            )
+            logger.warning("Skipping signal with unparseable timestamp in %s:%d", source, line_num)
             skipped += 1
             continue
 
@@ -342,9 +334,7 @@ def run_audit(
             spread = _get_spread_for_pair(instrument)
 
         # Generate signal ID
-        signal_id = signal.get("signal_id") or _generate_signal_id(
-            signal, source, line_num
-        )
+        signal_id = signal.get("signal_id") or _generate_signal_id(signal, source, line_num)
 
         # Strategy
         strategy_id = signal.get("strategy_id", signal.get("strategy_name", "unknown"))
@@ -448,9 +438,7 @@ def _print_summary(summary: AuditSummary) -> None:
             pct_v = (t_valid / t_total * 100) if t_total else 0
             pct_f = (t_forming / t_total * 100) if t_total else 0
             pct_l = (t_late / t_total * 100) if t_total else 0
-            print(
-                f"    {tf:<10s}              V:{pct_v:5.1f}%  F:{pct_f:5.1f}%  L:{pct_l:5.1f}%"
-            )
+            print(f"    {tf:<10s}              V:{pct_v:5.1f}%  F:{pct_f:5.1f}%  L:{pct_l:5.1f}%")
 
     print("\n" + "=" * 60 + "\n")
 
@@ -461,9 +449,7 @@ def _print_summary(summary: AuditSummary) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Audit signal timing relative to bar close times."
-    )
+    parser = argparse.ArgumentParser(description="Audit signal timing relative to bar close times.")
     parser.add_argument(
         "--signals-dir",
         type=Path,

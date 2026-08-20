@@ -8,7 +8,7 @@ Usage:
     python scripts/run_live_session_range_gbpusd.py [--live] [--bar-minutes 15] [--reset]
 """
 
-import argparse
+import argparse  # noqa: I001
 from common.resource_limits import add_resource_args
 import logging
 import shutil
@@ -66,20 +66,14 @@ def _reset_synthetic_data(log_dir: str):
 
     logger.info("Reset complete: archived %d synthetic trade log(s)", removed)
     if removed == 0:
-        logger.info(
-            "No synthetic data detected — logs may contain real data, not clearing"
-        )
+        logger.info("No synthetic data detected — logs may contain real data, not clearing")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Forward test: Session Range MR GBPUSD"
-    )
+    parser = argparse.ArgumentParser(description="Forward test: Session Range MR GBPUSD")
     add_resource_args(parser)
     parser.add_argument("--live", action="store_true", help="Enable live execution")
-    parser.add_argument(
-        "--bar-minutes", type=int, default=15, help="Bar timeframe in minutes"
-    )
+    parser.add_argument("--bar-minutes", type=int, default=15, help="Bar timeframe in minutes")
     parser.add_argument("-v", "--verbose", action="store_true", help="Debug logging")
     parser.add_argument(
         "--reset",
@@ -146,9 +140,7 @@ def main():
                     session = "OUTSIDE"
 
                 logger.info(
-                    "[STATUS] session=%s "
-                    "trades=%d rejected=%d balance=%.2f "
-                    "realized=%.2f unrealized=%.2f spread=%.5f",
+                    "[STATUS] session=%s trades=%d rejected=%d balance=%.2f realized=%.2f unrealized=%.2f spread=%.5f",
                     session,
                     trading["trades_executed"],
                     trading["trades_rejected"],

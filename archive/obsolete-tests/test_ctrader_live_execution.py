@@ -41,30 +41,30 @@ def _make_signal(**overrides) -> TradeSignal:
 class TestFIXRejectCode:
     def test_all_codes_have_messages(self):
         for code in FIXRejectCode:
-            assert code in FIX_REJECT_MESSAGES, f"No message for {code.name}"
+            assert code in FIX_REJECT_MESSAGES, f"No message for {code.name}"  # noqa: S101
 
     def test_get_reject_message_known_code(self):
         msg = get_reject_message(26)
-        assert "Insufficient funds" in msg
+        assert "Insufficient funds" in msg  # noqa: S101
 
     def test_get_reject_message_unknown_code(self):
         msg = get_reject_message(9999)
-        assert "Unknown reject code 9999" in msg
+        assert "Unknown reject code 9999" in msg  # noqa: S101
 
     def test_get_reject_message_with_text(self):
         msg = get_reject_message(26, "Only $50 available")
-        assert "Insufficient funds" in msg
-        assert "Only $50 available" in msg
+        assert "Insufficient funds" in msg  # noqa: S101
+        assert "Only $50 available" in msg  # noqa: S101
 
     def test_get_reject_message_zero_code(self):
         msg = get_reject_message(0)
-        assert "Unspecified" in msg
+        assert "Unspecified" in msg  # noqa: S101
 
     def test_common_reject_codes(self):
-        assert FIXRejectCode.INSUFFICIENT_FUNDS.value == 26
-        assert FIXRejectCode.DUPLICATE_ORDER.value == 38
-        assert FIXRejectCode.INSUFFICIENT_MARGIN.value == 102
-        assert FIXRejectCode.TRADING_SESSION_CLOSED.value == 22
+        assert FIXRejectCode.INSUFFICIENT_FUNDS.value == 26  # noqa: S101
+        assert FIXRejectCode.DUPLICATE_ORDER.value == 38  # noqa: S101
+        assert FIXRejectCode.INSUFFICIENT_MARGIN.value == 102  # noqa: S101
+        assert FIXRejectCode.TRADING_SESSION_CLOSED.value == 22  # noqa: S101
 
 
 class TestFIXClientExecutionReport:
@@ -78,7 +78,7 @@ class TestFIXClientExecutionReport:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         return FIXClient(creds)
 
@@ -102,8 +102,8 @@ class TestFIXClientExecutionReport:
         client.register_callback("on_order_new", lambda o, m: filled_orders.append(o))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.PENDING
-        assert len(filled_orders) == 1
+        assert order.status == OrderStatus.PENDING  # noqa: S101
+        assert len(filled_orders) == 1  # noqa: S101
 
     def test_exec_type_fill(self):
         client = self._make_fix_client()
@@ -124,14 +124,12 @@ class TestFIXClientExecutionReport:
         msg.fields[32] = "10000"
 
         filled_orders = []
-        client.register_callback(
-            "on_order_filled", lambda o, m: filled_orders.append(o)
-        )
+        client.register_callback("on_order_filled", lambda o, m: filled_orders.append(o))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.FILLED
-        assert order.filled_price == 1.1005
-        assert len(filled_orders) == 1
+        assert order.status == OrderStatus.FILLED  # noqa: S101
+        assert order.filled_price == 1.1005  # noqa: S101
+        assert len(filled_orders) == 1  # noqa: S101
 
     def test_exec_type_cancelled(self):
         client = self._make_fix_client()
@@ -154,9 +152,9 @@ class TestFIXClientExecutionReport:
         client.register_callback("on_order_cancelled", lambda o, m: cancelled.append(o))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.CANCELLED
-        assert "User requested" in order.comment
-        assert len(cancelled) == 1
+        assert order.status == OrderStatus.CANCELLED  # noqa: S101
+        assert "User requested" in order.comment  # noqa: S101
+        assert len(cancelled) == 1  # noqa: S101
 
     def test_exec_type_rejected_maps_code(self):
         client = self._make_fix_client()
@@ -177,15 +175,13 @@ class TestFIXClientExecutionReport:
         msg.fields[58] = "Not enough money"
 
         rejected = []
-        client.register_callback(
-            "on_order_rejected", lambda o, m, r: rejected.append((o, r))
-        )
+        client.register_callback("on_order_rejected", lambda o, m, r: rejected.append((o, r)))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.REJECTED
-        assert "Insufficient funds" in order.comment
-        assert len(rejected) == 1
-        assert "Insufficient funds" in rejected[0][1]
+        assert order.status == OrderStatus.REJECTED  # noqa: S101
+        assert "Insufficient funds" in order.comment  # noqa: S101
+        assert len(rejected) == 1  # noqa: S101
+        assert "Insufficient funds" in rejected[0][1]  # noqa: S101
 
     def test_exec_type_expired(self):
         client = self._make_fix_client()
@@ -208,8 +204,8 @@ class TestFIXClientExecutionReport:
         client.register_callback("on_order_cancelled", lambda o, m: cancelled.append(o))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.CANCELLED
-        assert "expired" in order.comment.lower()
+        assert order.status == OrderStatus.CANCELLED  # noqa: S101
+        assert "expired" in order.comment.lower()  # noqa: S101
 
     def test_exec_type_partial_fill(self):
         client = self._make_fix_client()
@@ -229,14 +225,12 @@ class TestFIXClientExecutionReport:
         msg.fields[31] = "1.1002"
 
         partials = []
-        client.register_callback(
-            "on_order_partial_fill", lambda o, m: partials.append(o)
-        )
+        client.register_callback("on_order_partial_fill", lambda o, m: partials.append(o))
         client._handle_execution_report(msg)
 
-        assert order.status == OrderStatus.PENDING
-        assert order.filled_price == 1.1002
-        assert len(partials) == 1
+        assert order.status == OrderStatus.PENDING  # noqa: S101
+        assert order.filled_price == 1.1002  # noqa: S101
+        assert len(partials) == 1  # noqa: S101
 
     def test_unknown_exec_type_does_not_crash(self):
         client = self._make_fix_client()
@@ -254,7 +248,7 @@ class TestFIXClientExecutionReport:
         msg.fields[150] = "Z"
 
         client._handle_execution_report(msg)
-        assert order.status == OrderStatus.PENDING
+        assert order.status == OrderStatus.PENDING  # noqa: S101
 
 
 class TestOrderManagerLiveExecution:
@@ -265,8 +259,8 @@ class TestOrderManagerLiveExecution:
             direction=TradeDirection.LONG,
             volume=0.1,
         )
-        assert result.success is False
-        assert "no_live_client" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "no_live_client" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_paper_mode(self):
         mock_api = MagicMock()
@@ -277,8 +271,8 @@ class TestOrderManagerLiveExecution:
             direction=TradeDirection.LONG,
             volume=0.1,
         )
-        assert result.success is False
-        assert "paper mode" in result.error_message.lower()
+        assert result.success is False  # noqa: S101
+        assert "paper mode" in result.error_message.lower()  # noqa: S101
 
     def test_execute_live_order_not_connected(self):
         mock_api = MagicMock()
@@ -290,8 +284,8 @@ class TestOrderManagerLiveExecution:
             direction=TradeDirection.LONG,
             volume=0.1,
         )
-        assert result.success is False
-        assert "not_connected" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "not_connected" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_send_fails(self):
         mock_api = MagicMock()
@@ -304,8 +298,8 @@ class TestOrderManagerLiveExecution:
             direction=TradeDirection.LONG,
             volume=0.1,
         )
-        assert result.success is False
-        assert "send_failed" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "send_failed" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_success_immediate_fill(self):
         filled_order = Order(
@@ -330,10 +324,10 @@ class TestOrderManagerLiveExecution:
             volume=0.1,
         )
 
-        assert result.success is True
-        assert result.order is not None
-        assert result.position is not None
-        assert result.position.symbol == "EURUSD"
+        assert result.success is True  # noqa: S101
+        assert result.order is not None  # noqa: S101
+        assert result.position is not None  # noqa: S101
+        assert result.position.symbol == "EURUSD"  # noqa: S101
         mock_api.send_order.assert_called_once()
 
     def test_execute_live_order_pending(self):
@@ -360,10 +354,10 @@ class TestOrderManagerLiveExecution:
             price=1.0950,
         )
 
-        assert result.success is True
-        assert result.order is not None
-        assert result.order.status == OrderStatus.PENDING
-        assert result.position is None
+        assert result.success is True  # noqa: S101
+        assert result.order is not None  # noqa: S101
+        assert result.order.status == OrderStatus.PENDING  # noqa: S101
+        assert result.position is None  # noqa: S101
 
     def test_execute_live_order_rejected(self):
         rejected_order = Order(
@@ -387,9 +381,9 @@ class TestOrderManagerLiveExecution:
             volume=0.1,
         )
 
-        assert result.success is False
-        assert "broker_rejected" in result.rejection_reason
-        assert result.order.status == OrderStatus.REJECTED
+        assert result.success is False  # noqa: S101
+        assert "broker_rejected" in result.rejection_reason  # noqa: S101
+        assert result.order.status == OrderStatus.REJECTED  # noqa: S101
 
     def test_execute_live_order_with_sl_tp(self):
         filled_order = Order(
@@ -418,10 +412,10 @@ class TestOrderManagerLiveExecution:
             take_profit=1.2500,
         )
 
-        assert result.success is True
-        assert result.position is not None
-        assert result.position.stop_loss == 1.2650
-        assert result.position.take_profit == 1.2500
+        assert result.success is True  # noqa: S101
+        assert result.position is not None  # noqa: S101
+        assert result.position.stop_loss == 1.2650  # noqa: S101
+        assert result.position.take_profit == 1.2500  # noqa: S101
         mock_api.send_order.assert_called_once_with(
             symbol="GBPUSD",
             direction=TradeDirection.SHORT,
@@ -435,13 +429,13 @@ class TestOrderManagerLiveExecution:
 
     def test_set_api_client(self):
         manager = OrderManager()
-        assert manager._api_client is None
+        assert manager._api_client is None  # noqa: S101
 
         mock_api = MagicMock()
         mock_api.is_paper_mode = False
         mock_api.is_connected = True
         manager.set_api_client(mock_api)
-        assert manager._api_client is mock_api
+        assert manager._api_client is mock_api  # noqa: S101
         mock_api.register_callback.assert_called()
 
     def test_wire_live_callbacks_on_init(self):
@@ -451,12 +445,10 @@ class TestOrderManagerLiveExecution:
 
         OrderManager(api_client=mock_api)
 
-        registered_events = [
-            call.args[0] for call in mock_api.register_callback.call_args_list
-        ]
-        assert "on_order_filled" in registered_events
-        assert "on_order_rejected" in registered_events
-        assert "on_order_cancelled" in registered_events
+        registered_events = [call.args[0] for call in mock_api.register_callback.call_args_list]
+        assert "on_order_filled" in registered_events  # noqa: S101
+        assert "on_order_rejected" in registered_events  # noqa: S101
+        assert "on_order_cancelled" in registered_events  # noqa: S101
 
     def test_wire_live_callbacks_warns_when_not_connected(self):
         mock_api = MagicMock()
@@ -485,9 +477,7 @@ class TestOrderManagerLiveExecution:
 
         fill_count = []
         mock_api.register_callback = MagicMock(
-            side_effect=lambda event, cb: (
-                fill_count.append(cb) if event == "on_order_filled" else None
-            )
+            side_effect=lambda event, cb: fill_count.append(cb) if event == "on_order_filled" else None
         )
 
         manager = OrderManager(api_client=mock_api)
@@ -497,17 +487,15 @@ class TestOrderManagerLiveExecution:
             volume=0.1,
         )
 
-        assert result.success is True
-        assert len(fill_count) == 1
+        assert result.success is True  # noqa: S101
+        assert len(fill_count) == 1  # noqa: S101
 
         async_callback = fill_count[0]
         async_callback(filled_order, MagicMock())
 
         callbacks_fired = []
-        manager.register_callback(
-            "on_order_filled", lambda o: callbacks_fired.append(o)
-        )
-        assert len(callbacks_fired) == 0
+        manager.register_callback("on_order_filled", lambda o: callbacks_fired.append(o))
+        assert len(callbacks_fired) == 0  # noqa: S101
 
 
 class TestPaperTraderLiveMode:
@@ -530,21 +518,21 @@ class TestPaperTraderLiveMode:
 
     def test_is_live_mode_false_without_client(self):
         trader = PaperTrader()
-        assert trader.is_live_mode is False
+        assert trader.is_live_mode is False  # noqa: S101
 
     def test_is_live_mode_false_with_paper_mode(self):
         mock_api = MagicMock()
         mock_api.is_paper_mode = True
         mock_api.is_connected = True
         trader = PaperTrader(api_client=mock_api)
-        assert trader.is_live_mode is False
+        assert trader.is_live_mode is False  # noqa: S101
 
     def test_is_live_mode_true_when_connected(self):
         mock_api = MagicMock()
         mock_api.is_paper_mode = False
         mock_api.is_connected = True
         trader = PaperTrader(api_client=mock_api)
-        assert trader.is_live_mode is True
+        assert trader.is_live_mode is True  # noqa: S101
 
     def test_process_signal_routes_to_live_in_live_mode(self):
         mock_api = self._make_live_api_mock()
@@ -552,13 +540,11 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         result = trader.process_signal(signal)
 
-        assert result.success is True
+        assert result.success is True  # noqa: S101
         mock_api.send_order.assert_called_once()
 
     def test_process_signal_routes_to_paper_in_paper_mode(self):
@@ -569,21 +555,17 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         result = trader.process_signal(signal)
 
-        assert result.success is True
+        assert result.success is True  # noqa: S101
         mock_api.send_order.assert_not_called()
 
     def test_process_signal_risk_guard_blocks_live_order(self):
         mock_api = self._make_live_api_mock()
         config = FTMOConfig(min_risk_reward=5.0)
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal(
             entry_price=1.1000,
             stop_loss=1.0990,
@@ -591,7 +573,7 @@ class TestPaperTraderLiveMode:
         )
         result = trader.process_signal(signal)
 
-        assert result.success is False
+        assert result.success is False  # noqa: S101
         mock_api.send_order.assert_not_called()
 
     def test_set_api_client(self):
@@ -599,12 +581,12 @@ class TestPaperTraderLiveMode:
         mock_api = MagicMock()
         mock_api.is_paper_mode = False
         trader.set_api_client(mock_api)
-        assert trader.is_live_mode is True
+        assert trader.is_live_mode is True  # noqa: S101
 
         mock_api_paper = MagicMock()
         mock_api_paper.is_paper_mode = True
         trader.set_api_client(mock_api_paper)
-        assert trader.is_live_mode is False
+        assert trader.is_live_mode is False  # noqa: S101
 
     def test_live_position_tracked_after_fill(self):
         mock_api = self._make_live_api_mock()
@@ -612,16 +594,14 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         trader.process_signal(signal)
 
         positions = trader.get_open_positions()
-        assert len(positions) == 1
-        assert positions[0].symbol == "EURUSD"
-        assert positions[0].volume == 0.1
+        assert len(positions) == 1  # noqa: S101
+        assert positions[0].symbol == "EURUSD"  # noqa: S101
+        assert positions[0].volume == 0.1  # noqa: S101
 
 
 class TestFIXRejectCodeIntegration:
@@ -635,7 +615,7 @@ class TestFIXRejectCodeIntegration:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         order = Order(
@@ -653,15 +633,13 @@ class TestFIXRejectCodeIntegration:
         msg.fields[58] = "Margin too low"
 
         rejected = []
-        client.register_callback(
-            "on_order_rejected", lambda o, m, r: rejected.append((o, r))
-        )
+        client.register_callback("on_order_rejected", lambda o, m, r: rejected.append((o, r)))
         client._handle_reject(msg)
 
-        assert order.status == OrderStatus.REJECTED
-        assert "Insufficient margin" in order.comment
-        assert len(rejected) == 1
-        assert "Margin too low" in rejected[0][1]
+        assert order.status == OrderStatus.REJECTED  # noqa: S101
+        assert "Insufficient margin" in order.comment  # noqa: S101
+        assert len(rejected) == 1  # noqa: S101
+        assert "Margin too low" in rejected[0][1]  # noqa: S101
 
     def test_reject_session_level_no_clord_id(self):
         from adapters.ctrader.api_client import FIXClient
@@ -673,7 +651,7 @@ class TestFIXRejectCodeIntegration:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
 
@@ -682,22 +660,22 @@ class TestFIXRejectCodeIntegration:
         msg.fields[58] = "Not authorized"
 
         client._handle_reject(msg)
-        assert len(client._pending_orders) == 0
+        assert len(client._pending_orders) == 0  # noqa: S101
 
 
 class TestFIXRejectCodeUniqueValues:
     def test_no_duplicate_enum_values(self):
         values = [code.value for code in FIXRejectCode]
-        assert len(values) == len(set(values)), (
+        assert len(values) == len(set(values)), (  # noqa: S101
             f"Duplicate enum values found: {[v for v in values if values.count(v) > 1]}"
         )
 
     def test_incorrect_numingroup_count_is_99(self):
-        assert FIXRejectCode.INCORRECT_NUMINGROUP_COUNT.value == 99
+        assert FIXRejectCode.INCORRECT_NUMINGROUP_COUNT.value == 99  # noqa: S101
 
     def test_not_authorized_action_is_not_98(self):
-        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value != 98
-        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value == 198
+        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value != 98  # noqa: S101
+        assert FIXRejectCode.NOT_AUTHORIZED_ACTION.value == 198  # noqa: S101
 
 
 class TestFIXClientMultipleCallbacks:
@@ -711,7 +689,7 @@ class TestFIXClientMultipleCallbacks:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
 
@@ -737,8 +715,8 @@ class TestFIXClientMultipleCallbacks:
 
         client._handle_execution_report(msg)
 
-        assert len(calls) == 2
-        assert calls == ["first", "second"]
+        assert len(calls) == 2  # noqa: S101
+        assert calls == ["first", "second"]  # noqa: S101
 
 
 class TestInputValidation:
@@ -753,8 +731,8 @@ class TestInputValidation:
             direction=TradeDirection.LONG,
             volume=0.1,
         )
-        assert result.success is False
-        assert "validation_error" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "validation_error" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_rejects_zero_volume(self):
         mock_api = MagicMock()
@@ -767,8 +745,8 @@ class TestInputValidation:
             direction=TradeDirection.LONG,
             volume=0,
         )
-        assert result.success is False
-        assert "validation_error" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "validation_error" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_rejects_negative_volume(self):
         mock_api = MagicMock()
@@ -781,8 +759,8 @@ class TestInputValidation:
             direction=TradeDirection.LONG,
             volume=-0.1,
         )
-        assert result.success is False
-        assert "validation_error" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "validation_error" in result.rejection_reason  # noqa: S101
 
     def test_execute_live_order_rejects_limit_without_price(self):
         mock_api = MagicMock()
@@ -796,8 +774,8 @@ class TestInputValidation:
             volume=0.1,
             order_type=OrderType.LIMIT,
         )
-        assert result.success is False
-        assert "validation_error" in result.rejection_reason
+        assert result.success is False  # noqa: S101
+        assert "validation_error" in result.rejection_reason  # noqa: S101
 
     def test_send_order_returns_none_on_empty_symbol(self):
         from adapters.ctrader.api_client import FIXClient
@@ -809,7 +787,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
@@ -820,7 +798,7 @@ class TestInputValidation:
             order_type=OrderType.MARKET,
             volume=0.1,
         )
-        assert result is None
+        assert result is None  # noqa: S101
 
     def test_send_order_returns_none_on_zero_volume(self):
         from adapters.ctrader.api_client import FIXClient
@@ -832,7 +810,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
@@ -843,7 +821,7 @@ class TestInputValidation:
             order_type=OrderType.MARKET,
             volume=0,
         )
-        assert result is None
+        assert result is None  # noqa: S101
 
     def test_send_order_returns_none_on_send_failure(self):
         from adapters.ctrader.api_client import FIXClient
@@ -855,7 +833,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=False)
@@ -866,8 +844,8 @@ class TestInputValidation:
             order_type=OrderType.MARKET,
             volume=0.1,
         )
-        assert result is None
-        assert "EURUSD" not in client._pending_orders
+        assert result is None  # noqa: S101
+        assert "EURUSD" not in client._pending_orders  # noqa: S101
 
 
 class TestLiveModePersistsOnDisconnect:
@@ -876,7 +854,7 @@ class TestLiveModePersistsOnDisconnect:
         mock_api.is_paper_mode = False
         mock_api.is_connected = True
         trader = PaperTrader(api_client=mock_api)
-        assert trader.is_live_mode is True
+        assert trader.is_live_mode is True  # noqa: S101
 
         mock_api.is_connected = False
-        assert trader.is_live_mode is True
+        assert trader.is_live_mode is True  # noqa: S101

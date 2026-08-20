@@ -45,7 +45,7 @@ class ParameterGrid:
 
     def __iter__(self) -> Iterator[GridPoint]:
         for combo in itertools.product(*self._value_lists):
-            yield GridPoint(params=dict(zip(self._names, combo)))
+            yield GridPoint(params=dict(zip(self._names, combo)))  # noqa: B905
 
     def to_list(self) -> list[GridPoint]:
         return list(self)

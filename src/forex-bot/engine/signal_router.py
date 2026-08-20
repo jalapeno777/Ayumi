@@ -144,9 +144,7 @@ class SignalRouter:
                 reason=f"Order execution failed: {getattr(exec_result, 'error_message', 'unknown')}",
             )
 
-    def _execute_order(
-        self, signal: CanonicalSignal, volume: float, spread: float = 0.0
-    ):
+    def _execute_order(self, signal: CanonicalSignal, volume: float, spread: float = 0.0):
         from adapters.ctrader.models import TradeDirection
 
         direction = TradeDirection(signal.direction.value)

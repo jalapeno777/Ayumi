@@ -129,9 +129,7 @@ class HybridStrategy:
                 return False
 
         if QuantFilterName.H4_ALIGNMENT in enabled:
-            if not self._check_h4_alignment(
-                signal, h4_bars, ict_state.latest_bar.close, ict_state.atr
-            ):
+            if not self._check_h4_alignment(signal, h4_bars, ict_state.latest_bar.close, ict_state.atr):
                 self.metrics.rejected_by_h4_alignment += 1
                 return False
 

@@ -66,17 +66,13 @@ class TestVolatilityRegime(unittest.TestCase):
 
 
 class TestTrendRegime(unittest.TestCase):
-    def _make_trending_data(
-        self, periods: int = 30
-    ) -> tuple[list[float], list[float], list[float]]:
+    def _make_trending_data(self, periods: int = 30) -> tuple[list[float], list[float], list[float]]:
         close = [1.0 + i * 0.001 for i in range(periods)]
         high = [c + 0.001 for c in close]
         low = [c - 0.001 for c in close]
         return high, low, close
 
-    def _make_ranging_data(
-        self, periods: int = 30
-    ) -> tuple[list[float], list[float], list[float]]:
+    def _make_ranging_data(self, periods: int = 30) -> tuple[list[float], list[float], list[float]]:
         close = [1.0 + 0.0001 * (i % 4) for i in range(periods)]
         high = [c + 0.0002 for c in close]
         low = [c - 0.0002 for c in close]

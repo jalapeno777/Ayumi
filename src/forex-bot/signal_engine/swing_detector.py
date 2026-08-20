@@ -1,6 +1,6 @@
 """§3 — N-bar swing detection. Foundation for all pattern and level analysis."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 import pandas as pd
@@ -81,18 +81,14 @@ class SwingDetector:
             merged.append((idx, price))
         return merged
 
-    def get_swing_series(
-        self, df: pd.DataFrame, lookback: Optional[int] = None
-    ) -> pd.DataFrame:
+    def get_swing_series(self, df: pd.DataFrame, lookback: Optional[int] = None) -> pd.DataFrame:
         """Return a copy of df with swing_high and swing_low columns.
 
         Non-swing bars get NaN in those columns.
         """
         lb = lookback or self.lookback
         detector = SwingDetector(lookback=lb)
-        swing_highs, swing_lows = detector.detect_swings(
-            df["high"].values, df["low"].values
-        )
+        swing_highs, swing_lows = detector.detect_swings(df["high"].values, df["low"].values)
         result = df.copy()
         result["swing_high"] = np.nan
         result["swing_low"] = np.nan

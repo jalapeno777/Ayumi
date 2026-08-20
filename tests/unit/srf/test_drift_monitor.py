@@ -17,7 +17,7 @@ Layer 2 (permutation importance) and Layer 3 (SHAP) tests:
 - Realistic signal_engine feature-decay scenarios
 """
 
-import math
+import math  # noqa: I001
 import numpy as np
 import pandas as pd
 import pytest
@@ -330,9 +330,7 @@ class TestDriftMonitor:
         assert isinstance(report, DriftReport)
         assert len(report.results) == 3
         # Same distributions — should not flag drift
-        assert not report.has_drift, (
-            f"Expected no drift for stable data, but got alerts: {report.alerts()}"
-        )
+        assert not report.has_drift, f"Expected no drift for stable data, but got alerts: {report.alerts()}"
 
     def test_check_drift_shifted(self, stable_reference, drifted_current):
         mon = DriftMonitor(stable_reference)
@@ -408,18 +406,12 @@ class TestDriftMonitor:
 class TestSignalEngineScenarios:
     """Simulate drift scenarios on ICT/signal_engine-like feature distributions."""
 
-    def _make_ict_features(
-        self, n: int, mu: float = 0, sigma: float = 1
-    ) -> pd.DataFrame:
+    def _make_ict_features(self, n: int, mu: float = 0, sigma: float = 1) -> pd.DataFrame:
         """Generate synthetic ICT-feature-like data."""
         return pd.DataFrame(
             {
-                "ict_confluence_score": np.clip(
-                    RNG.normal(mu + 0.5, sigma * 0.3, n), 0, 1
-                ),
-                "ict_structure_score": np.clip(
-                    RNG.normal(mu + 0.4, sigma * 0.25, n), 0, 1
-                ),
+                "ict_confluence_score": np.clip(RNG.normal(mu + 0.5, sigma * 0.3, n), 0, 1),
+                "ict_structure_score": np.clip(RNG.normal(mu + 0.4, sigma * 0.25, n), 0, 1),
                 "ict_ob_score": np.clip(RNG.normal(mu + 0.3, sigma * 0.2, n), 0, 1),
                 "ict_fvg_score": np.clip(RNG.normal(mu + 0.2, sigma * 0.2, n), 0, 1),
                 "ict_bias_encoded": RNG.choice([-1, 0, 1], size=n),
@@ -434,8 +426,7 @@ class TestSignalEngineScenarios:
         # ICT features from same distribution — most should be stable
         n_drifted = len(report.alerts())
         assert n_drifted <= 1, (
-            f"Expected ≤1 drifted feature for stable data, got {n_drifted}: "
-            f"{[a.feature for a in report.alerts()]}"
+            f"Expected ≤1 drifted feature for stable data, got {n_drifted}: {[a.feature for a in report.alerts()]}"
         )
 
     def test_regime_change_detected(self):
@@ -447,10 +438,7 @@ class TestSignalEngineScenarios:
         assert report.has_drift
         drifted_features = {a.feature for a in report.alerts()}
         # At least the continuous-score features should drift
-        assert (
-            "ict_confluence_score" in drifted_features
-            or "ict_structure_score" in drifted_features
-        )
+        assert "ict_confluence_score" in drifted_features or "ict_structure_score" in drifted_features
 
     def test_report_summary_contains_counts(self):
         ref = self._make_ict_features(500)
@@ -589,9 +577,7 @@ class TestPermutationDriftMonitor:
 
     def test_init_computes_reference_importance(self, simple_model_data):
         X, y, model = simple_model_data
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         ref_imp = monitor.reference_importance
         assert "f1" in ref_imp
         assert "f2" in ref_imp
@@ -603,9 +589,7 @@ class TestPermutationDriftMonitor:
         """When current data is from the same distribution, no drift expected
         for features with meaningful predictive power."""
         X, y, model = simple_model_data
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         # Same data — should not flag major drift
         X_new = pd.DataFrame(
             {
@@ -619,12 +603,8 @@ class TestPermutationDriftMonitor:
         # With same distributions, predictive features (f1, f2) should not decay.
         # The 'noise' feature has near-zero importance and may fall in red zone —
         # that's expected behavior for uninformative features.
-        meaningful_alerts = [
-            r for r in report.alerts() if r.reference_importance > 0.01
-        ]
-        assert len(meaningful_alerts) == 0, (
-            f"Unexpected drift on meaningful features: {meaningful_alerts}"
-        )
+        meaningful_alerts = [r for r in report.alerts() if r.reference_importance > 0.01]
+        assert len(meaningful_alerts) == 0, f"Unexpected drift on meaningful features: {meaningful_alerts}"
 
     def test_check_drift_importance_decay(self, simple_model_data):
         """When f1 loses predictive relationship, its importance should decay."""
@@ -649,16 +629,12 @@ class TestPermutationDriftMonitor:
         report = monitor.check_importance_drift(X_decayed, y_decayed)
         # f1 importance should drop significantly
         f1_result = next(r for r in report.results if r.feature == "f1")
-        assert f1_result.pct_decay > 0.3, (
-            f"Expected f1 importance to decay >30%, got {f1_result.pct_decay:.1%}"
-        )
+        assert f1_result.pct_decay > 0.3, f"Expected f1 importance to decay >30%, got {f1_result.pct_decay:.1%}"
 
     def test_compute_importance_standalone(self, simple_model_data):
         """compute_importance can be called independently."""
         X, y, model = simple_model_data
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         imp = monitor.compute_importance(X, y)
         assert isinstance(imp, dict)
         assert all(f in imp for f in ["f1", "f2", "noise"])
@@ -681,9 +657,7 @@ class TestPermutationDriftMonitor:
         _, _, model = simple_model_data
         X_empty = pd.DataFrame({"f1": [], "f2": []})
         with pytest.raises(ValueError, match="non-empty"):
-            PermutationDriftMonitor(
-                model=model, scoring="r2", reference_X=X_empty, reference_y=[]
-            )
+            PermutationDriftMonitor(model=model, scoring="r2", reference_X=X_empty, reference_y=[])
 
     def test_mismatched_lengths_raises(self, simple_model_data):
         X, _, model = simple_model_data
@@ -697,9 +671,7 @@ class TestPermutationDriftMonitor:
 
     def test_features_inferred_from_dataframe(self, simple_model_data):
         X, y, model = simple_model_data
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         assert set(monitor.features) == {"f1", "f2", "noise"}
 
 
@@ -738,9 +710,7 @@ class TestCompositeDriftMonitor:
         model = LinearRegression().fit(X, y)
 
         dist_monitor = DriftMonitor(X, features=["f1", "f2"])
-        imp_monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        imp_monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         return dist_monitor, imp_monitor, X, y
 
     def test_check_all_returns_composite_report(self, composite_setup):
@@ -805,9 +775,7 @@ class TestCompositeDriftMonitor:
 class TestSignalEngineFeatureDecay:
     """Realistic feature decay scenarios for signal_engine-like features."""
 
-    def _make_features(
-        self, n: int, f1_weight: float = 2.0
-    ) -> tuple[pd.DataFrame, np.ndarray]:
+    def _make_features(self, n: int, f1_weight: float = 2.0) -> tuple[pd.DataFrame, np.ndarray]:
         """Generate synthetic signal_engine-like features + target."""
         X = pd.DataFrame(
             {
@@ -831,9 +799,7 @@ class TestSignalEngineFeatureDecay:
         """Most predictive features should rank highest in permutation importance."""
         X, y = self._make_features(500)
         model = LinearRegression().fit(X, y)
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         ref = monitor.reference_importance
         # ict_confluence_score has weight=2.0, should be most important
         assert ref["ict_confluence_score"]["mean"] > ref["ict_fvg_score"]["mean"]
@@ -851,48 +817,35 @@ class TestSignalEngineFeatureDecay:
 
         # Permutation importance on reference model vs current model
         # should show confluence_score importance dropping
-        monitor_ref = PermutationDriftMonitor(
-            model=model_ref, scoring="r2", reference_X=X_ref, reference_y=y_ref
-        )
+        monitor_ref = PermutationDriftMonitor(model=model_ref, scoring="r2", reference_X=X_ref, reference_y=y_ref)
         ref_imp = monitor_ref.reference_importance
 
-        monitor_cur = PermutationDriftMonitor(
-            model=model_cur, scoring="r2", reference_X=X_cur, reference_y=y_cur
-        )
+        monitor_cur = PermutationDriftMonitor(model=model_cur, scoring="r2", reference_X=X_cur, reference_y=y_cur)
         cur_imp = monitor_cur.reference_importance
 
         # Reference model should rely heavily on confluence_score
         assert ref_imp["ict_confluence_score"]["mean"] > 0.1
         # Current model (where f1 has no relationship) should not rely on it
-        assert (
-            cur_imp["ict_confluence_score"]["mean"]
-            < ref_imp["ict_confluence_score"]["mean"]
-        )
+        assert cur_imp["ict_confluence_score"]["mean"] < ref_imp["ict_confluence_score"]["mean"]
 
     def test_stable_features_no_meaningful_decay(self):
         """Features with stable, meaningful predictive power should not show
         significant importance decay."""
         X, y = self._make_features(500)
         model = LinearRegression().fit(X, y)
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         X_new, y_new = self._make_features(300)
         report = monitor.check_importance_drift(X_new, y_new)
         # Features with meaningful reference importance should not show >50% decay
         for r in report.results:
             if r.reference_importance > 0.05:
-                assert not r.is_declining, (
-                    f"{r.feature} unexpectedly decayed: {r.pct_decay:.1%}"
-                )
+                assert not r.is_declining, f"{r.feature} unexpectedly decayed: {r.pct_decay:.1%}"
 
     def test_report_summary_shows_feature_names(self):
         """Report summary should contain actual feature names."""
         X, y = self._make_features(200)
         model = LinearRegression().fit(X, y)
-        monitor = PermutationDriftMonitor(
-            model=model, scoring="r2", reference_X=X, reference_y=y
-        )
+        monitor = PermutationDriftMonitor(model=model, scoring="r2", reference_X=X, reference_y=y)
         report = monitor.check_importance_drift(X, y)
         summary = report.summary()
         # Summary should mention feature counts and be non-empty

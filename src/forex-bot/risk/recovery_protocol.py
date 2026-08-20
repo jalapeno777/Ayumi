@@ -118,9 +118,7 @@ class RecoveryResult:
             "success": self.success,
             "strategy_id": self.strategy_id,
             "step": self.step,
-            "reconciliation": self.reconciliation.to_dict()
-            if self.reconciliation
-            else None,
+            "reconciliation": self.reconciliation.to_dict() if self.reconciliation else None,
             "margin_level_pct": self.margin.margin_level_pct if self.margin else None,
             "risk_multiplier": self.risk_multiplier,
             "message": self.message,
@@ -196,8 +194,7 @@ class RecoveryProtocol:
 
         if not reconciliation.matched:
             logger.warning(
-                "Recovery aborted for '%s': position reconciliation failed — "
-                "%d mismatches",
+                "Recovery aborted for '%s': position reconciliation failed — %d mismatches",
                 strategy_id,
                 len(reconciliation.mismatches),
             )
@@ -206,10 +203,7 @@ class RecoveryProtocol:
                 strategy_id=strategy_id,
                 step="reconciliation",
                 reconciliation=reconciliation,
-                message=(
-                    f"Position reconciliation failed: "
-                    f"{len(reconciliation.mismatches)} mismatches detected"
-                ),
+                message=(f"Position reconciliation failed: {len(reconciliation.mismatches)} mismatches detected"),
             )
 
         logger.info("Step 1 passed: positions reconciled for '%s'", strategy_id)
@@ -217,8 +211,7 @@ class RecoveryProtocol:
         # ── Step 2: Margin Verification ───────────────────────────────
         if not self._verify_margin(margin_info):
             logger.warning(
-                "Recovery aborted for '%s': margin verification failed — "
-                "margin level %.1f%% < %.1f%%",
+                "Recovery aborted for '%s': margin verification failed — margin level %.1f%% < %.1f%%",
                 strategy_id,
                 margin_info.margin_level_pct,
                 MIN_MARGIN_LEVEL_PCT,
@@ -253,8 +246,7 @@ class RecoveryProtocol:
         self._cooldowns[strategy_id] = cooldown
 
         logger.info(
-            "Step 3 complete: strategy '%s' unfrozen at %.0f%% risk — "
-            "cooldown %d seconds",
+            "Step 3 complete: strategy '%s' unfrozen at %.0f%% risk — cooldown %d seconds",
             strategy_id,
             COOLDOWN_RISK_MULTIPLIER * 100,
             COOLDOWN_DURATION_SEC,
@@ -304,8 +296,7 @@ class RecoveryProtocol:
         if not cooldown.is_expired():
             remaining = cooldown.remaining_sec()
             logger.info(
-                "restore_full_risk: cooldown still active for '%s' — "
-                "%.0f seconds remaining",
+                "restore_full_risk: cooldown still active for '%s' — %.0f seconds remaining",
                 strategy_id,
                 remaining,
             )
@@ -338,9 +329,7 @@ class RecoveryProtocol:
     def get_all_cooldowns(self) -> dict[str, CooldownState]:
         """Return all active cooldowns."""
         now = time.time()
-        return {
-            sid: cd for sid, cd in self._cooldowns.items() if not cd.is_expired(now)
-        }
+        return {sid: cd for sid, cd in self._cooldowns.items() if not cd.is_expired(now)}
 
     # ── Internal Methods ───────────────────────────────────────────────────
 

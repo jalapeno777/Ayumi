@@ -28,7 +28,7 @@ import logging
 import random
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Optional  # noqa: F401
 
 from .error_classifier import ClassifiedError, ErrorTier, classify_error
 
@@ -42,6 +42,7 @@ DEFAULT_MAX_ATTEMPTS = 10
 
 
 # ── Data types ─────────────────────────────────────────────────────────────
+
 
 class ReconnectAction(Enum):
     """Decision actions for the reconnect strategy."""
@@ -69,6 +70,7 @@ class ReconnectDecision:
 
 
 # ── Strategy ───────────────────────────────────────────────────────────────
+
 
 class ReconnectStrategy:
     """Exponential backoff with decorrelated jitter.
@@ -131,7 +133,9 @@ class ReconnectStrategy:
             sleep = self._compute_sleep()
             logger.info(
                 "[Reconnect] TIER_1 RETRY attempt=%d sleep=%.1fs (%s)",
-                attempt, sleep, classified.raw_code,
+                attempt,
+                sleep,
+                classified.raw_code,
             )
             return ReconnectDecision(
                 action=ReconnectAction.RETRY,
@@ -144,7 +148,10 @@ class ReconnectStrategy:
             sleep = self._compute_sleep(multiplier=2.0)
             logger.info(
                 "[Reconnect] TIER_2 RETRY attempt=%d sleep=%.1fs (%s, retry_after=%dms)",
-                attempt, sleep, classified.raw_code, classified.retry_after_ms,
+                attempt,
+                sleep,
+                classified.raw_code,
+                classified.retry_after_ms,
             )
             return ReconnectDecision(
                 action=ReconnectAction.RETRY,
@@ -187,7 +194,7 @@ class ReconnectStrategy:
         The multiplier allows TIER_2 errors to back off more aggressively.
         """
         upper = self._prev_sleep * multiplier * 3
-        sleep = min(self._cap, random.uniform(self._base, max(self._base, upper)))
+        sleep = min(self._cap, random.uniform(self._base, max(self._base, upper)))  # noqa: S311
         self._prev_sleep = sleep
         return round(sleep, 2)
 

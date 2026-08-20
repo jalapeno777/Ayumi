@@ -24,7 +24,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from quant.walk_forward import WalkForwardValidator
+from quant.walk_forward import WalkForwardValidator  # noqa: I001
 
 from backtest.engine import BacktestConfig, Bar
 from backtest.parameter_sweep.grid import ParameterGrid
@@ -97,9 +97,7 @@ BACKTEST_CONFIG = {
 }
 
 
-def make_tm_config(
-    method: TrailingStopMethod, params: dict[str, Any]
-) -> TradeManagementConfig:
+def make_tm_config(method: TrailingStopMethod, params: dict[str, Any]) -> TradeManagementConfig:
     tm_config = TradeManagementConfig()
     tm_config.trailing_stop.enabled = True
     tm_config.trailing_stop.method = method
@@ -187,7 +185,7 @@ def run_walk_forward(
     )
 
     per_window = []
-    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test_bars) < config.min_bars_before_signal:
             per_window.append(
                 {
@@ -210,11 +208,7 @@ def run_walk_forward(
         )
         try:
             metrics = engine.run_strategy(strategy, test_bars)
-            passed = (
-                metrics.win_rate >= 55.0
-                and metrics.profit_factor >= 1.2
-                and metrics.max_drawdown_pct <= 10.0
-            )
+            passed = metrics.win_rate >= 55.0 and metrics.profit_factor >= 1.2 and metrics.max_drawdown_pct <= 10.0
             per_window.append(
                 {
                     "window_id": idx,
@@ -242,19 +236,9 @@ def run_walk_forward(
             )
 
     windows_passed = sum(1 for r in per_window if r["passed_go_nogo"])
-    avg_wr = (
-        sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
-    )
-    avg_pf = (
-        sum(r["profit_factor"] for r in per_window) / len(per_window)
-        if per_window
-        else 0
-    )
-    avg_dd = (
-        sum(r["max_drawdown"] for r in per_window) / len(per_window)
-        if per_window
-        else 0
-    )
+    avg_wr = sum(r["win_rate"] for r in per_window) / len(per_window) if per_window else 0
+    avg_pf = sum(r["profit_factor"] for r in per_window) / len(per_window) if per_window else 0
+    avg_dd = sum(r["max_drawdown"] for r in per_window) / len(per_window) if per_window else 0
 
     go_nogo = windows_passed >= 3
 
@@ -300,9 +284,7 @@ def main():
 
     for method, method_params in ALL_METHODS.items():
         print(f"\n  Sweeping {method.value.upper()}...")
-        sweep_result, all_params = run_sweep_for_method(
-            sweep_bars, pair, method, method_params, max_workers
-        )
+        sweep_result, all_params = run_sweep_for_method(sweep_bars, pair, method, method_params, max_workers)
         print(f"    {len(sweep_result)} combos with trades")
 
         for row in sweep_result:
@@ -335,7 +317,7 @@ def main():
     wf_all: list[dict] = []
     config = BacktestConfig(pair=pair, **BACKTEST_CONFIG)
 
-    for method, method_params in ALL_METHODS.items():
+    for method, method_params in ALL_METHODS.items():  # noqa: B007
         print(f"\n  {method.value.upper()}:")
 
         rows_data = method_results.get(method.value, [])
@@ -354,13 +336,13 @@ def main():
             params = row["params"]
             print(f"\n  [{i + 1}/3] Params: {params}")
             print(
-                f"       Sweep: WR={row['win_rate']:.1f}%, PF={row['profit_factor']:.2f}, DD={row['max_dd']:.2f}%, trades={row['trade_count']}"
+                f"       Sweep: WR={row['win_rate']:.1f}%, PF={row['profit_factor']:.2f}, DD={row['max_dd']:.2f}%, trades={row['trade_count']}"  # noqa: E501
             )
 
             wf_result = run_walk_forward(bars, method, params, pair, config)
             status = "GO" if wf_result["go_nogo"] else "NO-GO"
             print(
-                f"       WF:   {wf_result['windows_passed']}/{wf_result['total_windows']} windows passed, avg WR={wf_result['avg_wr']:.1f}%, PF={wf_result['avg_pf']:.2f}, DD={wf_result['avg_dd']:.2f}%"
+                f"       WF:   {wf_result['windows_passed']}/{wf_result['total_windows']} windows passed, avg WR={wf_result['avg_wr']:.1f}%, PF={wf_result['avg_pf']:.2f}, DD={wf_result['avg_dd']:.2f}%"  # noqa: E501
             )
             print(f"       -> {status}")
 
@@ -380,7 +362,7 @@ def main():
         print(f"\n  *** {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***")
         for r in go_sets:
             print(
-                f"     {r['method']}: {r['params']} -> WR={r['avg_wr']:.1f}%, PF={r['avg_pf']:.2f}, DD={r['avg_dd']:.2f}%"
+                f"     {r['method']}: {r['params']} -> WR={r['avg_wr']:.1f}%, PF={r['avg_pf']:.2f}, DD={r['avg_dd']:.2f}%"  # noqa: E501
             )
     else:
         print("\n  NO parameter sets passed 3/5 windows - NO-GO")

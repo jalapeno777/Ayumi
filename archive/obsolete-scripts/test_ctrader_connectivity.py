@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Direct cTrader FIX connectivity test — read-only (5211) and live (5212)."""
 
-import os
+import os  # noqa: I001
 import ssl
 import socket
 import sys
@@ -35,14 +35,7 @@ def build_fix_string(fields: dict, use_soh: bool = True) -> str:
     sep = SOH if use_soh else "|"
     term = SOH  # trailing terminator is always SOH
     # Body = all fields except 8, 9, 10
-    body = (
-        sep.join(
-            f"{tag}={val}"
-            for tag, val in sorted(fields.items())
-            if tag not in (8, 9, 10)
-        )
-        + term
-    )
+    body = sep.join(f"{tag}={val}" for tag, val in sorted(fields.items()) if tag not in (8, 9, 10)) + term
     body_str = f"8=FIX.4.4{sep}9={len(body)}{sep}{body}"
     # Checksum over everything before it
     checksum = sum(ord(c) for c in body_str) % 256
@@ -68,9 +61,7 @@ def build_logon(
     return build_fix_string(fields, use_soh=use_soh)
 
 
-def test_connection(
-    host: str, port: int, mode: str, timeout: int = 10, use_soh: bool = True
-) -> dict:
+def test_connection(host: str, port: int, mode: str, timeout: int = 10, use_soh: bool = True) -> dict:
     """Try to connect, send logon, and read the response."""
     result = {
         "mode": mode,
@@ -183,7 +174,7 @@ def test_connection(
         try:
             ssl_sock.send(logout.encode("latin-1"))
             time.sleep(0.5)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
         ssl_sock.close()
@@ -212,15 +203,11 @@ def main():
     results = []
 
     # Test with SOH separators (correct FIX)
-    results.append(
-        test_connection(HOST, READONLY_SSL_PORT, "read-only (SOH)", use_soh=True)
-    )
+    results.append(test_connection(HOST, READONLY_SSL_PORT, "read-only (SOH)", use_soh=True))
     results.append(test_connection(HOST, LIVE_SSL_PORT, "live (SOH)", use_soh=True))
 
     # Test with pipe separators (matching existing adapter)
-    results.append(
-        test_connection(HOST, READONLY_SSL_PORT, "read-only (pipe)", use_soh=False)
-    )
+    results.append(test_connection(HOST, READONLY_SSL_PORT, "read-only (pipe)", use_soh=False))
     results.append(test_connection(HOST, LIVE_SSL_PORT, "live (pipe)", use_soh=False))
 
     # Summary
@@ -234,9 +221,7 @@ def main():
             print(f"                Error: {r['error']}")
 
     all_pass = all(r["success"] for r in results)
-    print(
-        f"\n  Overall: {'✅ BOTH CONNECTIONS WORK' if all_pass else '❌ SOME CONNECTIONS FAILED'}"
-    )
+    print(f"\n  Overall: {'✅ BOTH CONNECTIONS WORK' if all_pass else '❌ SOME CONNECTIONS FAILED'}")
 
     return 0 if all_pass else 1
 

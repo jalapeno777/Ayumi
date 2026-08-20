@@ -16,7 +16,7 @@ After T4:
   engine has been built.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -99,9 +99,7 @@ class TestOpenApiSpotFeedIsReachableFromPaperTrader:
 
     def test_engine_api_client_is_cTraderAPIClient_in_live_mode(self, live_engine):
         """In live mode, engine._api_client is a cTraderAPIClient instance."""
-        with patch.object(
-            live_engine, "_build_live_credentials", return_value=_live_creds_dict()
-        ):
+        with patch.object(live_engine, "_build_live_credentials", return_value=_live_creds_dict()):
             live_engine._build_components()
         assert live_engine._api_client is not None
         assert isinstance(live_engine._api_client, cTraderAPIClient)
@@ -110,9 +108,7 @@ class TestOpenApiSpotFeedIsReachableFromPaperTrader:
 
     def test_paper_trader_receives_api_client_in_live_mode(self, live_engine):
         """PaperTrader.api_client is the same cTraderAPIClient instance."""
-        with patch.object(
-            live_engine, "_build_live_credentials", return_value=_live_creds_dict()
-        ):
+        with patch.object(live_engine, "_build_live_credentials", return_value=_live_creds_dict()):
             live_engine._build_components()
         assert live_engine._paper_trader._api_client is live_engine._api_client
         # And is_live_mode is True because the api_client is not in paper mode
@@ -120,9 +116,7 @@ class TestOpenApiSpotFeedIsReachableFromPaperTrader:
 
     def test_order_manager_receives_api_client_in_live_mode(self, live_engine):
         """OrderManager (constructed inside PaperTrader) gets the api_client."""
-        with patch.object(
-            live_engine, "_build_live_credentials", return_value=_live_creds_dict()
-        ):
+        with patch.object(live_engine, "_build_live_credentials", return_value=_live_creds_dict()):
             live_engine._build_components()
         # OrderManager._api_client should be the live client
         om = live_engine._paper_trader._order_manager
@@ -178,9 +172,7 @@ class TestExecuteSignalLiveWorksWithoutPaperTrader:
         (FILLED, in this case) because ``_calculate_live_volume`` works
         without PaperTrader.
         """
-        with patch.object(
-            live_engine, "_build_live_credentials", return_value=_live_creds_dict()
-        ):
+        with patch.object(live_engine, "_build_live_credentials", return_value=_live_creds_dict()):
             live_engine._build_components()
 
         # Pretend the PaperTrader was never built (post-T4 race or test scenario).
@@ -217,9 +209,7 @@ class TestExecuteSignalLiveWorksWithoutPaperTrader:
 
     def test_outcome_sent_when_feed_acknowledges_but_no_fill(self, live_engine):
         """PENDING order → SENT outcome — works without paper_trader too."""
-        with patch.object(
-            live_engine, "_build_live_credentials", return_value=_live_creds_dict()
-        ):
+        with patch.object(live_engine, "_build_live_credentials", return_value=_live_creds_dict()):
             live_engine._build_components()
         live_engine._paper_trader = None
 

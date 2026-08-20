@@ -25,7 +25,7 @@ events (NFP, FOMC, ECB, BOJ, BOE rate decisions, CPI).  The filter wraps
 ``docs/runbooks/backtesting-strategy.md`` (News Blackout section).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import math
@@ -197,10 +197,7 @@ def check_news_blackout(
     if news_filter.is_blackout_now(symbols, now=now):
         window = news_filter.next_blackout_window(symbols, now=now)
         if window:
-            reason = (
-                f"News blackout: {window.title} ({window.currency}) "
-                f"until {window.end.strftime('%H:%M UTC')}"
-            )
+            reason = f"News blackout: {window.title} ({window.currency}) until {window.end.strftime('%H:%M UTC')}"
         else:
             reason = "News blackout active"
         return False, reason
@@ -211,9 +208,7 @@ def _build_strategy_name(strategy_name: str, pair: str, timeframe: str) -> str:
     return f"{strategy_name}|{pair}|{timeframe}"
 
 
-def _compute_equity_curve_from_trades(
-    trades: list[SimulatedTrade], initial_balance: float
-) -> list[float]:
+def _compute_equity_curve_from_trades(trades: list[SimulatedTrade], initial_balance: float) -> list[float]:
     curve = [initial_balance]
     balance = initial_balance
     for t in trades:
@@ -226,9 +221,7 @@ def _compute_returns(equity_curve: list[float]) -> list[float]:
     returns = []
     for i in range(1, len(equity_curve)):
         if equity_curve[i - 1] > 0:
-            returns.append(
-                (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
-            )
+            returns.append((equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1])
     return returns
 
 
@@ -264,9 +257,7 @@ def compute_correlation_matrix(
             elif key_b in matrix and key_a in matrix[key_b]:
                 matrix[key_a][key_b] = matrix[key_b][key_a]
             else:
-                corr = _correlation(
-                    equity_curves[key_a].returns, equity_curves[key_b].returns
-                )
+                corr = _correlation(equity_curves[key_a].returns, equity_curves[key_b].returns)
                 matrix[key_a][key_b] = corr
                 if key_a < key_b:
                     total_corr += abs(corr)
@@ -351,12 +342,7 @@ def optimize_weights_combined_score(
         consistency = 1.0 / (1.0 + std * 100) if std > 0 else 1.0
         dd_penalty = 1.0 / (1.0 + ec.max_drawdown * 5)
 
-        scores[key] = (
-            sharpe_component * 0.3
-            + pf_component * 0.3
-            + consistency * 0.2
-            + dd_penalty * 0.2
-        )
+        scores[key] = sharpe_component * 0.3 + pf_component * 0.3 + consistency * 0.2 + dd_penalty * 0.2
         scores[key] = max(scores[key], 0.01)
 
     total = sum(scores.values())
@@ -457,9 +443,7 @@ def run_portfolio_blend(
         if hasattr(strategy, "set_balance"):
             strategy.set_balance(initial_balance)
 
-        metrics = run_single_strategy_backtest(
-            strategy, bars, spec.pair, initial_balance
-        )
+        metrics = run_single_strategy_backtest(strategy, bars, spec.pair, initial_balance)
 
         equity = _compute_equity_curve_from_trades(metrics.trades, initial_balance)
         returns = _compute_returns(equity)
@@ -495,11 +479,7 @@ def run_portfolio_blend(
     if enable_filter and len(individual_results) > 1:
         active_curves, filtered_out = filter_strategies(individual_results)
 
-    filtered_specs = [
-        s
-        for s in strategy_specs
-        if _build_strategy_name(s.name, s.pair, s.timeframe) in active_curves
-    ]
+    filtered_specs = [s for s in strategy_specs if _build_strategy_name(s.name, s.pair, s.timeframe) in active_curves]
 
     correlation = compute_correlation_matrix(active_curves)
 
@@ -511,27 +491,18 @@ def run_portfolio_blend(
 
     wf_result = None
     if n_walk_forward_windows > 0 and active_curves:
-        wf_result = _run_portfolio_walk_forward(
-            filtered_specs, weights, initial_balance, n_walk_forward_windows
-        )
+        wf_result = _run_portfolio_walk_forward(filtered_specs, weights, initial_balance, n_walk_forward_windows)
 
     ftmo_check = {
         "win_rate": combined_metrics.win_rate >= FTMO_CRITERIA["win_rate"],
-        "profit_factor": combined_metrics.profit_factor
-        >= FTMO_CRITERIA["profit_factor"],
+        "profit_factor": combined_metrics.profit_factor >= FTMO_CRITERIA["profit_factor"],
         "sharpe_ratio": combined_metrics.sharpe_ratio >= FTMO_CRITERIA["sharpe_ratio"],
     }
 
     if wf_result and wf_result.aggregated:
-        ftmo_check["wf_mean_win_rate"] = (
-            wf_result.aggregated.mean_win_rate >= FTMO_CRITERIA["win_rate"]
-        )
-        ftmo_check["wf_mean_profit_factor"] = (
-            wf_result.aggregated.mean_profit_factor >= FTMO_CRITERIA["profit_factor"]
-        )
-        ftmo_check["wf_mean_sharpe"] = (
-            wf_result.aggregated.mean_sharpe_ratio >= FTMO_CRITERIA["sharpe_ratio"]
-        )
+        ftmo_check["wf_mean_win_rate"] = wf_result.aggregated.mean_win_rate >= FTMO_CRITERIA["win_rate"]
+        ftmo_check["wf_mean_profit_factor"] = wf_result.aggregated.mean_profit_factor >= FTMO_CRITERIA["profit_factor"]
+        ftmo_check["wf_mean_sharpe"] = wf_result.aggregated.mean_sharpe_ratio >= FTMO_CRITERIA["sharpe_ratio"]
         ftmo_check["wf_go_nogo"] = wf_result.go_nogo
 
     ftmo_passed = all(v for k, v in ftmo_check.items() if not k.startswith("wf_"))
@@ -585,9 +556,7 @@ def _build_weighted_equity(
     return portfolio_curve
 
 
-def _compute_combined_metrics(
-    equity_curve: list[float], initial_balance: float
-) -> BacktestMetrics:
+def _compute_combined_metrics(equity_curve: list[float], initial_balance: float) -> BacktestMetrics:
     ending = equity_curve[-1] if equity_curve else initial_balance
     total_pnl = ending - initial_balance
     total_pnl_pct = total_pnl / initial_balance if initial_balance > 0 else 0.0
@@ -729,9 +698,7 @@ def _run_portfolio_walk_forward(
             if hasattr(strategy, "set_balance"):
                 strategy.set_balance(initial_balance)
 
-            metrics = run_single_strategy_backtest(
-                strategy, test_bars, spec.pair, initial_balance
-            )
+            metrics = run_single_strategy_backtest(strategy, test_bars, spec.pair, initial_balance)
 
             equity = _compute_equity_curve_from_trades(metrics.trades, initial_balance)
             strat_returns = _compute_returns(equity)
@@ -787,9 +754,7 @@ def _run_portfolio_walk_forward(
         sharpe = 0.0
         if n_returns >= 2:
             mean_r = sum(portfolio_returns) / n_returns
-            std_r = math.sqrt(
-                sum((r - mean_r) ** 2 for r in portfolio_returns) / n_returns
-            )
+            std_r = math.sqrt(sum((r - mean_r) ** 2 for r in portfolio_returns) / n_returns)
             if std_r > 0:
                 sharpe = (mean_r / std_r) * math.sqrt(252)
 
@@ -858,9 +823,7 @@ def format_portfolio_report(
 
     lines.append("INDIVIDUAL STRATEGY RESULTS")
     lines.append("-" * 80)
-    lines.append(
-        f"{'Strategy':<45} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'Trades':>7} {'PnL':>10}"
-    )
+    lines.append(f"{'Strategy':<45} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'Trades':>7} {'PnL':>10}")
     for key, ec in result.individual_results.items():
         label = f"{ec.strategy_name} ({ec.pair} {ec.timeframe})"
         is_active = key in result.weights.weights
@@ -890,9 +853,7 @@ def format_portfolio_report(
             val = result.correlation.matrix[key_a][key_b]
             row += f"{val:>12.3f}"
         lines.append(row)
-    lines.append(
-        f"\nAverage |correlation|: {result.correlation.average_correlation:.3f}"
-    )
+    lines.append(f"\nAverage |correlation|: {result.correlation.average_correlation:.3f}")
     lines.append("")
 
     lines.append(f"WEIGHT ALLOCATION ({result.weights.method})")
@@ -911,9 +872,7 @@ def format_portfolio_report(
     m = result.combined_metrics
     lines.append(f"  Starting Balance:  ${m.starting_balance:>10.2f}")
     lines.append(f"  Ending Balance:    ${m.ending_balance:>10.2f}")
-    lines.append(
-        f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)"
-    )
+    lines.append(f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)")
     lines.append(f"  Win Rate:          {m.win_rate:>10.1%}")
     lines.append(f"  Profit Factor:     {m.profit_factor:>10.2f}")
     lines.append(f"  Sharpe Ratio:      {m.sharpe_ratio:>10.2f}")
@@ -934,10 +893,7 @@ def format_portfolio_report(
             lines.append(f"  Windows Passed:     {a.windows_passed}/{a.total_windows}")
 
         lines.append("")
-        lines.append(
-            f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} "
-            f"{'Trades':>8} {'PnL':>12} {'GO?':>6}"
-        )
+        lines.append(f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} {'Trades':>8} {'PnL':>12} {'GO?':>6}")
         for wm in wf.per_window:
             lines.append(
                 f"  {wm.win_rate:<8.2%} {wm.profit_factor:>8.2f} {wm.max_drawdown:>8.2%} "
@@ -1076,9 +1032,7 @@ def inventory_strategies_on_data(
             if hasattr(strategy, "set_balance"):
                 strategy.set_balance(initial_balance)
         except Exception:
-            logger.warning(
-                "Strategy %s initialization failed, skipping", name, exc_info=True
-            )
+            logger.warning("Strategy %s initialization failed, skipping", name, exc_info=True)
             continue
 
         signals: list[SignalRecord] = []
@@ -1105,10 +1059,7 @@ def inventory_strategies_on_data(
 
             engine._check_open_trades(open_trades, bar, i, trades, equity_curve)
 
-            if (
-                len(open_trades) < config.max_open_trades
-                and i >= config.min_bars_before_signal
-            ):
+            if len(open_trades) < config.max_open_trades and i >= config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bars[i].time),
@@ -1118,9 +1069,7 @@ def inventory_strategies_on_data(
                     # FTMO guard: reject entry if it would breach daily or total loss limits
                     if ftmo_guard is not None:
                         planned_risk = config.risk_per_trade_pct * engine.balance
-                        if not ftmo_guard.check_entry(
-                            planned_risk, balance=engine.balance
-                        ):
+                        if not ftmo_guard.check_entry(planned_risk, balance=engine.balance):
                             continue
                     direction_val = (
                         1
@@ -1142,11 +1091,7 @@ def inventory_strategies_on_data(
 
             equity_curve.append(engine.balance)
 
-        trades.extend(
-            engine._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
+        trades.extend(engine._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
         metrics = engine._calculate_metrics(trades, equity_curve, 0)
 
         results[name] = StrategyInventoryResult(
@@ -1213,9 +1158,7 @@ def select_least_correlated(
         if inv.metrics.profit_factor >= min_pf and inv.metrics.win_rate >= min_wr:
             candidates.append(key)
 
-    candidates.sort(
-        key=lambda k: inventory_results[k].metrics.sharpe_ratio, reverse=True
-    )
+    candidates.sort(key=lambda k: inventory_results[k].metrics.sharpe_ratio, reverse=True)
 
     selected: list[str] = []
     skipped: list[tuple[str, str]] = []
@@ -1239,9 +1182,7 @@ def select_least_correlated(
     if selected:
         variances: dict[str, float] = {}
         for key in selected:
-            ec_returns = [
-                1.0 if s.direction != 0 else 0.0 for s in inventory_results[key].signals
-            ]
+            ec_returns = [1.0 if s.direction != 0 else 0.0 for s in inventory_results[key].signals]
             if len(ec_returns) < 2:
                 variances[key] = 1.0
                 continue

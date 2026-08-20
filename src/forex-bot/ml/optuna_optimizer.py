@@ -24,7 +24,7 @@ from optuna.samplers import TPESampler
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-from backtest.engine import Bar, get_spread_for_pair
+from backtest.engine import Bar, get_spread_for_pair  # noqa: I001
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
 
@@ -211,12 +211,10 @@ def _apply_trial_params(trial: optuna.Trial) -> dict[str, Any]:
     neg_weight = trial.suggest_float("negative_weight", *NEG_WEIGHT_RANGE, step=0.1)
     kz_penalty = trial.suggest_float("kz_penalty", *KZ_PENALTY_RANGE, step=0.01)
 
-    setattr(tts_module, "MW_BASE_CONFIDENCE", base_conf)
-    setattr(tts_module, "NEGATIVE_WEIGHT", neg_weight)
-    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz_penalty)
-    applied.update(
-        base_confidence=base_conf, negative_weight=neg_weight, kz_penalty=kz_penalty
-    )
+    setattr(tts_module, "MW_BASE_CONFIDENCE", base_conf)  # noqa: B010
+    setattr(tts_module, "NEGATIVE_WEIGHT", neg_weight)  # noqa: B010
+    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz_penalty)  # noqa: B010
+    applied.update(base_confidence=base_conf, negative_weight=neg_weight, kz_penalty=kz_penalty)
 
     # 2. Booster on/off switches
     enabled_boosters: list[str] = []
@@ -261,9 +259,9 @@ def restore_defaults() -> None:
         setattr(tts_module, name, val)
     for name, val in _OTHER_NEGATIVE_DEFAULTS.items():
         setattr(tts_module, name, val)
-    setattr(tts_module, "MW_BASE_CONFIDENCE", 0.30)
-    setattr(tts_module, "NEGATIVE_WEIGHT", 1.0)
-    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", -0.05)
+    setattr(tts_module, "MW_BASE_CONFIDENCE", 0.30)  # noqa: B010
+    setattr(tts_module, "NEGATIVE_WEIGHT", 1.0)  # noqa: B010
+    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", -0.05)  # noqa: B010
 
 
 # ── Walk-forward objective ──────────────────────────────────────────────────
@@ -309,9 +307,7 @@ def build_wf_objective(
 
         total_trades = agg.mean_trade_count * agg.total_windows
         if total_trades < MIN_TOTAL_TRADES:
-            raise optuna.TrialPruned(
-                f"Only {total_trades:.0f} total trades (need {MIN_TOTAL_TRADES})"
-            )
+            raise optuna.TrialPruned(f"Only {total_trades:.0f} total trades (need {MIN_TOTAL_TRADES})")
 
         wr = agg.mean_win_rate
         dd = max(agg.mean_max_drawdown, 0.01)
@@ -376,22 +372,15 @@ def run_wf_study(
     bars = load_bars(pair, tf)
     print(f"  Loaded {len(bars)} bars")
 
-    objective = build_wf_objective(
-        pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio
-    )
+    objective = build_wf_objective(pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio)
 
     print(f"  Running {n_trials} trials ({n_windows}-window walk-forward)...")
-    study.optimize(
-        objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True
-    )
+    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True)
 
     best = study.best_trial
     completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
 
-    print(
-        f"\n  ★ Best trial #{best.number} (of {len(completed)} complete): "
-        f"score={best.value:.3f}"
-    )
+    print(f"\n  ★ Best trial #{best.number} (of {len(completed)} complete): score={best.value:.3f}")
     print(
         f"    WR: {best.user_attrs.get('win_rate', 'N/A'):.1%} | "
         f"PF: {best.user_attrs.get('profit_factor', 0):.2f} | "
@@ -454,9 +443,9 @@ def run_grid(
         for nw in neg_weight_values:
             for kz in kz_penalty_values:
                 # Apply params
-                setattr(tts_module, "MW_BASE_CONFIDENCE", base)
-                setattr(tts_module, "NEGATIVE_WEIGHT", nw)
-                setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz)
+                setattr(tts_module, "MW_BASE_CONFIDENCE", base)  # noqa: B010
+                setattr(tts_module, "NEGATIVE_WEIGHT", nw)  # noqa: B010
+                setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz)  # noqa: B010
                 # Enable all switchable boosters
                 for name, val in _BOOSTER_DEFAULTS.items():
                     setattr(tts_module, name, val)
@@ -472,7 +461,7 @@ def run_grid(
                         bars=bars,
                         strategy_factory=lambda: TTSStrategy(
                             symbol=pair,
-                            min_confidence=base,
+                            min_confidence=base,  # noqa: B023
                             min_quality_score=DEFAULT_BT_CONFIG["min_quality_score"],
                         ),
                         pair=pair,
@@ -524,10 +513,7 @@ def run_grid(
         f"  Grid best: WR={best['win_rate']:.1%} PF={best['profit_factor']:.2f} "
         f"Trades={best['mean_trade_count']:.0f} P&L=${best['total_pnl']:.2f}"
     )
-    print(
-        f"    base={best['base_confidence']} nw={best['negative_weight']} "
-        f"kz={best['kz_penalty']}"
-    )
+    print(f"    base={best['base_confidence']} nw={best['negative_weight']} kz={best['kz_penalty']}")
 
     return {"rows": rows, "best_grid_row": best}
 
@@ -565,17 +551,13 @@ def update_per_symbol_config(pair: str, tf: str, study_result: dict) -> bool:
     }
 
     # Build enabled boosters list
-    enabled = [
-        name for name in BOOSTER_SWITCHES if params.get(f"booster_{name}", False)
-    ]
+    enabled = [name for name in BOOSTER_SWITCHES if params.get(f"booster_{name}", False)]
     new_config["top_confluences"] = enabled
 
     # Mark: this is a simplified update — a proper implementation would
     # parse the Python AST. For now, we append a note.
     print(f"  ★ {pair}/{tf} config eligible for update. Manual review recommended.")
-    print(
-        f"    New config: {json.dumps({k: v for k, v in new_config.items() if v is not None}, indent=2)}"
-    )
+    print(f"    New config: {json.dumps({k: v for k, v in new_config.items() if v is not None}, indent=2)}")
 
     return True
 

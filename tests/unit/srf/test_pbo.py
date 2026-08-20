@@ -1,6 +1,6 @@
 """Tests for SRF PBO (Probability of Backtest Overfitting) via CSCV."""
 
-import numpy as np
+import numpy as np  # noqa: I001
 import pytest
 
 from srf.pbo import compute_pbo, PBOScore, store_pbo_score, _sharpe_ratio

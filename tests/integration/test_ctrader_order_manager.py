@@ -340,16 +340,14 @@ class TestPendingOrderTimeoutConfig:
     def test_custom_config(self):
         from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
 
-        config = PendingOrderTimeoutConfig(
-            timeout_seconds=120.0, check_interval_seconds=15.0
-        )
+        config = PendingOrderTimeoutConfig(timeout_seconds=120.0, check_interval_seconds=15.0)
         assert config.timeout_seconds == 120.0
         assert config.check_interval_seconds == 15.0
 
 
 class TestOrderManagerPendingTimeout:
     def test_pending_order_times_out(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
         from unittest.mock import MagicMock, patch
 
@@ -362,9 +360,7 @@ class TestOrderManagerPendingTimeout:
 
         with manager._lock:
             manager._orders[order.order_id] = order
-            manager._pending_order_timestamps[order.order_id] = datetime(
-                2020, 1, 1, tzinfo=timezone.utc
-            )
+            manager._pending_order_timestamps[order.order_id] = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
         with patch.object(manager, "_trigger_callback") as mock_trigger:
             expired = manager.check_pending_orders_timeout()
@@ -376,7 +372,7 @@ class TestOrderManagerPendingTimeout:
         mock_trigger.assert_called_once_with("on_order_timeout", expired[0])
 
     def test_non_pending_order_not_timed_out(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
         from unittest.mock import MagicMock
 
@@ -389,15 +385,13 @@ class TestOrderManagerPendingTimeout:
 
         with manager._lock:
             manager._orders[order.order_id] = order
-            manager._pending_order_timestamps[order.order_id] = datetime(
-                2020, 1, 1, tzinfo=timezone.utc
-            )
+            manager._pending_order_timestamps[order.order_id] = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
         expired = manager.check_pending_orders_timeout()
         assert len(expired) == 0
 
     def test_filled_order_clears_timestamp(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
 
         config = PendingOrderTimeoutConfig(timeout_seconds=30.0)
@@ -649,9 +643,7 @@ class TestOrderManagerTP2TP3Wiring:
             if args and args[0] == "on_order_filled":
                 on_filled_call = args[1]
                 break
-        assert on_filled_call is not None, (
-            "OrderManager did not register on_order_filled"
-        )
+        assert on_filled_call is not None, "OrderManager did not register on_order_filled"
 
         # Fire it — this is what cTrader's spot feed does when the broker acks.
         on_filled_call(result.order, None)

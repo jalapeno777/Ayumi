@@ -23,7 +23,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, get_spread_for_pair  # noqa: E402
+from backtest.engine import BacktestConfig, get_spread_for_pair  # noqa: E402, I001
 from backtest.data_loader import CsvDataLoader  # noqa: E402
 from backtest.strategies import HighConvictionStrategy  # noqa: E402
 from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
@@ -135,9 +135,7 @@ def phase1_coarse_sweep(bars, config):
 
 def phase2_fine_sweep(bars, config, coarse_combos):
     fine_grid = ParameterGrid(FINE_PARAMS)
-    print(
-        f"  Phase 2: {len(coarse_combos)} promising combos x {fine_grid.size} fine params"
-    )
+    print(f"  Phase 2: {len(coarse_combos)} promising combos x {fine_grid.size} fine params")
 
     all_results = []
     for coarse_row in coarse_combos:
@@ -198,9 +196,7 @@ def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
         "params": combo_params,
         "pair": pair,
         "go_nogo": wf_result.go_nogo,
-        "windows_passed": sum(1 for w in wf_result.per_window if w.passed_go_nogo)
-        if wf_result.per_window
-        else 0,
+        "windows_passed": sum(1 for w in wf_result.per_window if w.passed_go_nogo) if wf_result.per_window else 0,
         "total_windows": len(wf_result.per_window),
         "aggregated": {
             "mean_win_rate": agg.mean_win_rate if agg else 0,
@@ -214,9 +210,7 @@ def run_walk_forward_for_combo(combo_params, bars, pair, n_windows=5):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="High Conviction Strategy parameter sweep"
-    )
+    parser = argparse.ArgumentParser(description="High Conviction Strategy parameter sweep")
     add_resource_args(parser)
     _args = parser.parse_args()
 
@@ -245,13 +239,11 @@ def main():
 
         coarse_results = phase1_coarse_sweep(bars, config)
         print(
-            f"  Phase 1 done: {len(coarse_results)}/{ParameterGrid(COARSE_PARAMS).size} combos with >= {MIN_TRADES} trades"
+            f"  Phase 1 done: {len(coarse_results)}/{ParameterGrid(COARSE_PARAMS).size} combos with >= {MIN_TRADES} trades"  # noqa: E501
         )
 
         if not coarse_results:
-            print(
-                "  No coarse combos produce enough trades. Checking all coarse results..."
-            )
+            print("  No coarse combos produce enough trades. Checking all coarse results...")
             grid = ParameterGrid(COARSE_PARAMS)
             default_fine = {
                 "trend_lookback": 20,
@@ -274,35 +266,24 @@ def main():
                         f"Trades={metrics['trade_count']} WR={metrics['win_rate']:.2f}"
                     )
 
-            top_by_trades = sorted(
-                all_coarse, key=lambda x: x[1]["trade_count"], reverse=True
-            )[:5]
+            top_by_trades = sorted(all_coarse, key=lambda x: x[1]["trade_count"], reverse=True)[:5]
             print("\n  Top 5 by trade count (lowered bar):")
             for params, m in top_by_trades:
-                print(
-                    f"    {params} -> Trades={m['trade_count']} WR={m['win_rate']:.2f} PF={m['profit_factor']:.2f}"
-                )
+                print(f"    {params} -> Trades={m['trade_count']} WR={m['win_rate']:.2f} PF={m['profit_factor']:.2f}")
 
             wf_results = []
             print("\n  Walk-forward on top 5 by trade count...")
-            for params, m in top_by_trades:
+            for params, m in top_by_trades:  # noqa: B007
                 wf = run_walk_forward_for_combo(params, bars, pair)
                 wf_results.append(wf)
                 status = "GO" if wf["go_nogo"] else "NO-GO"
-                print(
-                    f"    {params} -> {status} "
-                    f"({wf['windows_passed']}/{wf['total_windows']} windows)"
-                )
+                print(f"    {params} -> {status} ({wf['windows_passed']}/{wf['total_windows']} windows)")
 
             wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
             with open(wf_path, "w") as f:
                 json.dump(_sanitize_for_json(wf_results), f, indent=2)
 
-            best = (
-                max(all_coarse, key=lambda x: x[1]["trade_count"])
-                if all_coarse
-                else None
-            )
+            best = max(all_coarse, key=lambda x: x[1]["trade_count"]) if all_coarse else None
             any_go = any(w["go_nogo"] for w in wf_results) if wf_results else False
             if any_go:
                 any_go_nogo_global = True
@@ -380,21 +361,14 @@ def main():
                 wf = run_walk_forward_for_combo(row.params, bars, pair)
                 wf_results.append(wf)
                 status = "GO" if wf["go_nogo"] else "NO-GO"
-                print(
-                    f"    -> {status} "
-                    f"({wf['windows_passed']}/{wf['total_windows']} windows)"
-                )
+                print(f"    -> {status} ({wf['windows_passed']}/{wf['total_windows']} windows)")
 
         wf_path = str(REPORT_DIR / f"{pair}_high_conviction_wf_validation.json")
         with open(wf_path, "w") as f:
             json.dump(_sanitize_for_json(wf_results), f, indent=2)
         print(f"  Walk-forward results saved to {wf_path}")
 
-        best_row = (
-            max(sweep_result.rows, key=lambda r: r.trade_count)
-            if sweep_result.rows
-            else None
-        )
+        best_row = max(sweep_result.rows, key=lambda r: r.trade_count) if sweep_result.rows else None
         any_go = any(w["go_nogo"] for w in wf_results) if wf_results else False
         if any_go:
             any_go_nogo_global = True
@@ -407,9 +381,7 @@ def main():
             "best_sharpe": round(best_row.sharpe_ratio, 2) if best_row else 0,
             "ftmo_passing_combos": len(ftmo_passing.rows),
             "walk_forward_go_nogo": any_go,
-            "verdict": "GO"
-            if any_go
-            else "NO-GO: No parameter combination passes FTMO criteria",
+            "verdict": "GO" if any_go else "NO-GO: No parameter combination passes FTMO criteria",
         }
         sweep_scope[f"{pair.lower()}_combos_tested"] = len(sweep_result)
 

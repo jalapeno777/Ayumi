@@ -6,7 +6,7 @@ providing a single health gate (SplitBrainGate) and unified metrics.
 BQ-716 Phase 1.
 """
 
-import json
+import json  # noqa: I001
 import logging
 import threading
 import time
@@ -20,7 +20,7 @@ from typing import Optional
 from .connection_state import ConnectionState, ConnectionStateManager
 from .error_classifier import ErrorTier, classify_error
 from .oauth_refresh import OAuthRefreshManager, OAuthToken
-from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction
+from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction  # noqa: F401
 
 
 # ── Decision context ──────────────────────────────────────────────────────────
@@ -32,16 +32,19 @@ class ConnectionStateSnapshot:
 
     Captures a point-in-time view of both connections for post-hoc analysis.
     """
-    market_data_state: str      # ConnectionState value
+
+    market_data_state: str  # ConnectionState value
     trade_execution_state: str  # ConnectionState value
     fully_operational: bool
     is_tradeable: bool
-    timestamp: str              # ISO-8601
+    timestamp: str  # ISO-8601
+
 
 logger = logging.getLogger("ayumi.connection_manager")
 
 
 # ── Data types ────────────────────────────────────────────────────────────────
+
 
 class ConnectionRole(Enum):
     MARKET_DATA = "market_data"
@@ -51,6 +54,7 @@ class ConnectionRole(Enum):
 @dataclass
 class ConnectionHealth:
     """Health snapshot for a single connection."""
+
     role: ConnectionRole
     state: ConnectionState
     uptime_pct_1h: float = 0.0
@@ -65,6 +69,7 @@ class ConnectionHealth:
 @dataclass
 class DualConnectionHealth:
     """Health snapshot for both connections."""
+
     market_data: ConnectionHealth
     trade_execution: ConnectionHealth
     fully_operational: bool = False
@@ -73,9 +78,11 @@ class DualConnectionHealth:
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class _StateTransition:
     """Record of a state transition for metrics."""
+
     timestamp: float  # monotonic
     old_state: ConnectionState
     new_state: ConnectionState
@@ -99,12 +106,14 @@ class ConnectionMetrics:
         reason: str,
     ) -> None:
         with self._lock:
-            self._transitions.append(_StateTransition(
-                timestamp=time.monotonic(),
-                old_state=old_state,
-                new_state=new_state,
-                reason=reason,
-            ))
+            self._transitions.append(
+                _StateTransition(
+                    timestamp=time.monotonic(),
+                    old_state=old_state,
+                    new_state=new_state,
+                    reason=reason,
+                )
+            )
             self._current_state = new_state
 
     def get_health(self, state_mgr: ConnectionStateManager) -> ConnectionHealth:
@@ -118,14 +127,8 @@ class ConnectionMetrics:
             transitions_24h = [t for t in self._transitions if t.timestamp >= window_24h]
 
             # Reconnect count = transitions into RECONNECTING
-            reconnects_1h = sum(
-                1 for t in transitions_1h
-                if t.new_state == ConnectionState.RECONNECTING
-            )
-            reconnects_24h = sum(
-                1 for t in transitions_24h
-                if t.new_state == ConnectionState.RECONNECTING
-            )
+            reconnects_1h = sum(1 for t in transitions_1h if t.new_state == ConnectionState.RECONNECTING)
+            reconnects_24h = sum(1 for t in transitions_24h if t.new_state == ConnectionState.RECONNECTING)
 
             # Time in DEGRADED state (approximate from transitions)
             degraded_time_1h = 0.0
@@ -200,6 +203,7 @@ class ConnectionMetrics:
 
 # ── Connection Manager ────────────────────────────────────────────────────────
 
+
 class ConnectionManager:
     """Owns both cTrader connections and provides unified health view.
 
@@ -269,9 +273,7 @@ class ConnectionManager:
             self._metrics[role] = ConnectionMetrics(role)
 
         # Subscribe to state changes
-        state_manager.on_state_change(
-            lambda old, new, reason, meta, r=role: self._on_state_change(r, old, new, reason)
-        )
+        state_manager.on_state_change(lambda old, new, reason, meta, r=role: self._on_state_change(r, old, new, reason))
         logger.info("[ConnectionManager] Registered %s connection", role.value)
 
     def unregister(self, role: str | ConnectionRole) -> None:
@@ -298,10 +300,7 @@ class ConnectionManager:
         with self._lock:
             if not self._connections:
                 return False
-            return all(
-                mgr.state == ConnectionState.AUTHENTICATED
-                for mgr in self._connections.values()
-            )
+            return all(mgr.state == ConnectionState.AUTHENTICATED for mgr in self._connections.values())
 
     @property
     def is_tradeable(self) -> bool:
@@ -390,12 +389,18 @@ class ConnectionManager:
         if new_state in (ConnectionState.FAILED, ConnectionState.RECONNECTING):
             logger.warning(
                 "[ConnectionManager] %s: %s → %s (reason: %s)",
-                role.value, old_state.value, new_state.value, reason,
+                role.value,
+                old_state.value,
+                new_state.value,
+                reason,
             )
         elif old_state != new_state:
             logger.info(
                 "[ConnectionManager] %s: %s → %s (reason: %s)",
-                role.value, old_state.value, new_state.value, reason,
+                role.value,
+                old_state.value,
+                new_state.value,
+                reason,
             )
 
         # Fire callbacks
@@ -468,7 +473,7 @@ class ConnectionManager:
 
     # ─── Decision context ──────────────────────────────────────────────────────
 
-    def get_decision_context(self) -> 'ConnectionStateSnapshot':
+    def get_decision_context(self) -> "ConnectionStateSnapshot":
         """Get current connection state for embedding in trading decisions.
 
         Called by the trading engine before every decision.
@@ -600,10 +605,7 @@ class ConnectionManager:
         if credentials_path is None:
             credentials_path = Path("data/.credentials")
 
-        if (
-            self._oauth_manager is None
-            or str(getattr(self._oauth_manager, "_path", "")) != str(credentials_path)
-        ):
+        if self._oauth_manager is None or str(getattr(self._oauth_manager, "_path", "")) != str(credentials_path):
             try:
                 self._oauth_manager = OAuthRefreshManager(credentials_path)
             except Exception as exc:

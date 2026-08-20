@@ -19,7 +19,7 @@ These tests verify:
 * Unknown symbol_id: ``_handle_spot_event`` raises ``KeyError``
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import gc
 import logging
@@ -57,18 +57,14 @@ def feed_factory():
         defaults = dict(
             ctid_account_id=99999,
             client_id="test-client",
-            client_secret="test-secret",
-            access_token="test-access-token",
+            client_secret="test-secret",  # noqa: S106
+            access_token="test-access-token",  # noqa: S106
         )
         defaults.update(kwargs)
 
         with (
-            patch(
-                "archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection"
-            ) as mock_conn_cls,
-            patch(
-                "archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager"
-            ) as mock_token_cls,
+            patch("archive.legacy_ctrader._pkg.open_api_spot_feed.CTraderConnection") as mock_conn_cls,
+            patch("archive.legacy_ctrader._pkg.open_api_spot_feed.TokenManager") as mock_token_cls,
         ):
             mock_conn = MagicMock()
             mock_conn_cls.return_value = mock_conn
@@ -128,9 +124,7 @@ class TestNewOrderVolumeDecoder:
         # checking the decoded volume.
         assert not feed._state_mgr.is_operational
         order = feed.new_order(1, ProtoOATradeSide.BUY, volume=100_000)
-        assert order.volume == pytest.approx(1.0), (
-            f"Expected 1.0 lot, got {order.volume}"
-        )
+        assert order.volume == pytest.approx(1.0), f"Expected 1.0 lot, got {order.volume}"
         assert order.status.value == "pending"
 
     def test_2_digit_xauusd_volume_decoded_as_100(self, feed_factory):
@@ -142,8 +136,7 @@ class TestNewOrderVolumeDecoder:
         _seed_symbol(feed, symbol_id=42, name="XAUUSD", digits=2)
         order = feed.new_order(42, ProtoOATradeSide.BUY, volume=100)
         assert order.volume == pytest.approx(1.0), (
-            f"Expected 1.0 lot for XAUUSD, got {order.volume} "
-            f"(hardcoded 100_000 would have given 0.001)"
+            f"Expected 1.0 lot for XAUUSD, got {order.volume} (hardcoded 100_000 would have given 0.001)"
         )
 
     def test_3_digit_usdjpy_volume_decoded_as_1000(self, feed_factory):
@@ -153,9 +146,7 @@ class TestNewOrderVolumeDecoder:
         feed = feed_factory()
         _seed_symbol(feed, symbol_id=4, name="USDJPY", digits=3)
         order = feed.new_order(4, ProtoOATradeSide.SELL, volume=1000)
-        assert order.volume == pytest.approx(1.0), (
-            f"Expected 1.0 lot for USDJPY, got {order.volume}"
-        )
+        assert order.volume == pytest.approx(1.0), f"Expected 1.0 lot for USDJPY, got {order.volume}"
 
     def test_unknown_symbol_id_raises_keyerror(self, feed_factory):
         """If symbol_id is not registered, ``new_order`` must raise
@@ -164,9 +155,7 @@ class TestNewOrderVolumeDecoder:
         # No symbols registered.
         with pytest.raises(KeyError) as exc_info:
             feed.new_order(999, ProtoOATradeSide.BUY, volume=100_000)
-        assert "999" in str(exc_info.value), (
-            f"KeyError should mention symbol_id 999: {exc_info.value}"
-        )
+        assert "999" in str(exc_info.value), f"KeyError should mention symbol_id 999: {exc_info.value}"
 
     def test_partial_lot_volume_decoded_correctly(self, feed_factory):
         """0.5 lots of EURUSD = 50_000 raw units → 0.5 lot in Order."""
@@ -288,6 +277,5 @@ class TestDecoderConsistency:
                 volume=divisor,
             )
             assert order.volume == pytest.approx(1.0), (
-                f"symbol_id={symbol_id} digits={digits} → "
-                f"volume={order.volume}, expected 1.0"
+                f"symbol_id={symbol_id} digits={digits} → volume={order.volume}, expected 1.0"
             )

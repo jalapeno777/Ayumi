@@ -119,9 +119,7 @@ class SimpleRSIThresholdStrategy(ISignalStrategy):
 
         # Cross detection: only fire on the bar that crosses the threshold
         crossed_below_oversold = prev_rsi >= cfg.oversold and current_rsi < cfg.oversold
-        crossed_above_overbought = (
-            prev_rsi <= cfg.overbought and current_rsi > cfg.overbought
-        )
+        crossed_above_overbought = prev_rsi <= cfg.overbought and current_rsi > cfg.overbought
 
         if not crossed_below_oversold and not crossed_above_overbought:
             return None

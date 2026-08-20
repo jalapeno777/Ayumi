@@ -62,9 +62,7 @@ class PairingConfig:
     slippage_pips: float = 0.2
     swap_per_lot_per_day: float = -2.0
     pair: str = ""
-    allow_entry_sessions: list[str] = field(
-        default_factory=lambda: ["london", "ny_am", "ny_pm"]
-    )
+    allow_entry_sessions: list[str] = field(default_factory=lambda: ["london", "ny_am", "ny_pm"])
 
     @property
     def effective_spread_pips(self) -> float:
@@ -153,17 +151,13 @@ class SelectivePairingHarness:
     # Component-level signal generation
     # ------------------------------------------------------------------
 
-    def _build_confluence_engine(
-        self, active_components: set[str]
-    ) -> SignalConfluenceEngine:
+    def _build_confluence_engine(self, active_components: set[str]) -> SignalConfluenceEngine:
         weights = {
             "structure": 0.30 if "structure" in active_components else 0.0,
             "order_block": 0.25 if "order_block" in active_components else 0.0,
             "fvg": 0.15 if "fvg" in active_components else 0.0,
             "liquidity_sweep": 0.15 if "liquidity_sweep" in active_components else 0.0,
-            "premium_discount": 0.10
-            if "premium_discount" in active_components
-            else 0.0,
+            "premium_discount": 0.10 if "premium_discount" in active_components else 0.0,
             "session": 0.05,
         }
 
@@ -211,10 +205,7 @@ class SelectivePairingHarness:
 
             signal = engine.evaluate(state, h4_slice)
             if signal is not None:
-                if (
-                    self.config.min_confluence > 0
-                    and signal.confluence_count < self.config.min_confluence
-                ):
+                if self.config.min_confluence > 0 and signal.confluence_count < self.config.min_confluence:
                     continue
                 signals.append(signal)
 
@@ -224,9 +215,7 @@ class SelectivePairingHarness:
     # Backtest execution
     # ------------------------------------------------------------------
 
-    def _run_backtest(
-        self, bars: list[Bar], signals: list[ConfluenceSignal]
-    ) -> BacktestMetrics:
+    def _run_backtest(self, bars: list[Bar], signals: list[ConfluenceSignal]) -> BacktestMetrics:
         cfg = self.config
         balance = cfg.starting_balance
         peak_balance = balance
@@ -276,17 +265,11 @@ class SelectivePairingHarness:
             for trade in open_trades:
                 hit, exit_price, reason = _check_trade_exit(trade, bar)
                 if hit:
-                    _close_trade(
-                        trade, i, bar.time, exit_price, reason, cfg, cost_tracker
-                    )
+                    _close_trade(trade, i, bar.time, exit_price, reason, cfg, cost_tracker)
                     balance += trade.profit_loss
                     if balance > peak_balance:
                         peak_balance = balance
-                    dd = (
-                        (peak_balance - balance) / peak_balance
-                        if peak_balance > 0
-                        else 0
-                    )
+                    dd = (peak_balance - balance) / peak_balance if peak_balance > 0 else 0
                     if dd > max_drawdown:
                         max_drawdown = dd
                     trades.append(trade)
@@ -456,9 +439,7 @@ class SelectivePairingHarness:
                     signals = self._generate_signals(test_bars, {comp}, h4_bars)
                     metrics = self._run_backtest(test_bars, signals)
                     test_key = f"{comp}_test"
-                    wm.components[test_key] = ComponentResult.from_metrics(
-                        test_key, metrics
-                    )
+                    wm.components[test_key] = ComponentResult.from_metrics(test_key, metrics)
 
             for comp_a, comp_b in combinations(COMPONENT_NAMES, 2):
                 pair_key = f"{comp_a}+{comp_b}"
@@ -469,9 +450,7 @@ class SelectivePairingHarness:
             if test_bars:
                 for comp_a, comp_b in combinations(COMPONENT_NAMES, 2):
                     pair_key = f"{comp_a}+{comp_b}_test"
-                    signals = self._generate_signals(
-                        test_bars, {comp_a, comp_b}, h4_bars
-                    )
+                    signals = self._generate_signals(test_bars, {comp_a, comp_b}, h4_bars)
                     metrics = self._run_backtest(test_bars, signals)
                     wm.pairs[pair_key] = ComponentResult.from_metrics(pair_key, metrics)
 
@@ -494,9 +473,7 @@ class SelectivePairingHarness:
     ) -> PairingReport:
         individual = self.run_individual(bars, h4_bars)
         pairs = self.run_pairs(bars, h4_bars)
-        windows = self.run_walk_forward(
-            bars, n_windows, train_ratio, test_ratio, h4_bars
-        )
+        windows = self.run_walk_forward(bars, n_windows, train_ratio, test_ratio, h4_bars)
 
         agg_components: dict[str, dict] = {}
         for comp, cr in individual.items():
@@ -539,9 +516,7 @@ class SelectivePairingHarness:
 # ------------------------------------------------------------------
 
 
-def _check_trade_exit(
-    trade: SimulatedTrade, bar: Bar
-) -> tuple[bool, float, ExitReason]:
+def _check_trade_exit(trade: SimulatedTrade, bar: Bar) -> tuple[bool, float, ExitReason]:
     if trade.direction == TradeDirection.LONG:
         if bar.low <= trade.stop_loss:
             return True, trade.stop_loss, ExitReason.STOP_LOSS
@@ -613,15 +588,11 @@ def _close_trade(
     else:
         trade.pips = (trade.entry_price - exit_price) / pip_value
 
-    trade.profit_loss = (
-        trade.pips * standard_lots * pip_value * 100000.0 - commission + swap_cost
-    )
+    trade.profit_loss = trade.pips * standard_lots * pip_value * 100000.0 - commission + swap_cost
     trade.outcome = (
         TradeOutcome.WIN
         if trade.profit_loss > 0.01
-        else (
-            TradeOutcome.LOSS if trade.profit_loss < -0.01 else TradeOutcome.BREAKEVEN
-        )
+        else (TradeOutcome.LOSS if trade.profit_loss < -0.01 else TradeOutcome.BREAKEVEN)
     )
 
 
@@ -667,20 +638,14 @@ def _calculate_metrics(
 
     avg_rr = abs(avg_win / avg_loss) if avg_loss != 0 else 0.0
     expectancy = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * abs(avg_loss))
-    avg_hold = (
-        sum(t.exit_bar_index - t.entry_bar_index for t in trades) / total_trades
-        if total_trades > 0
-        else 0.0
-    )
+    avg_hold = sum(t.exit_bar_index - t.entry_bar_index for t in trades) / total_trades if total_trades > 0 else 0.0
 
     sharpe = 0.0
     if len(equity_curve) >= 2:
         returns = []
         for j in range(1, len(equity_curve)):
             if equity_curve[j - 1] != 0:
-                returns.append(
-                    (equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1]
-                )
+                returns.append((equity_curve[j] - equity_curve[j - 1]) / equity_curve[j - 1])
         if returns:
             mean_r = sum(returns) / len(returns)
             std_r = math.sqrt(sum((r - mean_r) ** 2 for r in returns) / len(returns))
@@ -693,9 +658,7 @@ def _calculate_metrics(
         starting_balance=starting_balance,
         ending_balance=ending,
         total_pnl=ending - starting_balance,
-        total_pnl_pct=(ending - starting_balance) / starting_balance
-        if starting_balance
-        else 0.0,
+        total_pnl_pct=(ending - starting_balance) / starting_balance if starting_balance else 0.0,
         win_rate=win_rate,
         total_trades=total_trades,
         winning_trades=len(wins),

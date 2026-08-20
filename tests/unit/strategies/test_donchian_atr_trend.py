@@ -6,7 +6,7 @@ happy-path breakout signals (long/short), edge cases
 (stop-loss, take-profit levels, confidence bounds).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, timezone
 
@@ -135,7 +135,7 @@ class TestCalculateATR:
 
     def test_zero_volatility_returns_near_zero(self):
         bars = []
-        for i in range(20):
+        for i in range(20):  # noqa: B007
             bars.append(_bar(close=1.0, high=1.0, low=1.0))
         result = _calculate_atr(bars, period=14)
         assert result == pytest.approx(0.0)
@@ -356,9 +356,7 @@ class TestDonchianATRTrendCooldown:
 class TestDonchianATRTrendRiskCalculation:
     def test_stop_loss_is_between_entry_and_dc_level(self):
         """For long: stop should be at max(dc_low, entry - ATR*mult)."""
-        strategy = DonchianATRTrendStrategy(
-            DonchianATRConfig(cooldown_bars=0, atr_trail_multiplier=2.0)
-        )
+        strategy = DonchianATRTrendStrategy(DonchianATRConfig(cooldown_bars=0, atr_trail_multiplier=2.0))
         bars = TestDonchianATRTrendBreakoutSignals._make_breakout_bars("long")
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)

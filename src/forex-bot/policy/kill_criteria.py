@@ -101,9 +101,7 @@ class KillCriteriaChecker:
         strategy_config: dict | None = None,
     ):
         cfg = global_config or {}
-        self.max_spread_bps: float = float(
-            cfg.get("max_spread_bps", DEFAULT_MAX_SPREAD_BPS)
-        )
+        self.max_spread_bps: float = float(cfg.get("max_spread_bps", DEFAULT_MAX_SPREAD_BPS))
         # Stored for forward compatibility with Phase 2 calendar
         # integration. Not used in evaluation yet.
         self.macro_event_buffer_minutes: int = int(
@@ -179,17 +177,11 @@ class KillCriteriaChecker:
 
         if "adx_range" in self.strategy_config:
             adx_lo, adx_hi = self.strategy_config["adx_range"]
-            results.append(
-                self._check_adx_range(strategy_name, adx, float(adx_lo), float(adx_hi))
-            )
+            results.append(self._check_adx_range(strategy_name, adx, float(adx_lo), float(adx_hi)))
 
         if "session_window" in self.strategy_config:
             start_h, end_h = self.strategy_config["session_window"]
-            results.append(
-                self._check_session_window(
-                    strategy_name, hour_utc, int(start_h), int(end_h)
-                )
-            )
+            results.append(self._check_session_window(strategy_name, hour_utc, int(start_h), int(end_h)))
 
         return results
 
@@ -218,13 +210,9 @@ class KillCriteriaChecker:
         threshold = self.max_spread_bps
         triggered = spread_bps > threshold
         if triggered:
-            evidence = (
-                f"Spread {spread_bps} bps exceeds max {threshold} bps for {symbol}"
-            )
+            evidence = f"Spread {spread_bps} bps exceeds max {threshold} bps for {symbol}"
         else:
-            evidence = (
-                f"Spread {spread_bps} bps within max {threshold} bps for {symbol}"
-            )
+            evidence = f"Spread {spread_bps} bps within max {threshold} bps for {symbol}"
         return KillCriterion(
             name="spread",
             triggered=triggered,
@@ -265,15 +253,9 @@ class KillCriteriaChecker:
         """
         triggered = confluence_score < min_confluence
         if triggered:
-            evidence = (
-                f"Confluence {confluence_score} below minimum "
-                f"{min_confluence} for strategy {strategy_name}"
-            )
+            evidence = f"Confluence {confluence_score} below minimum {min_confluence} for strategy {strategy_name}"
         else:
-            evidence = (
-                f"Confluence {confluence_score} above minimum "
-                f"{min_confluence} for strategy {strategy_name}"
-            )
+            evidence = f"Confluence {confluence_score} above minimum {min_confluence} for strategy {strategy_name}"
         return KillCriterion(
             name="min_confluence",
             triggered=triggered,
@@ -305,22 +287,13 @@ class KillCriteriaChecker:
         """
         if adx < adx_lo:
             triggered = True
-            evidence = (
-                f"ADX {adx} below range [{adx_lo}, {adx_hi}] "
-                f"for strategy {strategy_name}"
-            )
+            evidence = f"ADX {adx} below range [{adx_lo}, {adx_hi}] for strategy {strategy_name}"
         elif adx > adx_hi:
             triggered = True
-            evidence = (
-                f"ADX {adx} above range [{adx_lo}, {adx_hi}] "
-                f"for strategy {strategy_name}"
-            )
+            evidence = f"ADX {adx} above range [{adx_lo}, {adx_hi}] for strategy {strategy_name}"
         else:
             triggered = False
-            evidence = (
-                f"ADX {adx} within range [{adx_lo}, {adx_hi}] "
-                f"for strategy {strategy_name}"
-            )
+            evidence = f"ADX {adx} within range [{adx_lo}, {adx_hi}] for strategy {strategy_name}"
         return KillCriterion(
             name="adx_range",
             triggered=triggered,
@@ -356,15 +329,9 @@ class KillCriteriaChecker:
         in_window = KillCriteriaChecker._in_window(hour_utc, start_h, end_h)
         triggered = not in_window
         if triggered:
-            evidence = (
-                f"Hour {hour_utc} UTC outside window [{start_h}, {end_h}] "
-                f"for strategy {strategy_name}"
-            )
+            evidence = f"Hour {hour_utc} UTC outside window [{start_h}, {end_h}] for strategy {strategy_name}"
         else:
-            evidence = (
-                f"Hour {hour_utc} UTC inside window [{start_h}, {end_h}] "
-                f"for strategy {strategy_name}"
-            )
+            evidence = f"Hour {hour_utc} UTC inside window [{start_h}, {end_h}] for strategy {strategy_name}"
         return KillCriterion(
             name="session_window",
             triggered=triggered,

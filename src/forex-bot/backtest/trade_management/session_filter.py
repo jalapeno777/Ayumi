@@ -53,9 +53,7 @@ class NewsEventSimulator:
             self.events[dt] = []
         self.events[dt].append(event)
 
-    def has_high_impact_near(
-        self, bar_time: datetime, buffer_hours: float = 1.0
-    ) -> bool:
+    def has_high_impact_near(self, bar_time: datetime, buffer_hours: float = 1.0) -> bool:
         window_start = bar_time - timedelta(hours=buffer_hours)
         window_end = bar_time + timedelta(hours=buffer_hours)
         for event_time, events in self.events.items():
@@ -65,9 +63,7 @@ class NewsEventSimulator:
                         return True
         return False
 
-    def get_impact_near(
-        self, bar_time: datetime, buffer_hours: float = 1.0
-    ) -> list[NewsEvent]:
+    def get_impact_near(self, bar_time: datetime, buffer_hours: float = 1.0) -> list[NewsEvent]:
         window_start = bar_time - timedelta(hours=buffer_hours)
         window_end = bar_time + timedelta(hours=buffer_hours)
         result = []
@@ -92,8 +88,7 @@ class SessionFilter:
     ):
         self.enabled = enabled
         self.allow_entry_sessions = set(
-            allow_entry_sessions
-            or ["london", "london_open", "ny_open", "ny_am", "ny_pm", "asian"]
+            allow_entry_sessions or ["london", "london_open", "ny_open", "ny_am", "ny_pm", "asian"]
         )
         self.hold_through_sessions = hold_through_sessions
         self.weekend_close_hour = weekend_close_hour_utc
@@ -135,9 +130,7 @@ class SessionFilter:
 
         return SessionFilterResult(allow_entry=True)
 
-    def check_hold(
-        self, bar: Bar, entry_time: datetime, direction: TradeDirection
-    ) -> SessionFilterResult:
+    def check_hold(self, bar: Bar, entry_time: datetime, direction: TradeDirection) -> SessionFilterResult:
         if not self.enabled:
             return SessionFilterResult(force_close=False)
 
@@ -153,10 +146,7 @@ class SessionFilter:
         current_session = self._get_session_name(bar.time)
         entry_session = self._get_session_name(entry_time)
 
-        if (
-            current_session not in self.allow_entry_sessions
-            and entry_session != current_session
-        ):
+        if current_session not in self.allow_entry_sessions and entry_session != current_session:
             return SessionFilterResult(
                 force_close=True,
                 reason=f"Current session '{current_session}' outside allowed hold sessions",
@@ -189,10 +179,7 @@ class SessionFilter:
         if time.weekday() == 4:
             if time.hour > self.weekend_close_hour:
                 return True
-            if (
-                time.hour == self.weekend_close_hour
-                and time.minute >= self.weekend_close_minute
-            ):
+            if time.hour == self.weekend_close_hour and time.minute >= self.weekend_close_minute:
                 return True
         if time.weekday() >= 5:
             return True

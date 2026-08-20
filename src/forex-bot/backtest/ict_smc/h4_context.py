@@ -63,9 +63,7 @@ class H4ContextModule:
         ob_zones = self._map_order_blocks(h4_state.active_order_blocks)
         fvg_zones = self._map_fvg_zones(h4_state.active_fvgs)
 
-        bullish_score, bearish_score = self._calculate_scores(
-            ob_zones, fvg_zones, h1_current_price, h1_atr
-        )
+        bullish_score, bearish_score = self._calculate_scores(ob_zones, fvg_zones, h1_current_price, h1_atr)
 
         bullish_confluences = self._count_zone_confluences(
             ob_zones, fvg_zones, TradeDirection.LONG, h1_current_price, h1_atr
@@ -173,15 +171,11 @@ class H4ContextModule:
     def _price_in_zone(self, price: float, zone: H4ZoneMapping) -> bool:
         return zone.bottom <= price <= zone.top
 
-    def _price_near_zone(
-        self, price: float, zone: H4ZoneMapping, threshold: float
-    ) -> bool:
+    def _price_near_zone(self, price: float, zone: H4ZoneMapping, threshold: float) -> bool:
         zone_mid = (zone.top + zone.bottom) / 2
         return abs(price - zone_mid) <= threshold
 
-    def _zone_proximity_score(
-        self, price: float, zone: H4ZoneMapping, atr: float
-    ) -> float:
+    def _zone_proximity_score(self, price: float, zone: H4ZoneMapping, atr: float) -> float:
         if atr == 0:
             return 0.0
         zone_mid = (zone.top + zone.bottom) / 2

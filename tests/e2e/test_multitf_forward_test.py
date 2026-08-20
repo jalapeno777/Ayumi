@@ -1,6 +1,6 @@
 """Integration tests for multi-timeframe forward test architecture."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone  # noqa: I001
 from unittest.mock import MagicMock
 
 import pytest
@@ -77,9 +77,7 @@ class TestMultiTFBarBuilding:
 
     def test_required_timeframes_derived_from_config(self):
         config = ForwardTestConfig(strategy_timeframes={"A": 60, "B": 15})
-        engine = ForwardTestEngine(
-            config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")]
-        )
+        engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")])
         assert engine._required_timeframes == {60, 15}
 
     def test_backward_compat_empty_timeframes(self):
@@ -175,10 +173,7 @@ class TestBackwardCompatibility:
         config = ForwardTestConfig()
         engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("X")])
 
-        bars = [
-            make_bar(datetime(2026, 4, 28, i, 0, tzinfo=timezone.utc))
-            for i in range(10)
-        ]
+        bars = [make_bar(datetime(2026, 4, 28, i, 0, tzinfo=timezone.utc)) for i in range(10)]
         engine.preload_bars("GBPUSD", 60, bars)
 
         loaded = engine.get_bars_including_forming("GBPUSD", 60)
@@ -206,9 +201,7 @@ class TestCallSiteMigration:
 
     def test_stop_finalizes_all_composite_keys(self):
         config = ForwardTestConfig(strategy_timeframes={"A": 60, "B": 15})
-        engine = ForwardTestEngine(
-            config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")]
-        )
+        engine = ForwardTestEngine(config=config, strategies=[FakeStrategy("A"), FakeStrategy("B")])
 
         ts = datetime(2026, 4, 28, 10, 0, 30, tzinfo=timezone.utc)
         tick = make_tick(ts)

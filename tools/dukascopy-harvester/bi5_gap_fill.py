@@ -9,14 +9,15 @@ Usage:
     python3 bi5_gap_fill.py --symbol XAUUSD --start 2023-01-01 --end 2023-12-31
     python3 bi5_gap_fill.py --symbol XAUUSD --start 2026-07-11 --end 2026-07-13
 """
-from __future__ import annotations
+
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import asyncio
 import logging
 import lzma
 import struct
-import time
+import time  # noqa: F401
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import namedtuple
@@ -89,7 +90,7 @@ def decode_bi5(data: bytes, symbol: str, day: datetime, hour: int) -> list[Tick]
     day_ms = int(day.replace(hour=0, minute=0, second=0, tzinfo=timezone.utc).timestamp() * 1000)
 
     for i in range(0, usable, record_len):
-        chunk = decompressed[i:i + record_len]
+        chunk = decompressed[i : i + record_len]
         try:
             ms_in_hour = struct.unpack(">I", chunk[0:4])[0]
             ask_raw = struct.unpack(">I", chunk[4:8])[0]
@@ -103,13 +104,15 @@ def decode_bi5(data: bytes, symbol: str, day: datetime, hour: int) -> list[Tick]
         bid = bid_raw / scale
         ask = ask_raw / scale
 
-        ticks.append(Tick(
-            timestamp_ms=timestamp_ms,
-            bid=bid,
-            ask=ask,
-            bidVol=bid_vol_m * 1e6,
-            askVol=ask_vol_m * 1e6,
-        ))
+        ticks.append(
+            Tick(
+                timestamp_ms=timestamp_ms,
+                bid=bid,
+                ask=ask,
+                bidVol=bid_vol_m * 1e6,
+                askVol=ask_vol_m * 1e6,
+            )
+        )
 
     return ticks
 
@@ -144,7 +147,7 @@ async def fetch_url(client: httpx.AsyncClient, url: str) -> bytes | None:
                     return None
                 elif resp.status_code == 429:
                     # Rate limited — back off
-                    delay = 2 ** attempt
+                    delay = 2**attempt
                     logger.warning("429 rate limited, backing off %ds...", delay)
                     await asyncio.sleep(delay)
                     continue
@@ -153,7 +156,7 @@ async def fetch_url(client: httpx.AsyncClient, url: str) -> bytes | None:
                     return None
             except (httpx.TimeoutException, httpx.ConnectError, httpx.ConnectTimeout) as e:
                 if attempt < 2:
-                    delay = 2 ** attempt
+                    delay = 2**attempt
                     logger.warning("Retry %d for %s: %s", attempt + 1, url[-40:], e)
                     await asyncio.sleep(delay)
                 else:
@@ -182,7 +185,7 @@ async def harvest_day(client: httpx.AsyncClient, symbol: str, day: datetime, exi
 
     # Decode all hours
     all_ticks = []
-    for (hour, _), data in zip(urls, results):
+    for (hour, _), data in zip(urls, results):  # noqa: B905
         if data and len(data) > 0:
             ticks = decode_bi5(data, symbol, day, hour)
             all_ticks.extend(ticks)
@@ -199,8 +202,7 @@ async def harvest_day(client: httpx.AsyncClient, symbol: str, day: datetime, exi
 
 async def harvest_range(symbol: str, start: datetime, end: datetime, existing_dates: set) -> dict:
     """Harvest a date range."""
-    logger.info("Starting harvest: %s %s → %s (%d days)",
-                symbol, start.date(), end.date(), (end - start).days)
+    logger.info("Starting harvest: %s %s → %s (%d days)", symbol, start.date(), end.date(), (end - start).days)
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Java Web Start/17.0)",

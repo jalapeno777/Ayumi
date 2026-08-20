@@ -11,7 +11,7 @@ portfolio_blend.py:1006, tests x11) import this method — those callers are
 not edited here, they merely rely on GridConfig.ftmo being defined.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -37,10 +37,7 @@ class TestGridConfigFtmo:
         c = GridConfig.ftmo("UNKNOWNPAIR")
         assert c.grid_spacing_pips == GRID_PRESETS["EURUSD"]["grid_spacing_pips"]
         assert c.num_levels == GRID_PRESETS["EURUSD"]["num_levels"]
-        assert (
-            c.max_concurrent_positions
-            == GRID_PRESETS["EURUSD"]["max_concurrent_positions"]
-        )
+        assert c.max_concurrent_positions == GRID_PRESETS["EURUSD"]["max_concurrent_positions"]
 
     def test_ftmo_locked_to_fixed_equal_sizing(self):
         """FTMO constraint: fixed spacing + equal sizing for every pair."""
@@ -50,10 +47,7 @@ class TestGridConfigFtmo:
             assert c.position_sizing_type == "equal"
 
     def test_ftmo_default_pair_is_eurusd(self):
-        assert (
-            GridConfig.ftmo().grid_spacing_pips
-            == GridConfig.ftmo("EURUSD").grid_spacing_pips
-        )
+        assert GridConfig.ftmo().grid_spacing_pips == GridConfig.ftmo("EURUSD").grid_spacing_pips
 
     def test_ftmo_returns_gridconfig_instance(self):
         assert isinstance(GridConfig.ftmo("EURUSD"), GridConfig)

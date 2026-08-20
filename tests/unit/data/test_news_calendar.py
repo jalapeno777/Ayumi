@@ -26,7 +26,7 @@ FOREX_BOT_SRC = Path(__file__).resolve().parents[3] / "src" / "forex-bot"
 if str(FOREX_BOT_SRC) not in sys.path:
     sys.path.insert(0, str(FOREX_BOT_SRC))
 
-from data.news_calendar import (
+from data.news_calendar import (  # noqa: I001
     CalendarEvent,
     NewsCalendarFilter,
 )
@@ -327,9 +327,7 @@ class TestBlackoutDetection:
         now = datetime(2024, 12, 19, 3, 0, tzinfo=timezone.utc)
         assert filter_with_cache.is_blackout_now(["USDJPY"], now=now)
 
-    def test_jpy_event_does_not_block_eurusd(
-        self, filter_with_cache: NewsCalendarFilter
-    ):
+    def test_jpy_event_does_not_block_eurusd(self, filter_with_cache: NewsCalendarFilter):
         """BoJ event should NOT block EURUSD (no JPY)."""
         now = datetime(2024, 12, 19, 3, 0, tzinfo=timezone.utc)
         assert not filter_with_cache.is_blackout_now(["EURUSD"], now=now)
@@ -401,9 +399,7 @@ class TestNextBlackoutWindow:
         window = filter_with_cache.next_blackout_window(["EURUSD"], now=now)
         assert window is None
 
-    def test_returns_none_for_unrelated_currency(
-        self, filter_with_cache: NewsCalendarFilter
-    ):
+    def test_returns_none_for_unrelated_currency(self, filter_with_cache: NewsCalendarFilter):
         """If no tracked currency matches, returns None."""
         now = datetime(2024, 12, 6, 12, 0, tzinfo=timezone.utc)
         window = filter_with_cache.next_blackout_window(["AUDNZD"], now=now)
@@ -473,9 +469,7 @@ class TestCachingBehavior:
 
         # 6 min before event (13:24) — not blocked with 5-min default
         nf5 = NewsCalendarFilter(cache_path=p, auto_fetch=False, blackout_minutes=5)
-        assert not nf5.is_blackout_now(
-            ["EURUSD"], now=datetime(2024, 12, 6, 13, 24, tzinfo=timezone.utc)
-        )
+        assert not nf5.is_blackout_now(["EURUSD"], now=datetime(2024, 12, 6, 13, 24, tzinfo=timezone.utc))
 
 
 # ---------------------------------------------------------------------------

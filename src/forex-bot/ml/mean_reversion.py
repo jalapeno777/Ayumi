@@ -11,7 +11,7 @@ Public API
 - ``MLMeanReversionStrategy`` -- ISignalStrategy backed by a trained model
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import logging
@@ -207,9 +207,7 @@ def prepare_data(
     if "date" not in df.columns:
         raise ValueError("CSV must contain a 'Date' column")
 
-    signals = bb_mean_reversion_signals(
-        df, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr
-    )
+    signals = bb_mean_reversion_signals(df, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr)
     if signals.empty:
         return pd.DataFrame()
 
@@ -266,13 +264,7 @@ def _optimize_threshold(
             taken_pnl = pnl[taken_mask]
             gross_profit = taken_pnl[taken_pnl > 0].sum()
             gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
-            score = (
-                gross_profit / gross_loss
-                if gross_loss > 0
-                else float("inf")
-                if gross_profit > 0
-                else 0.0
-            )
+            score = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
         else:
             score = f1_score(y_true, y_pred, zero_division=0)
 
@@ -323,8 +315,7 @@ def train_model(
         available = [
             c
             for c in dataset.columns
-            if c not in non_feature_cols
-            and dataset[c].dtype in (np.float64, np.int64, np.float32, np.int32)
+            if c not in non_feature_cols and dataset[c].dtype in (np.float64, np.int64, np.float32, np.int32)
         ]
 
     X = dataset[available].values
@@ -335,9 +326,7 @@ def train_model(
     if len(np.unique(y)) < 2:
         raise ValueError("Dataset must contain both positive and negative outcomes")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_ratio, random_state=seed, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_ratio, random_state=seed, stratify=y)
     pnl_test = pnl[len(X_train) :] if pnl is not None else None
 
     best_model = None
@@ -362,13 +351,7 @@ def train_model(
                     taken_pnl = pnl_test[taken_mask]
                     gross_profit = taken_pnl[taken_pnl > 0].sum()
                     gross_loss = abs(taken_pnl[taken_pnl < 0].sum())
-                    pf = (
-                        gross_profit / gross_loss
-                        if gross_loss > 0
-                        else float("inf")
-                        if gross_profit > 0
-                        else 0.0
-                    )
+                    pf = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
                 else:
                     pf = -1.0
 
@@ -378,9 +361,7 @@ def train_model(
                     best_type = model_type
                     best_threshold = threshold
             except Exception as exc:
-                logger.debug(
-                    "Model %s with params %s failed: %s", model_type, params, exc
-                )
+                logger.debug("Model %s with params %s failed: %s", model_type, params, exc)
 
     if best_model is None:
         raise RuntimeError("No model could be trained successfully")
@@ -440,9 +421,7 @@ def walk_forward_validate(
     fold_size = len(df) // n_folds
 
     def _build_dataset_for_range(df_subset: pd.DataFrame) -> pd.DataFrame | None:
-        signals = bb_mean_reversion_signals(
-            df_subset, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr
-        )
+        signals = bb_mean_reversion_signals(df_subset, period=bb_period, num_std=bb_std, atr_mult=atr_mult, rr=rr)
         if signals.empty:
             return None
         labeled = label_trades(signals, df_subset, max_holding_bars)
@@ -494,9 +473,7 @@ def walk_forward_validate(
         test_ds = test_part
 
         if len(np.unique(train_ds["outcome"].values)) < 2:
-            fold_metrics.append(
-                {"fold": fold_idx, "status": "insufficient_labels_train"}
-            )
+            fold_metrics.append({"fold": fold_idx, "status": "insufficient_labels_train"})
             continue
 
         try:
@@ -505,11 +482,7 @@ def walk_forward_validate(
 
             available = result.feature_names
             X_test = test_ds[available].values
-            pnl_test = (
-                test_ds["pnl"].values.astype(float)
-                if "pnl" in test_ds.columns
-                else None
-            )
+            pnl_test = test_ds["pnl"].values.astype(float) if "pnl" in test_ds.columns else None
 
             y_prob = result.model.predict_proba(X_test)[:, 1]
             y_pred = (y_prob >= result.threshold).astype(int)
@@ -593,7 +566,7 @@ def load_model(model_dir: str) -> tuple[Any, list[str], float]:
     path = Path(model_dir)
 
     with open(path / "mean_reversion_model.pkl", "rb") as f:
-        model = pickle.load(f)  # nosec B301
+        model = pickle.load(f)  # nosec B301  # noqa: S301
 
     with open(path / "mean_reversion_meta.json") as f:
         meta = json.load(f)
@@ -665,9 +638,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
             )
         return pd.DataFrame(rows)
 
-    def _compute_signal_levels(
-        self, bars: list[Bar]
-    ) -> tuple[float, float, float, float, int] | None:
+    def _compute_signal_levels(self, bars: list[Bar]) -> tuple[float, float, float, float, int] | None:
         """Compute BB levels, ATR, and a mean-reversion direction.
 
         Returns ``(bb_upper, bb_mid, bb_lower, atr_val, direction)`` or
@@ -681,9 +652,7 @@ class MLMeanReversionStrategy(ISignalStrategy):
         high = df["high"]
         low = df["low"]
 
-        bb_upper, bb_mid, bb_lower = bollinger_bands(
-            close, self._bb_period, self._bb_std
-        )
+        bb_upper, bb_mid, bb_lower = bollinger_bands(close, self._bb_period, self._bb_std)
         atr_val = atr(high, low, close, 14)
 
         last = len(df) - 1

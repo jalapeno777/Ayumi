@@ -9,7 +9,7 @@ mocking the SignalStatsRecorder to first fail, then succeed, and checking
 that _stats_fail_count resets to 0 on success.
 """
 
-import pytest
+import pytest  # noqa: I001
 from unittest.mock import MagicMock
 
 
@@ -58,7 +58,7 @@ class TestStatsFailReset:
 
     def test_reset_logic_exists_in_source(self):
         """Verify the source code contains the reset-on-success line."""
-        import sys
+        import sys  # noqa: I001
         import inspect
         from pathlib import Path
 
@@ -97,9 +97,7 @@ class TestStatsFailReset:
                     + 1
                 )
 
-        assert _stats_fail_count == 3, (
-            f"Expected 3 after 3 failures, got {_stats_fail_count}"
-        )
+        assert _stats_fail_count == 3, f"Expected 3 after 3 failures, got {_stats_fail_count}"
 
         # Simulate success → reset
         _stats_fail_count = 0  # This is the fix line
@@ -121,8 +119,7 @@ class TestStatsFailReset:
         # Fail again
         _stats_fail_count += 1
         assert _stats_fail_count == 1, (
-            "After reset+fail, counter should be 1 (consecutive), "
-            f"not 2 (cumulative). Got {_stats_fail_count}"
+            f"After reset+fail, counter should be 1 (consecutive), not 2 (cumulative). Got {_stats_fail_count}"
         )
 
 
@@ -138,7 +135,7 @@ class TestStatsRecorderIntegration:
         if src not in sys.path:
             sys.path.insert(0, src)
 
-        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord
+        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord  # noqa: I001
 
         recorder = SignalStatsRecorder(log_path=str(tmp_path / "test_stats.jsonl"))
         record = SignalRecord(
@@ -171,7 +168,7 @@ class TestStatsRecorderIntegration:
         if src not in sys.path:
             sys.path.insert(0, src)
 
-        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord
+        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord  # noqa: I001
 
         # Create a recorder whose _append_line always raises
         recorder = SignalStatsRecorder(log_path=str(tmp_path / "stats.jsonl"))

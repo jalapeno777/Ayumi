@@ -10,7 +10,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import json
+import json  # noqa: I001
 import logging
 
 from backtest.engine import BacktestConfig
@@ -70,7 +70,7 @@ def worker_entry(args):
     (grid_point, bars_data, config_dict) = args
 
     try:
-        from backtest.engine import Bar
+        from backtest.engine import Bar  # noqa: I001
         from datetime import datetime
 
         bars = []
@@ -165,15 +165,13 @@ def test_parameter_sweep():
     logger.info(f"Completed {len(results)} successful runs")
 
     if results:
-        sorted_by_sharpe = sorted(
-            results, key=lambda r: r["backtest"]["sharpe_ratio"], reverse=True
-        )
+        sorted_by_sharpe = sorted(results, key=lambda r: r["backtest"]["sharpe_ratio"], reverse=True)
 
         logger.info("\nTop 5 by Sharpe Ratio:")
         for i, result in enumerate(sorted_by_sharpe[:5], 1):
             metrics = result["backtest"]
             logger.info(
-                f"{i}. Sharpe: {metrics['sharpe_ratio']:.3f}, Return: {metrics['total_return']:.2f}%, Win Rate: {metrics['win_rate']:.1f}%"
+                f"{i}. Sharpe: {metrics['sharpe_ratio']:.3f}, Return: {metrics['total_return']:.2f}%, Win Rate: {metrics['win_rate']:.1f}%"  # noqa: E501
             )
             logger.info(f"   Params: {result['params']}")
 

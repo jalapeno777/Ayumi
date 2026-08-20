@@ -6,7 +6,7 @@ package. Fixed by importing the real module — ctrader_open_api is installed
 and the import works fine.)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from adapters.ctrader.error_classifier import ErrorTier, classify_error

@@ -53,7 +53,7 @@ class TestLateFillPositionIdValidation:
 
     def _make_signal(self):
         """Create a CTraderTradeSignal for testing."""
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
 
         return CTraderTradeSignal(
             symbol="GBPUSD",
@@ -114,12 +114,9 @@ class TestLateFillPositionIdValidation:
 
         # Verify warning was logged about missing/invalid positionId
         assert any(
-            "no cTrader positionId" in record.message
-            or "positionId" in record.message.lower()
+            "no cTrader positionId" in record.message or "positionId" in record.message.lower()
             for record in caplog.records
-        ), (
-            f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
-        )
+        ), f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
 
     def test_valid_int_position_id_proceeds_with_amend(self, engine_mock, caplog):
         """When positionId is a valid integer string, amend_sl_tp proceeds."""
@@ -229,8 +226,6 @@ class TestLateFillPositionIdValidation:
 
         engine_mock._market_feed.amend_sl_tp.assert_not_called()
 
-        assert any(
-            "no cTrader positionId" in record.message for record in caplog.records
-        ), (
+        assert any("no cTrader positionId" in record.message for record in caplog.records), (
             f"Expected warning about missing positionId, got: {[r.message for r in caplog.records]}"
         )

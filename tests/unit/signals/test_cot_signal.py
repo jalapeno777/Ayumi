@@ -8,7 +8,7 @@ Tests cover:
 - AC5: Test suite execution
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 from unittest.mock import MagicMock

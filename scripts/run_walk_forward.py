@@ -19,7 +19,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.builtin_strategies import register_builtin_strategies  # noqa: E402
+from backtest.builtin_strategies import register_builtin_strategies  # noqa: E402, I001
 from backtest.walk_forward_runner import (  # noqa: E402
     get_registered_strategies,
     run_named_strategy_walk_forward,
@@ -30,9 +30,7 @@ from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="Generic walk-forward runner for any strategy"
-    )
+    p = argparse.ArgumentParser(description="Generic walk-forward runner for any strategy")
     add_resource_args(p)
     p.add_argument(
         "--strategy",
@@ -114,13 +112,7 @@ def main() -> None:
     data_file = args.data
     if data_file is None:
         pair_upper = args.pair.upper().replace("/", "")
-        data_file = str(
-            Path(project_root)
-            / "data"
-            / "forex"
-            / "historical"
-            / f"{pair_upper}_H1.csv"
-        )
+        data_file = str(Path(project_root) / "data" / "forex" / "historical" / f"{pair_upper}_H1.csv")
 
     if not Path(data_file).exists():
         print(f"Error: Data file not found: {data_file}", file=sys.stderr)
@@ -156,28 +148,15 @@ def main() -> None:
         a = results.aggregated
         print("\n  Aggregate Metrics:")
         print(f"    Win Rate:       {a.mean_win_rate:.2%} (std {a.std_win_rate:.2%})")
-        print(
-            f"    Profit Factor:  {a.mean_profit_factor:.2f} (std {a.std_profit_factor:.2f})"
-        )
-        print(
-            f"    Max Drawdown:   {a.mean_max_drawdown:.2%} (std {a.std_max_drawdown:.2%})"
-        )
-        print(
-            f"    Sharpe Ratio:   {a.mean_sharpe_ratio:.2f} (std {a.std_sharpe_ratio:.2f})"
-        )
-        print(
-            f"    Trade Count:    {a.mean_trade_count:.0f} (std {a.std_trade_count:.0f})"
-        )
-        print(
-            f"    Total PnL:      ${a.mean_total_pnl:.2f} (std ${a.std_total_pnl:.2f})"
-        )
+        print(f"    Profit Factor:  {a.mean_profit_factor:.2f} (std {a.std_profit_factor:.2f})")
+        print(f"    Max Drawdown:   {a.mean_max_drawdown:.2%} (std {a.std_max_drawdown:.2%})")
+        print(f"    Sharpe Ratio:   {a.mean_sharpe_ratio:.2f} (std {a.std_sharpe_ratio:.2f})")
+        print(f"    Trade Count:    {a.mean_trade_count:.0f} (std {a.std_trade_count:.0f})")
+        print(f"    Total PnL:      ${a.mean_total_pnl:.2f} (std ${a.std_total_pnl:.2f})")
         print(f"    Windows Passed: {a.windows_passed}/{a.total_windows}")
 
     print("\n  Per-Window Details:")
-    print(
-        f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} "
-        f"{'Trades':>8} {'PnL':>12} {'GO?':>6}"
-    )
+    print(f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} {'Trades':>8} {'PnL':>12} {'GO?':>6}")
     for m in results.per_window:
         print(
             f"  {m.win_rate:<8.2%} {m.profit_factor:>8.2f} {m.max_drawdown:>8.2%} "

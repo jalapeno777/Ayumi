@@ -19,7 +19,7 @@ Best on: XAUUSD M15 (gold trends persistently), GBPUSD M15, EURUSD M15.
 Timeframes: M15, H1
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 
@@ -321,9 +321,7 @@ class DonchianATRTrendV2Strategy(ISignalStrategy):
                 _calculate_atr(bars[: i + 1], cfg.atr_period)
                 for i in range(cfg.atr_sma_period + cfg.atr_period, len(bars))
             ]
-            atr_sma = (
-                _calculate_sma(atr_history, cfg.atr_sma_period) if atr_history else None
-            )
+            atr_sma = _calculate_sma(atr_history, cfg.atr_sma_period) if atr_history else None
 
         if atr <= 0 or ema is None or atr_sma is None:
             return None
@@ -406,11 +404,7 @@ class DonchianATRTrendV2Strategy(ISignalStrategy):
         # --- Confidence ---
         # Base = min_confidence. Boost by ADX strength (above threshold) and
         # by breakout distance (in ATR units). Cap at 0.85 to avoid overconfidence.
-        breakout_dist = (
-            abs(entry - dc_high)
-            if direction == TradeDirection.LONG
-            else abs(entry - dc_low)
-        )
+        breakout_dist = abs(entry - dc_high) if direction == TradeDirection.LONG else abs(entry - dc_low)
         adx_boost = max(0.0, adx - cfg.adx_threshold) * 0.005
         vol_boost = max(0.0, (atr - atr_sma) / atr_sma) * 0.20 if atr_sma > 0 else 0.0
         dist_boost = (breakout_dist / atr) * 0.05 if atr > 0 else 0.0

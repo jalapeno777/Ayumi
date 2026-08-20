@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 
 from datetime import datetime
 
@@ -263,9 +263,7 @@ class TestSessionHelpers(unittest.TestCase):
 
     def test_calculate_session_range_filters_by_day(self):
         bars = make_session_range_bars(seed=42)
-        high, low, mean = _calculate_session_range(
-            bars, SessionType.LONDON, reference_day=datetime(2023, 1, 2).date()
-        )
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, reference_day=datetime(2023, 1, 2).date())
         self.assertGreater(high, 0)
         self.assertLess(low, high)
         self.assertGreater(mean, 0)
@@ -316,9 +314,7 @@ class TestSessionHelpers(unittest.TestCase):
                 volume=1000,
             )
         ]
-        high, low, mean = _calculate_session_range(
-            bars, SessionType.LONDON, reference_day=datetime(2023, 1, 2).date()
-        )
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, reference_day=datetime(2023, 1, 2).date())
         self.assertEqual(high, 0.0)
         self.assertEqual(low, 0.0)
         self.assertEqual(mean, 0.0)
@@ -365,9 +361,7 @@ class TestSessionHelpers(unittest.TestCase):
                 volume=1000,
             ),
         ]
-        result = SessionRangeMeanReversionStrategy._find_previous_trading_day(
-            bars, datetime(2023, 1, 3).date()
-        )
+        result = SessionRangeMeanReversionStrategy._find_previous_trading_day(bars, datetime(2023, 1, 3).date())
         self.assertEqual(result, datetime(2023, 1, 2).date())
 
     def test_find_previous_trading_day_skips_weekends(self):
@@ -389,9 +383,7 @@ class TestSessionHelpers(unittest.TestCase):
                 volume=1000,
             ),
         ]
-        result = SessionRangeMeanReversionStrategy._find_previous_trading_day(
-            bars, datetime(2023, 1, 9).date()
-        )
+        result = SessionRangeMeanReversionStrategy._find_previous_trading_day(bars, datetime(2023, 1, 9).date())
         self.assertEqual(result, datetime(2023, 1, 6).date())
 
 

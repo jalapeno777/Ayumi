@@ -108,10 +108,7 @@ class DailyAnalytics:
             lines.append("")
             lines.append("Per Strategy:")
             for sid, stats in report.per_strategy.items():
-                lines.append(
-                    f"  {sid}: {stats.get('trades', 0)} trades, "
-                    f"${stats.get('pnl', 0):+.2f}"
-                )
+                lines.append(f"  {sid}: {stats.get('trades', 0)} trades, ${stats.get('pnl', 0):+.2f}")
         return "\n".join(lines)
 
     def _build_report(self, date: str, trades: list[dict]) -> DailyPerformance:
@@ -200,10 +197,7 @@ class DailyAnalytics:
             gate_rejections=gate_rej,
             circuit_breaker_triggers=sum(1 for t in trades if t.get("circuit_breaker")),
             daily_risk_used_pct=round(daily_risk_pct, 4),
-            per_strategy={
-                k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)}
-                for k, v in per_strat.items()
-            },
+            per_strategy={k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)} for k, v in per_strat.items()},
         )
 
 
@@ -271,19 +265,9 @@ def _self_heal_ownership(path: Path) -> None:
 
 def _resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
     """Return (project_root, trade_log, daily_report_path)."""
-    project_root = (
-        Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
-    )
-    trade_log = (
-        Path(args.trade_log)
-        if args.trade_log
-        else project_root / "logs" / "trades.jsonl"
-    )
-    reports_root = (
-        Path(args.reports_root)
-        if args.reports_root
-        else project_root / "data" / "forex" / "equity_reports"
-    )
+    project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
+    trade_log = Path(args.trade_log) if args.trade_log else project_root / "logs" / "trades.jsonl"
+    reports_root = Path(args.reports_root) if args.reports_root else project_root / "data" / "forex" / "equity_reports"
     return project_root, trade_log, reports_root
 
 
@@ -327,9 +311,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _project_root, trade_log, reports_root = _resolve_paths(args)
 
-    target_date = args.date or datetime.now(ZoneInfo("America/Toronto")).strftime(
-        "%Y-%m-%d"
-    )
+    target_date = args.date or datetime.now(ZoneInfo("America/Toronto")).strftime("%Y-%m-%d")
 
     analytics = DailyAnalytics(
         trade_log_path=str(trade_log),
@@ -347,9 +329,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.stdout:
         print(formatted)
-    print(
-        f"[daily_report] wrote {out_path} (trades={report.total_trades}, pnl=${report.total_pnl:+.2f})"
-    )
+    print(f"[daily_report] wrote {out_path} (trades={report.total_trades}, pnl=${report.total_pnl:+.2f})")
     return 0
 
 

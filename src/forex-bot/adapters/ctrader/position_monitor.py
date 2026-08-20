@@ -202,9 +202,7 @@ class PositionMonitor:
             open_positions = self._order_manager.get_open_positions()
 
             total_unrealized_pnl = sum(p.unrealized_pnl for p in open_positions)
-            total_notional = sum(
-                p.volume * self._contract_size_for(p.symbol) for p in open_positions
-            )
+            total_notional = sum(p.volume * self._contract_size_for(p.symbol) for p in open_positions)
             positions_by_symbol: dict[str, int] = {}
             for p in open_positions:
                 positions_by_symbol[p.symbol] = positions_by_symbol.get(p.symbol, 0) + 1
@@ -225,16 +223,8 @@ class PositionMonitor:
                 "largest_position_notional": round(largest_position, 2),
                 "total_mfe": round(total_mfe, 2),
                 "total_mae": round(total_mae, 2),
-                "is_killed": (
-                    self._kill_switch.is_globally_killed()
-                    if self._kill_switch
-                    else False
-                ),
-                "is_frozen": (
-                    self._kill_switch.is_globally_frozen()
-                    if self._kill_switch
-                    else False
-                ),
+                "is_killed": (self._kill_switch.is_globally_killed() if self._kill_switch else False),
+                "is_frozen": (self._kill_switch.is_globally_frozen() if self._kill_switch else False),
             }
 
     # ── Position Report ────────────────────────────────────────────────────
@@ -261,9 +251,7 @@ class PositionMonitor:
             "status": position.status.value,
             "stop_loss": position.stop_loss,
             "take_profit": position.take_profit,
-            "opened_at": (
-                position.opened_at.isoformat() if position.opened_at else None
-            ),
+            "opened_at": (position.opened_at.isoformat() if position.opened_at else None),
         }
 
     # ── Time Exit ──────────────────────────────────────────────────────────
@@ -452,8 +440,7 @@ class PositionMonitor:
             symbol_id = self._market_feed.resolve_symbol_id(position.symbol)
         except (ValueError, KeyError, AttributeError) as exc:
             logger.warning(
-                "Position %s: TP%d ratchet \u2014 cannot resolve symbol_id "
-                "for %r (%s); will retry next tick",
+                "Position %s: TP%d ratchet \u2014 cannot resolve symbol_id for %r (%s); will retry next tick",
                 position.position_id,
                 level,
                 position.symbol,
@@ -566,9 +553,7 @@ class PositionMonitor:
                     drawdown = 0.0
                     if position.max_adverse_excursion < 0:
                         # Express as fraction of notional
-                        notional = position.volume * self._contract_size_for(
-                            position.symbol
-                        )
+                        notional = position.volume * self._contract_size_for(position.symbol)
                         if notional > 0:
                             drawdown = abs(position.max_adverse_excursion) / notional
 

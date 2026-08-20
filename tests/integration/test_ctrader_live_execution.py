@@ -5,7 +5,7 @@ import pytest
 
 pytest.skip("adapters.ctrader.api_client module removed", allow_module_level=True)
 
-from adapters.ctrader.api_client import (
+from adapters.ctrader.api_client import (  # noqa: I001
     FIX_REJECT_MESSAGES,
     FIXMessage,
     FIXRejectCode,
@@ -82,7 +82,7 @@ class TestFIXClientExecutionReport:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         return FIXClient(creds)
 
@@ -128,9 +128,7 @@ class TestFIXClientExecutionReport:
         msg.fields[32] = "10000"
 
         filled_orders = []
-        client.register_callback(
-            "on_order_filled", lambda o, m: filled_orders.append(o)
-        )
+        client.register_callback("on_order_filled", lambda o, m: filled_orders.append(o))
         client._handle_execution_report(msg)
 
         assert order.status == OrderStatus.FILLED
@@ -181,9 +179,7 @@ class TestFIXClientExecutionReport:
         msg.fields[58] = "Not enough money"
 
         rejected = []
-        client.register_callback(
-            "on_order_rejected", lambda o, m, r: rejected.append((o, r))
-        )
+        client.register_callback("on_order_rejected", lambda o, m, r: rejected.append((o, r)))
         client._handle_execution_report(msg)
 
         assert order.status == OrderStatus.REJECTED
@@ -233,9 +229,7 @@ class TestFIXClientExecutionReport:
         msg.fields[31] = "1.1002"
 
         partials = []
-        client.register_callback(
-            "on_order_partial_fill", lambda o, m: partials.append(o)
-        )
+        client.register_callback("on_order_partial_fill", lambda o, m: partials.append(o))
         client._handle_execution_report(msg)
 
         assert order.status == OrderStatus.PENDING
@@ -455,9 +449,7 @@ class TestOrderManagerLiveExecution:
 
         OrderManager(api_client=mock_api)
 
-        registered_events = [
-            call.args[0] for call in mock_api.register_callback.call_args_list
-        ]
+        registered_events = [call.args[0] for call in mock_api.register_callback.call_args_list]
         assert "on_order_filled" in registered_events
         assert "on_order_rejected" in registered_events
         assert "on_order_cancelled" in registered_events
@@ -489,9 +481,7 @@ class TestOrderManagerLiveExecution:
 
         fill_count = []
         mock_api.register_callback = MagicMock(
-            side_effect=lambda event, cb: (
-                fill_count.append(cb) if event == "on_order_filled" else None
-            )
+            side_effect=lambda event, cb: fill_count.append(cb) if event == "on_order_filled" else None
         )
 
         manager = OrderManager(api_client=mock_api)
@@ -508,9 +498,7 @@ class TestOrderManagerLiveExecution:
         async_callback(filled_order, MagicMock())
 
         callbacks_fired = []
-        manager.register_callback(
-            "on_order_filled", lambda o: callbacks_fired.append(o)
-        )
+        manager.register_callback("on_order_filled", lambda o: callbacks_fired.append(o))
         assert len(callbacks_fired) == 0
 
 
@@ -556,9 +544,7 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         result = trader.process_signal(signal)
 
@@ -573,9 +559,7 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         result = trader.process_signal(signal)
 
@@ -585,9 +569,7 @@ class TestPaperTraderLiveMode:
     def test_process_signal_risk_guard_blocks_live_order(self):
         mock_api = self._make_live_api_mock()
         config = FTMOConfig(min_risk_reward=5.0)
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal(
             entry_price=1.1000,
             stop_loss=1.0990,
@@ -616,9 +598,7 @@ class TestPaperTraderLiveMode:
             min_risk_reward=1.0,
             max_position_size_pct=2.0,
         )
-        trader = PaperTrader(
-            ftmo_config=config, api_client=mock_api, starting_balance=100000.0
-        )
+        trader = PaperTrader(ftmo_config=config, api_client=mock_api, starting_balance=100000.0)
         signal = _make_signal()
         trader.process_signal(signal)
 
@@ -639,7 +619,7 @@ class TestFIXRejectCodeIntegration:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         order = Order(
@@ -657,9 +637,7 @@ class TestFIXRejectCodeIntegration:
         msg.fields[58] = "Margin too low"
 
         rejected = []
-        client.register_callback(
-            "on_order_rejected", lambda o, m, r: rejected.append((o, r))
-        )
+        client.register_callback("on_order_rejected", lambda o, m, r: rejected.append((o, r)))
         client._handle_reject(msg)
 
         assert order.status == OrderStatus.REJECTED
@@ -677,7 +655,7 @@ class TestFIXRejectCodeIntegration:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
 
@@ -715,7 +693,7 @@ class TestFIXClientMultipleCallbacks:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
 
@@ -813,7 +791,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
@@ -836,7 +814,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=True)
@@ -859,7 +837,7 @@ class TestInputValidation:
             use_ssl=False,
             sender_comp_id="test",
             username="12345",
-            password="pass",
+            password="pass",  # noqa: S106
         )
         client = FIXClient(creds)
         client._send_message = MagicMock(return_value=False)

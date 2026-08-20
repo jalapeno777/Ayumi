@@ -1,6 +1,6 @@
 """Tests for ML confidence pipeline — confluence features, learner, integration."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import unittest
 
@@ -59,8 +59,7 @@ class TestConfluenceFeatureExtractor(unittest.TestCase):
     def test_extract_penalty_boosts(self):
         record = {
             "rationale": (
-                "TTSStrategy: M long @ 1.08500, conf=0.45, "
-                "boosts=[('htf_opposing', -0.15), ('htf_conflicting', -0.10)]"
+                "TTSStrategy: M long @ 1.08500, conf=0.45, boosts=[('htf_opposing', -0.15), ('htf_conflicting', -0.10)]"
             ),
             "confidence_score": 0.45,
             "confluence_count": 0,
@@ -116,15 +115,15 @@ class TestConfidenceLearner(unittest.TestCase):
 
         random.seed(42)
         records = []
-        for i in range(n):
-            outcome = 1 if random.random() < win_rate else 0
+        for i in range(n):  # noqa: B007
+            outcome = 1 if random.random() < win_rate else 0  # noqa: S311
             # Feature 0 (rsi_divergence) correlated with wins when win_rate > 0.5
-            rsi = 1.0 if (outcome == 1 and random.random() < 0.7) else 0.0
+            rsi = 1.0 if (outcome == 1 and random.random() < 0.7) else 0.0  # noqa: S311
             features = [0.0] * 16
             features[0] = rsi
-            features[13] = 0.5 + random.random() * 0.3  # confidence
-            features[14] = 0.4 + random.random() * 0.2  # base_confidence
-            features[15] = float(random.randint(0, 5))
+            features[13] = 0.5 + random.random() * 0.3  # confidence  # noqa: S311
+            features[14] = 0.4 + random.random() * 0.2  # base_confidence  # noqa: S311
+            features[15] = float(random.randint(0, 5))  # noqa: S311
             records.append({"features": features, "outcome": outcome})
         return records
 
@@ -222,7 +221,7 @@ class TestIntegration(unittest.TestCase):
 
         # Predict on a new trade
         new_trade = {
-            "rationale": "TTSStrategy: M long, conf=0.7, boosts=[('rsi_divergence', 0.05), ('htf_trend_aligned', 0.08)]",
+            "rationale": "TTSStrategy: M long, conf=0.7, boosts=[('rsi_divergence', 0.05), ('htf_trend_aligned', 0.08)]",  # noqa: E501
             "confidence_score": 0.7,
             "confluence_count": 2,
         }

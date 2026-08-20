@@ -115,7 +115,7 @@ class TestQuantPipeline:
             ),
         )
         pipeline = self._make_pipeline(config)
-        for i in range(60):
+        for i in range(60):  # noqa: B007
             pipeline.update_bars(
                 high=1.1,
                 low=1.09,
@@ -567,9 +567,7 @@ class TestMarkovAdaptiveSizing:
             )
         state = pipeline._get_current_markov_state()
         assert state is not None
-        assert state in valid_states, (
-            f"state {state!r} not in configured 6-state lattice"
-        )
+        assert state in valid_states, f"state {state!r} not in configured 6-state lattice"
 
         # Spot-check the layout: lowercase word-word, no extra tiers.
         vol_part, trend_part = state.split("_")

@@ -8,7 +8,7 @@ Covers:
 - Hand-computed Brier example from the module docstring
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 
@@ -141,7 +141,7 @@ class TestCalibrationCurve:
         for b in curve:
             assert b.count == 1
         # Each bin's mean_confidence should equal the input confidence.
-        for b, expected_conf in zip(curve, confs):
+        for b, expected_conf in zip(curve, confs):  # noqa: B905
             assert b.mean_confidence == pytest.approx(expected_conf, abs=1e-9)
         # First 5 bins: actual_win_rate = 0.0
         for b in curve[:5]:
@@ -434,11 +434,7 @@ class TestEvaluateCalibration:
 
         Uses identical confs per bin so the binned decomposition is exact.
         """
-        wf = _make_wf(
-            per_window_returns=[
-                [0.01, -0.005, 0.02, -0.01, 0.015, 0.005, -0.008, 0.012]
-            ]
-        )
+        wf = _make_wf(per_window_returns=[[0.01, -0.005, 0.02, -0.01, 0.015, 0.005, -0.008, 0.012]])
         # Each confidence value is its own bin (n_bins=20 covers 0.0-1.0
         # with 0.05 width; with 8 distinct values they spread out).
         # Easier: use the same value multiple times so each bin has
@@ -480,9 +476,7 @@ class TestEvaluateCalibration:
         outcomes = [1] * 90 + [0] * 10
         # wf_results irrelevant here (outcomes explicit) but needs to exist.
         wf = _make_wf(per_window_returns=[[0.01] * 90 + [-0.01] * 10])
-        report = evaluate_calibration(
-            wf, confidences=confs, outcomes=outcomes, n_bins=10
-        )
+        report = evaluate_calibration(wf, confidences=confs, outcomes=outcomes, n_bins=10)
         # BS = 0.01 per sample * 100 / 100 = 0.01 (all (0.9-1)² or (0.9-0)² = 0.01)
         # Wait: for the 90 wins, (0.9-1)² = 0.01; for 10 losses, (0.9-0)² = 0.81.
         # BS = (90*0.01 + 10*0.81) / 100 = (0.9 + 8.1) / 100 = 0.09

@@ -176,11 +176,7 @@ class RegimeAwareThresholds:
         if z_score < t.sigma_mult:
             return False, (f"z_score {z_score:.2f} < {t.sigma_mult:.1f}σ threshold")
         if abs(correlation) < t.corr_threshold:
-            return False, (
-                f"correlation {abs(correlation):.2f} < {t.corr_threshold:.2f} threshold"
-            )
+            return False, (f"correlation {abs(correlation):.2f} < {t.corr_threshold:.2f} threshold")
         if price_move_pct < t.pip_threshold_pct:
-            return False, (
-                f"price move {price_move_pct:.3f}% < {t.pip_threshold_pct:.3f}% threshold"
-            )
+            return False, (f"price move {price_move_pct:.3f}% < {t.pip_threshold_pct:.3f}% threshold")
         return True, "pass"

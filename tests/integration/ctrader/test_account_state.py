@@ -127,9 +127,7 @@ def _make_trader_updated_event(
     return envelope
 
 
-def _make_session_client(
-    response: Any = None, *, raises: Exception | None = None
-) -> MagicMock:
+def _make_session_client(response: Any = None, *, raises: Exception | None = None) -> MagicMock:
     """Build a MagicMock shaped like CTraderSession (has ``send``)."""
     client = MagicMock()
     if raises is not None:
@@ -154,9 +152,7 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_usd(self):
         """USD account with moneyDigits=2 — balance / 100 = Decimal."""
-        client = _make_session_client(
-            _make_trader_res(balance=100_000_00, money_digits=2)
-        )
+        client = _make_session_client(_make_trader_res(balance=100_000_00, money_digits=2))
 
         result = get_balance(client, 5795523)
 
@@ -165,9 +161,7 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_jpy(self):
         """JPY account with moneyDigits=0 — balance is the integer directly."""
-        client = _make_session_client(
-            _make_trader_res(balance=10_000_000, money_digits=0)
-        )
+        client = _make_session_client(_make_trader_res(balance=10_000_000, money_digits=0))
 
         result = get_balance(client, 5795523)
 
@@ -176,9 +170,7 @@ class TestGetBalance:
 
     def test_returns_decimal_balance_high_precision(self):
         """Account with moneyDigits=8 (crypto-style) — full precision preserved."""
-        client = _make_session_client(
-            _make_trader_res(balance=123_456_789, money_digits=8)
-        )
+        client = _make_session_client(_make_trader_res(balance=123_456_789, money_digits=8))
 
         result = get_balance(client, 5795523)
 
@@ -195,9 +187,7 @@ class TestGetBalance:
 
     def test_uses_session_style_send(self):
         """Verify the session.send(message, client_msg_id=..., timeout=...) signature."""
-        client = _make_session_client(
-            _make_trader_res(balance=50_000_00, money_digits=2)
-        )
+        client = _make_session_client(_make_trader_res(balance=50_000_00, money_digits=2))
 
         get_balance(client, 5795523, timeout=5.0)
 
@@ -735,7 +725,7 @@ class TestPositionDataclass:
             unrealized_pnl=Decimal("0"),
         )
 
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(Exception):  # FrozenInstanceError  # noqa: B017
             pos.side = "SELL"  # type: ignore[misc]
 
     def test_position_fields(self):
@@ -940,18 +930,14 @@ class TestSubscribeBalanceUpdates:
         class BadClient:
             pass
 
-        with pytest.raises(
-            BalanceSubscriptionError, match="setMessageReceivedCallback"
-        ):
+        with pytest.raises(BalanceSubscriptionError, match="setMessageReceivedCallback"):
             subscribe_balance_updates(BadClient(), 5795523, lambda u: None)
 
     def test_setMessageReceivedCallback_exception_raises(self):
         client = MagicMock()
         client.setMessageReceivedCallback.side_effect = RuntimeError("boom")
 
-        with pytest.raises(
-            BalanceSubscriptionError, match="setMessageReceivedCallback failed"
-        ):
+        with pytest.raises(BalanceSubscriptionError, match="setMessageReceivedCallback failed"):
             subscribe_balance_updates(client, 5795523, lambda u: None)
 
     def test_message_without_trader_skipped(self):
@@ -1019,7 +1005,7 @@ class TestBalanceUpdate:
             money_digits=2,
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             update.balance = Decimal("999")  # type: ignore[misc]
 
 

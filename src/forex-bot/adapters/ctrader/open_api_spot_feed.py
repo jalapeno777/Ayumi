@@ -264,9 +264,7 @@ class OpenApiSpotFeed:
         # OAuth refresh is owned by TokenLifecycle (self._token_lifecycle).
         # Do not add new OAuth calls here.
         self._token_mgr = TokenManager(
-            token_path=Path(__file__).resolve().parents[3]
-            / "data"
-            / "token_state.json",
+            token_path=Path(__file__).resolve().parents[3] / "data" / "token_state.json",
             env_path=Path(__file__).resolve().parents[3] / ".env",
         )
 
@@ -323,9 +321,7 @@ class OpenApiSpotFeed:
 
         # Reconnect stabilization delay — cTrader demo server needs time to
         # accept auth after TCP connect (market-open race, see card 23cb1091).
-        self._reconnect_stabilization_delay: float = float(
-            os.environ.get("CTRADER_RECONNECT_DELAY", "3.0")
-        )
+        self._reconnect_stabilization_delay: float = float(os.environ.get("CTRADER_RECONNECT_DELAY", "3.0"))
 
         # Reconnection state
         self._connected_at: float | None = None
@@ -489,11 +485,7 @@ class OpenApiSpotFeed:
 
     def get_health(self) -> dict:
         now = time.monotonic()
-        heartbeat_age = (
-            now - self._conn._last_heartbeat_recv
-            if self._conn._last_heartbeat_recv
-            else None
-        )
+        heartbeat_age = now - self._conn._last_heartbeat_recv if self._conn._last_heartbeat_recv else None
         return {
             "auth_circuit_open": self._auth_circuit_open,
             "auth_error_count": self._auth_error_count,
@@ -738,18 +730,12 @@ class OpenApiSpotFeed:
 
         def _do_reconnect():
             try:
-                logger.info(
-                    "[Preemptive] Initiating reconnect (silence=%.1fs)", silence_sec
-                )
+                logger.info("[Preemptive] Initiating reconnect (silence=%.1fs)", silence_sec)
                 success = self._conn.attempt_reconnect()
                 if success:
-                    logger.info(
-                        "[Preemptive] Reconnect succeeded — re-auth will follow"
-                    )
+                    logger.info("[Preemptive] Reconnect succeeded — re-auth will follow")
                 else:
-                    logger.error(
-                        "[Preemptive] Reconnect failed — connection health monitor will retry"
-                    )
+                    logger.error("[Preemptive] Reconnect failed — connection health monitor will retry")
             except Exception as exc:
                 logger.error("[Preemptive] Reconnect exception: %s", exc, exc_info=True)
             finally:
@@ -804,9 +790,7 @@ class OpenApiSpotFeed:
         if is_forex_market_closed():
             logger.debug("Feed dead during market close — not activating kill switch")
             return
-        logger.critical(
-            "Feed declared dead by CTraderConnection — activating kill switch"
-        )
+        logger.critical("Feed declared dead by CTraderConnection — activating kill switch")
         self._activate_kill_switch_freeze("feed_dead:reconnect_exhausted")
 
     # ── Authentication ─────────────────────────────────────────────────────
@@ -826,26 +810,18 @@ class OpenApiSpotFeed:
         )
 
         # App auth
-        self._state_mgr.transition_to(
-            ConnectionState.APP_AUTHENTICATING, reason="app_auth_sending"
-        )
+        self._state_mgr.transition_to(ConnectionState.APP_AUTHENTICATING, reason="app_auth_sending")
         app_res = self._conn.send_and_wait(
-            ProtoOAApplicationAuthReq(
-                clientId=self._client_id, clientSecret=self._client_secret
-            ),
+            ProtoOAApplicationAuthReq(clientId=self._client_id, clientSecret=self._client_secret),
             timeout=10,
         )
-        if app_res is None or not self._is_expected_auth_response(
-            app_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"
-        ):
+        if app_res is None or not self._is_expected_auth_response(app_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"):
             self._handle_auth_failure("initial_app_auth")
             return False
         self._app_authed.set()
 
         # Account auth
-        self._state_mgr.transition_to(
-            ConnectionState.ACCT_AUTHENTICATING, reason="acct_auth_sending"
-        )
+        self._state_mgr.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="acct_auth_sending")
         acct_res = self._conn.send_and_wait(
             ProtoOAAccountAuthReq(
                 ctidTraderAccountId=self._ctid_account_id,
@@ -853,9 +829,7 @@ class OpenApiSpotFeed:
             ),
             timeout=10,
         )
-        if acct_res is None or not self._is_expected_auth_response(
-            acct_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"
-        ):
+        if acct_res is None or not self._is_expected_auth_response(acct_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"):
             self._handle_auth_failure("initial_acct_auth")
             return False
         self._authed.set()
@@ -872,16 +846,12 @@ class OpenApiSpotFeed:
         # Token tracking is handled by TokenLifecycle/CredentialStore.
         # The old self._token_mgr.track_token() call is removed (BQ-1327 no-op).
 
-        self._state_mgr.transition_to(
-            ConnectionState.AUTHENTICATED, reason="initial_auth_complete"
-        )
+        self._state_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="initial_auth_complete")
         self._set_message_callback()
         self._auto_clear_kill_switch()
         return True
 
-    def _is_expected_auth_response(
-        self, response, expected_payload_type: int, stage: str
-    ) -> bool:
+    def _is_expected_auth_response(self, response, expected_payload_type: int, stage: str) -> bool:
         payload_type = getattr(response, "payloadType", None)
         if payload_type == expected_payload_type:
             return True
@@ -913,9 +883,7 @@ class OpenApiSpotFeed:
         if self._kill_switch is not None:
             try:
                 if self._kill_switch.is_active:
-                    self._kill_switch.deactivate(
-                        reason="auto_cleared_on_successful_auth"
-                    )
+                    self._kill_switch.deactivate(reason="auto_cleared_on_successful_auth")
             except Exception:  # noqa: S110 — best-effort kill-switch auto-clear; failure is logged upstream and does not block auth success
                 pass
 
@@ -969,9 +937,7 @@ class OpenApiSpotFeed:
         # heuristic needed (supersedes the prior JPY-only guard).
         digits = self._symbol_digits.get(symbol_id, 5)
         if symbol_id not in self._symbol_digits:
-            logger.warning(
-                "Tick decode: no digits for symbol_id=%s, using default 5", symbol_id
-            )
+            logger.warning("Tick decode: no digits for symbol_id=%s, using default 5", symbol_id)
         tick_digits = 5 if digits < 5 else digits
         divisor = 10**tick_digits
         bid, ask = raw_bid / divisor, raw_ask / divisor
@@ -1040,9 +1006,7 @@ class OpenApiSpotFeed:
 
     # ── Late-fill registry ───────────────────────────────────────────────
 
-    def _register_late_fill(
-        self, request_id: str, order: Order, client_msg_id: str
-    ) -> None:
+    def _register_late_fill(self, request_id: str, order: Order, client_msg_id: str) -> None:
         """Register a timed-out or disconnected order for late-fill matching.
 
         Keeps the order available in ``_late_fill_registry`` for
@@ -1068,9 +1032,7 @@ class OpenApiSpotFeed:
             return None
         # Lazy cleanup of expired entries
         now = time.monotonic()
-        expired = [
-            rid for rid, (exp, _, _) in self._late_fill_registry.items() if now >= exp
-        ]
+        expired = [rid for rid, (exp, _, _) in self._late_fill_registry.items() if now >= exp]
         for rid in expired:
             self._late_fill_registry.pop(rid, None)
         entry = self._late_fill_registry.get(request_id)
@@ -1079,9 +1041,7 @@ class OpenApiSpotFeed:
         _, order, _ = entry
         return order
 
-    def _resolve_late_fill(
-        self, request_id: str
-    ) -> tuple[threading.Event, Order] | None:
+    def _resolve_late_fill(self, request_id: str) -> tuple[threading.Event, Order] | None:
         """Pop a late-fill entry and return a synthetic (Event, Order) pair.
 
         This is used when a late execution event matches a timed-out order.
@@ -1167,11 +1127,7 @@ class OpenApiSpotFeed:
         # absent, no-op when already popped).
         late_registry = getattr(self, "_late_fill_registry", None)
         popped_via_cid = False
-        if (
-            late_registry is not None
-            and client_order_id
-            and client_order_id in late_registry
-        ):
+        if late_registry is not None and client_order_id and client_order_id in late_registry:
             late_registry.pop(client_order_id, None)
             popped_via_cid = True
 
@@ -1251,9 +1207,7 @@ class OpenApiSpotFeed:
     def resolve_symbol_id(self, name: str) -> int:
         sid = self._resolve_name_to_id(name)
         if sid is None:
-            raise ValueError(
-                f"Symbol '{name}' not found. Known: {sorted(self._name_to_id.keys())}"
-            )
+            raise ValueError(f"Symbol '{name}' not found. Known: {sorted(self._name_to_id.keys())}")
         return sid
 
     def _fetch_symbol_list(self) -> bool:
@@ -1300,9 +1254,7 @@ class OpenApiSpotFeed:
             2: ("GBPUSD", 5),
             4: ("USDJPY", 3),
         }.items():
-            self._symbols[sid] = SymbolInfo(
-                sid, name, 10 ** (-digits), digits, lot_size=100_000
-            )
+            self._symbols[sid] = SymbolInfo(sid, name, 10 ** (-digits), digits, lot_size=100_000)
             self._symbol_digits[sid] = digits
             self._id_to_name[sid] = name
             self._name_to_id[_normalize_symbol_name(name)] = sid
@@ -1333,9 +1285,7 @@ class OpenApiSpotFeed:
         }
         period_minutes = _TF_MAP.get(timeframe.upper())
         if period_minutes is None:
-            raise ValueError(
-                f"Unknown timeframe '{timeframe}'. Valid: {list(_TF_MAP.keys())}"
-            )
+            raise ValueError(f"Unknown timeframe '{timeframe}'. Valid: {list(_TF_MAP.keys())}")
         return self.fetch_trendbars(symbol, period_minutes, count)
 
     def fetch_trendbars(self, symbol: str, period_minutes: int, count: int) -> list:
@@ -1397,9 +1347,7 @@ class OpenApiSpotFeed:
 
         bars = []
         for tb in getattr(payload, "trendbar", []):
-            bar_time = datetime.fromtimestamp(
-                getattr(tb, "utcTimestampInMinutes", 0) * 60, tz=timezone.utc
-            )
+            bar_time = datetime.fromtimestamp(getattr(tb, "utcTimestampInMinutes", 0) * 60, tz=timezone.utc)
             low_raw = getattr(tb, "low", 0)
             high_decoded = round((low_raw + getattr(tb, "deltaHigh", 0)) / d, 5)
 
@@ -1468,9 +1416,7 @@ class OpenApiSpotFeed:
                 order = Order(
                     order_id=request_id,
                     symbol=self._symbol_name_for_id(symbol_id),
-                    direction=TradeDirection.LONG
-                    if side == ProtoOATradeSide.BUY
-                    else TradeDirection.SHORT,
+                    direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
                     order_type={
                         ProtoOAOrderType.LIMIT: OrderType.LIMIT,
                         ProtoOAOrderType.STOP: OrderType.STOP,
@@ -1489,9 +1435,7 @@ class OpenApiSpotFeed:
         order = Order(
             order_id=request_id,
             symbol=self._symbol_name_for_id(symbol_id),
-            direction=TradeDirection.LONG
-            if side == ProtoOATradeSide.BUY
-            else TradeDirection.SHORT,
+            direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
             order_type={
                 ProtoOAOrderType.LIMIT: OrderType.LIMIT,
                 ProtoOAOrderType.STOP: OrderType.STOP,
@@ -1543,9 +1487,7 @@ class OpenApiSpotFeed:
             return order
 
         def do_send():
-            d = client.send(
-                req, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout
-            )
+            d = client.send(req, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
 
             def on_error(failure):
                 logger.warning("Order send deferred error: %s", failure)
@@ -1642,8 +1584,7 @@ class OpenApiSpotFeed:
             while time.monotonic() < grace_end:
                 if getattr(order, "reason", "") not in _PRE_GRACE_REASONS:
                     logger.info(
-                        "Late broker error received during grace poll: "
-                        "order=%s reason=%s",
+                        "Late broker error received during grace poll: order=%s reason=%s",
                         request_id,
                         getattr(order, "reason", ""),
                     )
@@ -1663,11 +1604,7 @@ class OpenApiSpotFeed:
         comment="",
     ) -> Order:
         symbol_id = self.resolve_symbol_id(symbol)
-        side = (
-            ProtoOATradeSide.BUY
-            if direction == TradeDirection.LONG
-            else ProtoOATradeSide.SELL
-        )
+        side = ProtoOATradeSide.BUY if direction == TradeDirection.LONG else ProtoOATradeSide.SELL
         proto_type = {
             OrderType.MARKET: ProtoOAOrderType.MARKET,
             OrderType.LIMIT: ProtoOAOrderType.LIMIT,
@@ -1707,9 +1644,7 @@ class OpenApiSpotFeed:
         req = ProtoOACancelOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.orderId = order_id
-        return (
-            self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
-        )
+        return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_order(
         self,
@@ -1740,13 +1675,9 @@ class OpenApiSpotFeed:
             req.stopLoss = sl
         if tp is not None:
             req.takeProfit = tp
-        return (
-            self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
-        )
+        return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
-    def amend_sl_tp(
-        self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC
-    ) -> bool:
+    def amend_sl_tp(self, position_id, sl, tp, *, symbol_id=None, timeout=_AMEND_TIMEOUT_SEC) -> bool:
         # Platform constraint: ProtoOAAmendPositionSLTPReq only supports a single SL and single TP
         # per position. TP2/TP3 are managed in-software via Position dataclass + position_monitor
         # ratcheting. See docs/forex/tp-sl-chain-trace.md §F4.
@@ -1803,8 +1734,7 @@ class OpenApiSpotFeed:
                     )
                 else:
                     logger.warning(
-                        "Amend SL/TP rejected for position %s: errorCode=%r description=%r "
-                        "sl=%s tp=%s",
+                        "Amend SL/TP rejected for position %s: errorCode=%r description=%r sl=%s tp=%s",
                         position_id,
                         error_code,
                         description,
@@ -1867,9 +1797,7 @@ class OpenApiSpotFeed:
         req.ctidTraderAccountId = self._ctid_account_id
         req.positionId = position_id
         req.volume = volume
-        return (
-            self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
-        )
+        return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def reconcile(self, timeout=_RECONCILE_TIMEOUT_SEC) -> list[Position]:
         if not self._state_mgr.is_operational:
@@ -1944,9 +1872,7 @@ class OpenApiSpotFeed:
           callback.
         """
         order_payload = getattr(message, "order", None)
-        client_order_id = (
-            getattr(order_payload, "clientOrderId", "") if order_payload else ""
-        )
+        client_order_id = getattr(order_payload, "clientOrderId", "") if order_payload else ""
         etype = getattr(message, "executionType", None)
         client_msg_id = getattr(envelope, "clientMsgId", "") if envelope else ""
         logger.info(
@@ -2003,9 +1929,7 @@ class OpenApiSpotFeed:
                 # counter.
                 if client_order_id:
                     pre_expiry = next(
-                        iter(
-                            self._late_fill_registry.get(client_order_id, (None,))[0:1]
-                        ),
+                        iter(self._late_fill_registry.get(client_order_id, (None,))[0:1]),
                         None,
                     )
                     if pre_expiry is not None:
@@ -2034,9 +1958,7 @@ class OpenApiSpotFeed:
                     # by both the clientOrderId-only pre-check (above) and
                     # this client_msg_id iteration.
                     now = time.monotonic()
-                    for rid, (exp, ord_, cmid) in list(
-                        self._late_fill_registry.items()
-                    ):
+                    for rid, (exp, ord_, cmid) in list(self._late_fill_registry.items()):
                         if cmid != client_msg_id:
                             continue
                         if now >= exp:
@@ -2086,9 +2008,7 @@ class OpenApiSpotFeed:
                         "errorCode=%r description=%r "
                         "(unmatched_late_fills=%d)",
                         client_order_id,
-                        list(self._pending_orders.keys())
-                        if self._pending_orders
-                        else "[]",
+                        list(self._pending_orders.keys()) if self._pending_orders else "[]",
                         len(self._late_fill_registry),
                         error_code,
                         description,
@@ -2126,31 +2046,19 @@ class OpenApiSpotFeed:
             # flows into the existing INDETERMINATE timeout path
             # unchanged — new_order() still sets reason=
             # indeterminate_awaiting_event on event.wait expiry.
-            _partial_volume = (
-                getattr(order_payload, "executedVolume", None)
-                if order_payload
-                else None
-            )
-            _partial_price = (
-                getattr(order_payload, "executionPrice", None)
-                if order_payload
-                else None
-            )
+            _partial_volume = getattr(order_payload, "executedVolume", None) if order_payload else None
+            _partial_price = getattr(order_payload, "executionPrice", None) if order_payload else None
             # Best-effort: update the order's volume in lots if the payload
             # carries executedVolume. We intentionally do NOT mutate
             # filled_price here — filled_price is reserved for the real
             # terminal FILLED event so downstream consumers can distinguish
             # a partial fill from a completed fill.
             if _partial_volume:
-                ev_symbol_id = (
-                    getattr(order_payload, "symbolId", None) if order_payload else None
-                )
+                ev_symbol_id = getattr(order_payload, "symbolId", None) if order_payload else None
                 if ev_symbol_id is None or ev_symbol_id not in self._symbols:
                     ev_symbol_id = self._resolve_name_to_id(order.symbol) or 0
                 try:
-                    order.volume = self._volume_calc.volume_to_lots(
-                        ev_symbol_id, _partial_volume
-                    )
+                    order.volume = self._volume_calc.volume_to_lots(ev_symbol_id, _partial_volume)
                 except ValueError:
                     logger.info(
                         "[EXEC_EVENT] PARTIAL_FILL volume conversion skipped for "
@@ -2264,8 +2172,7 @@ class OpenApiSpotFeed:
                 order.volume = self._volume_calc.volume_to_lots(ev_symbol_id, ev)
             except ValueError:
                 logger.warning(
-                    "Execution event: cannot convert volume for symbol_id=%s, "
-                    "keeping order.volume=%s",
+                    "Execution event: cannot convert volume for symbol_id=%s, keeping order.volume=%s",
                     ev_symbol_id,
                     order.volume,
                 )
@@ -2337,8 +2244,7 @@ class OpenApiSpotFeed:
             # ``order_gateway``). Other empty-id errors keep their previous
             # behaviour.
             is_session_conflict = (
-                error_code == "ALREADY_LOGGED_IN"
-                or "already authorized" in (description or "").lower()
+                error_code == "ALREADY_LOGGED_IN" or "already authorized" in (description or "").lower()
             )
             if is_session_conflict:
                 self._order_error_session_conflict_count += 1
@@ -2415,9 +2321,7 @@ class OpenApiSpotFeed:
             error_code,
             description,
             reason,
-            " (late arrival — reason corrected, callback skipped)"
-            if already_rejected
-            else "",
+            " (late arrival — reason corrected, callback skipped)" if already_rejected else "",
         )
         event.set()
         if not already_rejected:
@@ -2519,9 +2423,7 @@ class OpenApiSpotFeed:
                 error_code,
                 description,
             )
-            self._activate_kill_switch_freeze(
-                f"auth_fault:{fault_type.value}:{error_code}"
-            )
+            self._activate_kill_switch_freeze(f"auth_fault:{fault_type.value}:{error_code}")
         if policy.can_refresh:
             now = time.monotonic()
             if now - self._last_reactive_refresh_time < 60.0:
@@ -2546,15 +2448,12 @@ class OpenApiSpotFeed:
         no-op (migration safety).
         """
         if self._token_lifecycle is None:
-            logger.warning(
-                "_refresh_token_and_reauth: no TokenLifecycle wired — skipping"
-            )
+            logger.warning("_refresh_token_and_reauth: no TokenLifecycle wired — skipping")
             return
 
         if getattr(self._token_lifecycle, "_refresh_disabled", False):
             logger.info(
-                "_refresh_token_and_reauth: token refresh DISABLED — skipping "
-                "(manual rotation required). proactive=%s",
+                "_refresh_token_and_reauth: token refresh DISABLED — skipping (manual rotation required). proactive=%s",
                 proactive,
             )
             return
@@ -2602,9 +2501,7 @@ class OpenApiSpotFeed:
     def _check_circuit_breaker(self) -> None:
         if self._auth_error_count >= 5:
             self._auth_circuit_open = True
-            self._state_mgr.transition_to(
-                ConnectionState.FAILED, reason=f"auth_errors:{self._auth_error_count}"
-            )
+            self._state_mgr.transition_to(ConnectionState.FAILED, reason=f"auth_errors:{self._auth_error_count}")
             self._activate_kill_switch_freeze(f"auth_failure:{self._auth_error_count}")
         elif self._auth_error_count >= 3:
             self._state_mgr.transition_to(
@@ -2670,10 +2567,7 @@ class OpenApiSpotFeed:
         refactor. This wrapper restores the check so tests and monitoring
         code keep working. Weekend and non-authenticated states are skipped.
         """
-        if (
-            not self._state_mgr.is_authenticated
-            and self._state_mgr.state != ConnectionState.DEGRADED
-        ):
+        if not self._state_mgr.is_authenticated and self._state_mgr.state != ConnectionState.DEGRADED:
             return  # Only check when AUTHENTICATED or DEGRADED
 
         now_dt = datetime.now(timezone.utc)
@@ -2693,9 +2587,7 @@ class OpenApiSpotFeed:
         # Auth-failure and other hard-error callers should fire unconditionally.
         if self._kill_switch is not None:
             try:
-                self._kill_switch.activate_global_freeze(
-                    reason=reason, triggered_by="spot_feed"
-                )
+                self._kill_switch.activate_global_freeze(reason=reason, triggered_by="spot_feed")
             except Exception as exc:
                 logger.error("Kill switch activation failed: %s", exc)
 
@@ -2728,9 +2620,7 @@ class OpenApiSpotFeed:
             app_success = False
             for attempt in range(2):
                 app_res = self._conn.send_and_wait(
-                    ProtoOAApplicationAuthReq(
-                        clientId=self._client_id, clientSecret=self._client_secret
-                    ),
+                    ProtoOAApplicationAuthReq(clientId=self._client_id, clientSecret=self._client_secret),
                     timeout=10,
                 )
                 if app_res is not None and self._is_expected_auth_response(
@@ -2739,9 +2629,7 @@ class OpenApiSpotFeed:
                     app_success = True
                     break
                 if attempt == 0:
-                    logger.warning(
-                        "Reconnect app auth attempt 1 failed — retrying in 10s (market-open race)"
-                    )
+                    logger.warning("Reconnect app auth attempt 1 failed — retrying in 10s (market-open race)")
                     time.sleep(10)
 
             if not app_success:
@@ -2779,9 +2667,7 @@ class OpenApiSpotFeed:
             for sid in list(self._subscribed_symbol_ids):
                 self._subscribe_by_id(sid)
 
-            self._state_mgr.transition_to(
-                ConnectionState.AUTHENTICATED, reason="reconnect_complete"
-            )
+            self._state_mgr.transition_to(ConnectionState.AUTHENTICATED, reason="reconnect_complete")
             positions = self.reconcile()
             self._resolve_disconnected_orders(positions)
             self._fire_reconnect_callbacks()

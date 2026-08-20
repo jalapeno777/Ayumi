@@ -7,7 +7,7 @@ Tests cover:
 - Backward compatibility of existing file-based API
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import csv
 import tempfile
@@ -36,32 +36,20 @@ def sample_csv_dir():
         with open(d_path / "EURUSD_M15.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["timestamp", "open", "high", "low", "close", "volume"])
-            w.writerow(
-                ["2024-01-01 00:00:00", "1.0800", "1.0810", "1.0790", "1.0805", "1000"]
-            )
-            w.writerow(
-                ["2024-01-01 00:15:00", "1.0805", "1.0820", "1.0800", "1.0815", "1200"]
-            )
-            w.writerow(
-                ["2024-01-01 00:30:00", "1.0815", "1.0825", "1.0810", "1.0820", "800"]
-            )
+            w.writerow(["2024-01-01 00:00:00", "1.0800", "1.0810", "1.0790", "1.0805", "1000"])
+            w.writerow(["2024-01-01 00:15:00", "1.0805", "1.0820", "1.0800", "1.0815", "1200"])
+            w.writerow(["2024-01-01 00:30:00", "1.0815", "1.0825", "1.0810", "1.0820", "800"])
         # XAUUSD file
         with open(d_path / "XAUUSD_H1.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["timestamp", "open", "high", "low", "close", "volume"])
-            w.writerow(
-                ["2024-01-01 00:00:00", "2050.0", "2055.0", "2048.0", "2052.0", "500"]
-            )
-            w.writerow(
-                ["2024-01-01 01:00:00", "2052.0", "2060.0", "2051.0", "2058.0", "600"]
-            )
+            w.writerow(["2024-01-01 00:00:00", "2050.0", "2055.0", "2048.0", "2052.0", "500"])
+            w.writerow(["2024-01-01 01:00:00", "2052.0", "2060.0", "2051.0", "2058.0", "600"])
         # Holdout suffix file
         with open(d_path / "EURUSD_M15_2026.csv", "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["timestamp", "open", "high", "low", "close", "volume"])
-            w.writerow(
-                ["2026-01-01 00:00:00", "1.1000", "1.1010", "1.0990", "1.1005", "900"]
-            )
+            w.writerow(["2026-01-01 00:00:00", "1.1000", "1.1010", "1.0990", "1.1005", "900"])
         # Non-matching file (should be ignored by symbol scanner)
         with open(d_path / "readme.csv", "w", newline="") as f:
             w = csv.writer(f)
@@ -189,10 +177,7 @@ class TestCsvDataLoaderBackwardCompat:
         assert len(bars) == 3
 
     def test_load_from_string(self, csv_loader):
-        csv_content = (
-            "timestamp,open,high,low,close,volume\n"
-            "2024-01-01 00:00:00,1.0800,1.0810,1.0790,1.0805,1000\n"
-        )
+        csv_content = "timestamp,open,high,low,close,volume\n2024-01-01 00:00:00,1.0800,1.0810,1.0790,1.0805,1000\n"
         bars = csv_loader.load_from_string(csv_content)
         assert len(bars) == 1
 

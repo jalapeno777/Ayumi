@@ -98,10 +98,7 @@ class DxyRegimeOverlay:
         # Trend via SMA slope
         sma_now = sum(closes[-self.trend_period :]) / self.trend_period
         if len(closes) >= self.trend_period * 2:
-            sma_prev = (
-                sum(closes[-self.trend_period * 2 : -self.trend_period])
-                / self.trend_period
-            )
+            sma_prev = sum(closes[-self.trend_period * 2 : -self.trend_period]) / self.trend_period
         else:
             sma_prev = sum(closes[: self.trend_period]) / self.trend_period
 

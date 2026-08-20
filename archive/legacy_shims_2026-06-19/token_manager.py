@@ -7,6 +7,7 @@ is retired.
 
 Archived: 2026-06-16 (BQ-1043 Phase 5)
 """
+
 import warnings
 
 warnings.warn(
@@ -23,6 +24,7 @@ _PROJECT_ROOT = _os.path.abspath(_os.path.join(_HERE, "..", "..", "..", ".."))
 if _PROJECT_ROOT not in _sys.path:
     _sys.path.insert(0, _PROJECT_ROOT)
 
-from archive.legacy_ctrader._pkg import token_manager as _archive_mod  # noqa: E402
+from archive.legacy_ctrader._pkg import token_manager as _archive_mod  # noqa: E402, I001
 from archive.legacy_ctrader._pkg.token_manager import *  # noqa: F401,F403,E402
+
 __all__ = getattr(_archive_mod, "__all__", None) or [n for n in dir(_archive_mod) if not n.startswith("__")]

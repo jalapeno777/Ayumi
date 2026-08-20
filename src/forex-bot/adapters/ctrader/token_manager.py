@@ -153,9 +153,7 @@ class TokenManager:
             "message": message,
             "days_remaining": round(days_remaining, 2),
             "issued_at": record.get("issued_at"),
-            "expires_at": datetime.fromtimestamp(
-                expires_at, tz=timezone.utc
-            ).isoformat(),
+            "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
             "token_hash": token_hash,
         }
 
@@ -280,10 +278,7 @@ class TokenManager:
         try:
             return max(
                 tokens.keys(),
-                key=lambda h: (
-                    self._parse_iso(tokens[h].get("issued_at"))
-                    or datetime.min.replace(tzinfo=timezone.utc)
-                ),
+                key=lambda h: self._parse_iso(tokens[h].get("issued_at")) or datetime.min.replace(tzinfo=timezone.utc),
             )
         except Exception:
             return next(iter(tokens.keys()), None)
@@ -300,9 +295,7 @@ class TokenManager:
         TokenLifecycle is the sole OAuth endpoint caller.
         This method now returns None (no refresh performed).
         """
-        logger.warning(
-            "TokenManager._do_refresh() is disabled — use TokenLifecycle for OAuth refresh"
-        )
+        logger.warning("TokenManager._do_refresh() is disabled — use TokenLifecycle for OAuth refresh")
         return None
 
     def _append_refresh_history(self, *, success: bool, error: str | None) -> None:
@@ -316,9 +309,7 @@ class TokenManager:
             }
         )
         if len(self._state["refresh_history"]) > MAX_REFRESH_HISTORY:
-            self._state["refresh_history"] = self._state["refresh_history"][
-                -MAX_REFRESH_HISTORY:
-            ]
+            self._state["refresh_history"] = self._state["refresh_history"][-MAX_REFRESH_HISTORY:]
         self._save_state(self._state)
 
     def _load_state(self) -> dict:
@@ -368,8 +359,7 @@ class TokenManager:
         catch any stray callers.
         """
         raise DeprecationWarning(
-            "TokenManager._update_env_tokens() is disabled. "
-            "Use CredentialStore.update_tokens() via TokenLifecycle."
+            "TokenManager._update_env_tokens() is disabled. Use CredentialStore.update_tokens() via TokenLifecycle."
         )
 
     @staticmethod

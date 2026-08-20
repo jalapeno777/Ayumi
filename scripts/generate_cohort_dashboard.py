@@ -54,7 +54,7 @@ _SRC = _REPO_ROOT / "src" / "forex-bot"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from quant.icir import evaluate_icir  # noqa: E402
+from quant.icir import evaluate_icir  # noqa: E402, I001
 
 
 # ---------------------------------------------------------------------------
@@ -63,9 +63,7 @@ from quant.icir import evaluate_icir  # noqa: E402
 
 DEFAULT_REPORTS_DIR = _REPO_ROOT / "reports" / "srmr-plus-pipeline-2026-07-08"
 DEFAULT_DSR_FILE = DEFAULT_REPORTS_DIR / "dsr_annotated_results.json"
-DEFAULT_STRATEGY_FILE = (
-    _REPO_ROOT / "reports" / "multi-strategy-wf-2026-07-08" / "results.jsonl"
-)
+DEFAULT_STRATEGY_FILE = _REPO_ROOT / "reports" / "multi-strategy-wf-2026-07-08" / "results.jsonl"
 DEFAULT_OUTPUT = _REPO_ROOT / "reports" / "cohort_dashboard_2026-07-08.json"
 
 
@@ -285,11 +283,7 @@ def build_dashboard(
             n_in_dsr += 1
         if row["icir"] is not None:
             n_icir_computed += 1
-        tier_key = (
-            row["tier"]
-            if row["tier"] in {"A", "B", "C"}
-            else ("REJECT" if row["tier"] == "REJECT" else "NONE")
-        )
+        tier_key = row["tier"] if row["tier"] in {"A", "B", "C"} else ("REJECT" if row["tier"] == "REJECT" else "NONE")
         tier_counts[tier_key] += 1
 
     summary: dict[str, Any] = {
@@ -366,23 +360,15 @@ def print_human_readable(dashboard: dict[str, Any]) -> None:
         strat = row.get("strategy") or "-"
         stream_label = f"{strat}/{sym}/{tf}"[:28]
         pf = row.get("pf")
-        wr_pct = (
-            f"{row['win_rate'] * 100:.1f}" if row.get("win_rate") is not None else "-"
-        )
-        max_dd_pct = (
-            f"{row['max_drawdown'] * 100:.2f}"
-            if row.get("max_drawdown") is not None
-            else "-"
-        )
+        wr_pct = f"{row['win_rate'] * 100:.1f}" if row.get("win_rate") is not None else "-"
+        max_dd_pct = f"{row['max_drawdown'] * 100:.2f}" if row.get("max_drawdown") is not None else "-"
         trades_v = row.get("trade_count")
         trades_str = f"{trades_v:.1f}" if trades_v is not None else "-"
         wins_v = row.get("windows_passed")
         wins_str = f"{wins_v}/{row.get('windows_total', '?')}"
         pf_str = f"{pf:.2f}" if pf is not None else "-"
         sharpe_str = f"{row['sharpe']:.2f}" if row.get("sharpe") is not None else "-"
-        dsr_str = (
-            f"{row['dsr_pvalue']:.4f}" if row.get("dsr_pvalue") is not None else "-"
-        )
+        dsr_str = f"{row['dsr_pvalue']:.4f}" if row.get("dsr_pvalue") is not None else "-"
         icir_str = f"{row['icir']:.2f}" if row.get("icir") is not None else "-"
         tier = row.get("tier") or "-"
         print(
@@ -403,36 +389,26 @@ def print_human_readable(dashboard: dict[str, Any]) -> None:
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Roll up walk-forward, DSR, and ICIR metrics into a single "
-            "per-stream dashboard JSON + stdout table."
+            "Roll up walk-forward, DSR, and ICIR metrics into a single per-stream dashboard JSON + stdout table."
         )
     )
     parser.add_argument(
         "--reports-dir",
         type=Path,
         default=DEFAULT_REPORTS_DIR,
-        help=(
-            "Directory containing {PAIR}_focused_results.jsonl files. "
-            f"Default: {DEFAULT_REPORTS_DIR}"
-        ),
+        help=(f"Directory containing {{PAIR}}_focused_results.jsonl files. Default: {DEFAULT_REPORTS_DIR}"),
     )
     parser.add_argument(
         "--dsr-file",
         type=Path,
         default=DEFAULT_DSR_FILE,
-        help=(
-            "Path to the DSR annotated results JSON "
-            "(Phase 10b). Optional — if missing, DSR columns are null."
-        ),
+        help=("Path to the DSR annotated results JSON (Phase 10b). Optional — if missing, DSR columns are null."),
     )
     parser.add_argument(
         "--strategy-file",
         type=Path,
         default=DEFAULT_STRATEGY_FILE,
-        help=(
-            "Optional path to multi-strategy WF results.jsonl. "
-            f"Default: {DEFAULT_STRATEGY_FILE}"
-        ),
+        help=(f"Optional path to multi-strategy WF results.jsonl. Default: {DEFAULT_STRATEGY_FILE}"),
     )
     parser.add_argument(
         "--output",

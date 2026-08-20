@@ -89,9 +89,7 @@ class PairSelectionPolicy:
         Default 2 per FTMO risk guidelines.
     """
 
-    clusters: dict[str, set[str]] = field(
-        default_factory=lambda: {k: set(v) for k, v in DEFAULT_CLUSTERS.items()}
-    )
+    clusters: dict[str, set[str]] = field(default_factory=lambda: {k: set(v) for k, v in DEFAULT_CLUSTERS.items()})
     max_per_cluster: int = DEFAULT_MAX_PER_CLUSTER
 
     # ------------------------------------------------------------------ #

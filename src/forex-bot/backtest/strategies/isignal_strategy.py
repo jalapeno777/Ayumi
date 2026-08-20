@@ -175,7 +175,7 @@ class ISignalStrategy(ABC):
         """
         self._bars_processed += 1
 
-    def on_tick(self, tick: Tick) -> None:
+    def on_tick(self, tick: Tick) -> None:  # noqa: B027
         """Process a tick (for tick-level strategies).
 
         Called by the engine for each incoming tick. Override only

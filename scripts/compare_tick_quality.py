@@ -178,9 +178,7 @@ def structural_analysis(output_path: Path) -> str:
     for pair in pairs:
         assumed = BACKTEST_SPREADS_PIPS[pair]
         total = assumed + BACKTEST_SLIPPAGE_PIPS
-        spread_rows.append(
-            f"| {pair} | {assumed:.1f} | {BACKTEST_SLIPPAGE_PIPS:.1f} | {total:.1f} |"
-        )
+        spread_rows.append(f"| {pair} | {assumed:.1f} | {BACKTEST_SLIPPAGE_PIPS:.1f} | {total:.1f} |")
 
     spread_table = "\n".join(spread_rows)
 
@@ -407,10 +405,7 @@ def sample_live_ticks(
     try:
         from ctrader_open_api import Client  # noqa: F401
     except ImportError:
-        logger.error(
-            "ctrader_open_api is not installed. Install with: "
-            "pip install ctrader-open-api-py"
-        )
+        logger.error("ctrader_open_api is not installed. Install with: pip install ctrader-open-api-py")
         sys.exit(1)
 
     client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID")
@@ -487,8 +482,7 @@ def analyze_spreads(ticks: list[TickSample]) -> SpreadStats:
         min_pips=min(spreads, default=0),
         stdev_pips=statistics.stdev(spreads) if len(spreads) > 1 else 0,
         backtest_assumption_pips=backtest_assumption,
-        divergence_pips=(statistics.mean(spreads) if spreads else 0)
-        - backtest_assumption,
+        divergence_pips=(statistics.mean(spreads) if spreads else 0) - backtest_assumption,
     )
 
 
@@ -618,9 +612,7 @@ def _percentile(data: list[float], pct: float) -> float:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Compare live tick data quality vs backtest assumptions."
-    )
+    parser = argparse.ArgumentParser(description="Compare live tick data quality vs backtest assumptions.")
     sub = parser.add_subparsers(dest="mode", required=True)
 
     # Structural analysis

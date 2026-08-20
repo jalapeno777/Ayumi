@@ -40,9 +40,7 @@ class GridConfig:
     grid_spacing: float = 0.0015
     levels_per_side: int = 5
     base_lot: float = 0.1
-    lot_sizes: list[float] = field(
-        default_factory=lambda: [0.10, 0.08, 0.06, 0.05, 0.04]
-    )
+    lot_sizes: list[float] = field(default_factory=lambda: [0.10, 0.08, 0.06, 0.05, 0.04])
     lot_sizing_mode: LotSizingMode = LotSizingMode.DECREASING
     take_profit_pips: float = 10.0
     trend_filter: TrendFilterConfig = field(default_factory=TrendFilterConfig)

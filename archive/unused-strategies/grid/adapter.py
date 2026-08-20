@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from backtest.engine import MarketState, StrategySignal, TradeDirection
@@ -49,17 +49,13 @@ class GridStrategyAdapter(ISignalStrategy):
         if not self._initialized:
             self._manager.initialize(close, self._balance, bars[-1].time)
             self._initialized = True
-            self._grid_active = (
-                self._manager.state is not None and self._manager.state.is_active
-            )
+            self._grid_active = self._manager.state is not None and self._manager.state.is_active
             return None
 
         grid_state = self._manager.state
         if grid_state is not None and not grid_state.is_active:
             self._manager.reset(close, self._balance)
-            self._grid_active = (
-                self._manager.state is not None and self._manager.state.is_active
-            )
+            self._grid_active = self._manager.state is not None and self._manager.state.is_active
             return None
 
         new_trades = self._manager.on_bar(

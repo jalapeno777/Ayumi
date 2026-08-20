@@ -52,7 +52,7 @@ SRC_FOREX_BOT = PROJECT_ROOT / "src" / "forex-bot"
 if str(SRC_FOREX_BOT) not in sys.path:
     sys.path.insert(0, str(SRC_FOREX_BOT))
 
-from quant.oos_gate import (  # noqa: E402
+from quant.oos_gate import (  # noqa: E402, I001
     deflated_sharpe_ratio,
     expected_max_sharpe,
     min_track_record_length,
@@ -176,8 +176,7 @@ def load_from_json(path: Path) -> list[Candidate]:
                 extra={
                     k: v
                     for k, v in entry.items()
-                    if k
-                    not in ("name", "mean_sharpe", "trade_count", "pair", "timeframe")
+                    if k not in ("name", "mean_sharpe", "trade_count", "pair", "timeframe")
                 },
             )
         )
@@ -198,11 +197,7 @@ def load_from_jsonl(path: Path) -> list[Candidate]:
 
         pair = str(entry.get("pair", ""))
         tf = str(entry.get("timeframe", ""))
-        name = (
-            entry.get("name") or f"{pair}/{tf}"
-            if pair
-            else entry.get("name", f"trial_{lineno}")
-        )
+        name = entry.get("name") or f"{pair}/{tf}" if pair else entry.get("name", f"trial_{lineno}")
         sharpe = float(entry.get("mean_sharpe", 0.0) or 0.0)
         trades = int(entry.get("mean_trade_count", entry.get("trade_count", 0)) or 0)
         windows_passed = int(entry.get("windows_passed", 0) or 0)
@@ -216,9 +211,7 @@ def load_from_jsonl(path: Path) -> list[Candidate]:
                 extra={
                     "windows_passed": windows_passed,
                     "windows_total": int(entry.get("windows_total", 0) or 0),
-                    "mean_profit_factor": float(
-                        entry.get("mean_profit_factor", 0.0) or 0.0
-                    ),
+                    "mean_profit_factor": float(entry.get("mean_profit_factor", 0.0) or 0.0),
                     "mean_win_rate": float(entry.get("mean_win_rate", 0.0) or 0.0),
                 },
             )
@@ -325,25 +318,15 @@ def render_report(
     lines.append(f"**Candidates analyzed:** {total}")
     lines.append(f"**Independent trials (multiple-testing correction):** {n_trials}")
     lines.append(f"**Significance level (α):** {alpha}")
-    lines.append(
-        f"**Expected max Sharpe under null:** {results[0]['expected_max_sr']:.4f}"
-        if results
-        else ""
-    )
+    lines.append(f"**Expected max Sharpe under null:** {results[0]['expected_max_sr']:.4f}" if results else "")
     lines.append("")
     lines.append("## Summary")
     lines.append("")
     lines.append("| Category | Count | Criteria |")
     lines.append("|---|---:|---|")
-    lines.append(
-        f"| Promote (significant edge) | {len(promote_list)} | DSR p-value < {alpha} |"
-    )
-    lines.append(
-        f"| Watch (uncertain) | {len(watch_list)} | Edge prob ∈ [50%, {1 - alpha:.0%}) |"
-    )
-    lines.append(
-        f"| Kill (insufficient evidence) | {len(kill_list)} | Edge prob < 50% |"
-    )
+    lines.append(f"| Promote (significant edge) | {len(promote_list)} | DSR p-value < {alpha} |")
+    lines.append(f"| Watch (uncertain) | {len(watch_list)} | Edge prob ∈ [50%, {1 - alpha:.0%}) |")
+    lines.append(f"| Kill (insufficient evidence) | {len(kill_list)} | Edge prob < 50% |")
     lines.append("")
 
     # --- Promote list ---
@@ -354,9 +337,7 @@ def render_report(
     )
     lines.append("")
     if promote_list:
-        lines.append(
-            "| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met |"
-        )
+        lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met |")
         lines.append("|---:|---|---:|---:|---:|---:|---:|:---:|")
         for i, r in enumerate(promote_list, 1):
             trl_met = "✅" if r["trl_adequate"] else "⚠️"
@@ -372,9 +353,7 @@ def render_report(
     # --- Kill list ---
     lines.append("## Kill List")
     lines.append("")
-    lines.append(
-        "Candidates with edge probability < 50% (insufficient evidence of genuine edge)."
-    )
+    lines.append("Candidates with edge probability < 50% (insufficient evidence of genuine edge).")
     lines.append("")
     if kill_list:
         lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob |")
@@ -393,14 +372,10 @@ def render_report(
     lines.append("")
     lines.append("All candidates sorted by edge probability (descending).")
     lines.append("")
-    lines.append(
-        "| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met | Tier |"
-    )
+    lines.append("| # | Candidate | Sharpe | Trades | DSR p-value | Edge Prob | MinTRL | TRL Met | Tier |")
     lines.append("|---:|---|---:|---:|---:|---:|---:|:---:|:---:|")
     for i, r in enumerate(results, 1):
-        trl_met = (
-            "✅" if r["trl_adequate"] else "⚠️" if r["min_track_record"] > 0 else "—"
-        )
+        trl_met = "✅" if r["trl_adequate"] else "⚠️" if r["min_track_record"] > 0 else "—"
         # Simple tier: promote / watch / kill
         if r["dsr_pvalue"] < alpha:
             tier = "🟢 Promote"
@@ -535,17 +510,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     # --- Report ---
     report_path = args.report
     if report_path is None:
-        report_path = (
-            PROJECT_ROOT
-            / "reports"
-            / "quant"
-            / f"deflated_sharpe_{date.today().isoformat()}.md"
-        )
+        report_path = PROJECT_ROOT / "reports" / "quant" / f"deflated_sharpe_{date.today().isoformat()}.md"
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_text = render_report(
-        results, n_trials=args.n_trials, source=source, alpha=args.alpha
-    )
+    report_text = render_report(results, n_trials=args.n_trials, source=source, alpha=args.alpha)
     report_path.write_text(report_text)
 
     # --- JSON output ---

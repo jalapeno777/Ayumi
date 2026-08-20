@@ -4,7 +4,7 @@ Tests that _evaluate_strategies() only passes finalized bars to strategies,
 not the incomplete current-period bar.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta  # noqa: I001
 from unittest.mock import MagicMock
 
 

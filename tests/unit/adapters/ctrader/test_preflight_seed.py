@@ -18,7 +18,7 @@ import pytest
 # Ensure src/forex-bot is on path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "src" / "forex-bot"))
 
-from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig
+from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig  # noqa: I001
 from adapters.ctrader.models import Position, PositionStatus, TradeDirection
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from risk.sl_position_sizer import SLPositionSizer

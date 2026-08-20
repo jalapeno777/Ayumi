@@ -58,9 +58,7 @@ class SpreadGate:
         symbol = ctx.get("symbol", "")
         spread = ctx.get("spread", 0.0)
 
-        max_spread = self._config.symbol_max_spreads.get(
-            symbol, self._config.default_max_spread
-        )
+        max_spread = self._config.symbol_max_spreads.get(symbol, self._config.default_max_spread)
 
         if spread > max_spread:
             return GateCheck(

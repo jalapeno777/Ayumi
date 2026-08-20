@@ -17,7 +17,7 @@ Covers:
    10. Best-day rule interacts correctly with can_trade()
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
@@ -29,7 +29,7 @@ import sys
 sys.path.insert(0, "src/forex-bot")
 sys.path.insert(0, "src/forex-bot/adapters/ctrader")
 
-from adapters.ctrader.risk_guard import (
+from adapters.ctrader.risk_guard import (  # noqa: I001
     RiskGuard,
     FTMOConfig,
     FTMOProfile,
@@ -47,7 +47,7 @@ def guard():
         rg = RiskGuard(
             ftmo_config=FTMOConfig(),
             starting_balance=10000.0,
-            state_path="/tmp/test_risk_guard_no_state.json",
+            state_path="/tmp/test_risk_guard_no_state.json",  # noqa: S108
         )
         return rg
 
@@ -82,9 +82,7 @@ class TestEnforcementTriggered:
         guard._check_best_day_rule(guard._daily_stats[-1])
 
         now = datetime.now(timezone.utc)
-        expected_midnight = (now + timedelta(days=1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        expected_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         assert guard._blocked_until == expected_midnight
 
     def test_enforcement_does_not_set_circuit_breaker(self, guard):
@@ -179,7 +177,7 @@ class TestCustomEnforcePct:
             guard = RiskGuard(
                 ftmo_config=custom_config,
                 starting_balance=10000.0,
-                state_path="/tmp/test_risk_guard_no_state.json",
+                state_path="/tmp/test_risk_guard_no_state.json",  # noqa: S108
             )
 
         # 3 days: 100, 100, 100 → 33.3% > 30% → enforcement
@@ -198,7 +196,7 @@ class TestCustomEnforcePct:
             guard = RiskGuard(
                 ftmo_config=custom_config,
                 starting_balance=10000.0,
-                state_path="/tmp/test_risk_guard_no_state.json",
+                state_path="/tmp/test_risk_guard_no_state.json",  # noqa: S108
             )
 
         # 2 days: 55, 45 → best=55% < 60% → no enforcement
@@ -242,9 +240,7 @@ class TestBlockedTradingPreventsSignals:
         result = guard.check_signal(mock_signal)
 
         assert result.allowed is False
-        assert (
-            "blocked" in result.message.lower() or "circuit" in result.message.lower()
-        )
+        assert "blocked" in result.message.lower() or "circuit" in result.message.lower()
 
 
 # ── 7. Minimum 2 positive days still required ──────────────────────────────

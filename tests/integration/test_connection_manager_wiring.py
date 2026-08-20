@@ -59,7 +59,7 @@ def _write_creds(
     access="access123",
     refresh="refresh456",
     client_id="client_abc",
-    client_secret="secret_xyz",
+    client_secret="secret_xyz",  # noqa: S107
 ):
     """Write a credentials JSON file."""
     with open(path, "w") as f:
@@ -168,9 +168,7 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
         sm = ConnectionStateManager(name="market_data")
         mgr.register(ConnectionRole.MARKET_DATA, sm)
 
-        mgr.start_watchdog(
-            degraded_threshold=0.15, failed_threshold=0.40, poll_interval=0.05
-        )
+        mgr.start_watchdog(degraded_threshold=0.15, failed_threshold=0.40, poll_interval=0.05)
         mgr.start_watchdog()  # idempotent
         self.assertTrue(mgr._watchdog.is_running)
 
@@ -182,9 +180,7 @@ class TestWatchdogStopIdempotent(unittest.TestCase):
 # ── OAuth refresh wiring tests ───────────────────────────────────────────────
 
 
-@pytest.mark.skip(
-    reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle"
-)
+@pytest.mark.skip(reason="Tests deprecated oauth_refresh module — superseded by TokenLifecycle")
 class TestOAuthRefreshWiring(unittest.TestCase):
     """Verify refresh_oauth_if_needed() updates manager auth state."""
 

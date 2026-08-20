@@ -56,9 +56,7 @@ def check_statistical_significance(
     one_tailed_p = _one_tailed_p(t_stat, p_value)
 
     passed = one_tailed_p < alpha
-    detail = (
-        f"one-tailed p={one_tailed_p:.4f}, alpha={alpha}, t={t_stat:.4f}, n={len(pnls)}"
-    )
+    detail = f"one-tailed p={one_tailed_p:.4f}, alpha={alpha}, t={t_stat:.4f}, n={len(pnls)}"
     return CheckResult(
         name="statistical_significance",
         passed=passed,
@@ -122,10 +120,7 @@ def check_multi_pair_validation(
         status = "failed"
         passed = False
 
-    detail = (
-        f"{count}/{len(pair_results)} pairs with PF>1.0 "
-        f"(status={status}): {pair_results}"
-    )
+    detail = f"{count}/{len(pair_results)} pairs with PF>1.0 (status={status}): {pair_results}"
     return CheckResult(
         name="multi_pair_validation",
         passed=passed,

@@ -353,8 +353,7 @@ class LiveMarketDataFeed:
 
     def __init__(self, credentials):
         raise NotImplementedError(
-            "LiveMarketDataFeed (FIX mode) is deprecated. "
-            "Use MarketDataFeed with the new session.py instead."
+            "LiveMarketDataFeed (FIX mode) is deprecated. Use MarketDataFeed with the new session.py instead."
         )
 
     def on_tick(self, handler):

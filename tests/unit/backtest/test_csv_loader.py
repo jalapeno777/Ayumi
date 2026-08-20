@@ -18,7 +18,7 @@ as Eastern (preserving historical behaviour); tz-aware inputs are kept as
 supplied and only converted to UTC.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -102,24 +102,20 @@ class TestParseDatetimeStaticMethod:
 
     def test_delegates_to_helper_legacy(self):
         """Legacy format yields the same UTC result as ``_parse_csv_timestamp``."""
-        assert CsvDataLoader._parse_datetime(
-            "2025-01-09 15:30:00"
-        ) == _parse_csv_timestamp("2025-01-09 15:30:00")
+        assert CsvDataLoader._parse_datetime("2025-01-09 15:30:00") == _parse_csv_timestamp("2025-01-09 15:30:00")
 
     def test_delegates_to_helper_iso_z(self):
         """ISO-Z format also matches (this is the regression case)."""
-        assert CsvDataLoader._parse_datetime(
-            "2025-01-09T15:30:00Z"
-        ) == _parse_csv_timestamp("2025-01-09T15:30:00Z")
+        assert CsvDataLoader._parse_datetime("2025-01-09T15:30:00Z") == _parse_csv_timestamp("2025-01-09T15:30:00Z")
         # And it must not be Eastern-shifted.
         result = CsvDataLoader._parse_datetime("2025-01-09T15:30:00Z")
         assert result == datetime(2025, 1, 9, 15, 30, 0, tzinfo=_UTC)
 
     def test_delegates_to_helper_iso_offset(self):
         """ISO with explicit offset matches the helper."""
-        assert CsvDataLoader._parse_datetime(
+        assert CsvDataLoader._parse_datetime("2025-01-09T15:30:00+00:00") == _parse_csv_timestamp(
             "2025-01-09T15:30:00+00:00"
-        ) == _parse_csv_timestamp("2025-01-09T15:30:00+00:00")
+        )
 
     def test_invalid_string_raises(self):
         """Static method still raises on garbage."""

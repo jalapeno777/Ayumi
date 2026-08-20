@@ -5,7 +5,7 @@ callers don't need to hand-write SQL.  For raw access, use SRFDatabase directly
 as a context manager.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import logging
@@ -33,14 +33,12 @@ def list_strategies(
     """
     if status:
         rows = conn.execute(
-            "SELECT name, version, module_path, status, created_at "
-            "FROM strategies WHERE status=? ORDER BY created_at",
+            "SELECT name, version, module_path, status, created_at FROM strategies WHERE status=? ORDER BY created_at",
             [status],
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT name, version, module_path, status, created_at "
-            "FROM strategies ORDER BY created_at"
+            "SELECT name, version, module_path, status, created_at FROM strategies ORDER BY created_at"
         ).fetchall()
     return [
         {

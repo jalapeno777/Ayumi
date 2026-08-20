@@ -57,9 +57,7 @@ class PaperTrader:
         self._ftmo_config = ftmo_config or FTMOConfig()
         self._position_config = position_config or PositionSizeConfig()
         self._api_client = api_client
-        self._live_mode_enabled = (
-            api_client is not None and not api_client.is_paper_mode
-        )
+        self._live_mode_enabled = api_client is not None and not api_client.is_paper_mode
         self._order_manager = OrderManager(self._position_config, api_client=api_client)
         self._risk_guard = RiskGuard(
             self._ftmo_config,
@@ -69,9 +67,7 @@ class PaperTrader:
         self._starting_balance = starting_balance
         self._current_balance = starting_balance
         self._lock = RLock()
-        self._stats = PaperTradingStats(
-            starting_balance=starting_balance, current_balance=starting_balance
-        )
+        self._stats = PaperTradingStats(starting_balance=starting_balance, current_balance=starting_balance)
         self._trade_history: list[PaperTradeResult] = []
         self._callbacks: list[tuple[str, Callable]] = []
         self._running = False
@@ -197,18 +193,12 @@ class PaperTrader:
                         recorder.record_signal(
                             SignalRecord(
                                 signal_id=signal_id,
-                                timestamp=signal.timestamp.isoformat()
-                                if signal.timestamp
-                                else "",
+                                timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
                                 strategy=signal.strategy_id or "unknown",
                                 symbol=signal.symbol,
-                                direction="BUY"
-                                if signal.direction == TradeDirection.LONG
-                                else "SELL",
+                                direction="BUY" if signal.direction == TradeDirection.LONG else "SELL",
                                 confidence=float(signal.confidence),
-                                rationale_tags=[signal.rationale]
-                                if signal.rationale
-                                else [],
+                                rationale_tags=[signal.rationale] if signal.rationale else [],
                                 confluence_score=0.0,
                                 lots=float(volume),
                                 entry_price=float(signal.entry_price),
@@ -217,9 +207,7 @@ class PaperTrader:
                             )
                         )
                 except Exception as _stats_exc:  # noqa: BLE001
-                    logger.warning(
-                        "Signal-stats record_signal failed (non-fatal): %s", _stats_exc
-                    )
+                    logger.warning("Signal-stats record_signal failed (non-fatal): %s", _stats_exc)
                 self._trigger_callback("on_trade_executed", result)
             else:
                 self._stats.trades_rejected += 1
@@ -283,14 +271,10 @@ class PaperTrader:
 
     def set_api_client(self, api_client: Optional["cTraderAPIClient"]):
         self._api_client = api_client
-        self._live_mode_enabled = (
-            api_client is not None and not api_client.is_paper_mode
-        )
+        self._live_mode_enabled = api_client is not None and not api_client.is_paper_mode
         self._order_manager.set_api_client(api_client)
 
-    def update_market_prices(
-        self, prices: dict, bids: dict | None = None, asks: dict | None = None
-    ):
+    def update_market_prices(self, prices: dict, bids: dict | None = None, asks: dict | None = None):
         bids = bids or {}
         asks = asks or {}
         with self._lock:
@@ -312,9 +296,7 @@ class PaperTrader:
                     if ask <= 0:
                         ask = current_price
 
-                    self._order_manager.update_position(
-                        position.position_id, current_price, bid=bid, ask=ask
-                    )
+                    self._order_manager.update_position(position.position_id, current_price, bid=bid, ask=ask)
                     updated_pos = self._order_manager.get_position(position.position_id)
                     if updated_pos and updated_pos.status.is_closed:
                         # Position was auto-closed by SL/TP inside
@@ -327,23 +309,15 @@ class PaperTrader:
 
                         # Phase 0: signal-stats close record.
                         try:
-                            signal_id = self._position_signal_id.pop(
-                                updated_pos.position_id, updated_pos.position_id
-                            )
+                            signal_id = self._position_signal_id.pop(updated_pos.position_id, updated_pos.position_id)
                             if signal_id:
                                 outcome = self._map_close_reason_to_outcome(
-                                    reason=getattr(updated_pos, "close_reason", "")
-                                    or "",
-                                    position_status=getattr(
-                                        updated_pos.status, "value", ""
-                                    ),
+                                    reason=getattr(updated_pos, "close_reason", "") or "",
+                                    position_status=getattr(updated_pos.status, "value", ""),
                                     is_win=is_win,
                                 )
                                 opened_at = getattr(updated_pos, "opened_at", None)
-                                closed_at = (
-                                    getattr(updated_pos, "closed_at", None)
-                                    or datetime.utcnow()
-                                )
+                                closed_at = getattr(updated_pos, "closed_at", None) or datetime.utcnow()
                                 time_to_close = 0
                                 if opened_at is not None:
                                     time_to_close = max(
@@ -363,28 +337,19 @@ class PaperTrader:
                             )
 
                         self._trigger_callback("on_position_closed", updated_pos)
-                        logger.info(
-                            f"[PAPER] Auto-closed: {updated_pos.symbol} "
-                            f"PnL: {updated_pos.closed_pnl:.2f}"
-                        )
+                        logger.info(f"[PAPER] Auto-closed: {updated_pos.symbol} PnL: {updated_pos.closed_pnl:.2f}")
                     elif updated_pos:
                         total_unrealized += updated_pos.unrealized_pnl
 
             self._stats.unrealized_pnl = total_unrealized
-            self._current_balance = (
-                self._starting_balance + self._stats.realized_pnl + total_unrealized
-            )
+            self._current_balance = self._starting_balance + self._stats.realized_pnl + total_unrealized
             self._stats.current_balance = self._current_balance
             self._risk_guard.update_balance(self._current_balance)
             self._last_update = datetime.utcnow()
 
-    def close_position(
-        self, position_id: str, exit_price: float, reason: str = "manual"
-    ) -> bool:
+    def close_position(self, position_id: str, exit_price: float, reason: str = "manual") -> bool:
         with self._lock:
-            position = self._order_manager.close_position(
-                position_id, exit_price, reason
-            )
+            position = self._order_manager.close_position(position_id, exit_price, reason)
             if position:
                 self._stats.realized_pnl += position.closed_pnl
                 # NOTE: Do NOT add closed_pnl to _current_balance here.
@@ -419,9 +384,7 @@ class PaperTrader:
                         )
                         # Best-effort time-to-close calculation.
                         opened_at = getattr(position, "opened_at", None)
-                        closed_at = (
-                            getattr(position, "closed_at", None) or datetime.utcnow()
-                        )
+                        closed_at = getattr(position, "closed_at", None) or datetime.utcnow()
                         time_to_close = 0
                         if opened_at is not None:
                             time_to_close = max(
@@ -446,9 +409,7 @@ class PaperTrader:
                     )
 
                 self._trigger_callback("on_position_closed", position)
-                logger.info(
-                    f"[PAPER] Closed: {position.symbol} @ {exit_price}, PnL: {position.closed_pnl:.2f}"
-                )
+                logger.info(f"[PAPER] Closed: {position.symbol} @ {exit_price}, PnL: {position.closed_pnl:.2f}")
                 return True
             return False
 
@@ -495,9 +456,7 @@ class PaperTrader:
             count = len(positions)
             for position in positions:
                 exit_price = position.current_price or position.entry_price
-                self._order_manager.close_position(
-                    position.position_id, exit_price, "synthetic_cleanup"
-                )
+                self._order_manager.close_position(position.position_id, exit_price, "synthetic_cleanup")
                 closed = self._order_manager.get_position(position.position_id)
                 if closed and closed.status.is_closed:
                     self._stats.realized_pnl += closed.closed_pnl

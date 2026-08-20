@@ -90,9 +90,7 @@ class MCResult:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _equity_curve(
-    pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE
-) -> np.ndarray:
+def _equity_curve(pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE) -> np.ndarray:
     """Build equity curve from PnL array."""
     return initial + np.cumsum(pnls)
 
@@ -120,9 +118,7 @@ def _sharpe(pnls: np.ndarray, periods_per_year: int = 252) -> float:
     return float(np.mean(pnls) / np.std(pnls) * math.sqrt(periods_per_year))
 
 
-def _cagr(
-    pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE, years: float = 1.0
-) -> float:
+def _cagr(pnls: np.ndarray, initial: float = DEFAULT_ACCOUNT_SIZE, years: float = 1.0) -> float:
     """Compound annual growth rate."""
     final = initial + pnls.sum()
     if initial <= 0 or years <= 0 or final <= 0:

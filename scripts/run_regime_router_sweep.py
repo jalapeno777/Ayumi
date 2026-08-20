@@ -9,7 +9,7 @@ Focus areas:
 - Walk-forward window configurations
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import json
@@ -27,7 +27,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, Bar
+from backtest.engine import BacktestConfig, Bar  # noqa: I001
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.parameter_sweep.grid import GridPoint, ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
@@ -197,15 +197,9 @@ def run_walk_forward_validation(
             "go_nogo": results.go_nogo,
             "windows_passed": sum(1 for m in results.per_window if m.passed_go_nogo),
             "total_windows": len(results.per_window),
-            "aggregated_sharpe": results.aggregated.mean_sharpe_ratio
-            if results.aggregated
-            else 0.0,
-            "aggregated_return": results.aggregated.mean_total_pnl
-            if results.aggregated
-            else 0.0,
-            "aggregated_max_dd": results.aggregated.mean_max_drawdown
-            if results.aggregated
-            else 0.0,
+            "aggregated_sharpe": results.aggregated.mean_sharpe_ratio if results.aggregated else 0.0,
+            "aggregated_return": results.aggregated.mean_total_pnl if results.aggregated else 0.0,
+            "aggregated_max_dd": results.aggregated.mean_max_drawdown if results.aggregated else 0.0,
         }
     except Exception as exc:
         logger.warning(f"Walk-forward validation failed: {exc}")
@@ -352,10 +346,7 @@ class RegimeRouterSweepRunner:
         if max_workers and max_workers > 1 and len(tasks) > 1:
             logger.info(f"Running {len(tasks)} tasks with {max_workers} workers")
             with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                future_to_idx = {
-                    executor.submit(worker_entry, task): idx
-                    for idx, task in enumerate(tasks)
-                }
+                future_to_idx = {executor.submit(worker_entry, task): idx for idx, task in enumerate(tasks)}
 
                 results: List[Optional[Dict[str, Any]]] = [None] * len(tasks)
 
@@ -383,9 +374,7 @@ class RegimeRouterSweepRunner:
                             "n_windows": walk_forward_params.get("n_windows", 5),
                             "train_ratio": walk_forward_params.get("train_ratio", 0.6),
                             "val_ratio": walk_forward_params.get("val_ratio", 0.2),
-                            "overlap_ratio": walk_forward_params.get(
-                                "overlap_ratio", 0.1
-                            ),
+                            "overlap_ratio": walk_forward_params.get("overlap_ratio", 0.1),
                         }
                     )
 
@@ -471,9 +460,7 @@ class RegimeRouterSweepRunner:
 
         if any(isinstance(row, WalkForwardSweepRow) for row in result.rows):
             go_nogo_results = [
-                row
-                for row in result.rows
-                if isinstance(row, WalkForwardSweepRow) and row.walk_forward_go_nogo
+                row for row in result.rows if isinstance(row, WalkForwardSweepRow) and row.walk_forward_go_nogo
             ]
 
             output_data["walk_forward_go_nogo_count"] = len(go_nogo_results)
@@ -507,9 +494,7 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Regime Router parameter sweep")
     add_resource_args(parser)
-    parser.add_argument(
-        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
-    )
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
     args = parser.parse_args()
 
     config = RegimeRouterSweepConfig(
@@ -528,9 +513,7 @@ def main():
 
     print("\nTop 5 by Sharpe Ratio:")
     for i, row in enumerate(result.top_n(5, "sharpe_ratio"), 1):
-        print(
-            f"  {i}. Sharpe: {row.sharpe_ratio:.3f}, Return: {row.total_return:.2f}%, Win Rate: {row.win_rate:.1f}%"
-        )
+        print(f"  {i}. Sharpe: {row.sharpe_ratio:.3f}, Return: {row.total_return:.2f}%, Win Rate: {row.win_rate:.1f}%")
         print(f"     Params: {row.params}")
 
 

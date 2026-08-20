@@ -8,7 +8,7 @@ Imports all bar data CSVs from data/forex/historical/ with timezone conversion
 Runs row-count parity checks, random sample diffs, and DST boundary spot-checks.
 """
 
-import json
+import json  # noqa: I001
 import random
 import re
 import time
@@ -121,9 +121,7 @@ def create_schema(con):
     """)
     con.execute("CREATE INDEX IF NOT EXISTS idx_bars_sym_tf ON bars(symbol, timeframe)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_bars_ts ON bars(timestamp_utc)")
-    con.execute(
-        "CREATE INDEX IF NOT EXISTS idx_bars_sym_tf_ts ON bars(symbol, timeframe, timestamp_utc)"
-    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_bars_sym_tf_ts ON bars(symbol, timeframe, timestamp_utc)")
 
 
 def populate_symbols(con):
@@ -146,7 +144,7 @@ DATE_COL_VARIANTS = ("Date", "Datetime", "timestamp")
 def detect_date_col(con, csv_path: Path) -> str:
     """Detect which date column name the CSV uses."""
     cols = con.execute(
-        f"DESCRIBE SELECT * FROM read_csv_auto('{csv_path}', header=true)"
+        f"DESCRIBE SELECT * FROM read_csv_auto('{csv_path}', header=true)"  # noqa: S608
     ).fetchall()
     col_names = {c[0] for c in cols}
     for v in DATE_COL_VARIANTS:
@@ -170,7 +168,7 @@ def import_bar_csv_sql(con, csv_path: Path, symbol: str, timeframe: str) -> dict
 
     # Get CSV row count first
     csv_rows = con.execute(
-        f"SELECT COUNT(*) FROM read_csv_auto('{csv_path}', header=true)"
+        f"SELECT COUNT(*) FROM read_csv_auto('{csv_path}', header=true)"  # noqa: S608
     ).fetchone()[0]
 
     # Get current DB count for this symbol/timeframe (before import)
@@ -193,7 +191,7 @@ def import_bar_csv_sql(con, csv_path: Path, symbol: str, timeframe: str) -> dict
             "Volume"::BIGINT,
             0.0::DOUBLE AS spread_pips
         FROM read_csv_auto('{csv_path}', header=true)
-    """)
+    """)  # noqa: E501, S608
 
     # Verify row count delta matches CSV row count
     count_after = con.execute(
@@ -248,7 +246,7 @@ def check_random_sample_diff(con, csv_results: list, n: int = 10) -> list:
             SELECT CAST("{date_col}" AS VARCHAR), "Open", "High", "Low", "Close", "Volume"
             FROM read_csv_auto('{csv_path}', header=true)
             USING SAMPLE 1
-        """).fetchone()
+        """).fetchone()  # noqa: S608
         if row:
             candidates.append(
                 {
@@ -270,8 +268,7 @@ def check_random_sample_diff(con, csv_results: list, n: int = 10) -> list:
     for s in samples:
         ts_utc = csv_to_utc_epoch(s["date_str"])
         db_rows = con.execute(
-            "SELECT open, high, low, close, volume FROM bars "
-            "WHERE symbol = ? AND timeframe = ? AND timestamp_utc = ?",
+            "SELECT open, high, low, close, volume FROM bars WHERE symbol = ? AND timeframe = ? AND timestamp_utc = ?",
             [s["symbol"], s["timeframe"], ts_utc],
         ).fetchall()
 
@@ -434,9 +431,7 @@ def main():
         else:
             skipped.append(p.name)
 
-    print(
-        f"    Found {len(bar_files)} bar data CSVs ({len(skipped)} skipped: {', '.join(skipped)})"
-    )
+    print(f"    Found {len(bar_files)} bar data CSVs ({len(skipped)} skipped: {', '.join(skipped)})")
 
     csv_results = []
     total_rows = 0
@@ -448,9 +443,7 @@ def main():
         elapsed = time.perf_counter() - t0
         total_rows += result["csv_rows"]
         status = "✅" if result["parity"] else "❌"
-        print(
-            f"    {status} {result['file']:40s} {result['csv_rows']:>8,} rows  ({elapsed:.2f}s)"
-        )
+        print(f"    {status} {result['file']:40s} {result['csv_rows']:>8,} rows  ({elapsed:.2f}s)")
         csv_results.append(result)
 
     t_total = time.perf_counter() - t_start
@@ -462,22 +455,16 @@ def main():
     # 4a: Row count parity
     rc_results = check_row_count_parity(csv_results)
     rc_all = all(r["match"] for r in rc_results)
-    print(
-        f"    Row count parity: {'✅ ALL MATCH' if rc_all else '❌ MISMATCH'} ({len(rc_results)} files)"
-    )
+    print(f"    Row count parity: {'✅ ALL MATCH' if rc_all else '❌ MISMATCH'} ({len(rc_results)} files)")
 
     # 4b: Random sample diff (10 samples)
     rs_results = check_random_sample_diff(con, csv_results, n=10)
     rs_all = all(r["match"] for r in rs_results)
-    print(
-        f"    Random sample diff: {'✅ ALL MATCH' if rs_all else '❌ MISMATCH'} ({len(rs_results)} samples)"
-    )
+    print(f"    Random sample diff: {'✅ ALL MATCH' if rs_all else '❌ MISMATCH'} ({len(rs_results)} samples)")
     if not rs_all:
         for r in rs_results:
             if not r["match"]:
-                print(
-                    f"      ❌ {r['file']} @ {r['date']}: csv={r['csv_values']} db={r['db_values']}"
-                )
+                print(f"      ❌ {r['file']} @ {r['date']}: csv={r['csv_values']} db={r['db_values']}")
 
     # 4c: DST boundary spot-check
     dst_results = check_dst_boundaries(con)
@@ -492,9 +479,7 @@ def main():
 
     # 4d: spread_pips check
     sp_result = check_spread_pips(con)
-    print(
-        f"    spread_pips: {sp_result['zero_pips']:,} zero / {sp_result['nonzero_pips']} nonzero (expected all zero)"
-    )
+    print(f"    spread_pips: {sp_result['zero_pips']:,} zero / {sp_result['nonzero_pips']} nonzero (expected all zero)")
 
     # --- Summary ---
     db_size_mb = DB_PATH.stat().st_size / 1024 / 1024

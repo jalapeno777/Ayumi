@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 import tempfile
 
 import numpy as np
@@ -206,7 +206,7 @@ class TestPredict:
     def test_create_filter_integration_stub(self):
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             tmp_path = f.name
-        create_filter_integration_stub("/tmp/model_dir", tmp_path)
+        create_filter_integration_stub("/tmp/model_dir", tmp_path)  # noqa: S108
         with open(tmp_path) as f:
             content = f.read()
         os.unlink(tmp_path)
@@ -220,9 +220,7 @@ class TestPredict:
 
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 5)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -244,9 +242,7 @@ class TestPredict:
 
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -270,9 +266,7 @@ class TestPredict:
 
             from sklearn.ensemble import GradientBoostingClassifier
 
-            model = GradientBoostingClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -312,7 +306,7 @@ class TestModelRegistry:
         assert MODEL_TYPE_DEFAULT == "gradient_boosting"
 
     def test_registry_has_required_keys(self):
-        for mt, reg in MODEL_REGISTRY.items():
+        for mt, reg in MODEL_REGISTRY.items():  # noqa: B007
             assert "display_name" in reg
             assert "factory" in reg
             assert "param_grid" in reg
@@ -342,9 +336,7 @@ class TestTrainSingleModelMultiModel:
 
     def test_random_forest(self):
         X_tr, y_tr, X_val, y_val = self._make_data()
-        result = train_single_model(
-            X_tr, y_tr, X_val, y_val, model_type="random_forest"
-        )
+        result = train_single_model(X_tr, y_tr, X_val, y_val, model_type="random_forest")
         assert result["model_type"] == "random_forest"
         assert result["model"] is not None
 
@@ -352,7 +344,7 @@ class TestTrainSingleModelMultiModel:
         X_tr, y_tr, X_val, y_val = self._make_data()
         try:
             train_single_model(X_tr, y_tr, X_val, y_val, model_type="nonexistent")
-            assert False, "Should have raised ValueError"
+            assert False, "Should have raised ValueError"  # noqa: B011
         except ValueError as e:
             assert "Unknown model type" in str(e)
 
@@ -408,15 +400,11 @@ class TestBuildComparisonTable:
 class TestSaveModelMetadata:
     def test_saves_model_type_gradient_boosting(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            model = GradientBoostingClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
-            save_model(
-                model, ["a", "b", "c"], {}, tmpdir, model_type="gradient_boosting"
-            )
+            save_model(model, ["a", "b", "c"], {}, tmpdir, model_type="gradient_boosting")
             import json
 
             with open(os.path.join(tmpdir, "signal_filter_meta.json")) as f:
@@ -428,9 +416,7 @@ class TestSaveModelMetadata:
         with tempfile.TemporaryDirectory() as tmpdir:
             from sklearn.ensemble import RandomForestClassifier
 
-            model = RandomForestClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = RandomForestClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)
@@ -444,9 +430,7 @@ class TestSaveModelMetadata:
 
     def test_load_model_returns_model_and_features(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            model = GradientBoostingClassifier(
-                n_estimators=10, max_depth=2, random_state=42
-            )
+            model = GradientBoostingClassifier(n_estimators=10, max_depth=2, random_state=42)
             X = np.random.randn(50, 3)
             y = np.random.randint(0, 2, 50)
             model.fit(X, y)

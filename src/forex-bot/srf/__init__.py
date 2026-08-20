@@ -9,7 +9,7 @@ Public API:
     generate_run_id     — deterministic-ish run ID generator
 """
 
-from .schema import SRFDatabase, compute_data_hash, generate_run_id
+from .schema import SRFDatabase, compute_data_hash, generate_run_id  # noqa: I001
 from .drift_monitor import (
     DriftMonitor,
     DriftReport,

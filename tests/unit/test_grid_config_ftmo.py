@@ -17,9 +17,9 @@ These tests exist alongside ``tests/unit/backtest/test_grid_config_ftmo.py``
 forward specifically.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
-import pytest
+import pytest  # noqa: F401
 
 from backtest.grid_strategy import GRID_PRESETS, GridConfig
 
@@ -71,10 +71,7 @@ class TestGridConfigFtmoPairForward:
         # spacing/levels come from GRID_PRESETS["GBPJPY"], not EURUSD
         assert c.grid_spacing_pips == GRID_PRESETS["GBPJPY"]["grid_spacing_pips"]
         assert c.num_levels == GRID_PRESETS["GBPJPY"]["num_levels"]
-        assert (
-            c.max_concurrent_positions
-            == GRID_PRESETS["GBPJPY"]["max_concurrent_positions"]
-        )
+        assert c.max_concurrent_positions == GRID_PRESETS["GBPJPY"]["max_concurrent_positions"]
         # pair forward is independent of spacing lookup
         assert c.pair == "GBPJPY"
 

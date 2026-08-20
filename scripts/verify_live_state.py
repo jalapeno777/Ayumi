@@ -75,7 +75,7 @@ def build_client(creds: dict):
     if not conn.is_connected:
         raise RuntimeError("cTrader connection timeout")
 
-    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
         ProtoOAApplicationAuthReq,
         ProtoOAAccountAuthReq,
     )
@@ -99,11 +99,7 @@ def build_client(creds: dict):
 
 def main() -> int:
     creds = load_credentials()
-    missing = [
-        k
-        for k in ("client_id", "client_secret", "access_token", "account_id")
-        if not creds.get(k)
-    ]
+    missing = [k for k in ("client_id", "client_secret", "access_token", "account_id") if not creds.get(k)]
     if missing:
         log.error("Missing credentials: %s", missing)
         return 1
@@ -145,9 +141,7 @@ def main() -> int:
                 import json
 
                 entry = json.loads(line)
-                if entry.get("outcome") == "open" and not entry.get(
-                    "signal_id", ""
-                ).startswith("POS_PAPER_"):
+                if entry.get("outcome") == "open" and not entry.get("signal_id", "").startswith("POS_PAPER_"):
                     live_open_in_stats.append(entry)
             except json.JSONDecodeError:
                 pass

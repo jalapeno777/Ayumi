@@ -9,7 +9,7 @@ exercised separately in the integration suite.  Here we test the pure
 classifier function which is the heart of the fix.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -48,9 +48,7 @@ def _make_signal(symbol: str = "EURUSD") -> CTraderTradeSignal:
     )
 
 
-def _make_order(
-    *, status: OrderStatus, reason: str | None = None, order_id: str = "ord_test"
-) -> Order:
+def _make_order(*, status: OrderStatus, reason: str | None = None, order_id: str = "ord_test") -> Order:
     o = Order(
         order_id=order_id,
         symbol="EURUSD",
@@ -60,7 +58,7 @@ def _make_order(
         status=status,
     )
     if reason is not None:
-        setattr(o, "reason", reason)
+        setattr(o, "reason", reason)  # noqa: B010
     return o
 
 
@@ -105,9 +103,7 @@ class TestExecuteSignalLiveOutcomes:
         outcome = engine._classify_live_order_outcome(order, sig, "test_strategy")
         assert outcome.status is LiveExecutionStatus.SENT
 
-    def test_returns_timeout_outcome_when_reason_is_timeout_awaiting_event(
-        self, engine
-    ):
+    def test_returns_timeout_outcome_when_reason_is_timeout_awaiting_event(self, engine):
         """If Order.reason == 'timeout_awaiting_event', outcome.terminal_status == TIMEOUT."""
         order = _make_order(status=OrderStatus.PENDING, reason="timeout_awaiting_event")
         sig = _make_signal()
@@ -178,9 +174,7 @@ class TestExecuteSignalLiveOutcomes:
 
     def test_outcome_carries_order_for_logging(self, engine):
         """Outcome.order is the Order object, so the caller can log it."""
-        order = _make_order(
-            status=OrderStatus.FILLED, reason="order_filled", order_id="ord_carry_test"
-        )
+        order = _make_order(status=OrderStatus.FILLED, reason="order_filled", order_id="ord_carry_test")
         sig = _make_signal()
         outcome = engine._classify_live_order_outcome(order, sig, "test_strategy")
         assert outcome.order is order
@@ -232,11 +226,7 @@ class TestLateFillCallbacks:
             engine._register_late_fill_callbacks(order, sig, "test_strategy")
 
         # Pull out the on_order_filled callback the engine just registered
-        filled_calls = [
-            c
-            for c in feed.register_callback.call_args_list
-            if c.args[0] == "on_order_filled"
-        ]
+        filled_calls = [c for c in feed.register_callback.call_args_list if c.args[0] == "on_order_filled"]
         assert len(filled_calls) == 1
         cb = filled_calls[0].args[1]
         # Pre-set signals_pending so we can confirm it decrements
@@ -256,11 +246,7 @@ class TestLateFillCallbacks:
         with patch.object(engine, "_market_feed", feed):
             engine._register_late_fill_callbacks(order, sig, "test_strategy")
 
-        rejected_calls = [
-            c
-            for c in feed.register_callback.call_args_list
-            if c.args[0] == "on_order_rejected"
-        ]
+        rejected_calls = [c for c in feed.register_callback.call_args_list if c.args[0] == "on_order_rejected"]
         cb = rejected_calls[0].args[1]
         engine._health.signals_pending = 1
         cb(order, MagicMock(), "INVALID_PRICE")
@@ -276,11 +262,7 @@ class TestLateFillCallbacks:
         with patch.object(engine, "_market_feed", feed):
             engine._register_late_fill_callbacks(order, sig, "test_strategy")
 
-        cancelled_calls = [
-            c
-            for c in feed.register_callback.call_args_list
-            if c.args[0] == "on_order_cancelled"
-        ]
+        cancelled_calls = [c for c in feed.register_callback.call_args_list if c.args[0] == "on_order_cancelled"]
         cb = cancelled_calls[0].args[1]
         engine._health.signals_pending = 1
         cb(order, MagicMock())

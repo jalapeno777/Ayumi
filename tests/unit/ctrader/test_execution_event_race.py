@@ -32,9 +32,9 @@ _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (  # noqa: I001
     ProtoOAExecutionType,
-    ProtoOAOrderStatus,
+    ProtoOAOrderStatus,  # noqa: F401
 )
 
 from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirection
@@ -74,9 +74,7 @@ def _make_minimal_feed() -> OpenApiSpotFeed:
     # implementation submits to a ThreadPoolExecutor (which is mocked as a
     # bare MagicMock and would silently drop the callback). Tests need to
     # see the callback fire in the test thread so assertions can observe it.
-    feed._trigger_callback = lambda event, *args: [
-        cb(*args) for cb in list(feed._callbacks.get(event, []))
-    ]
+    feed._trigger_callback = lambda event, *args: [cb(*args) for cb in list(feed._callbacks.get(event, []))]
     feed._callback_executor = MagicMock()
     feed._state_mgr = MagicMock()
     feed._state_mgr.is_operational = True
@@ -162,9 +160,7 @@ class TestTerminalOnlyStateMachine:
         assert ProtoOAExecutionType.ORDER_ACCEPTED not in _TERMINAL_EXEC_TYPES
         assert ProtoOAExecutionType.ORDER_REPLACED not in _TERMINAL_EXEC_TYPES
         assert ProtoOAExecutionType.ORDER_PARTIAL_FILL not in _TERMINAL_EXEC_TYPES
-        assert (
-            ProtoOAExecutionType.ORDER_CANCEL_REJECTED not in _TERMINAL_EXEC_TYPES
-        )
+        assert ProtoOAExecutionType.ORDER_CANCEL_REJECTED not in _TERMINAL_EXEC_TYPES
 
     def test_accept_does_not_pop_pending_or_fire_callback(self):
         """ACCEPT(2) is informational: log only, no pop, no callback.
@@ -196,20 +192,12 @@ class TestTerminalOnlyStateMachine:
         feed._handle_execution_event(message, envelope)
 
         # Order must remain pending (no pop).
-        assert request_id in feed._pending_orders, (
-            "ACCEPT must NOT pop _pending_orders"
-        )
-        assert order.status == OrderStatus.PENDING, (
-            f"ACCEPT must NOT change order.status, got {order.status}"
-        )
+        assert request_id in feed._pending_orders, "ACCEPT must NOT pop _pending_orders"
+        assert order.status == OrderStatus.PENDING, f"ACCEPT must NOT change order.status, got {order.status}"
         # No callback fired.
-        assert fired == [], (
-            f"ACCEPT must NOT fire on_order_filled; fired={fired}"
-        )
+        assert fired == [], f"ACCEPT must NOT fire on_order_filled; fired={fired}"
         # Event must NOT be set (caller still waiting for terminal event).
-        assert not event.is_set(), (
-            "ACCEPT must NOT set the pending event"
-        )
+        assert not event.is_set(), "ACCEPT must NOT set the pending event"
 
     def test_filled_after_accept_fires_on_order_filled_once_with_filled_price(self):
         """Scenario (1): ACCEPT→pending-mutation→FILLED same-second.
@@ -251,14 +239,10 @@ class TestTerminalOnlyStateMachine:
 
         # Order is now FILLED, pending entry popped.
         assert order.status == OrderStatus.FILLED
-        assert order.filled_price == 1.12345, (
-            f"Filled price must come from FILLED payload, got {order.filled_price}"
-        )
+        assert order.filled_price == 1.12345, f"Filled price must come from FILLED payload, got {order.filled_price}"
         assert request_id not in feed._pending_orders
         # Exactly one on_order_filled callback fired (not two).
-        assert len(fired) == 1, (
-            f"Expected exactly one on_order_filled, got {len(fired)}"
-        )
+        assert len(fired) == 1, f"Expected exactly one on_order_filled, got {len(fired)}"
         # Dedupe flag set.
         assert getattr(order, "_fill_cb_fired", False) is True
 
@@ -305,8 +289,7 @@ class TestTerminalOnlyStateMachine:
 
         # Still exactly one callback (second was deduped).
         assert len(fired) == 1, (
-            f"Duplicate FILLED re-emission must NOT re-fire on_order_filled; "
-            f"got {len(fired)} callbacks"
+            f"Duplicate FILLED re-emission must NOT re-fire on_order_filled; got {len(fired)} callbacks"
         )
         # Original fill price preserved.
         assert order.filled_price == 1.11111, (
@@ -318,9 +301,7 @@ class TestTerminalOnlyStateMachine:
         feed = _make_minimal_feed()
 
         fired_cancelled = []
-        feed._callbacks["on_order_cancelled"] = [
-            lambda o, m: fired_cancelled.append(o)
-        ]
+        feed._callbacks["on_order_cancelled"] = [lambda o, m: fired_cancelled.append(o)]
 
         request_id = "test_req_cancel"
         order = _make_order(order_id=request_id)
@@ -381,9 +362,7 @@ class TestTerminalOnlyStateMachine:
         feed = _make_minimal_feed()
 
         fired_cancelled = []
-        feed._callbacks["on_order_cancelled"] = [
-            lambda o, m: fired_cancelled.append(o)
-        ]
+        feed._callbacks["on_order_cancelled"] = [lambda o, m: fired_cancelled.append(o)]
 
         request_id = "test_req_expire"
         order = _make_order(order_id=request_id)
@@ -427,7 +406,7 @@ class TestLateFillRegistryUpgrade:
         request_id = "test_req_late"
         order = _make_order(order_id=request_id)
         order.status = OrderStatus.PENDING  # Indeterminate timeout left it PENDING
-        setattr(order, "reason", _INDETERMINATE_TIMEOUT_REASON)
+        setattr(order, "reason", _INDETERMINATE_TIMEOUT_REASON)  # noqa: B010
         client_msg_id = f"order_late_{request_id}"
 
         # Simulate the timeout path having registered the late-fill entry.
@@ -447,19 +426,12 @@ class TestLateFillRegistryUpgrade:
         feed._handle_execution_event(filled_msg, envelope)
 
         # Order upgraded to FILLED via the registry.
-        assert order.status == OrderStatus.FILLED, (
-            f"Late FILLED upgrade must set FILLED, got {order.status}"
-        )
-        assert order.filled_price == 1.55555, (
-            f"Late FILLED must use FILLED payload price, got {order.filled_price}"
-        )
+        assert order.status == OrderStatus.FILLED, f"Late FILLED upgrade must set FILLED, got {order.status}"
+        assert order.filled_price == 1.55555, f"Late FILLED must use FILLED payload price, got {order.filled_price}"
         # Registry entry consumed.
         assert request_id not in feed._late_fill_registry
         # Callback fired exactly once.
-        assert len(fired) == 1, (
-            f"Late FILLED upgrade must fire on_order_filled exactly once, "
-            f"got {len(fired)}"
-        )
+        assert len(fired) == 1, f"Late FILLED upgrade must fire on_order_filled exactly once, got {len(fired)}"
 
     def test_post_ttl_filled_increments_unmatched_late_fills_counter(self):
         """Scenario (5): post-TTL FILLED → bounded drop + unmatched_late_fills counter.
@@ -494,9 +466,7 @@ class TestLateFillRegistryUpgrade:
         feed._handle_execution_event(filled_msg, envelope)
 
         # Order NOT upgraded (registry expired → DROP).
-        assert order.status == OrderStatus.PENDING, (
-            f"Post-TTL FILLED must NOT upgrade order; status={order.status}"
-        )
+        assert order.status == OrderStatus.PENDING, f"Post-TTL FILLED must NOT upgrade order; status={order.status}"
         assert len(fired) == 0, "Post-TTL FILLED must NOT fire callback"
         # Counter incremented.
         assert feed._unmatched_late_fills_count == initial_unmatched + 1, (
@@ -526,12 +496,9 @@ class TestSessionConflictDetection:
         result = feed._handle_pending_order_error(message, envelope)
 
         assert result is False, (
-            "SESSION-CONFLICT must return False (no match) so the caller knows "
-            "the event was not consumed"
+            "SESSION-CONFLICT must return False (no match) so the caller knows the event was not consumed"
         )
-        assert (
-            feed._order_error_session_conflict_count == initial_count + 1
-        ), (
+        assert feed._order_error_session_conflict_count == initial_count + 1, (
             f"Session-conflict counter must increment; "
             f"before={initial_count} after={feed._order_error_session_conflict_count}"
         )
@@ -552,9 +519,9 @@ class TestSessionConflictDetection:
 
         feed._handle_pending_order_error(message, envelope)
 
-        assert (
-            feed._order_error_session_conflict_count == initial_count + 1
-        ), "Description-based 'already authorized' must also trigger counter"
+        assert feed._order_error_session_conflict_count == initial_count + 1, (
+            "Description-based 'already authorized' must also trigger counter"
+        )
 
     def test_other_empty_id_errors_do_not_increment_session_conflict_counter(self):
         """Empty-id error with non-ALREADY_LOGGED_IN code keeps current behaviour.
@@ -578,9 +545,9 @@ class TestSessionConflictDetection:
 
         feed._handle_pending_order_error(message, envelope)
 
-        assert (
-            feed._order_error_session_conflict_count == initial_count
-        ), "Non-session-conflict errors must NOT bump session-conflict counter"
+        assert feed._order_error_session_conflict_count == initial_count, (
+            "Non-session-conflict errors must NOT bump session-conflict counter"
+        )
 
     def test_session_conflict_does_not_double_count_on_pending_match(self):
         """When clientOrderId matches a pending order, session-conflict path is NOT taken.
@@ -600,9 +567,7 @@ class TestSessionConflictDetection:
         feed._pending_client_msg_ids[f"order_{request_id}"] = request_id
 
         fired_rejected = []
-        feed._callbacks["on_order_rejected"] = [
-            lambda o, m, r: fired_rejected.append(r)
-        ]
+        feed._callbacks["on_order_rejected"] = [lambda o, m, r: fired_rejected.append(r)]
 
         message = MagicMock()
         message.clientOrderId = request_id
@@ -619,9 +584,9 @@ class TestSessionConflictDetection:
         assert result is True, "Pending-order match must return True"
         assert order.status == OrderStatus.REJECTED
         assert len(fired_rejected) == 1
-        assert (
-            feed._order_error_session_conflict_count == initial_count
-        ), "Pending-match path must NOT bump session-conflict counter"
+        assert feed._order_error_session_conflict_count == initial_count, (
+            "Pending-match path must NOT bump session-conflict counter"
+        )
 
 
 class TestIndeterminateTimeoutSemantics:
@@ -658,7 +623,7 @@ class TestLateFillDedupeOnUpgrade:
         order = _make_order(order_id=request_id)
         # Simulate the order having already fired on_order_filled (the
         # _fill_cb_fired flag is set).
-        setattr(order, "_fill_cb_fired", True)
+        setattr(order, "_fill_cb_fired", True)  # noqa: B010
         client_msg_id = f"order_dedupe_{request_id}"
 
         feed._register_late_fill(request_id, order, client_msg_id)
@@ -674,10 +639,7 @@ class TestLateFillDedupeOnUpgrade:
         feed._handle_execution_event(filled_msg, envelope)
 
         # No re-fire.
-        assert len(fired) == 0, (
-            "Late-registry FILLED with _fill_cb_fired=True must NOT re-fire "
-            "on_order_filled"
-        )
+        assert len(fired) == 0, "Late-registry FILLED with _fill_cb_fired=True must NOT re-fire on_order_filled"
         # Order status NOT changed (the dedupe short-circuits before the
         # status write — but the registry entry was popped during lookup).
         # We don't assert status here since the dedupe happens after the
@@ -738,12 +700,8 @@ class TestOrderErrorFirstLateFillAtomicityRework2:
 
         fired_filled = []
         fired_rejected = []
-        feed._callbacks["on_order_filled"] = [
-            lambda o, m: fired_filled.append(o)
-        ]
-        feed._callbacks["on_order_rejected"] = [
-            lambda o, m, r: fired_rejected.append(r)
-        ]
+        feed._callbacks["on_order_filled"] = [lambda o, m: fired_filled.append(o)]
+        feed._callbacks["on_order_rejected"] = [lambda o, m, r: fired_rejected.append(r)]
 
         request_id = "test_req_order_error_first"
         order = _make_order(order_id=request_id)
@@ -782,29 +740,18 @@ class TestOrderErrorFirstLateFillAtomicityRework2:
         result = feed._handle_pending_order_error(order_error_msg, envelope)
 
         # Order resolved as REJECTED, on_order_rejected fired exactly once.
-        assert result is True, (
-            "handle_pending_order_error must return True when an order "
-            "is matched and resolved"
-        )
+        assert result is True, "handle_pending_order_error must return True when an order is matched and resolved"
         assert order.status == OrderStatus.REJECTED, (
-            f"Order must be REJECTED after order_error handler; "
-            f"got {order.status}"
+            f"Order must be REJECTED after order_error handler; got {order.status}"
         )
-        assert len(fired_rejected) == 1, (
-            f"on_order_rejected must fire exactly once; got {len(fired_rejected)}"
-        )
-        assert len(fired_filled) == 0, (
-            f"on_order_filled must NOT fire on order_error path; "
-            f"got {len(fired_filled)}"
-        )
+        assert len(fired_rejected) == 1, f"on_order_rejected must fire exactly once; got {len(fired_rejected)}"
+        assert len(fired_filled) == 0, f"on_order_filled must NOT fire on order_error path; got {len(fired_filled)}"
 
         # ── Atomic consume invariant (the rework-2 fix) ───────────────
         # After the order_error handler returns, ALL THREE maps must be
         # empty for this order. Pre-fix: only _pending_orders was popped.
         # The registry entry + reverse map survived.
-        assert request_id not in feed._pending_orders, (
-            "Atomic consume must clear pending on REJECTED resolution"
-        )
+        assert request_id not in feed._pending_orders, "Atomic consume must clear pending on REJECTED resolution"
         assert request_id not in feed._late_fill_registry, (
             "Atomic consume must clear late-fill registry on REJECTED "
             "resolution (the pre-fix rework-2 bug: registry entry survived)"
@@ -834,8 +781,7 @@ class TestOrderErrorFirstLateFillAtomicityRework2:
         # ── Final state assertions ───────────────────────────────────
         # Order status NOT overwritten — REJECTED stands.
         assert order.status == OrderStatus.REJECTED, (
-            f"Late FILLED must NOT overwrite confirmed REJECTED; "
-            f"got {order.status}"
+            f"Late FILLED must NOT overwrite confirmed REJECTED; got {order.status}"
         )
         # No on_order_filled ever fired (the regression that Rin flagged).
         assert len(fired_filled) == 0, (
@@ -844,9 +790,7 @@ class TestOrderErrorFirstLateFillAtomicityRework2:
         )
         # Still exactly one on_order_rejected (the original REJECTED
         # callback is the only one).
-        assert len(fired_rejected) == 1, (
-            f"Exactly one on_order_rejected must fire; got {len(fired_rejected)}"
-        )
+        assert len(fired_rejected) == 1, f"Exactly one on_order_rejected must fire; got {len(fired_rejected)}"
         # All three maps still empty for this order (DEFENSIVE: the
         # unmatched-DROP path on the late FILLED must not have
         # re-populated anything).

@@ -37,7 +37,7 @@ Per the research doc (§7.6) this is the *single highest-value* live ICIR
 use — independently of PnL, it is the earliest signal of skill decay.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 from collections import defaultdict
@@ -227,9 +227,7 @@ class IcirMonitor:
         dict[datetime, tuple[list[float], list[float]]]
             Mapping from bucket key → (confidences, r_multiples).
         """
-        buckets: dict[datetime, tuple[list[float], list[float]]] = defaultdict(
-            lambda: ([], [])
-        )
+        buckets: dict[datetime, tuple[list[float], list[float]]] = defaultdict(lambda: ([], []))
         for ts, conf, r in self._observations:
             key = _bucket_key(ts, self.bucket_granularity)
             confs, rs = buckets[key]
@@ -298,18 +296,14 @@ class IcirMonitor:
         # datetimes at midnight). If observations are tz-aware, drop the
         # tz for windowing — compare on the calendar wall clock. This is
         # a deliberate simplification; forward tests run on UTC.
-        now_cmp = (
-            now.replace(tzinfo=None) if isinstance(now, datetime) else datetime.utcnow()
-        )
+        now_cmp = now.replace(tzinfo=None) if isinstance(now, datetime) else datetime.utcnow()
 
         buckets = self._bucket_observations()
         icir_by_window: dict[int, float | None] = {}
         n_obs_by_window: dict[int, int] = {}
 
         for window_days in self.windows_days:
-            icir_v, n_obs, _n_buckets = self._icir_for_window(
-                buckets, window_days, now_cmp
-            )
+            icir_v, n_obs, _n_buckets = self._icir_for_window(buckets, window_days, now_cmp)
             icir_by_window[window_days] = icir_v
             n_obs_by_window[window_days] = n_obs
 

@@ -6,10 +6,10 @@ Traces which SRMR+ filters reject each bar during trading session hours.
 Uses the same logic as SRMRPlusStrategy.evaluate() but with per-filter logging.
 """
 
-import csv
+import csv  # noqa: I001
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, time, date
+from datetime import datetime, time, date  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Config mirrors (default SRMRPlusConfig)
@@ -208,21 +208,23 @@ def load_bars(csv_path):
     with open(csv_path) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            bars.append({
-                "time": datetime.fromisoformat(row["Datetime"].replace("+00:00", "")),
-                "open": float(row["Open"]),
-                "high": float(row["High"]),
-                "low": float(row["Low"]),
-                "close": float(row["Close"]),
-                "volume": int(float(row["Volume"])),
-            })
+            bars.append(
+                {
+                    "time": datetime.fromisoformat(row["Datetime"].replace("+00:00", "")),
+                    "open": float(row["Open"]),
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"]),
+                    "volume": int(float(row["Volume"])),
+                }
+            )
     return bars
 
 
 def diagnose_bar(bars, idx):
     """Return (rejection_reason, details_dict) for bar at idx."""
     latest = bars[idx]
-    state_bars = bars[:idx + 1]
+    state_bars = bars[: idx + 1]
 
     min_required = max(ATR_PERIOD + RSI_PERIOD + 2, ADX_PERIOD * 2 + 1, EMA_TREND_PERIOD + 1)
     if len(state_bars) < min_required:
@@ -234,9 +236,7 @@ def diagnose_bar(bars, idx):
     current_session = get_session_type(latest["time"])
     current_day = latest["time"].date()
 
-    session_high, session_low, session_mean = get_previous_session_range(
-        state_bars, current_day, current_session
-    )
+    session_high, session_low, session_mean = get_previous_session_range(state_bars, current_day, current_session)
     if session_high == 0:
         return "no_prev_session_range", {"day": str(current_day), "session": current_session}
 
@@ -275,13 +275,19 @@ def diagnose_bar(bars, idx):
 
     if near_low and rsi_long_ok and rsi_trend_long_ok:
         return "SIGNAL_LONG", {
-            "price": price, "session_low": session_low, "rsi": rsi, "adx": adx,
+            "price": price,
+            "session_low": session_low,
+            "rsi": rsi,
+            "adx": adx,
             "range_pips": session_range_width,
         }
 
     if near_high and rsi_short_ok and rsi_trend_short_ok:
         return "SIGNAL_SHORT", {
-            "price": price, "session_high": session_high, "rsi": rsi, "adx": adx,
+            "price": price,
+            "session_high": session_high,
+            "rsi": rsi,
+            "adx": adx,
             "range_pips": session_range_width,
         }
 
@@ -327,8 +333,14 @@ def main():
             signal_count += 1
         elif reason == "no_entry_condition":
             # Track which sub-conditions fail
-            for key in ["near_low", "near_high", "rsi_long_ok", "rsi_short_ok",
-                         "rsi_trend_long_ok", "rsi_trend_short_ok"]:
+            for key in [
+                "near_low",
+                "near_high",
+                "rsi_long_ok",
+                "rsi_short_ok",
+                "rsi_trend_long_ok",
+                "rsi_trend_short_ok",
+            ]:
                 no_entry_details[key].append(details[key])
 
             # Also track RSI distribution and distance from extremes
@@ -355,11 +367,10 @@ def main():
         print(f"=== 'No entry condition' sub-filter analysis ({no_entry_count} bars) ===")
         print()
 
-        for key in ["near_low", "near_high", "rsi_long_ok", "rsi_short_ok",
-                     "rsi_trend_long_ok", "rsi_trend_short_ok"]:
+        for key in ["near_low", "near_high", "rsi_long_ok", "rsi_short_ok", "rsi_trend_long_ok", "rsi_trend_short_ok"]:
             vals = no_entry_details[key]
             true_count = sum(1 for v in vals if v)
-            print(f"  {key:25s} True: {true_count:5d}/{len(vals)} ({100*true_count/len(vals):.1f}%)")
+            print(f"  {key:25s} True: {true_count:5d}/{len(vals)} ({100 * true_count / len(vals):.1f}%)")
 
         print()
         rsi_vals = no_entry_details["rsi_values"]
@@ -368,28 +379,32 @@ def main():
         dist_high = no_entry_details["dist_from_high"]
 
         if rsi_vals:
-            print(f"  RSI distribution (bars in session, passed upstream filters):")
-            print(f"    min={min(rsi_vals):.1f}  max={max(rsi_vals):.1f}  mean={sum(rsi_vals)/len(rsi_vals):.1f}")
+            print(f"  RSI distribution (bars in session, passed upstream filters):")  # noqa: F541
+            print(f"    min={min(rsi_vals):.1f}  max={max(rsi_vals):.1f}  mean={sum(rsi_vals) / len(rsi_vals):.1f}")
             rsi_below_30 = sum(1 for r in rsi_vals if r < 30)
             rsi_above_70 = sum(1 for r in rsi_vals if r > 70)
             rsi_30_70 = sum(1 for r in rsi_vals if 30 <= r <= 70)
             print(f"    <30 (oversold): {rsi_below_30}  |  >70 (overbought): {rsi_above_70}  |  30-70: {rsi_30_70}")
 
         if adx_vals:
-            print(f"  ADX distribution (these bars):")
-            print(f"    min={min(adx_vals):.1f}  max={max(adx_vals):.1f}  mean={sum(adx_vals)/len(adx_vals):.1f}")
+            print(f"  ADX distribution (these bars):")  # noqa: F541
+            print(f"    min={min(adx_vals):.1f}  max={max(adx_vals):.1f}  mean={sum(adx_vals) / len(adx_vals):.1f}")
 
         if dist_low:
-            print(f"  Distance from session low (pips):")
-            print(f"    min={min(dist_low):.1f}  max={max(dist_low):.1f}  mean={sum(dist_low)/len(dist_low):.1f}")
+            print(f"  Distance from session low (pips):")  # noqa: F541
+            print(f"    min={min(dist_low):.1f}  max={max(dist_low):.1f}  mean={sum(dist_low) / len(dist_low):.1f}")
             within_8_low = sum(1 for d in dist_low if d <= 8.0)
-            print(f"    Within 8 pips of low: {within_8_low}/{len(dist_low)} ({100*within_8_low/len(dist_low):.1f}%)")
+            print(
+                f"    Within 8 pips of low: {within_8_low}/{len(dist_low)} ({100 * within_8_low / len(dist_low):.1f}%)"
+            )
 
         if dist_high:
-            print(f"  Distance from session high (pips):")
-            print(f"    min={min(dist_high):.1f}  max={max(dist_high):.1f}  mean={sum(dist_high)/len(dist_high):.1f}")
+            print(f"  Distance from session high (pips):")  # noqa: F541
+            print(f"    min={min(dist_high):.1f}  max={max(dist_high):.1f}  mean={sum(dist_high) / len(dist_high):.1f}")
             within_8_high = sum(1 for d in dist_high if d <= 8.0)
-            print(f"    Within 8 pips of high: {within_8_high}/{len(dist_high)} ({100*within_8_high/len(dist_high):.1f}%)")
+            print(
+                f"    Within 8 pips of high: {within_8_high}/{len(dist_high)} ({100 * within_8_high / len(dist_high):.1f}%)"  # noqa: E501
+            )  # noqa: E501
 
     # Also compute signal rate per day for recent data
     print()

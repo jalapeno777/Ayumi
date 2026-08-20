@@ -19,7 +19,7 @@ Usage:
         logger.info(chain.last_rejection)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from dataclasses import dataclass
@@ -160,9 +160,7 @@ class FilterChain:
                     logger.debug("FilterChain short-circuit at %s", name)
                     return False
             except Exception as exc:
-                logger.warning(
-                    "FilterChain: %s raised %s — treating as pass", name, exc
-                )
+                logger.warning("FilterChain: %s raised %s — treating as pass", name, exc)
                 # Don't fail the chain on a filter error — fail open
                 continue
 

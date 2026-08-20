@@ -94,17 +94,9 @@ class CTraderAuth:
         """
         root = _project_root()
 
-        cred_path = (
-            Path(credentials_path)
-            if credentials_path
-            else root / "data" / ".credentials"
-        )
+        cred_path = Path(credentials_path) if credentials_path else root / "data" / ".credentials"
         env_p = Path(env_path) if env_path else root / ".env"
-        token_path = (
-            Path(token_state_path)
-            if token_state_path
-            else root / "data" / "token_state.json"
-        )
+        token_path = Path(token_state_path) if token_state_path else root / "data" / "token_state.json"
 
         cred_mgr = CredentialManager(
             credentials_path=cred_path,
@@ -122,9 +114,7 @@ class CTraderAuth:
             logger.debug("Loaded credentials from %s", cred_path)
         except CredentialError:
             if not auto_migrate:
-                raise CredentialError(
-                    "Credentials file not found and auto_migrate=False"
-                ) from None
+                raise CredentialError("Credentials file not found and auto_migrate=False") from None
 
         # Auto-migrate from .env if needed
         if credentials is None and auto_migrate:
@@ -136,8 +126,7 @@ class CTraderAuth:
                     raise CredentialError(f"Auto-migration failed: {exc}") from exc
             else:
                 raise CredentialError(
-                    "No credentials found in .env or credentials file. "
-                    "Configure cTrader credentials first."
+                    "No credentials found in .env or credentials file. Configure cTrader credentials first."
                 )
 
         # Startup guard: check for dual source

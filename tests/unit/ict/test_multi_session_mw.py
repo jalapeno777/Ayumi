@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime
 
@@ -70,9 +70,7 @@ class TestMWPatternIsMultiSession:
         assert p.is_multi_session is True
 
     def test_three_sessions_is_multi(self):
-        p = _make_mw_pattern(
-            [SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5 + [SessionType.NY_PM] * 5
-        )
+        p = _make_mw_pattern([SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5 + [SessionType.NY_PM] * 5)
         assert p.is_multi_session is True
 
     def test_outside_only_is_not_multi(self):
@@ -84,11 +82,7 @@ class TestMWPatternIsMultiSession:
         assert p.is_multi_session is False
 
     def test_outside_plus_two_sessions_is_multi(self):
-        p = _make_mw_pattern(
-            [SessionType.OUTSIDE] * 5
-            + [SessionType.LONDON] * 5
-            + [SessionType.NY_AM] * 5
-        )
+        p = _make_mw_pattern([SessionType.OUTSIDE] * 5 + [SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5)
         assert p.is_multi_session is True
 
     def test_empty_sessions_is_not_multi(self):
@@ -106,17 +100,12 @@ class TestMWPatternSessionSpanQualityScore:
         assert p.session_span_quality_score == 0.85
 
     def test_three_sessions_has_highest_score(self):
-        p = _make_mw_pattern(
-            [SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5 + [SessionType.NY_PM] * 5
-        )
+        p = _make_mw_pattern([SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5 + [SessionType.NY_PM] * 5)
         assert p.session_span_quality_score == 1.0
 
     def test_four_or_more_sessions_has_highest_score(self):
         p = _make_mw_pattern(
-            [SessionType.LONDON] * 5
-            + [SessionType.NY_AM] * 5
-            + [SessionType.NY_PM] * 5
-            + [SessionType.LONDON] * 5
+            [SessionType.LONDON] * 5 + [SessionType.NY_AM] * 5 + [SessionType.NY_PM] * 5 + [SessionType.LONDON] * 5
         )
         assert p.session_span_quality_score == 1.0
 
@@ -143,9 +132,7 @@ class TestComputeSessionSpan:
         assert is_multi is False
 
     def test_multi_session_bars_london_ny(self):
-        bars = [_make_bar(hour=9) for _ in range(5)] + [
-            _make_bar(hour=13) for _ in range(5)
-        ]
+        bars = [_make_bar(hour=9) for _ in range(5)] + [_make_bar(hour=13) for _ in range(5)]
         count, is_multi = compute_session_span(bars)
         assert count == 2
         assert is_multi is True
@@ -161,9 +148,7 @@ class TestComputeSessionSpan:
         assert is_multi is True
 
     def test_outside_hours_excluded(self):
-        bars = [_make_bar(hour=21) for _ in range(5)] + [
-            _make_bar(hour=22) for _ in range(5)
-        ]
+        bars = [_make_bar(hour=21) for _ in range(5)] + [_make_bar(hour=22) for _ in range(5)]
         count, is_multi = compute_session_span(bars)
         assert count == 0
         assert is_multi is False

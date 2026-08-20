@@ -16,7 +16,7 @@ Usage:
     python3 scripts/walk_forward_lbo.py
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 import time
 import pickle
@@ -32,7 +32,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 from core.types import Bar, MarketState, SessionType, BarPeriod
 from strategies.london_breakout_retest import (
     LondonBreakoutRetestStrategy,
@@ -76,7 +76,7 @@ N_WINDOWS = 5
 def load_bars(con, symbol, tf):
     """Load bars from DuckDB, return list of Bar objects."""
     rows = con.execute(
-        f"SELECT timestamp_utc, open, high, low, close, volume "
+        f"SELECT timestamp_utc, open, high, low, close, volume "  # noqa: S608
         f"FROM bars WHERE symbol='{symbol}' AND timeframe='{tf}' "
         f"ORDER BY timestamp_utc ASC"
     ).fetchall()
@@ -135,11 +135,11 @@ def precompute(bars, detector):
         if i >= WINDOW:
             w = bars[max(0, i - WINDOW) : i + 1]
             h = np.array([b.high for b in w])
-            l = np.array([b.low for b in w])
+            l = np.array([b.low for b in w])  # noqa: E741
             c = np.array([b.close for b in w])
             try:
                 regimes[i] = detector.detect_current(h, l, c)
-            except:
+            except:  # noqa: E722, S110
                 pass
             try:
                 a = calc_adx(h, l, c, 14)
@@ -147,7 +147,7 @@ def precompute(bars, detector):
                     val = float(a.iloc[-1]) if hasattr(a, "iloc") else float(a[-1])
                     if not np.isnan(val):
                         adxs[i] = val
-            except:
+            except:  # noqa: E722, S110
                 pass
         hr = bars[i].time.hour
         sess[i] = session_label(hr)
@@ -156,20 +156,18 @@ def precompute(bars, detector):
 
 def get_or_cache_labels(symbol, tf, bars, detector):
     """Cache precomputed labels to disk."""
-    h = hashlib.md5(
+    h = hashlib.md5(  # noqa: S324
         f"{symbol}_{tf}_{len(bars)}_{bars[0].time}_{bars[-1].time}".encode()
     ).hexdigest()[:12]
     cache_file = CACHE_DIR / f"labels_{symbol}_{tf}_{h}.pkl"
     if cache_file.exists():
         print(f"Loading cached labels from {cache_file.name}", flush=True)
         with open(cache_file, "rb") as f:
-            return pickle.load(f)
+            return pickle.load(f)  # noqa: S301
     print(f"Precomputing labels for {symbol} {tf} ({len(bars)} bars)...", flush=True)
     t0 = time.time()
     result = precompute(bars, detector)
-    print(
-        f"  Done in {time.time() - t0:.1f}s — caching to {cache_file.name}", flush=True
-    )
+    print(f"  Done in {time.time() - t0:.1f}s — caching to {cache_file.name}", flush=True)
     with open(cache_file, "wb") as f:
         pickle.dump(result, f)
     return result
@@ -217,16 +215,12 @@ STRATEGY_CONFIGS = {
     "dual_tf_squeeze_pro": {
         "symbol_tf": ("XAUUSD", "M15"),
         "factory": lambda: DualTFSqueezeProStrategy(DualTFSqueezeProConfig()),
-        "gate": GateConfig(
-            {Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}
-        ),
+        "gate": GateConfig({Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}),
     },
     "donchian_atr_trend_v2": {
         "symbol_tf": ("XAUUSD", "H1"),
         "factory": lambda: DonchianATRTrendV2Strategy(DonchianATRConfig()),
-        "gate": GateConfig(
-            {Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None
-        ),
+        "gate": GateConfig({Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None),
     },
     "srmr_plus": {
         "symbol_tf": ("XAUUSD", "M15"),
@@ -251,9 +245,7 @@ LBO_CONFIG = STRATEGY_CONFIGS["london_breakout_retest"]
 # ─── Backtest Engine ───────────────────────────────────────────────────────
 
 
-def run_strategy_on_range(
-    factory, bars, gate, regimes, adxs, sess, start_idx, end_idx, lookback=300
-):
+def run_strategy_on_range(factory, bars, gate, regimes, adxs, sess, start_idx, end_idx, lookback=300):
     """Run a strategy on bars[start_idx:end_idx], returning list of trade PnLs.
 
     Uses bars before start_idx for indicator warmup (lookback bars).
@@ -312,7 +304,7 @@ def run_strategy_on_range(
         )
         try:
             sig = s.evaluate(state)
-        except:
+        except:  # noqa: E722, S112
             continue
         if sig is None:
             continue
@@ -346,7 +338,7 @@ def metrics(trades):
     if not trades:
         return {"trades": 0, "pf": 0.0, "net": 0.0, "dd_pct": 0.0, "wr": 0.0}
     w = [t for t in trades if t > 0]
-    l = [t for t in trades if t <= 0]
+    l = [t for t in trades if t <= 0]  # noqa: E741
     gw, gl = sum(w), abs(sum(l))
     pf = gw / gl if gl > 0 else 999.0
     eq = np.cumsum(trades)
@@ -551,7 +543,7 @@ def run_walk_forward(name, factory, gate, bars, regimes, adxs, sess, windows):
         period = f"{w['date_start'].strftime('%Y-%m-%d')} → {w['date_end'].strftime('%Y-%m-%d')}"
         pass_str = "✅" if passed else "❌"
         print(
-            f"| W{w['id']} | {period} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% | {pass_str} |",
+            f"| W{w['id']} | {period} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% | {pass_str} |",  # noqa: E501
             flush=True,
         )
 
@@ -693,7 +685,7 @@ def run_blend_walk_forward(
         period = f"{w['date_start'].strftime('%Y-%m-%d')} → {w['date_end'].strftime('%Y-%m-%d')}"
         pass_str = "✅" if passed else "❌"
         print(
-            f"| W{w['id']} | {period} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% | {pass_str} |",
+            f"| W{w['id']} | {period} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% | {pass_str} |",  # noqa: E501
             flush=True,
         )
 
@@ -750,9 +742,7 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     # Overall verdict
     lbo_pass = lbo_wf["pass_rate"] >= 80.0
     blend_pass = blend_wf["pass_rate"] >= 80.0
-    _mc_pass = (
-        lbo_mc["ftmo_pass_rate"] >= 50.0
-    )  # 50% MC pass is reasonable for low trade count
+    _mc_pass = lbo_mc["ftmo_pass_rate"] >= 50.0  # 50% MC pass is reasonable for low trade count
 
     if lbo_pass and blend_pass:
         verdict = "PASS"
@@ -762,12 +752,10 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
         verdict_reason = "LBO is stable but blend shows weakness. Investigate which strategies drag the blend."
     elif not lbo_pass and blend_pass:
         verdict = "PARTIAL PASS"
-        verdict_reason = "Blend is stable but LBO alone shows fragility. LBO may add value in combination despite individual weakness."
+        verdict_reason = "Blend is stable but LBO alone shows fragility. LBO may add value in combination despite individual weakness."  # noqa: E501
     else:
         verdict = "FAIL"
-        verdict_reason = (
-            "Both LBO and blend fail walk-forward stability. Do not proceed to FTMO."
-        )
+        verdict_reason = "Both LBO and blend fail walk-forward stability. Do not proceed to FTMO."
 
     lines = []
     lines.append("# LBO + 5-Strategy Blend — Walk-Forward Validation")
@@ -777,26 +765,20 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     lines.append("")
     lines.append("## Methodology")
     lines.append("")
-    lines.append(
-        f"- {N_WINDOWS} rolling OOS windows, each {TEST_DAYS} days test period"
-    )
+    lines.append(f"- {N_WINDOWS} rolling OOS windows, each {TEST_DAYS} days test period")
     lines.append("- Windows evenly spaced across full ~4.5 year data span")
     lines.append("- Strategies have fixed parameters (no optimization in train period)")
     lines.append(f"- Train period ({TRAIN_DAYS} days) used for indicator warmup only")
     lines.append("- Pass criterion per window: PF > 1.0 with ≥1 trade")
     lines.append("- Aggregate pass: ≥80% windows (4/5)")
-    lines.append(
-        "- Monte Carlo: 10,000 bootstrap paths, FTMO criteria (10% max DD, 10% profit target)"
-    )
+    lines.append("- Monte Carlo: 10,000 bootstrap paths, FTMO criteria (10% max DD, 10% profit target)")
     lines.append("")
     lines.append("## Walk-Forward Windows")
     lines.append("")
     lines.append("| Window | Test Period |")
     lines.append("|---|---|")
     for w in windows:
-        lines.append(
-            f"| W{w['id']} | {w['date_start'].strftime('%Y-%m-%d')} → {w['date_end'].strftime('%Y-%m-%d')} |"
-        )
+        lines.append(f"| W{w['id']} | {w['date_start'].strftime('%Y-%m-%d')} → {w['date_end'].strftime('%Y-%m-%d')} |")
     lines.append("")
 
     # LBO Walk-Forward
@@ -814,18 +796,14 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
         f"| **TOTAL** | **{a['trades']}** | **{a['pf']}** | **${a['net']}** | **{a['dd_pct']}%** | **{a['wr']}%** | |"
     )
     lines.append("")
-    lines.append(
-        f"**OOS Pass Rate:** {lbo_wf['passes']}/{lbo_wf['total_windows']} ({lbo_wf['pass_rate']:.0f}%)"
-    )
+    lines.append(f"**OOS Pass Rate:** {lbo_wf['passes']}/{lbo_wf['total_windows']} ({lbo_wf['pass_rate']:.0f}%)")
     lines.append(f"**Verdict:** {'✅ PASS (≥80%)' if lbo_pass else '❌ FAIL (<80%)'}")
     lines.append("")
 
     # Blend Walk-Forward
     lines.append("## 5-Strategy Blend Walk-Forward Results")
     lines.append("")
-    lines.append(
-        "**Blend:** Killzone Momentum + DualTF Squeeze Pro + Donchian ATR Trend + SRMR+ + LBO"
-    )
+    lines.append("**Blend:** Killzone Momentum + DualTF Squeeze Pro + Donchian ATR Trend + SRMR+ + LBO")
     lines.append("")
     lines.append("| Window | Trades | PF | Net $ | DD % | WR % | Pass |")
     lines.append("|---|---:|---:|---:|---:|---:|---|")
@@ -839,9 +817,7 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
         f"| **TOTAL** | **{a['trades']}** | **{a['pf']}** | **${a['net']}** | **{a['dd_pct']}%** | **{a['wr']}%** | |"
     )
     lines.append("")
-    lines.append(
-        f"**OOS Pass Rate:** {blend_wf['passes']}/{blend_wf['total_windows']} ({blend_wf['pass_rate']:.0f}%)"
-    )
+    lines.append(f"**OOS Pass Rate:** {blend_wf['passes']}/{blend_wf['total_windows']} ({blend_wf['pass_rate']:.0f}%)")
     lines.append(f"**Verdict:** {'✅ PASS (≥80%)' if blend_pass else '❌ FAIL (<80%)'}")
     lines.append("")
 
@@ -850,19 +826,13 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     lines.append("")
     lines.append("### LBO — Full Period")
     fm = lbo_full[1]
-    lines.append(
-        f"Full period: {fm['trades']} trades, PF={fm['pf']}, Net=${fm['net']}, DD={fm['dd_pct']}%"
-    )
+    lines.append(f"Full period: {fm['trades']} trades, PF={fm['pf']}, Net=${fm['net']}, DD={fm['dd_pct']}%")
     lines.append("")
     lines.append("| Metric | Value |")
     lines.append("|---|---|")
-    lines.append(
-        f"| FTMO Pass Rate (DD<10% AND profit≥10%) | {lbo_mc['ftmo_pass_rate']}% |"
-    )
+    lines.append(f"| FTMO Pass Rate (DD<10% AND profit≥10%) | {lbo_mc['ftmo_pass_rate']}% |")
     lines.append(f"| DD Survival Rate (DD<10% only) | {lbo_mc['dd_survival_rate']}% |")
-    lines.append(
-        f"| Profit Target Hit Rate (≥10% profit) | {lbo_mc['profit_hit_rate']}% |"
-    )
+    lines.append(f"| Profit Target Hit Rate (≥10% profit) | {lbo_mc['profit_hit_rate']}% |")
     lines.append(f"| Median Max DD | {lbo_mc['median_max_dd']}% |")
     lines.append(f"| 95th Percentile Max DD | {lbo_mc['p5_max_dd']}% |")
     lines.append(f"| Median Final PnL | ${lbo_mc['median_final_pnl']} |")
@@ -872,21 +842,13 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
 
     lines.append("### 5-Strategy Blend — Full Period")
     bm = blend_full[1]
-    lines.append(
-        f"Full period: {bm['trades']} trades, PF={bm['pf']}, Net=${bm['net']}, DD={bm['dd_pct']}%"
-    )
+    lines.append(f"Full period: {bm['trades']} trades, PF={bm['pf']}, Net=${bm['net']}, DD={bm['dd_pct']}%")
     lines.append("")
     lines.append("| Metric | Value |")
     lines.append("|---|---|")
-    lines.append(
-        f"| FTMO Pass Rate (DD<10% AND profit≥10%) | {blend_mc['ftmo_pass_rate']}% |"
-    )
-    lines.append(
-        f"| DD Survival Rate (DD<10% only) | {blend_mc['dd_survival_rate']}% |"
-    )
-    lines.append(
-        f"| Profit Target Hit Rate (≥10% profit) | {blend_mc['profit_hit_rate']}% |"
-    )
+    lines.append(f"| FTMO Pass Rate (DD<10% AND profit≥10%) | {blend_mc['ftmo_pass_rate']}% |")
+    lines.append(f"| DD Survival Rate (DD<10% only) | {blend_mc['dd_survival_rate']}% |")
+    lines.append(f"| Profit Target Hit Rate (≥10% profit) | {blend_mc['profit_hit_rate']}% |")
     lines.append(f"| Median Max DD | {blend_mc['median_max_dd']}% |")
     lines.append(f"| 95th Percentile Max DD | {blend_mc['p5_max_dd']}% |")
     lines.append(f"| Median Final PnL | ${blend_mc['median_final_pnl']} |")
@@ -923,12 +885,10 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     lines.append("")
     lines.append("### Monte Carlo Risk")
     lines.append(
-        f"LBO Monte Carlo FTMO pass rate: {lbo_mc['ftmo_pass_rate']}%. "
-        f"Median max DD: {lbo_mc['median_max_dd']}%."
+        f"LBO Monte Carlo FTMO pass rate: {lbo_mc['ftmo_pass_rate']}%. Median max DD: {lbo_mc['median_max_dd']}%."
     )
     lines.append(
-        f"Blend Monte Carlo FTMO pass rate: {blend_mc['ftmo_pass_rate']}%. "
-        f"Median max DD: {blend_mc['median_max_dd']}%."
+        f"Blend Monte Carlo FTMO pass rate: {blend_mc['ftmo_pass_rate']}%. Median max DD: {blend_mc['median_max_dd']}%."
     )
     lines.append("")
     lines.append("### Statistical Caveats")
@@ -936,15 +896,9 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
         f"- LBO has {fm['trades']} trades over 4.5 years (~{fm['trades'] / 4.5:.1f}/year). "
         "Confidence intervals are wide at this sample size."
     )
-    lines.append(
-        "- Walk-forward with 5 windows reduces but does not eliminate overfit risk."
-    )
-    lines.append(
-        "- Monte Carlo bootstrap assumes trades are i.i.d. — serial correlation is not modeled."
-    )
-    lines.append(
-        "- FTMO pass rate is a necessary but not sufficient condition for live trading."
-    )
+    lines.append("- Walk-forward with 5 windows reduces but does not eliminate overfit risk.")
+    lines.append("- Monte Carlo bootstrap assumes trades are i.i.d. — serial correlation is not modeled.")
+    lines.append("- FTMO pass rate is a necessary but not sufficient condition for live trading.")
     lines.append("")
 
     # Overall verdict
@@ -956,17 +910,14 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     lines.append("")
     lines.append("**Acceptance Criteria:**")
     lines.append(
-        f"- [{'x' if lbo_wf['pass_rate'] >= 80 else ' '}] LBO walk-forward pass rate ≥80%: "
-        f"{lbo_wf['pass_rate']:.0f}%"
+        f"- [{'x' if lbo_wf['pass_rate'] >= 80 else ' '}] LBO walk-forward pass rate ≥80%: {lbo_wf['pass_rate']:.0f}%"
     )
     lines.append(
         f"- [{'x' if blend_wf['pass_rate'] >= 80 else ' '}] Blend walk-forward pass rate ≥80%: "
         f"{blend_wf['pass_rate']:.0f}%"
     )
     lines.append(f"- [{'x' if True else ' '}] Per-window PF, trade count, DD reported")
-    lines.append(
-        f"- [{'x' if True else ' '}] Monte Carlo 10,000 paths with FTMO pass rate"
-    )
+    lines.append(f"- [{'x' if True else ' '}] Monte Carlo 10,000 paths with FTMO pass rate")
     lines.append(f"- [{'x' if True else ' '}] Outcome documented: {verdict}")
     lines.append("")
 
@@ -1001,9 +952,7 @@ def main():
     # ── 2. Load/cache regime labels ────────────────────────────────────────
     print("\n[2/6] Loading regime labels...", flush=True)
     det = RegimeDetector(RegimeConfig())
-    regimes_m15, adxs_m15, sess_m15 = get_or_cache_labels(
-        "XAUUSD", "M15", bars_m15, det
-    )
+    regimes_m15, adxs_m15, sess_m15 = get_or_cache_labels("XAUUSD", "M15", bars_m15, det)
     regimes_h1, adxs_h1, sess_h1 = get_or_cache_labels("XAUUSD", "H1", bars_h1, det)
     print("  Labels loaded for M15 and H1", flush=True)
 
@@ -1074,9 +1023,7 @@ def main():
                 sess_m15,
             )
         else:
-            t, m = run_full_period(
-                sid, cfg["factory"], cfg["gate"], bars_h1, regimes_h1, adxs_h1, sess_h1
-            )
+            t, m = run_full_period(sid, cfg["factory"], cfg["gate"], bars_h1, regimes_h1, adxs_h1, sess_h1)
         blend_trades.extend(t)
     blend_full_m = metrics(blend_trades)
     print(
@@ -1116,13 +1063,7 @@ def main():
     print(report, flush=True)
 
     # Save report
-    out_file = (
-        project_root
-        / "docs"
-        / "research"
-        / "strategy-profiles"
-        / "lbo_walk_forward_2026-07-22.md"
-    )
+    out_file = project_root / "docs" / "research" / "strategy-profiles" / "lbo_walk_forward_2026-07-22.md"
     out_file.parent.mkdir(parents=True, exist_ok=True)
     with open(out_file, "w") as f:
         f.write(report)

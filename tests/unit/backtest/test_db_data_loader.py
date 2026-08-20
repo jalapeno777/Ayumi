@@ -16,7 +16,7 @@ instead of failing — the goal is to ship the loader with parity coverage,
 not to gate the suite on a specific environment.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import tempfile
 import unittest
@@ -111,9 +111,7 @@ class TestDbDataLoaderHappyPath(unittest.TestCase):
         # in some sandbox memory profiles; the smaller window covers both the
         # CSV and DB result deterministically).
         csv_loader = CsvDataLoader()
-        csv_bars = csv_loader.load(
-            str(PROJECT_ROOT / "data" / "forex" / "historical" / "XAUUSD_M15.csv")
-        )
+        csv_bars = csv_loader.load(str(PROJECT_ROOT / "data" / "forex" / "historical" / "XAUUSD_M15.csv"))
         # Take the CSV's first 10 rows' timestamp span (~2.5 hours) as the
         # verification window — wide enough to capture multiple bars on both
         # sides, narrow enough to keep allocations trivial.
@@ -126,13 +124,10 @@ class TestDbDataLoaderHappyPath(unittest.TestCase):
             end_ts=window_end,
         )
         csv_window = [
-            b
-            for b in csv_bars
-            if int(b.time.timestamp()) >= window_start
-            and int(b.time.timestamp()) < window_end
+            b for b in csv_bars if int(b.time.timestamp()) >= window_start and int(b.time.timestamp()) < window_end
         ]
         self.assertEqual(len(db_bars), len(csv_window))
-        for csv_bar, db_bar in zip(csv_window, db_bars):
+        for csv_bar, db_bar in zip(csv_window, db_bars):  # noqa: B905
             self.assertEqual(csv_bar.time, db_bar.time)
             self.assertAlmostEqual(csv_bar.open, db_bar.open, places=6)
             self.assertAlmostEqual(csv_bar.high, db_bar.high, places=6)

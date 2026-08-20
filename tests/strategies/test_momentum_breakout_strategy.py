@@ -40,11 +40,11 @@ def make_trending_bars(n=100, seed=42, trend_direction="up"):
     prices = []
 
     if trend_direction == "up":
-        for i in range(n):
+        for i in range(n):  # noqa: B007
             price += 0.0003 + np.random.normal(0, 0.0001)
             prices.append(price)
     else:
-        for i in range(n):
+        for i in range(n):  # noqa: B007
             price -= 0.0003 + np.random.normal(0, 0.0001)
             prices.append(price)
 
@@ -137,9 +137,7 @@ class TestMomentumBreakoutStrategy(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_strategy_returns_signal_on_bullish_cross_with_high_adx(self):
-        strategy = MomentumBreakoutStrategy(
-            fast_period=5, slow_period=10, adx_threshold=20.0
-        )
+        strategy = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=20.0)
         bars = make_trending_bars(100, seed=42, trend_direction="up")
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
@@ -151,9 +149,7 @@ class TestMomentumBreakoutStrategy(unittest.TestCase):
             self.assertIn("EMA cross", result.rationale)
 
     def test_strategy_returns_signal_on_bearish_cross_with_high_adx(self):
-        strategy = MomentumBreakoutStrategy(
-            fast_period=5, slow_period=10, adx_threshold=20.0
-        )
+        strategy = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=20.0)
         bars = make_trending_bars(100, seed=42, trend_direction="down")
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
@@ -164,9 +160,7 @@ class TestMomentumBreakoutStrategy(unittest.TestCase):
             self.assertLess(result.take_profit_1, result.entry_price)
 
     def test_confidence_lower_than_40_adx(self):
-        strategy = MomentumBreakoutStrategy(
-            fast_period=5, slow_period=10, adx_threshold=25.0
-        )
+        strategy = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=25.0)
         bars = make_trending_bars(100, seed=42, trend_direction="up")
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
@@ -174,9 +168,7 @@ class TestMomentumBreakoutStrategy(unittest.TestCase):
             self.assertLessEqual(result.confidence, 0.8)
 
     def test_take_profit_levels_formatted_correctly(self):
-        strategy = MomentumBreakoutStrategy(
-            fast_period=5, slow_period=10, adx_threshold=20.0
-        )
+        strategy = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=20.0)
         bars = make_trending_bars(100, seed=42, trend_direction="up")
         state = MarketState(bars=bars)
         result = strategy.evaluate(state)
@@ -226,9 +218,7 @@ class TestRSIFilterIntegration(unittest.TestCase):
 
         if result_without_rsi is not None:
             if result_with_rsi is not None:
-                self.assertEqual(
-                    result_without_rsi.direction, result_with_rsi.direction
-                )
+                self.assertEqual(result_without_rsi.direction, result_with_rsi.direction)
             else:
                 self.assertIsNotNone(result_without_rsi)
 

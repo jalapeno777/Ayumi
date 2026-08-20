@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # noqa: I001
 from backtest.engine import (
     Bar,
     MarketState,
@@ -76,47 +76,47 @@ def _make_backtest_signal(direction=TradeDirection.LONG):
 
 class TestGBPUSDFTMOConfig:
     def test_daily_loss_limit_5pct(self):
-        assert GBPUSD_FTMO_CONFIG.daily_loss_limit_pct == 0.05
+        assert GBPUSD_FTMO_CONFIG.daily_loss_limit_pct == 0.05  # noqa: S101
 
     def test_total_drawdown_limit_10pct(self):
-        assert GBPUSD_FTMO_CONFIG.total_drawdown_limit_pct == 0.10
+        assert GBPUSD_FTMO_CONFIG.total_drawdown_limit_pct == 0.10  # noqa: S101
 
     def test_max_positions_1(self):
-        assert GBPUSD_FTMO_CONFIG.max_positions == 1
+        assert GBPUSD_FTMO_CONFIG.max_positions == 1  # noqa: S101
 
     def test_max_trades_per_day_5(self):
-        assert GBPUSD_FTMO_CONFIG.max_trades_per_day == 5
+        assert GBPUSD_FTMO_CONFIG.max_trades_per_day == 5  # noqa: S101
 
     def test_min_risk_reward_1_0(self):
-        assert GBPUSD_FTMO_CONFIG.min_risk_reward == 1.0
+        assert GBPUSD_FTMO_CONFIG.min_risk_reward == 1.0  # noqa: S101
 
     def test_max_position_size_pct(self):
-        assert GBPUSD_FTMO_CONFIG.max_position_size_pct == 0.50
+        assert GBPUSD_FTMO_CONFIG.max_position_size_pct == 0.50  # noqa: S101
 
 
 class TestGBPUSDPositionConfig:
     def test_risk_per_trade_0_5pct(self):
-        assert GBPUSD_POSITION_CONFIG.risk_per_trade_pct == 0.005
+        assert GBPUSD_POSITION_CONFIG.risk_per_trade_pct == 0.005  # noqa: S101
 
     def test_max_lot_0_5(self):
-        assert GBPUSD_POSITION_CONFIG.max_lot_size == 0.5
+        assert GBPUSD_POSITION_CONFIG.max_lot_size == 0.5  # noqa: S101
 
     def test_min_lot_0_01(self):
-        assert GBPUSD_POSITION_CONFIG.min_lot_size == 0.01
+        assert GBPUSD_POSITION_CONFIG.min_lot_size == 0.01  # noqa: S101
 
 
 class TestBuildGBPUSDPaperTrader:
     def test_returns_trader_adapter_logger(self):
         strategy = _StubStrategy()
         trader, adapter, tlogger = build_gbpusd_paper_trader(strategy)
-        assert isinstance(trader, PaperTrader)
-        assert isinstance(adapter, cTraderSignalAdapter)
-        assert isinstance(tlogger, TradeLogger)
+        assert isinstance(trader, PaperTrader)  # noqa: S101
+        assert isinstance(adapter, cTraderSignalAdapter)  # noqa: S101
+        assert isinstance(tlogger, TradeLogger)  # noqa: S101
 
     def test_adapter_uses_gbpusd_symbol(self):
         strategy = _StubStrategy()
         _, adapter, _ = build_gbpusd_paper_trader(strategy)
-        assert adapter.strategy_name == "Stub"
+        assert adapter.strategy_name == "Stub"  # noqa: S101
 
     def test_trader_balance(self):
         strategy = _StubStrategy()
@@ -124,18 +124,18 @@ class TestBuildGBPUSDPaperTrader:
             strategy,
             SessionRangeGBPUSDConfig(starting_balance=50000.0),
         )
-        assert trader.balance == 50000.0
+        assert trader.balance == 50000.0  # noqa: S101
 
     def test_trader_not_live(self):
         strategy = _StubStrategy()
         trader, _, _ = build_gbpusd_paper_trader(strategy)
-        assert trader.is_live_mode is False
+        assert trader.is_live_mode is False  # noqa: S101
 
     def test_callbacks_registered(self):
         strategy = _StubStrategy()
         trader, _, _ = build_gbpusd_paper_trader(strategy)
         stats = trader.get_stats()
-        assert stats.starting_balance == 100000.0
+        assert stats.starting_balance == 100000.0  # noqa: S101
 
 
 class TestSessionRangeGBPSUSDWiring:
@@ -148,10 +148,10 @@ class TestSessionRangeGBPSUSDWiring:
         state = MarketState(bars=bars, current_session=SessionType.LONDON)
         result = adapter.evaluate_and_trade(state)
 
-        assert strategy.evaluate_called
-        assert result is not None
-        assert result.symbol == SYMBOL
-        assert result.direction == CTraderDirection.LONG
+        assert strategy.evaluate_called  # noqa: S101
+        assert result is not None  # noqa: S101
+        assert result.symbol == SYMBOL  # noqa: S101
+        assert result.direction == CTraderDirection.LONG  # noqa: S101
 
     def test_no_signal_returns_none(self):
         strategy = _StubStrategy(signal=None)
@@ -161,8 +161,8 @@ class TestSessionRangeGBPSUSDWiring:
         state = MarketState(bars=bars)
         result = adapter.evaluate_and_trade(state)
 
-        assert strategy.evaluate_called
-        assert result is None
+        assert strategy.evaluate_called  # noqa: S101
+        assert result is None  # noqa: S101
 
     def test_low_confidence_signal_filtered(self):
         signal = _make_backtest_signal()
@@ -177,7 +177,7 @@ class TestSessionRangeGBPSUSDWiring:
         state = MarketState(bars=bars)
         result = adapter.evaluate_and_trade(state)
 
-        assert result is None
+        assert result is None  # noqa: S101
 
     def test_paper_trade_creates_position(self):
         signal = _make_backtest_signal()
@@ -189,8 +189,8 @@ class TestSessionRangeGBPSUSDWiring:
         adapter.evaluate_and_trade(state)
 
         positions = trader.get_open_positions()
-        assert len(positions) == 1
-        assert positions[0].symbol == SYMBOL
+        assert len(positions) == 1  # noqa: S101
+        assert positions[0].symbol == SYMBOL  # noqa: S101
 
     def test_trade_logged_on_execution(self):
         signal = _make_backtest_signal()
@@ -202,7 +202,7 @@ class TestSessionRangeGBPSUSDWiring:
         adapter.evaluate_and_trade(state)
 
         summary = tlogger.get_summary()
-        assert summary["open_positions"] == 1
+        assert summary["open_positions"] == 1  # noqa: S101
 
     def test_pnl_tracking_after_close(self):
         signal = _make_backtest_signal()
@@ -214,16 +214,16 @@ class TestSessionRangeGBPSUSDWiring:
         adapter.evaluate_and_trade(state)
 
         positions = trader.get_open_positions()
-        assert len(positions) == 1
+        assert len(positions) == 1  # noqa: S101
 
         trader.close_position(positions[0].position_id, 1.26100, "test_close")
 
         stats = trader.get_stats()
-        assert stats.realized_pnl > 0
+        assert stats.realized_pnl > 0  # noqa: S101
 
         summary = tlogger.get_summary()
-        assert summary["total_trades"] == 1
-        assert summary["wins"] == 1
+        assert summary["total_trades"] == 1  # noqa: S101
+        assert summary["wins"] == 1  # noqa: S101
 
     def test_risk_guard_allows_within_limits(self):
         config = SessionRangeGBPUSDConfig()
@@ -236,20 +236,20 @@ class TestSessionRangeGBPSUSDWiring:
         strategy._signal = _make_backtest_signal()
         result = adapter.evaluate_and_trade(state)
 
-        assert result is not None
-        assert result.symbol == SYMBOL
+        assert result is not None  # noqa: S101
+        assert result.symbol == SYMBOL  # noqa: S101
 
         stats = trader.get_stats()
-        assert stats.trades_executed == 1
-        assert stats.signals_blocked_by_risk == 0
+        assert stats.trades_executed == 1  # noqa: S101
+        assert stats.signals_blocked_by_risk == 0  # noqa: S101
 
 
 class TestTradeLogger:
     def test_summary_empty(self):
         tlogger = TradeLogger(strategy_name="test")
         summary = tlogger.get_summary()
-        assert summary["total_trades"] == 0
-        assert summary["wins"] == 0
+        assert summary["total_trades"] == 0  # noqa: S101
+        assert summary["wins"] == 0  # noqa: S101
 
     def test_log_and_summarize(self, tmp_path):
         tlogger = TradeLogger(log_dir=str(tmp_path), strategy_name="test")
@@ -288,9 +288,9 @@ class TestTradeLogger:
         tlogger.log_position_closed(pos)
 
         summary = tlogger.get_summary()
-        assert summary["total_trades"] == 1
-        assert summary["wins"] == 1
-        assert summary["total_pnl"] == 10.0
+        assert summary["total_trades"] == 1  # noqa: S101
+        assert summary["wins"] == 1  # noqa: S101
+        assert summary["total_pnl"] == 10.0  # noqa: S101
 
         files = list(tmp_path.glob("*.csv"))
-        assert len(files) == 1
+        assert len(files) == 1  # noqa: S101

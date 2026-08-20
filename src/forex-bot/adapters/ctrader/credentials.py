@@ -118,9 +118,7 @@ class CredentialManager:
             raise CredentialError(f"Failed to load credentials: {exc}") from exc
 
         if data.get("version") != CREDENTIALS_VERSION:
-            raise CredentialError(
-                f"Unsupported credentials version: {data.get('version')}"
-            )
+            raise CredentialError(f"Unsupported credentials version: {data.get('version')}")
 
         return data
 
@@ -164,17 +162,12 @@ class CredentialManager:
             ("refresh_token", refresh_token),
         ]:
             if self._is_placeholder(val):
-                raise PlaceholderCredentialError(
-                    f"Cannot save placeholder {label}: '{val}'"
-                )
+                raise PlaceholderCredentialError(f"Cannot save placeholder {label}: '{val}'")
 
         try:
             data = self.load()
         except CredentialError:
-            raise CredentialError(
-                "Cannot update tokens: credentials file does not exist. "
-                "Call save() first."
-            ) from None
+            raise CredentialError("Cannot update tokens: credentials file does not exist. Call save() first.") from None
 
         data["access_token"] = access_token
         data["refresh_token"] = refresh_token
@@ -234,9 +227,7 @@ class CredentialManager:
         )
 
         if not has_real_token:
-            raise CredentialError(
-                "No real credentials found in .env — nothing to migrate"
-            )
+            raise CredentialError("No real credentials found in .env — nothing to migrate")
 
         # Validate non-placeholders for tokens
         for field in ("access_token", "refresh_token"):
@@ -285,8 +276,7 @@ class CredentialManager:
 
         if not file_exists and env_has_tokens:
             logger.warning(
-                "Credentials file missing but .env has cTrader tokens. "
-                "Run migration to move to data/.credentials."
+                "Credentials file missing but .env has cTrader tokens. Run migration to move to data/.credentials."
             )
 
         return None
@@ -323,18 +313,14 @@ class CredentialManager:
         for key in _SENSITIVE_KEYS:
             val = credentials.get(key, "")
             if self._is_placeholder(val):
-                raise PlaceholderCredentialError(
-                    f"Placeholder value detected for '{key}': '{val}'"
-                )
+                raise PlaceholderCredentialError(f"Placeholder value detected for '{key}': '{val}'")
 
     @staticmethod
     def _is_placeholder(value: str) -> bool:
         """Return True if the value looks like a placeholder."""
         if not value:
             return True
-        return value in _PLACEHOLDER_VALUES or value.lower() in {
-            p for p in _PLACEHOLDER_VALUES if p.isascii()
-        }
+        return value in _PLACEHOLDER_VALUES or value.lower() in {p for p in _PLACEHOLDER_VALUES if p.isascii()}
 
     def _read_env(self) -> dict[str, str]:
         """Read the .env file and return a dict of key=value pairs."""
@@ -366,7 +352,4 @@ class CredentialManager:
         if not self._env_path.exists():
             return
 
-        logger.info(
-            "Credentials migrated to data/.credentials. "
-            "Token values preserved in .env as backup."
-        )
+        logger.info("Credentials migrated to data/.credentials. Token values preserved in .env as backup.")

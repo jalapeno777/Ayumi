@@ -6,7 +6,7 @@ constructing the strategy instance, following the same pattern as
 ttc_strategy_factory() in backtest/parameter_sweep/ttc_optimizer.py.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 
@@ -106,7 +106,5 @@ class TTCXAUUSDStrategy(ISignalStrategy):
                     getattr(latest, "time", "?"),
                 )
             else:
-                logger.debug(
-                    "TTC XAUUSD M15: no signal (bars=%d, no latest bar)", len(bars)
-                )
+                logger.debug("TTC XAUUSD M15: no signal (bars=%d, no latest bar)", len(bars))
         return result

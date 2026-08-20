@@ -8,7 +8,7 @@ import json
 import logging
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field  # noqa: F401
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,8 +27,21 @@ EXOTIC_QUOTE = {"TRY", "ZAR", "MXN", "SGD", "HKD", "NOK", "SEK", "DKK", "CZK", "
 COMMODITY_PREFIXES = {"XAU", "XAG", "XPT", "XPD"}
 COMMODITY_NAMES = {"UKOIL", "USOIL", "OIL", "COPPER"}
 
-INDEX_NAMES = {"US30", "NAS100", "SPX500", "UK100", "DE30", "JP225", "AUS200",
-               "US500", "US100", "FRA40", "ESP35", "EU50", "US2000"}
+INDEX_NAMES = {
+    "US30",
+    "NAS100",
+    "SPX500",
+    "UK100",
+    "DE30",
+    "JP225",
+    "AUS200",
+    "US500",
+    "US100",
+    "FRA40",
+    "ESP35",
+    "EU50",
+    "US2000",
+}
 
 CRYPTO_PREFIXES = {"BTC", "ETH", "LTC", "XRP", "BCH", "EOS", "BNB", "ADA", "SOL", "DOGE"}
 
@@ -36,6 +49,7 @@ CRYPTO_PREFIXES = {"BTC", "ETH", "LTC", "XRP", "BCH", "EOS", "BNB", "ADA", "SOL"
 @dataclass
 class SymbolInfo:
     """Metadata about a tradable symbol."""
+
     symbol_id: int
     name: str
     pip_size: float = 0.0001
@@ -58,7 +72,9 @@ def classify_symbol(name: str) -> str:
     stripped = name.replace("/", "").replace(" ", "").upper()
 
     # Check index first (no slash pattern)
-    if stripped in INDEX_NAMES or any(stripped.startswith(idx) for idx in ["US30", "NAS100", "SPX500", "UK100", "DE30", "JP225", "AUS200"]):
+    if stripped in INDEX_NAMES or any(
+        stripped.startswith(idx) for idx in ["US30", "NAS100", "SPX500", "UK100", "DE30", "JP225", "AUS200"]
+    ):  # noqa: E501
         return "index"
 
     # Check commodity
@@ -94,19 +110,47 @@ def classify_symbol(name: str) -> str:
 
 DEFAULT_PROBE_PATTERNS = [
     # Forex majors
-    "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "AUD/USD", "USD/CAD", "NZD/USD",
+    "EUR/USD",
+    "GBP/USD",
+    "USD/JPY",
+    "USD/CHF",
+    "AUD/USD",
+    "USD/CAD",
+    "NZD/USD",
     # Forex minors
-    "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/AUD", "GBP/AUD", "EUR/CAD",
-    "GBP/CAD", "AUD/NZD", "NZD/JPY", "CHF/JPY",
+    "EUR/GBP",
+    "EUR/JPY",
+    "GBP/JPY",
+    "AUD/JPY",
+    "EUR/AUD",
+    "GBP/AUD",
+    "EUR/CAD",
+    "GBP/CAD",
+    "AUD/NZD",
+    "NZD/JPY",
+    "CHF/JPY",
     # Forex exotics
-    "USD/TRY", "USD/ZAR", "USD/MXN", "USD/SGD", "USD/HKD", "USD/NOK", "USD/SEK",
-    "EUR/TRY", "EUR/NOK", "EUR/SEK",
+    "USD/TRY",
+    "USD/ZAR",
+    "USD/MXN",
+    "USD/SGD",
+    "USD/HKD",
+    "USD/NOK",
+    "USD/SEK",
+    "EUR/TRY",
+    "EUR/NOK",
+    "EUR/SEK",
     # Commodities
-    "XAU/USD", "XAG/USD", "XPT/USD",
+    "XAU/USD",
+    "XAG/USD",
+    "XPT/USD",
     # Indices
-    "US30/USD", "NAS100/USD", "SPX500/USD",
+    "US30/USD",
+    "NAS100/USD",
+    "SPX500/USD",
     # Crypto
-    "BTC/USD", "ETH/USD",
+    "BTC/USD",
+    "ETH/USD",
 ]
 
 
@@ -338,7 +382,7 @@ class SymbolDiscovery:
                 if client._probe_event.wait(timeout=timeout_per_symbol):
                     # We got ticks but they're keyed by numeric ID from tag 55
                     # The response will have the numeric ID, not the string we sent
-                    for sid, (bid, ask) in client._probe_ticks.items():
+                    for sid, (bid, ask) in client._probe_ticks.items():  # noqa: B007
                         if sid not in discovered:
                             category = classify_symbol(name)
                             pip_size = 0.0001
@@ -384,7 +428,7 @@ class SymbolDiscovery:
 
         More reliable than FIX SecurityListRequest.
         """
-        import os
+        import os  # noqa: I001
         from .open_api_client import CTraderOpenApiClient
 
         client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")

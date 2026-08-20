@@ -69,7 +69,7 @@ class TestCanaryDisable:
 
     def test_canary_evaluate_returns_none_when_disabled(self):
         """evaluate() returns None when canary is disabled."""
-        from strategies.test_canary import TestCanaryStrategy
+        from strategies.test_canary import TestCanaryStrategy  # noqa: I001
         from backtest.types import Bar
         from datetime import datetime, timezone
 
@@ -96,7 +96,7 @@ class TestCanaryDisable:
 
     def test_canary_warning_log_when_enabled(self, caplog):
         """evaluate() emits WARNING log when canary is enabled (hardening)."""
-        from strategies.test_canary import TestCanaryStrategy
+        from strategies.test_canary import TestCanaryStrategy  # noqa: I001
         from backtest.types import Bar
         from datetime import datetime, timezone
 
@@ -117,11 +117,8 @@ class TestCanaryDisable:
             canary.evaluate(state)
 
         assert any(
-            "canary" in record.message.lower() and "enabled" in record.message.lower()
-            for record in caplog.records
-        ), (
-            f"Expected WARNING about canary being enabled, got: {[r.message for r in caplog.records]}"
-        )
+            "canary" in record.message.lower() and "enabled" in record.message.lower() for record in caplog.records
+        ), f"Expected WARNING about canary being enabled, got: {[r.message for r in caplog.records]}"
 
 
 class TestCanaryEnvGating:

@@ -1,24 +1,34 @@
 """Flatten account: send BUY orders to close net short."""
-import os
+
+import os  # noqa: I001
 import time
 import socket
 
 from dotenv import load_dotenv
+
 load_dotenv("/home/TacoPants/projects/Ayumi/.env")
 
 SOH = "\x01"
 
+
 def build_fix(msg_type, config, seq, body_fields):
     body = SOH.join(body_fields)
-    hdr = SOH.join([
-        f"35={msg_type}", f"49={config['sid']}", f"56={config['tid']}",
-        f"57={config['tsub']}", f"50={config['ssub']}", f"34={seq}",
-        f"52={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}",
-    ])
+    hdr = SOH.join(
+        [
+            f"35={msg_type}",
+            f"49={config['sid']}",
+            f"56={config['tid']}",
+            f"57={config['tsub']}",
+            f"50={config['ssub']}",
+            f"34={seq}",
+            f"52={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}",
+        ]
+    )
     bl = len(hdr.encode()) + 1 + len(body.encode()) + 1
     msg = f"8=FIX.4.4{SOH}9={bl}{SOH}{hdr}{SOH}{body}{SOH}"
     cs = sum(msg.encode()) % 256
     return f"{msg}10={cs:03d}{SOH}"
+
 
 def recv_all(sock, timeout=5):
     data = b""
@@ -26,10 +36,13 @@ def recv_all(sock, timeout=5):
     try:
         while True:
             chunk = sock.recv(4096)
-            if not chunk: break
+            if not chunk:
+                break  # noqa: E701
             data += chunk
-    except: pass
+    except:  # noqa: E722, S110
+        pass  # noqa: E701, E722, S110
     return data
+
 
 config = {
     "host": os.environ["CTRADER_HOST"],
@@ -45,13 +58,22 @@ config = {
 sock = socket.socket()
 sock.settimeout(10)
 sock.connect((config["host"], config["port"]))
-sock.send(build_fix("A", config, 1, ["98=0", "108=30", "141=Y", f"553={config['user']}", f"554={config['pass']}"]).encode())
+sock.send(
+    build_fix("A", config, 1, ["98=0", "108=30", "141=Y", f"553={config['user']}", f"554={config['pass']}"]).encode()
+)  # noqa: E501
 recv_all(sock, 2)
 
 # Send 10 BUY orders to flatten
 seq = 2
 for i in range(10):
-    body = [f"11=flatten_{i}_{int(time.time()*1000)}", "55=1", "54=1", f"60={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}", "38=1000", "40=1"]
+    body = [
+        f"11=flatten_{i}_{int(time.time() * 1000)}",
+        "55=1",
+        "54=1",
+        f"60={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}",
+        "38=1000",
+        "40=1",
+    ]  # noqa: E501
     sock.send(build_fix("D", config, seq, body).encode())
     seq += 1
     time.sleep(0.5)
@@ -66,7 +88,14 @@ for i in range(10):
 
 # Now send 10 SELL to close those buys
 for i in range(10):
-    body = [f"11=flatten_sell_{i}_{int(time.time()*1000)}", "55=1", "54=2", f"60={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}", "38=1000", "40=1"]
+    body = [
+        f"11=flatten_sell_{i}_{int(time.time() * 1000)}",
+        "55=1",
+        "54=2",
+        f"60={time.strftime('%Y%m%d-%H:%M:%S', time.gmtime())}",
+        "38=1000",
+        "40=1",
+    ]  # noqa: E501
     sock.send(build_fix("D", config, seq, body).encode())
     seq += 1
     time.sleep(0.5)

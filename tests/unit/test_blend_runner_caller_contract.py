@@ -22,7 +22,7 @@ Three layers of protection:
    TWO arguments (signal_id + risk_amount).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import ast
 import re
@@ -58,7 +58,7 @@ def test_launcher_source_no_single_arg_cancel_risk():
         # Skip pure comment lines, but NOT inline comments after code.
         if stripped.startswith("#"):
             continue
-        for m in BAD_PATTERN.finditer(line):
+        for m in BAD_PATTERN.finditer(line):  # noqa: B007
             matches.append((i, line.strip()))
     assert not matches, (
         f"Found single-arg cancel_risk() calls in launcher — these raise "
@@ -116,10 +116,7 @@ def test_launcher_ast_every_cancel_risk_has_two_args():
             # Capture a snippet for debugging.
             snippet = ast.unparse(c) if hasattr(ast, "unparse") else "<call>"
             bad.append((n_pos, snippet))
-    assert not bad, (
-        f"Found cancel_risk() calls with wrong arg counts "
-        f"(expected 2 positional args): {bad!r}"
-    )
+    assert not bad, f"Found cancel_risk() calls with wrong arg counts (expected 2 positional args): {bad!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +132,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     # Import inside the test so we don't trigger heavy imports at collection.
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
     sys.path.insert(0, str(WORKSPACE))
-    from launch_blend_forward_test import (
+    from launch_blend_forward_test import (  # noqa: I001
         BlendForwardTestEngine,
         CorrelationGate,
     )
@@ -148,9 +145,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     blend_runner.make_signal_id.side_effect = lambda signal: (
         signal.strategy_id + "_" + str(signal.timestamp.timestamp())
     )
-    expected_signal_id = "session_breakout_ny_" + str(
-        datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc).timestamp()
-    )
+    expected_signal_id = "session_breakout_ny_" + str(datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc).timestamp())
 
     # Build the smallest possible engine instance via __new__ — its
     # __init__ pulls in a lot; we only need _route_signal behaviour
@@ -164,9 +159,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     engine._config = MagicMock()
     engine._config.live_mode = False  # paper mode → hits a cancel path
     engine._paper_trader = MagicMock()
-    engine._paper_trader.process_signal.return_value = MagicMock(
-        success=False, rejection_reason="test"
-    )
+    engine._paper_trader.process_signal.return_value = MagicMock(success=False, rejection_reason="test")
 
     # Build a CTraderTradeSignal with a deterministic timestamp.
     sig = CTraderTradeSignal(
@@ -193,9 +186,7 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
 
     # _blend_signal_id now delegates to blend_runner.make_signal_id.
     sig_id = engine._blend_signal_id(sig)
-    assert sig_id == expected_signal_id, (
-        f"_blend_signal_id mismatch: got {sig_id!r}, expected {expected_signal_id!r}"
-    )
+    assert sig_id == expected_signal_id, f"_blend_signal_id mismatch: got {sig_id!r}, expected {expected_signal_id!r}"
 
     # Now invoke cancel_risk with both args — must NOT raise.
     blend_runner.cancel_risk(sig_id, 50.0)
@@ -220,7 +211,7 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     """
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
     sys.path.insert(0, str(WORKSPACE))
-    from launch_blend_forward_test import (
+    from launch_blend_forward_test import (  # noqa: I001
         BlendForwardTestEngine,
     )
     from adapters.ctrader.signal_adapter import CTraderTradeSignal
@@ -256,9 +247,7 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     sig_id = engine._blend_signal_id(sig)
 
     # Pattern: strategy_id + "_" + str(datetime.timestamp())
-    expected = "session_breakout_ny_" + str(
-        datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc).timestamp()
-    )
+    expected = "session_breakout_ny_" + str(datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc).timestamp())
     assert sig_id == expected, (
         f"_blend_signal_id contract broken: got {sig_id!r}, expected {expected!r}. "
         f"All 3 cancel_risk() error-path callers depend on this shape."

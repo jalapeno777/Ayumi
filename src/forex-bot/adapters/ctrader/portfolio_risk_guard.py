@@ -64,9 +64,7 @@ class PortfolioRiskGuard:
     def record_trade(self, strategy_id: str, pnl: float, is_win: bool) -> None:
         self._guard.record_trade(pnl, is_win)
         self._guard.record_strategy_trade(strategy_id, pnl)
-        stats = self._strategy_stats.setdefault(
-            strategy_id, StrategyRiskStats(strategy_id=strategy_id)
-        )
+        stats = self._strategy_stats.setdefault(strategy_id, StrategyRiskStats(strategy_id=strategy_id))
         stats.trade_count += 1
         stats.pnl += pnl
         if is_win:

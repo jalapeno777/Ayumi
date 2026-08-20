@@ -21,7 +21,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-from backtest.engine import Bar, TradeOutcome, get_spread_for_pair
+from backtest.engine import Bar, TradeOutcome, get_spread_for_pair  # noqa: I001
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import TTSStrategy
 from ml.confluence_features import ConfluenceFeatureExtractor
@@ -241,9 +241,7 @@ class PerSymbolOptimizer:
             "t5_trades": t5,
         }
 
-    def run_for_symbol(
-        self, symbol: str, timeframe: str, base_configs: list[dict]
-    ) -> dict:
+    def run_for_symbol(self, symbol: str, timeframe: str, base_configs: list[dict]) -> dict:
         """Run walk-forward for one symbol+timeframe across multiple configs.
 
         Returns dict with per-config results, best config, and learned weights.
@@ -258,9 +256,7 @@ class PerSymbolOptimizer:
 
         for cfg in base_configs:
             label = cfg["label"]
-            print(
-                f"\n  Config {label}: base={cfg['base']}, kz={cfg['kz_penalty']}, htf={cfg['htf_penalty']}"
-            )
+            print(f"\n  Config {label}: base={cfg['base']}, kz={cfg['kz_penalty']}, htf={cfg['htf_penalty']}")
 
             try:
                 patch_tts_constants(cfg)
@@ -357,9 +353,7 @@ class PerSymbolOptimizer:
                 f"Score: {best_score:.2f}"
             )
             if best["learner"]["trained"]:
-                print(
-                    f"    Top confluences: {[f[0] for f in best['learner']['top_features']]}"
-                )
+                print(f"    Top confluences: {[f[0] for f in best['learner']['top_features']]}")
 
         self.results[key] = result
         return result
@@ -374,7 +368,7 @@ class PerSymbolOptimizer:
     def build_per_symbol_configs(self) -> dict:
         """Build the PER_SYMBOL_CONFIGS dict from best results."""
         configs = {}
-        for key, result in self.results.items():
+        for key, result in self.results.items():  # noqa: B007
             symbol = result["symbol"]
             timeframe = result["timeframe"]
             best = result.get("best")
@@ -387,9 +381,7 @@ class PerSymbolOptimizer:
                 "htf_penalty": best["config"]["htf_penalty"],
                 "config_label": best["label"],
                 "top_confluences": (
-                    [f[0] for f in best["learner"]["top_features"]]
-                    if best["learner"]["trained"]
-                    else []
+                    [f[0] for f in best["learner"]["top_features"]] if best["learner"]["trained"] else []
                 ),
                 "metrics": {
                     "pnl": best["metrics"]["total_pnl"],
@@ -431,7 +423,9 @@ def main():
 
     # Save per-symbol config module
     config_path = PROJECT_ROOT / "src" / "forex-bot" / "ml" / "per_symbol_configs.py"
-    config_content = f'"""Auto-generated per-symbol, per-timeframe configs. Generated: {timestamp}."""\n\nPER_SYMBOL_CONFIGS = '
+    config_content = (
+        f'"""Auto-generated per-symbol, per-timeframe configs. Generated: {timestamp}."""\n\nPER_SYMBOL_CONFIGS = '  # noqa: E501
+    )
     config_content += json.dumps(per_symbol_configs, indent=4, default=str)
     config_content += "\n"
     config_path.write_text(config_content)
@@ -471,7 +465,9 @@ def main():
     print(f"{'═' * 70}")
     print(f"  Elapsed: {elapsed:.0f}s")
 
-    header = f"  {'Symbol':<10} {'Config':<20} {'P&L':>10} {'WR':>8} {'DD%':>8} {'PF':>8} {'Trades':>8} {'T4':>5} {'T5':>5}"
+    header = (
+        f"  {'Symbol':<10} {'Config':<20} {'P&L':>10} {'WR':>8} {'DD%':>8} {'PF':>8} {'Trades':>8} {'T4':>5} {'T5':>5}"  # noqa: E501
+    )
     print(header)
     print(f"  {'─' * len(header)}")
 
@@ -554,7 +550,7 @@ def main():
     per_symbol_total_pnl = 0
     per_symbol_total_trades = 0
     per_symbol_wins = 0
-    for key, result in optimizer.results.items():
+    for key, result in optimizer.results.items():  # noqa: B007
         best = result.get("best")
         if best and "metrics" in best:
             m = best["metrics"]
@@ -562,9 +558,7 @@ def main():
             per_symbol_total_trades += m["total_trades"]
             per_symbol_wins += m["wins"]
 
-    per_symbol_wr = (
-        per_symbol_wins / per_symbol_total_trades if per_symbol_total_trades else 0
-    )
+    per_symbol_wr = per_symbol_wins / per_symbol_total_trades if per_symbol_total_trades else 0
 
     print(f"  {'Metric':<25} {'Global (A)':>15} {'Per-Symbol':>15} {'Delta':>15}")
     print(f"  {'─' * 72}")
@@ -572,10 +566,7 @@ def main():
         f"  {'Total P&L':<25} ${global_total_pnl:>13.2f} ${per_symbol_total_pnl:>13.2f} "
         f"${per_symbol_total_pnl - global_total_pnl:>+13.2f}"
     )
-    print(
-        f"  {'Win Rate':<25} {global_wr:>14.1%} {per_symbol_wr:>14.1%} "
-        f"{per_symbol_wr - global_wr:>+14.1%}"
-    )
+    print(f"  {'Win Rate':<25} {global_wr:>14.1%} {per_symbol_wr:>14.1%} {per_symbol_wr - global_wr:>+14.1%}")
     print(
         f"  {'Total Trades':<25} {global_total_trades:>15} {per_symbol_total_trades:>15} "
         f"{per_symbol_total_trades - global_total_trades:>+15}"

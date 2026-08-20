@@ -42,9 +42,7 @@ class EngineCore:
         spread_model: SpreadModel | RealisticSpreadModel | None = None,
     ):
         self.config = config
-        self.spread_model = spread_model or SpreadModel(
-            config.spread_pips, config.slippage_pips
-        )
+        self.spread_model = spread_model or SpreadModel(config.spread_pips, config.slippage_pips)
         self._reset()
 
     def _reset(self) -> None:
@@ -83,9 +81,7 @@ class EngineCore:
     def _is_max_daily_loss_breached(self) -> bool:
         if self.daily_start_balance <= 0:
             return False
-        daily_loss_pct = (
-            self.daily_start_balance - self.balance
-        ) / self.daily_start_balance
+        daily_loss_pct = (self.daily_start_balance - self.balance) / self.daily_start_balance
         return daily_loss_pct >= self.config.max_daily_drawdown_pct
 
     def _close_trade(
@@ -105,11 +101,7 @@ class EngineCore:
         commission_cost = standard_lots * self.config.commission_per_lot
         self.total_commission_cost += commission_cost
 
-        spread_dollars = (
-            (self.spread_model.spread_pips + self.spread_model.slippage_pips)
-            * pip_value
-            * trade.lot_size
-        )
+        spread_dollars = (self.spread_model.spread_pips + self.spread_model.slippage_pips) * pip_value * trade.lot_size
         self.total_spread_cost += spread_dollars
 
         trade.exit_price = exit_price
@@ -127,11 +119,7 @@ class EngineCore:
         else:
             trade.pips = (trade.entry_price - exit_price) / pip_value
 
-        trade.profit_loss = (
-            trade.pips * standard_lots * pip_value * UNITS_PER_LOT
-            - commission_cost
-            + swap_cost
-        )
+        trade.profit_loss = trade.pips * standard_lots * pip_value * UNITS_PER_LOT - commission_cost + swap_cost
         self.balance = max(0.0, self.balance + trade.profit_loss)
 
         trade.outcome = (
@@ -158,9 +146,7 @@ class EngineCore:
     ) -> list[SimulatedTrade]:
         closed: list[SimulatedTrade] = []
         for trade in open_trades:
-            self._close_trade(
-                trade, bar_index, exit_time, exit_price, ExitReason.END_OF_DATA
-            )
+            self._close_trade(trade, bar_index, exit_time, exit_price, ExitReason.END_OF_DATA)
             closed.append(trade)
         open_trades.clear()
         return closed
@@ -231,8 +217,7 @@ class EngineCore:
             ending_balance=self.balance,
             total_pnl=self.balance - self.config.starting_balance,
             total_pnl_pct=(
-                (self.balance - self.config.starting_balance)
-                / self.config.starting_balance
+                (self.balance - self.config.starting_balance) / self.config.starting_balance
                 if self.config.starting_balance > 0
                 else 0.0
             ),
@@ -240,18 +225,14 @@ class EngineCore:
             total_trades=len(trades),
             winning_trades=sum(1 for t in trades if t.outcome == TradeOutcome.WIN),
             losing_trades=sum(1 for t in trades if t.outcome == TradeOutcome.LOSS),
-            breakeven_trades=sum(
-                1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN
-            ),
+            breakeven_trades=sum(1 for t in trades if t.outcome == TradeOutcome.BREAKEVEN),
             avg_win=0.0,
             avg_loss=0.0,
             largest_win=0.0,
             largest_loss=0.0,
             profit_factor=0.0,
             max_drawdown_pct=self.max_drawdown * 100,
-            max_drawdown_dollar=self.max_drawdown * self.peak_balance
-            if self.peak_balance > 0
-            else 0.0,
+            max_drawdown_dollar=self.max_drawdown * self.peak_balance if self.peak_balance > 0 else 0.0,
             max_daily_loss_dollar=self.max_daily_loss,
             sharpe_ratio=0.0,
             avg_risk_reward=0.0,
@@ -269,12 +250,8 @@ class EngineCore:
             losses = [t for t in trades if t.outcome == TradeOutcome.LOSS]
 
             metrics.win_rate = metrics.winning_trades / len(trades) * 100
-            metrics.avg_win = (
-                sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
-            )
-            metrics.avg_loss = (
-                sum(t.profit_loss for t in losses) / len(losses) if losses else 0.0
-            )
+            metrics.avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
+            metrics.avg_loss = sum(t.profit_loss for t in losses) / len(losses) if losses else 0.0
             metrics.largest_win = max(t.profit_loss for t in wins) if wins else 0.0
             metrics.largest_loss = min(t.profit_loss for t in losses) if losses else 0.0
 
@@ -287,17 +264,11 @@ class EngineCore:
             else:
                 metrics.profit_factor = 0.0
 
-            metrics.avg_risk_reward = (
-                abs(metrics.avg_win / metrics.avg_loss)
-                if metrics.avg_loss != 0
-                else 0.0
-            )
+            metrics.avg_risk_reward = abs(metrics.avg_win / metrics.avg_loss) if metrics.avg_loss != 0 else 0.0
             metrics.expectancy = (metrics.win_rate / 100 * metrics.avg_win) - (
                 (1 - metrics.win_rate / 100) * abs(metrics.avg_loss)
             )
-            metrics.avg_holding_bars = sum(
-                (t.exit_bar_index or 0) - t.entry_bar_index for t in trades
-            ) / len(trades)
+            metrics.avg_holding_bars = sum((t.exit_bar_index or 0) - t.entry_bar_index for t in trades) / len(trades)
 
         metrics.sharpe_ratio = self._calculate_sharpe_ratio(equity_curve)
         return metrics
@@ -308,15 +279,11 @@ class EngineCore:
         returns: list[float] = []
         for i in range(1, len(equity_curve)):
             if equity_curve[i - 1] != 0:
-                returns.append(
-                    (equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1]
-                )
+                returns.append((equity_curve[i] - equity_curve[i - 1]) / equity_curve[i - 1])
         if not returns:
             return 0.0
         mean_return = sum(returns) / len(returns)
         std_dev = math.sqrt(sum((r - mean_return) ** 2 for r in returns) / len(returns))
         if std_dev == 0:
             return 999.0 if mean_return > 0 else 0.0
-        return (mean_return / std_dev) * math.sqrt(
-            self.config.sharpe_annualization_factor
-        )
+        return (mean_return / std_dev) * math.sqrt(self.config.sharpe_annualization_factor)

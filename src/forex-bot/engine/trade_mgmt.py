@@ -34,6 +34,4 @@ class TradeManagementMixin:
         pair: str,
     ) -> object:
         self._ensure_trade_manager()
-        return self._trade_manager.check_entry_allowed(
-            bar, signal, atr, spread_pips, pair
-        )
+        return self._trade_manager.check_entry_allowed(bar, signal, atr, spread_pips, pair)

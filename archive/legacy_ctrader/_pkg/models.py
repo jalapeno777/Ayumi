@@ -23,13 +23,13 @@ class OrderStatus(Enum):
 
 
 class PositionStatus(Enum):
-    ENTRY_PENDING = "entry_pending"   # Order sent, not yet filled
-    OPEN = "open"                     # Position is open
-    TP_HIT = "tp_hit"                # Closed by take profit
-    SL_HIT = "sl_hit"                # Closed by stop loss
+    ENTRY_PENDING = "entry_pending"  # Order sent, not yet filled
+    OPEN = "open"  # Position is open
+    TP_HIT = "tp_hit"  # Closed by take profit
+    SL_HIT = "sl_hit"  # Closed by stop loss
     TIMEOUT_CLOSE = "timeout_close"  # Closed by time limit
-    MANUAL_CLOSE = "manual_close"    # Closed manually
-    CLOSED = "closed"                # Generic closed (backward compat)
+    MANUAL_CLOSE = "manual_close"  # Closed manually
+    CLOSED = "closed"  # Generic closed (backward compat)
 
     @property
     def is_closed(self) -> bool:
@@ -78,11 +78,11 @@ class Position:
     closed_pnl: float = 0.0
     comment: str = ""
     # ── Phase 1D: Position monitoring fields ──────────────────────────────
-    max_favorable_excursion: float = 0.0   # MFE — best unrealized PnL reached
-    max_adverse_excursion: float = 0.0     # MAE — worst unrealized PnL reached
-    time_in_trade_sec: float = 0.0          # Seconds since position opened
-    high_water_mark: float = 0.0            # Best price seen (for long: highest, for short: lowest)
-    low_water_mark: float = 0.0             # Worst price seen (for long: lowest, for short: highest)
+    max_favorable_excursion: float = 0.0  # MFE — best unrealized PnL reached
+    max_adverse_excursion: float = 0.0  # MAE — worst unrealized PnL reached
+    time_in_trade_sec: float = 0.0  # Seconds since position opened
+    high_water_mark: float = 0.0  # Best price seen (for long: highest, for short: lowest)
+    low_water_mark: float = 0.0  # Worst price seen (for long: lowest, for short: highest)
 
 
 @dataclass
@@ -146,9 +146,10 @@ class MarketDataSnapshot:
 @dataclass(frozen=True)
 class SymbolInfo:
     """Metadata for a trading symbol used by OrderManager and RiskGuard."""
-    pip_size: float              # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
-    pip_value_per_lot: float     # USD value of 1 pip per standard lot
-    lot_size: int = 100_000      # contract size per lot
+
+    pip_size: float  # e.g., 0.0001 for EURUSD, 0.01 for XAUUSD
+    pip_value_per_lot: float  # USD value of 1 pip per standard lot
+    lot_size: int = 100_000  # contract size per lot
     contract_size: float = 100_000.0  # same as lot_size but as float for some calcs
 
 
@@ -167,6 +168,7 @@ _DEFAULT_SYMBOL_INFO = SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0)
 def get_symbol_info(symbol: str) -> SymbolInfo:
     """Look up symbol metadata with fallback and warning for unknown symbols."""
     import logging
+
     info = SYMBOL_METADATA.get(symbol.upper())
     if info is not None:
         return info

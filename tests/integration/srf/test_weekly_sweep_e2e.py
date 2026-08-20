@@ -33,7 +33,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf.weekly_sweep import PROJECT_ROOT, weekly_sweep
+from srf.weekly_sweep import PROJECT_ROOT, weekly_sweep  # noqa: I001
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ def _git_tree_clean() -> bool:
 
     try:
         diff = subprocess.check_output(
-            ["git", "diff", "--stat"],
+            ["git", "diff", "--stat"],  # noqa: S607
             cwd=str(PROJECT_ROOT),
             stderr=subprocess.DEVNULL,
         ).strip()
@@ -134,21 +134,15 @@ class TestWeeklySweepE2E:
             # rather than fail so the test is a smoke check, not a gate.
             pytest.skip(f"weekly_sweep raised RuntimeError in this env: {exc}")
         except Exception as exc:
-            pytest.skip(
-                f"weekly_sweep raised an unexpected error in this env: "
-                f"{type(exc).__name__}: {exc}"
-            )
+            pytest.skip(f"weekly_sweep raised an unexpected error in this env: {type(exc).__name__}: {exc}")
 
         # ── Return-dict assertions (task spec) ─────────────────────────
         # exit_code == 0  ↔  status == "ok"
         # run_count >= 1  ↔  successes >= 1
         assert isinstance(result, dict)
-        assert result["status"] == "ok", (
-            f"Expected status='ok', got {result['status']!r} (full result: {result})"
-        )
+        assert result["status"] == "ok", f"Expected status='ok', got {result['status']!r} (full result: {result})"
         assert result["successes"] >= 1, (
-            f"Expected at least one successful combo, got successes="
-            f"{result['successes']} (full result: {result})"
+            f"Expected at least one successful combo, got successes={result['successes']} (full result: {result})"
         )
         # The tiny grid is exactly one combo
         assert result["total_combos"] == 1
@@ -173,8 +167,7 @@ class TestWeeklySweepE2E:
             )
         except Exception as exc:
             pytest.skip(
-                f"weekly_sweep raised in this env (expected for dirty trees "
-                f"or missing DB): {type(exc).__name__}: {exc}"
+                f"weekly_sweep raised in this env (expected for dirty trees or missing DB): {type(exc).__name__}: {exc}"
             )
 
         # Schema check — every documented key must be present
@@ -214,10 +207,7 @@ class TestWeeklySweepCronRunsRow:
         if not _git_tree_clean():
             pytest.skip("StrategyRunner requires a clean git tree")
         if not _duckdb_available():
-            pytest.skip(
-                "research.duckdb is not present in test env — "
-                "skipping DB-dependent cron_runs verification"
-            )
+            pytest.skip("research.duckdb is not present in test env — skipping DB-dependent cron_runs verification")
 
         try:
             result = weekly_sweep(
@@ -229,10 +219,7 @@ class TestWeeklySweepCronRunsRow:
             pytest.skip(f"weekly_sweep raised in this env: {type(exc).__name__}: {exc}")
 
         if result["status"] != "ok":
-            pytest.skip(
-                f"Sweep reported status={result['status']!r} — "
-                f"DB verification only meaningful on success"
-            )
+            pytest.skip(f"Sweep reported status={result['status']!r} — DB verification only meaningful on success")
 
         # ── DB-dependent assertion (skipped if anything goes wrong) ────
         try:
@@ -243,23 +230,15 @@ class TestWeeklySweepCronRunsRow:
                 # The most recent row should correspond to our just-finished
                 # sweep — at minimum, run_count should match successes.
                 row = conn.execute(
-                    "SELECT run_count, exit_code, status, cron_end "
-                    "FROM cron_runs ORDER BY cron_end DESC LIMIT 1"
+                    "SELECT run_count, exit_code, status, cron_end FROM cron_runs ORDER BY cron_end DESC LIMIT 1"
                 ).fetchone()
             assert row is not None, "No cron_runs row was written"
             run_count, exit_code, status, _cron_end = row
-            assert run_count >= 1, (
-                f"Most-recent cron_runs row has run_count={run_count}"
-            )
-            assert exit_code == 0, (
-                f"Most-recent cron_runs row has exit_code={exit_code}"
-            )
+            assert run_count >= 1, f"Most-recent cron_runs row has run_count={run_count}"
+            assert exit_code == 0, f"Most-recent cron_runs row has exit_code={exit_code}"
             assert "ok" in status, f"Most-recent cron_runs row has status={status!r}"
         except Exception as exc:
             # DB-side issues (read-only mode blocked, schema drift, etc.)
             # skip rather than fail so the suite remains green in degraded
             # environments.  In CI with a clean DB this assertion will run.
-            pytest.skip(
-                f"DB-dependent assertion could not be verified in this env: "
-                f"{type(exc).__name__}: {exc}"
-            )
+            pytest.skip(f"DB-dependent assertion could not be verified in this env: {type(exc).__name__}: {exc}")

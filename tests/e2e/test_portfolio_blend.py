@@ -38,11 +38,7 @@ def _make_bars(n: int = 500, base_price: float = 1.1) -> list:
         t = t + timedelta(hours=i)
         change = (i % 7 - 3) * 0.0001
         price = max(base_price * 0.9, price + change)
-        bars.append(
-            Bar(
-                time=t, open=price, high=price + 0.0002, low=price - 0.0002, close=price
-            )
-        )
+        bars.append(Bar(time=t, open=price, high=price + 0.0002, low=price - 0.0002, close=price))
     return bars
 
 
@@ -459,9 +455,7 @@ def test_run_portfolio_blend_with_dummy():
         timeframe="H1",
         data_path="/nonexistent/path.csv",
     )
-    result = run_portfolio_blend(
-        [spec], initial_balance=10000.0, n_walk_forward_windows=0
-    )
+    result = run_portfolio_blend([spec], initial_balance=10000.0, n_walk_forward_windows=0)
     assert len(result.individual_results) == 0
 
 
@@ -565,12 +559,8 @@ def test_optimize_weights_sharpe_negative_sharpe():
 
 def test_optimize_weights_combined_score():
     curves = {
-        "good": _make_equity_curve(
-            name="Good", sharpe=2.0, pf=2.0, wr=70.0, dd=0.02, pnl=500
-        ),
-        "mediocre": _make_equity_curve(
-            name="Med", sharpe=0.5, pf=1.0, wr=50.0, dd=0.10, pnl=10
-        ),
+        "good": _make_equity_curve(name="Good", sharpe=2.0, pf=2.0, wr=70.0, dd=0.02, pnl=500),
+        "mediocre": _make_equity_curve(name="Med", sharpe=0.5, pf=1.0, wr=50.0, dd=0.10, pnl=10),
     }
     weights = optimize_weights_combined_score(curves)
     assert weights.method == "combined_score"
@@ -588,9 +578,7 @@ def test_optimize_weights_combined_score_all_methods_sum_to_one():
     for method_name, method_fn in WEIGHT_METHODS.items():
         weights = method_fn(curves)
         total = sum(weights.weights.values())
-        assert abs(total - 1.0) < 1e-10, (
-            f"{method_name} weights don't sum to 1.0: {total}"
-        )
+        assert abs(total - 1.0) < 1e-10, f"{method_name} weights don't sum to 1.0: {total}"
 
 
 def test_run_portfolio_blend_with_filter():
@@ -663,9 +651,7 @@ def test_format_portfolio_report_with_filtered():
             trade_count=4,
         ),
     }
-    correlation = CorrelationResult(
-        matrix={"good": {"good": 1.0}}, average_correlation=0.0
-    )
+    correlation = CorrelationResult(matrix={"good": {"good": 1.0}}, average_correlation=0.0)
     weights = WeightAllocation(weights={"good": 1.0}, method="test")
     combined = _compute_combined_metrics([10000, 10200, 10400], 10000)
 

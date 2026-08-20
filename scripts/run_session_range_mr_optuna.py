@@ -20,7 +20,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import Bar  # noqa: E402
+from backtest.engine import Bar  # noqa: E402, I001
 from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 from backtest.parameter_sweep.optuna_optimizer import (  # noqa: E402
     OptunaOptimizer,
@@ -86,13 +86,9 @@ def run_optuna(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Optuna optimization for Session Range MR"
-    )
+    parser = argparse.ArgumentParser(description="Optuna optimization for Session Range MR")
     add_resource_args(parser)
-    parser.add_argument(
-        "--trials", type=int, default=100, help="Number of Optuna trials"
-    )
+    parser.add_argument("--trials", type=int, default=100, help="Number of Optuna trials")
     parser.add_argument("--pair", type=str, default="GBPUSD", help="Currency pair")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
@@ -173,9 +169,7 @@ def main() -> None:
         "seed": args.seed,
         "baseline": {
             "go_nogo": baseline_wf.go_nogo,
-            "windows_passed": sum(
-                1 for m in baseline_wf.per_window if m.passed_go_nogo
-            ),
+            "windows_passed": sum(1 for m in baseline_wf.per_window if m.passed_go_nogo),
             "total_windows": len(baseline_wf.per_window),
         },
         "optuna": {

@@ -33,9 +33,7 @@ class StrategyRegistry:
     def get_for_symbol(self, symbol: str) -> list[StrategyConfig]:
         """Get all strategies that trade a given symbol."""
         return [
-            s
-            for s in self._strategies.values()
-            if s.active and symbol.upper() in [sym.upper() for sym in s.symbols]
+            s for s in self._strategies.values() if s.active and symbol.upper() in [sym.upper() for sym in s.symbols]
         ]
 
     def get_all(self) -> list[StrategyConfig]:

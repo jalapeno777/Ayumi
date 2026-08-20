@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import warnings
@@ -23,7 +23,7 @@ from utils.pip_value import DEFAULT_PIP, JPY_PIP, pip_value_for_symbol
 _DEFAULT_STRATEGIES_YAML = Path("src/forex-bot/config/strategies.yaml")
 
 try:
-    from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar
+    from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar  # noqa: I001
 except ImportError:
     DxyRegimeOverlay = None  # type: ignore[assignment,misc]
     DxyBar = None  # type: ignore[assignment,misc]
@@ -36,18 +36,12 @@ class SRMRPlusConfig:
     # Tuned per research §A.5 (strategy-optimization-research.md)
     atr_period: int = 14
     rsi_period: int = 14
-    rsi_long_level: float = (
-        30.0  # was 35.0 — tighter oversold requirement, fewer better signals
-    )
+    rsi_long_level: float = 30.0  # was 35.0 — tighter oversold requirement, fewer better signals
     rsi_short_level: float = 70.0  # was 65.0 — tighter overbought requirement
     adx_period: int = 14
     adx_max_threshold: float = 20.0  # was 25.0 — only fire in low-trend conditions
-    session_range_min_pips: float = (
-        10.0  # was 15.0 — allow quieter sessions (especially EURUSD M15)
-    )
-    entry_near_extreme_pips: float = (
-        8.0  # was 15.0 — tighter proximity = more exhaustion, less mid-range
-    )
+    session_range_min_pips: float = 10.0  # was 15.0 — allow quieter sessions (especially EURUSD M15)
+    entry_near_extreme_pips: float = 8.0  # was 15.0 — tighter proximity = more exhaustion, less mid-range
     hard_cap_sl_pips: float = 18.0  # was 25.0 — tighter cap for mean reversion
     tp1_rr: float = 1.5  # was 1.0; raised to pass min_risk_reward=1.5 gate
     tp2_rr: float = 1.5
@@ -466,22 +460,16 @@ def _get_previous_session_range(
             return 0.0, 0.0, 0.0
         high, low, mean = _calculate_session_range(bars, SessionType.LONDON, prev_day)
         if high == 0:
-            high, low, mean = _calculate_session_range(
-                bars, SessionType.NY_AM, prev_day
-            )
+            high, low, mean = _calculate_session_range(bars, SessionType.NY_AM, prev_day)
         return high, low, mean
 
     if current_session == SessionType.NY_AM:
-        high, low, mean = _calculate_session_range(
-            bars, SessionType.LONDON, current_day
-        )
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, current_day)
         if high == 0:
             prev_day = _find_previous_trading_day(bars, current_day)
             if prev_day is None:
                 return 0.0, 0.0, 0.0
-            high, low, mean = _calculate_session_range(
-                bars, SessionType.LONDON, prev_day
-            )
+            high, low, mean = _calculate_session_range(bars, SessionType.LONDON, prev_day)
         return high, low, mean
 
     prev_day = _find_previous_trading_day(bars, current_day)
@@ -547,9 +535,7 @@ def _build_signal(
         logger.debug("SRMR+ _build_signal: SL distance is zero or negative")
         return None
 
-    sl = (
-        entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
-    )
+    sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
 
     # Anchor TP baseline to the broker fill price (ASK for BUY, BID for SELL)
     # so the broker always sees TP > fill for BUY / TP < fill for SELL.
@@ -560,16 +546,8 @@ def _build_signal(
         tp_baseline = entry - half_spread  # BID
 
     risk = sl_distance
-    tp1 = (
-        tp_baseline + risk * config.tp1_rr
-        if direction == TradeDirection.LONG
-        else tp_baseline - risk * config.tp1_rr
-    )
-    tp2 = (
-        tp_baseline + risk * config.tp2_rr
-        if direction == TradeDirection.LONG
-        else tp_baseline - risk * config.tp2_rr
-    )
+    tp1 = tp_baseline + risk * config.tp1_rr if direction == TradeDirection.LONG else tp_baseline - risk * config.tp1_rr
+    tp2 = tp_baseline + risk * config.tp2_rr if direction == TradeDirection.LONG else tp_baseline - risk * config.tp2_rr
 
     # Guard clause: ensure TP direction is consistent with trade direction
     # relative to the strategy's mid-price entry. Defense-in-depth for edge
@@ -677,9 +655,7 @@ class SRMRPlusStrategy(ISignalStrategy):
         current_session = _get_bar_session_type(latest.time)
         current_day = latest.time.date()
 
-        session_high, session_low, session_mean = _get_previous_session_range(
-            state.bars, current_day, current_session
-        )
+        session_high, session_low, session_mean = _get_previous_session_range(state.bars, current_day, current_session)
         if session_high == 0:
             logger.debug(
                 "SRMR+ %s: no previous session range (day=%s session=%s)",
@@ -858,9 +834,7 @@ class SRMRPlusStrategy(ISignalStrategy):
         try:
             dxy_data = [
                 DxyBar(
-                    time_ms=int(b["time_ms"])
-                    if isinstance(b, dict)
-                    else int(b.time_ms),
+                    time_ms=int(b["time_ms"]) if isinstance(b, dict) else int(b.time_ms),
                     open=b["open"] if isinstance(b, dict) else b.open,
                     high=b["high"] if isinstance(b, dict) else b.high,
                     low=b["low"] if isinstance(b, dict) else b.low,
@@ -868,14 +842,8 @@ class SRMRPlusStrategy(ISignalStrategy):
                 )
                 for b in dxy_bars
             ]
-            dir_name = (
-                signal.direction.name
-                if hasattr(signal.direction, "name")
-                else str(signal.direction)
-            )
-            adjusted = self._dxy_overlay.adjust_confidence(
-                signal.confidence, dxy_data, dir_name
-            )
+            dir_name = signal.direction.name if hasattr(signal.direction, "name") else str(signal.direction)
+            adjusted = self._dxy_overlay.adjust_confidence(signal.confidence, dxy_data, dir_name)
             return StrategySignal(
                 direction=signal.direction,
                 confidence=adjusted,
@@ -884,8 +852,7 @@ class SRMRPlusStrategy(ISignalStrategy):
                 take_profit_1=signal.take_profit_1,
                 take_profit_2=signal.take_profit_2,
                 take_profit_3=signal.take_profit_3,
-                rationale=signal.rationale
-                + f" | DXY adj: {signal.confidence:.2f}\u2192{adjusted:.2f}",
+                rationale=signal.rationale + f" | DXY adj: {signal.confidence:.2f}\u2192{adjusted:.2f}",
             )
         except Exception as exc:
             logger.warning("DXY overlay application failed: %s", exc)

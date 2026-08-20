@@ -9,7 +9,7 @@ Covers credential isolation, concurrent operation, 60s liveness,
 and the second-app configuration path.
 """
 
-import os
+import os  # noqa: I001
 import sys
 import time
 import types
@@ -57,20 +57,14 @@ def _install_ctrader_stubs(monkeypatch):
     msgs_mod = _mkmod("ctrader_open_api.messages.OpenApiMessages_pb2")
     # Auto-generate any ProtoOA* attribute on access (there are dozens)
     msgs_mod.__getattr__ = lambda name: MagicMock()  # type: ignore[attr-defined]
-    monkeypatch.setitem(
-        sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod
-    )
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
 
     model_mod = _mkmod("ctrader_open_api.messages.OpenApiModelMessages_pb2")
     # ProtoOATrendbarPeriod needs real int-like attributes
-    _period_ns = types.SimpleNamespace(
-        M1=1, M5=5, M15=15, M30=30, H1=60, H4=240, D1=1440, W1=10080
-    )
+    _period_ns = types.SimpleNamespace(M1=1, M5=5, M15=15, M30=30, H1=60, H4=240, D1=1440, W1=10080)
     _model_cache = {"ProtoOATrendbarPeriod": _period_ns}
     model_mod.__getattr__ = lambda name: _model_cache.get(name, MagicMock())  # type: ignore[attr-defined]
-    monkeypatch.setitem(
-        sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod
-    )
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
 
     proto_mod = _mkmod("ctrader_open_api.protobuf")
     proto_mod.Protobuf = MagicMock
@@ -123,9 +117,9 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
 
         defaults = dict(
             client_id="primary_app_id",
-            client_secret="primary_secret",
+            client_secret="primary_secret",  # noqa: S106
             account_id=46877902,
-            access_token="test_token",
+            access_token="test_token",  # noqa: S106
         )
         defaults.update(kwargs)
         return CTraderOpenApiClient(**defaults)
@@ -141,7 +135,7 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
         """Trade credentials passed via constructor are used."""
         client = self._make_client(
             trade_client_id="trade_app_123",
-            trade_client_secret="trade_secret_456",
+            trade_client_secret="trade_secret_456",  # noqa: S106
         )
         self.assertTrue(client.using_trade_app)
         self.assertEqual(client.app_client_id, "trade_app_123")
@@ -150,7 +144,7 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
     def test_env_var_trade_app_id(self):
         """CTRADER_TRADE_APP_ID env var is picked up."""
         os.environ["CTRADER_TRADE_APP_ID"] = "env_trade_id"
-        os.environ["CTRADER_TRADE_SECRET"] = "env_trade_secret"
+        os.environ["CTRADER_TRADE_SECRET"] = "env_trade_secret"  # noqa: S105
         client = self._make_client()
         self.assertTrue(client.using_trade_app)
         self.assertEqual(client.app_client_id, "env_trade_id")
@@ -159,7 +153,7 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
     def test_alt_env_var_names(self):
         """CTRADER_OPENAPI_TRADE_CLIENT_ID fallback works."""
         os.environ["CTRADER_OPENAPI_TRADE_CLIENT_ID"] = "alt_trade_id"
-        os.environ["CTRADER_OPENAPI_TRADE_CLIENT_SECRET"] = "alt_trade_secret"
+        os.environ["CTRADER_OPENAPI_TRADE_CLIENT_SECRET"] = "alt_trade_secret"  # noqa: S105
         client = self._make_client()
         self.assertTrue(client.using_trade_app)
         self.assertEqual(client.app_client_id, "alt_trade_id")
@@ -180,10 +174,10 @@ class TestTradeAppCredentialResolution(unittest.TestCase):
     def test_constructor_overrides_env(self):
         """Constructor args take precedence over env vars."""
         os.environ["CTRADER_TRADE_APP_ID"] = "env_id"
-        os.environ["CTRADER_TRADE_SECRET"] = "env_secret"
+        os.environ["CTRADER_TRADE_SECRET"] = "env_secret"  # noqa: S105
         client = self._make_client(
             trade_client_id="ctor_id",
-            trade_client_secret="ctor_secret",
+            trade_client_secret="ctor_secret",  # noqa: S106
         )
         self.assertEqual(client.app_client_id, "ctor_id")
         self.assertEqual(client.app_client_secret, "ctor_secret")
@@ -210,11 +204,11 @@ class TestConcurrentAuthUsesSeparateApps(unittest.TestCase):
 
         client = CTraderOpenApiClient(
             client_id="primary_id",
-            client_secret="primary_secret",
+            client_secret="primary_secret",  # noqa: S106
             account_id=12345,
-            access_token="token",
+            access_token="token",  # noqa: S106
             trade_client_id="trade_id",
-            trade_client_secret="trade_secret",
+            trade_client_secret="trade_secret",  # noqa: S106
         )
 
         self.assertEqual(client.app_client_id, "trade_id")
@@ -227,9 +221,9 @@ class TestConcurrentAuthUsesSeparateApps(unittest.TestCase):
 
         client = CTraderOpenApiClient(
             client_id="primary_id",
-            client_secret="primary_secret",
+            client_secret="primary_secret",  # noqa: S106
             account_id=12345,
-            access_token="token",
+            access_token="token",  # noqa: S106
         )
 
         self.assertEqual(client.app_client_id, "primary_id")
@@ -258,12 +252,8 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
 
     def test_both_connections_establish(self):
         """Both spot feed (primary app) and data client (trade app) establish."""
-        spot_conn = self._make_mock_connection(
-            "spot_feed", "primary_app_id", "primary_secret"
-        )
-        data_conn = self._make_mock_connection(
-            "data_client", "trade_app_id", "trade_secret"
-        )
+        spot_conn = self._make_mock_connection("spot_feed", "primary_app_id", "primary_secret")
+        data_conn = self._make_mock_connection("data_client", "trade_app_id", "trade_secret")
 
         self.assertTrue(spot_conn.connected)
         self.assertTrue(spot_conn.authenticated)
@@ -277,12 +267,8 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         Represents 60 one-second ticks. Both connections must remain
         alive and responsive throughout.
         """
-        spot_conn = self._make_mock_connection(
-            "spot_feed", "primary_app_id", "primary_secret"
-        )
-        data_conn = self._make_mock_connection(
-            "data_client", "trade_app_id", "trade_secret"
-        )
+        spot_conn = self._make_mock_connection("spot_feed", "primary_app_id", "primary_secret")
+        data_conn = self._make_mock_connection("data_client", "trade_app_id", "trade_secret")
 
         for tick in range(60):
             # Each connection sends/receives a heartbeat each second
@@ -305,12 +291,8 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
 
     def test_both_connections_send_receive_messages(self):
         """Verify both connections can independently send and receive."""
-        spot_conn = self._make_mock_connection(
-            "spot_feed", "primary_app_id", "primary_secret"
-        )
-        data_conn = self._make_mock_connection(
-            "data_client", "trade_app_id", "trade_secret"
-        )
+        spot_conn = self._make_mock_connection("spot_feed", "primary_app_id", "primary_secret")
+        data_conn = self._make_mock_connection("data_client", "trade_app_id", "trade_secret")
 
         # Spot feed: subscribe to spot prices (send + receive)
         spot_conn.subscribe_spot("GBPUSD")
@@ -364,9 +346,7 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
 
         app_ids_in_use = [s["app_id"] for s in active_sessions]
         self.assertEqual(len(app_ids_in_use), 2)
-        self.assertEqual(
-            len(set(app_ids_in_use)), 2, "Each session uses a distinct app_id"
-        )
+        self.assertEqual(len(set(app_ids_in_use)), 2, "Each session uses a distinct app_id")
 
         for session in active_sessions:
             self.assertIsNotNone(session["app_id"])
@@ -392,9 +372,7 @@ class TestConcurrentSessionSimulation(unittest.TestCase):
         second_app_id = same_app
         conflict_found = any(s["app_id"] == second_app_id for s in active_sessions)
 
-        self.assertTrue(
-            conflict_found, "Same app_id reuse should be flagged as conflict"
-        )
+        self.assertTrue(conflict_found, "Same app_id reuse should be flagged as conflict")
 
         # The fix: use a different app_id
         trade_app_id = "trade_app_id"
@@ -523,7 +501,7 @@ class TestDesignDocumentation(unittest.TestCase):
         from adapters.ctrader.connection_manager import ConnectionManager
 
         self.assertTrue(hasattr(ConnectionManager, "stop"))
-        self.assertTrue(callable(getattr(ConnectionManager, "stop")))
+        self.assertTrue(callable(getattr(ConnectionManager, "stop")))  # noqa: B009
 
 
 class TestCredentialIsolation(unittest.TestCase):
@@ -547,7 +525,7 @@ class TestCredentialIsolation(unittest.TestCase):
 
         client = CTraderOpenApiClient(
             client_id="primary_id",
-            client_secret="primary_secret",
+            client_secret="primary_secret",  # noqa: S106
             account_id=12345,
         )
         self.assertEqual(client.app_client_id, "primary_id")
@@ -559,10 +537,10 @@ class TestCredentialIsolation(unittest.TestCase):
 
         client = CTraderOpenApiClient(
             client_id="primary_id",
-            client_secret="primary_secret",
+            client_secret="primary_secret",  # noqa: S106
             account_id=12345,
             trade_client_id="trade_id",
-            trade_client_secret="trade_secret",
+            trade_client_secret="trade_secret",  # noqa: S106
         )
         self.assertEqual(client.app_client_id, "trade_id")
         self.assertEqual(client.app_client_secret, "trade_secret")
@@ -574,17 +552,17 @@ class TestCredentialIsolation(unittest.TestCase):
 
         client1 = CTraderOpenApiClient(
             client_id="p1",
-            client_secret="s1",
+            client_secret="s1",  # noqa: S106
             account_id=1,
         )
         self.assertFalse(client1.using_trade_app)
 
         os.environ["CTRADER_TRADE_APP_ID"] = "env_trade"
-        os.environ["CTRADER_TRADE_SECRET"] = "env_secret"
+        os.environ["CTRADER_TRADE_SECRET"] = "env_secret"  # noqa: S105
 
         client2 = CTraderOpenApiClient(
             client_id="p2",
-            client_secret="s2",
+            client_secret="s2",  # noqa: S106
             account_id=2,
         )
         self.assertTrue(client2.using_trade_app)

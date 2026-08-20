@@ -1,6 +1,6 @@
 """Strategy Blend Optimizer — uses Optuna to find the best strategy combination."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 import time
@@ -60,7 +60,7 @@ def softmax_weights(weights: dict[str, float]) -> dict[str, float]:
     w = np.array(list(weights.values()))
     e = np.exp(w - np.max(w))
     s = e / e.sum()
-    return dict(zip(weights.keys(), s.tolist()))
+    return dict(zip(weights.keys(), s.tolist()))  # noqa: B905
 
 
 class StrategyBlendOptimizer:
@@ -91,21 +91,12 @@ class StrategyBlendOptimizer:
         dd_factor = 1.0 / (1.0 + max_dd_pct / 100.0)
         profit_factor = gross_profit / max(gross_loss, 1.0)
         strategy_penalty = 1.0 / (1.0 + 0.1 * (num_active_strategies - 1))
-        return (
-            profit_factor
-            * win_rate
-            * math.sqrt(total_trades)
-            * dd_factor
-            * strategy_penalty
-        )
+        return profit_factor * win_rate * math.sqrt(total_trades) * dd_factor * strategy_penalty
 
     def objective(self, trial: optuna.Trial) -> float:
         """Optuna objective function."""
         # CPU metering
-        if (
-            self._cpu_budget_seconds > 0
-            and self._cpu_used_seconds >= self._cpu_budget_seconds
-        ):
+        if self._cpu_budget_seconds > 0 and self._cpu_used_seconds >= self._cpu_budget_seconds:
             raise optuna.TrialPruned("CPU budget exceeded")
 
         trial_start = time.monotonic()
@@ -182,9 +173,7 @@ class StrategyBlendOptimizer:
         )
         return score
 
-    def optimize(
-        self, n_trials: int | None = None, timeout: int | None = None
-    ) -> BlendResult:
+    def optimize(self, n_trials: int | None = None, timeout: int | None = None) -> BlendResult:
         """Run optimization."""
         # Pre-generate signals for all strategies
         self._signal_provider.generate_signals("EURUSD", "2025-01-01", "2025-03-31")

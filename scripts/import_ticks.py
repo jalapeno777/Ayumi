@@ -42,9 +42,7 @@ def import_csv(con: duckdb.DuckDBPyConnection, csv_path: Path, keep_csv: bool) -
     filename = csv_path.name
 
     # Check if already imported
-    existing = con.execute(
-        "SELECT row_count FROM import_log WHERE filename = ?", [filename]
-    ).fetchone()
+    existing = con.execute("SELECT row_count FROM import_log WHERE filename = ?", [filename]).fetchone()
     if existing:
         print(f"  ⏭️  {filename} already imported ({existing[0]} rows), skipping")
         return 0
@@ -71,17 +69,17 @@ def import_csv(con: duckdb.DuckDBPyConnection, csv_path: Path, keep_csv: bool) -
             COALESCE(CAST(bidVol AS DOUBLE), 0.0) AS bid_vol,
             COALESCE(CAST(askVol AS DOUBLE), 0.0) AS ask_vol
         FROM read_csv_auto('{csv_path}')
-    """)
+    """)  # noqa: S608
 
     # Insert into ticks, ignoring duplicates
     _result = con.execute(f"""
         INSERT OR IGNORE INTO ticks (timestamp_ms, symbol, bid, ask, bid_vol, ask_vol)
         SELECT timestamp_ms, symbol, bid, ask, bid_vol, ask_vol
         FROM {temp_table}
-    """)
+    """)  # noqa: S608
 
     # DuckDB doesn't return row count from INSERT directly; count the temp table
-    count = con.execute(f"SELECT COUNT(*) FROM {temp_table}").fetchone()[0]
+    count = con.execute(f"SELECT COUNT(*) FROM {temp_table}").fetchone()[0]  # noqa: S608
 
     con.execute(f"DROP TABLE {temp_table}")
 
@@ -146,7 +144,7 @@ def generate_bars(
                 WHERE symbol = '{symbol}'
                 GROUP BY symbol, CAST(FLOOR(timestamp_ms / {bucket_ms}) AS BIGINT) * {secs}
                 ORDER BY timestamp_utc
-            """)
+            """)  # noqa: S608
 
             bar_count = con.execute(
                 "SELECT COUNT(*) FROM bars WHERE symbol = ? AND timeframe = ?",
@@ -159,12 +157,8 @@ def main():
     ap = argparse.ArgumentParser(description="Import tick CSVs into DuckDB")
     ap.add_argument("--staging", type=Path, default=DEFAULT_STAGING)
     ap.add_argument("--db-path", type=Path, default=DEFAULT_DB)
-    ap.add_argument(
-        "--keep-csvs", action="store_true", help="Don't delete CSVs after import"
-    )
-    ap.add_argument(
-        "--generate-bars", action="store_true", help="Generate OHLCV bars from ticks"
-    )
+    ap.add_argument("--keep-csvs", action="store_true", help="Don't delete CSVs after import")
+    ap.add_argument("--generate-bars", action="store_true", help="Generate OHLCV bars from ticks")
     ap.add_argument(
         "--timeframes",
         type=str,

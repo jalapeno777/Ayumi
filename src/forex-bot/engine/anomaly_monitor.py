@@ -183,10 +183,7 @@ class HealthMonitor:
                 return [
                     HealthAlert(
                         kind=HealthAlertKind.DATA_SILENCE,
-                        message=(
-                            "No ticks received since startup "
-                            f"({self._uptime_sec():.0f}s ago)"
-                        ),
+                        message=(f"No ticks received since startup ({self._uptime_sec():.0f}s ago)"),
                         context={"uptime_sec": self._uptime_sec()},
                     )
                 ]
@@ -212,8 +209,7 @@ class HealthMonitor:
                 HealthAlert(
                     kind=HealthAlertKind.ZERO_SIGNALS,
                     message=(
-                        f"Zero signals generated after {ticks} ticks -- "
-                        "check strategy thresholds and session windows"
+                        f"Zero signals generated after {ticks} ticks -- check strategy thresholds and session windows"
                     ),
                     context={"ticks_received": ticks},
                 )

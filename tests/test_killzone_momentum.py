@@ -5,7 +5,7 @@ and H4 cross-timeframe filter.
 These tests complement the existing suite at tests/strategies/test_killzone_momentum_strategy.py.
 """
 
-import unittest
+import unittest  # noqa: I001
 from datetime import date, datetime, time, timedelta
 
 from core.types import Bar, MarketState, BarPeriod
@@ -37,9 +37,7 @@ def _make_bar(hour: int, dt: date, close: float = 1.1000) -> Bar:
     )
 
 
-def _make_h4_bars(
-    n: int, direction: str = "long", start_date: date | None = None
-) -> list[Bar]:
+def _make_h4_bars(n: int, direction: str = "long", start_date: date | None = None) -> list[Bar]:
     """Create n H4 bars trending in the given direction."""
     if start_date is None:
         start_date = date(2023, 6, 15)
@@ -50,9 +48,7 @@ def _make_h4_bars(
             p = base_price + i * 0.0010
         else:
             p = base_price - i * 0.0010
-        dt = datetime(
-            start_date.year, start_date.month, start_date.day, 0, 0
-        ) + timedelta(hours=4 * i)
+        dt = datetime(start_date.year, start_date.month, start_date.day, 0, 0) + timedelta(hours=4 * i)
         bars.append(
             Bar(
                 time=dt,
@@ -151,9 +147,7 @@ class TestPerPresetADXGate(unittest.TestCase):
         """XAUUSD M5 preset should use a stricter ADX threshold (20.0)."""
         config = KillzoneMomentumConfig.m5_xauusd()
         self.assertEqual(config.adx_threshold, 20.0)
-        self.assertGreater(
-            config.adx_threshold, KillzoneMomentumConfig.h1_fx().adx_threshold
-        )
+        self.assertGreater(config.adx_threshold, KillzoneMomentumConfig.h1_fx().adx_threshold)
 
     def test_adx_threshold_is_configurable(self):
         """ADX threshold should be independently configurable via constructor."""

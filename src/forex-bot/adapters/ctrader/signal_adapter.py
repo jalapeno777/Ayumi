@@ -117,13 +117,10 @@ class cTraderSignalAdapter:
         # This blocks entries during news spikes (e.g. 50-pip XAUUSD spread)
         # at the source, before strategy evaluation.
         if self._current_spread > 0:
-            threshold = self._max_spread_thresholds.get(
-                self._symbol.upper(), self._default_max_spread
-            )
+            threshold = self._max_spread_thresholds.get(self._symbol.upper(), self._default_max_spread)
             if self._current_spread > threshold:
                 logger.warning(
-                    "spread_too_wide: symbol=%s strategy=%s spread=%.2f "
-                    "threshold=%.2f — signal rejected at adapter",
+                    "spread_too_wide: symbol=%s strategy=%s spread=%.2f threshold=%.2f — signal rejected at adapter",
                     self._symbol,
                     self._strategy.name,
                     self._current_spread,
@@ -277,9 +274,7 @@ class cTraderLiveAdapter:
             for strategy in strategies:
                 # Strategy-pair matching: only create adapter if strategy is registered for this symbol
                 if hasattr(strategy, "symbols") and strategy.symbols:
-                    if symbol.upper().replace("/", "") not in {
-                        s.upper().replace("/", "") for s in strategy.symbols
-                    }:
+                    if symbol.upper().replace("/", "") not in {s.upper().replace("/", "") for s in strategy.symbols}:
                         continue
                 key = f"{strategy.name}_{symbol}"
                 self._adapters[key] = cTraderSignalAdapter(
@@ -313,9 +308,7 @@ class cTraderLiveAdapter:
                     ask=ask,
                 )
                 if result is None:
-                    logger.debug(
-                        "%s %s: no signal (conditions not met)", strategy_name, symbol
-                    )
+                    logger.debug("%s %s: no signal (conditions not met)", strategy_name, symbol)
                 else:
                     results.append(result)
         return results
@@ -324,9 +317,7 @@ class cTraderLiveAdapter:
         for adapter in self._adapters.values():
             adapter.update_spread(spread)
 
-    def get_adapter(
-        self, strategy_name: str, symbol: str
-    ) -> cTraderSignalAdapter | None:
+    def get_adapter(self, strategy_name: str, symbol: str) -> cTraderSignalAdapter | None:
         return self._adapters.get(f"{strategy_name}_{symbol}")
 
     @property

@@ -14,7 +14,7 @@ card. If none are provided the guards that depend on allowed files will report
 an empty check set.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import sys

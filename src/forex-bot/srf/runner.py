@@ -1,6 +1,6 @@
 """SRF Runner — wraps existing walk-forward engine, writes results to DuckDB."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import logging
@@ -26,9 +26,7 @@ logger = logging.getLogger(__name__)
 # ── Risk metric helpers ──────────────────────────────────────────────────
 
 
-def _deflated_sharpe(
-    sr_annual: float, n: int, skew: float, kurt_excess: float
-) -> float:
+def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) -> float:
     """Compute the Deflated Sharpe Ratio (Bailey & López de Prado 2014).
 
     Adjusts observed Sharpe for skew/kurtosis bias and sample size.
@@ -38,11 +36,7 @@ def _deflated_sharpe(
         return 0.0
     # Expected Sharpe under null (zero-mean): 0
     # Variance of Sharpe estimator under non-normality
-    sr_var = (
-        1
-        - skew * sr_annual * math.sqrt(1 / 252)
-        + ((kurt_excess) / 4) * (sr_annual**2) / 252
-    ) / (n - 1)
+    sr_var = (1 - skew * sr_annual * math.sqrt(1 / 252) + ((kurt_excess) / 4) * (sr_annual**2) / 252) / (n - 1)
     if sr_var <= 0:
         return 0.0
     # DSR = CDF of observed SR under the deflated null
@@ -51,9 +45,7 @@ def _deflated_sharpe(
     return round(float(dsr), 6)
 
 
-def _composite_score(
-    sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float
-) -> float:
+def _composite_score(sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float) -> float:
     """Weighted composite score for strategy ranking.
 
     Blends risk-adjusted return metrics with consistency metrics.
@@ -129,9 +121,7 @@ class StrategyRunner:
         # Prevents post-hoc rationalization: every strategy must have a
         # hypothesis doc written BEFORE the sweep, not reconstructed from
         # results after seeing profit factors.
-        hypothesis_path = (
-            self.repo_path / "docs" / "edges" / f"{strategy_name}-hypothesis.md"
-        )
+        hypothesis_path = self.repo_path / "docs" / "edges" / f"{strategy_name}-hypothesis.md"
         if not hypothesis_path.exists():
             raise RuntimeError(
                 f"Strategy '{strategy_name}' has no hypothesis doc at "
@@ -143,14 +133,8 @@ class StrategyRunner:
         df = self._load_data(data_path)
         qa = validate_data(df, pair, timeframe)
         if not qa.passed:
-            failures_str = "; ".join(
-                f"{f.check_name}: {f.detail}"
-                for f in qa.failures
-                if f.severity == "hard"
-            )
-            raise RuntimeError(
-                f"Data QA failed for {pair} {timeframe}m: {failures_str}"
-            )
+            failures_str = "; ".join(f"{f.check_name}: {f.detail}" for f in qa.failures if f.severity == "hard")
+            raise RuntimeError(f"Data QA failed for {pair} {timeframe}m: {failures_str}")
 
         data_hash = compute_data_hash(data_path)
 
@@ -161,9 +145,7 @@ class StrategyRunner:
         run_id = generate_run_id(strategy_name, pair, timeframe)
 
         with self.db as conn:
-            self._ensure_strategy_registered(
-                conn, strategy_name, strategy_factory, register_if_missing
-            )
+            self._ensure_strategy_registered(conn, strategy_name, strategy_factory, register_if_missing)
 
             # ── 5. Insert run record ──────────────────────────────────────
             conn.execute(
@@ -257,7 +239,7 @@ class StrategyRunner:
         try:
             # Check if tree is clean
             diff = subprocess.check_output(
-                ["git", "diff", "--stat"],
+                ["git", "diff", "--stat"],  # noqa: S607
                 cwd=str(self.repo_path),
                 stderr=subprocess.DEVNULL,
             ).strip()
@@ -266,7 +248,7 @@ class StrategyRunner:
             # Get commit hash
             commit = (
                 subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"],
+                    ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607
                     cwd=str(self.repo_path),
                     stderr=subprocess.DEVNULL,
                 )
@@ -343,13 +325,9 @@ class StrategyRunner:
             min_confidence=min_confidence,
         )
 
-    def _ensure_strategy_registered(
-        self, conn, name: str, strategy_factory: Any, register: bool
-    ) -> None:
+    def _ensure_strategy_registered(self, conn, name: str, strategy_factory: Any, register: bool) -> None:
         """Ensure strategy exists in DB. Register if missing and allowed."""
-        row = conn.execute(
-            "SELECT name FROM strategies WHERE name=?", [name]
-        ).fetchone()
+        row = conn.execute("SELECT name FROM strategies WHERE name=?", [name]).fetchone()
 
         if row is None and register:
             # Try to get module path from the factory's class
@@ -488,31 +466,21 @@ class StrategyRunner:
             n = len(pnl_arr)
             skew_val = float(stats.skew(pnl_arr)) if n >= 3 else 0.0
             kurt_val = float(stats.kurtosis(pnl_arr, fisher=True)) if n >= 4 else 0.0
-            observed_sharpe = (
-                (mean_pnl / std_pnl * math.sqrt(n)) if std_pnl > 0 else 0.0
-            )
+            observed_sharpe = (mean_pnl / std_pnl * math.sqrt(n)) if std_pnl > 0 else 0.0
             # DSR approximation: Sharpe adjusted for skew/kurtosis bias
             sr_annual = observed_sharpe * math.sqrt(252)  # annualize daily-equivalent
             dsr = _deflated_sharpe(sr_annual, n, skew_val, kurt_val)
             # Sortino: downside deviation only
             downside = pnl_arr[pnl_arr < 0]
-            downside_std = (
-                float(np.std(downside, ddof=1)) if len(downside) > 1 else std_pnl or 0.0
-            )
-            sortino = (
-                (mean_pnl / downside_std * math.sqrt(n)) if downside_std > 0 else 0.0
-            )
+            downside_std = float(np.std(downside, ddof=1)) if len(downside) > 1 else std_pnl or 0.0
+            sortino = (mean_pnl / downside_std * math.sqrt(n)) if downside_std > 0 else 0.0
             # Calmar: total return / max drawdown
             cumulative_pnl = float(np.sum(pnl_arr))
             max_dd = max(dds) if dds else 0.0
             calmar = (cumulative_pnl / max_dd) if max_dd > 0 else None
             # ICIR (Information Coefficient Information Ratio): mean IC / std IC
             # Approximated from win-rate consistency
-            ic_proxy = [
-                (w.win_rate - 50.0) / 50.0
-                for w in results.per_window
-                if w.trade_count > 0
-            ]
+            ic_proxy = [(w.win_rate - 50.0) / 50.0 for w in results.per_window if w.trade_count > 0]
             icir = (
                 (statistics.mean(ic_proxy) / statistics.stdev(ic_proxy))
                 if len(ic_proxy) > 1 and statistics.stdev(ic_proxy) > 0
@@ -598,7 +566,7 @@ class StrategyRunner:
         except Exception as exc:
             try:
                 conn.execute("ROLLBACK")
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
             logger.exception(
                 "SRF persistence failed for run %s (windows=%d, trades=%d): %s",
@@ -665,9 +633,7 @@ class StrategyRunner:
     def _insert_metrics_summary(conn, row: list) -> None:
         """Insert the per-run aggregate row. ``row`` must have 20 elements."""
         if row is None or len(row) != 20:
-            raise ValueError(
-                f"metrics_summary row must have 20 elements, got {len(row) if row else 0}"
-            )
+            raise ValueError(f"metrics_summary row must have 20 elements, got {len(row) if row else 0}")
         conn.execute(
             """INSERT INTO metrics_summary
                (run_id, icir, dsr, calmar, sortino,
@@ -749,9 +715,7 @@ class StrategyRunner:
                 tf_str = TF_MAP.get(timeframe)
                 if not tf_str:
                     summary["failed"] += n_windows
-                    summary["details"].append(
-                        {"run_id": run_id, "error": f"Unknown timeframe {timeframe}"}
-                    )
+                    summary["details"].append({"run_id": run_id, "error": f"Unknown timeframe {timeframe}"})
                     continue
 
                 # Get total bar count and timestamp range for this pair/timeframe
@@ -764,9 +728,7 @@ class StrategyRunner:
                     ).fetchall()
                 except Exception:
                     summary["failed"] += n_windows
-                    summary["details"].append(
-                        {"run_id": run_id, "error": f"No bar data for {pair} {tf_str}"}
-                    )
+                    summary["details"].append({"run_id": run_id, "error": f"No bar data for {pair} {tf_str}"})
                     continue
 
                 if not bar_data:
@@ -825,18 +787,10 @@ class StrategyRunner:
                         summary["skipped"] += 1
                         continue
 
-                    train_start = datetime.fromtimestamp(
-                        timestamps[train_start_idx], tz=timezone.utc
-                    )
-                    train_end = datetime.fromtimestamp(
-                        timestamps[train_end_idx], tz=timezone.utc
-                    )
-                    test_start = datetime.fromtimestamp(
-                        timestamps[test_start_idx], tz=timezone.utc
-                    )
-                    test_end = datetime.fromtimestamp(
-                        timestamps[test_end_idx], tz=timezone.utc
-                    )
+                    train_start = datetime.fromtimestamp(timestamps[train_start_idx], tz=timezone.utc)
+                    train_end = datetime.fromtimestamp(timestamps[train_end_idx], tz=timezone.utc)
+                    test_start = datetime.fromtimestamp(timestamps[test_start_idx], tz=timezone.utc)
+                    test_end = datetime.fromtimestamp(timestamps[test_end_idx], tz=timezone.utc)
 
                     summary["total_null"] += 1
                     if not dry_run:
@@ -898,9 +852,7 @@ class StrategyRunner:
         conn = duckdb.connect(db_path)
         try:
             # Find all distinct strategy names
-            names = conn.execute(
-                "SELECT DISTINCT strategy_name FROM runs ORDER BY strategy_name"
-            ).fetchall()
+            names = conn.execute("SELECT DISTINCT strategy_name FROM runs ORDER BY strategy_name").fetchall()
 
             # ── DuckDB FK quirk workaround ─────────────────────────────
             # DuckDB rejects ``UPDATE runs SET strategy_name = ...`` even
@@ -918,7 +870,7 @@ class StrategyRunner:
                     snapshot_name = f"_norm_snapshot_{tbl}"
                     conn.execute(f"DROP TABLE IF EXISTS {snapshot_name}")
                     conn.execute(
-                        f"CREATE TEMP TABLE {snapshot_name} AS SELECT * FROM {tbl}"
+                        f"CREATE TEMP TABLE {snapshot_name} AS SELECT * FROM {tbl}"  # noqa: S608
                     )
                     snapshots[tbl] = snapshot_name
                     conn.execute(f"DROP TABLE {tbl}")
@@ -928,9 +880,7 @@ class StrategyRunner:
                     normalized = name.replace("_", "").lower().strip()
                     canonical = KNOWN_VARIANTS.get(normalized)
                     if canonical and name != canonical:
-                        summary["variants_found"].append(
-                            {"from": name, "to": canonical}
-                        )
+                        summary["variants_found"].append({"from": name, "to": canonical})
 
                         # Run IDs affected
                         run_ids = conn.execute(
@@ -955,7 +905,7 @@ class StrategyRunner:
                 if not dry_run:
                     for tbl, snapshot_name in snapshots.items():
                         conn.execute(
-                            f"CREATE TABLE {tbl} AS SELECT * FROM {snapshot_name}"
+                            f"CREATE TABLE {tbl} AS SELECT * FROM {snapshot_name}"  # noqa: S608
                         )
                         conn.execute(f"DROP TABLE {snapshot_name}")
             except Exception:

@@ -79,10 +79,7 @@ def make_trade(
 
 def make_trades(pnls: list[float], strategy: str = "test") -> list[Trade]:
     """Create a list of trades from P&L values (one per day)."""
-    return [
-        make_trade(days_ago=len(pnls) - i - 1, pnl=pnl, strategy=strategy)
-        for i, pnl in enumerate(pnls)
-    ]
+    return [make_trade(days_ago=len(pnls) - i - 1, pnl=pnl, strategy=strategy) for i, pnl in enumerate(pnls)]
 
 
 @pytest.fixture

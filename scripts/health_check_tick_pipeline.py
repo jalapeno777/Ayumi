@@ -65,8 +65,7 @@ def main():
     # Write current state
     new_state = {
         "last_check_time": current_time.isoformat(),
-        "last_signal_ts": signal_file.exists()
-        and json.loads(signal_file.read_text()).get("timestamp", "")
+        "last_signal_ts": signal_file.exists() and json.loads(signal_file.read_text()).get("timestamp", "")
         if signal_file.exists()
         else "",
     }

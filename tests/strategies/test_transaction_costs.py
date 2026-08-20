@@ -303,7 +303,7 @@ class TestMultiStrategyCostTracking(unittest.TestCase):
         )
         engine = MultiStrategyBacktestEngine(config, [MACrossStrategy()])
         results = engine.run_all_strategies(bars)
-        for name, result in results.items():
+        for name, result in results.items():  # noqa: B007
             self.assertGreaterEqual(result.metrics.total_spread_cost, 0.0)
             self.assertGreaterEqual(result.metrics.total_commission_cost, 0.0)
 

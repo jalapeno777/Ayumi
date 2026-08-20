@@ -137,7 +137,7 @@ class TestWalkForwardSplit(unittest.TestCase):
         wf = WalkForwardValidator(data=data, n_windows=3, overlap_ratio=0.3)
         windows = list(wf.split())
         self.assertEqual(len(windows), 3)
-        for train, val, test in windows:
+        for train, val, test in windows:  # noqa: B007
             self.assertTrue(len(train) > 0)
 
     def test_data_too_small_yields_nothing(self):
@@ -402,7 +402,7 @@ class TestEmbargoBars(unittest.TestCase):
         splits_no = list(wf_no_embargo.split())
         splits_zero = list(wf_zero_embargo.split())
         self.assertEqual(len(splits_no), len(splits_zero))
-        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_zero):
+        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_zero):  # noqa: B905
             self.assertEqual(t1, t2)
             self.assertEqual(v1, v2)
             self.assertEqual(te1, te2)
@@ -414,7 +414,7 @@ class TestEmbargoBars(unittest.TestCase):
         wf_emb = WalkForwardValidator(data=data, n_windows=3, embargo_bars=20)
         splits_no = list(wf_no.split())
         splits_emb = list(wf_emb.split())
-        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_emb):
+        for (t1, v1, te1), (t2, v2, te2) in zip(splits_no, splits_emb):  # noqa: B905
             self.assertEqual(len(t1), len(t2), "Train size should not change")
             self.assertEqual(len(v1), len(v2), "Val size should not change")
             self.assertLessEqual(
@@ -445,9 +445,7 @@ class TestEmbargoBars(unittest.TestCase):
         wf = WalkForwardValidator(data=data, n_windows=5, embargo_bars=15)
         for train, val, test in wf.split():
             if train and val and test:
-                self.assertLess(
-                    max(train), min(val), "Train must end before val starts"
-                )
+                self.assertLess(max(train), min(val), "Train must end before val starts")
                 self.assertLess(max(val), min(test), "Val must end before test starts")
 
 

@@ -4,7 +4,7 @@ This test is intentionally skipped in normal CI because it burns 60 seconds
 of CPU time. Run it manually when validating the advisory CPU limiter.
 """
 
-import time
+import time  # noqa: I001
 import psutil
 import pytest
 
@@ -40,13 +40,9 @@ def test_cpu_limited_20_percent_measured_under_cap():
     time.sleep(0.5)
     measured_final = process.cpu_percent(interval=None)
 
-    print(
-        f"\nCPU E2E: elapsed={elapsed:.1f}s, cpu_percent={measured:.1f}%, "
-        f"final_cpu_percent={measured_final:.1f}%"
-    )
+    print(f"\nCPU E2E: elapsed={elapsed:.1f}s, cpu_percent={measured:.1f}%, final_cpu_percent={measured_final:.1f}%")
 
     # Soft assertion — advisory enforcement may fail; result is documented.
     assert measured <= 20.0, (
-        f"Measured CPU {measured:.1f}% exceeded 20% cap; "
-        "advisory enforcement insufficient on this host"
+        f"Measured CPU {measured:.1f}% exceeded 20% cap; advisory enforcement insufficient on this host"
     )

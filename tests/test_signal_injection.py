@@ -23,7 +23,7 @@ Pipeline breaks documented:
     - Position sizer blocks if SL distance < 5 pips or daily risk exceeded
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 from datetime import datetime, timezone
@@ -93,9 +93,7 @@ def _make_gbpusd_long_signal(adapter: StrategyAdapter) -> OrchestratorTradeSigna
         "confidence": 0.80,
         "spread": 1.0,  # pips
         "atr": 0.0015,  # ~15 pips for GBPUSD — now passes volatility gate (domain mismatch guard)
-        "timestamp": datetime(
-            2026, 7, 2, 10, 0, 0, tzinfo=timezone.utc
-        ),  # 10:00 UTC = London session
+        "timestamp": datetime(2026, 7, 2, 10, 0, 0, tzinfo=timezone.utc),  # 10:00 UTC = London session
     }
     return adapter.adapt_signal("srmr_plus", raw_output)
 
@@ -278,10 +276,7 @@ class TestFullPipelineInjection:
         order = orchestrator.process_signal(signal)
 
         assert order.rejected
-        assert (
-            "threshold" in order.rejection_reason.lower()
-            or "below" in order.rejection_reason.lower()
-        )
+        assert "threshold" in order.rejection_reason.lower() or "below" in order.rejection_reason.lower()
 
     def test_wide_spread_rejected_at_confidence(self, orchestrator, adapter):
         """Inject signal with excessive spread — should fail at spread gate."""
@@ -298,10 +293,7 @@ class TestFullPipelineInjection:
         order = orchestrator.process_signal(signal)
 
         assert order.rejected
-        assert (
-            "spread" in order.rejection_reason.lower()
-            or "Spread" in order.rejection_reason
-        )
+        assert "spread" in order.rejection_reason.lower() or "Spread" in order.rejection_reason
 
     def test_unknown_symbol_blocks_at_sizing(self, orchestrator, adapter):
         """Inject signal for unknown symbol — passes confidence but fails at sizing."""
@@ -359,9 +351,7 @@ class TestFullPipelineInjection:
         signal = adapter.adapt_signal("srmr_plus", raw)
         order = orchestrator.process_signal(signal)
 
-        assert not order.rejected, (
-            f"Signal with ATR should pass: {order.rejection_reason}"
-        )
+        assert not order.rejected, f"Signal with ATR should pass: {order.rejection_reason}"
         assert order.lots > 0.0
         assert "volatility" in order.gates_passed
 
@@ -376,9 +366,7 @@ class TestFullPipelineInjection:
             "confidence": 0.75,
             "spread": 1.0,
             "atr": 0.0012,  # ~12 pips for EURUSD — passes volatility gate
-            "timestamp": datetime(
-                2026, 7, 2, 14, 0, 0, tzinfo=timezone.utc
-            ),  # NY session
+            "timestamp": datetime(2026, 7, 2, 14, 0, 0, tzinfo=timezone.utc),  # NY session
         }
         signal = adapter.adapt_signal("rsi_threshold", raw)
         order = orchestrator.process_signal(signal)

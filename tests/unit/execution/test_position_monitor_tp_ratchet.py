@@ -17,7 +17,7 @@ What we DO NOT cover here (pre-existing, separate cards):
     tests/unit/execution/test_position_monitor.py)
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: I001
 
 import pytest
 
@@ -157,9 +157,7 @@ class TestCheckTpLevelsSignature:
 
 
 class TestLongTp2Crossing:
-    def test_long_bid_crosses_tp2_amends_breakeven(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_long_bid_crosses_tp2_amends_breakeven(self, monitor, order_manager, mock_market_feed):
         pos = _make_long_position_with_tps(
             order_manager,
             entry=1.1000,
@@ -195,12 +193,8 @@ class TestLongTp2Crossing:
         # symbol_id resolved from market_feed
         assert kwargs.get("symbol_id") == 12345
 
-    def test_long_tp2_appended_to_tp_levels_fired(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_long_tp2_appended_to_tp_levels_fired(self, monitor, order_manager, mock_market_feed):
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         assert pos.tp_levels_fired == []
         monitor.check_tp_levels(prices={"EURUSD": 1.1110})
         assert pos.tp_levels_fired == [2]
@@ -210,9 +204,7 @@ class TestLongTp2Crossing:
 
 
 class TestLongTp3Crossing:
-    def test_long_bid_crosses_tp3_amends_sl_tp2(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_long_bid_crosses_tp3_amends_sl_tp2(self, monitor, order_manager, mock_market_feed):
         pos = _make_long_position_with_tps(
             order_manager,
             entry=1.1000,
@@ -242,12 +234,8 @@ class TestLongTp3Crossing:
         assert args[2] == pytest.approx(pos.take_profit_3)
         assert kwargs.get("symbol_id") == 12345
 
-    def test_long_tp3_appended_to_tp_levels_fired(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_long_tp3_appended_to_tp_levels_fired(self, monitor, order_manager, mock_market_feed):
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         # Pre-seed tp_levels_fired so we can isolate TP3 ratchet behavior.
         pos.tp_levels_fired = [2]
         monitor.check_tp_levels(prices={"EURUSD": 1.1160})
@@ -258,9 +246,7 @@ class TestLongTp3Crossing:
 
 
 class TestShortTp2Crossing:
-    def test_short_ask_crosses_tp2_amends_breakeven(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_short_ask_crosses_tp2_amends_breakeven(self, monitor, order_manager, mock_market_feed):
         pos = _make_short_position_with_tps(
             order_manager,
             entry=1.1000,
@@ -292,9 +278,7 @@ class TestShortTp2Crossing:
 
 
 class TestShortTp3Crossing:
-    def test_short_ask_crosses_tp3_amends_sl_tp2(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_short_ask_crosses_tp3_amends_sl_tp2(self, monitor, order_manager, mock_market_feed):
         pos = _make_short_position_with_tps(
             order_manager,
             entry=1.1000,
@@ -328,12 +312,8 @@ class TestShortTp3Crossing:
 
 
 class TestIdempotency:
-    def test_tp2_only_fires_once_when_price_remains_above(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_tp2_only_fires_once_when_price_remains_above(self, monitor, order_manager, mock_market_feed):
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         # First tick: crosses TP2 → fire.
         monitor.check_tp_levels(prices={"EURUSD": 1.1110})
         assert pos.tp_levels_fired == [2]
@@ -344,12 +324,8 @@ class TestIdempotency:
         mock_market_feed.amend_sl_tp.assert_not_called()
         assert pos.tp_levels_fired == [2]
 
-    def test_tp3_only_fires_once_when_price_remains_above(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_tp3_only_fires_once_when_price_remains_above(self, monitor, order_manager, mock_market_feed):
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         # Pre-fire TP2 so we can isolate TP3.
         pos.tp_levels_fired = [2]
         mock_market_feed.amend_sl_tp.reset_mock()
@@ -366,9 +342,7 @@ class TestIdempotency:
 
 
 class TestNoneTpLevels:
-    def test_position_without_tp2_or_tp3_is_skipped(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_position_without_tp2_or_tp3_is_skipped(self, monitor, order_manager, mock_market_feed):
         """No TP2/TP3 → no ratchet, no amend call, no exception."""
         result = order_manager.execute_paper_order(
             symbol="EURUSD",
@@ -387,9 +361,7 @@ class TestNoneTpLevels:
         assert actions == []
         mock_market_feed.amend_sl_tp.assert_not_called()
 
-    def test_position_with_only_tp2_no_tp3(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_position_with_only_tp2_no_tp3(self, monitor, order_manager, mock_market_feed):
         pos_result = order_manager.execute_paper_order(
             symbol="EURUSD",
             direction=TradeDirection.LONG,
@@ -411,9 +383,7 @@ class TestNoneTpLevels:
         assert actions[0].level == 2
         assert pos.tp_levels_fired == [2]
 
-    def test_position_with_only_tp3_no_tp2_is_skipped(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_position_with_only_tp3_no_tp2_is_skipped(self, monitor, order_manager, mock_market_feed):
         """TP3 without TP2 cannot safely ratchet — log + skip.
 
         The SL anchor for TP3 is TP2 (lock-in). Without TP2 we don't know
@@ -446,17 +416,11 @@ class TestNoneTpLevels:
 
 
 class TestMultiplePositions:
-    def test_two_long_positions_each_at_different_levels(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_two_long_positions_each_at_different_levels(self, monitor, order_manager, mock_market_feed):
         # Position A — has only crossed TP1, TP2 not yet.
-        pos_a = _make_long_position_with_tps(
-            order_manager, symbol="EURUSD", entry=1.1000, tp2=1.1150, tp3=1.1200
-        )
+        pos_a = _make_long_position_with_tps(order_manager, symbol="EURUSD", entry=1.1000, tp2=1.1150, tp3=1.1200)
         # Position B — already past TP3.
-        pos_b = _make_long_position_with_tps(
-            order_manager, symbol="GBPUSD", entry=1.2500, tp2=1.2650, tp3=1.2700
-        )
+        pos_b = _make_long_position_with_tps(order_manager, symbol="GBPUSD", entry=1.2500, tp2=1.2650, tp3=1.2700)
 
         # Mid prices above TP2 only for EURUSD; GBPUSD still below.
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1160, "GBPUSD": 1.2600})
@@ -471,15 +435,9 @@ class TestMultiplePositions:
         # Only one broker amend call.
         assert mock_market_feed.amend_sl_tp.call_count == 1
 
-    def test_long_and_short_in_same_tick(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos_long = _make_long_position_with_tps(
-            order_manager, symbol="EURUSD", entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
-        pos_short = _make_short_position_with_tps(
-            order_manager, symbol="GBPUSD", entry=1.3000, tp2=1.2900, tp3=1.2850
-        )
+    def test_long_and_short_in_same_tick(self, monitor, order_manager, mock_market_feed):
+        pos_long = _make_long_position_with_tps(order_manager, symbol="EURUSD", entry=1.1000, tp2=1.1100, tp3=1.1150)
+        pos_short = _make_short_position_with_tps(order_manager, symbol="GBPUSD", entry=1.3000, tp2=1.2900, tp3=1.2850)
 
         # Long on EURUSD hits TP2; short on GBPUSD hits TP2.
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1110, "GBPUSD": 1.2895})
@@ -498,9 +456,7 @@ class TestMultiplePositions:
 
 
 class TestUpdatePositionsIntegration:
-    def test_update_positions_calls_check_tp_levels(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_update_positions_calls_check_tp_levels(self, monitor, order_manager, mock_market_feed):
         """update_positions() must invoke check_tp_levels every tick so
         ratcheting is wired into the existing lifecycle loop."""
         # Spy on check_tp_levels.
@@ -513,9 +469,7 @@ class TestUpdatePositionsIntegration:
 
         monitor.check_tp_levels = spy
 
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1200
-        )
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1200)
 
         # Use a price strictly between tp2 and tp3 so only one level fires.
         monitor.update_positions(
@@ -529,12 +483,8 @@ class TestUpdatePositionsIntegration:
         mock_market_feed.amend_sl_tp.assert_called_once()
         assert pos.tp_levels_fired == [2]  # TP3 didn't fire
 
-    def test_update_positions_ratchets_through_loop(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_update_positions_ratchets_through_loop(self, monitor, order_manager, mock_market_feed):
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
 
         # Tick 1: price at TP2 (but well below TP3) → fires TP2 only,
         # SL moves to breakeven.
@@ -566,18 +516,14 @@ class TestUpdatePositionsIntegration:
 
 
 class TestAmendFailures:
-    def test_broker_amend_failure_does_not_set_idempotency(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_broker_amend_failure_does_not_set_idempotency(self, monitor, order_manager, mock_market_feed):
         """Transient broker failure must NOT mark the level as fired.
 
         If we appended, a stuck amend would silently disable the ratchet.
         The next tick should retry.
         """
         mock_market_feed.amend_sl_tp.return_value = False
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
 
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1110})
         assert len(result) == 1
@@ -591,13 +537,9 @@ class TestAmendFailures:
         assert result[0].amend_status == "amend_failed"
         assert pos.tp_levels_fired == []
 
-    def test_broker_amend_success_does_set_idempotency(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_broker_amend_success_does_set_idempotency(self, monitor, order_manager, mock_market_feed):
         mock_market_feed.amend_sl_tp.return_value = True
-        pos = _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+        pos = _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
 
         monitor.check_tp_levels(prices={"EURUSD": 1.1110})
         assert pos.tp_levels_fired == [2]
@@ -613,9 +555,7 @@ class TestAmendFailures:
             order_manager=order_manager,
             market_feed=None,
         )
-        _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+        _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1110})
         assert len(result) == 1
         assert result[0].amend_status == "no_feed"
@@ -625,33 +565,21 @@ class TestAmendFailures:
 
 
 class TestNoCross:
-    def test_long_price_below_tp2_no_action(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+    def test_long_price_below_tp2_no_action(self, monitor, order_manager, mock_market_feed):
+        _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1020})
         assert result == []
         mock_market_feed.amend_sl_tp.assert_not_called()
 
-    def test_short_price_above_tp2_no_action(
-        self, monitor, order_manager, mock_market_feed
-    ):
-        _make_short_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.0900, tp3=1.0850
-        )
+    def test_short_price_above_tp2_no_action(self, monitor, order_manager, mock_market_feed):
+        _make_short_position_with_tps(order_manager, entry=1.1000, tp2=1.0900, tp3=1.0850)
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1050})
         assert result == []
         mock_market_feed.amend_sl_tp.assert_not_called()
 
-    def test_price_exactly_at_tp2_triggers(
-        self, monitor, order_manager, mock_market_feed
-    ):
+    def test_price_exactly_at_tp2_triggers(self, monitor, order_manager, mock_market_feed):
         """Boundary: at-or-above is a cross (using >= for LONG / <= for SHORT)."""
-        _make_long_position_with_tps(
-            order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150
-        )
+        _make_long_position_with_tps(order_manager, entry=1.1000, tp2=1.1100, tp3=1.1150)
         result = monitor.check_tp_levels(prices={"EURUSD": 1.1100})
         assert len(result) == 1
         assert result[0].level == 2

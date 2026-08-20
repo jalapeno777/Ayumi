@@ -1,6 +1,6 @@
 """Tests for multi-symbol forward test engine (AYU-BUILD-003)."""
 
-import pytest
+import pytest  # noqa: I001
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 

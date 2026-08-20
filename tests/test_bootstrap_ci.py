@@ -23,7 +23,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.bootstrap_ci import (
+from backtest.bootstrap_ci import (  # noqa: I001
     DEFAULT_CONFIDENCE,
     PF_CAP,
     _parse_pnls,
@@ -274,7 +274,7 @@ class TestCLI:
         results_file = tmp_path / "results.json"
         results_file.write_text(json.dumps(results))
 
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -297,7 +297,7 @@ class TestCLI:
         assert output["ci_upper"] >= output["profit_factor"]
 
     def test_cli_file_not_found(self, tmp_path):
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -315,7 +315,7 @@ class TestCLI:
     def test_cli_empty_input(self, tmp_path):
         results_file = tmp_path / "empty.json"
         results_file.write_text(json.dumps({"pnls": []}))
-        proc = subprocess.run(
+        proc = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",

@@ -103,17 +103,13 @@ def weekly_sweep(
                 tf_minutes = _TF_MINUTES.get(tf_str)
                 if tf_minutes is None:
                     failures += 1
-                    failure_details.append(
-                        f"{strat_name}/{pair}/{tf_str}: unknown timeframe"
-                    )
+                    failure_details.append(f"{strat_name}/{pair}/{tf_str}: unknown timeframe")
                     continue
 
                 data_path = _resolve_data_path(pair, tf_str)
                 if not data_path.exists():
                     failures += 1
-                    failure_details.append(
-                        f"{strat_name}/{pair}/{tf_str}: no data file"
-                    )
+                    failure_details.append(f"{strat_name}/{pair}/{tf_str}: no data file")
                     logger.debug(
                         "Skip %s/%s/%s — %s not found",
                         strat_name,
@@ -142,9 +138,7 @@ def weekly_sweep(
                     )
                 except Exception as exc:
                     failures += 1
-                    failure_details.append(
-                        f"{strat_name}/{pair}/{tf_str}: {type(exc).__name__}: {exc}"
-                    )
+                    failure_details.append(f"{strat_name}/{pair}/{tf_str}: {type(exc).__name__}: {exc}")
                     logger.warning("FAIL %s/%s/%s — %s", strat_name, pair, tf_str, exc)
 
     # ── Log cron_runs row ─────────────────────────────────────────────
@@ -158,8 +152,7 @@ def weekly_sweep(
 
             with SRFDatabase(str(db_path)) as conn:
                 conn.execute(
-                    "INSERT INTO cron_runs (cron_start, cron_end, exit_code, "
-                    "run_count, status) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO cron_runs (cron_start, cron_end, exit_code, run_count, status) VALUES (?, ?, ?, ?, ?)",
                     [started_at, completed_at, exit_code, successes, status],
                 )
             logger.info(
@@ -172,9 +165,7 @@ def weekly_sweep(
             # DB write failure is logged but does NOT fail the cron.
             logger.error("Failed to log cron_runs row: %s", exc)
     else:
-        logger.warning(
-            "research.duckdb not found at %s — cron_runs row not written", db_path
-        )
+        logger.warning("research.duckdb not found at %s — cron_runs row not written", db_path)
 
     # ── Summary ───────────────────────────────────────────────────────
     summary = {
@@ -203,21 +194,13 @@ def weekly_sweep(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="SRF Weekly Deep Sweep")
-    parser.add_argument(
-        "--strategies", type=str, default=None, help="Comma-separated strategy names"
-    )
+    parser.add_argument("--strategies", type=str, default=None, help="Comma-separated strategy names")
     parser.add_argument("--pairs", type=str, default=None, help="Comma-separated pairs")
-    parser.add_argument(
-        "--timeframes", type=str, default=None, help="Comma-separated timeframes"
-    )
-    parser.add_argument(
-        "--trials", type=int, default=DEFAULT_TRIALS, help="Trials per combo (metadata)"
-    )
+    parser.add_argument("--timeframes", type=str, default=None, help="Comma-separated timeframes")
+    parser.add_argument("--trials", type=int, default=DEFAULT_TRIALS, help="Trials per combo (metadata)")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     result = weekly_sweep(
         strategies=args.strategies.split(",") if args.strategies else None,

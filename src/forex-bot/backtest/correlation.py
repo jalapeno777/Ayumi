@@ -173,17 +173,12 @@ def _load_returns(path: str) -> dict[str, list[float]]:
         raw = json.load(f)
 
     if not isinstance(raw, dict):
-        raise ValueError(
-            f"Expected JSON object mapping strategy names to return lists, "
-            f"got {type(raw).__name__}"
-        )
+        raise ValueError(f"Expected JSON object mapping strategy names to return lists, got {type(raw).__name__}")
 
     result: dict[str, list[float]] = {}
     for name, vals in raw.items():
         if not isinstance(vals, list):
-            raise ValueError(
-                f"Strategy '{name}' must map to a list of floats, got {type(vals).__name__}"
-            )
+            raise ValueError(f"Strategy '{name}' must map to a list of floats, got {type(vals).__name__}")
         result[name] = [float(v) for v in vals]
 
     return result

@@ -4,7 +4,7 @@ Backfills bar data from cTrader Open API (protobuf) with
 fallback to existing CSV files and gap detection.
 """
 
-import logging
+import logging  # noqa: I001
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -41,9 +41,7 @@ class HistoricalDataBackfill:
     Fallback: existing CSV files for gap-filling when live data is unavailable.
     """
 
-    def __init__(
-        self, credentials: cTraderCredentials, data_dir: str = "data/forex/historical"
-    ):
+    def __init__(self, credentials: cTraderCredentials, data_dir: str = "data/forex/historical"):
         self._credentials = credentials
         self._data_dir = Path(data_dir)
         self._openapi_client: CTraderOpenApiClient | None = None
@@ -58,8 +56,7 @@ class HistoricalDataBackfill:
 
             if not client_id or not client_secret:
                 raise RuntimeError(
-                    "CTRADER_OPENAPI_CLIENT_ID and CTRADER_OPENAPI_CLIENT_SECRET "
-                    "must be set in environment"
+                    "CTRADER_OPENAPI_CLIENT_ID and CTRADER_OPENAPI_CLIENT_SECRET must be set in environment"
                 )
 
             self._openapi_client = CTraderOpenApiClient(
@@ -100,19 +97,13 @@ class HistoricalDataBackfill:
             DataFrame with columns: timestamp, open, high, low, close, volume
         """
         if timeframe not in VALID_TIMEFRAMES:
-            raise ValueError(
-                f"Invalid timeframe '{timeframe}'. Must be one of {VALID_TIMEFRAMES}"
-            )
+            raise ValueError(f"Invalid timeframe '{timeframe}'. Must be one of {VALID_TIMEFRAMES}")
 
         now = datetime.now(timezone.utc)
         end_dt = datetime.fromisoformat(end_date) if end_date else now
         if end_dt.tzinfo is None:
             end_dt = end_dt.replace(tzinfo=timezone.utc)
-        start_dt = (
-            datetime.fromisoformat(start_date)
-            if start_date
-            else end_dt - timedelta(days=180)
-        )
+        start_dt = datetime.fromisoformat(start_date) if start_date else end_dt - timedelta(days=180)
         if start_dt.tzinfo is None:
             start_dt = start_dt.replace(tzinfo=timezone.utc)
 
@@ -120,9 +111,7 @@ class HistoricalDataBackfill:
 
         # Try Open API backfill
         if symbol_id:
-            df = self._backfill_via_open_api(
-                symbol_id, symbol, timeframe, start_dt, end_dt
-            )
+            df = self._backfill_via_open_api(symbol_id, symbol, timeframe, start_dt, end_dt)
 
         if df.empty:
             # Fallback: load existing CSV
@@ -130,18 +119,12 @@ class HistoricalDataBackfill:
 
         if df.empty:
             logger.warning(f"No historical data available for {symbol} {timeframe}")
-            return pd.DataFrame(
-                columns=["timestamp", "open", "high", "low", "close", "volume"]
-            )
+            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
 
         # Filter to requested range
         df["timestamp"] = pd.to_datetime(df["timestamp"])
         df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] <= end_dt)]
-        df = (
-            df.drop_duplicates(subset=["timestamp"])
-            .sort_values("timestamp")
-            .reset_index(drop=True)
-        )
+        df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
         return df
 
@@ -173,9 +156,7 @@ class HistoricalDataBackfill:
 
         try:
             for i, (name, sid) in enumerate(symbol_map.items()):
-                logger.info(
-                    f"Backfilling {name} {timeframe} ({i + 1}/{len(symbol_map)})"
-                )
+                logger.info(f"Backfilling {name} {timeframe} ({i + 1}/{len(symbol_map)})")
                 try:
                     df = self.backfill_symbol(
                         name,
@@ -240,9 +221,7 @@ class HistoricalDataBackfill:
         for i, (chunk_start, chunk_end) in enumerate(chunks):
             logger.debug(f"  chunk {i + 1}/{len(chunks)}: {chunk_start} → {chunk_end}")
             try:
-                bars = client.get_trendbars(
-                    symbol_id, timeframe, chunk_start, chunk_end
-                )
+                bars = client.get_trendbars(symbol_id, timeframe, chunk_start, chunk_end)
                 all_bars.extend(bars)
             except Exception as e:
                 logger.error(f"  chunk {i + 1} failed: {e}")

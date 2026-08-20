@@ -16,7 +16,7 @@ and rebuilds ONLY from the broker-supplied list using
 ``seeded_{position_id}`` keys.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -188,9 +188,7 @@ class TestReconcileWithBroker:
         assert result["seeded_count"] == 1
         assert "seeded_acct-1" in self.sizer.open_positions
         # 30 pips * 0.50 lots * $6.5/pip = $97.50
-        assert self.sizer.open_positions["seeded_acct-1"] == pytest.approx(
-            97.5, abs=1e-6
-        )
+        assert self.sizer.open_positions["seeded_acct-1"] == pytest.approx(97.5, abs=1e-6)
 
     def test_conservative_fallback_when_sl_missing(self):
         """A broker position with no SL gets ``lots * 100`` risk estimate
@@ -306,11 +304,7 @@ class TestReconcileWithBroker:
         with caplog.at_level(logging.INFO, logger="risk.sl_position_sizer"):
             self.sizer.reconcile_with_broker([])
 
-        log_lines = [
-            rec.getMessage()
-            for rec in caplog.records
-            if "reconcile_with_broker" in rec.getMessage()
-        ]
+        log_lines = [rec.getMessage() for rec in caplog.records if "reconcile_with_broker" in rec.getMessage()]
         assert log_lines, "Expected a reconcile log entry"
         msg = log_lines[-1]
         assert "2→0" in msg

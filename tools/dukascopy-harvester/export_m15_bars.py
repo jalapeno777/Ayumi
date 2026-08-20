@@ -7,6 +7,7 @@ Usage:
     python3 tools/dukascopy-harvester/export_m15_bars.py --symbol XAUUSD
     python3 tools/dukascopy-harvester/export_m15_bars.py --symbol XAUUSD --output /custom/path.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,8 +52,7 @@ def export_m15(symbol: str, output_path: Path) -> dict:
         earliest = datetime.datetime.fromtimestamp(minmax[0], tz=datetime.timezone.utc)
         latest = datetime.datetime.fromtimestamp(minmax[1], tz=datetime.timezone.utc)
 
-        logger.info("Exporting %d M15 bars for %s (%s → %s)",
-                    count, symbol, earliest.date(), latest.date())
+        logger.info("Exporting %d M15 bars for %s (%s → %s)", count, symbol, earliest.date(), latest.date())
 
         # Export to CSV using DuckDB's COPY
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,10 +71,10 @@ def export_m15(symbol: str, output_path: Path) -> dict:
                 WHERE symbol = '{symbol}' AND timeframe = 'M15'
                 ORDER BY timestamp_utc
             ) TO '{output_path}' (HEADER, DELIMITER ',');
-        """)
+        """)  # noqa: S608
 
         # Compute MD5
-        md5 = hashlib.md5(output_path.read_bytes()).hexdigest()
+        md5 = hashlib.md5(output_path.read_bytes()).hexdigest()  # noqa: S324
 
         logger.info("Wrote %d rows to %s", count, output_path)
         logger.info("MD5: %s", md5)
@@ -113,7 +113,7 @@ def main():
 
     result = export_m15(symbol, output_path)
     if result:
-        print(f"\nExport complete:")
+        print(f"\nExport complete:")  # noqa: F541
         for k, v in result.items():
             print(f"  {k}: {v}")
 

@@ -13,7 +13,7 @@ Covers:
 - Edge cases: empty results list, zero-trade streams, missing fields.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from pathlib import Path
@@ -91,9 +91,7 @@ class TestTierThresholds:
         """Tier definitions must match oos_gate production/demo/paper tiers."""
         by_name = {t.tier: t for t in TIER_THRESHOLDS}
         assert by_name["A"].min_windows_passed == TIER_A_PRODUCTION.min_windows_passed
-        assert (
-            by_name["A"].min_aggregate_sharpe == TIER_A_PRODUCTION.min_aggregate_sharpe
-        )
+        assert by_name["A"].min_aggregate_sharpe == TIER_A_PRODUCTION.min_aggregate_sharpe
         assert by_name["A"].dsr_alpha == TIER_A_PRODUCTION.dsr_alpha
         assert by_name["B"].min_windows_passed == TIER_B_DEMO.min_windows_passed
         assert by_name["C"].min_windows_passed == TIER_C_PAPER.min_windows_passed
@@ -171,9 +169,7 @@ class TestAnnotateWfResultsWithDsr:
 
     def test_does_not_mutate_input(self):
         """The caller's dicts must not be modified in-place."""
-        entries = [
-            _make_entry(mean_sharpe=12.0, mean_trade_count=80.0, windows_passed=5)
-        ]
+        entries = [_make_entry(mean_sharpe=12.0, mean_trade_count=80.0, windows_passed=5)]
         snapshot = json.dumps(entries, sort_keys=True)
         _ = annotate_wf_results_with_dsr(entries)
         # Re-serialize; should match the pre-call snapshot.
@@ -191,25 +187,19 @@ class TestAnnotateWfResultsWithDsr:
 
     def test_high_sharpe_lands_in_tier_a(self):
         """A strong-shuffle, well-populated stream must reach Tier A."""
-        entries = [
-            _make_entry(mean_sharpe=10.0, mean_trade_count=80.0, windows_passed=5)
-        ]
+        entries = [_make_entry(mean_sharpe=10.0, mean_trade_count=80.0, windows_passed=5)]
         annotated = annotate_wf_results_with_dsr(entries)
         assert annotated[0]["tier"] == "A"
 
     def test_fewer_windows_lands_in_lower_tier(self):
         """4-window streams cannot pass Tier A (5+ required)."""
-        entries = [
-            _make_entry(mean_sharpe=10.0, mean_trade_count=80.0, windows_passed=4)
-        ]
+        entries = [_make_entry(mean_sharpe=10.0, mean_trade_count=80.0, windows_passed=4)]
         annotated = annotate_wf_results_with_dsr(entries)
         assert annotated[0]["tier"] == "B"
 
     def test_zero_windows_yields_reject(self):
         """A zero-windows entry must be REJECTed, not silently classified."""
-        entries = [
-            _make_entry(windows_passed=0, mean_trade_count=50.0, mean_sharpe=5.0)
-        ]
+        entries = [_make_entry(windows_passed=0, mean_trade_count=50.0, mean_sharpe=5.0)]
         annotated = annotate_wf_results_with_dsr(entries)
         assert annotated[0]["tier"] == "REJECT"
         assert annotated[0]["dsr_viable"] is False
@@ -217,9 +207,7 @@ class TestAnnotateWfResultsWithDsr:
 
     def test_zero_sharpe_yields_reject_without_dsr_call(self):
         """zero-sharpe streams must not crash and must be REJECTed."""
-        entries = [
-            _make_entry(mean_sharpe=0.0, mean_trade_count=50.0, windows_passed=5)
-        ]
+        entries = [_make_entry(mean_sharpe=0.0, mean_trade_count=50.0, windows_passed=5)]
         annotated = annotate_wf_results_with_dsr(entries)
         assert annotated[0]["tier"] == "REJECT"
         # The reason should mention the sharpe is below the top tier's floor.
@@ -230,9 +218,7 @@ class TestAnnotateWfResultsWithDsr:
         entries = [_make_entry(mean_sharpe=10.0)]
         annotated = annotate_wf_results_with_dsr(entries, n_trials=50)
         assert annotated[0]["dsr_n_trials"] == 50
-        assert annotated[0]["dsr_expected_max_sr"] == pytest.approx(
-            expected_max_sharpe(50), rel=1e-9
-        )
+        assert annotated[0]["dsr_expected_max_sr"] == pytest.approx(expected_max_sharpe(50), rel=1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -251,18 +237,10 @@ class TestGenerateTierRanking:
         every test entry must use sharpe well above that floor.
         """
         entries = [
-            _make_entry(
-                pair="A1", windows_passed=5, mean_sharpe=10.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="B1", windows_passed=4, mean_sharpe=3.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="C1", windows_passed=3, mean_sharpe=3.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="X1", windows_passed=0, mean_sharpe=0.0, mean_trade_count=0.0
-            ),
+            _make_entry(pair="A1", windows_passed=5, mean_sharpe=10.0, mean_trade_count=80.0),
+            _make_entry(pair="B1", windows_passed=4, mean_sharpe=3.0, mean_trade_count=80.0),
+            _make_entry(pair="C1", windows_passed=3, mean_sharpe=3.0, mean_trade_count=80.0),
+            _make_entry(pair="X1", windows_passed=0, mean_sharpe=0.0, mean_trade_count=0.0),
         ]
         annotated = annotate_wf_results_with_dsr(entries)
         ranking = generate_tier_ranking(annotated)
@@ -274,18 +252,10 @@ class TestGenerateTierRanking:
     def test_summary_counts(self):
         """summary counts must equal bucket lengths and total."""
         entries = [
-            _make_entry(
-                pair="A1", windows_passed=5, mean_sharpe=10.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="A2", windows_passed=5, mean_sharpe=12.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="B1", windows_passed=4, mean_sharpe=3.0, mean_trade_count=80.0
-            ),
-            _make_entry(
-                pair="R1", windows_passed=0, mean_sharpe=0.0, mean_trade_count=0.0
-            ),
+            _make_entry(pair="A1", windows_passed=5, mean_sharpe=10.0, mean_trade_count=80.0),
+            _make_entry(pair="A2", windows_passed=5, mean_sharpe=12.0, mean_trade_count=80.0),
+            _make_entry(pair="B1", windows_passed=4, mean_sharpe=3.0, mean_trade_count=80.0),
+            _make_entry(pair="R1", windows_passed=0, mean_sharpe=0.0, mean_trade_count=0.0),
         ]
         annotated = annotate_wf_results_with_dsr(entries)
         ranking = generate_tier_ranking(annotated)
@@ -349,9 +319,7 @@ class TestDsrFormulaMath:
 
     def test_high_sharpe_collapses_pvalue_to_near_zero(self):
         """Huge Sharpe with sane n_obs → p-value ~ 0."""
-        entries = [
-            _make_entry(mean_sharpe=20.0, mean_trade_count=80.0, windows_passed=5)
-        ]
+        entries = [_make_entry(mean_sharpe=20.0, mean_trade_count=80.0, windows_passed=5)]
         annotated = annotate_wf_results_with_dsr(entries)
         assert annotated[0]["dsr_pvalue"] < 1e-6
         assert annotated[0]["tier"] == "A"
@@ -360,9 +328,7 @@ class TestDsrFormulaMath:
         """A Sharpe barely above the floor but below E[max SR|null] should fail."""
         # E[max SR | null] for n_trials=160 is ~2.69, so SR=2.7 with n_obs=30
         # puts us right at the edge — DSR should fail the alpha=0.05 test.
-        entries = [
-            _make_entry(mean_sharpe=2.7, mean_trade_count=10.0, windows_passed=3)
-        ]
+        entries = [_make_entry(mean_sharpe=2.7, mean_trade_count=10.0, windows_passed=3)]
         annotated = annotate_wf_results_with_dsr(entries)
         # 3 windows passed = Tier C min. Sharpe 2.7 > 0.50 (Tier C floor).
         # DSR depends on p-value: with mean_sharpe 2.7 vs E_max 2.69 and n_obs=30,
@@ -456,9 +422,7 @@ class TestWriteCombinedAnnotatedReport:
         assert doc["combined"]["summary"]["total"] == 2
         # Tier definitions match oos_gate constants.
         tiers = {d["tier"]: d for d in doc["tier_definitions"]}
-        assert (
-            tiers["A"]["min_aggregate_sharpe"] == TIER_A_PRODUCTION.min_aggregate_sharpe
-        )
+        assert tiers["A"]["min_aggregate_sharpe"] == TIER_A_PRODUCTION.min_aggregate_sharpe
 
     def test_creates_parent_directories(self, tmp_path: Path):
         """Missing parent dirs must be created automatically."""
@@ -485,9 +449,7 @@ class TestEndToEndOnRealReports:
     REPORTS_DIR = Path("reports/srmr-plus-pipeline-2026-07-08")
 
     @pytest.mark.skipif(
-        not Path(
-            "reports/srmr-plus-pipeline-2026-07-08/XAUUSD_focused_results.jsonl"
-        ).exists(),
+        not Path("reports/srmr-plus-pipeline-2026-07-08/XAUUSD_focused_results.jsonl").exists(),
         reason="SRMR+ pipeline reports not available",
     )
     def test_full_pipeline_against_real_reports(self):
@@ -501,9 +463,7 @@ class TestEndToEndOnRealReports:
 
         # Sanity invariants: counts add up.
         s = ranking["summary"]
-        expected_total = sum(
-            sum(1 for line in p.read_text().splitlines() if line.strip()) for p in paths
-        )
+        expected_total = sum(sum(1 for line in p.read_text().splitlines() if line.strip()) for p in paths)
         assert s["total"] == expected_total
         assert s["viable_count"] >= 0
         # At least some streams must reach Tier A/B in the SRMR+ set,

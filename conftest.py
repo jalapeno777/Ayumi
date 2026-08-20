@@ -9,7 +9,8 @@ Individual tests or modules can override by calling resource_limits directly.
 # Without this, OpenBLAS/MKL/OpenMP spawn worker threads that share memory and
 # corrupt state under pytest's suite ordering, manifesting as exit-139 segfaults
 # (see diagnosis card 92243d36). setdefault preserves any caller-supplied value.
-import os
+import os  # noqa: I001
+
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 
@@ -22,15 +23,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from common.resource_limits import configure_pytest_defaults
 
 # Apply memory limit at collection time
-configure_pytest_defaults(
-    max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "2048"))
-)
+configure_pytest_defaults(max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "2048")))
 
 
 def pytest_collection_modifyitems(config, items):
     """Optional hook: log collection size for diagnostics."""
     import logging
 
-    logging.getLogger("ayumi.resource_limits").debug(
-        "Collected %d tests, memory limit active", len(items)
-    )
+    logging.getLogger("ayumi.resource_limits").debug("Collected %d tests, memory limit active", len(items))

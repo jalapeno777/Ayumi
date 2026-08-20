@@ -6,14 +6,12 @@ Verifies that:
 3. _compute_position_risk_usd uses correct pip values
 """
 
-import pytest
+import pytest  # noqa: I001
 import sys
 import os
 
 # Add src to path so imports work without full package install
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "forex-bot")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "forex-bot"))
 
 from risk.sl_position_sizer import (
     INSTRUMENTS,
@@ -28,16 +26,12 @@ class TestXAUUUDInstrumentSpec:
     def test_xauusd_pip_size(self):
         """XAUUSD pip_size must be 0.1 (canonical)."""
         spec = INSTRUMENTS["XAUUSD"]
-        assert spec.pip_size == 0.1, (
-            f"XAUUSD pip_size should be 0.1, got {spec.pip_size}"
-        )
+        assert spec.pip_size == 0.1, f"XAUUSD pip_size should be 0.1, got {spec.pip_size}"
 
     def test_xauusd_pip_value_per_lot(self):
         """XAUUSD pip_value_per_lot must be 10.0."""
         spec = INSTRUMENTS["XAUUSD"]
-        assert spec.pip_value_per_lot == 10.0, (
-            f"XAUUSD pip_value_per_lot should be 10.0, got {spec.pip_value_per_lot}"
-        )
+        assert spec.pip_value_per_lot == 10.0, f"XAUUSD pip_value_per_lot should be 10.0, got {spec.pip_value_per_lot}"
 
     def test_xauusd_lot_size(self):
         """XAUUSD lot_size must be 100 (1 lot = 100 oz)."""
@@ -84,9 +78,7 @@ class TestLotSizeInvariance:
         # sl_distance = 2000 - 1995 = $5
         # sl_pips = 5 / 0.1 = 50 pips
         # lots = 50 / (50 * 10.0) = 0.10
-        assert result.lots == pytest.approx(0.10, rel=1e-6), (
-            f"Expected ~0.10 lots, got {result.lots}"
-        )
+        assert result.lots == pytest.approx(0.10, rel=1e-6), f"Expected ~0.10 lots, got {result.lots}"
 
     def test_xauusd_lot_same_as_old_convention(self):
         """Manual calculation with old convention gives same lot size."""

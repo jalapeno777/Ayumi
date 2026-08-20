@@ -85,13 +85,13 @@ def run_portfolio_on_bars(
     config = build_ftmo_config(pair, initial_balance)
     selected_factories = {k: strategy_factories[k] for k in selected_keys}
     strategies = []
-    for name, factory in selected_factories.items():
+    for name, factory in selected_factories.items():  # noqa: B007
         try:
             s = factory()
             if hasattr(s, "set_balance"):
                 s.set_balance(initial_balance)
             strategies.append(s)
-        except Exception:
+        except Exception:  # noqa: S112
             continue
 
     if not strategies:
@@ -161,10 +161,8 @@ def run_walk_forward(
 
     per_window: list[WindowMetrics] = []
 
-    for win_idx, (train_bars, val_bars, test_bars) in enumerate(validator.split()):
-        inventory = inventory_strategies_on_data(
-            strategy_factories, train_bars, pair, initial_balance
-        )
+    for win_idx, (train_bars, val_bars, test_bars) in enumerate(validator.split()):  # noqa: B007
+        inventory = inventory_strategies_on_data(strategy_factories, train_bars, pair, initial_balance)
 
         if len(inventory) < 2:
             per_window.append(
@@ -182,9 +180,7 @@ def run_walk_forward(
             continue
 
         signal_corr = compute_signal_correlation(inventory, len(train_bars))
-        selection = select_least_correlated(
-            inventory, signal_corr, max_strategies=4, min_pf=0.0, min_wr=0.0
-        )
+        selection = select_least_correlated(inventory, signal_corr, max_strategies=4, min_pf=0.0, min_wr=0.0)
 
         if not selection.selected:
             per_window.append(
@@ -219,11 +215,7 @@ def run_walk_forward(
         trade_count = len(pnls)
 
         win_rate = len(wins) / trade_count if trade_count > 0 else 0.0
-        pf = (
-            total_win / total_loss
-            if total_loss > 0
-            else (10.0 if total_win > 0 else 0.0)
-        )
+        pf = total_win / total_loss if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
 
         balance = initial_balance
         peak = initial_balance
@@ -239,14 +231,7 @@ def run_walk_forward(
 
         sharpe = portfolio_metrics.sharpe_ratio
 
-        passed = (
-            trade_count >= 20
-            and win_rate > 0.55
-            and pf > 1.5
-            and total_pnl > 0
-            and max_dd < 0.05
-            and sharpe > 0.5
-        )
+        passed = trade_count >= 20 and win_rate > 0.55 and pf > 1.5 and total_pnl > 0 and max_dd < 0.05 and sharpe > 0.5
 
         per_window.append(
             WindowMetrics(
@@ -269,11 +254,7 @@ def run_walk_forward(
         tc_vals = [float(m.trade_count) for m in per_window]
         pnl_vals = [m.total_pnl for m in per_window]
 
-        aggregated = (
-            WalkForwardValidator.__mro__[0].__new__(WalkForwardValidator)
-            if False
-            else None
-        )
+        aggregated = WalkForwardValidator.__mro__[0].__new__(WalkForwardValidator) if False else None
 
         from quant.walk_forward import AggregatedMetrics
 
@@ -324,8 +305,7 @@ def format_report(
     lines.append("STRATEGY INVENTORY (Individual Results)")
     lines.append("-" * 90)
     lines.append(
-        f"{'Strategy':<25} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} "
-        f"{'Trades':>7} {'PnL':>10} {'Selected':>10}"
+        f"{'Strategy':<25} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'Trades':>7} {'PnL':>10} {'Selected':>10}"
     )
     for key, inv in inventory.items():
         m = inv.metrics
@@ -372,9 +352,7 @@ def format_report(
     m = portfolio_metrics
     lines.append(f"  Starting Balance:  ${m.starting_balance:>10.2f}")
     lines.append(f"  Ending Balance:    ${m.ending_balance:>10.2f}")
-    lines.append(
-        f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)"
-    )
+    lines.append(f"  Total P&L:         ${m.total_pnl:>10.2f} ({m.total_pnl_pct:>7.2f}%)")
     lines.append(f"  Win Rate:          {m.win_rate:>10.1f}%")
     lines.append(f"  Profit Factor:     {m.profit_factor:>10.2f}")
     lines.append(f"  Sharpe Ratio:      {m.sharpe_ratio:>10.2f}")
@@ -384,9 +362,7 @@ def format_report(
 
     lines.append("COMPARISON: INDIVIDUAL vs PORTFOLIO")
     lines.append("-" * 90)
-    lines.append(
-        f"{'Strategy':<25} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'Trades':>7}"
-    )
+    lines.append(f"{'Strategy':<25} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'Trades':>7}")
     for key, inv in inventory.items():
         im = inv.metrics
         lines.append(
@@ -414,10 +390,7 @@ def format_report(
             lines.append(f"  Windows Passed:     {a.windows_passed}/{a.total_windows}")
 
         lines.append("")
-        lines.append(
-            f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} "
-            f"{'Trades':>8} {'PnL':>12} {'GO?':>6}"
-        )
+        lines.append(f"  {'Win':<8} {'PF':>8} {'MaxDD':>8} {'Sharpe':>8} {'Trades':>8} {'PnL':>12} {'GO?':>6}")
         for wm in wf.per_window:
             lines.append(
                 f"  {wm.win_rate:<8.2%} {wm.profit_factor:>8.2f} {wm.max_drawdown:>8.2%} "
@@ -426,15 +399,9 @@ def format_report(
             )
         lines.append("")
 
-    best_individual_sharpe = max(
-        (inv.metrics.sharpe_ratio for inv in inventory.values()), default=0.0
-    )
+    best_individual_sharpe = max((inv.metrics.sharpe_ratio for inv in inventory.values()), default=0.0)
     best_individual_dd = min(
-        (
-            inv.metrics.max_drawdown_pct
-            for inv in inventory.values()
-            if inv.metrics.max_drawdown_pct > 0
-        ),
+        (inv.metrics.max_drawdown_pct for inv in inventory.values() if inv.metrics.max_drawdown_pct > 0),
         default=100.0,
     )
     lines.append("SUCCESS CRITERIA CHECK")
@@ -450,16 +417,9 @@ def format_report(
         f"{'PASS' if m.max_drawdown_pct < best_individual_dd else 'FAIL'}"
     )
     if wf_results:
-        min_oos_trades = min(
-            (wm.trade_count for wm in wf_results.per_window), default=0
-        )
-        lines.append(
-            f"  Min OOS trades >= 20: {min_oos_trades} → "
-            f"{'PASS' if min_oos_trades >= 20 else 'FAIL'}"
-        )
-        lines.append(
-            f"  Walk-forward GO/NO-GO: {'PASS' if wf_results.go_nogo else 'FAIL'}"
-        )
+        min_oos_trades = min((wm.trade_count for wm in wf_results.per_window), default=0)
+        lines.append(f"  Min OOS trades >= 20: {min_oos_trades} → {'PASS' if min_oos_trades >= 20 else 'FAIL'}")
+        lines.append(f"  Walk-forward GO/NO-GO: {'PASS' if wf_results.go_nogo else 'FAIL'}")
     lines.append("")
     lines.append("=" * 90)
 
@@ -469,12 +429,8 @@ def format_report(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Multi-strategy portfolio backtest")
     add_resource_args(parser)
-    parser.add_argument(
-        "--pair", type=str, default="EURUSD", help="Pair to test (default: EURUSD)"
-    )
-    parser.add_argument(
-        "--timeframe", type=str, default="H1", help="Timeframe (default: H1)"
-    )
+    parser.add_argument("--pair", type=str, default="EURUSD", help="Pair to test (default: EURUSD)")
+    parser.add_argument("--timeframe", type=str, default="H1", help="Timeframe (default: H1)")
     parser.add_argument("--balance", type=float, default=10000, help="Starting balance")
     parser.add_argument("--windows", type=int, default=5, help="Walk-forward windows")
     parser.add_argument("--output", type=str, default=None, help="Output JSON path")
@@ -513,9 +469,7 @@ def main() -> None:
     t0 = time.time()
 
     print("Step 1: Running individual strategy inventory...")
-    inventory = inventory_strategies_on_data(
-        strategy_factories, bars, args.pair, args.balance
-    )
+    inventory = inventory_strategies_on_data(strategy_factories, bars, args.pair, args.balance)
     print(f"  {len(inventory)} strategies produced signals\n")
 
     print("Step 2: Computing signal-level correlation...")
@@ -523,9 +477,7 @@ def main() -> None:
     print(f"  Average |correlation|: {signal_corr.average_correlation:.3f}\n")
 
     print("Step 3: Selecting least-correlated strategies...")
-    selection = select_least_correlated(
-        inventory, signal_corr, max_strategies=4, min_pf=0.0, min_wr=0.0
-    )
+    selection = select_least_correlated(inventory, signal_corr, max_strategies=4, min_pf=0.0, min_wr=0.0)
     print(f"  Selected {len(selection.selected)} strategies:")
     for key in selection.selected:
         w = selection.weights.get(key, 0.0)
@@ -548,26 +500,18 @@ def main() -> None:
     wf_results = None
     if not args.no_walk_forward:
         print("Step 5: Running walk-forward validation...")
-        wf_results = run_walk_forward(
-            strategy_factories, bars, args.pair, args.balance, args.windows
-        )
+        wf_results = run_walk_forward(strategy_factories, bars, args.pair, args.balance, args.windows)
         print(f"  GO/NO-GO: {'GO' if wf_results.go_nogo else 'NO-GO'}")
         if wf_results.aggregated:
             a = wf_results.aggregated
-            print(
-                f"  Mean WR={a.mean_win_rate:.2%}, PF={a.mean_profit_factor:.2f}, Sharpe={a.mean_sharpe_ratio:.2f}"
-            )
+            print(f"  Mean WR={a.mean_win_rate:.2%}, PF={a.mean_profit_factor:.2f}, Sharpe={a.mean_sharpe_ratio:.2f}")
             print(f"  Windows: {a.windows_passed}/{a.total_windows} passed")
         print()
 
-    report = format_report(
-        inventory, signal_corr, selection, portfolio_metrics, wf_results, args.pair
-    )
+    report = format_report(inventory, signal_corr, selection, portfolio_metrics, wf_results, args.pair)
     print(report)
 
-    output_path = args.output or str(
-        REPORTS_DIR / f"portfolio_backtest_{args.pair}_{args.timeframe}.json"
-    )
+    output_path = args.output or str(REPORTS_DIR / f"portfolio_backtest_{args.pair}_{args.timeframe}.json")
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     report_data = {

@@ -32,7 +32,7 @@ def quote_credentials():
         target_comp_id="cServer",
         sender_sub_id="QUOTE",
         username="17087404",
-        password="test_password",
+        password="test_password",  # noqa: S106
     )
 
 
@@ -281,9 +281,7 @@ class TestMarketDataRequestWireFormat:
 
 
 class TestMarketDataIncrementalRefresh:
-    def _make_incremental_msg(
-        self, entries: list[dict], symbol_id: int = 2, md_req_id: str = "SUB_0001"
-    ) -> FIXMessage:
+    def _make_incremental_msg(self, entries: list[dict], symbol_id: int = 2, md_req_id: str = "SUB_0001") -> FIXMessage:
         """Build a FIXMessage mimicking a 35=X incremental refresh."""
         raw_fields: list[tuple[int, str]] = [
             (262, md_req_id),

@@ -23,9 +23,7 @@ ICT_FEATURE_NAMES = [
 ]
 
 
-def build_ict_features(
-    signals: list[ConfluenceSignal], target_index: pd.DatetimeIndex
-) -> pd.DataFrame:
+def build_ict_features(signals: list[ConfluenceSignal], target_index: pd.DatetimeIndex) -> pd.DataFrame:
     if not signals:
         return pd.DataFrame(
             {name: np.nan for name in ICT_FEATURE_NAMES},
@@ -72,9 +70,7 @@ def ema(series: pd.Series, period: int) -> pd.Series:
     return series.ewm(span=period, adjust=False).mean()
 
 
-def atr(
-    high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14
-) -> pd.Series:
+def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
     prev_close = close.shift(1)
     tr = pd.concat(
         [
@@ -206,9 +202,7 @@ def volatility_percentile(atr_series: pd.Series, lookback: int = 50) -> pd.Serie
     return (atr_series - rolling_min) / rng.replace(0, np.nan)
 
 
-def trend_alignment(
-    close: pd.Series, fast_period: int = 9, slow_period: int = 21
-) -> pd.Series:
+def trend_alignment(close: pd.Series, fast_period: int = 9, slow_period: int = 21) -> pd.Series:
     fast_sma = sma(close, fast_period)
     slow_sma = sma(close, slow_period)
     direction = np.where(close > fast_sma, 1, -1) * np.where(fast_sma > slow_sma, 1, -1)
@@ -227,27 +221,21 @@ def lower_lows(low: pd.Series, lookback: int = 5) -> pd.Series:
     return (rolling_min < prev_min).astype(int)
 
 
-def engulfing_bullish(
-    open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series
-) -> pd.Series:
+def engulfing_bullish(open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series) -> pd.Series:
     prev_bearish = prev_close < prev_open
     current_bullish = close > open_
     body_engulfs = (close > prev_open) & (open_ < prev_close)
     return (prev_bearish & current_bullish & body_engulfs).astype(int)
 
 
-def engulfing_bearish(
-    open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series
-) -> pd.Series:
+def engulfing_bearish(open_: pd.Series, close: pd.Series, prev_open: pd.Series, prev_close: pd.Series) -> pd.Series:
     prev_bullish = prev_close > prev_open
     current_bearish = close < open_
     body_engulfs = (close < prev_open) & (open_ > prev_close)
     return (prev_bullish & current_bearish & body_engulfs).astype(int)
 
 
-def pin_bar_bullish(
-    high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series
-) -> pd.Series:
+def pin_bar_bullish(high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series) -> pd.Series:
     total_range = high - low
     bullish = close > open_
     lower_wick = np.where(bullish, close - low, open_ - low)
@@ -259,9 +247,7 @@ def pin_bar_bullish(
     return (long_lower & small_upper & small_body).astype(int)
 
 
-def pin_bar_bearish(
-    high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series
-) -> pd.Series:
+def pin_bar_bearish(high: pd.Series, low: pd.Series, close: pd.Series, open_: pd.Series) -> pd.Series:
     total_range = high - low
     bullish = close > open_
     upper_wick = np.where(bullish, high - close, high - open_)
@@ -273,9 +259,7 @@ def pin_bar_bearish(
     return (long_upper & small_lower & small_body).astype(int)
 
 
-def build_feature_matrix(
-    df: pd.DataFrame, signals: list[ConfluenceSignal] | None = None
-) -> pd.DataFrame:
+def build_feature_matrix(df: pd.DataFrame, signals: list[ConfluenceSignal] | None = None) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -347,7 +331,7 @@ def build_feature_matrix(
         date_series = df["date"]
         signal_map = {s.signal_time: s for s in signals}
         rows = []
-        for i, ts in enumerate(date_series):
+        for i, ts in enumerate(date_series):  # noqa: B007
             signal = signal_map.get(ts)
             if signal is not None:
                 rows.append(
@@ -372,9 +356,7 @@ def build_feature_matrix(
     return features
 
 
-def add_multi_timeframe_features(
-    features: pd.DataFrame, h4_df: pd.DataFrame, d1_df: pd.DataFrame
-) -> pd.DataFrame:
+def add_multi_timeframe_features(features: pd.DataFrame, h4_df: pd.DataFrame, d1_df: pd.DataFrame) -> pd.DataFrame:
     h4_close = h4_df["close"]
     d1_close = d1_df["close"]
 
@@ -402,8 +384,8 @@ def add_multi_timeframe_features(
 
     features = pd.concat([features, h4_aligned, d1_aligned], axis=1)
 
-    features["tf_alignment"] = (
-        features["trend_direction"] == features["h4_trend"]
-    ).astype(int) + (features["trend_direction"] == features["d1_trend"]).astype(int)
+    features["tf_alignment"] = (features["trend_direction"] == features["h4_trend"]).astype(int) + (
+        features["trend_direction"] == features["d1_trend"]
+    ).astype(int)
 
     return features

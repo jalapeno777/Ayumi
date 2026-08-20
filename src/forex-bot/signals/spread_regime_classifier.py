@@ -95,9 +95,7 @@ class SpreadRegimeClassifier:
         """
         spread = getattr(bar, "spread", None)
         if spread is None:
-            raise TypeError(
-                "bar must expose a 'spread' attribute (numeric spread value)"
-            )
+            raise TypeError("bar must expose a 'spread' attribute (numeric spread value)")
         value = float(spread)
         if value < 0:
             raise ValueError(f"spread must be non-negative, got {value!r}")
@@ -149,11 +147,9 @@ class SpreadRegimeClassifier:
         acceptance criteria.
         """
         if regime is None and spread_pips is None:
-            raise TypeError(
-                "confidence_penalty requires either 'regime' or 'spread_pips'"
-            )
+            raise TypeError("confidence_penalty requires either 'regime' or 'spread_pips'")
         if regime is None:
-            assert spread_pips is not None  # for type-checkers
+            assert spread_pips is not None  # for type-checkers  # noqa: S101
             regime = self.classify(spread_pips)
         return _DEFAULT_PENALTIES[regime]
 

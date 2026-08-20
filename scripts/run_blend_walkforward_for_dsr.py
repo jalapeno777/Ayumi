@@ -16,7 +16,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.tick_loader import load_bars
+from backtest.tick_loader import load_bars  # noqa: I001
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from strategies.killzone_momentum import (
     KillzoneMomentumStrategy,
@@ -41,15 +41,11 @@ from strategies.ttc_xauusd import TTCXAUUSDStrategy
 STRATEGY_FACTORIES = {
     "killzone_momentum": (
         "M15",
-        lambda pair: (
-            lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig(symbol=pair))
-        ),
+        lambda pair: lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig(symbol=pair)),
     ),
     "dual_tf_squeeze_pro": (
         "M15",
-        lambda pair: (
-            lambda: DualTFSqueezeProStrategy(DualTFSqueezeProConfig(symbol=pair))
-        ),
+        lambda pair: lambda: DualTFSqueezeProStrategy(DualTFSqueezeProConfig(symbol=pair)),
     ),
     "donchian_atr_trend_v2": (
         "H1",
@@ -61,9 +57,7 @@ STRATEGY_FACTORIES = {
     ),
     "london_breakout_retest": (
         "M15",
-        lambda pair: (
-            lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig(symbol=pair))
-        ),
+        lambda pair: lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig(symbol=pair)),
     ),
     "ttc_xauusd": (
         "M15",
@@ -158,9 +152,7 @@ def run_one(strategy_name: str, pair: str) -> dict | None:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Blend walk-forward runner with JSONL output for DSR annotation."
-    )
+    parser = argparse.ArgumentParser(description="Blend walk-forward runner with JSONL output for DSR annotation.")
     parser.add_argument(
         "--pairs",
         default="XAUUSD",
@@ -182,11 +174,7 @@ def main():
     strategies = [s.strip() for s in args.strategies.split(",")]
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    output_dir = (
-        Path(args.output_dir)
-        if args.output_dir
-        else PROJECT_ROOT / "reports" / f"blend-walkforward-{today}"
-    )
+    output_dir = Path(args.output_dir) if args.output_dir else PROJECT_ROOT / "reports" / f"blend-walkforward-{today}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[blend-wf] Output dir: {output_dir}")
@@ -200,9 +188,7 @@ def main():
         lines_written = 0
         with open(jsonl_path, "w") as f:  # truncates: same-day rerun overwrites
             for pair in pairs:
-                print(
-                    f"  [{strat} / {pair}] running walk-forward...", end=" ", flush=True
-                )
+                print(f"  [{strat} / {pair}] running walk-forward...", end=" ", flush=True)
                 try:
                     result = run_one(strat, pair)
                 except Exception as e:
@@ -244,20 +230,14 @@ def main():
                 f"windows={r['windows_passed']}/{r['windows_total']}"
             )
         elif r.get("status") == "skipped":
-            print(
-                f"  ⏭️  {r['strategy']:30s} {r['pair']:8s} skipped ({r.get('reason', 'unknown')})"
-            )
+            print(f"  ⏭️  {r['strategy']:30s} {r['pair']:8s} skipped ({r.get('reason', 'unknown')})")
         else:
-            print(
-                f"  ❓ {r.get('strategy', '?'):30s} {r.get('pair', '?'):8s} {r.get('status', '?')}"
-            )
+            print(f"  ❓ {r.get('strategy', '?'):30s} {r.get('pair', '?'):8s} {r.get('status', '?')}")
 
     # DSR command hint
     # Count actual candidates produced (valid results only, not skipped)
     valid_candidates = sum(1 for r in total_results if r.get("status") == "complete")
-    jsonl_flags = " ".join(
-        f"--jsonl {output_dir / f'{s}_focused_results.jsonl'}" for s in strategies
-    )
+    jsonl_flags = " ".join(f"--jsonl {output_dir / f'{s}_focused_results.jsonl'}" for s in strategies)
     # n_trials should reflect actual independent candidates tested
     n_trials = max(valid_candidates, 6)
     print()

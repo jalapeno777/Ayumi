@@ -55,7 +55,7 @@ def _scan_files():
                 continue
             try:
                 content = py_file.read_text()
-            except Exception:
+            except Exception:  # noqa: S112
                 continue
             for pat in BUG_PATTERNS:
                 for match in pat.finditer(content):
@@ -72,11 +72,8 @@ def test_no_60bar_precompute_pattern():
         for rel, lineno, matched in findings:
             lines.append(f"  {rel}:{lineno} — `{matched}`")
         lines.append("")
-        lines.append(
-            "RegimeDetector needs >=100 bars (atr_lookback=50 + adx_period=14). "
-            "Use 100-bar windows instead."
-        )
-        assert False, "\n".join(lines)
+        lines.append("RegimeDetector needs >=100 bars (atr_lookback=50 + adx_period=14). Use 100-bar windows instead.")
+        assert False, "\n".join(lines)  # noqa: B011
 
 
 def test_regime_config_defaults():

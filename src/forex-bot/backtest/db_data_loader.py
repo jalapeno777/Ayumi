@@ -24,7 +24,7 @@ Drop-in usage
     bars = loader.load_by_filepath("data/forex/historical/XAUUSD_M15.csv")
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import re
@@ -146,15 +146,12 @@ class DbDataLoader(AbstractDataLoader):
         try:
             con = duckdb.connect(str(self.db_path), read_only=True)
             try:
-                df = con.execute(
-                    "SELECT DISTINCT symbol FROM bars ORDER BY symbol"
-                ).fetch_df()
+                df = con.execute("SELECT DISTINCT symbol FROM bars ORDER BY symbol").fetch_df()
             finally:
                 con.close()
         except duckdb.Error as exc:
             logger.warning(
-                "DbDataLoader.get_available_symbols: DuckDB error (%s); "
-                "falling back to CSV scanner",
+                "DbDataLoader.get_available_symbols: DuckDB error (%s); falling back to CSV scanner",
                 exc,
             )
             return self._csv_loader.get_available_symbols()
@@ -271,7 +268,7 @@ class DbDataLoader(AbstractDataLoader):
         highs = df["high"].to_numpy()
         lows = df["low"].to_numpy()
         closes = df["close"].to_numpy()
-        for ts, o, h, lo, c, v, s in zip(
+        for ts, o, h, lo, c, v, s in zip(  # noqa: B905
             timestamps,
             opens,
             highs,
@@ -346,7 +343,5 @@ class DbDataLoader(AbstractDataLoader):
         stem = Path(filepath).stem
         match = _FILENAME_RE.match(stem)
         if not match:
-            raise ValueError(
-                f"Cannot parse symbol/timeframe from filename: {filepath!r}"
-            )
+            raise ValueError(f"Cannot parse symbol/timeframe from filename: {filepath!r}")
         return match.group("symbol"), match.group("timeframe")

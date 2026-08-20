@@ -25,7 +25,7 @@ class TestSRMRPlusLogging:
 
     def test_build_signal_zero_atr_logs(self, caplog):
         """_build_signal with zero ATR should log."""
-        from strategies.srmr_plus import _build_signal, SRMRPlusConfig
+        from strategies.srmr_plus import _build_signal, SRMRPlusConfig  # noqa: I001
 
         with caplog.at_level(logging.DEBUG, logger="strategies.srmr_plus"):
             result = _build_signal(
@@ -41,9 +41,7 @@ class TestSRMRPlusLogging:
             )
 
         assert result is None
-        assert any("ATR" in r.message for r in caplog.records), (
-            "Expected ATR-related log message"
-        )
+        assert any("ATR" in r.message for r in caplog.records), "Expected ATR-related log message"
 
 
 class TestTTCXAUUSDLogging:

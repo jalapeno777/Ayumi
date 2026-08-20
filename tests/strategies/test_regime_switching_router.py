@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 import unittest
 from unittest.mock import MagicMock
 
@@ -30,7 +30,7 @@ def make_test_bars(n=100, seed=42, trend="flat"):
     elif trend == "volatile":
         drift = 0.0
 
-    for i in range(n - 1):
+    for i in range(n - 1):  # noqa: B007
         noise = np.random.normal(0, 0.0008 if trend == "volatile" else 0.0002)
         price += drift + noise
         prices.append(price)
@@ -132,9 +132,7 @@ class TestRegimeSwitchingRouterInsufficientBars(unittest.TestCase):
 
 class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
     def test_trending_regime_detected(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -182,9 +180,7 @@ class TestRegimeSwitchingRouterRegimeDetection(unittest.TestCase):
 
 class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
     def test_routes_to_trending_strategy(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         trending = MagicMock(spec=ISignalStrategy)
         trending.name = "Trending Strat"
         trending.evaluate.return_value = _make_signal()
@@ -229,9 +225,7 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_all_strategies_return_none(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
             trending_strategies=[_NeverSignal()],
             config=config,
@@ -242,9 +236,7 @@ class TestRegimeSwitchingRouterStrategyRouting(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_best_signal_selected_from_multiple(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         low_conf = _AlwaysSignal(_make_signal(confidence=0.5))
         high_conf = _AlwaysSignal(_make_signal(confidence=0.8))
         router = RegimeSwitchingRouter(
@@ -389,9 +381,7 @@ class TestRegimeSwitchingRouterPositionSizing(unittest.TestCase):
 
 class TestRegimeSwitchingRouterRationale(unittest.TestCase):
     def test_rationale_includes_regime_tag(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -403,9 +393,7 @@ class TestRegimeSwitchingRouterRationale(unittest.TestCase):
             self.assertTrue(result.rationale.startswith("[trending]"))
 
     def test_current_regime_property_updated(self):
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
             config=config,
@@ -532,15 +520,9 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
     def test_real_strategy_integration(self):
         from backtest.strategies import MomentumBreakoutStrategy
 
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
-            trending_strategies=[
-                MomentumBreakoutStrategy(
-                    fast_period=5, slow_period=10, adx_threshold=15.0
-                )
-            ],
+            trending_strategies=[MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=15.0)],
             config=config,
         )
         bars = make_test_bars(100, trend="strong_up")
@@ -555,15 +537,9 @@ class TestRegimeSwitchingRouterIntegration(unittest.TestCase):
     def test_multiple_regime_strategies(self):
         from backtest.strategies import BBStrategy
 
-        config = RegimeRouterConfig(
-            adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-        )
+        config = RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0)
         router = RegimeSwitchingRouter(
-            trending_strategies=[
-                MomentumBreakoutStrategy(
-                    fast_period=5, slow_period=10, adx_threshold=15.0
-                )
-            ],
+            trending_strategies=[MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=15.0)],
             ranging_strategies=[BBStrategy()],
             volatile_strategies=[_NeverSignal()],
             transition_strategies=[_NeverSignal()],
@@ -590,9 +566,7 @@ class TestRegimeSwitchingRouterDefaultStrategies(unittest.TestCase):
 
         router = RegimeSwitchingRouter()
         self.assertTrue(len(router.ranging_strategies) > 0)
-        self.assertIsInstance(
-            router.ranging_strategies[0], SessionRangeMeanReversionStrategy
-        )
+        self.assertIsInstance(router.ranging_strategies[0], SessionRangeMeanReversionStrategy)
 
     def test_default_volatile_has_volatility_squeeze(self):
         from strategies.volatility_squeeze import VolatilitySqueezeStrategy
@@ -689,9 +663,7 @@ class TestRegimeSwitchingRouterReset(unittest.TestCase):
     def test_reset_clears_regime(self):
         router = RegimeSwitchingRouter(
             trending_strategies=[_AlwaysSignal()],
-            config=RegimeRouterConfig(
-                adx_period=5, atr_lookback=10, adx_trend_threshold=15.0
-            ),
+            config=RegimeRouterConfig(adx_period=5, atr_lookback=10, adx_trend_threshold=15.0),
         )
         bars = make_test_bars(100, trend="strong_up")
         state = MarketState(bars=bars)
@@ -749,9 +721,7 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
 
         windows_passed = results.aggregated.windows_passed if results.aggregated else 0
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(
-            total_windows, 3, "Need at least 3 walk-forward windows"
-        )
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
         self.assertGreaterEqual(
             windows_passed,
             2,
@@ -764,9 +734,7 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
         results = self._run_walk_forward("EURUSD", "EURUSD_H1.csv")
 
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(
-            total_windows, 3, "Need at least 3 walk-forward windows"
-        )
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
         if results.aggregated:
             self.assertGreater(results.aggregated.mean_win_rate, 0)
             for w in results.per_window:
@@ -777,9 +745,7 @@ class TestRegimeSwitchingRouterWalkForward(unittest.TestCase):
         results = self._run_walk_forward("GBPJPY", "GBPJPY_H1.csv")
 
         total_windows = results.aggregated.total_windows if results.aggregated else 0
-        self.assertGreaterEqual(
-            total_windows, 3, "Need at least 3 walk-forward windows"
-        )
+        self.assertGreaterEqual(total_windows, 3, "Need at least 3 walk-forward windows")
         if results.aggregated:
             self.assertGreater(results.aggregated.mean_win_rate, 0)
 

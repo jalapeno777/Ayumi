@@ -23,7 +23,7 @@ Usage examples
     python -m stress.regime_cli single -i data.csv -o output/ --n-regimes 4 --n-paths 5000
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import json
@@ -178,9 +178,7 @@ def run_synthetic_generation(
     n_paths_out, T = synthetic_returns.shape
     price_paths = np.empty((n_paths_out, T + 1), dtype=float)
     for i in range(n_paths_out):
-        price_paths[i] = synthesize_prices(
-            synthetic_returns[i], start_price=start_price
-        )
+        price_paths[i] = synthesize_prices(synthetic_returns[i], start_price=start_price)
 
     logger.info(
         "Generated %d synthetic price paths (T=%d, start=%.5f, regimes=%d)",

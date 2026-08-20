@@ -1,13 +1,11 @@
 """Unit tests for SymbolInfo dataclass."""
 
-import sys
+import sys  # noqa: I001
 import os
 
 
 # Ensure src/forex-bot is importable
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
 
 from adapters.ctrader.market_data_feed import SymbolInfo
 

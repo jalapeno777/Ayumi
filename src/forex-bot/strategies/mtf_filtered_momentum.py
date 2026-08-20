@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from backtest.strategies import ISignalStrategy
@@ -65,9 +65,7 @@ class MTFFilteredMomentumStrategy(ISignalStrategy):
 
         return signal
 
-    def _build_mtf_bars(
-        self, bars: list[Bar]
-    ) -> tuple[list[Bar], list[Bar], list[Bar]]:
+    def _build_mtf_bars(self, bars: list[Bar]) -> tuple[list[Bar], list[Bar], list[Bar]]:
         if self.source_minutes == 15:
             m15_bars = bars
         else:
@@ -79,9 +77,7 @@ class MTFFilteredMomentumStrategy(ISignalStrategy):
         return h4_bars, h1_bars, m15_bars
 
     @staticmethod
-    def _direction_aligned(
-        direction: TradeDirection, regime: MultiTimeframeRegime
-    ) -> bool:
+    def _direction_aligned(direction: TradeDirection, regime: MultiTimeframeRegime) -> bool:
         if regime.aligned_direction == TrendDirection.NEUTRAL:
             return False
         if direction == TradeDirection.LONG:

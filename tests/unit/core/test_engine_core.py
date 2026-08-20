@@ -10,7 +10,7 @@ Key API differences from the old test suite:
   ``total_pnl``/``total_pnl_pct`` rather than ``total_return``.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta
 
@@ -107,9 +107,7 @@ class TestEngineCoreInit:
 
     def test_spread_model_override(self):
         """A custom SpreadModel is honored on the instance."""
-        core = EngineCore(
-            BacktestConfig(), SpreadModel(spread_pips=2.5, slippage_pips=0.3)
-        )
+        core = EngineCore(BacktestConfig(), SpreadModel(spread_pips=2.5, slippage_pips=0.3))
         assert isinstance(core.spread_model, SpreadModel)
         assert core.spread_model.spread_pips == pytest.approx(2.5)
         assert core.spread_model.slippage_pips == pytest.approx(0.3)
@@ -362,20 +360,11 @@ class TestCloseTrade:
             entry_bar_index=0,
             direction=direction,
             entry_price=entry,
-            stop_loss=entry - 0.005
-            if direction == TradeDirection.LONG
-            else entry + 0.005,
-            take_profit_1=entry + 0.010
-            if direction == TradeDirection.LONG
-            else entry - 0.010,
-            take_profit_2=entry + 0.015
-            if direction == TradeDirection.LONG
-            else entry - 0.015,
-            take_profit_3=entry + 0.020
-            if direction == TradeDirection.LONG
-            else entry - 0.020,
-            lot_size=size
-            * UNITS_PER_LOT,  # size is in lots; _close_trade expects units
+            stop_loss=entry - 0.005 if direction == TradeDirection.LONG else entry + 0.005,
+            take_profit_1=entry + 0.010 if direction == TradeDirection.LONG else entry - 0.010,
+            take_profit_2=entry + 0.015 if direction == TradeDirection.LONG else entry - 0.015,
+            take_profit_3=entry + 0.020 if direction == TradeDirection.LONG else entry - 0.020,
+            lot_size=size * UNITS_PER_LOT,  # size is in lots; _close_trade expects units
             entry_time=datetime(2024, 1, 1, 10, 0),
         )
 

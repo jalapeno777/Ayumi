@@ -1,6 +1,6 @@
 """Tests for CTraderOpenApiClient helpers (period mapping, price conversion, chunking)."""
 
-import pytest
+import pytest  # noqa: I001
 from datetime import datetime, timedelta, timezone
 
 from adapters.ctrader.open_api_client import (
@@ -57,9 +57,7 @@ class TestPriceConversion:
 
     def test_zero_deltas(self):
         prices = self._convert_bar(100000, 0, 0, 0)
-        assert (
-            prices["open"] == prices["high"] == prices["low"] == prices["close"] == 1.0
-        )
+        assert prices["open"] == prices["high"] == prices["low"] == prices["close"] == 1.0
 
 
 class TestChunkCalculation:

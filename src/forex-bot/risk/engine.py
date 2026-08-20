@@ -121,17 +121,11 @@ class GuardrailConfig:
         if self.slippage_threshold_pips < 0:
             raise ValueError("slippage_threshold_pips must be >= 0")
         if not (0 < self.daily_dd_scale_threshold < self.daily_dd_stop_threshold):
-            raise ValueError(
-                "daily_dd_scale_threshold (1.5%) must be < daily_dd_stop_threshold (2.5%)"
-            )
+            raise ValueError("daily_dd_scale_threshold (1.5%) must be < daily_dd_stop_threshold (2.5%)")
         if not (0 < self.daily_dd_stop_threshold <= FTMO_DAILY_DD_LIMIT_PCT):
-            raise ValueError(
-                f"daily_dd_stop_threshold must be in (0, {FTMO_DAILY_DD_LIMIT_PCT}]"
-            )
+            raise ValueError(f"daily_dd_stop_threshold must be in (0, {FTMO_DAILY_DD_LIMIT_PCT}]")
         if not (0 < self.total_dd_stop_threshold <= FTMO_TOTAL_DD_LIMIT_PCT):
-            raise ValueError(
-                f"total_dd_stop_threshold must be in (0, {FTMO_TOTAL_DD_LIMIT_PCT}]"
-            )
+            raise ValueError(f"total_dd_stop_threshold must be in (0, {FTMO_TOTAL_DD_LIMIT_PCT}]")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -149,9 +143,7 @@ class BlackoutWindow:
         if self.start_utc.tzinfo is None or self.end_utc.tzinfo is None:
             raise ValueError("BlackoutWindow datetimes must be timezone-aware (UTC)")
         if self.start_utc >= self.end_utc:
-            raise ValueError(
-                f"BlackoutWindow start ({self.start_utc}) must be < end ({self.end_utc})"
-            )
+            raise ValueError(f"BlackoutWindow start ({self.start_utc}) must be < end ({self.end_utc})")
 
     def contains(self, ts: datetime) -> bool:
         if ts.tzinfo is None:
@@ -192,9 +184,7 @@ class OrderRequest:
         if self.stop_loss_price <= 0:
             raise ValueError(f"stop_loss_price must be > 0, got {self.stop_loss_price}")
         if self.risk_amount_usd < 0:
-            raise ValueError(
-                f"risk_amount_usd must be >= 0, got {self.risk_amount_usd}"
-            )
+            raise ValueError(f"risk_amount_usd must be >= 0, got {self.risk_amount_usd}")
         if self.estimated_slippage_pips < 0:
             raise ValueError("estimated_slippage_pips must be >= 0")
 
@@ -383,8 +373,7 @@ class GuardrailEngine:
                 self._peak_balance = self._current_balance
 
             logger.info(
-                "guardrail.update_state pnl=%.2f daily_pnl=%.2f total_pnl=%.2f "
-                "open_positions=%d",
+                "guardrail.update_state pnl=%.2f daily_pnl=%.2f total_pnl=%.2f open_positions=%d",
                 pnl,
                 self._daily_pnl,
                 self._total_pnl,
@@ -510,10 +499,7 @@ class GuardrailEngine:
 
             # 1) Kill switch — fastest, most critical path.
             if self._kill_switch_active:
-                msg = (
-                    f"kill_switch active (reason={self._kill_switch_reason!r}); "
-                    "rejecting all new entries"
-                )
+                msg = f"kill_switch active (reason={self._kill_switch_reason!r}); rejecting all new entries"
                 logger.warning("guardrail.REJECT %s reason=%s", order.symbol, msg)
                 return CheckResult(
                     allowed=False,
@@ -536,10 +522,7 @@ class GuardrailEngine:
             # 3) Total DD hard limit (10%) — absolute account-level breach.
             total_dd = self.total_dd_pct
             if total_dd > self._total_dd_limit_pct:
-                msg = (
-                    f"total DD {total_dd:.2%} exceeds FTMO limit "
-                    f"{self._total_dd_limit_pct:.2%}"
-                )
+                msg = f"total DD {total_dd:.2%} exceeds FTMO limit {self._total_dd_limit_pct:.2%}"
                 logger.warning("guardrail.REJECT %s reason=%s", order.symbol, msg)
                 return CheckResult(
                     allowed=False,
@@ -579,8 +562,7 @@ class GuardrailEngine:
             # 6) Max concurrent positions.
             if self._open_positions >= self._config.max_concurrent_positions:
                 msg = (
-                    f"max concurrent positions reached "
-                    f"({self._open_positions}/{self._config.max_concurrent_positions})"
+                    f"max concurrent positions reached ({self._open_positions}/{self._config.max_concurrent_positions})"
                 )
                 logger.warning("guardrail.REJECT %s reason=%s", order.symbol, msg)
                 return CheckResult(
@@ -618,9 +600,7 @@ class GuardrailEngine:
                 )
 
             # 9) Projected daily DD: current daily loss + trade risk vs 3% limit.
-            projected_daily_dd_pct = self.daily_dd_pct + (
-                order.risk_amount_usd / self._starting_balance
-            )
+            projected_daily_dd_pct = self.daily_dd_pct + (order.risk_amount_usd / self._starting_balance)
             # Use a small epsilon to avoid floating-point boundary false rejects.
             # At exactly 3.0% projected DD, we are AT the limit, not over it.
             _EPS = 1e-9
@@ -645,9 +625,7 @@ class GuardrailEngine:
                 # Scale size proportionally to half the risk.
                 scaled_size = order.size * 0.5
                 # Make sure the scaled size still respects per-trade cap.
-                per_trade_max_usd_scaled = (
-                    self._current_balance * self._config.per_trade_risk_pct
-                )
+                per_trade_max_usd_scaled = self._current_balance * self._config.per_trade_risk_pct
                 if scaled_risk > per_trade_max_usd_scaled:
                     msg = (
                         f"DD scaling (current {daily_dd:.2%} > "
@@ -671,8 +649,7 @@ class GuardrailEngine:
 
             # ── All checks passed ──
             logger.info(
-                "guardrail.ALLOW %s side=%s size=%.4f risk=$%.2f "
-                "daily_dd=%.2f%% total_dd=%.2f%% adjusted_size=%s",
+                "guardrail.ALLOW %s side=%s size=%.4f risk=$%.2f daily_dd=%.2f%% total_dd=%.2f%% adjusted_size=%s",
                 order.symbol,
                 order.side,
                 order.size,

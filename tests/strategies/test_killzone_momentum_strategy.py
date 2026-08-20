@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 
 from datetime import datetime
 from core.types import Bar, MarketState, SessionType, TradeDirection
@@ -266,29 +266,19 @@ class TestKillzoneMomentumStrategy(unittest.TestCase):
 
 class TestKillzoneHelpers(unittest.TestCase):
     def test_get_bar_session_asian(self):
-        self.assertEqual(
-            _get_bar_session(datetime(2023, 1, 1, 2, 0)), SessionType.ASIAN
-        )
+        self.assertEqual(_get_bar_session(datetime(2023, 1, 1, 2, 0)), SessionType.ASIAN)
 
     def test_get_bar_session_london(self):
-        self.assertEqual(
-            _get_bar_session(datetime(2023, 1, 1, 8, 0)), SessionType.LONDON
-        )
+        self.assertEqual(_get_bar_session(datetime(2023, 1, 1, 8, 0)), SessionType.LONDON)
 
     def test_get_bar_session_ny_am(self):
-        self.assertEqual(
-            _get_bar_session(datetime(2023, 1, 1, 13, 0)), SessionType.NY_AM
-        )
+        self.assertEqual(_get_bar_session(datetime(2023, 1, 1, 13, 0)), SessionType.NY_AM)
 
     def test_get_bar_session_ny_pm(self):
-        self.assertEqual(
-            _get_bar_session(datetime(2023, 1, 1, 17, 0)), SessionType.NY_PM
-        )
+        self.assertEqual(_get_bar_session(datetime(2023, 1, 1, 17, 0)), SessionType.NY_PM)
 
     def test_get_bar_session_outside(self):
-        self.assertEqual(
-            _get_bar_session(datetime(2023, 1, 1, 21, 0)), SessionType.OUTSIDE
-        )
+        self.assertEqual(_get_bar_session(datetime(2023, 1, 1, 21, 0)), SessionType.OUTSIDE)
 
     def test_is_killzone_london_open(self):
         bars = [
@@ -447,9 +437,7 @@ class TestKillzoneHelpers(unittest.TestCase):
             )
             for i in range(4)
         ]
-        high, low, mean = _calculate_session_range(
-            bars, SessionType.LONDON, datetime(2023, 1, 2).date()
-        )
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, datetime(2023, 1, 2).date())
         self.assertGreater(high, 0)
         self.assertLess(low, high)
 
@@ -464,9 +452,7 @@ class TestKillzoneHelpers(unittest.TestCase):
                 volume=1000,
             )
         ]
-        high, low, mean = _calculate_session_range(
-            bars, SessionType.LONDON, datetime(2023, 1, 2).date()
-        )
+        high, low, mean = _calculate_session_range(bars, SessionType.LONDON, datetime(2023, 1, 2).date())
         self.assertEqual(high, 0.0)
         self.assertEqual(low, 0.0)
         self.assertEqual(mean, 0.0)
@@ -495,12 +481,8 @@ class TestKillzoneHelpers(unittest.TestCase):
             for i in range(4)
         ]
         all_bars = day1_bars + day2_bars
-        high_day1, _, _ = _calculate_session_range(
-            all_bars, SessionType.LONDON, datetime(2023, 1, 2).date()
-        )
-        high_day2, _, _ = _calculate_session_range(
-            all_bars, SessionType.LONDON, datetime(2023, 1, 3).date()
-        )
+        high_day1, _, _ = _calculate_session_range(all_bars, SessionType.LONDON, datetime(2023, 1, 2).date())
+        high_day2, _, _ = _calculate_session_range(all_bars, SessionType.LONDON, datetime(2023, 1, 3).date())
         self.assertNotAlmostEqual(high_day1, high_day2)
         self.assertGreater(high_day2, high_day1)
 

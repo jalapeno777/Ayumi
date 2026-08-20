@@ -1,20 +1,18 @@
 """Walk-forward test for SRMR+ strategy on GBPUSD M15."""
 
-import sys
+import sys  # noqa: I001
 import os
 import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
+from backtest.data_loader import CsvDataLoader  # noqa: I001
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
 
 
-DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "forex", "historical", "GBPUSD_M15.csv"
-)
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "forex", "historical", "GBPUSD_M15.csv")
 
 
 def main():
@@ -29,9 +27,7 @@ def main():
 
     config = SRMRPlusConfig()
 
-    print(
-        f"\nConfig: ADX<{config.adx_max_threshold}, RSI L<{config.rsi_long_level}/H>{config.rsi_short_level}"
-    )
+    print(f"\nConfig: ADX<{config.adx_max_threshold}, RSI L<{config.rsi_long_level}/H>{config.rsi_short_level}")
     print(f"Session range min: {config.session_range_min_pips} pips")
     print(f"Entry near extreme: {config.entry_near_extreme_pips} pips")
     print(f"TP1 RR: {config.tp1_rr}, TP2 RR: {config.tp2_rr}")
@@ -70,9 +66,7 @@ def main():
     if results.aggregated:
         a = results.aggregated
         print(f"  Mean WR:       {a.mean_win_rate:.1%} (±{a.std_win_rate:.1%})")
-        print(
-            f"  Mean PF:       {a.mean_profit_factor:.2f} (±{a.std_profit_factor:.2f})"
-        )
+        print(f"  Mean PF:       {a.mean_profit_factor:.2f} (±{a.std_profit_factor:.2f})")
         print(f"  Mean DD:       {a.mean_max_drawdown:.1%} (±{a.std_max_drawdown:.1%})")
         print(f"  Mean Sharpe:   {a.mean_sharpe_ratio:.2f} (±{a.std_sharpe_ratio:.2f})")
         print(f"  Mean Trades:   {a.mean_trade_count:.0f} (±{a.std_trade_count:.0f})")
@@ -88,14 +82,10 @@ def main():
         wr_ok = results.aggregated.mean_win_rate >= 0.40
         pf_ok = results.aggregated.mean_profit_factor >= 1.0
         windows_ok = results.aggregated.windows_passed >= 3
+        print(f"  Walk-forward WR >= 40%:  {'YES' if wr_ok else 'NO'} ({results.aggregated.mean_win_rate:.1%})")
+        print(f"  Walk-forward PF >= 1.0:  {'YES' if pf_ok else 'NO'} ({results.aggregated.mean_profit_factor:.2f})")
         print(
-            f"  Walk-forward WR >= 40%:  {'YES' if wr_ok else 'NO'} ({results.aggregated.mean_win_rate:.1%})"
-        )
-        print(
-            f"  Walk-forward PF >= 1.0:  {'YES' if pf_ok else 'NO'} ({results.aggregated.mean_profit_factor:.2f})"
-        )
-        print(
-            f"  >= 3/5 windows passing:  {'YES' if windows_ok else 'NO'} ({results.aggregated.windows_passed}/{results.aggregated.total_windows})"
+            f"  >= 3/5 windows passing:  {'YES' if windows_ok else 'NO'} ({results.aggregated.windows_passed}/{results.aggregated.total_windows})"  # noqa: E501
         )
         all_ok = wr_ok and pf_ok and windows_ok
         print(f"\n  Overall: {'PASS' if all_ok else 'FAIL'}")

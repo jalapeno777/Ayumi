@@ -14,7 +14,7 @@ Covers:
 - Edge cases: JPY pairs, cross pairs, extreme values
 """
 
-import pytest
+import pytest  # noqa: I001
 
 from backtest.slippage_model import (
     SlippageConfig,

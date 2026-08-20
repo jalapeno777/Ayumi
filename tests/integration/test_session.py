@@ -7,7 +7,7 @@ Reactor bridge pattern (Amendment A1):
     reactor thread → client.send() → deferred.addCallbacks → event.set()
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import threading
 from unittest.mock import MagicMock, patch
@@ -26,9 +26,9 @@ def _make_mock_credentials():
     store = MagicMock()
     store.get.return_value = MagicMock(
         client_id="test_client",
-        client_secret="test_secret",
-        access_token="test_token",
-        refresh_token="test_refresh",
+        client_secret="test_secret",  # noqa: S106
+        access_token="test_token",  # noqa: S106
+        refresh_token="test_refresh",  # noqa: S106
         account_id=5795523,
         trader_login=5795523,
     )
@@ -82,9 +82,7 @@ class TestConnect:
     @patch("adapters.ctrader.session.Protobuf.extract")
     @patch("adapters.ctrader.session.reactor")
     @patch("adapters.ctrader.session.Client")
-    def test_connect_calls_app_auth_then_account_auth(
-        self, mock_client_cls, mock_reactor, mock_extract
-    ):
+    def test_connect_calls_app_auth_then_account_auth(self, mock_client_cls, mock_reactor, mock_extract):
         """Verify connect() sends ProtoOAApplicationAuthReq first, then ProtoOAAccountAuthReq."""
         session = _make_session()
 
@@ -123,9 +121,7 @@ class TestConnect:
     @patch("adapters.ctrader.session.Protobuf.extract")
     @patch("adapters.ctrader.session.reactor")
     @patch("adapters.ctrader.session.Client")
-    def test_connect_uses_valid_token(
-        self, mock_client_cls, mock_reactor, mock_extract
-    ):
+    def test_connect_uses_valid_token(self, mock_client_cls, mock_reactor, mock_extract):
         """Verify token_lifecycle.ensure_valid() is called during connect."""
         session = _make_session()
         mock_client = MagicMock()
@@ -227,6 +223,7 @@ class TestMessageRouting:
         session = _make_session()
 
         received = []
+
         def handler(msg):
             return received.append(msg)
 
@@ -274,6 +271,7 @@ class TestDisconnect:
         session._set_state(SessionState.CONNECTED)
 
         stopped = []
+
         def original_dispatch(fn, *a, **kw):
             return stopped.append(fn)
 

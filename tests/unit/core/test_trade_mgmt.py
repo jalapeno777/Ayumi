@@ -5,7 +5,7 @@ Rewritten for post-refactor API (card 99a4d28d).
 - TradeManagementMixin.__init__ takes optional tm_config
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from core.config import BacktestConfig

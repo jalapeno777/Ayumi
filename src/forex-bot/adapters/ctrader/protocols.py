@@ -208,9 +208,7 @@ class MarketFeedProtocol(Protocol):
 
     # ── Historical Data ────────────────────────────────────────────────────
 
-    def fetch_trendbars(
-        self, symbol: str, period_minutes: int, count: int
-    ) -> list[Bar]:
+    def fetch_trendbars(self, symbol: str, period_minutes: int, count: int) -> list[Bar]:
         """Fetch historical bars (trendbars) from cTrader."""
         ...
 

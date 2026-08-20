@@ -16,16 +16,16 @@ Usage::
     )
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional  # noqa: F401
 
 from .credentials import (
     CredentialManager,
     CredentialError,
-    PlaceholderCredentialError,
+    PlaceholderCredentialError,  # noqa: F401
 )
 from .token_manager import TokenManager
 
@@ -33,9 +33,11 @@ from .token_manager import TokenManager
 class DualSourceError(Exception):
     """Raised when cTrader credentials exist in both .env and data/.credentials."""
 
+
 logger = logging.getLogger("ayumi.ctrader_auth")
 
 # ── Project root detection ─────────────────────────────────────────────────
+
 
 def _project_root() -> Path:
     """Return the project root (4 levels up from this file)."""
@@ -43,6 +45,7 @@ def _project_root() -> Path:
 
 
 # ── CTraderAuth ────────────────────────────────────────────────────────────
+
 
 class CTraderAuth:
     """Unified cTrader authentication facade.
@@ -91,11 +94,7 @@ class CTraderAuth:
 
         cred_path = Path(credentials_path) if credentials_path else root / "data" / ".credentials"
         env_p = Path(env_path) if env_path else root / ".env"
-        token_path = (
-            Path(token_state_path)
-            if token_state_path
-            else root / "data" / "token_state.json"
-        )
+        token_path = Path(token_state_path) if token_state_path else root / "data" / "token_state.json"
 
         cred_mgr = CredentialManager(
             credentials_path=cred_path,
@@ -113,7 +112,7 @@ class CTraderAuth:
             logger.debug("Loaded credentials from %s", cred_path)
         except CredentialError:
             if not auto_migrate:
-                raise CredentialError(
+                raise CredentialError(  # noqa: B904
                     "Credentials file not found and auto_migrate=False"
                 )
 
@@ -124,13 +123,10 @@ class CTraderAuth:
                 try:
                     credentials = cred_mgr.migrate_from_env()
                 except CredentialError as exc:
-                    raise CredentialError(
-                        f"Auto-migration failed: {exc}"
-                    ) from exc
+                    raise CredentialError(f"Auto-migration failed: {exc}") from exc
             else:
                 raise CredentialError(
-                    "No credentials found in .env or credentials file. "
-                    "Configure cTrader credentials first."
+                    "No credentials found in .env or credentials file. Configure cTrader credentials first."
                 )
 
         # Startup guard: check for dual source
@@ -235,9 +231,7 @@ class CTraderAuth:
 
         # Check for dual source
         if self._cred_mgr.has_dual_source():
-            raise DualSourceError(
-                "Credentials found in both .env and credentials file"
-            )
+            raise DualSourceError("Credentials found in both .env and credentials file")
 
         self._credentials = credentials
         return credentials

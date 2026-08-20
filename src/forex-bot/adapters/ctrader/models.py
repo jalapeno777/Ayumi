@@ -82,12 +82,8 @@ class Position:
     max_favorable_excursion: float = 0.0  # MFE — best unrealized PnL reached
     max_adverse_excursion: float = 0.0  # MAE — worst unrealized PnL reached
     time_in_trade_sec: float = 0.0  # Seconds since position opened
-    high_water_mark: float = (
-        0.0  # Best price seen (for long: highest, for short: lowest)
-    )
-    low_water_mark: float = (
-        0.0  # Worst price seen (for long: lowest, for short: highest)
-    )
+    high_water_mark: float = 0.0  # Best price seen (for long: highest, for short: lowest)
+    low_water_mark: float = 0.0  # Worst price seen (for long: lowest, for short: highest)
     # ── Multi-TP extension (Sprint Task 1.1, card a7b8e896) ───────────────
     # cTrader Open API only accepts a single TP per position. TP2/TP3 are
     # tracked here for monitoring / partial-close logic; tp_levels_fired
@@ -202,9 +198,7 @@ SYMBOL_METADATA: dict[str, SymbolInfo] = {
     "EURUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "GBPUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDJPY": SymbolInfo(pip_size=0.01, pip_value_per_lot=6.5),
-    "XAUUSD": SymbolInfo(
-        pip_size=0.1, pip_value_per_lot=10.0, lot_size=100, contract_size=100.0
-    ),
+    "XAUUSD": SymbolInfo(pip_size=0.1, pip_value_per_lot=10.0, lot_size=100, contract_size=100.0),
     "AUDUSD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDCHF": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),
     "USDCAD": SymbolInfo(pip_size=0.0001, pip_value_per_lot=10.0),

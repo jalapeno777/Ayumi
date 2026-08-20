@@ -161,9 +161,7 @@ class TradeStore:
         """Close a trade, compute P&L, return the closed trade dict."""
 
         def _do(conn):
-            trade = conn.execute(
-                "SELECT * FROM trades WHERE trade_id = ?", (trade_id,)
-            ).fetchone()
+            trade = conn.execute("SELECT * FROM trades WHERE trade_id = ?", (trade_id,)).fetchone()
             if trade is None:
                 raise ValueError(f"Trade {trade_id} not found")
 
@@ -211,9 +209,7 @@ class TradeStore:
         """Update unrealized P&L for an open trade. Returns the unrealized P&L."""
 
         def _read_trade(conn):
-            trade = conn.execute(
-                "SELECT * FROM trades WHERE trade_id = ?", (trade_id,)
-            ).fetchone()
+            trade = conn.execute("SELECT * FROM trades WHERE trade_id = ?", (trade_id,)).fetchone()
             if trade is None:
                 raise ValueError(f"Trade {trade_id} not found")
             return _row_to_dict(trade)
@@ -275,9 +271,7 @@ class TradeStore:
                     (symbol,),
                 ).fetchall()
             else:
-                rows = conn.execute(
-                    "SELECT * FROM trades WHERE status = 'open' ORDER BY entry_time"
-                ).fetchall()
+                rows = conn.execute("SELECT * FROM trades WHERE status = 'open' ORDER BY entry_time").fetchall()
             return [_row_to_dict(r) for r in rows]
 
         return self._read(_do)
@@ -305,7 +299,7 @@ class TradeStore:
             params.extend(date_range)
 
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        sql = f"SELECT * FROM trades {where} ORDER BY entry_time DESC LIMIT ?"
+        sql = f"SELECT * FROM trades {where} ORDER BY entry_time DESC LIMIT ?"  # noqa: S608
         params.append(limit)
 
         def _do(conn):
@@ -334,9 +328,7 @@ class TradeStore:
         date = date or _today()
 
         def _do(conn):
-            row = conn.execute(
-                "SELECT * FROM daily_summary WHERE date = ?", (date,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM daily_summary WHERE date = ?", (date,)).fetchone()
             return _row_to_dict(row) if row else None
 
         return self._read(_do)
@@ -402,9 +394,7 @@ class TradeStore:
             ).fetchone()
 
             starting_balance = start_snap["balance"] if start_snap else 0.0
-            ending_balance = (
-                end_snap["balance"] if end_snap else starting_balance + total_pnl
-            )
+            ending_balance = end_snap["balance"] if end_snap else starting_balance + total_pnl
 
             # Max drawdown for the day
             curve = conn.execute(
@@ -511,9 +501,7 @@ class TradeStore:
             win_rate = len(winning) / len(pnls) if pnls else 0.0
             gross_profit = sum(winning) if winning else 0.0
             gross_loss = abs(sum(losing)) if losing else 0.0
-            profit_factor = (
-                gross_profit / gross_loss if gross_loss > 0 else float("inf")
-            )
+            profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
             avg_pnl = sum(pnls) / len(pnls) if pnls else 0.0
             sharpe = _simple_sharpe(pnls)
 
@@ -582,15 +570,11 @@ class TradeStore:
         """Current drawdown as percentage from equity curve peak."""
 
         def _do(conn):
-            row = conn.execute(
-                "SELECT equity FROM equity_curve ORDER BY timestamp DESC LIMIT 1"
-            ).fetchone()
+            row = conn.execute("SELECT equity FROM equity_curve ORDER BY timestamp DESC LIMIT 1").fetchone()
             if row is None:
                 return 0.0
             current = row["equity"]
-            peak_row = conn.execute(
-                "SELECT MAX(equity) as peak FROM equity_curve"
-            ).fetchone()
+            peak_row = conn.execute("SELECT MAX(equity) as peak FROM equity_curve").fetchone()
             peak = peak_row["peak"] if peak_row["peak"] else current
             return ((peak - current) / peak * 100) if peak > 0 else 0.0
 

@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from ..engine import TradeDirection
@@ -39,11 +39,7 @@ class OrderBlockDetector:
             if age > self._freshness_window:
                 continue
 
-            direction = (
-                TradeDirection.LONG
-                if ICTMarketState.bar_is_bullish(bar)
-                else TradeDirection.SHORT
-            )
+            direction = TradeDirection.LONG if ICTMarketState.bar_is_bullish(bar) else TradeDirection.SHORT
             top = max(bar.open, bar.close)
             bottom = min(bar.open, bar.close)
 
@@ -60,9 +56,7 @@ class OrderBlockDetector:
             if avg_body > 0:
                 strength = min(1.0, 0.5 + (body_size / avg_body - 1.0) * 0.25)
 
-            min_wick = min(
-                ICTMarketState.bar_upper_wick(bar), ICTMarketState.bar_lower_wick(bar)
-            )
+            min_wick = min(ICTMarketState.bar_upper_wick(bar), ICTMarketState.bar_lower_wick(bar))
             wick_ratio = min_wick / bar_range
             if wick_ratio < 0.2:
                 strength += 0.1
@@ -75,8 +69,7 @@ class OrderBlockDetector:
             overlaps = any(
                 ob.direction == direction
                 and (
-                    max(0, min(top, ob.top) - max(bottom, ob.bottom))
-                    / min(ob.top - ob.bottom, top - bottom)
+                    max(0, min(top, ob.top) - max(bottom, ob.bottom)) / min(ob.top - ob.bottom, top - bottom)
                     > self._overlap_threshold
                 )
                 if (ob.top - ob.bottom) > 0 and (top - bottom) > 0
@@ -130,14 +123,8 @@ class OrderBlockDetector:
         for ob in to_remove:
             state.active_order_blocks.remove(ob)
 
-    def get_most_relevant(
-        self, state: ICTMarketState, direction: TradeDirection
-    ) -> OrderBlock | None:
-        candidates = [
-            ob
-            for ob in state.active_order_blocks
-            if ob.direction == direction and not ob.is_mitigated
-        ]
+    def get_most_relevant(self, state: ICTMarketState, direction: TradeDirection) -> OrderBlock | None:
+        candidates = [ob for ob in state.active_order_blocks if ob.direction == direction and not ob.is_mitigated]
         if not candidates:
             return None
         return max(candidates, key=lambda ob: (ob.strength, -ob.age))

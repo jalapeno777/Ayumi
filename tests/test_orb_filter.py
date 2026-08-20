@@ -8,7 +8,7 @@ Covers:
     - Volume confirmation behaviour
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, time, timezone
 
@@ -97,9 +97,7 @@ class TestOpeningRangeCalculation:
 
     def test_too_few_bars(self, orbf):
         assert orbf.calculate_opening_range("LONDON", []) is None
-        assert (
-            orbf.calculate_opening_range("LONDON", [{"high": 1.0, "low": 0.9}]) is None
-        )
+        assert orbf.calculate_opening_range("LONDON", [{"high": 1.0, "low": 0.9}]) is None
 
     def test_unknown_session_uses_default_window(self, orbf, london_bars):
         """Unknown session should not crash — falls back to 60-bar window."""

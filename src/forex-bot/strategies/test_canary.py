@@ -79,9 +79,7 @@ class TestCanaryStrategy(ISignalStrategy):
         self._bar_count += 1
 
         # Alternate LONG/SHORT each bar to avoid directional bias
-        direction = (
-            TradeDirection.LONG if self._bar_count % 2 == 1 else TradeDirection.SHORT
-        )
+        direction = TradeDirection.LONG if self._bar_count % 2 == 1 else TradeDirection.SHORT
 
         sl_distance = entry * self.tp_sl_pct
         if direction == TradeDirection.LONG:

@@ -1,12 +1,14 @@
-import os, sys, threading, time
-sys.path.insert(0, '/home/TacoPants/projects/Ayumi')
-sys.path.insert(0, '/home/TacoPants/projects/Ayumi/src/forex-bot')
-os.chdir('/home/TacoPants/projects/Ayumi')
+import os, sys, threading, time  # noqa: E401, I001
 
-from dotenv import load_dotenv
-load_dotenv('/home/TacoPants/projects/Ayumi/.env')
+sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
+sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
+os.chdir("/home/TacoPants/projects/Ayumi")
 
-from ctrader_open_api.client import Client
+from dotenv import load_dotenv  # noqa: I001
+
+load_dotenv("/home/TacoPants/projects/Ayumi/.env")
+
+from ctrader_open_api.client import Client  # noqa: I001
 from ctrader_open_api.endpoints import EndPoints
 from ctrader_open_api.tcpProtocol import TcpProtocol
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
@@ -18,13 +20,13 @@ from ctrader_open_api.protobuf import Protobuf
 from twisted.internet import reactor
 from adapters.ctrader.reactor_manager import ReactorManager
 
-client_id = os.getenv('CTRADER_OPENAPI_CLIENT_ID')
-client_secret = os.getenv('CTRADER_OPENAPI_CLIENT_SECRET')
-access_token = os.getenv('CTRADER_OPENAPI_ACCESS_TOKEN')
-account_id = int(os.getenv('CTRADER_OPENAPI_ACCOUNT_ID'))
+client_id = os.getenv("CTRADER_OPENAPI_CLIENT_ID")
+client_secret = os.getenv("CTRADER_OPENAPI_CLIENT_SECRET")
+access_token = os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN")
+account_id = int(os.getenv("CTRADER_OPENAPI_ACCOUNT_ID"))
 
-print('access_token', access_token[:20])
-print('account_id', account_id)
+print("access_token", access_token[:20])
+print("account_id", account_id)
 
 ReactorManager().ensure_running()
 time.sleep(0.5)
@@ -34,53 +36,61 @@ connected = threading.Event()
 client.setConnectedCallback(lambda _: connected.set())
 client.startService()
 if not connected.wait(timeout=15):
-    print('TCP timeout')
+    print("TCP timeout")
     sys.exit(1)
-print('TCP OK')
+print("TCP OK")
+
 
 def send_and_wait(msg, timeout=15):
     evt = threading.Event()
     res = [None]
+
     def cb(c, m):
         res[0] = m
         evt.set()
+
     client.setMessageReceivedCallback(cb)
     d = client.send(msg, clientMsgId=str(id(msg)), responseTimeoutInSeconds=timeout)
+
     def ok(r):
         res[0] = r
         evt.set()
+
     def err(f):
-        print('err', f)
+        print("err", f)
         evt.set()
-    from twisted.internet import threads
+
+    from twisted.internet import threads  # noqa: F401
+
     reactor.callFromThread(lambda: d.addCallbacks(ok, err))
-    evt.wait(timeout=timeout+5)
+    evt.wait(timeout=timeout + 5)
     return res[0]
+
 
 # app auth
 res = send_and_wait(ProtoOAApplicationAuthReq(clientId=client_id, clientSecret=client_secret))
 try:
     p = Protobuf.extract(res)
-    print('app auth ok:', p.DESCRIPTOR.full_name)
+    print("app auth ok:", p.DESCRIPTOR.full_name)
 except Exception as e:
-    print('app auth error:', e, res)
+    print("app auth error:", e, res)
 
 # accounts list
 res2 = send_and_wait(ProtoOAGetAccountListByAccessTokenReq(accessToken=access_token))
 try:
     p2 = Protobuf.extract(res2)
-    print('accounts list ok:', p2.DESCRIPTOR.full_name)
+    print("accounts list ok:", p2.DESCRIPTOR.full_name)
     for a in p2.ctidTraderAccount:
-        print('  account', a.ctidTraderAccountId, 'login', getattr(a,'traderLogin',None))
+        print("  account", a.ctidTraderAccountId, "login", getattr(a, "traderLogin", None))
 except Exception as e:
-    print('accounts list error:', e, res2)
+    print("accounts list error:", e, res2)
 
 # account auth
 res3 = send_and_wait(ProtoOAAccountAuthReq(ctidTraderAccountId=account_id, accessToken=access_token))
 try:
     p3 = Protobuf.extract(res3)
-    print('account auth ok:', p3.DESCRIPTOR.full_name)
+    print("account auth ok:", p3.DESCRIPTOR.full_name)
 except Exception as e:
-    print('account auth error:', e, res3)
+    print("account auth error:", e, res3)
 
 client.stopService()

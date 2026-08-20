@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # noqa: I001
 from backtest.engine import (
     Bar,
     MarketState,
@@ -20,7 +20,7 @@ def _make_h1_bars(n: int, base_price: float = 1.1000, seed: int = 42) -> list:
     price = base_price
     now = datetime(2024, 1, 1, 0, 0)
     for i in range(n):
-        change = random.uniform(-0.0010, 0.0010)
+        change = random.uniform(-0.0010, 0.0010)  # noqa: S311
         high = price + abs(change)
         low = price - abs(change)
         if change > 0:
@@ -35,7 +35,7 @@ def _make_h1_bars(n: int, base_price: float = 1.1000, seed: int = 42) -> list:
                 high=max(open_, close, high),
                 low=min(open_, close, low),
                 close=close,
-                volume=random.uniform(100, 1000),
+                volume=random.uniform(100, 1000),  # noqa: S311
             )
         )
         price = close

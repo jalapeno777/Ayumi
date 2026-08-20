@@ -16,7 +16,7 @@ Covers all FTMO 1-Step Standard rules:
 * LOCKED FTMO constants — verify they cannot be overridden
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -893,13 +893,8 @@ class TestValidOrderPassesAllChecks:
         assert engine.daily_dd_pct < engine._config.daily_dd_stop_threshold
         assert engine.total_dd_pct < engine._config.total_dd_stop_threshold
         assert engine.open_positions < engine._config.max_concurrent_positions
-        assert sample_order.risk_amount_usd <= (
-            engine.current_balance * engine._config.per_trade_risk_pct
-        )
-        assert (
-            sample_order.estimated_slippage_pips
-            <= engine._config.slippage_threshold_pips
-        )
+        assert sample_order.risk_amount_usd <= (engine.current_balance * engine._config.per_trade_risk_pct)
+        assert sample_order.estimated_slippage_pips <= engine._config.slippage_threshold_pips
 
     def test_full_round_trip_open_close(self, engine, sample_order):
         """Open → close updates state correctly."""

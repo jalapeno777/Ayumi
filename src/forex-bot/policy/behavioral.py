@@ -105,15 +105,9 @@ class BehavioralPolicy:
         self.streak_loss_thresholds: dict[int, float] = dict(
             cfg.get("streak_loss_thresholds", DEFAULT_STREAK_LOSS_THRESHOLDS)
         )
-        self.dd_thresholds: dict[float, float] = dict(
-            cfg.get("dd_thresholds", DEFAULT_DD_THRESHOLDS)
-        )
-        self.min_multiplier: float = float(
-            cfg.get("min_multiplier", DEFAULT_MIN_MULTIPLIER)
-        )
-        self.max_multiplier: float = float(
-            cfg.get("max_multiplier", DEFAULT_MAX_MULTIPLIER)
-        )
+        self.dd_thresholds: dict[float, float] = dict(cfg.get("dd_thresholds", DEFAULT_DD_THRESHOLDS))
+        self.min_multiplier: float = float(cfg.get("min_multiplier", DEFAULT_MIN_MULTIPLIER))
+        self.max_multiplier: float = float(cfg.get("max_multiplier", DEFAULT_MAX_MULTIPLIER))
 
     def evaluate(self, base_size: float, context: dict) -> BehavioralResult:
         """Compute the size multiplier for the current trading context.
@@ -154,16 +148,11 @@ class BehavioralPolicy:
         # reached by the current streak. >= comparison: hitting the
         # threshold exactly counts as triggering it.
         streak_matching = [
-            mult
-            for threshold, mult in self.streak_loss_thresholds.items()
-            if consecutive_losses >= threshold
+            mult for threshold, mult in self.streak_loss_thresholds.items() if consecutive_losses >= threshold
         ]
         if streak_matching:
             streak_multiplier = min(streak_matching)
-            adjustments.append(
-                f"Streak cooldown: {consecutive_losses} consecutive losses → "
-                f"{streak_multiplier}×"
-            )
+            adjustments.append(f"Streak cooldown: {consecutive_losses} consecutive losses → {streak_multiplier}×")
         else:
             streak_multiplier = 1.0
 
@@ -171,17 +160,10 @@ class BehavioralPolicy:
         # Strict ``>``: a drawdown sitting exactly on a threshold does
         # not yet trigger the cooldown. This is the council-approved
         # Phase 1b semantics (matching the example in the spec).
-        dd_matching = [
-            mult
-            for threshold, mult in self.dd_thresholds.items()
-            if daily_drawdown_pct > threshold
-        ]
+        dd_matching = [mult for threshold, mult in self.dd_thresholds.items() if daily_drawdown_pct > threshold]
         if dd_matching:
             dd_multiplier = min(dd_matching)
-            adjustments.append(
-                f"DD cooldown: {daily_drawdown_pct:.1f}% daily drawdown → "
-                f"{dd_multiplier}×"
-            )
+            adjustments.append(f"DD cooldown: {daily_drawdown_pct:.1f}% daily drawdown → {dd_multiplier}×")
         else:
             dd_multiplier = 1.0
 

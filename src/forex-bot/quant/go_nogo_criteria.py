@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 
@@ -183,9 +183,7 @@ def evaluate_window(
 ) -> PerWindowEvaluateResult:
     if criteria is None:
         criteria = CANONICAL_PER_WINDOW
-    return criteria.evaluate(
-        trade_count, win_rate, profit_factor, total_pnl, max_drawdown
-    )
+    return criteria.evaluate(trade_count, win_rate, profit_factor, total_pnl, max_drawdown)
 
 
 def evaluate_aggregate(
@@ -197,9 +195,7 @@ def evaluate_aggregate(
 ) -> AggregateEvaluateResult:
     if criteria is None:
         criteria = CANONICAL_AGGREGATE
-    return criteria.evaluate(
-        total_trades, windows_passed, total_windows, p_value=p_value
-    )
+    return criteria.evaluate(total_trades, windows_passed, total_windows, p_value=p_value)
 
 
 def evaluate_full(

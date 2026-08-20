@@ -168,14 +168,10 @@ class TestSweepRunner(unittest.TestCase):
 
         self.assertEqual(len(seq_result), len(par_result))
 
-        seq_sorted = sorted(
-            seq_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"])
-        )
-        par_sorted = sorted(
-            par_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"])
-        )
+        seq_sorted = sorted(seq_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"]))
+        par_sorted = sorted(par_result.rows, key=lambda r: (r.params["period"], r.params["std_dev"]))
 
-        for seq_r, par_r in zip(seq_sorted, par_sorted):
+        for seq_r, par_r in zip(seq_sorted, par_sorted):  # noqa: B905
             self.assertEqual(seq_r.params, par_r.params)
             self.assertAlmostEqual(seq_r.win_rate, par_r.win_rate, places=1)
             self.assertAlmostEqual(seq_r.max_dd, par_r.max_dd, places=2)
@@ -319,9 +315,7 @@ class TestSweepRunner(unittest.TestCase):
         )
         result = runner.run(grid)
 
-        param_combos = {
-            (row.params["period"], row.params["std_dev"]) for row in result.rows
-        }
+        param_combos = {(row.params["period"], row.params["std_dev"]) for row in result.rows}
         expected_combos = {
             (15, 1.5),
             (15, 2.0),

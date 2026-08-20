@@ -1,6 +1,6 @@
 """Tests for BarBuilder — OHLCV bar aggregation."""
 
-import threading
+import threading  # noqa: I001
 from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 
@@ -23,9 +23,7 @@ class FakeTick:
 
 
 def _tick(bid: float, ask: float, minutes_offset: int = 0) -> FakeTick:
-    ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc) + timedelta(
-        minutes=minutes_offset
-    )
+    ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc) + timedelta(minutes=minutes_offset)
     return FakeTick(symbol_id=1, bid=bid, ask=ask, timestamp=ts)
 
 
@@ -105,9 +103,7 @@ class TestMaxBars:
         b.add_timeframe("GBPUSD", 1)
 
         for i in range(10):
-            b.process_tick(
-                _tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD"
-            )
+            b.process_tick(_tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD")
 
         assert b.bar_count("GBPUSD", 1) <= 3
 
@@ -117,9 +113,7 @@ class TestMaxBars:
         b.set_burst_mode(True)
 
         for i in range(12):
-            b.process_tick(
-                _tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD"
-            )
+            b.process_tick(_tick(1.26 + i * 0.001, 1.26 + i * 0.001, minutes_offset=i), "GBPUSD")
 
         # max_bars * 1.5 = 7
         assert b.bar_count("GBPUSD", 1) <= 7
@@ -161,10 +155,7 @@ class TestPreload:
 
     def test_preload_trims_to_max(self):
         b = BarBuilder(max_bars=10)
-        bars = [
-            {"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1}
-            for i in range(50)
-        ]
+        bars = [{"time": i, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1} for i in range(50)]
         b.preload_bars("GBPUSD", 60, bars)
         assert b.bar_count("GBPUSD", 60) == 10
 

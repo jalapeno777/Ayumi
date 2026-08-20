@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 
 from core.spread import SpreadModel
 from core.pip import PipCalculator

@@ -12,7 +12,7 @@ Cost model:
 - This is ~0.8% of risk ($50), so it's material
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 import pickle
 import time
@@ -24,7 +24,7 @@ project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 from core.types import Bar, MarketState, SessionType, BarPeriod
 from strategies.london_breakout_retest import (
     LondonBreakoutRetestStrategy,
@@ -61,7 +61,7 @@ if not cache_file:
     print("ERROR: No cached labels. Run gate_loosening_study.py first.")
     sys.exit(1)
 with open(cache_file, "rb") as f:
-    regimes, adxs, sessions = pickle.load(f)
+    regimes, adxs, sessions = pickle.load(f)  # noqa: S301
 
 RISK = 50.0
 ACCOUNT = 10000.0
@@ -96,10 +96,7 @@ def run_lbo(spread_pips, commission, slippage_pips, name):
             if hit:
                 pnl = -pos["risk"]
                 # Apply exit-side cost
-                pnl -= (
-                    per_trade_cost(pos["qty"], spread_pips, commission, slippage_pips)
-                    * 0.5
-                )
+                pnl -= per_trade_cost(pos["qty"], spread_pips, commission, slippage_pips) * 0.5
                 trades.append(pnl)
                 pos = None
             else:
@@ -143,12 +140,7 @@ def run_lbo(spread_pips, commission, slippage_pips, name):
                         pnl = (bar.close - pos["entry"]) * pos["qty"]
                     else:
                         pnl = (pos["entry"] - bar.close) * pos["qty"]
-                    pnl -= (
-                        per_trade_cost(
-                            pos["qty"], spread_pips, commission, slippage_pips
-                        )
-                        * 0.5
-                    )
+                    pnl -= per_trade_cost(pos["qty"], spread_pips, commission, slippage_pips) * 0.5
                     trades.append(pnl)
                     pos = None
         if pos:
@@ -162,7 +154,7 @@ def run_lbo(spread_pips, commission, slippage_pips, name):
         state = MarketState(bars=bars[: i + 1], current_session=SessionType.LONDON)
         try:
             sig = s.evaluate(state)
-        except:
+        except:  # noqa: E722, S112
             continue
         if sig is None:
             continue
@@ -226,9 +218,7 @@ print(f"  Spread: 2.5 pips × 0.10 × 0.1 = ${2.5 * example_qty * 0.10:.2f}")
 print(f"  Commission: $3.5 × 0.1 = ${3.5 * example_qty:.2f}")
 print(f"  Slippage: 2 × 0.2 pips × 0.10 × 0.1 = ${2 * 0.2 * example_qty * 0.10:.2f}")
 print(f"  Total per round turn: ${per_trade_cost(example_qty, 2.5, 3.5, 0.2):.2f}")
-print(
-    f"  Risk = $50, so cost = {per_trade_cost(example_qty, 2.5, 3.5, 0.2) / 50 * 100:.1f}% of risk per trade"
-)
+print(f"  Risk = $50, so cost = {per_trade_cost(example_qty, 2.5, 3.5, 0.2) / 50 * 100:.1f}% of risk per trade")
 print()
 
 variants = [
@@ -245,9 +235,7 @@ results = []
 for name, spread, comm, slip in variants:
     r = run_lbo(spread, comm, slip, name)
     results.append(r)
-    print(
-        f"| {r['name']} | {r['trades']} | {r['pf']} | ${r['net']} | {r['dd_pct']}% | {r['wr']}% |"
-    )
+    print(f"| {r['name']} | {r['trades']} | {r['pf']} | ${r['net']} | {r['dd_pct']}% | {r['wr']}% |")
 
 # Comparison
 print()

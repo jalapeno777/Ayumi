@@ -1,6 +1,6 @@
 """Wire the signal engine into the existing backtest engine."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime
 from typing import Optional
@@ -36,9 +36,7 @@ class SignalEngineBridge:
         self.min_confidence = config.get("min_confidence", 0.40)
         self.symbol = config.get("symbol", "EURUSD")
 
-        self.swing_detector = SwingDetector(
-            lookback=5
-        )  # fixed small lookback for swing detection
+        self.swing_detector = SwingDetector(lookback=5)  # fixed small lookback for swing detection
         self.level_counter = LevelCounter()
         self.htf_analyzer = HTFAnalyzer()
         self.session_analyzer = SessionAnalyzer()
@@ -69,9 +67,7 @@ class SignalEngineBridge:
         )
 
         # Step 2: Count levels
-        self._levels = self.level_counter.detect_levels_with_tracking(
-            self._swing_highs, self._swing_lows
-        )
+        self._levels = self.level_counter.detect_levels_with_tracking(self._swing_highs, self._swing_lows)
 
         # Step 3: For each bar in the eval window, check for signals
         signals: list[Signal] = []
@@ -95,9 +91,7 @@ class SignalEngineBridge:
                 df["high"].values[: bar_idx + 1],
                 df["low"].values[: bar_idx + 1],
             )
-            self._levels = self.level_counter.detect_levels_with_tracking(
-                self._swing_highs, self._swing_lows
-            )
+            self._levels = self.level_counter.detect_levels_with_tracking(self._swing_highs, self._swing_lows)
 
         return self._evaluate_bar(df, bar_idx)
 
@@ -198,9 +192,7 @@ class SignalEngineBridge:
 
         return None
 
-    def _estimate_stop_distance(
-        self, df: pd.DataFrame, bar_idx: int, direction: str
-    ) -> float:
+    def _estimate_stop_distance(self, df: pd.DataFrame, bar_idx: int, direction: str) -> float:
         """Estimate stop distance using recent swing or ATR."""
         # Simple ATR-based estimate (14-bar)
         lookback = min(14, bar_idx)
@@ -218,9 +210,7 @@ class SignalEngineBridge:
         atr = tr_sum / lookback
         return atr * 1.5
 
-    def _calculate_confidence(
-        self, level: Level, distance_pct: float, bar_idx: int
-    ) -> float:
+    def _calculate_confidence(self, level: Level, distance_pct: float, bar_idx: int) -> float:
         """Calculate a base confidence score.
 
         Phase 1: simplified confluence. Full scoring added in Phase 3+.
@@ -253,7 +243,7 @@ class SignalEngineBridge:
             try:
                 return pd.to_datetime(ts).to_pydatetime()
             except Exception:
-                raise ValueError(f"Cannot parse timestamp at bar {bar_idx}: {ts!r}")
+                raise ValueError(f"Cannot parse timestamp at bar {bar_idx}: {ts!r}")  # noqa: B904
         elif isinstance(df.index, pd.DatetimeIndex):
             return df.index[bar_idx].to_pydatetime()
         raise ValueError(f"No timestamp source available for bar {bar_idx}")

@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar
+from backtest.engine import Bar  # noqa: I001
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from common.resource_limits import add_resource_args, run_limited
@@ -170,10 +170,7 @@ def main() -> None:
         "--confidence-tiers",
         type=str,
         default=None,
-        help=(
-            "JSON list of [min_conf, max_conf, risk_pct] tiers, e.g. "
-            '"[[0.85,1.0,0.01],[0.70,0.85,0.0075]]"'
-        ),
+        help=('JSON list of [min_conf, max_conf, risk_pct] tiers, e.g. "[[0.85,1.0,0.01],[0.70,0.85,0.0075]]"'),
     )
     parser.add_argument(
         "--risk-pct",
@@ -191,9 +188,7 @@ def main() -> None:
         risk_sizer = ConfidencePositionSizer(
             account_size=10000.0,
         )
-    print(
-        f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}"
-    )
+    print(f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}")
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -202,9 +197,7 @@ def main() -> None:
     print(f"\n{'═' * 60}")
     print(f"  TTC/TBD Walk-Forward — {args.timeframe}")
     print(f"  Pairs: {args.pairs}")
-    print(
-        f"  Windows: {args.windows} | Train: {args.train_ratio} | Val: {args.val_ratio}"
-    )
+    print(f"  Windows: {args.windows} | Train: {args.train_ratio} | Val: {args.val_ratio}")
     cli_confidence = args.min_confidence
     print(f"  Min quality: {args.min_quality}")
     if cli_confidence is not None:
@@ -219,9 +212,7 @@ def main() -> None:
 
     for pair in args.pairs:
         pair_confidence = (
-            cli_confidence
-            if cli_confidence is not None
-            else get_per_symbol_min_confidence(pair, args.timeframe)
+            cli_confidence if cli_confidence is not None else get_per_symbol_min_confidence(pair, args.timeframe)
         )
         result = run_pair(
             pair=pair,
@@ -268,7 +259,7 @@ def main() -> None:
             }
             status = "✅ GO" if passes else "❌ NO-GO"
             print(
-                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"
+                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"  # noqa: E501
             )
         elif isinstance(result, dict) and "aggregated" in result:
             agg = result["aggregated"]
@@ -296,7 +287,7 @@ def main() -> None:
             }
             status = "✅ GO" if passes else "❌ NO-GO"
             print(
-                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"
+                f"\n  {pair}: {status} | P&L: ${net_profit:.2f} | WR: {win_rate:.1%} | DD: {max_dd:.2f}% | Trades: {total_trades}"  # noqa: E501
             )
         else:
             print(f"\n  {pair}: No results")
@@ -305,7 +296,7 @@ def main() -> None:
     report_path = report_dir / f"tts_{args.timeframe}_{timestamp}.json"
     # Flatten all trade records
     flat_trades = []
-    for pair, records in all_trade_records.items():
+    for pair, records in all_trade_records.items():  # noqa: B007
         flat_trades.extend(records)
 
     report = {
@@ -313,10 +304,7 @@ def main() -> None:
         "timeframe": args.timeframe,
         "config": {
             "min_confidence": (
-                {
-                    p: get_per_symbol_min_confidence(p, args.timeframe)
-                    for p in args.pairs
-                }
+                {p: get_per_symbol_min_confidence(p, args.timeframe) for p in args.pairs}
                 if cli_confidence is None
                 else cli_confidence
             ),
@@ -341,15 +329,7 @@ def main() -> None:
     tier_dist = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
     for record in flat_trades:
         conf = record.get("confidence_score", record.get("confidence", 0))
-        tier = (
-            5
-            if conf >= 0.85
-            else (
-                4
-                if conf >= 0.70
-                else (3 if conf >= 0.55 else (2 if conf >= 0.40 else 1))
-            )
-        )
+        tier = 5 if conf >= 0.85 else (4 if conf >= 0.70 else (3 if conf >= 0.55 else (2 if conf >= 0.40 else 1)))
         tier_dist[tier] += 1
     total_trades_all = sum(tier_dist.values())
     for t in sorted(tier_dist.keys(), reverse=True):
@@ -367,11 +347,7 @@ def main() -> None:
 
     for record in flat_trades:
         rationale = record.get("rationale", "")
-        boosts = (
-            re.findall(r"\('([^']+)',\s*[\d.]+\)", rationale)
-            if "boosts=" in rationale
-            else []
-        )
+        boosts = re.findall(r"\('([^']+)',\s*[\d.]+\)", rationale) if "boosts=" in rationale else []
         for b in boosts:
             boost_counts[b] = boost_counts.get(b, 0) + 1
     for name, count in sorted(boost_counts.items(), key=lambda x: -x[1]):
@@ -412,26 +388,12 @@ def main() -> None:
         total = len(records)
         wins = sum(1 for r in records if r.get("pnl", 0) > 0)
         wr = wins / total * 100 if total > 0 else 0
-        t5 = sum(
-            1
-            for r in records
-            if r.get("confidence_score", r.get("confidence", 0)) >= 0.85
-        )
-        t4 = sum(
-            1
-            for r in records
-            if 0.70 <= r.get("confidence_score", r.get("confidence", 0)) < 0.85
-        )
-        t3 = sum(
-            1
-            for r in records
-            if 0.55 <= r.get("confidence_score", r.get("confidence", 0)) < 0.70
-        )
+        t5 = sum(1 for r in records if r.get("confidence_score", r.get("confidence", 0)) >= 0.85)
+        t4 = sum(1 for r in records if 0.70 <= r.get("confidence_score", r.get("confidence", 0)) < 0.85)
+        t3 = sum(1 for r in records if 0.55 <= r.get("confidence_score", r.get("confidence", 0)) < 0.70)
         pnl = verdict.get("net_profit", 0)
         dd = verdict.get("max_dd", 0)
-        print(
-            f"  {pair:<10} ${pnl:>8.2f} {wr:>6.1f}% {dd:>5.2f}% {total:>6} {t5:>4} {t4:>4} {t3:>4} {status}"
-        )
+        print(f"  {pair:<10} ${pnl:>8.2f} {wr:>6.1f}% {dd:>5.2f}% {total:>6} {t5:>4} {t4:>4} {t3:>4} {status}")
     print(f"  {'─' * 70}")
 
     go_count = sum(1 for v in go_nogo.values() if v["pass"])

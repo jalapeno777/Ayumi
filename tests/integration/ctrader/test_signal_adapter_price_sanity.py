@@ -7,7 +7,7 @@ Triggered multiple times in production by SRMR+ and Session-Range Mean
 Reversion on XAUUSD bars (forward_test-stderr.log: 2026-07-08..10).
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: I001
 
 from adapters.ctrader.models import CTraderTradeSignal
 from adapters.ctrader.signal_adapter import (
@@ -144,15 +144,11 @@ class TestPriceSanityGuardrailRejects:
             blend_mode=True,
         )
         result = adapter.evaluate_and_trade(_make_market_state())
-        assert result is None, (
-            f"Expected guardrail to reject $4M XAUUSD signal, got {result}"
-        )
+        assert result is None, f"Expected guardrail to reject $4M XAUUSD signal, got {result}"
 
     def test_xauusd_entry_observed_bug_price_rejected(self):
         """Exact observed log value: 4126545.00000 must be rejected."""
-        strategy = _make_strategy(
-            "Session-Range Mean Reversion", entry_price=4_126_545.0
-        )
+        strategy = _make_strategy("Session-Range Mean Reversion", entry_price=4_126_545.0)
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
             strategy=strategy,
@@ -164,9 +160,7 @@ class TestPriceSanityGuardrailRejects:
 
     def test_xauusd_corrupted_sl_rejected(self):
         """Even if entry looks sane, a corrupted SL must be caught."""
-        strategy = _make_strategy(
-            "SRMR+", entry_price=3300.0, stop_loss=3_300_250.0
-        )  # SL inflated
+        strategy = _make_strategy("SRMR+", entry_price=3300.0, stop_loss=3_300_250.0)  # SL inflated
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
             strategy=strategy,
@@ -178,9 +172,7 @@ class TestPriceSanityGuardrailRejects:
 
     def test_xauusd_corrupted_tp_rejected(self):
         """A corrupted TP must be caught even if entry looks sane."""
-        strategy = _make_strategy(
-            "SRMR+", entry_price=3300.0, take_profit_1=3_300_500.0
-        )  # TP inflated
+        strategy = _make_strategy("SRMR+", entry_price=3300.0, take_profit_1=3_300_500.0)  # TP inflated
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
             strategy=strategy,
@@ -200,9 +192,7 @@ class TestPriceSanityGuardrailRejects:
             symbol="XAUUSD",
             blend_mode=False,  # would call paper_trader if not blocked
         )
-        result = adapter.evaluate_and_trade(
-            _make_market_state(), bid=3300.0, ask=3300.1
-        )
+        result = adapter.evaluate_and_trade(_make_market_state(), bid=3300.0, ask=3300.1)
         assert result is None
         mock_paper.process_signal.assert_not_called()
 
@@ -299,9 +289,7 @@ class TestGuardrailPriorityVsOtherGates:
 
     def test_low_confidence_signal_returns_none_even_if_price_corrupt(self):
         """Low confidence + corrupt price: returns None, no error."""
-        strategy = _make_strategy(
-            "SRMR+", entry_price=4_000_000.0, confidence=0.10
-        )  # Below 0.50 threshold
+        strategy = _make_strategy("SRMR+", entry_price=4_000_000.0, confidence=0.10)  # Below 0.50 threshold
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
             strategy=strategy,

@@ -8,7 +8,7 @@ Usage (at the START of main()):
     setup_logging(log_dir="logs", level="INFO")
 """
 
-import logging
+import logging  # noqa: I001
 import logging.handlers
 import os
 import sys

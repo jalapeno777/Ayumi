@@ -106,9 +106,7 @@ def pip_value_for_symbol(symbol: str) -> float:
 
     # Crypto majors — whole-dollar pip. Match BTC/ETH/USDT prefix heuristics
     # plus the explicit allow-list for safety.
-    if sym in _NON_DEFAULT_SYMBOLS or (
-        sym.startswith(("BTC", "ETH")) and sym.endswith(("USD", "USDT"))
-    ):
+    if sym in _NON_DEFAULT_SYMBOLS or (sym.startswith(("BTC", "ETH")) and sym.endswith(("USD", "USDT"))):
         return CRYPTO_PIP
 
     # JPY pairs.

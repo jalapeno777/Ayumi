@@ -27,22 +27,18 @@ sys.path.insert(0, str(_FXBOT))
 
 import importlib.util as _ilu  # noqa: E402
 
-_spec = _ilu.spec_from_file_location(
-    "crisis_replay", str(_FXBOT / "backtest" / "crisis_replay.py")
-)
+_spec = _ilu.spec_from_file_location("crisis_replay", str(_FXBOT / "backtest" / "crisis_replay.py"))
 _mod = _ilu.module_from_spec(_spec)
 sys.modules["crisis_replay"] = _mod  # Register for @dataclass
 _spec.loader.exec_module(_mod)
 
 # Load simple_engine directly to avoid backtest/__init__.py
-_se_spec = _ilu.spec_from_file_location(
-    "simple_engine_standalone", str(_FXBOT / "backtest" / "simple_engine.py")
-)
+_se_spec = _ilu.spec_from_file_location("simple_engine_standalone", str(_FXBOT / "backtest" / "simple_engine.py"))
 _se_mod = _ilu.module_from_spec(_se_spec)
 sys.modules["simple_engine_standalone"] = _se_mod
 _se_spec.loader.exec_module(_se_mod)
 
-from crisis_replay import (  # noqa: E402
+from crisis_replay import (  # noqa: E402, I001
     CRISIS_WINDOWS,
     MAX_DRAWDOWN_PCT,
     MAX_RECOVERY_BARS,

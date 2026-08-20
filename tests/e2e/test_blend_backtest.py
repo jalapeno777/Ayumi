@@ -1,6 +1,6 @@
 """Tests for Strategy Blend Backtest."""
 
-import pytest
+import pytest  # noqa: I001
 from datetime import datetime, timezone
 
 from backtest.blend_backtest import BlendBacktest, BacktestConfig
@@ -156,10 +156,7 @@ class TestBlendBacktestPerStrategy:
     def test_per_strategy_breakdown(self):
         signals = (
             [_make_signal(strategy_id="momentum", outcome_pnl=50.0) for _ in range(5)]
-            + [
-                _make_signal(strategy_id="reversal", outcome_pnl=-30.0)
-                for _ in range(5)
-            ]
+            + [_make_signal(strategy_id="reversal", outcome_pnl=-30.0) for _ in range(5)]
             + [_make_signal(strategy_id="breakout", outcome_pnl=80.0) for _ in range(5)]
         )
         result = self.bt.run(signals)

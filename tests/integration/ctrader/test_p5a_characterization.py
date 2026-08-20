@@ -12,7 +12,7 @@ The pre-enforcement baseline was captured in this file before any production
 changes and verified against P4.1 code.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: I001
 
 
 from adapters.ctrader.forward_test_engine import ForwardTestEngine
