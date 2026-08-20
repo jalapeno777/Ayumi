@@ -151,3 +151,7 @@ data/research/qa_failures.jsonl
 # State DB
 data/state.db
 data/ftmo_broker_validation/results.json
+
+# Dukascopy harvester runtime logs (card 6fb68dd5)
+tools/dukascopy-harvester/*.log
+tools/dukascopy-harvester/harvest_log.txt
