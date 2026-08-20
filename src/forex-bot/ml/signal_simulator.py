@@ -131,12 +131,8 @@ def bb_mean_reversion_signals(
     prev_close = close.shift(1)
     prev_open = open_.shift(1)
 
-    long_signal = (close < bb_lower) & engulfing_bullish(
-        open_, close, prev_open, prev_close
-    ).astype(bool)
-    short_signal = (close > bb_upper) & engulfing_bearish(
-        open_, close, prev_open, prev_close
-    ).astype(bool)
+    long_signal = (close < bb_lower) & engulfing_bullish(open_, close, prev_open, prev_close).astype(bool)
+    short_signal = (close > bb_upper) & engulfing_bearish(open_, close, prev_open, prev_close).astype(bool)
 
     entries = pd.DataFrame(index=df.index)
     entries["direction"] = 0.0
@@ -160,9 +156,7 @@ def bb_mean_reversion_signals(
     return entries[entries["direction"] != 0].copy()
 
 
-def momentum_signals(
-    df: pd.DataFrame, period: int = 12, atr_mult: float = 2.0, rr: float = 1.5
-) -> pd.DataFrame:
+def momentum_signals(df: pd.DataFrame, period: int = 12, atr_mult: float = 2.0, rr: float = 1.5) -> pd.DataFrame:
     close = df["close"]
     high = df["high"]
     low = df["low"]
@@ -197,9 +191,7 @@ def momentum_signals(
     return entries[entries["direction"] != 0].copy()
 
 
-def label_trades(
-    signals: pd.DataFrame, df: pd.DataFrame, max_holding_bars: int = 50
-) -> pd.DataFrame:
+def label_trades(signals: pd.DataFrame, df: pd.DataFrame, max_holding_bars: int = 50) -> pd.DataFrame:
     high = df["high"].values
     low = df["low"].values
     close = df["close"].values
@@ -301,9 +293,7 @@ def generate_all_signals(df: pd.DataFrame) -> pd.DataFrame:
             if len(sigs) > 0:
                 all_signals.append(sigs)
         except Exception:
-            logger.warning(
-                "Signal function %s failed, skipping", getattr(fn, "__name__", fn)
-            )
+            logger.warning("Signal function %s failed, skipping", getattr(fn, "__name__", fn))
             continue
 
     if not all_signals:
@@ -317,9 +307,7 @@ def generate_all_signals(df: pd.DataFrame) -> pd.DataFrame:
     return combined
 
 
-def build_labeled_dataset(
-    df: pd.DataFrame, features: pd.DataFrame, max_holding_bars: int = 50
-) -> pd.DataFrame:
+def build_labeled_dataset(df: pd.DataFrame, features: pd.DataFrame, max_holding_bars: int = 50) -> pd.DataFrame:
     signals = generate_all_signals(df)
     if signals.empty:
         return pd.DataFrame()

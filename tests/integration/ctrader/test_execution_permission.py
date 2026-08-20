@@ -6,7 +6,7 @@ Covers the three critical safety properties:
 3. Never propagates exceptions.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: I001
 from adapters.ctrader.execution_permission import ExecutionPermissionPolicy
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 
@@ -78,9 +78,9 @@ def test_cancel_order_blocked_by_policy():
     feed = OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="x",
-        client_secret="x",
-        access_token="x",
-        refresh_token="x",
+        client_secret="x",  # noqa: S106
+        access_token="x",  # noqa: S106
+        refresh_token="x",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
         token_lifecycle=MagicMock(),
@@ -100,9 +100,9 @@ def test_close_position_blocked_by_policy():
     feed = OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="x",
-        client_secret="x",
-        access_token="x",
-        refresh_token="x",
+        client_secret="x",  # noqa: S106
+        access_token="x",  # noqa: S106
+        refresh_token="x",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
         token_lifecycle=MagicMock(),

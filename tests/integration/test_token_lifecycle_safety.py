@@ -7,7 +7,7 @@ These tests verify the four fixes:
 4. Invalid refreshed tokens are rejected and old tokens retained
 """
 
-import json
+import json  # noqa: I001
 import threading
 import time
 from datetime import datetime, timezone
@@ -47,8 +47,8 @@ def _make_store(tmp_path) -> CredentialStore:
 
 
 def _mock_oauth_response(
-    access_token="new_access_token",
-    refresh_token="new_refresh_token",
+    access_token="new_access_token",  # noqa: S107
+    refresh_token="new_refresh_token",  # noqa: S107
     expires_in=3600,
     status_code=200,
 ):
@@ -92,7 +92,7 @@ def test_fresh_tokens_without_expires_at_are_not_refreshed(tmp_path):
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         token = tl.ensure_valid()
 
-    assert token == "craigs_fresh_token"
+    assert token == "craigs_fresh_token"  # noqa: S105
     # OAuth endpoint must NOT have been called
     mock_req.post.assert_not_called()
 
@@ -109,14 +109,15 @@ def test_fresh_tokens_force_refresh_still_works(tmp_path, monkeypatch):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="force_refreshed", expires_in=2592000
+            access_token="force_refreshed",  # noqa: S106
+            expires_in=2592000,  # noqa: S106
         )
         mock_req.get.return_value = _mock_validation_response(200)
         mock_req.RequestException = Exception
 
         token = tl.force_refresh()
 
-    assert token == "force_refreshed"
+    assert token == "force_refreshed"  # noqa: S105
     mock_req.post.assert_called_once()
 
 
@@ -186,7 +187,7 @@ def test_inter_process_file_lock_serializes_refresh(tmp_path, monkeypatch):
         with count_lock:
             call_count += 1
         time.sleep(0.05)
-        return _mock_oauth_response(access_token="locked_token", expires_in=2592000)
+        return _mock_oauth_response(access_token="locked_token", expires_in=2592000)  # noqa: S106
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.side_effect = fake_post
@@ -275,8 +276,8 @@ def test_invalid_refreshed_token_rejected(tmp_path, monkeypatch):
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         # OAuth refresh succeeds
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="bad_new_token",
-            refresh_token="bad_new_refresh",
+            access_token="bad_new_token",  # noqa: S106
+            refresh_token="bad_new_refresh",  # noqa: S106
             expires_in=3600,
         )
         # But validation fails (401)
@@ -311,8 +312,8 @@ def test_valid_refreshed_token_accepted(tmp_path, monkeypatch):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="good_new_token",
-            refresh_token="good_new_refresh",
+            access_token="good_new_token",  # noqa: S106
+            refresh_token="good_new_refresh",  # noqa: S106
             expires_in=2592000,
         )
         mock_req.get.return_value = _mock_validation_response(200)
@@ -320,7 +321,7 @@ def test_valid_refreshed_token_accepted(tmp_path, monkeypatch):
 
         token = tl.ensure_valid()
 
-    assert token == "good_new_token"
+    assert token == "good_new_token"  # noqa: S105
 
     # New tokens should be in .env
     content = env_path.read_text()
@@ -348,8 +349,8 @@ def test_validation_network_error_optimistic(tmp_path, monkeypatch):
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         mock_req.post.return_value = _mock_oauth_response(
-            access_token="net_test_token",
-            refresh_token="net_test_refresh",
+            access_token="net_test_token",  # noqa: S106
+            refresh_token="net_test_refresh",  # noqa: S106
             expires_in=2592000,
         )
         # Validation raises network error
@@ -358,7 +359,7 @@ def test_validation_network_error_optimistic(tmp_path, monkeypatch):
 
         token = tl.ensure_valid()
 
-    assert token == "net_test_token"
+    assert token == "net_test_token"  # noqa: S105
 
 
 # ── Integration: full startup cycle with fresh tokens ─────────────────────
@@ -386,7 +387,7 @@ def test_full_startup_cycle_fresh_tokens_survive(tmp_path, monkeypatch):
         token = tl.ensure_valid()
 
     # Craig's tokens must survive
-    assert token == "craigs_fresh_token"
+    assert token == "craigs_fresh_token"  # noqa: S105
     mock_req.post.assert_not_called()
 
     # .env should be unchanged

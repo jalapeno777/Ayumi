@@ -12,7 +12,7 @@ The amalgamation-specific concerns retained here are:
 * ``AmalgamatedBacktestEngine`` — backtest runner using amalgamation logic
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -144,9 +144,7 @@ class ComponentExtractor:
         "risk_adjustment",
     ]
 
-    def extract(
-        self, strategy: ISignalStrategy, state: MarketState
-    ) -> ExtractionResult | None:
+    def extract(self, strategy: ISignalStrategy, state: MarketState) -> ExtractionResult | None:
         signal = strategy.evaluate(state)
         if signal is None:
             return None
@@ -190,9 +188,7 @@ class AmalgamationEngine:
     def __init__(self, config: AmalgamationConfig):
         self.config = config
 
-    def combine(
-        self, signals: list[StrategySignal], state: MarketState
-    ) -> StrategySignal | None:
+    def combine(self, signals: list[StrategySignal], state: MarketState) -> StrategySignal | None:
         if not signals:
             return None
 
@@ -226,17 +222,11 @@ class AmalgamationEngine:
             rationale=rationale,
         )
 
-    def _apply_meta_filters(
-        self, signals: list[StrategySignal], state: MarketState
-    ) -> list[StrategySignal]:
+    def _apply_meta_filters(self, signals: list[StrategySignal], state: MarketState) -> list[StrategySignal]:
         filtered = signals
 
         if self.config.session_filter_enabled:
-            filtered = [
-                s
-                for s in filtered
-                if state.current_session in self.config.allowed_sessions
-            ]
+            filtered = [s for s in filtered if state.current_session in self.config.allowed_sessions]
 
         return filtered
 
@@ -258,17 +248,11 @@ class AmalgamationEngine:
 
         elif self.config.voting_method == VotingMethod.WEIGHTED:
             long_weight = sum(
-                self.config.get_weight(
-                    s.rationale.split(":")[0].strip() if ":" in s.rationale else ""
-                )
-                * s.confidence
+                self.config.get_weight(s.rationale.split(":")[0].strip() if ":" in s.rationale else "") * s.confidence
                 for s in long_signals
             )
             short_weight = sum(
-                self.config.get_weight(
-                    s.rationale.split(":")[0].strip() if ":" in s.rationale else ""
-                )
-                * s.confidence
+                self.config.get_weight(s.rationale.split(":")[0].strip() if ":" in s.rationale else "") * s.confidence
                 for s in short_signals
             )
             if long_weight > short_weight:
@@ -278,34 +262,23 @@ class AmalgamationEngine:
             return TradeDirection.NEUTRAL
 
         else:
-            long_conf = sum(s.confidence for s in long_signals) / max(
-                1, len(long_signals)
-            )
-            short_conf = sum(s.confidence for s in short_signals) / max(
-                1, len(short_signals)
-            )
+            long_conf = sum(s.confidence for s in long_signals) / max(1, len(long_signals))
+            short_conf = sum(s.confidence for s in short_signals) / max(1, len(short_signals))
             if long_conf > short_conf:
                 return TradeDirection.LONG
             elif short_conf > long_conf:
                 return TradeDirection.SHORT
             return TradeDirection.NEUTRAL
 
-    def _compute_confidence(
-        self, signals: list[StrategySignal], direction: TradeDirection
-    ) -> float:
+    def _compute_confidence(self, signals: list[StrategySignal], direction: TradeDirection) -> float:
         direction_signals = [s for s in signals if s.direction == direction]
 
         if self.config.confidence_method == ConfidenceMethod.MEAN:
             return sum(s.confidence for s in direction_signals) / len(direction_signals)
 
         elif self.config.confidence_method == ConfidenceMethod.WEIGHTED:
-            total_weight = sum(
-                self.config.get_weight("default") for _ in direction_signals
-            )
-            weighted_sum = sum(
-                s.confidence * self.config.get_weight("default")
-                for s in direction_signals
-            )
+            total_weight = sum(self.config.get_weight("default") for _ in direction_signals)
+            weighted_sum = sum(s.confidence * self.config.get_weight("default") for s in direction_signals)
             return weighted_sum / total_weight if total_weight > 0 else 0.0
 
         else:
@@ -371,19 +344,11 @@ class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
     ):
         EngineCore.__init__(self, config)
         ProgressiveSLMixin.__init__(self, config)
-        self.amalgamation = (
-            amalgamation_config if amalgamation_config else AmalgamationConfig()
-        )
-        self.risk_sizer = risk_sizer or ConfidencePositionSizer(
-            account_size=config.starting_balance
-        )
+        self.amalgamation = amalgamation_config if amalgamation_config else AmalgamationConfig()
+        self.risk_sizer = risk_sizer or ConfidencePositionSizer(account_size=config.starting_balance)
         self.extractor = ComponentExtractor()
         if self.amalgamation.ict_smc_only:
-            filtered = [
-                s
-                for s in strategies
-                if not self.amalgamation.is_indicator_strategy(s.name)
-            ]
+            filtered = [s for s in strategies if not self.amalgamation.is_indicator_strategy(s.name)]
             if filtered:
                 self.strategies = filtered
             else:
@@ -422,10 +387,7 @@ class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
 
             self._check_open_trades(open_trades, bar, i, trades, equity_curve)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
@@ -470,16 +432,12 @@ class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
         self.rejected_signals = rejected_signals
         return self._calculate_metrics(trades, equity_curve)
 
-    def run_individual_and_combined(
-        self, bars: list[Bar]
-    ) -> tuple[dict[str, BacktestMetrics], BacktestMetrics]:
+    def run_individual_and_combined(self, bars: list[Bar]) -> tuple[dict[str, BacktestMetrics], BacktestMetrics]:
         from .multi_strategy_engine import MultiStrategyBacktestEngine
 
         multi_engine = MultiStrategyBacktestEngine(self.config, self.strategies)
         individual_results = multi_engine.run_all_strategies(bars)
-        individual_metrics = {
-            name: result.metrics for name, result in individual_results.items()
-        }
+        individual_metrics = {name: result.metrics for name, result in individual_results.items()}
 
         combined_metrics = self.run(bars)
 
@@ -487,9 +445,7 @@ class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
 
     # ── confidence-based trade opening ──────────────────────────────
 
-    def _open_trade_confidence(
-        self, signal: StrategySignal, bar: Bar, bar_index: int
-    ) -> SimulatedTrade | None:
+    def _open_trade_confidence(self, signal: StrategySignal, bar: Bar, bar_index: int) -> SimulatedTrade | None:
         """Open trade with ConfidencePositionSizer.
 
         Uses ``ConfidencePositionSizer`` (unlike ``EngineCore._open_trade``
@@ -567,9 +523,7 @@ class AmalgamatedBacktestEngine(EngineCore, ProgressiveSLMixin):
 
         closed: list[SimulatedTrade] = []
         for trade in open_trades:
-            self._close_trade(
-                trade, bar_index, exit_time, exit_price, ExitReason.END_OF_DATA
-            )
+            self._close_trade(trade, bar_index, exit_time, exit_price, ExitReason.END_OF_DATA)
             closed_trades.append(trade)
             closed.append(trade)
         open_trades.clear()

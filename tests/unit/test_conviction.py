@@ -6,7 +6,7 @@ clamping, weighted aggregate, custom-weights override, and string
 serialization contracts explicitly here.
 """
 
-import pytest
+import pytest  # noqa: I001
 
 from core.conviction import ConvictionVector, KillCriterion
 
@@ -321,8 +321,6 @@ class TestKillCriterionFields:
 
     def test_triggered_bool_coercion_not_applied(self):
         """triggered stores the value as-given (no implicit bool conversion)."""
-        kc = KillCriterion(
-            name="x", triggered=False, value=0.0, threshold=0.0, evidence="ok"
-        )
+        kc = KillCriterion(name="x", triggered=False, value=0.0, threshold=0.0, evidence="ok")
         assert isinstance(kc.triggered, bool)
         assert kc.triggered is False

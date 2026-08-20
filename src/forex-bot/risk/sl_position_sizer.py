@@ -41,29 +41,15 @@ class InstrumentSpec:
 
 # Common instruments
 INSTRUMENTS = {
-    "EURUSD": InstrumentSpec(
-        "EURUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
-    ),
-    "GBPUSD": InstrumentSpec(
-        "GBPUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
-    ),
+    "EURUSD": InstrumentSpec("EURUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "GBPUSD": InstrumentSpec("GBPUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
     # NOTE: USDJPY pip value varies with USD/JPY rate (~6.5 at 154.00).
     #       Update at runtime from broker feed for production accuracy.
-    "USDJPY": InstrumentSpec(
-        "USDJPY", pip_size=0.01, lot_size=100000, pip_value_per_lot=6.5
-    ),
-    "XAUUSD": InstrumentSpec(
-        "XAUUSD", pip_size=0.1, lot_size=100, pip_value_per_lot=10.0
-    ),
-    "AUDUSD": InstrumentSpec(
-        "AUDUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
-    ),
-    "USDCHF": InstrumentSpec(
-        "USDCHF", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
-    ),
-    "USDCAD": InstrumentSpec(
-        "USDCAD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0
-    ),
+    "USDJPY": InstrumentSpec("USDJPY", pip_size=0.01, lot_size=100000, pip_value_per_lot=6.5),
+    "XAUUSD": InstrumentSpec("XAUUSD", pip_size=0.1, lot_size=100, pip_value_per_lot=10.0),
+    "AUDUSD": InstrumentSpec("AUDUSD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "USDCHF": InstrumentSpec("USDCHF", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
+    "USDCAD": InstrumentSpec("USDCAD", pip_size=0.0001, lot_size=100000, pip_value_per_lot=10.0),
 }
 
 
@@ -128,13 +114,13 @@ class CircuitBreakerState:
         # Check win rate
         if len(self.recent_trades) >= 10:  # Need minimum sample
             if self.win_rate < self.min_win_rate:
-                return f"Win rate {self.win_rate:.0%} < {self.min_win_rate:.0%} over last {len(self.recent_trades)} trades"
+                return (
+                    f"Win rate {self.win_rate:.0%} < {self.min_win_rate:.0%} over last {len(self.recent_trades)} trades"  # noqa: E501
+                )
 
         # Check daily drawdown
         if self.daily_dd_pct >= self.daily_dd_limit:
-            return (
-                f"Daily drawdown {self.daily_dd_pct:.1%} >= {self.daily_dd_limit:.1%}"
-            )
+            return f"Daily drawdown {self.daily_dd_pct:.1%} >= {self.daily_dd_limit:.1%}"
 
         # Check account drawdown
         if self.account_dd_pct >= self.account_dd_limit:
@@ -147,9 +133,7 @@ class CircuitBreakerState:
         self.halted = True
         self.halted_until = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
         self.halt_reason = reason
-        logger.warning(
-            "CIRCUIT BREAKER TRIGGERED: %s. Halted until %s", reason, self.halted_until
-        )
+        logger.warning("CIRCUIT BREAKER TRIGGERED: %s. Halted until %s", reason, self.halted_until)
 
 
 class SLPositionSizer:
@@ -256,9 +240,7 @@ class SLPositionSizer:
             self.account_balance = balance
             # Update account DD
             if self._peak_balance > 0:
-                self.breaker.account_dd_pct = (
-                    self._peak_balance - balance
-                ) / self._peak_balance
+                self.breaker.account_dd_pct = (self._peak_balance - balance) / self._peak_balance
 
     # ── Phase 5 identity-keyed public API ─────────────────────────────
 
@@ -291,8 +273,7 @@ class SLPositionSizer:
         with self._lock:
             if signal_id not in self._open_positions:
                 logger.warning(
-                    "cancel() called for unknown signal_id=%r — likely a "
-                    "race with a late fill (no-op, continuing)",
+                    "cancel() called for unknown signal_id=%r — likely a race with a late fill (no-op, continuing)",
                     signal_id,
                 )
                 return
@@ -324,9 +305,7 @@ class SLPositionSizer:
                 self._peak_balance = new_balance
             self.account_balance = new_balance
             if self._peak_balance > 0:
-                self.breaker.account_dd_pct = (
-                    self._peak_balance - self.account_balance
-                ) / self._peak_balance
+                self.breaker.account_dd_pct = (self._peak_balance - self.account_balance) / self._peak_balance
 
     # ── Legacy scalar API (kept for callers not yet identity-keyed) ───
 
@@ -363,9 +342,7 @@ class SLPositionSizer:
                 first_key = next(iter(self._open_positions))
                 self.cancel(first_key)
                 return
-            raise KeyError(
-                "Cannot cancel position: no open positions (possible double-cancel)"
-            )
+            raise KeyError("Cannot cancel position: no open positions (possible double-cancel)")
 
     def close_position(self, pnl: float, risk_amount: float, win: bool):
         """Handle position close — legacy scalar form.
@@ -385,9 +362,7 @@ class SLPositionSizer:
                 first_key = next(iter(self._open_positions))
                 self.close(first_key, pnl)
                 return
-            raise KeyError(
-                "Cannot close position: no open positions matching risk_amount"
-            )
+            raise KeyError("Cannot close position: no open positions matching risk_amount")
 
     # ── Startup / periodic broker reconciliation ─────────────────────────
 
@@ -474,9 +449,7 @@ class SLPositionSizer:
             after_open_risk = 0.0
             missing_position_ids: list[str] = []
             for pos in broker_positions:
-                position_id = getattr(pos, "position_id", None) or getattr(
-                    pos, "positionId", None
-                )
+                position_id = getattr(pos, "position_id", None) or getattr(pos, "positionId", None)
                 if position_id is None or str(position_id) == "":
                     missing_position_ids.append("<missing-id>")
                     logger.warning(
@@ -485,11 +458,7 @@ class SLPositionSizer:
                     )
                     continue
 
-                symbol = (
-                    getattr(pos, "symbol", None)
-                    or getattr(pos, "symbol_name", None)
-                    or ""
-                )
+                symbol = getattr(pos, "symbol", None) or getattr(pos, "symbol_name", None) or ""
                 # `volume` is lots in ctrader.models.Position; `volume_lots`
                 # is lots in account_state.Position. Both acceptable.
                 lots = (
@@ -535,8 +504,7 @@ class SLPositionSizer:
                     # Duplicate key — extremely unlikely (broker returned
                     # the same position_id twice) but handle it.
                     logger.warning(
-                        "reconcile_with_broker: duplicate position_id=%s — "
-                        "skipping second registration",
+                        "reconcile_with_broker: duplicate position_id=%s — skipping second registration",
                         position_id,
                     )
                     missing_position_ids.append(str(position_id))
@@ -687,9 +655,7 @@ class SLPositionSizer:
         )
 
         # Check min SL distance
-        if (
-            sl_distance_pips < self.min_sl_pips - 0.01
-        ):  # Allow tiny floating point margin
+        if sl_distance_pips < self.min_sl_pips - 0.01:  # Allow tiny floating point margin
             return PositionSizeResult(
                 lots=0.0,
                 risk_amount=0.0,
@@ -739,10 +705,7 @@ class SLPositionSizer:
                 sl_distance_price=sl_distance_price,
                 pip_value=spec.pip_value_per_lot,
                 blocked=True,
-                block_reason=(
-                    f"Max {self.max_positions_per_symbol} position(s) "
-                    f"already open for {symbol}"
-                ),
+                block_reason=(f"Max {self.max_positions_per_symbol} position(s) already open for {symbol}"),
             )
 
         # Max total concurrent open risk: hard cap on sum of all open

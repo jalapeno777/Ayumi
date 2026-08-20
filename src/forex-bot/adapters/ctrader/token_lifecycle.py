@@ -25,9 +25,7 @@ logger = logging.getLogger("ayumi.token_lifecycle")
 # ── Constants ──────────────────────────────────────────────────────────────
 
 OAUTH_URL = "https://openapi.ctrader.com/apps/token"
-REFRESH_BUFFER = timedelta(
-    days=5
-)  # refresh when < 5 days remaining (token TTL is 30 days)
+REFRESH_BUFFER = timedelta(days=5)  # refresh when < 5 days remaining (token TTL is 30 days)
 REQUEST_TIMEOUT = 10  # seconds
 PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min)
 
@@ -173,9 +171,7 @@ class TokenLifecycle:
         """Return the current token's expiry time, or None if unknown."""
         return self._expires_at
 
-    def start_proactive_timer(
-        self, on_refreshed: Optional[Callable[[str], None]] = None
-    ) -> None:
+    def start_proactive_timer(self, on_refreshed: Optional[Callable[[str], None]] = None) -> None:
         """Start a daemon thread that proactively refreshes before expiry.
 
         The thread checks expires_at every PROACTIVE_CHECK_INTERVAL (60s).
@@ -189,9 +185,7 @@ class TokenLifecycle:
                           token after each successful proactive refresh.
         """
         if self._refresh_disabled:
-            logger.info(
-                "start_proactive_timer() skipped — refresh disabled (_refresh_disabled=True)"
-            )
+            logger.info("start_proactive_timer() skipped — refresh disabled (_refresh_disabled=True)")
             return
 
         # NOTE: OpenApiSpotFeed manages its own proactive refresh via
@@ -235,9 +229,7 @@ class TokenLifecycle:
             # to .env without an EXPIRES_AT field). Demoting to DEBUG because
             # this branch fires on every proactive-check cycle (5 min) in
             # manual-token mode — the INFO-level message is misleading noise.
-            logger.debug(
-                "No EXPIRES_AT in credentials — assuming token valid (manual token mode)"
-            )
+            logger.debug("No EXPIRES_AT in credentials — assuming token valid (manual token mode)")
             return True
         now = datetime.now(timezone.utc)
         return self._expires_at - now > REFRESH_BUFFER
@@ -274,9 +266,7 @@ class TokenLifecycle:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
         except OSError as exc:
             logger.error("Cannot acquire inter-process token lock: %s", exc)
-            raise TokenRefreshError(
-                f"Cannot acquire inter-process lock: {exc}", retry=True
-            ) from exc
+            raise TokenRefreshError(f"Cannot acquire inter-process lock: {exc}", retry=True) from exc
 
         try:
             if not force:
@@ -284,9 +274,7 @@ class TokenLifecycle:
                 # refreshed by another process while we were waiting
                 self._sync_from_store()
                 if self._is_valid():
-                    logger.info(
-                        "Token was refreshed by another process while waiting for lock"
-                    )
+                    logger.info("Token was refreshed by another process while waiting for lock")
                     return self._access_token
 
             return self._do_refresh_inner()
@@ -305,9 +293,7 @@ class TokenLifecycle:
         refresh_token = creds.refresh_token
 
         if not refresh_token:
-            raise TokenRefreshError(
-                "No refresh_token available — manual intervention required"
-            )
+            raise TokenRefreshError("No refresh_token available — manual intervention required")
 
         logger.info("Refreshing cTrader access token")
 

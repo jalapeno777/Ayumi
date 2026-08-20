@@ -60,15 +60,9 @@ def ttc_search_space() -> SearchSpace:
         min_quality_score=float_range("min_quality_score", 0.15, 0.45, step=0.05),
         mw_base_confidence=float_range("mw_base_confidence", 0.20, 0.45, step=0.05),
         rsi_divergence_boost=float_range("rsi_divergence_boost", 0.0, 0.20, step=0.05),
-        htf_trend_aligned_boost=float_range(
-            "htf_trend_aligned_boost", 0.0, 0.20, step=0.05
-        ),
-        htf_opposing_penalty=float_range(
-            "htf_opposing_penalty", -0.25, -0.05, step=0.05
-        ),
-        kill_zone_active_boost=float_range(
-            "kill_zone_active_boost", -0.15, 0.05, step=0.05
-        ),
+        htf_trend_aligned_boost=float_range("htf_trend_aligned_boost", 0.0, 0.20, step=0.05),
+        htf_opposing_penalty=float_range("htf_opposing_penalty", -0.25, -0.05, step=0.05),
+        kill_zone_active_boost=float_range("kill_zone_active_boost", -0.15, 0.05, step=0.05),
         negative_weight=float_range("negative_weight", 0.0, 2.0, step=0.25),
         swing_lookback=int_range("swing_lookback", 3, 10),
         history_bars=int_range("history_bars", 30, 100, step=10),
@@ -130,7 +124,7 @@ def ttc_strategy_factory(
 
 def load_bars(pair: str, timeframe: str = "H1") -> list:
     """Load CSV data for a pair/timeframe into Bar objects."""
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt  # noqa: I001
     from backtest.engine import Bar
 
     csv_path = _DATA_DIR / f"{pair.upper()}_{timeframe}.csv"
@@ -204,7 +198,7 @@ def run_ttc_optuna(
     Returns:
         OptimizationResult with best params and walk-forward results.
     """
-    import optuna
+    import optuna  # noqa: I001
     from optuna.samplers import TPESampler
     from .optuna_optimizer import WalkForwardObjective
 
@@ -241,9 +235,7 @@ def run_ttc_optuna(
                     commission_per_lot=self._commission_per_lot,
                 )
             except Exception as exc:
-                logger.warning(
-                    "Walk-forward failed for trial %d: %s", trial.number, exc
-                )
+                logger.warning("Walk-forward failed for trial %d: %s", trial.number, exc)
                 raise optuna.TrialPruned() from exc
 
             self._results_by_trial[trial.number] = wf_result
@@ -325,9 +317,7 @@ def run_ttc_optuna(
         study_summary={
             "n_trials": len(study.trials),
             "n_complete": len(completed),
-            "n_pruned": len(
-                [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
-            ),
+            "n_pruned": len([t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]),
             "best_score": best_trial.value,
             "sampler": type(sampler).__name__,
         },
@@ -374,14 +364,10 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    parser = argparse.ArgumentParser(
-        description="Optuna optimization for TTC signal engine"
-    )
+    parser = argparse.ArgumentParser(description="Optuna optimization for TTC signal engine")
     parser.add_argument("--pair", default="EURUSD", help="Forex pair")
     parser.add_argument("--timeframe", default="H1", help="Bar timeframe")
-    parser.add_argument(
-        "--n-trials", type=int, default=100, help="Number of Optuna trials"
-    )
+    parser.add_argument("--n-trials", type=int, default=100, help="Number of Optuna trials")
     parser.add_argument("--n-windows", type=int, default=5, help="Walk-forward windows")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()

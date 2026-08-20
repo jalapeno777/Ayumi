@@ -11,7 +11,7 @@ Tests cover:
   - CLI tool integration
 """
 
-import json
+import json  # noqa: I001
 import subprocess
 import time
 from pathlib import Path
@@ -286,7 +286,7 @@ class TestHistoryLog:
 
         history_file = Path(tmp_state_dir) / "history.jsonl"
         lines = history_file.read_text().strip().split("\n")
-        events = [json.loads(l) for l in lines]
+        events = [json.loads(l) for l in lines]  # noqa: E741
 
         deactivate_events = [e for e in events if e["event"] == "deactivated"]
         assert len(deactivate_events) >= 1
@@ -299,7 +299,7 @@ class TestHistoryLog:
 
         history_file = Path(tmp_state_dir) / "history.jsonl"
         lines = history_file.read_text().strip().split("\n")
-        events = [json.loads(l) for l in lines]
+        events = [json.loads(l) for l in lines]  # noqa: E741
 
         # Should have: activated, deactivated, activated (3 events)
         assert len(events) == 3
@@ -315,7 +315,7 @@ class TestHistoryLog:
 
         history_file = Path(tmp_state_dir) / "history.jsonl"
         lines = history_file.read_text().strip().split("\n")
-        events = [json.loads(l) for l in lines]
+        events = [json.loads(l) for l in lines]  # noqa: E741
 
         close_events = [e for e in events if e["event"] == "positions_closed"]
         assert len(close_events) == 1
@@ -342,9 +342,7 @@ class TestPerformance:
         per_call_us = (elapsed / iterations) * 1_000_000
 
         # Must be well under 1ms (1000μs). Target is < 0.01ms (10μs).
-        assert per_call_us < 1000, (
-            f"is_globally_killed() took {per_call_us:.2f}μs per call (target: < 1000μs)"
-        )
+        assert per_call_us < 1000, f"is_globally_killed() took {per_call_us:.2f}μs per call (target: < 1000μs)"
 
     def test_is_globally_frozen_under_1ms(self, ksm):
         ksm.activate_global_freeze(reason="perf_test", triggered_by="test")
@@ -360,9 +358,7 @@ class TestPerformance:
         elapsed = time.perf_counter() - start
         per_call_us = (elapsed / iterations) * 1_000_000
 
-        assert per_call_us < 1000, (
-            f"is_globally_frozen() took {per_call_us:.2f}μs per call (target: < 1000μs)"
-        )
+        assert per_call_us < 1000, f"is_globally_frozen() took {per_call_us:.2f}μs per call (target: < 1000μs)"
 
     def test_inactive_check_under_1ms(self, ksm):
         # Test fast path when NOT killed (most common case)
@@ -394,7 +390,7 @@ class TestCLI:
         }
 
     def test_cli_status_inactive(self, cli_env):
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -410,7 +406,7 @@ class TestCLI:
 
     def test_cli_kill(self, cli_env):
         # Activate kill
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -427,7 +423,7 @@ class TestCLI:
         assert "KILL" in result.stdout
 
         # Verify via status
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -444,7 +440,7 @@ class TestCLI:
         assert "cli_test" in result.stdout
 
     def test_cli_freeze(self, cli_env):
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -460,7 +456,7 @@ class TestCLI:
         assert result.returncode == 0
         assert "FREEZE" in result.stdout
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -475,7 +471,7 @@ class TestCLI:
 
     def test_cli_recover(self, cli_env):
         # Kill first
-        subprocess.run(
+        subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -490,7 +486,7 @@ class TestCLI:
         )
 
         # Recover
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],
@@ -505,7 +501,7 @@ class TestCLI:
         assert "DEACTIVATED" in result.stdout
 
         # Verify inactive
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 cli_env["python"],
                 cli_env["script"],

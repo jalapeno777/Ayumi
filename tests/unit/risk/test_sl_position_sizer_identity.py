@@ -4,7 +4,7 @@ Tests the new signal_id-keyed API, thread-safety, and error cases
 introduced in the Phase 5 risk-sizer refactor.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import threading
 

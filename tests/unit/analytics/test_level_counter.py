@@ -1,6 +1,6 @@
 """Tests for LevelCounter: rise/drop counting, level validation, type mapping."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from signal_engine.level_counter import LevelCounter

@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime
 
 from core.types import (

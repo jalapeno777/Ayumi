@@ -155,17 +155,15 @@ def _bars_to_engine(synthetic_bars: list) -> list:
         return list(synthetic_bars)
 
 
-def run_strategy_on_bars(
-    bars: list, label: str, pair: str = "XAUUSD", timeframe_minutes: int = 15
-) -> dict:
+def run_strategy_on_bars(bars: list, label: str, pair: str = "XAUUSD", timeframe_minutes: int = 15) -> dict:
     """Run TTC XAUUSD strategy on the supplied bars via the walk-forward runner.
 
     Returns basic aggregate metrics: trade_count, win_rate, profit_factor,
     total_pnl. Lightweight: does not write to DuckDB.
     """
     try:
-        from strategies.ttc_xauusd import TTCXAUUSDStrategy
-        from backtest.engine import TradeDirection
+        from strategies.ttc_xauusd import TTCXAUUSDStrategy  # noqa: I001
+        from backtest.engine import TradeDirection  # noqa: F401
         from backtest.walk_forward_runner import run_strategy_walk_forward
     except ImportError as exc:
         return {
@@ -199,9 +197,7 @@ def run_strategy_on_bars(
     total_loss = abs(sum(losses))
     trade_count = len(pnls)
     win_rate = (len(wins) / trade_count) if trade_count > 0 else 0.0
-    pf = (
-        (total_win / total_loss) if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
-    )
+    pf = (total_win / total_loss) if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
     return {
         "label": label,
         "trade_count": trade_count,
@@ -237,7 +233,7 @@ def _load_real_xauusd_m15() -> Optional[list]:
                 if not rows:
                     continue
                 return rows
-            except Exception:
+            except Exception:  # noqa: S112
                 continue
     return None
 
@@ -257,11 +253,7 @@ def _rows_to_engine_bars(rows: list) -> list:
         if needed not in keys_lower:
             return rows
     time_key = next(
-        (
-            keys_lower[k]
-            for k in ("timestamp", "time", "date", "datetime")
-            if k in keys_lower
-        ),
+        (keys_lower[k] for k in ("timestamp", "time", "date", "datetime") if k in keys_lower),
         None,
     )
     if not time_key:
@@ -304,7 +296,7 @@ def test_shuffled(seed: int = 123) -> dict:
 
     # Split into windows of ~3.4k bars (matching XAUUSD M15 5-window split)
     window_size = max(500, n // 5)
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     shuffled = []
     for i in range(0, n, window_size):
         window = bars[i : i + window_size]
@@ -367,7 +359,7 @@ def test_inspect_trades(run_id: Optional[str] = None) -> dict:
         }
 
     sample_size = min(20, len(window4_trades))
-    rng = random.Random(7)
+    rng = random.Random(7)  # noqa: S311
     sample_idxs = sorted(rng.sample(range(len(window4_trades)), sample_size))
     sample = [window4_trades[i] for i in sample_idxs]
 
@@ -384,9 +376,7 @@ def test_inspect_trades(run_id: Optional[str] = None) -> dict:
             if not (xprice < eprice or pnl < 0):
                 pass
         if eprice == xprice:
-            issues.append(
-                f"{etime} {direction}: entry=exit={eprice} (zero move; pnl={pnl})"
-            )
+            issues.append(f"{etime} {direction}: entry=exit={eprice} (zero move; pnl={pnl})")
             ok = False
         # Accept both winners and losers as long as price states are coherent
         if direction == "LONG" and pnl > 0 and xprice <= eprice:
@@ -441,15 +431,11 @@ def _dsr(
     if n_trials <= 0:
         return {"dsr_p_value": None, "error": "n_trials must be > 0"}
 
-    e_max_sharpe = math.sqrt(2.0 * math.log(n_trials)) - (
-        math.log(math.log(n_trials)) + math.log(4 * math.pi)
-    ) / (2 * math.sqrt(2 * math.log(n_trials)))
+    e_max_sharpe = math.sqrt(2.0 * math.log(n_trials)) - (math.log(math.log(n_trials)) + math.log(4 * math.pi)) / (
+        2 * math.sqrt(2 * math.log(n_trials))
+    )
     se_sharpe = math.sqrt(
-        (
-            1.0
-            - skewness * observed_sharpe
-            + ((excess_kurtosis - 1.0) / 4.0) * observed_sharpe**2
-        )
+        (1.0 - skewness * observed_sharpe + ((excess_kurtosis - 1.0) / 4.0) * observed_sharpe**2)
         / (n_obs_per_trial - 1)
     )
     if se_sharpe <= 0:
@@ -465,9 +451,7 @@ def _dsr(
         "z_score": z,
         "dsr_p_value": p_value,
         "n_trials": n_trials,
-        "interpretation": (
-            "LIKELY_OVERFIT" if z < 0 else ("MARGINAL" if z < 1.5 else "PLAUSIBLE")
-        ),
+        "interpretation": ("LIKELY_OVERFIT" if z < 0 else ("MARGINAL" if z < 1.5 else "PLAUSIBLE")),
     }
 
 
@@ -555,9 +539,7 @@ def render_markdown(results: list) -> str:
         if r.get("samples"):
             lines.append("Sampled trades:")
             lines.append("")
-            lines.append(
-                "| entry_time | direction | entry | exit | pnl | exit_reason |"
-            )
+            lines.append("| entry_time | direction | entry | exit | pnl | exit_reason |")
             lines.append("|---|---|---|---|---|---|")
             for s in r["samples"]:
                 lines.append(
@@ -584,13 +566,11 @@ def render_markdown(results: list) -> str:
                 )
             elif passed:
                 verdict = (
-                    "PASS: synthetic GBM does NOT produce PF>2.0 — strategy does "
-                    "not extract edge from pure noise."
+                    "PASS: synthetic GBM does NOT produce PF>2.0 — strategy does not extract edge from pure noise."
                 )
             else:
                 verdict = (
-                    "FAIL: synthetic GBM produced PF>2.0 — strategy is detecting "
-                    "noise patterns; likely overfit or bug."
+                    "FAIL: synthetic GBM produced PF>2.0 — strategy is detecting noise patterns; likely overfit or bug."
                 )
             verdicts.append(("Synthetic GBM (noise test)", verdict, passed))
         elif "shuffled" in lab:
@@ -624,11 +604,9 @@ def render_markdown(results: list) -> str:
                 )
             else:
                 verdict = (
-                    f"PASS: all {r.get('coherent_count')} sampled trades have "
-                    "coherent entry/exit prices."
+                    f"PASS: all {r.get('coherent_count')} sampled trades have coherent entry/exit prices."
                     if passed
-                    else f"FAIL: {len(r['issues'])} trade-coherence issue(s) "
-                    "detected in sampled trades."
+                    else f"FAIL: {len(r['issues'])} trade-coherence issue(s) detected in sampled trades."
                 )
             verdicts.append(("Trade coherence (window 4 inspection)", verdict, passed))
         elif "dsr" in lab:
@@ -677,9 +655,7 @@ def render_markdown(results: list) -> str:
     lines.append("### Follow-up recommendations")
     lines.append("")
     lines.append("- [ ] Re-run this investigation script after the next sweep lands.")
-    lines.append(
-        "- [ ] Increase sigma in the synthetic test (0.0015, 0.0025) for XAUUSD M15 realized vol."
-    )
+    lines.append("- [ ] Increase sigma in the synthetic test (0.0015, 0.0025) for XAUUSD M15 realized vol.")
     lines.append("- [ ] Add per-window trade inspection (windows 1-3).")
     lines.append("- [ ] Promote this script to tests/e2e/ as a strategy smoke test.")
     lines.append("")
@@ -690,19 +666,11 @@ def render_markdown(results: list) -> str:
 # ── Driver ──────────────────────────────────────────────────────────────────
 def main() -> int:
     parser = argparse.ArgumentParser(description="ttc_xauusd anomaly investigation")
-    parser.add_argument(
-        "--synthetic", action="store_true", help="Run synthetic test only"
-    )
-    parser.add_argument(
-        "--shuffled", action="store_true", help="Run shuffled test only"
-    )
-    parser.add_argument(
-        "--inspect", action="store_true", help="Run trade inspection only"
-    )
+    parser.add_argument("--synthetic", action="store_true", help="Run synthetic test only")
+    parser.add_argument("--shuffled", action="store_true", help="Run shuffled test only")
+    parser.add_argument("--inspect", action="store_true", help="Run trade inspection only")
     parser.add_argument("--dsr", action="store_true", help="Run DSR only")
-    parser.add_argument(
-        "--out", type=str, default=str(REPORT_PATH), help="Output report path"
-    )
+    parser.add_argument("--out", type=str, default=str(REPORT_PATH), help="Output report path")
     args = parser.parse_args()
 
     only_one = any([args.synthetic, args.shuffled, args.inspect, args.dsr])

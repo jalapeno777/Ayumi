@@ -14,7 +14,7 @@ serialised with a single ``threading.Lock`` so the JSONL invariant
 (one JSON object per line) is preserved even under heavy contention.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import os
@@ -135,9 +135,7 @@ class SignalStatsRecorder:
         is emitted) so we never silently drop an outcome.
         """
         if outcome not in VALID_OUTCOMES:
-            raise ValueError(
-                f"Invalid outcome {outcome!r}; expected one of {sorted(VALID_OUTCOMES)}"
-            )
+            raise ValueError(f"Invalid outcome {outcome!r}; expected one of {sorted(VALID_OUTCOMES)}")
 
         with self._lock:
             existing = self._find_open_line(signal_id)
@@ -273,22 +271,12 @@ class SignalStatsRecorder:
 
         # Average time-to-close (seconds) over closed records.
         time_to_close_values = [
-            int(r["time_to_close_seconds"])
-            for r in closed
-            if r.get("time_to_close_seconds") is not None
+            int(r["time_to_close_seconds"]) for r in closed if r.get("time_to_close_seconds") is not None
         ]
-        avg_time_to_close = (
-            sum(time_to_close_values) / len(time_to_close_values)
-            if time_to_close_values
-            else 0.0
-        )
+        avg_time_to_close = sum(time_to_close_values) / len(time_to_close_values) if time_to_close_values else 0.0
 
         # Average pips over closed records.
-        pips_values = [
-            float(r["pips_realized"])
-            for r in closed
-            if r.get("pips_realized") is not None
-        ]
+        pips_values = [float(r["pips_realized"]) for r in closed if r.get("pips_realized") is not None]
         avg_pips = sum(pips_values) / len(pips_values) if pips_values else 0.0
 
         return {
@@ -429,7 +417,7 @@ __all__ = [
 
 def test_rejection_recording(tmp_path=None):
     """Verify that rejected orders are recorded in stats with rejection metadata."""
-    import tempfile
+    import tempfile  # noqa: I001
     import os
 
     tmpdir = tmp_path or tempfile.mkdtemp()
@@ -470,25 +458,25 @@ def test_rejection_recording(tmp_path=None):
 
     # Verify stats
     stats = recorder.get_stats()
-    assert stats["total_signals"] == 2, (
+    assert stats["total_signals"] == 2, (  # noqa: S101
         f"Expected 2 signals, got {stats['total_signals']}"
     )
-    assert stats["closed_signals"] == 2, (
+    assert stats["closed_signals"] == 2, (  # noqa: S101
         f"Expected 2 closed, got {stats['closed_signals']}"
     )
-    assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"
-    assert stats["rejection_rate"] == 0.5, (
+    assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"  # noqa: S101
+    assert stats["rejection_rate"] == 0.5, (  # noqa: S101
         f"Expected 0.5 rejection rate, got {stats['rejection_rate']}"
     )
 
     # Verify rejection metadata is persisted in the JSONL
     rows = recorder._read_all_rows()
     rejection_rows = [r for r in rows if r.get("outcome") == "rejected"]
-    assert len(rejection_rows) == 1, (
+    assert len(rejection_rows) == 1, (  # noqa: S101
         f"Expected 1 rejection row, got {len(rejection_rows)}"
     )
-    assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"
-    assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"
+    assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"  # noqa: S101
+    assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"  # noqa: S101
 
     # Cleanup
     if tmp_path is None:

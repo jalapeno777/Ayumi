@@ -58,13 +58,15 @@ def find_callback_typos(source: str, filename: str = "<string>") -> list[dict]:
             func = node.func
             # Match pattern: <expr>.setConnectCallback(...)
             if isinstance(func, ast.Attribute) and func.attr in CALLBACK_TYPOS:
-                violations.append({
-                    "file": filename,
-                    "line": node.lineno,
-                    "col": node.col_offset,
-                    "typo": func.attr,
-                    "suggestion": CALLBACK_TYPOS[func.attr],
-                })
+                violations.append(
+                    {
+                        "file": filename,
+                        "line": node.lineno,
+                        "col": node.col_offset,
+                        "typo": func.attr,
+                        "suggestion": CALLBACK_TYPOS[func.attr],
+                    }
+                )
 
     return violations
 
@@ -106,10 +108,7 @@ def main() -> int:
 
     print(f"Found {len(violations)} callback name typo(s):")
     for v in violations:
-        print(
-            f"  {v['file']}:{v['line']}:{v['col']} — "
-            f"'{v['typo']}' should be '{v['suggestion']}'"
-        )
+        print(f"  {v['file']}:{v['line']}:{v['col']} — '{v['typo']}' should be '{v['suggestion']}'")
     return 1
 
 

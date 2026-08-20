@@ -1,6 +1,6 @@
 """Tests for SwingDetector: N-bar swing detection with equal-swing merging."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 
@@ -53,9 +53,7 @@ class TestSwingDetection:
         # bar 2 (high=1) can't be SH because neighbors have high=3 and high=2
         # bar 1 (high=3) > bar 0 (1) and bar 2 (1) → SH at price 3
         # bar 2 (low=0) < bar 1 (1) and bar 3 (1) → SL at price 0
-        assert (
-            any(s.price == 3.0 for s in sh) or len(sh) >= 0
-        )  # bar 1 needs lb=2 neighbors
+        assert any(s.price == 3.0 for s in sh) or len(sh) >= 0  # bar 1 needs lb=2 neighbors
         assert any(s.price == 0.0 for s in sl) or len(sl) >= 0
 
     def test_alternating_highs_lows(self):

@@ -96,12 +96,8 @@ class Q1BacktestStudy(StatisticalStudy):
         l1_hit_rate = outcomes.get("L1", 0) / total_closed if total_closed > 0 else 0.0
         l2_hit_rate = outcomes.get("L2", 0) / total_closed if total_closed > 0 else 0.0
         l3_hit_rate = outcomes.get("L3", 0) / total_closed if total_closed > 0 else 0.0
-        stop_loss_rate = (
-            outcomes.get("SL", 0) / total_closed if total_closed > 0 else 0.0
-        )
-        rr_3_1_hit_rate = (
-            trades_with_3_1_or_better / total_closed if total_closed > 0 else 0.0
-        )
+        stop_loss_rate = outcomes.get("SL", 0) / total_closed if total_closed > 0 else 0.0
+        rr_3_1_hit_rate = trades_with_3_1_or_better / total_closed if total_closed > 0 else 0.0
         average_rr = sum(closed_rrs) / len(closed_rrs) if closed_rrs else 0.0
 
         return {
@@ -114,9 +110,7 @@ class Q1BacktestStudy(StatisticalStudy):
             "stop_loss_rate": round(stop_loss_rate, 4),
         }
 
-    def _evaluate_pattern(
-        self, pattern: MWPattern, bars: list[Bar], atr_values: list[float]
-    ) -> dict:
+    def _evaluate_pattern(self, pattern: MWPattern, bars: list[Bar], atr_values: list[float]) -> dict:
         entry_idx = pattern.right_shoulder_idx + 1
         if entry_idx >= len(bars):
             return {"outcome": "open", "rr": 0.0}
@@ -193,12 +187,8 @@ class Q1BacktestStudy(StatisticalStudy):
 
 
 def main():
-    data_path = (
-        Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_H1.csv"
-    )
-    report_path = (
-        Path(__file__).parent.parent / "reports" / "backtest_q1_mw_formation.json"
-    )
+    data_path = Path(__file__).parent.parent / "data" / "forex" / "historical" / "EURUSD_H1.csv"
+    report_path = Path(__file__).parent.parent / "reports" / "backtest_q1_mw_formation.json"
 
     loader = CsvDataLoader()
     bars = loader.load(str(data_path))

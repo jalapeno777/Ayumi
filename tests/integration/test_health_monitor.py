@@ -1,6 +1,6 @@
 """Tests for the structured health-reporting HealthMonitor."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import time
@@ -74,11 +74,7 @@ class TestHealthMonitorEmit:
 
         mon._emit_health()
 
-        b5_lines = [
-            r
-            for r in capture_logger.records
-            if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO
-        ]
+        b5_lines = [r for r in capture_logger.records if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO]
         assert len(b5_lines) >= 1
         msg = b5_lines[0].getMessage()
         # Verify the expected field names are present
@@ -104,11 +100,9 @@ class TestHealthMonitorEmit:
 
         mon._emit_health()
 
-        b5_info = [
-            r
-            for r in capture_logger.records
-            if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO
-        ][0]
+        b5_info = [r for r in capture_logger.records if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO][
+            0
+        ]
         msg = b5_info.getMessage()
         assert "paper_trades=15" in msg
         assert "live_fills=7" in msg
@@ -125,9 +119,7 @@ class TestHealthMonitorWarnings:
         mon._emit_health()
 
         warnings = [
-            r
-            for r in capture_logger.records
-            if r.levelno == logging.WARNING and "session_state" in r.getMessage()
+            r for r in capture_logger.records if r.levelno == logging.WARNING and "session_state" in r.getMessage()
         ]
         assert len(warnings) == 1
         assert "CONNECTING" in warnings[0].getMessage()
@@ -169,9 +161,7 @@ class TestHealthMonitorStrategies:
 
         mon._emit_health()
 
-        s1_lines = [
-            r for r in capture_logger.records if "[S1 Health]" in r.getMessage()
-        ]
+        s1_lines = [r for r in capture_logger.records if "[S1 Health]" in r.getMessage()]
         assert len(s1_lines) == 2  # one per strategy
 
         # Verify sorted order (ICT_Killzone before SMC_FVG)
@@ -215,13 +205,14 @@ class TestActivePathCounterSurface:
         mon._emit_health()
 
         extras_line = next(
-            (r for r in capture_logger.records
-             if "[B5 Health]" in r.getMessage() and "order_error_session_conflict=" in r.getMessage()),
+            (
+                r
+                for r in capture_logger.records
+                if "[B5 Health]" in r.getMessage() and "order_error_session_conflict=" in r.getMessage()
+            ),
             None,
         )
-        assert extras_line is not None, (
-            "Extras line must include order_error_session_conflict= when > 0"
-        )
+        assert extras_line is not None, "Extras line must include order_error_session_conflict= when > 0"
         assert "order_error_session_conflict=3" in extras_line.getMessage()
 
     def test_unmatched_late_fills_appears_when_nonzero(self, capture_logger):
@@ -238,13 +229,14 @@ class TestActivePathCounterSurface:
         mon._emit_health()
 
         extras_line = next(
-            (r for r in capture_logger.records
-             if "[B5 Health]" in r.getMessage() and "unmatched_late_fills=" in r.getMessage()),
+            (
+                r
+                for r in capture_logger.records
+                if "[B5 Health]" in r.getMessage() and "unmatched_late_fills=" in r.getMessage()
+            ),
             None,
         )
-        assert extras_line is not None, (
-            "Extras line must include unmatched_late_fills= when > 0"
-        )
+        assert extras_line is not None, "Extras line must include unmatched_late_fills= when > 0"
         assert "unmatched_late_fills=7" in extras_line.getMessage()
 
     def test_signals_indeterminate_appears_when_nonzero(self, capture_logger):
@@ -261,8 +253,11 @@ class TestActivePathCounterSurface:
         mon._emit_health()
 
         extras_line = next(
-            (r for r in capture_logger.records
-             if "[B5 Health]" in r.getMessage() and "signals_indeterminate=" in r.getMessage()),
+            (
+                r
+                for r in capture_logger.records
+                if "[B5 Health]" in r.getMessage() and "signals_indeterminate=" in r.getMessage()
+            ),
             None,
         )
         assert extras_line is not None, (
@@ -290,23 +285,14 @@ class TestActivePathCounterSurface:
 
         mon._emit_health()
 
-        b5_lines = [
-            r for r in capture_logger.records
-            if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO
-        ]
+        b5_lines = [r for r in capture_logger.records if "[B5 Health]" in r.getMessage() and r.levelno == logging.INFO]
         assert len(b5_lines) >= 1
         # None of the three counter keys should appear.
         for r in b5_lines:
             msg = r.getMessage()
-            assert "order_error_session_conflict=" not in msg, (
-                f"Zero counter must not appear: {msg}"
-            )
-            assert "unmatched_late_fills=" not in msg, (
-                f"Zero counter must not appear: {msg}"
-            )
-            assert "signals_indeterminate=" not in msg, (
-                f"Zero counter must not appear: {msg}"
-            )
+            assert "order_error_session_conflict=" not in msg, f"Zero counter must not appear: {msg}"
+            assert "unmatched_late_fills=" not in msg, f"Zero counter must not appear: {msg}"
+            assert "signals_indeterminate=" not in msg, f"Zero counter must not appear: {msg}"
 
 
 # --------------------------------------------------------------------- #
@@ -347,10 +333,7 @@ class TestActiveBlendHeartbeatSurface:
         )
         engine._market_feed = feed
 
-        assert (
-            engine._safe_spot_feed_counter("_order_error_session_conflict_count")
-            == 5
-        )
+        assert engine._safe_spot_feed_counter("_order_error_session_conflict_count") == 5
         assert engine._safe_spot_feed_counter("_unmatched_late_fills_count") == 11
 
     def test_safe_spot_feed_counter_handles_missing_attribute(self):
@@ -360,10 +343,7 @@ class TestActiveBlendHeartbeatSurface:
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
         feed = _make_mock()  # no counter attrs
         engine._market_feed = feed
-        assert (
-            engine._safe_spot_feed_counter("_order_error_session_conflict_count")
-            == 0
-        )
+        assert engine._safe_spot_feed_counter("_order_error_session_conflict_count") == 0
 
     def test_heartbeat_json_includes_three_additive_keys(self):
         """The heartbeat JSON written by ForwardTestEngine includes the three keys.
@@ -419,12 +399,8 @@ class TestActiveBlendHeartbeatSurface:
                 "seeded_positions": engine._health.seeded_positions,
                 "last_rejection_errorcode": engine._health.last_rejection_errorcode,
                 "rejection_breakdown": dict(engine._health.rejection_breakdown),
-                "order_error_session_conflict": engine._safe_spot_feed_counter(
-                    "_order_error_session_conflict_count"
-                ),
-                "unmatched_late_fills": engine._safe_spot_feed_counter(
-                    "_unmatched_late_fills_count"
-                ),
+                "order_error_session_conflict": engine._safe_spot_feed_counter("_order_error_session_conflict_count"),
+                "unmatched_late_fills": engine._safe_spot_feed_counter("_unmatched_late_fills_count"),
             }
 
         captured = _capture_json()

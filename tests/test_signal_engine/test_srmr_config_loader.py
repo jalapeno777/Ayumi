@@ -66,9 +66,7 @@ class TestLoadSrmrConfigFromYaml:
         """The Optuna-validated srmr_xauusd_m15 params must load."""
         for key, expected in _XAUUSD_M15_PARAMS.items():
             actual = getattr(xauusd_m15_config, key)
-            assert actual == pytest.approx(expected), (
-                f"srmr_xauusd_m15.{key}: expected {expected}, got {actual}"
-            )
+            assert actual == pytest.approx(expected), f"srmr_xauusd_m15.{key}: expected {expected}, got {actual}"
 
     def test_symbol_forced_to_requested_value(self, xauusd_m15_config):
         """``symbol`` must be the requested value, not whatever YAML carries."""
@@ -83,36 +81,26 @@ class TestLoadSrmrConfigFromYaml:
 
     def test_case_insensitive_symbol_and_timeframe(self):
         """Lowercase inputs must resolve identically to uppercase."""
-        upper = load_srmr_config_from_yaml(
-            "XAUUSD", timeframe="M15", config_path=_STRATEGIES_YAML
-        )
-        lower = load_srmr_config_from_yaml(
-            "xauusd", timeframe="m15", config_path=_STRATEGIES_YAML
-        )
+        upper = load_srmr_config_from_yaml("XAUUSD", timeframe="M15", config_path=_STRATEGIES_YAML)
+        lower = load_srmr_config_from_yaml("xauusd", timeframe="m15", config_path=_STRATEGIES_YAML)
         assert upper is not None and lower is not None
         for key in _XAUUSD_M15_PARAMS:
             assert getattr(upper, key) == pytest.approx(getattr(lower, key))
 
     def test_unknown_symbol_returns_none(self):
         """Symbols with no validated entry must fall back to None (defaults)."""
-        cfg = load_srmr_config_from_yaml(
-            "BCHUSD", timeframe="M15", config_path=_STRATEGIES_YAML
-        )
+        cfg = load_srmr_config_from_yaml("BCHUSD", timeframe="M15", config_path=_STRATEGIES_YAML)
         assert cfg is None
 
     def test_unknown_timeframe_returns_none(self):
         """Symbols with no entry for the requested timeframe must fall back."""
         # XAUUSD has M15, H1, H4 — but not M5
-        cfg = load_srmr_config_from_yaml(
-            "XAUUSD", timeframe="M5", config_path=_STRATEGIES_YAML
-        )
+        cfg = load_srmr_config_from_yaml("XAUUSD", timeframe="M5", config_path=_STRATEGIES_YAML)
         assert cfg is None
 
     def test_disabled_entry_returns_none(self):
         """Disabled entries (e.g. srmr_usdjpy_h1, enabled: false) must return None."""
-        cfg = load_srmr_config_from_yaml(
-            "USDJPY", timeframe="H1", config_path=_STRATEGIES_YAML
-        )
+        cfg = load_srmr_config_from_yaml("USDJPY", timeframe="H1", config_path=_STRATEGIES_YAML)
         assert cfg is None
 
     def test_nonexistent_yaml_returns_none(self, monkeypatch, caplog):
@@ -135,17 +123,13 @@ class TestLoadSrmrConfigFromYaml:
             )
         assert cfg is None
         assert any(
-            "not found" in rec.getMessage().lower()
-            or "fall" in rec.getMessage().lower()
-            for rec in caplog.records
+            "not found" in rec.getMessage().lower() or "fall" in rec.getMessage().lower() for rec in caplog.records
         )
 
     def test_default_yaml_path_resolves(self):
         """With config_path=None the helper must find strategies.yaml by walking parents."""
         cfg = load_srmr_config_from_yaml("XAUUSD", timeframe="M15")
-        assert cfg is not None, (
-            "helper failed to auto-discover strategies.yaml — check _resolve_strategies_yaml_path"
-        )
+        assert cfg is not None, "helper failed to auto-discover strategies.yaml — check _resolve_strategies_yaml_path"
         assert cfg.rsi_long_level == pytest.approx(41.8)
 
 

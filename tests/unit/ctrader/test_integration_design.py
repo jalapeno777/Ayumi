@@ -18,7 +18,7 @@ Run explicitly::
 Without ``-m live`` the tests are auto-skipped via marker deselection.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import time
@@ -95,15 +95,13 @@ def spot_feed() -> OpenApiSpotFeed:
             try:
                 feed.close_position(pos.position_id, int(pos.volume * 100_000))
             except Exception as exc:
-                logger.warning(
-                    "Teardown: failed to close position %s: %s", pos.position_id, exc
-                )
+                logger.warning("Teardown: failed to close position %s: %s", pos.position_id, exc)
     except Exception as exc:
         logger.warning("Teardown: reconcile failed: %s", exc)
 
     try:
         feed.stop()
-    except Exception:
+    except Exception:  # noqa: S110
         pass
 
 
@@ -138,9 +136,7 @@ def engine(spot_feed) -> ForwardTestEngine:
     return eng
 
 
-def _make_signal(
-    symbol: str, entry_price: float, stop_loss: float
-) -> CTraderTradeSignal:
+def _make_signal(symbol: str, entry_price: float, stop_loss: float) -> CTraderTradeSignal:
     """Fabricate a minimal BUY CTraderTradeSignal for integration testing."""
     return CTraderTradeSignal(
         symbol=symbol,
@@ -208,9 +204,7 @@ class TestForwardTestOrderIntegration:
 
         # Pre-flight failure is acceptable if feed state changed — skip rather than fail
         if outcome is None:
-            pytest.skip(
-                "Pre-flight failure (feed not operational or zero volume) — check demo account state"
-            )
+            pytest.skip("Pre-flight failure (feed not operational or zero volume) — check demo account state")
 
         assert outcome.status in (
             LiveExecutionStatus.FILLED,
@@ -220,23 +214,17 @@ class TestForwardTestOrderIntegration:
         if outcome.status == LiveExecutionStatus.FILLED:
             order = outcome.order
             assert order is not None, "FILLED outcome has no Order object"
-            assert order.status == OrderStatus.FILLED, (
-                f"Order status mismatch: expected FILLED, got {order.status}"
-            )
+            assert order.status == OrderStatus.FILLED, f"Order status mismatch: expected FILLED, got {order.status}"
 
         # Reconcile to verify the position exists
         time.sleep(1)
         positions = spot_feed.reconcile()
-        eurusd_positions = [
-            p for p in positions if "EURUSD" in p.symbol.upper().replace("/", "")
-        ]
+        eurusd_positions = [p for p in positions if "EURUSD" in p.symbol.upper().replace("/", "")]
 
         if outcome.status == LiveExecutionStatus.FILLED and eurusd_positions:
             pos = eurusd_positions[0]
             assert pos.volume > 0, "Position has zero volume"
-            assert pos.direction == TradeDirection.LONG, (
-                f"Expected LONG position, got {pos.direction}"
-            )
+            assert pos.direction == TradeDirection.LONG, f"Expected LONG position, got {pos.direction}"
 
             # Cleanup: close the position
             # Volume for close_position must be in raw cTrader units
@@ -271,9 +259,7 @@ class TestForwardTestOrderIntegration:
         assert sym_info is not None, "BTCUSD SymbolInfo not populated"
 
         # Verify lot_size is correctly fetched (should NOT be 100,000 for crypto)
-        assert sym_info.lot_size == 100, (
-            f"BTCUSD lot_size should be 100, got {sym_info.lot_size}"
-        )
+        assert sym_info.lot_size == 100, f"BTCUSD lot_size should be 100, got {sym_info.lot_size}"
 
         # Use live tick for entry if available
         entry = 60000.0  # fallback
@@ -288,9 +274,7 @@ class TestForwardTestOrderIntegration:
         outcome = engine._execute_signal_live(signal, strategy_id="integration_test")
 
         if outcome is None:
-            pytest.skip(
-                "Pre-flight failure (feed not operational or zero volume) — check demo account state"
-            )
+            pytest.skip("Pre-flight failure (feed not operational or zero volume) — check demo account state")
 
         assert outcome.status in (
             LiveExecutionStatus.FILLED,
@@ -300,16 +284,12 @@ class TestForwardTestOrderIntegration:
         if outcome.status == LiveExecutionStatus.FILLED:
             order = outcome.order
             assert order is not None, "FILLED outcome has no Order object"
-            assert order.status == OrderStatus.FILLED, (
-                f"Order status mismatch: expected FILLED, got {order.status}"
-            )
+            assert order.status == OrderStatus.FILLED, f"Order status mismatch: expected FILLED, got {order.status}"
 
         # Reconcile to verify position
         time.sleep(1)
         positions = spot_feed.reconcile()
-        btcusd_positions = [
-            p for p in positions if "BTCUSD" in p.symbol.upper().replace("/", "")
-        ]
+        btcusd_positions = [p for p in positions if "BTCUSD" in p.symbol.upper().replace("/", "")]
 
         if outcome.status == LiveExecutionStatus.FILLED and btcusd_positions:
             pos = btcusd_positions[0]

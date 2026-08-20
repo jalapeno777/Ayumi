@@ -11,7 +11,7 @@ Covers:
     8. Edge cases (zero starting balance, DD reduce→freeze escalation)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -228,10 +228,7 @@ class TestKillSwitchIntegration:
         kill_switch.activate_global_freeze.assert_called_once()
         call_args = kill_switch.activate_global_freeze.call_args
         assert "FTMO" in call_args.kwargs.get("reason", call_args[1].get("reason", ""))
-        assert (
-            call_args.kwargs.get("triggered_by") == "ftmo_guard"
-            or call_args[1].get("triggered_by") == "ftmo_guard"
-        )
+        assert call_args.kwargs.get("triggered_by") == "ftmo_guard" or call_args[1].get("triggered_by") == "ftmo_guard"
 
     def test_no_kill_switch_call_when_no_breach(self, kill_switch):
         """No breach → no kill switch call."""
@@ -620,9 +617,7 @@ class TestTrailingDDFloor:
         guard.update(current_balance=10050.0, open_positions=0)
         assert guard.action_level == FTMOAction.FREEZE
         # Verify the breach type
-        breaches = [
-            b for b in guard.state.breach_history if b["type"] == "trailing_dd_floor"
-        ]
+        breaches = [b for b in guard.state.breach_history if b["type"] == "trailing_dd_floor"]
         assert len(breaches) >= 1
 
     def test_trailing_floor_not_checked_when_disabled(self):

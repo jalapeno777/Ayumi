@@ -22,7 +22,7 @@ CLI flags for scripts:
     python scripts/run_wf.py --max-cpu 20 --max-memory-mb 2048
 """
 
-import os
+import os  # noqa: I001
 import resource
 import logging
 import threading
@@ -86,11 +86,7 @@ def _cgroup_v2_available() -> bool:
         with open("/proc/mounts") as f:
             for line in f:
                 parts = line.split()
-                if (
-                    len(parts) >= 3
-                    and parts[1] == _CGROUP_ROOT
-                    and parts[2] == "cgroup2"
-                ):
+                if len(parts) >= 3 and parts[1] == _CGROUP_ROOT and parts[2] == "cgroup2":
                     break
             else:
                 return False
@@ -139,7 +135,7 @@ def _set_cgroup_cpu_limit(percent: int = 20) -> Optional[str]:
     Returns:
         The cgroup path on success, or None if cgroup v2 is unavailable
         or creation fails (caller should fall back to advisory limits).
-    """
+    """  # noqa: E501
     if not _cgroup_v2_available():
         return None
 
@@ -150,10 +146,7 @@ def _set_cgroup_cpu_limit(percent: int = 20) -> Optional[str]:
         try:
             os.mkdir(cgroup_path)
         except PermissionError:
-            logger.warning(
-                "cgroup v2: cannot create cgroup (permission denied) "
-                "— falling back to advisory limits"
-            )
+            logger.warning("cgroup v2: cannot create cgroup (permission denied) — falling back to advisory limits")
             return None
         except FileExistsError:
             # Stale cgroup from a previous run — try to clean and recreate
@@ -162,8 +155,7 @@ def _set_cgroup_cpu_limit(percent: int = 20) -> Optional[str]:
                 os.mkdir(cgroup_path)
             except OSError:
                 logger.warning(
-                    "cgroup v2: stale cgroup at %s cannot be removed "
-                    "— falling back to advisory limits",
+                    "cgroup v2: stale cgroup at %s cannot be removed — falling back to advisory limits",
                     cgroup_path,
                 )
                 return None
@@ -191,9 +183,7 @@ def _set_cgroup_cpu_limit(percent: int = 20) -> Optional[str]:
             )
             return cgroup_path
         except (OSError, PermissionError) as e:
-            logger.warning(
-                "cgroup v2 CPU limit failed: %s — falling back to advisory limits", e
-            )
+            logger.warning("cgroup v2 CPU limit failed: %s — falling back to advisory limits", e)
             _cleanup_cgroup(cgroup_path)
             return None
 

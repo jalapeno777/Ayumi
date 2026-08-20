@@ -25,7 +25,7 @@ The script is deliberately conservative:
     one cron invocation.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import json
@@ -39,9 +39,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-DEFAULT_WORKBOARD_DB = os.path.expanduser(
-    "~/.openclaw/plugins/workboard/workboard.sqlite"
-)
+DEFAULT_WORKBOARD_DB = os.path.expanduser("~/.openclaw/plugins/workboard/workboard.sqlite")
 DEFAULT_OPS_DIR = Path("data/ops")
 DEFAULT_STALE_LOG = DEFAULT_OPS_DIR / "stale_cards.jsonl"
 DEFAULT_ESCALATION_QUEUE = DEFAULT_OPS_DIR / "escalation_queue.jsonl"
@@ -76,9 +74,7 @@ def _iso(ms: int | float) -> str:
 
 def _open_db(db_path: str) -> sqlite3.Connection:
     if not os.path.exists(db_path):
-        raise FileNotFoundError(
-            f"workboard sqlite not found at {db_path!r} — is the gateway running?"
-        )
+        raise FileNotFoundError(f"workboard sqlite not found at {db_path!r} — is the gateway running?")
     # Note: this script needs write access for the archive action. The
     # daily audit cron runs as the same uid as the gateway, so the
     # permissions align in production. In tests we always open a
@@ -117,7 +113,7 @@ def _fetch_by_status(
           FROM workboard_cards
          WHERE status IN ({status_placeholders})
            AND updated_at <= ?
-    """
+    """  # noqa: S608
     params: list[Any] = list(statuses) + [cutoff]
     if exclude_archived:
         query += "   AND archived_at IS NULL\n"
@@ -279,10 +275,7 @@ def render_report(report: HygieneReport) -> str:
             f"({'already applied' if report.archived_count else 'pending'})"
         )
         for c in report.archive_candidates[:10]:
-            lines.append(
-                f"  - `{c['id'][:8]}` **{c['status']}** {c['title'][:60]} "
-                f"({c['age_days']:.1f}d)"
-            )
+            lines.append(f"  - `{c['id'][:8]}` **{c['status']}** {c['title'][:60]} ({c['age_days']:.1f}d)")
         if len(report.archive_candidates) > 10:
             lines.append(f"  - … and {len(report.archive_candidates) - 10} more.")
     lines.append("")

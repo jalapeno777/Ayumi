@@ -13,7 +13,7 @@ The tests cover:
 - :meth:`SpreadRegimeClassifier.confidence_penalty` range constraint.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from types import SimpleNamespace
 
@@ -54,18 +54,9 @@ class TestDefaultPenalties:
         assert _DEFAULT_PENALTIES[SpreadRegime.EXTREME] == 0.50
 
     def test_penalty_ordering(self):
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.TIGHT]
-            >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
-        )
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
-            >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
-        )
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.WIDE]
-            >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
-        )
+        assert _DEFAULT_PENALTIES[SpreadRegime.TIGHT] >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
+        assert _DEFAULT_PENALTIES[SpreadRegime.NORMAL] >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
+        assert _DEFAULT_PENALTIES[SpreadRegime.WIDE] >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
 
     def test_penalty_range(self):
         # Acceptance criterion: confidence_penalty must be in [0.5, 1.0].

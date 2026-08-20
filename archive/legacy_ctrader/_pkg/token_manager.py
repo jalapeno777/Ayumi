@@ -12,14 +12,14 @@ Design: lightweight wrapper (Option A), not a framework.
 
 from __future__ import annotations
 
-import hashlib
+import hashlib  # noqa: F401
 import json
 import logging
-import os
-import tempfile
+import os  # noqa: F401
+import tempfile  # noqa: F401
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional  # noqa: F401
 
 import requests
 
@@ -46,6 +46,7 @@ _PLACEHOLDER_VALUES = {
 
 # ── Data structures ─────────────────────────────────────────────────────────
 
+
 class TokenStatus:
     """Enumeration-style constants for token validation results."""
 
@@ -67,7 +68,7 @@ class TokenManager:
 
     def __init__(
         self,
-        token_path: str = "data/token_state.json",
+        token_path: str = "data/token_state.json",  # noqa: S107
         env_path: str = ".env",
     ):
         self._token_path = Path(token_path)
@@ -350,11 +351,13 @@ class TokenManager:
     def _append_refresh_history(self, *, success: bool, error: str | None) -> None:
         """Append a refresh record, capping history at MAX_REFRESH_HISTORY (L-2)."""
         self._state.setdefault("refresh_history", [])
-        self._state["refresh_history"].append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "success": success,
-            "error": error,
-        })
+        self._state["refresh_history"].append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "success": success,
+                "error": error,
+            }
+        )
         if len(self._state["refresh_history"]) > MAX_REFRESH_HISTORY:
             self._state["refresh_history"] = self._state["refresh_history"][-MAX_REFRESH_HISTORY:]
         self._save_state(self._state)

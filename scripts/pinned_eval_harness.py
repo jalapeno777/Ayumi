@@ -81,9 +81,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("ayumi.pinned_eval")
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -197,25 +195,17 @@ TIER_THRESHOLDS: dict[str, TierThreshold] = {
 def _validate_tier_thresholds() -> None:
     """Defensive sanity check on the threshold table at import time."""
     if set(TIER_THRESHOLDS) != set(TIER_ORDER):
-        raise RuntimeError(
-            f"TIER_THRESHOLDS missing/extra tiers: "
-            f"{sorted(TIER_THRESHOLDS)} vs {sorted(TIER_ORDER)}"
-        )
+        raise RuntimeError(f"TIER_THRESHOLDS missing/extra tiers: {sorted(TIER_THRESHOLDS)} vs {sorted(TIER_ORDER)}")
     prev_cap = -math.inf
     for tier in TIER_ORDER:
         tt = TIER_THRESHOLDS[tier]
         if tt.min_capability <= prev_cap:
-            raise RuntimeError(
-                f"Tier {tier} min_capability {tt.min_capability} not "
-                f"strictly greater than predecessor"
-            )
+            raise RuntimeError(f"Tier {tier} min_capability {tt.min_capability} not strictly greater than predecessor")
         prev_cap = tt.min_capability
         if not 0.0 <= tt.tolerance <= 1.0:
             raise RuntimeError(f"Tier {tier} tolerance {tt.tolerance} outside [0,1]")
         if tt.max_atomic_subtasks < 1:
-            raise RuntimeError(
-                f"Tier {tier} max_atomic_subtasks {tt.max_atomic_subtasks} < 1"
-            )
+            raise RuntimeError(f"Tier {tier} max_atomic_subtasks {tt.max_atomic_subtasks} < 1")
 
 
 _validate_tier_thresholds()
@@ -246,10 +236,7 @@ class PinnedTask:
 
     def __post_init__(self) -> None:
         if self.tier not in TIER_THRESHOLDS:
-            raise ValueError(
-                f"PinnedTask {self.task_id!r} has unknown tier {self.tier!r}; "
-                f"valid: {list(TIER_ORDER)}"
-            )
+            raise ValueError(f"PinnedTask {self.task_id!r} has unknown tier {self.tier!r}; valid: {list(TIER_ORDER)}")
         if not self.task_id:
             raise ValueError("PinnedTask.task_id must be non-empty")
         if not isinstance(self.expected_outputs, list):
@@ -277,10 +264,7 @@ class PinnedTask:
 
     def verify_hash(self) -> bool:
         """Return True if the stored content_hash still matches the payload."""
-        return (
-            self.content_hash
-            == hashlib.sha256(self._canonical_payload().encode("utf-8")).hexdigest()
-        )
+        return self.content_hash == hashlib.sha256(self._canonical_payload().encode("utf-8")).hexdigest()
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PinnedTask":
@@ -343,11 +327,7 @@ def capability_score(
     if not 0.0 <= measured_capability <= 1.0:
         raise ValueError(f"measured_capability {measured_capability} outside [0,1]")
     profile = dict(task.agent_profile or {})
-    rr = (
-        rework_rate
-        if rework_rate is not None
-        else float(profile.get("rework_rate", 0.0))
-    )
+    rr = rework_rate if rework_rate is not None else float(profile.get("rework_rate", 0.0))
     at = avg_tokens if avg_tokens is not None else float(profile.get("avg_tokens", 0.0))
     if not 0.0 <= rr <= 1.0:
         raise ValueError(f"rework_rate {rr} outside [0,1]")
@@ -359,9 +339,7 @@ def capability_score(
     # Tolerance widens the "pass" band. Below the floor we still get a
     # partial credit scaled by how close we are to the floor minus tolerance.
     if headroom >= 0:
-        raw_score = min(
-            1.0, 0.5 + 0.5 * (1.0 + headroom / (1.0 - tt.min_capability + 1e-9))
-        )
+        raw_score = min(1.0, 0.5 + 0.5 * (1.0 + headroom / (1.0 - tt.min_capability + 1e-9)))
     else:
         # Linear ramp from 0 (at -tolerance) to 0.5 (at floor)
         span = max(tt.tolerance, 1e-9)
@@ -503,11 +481,7 @@ def decomposition_score(task: PinnedTask) -> dict[str, Any]:
     # coupling, then is clamped to the tier's max_atomic_subtasks.
     estimated_subtasks = max(
         1,
-        1
-        + flag_hits
-        + (1 if prompt_words > 100 else 0)
-        + (1 if prompt_words > 250 else 0)
-        + tag_hits,
+        1 + flag_hits + (1 if prompt_words > 100 else 0) + (1 if prompt_words > 250 else 0) + tag_hits,
     )
     tier_max = TIER_THRESHOLDS[task.tier].max_atomic_subtasks
     clamped_subtasks = min(estimated_subtasks, tier_max)
@@ -615,9 +589,7 @@ def aggregate(results: Iterable[PinnedEvalResult]) -> dict[str, Any]:
         decomp_scores = [r.decomposition["combined"] for r in rows]
         verdicts: dict[str, int] = {}
         for r in rows:
-            verdicts[r.capability["verdict"]] = (
-                verdicts.get(r.capability["verdict"], 0) + 1
-            )
+            verdicts[r.capability["verdict"]] = verdicts.get(r.capability["verdict"], 0) + 1
         return {
             "count": len(rows),
             "capability_mean": _mean(cap_scores),
@@ -625,10 +597,7 @@ def aggregate(results: Iterable[PinnedEvalResult]) -> dict[str, Any]:
             "capability_max": max(cap_scores),
             "decomposition_mean": _mean(decomp_scores),
             "verdict_counts": verdicts,
-            "ready_share": sum(
-                1 for r in rows if r.capability["verdict"] in ("STRONG", "READY")
-            )
-            / len(rows),
+            "ready_share": sum(1 for r in rows if r.capability["verdict"] in ("STRONG", "READY")) / len(rows),
         }
 
     tier_summary = {t: _tier_block(by_tier.get(t, [])) for t in TIER_ORDER}
@@ -689,13 +658,9 @@ def _demo_tasks() -> list[PinnedTask]:
     return [
         PinnedTask(
             task_id="demo-T0-rename",
-            prompt=(
-                "Rename the function ``_old_name`` to ``_new_name`` in "
-                "``src/forex-bot/util.py``."
-            ),
+            prompt=("Rename the function ``_old_name`` to ``_new_name`` in ``src/forex-bot/util.py``."),
             acceptance_criteria=(
-                "All call sites updated; ``grep -rn _old_name src/forex-bot`` "
-                "returns zero hits; tests still pass."
+                "All call sites updated; ``grep -rn _old_name src/forex-bot`` returns zero hits; tests still pass."
             ),
             expected_outputs=["diff", "test_log"],
             tier="T0",
@@ -799,10 +764,7 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--capability",
         type=float,
         default=None,
-        help=(
-            "Agent's measured capability (0..1). Overrides any "
-            "agent_profile.success_rate in the task rows."
-        ),
+        help=("Agent's measured capability (0..1). Overrides any agent_profile.success_rate in the task rows."),
     )
     p.add_argument(
         "--rework-rate",
@@ -841,9 +803,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         if args.demo:
             tasks = _demo_tasks()
-            measured = (
-                args.capability if args.capability is not None else _demo_capability()
-            )
+            measured = args.capability if args.capability is not None else _demo_capability()
             source = "demo"
         else:
             if not args.tasks:
@@ -851,9 +811,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 return 1
             tasks = load_tasks_jsonl(args.tasks)
             measured = (
-                args.capability
-                if args.capability is not None
-                else 0.65  # conservative default if user didn't pass one
+                args.capability if args.capability is not None else 0.65  # conservative default if user didn't pass one
             )
             source = str(args.tasks)
 

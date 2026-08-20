@@ -128,9 +128,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        smoothed_minus_dm = (
-            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
-        )
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
         if smoothed_tr == 0:
             dx_list.append(0.0)
             continue
@@ -329,9 +327,7 @@ class MomentumM15Strategy:
 
     # -- FTMO tracking -----------------------------------------------------
 
-    def record_trade_result(
-        self, pnl: float, trade_time: datetime | None = None
-    ) -> None:
+    def record_trade_result(self, pnl: float, trade_time: datetime | None = None) -> None:
         """Record a closed trade's P&L for daily drawdown tracking.
 
         Should be called after every closed trade to keep the circuit-breaker
@@ -360,9 +356,7 @@ class MomentumM15Strategy:
         today = datetime.now(timezone.utc).date()
         if self._daily_pnl_date.date() != today:
             return False  # Reset on new day
-        return self._daily_pnl < -(
-            self.config.account_balance * self.config.max_daily_dd
-        )
+        return self._daily_pnl < -(self.config.account_balance * self.config.max_daily_dd)
 
     @property
     def daily_pnl(self) -> float:

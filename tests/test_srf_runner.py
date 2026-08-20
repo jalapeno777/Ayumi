@@ -21,7 +21,7 @@ _SRC_ROOT = _REPO_ROOT / "src" / "forex-bot"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from srf.runner import StrategyRunner
+from srf.runner import StrategyRunner  # noqa: I001
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────
@@ -37,9 +37,7 @@ def tmp_repo(tmp_path: Path) -> Path:
 def runner(tmp_repo: Path) -> StrategyRunner:
     """StrategyRunner pointed at a temp repo (DB path is irrelevant — we
     never get far enough to open it)."""
-    return StrategyRunner(
-        db_path=str(tmp_repo / "nonexistent.duckdb"), repo_path=str(tmp_repo)
-    )
+    return StrategyRunner(db_path=str(tmp_repo / "nonexistent.duckdb"), repo_path=str(tmp_repo))
 
 
 # ── Tests ───────────────────────────────────────────────────────────────
@@ -71,9 +69,7 @@ class TestHypothesisGate:
         # Must explain WHY (acceptance criterion 2)
         assert "post-hoc rationalization" in msg.lower()
 
-    def test_hypothesis_gate_passes_with_doc(
-        self, runner: StrategyRunner, tmp_repo: Path
-    ):
+    def test_hypothesis_gate_passes_with_doc(self, runner: StrategyRunner, tmp_repo: Path):
         """Runner proceeds past the hypothesis gate when the doc exists.
 
         We create the doc, mock git-clean to pass, and verify the runner
@@ -107,9 +103,7 @@ class TestHypothesisGate:
 class TestHypothesisGatePathResolution:
     """Verify the gate checks the correct path under repo_root."""
 
-    def test_gate_checks_docs_edges_subdirectory(
-        self, runner: StrategyRunner, tmp_repo: Path
-    ):
+    def test_gate_checks_docs_edges_subdirectory(self, runner: StrategyRunner, tmp_repo: Path):
         """Hypothesis doc must be under docs/edges/{strategy_name}-hypothesis.md.
 
         Creating the doc in a wrong location should still trigger the gate.

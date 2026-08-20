@@ -49,9 +49,7 @@ class SlippageModel:
             return price + slippage
         return price - slippage
 
-    def apply_with_spread(
-        self, price: float, direction: TradeDirection, spread: float = 0.0
-    ) -> float:
+    def apply_with_spread(self, price: float, direction: TradeDirection, spread: float = 0.0) -> float:
         if spread > 0:
             if direction == TradeDirection.LONG:
                 price = price + spread / 2
@@ -84,9 +82,7 @@ class OrderManager:
         self._slippage_model = SlippageModel()
         self._lock = Lock()
         self._locally_filled_order_ids: set = set()
-        self._pending_timeout_config = (
-            pending_timeout_config or PendingOrderTimeoutConfig()
-        )
+        self._pending_timeout_config = pending_timeout_config or PendingOrderTimeoutConfig()
         self._pending_order_timestamps: dict[str, datetime] = {}
         self._callbacks: dict[str, list[Callable]] = {
             "on_order_placed": [],
@@ -200,9 +196,7 @@ class OrderManager:
             else:
                 fill_price = slippage_model.apply(bid, direction)
         else:
-            fill_price = slippage_model.apply_with_spread(
-                entry_price, direction, spread
-            )
+            fill_price = slippage_model.apply_with_spread(entry_price, direction, spread)
 
         slippage_amount = abs(fill_price - entry_price)
 
@@ -356,10 +350,7 @@ class OrderManager:
 
         # Check for timeout — the spot feed sets reason="timeout_awaiting_event"
         # when the deferred event never fires within the timeout window.
-        if (
-            order.status == OrderStatus.PENDING
-            and getattr(order, "reason", "") == "timeout_awaiting_event"
-        ):
+        if order.status == OrderStatus.PENDING and getattr(order, "reason", "") == "timeout_awaiting_event":
             logger.warning("[ORDER_MGR] Live order timed out — not counting as success")
             return OrderExecutionResult(
                 success=False,
@@ -568,18 +559,10 @@ class OrderManager:
 
             if position.direction == TradeDirection.LONG:
                 exit_price = bid if bid > 0 else current_price
-                position.unrealized_pnl = (
-                    (exit_price - position.entry_price)
-                    * position.volume
-                    * contract_size
-                )
+                position.unrealized_pnl = (exit_price - position.entry_price) * position.volume * contract_size
             else:
                 exit_price = ask if ask > 0 else current_price
-                position.unrealized_pnl = (
-                    (position.entry_price - exit_price)
-                    * position.volume
-                    * contract_size
-                )
+                position.unrealized_pnl = (position.entry_price - exit_price) * position.volume * contract_size
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
                 sl_fill = bid if position.direction == TradeDirection.LONG else ask
@@ -600,9 +583,7 @@ class OrderManager:
 
             return position
 
-    def _check_stop_loss_hit(
-        self, position: Position, current_price: float, bid: float, ask: float
-    ) -> bool:
+    def _check_stop_loss_hit(self, position: Position, current_price: float, bid: float, ask: float) -> bool:
         if position.stop_loss is None:
             return False
 
@@ -620,9 +601,7 @@ class OrderManager:
             fill_price = ask if ask > 0 else current_price
             return fill_price >= position.stop_loss
 
-    def _check_take_profit_hit(
-        self, position: Position, current_price: float, bid: float, ask: float
-    ) -> bool:
+    def _check_take_profit_hit(self, position: Position, current_price: float, bid: float, ask: float) -> bool:
         if position.take_profit is None:
             return False
 
@@ -649,9 +628,7 @@ class OrderManager:
                 return None
 
             position = self._positions[position_id]
-            return self._close_position(
-                position, exit_price, reason, contract_size=contract_size
-            )
+            return self._close_position(position, exit_price, reason, contract_size=contract_size)
 
     def _close_position(
         self,
@@ -678,18 +655,14 @@ class OrderManager:
         # dataclass field — set dynamically to avoid touching models.py.
         position.close_reason = reason
 
-        logger.info(
-            f"Position {position.position_id} closed: {reason} @ {exit_price}, PnL: {pnl:.2f}"
-        )
+        logger.info(f"Position {position.position_id} closed: {reason} @ {exit_price}, PnL: {pnl:.2f}")
 
         self._trigger_callback("on_position_closed", position)
         return position
 
     def get_open_positions(self) -> list[Position]:
         with self._lock:
-            return [
-                p for p in self._positions.values() if p.status == PositionStatus.OPEN
-            ]
+            return [p for p in self._positions.values() if p.status == PositionStatus.OPEN]
 
     def get_position(self, position_id: str) -> Position | None:
         with self._lock:
@@ -697,17 +670,11 @@ class OrderManager:
 
     def get_total_unrealized_pnl(self) -> float:
         with self._lock:
-            return sum(
-                p.unrealized_pnl
-                for p in self._positions.values()
-                if p.status == PositionStatus.OPEN
-            )
+            return sum(p.unrealized_pnl for p in self._positions.values() if p.status == PositionStatus.OPEN)
 
     def get_total_realized_pnl(self) -> float:
         with self._lock:
-            return sum(
-                p.closed_pnl for p in self._positions.values() if p.status.is_closed
-            )
+            return sum(p.closed_pnl for p in self._positions.values() if p.status.is_closed)
 
     def get_pending_orders(self) -> list[Order]:
         with self._lock:
@@ -727,9 +694,7 @@ class OrderManager:
                             order.status = OrderStatus.CANCELLED
                             order.comment = f"Timeout: order pending > {timeout}s"
                             expired_orders.append(order)
-                            logger.warning(
-                                f"Order {order_id} timed out after {timeout}s in PENDING state"
-                            )
+                            logger.warning(f"Order {order_id} timed out after {timeout}s in PENDING state")
 
             for order in expired_orders:
                 self._pending_order_timestamps.pop(order.order_id, None)

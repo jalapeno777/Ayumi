@@ -23,7 +23,7 @@ CLI::
     python -m forex_bot.backtest.run_ftmo_sim --input data/forex/historical/wf_results.csv
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import csv
 import logging
@@ -304,9 +304,7 @@ class FTMOSimulation:
 
         # Profit target overrides violations only if no hard violations
         # occurred
-        has_hard_violation = any(
-            v["rule"] in ("daily_loss", "max_drawdown") for v in violations
-        )
+        has_hard_violation = any(v["rule"] in ("daily_loss", "max_drawdown") for v in violations)
         if has_hard_violation:
             passed = False
 
@@ -407,9 +405,7 @@ class FTMOSimulation:
                             exit_price=float(row["exit_price"]),
                             size=float(row["size"]),
                             pnl=float(row["pnl"]),
-                            strategy=row["strategy"].strip()
-                            if row.get("strategy")
-                            else "unknown",
+                            strategy=row["strategy"].strip() if row.get("strategy") else "unknown",
                         )
                     )
                 except (ValueError, KeyError) as exc:

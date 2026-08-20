@@ -1,6 +1,6 @@
 """Tests for SRF Monte Carlo robustness module."""
 
-import numpy as np
+import numpy as np  # noqa: I001
 import pytest
 
 from srf.monte_carlo import (
@@ -26,10 +26,7 @@ def winning_trades():
     """50 trades with positive expectancy."""
     rng = np.random.default_rng(42)
     pnls = rng.normal(loc=10.0, scale=30.0, size=50)
-    return [
-        TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1)
-        for i, p in enumerate(pnls)
-    ]
+    return [TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1) for i, p in enumerate(pnls)]
 
 
 @pytest.fixture
@@ -37,10 +34,7 @@ def losing_trades():
     """50 trades with negative expectancy."""
     rng = np.random.default_rng(42)
     pnls = rng.normal(loc=-8.0, scale=25.0, size=50)
-    return [
-        TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1)
-        for i, p in enumerate(pnls)
-    ]
+    return [TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1) for i, p in enumerate(pnls)]
 
 
 @pytest.fixture
@@ -48,10 +42,7 @@ def mixed_trades():
     """50 trades roughly break-even."""
     rng = np.random.default_rng(42)
     pnls = rng.normal(loc=0.0, scale=20.0, size=50)
-    return [
-        TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1)
-        for i, p in enumerate(pnls)
-    ]
+    return [TradeRecord(pnl=float(p), entry_time=i, exit_time=i + 1) for i, p in enumerate(pnls)]
 
 
 # ── Metric helpers ────────────────────────────────────────────────────────
@@ -117,18 +108,14 @@ class TestTradeShuffle:
 
 class TestBlockBootstrap:
     def test_preserves_length(self, mixed_trades):
-        results = block_bootstrap(
-            mixed_trades, n_iter=3, block_size=5, rng=np.random.default_rng(42)
-        )
+        results = block_bootstrap(mixed_trades, n_iter=3, block_size=5, rng=np.random.default_rng(42))
         assert len(results) == 3
         for arr in results:
             assert len(arr) == len(mixed_trades)
 
     def test_fallback_small_input(self):
         trades = [TradeRecord(pnl=1.0), TradeRecord(pnl=-1.0)]
-        results = block_bootstrap(
-            trades, n_iter=2, block_size=10, rng=np.random.default_rng(42)
-        )
+        results = block_bootstrap(trades, n_iter=2, block_size=10, rng=np.random.default_rng(42))
         assert len(results) == 2
         for arr in results:
             assert len(arr) == 2
@@ -153,9 +140,7 @@ class TestSpreadStress:
 
 class TestMissedTradeSim:
     def test_drops_correct_fraction(self, winning_trades):
-        results = missed_trade_sim(
-            winning_trades, drop_fraction=0.2, n_iter=5, rng=np.random.default_rng(42)
-        )
+        results = missed_trade_sim(winning_trades, drop_fraction=0.2, n_iter=5, rng=np.random.default_rng(42))
         assert len(results) == 5
         for arr in results:
             assert len(arr) == 40  # 80% of 50
@@ -168,18 +153,14 @@ class TestRunMonteCarlo:
     def test_winning_strategy(self, winning_trades):
         result = run_monte_carlo(winning_trades, n_iterations=50, seed=42)
         assert result.n_iterations > 50  # includes stress variants
-        assert (
-            result.p5_sharpe > 0
-        )  # winning strategy should have positive 5th pct Sharpe
+        assert result.p5_sharpe > 0  # winning strategy should have positive 5th pct Sharpe
         assert 0 <= result.prop_rule_breach_prob <= 1
         assert result.p5_max_drawdown >= 0
 
     def test_losing_strategy(self, losing_trades):
         result = run_monte_carlo(losing_trades, n_iterations=50, seed=42)
         assert result.p5_sharpe < 0
-        assert (
-            result.prop_rule_breach_prob > 0.0
-        )  # losing strategy should breach at least sometimes
+        assert result.prop_rule_breach_prob > 0.0  # losing strategy should breach at least sometimes
 
     def test_reproducible_with_seed(self, winning_trades):
         r1 = run_monte_carlo(winning_trades, n_iterations=20, seed=123)
@@ -187,12 +168,8 @@ class TestRunMonteCarlo:
         assert r1.p5_sharpe == pytest.approx(r2.p5_sharpe)
 
     def test_block_bootstrap_toggle(self, winning_trades):
-        r_with = run_monte_carlo(
-            winning_trades, n_iterations=20, seed=42, use_block_bootstrap=True
-        )
-        r_without = run_monte_carlo(
-            winning_trades, n_iterations=20, seed=42, use_block_bootstrap=False
-        )
+        r_with = run_monte_carlo(winning_trades, n_iterations=20, seed=42, use_block_bootstrap=True)
+        r_without = run_monte_carlo(winning_trades, n_iterations=20, seed=42, use_block_bootstrap=False)
         # With block bootstrap should have more total iterations
         assert r_with.n_iterations > r_without.n_iterations
 

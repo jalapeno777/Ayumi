@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 
 from datetime import datetime
 
@@ -145,9 +145,7 @@ class TestSRMRPlusStrategy(unittest.TestCase):
             if adx < 35.0:
                 result = strategy.evaluate(state)
                 if result is not None:
-                    self.assertIn(
-                        result.direction, [TradeDirection.LONG, TradeDirection.SHORT]
-                    )
+                    self.assertIn(result.direction, [TradeDirection.LONG, TradeDirection.SHORT])
                     self.assertIn("SRMR+", result.rationale)
                     self.assertIn("ADX=", result.rationale)
                     self.assertGreater(result.confidence, 0.3)

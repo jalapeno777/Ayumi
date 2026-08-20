@@ -1,6 +1,6 @@
 """Tests for TPManager: 3-level TP system with progressive SL management."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime
 
@@ -43,10 +43,7 @@ class TestTPLevels:
         assert mgr.tp3_price == pytest.approx(1.1000 - 0.0050 * 2.0)
 
     def test_position_sizes_sum_to_one(self):
-        assert (
-            TPManager.TP1_SIZE + TPManager.TP2_SIZE + TPManager.TP3_SIZE
-            == pytest.approx(1.0)
-        )
+        assert TPManager.TP1_SIZE + TPManager.TP2_SIZE + TPManager.TP3_SIZE == pytest.approx(1.0)
 
 
 # ── Update / Hit Detection ─────────────────────────────────────────

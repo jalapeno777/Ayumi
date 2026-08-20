@@ -32,14 +32,12 @@ sys.path.insert(0, str(_FXBOT))
 
 import importlib.util as _ilu  # noqa: E402
 
-_spec = _ilu.spec_from_file_location(
-    "best_day_rule", str(_FXBOT / "backtest" / "best_day_rule.py")
-)
+_spec = _ilu.spec_from_file_location("best_day_rule", str(_FXBOT / "backtest" / "best_day_rule.py"))
 _mod = _ilu.module_from_spec(_spec)
 sys.modules["best_day_rule"] = _mod
 _spec.loader.exec_module(_mod)
 
-from best_day_rule import (  # noqa: E402
+from best_day_rule import (  # noqa: E402, I001
     DEFAULT_RESET_TZ_OFFSET_HOURS,
     DEFAULT_THRESHOLD,
     VALID_PHASES,

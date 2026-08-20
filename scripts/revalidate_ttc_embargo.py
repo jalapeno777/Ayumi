@@ -10,7 +10,7 @@ Usage:
     PYTHONPATH=src/forex-bot python3 scripts/revalidate_ttc_embargo.py
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import csv
 import sys
@@ -22,7 +22,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar
+from backtest.engine import Bar  # noqa: I001
 from quant.walk_forward import run_strategy, WalkForwardResults
 
 
@@ -59,24 +59,12 @@ def print_results(label: str, results: WalkForwardResults) -> None:
 
     if results.aggregated:
         agg = results.aggregated
-        print(
-            f"  Mean Win Rate:      {agg.mean_win_rate:.4f} (±{agg.std_win_rate:.4f})"
-        )
-        print(
-            f"  Mean Profit Factor: {agg.mean_profit_factor:.4f} (±{agg.std_profit_factor:.4f})"
-        )
-        print(
-            f"  Mean Max Drawdown:  {agg.mean_max_drawdown:.4f} (±{agg.std_max_drawdown:.4f})"
-        )
-        print(
-            f"  Mean Sharpe Ratio:  {agg.mean_sharpe_ratio:.4f} (±{agg.std_sharpe_ratio:.4f})"
-        )
-        print(
-            f"  Mean Trade Count:   {agg.mean_trade_count:.1f} (±{agg.std_trade_count:.1f})"
-        )
-        print(
-            f"  Mean Total PnL:     ${agg.mean_total_pnl:.2f} (±${agg.std_total_pnl:.2f})"
-        )
+        print(f"  Mean Win Rate:      {agg.mean_win_rate:.4f} (±{agg.std_win_rate:.4f})")
+        print(f"  Mean Profit Factor: {agg.mean_profit_factor:.4f} (±{agg.std_profit_factor:.4f})")
+        print(f"  Mean Max Drawdown:  {agg.mean_max_drawdown:.4f} (±{agg.std_max_drawdown:.4f})")
+        print(f"  Mean Sharpe Ratio:  {agg.mean_sharpe_ratio:.4f} (±{agg.std_sharpe_ratio:.4f})")
+        print(f"  Mean Trade Count:   {agg.mean_trade_count:.1f} (±{agg.std_trade_count:.1f})")
+        print(f"  Mean Total PnL:     ${agg.mean_total_pnl:.2f} (±${agg.std_total_pnl:.2f})")
         print(f"  Windows Passed:     {agg.windows_passed}/{agg.total_windows}")
 
     print(f"  GO/NO-GO:           {'GO' if results.go_nogo else 'NO-GO'}")
@@ -91,14 +79,12 @@ def print_results(label: str, results: WalkForwardResults) -> None:
         print(f"  Significance Met:   {stat.significance_met}")
 
     print("\n  Per-Window Breakdown:")
-    print(
-        f"  {'Win':<5} {'WR':>8} {'PF':>10} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>5}"
-    )
+    print(f"  {'Win':<5} {'WR':>8} {'PF':>10} {'MaxDD':>10} {'Sharpe':>10} {'Trades':>8} {'PnL':>12} {'GO?':>5}")
     print(f"  {'-' * 70}")
     for m in results.per_window:
         go = "YES" if m.passed_go_nogo else "NO"
         print(
-            f"  {m.window_index:<5} {m.win_rate:>8.4f} {m.profit_factor:>10.4f} {m.max_drawdown:>10.4f} {m.sharpe_ratio:>10.4f} {m.trade_count:>8} ${m.total_pnl:>11.2f} {go:>5}"
+            f"  {m.window_index:<5} {m.win_rate:>8.4f} {m.profit_factor:>10.4f} {m.max_drawdown:>10.4f} {m.sharpe_ratio:>10.4f} {m.trade_count:>8} ${m.total_pnl:>11.2f} {go:>5}"  # noqa: E501
         )
 
 
@@ -152,23 +138,23 @@ def main():
         print(f"  {'Metric':<25} {'Baseline':>12} {'Embargo':>12} {'Delta':>12}")
         print(f"  {'-' * 65}")
         print(
-            f"  {'Profit Factor':<25} {a.mean_profit_factor:>12.4f} {e.mean_profit_factor:>12.4f} {e.mean_profit_factor - a.mean_profit_factor:>+12.4f}"
+            f"  {'Profit Factor':<25} {a.mean_profit_factor:>12.4f} {e.mean_profit_factor:>12.4f} {e.mean_profit_factor - a.mean_profit_factor:>+12.4f}"  # noqa: E501
         )
         print(
-            f"  {'Win Rate':<25} {a.mean_win_rate:>12.4f} {e.mean_win_rate:>12.4f} {e.mean_win_rate - a.mean_win_rate:>+12.4f}"
+            f"  {'Win Rate':<25} {a.mean_win_rate:>12.4f} {e.mean_win_rate:>12.4f} {e.mean_win_rate - a.mean_win_rate:>+12.4f}"  # noqa: E501
         )
         print(
-            f"  {'Sharpe Ratio':<25} {a.mean_sharpe_ratio:>12.4f} {e.mean_sharpe_ratio:>12.4f} {e.mean_sharpe_ratio - a.mean_sharpe_ratio:>+12.4f}"
+            f"  {'Sharpe Ratio':<25} {a.mean_sharpe_ratio:>12.4f} {e.mean_sharpe_ratio:>12.4f} {e.mean_sharpe_ratio - a.mean_sharpe_ratio:>+12.4f}"  # noqa: E501
         )
         print(
-            f"  {'Max Drawdown':<25} {a.mean_max_drawdown:>12.4f} {e.mean_max_drawdown:>12.4f} {e.mean_max_drawdown - a.mean_max_drawdown:>+12.4f}"
+            f"  {'Max Drawdown':<25} {a.mean_max_drawdown:>12.4f} {e.mean_max_drawdown:>12.4f} {e.mean_max_drawdown - a.mean_max_drawdown:>+12.4f}"  # noqa: E501
         )
         print(
-            f"  {'Trade Count':<25} {a.mean_trade_count:>12.1f} {e.mean_trade_count:>12.1f} {e.mean_trade_count - a.mean_trade_count:>+12.1f}"
+            f"  {'Trade Count':<25} {a.mean_trade_count:>12.1f} {e.mean_trade_count:>12.1f} {e.mean_trade_count - a.mean_trade_count:>+12.1f}"  # noqa: E501
         )
         print(f"  {'Windows Passed':<25} {a.windows_passed:>12} {e.windows_passed:>12}")
         print(
-            f"  {'GO/NO-GO':<25} {'GO' if results_base.go_nogo else 'NO-GO':>12} {'GO' if results_emb.go_nogo else 'NO-GO':>12}"
+            f"  {'GO/NO-GO':<25} {'GO' if results_base.go_nogo else 'NO-GO':>12} {'GO' if results_emb.go_nogo else 'NO-GO':>12}"  # noqa: E501
         )
 
     # Decision per card's decision matrix

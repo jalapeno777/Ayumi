@@ -95,9 +95,7 @@ class PIDLockGuard:
                 )
                 _force_clear_stale(self._path)
                 if attempt >= 3:
-                    logger.error(
-                        "Failed to acquire PID lock after %d attempts", attempt
-                    )
+                    logger.error("Failed to acquire PID lock after %d attempts", attempt)
                     sys.exit(1)
                 continue  # retry
 

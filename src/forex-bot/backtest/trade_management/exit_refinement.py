@@ -78,9 +78,7 @@ class ExitRefiner:
 
         return ExitRefinerResult()
 
-    def check_entry_spread(
-        self, bar: Bar, atr: float, spread_pips: float = 0.5
-    ) -> bool:
+    def check_entry_spread(self, bar: Bar, atr: float, spread_pips: float = 0.5) -> bool:
         if not self.enabled or not self.spread_filter_enabled:
             return True
 
@@ -107,15 +105,9 @@ class ExitRefiner:
         avg_momentum = sum(recent) / len(recent)
 
         is_reversing = False
-        if (
-            direction == TradeDirection.LONG
-            and avg_momentum < -self.momentum_reversal_threshold
-        ):
+        if direction == TradeDirection.LONG and avg_momentum < -self.momentum_reversal_threshold:
             is_reversing = True
-        elif (
-            direction == TradeDirection.SHORT
-            and avg_momentum > self.momentum_reversal_threshold
-        ):
+        elif direction == TradeDirection.SHORT and avg_momentum > self.momentum_reversal_threshold:
             is_reversing = True
 
         if is_reversing:
@@ -128,9 +120,7 @@ class ExitRefiner:
 
         return ExitRefinerResult()
 
-    def _calculate_momentum(
-        self, bar: Bar, recent_bars: list[Bar] | None = None
-    ) -> float:
+    def _calculate_momentum(self, bar: Bar, recent_bars: list[Bar] | None = None) -> float:
         if recent_bars and len(recent_bars) >= 2:
             return bar.close - recent_bars[-1].close
         return bar.close - bar.open

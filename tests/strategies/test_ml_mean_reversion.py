@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -202,9 +202,7 @@ class TestOptimizeThreshold(unittest.TestCase):
         rng = np.random.RandomState(42)
         y_prob = rng.uniform(0, 1, 200)
         y_true = (y_prob > 0.5).astype(int)
-        pnl = np.where(
-            y_true == 1, rng.uniform(0.1, 10, 200), -rng.uniform(0.1, 3, 200)
-        )
+        pnl = np.where(y_true == 1, rng.uniform(0.1, 10, 200), -rng.uniform(0.1, 3, 200))
         t_pf = _optimize_threshold(y_prob, y_true, pnl=pnl)
         self.assertIsInstance(t_pf, float)
 

@@ -29,7 +29,7 @@ from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "forex-bot"))
 
-from adapters.ctrader.api_client import cTraderAPIClient
+from adapters.ctrader.api_client import cTraderAPIClient  # noqa: I001
 from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick, SymbolInfo
 from adapters.ctrader.models import (
     cTraderCredentials,
@@ -157,9 +157,7 @@ class LiveTradingExecutor:
             )
 
             logon_event = threading.Event()
-            self._trade_client.register_callback(
-                "on_logon", lambda m: logon_event.set()
-            )
+            self._trade_client.register_callback("on_logon", lambda m: logon_event.set())
 
             if not self._trade_client.connect():
                 raise RuntimeError("Failed to connect to cTrader trade port")
@@ -169,9 +167,7 @@ class LiveTradingExecutor:
             logger.info("Connected to cTrader trade port (LIVE mode)")
 
         self._quant_pipeline = QuantPipeline(QuantConfig.ftmo())
-        self._strategy = SessionRangeMeanReversionStrategy(
-            self._create_strategy_config()
-        )
+        self._strategy = SessionRangeMeanReversionStrategy(self._create_strategy_config())
 
         self._paper_trader.register_callback(
             "on_trade_executed",
@@ -181,9 +177,7 @@ class LiveTradingExecutor:
         )
         self._paper_trader.register_callback(
             "on_position_closed",
-            lambda p: logger.info(
-                f"Position closed: {p.symbol} PnL={p.closed_pnl:.2f}"
-            ),
+            lambda p: logger.info(f"Position closed: {p.symbol} PnL={p.closed_pnl:.2f}"),
         )
 
         logger.info(f"Trading setup complete: {self._config.symbol} Session Range MR")
@@ -191,9 +185,7 @@ class LiveTradingExecutor:
     def _setup_market_feed(self):
         creds = self._load_credentials()
         quote_sender_sub_id = os.environ.get("CTRADER_QUOTE_SENDER_SUB_ID", "QUOTE")
-        quote_target_sub_id = os.environ.get(
-            "CTRADER_QUOTE_TARGET_SUB_ID", quote_sender_sub_id
-        )
+        quote_target_sub_id = os.environ.get("CTRADER_QUOTE_TARGET_SUB_ID", quote_sender_sub_id)
         quote_creds = cTraderCredentials(
             host=self._config.quote_host,
             port=self._config.quote_port,
@@ -256,16 +248,12 @@ class LiveTradingExecutor:
             return
 
         if signal.confidence < self._config.min_confidence:
-            logger.debug(
-                f"Signal confidence {signal.confidence:.2f} below minimum {self._config.min_confidence}"
-            )
+            logger.debug(f"Signal confidence {signal.confidence:.2f} below minimum {self._config.min_confidence}")
             return
 
         atr = self._calculate_atr(bars)
         if self._quant_pipeline is not None:
-            self._quant_pipeline.update_bars(
-                bars[-1].high, bars[-1].low, bars[-1].close, atr
-            )
+            self._quant_pipeline.update_bars(bars[-1].high, bars[-1].low, bars[-1].close, atr)
 
             quant_decision = self._quant_pipeline.pre_trade_check(
                 signal_symbol=symbol,
@@ -277,20 +265,14 @@ class LiveTradingExecutor:
             from quant.pipeline import TradeAction
 
             if quant_decision.action == TradeAction.REJECT:
-                logger.info(
-                    f"Signal rejected by QuantPipeline: {quant_decision.reject_reason}"
-                )
+                logger.info(f"Signal rejected by QuantPipeline: {quant_decision.reject_reason}")
                 return
 
             lot_size = quant_decision.lot_size if quant_decision.lot_size else 0.1
         else:
             lot_size = 0.1
 
-        direction = (
-            TradeDirection.LONG
-            if signal.direction.value == "long"
-            else TradeDirection.SHORT
-        )
+        direction = TradeDirection.LONG if signal.direction.value == "long" else TradeDirection.SHORT
 
         trade_signal = TradeSignal(
             symbol=symbol,
@@ -308,9 +290,7 @@ class LiveTradingExecutor:
         result = self._paper_trader.process_signal(trade_signal)
         if result.success:
             self._last_signal_time = datetime.now(timezone.utc)
-            logger.info(
-                f"Signal traded: {trade_signal.direction.value} {lot_size} {symbol} @ {signal.entry_price}"
-            )
+            logger.info(f"Signal traded: {trade_signal.direction.value} {lot_size} {symbol} @ {signal.entry_price}")
         else:
             logger.warning(f"Signal rejected: {result.rejection_reason}")
 
@@ -377,9 +357,7 @@ class LiveTradingExecutor:
                 logger.info("FINAL STATS")
                 logger.info(f"Starting: {stats.starting_balance:.2f}")
                 logger.info(f"Current: {stats.current_balance:.2f}")
-                logger.info(
-                    f"PnL: {stats.current_balance - stats.starting_balance:.2f}"
-                )
+                logger.info(f"PnL: {stats.current_balance - stats.starting_balance:.2f}")
                 logger.info(f"Trades: {stats.trades_executed}")
                 logger.info(f"Rejected: {stats.trades_rejected}")
                 logger.info(f"Blocked by risk: {stats.signals_blocked_by_risk}")
@@ -388,22 +366,14 @@ class LiveTradingExecutor:
 
 def main():
     parser = argparse.ArgumentParser(description="Live Trading Execution")
-    parser.add_argument(
-        "--symbol", default="GBPUSD", help="Trading symbol (default: GBPUSD)"
-    )
-    parser.add_argument(
-        "--paper-mode", action="store_true", help="Run in paper mode (default: True)"
-    )
-    parser.add_argument(
-        "--live-mode", action="store_true", help="Run in live mode with real orders"
-    )
+    parser.add_argument("--symbol", default="GBPUSD", help="Trading symbol (default: GBPUSD)")
+    parser.add_argument("--paper-mode", action="store_true", help="Run in paper mode (default: True)")
+    parser.add_argument("--live-mode", action="store_true", help="Run in live mode with real orders")
     parser.add_argument("--trade-host", default="localhost", help="Trade port host")
     parser.add_argument("--trade-port", type=int, default=5202, help="Trade port")
     parser.add_argument("--quote-host", default="localhost", help="Quote port host")
     parser.add_argument("--quote-port", type=int, default=5211, help="Quote port")
-    parser.add_argument(
-        "--balance", type=float, default=100000.0, help="Starting balance"
-    )
+    parser.add_argument("--balance", type=float, default=100000.0, help="Starting balance")
     args = parser.parse_args()
 
     config = ExecutionConfig(

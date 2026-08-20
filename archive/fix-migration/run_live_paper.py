@@ -33,7 +33,7 @@ try:
 except ImportError:
     pass
 
-from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick
+from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick  # noqa: I001
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.models import (
     OrderType,
@@ -308,9 +308,7 @@ class LivePaperTradingSystem:
             symbol = cfg["symbol"]
             params = cfg["params"]
             if cfg["factory"] == "srm":
-                strat = legacy_strategy_factory(
-                    "session_range_mr", params, symbol=symbol, timeframe="M15"
-                )
+                strat = legacy_strategy_factory("session_range_mr", params, symbol=symbol, timeframe="M15")
             else:
                 strat = ttc_strategy_factory(params, symbol=symbol, timeframe="M15")
             self._strategies[name] = strat
@@ -364,13 +362,9 @@ class LivePaperTradingSystem:
         self._paper_trader.set_api_client(self._api_client)
 
         # Register execution report callbacks
-        self._api_client._client.register_callback(
-            "on_order_filled", self._on_order_filled
-        )
+        self._api_client._client.register_callback("on_order_filled", self._on_order_filled)
         self._api_client._client.register_callback("on_order_new", self._on_order_new)
-        self._api_client._client.register_callback(
-            "on_order_rejected", self._on_order_rejected
-        )
+        self._api_client._client.register_callback("on_order_rejected", self._on_order_rejected)
 
         # Request existing positions to restore state
         self._sync_existing_positions()
@@ -381,9 +375,7 @@ class LivePaperTradingSystem:
         """Callback when cTrader acknowledges a new order (pending fill)."""
         if order is None:
             return
-        logger.info(
-            f"ORDER NEW: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume}"
-        )
+        logger.info(f"ORDER NEW: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume}")
 
     def _on_order_filled(self, order, msg):
         """Callback when cTrader fills an order.
@@ -395,7 +387,7 @@ class LivePaperTradingSystem:
             return
 
         logger.info(
-            f"ORDER FILLED: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume} @ {order.filled_price}"
+            f"ORDER FILLED: {order.order_id} {order.symbol} {order.direction.value} vol={order.volume} @ {order.filled_price}"  # noqa: E501
         )
 
         # Extract position_id from order comment (set by FIXClient as "pos_id:XXXXX")
@@ -404,9 +396,7 @@ class LivePaperTradingSystem:
             try:
                 position_id = order.comment.split("pos_id:")[1].split()[0]
             except (IndexError, ValueError):
-                logger.warning(
-                    "Failed to extract position_id from comment: %s", order.comment
-                )
+                logger.warning("Failed to extract position_id from comment: %s", order.comment)
 
         # Also check raw FIX message tag 721 directly
         if not position_id and msg:
@@ -427,9 +417,7 @@ class LivePaperTradingSystem:
             positions = self._paper_trader.get_open_positions()
             for pos in positions:
                 if pos.symbol == order.symbol and pos.direction == order.direction:
-                    self._paper_trader._order_manager.update_position_id(
-                        pos.position_id, position_id
-                    )
+                    self._paper_trader._order_manager.update_position_id(pos.position_id, position_id)
                     break
 
         # Check if there's a pending SL/TP to attach
@@ -441,9 +429,7 @@ class LivePaperTradingSystem:
         """Callback when cTrader rejects an order."""
         if not reason:
             reason = "(no reason provided)"
-        logger.warning(
-            f"ORDER REJECTED: {order.order_id} {order.symbol} reason={reason}"
-        )
+        logger.warning(f"ORDER REJECTED: {order.order_id} {order.symbol} reason={reason}")
 
     def _sync_existing_positions(self):
         """Request existing positions from cTrader and populate PaperTrader state."""
@@ -453,9 +439,7 @@ class LivePaperTradingSystem:
             logger.info("No existing positions found on startup")
             return
         for pos_id, pos in positions.items():
-            logger.info(
-                f"  Existing position: {pos_id} {pos.symbol} {pos.direction.value} vol={pos.volume}"
-            )
+            logger.info(f"  Existing position: {pos_id} {pos.symbol} {pos.direction.value} vol={pos.volume}")
         logger.info(f"Found {len(positions)} existing position(s) on startup")
 
     def _attach_sl_tp(self, position_id: str, signal, strategy_key: str):
@@ -477,9 +461,7 @@ class LivePaperTradingSystem:
             )
             if sl_order:
                 sl_orders.append(sl_order.order_id)
-                logger.info(
-                    f"SL order sent: {sl_order.order_id} @ {signal.stop_loss} for pos {position_id}"
-                )
+                logger.info(f"SL order sent: {sl_order.order_id} @ {signal.stop_loss} for pos {position_id}")
 
         if signal.take_profit_1 and signal.take_profit_1 > 0:
             tp_order = self._api_client._client.send_order(
@@ -493,9 +475,7 @@ class LivePaperTradingSystem:
             )
             if tp_order:
                 tp_orders.append(tp_order.order_id)
-                logger.info(
-                    f"TP order sent: {tp_order.order_id} @ {signal.take_profit_1} for pos {position_id}"
-                )
+                logger.info(f"TP order sent: {tp_order.order_id} @ {signal.take_profit_1} for pos {position_id}")
 
         self._linked_orders[position_id] = {}
         if sl_orders:
@@ -509,13 +489,9 @@ class LivePaperTradingSystem:
         for order_type, order_id in linked.items():
             success = self._api_client._client.cancel_order(order_id)
             if success:
-                logger.info(
-                    f"Cancelled {order_type} order {order_id} for pos {position_id}"
-                )
+                logger.info(f"Cancelled {order_type} order {order_id} for pos {position_id}")
             else:
-                logger.warning(
-                    f"Failed to cancel {order_type} order {order_id} for pos {position_id}"
-                )
+                logger.warning(f"Failed to cancel {order_type} order {order_id} for pos {position_id}")
 
     def _init_feed(self):
         creds = _load_credentials()
@@ -524,17 +500,13 @@ class LivePaperTradingSystem:
         # Add XAU/USD to feed's symbol map (not in DEFAULT_SYMBOLS)
         from adapters.ctrader.market_data_feed import SymbolInfo
 
-        self._feed._symbols[31] = SymbolInfo(
-            symbol_id=31, name="XAU/USD", pip_size=0.01, digits=2
-        )
+        self._feed._symbols[31] = SymbolInfo(symbol_id=31, name="XAU/USD", pip_size=0.01, digits=2)
         self._feed._name_to_id["XAU/USD"] = 31
         self._feed._id_to_name[31] = "XAU/USD"
 
         # Initialize trackers
         for internal, cTrader in SYMBOLS.items():
-            self._trackers[internal] = SymbolTracker(
-                internal_name=internal, cTrader_name=cTrader
-            )
+            self._trackers[internal] = SymbolTracker(internal_name=internal, cTrader_name=cTrader)
 
     def _load_historical_bars(self, max_bars: int = 200):
         """Pre-load M15 bars from historical CSV files to avoid 25-hour cold start.
@@ -572,13 +544,9 @@ class LivePaperTradingSystem:
                     rows = rows[-max_bars:] if len(rows) > max_bars else rows
                     for row in rows:
                         try:
-                            dt = datetime.strptime(
-                                row["Date"].strip(), "%Y-%m-%d %H:%M:%S"
-                            )
+                            dt = datetime.strptime(row["Date"].strip(), "%Y-%m-%d %H:%M:%S")
                         except ValueError:
-                            dt = datetime.strptime(
-                                row["Date"].strip(), "%Y-%m-%d %H:%M"
-                            )
+                            dt = datetime.strptime(row["Date"].strip(), "%Y-%m-%d %H:%M")
                         dt = dt.replace(tzinfo=timezone.utc)
                         bar = Bar(
                             time=dt,
@@ -611,9 +579,7 @@ class LivePaperTradingSystem:
         internal_name = SYMBOL_ID_MAP.get(tick.symbol_id)
         if internal_name is None:
             # Try to discover — log unknown IDs
-            logger.debug(
-                f"Unknown symbol_id={tick.symbol_id}, bid={tick.bid}, ask={tick.ask}"
-            )
+            logger.debug(f"Unknown symbol_id={tick.symbol_id}, bid={tick.bid}, ask={tick.ask}")
             return
 
         tracker = self._trackers.get(internal_name)
@@ -647,7 +613,7 @@ class LivePaperTradingSystem:
 
             # Evaluate strategies for this symbol
             logger.info(
-                f"{internal_name}: M15 bar closed at {closed_bar.time.strftime('%H:%M')} | {len(tracker.bars)} bars total"
+                f"{internal_name}: M15 bar closed at {closed_bar.time.strftime('%H:%M')} | {len(tracker.bars)} bars total"  # noqa: E501
             )
             self._evaluate_symbol(internal_name, tracker)
 
@@ -685,9 +651,7 @@ class LivePaperTradingSystem:
                 # Check confidence threshold
                 min_conf = cfg["params"].get("min_confidence", 0.5)
                 if signal.confidence < min_conf:
-                    logger.debug(
-                        f"{strat_name}: signal confidence {signal.confidence:.2f} < {min_conf}, skipping"
-                    )
+                    logger.debug(f"{strat_name}: signal confidence {signal.confidence:.2f} < {min_conf}, skipping")
                     continue
 
                 # Close existing position if any
@@ -711,25 +675,17 @@ class LivePaperTradingSystem:
         key = f"{strat_name}_{symbol}"
         existing_pos_id = self._position_ids.get(key)
         if existing_pos_id:
-            logger.warning(
-                f"{strat_name} {symbol}: already have open position {existing_pos_id}, skipping open"
-            )
+            logger.warning(f"{strat_name} {symbol}: already have open position {existing_pos_id}, skipping open")
             return
 
         # Also check PaperTrader for any open position on this symbol
         open_positions = self._paper_trader.get_open_positions()
         for pos in open_positions:
             if pos.symbol == symbol and pos.status.value == "open":
-                logger.warning(
-                    f"{strat_name} {symbol}: PaperTrader has open position {pos.position_id}, skipping open"
-                )
+                logger.warning(f"{strat_name} {symbol}: PaperTrader has open position {pos.position_id}, skipping open")
                 return
 
-        c_dir = (
-            CTradeDirection.LONG
-            if signal.direction == TradeDirection.LONG
-            else CTradeDirection.SHORT
-        )
+        c_dir = CTradeDirection.LONG if signal.direction == TradeDirection.LONG else CTradeDirection.SHORT
 
         trade_signal = TradeSignal(
             symbol=symbol,
@@ -761,9 +717,7 @@ class LivePaperTradingSystem:
         else:
             logger.warning(f"OPEN REJECTED {strat_name}: {result.rejection_reason}")
 
-    def _close_position_for_strategy(
-        self, strat_name: str, symbol: str, tracker: SymbolTracker
-    ):
+    def _close_position_for_strategy(self, strat_name: str, symbol: str, tracker: SymbolTracker):
         """Close any open position for this strategy/symbol."""
         if self._paper_trader is None:
             return
@@ -793,22 +747,16 @@ class LivePaperTradingSystem:
                     # Also update local PaperTrader state
                     if tracker.last_tick:
                         close_price = (
-                            tracker.last_tick.bid
-                            if pos.direction == CTradeDirection.LONG
-                            else tracker.last_tick.ask
+                            tracker.last_tick.bid if pos.direction == CTradeDirection.LONG else tracker.last_tick.ask
                         )
                     else:
                         close_price = pos.current_price
-                    self._paper_trader.close_position(
-                        pos.position_id, close_price, reason=f"signal_flip_{strat_name}"
-                    )
+                    self._paper_trader.close_position(pos.position_id, close_price, reason=f"signal_flip_{strat_name}")
                 else:
                     # Paper mode: local close only — use bid for long, ask for short
                     if tracker.last_tick:
                         close_price = (
-                            tracker.last_tick.bid
-                            if pos.direction == CTradeDirection.LONG
-                            else tracker.last_tick.ask
+                            tracker.last_tick.bid if pos.direction == CTradeDirection.LONG else tracker.last_tick.ask
                         )
                     else:
                         close_price = pos.current_price
@@ -816,13 +764,9 @@ class LivePaperTradingSystem:
                         pos.position_id, close_price, reason=f"signal_flip_{strat_name}"
                     )
                     if result.success:
-                        logger.info(
-                            f"CLOSE {strat_name} {symbol} PnL=${result.realized_pnl:.2f}"
-                        )
+                        logger.info(f"CLOSE {strat_name} {symbol} PnL=${result.realized_pnl:.2f}")
                         if self._trade_logger:
-                            self._trade_logger.log_trade_closed(
-                                pos, close_price, result.realized_pnl, "signal_flip"
-                            )
+                            self._trade_logger.log_trade_closed(pos, close_price, result.realized_pnl, "signal_flip")
                 break
 
     def _print_status(self):
@@ -860,14 +804,8 @@ class LivePaperTradingSystem:
         print(f"Risk-Blocked:      {stats.signals_blocked_by_risk}")
         print(f"Open Positions:    {len(positions)}")
         for p in positions:
-            print(
-                f"  - {p.symbol} {p.direction.value} @ {p.entry_price} PnL=${p.unrealized_pnl:.2f}"
-            )
-        wr = (
-            (stats.trades_executed - stats.trades_rejected)
-            / max(stats.trades_executed, 1)
-            * 100
-        )
+            print(f"  - {p.symbol} {p.direction.value} @ {p.entry_price} PnL=${p.unrealized_pnl:.2f}")
+        wr = (stats.trades_executed - stats.trades_rejected) / max(stats.trades_executed, 1) * 100
         print(f"Win Rate (approx): {wr:.1f}%")
         print("=" * 60)
 
@@ -913,13 +851,9 @@ class LivePaperTradingSystem:
                         position_id=broker_pos_id,
                     )
                     if close_order:
-                        print(
-                            f"  Sent close order for {pos.symbol} {pos.direction.value}: {close_order.order_id}"
-                        )
+                        print(f"  Sent close order for {pos.symbol} {pos.direction.value}: {close_order.order_id}")
                     else:
-                        print(
-                            f"  FAILED to send close order for {pos.symbol} {pos.direction.value}"
-                        )
+                        print(f"  FAILED to send close order for {pos.symbol} {pos.direction.value}")
                     # Cancel linked SL/TP orders
                     if broker_pos_id:
                         self._cancel_linked_orders(broker_pos_id)
@@ -927,12 +861,9 @@ class LivePaperTradingSystem:
             time.sleep(3)
         # Also close local state
         for internal, tracker in self._trackers.items():
-            for strat_name, strategy in self._strategies.items():
+            for strat_name, strategy in self._strategies.items():  # noqa: B007
                 cfg = STRATEGY_PARAMS[strat_name]
-                if (
-                    cfg["symbol"] == internal
-                    and self._last_signal_dir.get(strat_name) is not None
-                ):
+                if cfg["symbol"] == internal and self._last_signal_dir.get(strat_name) is not None:
                     self._close_position_for_strategy(strat_name, internal, tracker)
         self._print_summary()
         # Disconnect trade connection
@@ -1001,9 +932,7 @@ class LivePaperTradingSystem:
         print("Connected — market data + trade execution ready.")
 
         # Start status thread
-        self._status_thread = threading.Thread(
-            target=self._status_loop_wrapper, daemon=True
-        )
+        self._status_thread = threading.Thread(target=self._status_loop_wrapper, daemon=True)
         self._status_thread.start()
 
         print(f"Live paper trading active (DEMO). Balance=${STARTING_BALANCE:,.2f}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract content from VTT files and create formatted markdown batches."""
 
-import re
+import re  # noqa: I001
 import os
 from datetime import datetime
 from typing import List, Dict, Tuple
@@ -26,14 +26,10 @@ def parse_vtt_full(vtt_path: str) -> List[Dict]:
         line = lines[i].strip()
 
         if "-->" in line:
-            timestamp_match = re.match(
-                r"(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})", line
-            )
+            timestamp_match = re.match(r"(\d{2}:\d{2}:\d{2}\.\d{3}) --> (\d{2}:\d{2}:\d{2}\.\d{3})", line)
             if timestamp_match:
                 if current_start and current_text:
-                    entries.append(
-                        {"start": current_start, "text": " ".join(current_text)}
-                    )
+                    entries.append({"start": current_start, "text": " ".join(current_text)})
                 current_start = timestamp_match.group(1)
                 current_text = []
         elif line and not line.isdigit():
@@ -75,9 +71,7 @@ def get_relevance(filename: str) -> str:
     return "MEDIUM"
 
 
-def create_batch_markdown_v2(
-    files: List[str], source_dir: str, output_dir: str, batch_num: int
-) -> Tuple[str, str]:
+def create_batch_markdown_v2(files: List[str], source_dir: str, output_dir: str, batch_num: int) -> Tuple[str, str]:
     """Create a formatted markdown batch from multiple VTT files."""
 
     all_entries = []
@@ -111,9 +105,7 @@ def create_batch_markdown_v2(
         md_lines.append(f"  - Relevance: {fi['relevance']}")
         md_lines.append(f"  - Duration: {fi['duration']}")
     md_lines.append("")
-    md_lines.append(
-        "**Batch Focus:** Real-time trade execution, entry timing, stop placement, trade management"
-    )
+    md_lines.append("**Batch Focus:** Real-time trade execution, entry timing, stop placement, trade management")
     md_lines.append(f"**Total Segments:** {len(all_entries)}")
     md_lines.append("")
     md_lines.append("---")
@@ -225,14 +217,14 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
         concepts.append(
             {
                 "title": "Multi-Timeframe Analysis (MTFA)",
-                "description": "Analysis conducted across multiple timeframes to confirm trade setups and direction bias.",
+                "description": "Analysis conducted across multiple timeframes to confirm trade setups and direction bias.",  # noqa: E501
                 "signals": [
                     "Weekly establishes primary trend and 50 EMA location",
                     "Daily confirms structural levels (1, 2, 3 counts)",
                     "4H identifies entry zones and intraday structure",
                     "1H/15M provides precise entry timing",
                 ],
-                "application": "Start with weekly for direction, daily for level confirmation, lower timeframes for entry",
+                "application": "Start with weekly for direction, daily for level confirmation, lower timeframes for entry",  # noqa: E501
             }
         )
 
@@ -249,17 +241,11 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
     ):
         oi_signals = []
         if "oi increase" in text_lower or "open interest increase" in text_lower:
-            oi_signals.append(
-                "OI increase = new positions opening (potential trap or continuation)"
-            )
+            oi_signals.append("OI increase = new positions opening (potential trap or continuation)")
         if "longs at risk" in text_lower:
-            oi_signals.append(
-                "Longs at risk = potential for short-side liquidity sweep"
-            )
+            oi_signals.append("Longs at risk = potential for short-side liquidity sweep")
         if "shorts at risk" in text_lower:
-            oi_signals.append(
-                "Shorts at risk = potential for long-side liquidity sweep"
-            )
+            oi_signals.append("Shorts at risk = potential for long-side liquidity sweep")
         if "round-trip" in text_lower:
             oi_signals.append("Round-tripping OI = smart money closing positions")
 
@@ -267,9 +253,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
             {
                 "title": "Open Interest (OI) Analysis",
                 "description": "Tracking open interest changes to identify institutional activity and trapped traders.",
-                "signals": oi_signals
-                if oi_signals
-                else ["OI tracking for institutional move confirmation"],
+                "signals": oi_signals if oi_signals else ["OI tracking for institutional move confirmation"],
                 "application": "Use OI data to confirm direction and identify potential trap scenarios",
             }
         )
@@ -296,7 +280,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
                     "Stops being taken = smart money activity",
                     "High OI + price near liquidity = potential reversal zone",
                 ],
-                "application": "Map liquidity clusters before entries; trades set up where stops are likely to be taken",
+                "application": "Map liquidity clusters before entries; trades set up where stops are likely to be taken",  # noqa: E501
             }
         )
 
@@ -329,10 +313,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
         )
 
     # Entry Types
-    if any(
-        x in text_lower
-        for x in ["bcr", "vcr", "aoi", "aggressive entry", "conservative entry"]
-    ):
+    if any(x in text_lower for x in ["bcr", "vcr", "aoi", "aggressive entry", "conservative entry"]):
         concepts.append(
             {
                 "title": "Entry Methodologies",
@@ -349,10 +330,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
         )
 
     # EMA & Moving Averages
-    if any(
-        x in text_lower
-        for x in ["50 ema", "200 ema", "ema crossing", "above the 50", "below the 50"]
-    ):
+    if any(x in text_lower for x in ["50 ema", "200 ema", "ema crossing", "above the 50", "below the 50"]):
         concepts.append(
             {
                 "title": "EMA Utilization",
@@ -377,9 +355,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
         patterns.append("M pattern = bearish reversal structure")
     if any(x in text_lower for x in ["half batman", "batman pattern"]):
         patterns.append("Half Batman = tight consolidation, clean continuation")
-    if any(
-        x in text_lower for x in ["trapping volume", "trapping volume formation", "svc"]
-    ):
+    if any(x in text_lower for x in ["trapping volume", "trapping volume formation", "svc"]):
         patterns.append("Trapping Volume Formation = stop hunt pattern before reversal")
 
     if patterns:
@@ -397,9 +373,7 @@ def extract_smc_concepts(text: str, entries: List[Dict]) -> List[Dict]:
     if any(x in text_lower for x in ["us session", "8:30", "new york"]):
         sessions.append("US Session: High volatility at 8:30 AM ET (NFP, CPI, etc.)")
     if any(x in text_lower for x in ["asia session", "asian session", "tokyo"]):
-        sessions.append(
-            "Asia Session: Typically lower volatility, range-bound behavior"
-        )
+        sessions.append("Asia Session: Typically lower volatility, range-bound behavior")
     if any(x in text_lower for x in ["uk session", "london"]):
         sessions.append("UK Session: Medium volatility, overlap with US")
 
@@ -444,9 +418,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 4:
-        print(
-            "Usage: extract_vtt_v2.py <source_dir> <output_dir> <batch_num> [files...]"
-        )
+        print("Usage: extract_vtt_v2.py <source_dir> <output_dir> <batch_num> [files...]")
         sys.exit(1)
 
     source_dir = sys.argv[1]

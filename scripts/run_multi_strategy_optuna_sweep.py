@@ -7,9 +7,9 @@ Produces ranked list of signal components ready for forward testing.
 
 Usage:
     python scripts/run_multi_strategy_optuna_sweep.py --strategy SESSION_RANGE_MR --pair GBPUSD --timeframe H1 --trials 100
-"""
+"""  # noqa: E501
 
-import argparse
+import argparse  # noqa: I001
 from common.resource_limits import add_resource_args
 import json
 import sys
@@ -22,7 +22,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.parameter_sweep.optuna_optimizer import (
+from backtest.parameter_sweep.optuna_optimizer import (  # noqa: I001
     OptunaOptimizer,
     SearchSpace,
     int_range,
@@ -61,19 +61,13 @@ def session_range_mr_search_space() -> SearchSpace:
         rsi_period=int_range("rsi_period", 8, 28),
         rsi_long_level=float_range("rsi_long_level", 20.0, 40.0, step=1.0),
         rsi_short_level=float_range("rsi_short_level", 60.0, 80.0, step=1.0),
-        session_range_min_pips=float_range(
-            "session_range_min_pips", 10.0, 50.0, step=5.0
-        ),
-        entry_near_extreme_pips=float_range(
-            "entry_near_extreme_pips", 5.0, 30.0, step=1.0
-        ),
+        session_range_min_pips=float_range("session_range_min_pips", 10.0, 50.0, step=5.0),
+        entry_near_extreme_pips=float_range("entry_near_extreme_pips", 5.0, 30.0, step=1.0),
         hard_cap_sl_pips=float_range("hard_cap_sl_pips", 15.0, 50.0, step=5.0),
         tp1_rr=float_range("tp1_rr", 0.5, 2.0, step=0.1),
         tp2_rr=float_range("tp2_rr", 1.0, 3.0, step=0.1),
         ema_trend_period=int_range("ema_trend_period", 20, 100),
-        session_range_sl_fraction=float_range(
-            "session_range_sl_fraction", 0.3, 0.9, step=0.05
-        ),
+        session_range_sl_fraction=float_range("session_range_sl_fraction", 0.3, 0.9, step=0.05),
     )
 
 
@@ -94,9 +88,7 @@ def volatility_squeeze_search_space() -> SearchSpace:
         tp3_rr=float_range("tp3_rr", 2.0, 4.0, step=0.2),
         session_filter=categorical("session_filter", [True, False]),
         min_confidence=float_range("min_confidence", 0.40, 0.70, step=0.05),
-        squeeze_release_mode=categorical(
-            "squeeze_release_mode", ["strict", "moderate", "loose"]
-        ),
+        squeeze_release_mode=categorical("squeeze_release_mode", ["strict", "moderate", "loose"]),
     )
 
 
@@ -176,7 +168,7 @@ def _make_srm_factory():
 
 
 def _make_volatility_squeeze_factory():
-    from strategies.volatility_squeeze import (
+    from strategies.volatility_squeeze import (  # noqa: I001
         VolatilitySqueezeStrategy,
         VolatilitySqueezeConfig,
     )
@@ -207,7 +199,7 @@ def _make_keltner_factory():
 
 
 def _make_bb_rsi_factory():
-    from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
+    from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig  # noqa: I001
 
     def factory(params: dict[str, Any]):
         config = BBRSIConfig(**params)
@@ -233,9 +225,7 @@ def load_bars(pair: str, timeframe: str) -> list[Bar]:
     bars = loader.load(str(csv_path))
     if not bars:
         raise ValueError(f"No bars loaded from {csv_path}")
-    logger.info(
-        f"Loaded {len(bars)} bars for {pair} {timeframe}: {bars[0].time} -> {bars[-1].time}"
-    )
+    logger.info(f"Loaded {len(bars)} bars for {pair} {timeframe}: {bars[0].time} -> {bars[-1].time}")
     return bars
 
 
@@ -386,15 +376,11 @@ def main():
     parser.add_argument("--strategy", required=True, choices=list(SEARCH_SPACES.keys()))
     parser.add_argument("--pair", required=True, help="Currency pair (e.g. GBPUSD)")
     parser.add_argument("--timeframe", required=True, help="Timeframe (e.g. H1, M15)")
-    parser.add_argument(
-        "--trials", type=int, default=100, help="Number of Optuna trials"
-    )
+    parser.add_argument("--trials", type=int, default=100, help="Number of Optuna trials")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
-    logger.info(
-        f"Starting Optuna sweep: {args.strategy} {args.pair} {args.timeframe} ({args.trials} trials)"
-    )
+    logger.info(f"Starting Optuna sweep: {args.strategy} {args.pair} {args.timeframe} ({args.trials} trials)")
 
     bars = load_bars(args.pair, args.timeframe)
 
@@ -402,9 +388,7 @@ def main():
     baseline = run_baseline(bars, args.strategy, args.pair)
 
     logger.info("Running Optuna optimization...")
-    optuna_result = run_optuna(
-        bars, args.strategy, args.pair, n_trials=args.trials, seed=args.seed
-    )
+    optuna_result = run_optuna(bars, args.strategy, args.pair, n_trials=args.trials, seed=args.seed)
 
     report = save_report(
         args.strategy,

@@ -20,26 +20,18 @@ from scipy import stats
 logger = logging.getLogger(__name__)
 
 
-def _deflated_sharpe(
-    sr_annual: float, n: int, skew: float, kurt_excess: float
-) -> float:
+def _deflated_sharpe(sr_annual: float, n: int, skew: float, kurt_excess: float) -> float:
     """Compute the Deflated Sharpe Ratio (Bailey & López de Prado 2014)."""
     if n < 3 or sr_annual == 0:
         return 0.0
-    sr_var = (
-        1
-        - skew * sr_annual * math.sqrt(1 / 252)
-        + ((kurt_excess) / 4) * (sr_annual**2) / 252
-    ) / (n - 1)
+    sr_var = (1 - skew * sr_annual * math.sqrt(1 / 252) + ((kurt_excess) / 4) * (sr_annual**2) / 252) / (n - 1)
     if sr_var <= 0:
         return 0.0
     z = sr_annual * math.sqrt(n) / math.sqrt(252)
     return round(float(stats.norm.cdf(z)), 6)
 
 
-def _composite_score(
-    sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float
-) -> float:
+def _composite_score(sharpe: float, sortino: float, calmar: float, win_rate: float, go_rate: float) -> float:
     s_sharpe = min(max(sharpe / 3.0, 0), 1)
     s_sortino = min(max(sortino / 4.0, 0), 1)
     s_calmar = min(max(calmar / 5.0, 0), 1)
@@ -58,18 +50,14 @@ def _composite_score(
     )
 
 
-def backfill(
-    db_path: str = "data/research/research.duckdb", dry_run: bool = False
-) -> dict:
+def backfill(db_path: str = "data/research/research.duckdb", dry_run: bool = False) -> dict:
     """Backfill missing risk metrics for all completed runs."""
     import duckdb
 
     conn = duckdb.connect(db_path, read_only=False)
 
     # Find runs with NULL extended metrics
-    rows = conn.execute(
-        """SELECT run_id FROM metrics_summary WHERE dsr IS NULL"""
-    ).fetchall()
+    rows = conn.execute("""SELECT run_id FROM metrics_summary WHERE dsr IS NULL""").fetchall()
 
     total = len(rows)
     updated = 0
@@ -90,9 +78,7 @@ def backfill(
             skipped += 1
             continue
 
-        wrs = [
-            r[0] for r in win_rows if r[5] is not None and r[5] != 0
-        ]  # total_pnl > 0
+        wrs = [r[0] for r in win_rows if r[5] is not None and r[5] != 0]  # total_pnl > 0
         pnls = [r[5] or 0.0 for r in win_rows]
         dds = [r[3] or 0.0 for r in win_rows]
         total_windows = len(win_rows)
@@ -139,16 +125,8 @@ def backfill(
         if n >= 4:
             mid = n // 2
             fh, sh_ = pnl_arr[:mid], pnl_arr[mid:]
-            s1 = (
-                float(np.mean(fh) / np.std(fh, ddof=1))
-                if np.std(fh, ddof=1) > 0 and len(fh) > 1
-                else 0.0
-            )
-            s2 = (
-                float(np.mean(sh_) / np.std(sh_, ddof=1))
-                if np.std(sh_, ddof=1) > 0 and len(sh_) > 1
-                else 0.0
-            )
+            s1 = float(np.mean(fh) / np.std(fh, ddof=1)) if np.std(fh, ddof=1) > 0 and len(fh) > 1 else 0.0
+            s2 = float(np.mean(sh_) / np.std(sh_, ddof=1)) if np.std(sh_, ddof=1) > 0 and len(sh_) > 1 else 0.0
             oos_decay = s1 - s2 if s1 > 0 else 0.0
         else:
             oos_decay = None

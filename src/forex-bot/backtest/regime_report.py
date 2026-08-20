@@ -54,9 +54,7 @@ def generate_regime_report(
         Formatted text report string.
     """
     # Extract regime breakdown from results (set by walk_forward_runner)
-    regime_breakdown: dict[str, dict[str, Any]] = getattr(
-        results, "_regime_breakdown", {}
-    )
+    regime_breakdown: dict[str, dict[str, Any]] = getattr(results, "_regime_breakdown", {})
 
     # If no breakdown was computed, compute it on the fly
     if not regime_breakdown and results.per_window:
@@ -132,10 +130,7 @@ def generate_regime_report(
     if regime_breakdown:
         lines.append("PER-REGIME BREAKDOWN")
         lines.append("-" * 80)
-        header = (
-            f"{'Regime':<40} {'N':>4} {'Reliability':<14} "
-            f"{'Win%':>8} {'PF':>8} {'Sharpe':>8} {'MaxDD':>8}"
-        )
+        header = f"{'Regime':<40} {'N':>4} {'Reliability':<14} {'Win%':>8} {'PF':>8} {'Sharpe':>8} {'MaxDD':>8}"
         lines.append(header)
         lines.append("-" * 80)
 
@@ -164,10 +159,7 @@ def generate_regime_report(
     if results.per_window:
         lines.append("PER-WINDOW DETAIL")
         lines.append("-" * 100)
-        header = (
-            f"{'Win':>4} {'Regime':<35} {'BTC':<15} "
-            f"{'WR':>8} {'PF':>8} {'DD':>8} {'Sh':>8} {'Tr':>6} {'GO?':>5}"
-        )
+        header = f"{'Win':>4} {'Regime':<35} {'BTC':<15} {'WR':>8} {'PF':>8} {'DD':>8} {'Sh':>8} {'Tr':>6} {'GO?':>5}"
         lines.append(header)
         lines.append("-" * 100)
 

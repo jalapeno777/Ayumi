@@ -40,10 +40,7 @@ def cmd_status(ksm: KillSwitchManager, args):
     print(f"   Triggered by:  {triggered_by}")
     print(f"   Triggered at:  {triggered_at}")
     print(f"   Level:         {status.get('level', 'global')}")
-    print(
-        f"   Positions closed: {status.get('positions_closed', False)}"
-        f" (count: {status.get('close_count', 0)})"
-    )
+    print(f"   Positions closed: {status.get('positions_closed', False)} (count: {status.get('close_count', 0)})")
 
     if status.get("metadata"):
         print(f"   Metadata:      {json.dumps(status['metadata'])}")
@@ -123,9 +120,7 @@ def main():
     sp_status.set_defaults(func=cmd_status)
 
     # kill
-    sp_kill = subparsers.add_parser(
-        "kill", help="Activate global KILL (stop trading, close positions)"
-    )
+    sp_kill = subparsers.add_parser("kill", help="Activate global KILL (stop trading, close positions)")
     sp_kill.add_argument("--reason", default="manual_cli", help="Reason for the kill")
     sp_kill.add_argument("--triggered-by", default="cli", help="Who triggered the kill")
     sp_kill.add_argument(
@@ -136,22 +131,14 @@ def main():
     sp_kill.set_defaults(func=cmd_kill)
 
     # freeze
-    sp_freeze = subparsers.add_parser(
-        "freeze", help="Activate global FREEZE (block new trades, hold positions)"
-    )
-    sp_freeze.add_argument(
-        "--reason", default="manual_cli", help="Reason for the freeze"
-    )
-    sp_freeze.add_argument(
-        "--triggered-by", default="cli", help="Who triggered the freeze"
-    )
+    sp_freeze = subparsers.add_parser("freeze", help="Activate global FREEZE (block new trades, hold positions)")
+    sp_freeze.add_argument("--reason", default="manual_cli", help="Reason for the freeze")
+    sp_freeze.add_argument("--triggered-by", default="cli", help="Who triggered the freeze")
     sp_freeze.set_defaults(func=cmd_freeze)
 
     # recover
     sp_recover = subparsers.add_parser("recover", help="Deactivate kill switch")
-    sp_recover.add_argument(
-        "--reason", default="manual_recovery", help="Reason for recovery"
-    )
+    sp_recover.add_argument("--reason", default="manual_recovery", help="Reason for recovery")
     sp_recover.set_defaults(func=cmd_recover)
 
     args = parser.parse_args()

@@ -1,4 +1,4 @@
-from core.types import (
+from core.types import (  # noqa: I001
     Bar,
     BarPeriod,
     ExitReason,

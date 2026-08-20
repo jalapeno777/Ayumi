@@ -154,11 +154,9 @@ class BlendBacktest:
 
             # Build confluences if present
             confluences = None
-            if sig_dict.get("confluence_strategies") and sig_dict.get(
-                "confluence_timeframes"
-            ):
+            if sig_dict.get("confluence_strategies") and sig_dict.get("confluence_timeframes"):
                 confluences = []
-                for strat, tf in zip(
+                for strat, tf in zip(  # noqa: B905
                     sig_dict["confluence_strategies"],
                     sig_dict["confluence_timeframes"],
                 ):
@@ -273,13 +271,7 @@ class BlendBacktest:
 
         gross_profit = sum(win_pnls)
         gross_loss = abs(sum(loss_pnls))
-        profit_factor = (
-            gross_profit / gross_loss
-            if gross_loss > 0
-            else float("inf")
-            if gross_profit > 0
-            else 0.0
-        )
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf") if gross_profit > 0 else 0.0
 
         # Sharpe ratio (simplified — assumes equal time between trades)
         sharpe = 0.0

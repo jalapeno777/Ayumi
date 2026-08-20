@@ -240,9 +240,7 @@ class TestSweepRunner(unittest.TestCase):
         runner = SweepRunner(
             config=self.config,
             bars=self.bars,
-            strategy_factory=lambda p: MACrossStrategy(
-                fast_period=p.params["fast_period"]
-            ),
+            strategy_factory=lambda p: MACrossStrategy(fast_period=p.params["fast_period"]),
         )
         self.assertIsNotNone(runner._max_workers)
 

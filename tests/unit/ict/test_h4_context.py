@@ -83,18 +83,14 @@ class TestH4ContextModule(unittest.TestCase):
         module = H4ContextModule(ob_freshness_window=50)
         h4_bars = _make_h4_bars_with_bullish_ob(50)
         result = module.analyze(h4_bars, 1.01, 0.0005)
-        bullish_obs = [
-            z for z in result.order_block_zones if z.direction == TradeDirection.LONG
-        ]
+        bullish_obs = [z for z in result.order_block_zones if z.direction == TradeDirection.LONG]
         self.assertGreater(len(bullish_obs), 0)
 
     def test_bearish_ob_detected(self):
         module = H4ContextModule(ob_freshness_window=50)
         h4_bars = _make_h4_bars_with_bearish_ob(50)
         result = module.analyze(h4_bars, 1.01, 0.0005)
-        bearish_obs = [
-            z for z in result.order_block_zones if z.direction == TradeDirection.SHORT
-        ]
+        bearish_obs = [z for z in result.order_block_zones if z.direction == TradeDirection.SHORT]
         self.assertGreater(len(bearish_obs), 0)
 
     def test_fvg_detected(self):
@@ -194,9 +190,7 @@ class TestH4ContextIntegration(unittest.TestCase):
         signal_with = engine.evaluate(state, h4_bars=h4_bars)
 
         if signal_without is not None and signal_with is not None:
-            self.assertGreaterEqual(
-                signal_with.confluence_count, signal_without.confluence_count
-            )
+            self.assertGreaterEqual(signal_with.confluence_count, signal_without.confluence_count)
 
     def test_confluence_engine_h4_default_weight(self):
         engine = SignalConfluenceEngine()
@@ -218,9 +212,7 @@ class TestH4ContextIntegration(unittest.TestCase):
         h4_bars = _make_h4_bars_with_bullish_ob(50)
         signal = engine.evaluate(state, h4_bars=h4_bars)
         if signal is not None:
-            has_h4_in_rationale = (
-                "H4 context" in signal.rationale or signal.confluence_count >= 0
-            )
+            has_h4_in_rationale = "H4 context" in signal.rationale or signal.confluence_count >= 0
             self.assertTrue(has_h4_in_rationale)
 
 

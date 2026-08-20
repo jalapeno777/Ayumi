@@ -138,9 +138,7 @@ def log_trial(
     if source not in VALID_SOURCES:
         raise ValueError(f"Invalid source '{source}'. Must be one of {VALID_SOURCES}")
     if outcome not in VALID_OUTCOMES:
-        raise ValueError(
-            f"Invalid outcome '{outcome}'. Must be one of {VALID_OUTCOMES}"
-        )
+        raise ValueError(f"Invalid outcome '{outcome}'. Must be one of {VALID_OUTCOMES}")
 
     entry: dict[str, Any] = {
         "ts": _utc_now_iso(),
@@ -216,18 +214,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Trial outcome",
     )
     parser.add_argument("--sharpe", type=float, default=None, help="Sharpe ratio")
-    parser.add_argument(
-        "--profit-factor", type=float, default=None, help="Profit factor"
-    )
+    parser.add_argument("--profit-factor", type=float, default=None, help="Profit factor")
     parser.add_argument(
         "--max-dd",
         type=float,
         default=None,
         help="Max drawdown as decimal (e.g. -0.15 for -15%%)",
     )
-    parser.add_argument(
-        "--config-hash", type=str, default=None, help="Short hash of config dict"
-    )
+    parser.add_argument("--config-hash", type=str, default=None, help="Short hash of config dict")
     parser.add_argument("--note", type=str, default=None, help="Free-text context")
     parser.add_argument(
         "--count",
@@ -272,9 +266,7 @@ def main(argv: list[str] | None = None) -> int:
         config_hash=args.config_hash,
         note=args.note,
     )
-    print(
-        f"Logged trial #{count_trials()} — {entry['strategy_name']} ({entry['outcome']})"
-    )
+    print(f"Logged trial #{count_trials()} — {entry['strategy_name']} ({entry['outcome']})")
     return 0
 
 

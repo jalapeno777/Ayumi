@@ -36,7 +36,7 @@ Usage
     alloc = detector.get_allocation(current)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -141,19 +141,13 @@ class RegimeConfig:
     def __post_init__(self) -> None:
         mode = str(self.mtf_confirmation).lower()
         if mode not in {"none", "soft", "hard"}:
-            raise ValueError(
-                "mtf_confirmation must be one of 'none', 'soft', 'hard' "
-                f"(got {self.mtf_confirmation!r})"
-            )
+            raise ValueError(f"mtf_confirmation must be one of 'none', 'soft', 'hard' (got {self.mtf_confirmation!r})")
         # Normalise so equality comparisons do not depend on case.
         object.__setattr__(self, "mtf_confirmation", mode)
 
         bbw_mode = str(self.bbw_confirmation).lower()
         if bbw_mode not in {"none", "soft", "hard"}:
-            raise ValueError(
-                "bbw_confirmation must be one of 'none', 'soft', 'hard' "
-                f"(got {self.bbw_confirmation!r})"
-            )
+            raise ValueError(f"bbw_confirmation must be one of 'none', 'soft', 'hard' (got {self.bbw_confirmation!r})")
         # Normalise so equality comparisons do not depend on case.
         object.__setattr__(self, "bbw_confirmation", bbw_mode)
 
@@ -320,26 +314,18 @@ class RegimeDetector:
         #       lean to CHOPPY when H1 disagrees is applied below after
         #       the masks are built.
         if cfg.mtf_confirmation == "soft" and h1_adx is not None:
-            h1_disagrees = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(
-                result.index, fill_value=False
-            )
+            h1_disagrees = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(result.index, fill_value=False)
             trending_thr_bar: np.ndarray = np.where(
                 h1_disagrees.to_numpy(),
                 cfg.trending_adx + 3.0,
                 cfg.trending_adx,
             )
-        elif (
-            cfg.mtf_confirmation == "hard" and h1_adx is not None and h4_adx is not None
-        ):
+        elif cfg.mtf_confirmation == "hard" and h1_adx is not None and h4_adx is not None:
             # Bars where H1 OR H4 disagree → trending requires an
             # impossible threshold.  Bars where both confirm → standard
             # threshold.
-            h1_disagrees = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(
-                result.index, fill_value=False
-            )
-            h4_disagrees = ((h4_adx < cfg.h4_adx_threshold) & h4_adx.notna()).reindex(
-                result.index, fill_value=False
-            )
+            h1_disagrees = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(result.index, fill_value=False)
+            h4_disagrees = ((h4_adx < cfg.h4_adx_threshold) & h4_adx.notna()).reindex(result.index, fill_value=False)
             hard_invalid = (h1_disagrees | h4_disagrees).to_numpy()
             trending_thr_bar = np.where(
                 hard_invalid,
@@ -360,9 +346,7 @@ class RegimeDetector:
         if cfg.bbw_confirmation == "soft" and bbw_pct is not None:
             # NaN in ``bbw_pct`` is treated as False by the OR — exactly
             # what the spec requires for soft-mode warm-up.
-            volatile_mask = (atr_pct > cfg.volatile_atr_pct) | (
-                bbw_pct > cfg.bbw_volatile_pct
-            )
+            volatile_mask = (atr_pct > cfg.volatile_atr_pct) | (bbw_pct > cfg.bbw_volatile_pct)
         elif cfg.bbw_confirmation == "hard" and bbw_pct is not None:
             # For hard mode, a NaN ``bbw_pct`` would make the AND return
             # False (NaN propagates) — that would mark warm-up bars as
@@ -371,9 +355,7 @@ class RegimeDetector:
             # cleanly to ``atr_pct > cfg.volatile_atr_pct`` at those
             # bars (inf > threshold is always True).
             bbw_safe = bbw_pct.fillna(np.inf)
-            volatile_mask = (atr_pct > cfg.volatile_atr_pct) & (
-                bbw_safe > cfg.bbw_volatile_pct
-            )
+            volatile_mask = (atr_pct > cfg.volatile_atr_pct) & (bbw_safe > cfg.bbw_volatile_pct)
         else:
             volatile_mask = atr_pct > cfg.volatile_atr_pct
 
@@ -381,17 +363,10 @@ class RegimeDetector:
         quiet_mask = atr_pct < cfg.quiet_atr_pct
 
         # Priority 3: Trending (ADX above per-bar threshold, not volatile/quiet)
-        trending_mask = (
-            (adx_series.to_numpy() > trending_thr_bar) & ~volatile_mask & ~quiet_mask
-        )
+        trending_mask = (adx_series.to_numpy() > trending_thr_bar) & ~volatile_mask & ~quiet_mask
 
         # Priority 4: Choppy (ADX below threshold, not volatile/quiet/trending)
-        choppy_mask = (
-            (adx_series < cfg.choppy_adx)
-            & ~volatile_mask
-            & ~quiet_mask
-            & ~trending_mask
-        )
+        choppy_mask = (adx_series < cfg.choppy_adx) & ~volatile_mask & ~quiet_mask & ~trending_mask
 
         # Neutral zone (choppy_adx ≤ ADX ≤ trending_adx, normal ATR):
         # lean trending if ADX is rising, choppy if falling.  The upper
@@ -400,10 +375,7 @@ class RegimeDetector:
         # either way (they fall through to choppy / via the override).
         adx_slope = adx_series.diff()
         neutral_in_zone = (
-            (adx_series >= cfg.choppy_adx)
-            & (adx_series.to_numpy() <= trending_thr_bar)
-            & ~volatile_mask
-            & ~quiet_mask
+            (adx_series >= cfg.choppy_adx) & (adx_series.to_numpy() <= trending_thr_bar) & ~volatile_mask & ~quiet_mask
         )
         neutral_trending = neutral_in_zone & (adx_slope > 0)
         neutral_choppy = neutral_in_zone & (adx_slope <= 0)
@@ -418,12 +390,8 @@ class RegimeDetector:
         # H1 confirms and only H4 disagrees.  This override closes that
         # H4-only leakage.
         if cfg.mtf_confirmation == "hard" and h1_adx is not None and h4_adx is not None:
-            h1_below = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(
-                result.index, fill_value=False
-            )
-            h4_below = ((h4_adx < cfg.h4_adx_threshold) & h4_adx.notna()).reindex(
-                result.index, fill_value=False
-            )
+            h1_below = ((h1_adx < cfg.h1_adx_threshold) & h1_adx.notna()).reindex(result.index, fill_value=False)
+            h4_below = ((h4_adx < cfg.h4_adx_threshold) & h4_adx.notna()).reindex(result.index, fill_value=False)
             htf_disagrees = h1_below | h4_below
             hard_force_choppy = neutral_in_zone & htf_disagrees
             neutral_choppy = neutral_choppy | hard_force_choppy
@@ -494,9 +462,7 @@ class RegimeDetector:
                 c_agg.append(float(closes_arr[end - 1]))
             return h_agg, l_agg, c_agg
 
-        def _broadcast_to_m15(
-            series_agg: "pd.Series | None", period_bars: int
-        ) -> pd.Series:
+        def _broadcast_to_m15(series_agg: "pd.Series | None", period_bars: int) -> pd.Series:
             if series_agg is None or len(series_agg) == 0:
                 return pd.Series(np.nan, index=idx, dtype=float)
             result = pd.Series(np.nan, index=idx, dtype=float)

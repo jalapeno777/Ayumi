@@ -11,7 +11,7 @@ engine compared against backtest.types.TradeDirection. The identity mismatch
 silently dropped every signal.
 """
 
-from core import types as core_types
+from core import types as core_types  # noqa: I001
 from backtest import types as backtest_types
 
 
@@ -29,9 +29,9 @@ class TestTradeDirectionParity:
         )
 
     def test_classes_are_same_type(self):
-        assert type(core_types.TradeDirection.LONG) is type(
-            backtest_types.TradeDirection.LONG
-        ), "TradeDirection should be the same enum class after fix"
+        assert type(core_types.TradeDirection.LONG) is type(backtest_types.TradeDirection.LONG), (
+            "TradeDirection should be the same enum class after fix"
+        )
 
     def test_equality_holds(self):
         assert core_types.TradeDirection.LONG == backtest_types.TradeDirection.LONG, (
@@ -40,9 +40,7 @@ class TestTradeDirectionParity:
 
     def test_membership_check_holds(self):
         """Python 3.12+ Enum.__contains__ matches by value."""
-        assert core_types.TradeDirection.LONG in backtest_types.TradeDirection, (
-            "Enum membership should hold after fix"
-        )
+        assert core_types.TradeDirection.LONG in backtest_types.TradeDirection, "Enum membership should hold after fix"
 
 
 class TestTradeOutcomeParity:
@@ -54,9 +52,9 @@ class TestTradeOutcomeParity:
         )
 
     def test_classes_are_same_type(self):
-        assert type(core_types.TradeOutcome.WIN) is type(
-            backtest_types.TradeOutcome.WIN
-        ), "TradeOutcome should be the same enum class after fix"
+        assert type(core_types.TradeOutcome.WIN) is type(backtest_types.TradeOutcome.WIN), (
+            "TradeOutcome should be the same enum class after fix"
+        )
 
     def test_equality_holds(self):
         assert core_types.TradeOutcome.WIN == backtest_types.TradeOutcome.WIN, (
@@ -78,9 +76,9 @@ class TestExitReasonParity:
         )
 
     def test_classes_are_same_type(self):
-        assert type(core_types.ExitReason.STOP_LOSS) is type(
-            backtest_types.ExitReason.STOP_LOSS
-        ), "ExitReason should be the same enum class (already re-exported from core)"
+        assert type(core_types.ExitReason.STOP_LOSS) is type(backtest_types.ExitReason.STOP_LOSS), (
+            "ExitReason should be the same enum class (already re-exported from core)"
+        )
 
 
 class TestSessionTypeParity:
@@ -92,6 +90,6 @@ class TestSessionTypeParity:
         )
 
     def test_classes_are_same_type(self):
-        assert type(core_types.SessionType.ASIAN) is type(
-            backtest_types.SessionType.ASIAN
-        ), "SessionType should be the same enum class (already re-exported from core)"
+        assert type(core_types.SessionType.ASIAN) is type(backtest_types.SessionType.ASIAN), (
+            "SessionType should be the same enum class (already re-exported from core)"
+        )

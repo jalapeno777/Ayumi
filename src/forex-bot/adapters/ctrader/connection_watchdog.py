@@ -142,9 +142,7 @@ class ConnectionWatchdog:
                     ConnectionState.AUTHENTICATED,
                     reason="heartbeat_recovered",
                 )
-            logger.info(
-                "[Watchdog] %s heartbeat recovered — resetting timer", role.value
-            )
+            logger.info("[Watchdog] %s heartbeat recovered — resetting timer", role.value)
 
     # ── Pre-emptive reconnect API ──────────────────────────────────────────
 
@@ -248,10 +246,7 @@ class ConnectionWatchdog:
             # PRE_EMPTIVE threshold (fires before degraded, gives consumers
             # a chance to proactively reconnect while the connection is
             # still responsive).
-            elif (
-                silence >= self._preemptive_threshold
-                and not tracker.notified_preemptive
-            ):
+            elif silence >= self._preemptive_threshold and not tracker.notified_preemptive:
                 tracker.notified_preemptive = True
                 logger.info(
                     "[Watchdog] %s pre-emptive alert — %.1fs of silence (threshold: %ss)",

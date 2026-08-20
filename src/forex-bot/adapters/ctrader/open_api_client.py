@@ -143,9 +143,7 @@ class CTraderOpenApiClient:
             or os.environ.get("CTRADER_TRADE_SECRET")
             or os.environ.get("CTRADER_OPENAPI_TRADE_CLIENT_SECRET")
         )
-        self._using_trade_app = bool(
-            self._trade_client_id and self._trade_client_secret
-        )
+        self._using_trade_app = bool(self._trade_client_id and self._trade_client_secret)
         if self._using_trade_app:
             logger.info(
                 "BQ-1329: Using separate OpenAPI app for historical-data client: %s...",
@@ -170,9 +168,7 @@ class CTraderOpenApiClient:
     @property
     def app_client_secret(self) -> str:
         """Return the app client_secret used for application authentication."""
-        return (
-            self._trade_client_secret if self._using_trade_app else self._client_secret
-        )
+        return self._trade_client_secret if self._using_trade_app else self._client_secret
 
     # --- Connection lifecycle ---
 
@@ -242,9 +238,7 @@ class CTraderOpenApiClient:
                 logger.error("Application auth failed — no response")
                 return False
             # BQ-1327: Validate payload type matches expected app auth response
-            if not self._is_valid_auth_response(
-                app_auth_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"
-            ):
+            if not self._is_valid_auth_response(app_auth_res, _APP_AUTH_RES_PAYLOAD_TYPE, "app"):
                 return False
         except Exception as e:
             logger.error(f"Application auth failed: {e}")
@@ -264,9 +258,7 @@ class CTraderOpenApiClient:
                 logger.error("Account auth failed — no response")
                 return False
             # BQ-1327: Validate payload type matches expected account auth response
-            if not self._is_valid_auth_response(
-                account_auth_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"
-            ):
+            if not self._is_valid_auth_response(account_auth_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"):
                 return False
         except Exception as e:
             logger.error(f"Account auth failed: {e}")
@@ -324,9 +316,7 @@ class CTraderOpenApiClient:
             except Exception as exc:
                 logger.warning("Disconnected callback error: %s", exc)
 
-    def _is_valid_auth_response(
-        self, response, expected_payload_type: int, stage: str
-    ) -> bool:
+    def _is_valid_auth_response(self, response, expected_payload_type: int, stage: str) -> bool:
         """Validate that an auth response has the expected payload type.
 
         BQ-1327: Mirrors the _is_expected_auth_response check from the
@@ -367,9 +357,7 @@ class CTraderOpenApiClient:
 
         # Send via the Twisted thread
         client_msg_id = f"{id(message)}_{time.monotonic()}"
-        deferred = self._client.send(
-            message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout
-        )
+        deferred = self._client.send(message, clientMsgId=client_msg_id, responseTimeoutInSeconds=timeout)
 
         def capture_result(proto_res):
             self._send_result[0] = proto_res
@@ -379,9 +367,7 @@ class CTraderOpenApiClient:
             logger.error(f"API request failed: {failure}")
             self._send_event.set()
 
-        reactor.callFromThread(
-            lambda: deferred.addCallbacks(capture_result, capture_error)
-        )
+        reactor.callFromThread(lambda: deferred.addCallbacks(capture_result, capture_error))
 
         if not self._send_event.wait(timeout=timeout + 5):
             return None
@@ -416,11 +402,7 @@ class CTraderOpenApiClient:
         symbols = []
 
         for s in payload.symbol:
-            pip_position = (
-                getattr(s, "pipPosition", None)
-                or getattr(s, "pipPositionSize", None)
-                or 4
-            )
+            pip_position = getattr(s, "pipPosition", None) or getattr(s, "pipPositionSize", None) or 4
             pip_size = 10 ** (-pip_position)
             symbols.append(
                 {
@@ -508,9 +490,7 @@ class CTraderOpenApiClient:
             raise RuntimeError("Not connected")
 
         if period not in PERIOD_MAP:
-            raise ValueError(
-                f"Invalid period '{period}'. Must be one of {list(PERIOD_MAP.keys())}"
-            )
+            raise ValueError(f"Invalid period '{period}'. Must be one of {list(PERIOD_MAP.keys())}")
 
         if max_bars is None:
             max_bars = MAX_BARS.get(period, 5760)

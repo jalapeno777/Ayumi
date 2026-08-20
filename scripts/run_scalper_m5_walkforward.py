@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
+from backtest.data_loader import CsvDataLoader  # noqa: I001
 from backtest.engine import BacktestConfig, get_spread_for_pair
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import ScalperStrategy
@@ -102,9 +102,7 @@ def _compute_window_metrics(
     total_loss = abs(sum(losses))
 
     win_rate = len(wins) / len(pnls)
-    profit_factor = (
-        total_win / total_loss if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
-    )
+    profit_factor = total_win / total_loss if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
     total_pnl = sum(pnls)
     trade_count = len(pnls)
 
@@ -188,9 +186,7 @@ def run_scalper_walkforward(pair: str) -> PairResult:
     risk_sizer = ConfidencePositionSizer(account_size=INITIAL_BALANCE)
 
     for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
-        print(
-            f"  Window {idx}: train={len(train_bars)}, val={len(val_bars)}, test={len(test_bars)}"
-        )
+        print(f"  Window {idx}: train={len(train_bars)}, val={len(val_bars)}, test={len(test_bars)}")
 
         if len(test_bars) < config.min_bars_before_signal:
             print(f"    SKIP: test too short ({len(test_bars)} bars)")
@@ -214,9 +210,7 @@ def run_scalper_walkforward(pair: str) -> PairResult:
         strategy.reset()
 
         try:
-            engine = MultiStrategyBacktestEngine(
-                config, [strategy], risk_sizer=risk_sizer
-            )
+            engine = MultiStrategyBacktestEngine(config, [strategy], risk_sizer=risk_sizer)
             engine_result = engine.run_all_strategies(test_bars)
             metrics = engine_result[strategy.name].metrics
             trades = metrics.trades
@@ -248,12 +242,8 @@ def run_scalper_walkforward(pair: str) -> PairResult:
 
     if result.windows:
         result.mean_wr = sum(w.win_rate for w in result.windows) / len(result.windows)
-        result.mean_pf = sum(w.profit_factor for w in result.windows) / len(
-            result.windows
-        )
-        result.mean_trades = sum(w.trade_count for w in result.windows) / len(
-            result.windows
-        )
+        result.mean_pf = sum(w.profit_factor for w in result.windows) / len(result.windows)
+        result.mean_trades = sum(w.trade_count for w in result.windows) / len(result.windows)
         result.mean_pnl = sum(w.total_pnl for w in result.windows) / len(result.windows)
 
     return result
@@ -278,12 +268,8 @@ def main():
         all_results[pair] = result
 
         verdict = "GO" if result.go_nogo else "NO-GO"
-        print(
-            f"\n  RESULT: {result.windows_passed}/{result.total_windows} windows passed -> {verdict}"
-        )
-        print(
-            f"  Mean WR={result.mean_wr:.1%}, PF={result.mean_pf:.2f}, Trades={result.mean_trades:.0f}/window"
-        )
+        print(f"\n  RESULT: {result.windows_passed}/{result.total_windows} windows passed -> {verdict}")
+        print(f"  Mean WR={result.mean_wr:.1%}, PF={result.mean_pf:.2f}, Trades={result.mean_trades:.0f}/window")
 
     print(f"\n{'=' * 70}")
     print("  SUMMARY")
@@ -297,9 +283,7 @@ def main():
             go_pairs.append(pair)
 
     print(f"\n  Pairs passing GO/NO-GO: {go_pairs}")
-    print(
-        f"  Overall: {'DIVERSIFICATION READY' if len(go_pairs) >= 2 else 'NEEDS IMPROVEMENT'}"
-    )
+    print(f"  Overall: {'DIVERSIFICATION READY' if len(go_pairs) >= 2 else 'NEEDS IMPROVEMENT'}")
 
     report_path = REPORT_DIR / f"scalper_m5_wf_{timestamp}.json"
     report = {

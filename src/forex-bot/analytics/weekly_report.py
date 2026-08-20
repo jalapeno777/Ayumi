@@ -112,8 +112,7 @@ class WeeklyAnalytics:
         week_trades = [
             t
             for t in all_trades
-            if (t_date := self._trade_date(t)) is not None
-            and monday.isoformat() <= t_date <= sunday.isoformat()
+            if (t_date := self._trade_date(t)) is not None and monday.isoformat() <= t_date <= sunday.isoformat()
         ]
         return self._build_report(monday, sunday, week_trades)
 
@@ -157,17 +156,12 @@ class WeeklyAnalytics:
             lines.append("")
             lines.append("**Per Strategy:**")
             for sid, stats in report.per_strategy.items():
-                lines.append(
-                    f"- {sid}: {stats.get('trades', 0)} trades, "
-                    f"${stats.get('pnl', 0):+,.2f}"
-                )
+                lines.append(f"- {sid}: {stats.get('trades', 0)} trades, ${stats.get('pnl', 0):+,.2f}")
         return "\n".join(lines)
 
     # ── Internal builder ──────────────────────────────────────────────────
 
-    def _build_report(
-        self, monday: date, sunday: date, trades: list[dict]
-    ) -> WeeklyPerformance:
+    def _build_report(self, monday: date, sunday: date, trades: list[dict]) -> WeeklyPerformance:
         iso_year, iso_week, _ = monday.isocalendar()
         iso_key = f"{iso_year}-W{iso_week:02d}"
 
@@ -282,10 +276,7 @@ class WeeklyAnalytics:
             gate_rejections=gate_rej,
             circuit_breaker_triggers=sum(1 for t in trades if t.get("circuit_breaker")),
             daily_risk_used_pct=round(daily_risk_pct, 4),
-            per_strategy={
-                k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)}
-                for k, v in per_strat.items()
-            },
+            per_strategy={k: {"trades": v["trades"], "pnl": round(v["pnl"], 2)} for k, v in per_strat.items()},
             trading_days=trading_days,
         )
 
@@ -387,19 +378,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    project_root = (
-        Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
-    )
-    trade_log = (
-        Path(args.trade_log)
-        if args.trade_log
-        else project_root / "logs" / "trades.jsonl"
-    )
-    reports_root = (
-        Path(args.reports_root)
-        if args.reports_root
-        else project_root / "data" / "forex" / "equity_reports"
-    )
+    project_root = Path(args.project_root).resolve() if args.project_root else DEFAULT_PROJECT_ROOT
+    trade_log = Path(args.trade_log) if args.trade_log else project_root / "logs" / "trades.jsonl"
+    reports_root = Path(args.reports_root) if args.reports_root else project_root / "data" / "forex" / "equity_reports"
 
     analytics = WeeklyAnalytics(
         trade_log_path=str(trade_log),

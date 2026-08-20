@@ -5,7 +5,7 @@ essential behaviors of the multi-strategy, VAPS, and amalgamation engines
 without the code duplication that existed before.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 from pathlib import Path
@@ -17,7 +17,7 @@ _src = Path(__file__).resolve().parents[2] / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from core.config import BacktestConfig
+from core.config import BacktestConfig  # noqa: I001
 from core.types import (
     Bar,
     StrategySignal,
@@ -85,9 +85,7 @@ def _make_bars(n: int = 50, base_price: float = 1.1000) -> list[Bar]:
 class _DummyStrategy:
     """Minimal strategy for testing — always returns a LONG signal."""
 
-    def __init__(
-        self, name: str = "Dummy", direction: TradeDirection = TradeDirection.LONG
-    ):
+    def __init__(self, name: str = "Dummy", direction: TradeDirection = TradeDirection.LONG):
         self.name = name
         self._direction = direction
 
@@ -221,7 +219,7 @@ class TestKellyOverlay:
 
     def test_kelly_multiplier_all_wins(self):
         """Kelly should return a positive multiplier with a healthy win/loss mix."""
-        from core.types import TradeOutcome, SimulatedTrade
+        from core.types import TradeOutcome, SimulatedTrade  # noqa: I001
 
         config = _make_config()
         engine = MultiStrategyBacktestEngine(

@@ -50,9 +50,7 @@ ERROR_CLASSIFICATIONS: dict[str, AuthFaultType] = {
 }
 
 POLICIES: dict[AuthFaultType, AuthFaultPolicy] = {
-    AuthFaultType.REFRESHABLE_TOKEN_FAULT: AuthFaultPolicy(
-        can_refresh=True, can_reconnect=True, can_send_orders=False
-    ),
+    AuthFaultType.REFRESHABLE_TOKEN_FAULT: AuthFaultPolicy(can_refresh=True, can_reconnect=True, can_send_orders=False),
     AuthFaultType.ACCOUNT_AUTHORIZATION_FAULT: AuthFaultPolicy(
         can_refresh=False,
         can_reconnect=False,
@@ -111,9 +109,7 @@ def classify_error(error_code: str, description: str = "") -> AuthFaultType:
     return AuthFaultType.UNKNOWN_FATAL_AUTH_FAULT
 
 
-def get_policy(
-    error_code: str, description: str = ""
-) -> tuple[AuthFaultType, AuthFaultPolicy]:
+def get_policy(error_code: str, description: str = "") -> tuple[AuthFaultType, AuthFaultPolicy]:
     """Classify an error and return both the fault type and its policy."""
     fault_type = classify_error(error_code, description)
     return fault_type, POLICIES[fault_type]

@@ -59,16 +59,10 @@ def load_bars_from_csv(csv_path: Path, pair: str, tf_minutes: int) -> list[Bar]:
     df = df.rename(columns=col_map)
 
     if "timestamp" not in df.columns:
-        raise ValueError(
-            f"No timestamp column found in {csv_path}. Columns: {list(df.columns)}"
-        )
+        raise ValueError(f"No timestamp column found in {csv_path}. Columns: {list(df.columns)}")
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    df = (
-        df.sort_values("timestamp")
-        .drop_duplicates(subset=["timestamp"])
-        .reset_index(drop=True)
-    )
+    df = df.sort_values("timestamp").drop_duplicates(subset=["timestamp"]).reset_index(drop=True)
 
     bars = []
     for _, row in df.iterrows():
@@ -102,9 +96,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
     try:
         from strategies.killzone_momentum import KillzoneMomentumStrategy
 
-        factories["killzone_momentum"] = lambda: KillzoneMomentumStrategy(
-            KillzoneMomentumConfig()
-        )
+        factories["killzone_momentum"] = lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig())
     except ImportError:
         # Try alternate class name
         import strategies.killzone_momentum as kz_mod
@@ -112,7 +104,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
         for name in dir(kz_mod):
             obj = getattr(kz_mod, name)
             if isinstance(obj, type) and "Killzone" in name and "Config" not in name:
-                factories["killzone_momentum"] = lambda: obj(KillzoneMomentumConfig())
+                factories["killzone_momentum"] = lambda: obj(KillzoneMomentumConfig())  # noqa: B023
                 break
 
     # Volatility Squeeze — works on XAUUSD, forex
@@ -133,7 +125,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
         for name in dir(bb_mod):
             obj = getattr(bb_mod, name)
             if isinstance(obj, type) and "BB" in name and "Config" not in name:
-                factories["bb_rsi_reversion"] = lambda: obj(BBRSIConfig())
+                factories["bb_rsi_reversion"] = lambda: obj(BBRSIConfig())  # noqa: B023
                 break
 
     # Volatility Regime Breakout
@@ -155,18 +147,18 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
             for name in dir(srmr_mod):
                 obj = getattr(srmr_mod, name)
                 if isinstance(obj, type) and "SRMR" in name and "Config" not in name:
-                    factories["srmr_plus"] = lambda: obj(SRMRPlusConfig())
+                    factories["srmr_plus"] = lambda: obj(SRMRPlusConfig())  # noqa: B023
                     break
 
     # Session Breakout
     try:
-        from strategies.session_breakout import SessionBreakoutConfig
+        from strategies.session_breakout import SessionBreakoutConfig  # noqa: I001
         import strategies.session_breakout as sb_mod
 
         for name in dir(sb_mod):
             obj = getattr(sb_mod, name)
             if isinstance(obj, type) and "Breakout" in name and "Config" not in name:
-                factories["session_breakout"] = lambda: obj(SessionBreakoutConfig())
+                factories["session_breakout"] = lambda: obj(SessionBreakoutConfig())  # noqa: B023
                 break
     except ImportError:
         pass
@@ -177,7 +169,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
     factories["donchian_atr_trend"] = lambda: DonchianATRTrendStrategy()
 
     # London Breakout + Retest
-    from strategies.london_breakout_retest import (
+    from strategies.london_breakout_retest import (  # noqa: I001
         LondonBreakoutRetestStrategy,
         LondonBreakoutConfig,
     )
@@ -190,7 +182,7 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
 def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict]:
     """Run full sweep for a pair across strategies and timeframes."""
-    from srf.schema import SRFDatabase
+    from srf.schema import SRFDatabase  # noqa: I001
     from srf.gonogo import evaluate_go_nogo
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -213,14 +205,10 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
         except Exception as e:
             logger.error("Failed to load bars: %s", e)
             continue
-        logger.info(
-            "  %d bars loaded (%s to %s)", len(bars), bars[0].time, bars[-1].time
-        )
+        logger.info("  %d bars loaded (%s to %s)", len(bars), bars[0].time, bars[-1].time)
 
         if len(bars) < 1000:
-            logger.warning(
-                "Only %d bars — need ≥1000 for meaningful walk-forward", len(bars)
-            )
+            logger.warning("Only %d bars — need ≥1000 for meaningful walk-forward", len(bars))
             continue
 
         for strat_name, factory in strategies.items():
@@ -248,9 +236,7 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
                 agg = wf.aggregated
 
                 if agg is None:
-                    logger.warning(
-                        "  %s %s %s: no aggregated metrics", strat_name, pair, tf
-                    )
+                    logger.warning("  %s %s %s: no aggregated metrics", strat_name, pair, tf)
                     results.append(
                         {
                             "strategy": strat_name,
@@ -359,9 +345,7 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
 
             except Exception as e:
                 elapsed = time.monotonic() - start
-                logger.error(
-                    "  ✗ %s %s %s FAILED: %s (%.1fs)", strat_name, pair, tf, e, elapsed
-                )
+                logger.error("  ✗ %s %s %s FAILED: %s (%.1fs)", strat_name, pair, tf, e, elapsed)
                 results.append(
                     {
                         "strategy": strat_name,
@@ -379,9 +363,7 @@ def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict
 def main():
     parser = argparse.ArgumentParser(description="SRF Full Sweep")
     parser.add_argument("--pair", required=True, help="Trading pair (e.g., XAUUSD)")
-    parser.add_argument(
-        "--timeframes", default="M15,H1,M5", help="Comma-separated timeframes"
-    )
+    parser.add_argument("--timeframes", default="M15,H1,M5", help="Comma-separated timeframes")
     parser.add_argument("--windows", type=int, default=5, help="Walk-forward windows")
     parser.add_argument("--output", default=None, help="Output JSON file")
     args = parser.parse_args()
@@ -403,9 +385,7 @@ def main():
     print(f"\n{'=' * 80}")
     print(f"  SRF Sweep Results: {args.pair}")
     print(f"{'=' * 80}")
-    print(
-        f"  {'Strategy':<25} {'TF':<5} {'WR':>6} {'PF':>6} {'MaxDD':>7} {'Trades':>7} {'Go/NoGo':<8}"
-    )
+    print(f"  {'Strategy':<25} {'TF':<5} {'WR':>6} {'PF':>6} {'MaxDD':>7} {'Trades':>7} {'Go/NoGo':<8}")
     print(f"  {'-' * 25} {'-' * 5} {'-' * 6} {'-' * 6} {'-' * 7} {'-' * 7} {'-' * 8}")
 
     for r in results:
@@ -416,16 +396,13 @@ def main():
                 f"{r['total_trades']:>7.0f} {r['go_nogo']:<8}"
             )
         elif r["status"] == "failed":
-            print(
-                f"  {r['strategy']:<25} {r['tf']:<5} FAILED: {r.get('error', '')[:50]}"
-            )
+            print(f"  {r['strategy']:<25} {r['tf']:<5} FAILED: {r.get('error', '')[:50]}")
         else:
             print(f"  {r['strategy']:<25} {r['tf']:<5} {r['status']}")
 
     # Save JSON
     output_path = (
-        args.output
-        or f"/tmp/srf_sweep_{args.pair}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        args.output or f"/tmp/srf_sweep_{args.pair}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"  # noqa: S108
     )
     Path(output_path).write_text(json.dumps(results, indent=2, default=str))
     print(f"\n  Results saved: {output_path}")

@@ -14,7 +14,7 @@ Covers:
 - ValueError path when symbol is None and price >= 50
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from strategies.volatility_regime_breakout import (
@@ -61,8 +61,7 @@ class TestVRBPipMigration:
         import strategies.volatility_regime_breakout as vrb
 
         assert not hasattr(vrb, "_pip_value_for_price"), (
-            "_pip_value_for_price must be removed — replaced by "
-            "pip_value_for_symbol lookup"
+            "_pip_value_for_price must be removed — replaced by pip_value_for_symbol lookup"
         )
 
     def test_valueerror_path_exists_for_high_price_no_symbol(self):
@@ -72,9 +71,6 @@ class TestVRBPipMigration:
 
         source = open(vrb.__file__).read()
         assert "raise ValueError" in source, (
-            "Strategy must raise ValueError when symbol is None and "
-            "price >= 50 (ambiguous pip territory)"
+            "Strategy must raise ValueError when symbol is None and price >= 50 (ambiguous pip territory)"
         )
-        assert "_pip_value_for_price" not in source, (
-            "Old heuristic function reference must be fully removed"
-        )
+        assert "_pip_value_for_price" not in source, "Old heuristic function reference must be fully removed"

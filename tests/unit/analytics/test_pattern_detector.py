@@ -1,6 +1,6 @@
 """Tests for PatternDetector: M/W formations, SVC, traps, liquidity grabs, FL."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from signal_engine.pattern_detector import PatternDetector
@@ -9,10 +9,7 @@ from signal_engine.data_types import Level, LevelType, Swing, SwingType
 
 def _make_swings(prices: list[tuple[int, float, str]]) -> list[Swing]:
     """Helper: (bar_index, price, 'H'|'L')"""
-    return [
-        Swing(bi, p, SwingType.HIGH if t == "H" else SwingType.LOW)
-        for bi, p, t in prices
-    ]
+    return [Swing(bi, p, SwingType.HIGH if t == "H" else SwingType.LOW) for bi, p, t in prices]
 
 
 # ── M/W Formation Tests ────────────────────────────────────────────

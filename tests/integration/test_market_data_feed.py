@@ -4,7 +4,7 @@ These tests call ``on_spot_event`` directly with synthetic data — no
 protobuf or network required.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import threading
 from datetime import datetime, timedelta, timezone
@@ -83,9 +83,7 @@ class TestMarketDataFeed:
 
         # Ticks within the 14:00 hour
         for m in range(0, 60, 5):
-            feed.on_spot_event(
-                SYM_ID, 1.26500 + m * 0.00010, 1.26510 + m * 0.00010, ts(m)
-            )
+            feed.on_spot_event(SYM_ID, 1.26500 + m * 0.00010, 1.26510 + m * 0.00010, ts(m))
 
         # No bar should have closed yet — all within same period
         assert len(closed_bars) == 0

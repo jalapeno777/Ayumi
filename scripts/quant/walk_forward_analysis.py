@@ -183,9 +183,7 @@ def load_runs(con: duckdb.DuckDBPyConnection) -> list[StrategyRun]:
     ]
 
 
-def aggregate_candidate(
-    candidate_name: str, runs: list[StrategyRun]
-) -> CandidateResult:
+def aggregate_candidate(candidate_name: str, runs: list[StrategyRun]) -> CandidateResult:
     """Aggregate all runs for a candidate, handling naming variants.
 
     The SRF DB has two naming conventions: underscore (e.g. killzone_momentum)
@@ -206,9 +204,7 @@ def aggregate_candidate(
     source = with_decay if with_decay else matching
     result.runs_with_metrics = len(source)
     if with_decay and len(with_decay) < len(matching):
-        result.notes.append(
-            f"{len(matching) - len(with_decay)}/{len(matching)} runs lack oos_sharpe_decay"
-        )
+        result.notes.append(f"{len(matching) - len(with_decay)}/{len(matching)} runs lack oos_sharpe_decay")
 
     # Compute averages (only non-None values)
     sharpes = [r.mean_sharpe for r in source if r.mean_sharpe is not None]
@@ -216,9 +212,7 @@ def aggregate_candidate(
 
     if sharpes:
         result.avg_mean_sharpe = sum(sharpes) / len(sharpes)
-        best_run = max(
-            source, key=lambda r: r.mean_sharpe if r.mean_sharpe is not None else -1e18
-        )
+        best_run = max(source, key=lambda r: r.mean_sharpe if r.mean_sharpe is not None else -1e18)
         result.best_sharpe = best_run.mean_sharpe
         result.worst_sharpe = min(sharpes)
         result.best_pair = best_run.pair
@@ -236,9 +230,7 @@ def aggregate_candidate(
     return result
 
 
-def load_windows_for_candidate(
-    con: duckdb.DuckDBPyConnection, candidate_name: str
-) -> list[dict[str, Any]]:
+def load_windows_for_candidate(con: duckdb.DuckDBPyConnection, candidate_name: str) -> list[dict[str, Any]]:
     """Load window-level data for a candidate (for sanity check)."""
     norm_target = _normalize_name(candidate_name)
     # Query both naming variants
@@ -291,7 +283,7 @@ def generate_report(
     lines.append("**Date:** 2026-07-17")
     lines.append(f"**Data source:** `{db_path}`")
     lines.append(
-        "**Method:** Proxy haircut from `metrics_summary.mean_sharpe` and `oos_sharpe_decay` (within-test-period first-half vs second-half split)"
+        "**Method:** Proxy haircut from `metrics_summary.mean_sharpe` and `oos_sharpe_decay` (within-test-period first-half vs second-half split)"  # noqa: E501
     )
     lines.append("")
     lines.append("---")
@@ -303,16 +295,16 @@ def generate_report(
     lines.append("### Pipeline Status")
     lines.append("")
     lines.append(
-        "- **Window date columns populated:** `windows.train_start/end`, `test_start/end` = 323/323 populated (backfill migration applied 2026-07-17). New SRF runs populate them via the `_window_dates` sidecar in `srf.runner`."
+        "- **Window date columns populated:** `windows.train_start/end`, `test_start/end` = 323/323 populated (backfill migration applied 2026-07-17). New SRF runs populate them via the `_window_dates` sidecar in `srf.runner`."  # noqa: E501
     )
     lines.append(
-        "- **Naming variants consolidated:** SRF DB had duplicate runs under both underscore (`killzone_momentum`) and stripped (`killzonemomentum`) naming conventions. `StrategyRunner.normalize_strategy_names()` merges the variants to the canonical underscore form. Analysis normalizes on load as a safety net."
+        "- **Naming variants consolidated:** SRF DB had duplicate runs under both underscore (`killzone_momentum`) and stripped (`killzonemomentum`) naming conventions. `StrategyRunner.normalize_strategy_names()` merges the variants to the canonical underscore form. Analysis normalizes on load as a safety net."  # noqa: E501
     )
     lines.append(
-        "- **`oos_sharpe_decay` is a within-test-period proxy** (first-half vs second-half PnL split), NOT true out-of-sample decay. True IS/OOS haircut would require re-running the backtest on the train slice; not implemented in this report."
+        "- **`oos_sharpe_decay` is a within-test-period proxy** (first-half vs second-half PnL split), NOT true out-of-sample decay. True IS/OOS haircut would require re-running the backtest on the train slice; not implemented in this report."  # noqa: E501
     )
     lines.append(
-        "- **Trade records lack entry/exit timestamps** in the current schema, so per-trade train/test attribution is unavailable without re-running the strategy."
+        "- **Trade records lack entry/exit timestamps** in the current schema, so per-trade train/test attribution is unavailable without re-running the strategy."  # noqa: E501
     )
     lines.append("")
 
@@ -334,21 +326,13 @@ def generate_report(
     lines.append("")
     lines.append("### Per-Candidate Summary")
     lines.append("")
-    lines.append(
-        "| Candidate | Runs | Avg Mean Sharpe | Avg OOS Decay | Haircut Ratio | Verdict |"
-    )
-    lines.append(
-        "|-----------|------|----------------|---------------|---------------|---------|"
-    )
+    lines.append("| Candidate | Runs | Avg Mean Sharpe | Avg OOS Decay | Haircut Ratio | Verdict |")
+    lines.append("|-----------|------|----------------|---------------|---------------|---------|")
     for r in results:
-        sharpe_str = (
-            f"{r.avg_mean_sharpe:.4f}" if r.avg_mean_sharpe is not None else "N/A"
-        )
+        sharpe_str = f"{r.avg_mean_sharpe:.4f}" if r.avg_mean_sharpe is not None else "N/A"
         decay_str = f"{r.avg_oos_decay:.4f}" if r.avg_oos_decay is not None else "N/A"
         haircut_str = f"{r.haircut_ratio:.4f}" if r.haircut_ratio is not None else "N/A"
-        lines.append(
-            f"| {r.name} | {r.total_runs} | {sharpe_str} | {decay_str} | {haircut_str} | **{r.verdict}** |"
-        )
+        lines.append(f"| {r.name} | {r.total_runs} | {sharpe_str} | {decay_str} | {haircut_str} | **{r.verdict}** |")
     lines.append("")
 
     # Kill list
@@ -361,9 +345,7 @@ def generate_report(
     lines.append("")
     if kill_list:
         for r in kill_list:
-            lines.append(
-                f"- **{r.name}** — haircut={r.haircut_ratio:.4f}, avg_sharpe={r.avg_mean_sharpe:.4f}"
-            )
+            lines.append(f"- **{r.name}** — haircut={r.haircut_ratio:.4f}, avg_sharpe={r.avg_mean_sharpe:.4f}")
             for note in r.notes:
                 lines.append(f"  - {note}")
     else:
@@ -427,56 +409,28 @@ def generate_report(
     # Caveats
     lines.append("## Caveats")
     lines.append("")
-    lines.append(
-        "1. **This is a proxy analysis, not a true walk-forward haircut.** The formula"
-    )
-    lines.append(
-        "   `haircut = avg_sharpe / max(avg_sharpe, |decay| + 1)` approximates OOS"
-    )
-    lines.append(
-        "   degradation using the within-period first-half/second-half PnL split."
-    )
-    lines.append(
-        "2. **True IS/OOS haircut requires** populated window date columns + window-level"
-    )
-    lines.append(
-        "   Sharpe ratios. Both are absent from the current SRF data pipeline."
-    )
-    lines.append(
-        "3. **Negative Sharpe ratios dominate.** 7/8 candidates have deeply negative"
-    )
-    lines.append(
-        "   average Sharpe, suggesting either unprofitable strategies or parameter"
-    )
-    lines.append(
-        "   misconfiguration. The haircut ratio is moot when the strategy itself is"
-    )
+    lines.append("1. **This is a proxy analysis, not a true walk-forward haircut.** The formula")
+    lines.append("   `haircut = avg_sharpe / max(avg_sharpe, |decay| + 1)` approximates OOS")
+    lines.append("   degradation using the within-period first-half/second-half PnL split.")
+    lines.append("2. **True IS/OOS haircut requires** populated window date columns + window-level")
+    lines.append("   Sharpe ratios. Both are absent from the current SRF data pipeline.")
+    lines.append("3. **Negative Sharpe ratios dominate.** 7/8 candidates have deeply negative")
+    lines.append("   average Sharpe, suggesting either unprofitable strategies or parameter")
+    lines.append("   misconfiguration. The haircut ratio is moot when the strategy itself is")
     lines.append("   unprofitable.")
-    lines.append(
-        "4. **`ttc_xauusd` is the only candidate with any positive Sharpe runs**"
-    )
-    lines.append(
-        "   (XAUUSD 5m=1.68, 15m=5.04), but still rated no-go (0/5 and 2/5 windows passed)."
-    )
+    lines.append("4. **`ttc_xauusd` is the only candidate with any positive Sharpe runs**")
+    lines.append("   (XAUUSD 5m=1.68, 15m=5.04), but still rated no-go (0/5 and 2/5 windows passed).")
     lines.append("")
 
     # DEBT recommendations
     lines.append("## [DEBT] Cards Recommended")
     lines.append("")
-    lines.append(
-        "1. **Fix `srf/runner.py` `_insert_windows` to populate date columns** — "
-    )
-    lines.append(
-        "   `train_start/end`, `test_start/end` must be written per window for true"
-    )
+    lines.append("1. **Fix `srf/runner.py` `_insert_windows` to populate date columns** — ")
+    lines.append("   `train_start/end`, `test_start/end` must be written per window for true")
     lines.append("   walk-forward analysis.")
-    lines.append(
-        "2. **Re-run SRF sweep for 7 candidates missing from `windows` table** — "
-    )
+    lines.append("2. **Re-run SRF sweep for 7 candidates missing from `windows` table** — ")
     lines.append("   only `killzone_momentum` has window-level data.")
-    lines.append(
-        "3. **Investigate deeply negative Sharpe ratios** — values like -2812 (donchian"
-    )
+    lines.append("3. **Investigate deeply negative Sharpe ratios** — values like -2812 (donchian")
     lines.append("   XAUUSD 15m) suggest data quality or parameter search issues.")
     lines.append("")
 
@@ -492,9 +446,7 @@ def generate_report(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Proxy haircut-ratio walk-forward analysis"
-    )
+    parser = argparse.ArgumentParser(description="Proxy haircut-ratio walk-forward analysis")
     parser.add_argument(
         "--db",
         default="data/research/research.duckdb",
@@ -528,17 +480,13 @@ def main(argv: list[str] | None = None) -> int:
     con.close()
 
     # Print summary to stdout
-    print(
-        f"\n{'Candidate':<30s} {'Runs':>4s} {'Avg Sharpe':>12s} {'Avg Decay':>10s} {'Haircut':>10s} {'Verdict':>10s}"
-    )
+    print(f"\n{'Candidate':<30s} {'Runs':>4s} {'Avg Sharpe':>12s} {'Avg Decay':>10s} {'Haircut':>10s} {'Verdict':>10s}")
     print("-" * 80)
     for r in results:
         sharpe = f"{r.avg_mean_sharpe:.4f}" if r.avg_mean_sharpe is not None else "N/A"
         decay = f"{r.avg_oos_decay:.4f}" if r.avg_oos_decay is not None else "N/A"
         haircut = f"{r.haircut_ratio:.4f}" if r.haircut_ratio is not None else "N/A"
-        print(
-            f"{r.name:<30s} {r.total_runs:>4d} {sharpe:>12s} {decay:>10s} {haircut:>10s} {r.verdict:>10s}"
-        )
+        print(f"{r.name:<30s} {r.total_runs:>4d} {sharpe:>12s} {decay:>10s} {haircut:>10s} {r.verdict:>10s}")
 
     # Generate report
     report_content = generate_report(results, windows_data, str(db_path))

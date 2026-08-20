@@ -1,6 +1,6 @@
 """Unit tests for the synthetic regime generator core module."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 import pytest

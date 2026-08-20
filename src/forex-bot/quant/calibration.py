@@ -42,7 +42,7 @@ data is wired into the walk-forward pipeline, the integration card can
 populate these parameters directly from per-trade signal records.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 from typing import Sequence
@@ -149,10 +149,7 @@ def brier_score(
     if p.size == 0 or o.size == 0:
         raise ValueError("brier_score requires at least one prediction/observation")
     if p.shape != o.shape:
-        raise ValueError(
-            f"predicted_probs and actual_outcomes must have the same shape, "
-            f"got {p.shape} vs {o.shape}"
-        )
+        raise ValueError(f"predicted_probs and actual_outcomes must have the same shape, got {p.shape} vs {o.shape}")
 
     return float(np.mean((p - o) ** 2))
 
@@ -199,14 +196,9 @@ def calibration_curve(
     out = np.asarray(outcomes, dtype=float)
 
     if conf.size == 0 or out.size == 0:
-        raise ValueError(
-            "calibration_curve requires at least one confidence/observation"
-        )
+        raise ValueError("calibration_curve requires at least one confidence/observation")
     if conf.shape != out.shape:
-        raise ValueError(
-            f"confidences and outcomes must have the same shape, "
-            f"got {conf.shape} vs {out.shape}"
-        )
+        raise ValueError(f"confidences and outcomes must have the same shape, got {conf.shape} vs {out.shape}")
     if n_bins < 1:
         raise ValueError(f"n_bins must be >= 1, got {n_bins}")
 
@@ -298,14 +290,9 @@ def brier_decomposition(
     conf = np.asarray(confidences, dtype=float)
     out = np.asarray(outcomes, dtype=float)
     if conf.size == 0 or out.size == 0:
-        raise ValueError(
-            "brier_decomposition requires at least one confidence/observation"
-        )
+        raise ValueError("brier_decomposition requires at least one confidence/observation")
     if conf.shape != out.shape:
-        raise ValueError(
-            f"confidences and outcomes must have the same shape, "
-            f"got {conf.shape} vs {out.shape}"
-        )
+        raise ValueError(f"confidences and outcomes must have the same shape, got {conf.shape} vs {out.shape}")
     if n_bins < 1:
         raise ValueError(f"n_bins must be >= 1, got {n_bins}")
 
@@ -392,16 +379,13 @@ def evaluate_calibration(
             flat_returns.extend(window)
         if not flat_returns:
             raise ValueError(
-                "Cannot derive outcomes: wf_results has no per-trade returns. "
-                "Provide outcomes explicitly."
+                "Cannot derive outcomes: wf_results has no per-trade returns. Provide outcomes explicitly."
             )
         outcomes = [1 if r > 0.0 else 0 for r in flat_returns]
 
     bs = brier_score(confidences, outcomes)
     curve = calibration_curve(confidences, outcomes, n_bins=n_bins)
-    reliability, resolution, uncertainty = brier_decomposition(
-        confidences, outcomes, n_bins=n_bins
-    )
+    reliability, resolution, uncertainty = brier_decomposition(confidences, outcomes, n_bins=n_bins)
 
     n_signals = int(np.asarray(outcomes).size)
     base_rate = float(np.mean(outcomes))

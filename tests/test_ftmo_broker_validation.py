@@ -12,7 +12,7 @@ from pathlib import Path
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-import pytest
+import pytest  # noqa: I001
 from ftmo_broker_validation import (
     OrderRecord,
     SpreadSample,
@@ -226,7 +226,7 @@ class TestSlippageDistribution:
 
     def test_p95_p99_present(self, sample_orders):
         stats = calculate_slippage_distribution(sample_orders)
-        for pair, s in stats.items():
+        for pair, s in stats.items():  # noqa: B007
             assert "p95" in s
             assert "p99" in s
             assert s["p95"] >= s["median"]
@@ -362,7 +362,7 @@ class TestDryRunGeneration:
         o1 = _dry_run_orders(["EURUSD"], ["low_volatility"], 5)
         o2 = _dry_run_orders(["EURUSD"], ["low_volatility"], 5)
         assert len(o1) == len(o2)
-        for a, b in zip(o1, o2):
+        for a, b in zip(o1, o2):  # noqa: B905
             assert a.slippage_pips == b.slippage_pips
             assert a.fill_price == b.fill_price
 
@@ -383,13 +383,13 @@ class TestDryRunGeneration:
 
 class TestConditionsConfig:
     def test_all_conditions_have_expected_keys(self):
-        for name, cond in CONDITIONS.items():
+        for name, cond in CONDITIONS.items():  # noqa: B007
             assert "description" in cond
             assert "sessions" in cond
             assert "expected_spread_pips" in cond
 
     def test_expected_spread_pairs_consistent(self):
         """Each condition should have spread data for common pairs."""
-        for name, cond in CONDITIONS.items():
+        for name, cond in CONDITIONS.items():  # noqa: B007
             # At least EURUSD should be in every condition
             assert "EURUSD" in cond["expected_spread_pips"]

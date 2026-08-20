@@ -6,7 +6,7 @@ Tests the full pipeline: BlendForwardTestRunner → strategy → confidence → 
 Must produce at least one OrchestratedOrder without exception using real XAUUSD H1 data.
 """
 
-import sys
+import sys  # noqa: I001
 import csv
 import logging
 from datetime import datetime
@@ -15,7 +15,7 @@ from pathlib import Path
 # Setup path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "forex-bot"))
 
-from core.types import Bar, MarketState, BarPeriod
+from core.types import Bar, MarketState, BarPeriod  # noqa: I001
 from backtest.types import determine_session
 from strategies.killzone_momentum import KillzoneMomentumStrategy
 from forward_test.blend_runner import BlendForwardTestRunner
@@ -75,8 +75,8 @@ def main():
         "max_sniper": 3,
         "max_swarm": 5,
         "spread_pips": {"XAUUSD": 0.3},
-        "atr_cache_path": "/tmp/ayumi_smoke_atr.json",
-        "state_path": "/tmp/ayumi_smoke_state.json",
+        "atr_cache_path": "/tmp/ayumi_smoke_atr.json",  # noqa: S108
+        "state_path": "/tmp/ayumi_smoke_state.json",  # noqa: S108
         "log_level": "WARNING",
     }
     runner = BlendForwardTestRunner(config)

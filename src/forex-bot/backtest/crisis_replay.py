@@ -36,15 +36,13 @@ try:
 except ImportError:
     # When run as script from src/forex-bot/backtest/crisis_replay.py
     # Load simple_engine.py directly to avoid heavy backtest/__init__.py
-    from pathlib import Path as _Path
+    from pathlib import Path as _Path  # noqa: I001
     import importlib.util as _ilu
 
     _FXBOT = _Path(__file__).resolve().parent.parent  # src/forex-bot/
     sys.path.append(str(_FXBOT))  # for core.types, engine, etc.
 
-    _spec = _ilu.spec_from_file_location(
-        "_simple_engine_standalone", str(_FXBOT / "backtest" / "simple_engine.py")
-    )
+    _spec = _ilu.spec_from_file_location("_simple_engine_standalone", str(_FXBOT / "backtest" / "simple_engine.py"))
     _se_mod = _ilu.module_from_spec(_spec)
     sys.modules["_simple_engine_standalone"] = _se_mod
     _spec.loader.exec_module(_se_mod)
@@ -174,10 +172,7 @@ def load_crisis_data(
     DataFrame columns: timestamp(open), open, high, low, close, volume.
     """
     if event_name not in _CRISIS_BY_EVENT:
-        raise ValueError(
-            f"Unknown crisis event '{event_name}'. "
-            f"Available: {sorted(_CRISIS_BY_EVENT)}"
-        )
+        raise ValueError(f"Unknown crisis event '{event_name}'. Available: {sorted(_CRISIS_BY_EVENT)}")
 
     cw = _CRISIS_BY_EVENT[event_name]
     base = Path(base_dir)
@@ -273,9 +268,7 @@ def survival_metrics(
     else:
         # Count bars from trough back to peak level that was in effect at trough
         recovery_target = (
-            equity_curve[peak_idx_at_trough]
-            if peak_idx_at_trough < len(equity_curve)
-            else equity_curve[0]
+            equity_curve[peak_idx_at_trough] if peak_idx_at_trough < len(equity_curve) else equity_curve[0]
         )
         recovery_bars = 0
         for i in range(trough_idx, len(equity_curve)):
@@ -397,9 +390,7 @@ def run_crisis_replay(
     bars = _df_to_bars(df)
 
     if len(bars) < 30:
-        logger.warning(
-            "Insufficient bars (%d) for %s — skipping", len(bars), event_name
-        )
+        logger.warning("Insufficient bars (%d) for %s — skipping", len(bars), event_name)
         return {
             "event": event_name,
             "strategy": strategy_cls.__name__ if strategy_cls else "none",
@@ -531,9 +522,7 @@ def _write_summary_md(summary: dict, path: Path) -> None:
                 rec = "N/A"
                 sharpe = "N/A"
                 survived = "⚠️"
-            lines.append(
-                f"| {strat_name} | {event} | {dd} | {rec} | {sharpe} | {survived} |"
-            )
+            lines.append(f"| {strat_name} | {event} | {dd} | {rec} | {sharpe} | {survived} |")
 
     lines.append("")
     with open(path, "w") as f:
@@ -584,9 +573,7 @@ def main():
     if args.crises:
         for c in args.crises:
             if c not in _CRISIS_BY_EVENT:
-                print(
-                    f"Error: Unknown crisis '{c}'. Available: {sorted(_CRISIS_BY_EVENT)}"
-                )
+                print(f"Error: Unknown crisis '{c}'. Available: {sorted(_CRISIS_BY_EVENT)}")
                 return 1
 
     # Run
@@ -621,9 +608,7 @@ def main():
                         f"[{status}]"
                     )
                 else:
-                    print(
-                        f"  {event}: No data or error ({result.get('error', 'unknown')})"
-                    )
+                    print(f"  {event}: No data or error ({result.get('error', 'unknown')})")
 
         print(f"\nReports written to {args.output_dir}/")
         return 0
@@ -645,9 +630,7 @@ def _run_selected_crises(
         original = CRISIS_WINDOWS
         CRISIS_WINDOWS = [_CRISIS_BY_EVENT[c] for c in crisis_filter]
         try:
-            return run_all_crises(
-                strategy_classes, output_dir, base_dir, initial_equity
-            )
+            return run_all_crises(strategy_classes, output_dir, base_dir, initial_equity)
         finally:
             CRISIS_WINDOWS = original
     return run_all_crises(strategy_classes, output_dir, base_dir, initial_equity)

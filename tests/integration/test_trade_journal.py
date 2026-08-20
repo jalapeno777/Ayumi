@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 from adapters.ctrader.models import Order, Position, PositionStatus, TradeDirection
 from adapters.ctrader.trade_journal import TradeJournal
 
@@ -58,9 +58,7 @@ class TestTradeJournal:
     def test_strategy_summary(self, tmp_path):
         journal = TradeJournal(log_dir=str(tmp_path))
 
-        journal.log_open(
-            "s1", "srmr_plus", 0.8, "test", _make_order(), _make_position()
-        )
+        journal.log_open("s1", "srmr_plus", 0.8, "test", _make_order(), _make_position())
         pos1 = _make_position(pnl=100.0, status=PositionStatus.CLOSED)
         journal.log_close(pos1)
 

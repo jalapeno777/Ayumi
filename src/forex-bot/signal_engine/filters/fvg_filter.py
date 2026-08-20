@@ -45,9 +45,7 @@ class FVGFilter:
     def name(self) -> str:
         return "fvg"
 
-    def detect_fvg(
-        self, highs: list[float], lows: list[float], closes: list[float]
-    ) -> FVGResult:
+    def detect_fvg(self, highs: list[float], lows: list[float], closes: list[float]) -> FVGResult:
         """Scan the last N bars for a Fair Value Gap.
 
         A bullish FVG: low[i] > high[i-2] (gap up).

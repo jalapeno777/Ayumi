@@ -8,7 +8,7 @@ package. Fixed by importing the real module — ctrader_open_api is installed
 and the import works fine.)
 """
 
-import pytest
+import pytest  # noqa: I001
 from unittest.mock import MagicMock, patch
 
 
@@ -24,8 +24,8 @@ class TestOpenApiSpotFeedLiveProperties:
             feed = OpenApiSpotFeed(
                 ctid_account_id=12345,
                 client_id="test",
-                client_secret="***",
-                access_token="***",
+                client_secret="***",  # noqa: S106
+                access_token="***",  # noqa: S106
             )
         feed._reactor_manager = MagicMock()
         return feed

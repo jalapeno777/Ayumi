@@ -4,7 +4,7 @@ import pytest
 
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
-import tempfile
+import tempfile  # noqa: I001
 from pathlib import Path
 
 import pytest
@@ -124,7 +124,7 @@ class TestGetByCategory:
         from adapters.ctrader.models import cTraderCredentials
 
         creds = cTraderCredentials(host="localhost", port=1234, use_ssl=False)
-        disc = SymbolDiscovery(creds, cache_path="/tmp/nonexistent_test.json")
+        disc = SymbolDiscovery(creds, cache_path="/tmp/nonexistent_test.json")  # noqa: S108
 
         disc._symbols = {
             1: SymbolInfo(symbol_id=1, name="EUR/USD", category="forex_major"),

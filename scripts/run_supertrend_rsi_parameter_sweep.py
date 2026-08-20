@@ -11,7 +11,7 @@ Usage:
 GO Criteria: 3/5 windows pass (WR>55%, PF>1.2, DD<10%)
 """
 
-import argparse
+import argparse  # noqa: I001
 import sys
 import json
 from pathlib import Path
@@ -26,7 +26,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig  # noqa: E402
+from backtest.engine import BacktestConfig  # noqa: E402, I001
 from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.strategies import SupertrendRSIBlendStrategy  # noqa: E402
 from backtest import CsvDataLoader  # noqa: E402
@@ -149,9 +149,7 @@ def run_walk_forward_for_params(
             trade_count=test_metrics.total_trades,
             win_rate=test_metrics.win_rate / 100.0,
             profit_factor=test_metrics.profit_factor,
-            total_pnl=test_metrics.total_pnl
-            if hasattr(test_metrics, "total_pnl")
-            else 0.0,
+            total_pnl=test_metrics.total_pnl if hasattr(test_metrics, "total_pnl") else 0.0,
             max_drawdown=test_metrics.max_drawdown_pct / 100.0,
         )
         passed = pw_result.passed
@@ -189,13 +187,9 @@ def run_walk_forward_for_params(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Supertrend RSI blend parameter sweep + walk-forward"
-    )
+    parser = argparse.ArgumentParser(description="Supertrend RSI blend parameter sweep + walk-forward")
     add_resource_args(parser)
-    parser.add_argument(
-        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
-    )
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
     args = parser.parse_args()
 
     SWEEP_REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -252,9 +246,7 @@ def main() -> None:
 
         all_sweep_results[pair] = sweep_data
 
-        profitable = sweep_result.filter(
-            lambda r: r.profit_factor > 1.0 and r.trade_count >= 10
-        )
+        profitable = sweep_result.filter(lambda r: r.profit_factor > 1.0 and r.trade_count >= 10)
         print(f"  Profitable sets (PF>1.0, trades>=10): {len(profitable)}")
 
         top5 = sweep_result.top_n(5, metric="profit_factor", ascending=False)
@@ -287,7 +279,7 @@ def main() -> None:
             status = "GO" if wf_result["go_nogo"] else "NO-GO"
             print(f"      Windows passed: {wf_result['windows_passed']}/5")
             print(
-                f"      Avg test WR: {wf_result['avg_test_wr']:.1f}%, PF: {wf_result['avg_test_pf']:.2f}, DD: {wf_result['avg_test_dd']:.2f}%"
+                f"      Avg test WR: {wf_result['avg_test_wr']:.1f}%, PF: {wf_result['avg_test_pf']:.2f}, DD: {wf_result['avg_test_dd']:.2f}%"  # noqa: E501
             )
             print(f"      Status: {status}")
 
@@ -313,9 +305,7 @@ def main() -> None:
 
         go_sets = [r for r in results if r["go_nogo"]]
         if go_sets:
-            print(
-                f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***"
-            )
+            print(f"\n  *** {pair}: {len(go_sets)} parameter set(s) passed 3/5 windows - GO! ***")
         else:
             print(f"\n  {pair}: No parameter sets passed - NO-GO")
 

@@ -1,4 +1,4 @@
-import logging
+import logging  # noqa: I001
 import os
 from dataclasses import dataclass
 from typing import Optional

@@ -30,7 +30,7 @@ This test module covers the three ACs:
 3. LONG and SHORT signals still pass the guard (reach ``new_order``).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import os
@@ -56,9 +56,7 @@ import pytest
 # is too early — pytest mutates ``sys.path`` again before any test
 # function runs, putting the cwd back at position 0. The fix is to
 # re-insert the path at the start of every test via an autouse fixture.
-_FOREX_BOT_SRC = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
-)
+_FOREX_BOT_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
 
 
 @pytest.fixture(autouse=True)
@@ -220,12 +218,9 @@ class TestNeutralGuardSkips:
 
         assert result is None
 
-        skip_records = [
-            r for r in caplog.records if "Skipping live execution" in r.getMessage()
-        ]
+        skip_records = [r for r in caplog.records if "Skipping live execution" in r.getMessage()]
         assert len(skip_records) == 1, (
-            f"Expected exactly 1 skip log, got {len(skip_records)}: "
-            f"{[r.getMessage() for r in caplog.records]}"
+            f"Expected exactly 1 skip log, got {len(skip_records)}: {[r.getMessage() for r in caplog.records]}"
         )
         record = skip_records[0]
         assert record.levelno == logging.INFO
@@ -234,9 +229,7 @@ class TestNeutralGuardSkips:
         assert signal.symbol in msg, f"symbol missing from skip log: {msg!r}"
         assert "NEUTRAL" in msg, f"NEUTRAL missing from skip log: {msg!r}"
         assert "session_range_mr" in msg, f"strategy_id missing from skip log: {msg!r}"
-        assert "no side mapping" in msg.lower(), (
-            f"skip reason phrase missing from log: {msg!r}"
-        )
+        assert "no side mapping" in msg.lower(), f"skip reason phrase missing from log: {msg!r}"
 
     def test_neutral_signal_does_not_trigger_permission_policy_warning(self, caplog):
         """NEUTRAL guard runs BEFORE permission policy — no 'blocked' warning."""
@@ -252,11 +245,7 @@ class TestNeutralGuardSkips:
         ):
             engine._execute_signal_live(signal, strategy_id="srmr")
 
-        blocked = [
-            r
-            for r in caplog.records
-            if "_execute_signal_live blocked" in r.getMessage()
-        ]
+        blocked = [r for r in caplog.records if "_execute_signal_live blocked" in r.getMessage()]
         assert blocked == [], (
             f"Permission-policy 'blocked' warning should NOT fire for NEUTRAL; "
             f"the guard short-circuits earlier. Got: {[r.getMessage() for r in blocked]}"
@@ -292,9 +281,7 @@ class TestLongShortPassThrough:
         call_kwargs = feed.new_order.call_args.kwargs
         # Side must be BUY (not silently coerced)
         # ProtoOATradeSide.BUY == 1 in cTrader Open API.
-        assert call_kwargs["side"] == 1, (
-            f"LONG signal must map to side=BUY (1), got {call_kwargs['side']!r}"
-        )
+        assert call_kwargs["side"] == 1, f"LONG signal must map to side=BUY (1), got {call_kwargs['side']!r}"
         assert call_kwargs["symbol_id"] == 2
         assert call_kwargs["order_type"] == 1  # ProtoOAOrderType.MARKET
 
@@ -320,9 +307,7 @@ class TestLongShortPassThrough:
         feed.new_order.assert_called_once()
         call_kwargs = feed.new_order.call_args.kwargs
         # ProtoOATradeSide.SELL == 2 in cTrader Open API.
-        assert call_kwargs["side"] == 2, (
-            f"SHORT signal must map to side=SELL (2), got {call_kwargs['side']!r}"
-        )
+        assert call_kwargs["side"] == 2, f"SHORT signal must map to side=SELL (2), got {call_kwargs['side']!r}"
 
     def test_long_and_short_skip_logs_are_never_emitted(self, caplog):
         """Sanity: the NEUTRAL skip log must NOT appear for LONG/SHORT."""
@@ -350,10 +335,7 @@ class TestLongShortPassThrough:
                         strategy_id="short_strat",
                     )
 
-        skip_records = [
-            r for r in caplog.records if "Skipping live execution" in r.getMessage()
-        ]
+        skip_records = [r for r in caplog.records if "Skipping live execution" in r.getMessage()]
         assert skip_records == [], (
-            f"LONG/SHORT must NOT emit NEUTRAL-skip logs; got "
-            f"{[r.getMessage() for r in skip_records]}"
+            f"LONG/SHORT must NOT emit NEUTRAL-skip logs; got {[r.getMessage() for r in skip_records]}"
         )

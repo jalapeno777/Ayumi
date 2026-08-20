@@ -40,7 +40,7 @@ Usage
 Reference: SRB-AYU-001 (BQ-1154, BQ-1139)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from dataclasses import dataclass, field
@@ -114,9 +114,7 @@ class RegimeOverlay(Protocol):
 class DriftReport:
     """Output of a single alpha-decay pipeline run."""
 
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     psi_results: dict[str, PSIAlert] = field(default_factory=dict)
     btc_regime: str = "neutral"
     recommendation: str = "ok"  # "ok", "monitor", "retrain"
@@ -203,10 +201,7 @@ class AlphaDecayPipeline:
                     report.psi_results[feature] = alert
                     psi_alerts.append(alert)
                     if alert.is_alert:
-                        report.alerts.append(
-                            f"PSI drift on '{feature}': "
-                            f"{alert.psi:.4f} ({alert.severity})"
-                        )
+                        report.alerts.append(f"PSI drift on '{feature}': {alert.psi:.4f} ({alert.severity})")
                 except (ValueError, KeyError) as exc:
                     logger.warning(
                         "PSI check failed for '%s': %s",

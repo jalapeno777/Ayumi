@@ -7,7 +7,7 @@ Covers:
   - Baseline vs filtered signal generation logic
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import sys
@@ -21,7 +21,7 @@ for _p in (str(PROJECT_ROOT / "scripts"),):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from validate_trend_atr_filter import (  # noqa: E402
+from validate_trend_atr_filter import (  # noqa: E402, I001
     atr,
     evaluate_baseline,
     evaluate_filtered,
@@ -45,9 +45,7 @@ from validate_trend_atr_filter import (  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def _make_bar(
-    dt: datetime, o: float, h: float, lo: float, c: float, v: float = 0.0
-) -> Bar:
+def _make_bar(dt: datetime, o: float, h: float, lo: float, c: float, v: float = 0.0) -> Bar:
     return Bar(time=dt, open=o, high=h, low=lo, close=c, volume=v)
 
 
@@ -58,9 +56,7 @@ def make_uptrend_bars(n: int = 80, start_price: float = 1.0800) -> list[Bar]:
     price = start_price
     for i in range(n):
         p = price + i * 0.0008
-        bars.append(
-            _make_bar(base + timedelta(hours=i), p, p + 0.0015, p - 0.0005, p + 0.0005)
-        )
+        bars.append(_make_bar(base + timedelta(hours=i), p, p + 0.0015, p - 0.0005, p + 0.0005))
     return bars
 
 
@@ -70,9 +66,7 @@ def make_downtrend_bars(n: int = 80, start_price: float = 1.1200) -> list[Bar]:
     base = datetime(2024, 1, 1, tzinfo=timezone.utc)
     for i in range(n):
         p = start_price - i * 0.0008
-        bars.append(
-            _make_bar(base + timedelta(hours=i), p, p + 0.0005, p - 0.0015, p - 0.0005)
-        )
+        bars.append(_make_bar(base + timedelta(hours=i), p, p + 0.0005, p - 0.0015, p - 0.0005))
     return bars
 
 
@@ -145,9 +139,7 @@ class TestBaselineSignal:
             sig = evaluate_baseline(window, DEFAULT_FAST_MA, DEFAULT_SLOW_MA)
             if sig is not None and sig.direction == TradeDirection.LONG:
                 long_signals.append(sig)
-        assert len(long_signals) > 0, (
-            "Expected at least one LONG signal from uptrend crossover data"
-        )
+        assert len(long_signals) > 0, "Expected at least one LONG signal from uptrend crossover data"
 
     def test_generates_short_on_bearish_crossover(self):
         """MA cross should detect at least one bearish crossover in downtrend data."""
@@ -158,19 +150,14 @@ class TestBaselineSignal:
             sig = evaluate_baseline(window, DEFAULT_FAST_MA, DEFAULT_SLOW_MA)
             if sig is not None and sig.direction == TradeDirection.SHORT:
                 short_signals.append(sig)
-        assert len(short_signals) > 0, (
-            "Expected at least one SHORT signal from downtrend crossover data"
-        )
+        assert len(short_signals) > 0, "Expected at least one SHORT signal from downtrend crossover data"
 
     def test_no_signal_without_crossover(self):
         """No signal when MAs haven't crossed."""
         flat = make_flat_bars(100)
         # Run through each window — may or may not get a signal, but
         # the vast majority should be None
-        signals = [
-            evaluate_baseline(flat[:i], DEFAULT_FAST_MA, DEFAULT_SLOW_MA)
-            for i in range(20, len(flat))
-        ]
+        signals = [evaluate_baseline(flat[:i], DEFAULT_FAST_MA, DEFAULT_SLOW_MA) for i in range(20, len(flat))]
         none_count = sum(1 for s in signals if s is None)
         # At least 70% should be None (flat data, rare incidental crosses)
         assert none_count > len(signals) * 0.7, (
@@ -209,9 +196,7 @@ class TestFilteredSignal:
             if sig is not None:
                 signals.append(sig)
 
-        assert len(signals) > 0, (
-            "Expected at least one filtered signal in trending data"
-        )
+        assert len(signals) > 0, "Expected at least one filtered signal in trending data"
         for sig in signals:
             assert isinstance(sig, FilteredSignal)
             assert sig.atr_pips >= 3.0, f"ATR {sig.atr_pips} below threshold"
@@ -239,8 +224,7 @@ class TestFilteredSignal:
         baseline_count = sum(
             1
             for i in range(60, len(flat))
-            if evaluate_baseline(flat[: i + 1], DEFAULT_FAST_MA, DEFAULT_SLOW_MA)
-            is not None
+            if evaluate_baseline(flat[: i + 1], DEFAULT_FAST_MA, DEFAULT_SLOW_MA) is not None
         )
         assert len(signals) <= max(2, baseline_count // 2), (
             f"Expected filtered to block >50% of baseline signals on flat data. "
@@ -273,9 +257,7 @@ class TestEdgeCases:
             if sig is not None:
                 signals.append(sig)
 
-        assert len(signals) == 0, (
-            f"Expected 0 signals with ATR gate at 50 pips, got {len(signals)}"
-        )
+        assert len(signals) == 0, f"Expected 0 signals with ATR gate at 50 pips, got {len(signals)}"
 
     def test_flat_trend_blocks_long(self):
         """When EMA is flat, trend filter blocks long signals."""
@@ -286,11 +268,7 @@ class TestEdgeCases:
         base_time = bars[-1].time
         for i in range(5):
             p = last_price + (i + 1) * 0.0005
-            bars.append(
-                _make_bar(
-                    base_time + timedelta(hours=i + 1), p, p + 0.0003, p - 0.0003, p
-                )
-            )
+            bars.append(_make_bar(base_time + timedelta(hours=i + 1), p, p + 0.0003, p - 0.0003, p))
 
         sig = evaluate_filtered(
             bars,
@@ -473,9 +451,7 @@ class TestReportFormat:
             "DOES NOT IMPROVE",
             "INCONCLUSIVE",
         }
-        assert report["verdict"] in valid_verdicts, (
-            f"Verdict '{report['verdict']}' not in {valid_verdicts}"
-        )
+        assert report["verdict"] in valid_verdicts, f"Verdict '{report['verdict']}' not in {valid_verdicts}"
 
     def test_report_json_serializable(self):
         """Report must be JSON serializable."""
@@ -539,6 +515,4 @@ class TestSimulation:
         """Baseline simulation on trending data should produce some trades."""
         bars = make_crossover_bars(n_pre=60, n_post=40, uptrend=True)
         stats = simulate(bars, evaluate_baseline, min_bars=60)
-        assert stats.total_trades > 0, (
-            "Expected some trades from baseline on trending data"
-        )
+        assert stats.total_trades > 0, "Expected some trades from baseline on trending data"

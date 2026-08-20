@@ -16,7 +16,7 @@ try:
 except ImportError:
     pass
 
-import os
+import os  # noqa: I001
 import time
 import logging
 

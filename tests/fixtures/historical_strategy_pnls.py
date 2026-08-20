@@ -22,25 +22,13 @@ import numpy as np
 np.random.seed(42)
 
 
-def _synthesize_window(
-    total_pnl: float, trade_count: int, win_rate: float, pf: float
-) -> list[float]:
-    avg_win = (
-        pf * abs(total_pnl) / (win_rate * trade_count)
-        if win_rate > 0 and trade_count > 0
-        else 50.0
-    )
-    avg_loss = (
-        abs(total_pnl) / ((1 - win_rate) * trade_count)
-        if win_rate < 1 and trade_count > 0
-        else 30.0
-    )
+def _synthesize_window(total_pnl: float, trade_count: int, win_rate: float, pf: float) -> list[float]:
+    avg_win = pf * abs(total_pnl) / (win_rate * trade_count) if win_rate > 0 and trade_count > 0 else 50.0
+    avg_loss = abs(total_pnl) / ((1 - win_rate) * trade_count) if win_rate < 1 and trade_count > 0 else 30.0
     avg_win = max(avg_win, 5.0)
     avg_loss = max(avg_loss, 5.0)
     wins = np.random.exponential(avg_win * 0.7, size=int(win_rate * trade_count))
-    losses = -np.random.exponential(
-        avg_loss * 0.7, size=trade_count - int(win_rate * trade_count)
-    )
+    losses = -np.random.exponential(avg_loss * 0.7, size=trade_count - int(win_rate * trade_count))
     pnls = list(wins) + list(losses)
     np.random.shuffle(pnls)
     scale = total_pnl / sum(pnls) if sum(pnls) != 0 else 1.0

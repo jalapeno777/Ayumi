@@ -1,4 +1,4 @@
-import pytest
+import pytest  # noqa: I001
 from adapters.ctrader.models import (
     AccountInfo,
     MarketDataSnapshot,
@@ -117,7 +117,7 @@ class TestcTraderCredentials:
             port=5211,
             use_ssl=True,
             sender_comp_id="demo.ctrader.5795523",
-            password="secret",
+            password="secret",  # noqa: S106
         )
         assert creds.host == "demo-uk-eqx-01.p.c-trader.com"
         assert creds.port == 5211

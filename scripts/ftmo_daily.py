@@ -40,7 +40,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 sys.path.insert(0, str(ROOT / "src"))
 
-from reporting.equity_tracker import (  # noqa: E402
+from reporting.equity_tracker import (  # noqa: E402, I001
     DEFAULT_PROFIT_TARGET_PCT,
     check_profit_target,
     ProfitTargetResult,
@@ -242,9 +242,7 @@ def compute_ftmo_metrics(
     # 3% daily limit" is fractional of the *initial* account balance
     # in FTMO 1-Step).
     daily_loss_amt = max(0.0, daily_open - current)
-    daily_loss_pct_of_start = (
-        round(daily_loss_amt / starting, 4) if starting > 0 else 0.0
-    )
+    daily_loss_pct_of_start = round(daily_loss_amt / starting, 4) if starting > 0 else 0.0
 
     # Total drawdown (peak-anchored, expressed as % of peak).
     total_dd = 0.0
@@ -279,9 +277,7 @@ def compute_ftmo_metrics(
             per_day = total_pnl / day_count
         if per_day is None or per_day <= 0:
             per_day = 1000.0
-            notes.append(
-                "Day-pace estimate uses $1,000/day placeholder — no per-day history available."
-            )
+            notes.append("Day-pace estimate uses $1,000/day placeholder — no per-day history available.")
         remaining_dollars = profit_target.required_balance - current
         days_remaining_estimate = round(remaining_dollars / per_day, 1)
 
@@ -305,14 +301,10 @@ def compute_ftmo_metrics(
         daily_pnl=daily_pnl,
         daily_loss_pct_of_start=daily_loss_pct_of_start,
         daily_limit_pct=daily_limit_pct,
-        daily_limit_pct_used=round(daily_loss_pct_of_start / daily_limit_pct, 4)
-        if daily_limit_pct
-        else 0.0,
+        daily_limit_pct_used=round(daily_loss_pct_of_start / daily_limit_pct, 4) if daily_limit_pct else 0.0,
         total_dd_pct=total_dd_pct,
         total_limit_pct=total_limit_pct,
-        total_limit_pct_used=round(total_dd_pct / total_limit_pct, 4)
-        if total_limit_pct
-        else 0.0,
+        total_limit_pct_used=round(total_dd_pct / total_limit_pct, 4) if total_limit_pct else 0.0,
         best_day_profit=best_day,
         total_positive_profit=total_pos,
         best_day_ratio=best_ratio,
@@ -329,16 +321,10 @@ def compute_ftmo_metrics(
 
 def render_report(m: FTMOMetrics) -> str:
     pt = m.profit_target
-    pct_used_daily = (
-        m.daily_loss_pct_of_start / m.daily_limit_pct * 100 if m.daily_limit_pct else 0
-    )
-    pct_used_total = (
-        m.total_dd_pct / m.total_limit_pct * 100 if m.total_limit_pct else 0
-    )
+    pct_used_daily = m.daily_loss_pct_of_start / m.daily_limit_pct * 100 if m.daily_limit_pct else 0
+    pct_used_total = m.total_dd_pct / m.total_limit_pct * 100 if m.total_limit_pct else 0
     progress_pct = (
-        (m.current_balance - m.starting_balance)
-        / (m.starting_balance * FTMO_PROFIT_TARGET_PCT)
-        * 100
+        (m.current_balance - m.starting_balance) / (m.starting_balance * FTMO_PROFIT_TARGET_PCT) * 100
         if FTMO_PROFIT_TARGET_PCT
         else 0
     )
@@ -349,14 +335,10 @@ def render_report(m: FTMOMetrics) -> str:
     lines.append(f"**Status:** {m.breach_status}")
     if m.breach_status == "BREACH":
         lines.append("")
-        lines.append(
-            "> ⚠️ **BREACH**: One or more FTMO limits exceeded. New positions must be frozen."
-        )
+        lines.append("> ⚠️ **BREACH**: One or more FTMO limits exceeded. New positions must be frozen.")
     elif m.breach_status == "WARNING":
         lines.append("")
-        lines.append(
-            "> ⚠️ **WARNING**: Within 50% of one or more FTMO limits — review before next session."
-        )
+        lines.append("> ⚠️ **WARNING**: Within 50% of one or more FTMO limits — review before next session.")
     if pt.reached:
         lines.append("")
         lines.append("> 🎯 **Profit target reached.** New positions are frozen.")
@@ -377,15 +359,9 @@ def render_report(m: FTMOMetrics) -> str:
     daily_remaining = max(0.0, m.daily_limit_pct - m.daily_loss_pct_of_start)
     lines.append("| Metric | Value |")
     lines.append("|---|---|")
-    lines.append(
-        f"| Daily loss ($) | ${(m.daily_open_balance - m.current_balance):+,.2f} |"
-    )
-    lines.append(
-        f"| Daily loss (% of start) | {m.daily_loss_pct_of_start * 100:.2f}% |"
-    )
-    lines.append(
-        f"| Limit | {m.daily_limit_pct * 100:.2f}% (${m.starting_balance * m.daily_limit_pct:,.2f}) |"
-    )
+    lines.append(f"| Daily loss ($) | ${(m.daily_open_balance - m.current_balance):+,.2f} |")
+    lines.append(f"| Daily loss (% of start) | {m.daily_loss_pct_of_start * 100:.2f}% |")
+    lines.append(f"| Limit | {m.daily_limit_pct * 100:.2f}% (${m.starting_balance * m.daily_limit_pct:,.2f}) |")
     lines.append(f"| Used | {pct_used_daily:.1f}% of limit |")
     lines.append(
         f"| Remaining headroom | {daily_remaining * 100:.2f}% (${m.starting_balance * daily_remaining:,.2f}) |"
@@ -398,18 +374,14 @@ def render_report(m: FTMOMetrics) -> str:
     lines.append("|---|---|")
     lines.append(f"| DD (%) | {m.total_dd_pct * 100:.2f}% |")
     lines.append(f"| DD ($) | ${(m.peak_balance - m.current_balance):,.2f} |")
-    lines.append(
-        f"| Limit | {m.total_limit_pct * 100:.2f}% (${m.peak_balance * m.total_limit_pct:,.2f}) |"
-    )
+    lines.append(f"| Limit | {m.total_limit_pct * 100:.2f}% (${m.peak_balance * m.total_limit_pct:,.2f}) |")
     lines.append(f"| Used | {pct_used_total:.1f}% of limit |")
     lines.append("")
 
     lines.append("## Best-Day Ratio (FTMO 50% cap)")
     lines.append("")
     if m.best_day_ratio is None:
-        lines.append(
-            "- No positive-day history available yet (live snapshot stream not started)."
-        )
+        lines.append("- No positive-day history available yet (live snapshot stream not started).")
     else:
         ratio_pct = m.best_day_ratio * 100
         cap_pct = m.best_day_cap_pct * 100
@@ -429,9 +401,7 @@ def render_report(m: FTMOMetrics) -> str:
     target_dollars = m.starting_balance * FTMO_PROFIT_TARGET_PCT
     lines.append("| Metric | Value |")
     lines.append("|---|---|")
-    lines.append(
-        f"| Progress to target | ${progress_dollars:+,.2f} / ${target_dollars:,.2f} ({progress_pct:+.1f}%) |"
-    )
+    lines.append(f"| Progress to target | ${progress_dollars:+,.2f} / ${target_dollars:,.2f} ({progress_pct:+.1f}%) |")
     lines.append(f"| Required balance | ${pt.required_balance:,.2f} |")
     lines.append(f"| Reached | **{pt.reached}** |")
     if m.days_remaining_estimate is not None:
@@ -439,9 +409,7 @@ def render_report(m: FTMOMetrics) -> str:
     elif pt.reached:
         lines.append("| Pace-based days remaining | 0 (target reached) |")
     else:
-        lines.append(
-            "| Pace-based days remaining | n/a (currently at or below starting balance) |"
-        )
+        lines.append("| Pace-based days remaining | n/a (currently at or below starting balance) |")
     lines.append("")
 
     if m.notes:

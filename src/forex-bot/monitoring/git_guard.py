@@ -54,13 +54,11 @@ def git_log_recent_changes(
     if days < 0:
         raise ValueError("days must be non-negative")
 
-    root = (
-        Path(repo_root).resolve() if repo_root is not None else _default_project_root()
-    )
+    root = Path(repo_root).resolve() if repo_root is not None else _default_project_root()
     pathspec = _normalize_path(path, root)
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-    proc = subprocess.run(
-        [
+    proc = subprocess.run(  # noqa: S603
+        [  # noqa: S607
             "git",
             "-C",
             str(root),

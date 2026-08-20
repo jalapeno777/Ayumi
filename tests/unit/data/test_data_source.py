@@ -46,14 +46,14 @@ def _seed_db(db_path: Path) -> None:
 
 class TestResolveDbPath(unittest.TestCase):
     def test_explicit_path_takes_priority(self):
-        result = _resolve_db_path("/tmp/custom.db")
-        self.assertEqual(result, Path("/tmp/custom.db"))
+        result = _resolve_db_path("/tmp/custom.db")  # noqa: S108
+        self.assertEqual(result, Path("/tmp/custom.db"))  # noqa: S108
 
     def test_env_var_fallback(self):
-        os.environ["FOREX_DB_PATH"] = "/tmp/from_env.db"
+        os.environ["FOREX_DB_PATH"] = "/tmp/from_env.db"  # noqa: S108
         try:
             result = _resolve_db_path()
-            self.assertEqual(result, Path("/tmp/from_env.db"))
+            self.assertEqual(result, Path("/tmp/from_env.db"))  # noqa: S108
         finally:
             del os.environ["FOREX_DB_PATH"]
 
@@ -105,9 +105,7 @@ class TestSQLiteCandleLoaderLoadCandles(unittest.TestCase):
         self.assertTrue((df["timestamp"] <= 1704068100).all())
 
     def test_load_with_both_ts_filters(self):
-        df = self.loader.load_candles(
-            "EURUSD", "M15", start_ts=1704068100, end_ts=1704068100
-        )
+        df = self.loader.load_candles("EURUSD", "M15", start_ts=1704068100, end_ts=1704068100)
         self.assertEqual(len(df), 1)
         self.assertEqual(df.iloc[0]["timestamp"], 1704068100)
 

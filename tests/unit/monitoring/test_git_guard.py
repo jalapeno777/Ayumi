@@ -13,8 +13,8 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env.setdefault("GIT_AUTHOR_EMAIL", "test@example.com")
     env.setdefault("GIT_COMMITTER_NAME", "Test Author")
     env.setdefault("GIT_COMMITTER_EMAIL", "test@example.com")
-    return subprocess.run(
-        ["git", "-C", str(repo), *args],
+    return subprocess.run(  # noqa: S603
+        ["git", "-C", str(repo), *args],  # noqa: S607
         check=True,
         text=True,
         capture_output=True,
@@ -24,8 +24,11 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 def _init_repo(repo: Path) -> None:
     repo.mkdir()
-    subprocess.run(
-        ["git", "init", str(repo)], check=True, capture_output=True, text=True
+    subprocess.run(  # noqa: S603
+        ["git", "init", str(repo)],  # noqa: S607
+        check=True,
+        capture_output=True,
+        text=True,  # noqa: S607
     )
     _git(repo, "config", "user.name", "Test Author")
     _git(repo, "config", "user.email", "test@example.com")

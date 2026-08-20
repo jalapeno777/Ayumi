@@ -25,7 +25,7 @@ These tests lock the contract:
 5. AST check: no caller constructs an id like X + "_" + str(timestamp)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import ast
 import re
@@ -35,9 +35,7 @@ from pathlib import Path
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
 LAUNCHER = WORKSPACE / "scripts" / "launch_blend_forward_test.py"
-ENGINE = (
-    WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
-)
+ENGINE = WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +57,7 @@ def test_blend_runner_has_make_signal_id_method():
 def test_blend_runner_make_signal_id_uses_strategy_id_and_timestamp():
     """make_signal_id must produce 'strategy_id' + '_' + str(timestamp)."""
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
-    from forward_test.blend_runner import BlendForwardTestRunner
+    from forward_test.blend_runner import BlendForwardTestRunner  # noqa: I001
     from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from datetime import datetime, timezone
 
@@ -92,9 +90,7 @@ def test_blend_runner_on_signal_uses_make_signal_id():
     """The on_signal() registration MUST use make_signal_id() — otherwise
     the helper and the actual registration can drift.
     """
-    src = (
-        WORKSPACE / "src" / "forex-bot" / "forward_test" / "blend_runner.py"
-    ).read_text()
+    src = (WORKSPACE / "src" / "forex-bot" / "forward_test" / "blend_runner.py").read_text()
     # Find the on_signal function body
     tree = ast.parse(src)
     on_signal_node = None
@@ -108,9 +104,7 @@ def test_blend_runner_on_signal_uses_make_signal_id():
     calls = [
         n
         for n in ast.walk(on_signal_node)
-        if isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Attribute)
-        and n.func.attr == "make_signal_id"
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "make_signal_id"
     ]
     assert calls, (
         "on_signal() must call self.make_signal_id() to build the signal_id "
@@ -143,9 +137,7 @@ def test_launcher_does_not_construct_signal_id_locally():
     calls = [
         n
         for n in ast.walk(helper_node)
-        if isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Attribute)
-        and n.func.attr == "make_signal_id"
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "make_signal_id"
     ]
     assert calls, (
         "Launcher._blend_signal_id() must delegate to blend_runner.make_signal_id(). "
@@ -175,8 +167,7 @@ def test_engine_does_not_construct_signal_id_locally():
         if bad_pattern.search(line):
             matches.append((i, line.strip()))
     assert not matches, (
-        f"Engine should NOT construct signal_id locally.  Use "
-        f"blend_runner.make_signal_id(signal) instead: {matches!r}"
+        f"Engine should NOT construct signal_id locally.  Use blend_runner.make_signal_id(signal) instead: {matches!r}"
     )
 
 
@@ -190,9 +181,5 @@ def test_launcher_and_engine_both_reference_make_signal_id():
     """Both files should reference the canonical helper at least once."""
     launcher_src = LAUNCHER.read_text()
     engine_src = ENGINE.read_text()
-    assert "make_signal_id" in launcher_src, (
-        "Launcher must reference make_signal_id (delegation)."
-    )
-    assert "make_signal_id" in engine_src, (
-        "Engine must reference make_signal_id (delegation)."
-    )
+    assert "make_signal_id" in launcher_src, "Launcher must reference make_signal_id (delegation)."
+    assert "make_signal_id" in engine_src, "Engine must reference make_signal_id (delegation)."

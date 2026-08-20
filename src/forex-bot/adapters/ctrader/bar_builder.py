@@ -115,9 +115,7 @@ class BarBuilder:
         with self._lock:
             return list(self._bars.get(key, []))
 
-    def get_bars_including_forming(
-        self, symbol: str, period_minutes: int
-    ) -> list[dict]:
+    def get_bars_including_forming(self, symbol: str, period_minutes: int) -> list[dict]:
         """Get bars including the current forming bar as last element."""
         key = self._bar_key(symbol, period_minutes)
         with self._lock:

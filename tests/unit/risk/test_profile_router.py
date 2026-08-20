@@ -1,6 +1,6 @@
 """Tests for Profile Router."""
 
-import pytest
+import pytest  # noqa: I001
 
 from risk.profile_router import ProfileRouter, Profile
 

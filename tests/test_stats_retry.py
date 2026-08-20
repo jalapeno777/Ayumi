@@ -10,7 +10,7 @@ These tests use mocks to simulate the SignalStatsRecorder behaviour and
 verify retry/degradation logic without requiring a live cTrader connection.
 """
 
-import json
+import json  # noqa: I001
 import os
 import sys
 import time
@@ -47,7 +47,7 @@ def _make_engine_skeleton():
 class FakeStatsRecorder:
     """Mock SignalStatsRecorder with configurable failure behaviour."""
 
-    def __init__(self, fail_times=0, exc=RuntimeError("mock stats failure")):
+    def __init__(self, fail_times=0, exc=RuntimeError("mock stats failure")):  # noqa: B008
         """Initialise.
 
         Args:

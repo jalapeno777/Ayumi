@@ -8,7 +8,7 @@ Tests that ConnectionManager.authenticate_with_retry() correctly:
 - Gives up after max retries exhausted
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # noqa: I001
 
 import pytest
 

@@ -56,9 +56,7 @@ class TestCointegrationEngine(unittest.TestCase):
         engine = CointegrationEngine(lookback=60)
         prices_a = np.array([3.0, 5.0, 7.0], dtype=float)
         prices_b = np.array([1.0, 2.0, 3.0], dtype=float)
-        spread = engine.compute_spread(
-            prices_a, prices_b, hedge_ratio=2.0, constant=1.0
-        )
+        spread = engine.compute_spread(prices_a, prices_b, hedge_ratio=2.0, constant=1.0)
         expected = prices_a - 2.0 * prices_b - 1.0
         np.testing.assert_array_almost_equal(spread, expected)
 
@@ -118,9 +116,7 @@ class TestCointegrationEngine(unittest.TestCase):
             pb = prices_b[: i + 1]
             result = engine.engle_granger_test(pa, pb)
             if result.is_cointegrated:
-                stats = engine.compute_z_score(
-                    pa, pb, result.hedge_ratio, result.constant
-                )
+                stats = engine.compute_z_score(pa, pb, result.hedge_ratio, result.constant)
                 z_scores.append(stats.z_score)
 
         if len(z_scores) > 10:
@@ -312,12 +308,8 @@ class TestPairsSignalGenerator(unittest.TestCase):
         gen2 = PairsSignalGenerator(lookback=60)
         coint_signal_count = 0
         for i in range(60, len(cointegrated_a)):
-            if gen2.update_cointegration(
-                cointegrated_a[: i + 1], cointegrated_b[: i + 1]
-            ):
-                signal, _ = gen2.generate_signal(
-                    cointegrated_a[: i + 1], cointegrated_b[: i + 1]
-                )
+            if gen2.update_cointegration(cointegrated_a[: i + 1], cointegrated_b[: i + 1]):
+                signal, _ = gen2.generate_signal(cointegrated_a[: i + 1], cointegrated_b[: i + 1])
                 if signal and signal.startswith("entry"):
                     coint_signal_count += 1
         self.assertLessEqual(

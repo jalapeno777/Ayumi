@@ -13,7 +13,7 @@ Covers:
   ``decay_alert`` flag triggering on sub-threshold 30-day ICIR.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 from datetime import datetime, timedelta
@@ -205,14 +205,8 @@ class TestIcir:
         """Boundaries: n=CONF_MEDIUM_MIN_N is medium; n=CONF_HIGH_MIN_N is high."""
         n_medium_min = CONF_MEDIUM_MIN_N
         n_high_min = CONF_HIGH_MIN_N
-        assert (
-            icir(_build_window_series(0.05, n_windows=n_medium_min))["confidence"]
-            == "medium"
-        )
-        assert (
-            icir(_build_window_series(0.05, n_windows=n_high_min))["confidence"]
-            == "high"
-        )
+        assert icir(_build_window_series(0.05, n_windows=n_medium_min))["confidence"] == "medium"
+        assert icir(_build_window_series(0.05, n_windows=n_high_min))["confidence"] == "high"
 
     def test_nan_entries_excluded_from_mean_std(self):
         """NaN entries in the input do not poison mean / std."""
@@ -445,7 +439,7 @@ class TestIcirMonitor:
                 0.9 + rng.uniform(-0.4, 0.4),
                 1.6 + rng.uniform(-0.4, 0.4),
             ]
-            for hour_offset, (c, r) in enumerate(zip(confs, per_day_rs)):
+            for hour_offset, (c, r) in enumerate(zip(confs, per_day_rs)):  # noqa: B905
                 ts = base.replace(hour=10 + hour_offset)
                 monitor.update(c, r, ts)
 
@@ -478,7 +472,7 @@ class TestIcirMonitor:
             n_today = 5
             confs = rng.uniform(0.2, 0.9, n_today)
             rs = rng.normal(0.0, 1.0, n_today)
-            for i, (c, r) in enumerate(zip(confs, rs)):
+            for i, (c, r) in enumerate(zip(confs, rs)):  # noqa: B905
                 monitor.update(float(c), float(r), base.replace(hour=10 + i))
 
         status = monitor.get_status()
@@ -529,9 +523,7 @@ class TestIcirMonitor:
 
     def test_decay_alert_does_not_fire_with_insufficient_data(self):
         """decay_alert stays False until 30d window has enough IC observations."""
-        monitor = IcirMonitor(
-            decay_threshold=0.5, now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0))
-        )
+        monitor = IcirMonitor(decay_threshold=0.5, now_provider=_FixedNow(datetime(2026, 7, 8, 12, 0)))
         anchor = datetime(2026, 7, 8, 12, 0)
         # Only 5 days of trades (not enough IC buckets for ICIR).
         for day_offset in range(5):
@@ -568,7 +560,7 @@ class TestIcirMonitor:
                 0.45 + rng.normal(0, 0.15),
                 1.10 + rng.normal(0, 0.15),
             ]
-            for hour_offset, (c, r) in enumerate(zip(confs, per_day_rs)):
+            for hour_offset, (c, r) in enumerate(zip(confs, per_day_rs)):  # noqa: B905
                 monitor.update(c, r, base.replace(hour=10 + hour_offset))
 
         status = monitor.get_status()

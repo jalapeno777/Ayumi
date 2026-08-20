@@ -178,9 +178,7 @@ class SignalValidator:
                 reason="Take profit equals entry price (zero reward)",
             )
         sl_tp = risk / reward
-        if sl_tp > self.config.max_sl_tp_ratio and not math.isclose(
-            sl_tp, self.config.max_sl_tp_ratio
-        ):
+        if sl_tp > self.config.max_sl_tp_ratio and not math.isclose(sl_tp, self.config.max_sl_tp_ratio):
             return ValidationResult(
                 passed=False,
                 signal=signal,

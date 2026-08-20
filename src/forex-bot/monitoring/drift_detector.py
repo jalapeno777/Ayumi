@@ -16,7 +16,7 @@ the OpenClaw workboard sqlite (read-only) or from this repo's
 ``workboard_create`` against the live board (the watcher cron wraps that).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import os
@@ -39,9 +39,7 @@ PHASE_ESCALATE_DAYS = 5  # KH-004 — escalate to Craig
 
 # Workboard sqlite location (read-only). The OpenClaw gateway owns this file;
 # we never write to it from this module.
-DEFAULT_WORKBOARD_DB = os.path.expanduser(
-    "~/.openclaw/plugins/workboard/workboard.sqlite"
-)
+DEFAULT_WORKBOARD_DB = os.path.expanduser("~/.openclaw/plugins/workboard/workboard.sqlite")
 
 DEFAULT_STATE_FILE = Path("data/state/active_quest.json")
 DEFAULT_OPS_DIR = Path("data/ops")
@@ -119,9 +117,7 @@ def _open_workboard(db_path: str = DEFAULT_WORKBOARD_DB) -> sqlite3.Connection:
     """Open the workboard DB read-only via uri mode so a lock contention
     with the gateway can't corrupt our connection."""
     if not os.path.exists(db_path):
-        raise FileNotFoundError(
-            f"workboard sqlite not found at {db_path!r} — is the gateway running?"
-        )
+        raise FileNotFoundError(f"workboard sqlite not found at {db_path!r} — is the gateway running?")
     uri = f"file:{db_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
@@ -152,7 +148,7 @@ def _fetch_active_cards(
              WHERE status IN ({placeholders})
                AND archived_at IS NULL
              ORDER BY updated_at ASC
-            """,
+            """,  # noqa: S608
             statuses,
         )
         cards = cur.fetchall()
@@ -167,7 +163,7 @@ def _fetch_active_cards(
               FROM workboard_card_labels
              WHERE card_id IN ({id_placeholders})
              ORDER BY card_id, ordinal
-            """,
+            """,  # noqa: S608
             ids,
         )
         label_rows = cur.fetchall()
@@ -199,13 +195,9 @@ def _fetch_active_cards(
 # ── Quest plan parsing ──────────────────────────────────────────────────────
 
 # Matches a section header like "### Phase 6: Daily Audit + North-Star Tracking"
-_PHASE_HEADER_RE = re.compile(
-    r"^#{2,4}\s*Phase\s+(\d+[A-Za-z]?)\s*[:\-–]\s*(.+?)\s*$", re.IGNORECASE
-)
+_PHASE_HEADER_RE = re.compile(r"^#{2,4}\s*Phase\s+(\d+[A-Za-z]?)\s*[:\-–]\s*(.+?)\s*$", re.IGNORECASE)
 # Matches an audit trail line: "- 2026-07-08T..." or "- 2026-07-08 …"
-_AUDIT_LINE_RE = re.compile(
-    r"^\s*-\s*(?P<ts>\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?)"
-)
+_AUDIT_LINE_RE = re.compile(r"^\s*-\s*(?P<ts>\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?)")
 
 
 def _parse_phases(plan_path: Path) -> list[dict[str, Any]]:

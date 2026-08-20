@@ -166,9 +166,7 @@ def neighbor_robustness(
         if len(neighbor_dists) > 2 and np.std(perf_diffs) > 0:
             r, _ = spearmanr(neighbor_dists, perf_diffs)
             if r is not None and math.isfinite(r):
-                correlations.append(
-                    -r
-                )  # negative because close distance should = small diff
+                correlations.append(-r)  # negative because close distance should = small diff
 
     if not correlations:
         return 0.0
@@ -206,10 +204,7 @@ def cross_window_rank_correlation(
     correlations = []
     for i in range(len(window_perf_vectors)):
         for j in range(i + 1, len(window_perf_vectors)):
-            if (
-                np.std(window_perf_vectors[i]) > 0
-                and np.std(window_perf_vectors[j]) > 0
-            ):
+            if np.std(window_perf_vectors[i]) > 0 and np.std(window_perf_vectors[j]) > 0:
                 r, _ = spearmanr(window_perf_vectors[i], window_perf_vectors[j])
                 if r is not None and math.isfinite(r):
                     correlations.append(r)
@@ -310,9 +305,7 @@ def perturbation_stability_score(
                     1 + frac,
                 )
 
-        per_param[pname] = (
-            retained_for_param / evaluated_for_param if evaluated_for_param > 0 else 0.0
-        )
+        per_param[pname] = retained_for_param / evaluated_for_param if evaluated_for_param > 0 else 0.0
 
     score = total_retained / total_evaluated if total_evaluated > 0 else 0.0
     is_spike = score < spike_threshold
@@ -471,12 +464,10 @@ def _self_test() -> None:
         return 3.0 * math.exp(-(dt**2 + dp**2))
 
     overfit_result = perturbation_stability_score(overfit_eval, overfit_best)
-    assert overfit_result.is_overfit_spike, (
+    assert overfit_result.is_overfit_spike, (  # noqa: S101
         f"Overfit config should be flagged as spike, got score={overfit_result.stability_score:.3f}"
     )
-    print(
-        f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}"
-    )
+    print(f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}")
 
     # ── Synthetic stable config: broad plateau ───────────────────────
     # Performance stays high across ±20% perturbations.
@@ -491,14 +482,14 @@ def _self_test() -> None:
         return 2.0 * math.exp(-(dt**2 + dp**2) * 0.5)
 
     stable_result = perturbation_stability_score(stable_eval, stable_best)
-    assert not stable_result.is_overfit_spike, (
+    assert not stable_result.is_overfit_spike, (  # noqa: S101
         f"Stable config should NOT be flagged as spike, got score={stable_result.stability_score:.3f}"
     )
     print(f"  [PASS] Stable config passes: score={stable_result.stability_score:.3f}")
 
     # ── Per-parameter breakdown ──────────────────────────────────────
     for name, ratio in stable_result.per_param.items():
-        assert ratio >= 0.5, (
+        assert ratio >= 0.5, (  # noqa: S101
             f"Stable param '{name}' retention {ratio:.0%} should be ≥50%"
         )
     print(f"  [PASS] Per-param breakdown: {stable_result.per_param}")

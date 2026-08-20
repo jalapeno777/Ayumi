@@ -22,7 +22,7 @@ import pandas as pd
 # Project root: backtest_with_ml.py -> ml/ -> forex-bot/ -> src/ -> project_root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-from backtest.engine import (
+from backtest.engine import (  # noqa: I001
     BacktestConfig,
     Bar,
     SimulatedTrade,
@@ -181,9 +181,7 @@ def train_learners(
         records = [r for r in records if r is not None]
 
         if len(records) < 20:
-            print(
-                f"  {pair}: SKIP — only {len(records)} trades with rationale (need 20+)"
-            )
+            print(f"  {pair}: SKIP — only {len(records)} trades with rationale (need 20+)")
             continue
 
         # Extract features
@@ -313,7 +311,7 @@ def print_comparison(baseline: dict, ml_result: dict, pair: str):
     print(f"  {'Profit Factor':<25} {'N/A':>12} {mpf:>12.2f} {'N/A':>12}")
 
     print(
-        f"\n  ML filter stats: boosted={ms['boosted']}, penalized={ms['penalized']}, skipped={ms['skipped']}, passed={ms['passed']}"
+        f"\n  ML filter stats: boosted={ms['boosted']}, penalized={ms['penalized']}, skipped={ms['skipped']}, passed={ms['passed']}"  # noqa: E501
     )
 
 
@@ -346,9 +344,7 @@ def main():
             losses = sum(1 for t in trades if t.outcome == TradeOutcome.LOSS)
             total_pnl = sum(t.profit_loss for t in trades)
             wr = wins / len(trades) * 100 if trades else 0
-            print(
-                f"    Trades: {len(trades)} | W: {wins} L: {losses} | WR: {wr:.1f}% | P&L: ${total_pnl:.2f}"
-            )
+            print(f"    Trades: {len(trades)} | W: {wins} L: {losses} | WR: {wr:.1f}% | P&L: ${total_pnl:.2f}")
         except FileNotFoundError as e:
             print(f"    SKIP: {e}")
         except Exception as e:
@@ -453,9 +449,7 @@ def main():
         )
 
     # Save report
-    report_path = (
-        PROJECT_ROOT / "reports" / "ml_confidence" / f"ml_{TIMEFRAME}_{timestamp}.json"
-    )
+    report_path = PROJECT_ROOT / "reports" / "ml_confidence" / f"ml_{TIMEFRAME}_{timestamp}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2, default=str)
@@ -466,7 +460,7 @@ def main():
     print("  SUMMARY")
     print(f"{'═' * 70}")
     print(
-        f"  {'Pair':<10} {'Base P&L':>12} {'ML P&L':>12} {'Delta':>12} {'Base WR':>10} {'ML WR':>10} {'Δ WR':>8} {'Status':<8}"
+        f"  {'Pair':<10} {'Base P&L':>12} {'ML P&L':>12} {'Delta':>12} {'Base WR':>10} {'ML WR':>10} {'Δ WR':>8} {'Status':<8}"  # noqa: E501
     )
     print(f"  {'─' * 85}")
 

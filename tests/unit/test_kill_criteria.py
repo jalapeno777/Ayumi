@@ -7,7 +7,7 @@ the any_triggered helper, the evidence-string contract, and the
 midnight wrap-around semantics for the session window.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -439,9 +439,7 @@ class TestAnyTriggeredHelper:
     def test_any_triggered_helper(self):
         """Mix of pass/fail → True (at least one triggered)."""
         results = [
-            KillCriterion(
-                name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"
-            ),
+            KillCriterion(name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"),
             KillCriterion(
                 name="adx_range",
                 triggered=True,
@@ -462,9 +460,7 @@ class TestAnyTriggeredHelper:
     def test_any_triggered_all_pass_returns_false(self):
         """All criteria pass → False."""
         results = [
-            KillCriterion(
-                name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"
-            ),
+            KillCriterion(name="spread", triggered=False, value=1.0, threshold=2.0, evidence="ok"),
             KillCriterion(
                 name="macro_event_buffer",
                 triggered=False,
@@ -489,9 +485,7 @@ class TestAnyTriggeredHelper:
     def test_any_triggered_single_triggered(self):
         """Single triggered criterion in a list of one → True."""
         results = [
-            KillCriterion(
-                name="spread", triggered=True, value=5.0, threshold=2.0, evidence="wide"
-            ),
+            KillCriterion(name="spread", triggered=True, value=5.0, threshold=2.0, evidence="wide"),
         ]
         assert KillCriteriaChecker.any_triggered(results) is True
 

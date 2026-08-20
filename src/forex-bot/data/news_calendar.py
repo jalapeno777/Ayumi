@@ -215,8 +215,7 @@ class NewsCalendarFilter:
             # No data — follow permissive policy
             if not self.permissive_on_failure:
                 logger.warning(
-                    "News blackout filter has no calendar data "
-                    "and permissive_on_failure=False — blocking entry."
+                    "News blackout filter has no calendar data and permissive_on_failure=False — blocking entry."
                 )
                 return True
             return False
@@ -383,11 +382,11 @@ class NewsCalendarFilter:
             return False
 
         try:
-            req = urllib.request.Request(
+            req = urllib.request.Request(  # noqa: S310
                 self.calendar_url,
                 headers={"User-Agent": "Ayumi/1.0 NewsCalendarFilter"},
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
                 data = resp.read()
 
             # Validate it's JSON before saving
@@ -438,11 +437,7 @@ class NewsCalendarFilter:
                     continue
 
                 # Combine date + time; handle "All Day" or missing time
-                ts_str = (
-                    f"{date_str}T{time_str}:00"
-                    if time_str and ":" in time_str
-                    else f"{date_str}T00:00:00"
-                )
+                ts_str = f"{date_str}T{time_str}:00" if time_str and ":" in time_str else f"{date_str}T00:00:00"
                 # ForexFactory times are US/Eastern; we store as naive then
                 # treat them as UTC for simplicity (the 5-min window is
                 # generous enough to absorb timezone offsets).

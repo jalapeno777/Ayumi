@@ -218,9 +218,7 @@ def get_strategy_factories() -> dict[str, Callable]:
             if _is_zero_arg_constructible(reg.strategy_class):
                 factories[name] = _make_zero_arg_factory(reg.strategy_class)
             else:
-                logger.warning(
-                    "Skipping strategy '%s' — not zero-arg constructible", name
-                )
+                logger.warning("Skipping strategy '%s' — not zero-arg constructible", name)
 
     # Tier 2: auto-discovery for strategies not using decorators
     auto = _auto_discover_strategy_classes("strategies")

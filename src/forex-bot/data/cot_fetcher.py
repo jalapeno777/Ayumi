@@ -95,9 +95,7 @@ class COTPositioning:
 
     def __post_init__(self) -> None:
         self.net_position = self.non_comm_long - self.non_comm_short
-        self.total_open_interest = (
-            self.non_comm_long + self.non_comm_short + self.comm_long + self.comm_short
-        )
+        self.total_open_interest = self.non_comm_long + self.non_comm_short + self.comm_long + self.comm_short
 
     @property
     def net_ratio(self) -> float:
@@ -219,15 +217,11 @@ class COTFetcher:
 
         recent = matching[: min(lookback_weeks, len(matching))]
         current = recent[0]
-        prior_avg_net = sum(r.net_position for r in recent[1:]) / max(
-            len(recent) - 1, 1
-        )
+        prior_avg_net = sum(r.net_position for r in recent[1:]) / max(len(recent) - 1, 1)
 
         # For USD-quoted pairs where the CFTC reports the non-USD currency:
         # JPY long = USDJPY short, so invert the signal
-        invert = pair.upper().startswith("USD") and pair.upper().endswith(
-            ("JPY", "CHF", "CAD")
-        )
+        invert = pair.upper().startswith("USD") and pair.upper().endswith(("JPY", "CHF", "CAD"))
         raw_net = current.net_position * (-1 if invert else 1)
 
         # Prior average on same (possibly inverted) basis as raw_net
@@ -251,11 +245,7 @@ class COTFetcher:
         confidence_adjustment = max(-0.05, min(0.05, normalised_shift * 0.1))
 
         # Detect regime change (on same basis as bias)
-        prior_bias = (
-            "long"
-            if prior_inverted > 0
-            else ("short" if prior_inverted < 0 else "neutral")
-        )
+        prior_bias = "long" if prior_inverted > 0 else ("short" if prior_inverted < 0 else "neutral")
         regime_change = bias != prior_bias and bias != "neutral"
 
         rationale_parts = [f"Current net: {current.net_position:,.0f}"]
@@ -371,8 +361,8 @@ class COTFetcher:
 
     def _http_get(self, url: str) -> bytes:
         """Download content from URL."""
-        req = Request(url, headers={"User-Agent": USER_AGENT})
-        with urlopen(req, timeout=self._timeout) as resp:
+        req = Request(url, headers={"User-Agent": USER_AGENT})  # noqa: S310
+        with urlopen(req, timeout=self._timeout) as resp:  # noqa: S310
             return resp.read()
 
     @staticmethod
@@ -461,9 +451,7 @@ class COTFetcher:
         )
 
     @staticmethod
-    def _parse_disaggregated_row(
-        row: list[str], market_name: str
-    ) -> Optional[COTPositioning]:
+    def _parse_disaggregated_row(row: list[str], market_name: str) -> Optional[COTPositioning]:
         """Parse a Disaggregated format row.
 
         Columns differ from Legacy:

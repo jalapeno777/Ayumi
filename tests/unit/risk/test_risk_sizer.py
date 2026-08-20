@@ -1,6 +1,6 @@
 """Tests for risk_sizer: ConfidencePositionSizer, tier mapping, lot sizing."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 

@@ -4,7 +4,7 @@ import pytest
 
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
-import tempfile
+import tempfile  # noqa: I001
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -68,9 +68,7 @@ class TestMissingSymbols:
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             bf._data_dir.mkdir(parents=True, exist_ok=True)
-            (bf._data_dir / "EURUSD_H1.csv").write_text(
-                "Date,Open,High,Low,Close,Volume\n"
-            )
+            (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
 
             discovered = {
                 1: SymbolInfo(symbol_id=1, name="EUR/USD"),
@@ -84,9 +82,7 @@ class TestMissingSymbols:
         with tempfile.TemporaryDirectory() as tmpdir:
             bf = _make_backfill(tmpdir)
             bf._data_dir.mkdir(parents=True, exist_ok=True)
-            (bf._data_dir / "EURUSD_H1.csv").write_text(
-                "Date,Open,High,Low,Close,Volume\n"
-            )
+            (bf._data_dir / "EURUSD_H1.csv").write_text("Date,Open,High,Low,Close,Volume\n")
 
             discovered = {
                 1: SymbolInfo(symbol_id=1, name="EUR/USD"),
@@ -134,7 +130,7 @@ class TestMultipleBackfill:
 
             results = bf.backfill_multiple(["EUR/USD", "GBP/USD"], "H1")
             assert len(results) == 2
-            for sym, path in results.items():
+            for sym, path in results.items():  # noqa: B007
                 assert Path(path).exists()
 
 

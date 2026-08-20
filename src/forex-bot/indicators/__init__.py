@@ -45,7 +45,7 @@ def atr(
     period: int = 14,
 ) -> pd.Series:
     h = _to_series(highs)
-    l = _to_series(lows)
+    l = _to_series(lows)  # noqa: E741
     c = _to_series(closes)
     prev_close = c.shift(1)
     tr = pd.concat(
@@ -62,7 +62,7 @@ def adx(
     period: int = 14,
 ) -> pd.Series:
     h = _to_series(highs)
-    l = _to_series(lows)
+    l = _to_series(lows)  # noqa: E741
     c = _to_series(closes)
     n = len(c)
 
@@ -93,12 +93,8 @@ def adx(
     dx_values: list[float] = []
     for i in range(period, len(tr_list)):
         smoothed_tr = smoothed_tr - smoothed_tr / period + tr_list[i]
-        smoothed_plus_dm = (
-            smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
-        )
-        smoothed_minus_dm = (
-            smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
-        )
+        smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / period + plus_dm_list[i]
+        smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / period + minus_dm_list[i]
 
         if smoothed_tr == 0:
             dx_values.append(0.0)
@@ -158,7 +154,7 @@ def stochastic(
     d_period: int = 3,
 ) -> tuple[pd.Series, pd.Series]:
     h = _to_series(highs)
-    l = _to_series(lows)
+    l = _to_series(lows)  # noqa: E741
     c = _to_series(closes)
     lowest_low = l.rolling(window=k_period, min_periods=k_period).min()
     highest_high = h.rolling(window=k_period, min_periods=k_period).max()

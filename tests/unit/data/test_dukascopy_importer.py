@@ -26,7 +26,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT / "src" / "forex-bot"))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
-from data.dukascopy_importer import (  # type: ignore  # noqa: E402
+from data.dukascopy_importer import (  # type: ignore  # noqa: E402, I001
     DEFAULT_MAX_RETRIES,
     DEFAULT_RATE_LIMIT_RPS,
     DEFAULT_RETRY_BACKOFF,
@@ -80,7 +80,7 @@ class TestTickDataclass(unittest.TestCase):
         self.assertEqual(t.ask, 1.0852)
         self.assertEqual(t.bid_vol, 1.5)
         self.assertEqual(t.ask_vol, 2.0)
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             t.bid = 9.999  # type: ignore[misc]
 
     def test_equality_by_value(self):
@@ -103,13 +103,9 @@ class TestIsWeekend(unittest.TestCase):
 
 class TestUrlConstruction(unittest.TestCase):
     def test_hour_url_format(self):
-        importer = DukascopyImporter(
-            output_dir=None, base_url="https://example.test/datafeed"
-        )
+        importer = DukascopyImporter(output_dir=None, base_url="https://example.test/datafeed")
         url = importer._hour_url("EURUSD", date(2024, 6, 3), 12)
-        self.assertEqual(
-            url, "https://example.test/datafeed/EURUSD/2024/06/03/12h_ticks.bi5"
-        )
+        self.assertEqual(url, "https://example.test/datafeed/EURUSD/2024/06/03/12h_ticks.bi5")
 
     def test_hour_url_pads_month_day_hour(self):
         importer = DukascopyImporter(output_dir=None, base_url="https://x.test/d")
@@ -160,9 +156,7 @@ class TestParseBi5(unittest.TestCase):
 
     def test_handles_empty_blob(self):
         # An empty file (no records) is represented as an LZMA-compressed empty payload.
-        ticks = DukascopyImporter.parse_bi5(
-            lzma.compress(b""), "EURUSD", _HOUR_START_EPOCH
-        )
+        ticks = DukascopyImporter.parse_bi5(lzma.compress(b""), "EURUSD", _HOUR_START_EPOCH)
         self.assertEqual(ticks, [])
 
     def test_handles_raw_empty_bytes(self):
@@ -171,9 +165,7 @@ class TestParseBi5(unittest.TestCase):
 
     def test_returns_empty_on_lzma_error(self):
         # Garbage that is not valid LZMA
-        ticks = DukascopyImporter.parse_bi5(
-            b"not a real xz stream", "EURUSD", _HOUR_START_EPOCH
-        )
+        ticks = DukascopyImporter.parse_bi5(b"not a real xz stream", "EURUSD", _HOUR_START_EPOCH)
         self.assertEqual(ticks, [])
 
     def test_xau_uses_larger_scaling(self):
@@ -204,9 +196,7 @@ class TestFetchBytes(unittest.TestCase):
 
     def test_returns_bytes_on_success(self):
         importer = self._make_importer()
-        with mock.patch.object(
-            importer, "_fetch_bytes", wraps=importer._fetch_bytes
-        ) as _:
+        with mock.patch.object(importer, "_fetch_bytes", wraps=importer._fetch_bytes) as _:
             pass  # not used; see real mock below
 
         fake_resp = mock.MagicMock()
@@ -238,9 +228,7 @@ class TestFetchBytes(unittest.TestCase):
 def urllib_error_404():
     import urllib.error
 
-    return urllib.error.HTTPError(
-        url="https://example.test/x", code=404, msg="Not Found", hdrs={}, fp=None
-    )
+    return urllib.error.HTTPError(url="https://example.test/x", code=404, msg="Not Found", hdrs={}, fp=None)
 
 
 class TestFetchHourTicks(unittest.TestCase):
@@ -338,9 +326,7 @@ class TestWriteCsv(unittest.TestCase):
             self.assertEqual(outpath.name, "EURUSD_20240603.csv")
             with open(outpath, newline="") as fh:
                 rows = list(csv.reader(fh))
-        self.assertEqual(
-            rows[0], ["timestamp", "instrument", "bid", "ask", "bidVol", "askVol"]
-        )
+        self.assertEqual(rows[0], ["timestamp", "instrument", "bid", "ask", "bidVol", "askVol"])
         self.assertEqual(len(rows), 3)
         self.assertEqual(rows[1][0], "1717416000123")
         self.assertEqual(rows[1][1], "EURUSD")
@@ -371,11 +357,7 @@ class TestDownloadRangeRestart(unittest.TestCase):
                 "download_day",
                 return_value=[Tick(1, "EURUSD", 1.0, 1.1, 0.0, 0.0)],
             ) as mock_dl:
-                _days = list(
-                    importer.download_range(
-                        "EURUSD", date(2024, 6, 3), date(2024, 6, 4)
-                    )
-                )
+                _days = list(importer.download_range("EURUSD", date(2024, 6, 3), date(2024, 6, 4)))
             self.assertEqual(mock_dl.call_count, 1)
             self.assertEqual(mock_dl.call_args.args, ("EURUSD", date(2024, 6, 4)))
 

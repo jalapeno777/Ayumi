@@ -210,9 +210,7 @@ class TestConfluenceScoring(unittest.TestCase):
 
     def test_combined_penalty_and_bonus(self):
         v = SignalValidator()
-        s = _make_signal(
-            candle_age_seconds=400, session=Session.NY_AM, confluence_count=3
-        )
+        s = _make_signal(candle_age_seconds=400, session=Session.NY_AM, confluence_count=3)
         score = v.confluence_score(s, freshness_penalty=0.5, killzone_bonus=1.0)
         self.assertAlmostEqual(score, 3.5, places=2)
 
@@ -334,9 +332,7 @@ class TestEdgeCases(unittest.TestCase):
 
     def test_confluence_score_no_penalty_no_bonus(self):
         v = SignalValidator()
-        s = _make_signal(
-            candle_age_seconds=10, session=Session.OUTSIDE, confluence_count=5
-        )
+        s = _make_signal(candle_age_seconds=10, session=Session.OUTSIDE, confluence_count=5)
         score = v.confluence_score(s, freshness_penalty=0.1, killzone_bonus=0.2)
         self.assertEqual(score, 5.0)
 

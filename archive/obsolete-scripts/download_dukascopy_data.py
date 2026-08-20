@@ -15,14 +15,14 @@ Output:
     e.g., data/forex/EURUSD_M1.parquet, data/forex/EURUSD_H1.parquet
 """
 
-import argparse
+import argparse  # noqa: I001
 import logging
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-import dukascopy_python
+import dukascopy_python  # noqa: F401
 from dukascopy_python.instruments import (
     INSTRUMENT_FX_MAJORS_AUD_USD,
     INSTRUMENT_FX_MAJORS_EUR_USD,
@@ -81,9 +81,7 @@ def _normalize_timestamps(df: pd.DataFrame) -> pd.DataFrame:
         df.index = df.index.tz_convert("UTC")
     df = df.reset_index()
     df = df.rename(columns={"timestamp": "timestamp"})
-    df["timestamp"] = (
-        df["timestamp"].dt.tz_convert(None).dt.tz_localize("Europe/London")
-    )
+    df["timestamp"] = df["timestamp"].dt.tz_convert(None).dt.tz_localize("Europe/London")
     return df
 
 
@@ -102,9 +100,7 @@ def download_pair(
         logger.info("  %s %s: already exists, skipping", pair, timeframe)
         return pair_file
 
-    logger.info(
-        "  %s %s: downloading bid %s to %s", pair, timeframe, start.date(), end.date()
-    )
+    logger.info("  %s %s: downloading bid %s to %s", pair, timeframe, start.date(), end.date())
     try:
         bid_df = fetch(instrument, interval, OFFER_SIDE_BID, start, end)
     except Exception as e:
@@ -151,9 +147,7 @@ def download_pair(
             bid_df = merged
 
     bid_df.to_parquet(pair_file, index=False)
-    logger.info(
-        "  %s %s: saved %d bars to %s", pair, timeframe, len(bid_df), pair_file.name
-    )
+    logger.info("  %s %s: saved %d bars to %s", pair, timeframe, len(bid_df), pair_file.name)
     return pair_file
 
 

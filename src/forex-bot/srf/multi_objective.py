@@ -32,11 +32,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 def pareto_front_trials(study: optuna.Study) -> list[optuna.trial.FrozenTrial]:
     """Extract non-dominated Pareto front trials from a multi-objective study."""
-    trials = [
-        t
-        for t in study.trials
-        if t.state == optuna.trial.TrialState.COMPLETE and t.values is not None
-    ]
+    trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE and t.values is not None]
     if not trials:
         return []
 
@@ -213,9 +209,7 @@ def run_multi_objective_study(
             storage=f"sqlite:///{study_path}",
             sampler=NSGAIISampler(seed=seed),
         )
-        logger.info(
-            "Resuming Pareto study for %s/%s (%d trials)", pair, tf, len(study.trials)
-        )
+        logger.info("Resuming Pareto study for %s/%s (%d trials)", pair, tf, len(study.trials))
     else:
         study = optuna.create_study(
             study_name=study_name,
@@ -236,9 +230,7 @@ def run_multi_objective_study(
         from ml.optuna_optimizer import build_wf_objective as build_scalar
 
         # Wrap the existing scalar objective to extract multi-objective values
-        scalar_obj = build_scalar(
-            pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio
-        )
+        scalar_obj = build_scalar(pair, tf, bars, n_windows=n_windows, train_ratio=train_ratio)
 
         def wrapped_objective(trial: optuna.Trial) -> tuple[float, float, float, float]:
             """Wrap scalar TTS objective to produce 4D Pareto values."""
@@ -264,35 +256,17 @@ def run_multi_objective_study(
         )
 
     logger.info("Running %d trials (%d-objective Pareto)...", n_trials, len(directions))
-    study.optimize(
-        objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True
-    )
+    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=True)
 
     # Extract Pareto front
     pareto_summary = summarize_pareto_front(study, top_k=20)
 
     # Best per-objective
     completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
-    best_pf = (
-        max(completed, key=lambda t: t.values[0] if t.values else 0)
-        if completed
-        else None
-    )
-    best_dsr = (
-        max(completed, key=lambda t: t.values[1] if t.values else 0)
-        if completed
-        else None
-    )
-    best_dd = (
-        min(completed, key=lambda t: t.values[2] if t.values else float("inf"))
-        if completed
-        else None
-    )
-    best_stab = (
-        max(completed, key=lambda t: t.values[3] if t.values else 0)
-        if completed
-        else None
-    )
+    best_pf = max(completed, key=lambda t: t.values[0] if t.values else 0) if completed else None
+    best_dsr = max(completed, key=lambda t: t.values[1] if t.values else 0) if completed else None
+    best_dd = min(completed, key=lambda t: t.values[2] if t.values else float("inf")) if completed else None
+    best_stab = max(completed, key=lambda t: t.values[3] if t.values else 0) if completed else None
 
     result = {
         "pair": pair,
@@ -358,9 +332,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=None)
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     result = run_multi_objective_study(
         pair=args.pair,
@@ -371,9 +343,7 @@ def main():
     )
 
     print(f"\n{'=' * 60}")
-    print(
-        f"  Pareto Front: {result['n_pareto']} solutions from {result['n_complete']} trials"
-    )
+    print(f"  Pareto Front: {result['n_pareto']} solutions from {result['n_complete']} trials")
     print(f"{'=' * 60}")
 
     for i, t in enumerate(result["pareto_front"][:5]):

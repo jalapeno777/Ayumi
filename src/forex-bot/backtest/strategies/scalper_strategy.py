@@ -19,7 +19,7 @@ Entry Logic:
   7. Max 1 trade per pair per session
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, time
 from typing import Optional
@@ -265,9 +265,7 @@ class ScalperStrategy(ISignalStrategy):
                 try:
                     utc_dt = pytz.utc.localize(utc_dt)
                 except Exception:
-                    logger.warning(
-                        "Cannot localize datetime for kill zone check: %s", utc_dt
-                    )
+                    logger.warning("Cannot localize datetime for kill zone check: %s", utc_dt)
                     return False
             et = utc_dt.astimezone(_ET)
             et_time = et.time()

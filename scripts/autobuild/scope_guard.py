@@ -34,17 +34,15 @@ class DiffStat:
 def _run_git(repo: Path, args: list[str]) -> str:
     """Run a git command inside ``repo`` and return stdout text."""
     try:
-        result = subprocess.run(
-            ["git", *args],
+        result = subprocess.run(  # noqa: S603
+            ["git", *args],  # noqa: S607
             cwd=repo,
             capture_output=True,
             text=True,
             check=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise ScopeGuardError(
-            f"git {' '.join(args)} failed in {repo}: {exc.stderr.strip()}"
-        ) from exc
+        raise ScopeGuardError(f"git {' '.join(args)} failed in {repo}: {exc.stderr.strip()}") from exc
     except FileNotFoundError as exc:
         raise ScopeGuardError(f"git not found: {exc}") from exc
     return result.stdout
@@ -171,7 +169,7 @@ def function_removals(
         except FileNotFoundError:
             # File was deleted outright. Treat every base function as removed.
             head_blob = ""
-        except Exception:
+        except Exception:  # noqa: S112
             # Unreadable for other reasons; skip to keep the guard heuristic.
             continue
 

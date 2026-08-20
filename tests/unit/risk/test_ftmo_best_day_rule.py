@@ -20,7 +20,7 @@ Covers:
    12. State serialization includes all best-day fields
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -71,9 +71,7 @@ def _seed_history(guard: FTMOGuard, entries: list[tuple[str, float]]) -> None:
     Bypasses ``record_daily_pnl`` to keep tests date-independent and to
     avoid accidental rollover side-effects.
     """
-    guard._state.daily_pnl_history = [
-        {"date": date, "pnl": pnl} for date, pnl in entries
-    ]
+    guard._state.daily_pnl_history = [{"date": date, "pnl": pnl} for date, pnl in entries]
 
 
 def _set_today(guard: FTMOGuard, date: str, pnl: float = 0.0) -> None:
@@ -708,11 +706,7 @@ class TestBestDayBreachType:
         _set_today(guard, "2026-07-09", 50.0)
         guard.update(current_balance=10000.0, open_positions=0)
         # Check breach history
-        best_day_breaches = [
-            b
-            for b in guard.state.breach_history
-            if b["type"] == FTMOBreachType.BEST_DAY_RULE.value
-        ]
+        best_day_breaches = [b for b in guard.state.breach_history if b["type"] == FTMOBreachType.BEST_DAY_RULE.value]
         assert len(best_day_breaches) >= 1
         assert "Best day" in best_day_breaches[0]["detail"]
         assert best_day_breaches[0]["action"] == FTMOAction.FREEZE.value

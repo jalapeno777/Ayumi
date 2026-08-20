@@ -9,7 +9,7 @@ Validates:
 6. _strategy_result_to_dict includes spread from bar
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 from dataclasses import dataclass
@@ -22,7 +22,7 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "forex-bot"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from confidence.gates import GateConfig, SpreadGate
+from confidence.gates import GateConfig, SpreadGate  # noqa: I001
 from adapters.ctrader.risk_guard import RiskGuard, RiskLimitType
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
 
@@ -83,7 +83,7 @@ class TestRiskGuardSpread:
     def setup_method(self):
         self.guard = RiskGuard(
             starting_balance=10000.0,
-            state_path="/tmp/test_risk_guard_spread.json",
+            state_path="/tmp/test_risk_guard_spread.json",  # noqa: S108
         )
 
     def _make_signal(

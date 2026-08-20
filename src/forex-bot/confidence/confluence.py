@@ -58,9 +58,7 @@ class ConfluenceDetector:
         cutoff = timestamp - self._window
         self._signals = [s for s in self._signals if s.timestamp >= cutoff]
 
-    def get_confluence(
-        self, symbol: str, direction: str, timestamp: datetime
-    ) -> ConfluenceResult:
+    def get_confluence(self, symbol: str, direction: str, timestamp: datetime) -> ConfluenceResult:
         """Check confluence for a given symbol/direction at a given time."""
         cutoff = timestamp - self._window
         direction = direction.lower()
@@ -68,9 +66,7 @@ class ConfluenceDetector:
         matching = [
             s
             for s in self._signals
-            if s.symbol.upper() == symbol.upper()
-            and s.direction == direction
-            and s.timestamp >= cutoff
+            if s.symbol.upper() == symbol.upper() and s.direction == direction and s.timestamp >= cutoff
         ]
 
         if not matching:

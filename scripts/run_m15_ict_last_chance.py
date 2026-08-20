@@ -57,9 +57,7 @@ from backtest.selective_pairing import PairingConfig, SelectivePairingHarness
 from backtest.trade_management.session_filter import SessionFilter
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "forex" / "historical"
-REPORT_PATH = (
-    Path(__file__).resolve().parent.parent / "reports" / "m15_ict_last_chance.json"
-)
+REPORT_PATH = Path(__file__).resolve().parent.parent / "reports" / "m15_ict_last_chance.json"
 
 M15_TUNING = {
     "swing_lookback": 10,
@@ -167,10 +165,7 @@ def compute_all_signals_single_pass(
         if signal is None:
             continue
 
-        if (
-            config.min_confluence > 0
-            and signal.confluence_count < config.min_confluence
-        ):
+        if config.min_confluence > 0 and signal.confluence_count < config.min_confluence:
             continue
 
         results.append((i, signal))
@@ -281,9 +276,7 @@ def run_m15_eval(
         "profit_factor": passing_pf >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
         "max_drawdown": passing_dd >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
         "sharpe_ratio": passing_sh >= ACCEPTANCE_CRITERIA["min_profitable_windows"],
-        "min_profitable_windows": (
-            result.profitable_windows >= ACCEPTANCE_CRITERIA["min_profitable_windows"]
-        ),
+        "min_profitable_windows": (result.profitable_windows >= ACCEPTANCE_CRITERIA["min_profitable_windows"]),
     }
 
     result.go_nogo = all(result.passed_criteria.values())
@@ -338,20 +331,16 @@ def main():
 
     print("  M15 Component Tuning:")
     print(
-        f"    MarketStructure:  swing_lookback={M15_TUNING['swing_lookback']}, bos_threshold={M15_TUNING['bos_threshold']}"
+        f"    MarketStructure:  swing_lookback={M15_TUNING['swing_lookback']}, bos_threshold={M15_TUNING['bos_threshold']}"  # noqa: E501
     )
-    print(
-        f"    OrderBlock:       freshness={M15_TUNING['freshness_window']}, lookback={M15_TUNING['ob_lookback']}"
-    )
+    print(f"    OrderBlock:       freshness={M15_TUNING['freshness_window']}, lookback={M15_TUNING['ob_lookback']}")
     print(
         f"    FVG:              max_age={M15_TUNING['fvg_max_age']}, mini_threshold={M15_TUNING['fvg_mini_threshold']}"
     )
     print(
-        f"    LiquiditySweep:   pool_lookback={M15_TUNING['pool_lookback']}, validity={M15_TUNING['sweep_validity_bars']}, wick={M15_TUNING['sweep_wick_ratio']}"
+        f"    LiquiditySweep:   pool_lookback={M15_TUNING['pool_lookback']}, validity={M15_TUNING['sweep_validity_bars']}, wick={M15_TUNING['sweep_wick_ratio']}"  # noqa: E501
     )
-    print(
-        f"    PremiumDiscount:  lookback={M15_TUNING['pd_lookback']}, buffer={M15_TUNING['pd_equilibrium_buffer']}"
-    )
+    print(f"    PremiumDiscount:  lookback={M15_TUNING['pd_lookback']}, buffer={M15_TUNING['pd_equilibrium_buffer']}")
     print()
 
     print("  Acceptance criteria (per window):")

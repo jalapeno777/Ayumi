@@ -113,8 +113,7 @@ def load_bars_from_duckdb(
     period = BarPeriod.H1() if timeframe == "H1" else BarPeriod.M15()
 
     query = (
-        "SELECT timestamp_utc, open, high, low, close, volume, spread_pips "
-        "FROM bars WHERE symbol = ? AND timeframe = ?"
+        "SELECT timestamp_utc, open, high, low, close, volume, spread_pips FROM bars WHERE symbol = ? AND timeframe = ?"
     )
     params: list = [symbol, timeframe]
     if start_ts is not None:
@@ -132,7 +131,7 @@ def load_bars_from_duckdb(
         con.close()
 
     bars = []
-    for ts, o, h, l, c, vol, sp in rows:
+    for ts, o, h, l, c, vol, sp in rows:  # noqa: E741
         bars.append(
             Bar(
                 time=datetime.fromtimestamp(ts, tz=timezone.utc),
@@ -185,9 +184,7 @@ def compute_stats(
             {
                 "strategy_id": strategy_id,
                 "symbol": p.symbol,
-                "direction": p.direction.value
-                if hasattr(p.direction, "value")
-                else str(p.direction),
+                "direction": p.direction.value if hasattr(p.direction, "value") else str(p.direction),
                 "volume": p.volume,
                 "entry_price": p.entry_price,
                 "exit_price": p.closed_price or 0.0,
@@ -220,9 +217,7 @@ def compute_stats(
             max_dd = dd
 
     # Per-strategy breakdown
-    per_strategy: dict[str, dict] = defaultdict(
-        lambda: {"trades": 0, "pnl": 0.0, "wins": 0}
-    )
+    per_strategy: dict[str, dict] = defaultdict(lambda: {"trades": 0, "pnl": 0.0, "wins": 0})
     for t in trades:
         sid = t["strategy_id"]
         per_strategy[sid]["trades"] += 1
@@ -243,9 +238,7 @@ def compute_stats(
 
     # Compute true realized P&L from closed positions (including commission)
     true_realized = sum(t["pnl"] for t in trades)
-    true_final_balance = (
-        paper_trader._starting_balance + true_realized + open_unrealized
-    )
+    true_final_balance = paper_trader._starting_balance + true_realized + open_unrealized
 
     return {
         "total_trades": total_trades,
@@ -277,17 +270,10 @@ def run_backtest(args: argparse.Namespace) -> dict:
     start_ts = None
     end_ts = None
     if args.start:
-        start_ts = int(
-            datetime.strptime(args.start, "%Y-%m-%d")
-            .replace(tzinfo=timezone.utc)
-            .timestamp()
-        )
+        start_ts = int(datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
     if args.end:
         end_ts = int(
-            datetime.strptime(args.end, "%Y-%m-%d")
-            .replace(tzinfo=timezone.utc)
-            .timestamp()
-            + 86399  # end of day
+            datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() + 86399  # end of day
         )
 
     # ── Load bars from DuckDB ─────────────────────────────────────────────
@@ -313,12 +299,8 @@ def run_backtest(args: argparse.Namespace) -> dict:
     ]
 
     active_names = {s.name for s in strategies}
-    active_strategy_timeframes = {
-        k: v for k, v in STRATEGY_TIMEFRAMES.items() if k in active_names
-    }
-    active_strategy_id_map = {
-        k: v for k, v in STRATEGY_ID_MAP.items() if k in active_names
-    }
+    active_strategy_timeframes = {k: v for k, v in STRATEGY_TIMEFRAMES.items() if k in active_names}
+    active_strategy_id_map = {k: v for k, v in STRATEGY_ID_MAP.items() if k in active_names}
 
     logger.info("Strategy pool: %s", [s.name for s in strategies])
 
@@ -341,9 +323,7 @@ def run_backtest(args: argparse.Namespace) -> dict:
             logger.warning("Resetting non-zero open_risk after build: $%.2f", open_risk)
             blend_runner._sizer._open_positions.clear()
             blend_runner._sizer._position_symbols.clear()
-        logger.info(
-            "Blend runner sizer open_risk: $%.2f", blend_runner._sizer._open_risk
-        )
+        logger.info("Blend runner sizer open_risk: $%.2f", blend_runner._sizer._open_risk)
 
     # Override spread for XAUUSD if --costs
     if args.costs:
@@ -428,9 +408,7 @@ def run_backtest(args: argparse.Namespace) -> dict:
     _orig_route = engine._route_signal
 
     def _tracked_route(signal, strategy_name):
-        sid = active_strategy_id_map.get(
-            strategy_name, strategy_name.lower().replace(" ", "_")
-        )
+        sid = active_strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
         pos_before = set()
         if engine._paper_trader:
             pos_before = set(engine._paper_trader._order_manager._positions.keys())
@@ -442,12 +420,8 @@ def run_backtest(args: argparse.Namespace) -> dict:
 
     engine._route_signal = _tracked_route
 
-    logger.info(
-        "Engine constructed. PaperTrader balance: $%.2f", paper_trader._starting_balance
-    )
-    logger.info(
-        "Strategies in live_adapter: %s", list(engine._live_adapter._strategies.keys())
-    )
+    logger.info("Engine constructed. PaperTrader balance: $%.2f", paper_trader._starting_balance)
+    logger.info("Strategies in live_adapter: %s", list(engine._live_adapter._strategies.keys()))
     logger.info(
         "Adapters: %s",
         [k for k in engine._live_adapter._adapters.keys() if symbol in k],
@@ -549,29 +523,21 @@ def run_backtest(args: argparse.Namespace) -> dict:
     print("\n" + "=" * 60)
     print(f"  BACKTEST RESULTS — {symbol}")
     print("=" * 60)
-    print(
-        f"  Date Range:     {results['date_range']['start'][:10]} → {results['date_range']['end'][:10]}"
-    )
-    print(
-        f"  Bars Processed: {bars_processed:,} ({len(m15_bars):,} M15 + {len(h1_bars):,} H1)"
-    )
+    print(f"  Date Range:     {results['date_range']['start'][:10]} → {results['date_range']['end'][:10]}")
+    print(f"  Bars Processed: {bars_processed:,} ({len(m15_bars):,} M15 + {len(h1_bars):,} H1)")
     print(f"  Total Trades:   {results['total_trades']}")
-    print(
-        f"  Win Rate:       {results['win_rate']:.1%} ({results['wins']}W / {results['losses']}L)"
-    )
+    print(f"  Win Rate:       {results['win_rate']:.1%} ({results['wins']}W / {results['losses']}L)")
     print(f"  Profit Factor:  {results['profit_factor']:.4f}")
     print(f"  Net P&L:        ${results['net_pnl']:,.2f}")
     print(f"  Gross Profit:   ${results['gross_profit']:,.2f}")
     print(f"  Gross Loss:     ${results['gross_loss']:,.2f}")
     print(f"  Max Drawdown:   ${results['max_drawdown']:,.2f}")
     print(f"  Final Balance:  ${results['final_balance']:,.2f}")
-    print(
-        f"  Open Positions: {results['open_positions']} (unrealized: ${results['open_unrealized']:,.2f})"
-    )
+    print(f"  Open Positions: {results['open_positions']} (unrealized: ${results['open_unrealized']:,.2f})")
     if results["costs_applied"]:
         cp = results["cost_params"]
         print(
-            f"  Costs:          spread={cp['spread']}, commission=${cp['commission_per_lot']}/lot, slippage={cp['slippage']}"
+            f"  Costs:          spread={cp['spread']}, commission=${cp['commission_per_lot']}/lot, slippage={cp['slippage']}"  # noqa: E501
         )
 
     print("\n  Per-Strategy Contribution:")
@@ -606,9 +572,7 @@ def main():
     parser.add_argument("--end", default=None, help="End date YYYY-MM-DD")
     parser.add_argument("--symbol", default="XAUUSD", help="Symbol (default: XAUUSD)")
     parser.add_argument("--costs", action="store_true", help="Apply trading costs")
-    parser.add_argument(
-        "--spread", type=float, default=2.5, help="Spread in price units (default: 2.5)"
-    )
+    parser.add_argument("--spread", type=float, default=2.5, help="Spread in price units (default: 2.5)")
     parser.add_argument(
         "--commission",
         type=float,
@@ -622,9 +586,7 @@ def main():
         help="Slippage in price units (default: 0.2)",
     )
     parser.add_argument("--db-path", default=None, help="Override DuckDB path")
-    parser.add_argument(
-        "--output", default="data/backtest_results.json", help="Output JSON path"
-    )
+    parser.add_argument("--output", default="data/backtest_results.json", help="Output JSON path")
     parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging")
     args = parser.parse_args()
 

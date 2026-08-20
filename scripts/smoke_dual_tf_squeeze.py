@@ -37,7 +37,7 @@ def _alarm(seconds: int) -> None:
 
 
 def main() -> int:
-    import duckdb
+    import duckdb  # noqa: I001
 
     from core.types import Bar, BarPeriod, MarketState, SessionType
     from strategies.dual_tf_squeeze_pro import DualTFSqueezeProStrategy
@@ -66,9 +66,7 @@ def main() -> int:
         ORDER BY timestamp_utc ASC
         """
     ).fetchall()
-    total = con.execute(
-        "SELECT COUNT(*) FROM bars WHERE symbol = 'XAUUSD' AND timeframe = 'M15'"
-    ).fetchone()[0]
+    total = con.execute("SELECT COUNT(*) FROM bars WHERE symbol = 'XAUUSD' AND timeframe = 'M15'").fetchone()[0]
     con.close()
 
     if len(rows) < 100:
@@ -80,10 +78,8 @@ def main() -> int:
     # Take the LAST 5000 bars per task spec.
     rows = rows[-5000:]
     bars: List[Bar] = []
-    for ts, o, h, l, c, v, sp in rows:
-        t = datetime.fromtimestamp(ts, tz=__import__("datetime").timezone.utc).replace(
-            tzinfo=None
-        )
+    for ts, o, h, l, c, v, sp in rows:  # noqa: E741
+        t = datetime.fromtimestamp(ts, tz=__import__("datetime").timezone.utc).replace(tzinfo=None)
         bars.append(
             Bar(
                 time=t,

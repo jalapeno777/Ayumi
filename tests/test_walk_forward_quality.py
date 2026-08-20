@@ -6,13 +6,13 @@ Covers:
 - Trade count warning flag when < 15 trades
 """
 
-import math
+import math  # noqa: I001
 import sys
 
 
 sys.path.insert(0, "src/forex-bot")
 
-from backtest.walk_forward_runner import (
+from backtest.walk_forward_runner import (  # noqa: I001
     PF_CAP,
     MIN_TRADES_WARNING,
     _sanitize_profit_factor,
@@ -50,13 +50,9 @@ class TestProfitFactorZeroLoss:
             {"pnl": 30.0},
         ]
         metrics = _compute_metrics(0, trades, initial_balance=10000.0)
-        assert not math.isinf(metrics.profit_factor), (
-            f"PF is Infinity for all-win trades: {metrics.profit_factor}"
-        )
+        assert not math.isinf(metrics.profit_factor), f"PF is Infinity for all-win trades: {metrics.profit_factor}"
         assert metrics.profit_factor > 0.0
-        assert metrics.profit_factor <= PF_CAP, (
-            f"PF {metrics.profit_factor} exceeds cap {PF_CAP}"
-        )
+        assert metrics.profit_factor <= PF_CAP, f"PF {metrics.profit_factor} exceeds cap {PF_CAP}"
 
 
 # ---------------------------------------------------------------------------

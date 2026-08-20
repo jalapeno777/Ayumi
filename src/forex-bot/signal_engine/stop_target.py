@@ -5,7 +5,7 @@ Priority-ordered SL rules (§9.1), target rules (§9.2),
 and trailing SL logic for lock-in behavior (§9.3).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 DEFAULT_RR_RATIO = 2.0
@@ -58,9 +58,7 @@ class StopTargetCalculator:
         self.pip_size = pip_size
         self.timeframe = timeframe.upper()
         self._sl_mult = ATR_SL_MULTIPLIERS.get(self.timeframe, 1.5)
-        self._tp_mults = ATR_TP_MULTIPLIERS.get(
-            self.timeframe, ATR_TP_MULTIPLIERS[DEFAULT_TF]
-        )
+        self._tp_mults = ATR_TP_MULTIPLIERS.get(self.timeframe, ATR_TP_MULTIPLIERS[DEFAULT_TF])
         self._min_rr = MIN_RR_BY_TF.get(self.timeframe, 1.5)
 
     def calculate(
@@ -81,9 +79,7 @@ class StopTargetCalculator:
         """
         atr = context.get("atr", 0.0)
         sl = self._place_stop_loss(direction, entry, context, spread, atr)
-        tp, tp_levels = self._place_take_profit(
-            direction, entry, sl, context, atr, spread
-        )
+        tp, tp_levels = self._place_take_profit(direction, entry, sl, context, atr, spread)
         trailing = self._trailing_config(direction, entry, sl, tp, context, atr)
 
         return {
@@ -224,7 +220,7 @@ class StopTargetCalculator:
         rr_targets = [1.0, 1.5, 2.0]
         tp_levels = []
 
-        for level_name, rr_mult in zip(["tp1", "tp2", "tp3"], rr_targets):
+        for level_name, rr_mult in zip(["tp1", "tp2", "tp3"], rr_targets):  # noqa: B905
             reward = risk * max(rr_mult, self._min_rr)
             if direction == "long":
                 price = entry + reward

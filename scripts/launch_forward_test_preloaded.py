@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Forward test launcher with historical bar preloading via OpenAPI."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import sys
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine  # noqa: I001
 from adapters.ctrader.models import cTraderCredentials
 from adapters.ctrader.risk_guard import FTMOConfig
 from adapters.ctrader.order_manager import PositionSizeConfig

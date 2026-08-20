@@ -5,7 +5,7 @@ gets current_session resolved from determine_session() instead of defaulting
 to SessionType.OUTSIDE.
 """
 
-import sys
+import sys  # noqa: I001
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 

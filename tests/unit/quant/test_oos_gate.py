@@ -13,7 +13,7 @@ oos_gate.py):
    ``n < 30``).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 
@@ -65,9 +65,7 @@ def _make_wf(
     )
 
 
-def _positive_returns(
-    n: int, *, mean: float = 0.01, std: float = 0.005, seed: int = 42
-):
+def _positive_returns(n: int, *, mean: float = 0.01, std: float = 0.005, seed: int = 42):
     """Generate ``n`` positive-ish trade returns (mean > 0, low std)."""
     rng = np.random.default_rng(seed)
     returns = rng.normal(loc=mean, scale=std, size=n)
@@ -123,9 +121,7 @@ class TestDefect2TrialsDefault:
         )
         result = evaluate_oos_gate(wf)
         assert result.details["n_trials_used"] == 160
-        assert result.expected_max_sr_under_null == pytest.approx(
-            expected_max_sharpe(160), rel=1e-9
-        )
+        assert result.expected_max_sr_under_null == pytest.approx(expected_max_sharpe(160), rel=1e-9)
 
     def test_dsr_uses_30_when_caller_overrides(self):
         """n_independent_trials override path still works."""
@@ -229,9 +225,7 @@ class TestDefect4PerTradeSharpe:
         assert "sharpe_per_trade" in result.details
         assert "trades_per_year" in result.details
         # Annualized Sharpe must equal per_trade × sqrt(trades_per_year).
-        expected = result.details["sharpe_per_trade"] * math.sqrt(
-            result.details["trades_per_year"]
-        )
+        expected = result.details["sharpe_per_trade"] * math.sqrt(result.details["trades_per_year"])
         assert result.aggregate_sharpe == pytest.approx(expected, rel=1e-9)
 
     def test_n_obs_matches_trade_count(self):
@@ -262,9 +256,7 @@ class TestDefect4PerTradeSharpe:
         )
         result = evaluate_oos_gate(wf)
         expected_tpy = 50 / (252 / 365.25)
-        assert result.details["trades_per_year"] == pytest.approx(
-            expected_tpy, rel=1e-6
-        )
+        assert result.details["trades_per_year"] == pytest.approx(expected_tpy, rel=1e-6)
 
     def test_fallback_annualization_when_no_sample_duration(self):
         """Without sample_duration_days, fallback uses bar_period_minutes."""
@@ -308,9 +300,7 @@ class TestDefect5Moments:
         """
         # 4 windows × 7 trades = 28 trades (>= 20 to pass WF, < 30 for fallback)
         wf = _make_wf(
-            per_window_returns=[
-                [0.01, 0.02, -0.01, 0.005, 0.01, 0.015, 0.008] for _ in range(4)
-            ],
+            per_window_returns=[[0.01, 0.02, -0.01, 0.005, 0.01, 0.015, 0.008] for _ in range(4)],
             per_window_pf=[1.5] * 4,
             per_window_win_rate=[0.60] * 4,
         )
@@ -349,9 +339,7 @@ class TestDefect5Moments:
             all_returns.extend(w)
         excess = float(stats.kurtosis(all_returns, bias=False))
         # Regular kurtosis = excess + 3 (normal distribution has regular = 3).
-        assert result.details["kurtosis_regular"] == pytest.approx(
-            excess + 3.0, rel=1e-9
-        )
+        assert result.details["kurtosis_regular"] == pytest.approx(excess + 3.0, rel=1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -735,9 +723,7 @@ class TestTierRanking:
         """A stream with very high Sharpe and 5/5 windows passes Tier A."""
         # Generate high-Sharpe returns: mean=0.05, std=0.005
         wf = _make_wf(
-            per_window_returns=[
-                _positive_returns(15, mean=0.05, std=0.005, seed=i) for i in range(5)
-            ],
+            per_window_returns=[_positive_returns(15, mean=0.05, std=0.005, seed=i) for i in range(5)],
             per_window_pf=[2.0] * 5,
             per_window_win_rate=[0.70] * 5,
             sample_duration_days=252,
@@ -753,9 +739,7 @@ class TestTierRanking:
         # of {A, B, C} as long as it's not REJECT, to keep the test robust
         # to Sharpe magnitude. The point is the tier *mechanism* works.
         wf = _make_wf(
-            per_window_returns=[
-                _positive_returns(15, mean=0.02, std=0.01, seed=i) for i in range(5)
-            ],
+            per_window_returns=[_positive_returns(15, mean=0.02, std=0.01, seed=i) for i in range(5)],
             per_window_pf=[1.5] * 5,
             per_window_win_rate=[0.60] * 5,
             sample_duration_days=252,
@@ -768,9 +752,7 @@ class TestTierRanking:
     def test_failing_stream_is_rejected(self):
         """A clearly losing stream should be REJECTed by all tiers."""
         wf = _make_wf(
-            per_window_returns=[
-                [-0.01, -0.02, -0.005, -0.015, -0.01] for _ in range(5)
-            ],
+            per_window_returns=[[-0.01, -0.02, -0.005, -0.015, -0.01] for _ in range(5)],
             per_window_pf=None,
             per_window_win_rate=None,
         )

@@ -1,6 +1,6 @@
 """Tests for SRF Multi-Objective Optuna."""
 
-import optuna
+import optuna  # noqa: I001
 
 from srf.multi_objective import (
     pareto_front_trials,
@@ -41,9 +41,7 @@ class TestParetoFront:
         front = pareto_front_trials(study)
 
         # Verify every front trial is actually non-dominated
-        all_trials = [
-            t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE
-        ]
+        all_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
         for ft in front:
             dominated = False
             for ot in all_trials:
@@ -64,9 +62,7 @@ class TestParetoFront:
         assert front == []
 
     def test_summarize(self):
-        study = optuna.create_study(
-            directions=["maximize"], sampler=optuna.samplers.RandomSampler(seed=42)
-        )
+        study = optuna.create_study(directions=["maximize"], sampler=optuna.samplers.RandomSampler(seed=42))
         study.optimize(lambda t: (t.suggest_float("x", 0, 1),), n_trials=5)
         result = summarize_pareto_front(study, top_k=3)
         assert len(result) <= 3

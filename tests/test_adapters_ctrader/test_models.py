@@ -7,14 +7,12 @@ Verifies that:
 4. Convention drift is detected between modules
 """
 
-import pytest
+import pytest  # noqa: I001
 import sys
 import os
 
 # Add src to path so imports work without full package install
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "forex-bot")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "forex-bot"))
 
 from adapters.ctrader.models import SYMBOL_METADATA, get_symbol_info
 from utils.pip_value import pip_value_for_symbol
@@ -26,16 +24,12 @@ class TestXAUUUDPipConvention:
     def test_symbol_metadata_xauusd_pip_size(self):
         """SYMBOL_METADATA XAUUSD pip_size must be 0.1, not 0.01."""
         info = SYMBOL_METADATA["XAUUSD"]
-        assert info.pip_size == 0.1, (
-            f"XAUUSD pip_size should be 0.1 (canonical), got {info.pip_size}"
-        )
+        assert info.pip_size == 0.1, f"XAUUSD pip_size should be 0.1 (canonical), got {info.pip_size}"
 
     def test_symbol_metadata_xauusd_pip_value(self):
         """SYMBOL_METADATA XAUUSD pip_value_per_lot must be 10.0."""
         info = SYMBOL_METADATA["XAUUSD"]
-        assert info.pip_value_per_lot == 10.0, (
-            f"XAUUSD pip_value_per_lot should be 10.0, got {info.pip_value_per_lot}"
-        )
+        assert info.pip_value_per_lot == 10.0, f"XAUUSD pip_value_per_lot should be 10.0, got {info.pip_value_per_lot}"
 
     def test_get_symbol_info_xauusd_pip_size(self):
         """get_symbol_info('XAUUSD') must return canonical pip_size=0.1."""
@@ -48,8 +42,7 @@ class TestXAUUUDPipConvention:
             info = get_symbol_info(symbol)
             canonical = pip_value_for_symbol(symbol)
             assert info.pip_size == canonical, (
-                f"{symbol}: get_symbol_info pip_size={info.pip_size} != "
-                f"pip_value_for_symbol={canonical}"
+                f"{symbol}: get_symbol_info pip_size={info.pip_size} != pip_value_for_symbol={canonical}"
             )
 
     def test_get_symbol_info_unknown_symbol_uses_canonical(self):
@@ -142,6 +135,5 @@ class TestConventionDrift:
         for symbol, info in SYMBOL_METADATA.items():
             canonical = pip_value_for_symbol(symbol)
             assert info.pip_size == canonical, (
-                f"{symbol}: SYMBOL_METADATA pip_size={info.pip_size} != "
-                f"canonical {canonical}"
+                f"{symbol}: SYMBOL_METADATA pip_size={info.pip_size} != canonical {canonical}"
             )

@@ -8,7 +8,7 @@ Covers:
     5. classify_signal validation
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -20,9 +20,7 @@ from risk.correlation_sizer import CorrelationAwareSizer, Direction
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
-def _build_matrix(
-    symbol_returns: dict[str, list[float]], window: int = 30
-) -> CorrelationMatrix:
+def _build_matrix(symbol_returns: dict[str, list[float]], window: int = 30) -> CorrelationMatrix:
     cm = CorrelationMatrix(window=window)
     for sym, rets in symbol_returns.items():
         cm.add_returns(sym, rets)
@@ -123,9 +121,7 @@ class TestSizerBreakdownIntegration:
         )
 
         # Register one position to consume part of the budget
-        sizer.register_position(
-            "strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005
-        )
+        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.50, risk_pct=0.005)
 
         # Without regime: remaining = 0.01 - 0.005 = 0.005 → fits
         result_normal = sizer.compute_adjusted_size(
@@ -157,9 +153,7 @@ class TestSizerBreakdownIntegration:
             aggregate_risk_pct=0.01,
         )
 
-        sizer.register_position(
-            "strat_a", "EURUSD", Direction.LONG, size_lots=0.30, risk_pct=0.003
-        )
+        sizer.register_position("strat_a", "EURUSD", Direction.LONG, size_lots=0.30, risk_pct=0.003)
 
         # Normal: remaining = 0.01 - 0.003 = 0.007
         # BREAKDOWN: effective cap = 0.005, remaining = 0.005 - 0.003 = 0.002

@@ -155,10 +155,7 @@ class TestRunStrategyWalkForward(unittest.TestCase):
             pair="EURUSD",
             n_windows=3,
         )
-        expected = (
-            len(results.per_window) >= 3
-            and sum(1 for m in results.per_window if m.passed_go_nogo) >= 2
-        )
+        expected = len(results.per_window) >= 3 and sum(1 for m in results.per_window if m.passed_go_nogo) >= 2
         self.assertEqual(results.go_nogo, expected)
 
     def test_overlap_ratio(self):

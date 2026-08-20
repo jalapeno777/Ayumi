@@ -11,7 +11,7 @@ from a previously-removed file).  We update its skip-line behavior here
 and verify the new class directly.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from adapters.ctrader.api_client import cTraderAPIClient
@@ -60,8 +60,8 @@ class TestCTraderAPIClientBasics:
         client = cTraderAPIClient(
             ctid_account_id=12345,
             client_id="test_client",
-            client_secret="***",
-            access_token="***",
+            client_secret="***",  # noqa: S106
+            access_token="***",  # noqa: S106
             refresh_token=None,
             host="demo.ctraderapi.com",
             port=5035,

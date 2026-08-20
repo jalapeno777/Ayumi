@@ -142,9 +142,7 @@ class StatisticalStudy(ABC):
         notes_parts = []
         for cr in criterion_results:
             status = "PASS" if cr.passed else "FAIL"
-            notes_parts.append(
-                f"{cr.metric}: {cr.value:.4f} {cr.operator} {cr.threshold} -> {status}"
-            )
+            notes_parts.append(f"{cr.metric}: {cr.value:.4f} {cr.operator} {cr.threshold} -> {status}")
         notes = "; ".join(notes_parts)
 
         return StatisticalStudyResult(
@@ -166,9 +164,7 @@ class StatisticalStudy(ABC):
     def filter_by_day_of_week(self, bars: list[Bar], day: int) -> list[Bar]:
         return [b for b in bars if b.time.weekday() == day]
 
-    def filter_by_date_range(
-        self, bars: list[Bar], start: datetime, end: datetime
-    ) -> list[Bar]:
+    def filter_by_date_range(self, bars: list[Bar], start: datetime, end: datetime) -> list[Bar]:
         return [b for b in bars if start <= b.time <= end]
 
     def group_by_session(self, bars: list[Bar]) -> dict[SessionType, list[Bar]]:

@@ -34,9 +34,7 @@ class CointegrationEngine:
     def __init__(self, lookback: int = 60):
         self.lookback = lookback
 
-    def compute_hedge_ratio(
-        self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> tuple[float, float]:
+    def compute_hedge_ratio(self, prices_a: np.ndarray, prices_b: np.ndarray) -> tuple[float, float]:
         """Compute hedge ratio via OLS: prices_a = constant + hedge_ratio * prices_b."""
         if len(prices_a) < 2 or len(prices_b) < 2:
             return 1.0, 0.0
@@ -159,9 +157,7 @@ class CointegrationEngine:
             pa_window = prices_a[i : i + window]
             pb_window = prices_b[i : i + window]
             result = self.engle_granger_test(pa_window, pb_window)
-            spread_stats = self.compute_z_score(
-                pa_window, pb_window, result.hedge_ratio, result.constant, window
-            )
+            spread_stats = self.compute_z_score(pa_window, pb_window, result.hedge_ratio, result.constant, window)
             results.append(
                 {
                     "index": i,
@@ -226,17 +222,13 @@ class PairsSignalGenerator:
             return True
         return False
 
-    def compute_spread(
-        self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> float | None:
+    def compute_spread(self, prices_a: np.ndarray, prices_b: np.ndarray) -> float | None:
         """Compute current spread using stored hedge ratio."""
         if self._hedge_ratio is None:
             return None
         return float(prices_a[-1] - self._hedge_ratio * prices_b[-1] - self._constant)
 
-    def compute_z_score(
-        self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> float | None:
+    def compute_z_score(self, prices_a: np.ndarray, prices_b: np.ndarray) -> float | None:
         """Compute z-score using stored hedge ratio (no look-ahead bias)."""
         if self._hedge_ratio is None:
             return None
@@ -250,9 +242,7 @@ class PairsSignalGenerator:
         )
         return spread_stats.z_score
 
-    def generate_signal(
-        self, prices_a: np.ndarray, prices_b: np.ndarray
-    ) -> tuple[str | None, str | None]:
+    def generate_signal(self, prices_a: np.ndarray, prices_b: np.ndarray) -> tuple[str | None, str | None]:
         """Generate trading signal based on z-score thresholds.
 
         Returns:
@@ -321,9 +311,7 @@ def parameter_sweep(
         return []
 
     coint_cache: dict[tuple[int, int], tuple[float, float] | None] = {}
-    engines: dict[int, CointegrationEngine] = {
-        lb: CointegrationEngine(lookback=lb) for lb in lookbacks
-    }
+    engines: dict[int, CointegrationEngine] = {lb: CointegrationEngine(lookback=lb) for lb in lookbacks}
 
     for lb in lookbacks:
         engine = engines[lb]

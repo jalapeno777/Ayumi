@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live test fire: send a real micro-order to cTrader to verify the signal->order chain."""
 
-import sys
+import sys  # noqa: I001
 import os
 import time
 import logging
@@ -9,9 +9,7 @@ import logging
 sys.path.insert(0, "src/forex-bot")
 os.chdir("/home/TacoPants/projects/Ayumi")
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s")
 
 from dotenv import load_dotenv
 

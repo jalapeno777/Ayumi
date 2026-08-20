@@ -158,9 +158,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        smoothed_minus_dm = (
-            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
-        )
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
 
         if smoothed_tr == 0:
             dx_list.append(0.0)
@@ -273,11 +271,7 @@ class DonchianBreakoutStrategy:
         if self.momentum.session_filter and not _passes_session_filter(state):
             return None
 
-        atr = (
-            state.atr
-            if state.atr > 0
-            else _calculate_atr(state.bars, self.momentum.atr_period)
-        )
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars, self.momentum.atr_period)
 
         lookback = state.bars[-(self.channel_period + 1) : -1]
         channel_high = max(b.high for b in lookback)
@@ -313,9 +307,7 @@ class DonchianBreakoutStrategy:
                 f"channel_low={channel_low:.5f} ({self.channel_period}-bar)"
             )
 
-        return _build_signal(
-            direction, entry, atr, self.momentum, confidence, rationale
-        )
+        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)
 
 
 class ATRVolatilityBreakoutStrategy:
@@ -361,9 +353,7 @@ class ATRVolatilityBreakoutStrategy:
             return None
 
         if bullish_breakout:
-            confirm = self._confirm_breakout(
-                state.bars, ref_high + breakout_level, bullish=True
-            )
+            confirm = self._confirm_breakout(state.bars, ref_high + breakout_level, bullish=True)
             if not confirm:
                 return None
             direction = TradeDirection.LONG
@@ -372,17 +362,14 @@ class ATRVolatilityBreakoutStrategy:
             entry = latest.close
             confidence = min(
                 0.85,
-                0.50
-                + min((latest.close - ref_high - breakout_level) / atr, 1.0) * 0.35,
+                0.50 + min((latest.close - ref_high - breakout_level) / atr, 1.0) * 0.35,
             )
             rationale = (
                 f"ATR bullish breakout: close={latest.close:.5f} > "
                 f"ref_high+ATR*{self.breakout_multiplier}={ref_high + breakout_level:.5f}"
             )
         else:
-            confirm = self._confirm_breakout(
-                state.bars, ref_low - breakout_level, bullish=False
-            )
+            confirm = self._confirm_breakout(state.bars, ref_low - breakout_level, bullish=False)
             if not confirm:
                 return None
             direction = TradeDirection.SHORT
@@ -398,9 +385,7 @@ class ATRVolatilityBreakoutStrategy:
                 f"ref_low-ATR*{self.breakout_multiplier}={ref_low - breakout_level:.5f}"
             )
 
-        return _build_signal(
-            direction, entry, atr, self.momentum, confidence, rationale
-        )
+        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)
 
     def _confirm_breakout(self, bars: list[Bar], level: float, bullish: bool) -> bool:
         check_count = min(self.confirmation_bars, len(bars))
@@ -440,11 +425,7 @@ class MATrendFollowingStrategy:
         if self.momentum.session_filter and not _passes_session_filter(state):
             return None
 
-        atr = (
-            state.atr
-            if state.atr > 0
-            else _calculate_atr(state.bars, self.momentum.atr_period)
-        )
+        atr = state.atr if state.atr > 0 else _calculate_atr(state.bars, self.momentum.atr_period)
 
         closes = [b.close for b in state.bars]
         fast_ma = _calculate_sma(closes, self.fast_period)
@@ -491,6 +472,4 @@ class MATrendFollowingStrategy:
                 f"slow={slow_ma:.5f}, price < trend_ma={trend_ma:.5f}"
             )
 
-        return _build_signal(
-            direction, entry, atr, self.momentum, confidence, rationale
-        )
+        return _build_signal(direction, entry, atr, self.momentum, confidence, rationale)

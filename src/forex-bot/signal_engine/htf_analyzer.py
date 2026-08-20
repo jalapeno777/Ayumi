@@ -1,6 +1,6 @@
 """§4.4-4.6 — HTF phase analysis, multi-timeframe alignment, and dual-mechanism reconciliation."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from typing import Optional
 

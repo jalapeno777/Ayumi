@@ -1,6 +1,6 @@
 """Tests for Signal Orchestrator + P1 gate fixes."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone  # noqa: I001
 
 
 from confidence.engine import ConfidenceEngine
@@ -203,10 +203,7 @@ class TestSignalOrchestrator:
         sig = _make_signal(confidence=0.80, entry=1.0800, sl=1.0799)  # 1 pip
         order = orch.process_signal(sig)
         assert order.rejected
-        assert (
-            "minimum" in order.rejection_reason.lower()
-            or "below minimum" in order.rejection_reason.lower()
-        )
+        assert "minimum" in order.rejection_reason.lower() or "below minimum" in order.rejection_reason.lower()
 
     def test_daily_cap_reached(self):
         """Multiple signals exhausting daily cap → final one rejected."""
@@ -223,10 +220,7 @@ class TestSignalOrchestrator:
         sig = _make_signal(confidence=0.80, entry=1.0800, sl=1.0780)
         order = orch.process_signal(sig)
         assert order.rejected
-        assert (
-            "daily" in order.rejection_reason.lower()
-            or "exceeds" in order.rejection_reason.lower()
-        )
+        assert "daily" in order.rejection_reason.lower() or "exceeds" in order.rejection_reason.lower()
 
     def test_circuit_breaker_active(self):
         """Breaker triggered → all signals rejected."""

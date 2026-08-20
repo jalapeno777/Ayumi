@@ -15,7 +15,7 @@ Key protocol details extracted from the reference implementation:
 - Checksum: sum of all bytes before tag-10, mod 256, zero-padded to 3 digits
 """
 
-import os
+import os  # noqa: I001
 import ssl
 import socket
 import sys
@@ -43,9 +43,7 @@ PASSWORD = os.environ.get("CTRADER_PASSWORD", "D92ooLbNvZ$2%%rF")
 
 # SenderCompID format: <environment>.c-trader.<account_id>
 # Per Spotware sample: <BrokerUID>.<TraderLogin> where BrokerUID is from cTrader
-SENDER_COMP_ID = os.environ.get(
-    "CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}"
-)
+SENDER_COMP_ID = os.environ.get("CTRADER_FIX_SENDER_COMP_ID", f"demo.c-trader.{ACCOUNT}")
 # Official C# sample uses "CSERVER" (uppercase)
 TARGET_COMP_ID = os.environ.get("CTRADER_FIX_TARGET_COMP_ID", "CSERVER")
 
@@ -324,14 +322,12 @@ def test_connection(
 
         # Send logout
         try:
-            logout_msg = build_logout(
-                SENDER_COMP_ID, sender_sub_id, TARGET_COMP_ID, target_sub_id, seq_num=2
-            )
+            logout_msg = build_logout(SENDER_COMP_ID, sender_sub_id, TARGET_COMP_ID, target_sub_id, seq_num=2)
             print("\n  >> SENDING LOGOUT:")
             print(f"     {format_fix_for_display(logout_msg)}")
             ssl_sock.send(logout_msg.encode("ascii"))
             time.sleep(0.5)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
         ssl_sock.close()

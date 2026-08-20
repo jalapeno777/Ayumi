@@ -25,7 +25,7 @@ Usage:
     python3 scripts/run_blend_5strat.py [--costs] [--full]
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 import time
 import pickle
@@ -39,7 +39,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 from core.types import Bar, MarketState, SessionType, BarPeriod, TradeDirection
 from strategies.killzone_momentum import (
     KillzoneMomentumStrategy,
@@ -96,15 +96,9 @@ class GateConfig:
 
 # Per-strategy gates — must match launch_blend_forward_test.py RegimeGate exactly
 GATES = {
-    "killzone_momentum": GateConfig(
-        {Regime.QUIET, Regime.CHOPPY}, (18.0, 25.0), {"london"}
-    ),
-    "dual_tf_squeeze_pro": GateConfig(
-        {Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}
-    ),
-    "donchian_atr_trend_v2": GateConfig(
-        {Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None
-    ),
+    "killzone_momentum": GateConfig({Regime.QUIET, Regime.CHOPPY}, (18.0, 25.0), {"london"}),
+    "dual_tf_squeeze_pro": GateConfig({Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}),
+    "donchian_atr_trend_v2": GateConfig({Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None),
     "srmr_plus": GateConfig({Regime.QUIET}, (0.0, 100.0), {"london"}),
     "london_breakout_retest": GateConfig(
         {Regime.QUIET, Regime.CHOPPY, Regime.TRENDING, Regime.VOLATILE},
@@ -148,7 +142,7 @@ def load_bars(symbol, tf):
     con = duckdb.connect(str(DB_PATH), read_only=True)
     con.execute("SET threads=1; SET memory_limit='512MB'")
     rows = con.execute(
-        f"SELECT timestamp_utc, open, high, low, close, volume FROM bars "
+        f"SELECT timestamp_utc, open, high, low, close, volume FROM bars "  # noqa: S608
         f"WHERE symbol='{symbol}' AND timeframe='{tf}' ORDER BY timestamp_utc ASC"
     ).fetchall()
     con.close()
@@ -156,9 +150,7 @@ def load_bars(symbol, tf):
     bp_map = {"M15": BarPeriod.M15, "H1": BarPeriod.H1}
     return [
         Bar(
-            time=datetime.fromtimestamp(
-                r[0] / 1000.0 if is_ms else r[0], tz=timezone.utc
-            ),
+            time=datetime.fromtimestamp(r[0] / 1000.0 if is_ms else r[0], tz=timezone.utc),
             open=r[1],
             high=r[2],
             low=r[3],
@@ -172,14 +164,10 @@ def load_bars(symbol, tf):
 
 def get_labels(symbol, tf, bars, detector):
     """Get or compute regime/ADX/session labels for each bar."""
-    cache_file = (
-        next(CACHE_DIR.glob(f"labels_{symbol}_{tf}_*.pkl"), None)
-        if CACHE_DIR.exists()
-        else None
-    )
+    cache_file = next(CACHE_DIR.glob(f"labels_{symbol}_{tf}_*.pkl"), None) if CACHE_DIR.exists() else None
     if cache_file:
         with open(cache_file, "rb") as f:
-            return pickle.load(f)
+            return pickle.load(f)  # noqa: S301
     print(f"Precomputing labels for {symbol} {tf}...", flush=True)
     t0 = time.time()
     regimes, adxs, sess = [], [], []
@@ -189,11 +177,11 @@ def get_labels(symbol, tf, bars, detector):
         if i >= 100:
             w = bars[max(0, i - 100) : i + 1]
             h = np.array([b.high for b in w])
-            l = np.array([b.low for b in w])
+            l = np.array([b.low for b in w])  # noqa: E741
             c = np.array([b.close for b in w])
             try:
                 r = detector.detect_current(h, l, c)
-            except:
+            except:  # noqa: E722, S110
                 pass
             try:
                 av = calc_adx(h, l, c, 14)
@@ -201,7 +189,7 @@ def get_labels(symbol, tf, bars, detector):
                     val = float(av.iloc[-1]) if hasattr(av, "iloc") else float(av[-1])
                     if not np.isnan(val):
                         a = val
-            except:
+            except:  # noqa: E722, S110
                 pass
         regimes.append(r)
         adxs.append(a)
@@ -256,16 +244,10 @@ def gate_pass(i, gate, regimes, adxs, sessions, bars=None, strategy_id=None):
 def make_factory(strategy_id):
     return {
         "killzone_momentum": lambda: KillzoneMomentumStrategy(KillzoneMomentumConfig()),
-        "dual_tf_squeeze_pro": lambda: DualTFSqueezeProStrategy(
-            DualTFSqueezeProConfig()
-        ),
-        "donchian_atr_trend_v2": lambda: DonchianATRTrendV2Strategy(
-            DonchianATRConfig()
-        ),
+        "dual_tf_squeeze_pro": lambda: DualTFSqueezeProStrategy(DualTFSqueezeProConfig()),
+        "donchian_atr_trend_v2": lambda: DonchianATRTrendV2Strategy(DonchianATRConfig()),
         "srmr_plus": lambda: SRMRPlusStrategy(SRMRPlusConfig(symbol="XAUUSD")),
-        "london_breakout_retest": lambda: LondonBreakoutRetestStrategy(
-            LondonBreakoutConfig()
-        ),
+        "london_breakout_retest": lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig()),
     }[strategy_id]
 
 
@@ -328,8 +310,7 @@ def generate_signals_gated(
         if i - last_progress >= 10000:
             last_progress = i
             print(
-                f"    [{strategy_id}] bar {i}/{n} ({i * 100 // n}%), "
-                f"accepted={gate_accepted}, signals={len(signals)}",
+                f"    [{strategy_id}] bar {i}/{n} ({i * 100 // n}%), accepted={gate_accepted}, signals={len(signals)}",
                 flush=True,
             )
 
@@ -349,18 +330,14 @@ def generate_signals_gated(
             strat.on_bar(bar)
 
         # Gate check BEFORE evaluate (matches original gated study)
-        if not gate_pass(
-            i, gate, regimes, adxs, sessions, bars=bars, strategy_id=strategy_id
-        ):
+        if not gate_pass(i, gate, regimes, adxs, sessions, bars=bars, strategy_id=strategy_id):
             gate_rejected += 1
             continue
 
         gate_accepted += 1
 
         # Evaluate only on gate-accepted bars
-        state = MarketState(
-            bars=list(window), current_session=session_for(bar.time.hour)
-        )
+        state = MarketState(bars=list(window), current_session=session_for(bar.time.hour))
         try:
             sig = strat.evaluate(state)
         except Exception:
@@ -533,9 +510,7 @@ def backtest_strategy_gated(
     t0 = time.time()
 
     # Phase 1: Generate signals (gate-first)
-    signals, stats = generate_signals_gated(
-        strategy_id, bars, timeframe, gate, regimes, adxs, sessions
-    )
+    signals, stats = generate_signals_gated(strategy_id, bars, timeframe, gate, regimes, adxs, sessions)
 
     # Phase 2: Simulate trades
     trades = []
@@ -551,9 +526,7 @@ def backtest_strategy_gated(
         trades.append(trade)
 
     elapsed = time.time() - t0
-    gate_pct = (
-        stats["gate_accepted"] * 100 / stats["total_bars"] if stats["total_bars"] else 0
-    )
+    gate_pct = stats["gate_accepted"] * 100 / stats["total_bars"] if stats["total_bars"] else 0
     print(
         f"  {strategy_id} ({timeframe}): "
         f"bars={stats['total_bars']}, rejected={stats['gate_rejected']}, "
@@ -599,9 +572,7 @@ def metrics(trades):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--costs", action="store_true", help="Apply realistic costs")
-    parser.add_argument(
-        "--full", action="store_true", help="Use all bars (default: all bars)"
-    )
+    parser.add_argument("--full", action="store_true", help="Use all bars (default: all bars)")
     args = parser.parse_args()
 
     detector = RegimeDetector(RegimeConfig())
@@ -621,7 +592,7 @@ def main():
         regimes, adxs, sessions = get_labels("XAUUSD", tf, bars, detector)
         if len(regimes) != len(bars):
             print(
-                f"  WARNING: label/bar mismatch ({len(regimes)} labels vs {len(bars)} bars) — truncating to {len(regimes)}"
+                f"  WARNING: label/bar mismatch ({len(regimes)} labels vs {len(bars)} bars) — truncating to {len(regimes)}"  # noqa: E501
             )
             bars = bars[: len(regimes)]
         tf_bars[tf] = bars
@@ -682,9 +653,7 @@ def main():
     all_trades_4.sort(key=lambda t: t.entry_bar)
     m_4 = metrics(all_trades_4)
     print("\n### 4-strategy blend portfolio:")
-    print(
-        f"  Trades: {m_4['trades']}, PF: {m_4['pf']}, Net: ${m_4['net']}, DD: {m_4['dd_pct']}%, WR: {m_4['wr']}%"
-    )
+    print(f"  Trades: {m_4['trades']}, PF: {m_4['pf']}, Net: ${m_4['net']}, DD: {m_4['dd_pct']}%, WR: {m_4['wr']}%")
     print(f"  Time: {time.time() - t0:.1f}s")
 
     # Per-strategy breakdown
@@ -698,9 +667,7 @@ def main():
             pf = gw / gl if gl > 0 else 999
             wr = len(wins) / len(pnls) * 100
             net = sum(pnls)
-            print(
-                f"  {sid}: {len(trades)} trades, PF={pf:.3f}, Net=${net:.2f}, WR={wr:.1f}%"
-            )
+            print(f"  {sid}: {len(trades)} trades, PF={pf:.3f}, Net=${net:.2f}, WR={wr:.1f}%")
 
     # -- 5-strategy blend --
     print("\n## Running 5-strategy blend (KZ + DualTF + Donchian + SRMR+ + LBO)...")
@@ -729,9 +696,7 @@ def main():
     all_trades_5.sort(key=lambda t: t.entry_bar)
     m_5 = metrics(all_trades_5)
     print("\n### 5-strategy blend portfolio:")
-    print(
-        f"  Trades: {m_5['trades']}, PF: {m_5['pf']}, Net: ${m_5['net']}, DD: {m_5['dd_pct']}%, WR: {m_5['wr']}%"
-    )
+    print(f"  Trades: {m_5['trades']}, PF: {m_5['pf']}, Net: ${m_5['net']}, DD: {m_5['dd_pct']}%, WR: {m_5['wr']}%")
     print(f"  Time: {time.time() - t0:.1f}s")
 
     # -- Per-strategy contribution table --
@@ -749,42 +714,26 @@ def main():
             wr = len(wins) / len(pnls) * 100
             net = sum(pnls)
             tf = STRATEGY_TIMEFRAMES[sid]
-            print(
-                f"| {sid} | {tf} | {len(trades)} | {pf:.3f} | ${net:.2f} | {wr:.1f}% |"
-            )
+            print(f"| {sid} | {tf} | {len(trades)} | {pf:.3f} | ${net:.2f} | {wr:.1f}% |")
 
     # -- Comparison --
     print("\n## Comparison: 4-strategy vs 5-strategy blend")
     print("| Metric | 4-strategy | 5-strategy | D |")
     print("|---|---:|---:|---:|")
-    print(
-        f"| Trades | {m_4['trades']} | {m_5['trades']} | {m_5['trades'] - m_4['trades']:+d} |"
-    )
+    print(f"| Trades | {m_4['trades']} | {m_5['trades']} | {m_5['trades'] - m_4['trades']:+d} |")
     print(f"| PF | {m_4['pf']} | {m_5['pf']} | {m_5['pf'] - m_4['pf']:+.3f} |")
-    print(
-        f"| Net $ | ${m_4['net']} | ${m_5['net']} | ${m_5['net'] - m_4['net']:+.2f} |"
-    )
-    print(
-        f"| DD % | {m_4['dd_pct']}% | {m_5['dd_pct']}% | {m_5['dd_pct'] - m_4['dd_pct']:+.2f}% |"
-    )
+    print(f"| Net $ | ${m_4['net']} | ${m_5['net']} | ${m_5['net'] - m_4['net']:+.2f} |")
+    print(f"| DD % | {m_4['dd_pct']}% | {m_5['dd_pct']}% | {m_5['dd_pct'] - m_4['dd_pct']:+.2f}% |")
     print(f"| WR % | {m_4['wr']}% | {m_5['wr']}% | {m_5['wr'] - m_4['wr']:+.1f}% |")
 
     # -- Original baseline reference --
     print("\n## Original baseline reference (gated_blend_results_2026-07-22.md):")
     print("| Metric | Original | 4-strategy (this run) | Match? |")
     print("|---|---:|---:|:---:|")
-    print(
-        f"| Trades | 170 | {m_4['trades']} | {'YES' if abs(m_4['trades'] - 170) <= 30 else 'NO'} |"
-    )
-    print(
-        f"| PF | 1.742 | {m_4['pf']} | {'YES' if abs(m_4['pf'] - 1.742) <= 0.3 else 'NO'} |"
-    )
-    print(
-        f"| Net | $2,820 | ${m_4['net']} | {'YES' if abs(m_4['net'] - 2820) <= 500 else 'NO'} |"
-    )
-    print(
-        f"| DD | 5.67% | {m_4['dd_pct']}% | {'YES' if abs(m_4['dd_pct'] - 5.67) <= 2.0 else 'NO'} |"
-    )
+    print(f"| Trades | 170 | {m_4['trades']} | {'YES' if abs(m_4['trades'] - 170) <= 30 else 'NO'} |")
+    print(f"| PF | 1.742 | {m_4['pf']} | {'YES' if abs(m_4['pf'] - 1.742) <= 0.3 else 'NO'} |")
+    print(f"| Net | $2,820 | ${m_4['net']} | {'YES' if abs(m_4['net'] - 2820) <= 500 else 'NO'} |")
+    print(f"| DD | 5.67% | {m_4['dd_pct']}% | {'YES' if abs(m_4['dd_pct'] - 5.67) <= 2.0 else 'NO'} |")
 
     # -- Annualized --
     bars_per_year = 96 * 365
@@ -795,9 +744,7 @@ def main():
     print(f"| 4-strategy | {m_4['trades'] / years_m15:.1f} |")
     print(f"| 5-strategy | {m_5['trades'] / years_m15:.1f} |")
     print(f"| D | +{m_5['trades'] / years_m15 - m_4['trades'] / years_m15:.1f} |")
-    print(
-        f"\n**Target:** 250/year. **5-strategy gap:** {max(0, 250 - m_5['trades'] / years_m15):.0f}/year"
-    )
+    print(f"\n**Target:** 250/year. **5-strategy gap:** {max(0, 250 - m_5['trades'] / years_m15):.0f}/year")
     print(
         f"\n**5-strategy FTMO viability:** PF={m_5['pf']}, DD={m_5['dd_pct']}% (req DD<10%)",
         "PASS" if m_5["dd_pct"] < 10 else "FAIL",

@@ -128,9 +128,7 @@ class KillSwitchManager:
     system from operating. Set to False to re-enable.
     """
 
-    _disabled: bool = (
-        True  # Craig directive Jun 27: disabled until properly investigated
-    )
+    _disabled: bool = True  # Craig directive Jun 27: disabled until properly investigated
 
     # Kill levels
     LEVEL_GLOBAL = "global"
@@ -158,12 +156,8 @@ class KillSwitchManager:
         self._load_state()
 
         # Cached flags for ultra-fast path (< 0.01ms)
-        self._killed_cache: bool = (
-            self._state.active and self._state.mode == self.MODE_KILL
-        )
-        self._frozen_cache: bool = (
-            self._state.active and self._state.mode == self.MODE_FREEZE
-        )
+        self._killed_cache: bool = self._state.active and self._state.mode == self.MODE_KILL
+        self._frozen_cache: bool = self._state.active and self._state.mode == self.MODE_FREEZE
 
         # Per-strategy freeze states
         self._strategy_state_file = self._state_dir / STRATEGY_STATE_FILE
@@ -301,8 +295,7 @@ class KillSwitchManager:
         decision was recorded in the audit trail via ``log_path``.
         """
         reason = (
-            f"ftmo_target_reached "
-            f"(balance={current_balance:.2f}, target_pct={target_pct:.4f})"
+            f"ftmo_target_reached (balance={current_balance:.2f}, target_pct={target_pct:.4f})"
             if current_balance is not None and target_pct is not None
             else "ftmo_target_reached"
         )
@@ -478,9 +471,7 @@ class KillSwitchManager:
         with self._lock:
             st = self._strategy_states.get(strategy_id)
             if st is None or not st.frozen:
-                logger.info(
-                    "Strategy '%s' not frozen — nothing to unfreeze", strategy_id
-                )
+                logger.info("Strategy '%s' not frozen — nothing to unfreeze", strategy_id)
                 return False
 
             now = datetime.now(timezone.utc).isoformat()
@@ -684,8 +675,7 @@ class KillSwitchManager:
                 raise
         except Exception as exc:
             logger.critical(
-                "Failed to persist kill switch state: %s — "
-                "KILL SWITCH WILL NOT SURVIVE RESTART",
+                "Failed to persist kill switch state: %s — KILL SWITCH WILL NOT SURVIVE RESTART",
                 exc,
             )
 
@@ -709,16 +699,14 @@ class KillSwitchManager:
             if self._state.active:
                 if self._state.mode == self.MODE_KILL:
                     logger.critical(
-                        "STARTUP: Kill switch is ACTIVE (KILL mode): "
-                        "reason=%s, triggered_by=%s, triggered_at=%s",
+                        "STARTUP: Kill switch is ACTIVE (KILL mode): reason=%s, triggered_by=%s, triggered_at=%s",
                         self._state.reason,
                         self._state.triggered_by,
                         self._state.triggered_at,
                     )
                 elif self._state.mode == self.MODE_FREEZE:
                     logger.critical(
-                        "STARTUP: Kill switch is ACTIVE (FREEZE mode): "
-                        "reason=%s, triggered_by=%s, triggered_at=%s",
+                        "STARTUP: Kill switch is ACTIVE (FREEZE mode): reason=%s, triggered_by=%s, triggered_at=%s",
                         self._state.reason,
                         self._state.triggered_by,
                         self._state.triggered_at,
@@ -776,9 +764,7 @@ class KillSwitchManager:
         try:
             data = {
                 "version": STATE_VERSION,
-                "strategies": {
-                    sid: st.to_dict() for sid, st in self._strategy_states.items()
-                },
+                "strategies": {sid: st.to_dict() for sid, st in self._strategy_states.items()},
             }
             json_str = json.dumps(data, indent=2)
 
@@ -801,8 +787,7 @@ class KillSwitchManager:
                 raise
         except Exception as exc:
             logger.critical(
-                "Failed to persist strategy states: %s — "
-                "STRATEGY FREEZE STATES WILL NOT SURVIVE RESTART",
+                "Failed to persist strategy states: %s — STRATEGY FREEZE STATES WILL NOT SURVIVE RESTART",
                 exc,
             )
 

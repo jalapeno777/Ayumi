@@ -20,7 +20,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.builtin_strategies import register_builtin_strategies  # noqa: E402
+from backtest.builtin_strategies import register_builtin_strategies  # noqa: E402, I001
 from backtest.data_loader import CsvDataLoader  # noqa: E402
 from backtest.engine import (  # noqa: E402
     BacktestConfig,
@@ -67,15 +67,10 @@ def _run_vaps_window(
         engine._atr_history = []
         result = engine.run_all_strategies(test_bars)
         metrics_obj = result[strategy.name].metrics
-        trades = [
-            {"pnl": t.profit_loss}
-            for t in metrics_obj.trades
-            if hasattr(t, "profit_loss")
-        ]
+        trades = [{"pnl": t.profit_loss} for t in metrics_obj.trades if hasattr(t, "profit_loss")]
         if not trades and metrics_obj.total_trades > 0:
             trades = [
-                {"pnl": metrics_obj.total_pnl / metrics_obj.total_trades}
-                for _ in range(metrics_obj.total_trades)
+                {"pnl": metrics_obj.total_pnl / metrics_obj.total_trades} for _ in range(metrics_obj.total_trades)
             ]
     except ValueError:
         trades = []
@@ -96,9 +91,7 @@ def run_vaps_ab_walk_forward(
     vaps_config: Optional[VAPSConfig] = None,
 ) -> dict[str, Any]:
     cfg = vaps_config or VAPSConfig()
-    effective_spread = (
-        spread_pips if spread_pips is not None else get_spread_for_pair(pair)
-    )
+    effective_spread = spread_pips if spread_pips is not None else get_spread_for_pair(pair)
 
     fixed_results = run_strategy_walk_forward(
         bars=bars,
@@ -134,9 +127,7 @@ def run_vaps_ab_walk_forward(
             spread_pips=effective_spread,
             vaps_config=cfg,
         )
-        vaps_metrics = _compute_metrics(
-            idx, vaps_trades, initial_balance=initial_balance
-        )
+        vaps_metrics = _compute_metrics(idx, vaps_trades, initial_balance=initial_balance)
         vaps_per_window.append(vaps_metrics)
 
         fixed_m = fixed_results.per_window[idx]
@@ -166,16 +157,12 @@ def run_vaps_ab_walk_forward(
         }
 
         if fixed_m.win_rate > 0:
-            detail["wr_improvement"] = round(
-                (vaps_metrics.win_rate - fixed_m.win_rate) * 100, 2
-            )
+            detail["wr_improvement"] = round((vaps_metrics.win_rate - fixed_m.win_rate) * 100, 2)
         else:
             detail["wr_improvement"] = 0.0
 
         if fixed_m.profit_factor > 0:
-            detail["pf_improvement"] = round(
-                vaps_metrics.profit_factor - fixed_m.profit_factor, 4
-            )
+            detail["pf_improvement"] = round(vaps_metrics.profit_factor - fixed_m.profit_factor, 4)
         else:
             detail["pf_improvement"] = 0.0
 
@@ -289,9 +276,7 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"\n{'=' * 76}")
     print(f"  VAPS A/B WALK-FORWARD: {cfg['pair']} Session Range MR")
     print(f"{'=' * 76}")
-    print(
-        f"  Windows: {cfg['n_windows']} | Bars: {cfg['total_bars']} | Spread: {cfg['spread_pips']} pips"
-    )
+    print(f"  Windows: {cfg['n_windows']} | Bars: {cfg['total_bars']} | Spread: {cfg['spread_pips']} pips")
     print(
         f"  VAPS: lookback={cfg['vaps_lookback']}, "
         f"low={cfg['vaps_low_mult']}x (<{cfg['vaps_low_pctile']}%), "
@@ -328,12 +313,10 @@ def print_report(report: dict[str, Any]) -> None:
 
     print("\n  GO/NO-GO Summary:")
     print(
-        f"    Fixed: {'GO' if summary['fixed_go_nogo'] else 'NO-GO'} "
-        f"({summary['fixed_windows_passed']} windows passed)"
+        f"    Fixed: {'GO' if summary['fixed_go_nogo'] else 'NO-GO'} ({summary['fixed_windows_passed']} windows passed)"
     )
     print(
-        f"    VAPS:  {'GO' if summary['vaps_go_nogo'] else 'NO-GO'} "
-        f"({summary['vaps_windows_passed']} windows passed)"
+        f"    VAPS:  {'GO' if summary['vaps_go_nogo'] else 'NO-GO'} ({summary['vaps_windows_passed']} windows passed)"
     )
     print(f"    VAPS outperforms: {summary['vaps_outperforms_fixed']}")
 
@@ -355,32 +338,20 @@ def print_report(report: dict[str, Any]) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="VAPS vs Fixed Sizing A/B Walk-Forward Comparison"
-    )
+    p = argparse.ArgumentParser(description="VAPS vs Fixed Sizing A/B Walk-Forward Comparison")
     add_resource_args(p)
     p.add_argument("--pair", type=str, default="GBPUSD", help="Currency pair")
-    p.add_argument(
-        "--strategy", type=str, default="session_range_mr", help="Strategy name"
-    )
+    p.add_argument("--strategy", type=str, default="session_range_mr", help="Strategy name")
     p.add_argument("--data", type=str, default=None, help="Path to CSV data file")
     p.add_argument("--windows", type=int, default=5, help="Number of windows")
     p.add_argument("--train-ratio", type=float, default=0.7, help="Train split ratio")
     p.add_argument("--balance", type=float, default=10000, help="Starting balance")
     p.add_argument("--spread", type=float, default=None, help="Spread in pips")
     p.add_argument("--vaps-lookback", type=int, default=50, help="VAPS ATR lookback")
-    p.add_argument(
-        "--vaps-low", type=float, default=1.5, help="VAPS low vol multiplier"
-    )
-    p.add_argument(
-        "--vaps-normal", type=float, default=1.0, help="VAPS normal vol multiplier"
-    )
-    p.add_argument(
-        "--vaps-high", type=float, default=0.7, help="VAPS high vol multiplier"
-    )
-    p.add_argument(
-        "--vaps-extreme", type=float, default=0.5, help="VAPS extreme vol multiplier"
-    )
+    p.add_argument("--vaps-low", type=float, default=1.5, help="VAPS low vol multiplier")
+    p.add_argument("--vaps-normal", type=float, default=1.0, help="VAPS normal vol multiplier")
+    p.add_argument("--vaps-high", type=float, default=0.7, help="VAPS high vol multiplier")
+    p.add_argument("--vaps-extreme", type=float, default=0.5, help="VAPS extreme vol multiplier")
     p.add_argument(
         "--vaps-low-pctile",
         type=float,
@@ -412,13 +383,7 @@ def main() -> None:
     data_file = args.data
     if data_file is None:
         pair_upper = args.pair.upper().replace("/", "")
-        data_file = str(
-            Path(project_root)
-            / "data"
-            / "forex"
-            / "historical"
-            / f"{pair_upper}_H1.csv"
-        )
+        data_file = str(Path(project_root) / "data" / "forex" / "historical" / f"{pair_upper}_H1.csv")
 
     if not Path(data_file).exists():
         print(f"Error: Data file not found: {data_file}", file=sys.stderr)

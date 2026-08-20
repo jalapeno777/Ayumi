@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -225,9 +225,7 @@ class TestTradeSignalCreation:
                 offset = day * 24 + h
                 bars.append(
                     Bar(
-                        time=datetime(
-                            2026, 4, day if day > 0 else 1, h, 0, tzinfo=timezone.utc
-                        ),
+                        time=datetime(2026, 4, day if day > 0 else 1, h, 0, tzinfo=timezone.utc),
                         open=base + offset * 0.00001,
                         high=base + offset * 0.00001 + 0.0001,
                         low=base + offset * 0.00001 - 0.0001,
@@ -240,11 +238,7 @@ class TestTradeSignalCreation:
         signal = strategy.evaluate(state)
 
         if signal is not None:
-            direction = (
-                TradeDirection.LONG
-                if signal.direction.value == "long"
-                else TradeDirection.SHORT
-            )
+            direction = TradeDirection.LONG if signal.direction.value == "long" else TradeDirection.SHORT
 
             trade_signal = CTraderTradeSignal(
                 symbol="GBPUSD",

@@ -86,9 +86,7 @@ class FTMOGuard:
             daily_override = None
             max_override = None
 
-        self._daily_loss_limit_pct = (
-            daily_override or _DAILY_LOSS_PCT[self._challenge_type]
-        )
+        self._daily_loss_limit_pct = daily_override or _DAILY_LOSS_PCT[self._challenge_type]
         self._max_loss_limit_pct = max_override or _MAX_LOSS_PCT[self._challenge_type]
 
         # Highest midnight balance seen (for trailing floor)
@@ -153,16 +151,13 @@ class FTMOGuard:
         is the expected loss in account currency if the stop-loss is hit.
         ``balance`` defaults to the last recorded midnight balance.
         """
-        effective_balance = (
-            balance if balance is not None else self._daily_start_balance
-        )
+        effective_balance = balance if balance is not None else self._daily_start_balance
 
         # Daily loss headroom must cover the planned risk (including open P/L)
         daily_remaining = self.remaining_daily_loss(effective_balance, open_pnl)
         if planned_risk_dollars > daily_remaining:
             logger.warning(
-                "FTMO guard: planned risk $%.2f exceeds daily headroom $%.2f "
-                "(balance $%.2f, open_pnl $%.2f, %s)",
+                "FTMO guard: planned risk $%.2f exceeds daily headroom $%.2f (balance $%.2f, open_pnl $%.2f, %s)",
                 planned_risk_dollars,
                 daily_remaining,
                 effective_balance,
@@ -175,8 +170,7 @@ class FTMOGuard:
         total_remaining = self.remaining_total_loss(effective_balance)
         if planned_risk_dollars > total_remaining:
             logger.warning(
-                "FTMO guard: planned risk $%.2f exceeds total headroom $%.2f "
-                "(balance $%.2f, %s)",
+                "FTMO guard: planned risk $%.2f exceeds total headroom $%.2f (balance $%.2f, %s)",
                 planned_risk_dollars,
                 total_remaining,
                 effective_balance,

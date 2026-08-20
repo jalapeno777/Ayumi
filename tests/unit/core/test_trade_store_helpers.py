@@ -9,7 +9,7 @@ Deterministic, isolated tests — no live trading, no broker/network access, no
 persistent state across tests.
 """
 
-import sqlite3
+import sqlite3  # noqa: I001
 import statistics
 from pathlib import Path
 

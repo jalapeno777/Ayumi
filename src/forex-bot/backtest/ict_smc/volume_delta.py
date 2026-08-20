@@ -59,9 +59,7 @@ class VolumeDeltaAnalyzer:
             volume_percentile=volume_percentile,
         )
 
-    def score_sweep_conviction(
-        self, result: VolumeDeltaResult, sweep_direction: str
-    ) -> float:
+    def score_sweep_conviction(self, result: VolumeDeltaResult, sweep_direction: str) -> float:
         if result is None:
             return 0.5
 

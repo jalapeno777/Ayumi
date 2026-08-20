@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -242,9 +242,7 @@ class TestConvenienceFunctions:
         assert r.passed is True
 
     def test_evaluate_aggregate_custom_criteria(self):
-        custom = AggregateCriteria(
-            min_total_trades=50, min_windows_passed=4, min_total_windows=5
-        )
+        custom = AggregateCriteria(min_total_trades=50, min_windows_passed=4, min_total_windows=5)
         r = evaluate_aggregate(100, 3, 5, criteria=custom)
         assert r.passed is False
 

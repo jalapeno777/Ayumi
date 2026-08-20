@@ -36,7 +36,7 @@ so the soft/hard mode logic can be asserted precisely without depending
 on real BBW-derived values.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 import pandas as pd
@@ -136,19 +136,19 @@ def test_bbw_percentile_range():
     highs, lows, closes = _synthetic_ohlc(n=500, seed=42)
     bbw_pct = bbw_percentile(highs, lows, closes, bbw_period=20, bbw_lookback=50)
 
-    assert len(bbw_pct) == 500
-    assert bbw_pct.index.equals(pd.RangeIndex(500))
+    assert len(bbw_pct) == 500  # noqa: S101
+    assert bbw_pct.index.equals(pd.RangeIndex(500))  # noqa: S101
 
     valid = bbw_pct.dropna()
-    assert len(valid) > 0, "expected at least some non-NaN BBW values"
-    assert valid.min() >= 0.0, f"BBW percentile below 0: {valid.min()}"
-    assert valid.max() <= 1.0, f"BBW percentile above 1: {valid.max()}"
+    assert len(valid) > 0, "expected at least some non-NaN BBW values"  # noqa: S101
+    assert valid.min() >= 0.0, f"BBW percentile below 0: {valid.min()}"  # noqa: S101
+    assert valid.max() <= 1.0, f"BBW percentile above 1: {valid.max()}"  # noqa: S101
     # Sanity: the percentile rank covers both extremes — there's at
     # least one bar at 0.0 (the window minimum) and one at 1.0 (the
     # window maximum).  Without this, a degenerate constant input
     # could pass the range check.
-    assert valid.min() == 0.0
-    assert valid.max() == 1.0
+    assert valid.min() == 0.0  # noqa: S101
+    assert valid.max() == 1.0  # noqa: S101
 
     # Warm-up: leading bars should be NaN.  ``bollinger_bands`` uses
     # ``min_periods=bbw_period`` for the SMA / std (so raw BBW is NaN
@@ -162,9 +162,8 @@ def test_bbw_percentile_range():
     # ``bbw_period + bbw_lookback - 2``.
     expected_first_valid = 20 + 50 - 2  # = 68
     first_valid_idx = int(bbw_pct.first_valid_index())
-    assert first_valid_idx == expected_first_valid, (
-        f"expected first valid BBW at index {expected_first_valid}, "
-        f"got {first_valid_idx}"
+    assert first_valid_idx == expected_first_valid, (  # noqa: S101
+        f"expected first valid BBW at index {expected_first_valid}, got {first_valid_idx}"
     )
 
 
@@ -172,8 +171,8 @@ def test_bbw_percentile_short_data_returns_all_nan():
     """Series shorter than ``bbw_period`` returns all-NaN."""
     highs, lows, closes = _synthetic_ohlc(n=10, seed=42)
     bbw_pct = bbw_percentile(highs, lows, closes, bbw_period=20, bbw_lookback=50)
-    assert len(bbw_pct) == 10
-    assert bbw_pct.isna().all()
+    assert len(bbw_pct) == 10  # noqa: S101
+    assert bbw_pct.isna().all()  # noqa: S101
 
 
 def test_bbw_percentile_flat_prices_handled():
@@ -191,14 +190,14 @@ def test_bbw_percentile_flat_prices_handled():
     highs = flat_close + 0.01
     lows = flat_close - 0.01
     bbw_pct = bbw_percentile(highs, lows, flat_close, bbw_period=20, bbw_lookback=50)
-    assert len(bbw_pct) == n
+    assert len(bbw_pct) == n  # noqa: S101
     # No exceptions raised; every bar past warm-up is NaN due to the
     # zero-range guard (or NaN due to flat BBW upstream).
     valid = bbw_pct.dropna()
     # For a perfectly flat input the rolling range is identically 0,
     # so all post-warm-up values are NaN.  (If we ever change the
     # guard to produce 0.0 here, this assertion needs updating.)
-    assert len(valid) == 0, (
+    assert len(valid) == 0, (  # noqa: S101
         f"flat input should yield all-NaN BBW; got {len(valid)} finite values"
     )
 
@@ -222,7 +221,7 @@ def test_backward_compat_none_mode(monkeypatch):
     det_explicit_none = RegimeDetector(RegimeConfig(bbw_confirmation="none"))
 
     # Identity / sanity check on the dataclass.
-    assert det_default.config == det_explicit_none.config
+    assert det_default.config == det_explicit_none.config  # noqa: S101
 
     s_default = det_default.detect(highs, lows, closes)
     s_explicit = det_explicit_none.detect(highs, lows, closes)
@@ -233,9 +232,7 @@ def test_backward_compat_none_mode(monkeypatch):
     # is a small but important contract — it guarantees the BBW
     # addition has zero runtime cost when not requested.
     def _explode(*args, **kwargs):
-        raise AssertionError(
-            "bbw_percentile must not be called when bbw_confirmation='none'"
-        )
+        raise AssertionError("bbw_percentile must not be called when bbw_confirmation='none'")
 
     monkeypatch.setattr(
         "regime.detector.bbw_percentile",
@@ -294,15 +291,15 @@ def test_soft_mode_or_logic(monkeypatch):
 
     # Sanity: target_bar should be VOLATILE in none mode (atr=0.81 > thr)
     # and VOLATILE in soft mode (atr=0.81 > thr OR bbw=0.95 > thr).
-    assert s_none.iloc[target_bar] == Regime.VOLATILE
-    assert s_soft.iloc[target_bar] == Regime.VOLATILE
+    assert s_none.iloc[target_bar] == Regime.VOLATILE  # noqa: S101
+    assert s_soft.iloc[target_bar] == Regime.VOLATILE  # noqa: S101
 
     # Now pick a different bar (e.g. 200) where ATR=0.79 (below thr).
     test_bar = 200
-    assert s_none.iloc[test_bar] != Regime.VOLATILE, (
+    assert s_none.iloc[test_bar] != Regime.VOLATILE, (  # noqa: S101
         "sanity: with atr=0.79 < 0.80, none mode must NOT label the bar VOLATILE"
     )
-    assert s_soft.iloc[test_bar] == Regime.VOLATILE, (
+    assert s_soft.iloc[test_bar] == Regime.VOLATILE, (  # noqa: S101
         "soft mode (OR) must label atr=0.79 + bbw=0.95 as VOLATILE"
     )
 
@@ -342,18 +339,18 @@ def test_hard_mode_and_logic(monkeypatch):
     s_hard = det_hard.detect(highs, lows, closes)
 
     # Bar with atr=0.85 > 0.80: VOLATILE in none, NOT VOLATILE in hard.
-    assert s_none.iloc[target_bar] == Regime.VOLATILE, (
+    assert s_none.iloc[target_bar] == Regime.VOLATILE, (  # noqa: S101
         "sanity: with atr=0.85 > 0.80, none mode must label the bar VOLATILE"
     )
-    assert s_hard.iloc[target_bar] != Regime.VOLATILE, (
+    assert s_hard.iloc[target_bar] != Regime.VOLATILE, (  # noqa: S101
         "hard mode (AND) must NOT label atr=0.85 + bbw=0.50 as VOLATILE"
     )
 
     # Bar with BOTH atr=0.85 and bbw=0.95 (both above threshold): both
     # detectors should label VOLATILE.
     both_above_bar = target_bar + 50
-    assert s_none.iloc[both_above_bar] == Regime.VOLATILE
-    assert s_hard.iloc[both_above_bar] == Regime.VOLATILE, (
+    assert s_none.iloc[both_above_bar] == Regime.VOLATILE  # noqa: S101
+    assert s_hard.iloc[both_above_bar] == Regime.VOLATILE, (  # noqa: S101
         "hard mode must label VOLATILE when BOTH atr and bbw exceed threshold"
     )
 
@@ -434,7 +431,7 @@ def test_bbw_config_validation():
 def test_bbw_defaults_match_spec():
     """Default ``bbw_confirmation`` is ``"none"`` (backward-compatible)."""
     cfg = RegimeConfig()
-    assert cfg.bbw_confirmation == "none"
-    assert cfg.bbw_period == 20
-    assert cfg.bbw_lookback == 50
-    assert cfg.bbw_volatile_pct == 0.80
+    assert cfg.bbw_confirmation == "none"  # noqa: S101
+    assert cfg.bbw_period == 20  # noqa: S101
+    assert cfg.bbw_lookback == 50  # noqa: S101
+    assert cfg.bbw_volatile_pct == 0.80  # noqa: S101

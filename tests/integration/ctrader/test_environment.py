@@ -1,6 +1,6 @@
 """Tests for the cTrader environment model (WP-C)."""
 
-import logging
+import logging  # noqa: I001
 import pytest
 
 from adapters.ctrader.environment import (

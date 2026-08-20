@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import inspect
 import logging
@@ -53,8 +53,7 @@ def _check_trade_count_warning(window_idx: int, trade_count: int) -> bool:
     """
     if trade_count < MIN_TRADES_WARNING:
         logger.warning(
-            "[WARNING] Window %d: only %d trades (minimum %d recommended "
-            "for statistical significance)",
+            "[WARNING] Window %d: only %d trades (minimum %d recommended for statistical significance)",
             window_idx,
             trade_count,
             MIN_TRADES_WARNING,
@@ -115,8 +114,7 @@ class SupportsTrain(Protocol):
 
 def run_strategy_walk_forward(
     bars: list[Bar],
-    strategy_factory: Callable[[], ISignalStrategy]
-    | Callable[[list[Bar]], ISignalStrategy],
+    strategy_factory: Callable[[], ISignalStrategy] | Callable[[list[Bar]], ISignalStrategy],
     pair: str,
     n_windows: int = 5,
     train_ratio: float = 0.7,
@@ -131,16 +129,12 @@ def run_strategy_walk_forward(
 ) -> WalkForwardResults:
     factory_params = len(inspect.signature(strategy_factory).parameters)
 
-    effective_spread = (
-        spread_pips if spread_pips is not None else get_spread_for_pair(pair)
-    )
+    effective_spread = spread_pips if spread_pips is not None else get_spread_for_pair(pair)
 
     config = BacktestConfig(
         starting_balance=initial_balance,
         spread_pips=effective_spread,
-        commission_per_lot=commission_per_lot
-        if commission_per_lot is not None
-        else 3.5,
+        commission_per_lot=commission_per_lot if commission_per_lot is not None else 3.5,
         pair=pair,
         min_confidence=min_confidence,
     )
@@ -156,7 +150,7 @@ def run_strategy_walk_forward(
 
     per_window = []
     all_trade_records: list[dict] = []
-    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test_bars) < config.min_bars_before_signal:
             window_metrics = _compute_metrics(idx, [], initial_balance=initial_balance)
             per_window.append(window_metrics)
@@ -170,19 +164,13 @@ def run_strategy_walk_forward(
         if hasattr(strategy, "reset") and callable(strategy.reset):
             strategy.reset()
 
-        if (
-            hasattr(strategy, "train")
-            and callable(strategy.train)
-            and factory_params > 0
-        ):
+        if hasattr(strategy, "train") and callable(strategy.train) and factory_params > 0:
             strategy.train(train_bars)
 
         try:
             if risk_sizer is None:
                 risk_sizer = ConfidencePositionSizer(account_size=initial_balance)
-            engine = MultiStrategyBacktestEngine(
-                config, [strategy], risk_sizer=risk_sizer
-            )
+            engine = MultiStrategyBacktestEngine(config, [strategy], risk_sizer=risk_sizer)
             result = engine.run_all_strategies(test_bars)
             metrics_obj = result[strategy.name].metrics
 
@@ -201,8 +189,7 @@ def run_strategy_walk_forward(
 
             if not trades and metrics_obj.total_trades > 0:
                 trades = [
-                    {"pnl": metrics_obj.total_pnl / metrics_obj.total_trades}
-                    for _ in range(metrics_obj.total_trades)
+                    {"pnl": metrics_obj.total_pnl / metrics_obj.total_trades} for _ in range(metrics_obj.total_trades)
                 ]
         except ValueError:
             logger.warning("Trade extraction failed for window %d, skipping", idx)
@@ -303,16 +290,12 @@ def run_multi_strategy_walk_forward(
     Runs each strategy independently via run_all_strategies, merges all trades,
     then aggregates combined metrics across windows.
     """
-    effective_spread = (
-        spread_pips if spread_pips is not None else get_spread_for_pair(pair)
-    )
+    effective_spread = spread_pips if spread_pips is not None else get_spread_for_pair(pair)
 
     config = BacktestConfig(
         starting_balance=initial_balance,
         spread_pips=effective_spread,
-        commission_per_lot=commission_per_lot
-        if commission_per_lot is not None
-        else 3.5,
+        commission_per_lot=commission_per_lot if commission_per_lot is not None else 3.5,
         pair=pair,
         min_confidence=min_confidence,
     )
@@ -328,7 +311,7 @@ def run_multi_strategy_walk_forward(
 
     per_window = []
     all_trade_records: list[dict] = []
-    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+    for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test_bars) < config.min_bars_before_signal:
             window_metrics = _compute_metrics(idx, [], initial_balance=initial_balance)
             per_window.append(window_metrics)
@@ -345,7 +328,7 @@ def run_multi_strategy_walk_forward(
 
             # Merge trades from all strategies
             all_trades = []
-            for name, res in results.items():
+            for name, res in results.items():  # noqa: B007
                 all_trades.extend(res.metrics.trades)
 
             trades = []

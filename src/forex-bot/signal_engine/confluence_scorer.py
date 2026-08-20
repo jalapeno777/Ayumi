@@ -6,7 +6,7 @@ plus pattern_type as a bonus factor (uses the 5% slack in the weight budget).
 Weight total: 0.95 (spec) + 0.05 (pattern_type slack) = 1.00
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from typing import Optional
@@ -164,9 +164,7 @@ class ConfluenceScorer:
         else:
             # Fallback: use HTF alignment score from candidate/htf_state
             direction = candidate.get("direction")
-            alignment = mtf_state.get(
-                "alignment_score", candidate.get("htf_alignment_score", 0.0)
-            )
+            alignment = mtf_state.get("alignment_score", candidate.get("htf_alignment_score", 0.0))
             if direction == "long":
                 score = max(0.0, alignment)
             else:

@@ -13,7 +13,7 @@ Covers:
 - SL/TP geometry
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import random
 from datetime import datetime, timedelta, timezone
@@ -68,7 +68,7 @@ def _make_uptrend_bars(
     volatility: float = 0.0005,
 ) -> list[Bar]:
     """Build a steady uptrend with enough bars for all indicators."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     bars: list[Bar] = []
     t = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
     price = base_price
@@ -90,7 +90,7 @@ def _make_downtrend_bars(
     volatility: float = 0.0005,
 ) -> list[Bar]:
     """Build a steady downtrend with enough bars for all indicators."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     bars: list[Bar] = []
     t = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
     price = base_price
@@ -112,7 +112,7 @@ def _make_ranging_bars(
     volatility: float = 0.0003,
 ) -> list[Bar]:
     """Build sideways/ranging bars — no clear trend."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     bars: list[Bar] = []
     t = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
     price = base_price
@@ -386,9 +386,7 @@ class TestFTMOCompliance:
         bars = _append_breakout_up(bars)
         state = _make_state(bars)
 
-        strategy = MomentumM15Strategy(
-            MomentumM15Config(account_balance=100_000.0, max_daily_dd=0.03)
-        )
+        strategy = MomentumM15Strategy(MomentumM15Config(account_balance=100_000.0, max_daily_dd=0.03))
 
         # Record a losing trade that breaches the 3% daily DD
         strategy.record_trade_result(pnl=-4000.0)  # -4% of 100k
@@ -403,9 +401,7 @@ class TestFTMOCompliance:
         bars = _append_breakout_up(bars)
         state = _make_state(bars)
 
-        strategy = MomentumM15Strategy(
-            MomentumM15Config(account_balance=100_000.0, max_daily_dd=0.03)
-        )
+        strategy = MomentumM15Strategy(MomentumM15Config(account_balance=100_000.0, max_daily_dd=0.03))
         strategy.record_trade_result(pnl=-1000.0)  # -1%, within 3% limit
 
         signal = strategy.evaluate(state)

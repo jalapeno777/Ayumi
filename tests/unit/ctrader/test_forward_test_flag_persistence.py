@@ -26,9 +26,7 @@ import pytest
 # which transitively pulls statsmodels. The shim is idempotent.
 # ---------------------------------------------------------------------------
 def _install_backtest_stub():
-    if "backtest" in sys.modules and getattr(
-        sys.modules["backtest"], "_tsukasa_stub", False
-    ):
+    if "backtest" in sys.modules and getattr(sys.modules["backtest"], "_tsukasa_stub", False):
         return
 
     class _Fake:
@@ -120,9 +118,7 @@ _install_backtest_stub()
 
 
 # Now safe to import the module under test
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
 
 from adapters.ctrader import forward_test_engine as fte_module  # noqa: E402
 from adapters.ctrader.forward_test_engine import ForwardTestEngine  # noqa: E402
@@ -164,19 +160,13 @@ def test_flag_present_is_noop(tmp_flag_paths):
     original = flag_path.read_text()
 
     ForwardTestEngine._enforce_remediation_gate(live_mode=True)
-    assert flag_path.read_text() == original, (
-        "existing flag must be preserved byte-for-byte"
-    )
+    assert flag_path.read_text() == original, "existing flag must be preserved byte-for-byte"
 
 
 def test_flag_auto_recreated_from_audit_doc(tmp_flag_paths):
     """Card 2893597d acceptance criterion #2: flag is recreated from audit doc."""
     flag_path, audit_path = tmp_flag_paths
-    audit_path.write_text(
-        "# Ayumi Live Remediation Session Audit\n"
-        "Date: 2026-06-30\n"
-        "Remediation validated.\n"
-    )
+    audit_path.write_text("# Ayumi Live Remediation Session Audit\nDate: 2026-06-30\nRemediation validated.\n")
     assert not flag_path.exists()
 
     ForwardTestEngine._enforce_remediation_gate(live_mode=True)

@@ -6,7 +6,7 @@ cooldown behavior, retest window expiry (16 bars), risk calculation
 (stop/TP at R multiples), confidence bounds, and helper functions.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -348,11 +348,7 @@ class TestSessionAndRangeFiltering:
         state = MarketState(bars=bars)
         # All bars at hour < 7 should be filtered
         last_bar = bars[-1]
-        assert (
-            last_bar.time.hour < 7
-            or last_bar.time.hour >= 11
-            or strategy.evaluate(state) is None
-        )
+        assert last_bar.time.hour < 7 or last_bar.time.hour >= 11 or strategy.evaluate(state) is None
 
     def test_no_signal_for_too_small_range(self):
         """Asian range below min_asian_range_pips blocks signals."""

@@ -28,7 +28,7 @@ try:
 except ImportError:
     pass
 
-from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig
+from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig  # noqa: I001
 from adapters.ctrader.risk_guard import FTMOConfig
 from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
@@ -103,8 +103,7 @@ class TTCXAUUSDForwardTest:
 
     def _on_signal_traded(self, signal):
         logger.info(
-            f"SIGNAL: {signal.direction.value} {signal.symbol} @ {signal.entry_price:.5f} "
-            f"conf={signal.confidence:.2f}"
+            f"SIGNAL: {signal.direction.value} {signal.symbol} @ {signal.entry_price:.5f} conf={signal.confidence:.2f}"
         )
 
     def _status_loop(self):
@@ -124,8 +123,7 @@ class TTCXAUUSDForwardTest:
             ticks = health.ticks_received
             connected = "Y" if health.connected else "N"
             print(
-                f"[{now} UTC] {SYMBOL}: bal=${bal:.2f} trades={trades} "
-                f"signals={signals} ticks={ticks} conn={connected}"
+                f"[{now} UTC] {SYMBOL}: bal=${bal:.2f} trades={trades} signals={signals} ticks={ticks} conn={connected}"
             )
 
     def run(self):
@@ -161,9 +159,7 @@ class TTCXAUUSDForwardTest:
         sig.signal(sig.SIGINT, self._shutdown_handler)
         sig.signal(sig.SIGTERM, self._shutdown_handler)
 
-        self._status_thread = threading.Thread(
-            target=self._status_loop, daemon=True, name="status"
-        )
+        self._status_thread = threading.Thread(target=self._status_loop, daemon=True, name="status")
         self._status_thread.start()
 
         print("Engine started. Press Ctrl+C to stop.")

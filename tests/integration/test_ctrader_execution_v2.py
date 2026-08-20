@@ -12,13 +12,14 @@ Coverage:
 - Symbol resolution
 """
 
-import threading
+import threading  # noqa: I001
 import unittest
 from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _lots_to_units
 from adapters.ctrader.connection_state import ConnectionState
 from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirection
+
 # ProtoOAExecutionType enum pulled from the same vendored pb2 module the
 # production code uses (ctrader_open_api). Importing the enum (not magic
 # numbers) keeps these tests aligned with the terminal-only state machine
@@ -32,8 +33,8 @@ def _make_spot_feed():
         feed = OpenApiSpotFeed(
             ctid_account_id=12345,
             client_id="test_client",
-            client_secret="test_secret",
-            access_token="test_access",
+            client_secret="test_secret",  # noqa: S106
+            access_token="test_access",  # noqa: S106
         )
     feed._reactor_manager = MagicMock()
     feed._client = MagicMock()
@@ -86,7 +87,7 @@ class TestNewOrderMarket(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.PENDING,
         )
-        setattr(mock_order, "reason", "timeout_awaiting_event")
+        setattr(mock_order, "reason", "timeout_awaiting_event")  # noqa: B010
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(symbol_id=1, side=MagicMock(), volume=1000)
@@ -150,7 +151,7 @@ class TestNewOrderMarket(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.REJECTED,
         )
-        setattr(mock_order, "reason", "send_failed")
+        setattr(mock_order, "reason", "send_failed")  # noqa: B010
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(symbol_id=1, side=MagicMock(), volume=1000)
@@ -200,7 +201,7 @@ class TestNewOrderLimit(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.PENDING,
         )
-        setattr(mock_order, "reason", "timeout_awaiting_event")
+        setattr(mock_order, "reason", "timeout_awaiting_event")  # noqa: B010
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(
@@ -279,9 +280,7 @@ class TestReconcile(unittest.TestCase):
 
     def test_reconcile_success(self):
         """Successful reconcile returns position data."""
-        self.feed.reconcile = MagicMock(
-            return_value=[{"position_id": 111, "volume": 100000}]
-        )
+        self.feed.reconcile = MagicMock(return_value=[{"position_id": 111, "volume": 100000}])
 
         result = self.feed.reconcile()
         self.assertEqual(len(result), 1)
@@ -325,15 +324,9 @@ class TestCallbacks(unittest.TestCase):
         self.filled = []
         self.rejected = []
         self.cancelled = []
-        self.feed.register_callback(
-            "on_order_filled", lambda o, m: self.filled.append((o, m))
-        )
-        self.feed.register_callback(
-            "on_order_rejected", lambda o, m, r: self.rejected.append((o, m, r))
-        )
-        self.feed.register_callback(
-            "on_order_cancelled", lambda o, m: self.cancelled.append((o, m))
-        )
+        self.feed.register_callback("on_order_filled", lambda o, m: self.filled.append((o, m)))
+        self.feed.register_callback("on_order_rejected", lambda o, m, r: self.rejected.append((o, m, r)))
+        self.feed.register_callback("on_order_cancelled", lambda o, m: self.cancelled.append((o, m)))
 
     def _prime_pending_order(self, client_order_id="test-cid-111"):
         """Add a pending order so _handle_execution_event can match it."""

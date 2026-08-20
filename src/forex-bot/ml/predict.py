@@ -53,18 +53,14 @@ class SignalFilter:
 
         return results
 
-    def filter_signals(
-        self, signals_df: pd.DataFrame, features_df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def filter_signals(self, signals_df: pd.DataFrame, features_df: pd.DataFrame) -> pd.DataFrame:
         merged = signals_df.join(features_df, how="inner")
         if merged.empty:
             return pd.DataFrame()
 
         predictions = self.predict_batch(merged[self.feature_names])
         approved = merged[predictions["approve"]].copy()
-        approved["ml_confidence"] = predictions.loc[
-            predictions["approve"], "confidence"
-        ]
+        approved["ml_confidence"] = predictions.loc[predictions["approve"], "confidence"]
 
         return approved
 

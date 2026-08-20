@@ -71,11 +71,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     atr = sum(true_ranges[:period]) / period
     plus_di = 100.0 * (sum(plus_dms[:period]) / period) / atr if atr > 0 else 0
     minus_di = 100.0 * (sum(minus_dms[:period]) / period) / atr if atr > 0 else 0
-    dx = (
-        100.0 * abs(plus_di - minus_di) / (plus_di + minus_di)
-        if (plus_di + minus_di) > 0
-        else 0
-    )
+    dx = 100.0 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
     # Smooth: simple average of DX values (simplified ADX)
     dx_values = []
     for j in range(0, len(true_ranges) - period, 1):
@@ -87,11 +83,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
         seg_atr = sum(seg_tr) / period
         seg_pdi = 100.0 * (sum(seg_pdm) / period) / seg_atr if seg_atr > 0 else 0
         seg_mdi = 100.0 * (sum(seg_mdm) / period) / seg_atr if seg_atr > 0 else 0
-        seg_dx = (
-            100.0 * abs(seg_pdi - seg_mdi) / (seg_pdi + seg_mdi)
-            if (seg_pdi + seg_mdi) > 0
-            else 0
-        )
+        seg_dx = 100.0 * abs(seg_pdi - seg_mdi) / (seg_pdi + seg_mdi) if (seg_pdi + seg_mdi) > 0 else 0
         dx_values.append(seg_dx)
     return sum(dx_values) / len(dx_values) if dx_values else dx
 
@@ -185,13 +177,9 @@ class DonchianATRTrendStrategy:
 
         # ATR-based stop loss
         if direction == TradeDirection.LONG:
-            stop_loss = max(
-                dc_low, latest.close - self.config.atr_trail_multiplier * atr
-            )
+            stop_loss = max(dc_low, latest.close - self.config.atr_trail_multiplier * atr)
         else:
-            stop_loss = min(
-                dc_high, latest.close + self.config.atr_trail_multiplier * atr
-            )
+            stop_loss = min(dc_high, latest.close + self.config.atr_trail_multiplier * atr)
 
         # Take profits at R multiples
         risk = abs(latest.close - stop_loss)
@@ -199,32 +187,14 @@ class DonchianATRTrendStrategy:
             return None
 
         entry = latest.close
-        tp1 = (
-            entry + risk * 1.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 1.0
-        )
-        tp2 = (
-            entry + risk * 2.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 2.0
-        )
-        tp3 = (
-            entry + risk * 3.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
+        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
 
         # Confidence based on ADX strength and breakout distance
-        breakout_dist = (
-            abs(latest.close - dc_high)
-            if direction == TradeDirection.LONG
-            else abs(latest.close - dc_low)
-        )
+        breakout_dist = abs(latest.close - dc_high) if direction == TradeDirection.LONG else abs(latest.close - dc_low)
         confidence = min(
-            self.config.min_confidence
-            + (adx - self.config.adx_threshold) * 0.005
-            + breakout_dist / atr * 0.05,
+            self.config.min_confidence + (adx - self.config.adx_threshold) * 0.005 + breakout_dist / atr * 0.05,
             0.85,
         )
 

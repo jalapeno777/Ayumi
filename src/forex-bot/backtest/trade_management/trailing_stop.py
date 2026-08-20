@@ -29,9 +29,7 @@ class TrailingStopManager:
     def __init__(self, config: TrailingStopConfig):
         self.config = config
 
-    def create_state(
-        self, direction: TradeDirection, entry_price: float, stop_loss: float
-    ) -> TrailingStopState:
+    def create_state(self, direction: TradeDirection, entry_price: float, stop_loss: float) -> TrailingStopState:
         return TrailingStopState(
             current_sl=stop_loss,
             original_sl=stop_loss,
@@ -94,9 +92,7 @@ class TrailingStopManager:
 
         return TrailingStopResult()
 
-    def _step_trail(
-        self, bar: Bar, state: TrailingStopState, direction: TradeDirection
-    ) -> TrailingStopResult:
+    def _step_trail(self, bar: Bar, state: TrailingStopState, direction: TradeDirection) -> TrailingStopResult:
         pip_value = self._get_pip_value(bar.close)
         step_distance = self.config.step_pips * pip_value
 
@@ -132,9 +128,7 @@ class TrailingStopManager:
         if state.bars_since_entry < self.config.time_tighten_bars:
             return TrailingStopResult()
 
-        tightened_distance = (
-            atr * self.config.atr_multiplier * self.config.time_tighten_pct
-        )
+        tightened_distance = atr * self.config.atr_multiplier * self.config.time_tighten_pct
 
         if direction == TradeDirection.LONG:
             if bar.low <= state.current_sl:
@@ -161,9 +155,7 @@ class TrailingStopManager:
 
         return TrailingStopResult()
 
-    def _sar_trail(
-        self, bar: Bar, state: TrailingStopState, direction: TradeDirection
-    ) -> TrailingStopResult:
+    def _sar_trail(self, bar: Bar, state: TrailingStopState, direction: TradeDirection) -> TrailingStopResult:
         state.sar_af = self.config.sar_af_start
         state.sar_ep = bar.close
 
@@ -173,14 +165,10 @@ class TrailingStopManager:
 
             if bar.high > state.sar_ep:
                 state.sar_ep = bar.high
-                state.sar_af = min(
-                    state.sar_af + self.config.sar_af_increment, self.config.sar_af_max
-                )
+                state.sar_af = min(state.sar_af + self.config.sar_af_increment, self.config.sar_af_max)
 
             sar = state.sar_ep - state.sar_af * (state.sar_ep - state.current_sl)
-            sar = max(
-                sar, state.lowest_price if hasattr(state, "_prev_low") else bar.low
-            )
+            sar = max(sar, state.lowest_price if hasattr(state, "_prev_low") else bar.low)
 
             if sar > state.current_sl:
                 return TrailingStopResult(new_sl=sar, sl_updated=True)
@@ -190,14 +178,10 @@ class TrailingStopManager:
 
             if bar.low < state.sar_ep:
                 state.sar_ep = bar.low
-                state.sar_af = min(
-                    state.sar_af + self.config.sar_af_increment, self.config.sar_af_max
-                )
+                state.sar_af = min(state.sar_af + self.config.sar_af_increment, self.config.sar_af_max)
 
             sar = state.sar_ep + state.sar_af * (state.current_sl - state.sar_ep)
-            sar = min(
-                sar, state.highest_price if hasattr(state, "_prev_high") else bar.high
-            )
+            sar = min(sar, state.highest_price if hasattr(state, "_prev_high") else bar.high)
 
             if sar < state.current_sl:
                 return TrailingStopResult(new_sl=sar, sl_updated=True)

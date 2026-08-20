@@ -130,18 +130,13 @@ class StrategyExecutor:
 
             # Apply FilterChain after signal generation, before emission.
             # NEUTRAL signals are never filtered (they carry no directional intent).
-            if (
-                self._filter_chain is not None
-                and signal.direction != TradeDirection.NEUTRAL
-            ):
+            if self._filter_chain is not None and signal.direction != TradeDirection.NEUTRAL:
                 if not self._run_filter_chain(signal, bars):
                     return None
 
             return signal
         except Exception as exc:
-            logger.error(
-                "Strategy evaluation error [%s]: %s", self._slot.id, exc, exc_info=True
-            )
+            logger.error("Strategy evaluation error [%s]: %s", self._slot.id, exc, exc_info=True)
             return None
 
     def _to_canonical_signal(self, result) -> CanonicalSignal:
@@ -169,13 +164,9 @@ class StrategyExecutor:
 
     def _bar_period_start(self, ts: datetime) -> datetime:
         minutes = self._bar_period.minutes
-        return ts.replace(second=0, microsecond=0) - timedelta(
-            minutes=ts.minute % minutes
-        )
+        return ts.replace(second=0, microsecond=0) - timedelta(minutes=ts.minute % minutes)
 
-    def _update_current_bar(
-        self, price: float, bid: float, ask: float, bar_time: datetime
-    ):
+    def _update_current_bar(self, price: float, bid: float, ask: float, bar_time: datetime):
         current = self._current_bar
 
         if current is not None and current.time == bar_time:
@@ -230,9 +221,7 @@ class StrategyExecutor:
                 reader = csv.DictReader(f)
                 for row in reader:
                     try:
-                        bar_time = datetime.strptime(
-                            row["Date"], "%Y-%m-%d %H:%M"
-                        ).replace(tzinfo=timezone.utc)
+                        bar_time = datetime.strptime(row["Date"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
                     except (ValueError, KeyError):
                         continue
                     bars.append(
@@ -279,12 +268,8 @@ class StrategyExecutor:
             for f in getattr(self._filter_chain, "filters", []):
                 fname = getattr(f, "name", "")
                 if fname == "trend" and hasattr(f, "_config"):
-                    ema_fast_period = getattr(
-                        f._config, "ema_fast_period", ema_fast_period
-                    )
-                    ema_slow_period = getattr(
-                        f._config, "ema_slow_period", ema_slow_period
-                    )
+                    ema_fast_period = getattr(f._config, "ema_fast_period", ema_fast_period)
+                    ema_slow_period = getattr(f._config, "ema_slow_period", ema_slow_period)
 
         ema_fast = self._compute_ema(closes, ema_fast_period)
         ema_slow = self._compute_ema(closes, ema_slow_period)

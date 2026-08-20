@@ -8,7 +8,7 @@ Covers the 18 boundary cases specified in card ee53643d (fix-weekend-market-clos
 Real forex weekend: closes Friday 22:00 UTC, reopens Sunday 21:00 UTC.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -17,9 +17,7 @@ import pytest
 from adapters.ctrader.market_hours import is_forex_market_closed
 
 
-def _utc(
-    year: int, month: int, day: int, hour: int, minute: int = 0, second: int = 0
-) -> datetime:
+def _utc(year: int, month: int, day: int, hour: int, minute: int = 0, second: int = 0) -> datetime:
     """Helper: build a UTC datetime for a specific (Y, M, D, H, M, S)."""
     return datetime(year, month, day, hour, minute, second, tzinfo=timezone.utc)
 
@@ -64,9 +62,7 @@ _MON_2100 = _utc(2026, 7, 13, 21, 0)  # Next Monday 21:00 — open
     ],
 )
 def test_market_open(ts: datetime) -> None:
-    assert is_forex_market_closed(ts) is False, (
-        f"Expected market OPEN at {ts.isoformat()} but got CLOSED"
-    )
+    assert is_forex_market_closed(ts) is False, f"Expected market OPEN at {ts.isoformat()} but got CLOSED"
 
 
 # ── CLOSED cases (9) ──────────────────────────────────────────────────────────
@@ -85,9 +81,7 @@ def test_market_open(ts: datetime) -> None:
     ],
 )
 def test_market_closed(ts: datetime) -> None:
-    assert is_forex_market_closed(ts) is True, (
-        f"Expected market CLOSED at {ts.isoformat()} but got OPEN"
-    )
+    assert is_forex_market_closed(ts) is True, f"Expected market CLOSED at {ts.isoformat()} but got OPEN"
 
 
 # ── Explicit boundary edges (spec calls out these three) ──────────────────────
@@ -123,9 +117,7 @@ def test_phantom_window_now_open(ts: datetime) -> None:
     producing ~24 phantom 'closed' hours per weekend that suppressed
     watchdog kill-switch checks and reconnect logic.
     """
-    assert is_forex_market_closed(ts) is False, (
-        f"Phantom-closed regression at {ts.isoformat()}: market should be open"
-    )
+    assert is_forex_market_closed(ts) is False, f"Phantom-closed regression at {ts.isoformat()}: market should be open"
 
 
 # ── Default-arg path: no exception, returns a bool ────────────────────────────

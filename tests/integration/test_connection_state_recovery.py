@@ -21,7 +21,7 @@ import unittest
 # Ensure the source path is available
 sys.path.insert(0, "src/forex-bot")
 
-from adapters.ctrader.connection_state import (
+from adapters.ctrader.connection_state import (  # noqa: I001
     ConnectionState,
     ConnectionStateManager,
     is_valid_transition,
@@ -55,9 +55,7 @@ class TestFailedStateRecoveryTransitions(unittest.TestCase):
     def test_failed_to_app_authenticating_allowed(self):
         """FAILED → APP_AUTHENTICATING must be allowed (re-auth from FAILED)."""
         self.assertTrue(
-            is_valid_transition(
-                ConnectionState.FAILED, ConnectionState.APP_AUTHENTICATING
-            ),
+            is_valid_transition(ConnectionState.FAILED, ConnectionState.APP_AUTHENTICATING),
             "FAILED → APP_AUTHENTICATING should be a valid transition",
         )
 
@@ -78,41 +76,27 @@ class TestFailedStateRecoveryTransitions(unittest.TestCase):
         self.sm._state = ConnectionState.FAILED
 
         # FAILED → RECONNECTING
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.RECONNECTING, reason="recovery")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.RECONNECTING, reason="recovery"))
         self.assertEqual(self.sm.state, ConnectionState.RECONNECTING)
 
         # RECONNECTING → CONNECTING
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.CONNECTING, reason="backoff_done")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.CONNECTING, reason="backoff_done"))
         self.assertEqual(self.sm.state, ConnectionState.CONNECTING)
 
         # CONNECTING → CONNECTED
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.CONNECTED, reason="tcp_up")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.CONNECTED, reason="tcp_up"))
         self.assertEqual(self.sm.state, ConnectionState.CONNECTED)
 
         # CONNECTED → APP_AUTHENTICATING
-        self.assertTrue(
-            self.sm.transition_to(
-                ConnectionState.APP_AUTHENTICATING, reason="start_auth"
-            )
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.APP_AUTHENTICATING, reason="start_auth"))
         self.assertEqual(self.sm.state, ConnectionState.APP_AUTHENTICATING)
 
         # APP_AUTHENTICATING → ACCT_AUTHENTICATING
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="app_ok")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="app_ok"))
         self.assertEqual(self.sm.state, ConnectionState.ACCT_AUTHENTICATING)
 
         # ACCT_AUTHENTICATING → AUTHENTICATED
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.AUTHENTICATED, reason="acct_ok")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.AUTHENTICATED, reason="acct_ok"))
         self.assertEqual(self.sm.state, ConnectionState.AUTHENTICATED)
 
 
@@ -127,40 +111,22 @@ class TestAuthFailureBurstRecovery(unittest.TestCase):
     def test_auth_burst_to_failed_then_recovers(self):
         """Simulate: AUTHENTICATED → DEGRADED → FAILED → RECONNECTING → recovery."""
         # Auth errors escalate: 3 → DEGRADED, 5 → FAILED
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.DEGRADED, reason="auth_degraded:3")
-        )
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.FAILED, reason="auth_errors:5")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.DEGRADED, reason="auth_degraded:3"))
+        self.assertTrue(self.sm.transition_to(ConnectionState.FAILED, reason="auth_errors:5"))
 
         # Before the fix, FAILED → RECONNECTING would be rejected
         # Now it should succeed:
         self.assertTrue(
-            self.sm.transition_to(
-                ConnectionState.RECONNECTING, reason="stuck_state_recovery"
-            ),
+            self.sm.transition_to(ConnectionState.RECONNECTING, reason="stuck_state_recovery"),
             "FAILED → RECONNECTING must succeed for recovery",
         )
 
         # Complete the recovery path
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.CONNECTING, reason="backoff")
-        )
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.CONNECTED, reason="tcp_up")
-        )
-        self.assertTrue(
-            self.sm.transition_to(
-                ConnectionState.APP_AUTHENTICATING, reason="start_auth"
-            )
-        )
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="app_ok")
-        )
-        self.assertTrue(
-            self.sm.transition_to(ConnectionState.AUTHENTICATED, reason="auth_success")
-        )
+        self.assertTrue(self.sm.transition_to(ConnectionState.CONNECTING, reason="backoff"))
+        self.assertTrue(self.sm.transition_to(ConnectionState.CONNECTED, reason="tcp_up"))
+        self.assertTrue(self.sm.transition_to(ConnectionState.APP_AUTHENTICATING, reason="start_auth"))
+        self.assertTrue(self.sm.transition_to(ConnectionState.ACCT_AUTHENTICATING, reason="app_ok"))
+        self.assertTrue(self.sm.transition_to(ConnectionState.AUTHENTICATED, reason="auth_success"))
         self.assertEqual(self.sm.state, ConnectionState.AUTHENTICATED)
 
     def test_failed_direct_to_connected(self):
@@ -233,9 +199,7 @@ class TestAuthFailureEscalation(unittest.TestCase):
             self.mgr.record_auth_failure()
         self.assertEqual(self.mgr._consecutive_auth_failures, 5)
 
-        result = self.mgr.authenticate_with_retry(
-            auth_fn, max_attempts=3, backoff_seconds=(0.01, 0.01, 0.01)
-        )
+        result = self.mgr.authenticate_with_retry(auth_fn, max_attempts=3, backoff_seconds=(0.01, 0.01, 0.01))
         self.assertTrue(result)
         self.assertEqual(self.mgr._consecutive_auth_failures, 0)
 
@@ -260,9 +224,7 @@ class TestAuthFailureEscalation(unittest.TestCase):
         # 15 reconnection attempts, all rejected because FAILED→RECONNECTING invalid.
 
         # With the fix: FAILED → RECONNECTING succeeds
-        recovered = sm.transition_to(
-            ConnectionState.RECONNECTING, reason="stuck_state_breakout"
-        )
+        recovered = sm.transition_to(ConnectionState.RECONNECTING, reason="stuck_state_breakout")
         self.assertTrue(recovered, "State machine must break out of FAILED")
 
         # Recovery path

@@ -187,9 +187,7 @@ def load_csv(path: Path) -> pd.DataFrame:
     for col in ("open", "high", "low", "close"):
         df[col] = pd.to_numeric(df[col], errors="coerce")
     if "volume" in df.columns:
-        df["volume"] = (
-            pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
-        )
+        df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype("int64")
     else:
         df["volume"] = 0
 
@@ -281,9 +279,7 @@ def import_to_duckdb(
     # `tz_convert(None)` would give a tz-naive timestamp in UTC; explicit
     # `.tz_localize(None)` after UTC conversion avoids pandas' strict-mode
     # complaint about converting from a tz-aware to tz-naive dtype.
-    ts_naive_ns = (
-        ts_utc.dt.tz_convert("UTC").dt.tz_localize(None).astype("datetime64[ns]")
-    )
+    ts_naive_ns = ts_utc.dt.tz_convert("UTC").dt.tz_localize(None).astype("datetime64[ns]")
     seconds_int64 = (ts_naive_ns.astype("int64") // 1_000_000_000).astype("int64")
     is_holdout = pd.DatetimeIndex(ts_naive_ns).year >= 2023
     out = pd.DataFrame(
@@ -373,7 +369,7 @@ def discover_pairs(
         by_pair.setdefault(pair, []).append((pair, p, tf))
 
     out: list[tuple[str, Path, str]] = []
-    for pair, candidates in sorted(by_pair.items()):
+    for pair, candidates in sorted(by_pair.items()):  # noqa: B007
         # Prefer smallest TF available, then by filename ascending.
         candidates.sort(key=lambda c: (TF_MINUTES.get(c[2], 10**6), c[1].name))
         out.append(candidates[0])
@@ -465,9 +461,7 @@ def synthesise_pair(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--source-dir",
         default=str(DEFAULT_SOURCE_DIR),
@@ -563,9 +557,7 @@ def main(argv: list[str] | None = None) -> int:
                     len(df),
                 )
             continue
-        all_results.extend(
-            synthesise_pair(pair, p, tf, args.targets, output_dir, True, db_path)
-        )
+        all_results.extend(synthesise_pair(pair, p, tf, args.targets, output_dir, True, db_path))
 
     # ---- Summary ---------------------------------------------------------
     log.info("=== synthesis summary ===")

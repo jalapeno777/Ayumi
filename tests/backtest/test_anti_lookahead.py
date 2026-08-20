@@ -14,7 +14,7 @@ Test coverage:
 If any of these tests fail, a look-ahead bias regression has been introduced.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 import sys
@@ -27,7 +27,7 @@ _src = Path(__file__).resolve().parents[2] / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from backtest.engine import (
+from backtest.engine import (  # noqa: I001
     BacktestConfig,
     Bar,
     StrategySignal,
@@ -46,7 +46,7 @@ def _make_bar(
     time: datetime,
     o: float = 1.0,
     h: float = 1.0,
-    l: float = 1.0,
+    l: float = 1.0,  # noqa: E741
     c: float = 1.0,
     vol: float = 0.0,
 ) -> Bar:
@@ -54,9 +54,7 @@ def _make_bar(
     return Bar(time=time, open=o, high=h, low=l, close=c, volume=vol)
 
 
-def _make_bars(
-    n: int, start: datetime | None = None, base_price: float = 1.1000
-) -> list[Bar]:
+def _make_bars(n: int, start: datetime | None = None, base_price: float = 1.1000) -> list[Bar]:
     """Generate n sequential H1 bars starting from `start`."""
     if start is None:
         start = datetime(2025, 1, 6, 0, 0, tzinfo=timezone.utc)
@@ -186,8 +184,7 @@ class TestNoFutureDataInSignalEvaluation:
             bar_index = min_bars + j
             # Strategy should see at most bar_index + 1 bars
             assert count <= bar_index + 1, (
-                f"Bar index {bar_index}: strategy saw {count} bars, "
-                f"expected at most {bar_index + 1}. Future data leak!"
+                f"Bar index {bar_index}: strategy saw {count} bars, expected at most {bar_index + 1}. Future data leak!"
             )
 
 
@@ -210,7 +207,7 @@ class TestWalkForwardNoOverlap:
             overlap_ratio=0.2,
         )
 
-        for idx, (train, val, test) in enumerate(validator.split(bars)):
+        for idx, (train, val, test) in enumerate(validator.split(bars)):  # noqa: B007
             assert len(train) > 0, f"Window {idx}: empty train"
             assert len(test) > 0, f"Window {idx}: empty test"
 
@@ -242,9 +239,7 @@ class TestWalkForwardNoOverlap:
             last_val = val[-1].time
             first_test = test[0].time
 
-            assert first_val >= last_train, (
-                f"Window {idx}: val starts before train ends"
-            )
+            assert first_val >= last_train, f"Window {idx}: val starts before train ends"
             assert first_test >= last_val, f"Window {idx}: test starts before val ends"
 
 
@@ -290,9 +285,7 @@ class TestATRNoFutureData:
         bars_original = _make_bars(30)
         bars_modified = _make_bars(30)
         # Drastically modify bar 25 (which is after index 10)
-        bars_modified[25] = _make_bar(
-            bars_modified[25].time, o=100.0, h=200.0, l=0.01, c=50.0
-        )
+        bars_modified[25] = _make_bar(bars_modified[25].time, o=100.0, h=200.0, l=0.01, c=50.0)
 
         config = BacktestConfig(starting_balance=10000)
         engine = EnhancedBacktestEngine(config, strategies=[])
@@ -300,8 +293,7 @@ class TestATRNoFutureData:
         atr_modified = engine._calculate_atr(bars_modified, 10)
 
         assert atr_original == atr_modified, (
-            "ATR at index 10 changed when a future bar (25) was modified. "
-            "Future data is leaking into ATR calculation!"
+            "ATR at index 10 changed when a future bar (25) was modified. Future data is leaking into ATR calculation!"
         )
 
 
@@ -336,8 +328,7 @@ class TestTradeEntryTiming:
         # Find trades
         for trade in result.metrics.trades:
             assert trade.entry_bar_index == target, (
-                f"Trade entry_bar_index={trade.entry_bar_index}, "
-                f"expected {target}. Trade may be using future bar data."
+                f"Trade entry_bar_index={trade.entry_bar_index}, expected {target}. Trade may be using future bar data."
             )
 
 
@@ -351,7 +342,7 @@ class TestKellyNoFutureLeak:
 
     def test_kelly_skips_until_min_trades(self):
         """Kelly should not influence trades until min_trades closed trades exist."""
-        from backtest.multi_strategy_engine import (
+        from backtest.multi_strategy_engine import (  # noqa: I001
             MultiStrategyBacktestEngine,
             KellyConfig,
         )
@@ -365,9 +356,7 @@ class TestKellyNoFutureLeak:
         )
         kelly_config = KellyConfig(enabled=True, min_trades=999)
         strategy = _RecordingStrategy()
-        engine = MultiStrategyBacktestEngine(
-            config, [strategy], kelly_config=kelly_config
-        )
+        engine = MultiStrategyBacktestEngine(config, [strategy], kelly_config=kelly_config)
         # Kelly with min_trades=999 should never activate
         assert engine._kelly_closed_trades == []
         assert engine._kelly_skips == 0

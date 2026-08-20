@@ -123,8 +123,7 @@ class LiveMarketDataFeed:
         self._running = False
         self._ticks: dict[int, Tick] = {}
         self._symbols: dict[int, SymbolInfo] = {
-            sid: SymbolInfo(symbol_id=sid, name=name)
-            for sid, name in DEFAULT_SYMBOLS.items()
+            sid: SymbolInfo(symbol_id=sid, name=name) for sid, name in DEFAULT_SYMBOLS.items()
         }
         self._name_to_id: dict[str, int] = {v: k for k, v in DEFAULT_SYMBOLS.items()}
         self._id_to_name: dict[int, str] = {k: v for k, v in DEFAULT_SYMBOLS.items()}
@@ -159,14 +158,11 @@ class LiveMarketDataFeed:
         self._client = MarketDataClient(self._credentials)
         self._client.register_md_handler(self._on_snapshot)
         self._client.register_md_handler(self._on_incremental)
-        self._client.register_callback(
-            "on_logon", lambda m: logger.info("MD feed logged in")
-        )
+        self._client.register_callback("on_logon", lambda m: logger.info("MD feed logged in"))
 
         if not self._client.connect():
             logger.error("Failed to connect MD feed")
             return False
-
 
         self._running = True
 
@@ -176,9 +172,7 @@ class LiveMarketDataFeed:
         for name in auto_subscribe:
             self.subscribe(name)
 
-        logger.info(
-            f"Market data feed started (auto-subscribed to {len(auto_subscribe)} pairs)"
-        )
+        logger.info(f"Market data feed started (auto-subscribed to {len(auto_subscribe)} pairs)")
         return True
 
     def stop(self):
@@ -252,11 +246,7 @@ class LiveMarketDataFeed:
 
     def get_all_ticks(self) -> dict[str, Tick]:
         with self._lock:
-            return {
-                self._symbols[sid].name: tick
-                for sid, tick in self._ticks.items()
-                if sid in self._symbols
-            }
+            return {self._symbols[sid].name: tick for sid, tick in self._ticks.items() if sid in self._symbols}
 
     def get_spread(self, symbol_name: str) -> float | None:
         tick = self.get_tick(symbol_name)
@@ -315,21 +305,15 @@ class LiveMarketDataFeed:
                     last_269_value = None  # reset for next entry
 
         if bid is None or ask is None:
-            logger.debug(
-                f"Incomplete tick for symbol {symbol_id}: bid={bid}, ask={ask}"
-            )
+            logger.debug(f"Incomplete tick for symbol {symbol_id}: bid={bid}, ask={ask}")
             return
 
         timestamp_str = msg.get_field(52)
         if timestamp_str:
             try:
-                timestamp = datetime.strptime(
-                    timestamp_str, "%Y%m%d-%H:%M:%S.%f"
-                ).replace(tzinfo=timezone.utc)
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S.%f").replace(tzinfo=timezone.utc)
             except ValueError:
-                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
-                    tzinfo=timezone.utc
-                )
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(tzinfo=timezone.utc)
         else:
             timestamp = datetime.now(timezone.utc)
 
@@ -411,17 +395,12 @@ class LiveMarketDataFeed:
         if not entries:
             return
 
-
         timestamp_str = msg.get_field(52)
         if timestamp_str:
             try:
-                timestamp = datetime.strptime(
-                    timestamp_str, "%Y%m%d-%H:%M:%S.%f"
-                ).replace(tzinfo=timezone.utc)
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S.%f").replace(tzinfo=timezone.utc)
             except ValueError:
-                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(
-                    tzinfo=timezone.utc
-                )
+                timestamp = datetime.strptime(timestamp_str, "%Y%m%d-%H:%M:%S").replace(tzinfo=timezone.utc)
         else:
             timestamp = datetime.now(timezone.utc)
 
@@ -435,9 +414,7 @@ class LiveMarketDataFeed:
                 price = entry.get("price")
 
                 if not order_id or not entry_type:
-                    logger.debug(
-                        "Skipping order book entry missing order_id or entry_type"
-                    )
+                    logger.debug("Skipping order book entry missing order_id or entry_type")
                     continue
 
                 entry_symbol = entry.get("symbol_id", 0)
@@ -450,13 +427,7 @@ class LiveMarketDataFeed:
                     self._order_book[entry_symbol] = {"bids": {}, "asks": {}}
                 book = self._order_book[entry_symbol]
 
-                side = (
-                    "bids"
-                    if entry_type == "0"
-                    else "asks"
-                    if entry_type == "1"
-                    else None
-                )
+                side = "bids" if entry_type == "0" else "asks" if entry_type == "1" else None
                 if side is None:
                     continue
 
@@ -485,11 +456,9 @@ class LiveMarketDataFeed:
                 best_bid = max(bids.values())
                 best_ask = min(asks.values())
 
-
                 if best_bid > best_ask + 1e-7:
                     logger.debug(
-                        f"Inverted spread for symbol {sym_id}: "
-                        f"bid={best_bid} >= ask={best_ask}, skipping tick"
+                        f"Inverted spread for symbol {sym_id}: bid={best_bid} >= ask={best_ask}, skipping tick"
                     )
                     continue
 

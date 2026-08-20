@@ -1,6 +1,6 @@
 """Test that _compute_score uses non-circular gross_profit/gross_loss."""
 
-import math
+import math  # noqa: I001
 from ml.blend_optimizer import StrategyBlendOptimizer
 
 

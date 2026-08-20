@@ -16,9 +16,9 @@ Symbol name normalization (canonical format):
     Strip '/' and '_' characters, uppercase. Example: "EUR/USD" → "EURUSD".
 """
 
-import logging
-import os
-import random
+import logging  # noqa: I001
+import os  # noqa: F401
+import random  # noqa: F401
 import threading
 import time
 import uuid
@@ -41,8 +41,8 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOACancelOrderReq,
     ProtoOAReconcileReq,
     ProtoOAAmendPositionSLTPReq,
-    ProtoOAExecutionEvent,
-    ProtoOAOrderErrorEvent,
+    ProtoOAExecutionEvent,  # noqa: F401
+    ProtoOAOrderErrorEvent,  # noqa: F401
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAOrderType,
@@ -54,7 +54,7 @@ from .market_data_feed import Tick, SymbolInfo
 from .connection import CTraderConnection
 from .connection_state import ConnectionState, ConnectionStateManager
 from .token_manager import TokenManager, TokenStatus
-from .auth import CTraderAuth
+from .auth import CTraderAuth  # noqa: F401
 from .models import (
     Order,
     OrderStatus,
@@ -77,8 +77,8 @@ _RECONCILE_TIMEOUT_SEC = 10.0
 
 # Re-exported from connection.py for backward compatibility
 from .connection import (
-    _HEARTBEAT_DEGRADED_SEC,
-    _HEARTBEAT_RECONNECT_SEC,
+    _HEARTBEAT_DEGRADED_SEC,  # noqa: F401
+    _HEARTBEAT_RECONNECT_SEC,  # noqa: F401
 )
 from .market_hours import is_forex_market_closed
 
@@ -128,7 +128,9 @@ class OpenApiSpotFeed:
         # Connection (extracted module)
         self._state_mgr = ConnectionStateManager(name="spot_feed")
         self._conn = CTraderConnection(
-            host, port, state_manager=self._state_mgr,
+            host,
+            port,
+            state_manager=self._state_mgr,
         )
         self._conn.on_connected(self._on_conn_connected)
         self._conn.on_disconnected(self._on_conn_disconnected)
@@ -185,7 +187,8 @@ class OpenApiSpotFeed:
             "on_order_cancelled": [],
         }
         self._callback_executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="openapi-spot-callback",
+            max_workers=1,
+            thread_name_prefix="openapi-spot-callback",
         )
 
     # ── Properties ─────────────────────────────────────────────────────────
@@ -258,8 +261,11 @@ class OpenApiSpotFeed:
             # CRITICAL means < 1 day remaining — always force a refresh
             # regardless of the warning_days threshold inside refresh_if_needed
             new_token = self._token_mgr.refresh_if_needed(
-                self._client_id, self._client_secret, self._refresh_token,
-                warning_days=0, force=True,
+                self._client_id,
+                self._client_secret,
+                self._refresh_token,
+                warning_days=0,
+                force=True,
             )
             if new_token:
                 self._access_token = new_token
@@ -269,7 +275,8 @@ class OpenApiSpotFeed:
 
         if getattr(self._callback_executor, "_shutdown", False):
             self._callback_executor = ThreadPoolExecutor(
-                max_workers=1, thread_name_prefix="openapi-spot-callback",
+                max_workers=1,
+                thread_name_prefix="openapi-spot-callback",
             )
 
         # Connect via CTraderConnection
@@ -316,7 +323,7 @@ class OpenApiSpotFeed:
         for _, (event, order) in list(self._pending_orders.items()):
             order.status = OrderStatus.PENDING
             order.comment = order.comment or "connection_lost_during_order"
-            setattr(order, "reason", "connection_lost_during_order")
+            setattr(order, "reason", "connection_lost_during_order")  # noqa: B010
             event.set()
         self._pending_orders.clear()
         self._pending_client_msg_ids.clear()
@@ -347,7 +354,7 @@ class OpenApiSpotFeed:
         for _, (event, order) in list(self._pending_orders.items()):
             order.status = OrderStatus.PENDING
             order.comment = order.comment or "connection_lost_during_order"
-            setattr(order, "reason", "connection_lost_during_order")
+            setattr(order, "reason", "connection_lost_during_order")  # noqa: B010
             event.set()
             self._disconnected_pending_orders.append(order)
         self._pending_orders.clear()
@@ -372,8 +379,9 @@ class OpenApiSpotFeed:
             else:
                 return False
 
-        from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-            ProtoOAApplicationAuthReq, ProtoOAAccountAuthReq,
+        from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
+            ProtoOAApplicationAuthReq,
+            ProtoOAAccountAuthReq,
         )
 
         # App auth
@@ -398,7 +406,7 @@ class OpenApiSpotFeed:
 
         # Track token expiry
         payload = Protobuf.extract(acct_res)
-        expires_in = getattr(payload, 'expiresIn', None) or 86400
+        expires_in = getattr(payload, "expiresIn", None) or 86400
         if expires_in and expires_in > 0:
             self._token_expires_at = time.monotonic() + expires_in
             self._schedule_proactive_refresh(expires_in)
@@ -432,7 +440,7 @@ class OpenApiSpotFeed:
             try:
                 if self._kill_switch.is_active:
                     self._kill_switch.deactivate(reason="auto_cleared_on_successful_auth")
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
 
     # ── Message routing ────────────────────────────────────────────────────
@@ -487,7 +495,9 @@ class OpenApiSpotFeed:
             return
 
         ts_raw = message.timestamp / 1000
-        timestamp = datetime.fromtimestamp(ts_raw if ts_raw > 0 else datetime.now(timezone.utc).timestamp(), tz=timezone.utc)
+        timestamp = datetime.fromtimestamp(
+            ts_raw if ts_raw > 0 else datetime.now(timezone.utc).timestamp(), tz=timezone.utc
+        )  # noqa: E501
         tick = Tick(symbol_id=symbol_id, bid=bid, ask=ask, timestamp=timestamp)
 
         self._last_tick_recv_monotonic = time.monotonic()
@@ -563,7 +573,7 @@ class OpenApiSpotFeed:
         req.symbolId.append(symbol_id)
         try:
             reactor.callFromThread(self._conn.send, req)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         self._subscribed_symbol_ids.discard(symbol_id)
         return True
@@ -586,7 +596,7 @@ class OpenApiSpotFeed:
         if response is None:
             return False
         payload = Protobuf.extract(response)
-        if payload is None or not hasattr(payload, 'symbol'):
+        if payload is None or not hasattr(payload, "symbol"):
             return False
         for sym in payload.symbol:
             self._id_to_name[sym.symbolId] = sym.symbolName
@@ -632,7 +642,7 @@ class OpenApiSpotFeed:
         if symbol_id is None:
             return []
 
-        PERIOD_MAP = {1:1, 2:2, 3:3, 4:4, 5:5, 10:6, 15:7, 30:8, 60:9, 240:10, 720:11, 1440:12, 10080:13}
+        PERIOD_MAP = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 10: 6, 15: 7, 30: 8, 60: 9, 240: 10, 720: 11, 1440: 12, 10080: 13}
         period_enum = PERIOD_MAP.get(period_minutes)
         if period_enum is None:
             return []
@@ -654,18 +664,20 @@ class OpenApiSpotFeed:
             return []
 
         bars = []
-        for tb in getattr(payload, 'trendbar', []):
-            bar_time = datetime.fromtimestamp(getattr(tb, 'utcTimestampInMinutes', 0) * 60, tz=timezone.utc)
-            low_raw = getattr(tb, 'low', 0)
+        for tb in getattr(payload, "trendbar", []):
+            bar_time = datetime.fromtimestamp(getattr(tb, "utcTimestampInMinutes", 0) * 60, tz=timezone.utc)
+            low_raw = getattr(tb, "low", 0)
             d = 100000.0
-            bars.append(Bar(
-                time=bar_time,
-                open=round((low_raw + getattr(tb, 'deltaOpen', 0)) / d, 5),
-                high=round((low_raw + getattr(tb, 'deltaHigh', 0)) / d, 5),
-                low=round(low_raw / d, 5),
-                close=round((low_raw + getattr(tb, 'deltaClose', 0)) / d, 5),
-                volume=getattr(tb, 'volume', 0),
-            ))
+            bars.append(
+                Bar(
+                    time=bar_time,
+                    open=round((low_raw + getattr(tb, "deltaOpen", 0)) / d, 5),
+                    high=round((low_raw + getattr(tb, "deltaHigh", 0)) / d, 5),
+                    low=round(low_raw / d, 5),
+                    close=round((low_raw + getattr(tb, "deltaClose", 0)) / d, 5),
+                    volume=getattr(tb, "volume", 0),
+                )
+            )
         return bars
 
     # ── Order execution ────────────────────────────────────────────────────
@@ -673,21 +685,37 @@ class OpenApiSpotFeed:
     def _symbol_name_for_id(self, symbol_id: int) -> str:
         return _normalize_symbol_name(self._id_to_name.get(symbol_id, str(symbol_id)))
 
-    def new_order(self, symbol_id, side, volume, *, order_type=ProtoOAOrderType.MARKET,
-                  price=None, sl=None, tp=None,
-                  time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
-                  comment="", timeout=_ORDER_TIMEOUT_SEC) -> Order:
+    def new_order(
+        self,
+        symbol_id,
+        side,
+        volume,
+        *,
+        order_type=ProtoOAOrderType.MARKET,
+        price=None,
+        sl=None,
+        tp=None,
+        time_in_force=ProtoOATimeInForce.GOOD_TILL_CANCEL,
+        comment="",
+        timeout=_ORDER_TIMEOUT_SEC,
+    ) -> Order:
         request_id = uuid.uuid4().hex
         order = Order(
             order_id=request_id,
             symbol=self._symbol_name_for_id(symbol_id),
             direction=TradeDirection.LONG if side == ProtoOATradeSide.BUY else TradeDirection.SHORT,
-            order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(order_type, OrderType.MARKET),
-            volume=volume / 100_000.0, price=price, stop_loss=sl, take_profit=tp,
-            status=OrderStatus.PENDING, comment=comment,
+            order_type={ProtoOAOrderType.LIMIT: OrderType.LIMIT, ProtoOAOrderType.STOP: OrderType.STOP}.get(
+                order_type, OrderType.MARKET
+            ),  # noqa: E501
+            volume=volume / 100_000.0,
+            price=price,
+            stop_loss=sl,
+            take_profit=tp,
+            status=OrderStatus.PENDING,
+            comment=comment,
         )
         if not self._state_mgr.is_operational:
-            setattr(order, "reason", "not_connected")
+            setattr(order, "reason", "not_connected")  # noqa: B010
             return order
 
         req = ProtoOANewOrderReq()
@@ -702,9 +730,12 @@ class OpenApiSpotFeed:
             req.limitPrice = price
         elif order_type == ProtoOAOrderType.STOP and price is not None:
             req.stopPrice = price
-        if sl is not None: req.stopLoss = sl
-        if tp is not None: req.takeProfit = tp
-        if comment: req.comment = comment
+        if sl is not None:
+            req.stopLoss = sl  # noqa: E701
+        if tp is not None:
+            req.takeProfit = tp  # noqa: E701
+        if comment:
+            req.comment = comment  # noqa: E701
 
         event = threading.Event()
         client_msg_id = f"order_{uuid.uuid4().hex}"
@@ -728,6 +759,7 @@ class OpenApiSpotFeed:
                 event.set()
 
             d.addCallbacks(lambda _: None, on_error)
+
         reactor.callFromThread(do_send)
 
         if not event.wait(timeout=timeout):
@@ -736,20 +768,33 @@ class OpenApiSpotFeed:
             def _delayed_cleanup():
                 self._pending_orders.pop(request_id, None)
                 self._pending_client_msg_ids.pop(client_msg_id, None)
+
             reactor.callFromThread(lambda: reactor.callLater(60.0, _delayed_cleanup))
             order.status = OrderStatus.PENDING
             order.comment = "timeout_awaiting_event"
-            setattr(order, "reason", "timeout_awaiting_event")
+            setattr(order, "reason", "timeout_awaiting_event")  # noqa: B010
         return order
 
-    def send_order(self, symbol, direction, order_type, volume, price=None,
-                   stop_loss=None, take_profit=None, comment="") -> Order:
+    def send_order(
+        self, symbol, direction, order_type, volume, price=None, stop_loss=None, take_profit=None, comment=""
+    ) -> Order:
         symbol_id = self.resolve_symbol_id(symbol)
         side = ProtoOATradeSide.BUY if direction == TradeDirection.LONG else ProtoOATradeSide.SELL
-        proto_type = {OrderType.MARKET: ProtoOAOrderType.MARKET, OrderType.LIMIT: ProtoOAOrderType.LIMIT,
-                      OrderType.STOP: ProtoOAOrderType.STOP}.get(order_type, ProtoOAOrderType.MARKET)
-        return self.new_order(symbol_id, side, _lots_to_units(volume), order_type=proto_type,
-                             price=price, sl=stop_loss, tp=take_profit, comment=comment)
+        proto_type = {
+            OrderType.MARKET: ProtoOAOrderType.MARKET,
+            OrderType.LIMIT: ProtoOAOrderType.LIMIT,
+            OrderType.STOP: ProtoOAOrderType.STOP,
+        }.get(order_type, ProtoOAOrderType.MARKET)
+        return self.new_order(
+            symbol_id,
+            side,
+            _lots_to_units(volume),
+            order_type=proto_type,
+            price=price,
+            sl=stop_loss,
+            tp=take_profit,
+            comment=comment,
+        )
 
     def cancel_order(self, order_id, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
         req = ProtoOACancelOrderReq()
@@ -761,9 +806,12 @@ class OpenApiSpotFeed:
         req = ProtoOAAmendOrderReq()
         req.ctidTraderAccountId = self._ctid_account_id
         req.orderId = order_id
-        if price is not None: req.limitPrice = price
-        if sl is not None: req.stopLoss = sl
-        if tp is not None: req.takeProfit = tp
+        if price is not None:
+            req.limitPrice = price  # noqa: E701
+        if sl is not None:
+            req.stopLoss = sl  # noqa: E701
+        if tp is not None:
+            req.takeProfit = tp  # noqa: E701
         return self._conn.send_and_wait(req, timeout=timeout, prefix="order") is not None
 
     def amend_sl_tp(self, position_id, sl, tp, *, timeout=_ORDER_TIMEOUT_SEC) -> bool:
@@ -794,17 +842,21 @@ class OpenApiSpotFeed:
         for raw in getattr(payload, "position", []):
             try:
                 td = getattr(raw, "tradeData", None)
-                positions.append(Position(
-                    position_id=str(getattr(raw, "positionId", "")),
-                    symbol=self._symbol_name_for_id(getattr(td, "symbolId", 0)),
-                    direction=TradeDirection.LONG if getattr(td, "tradeSide", 0) == ProtoOATradeSide.BUY else TradeDirection.SHORT,
-                    volume=getattr(td, "volume", 0) / 100_000.0,
-                    entry_price=getattr(raw, "price", 0.0),
-                    current_price=getattr(raw, "price", 0.0),
-                    stop_loss=getattr(raw, "stopLoss", None) or None,
-                    take_profit=getattr(raw, "takeProfit", None) or None,
-                    status=PositionStatus.OPEN,
-                ))
+                positions.append(
+                    Position(
+                        position_id=str(getattr(raw, "positionId", "")),
+                        symbol=self._symbol_name_for_id(getattr(td, "symbolId", 0)),
+                        direction=TradeDirection.LONG
+                        if getattr(td, "tradeSide", 0) == ProtoOATradeSide.BUY
+                        else TradeDirection.SHORT,  # noqa: E501
+                        volume=getattr(td, "volume", 0) / 100_000.0,
+                        entry_price=getattr(raw, "price", 0.0),
+                        current_price=getattr(raw, "price", 0.0),
+                        stop_loss=getattr(raw, "stopLoss", None) or None,
+                        take_profit=getattr(raw, "takeProfit", None) or None,
+                        status=PositionStatus.OPEN,
+                    )
+                )
             except Exception as exc:
                 logger.warning("Reconcile parse error: %s", exc)
         return positions
@@ -815,18 +867,22 @@ class OpenApiSpotFeed:
         order_payload = getattr(message, "order", None)
         client_order_id = getattr(order_payload, "clientOrderId", "") if order_payload else ""
         etype = getattr(message, "executionType", None)
-        logger.info("[EXEC_EVENT] clientOrderId=%r execType=%s has_order=%s pending_keys=%s",
-                     client_order_id, etype, order_payload is not None,
-                     list(self._pending_orders.keys()) if self._pending_orders else "[]")
+        logger.info(
+            "[EXEC_EVENT] clientOrderId=%r execType=%s has_order=%s pending_keys=%s",
+            client_order_id,
+            etype,
+            order_payload is not None,
+            list(self._pending_orders.keys()) if self._pending_orders else "[]",
+        )
         if not client_order_id or client_order_id not in self._pending_orders:
             error_code = getattr(message, "errorCode", "UNKNOWN")
             description = getattr(message, "description", "")
             logger.warning(
-                "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) "
-                "errorCode=%r description=%r",
+                "[EXEC_EVENT] DROP — clientOrderId=%r not in pending_orders (keys=%s) errorCode=%r description=%r",
                 client_order_id,
                 list(self._pending_orders.keys()) if self._pending_orders else "[]",
-                error_code, description,
+                error_code,
+                description,
             )
             return
         event, order = self._pending_orders.pop(client_order_id)
@@ -835,7 +891,7 @@ class OpenApiSpotFeed:
         etype = getattr(message, "executionType", None)
         if etype == ProtoOAExecutionType.ORDER_CANCELLED:
             order.status = OrderStatus.CANCELLED
-            setattr(order, "reason", "order_cancelled")
+            setattr(order, "reason", "order_cancelled")  # noqa: B010
             event.set()
             self._trigger_callback("on_order_cancelled", order, message)
             return
@@ -843,7 +899,7 @@ class OpenApiSpotFeed:
             reason = getattr(message, "errorCode", "") or "order_rejected"
             order.status = OrderStatus.REJECTED
             order.comment = reason
-            setattr(order, "reason", reason)
+            setattr(order, "reason", reason)  # noqa: B010
             event.set()
             self._trigger_callback("on_order_rejected", order, message, reason)
             return
@@ -859,7 +915,7 @@ class OpenApiSpotFeed:
         ev = getattr(order_payload, "executedVolume", 0)
         if ev:
             order.volume = ev / 100_000.0
-        setattr(order, "reason", "order_filled")
+        setattr(order, "reason", "order_filled")  # noqa: B010
         event.set()
         self._trigger_callback("on_order_filled", order, message)
 
@@ -869,18 +925,23 @@ class OpenApiSpotFeed:
     def _handle_pending_order_error(self, message, envelope) -> bool:
         client_order_id = getattr(message, "clientOrderId", "")
         client_msg_id = getattr(envelope, "clientMsgId", "")
-        logger.info("[ORDER_ERROR] clientOrderId=%r clientMsgId=%r pending_keys=%s",
-                     client_order_id, client_msg_id,
-                     list(self._pending_orders.keys()) if self._pending_orders else "[]")
+        logger.info(
+            "[ORDER_ERROR] clientOrderId=%r clientMsgId=%r pending_keys=%s",
+            client_order_id,
+            client_msg_id,
+            list(self._pending_orders.keys()) if self._pending_orders else "[]",
+        )
         if not client_order_id and client_msg_id:
             client_order_id = self._pending_client_msg_ids.get(client_msg_id, "")
         if not client_order_id or client_order_id not in self._pending_orders:
             error_code = getattr(message, "errorCode", "UNKNOWN")
             description = getattr(message, "description", "")
             logger.warning(
-                "[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r "
-                "errorCode=%r description=%r",
-                client_order_id, client_msg_id, error_code, description,
+                "[ORDER_ERROR] DROP — no match for clientOrderId=%r clientMsgId=%r errorCode=%r description=%r",
+                client_order_id,
+                client_msg_id,
+                error_code,
+                description,
             )
             return False
         event, order = self._pending_orders.pop(client_order_id)
@@ -888,7 +949,7 @@ class OpenApiSpotFeed:
         reason = f"{getattr(message, 'errorCode', 'UNKNOWN')}: {getattr(message, 'description', '')}".strip(": ")
         order.status = OrderStatus.REJECTED
         order.comment = reason
-        setattr(order, "reason", reason)
+        setattr(order, "reason", reason)  # noqa: B010
         event.set()
         self._trigger_callback("on_order_rejected", order, message, reason)
         return True
@@ -919,7 +980,7 @@ class OpenApiSpotFeed:
             self._refresh_in_progress = True
 
         if not proactive:
-            backoff = min(10 * (2 ** self._auth_error_count), 300)
+            backoff = min(10 * (2**self._auth_error_count), 300)
             time.sleep(backoff)
 
         if not self._refresh_token:
@@ -932,10 +993,16 @@ class OpenApiSpotFeed:
             import requests
             from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAAccountAuthReq
 
-            resp = requests.post("https://openapi.ctrader.com/apps/token", data={
-                "grant_type": "refresh_token", "refresh_token": self._refresh_token,
-                "client_id": self._client_id, "client_secret": self._client_secret,
-            }, timeout=10)
+            resp = requests.post(
+                "https://openapi.ctrader.com/apps/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": self._refresh_token,
+                    "client_id": self._client_id,
+                    "client_secret": self._client_secret,
+                },
+                timeout=10,
+            )
             data = resp.json()
             if data.get("errorCode"):
                 self._auth_error_count += 1
@@ -1016,9 +1083,11 @@ class OpenApiSpotFeed:
 
     def _reconnect_restore(self) -> None:
         try:
-            from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-                ProtoOAApplicationAuthReq, ProtoOAAccountAuthReq,
+            from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
+                ProtoOAApplicationAuthReq,
+                ProtoOAAccountAuthReq,
             )
+
             if not self._conn.is_connected:
                 return
 
@@ -1026,7 +1095,9 @@ class OpenApiSpotFeed:
                 ProtoOAApplicationAuthReq(clientId=self._client_id, clientSecret=self._client_secret),
                 timeout=10,
             )
-            if app_res is None or not self._is_expected_auth_response(app_res, _APP_AUTH_RES_PAYLOAD_TYPE, "reconnect_app"):
+            if app_res is None or not self._is_expected_auth_response(
+                app_res, _APP_AUTH_RES_PAYLOAD_TYPE, "reconnect_app"
+            ):  # noqa: E501
                 self._handle_auth_failure("reconnect_app")
                 return
             self._app_authed.set()
@@ -1038,7 +1109,9 @@ class OpenApiSpotFeed:
                 ProtoOAAccountAuthReq(ctidTraderAccountId=self._ctid_account_id, accessToken=self._access_token),
                 timeout=10,
             )
-            if acct_res is None or not self._is_expected_auth_response(acct_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "reconnect_acct"):
+            if acct_res is None or not self._is_expected_auth_response(
+                acct_res, _ACCT_AUTH_RES_PAYLOAD_TYPE, "reconnect_acct"
+            ):  # noqa: E501
                 self._handle_auth_failure("reconnect_acct")
                 return
             self._authed.set()
@@ -1062,7 +1135,16 @@ class OpenApiSpotFeed:
         available = list(positions)
         unresolved = []
         for order in self._disconnected_pending_orders:
-            match = next((p for p in available if p.symbol == order.symbol and p.direction == order.direction and abs(p.volume - order.volume) < 0.000001), None)
+            match = next(
+                (
+                    p
+                    for p in available
+                    if p.symbol == order.symbol
+                    and p.direction == order.direction
+                    and abs(p.volume - order.volume) < 0.000001
+                ),
+                None,
+            )  # noqa: E501
             if match is None:
                 unresolved.append(order)
                 continue
@@ -1070,7 +1152,7 @@ class OpenApiSpotFeed:
             order.status = OrderStatus.FILLED
             order.filled_at = datetime.utcnow()
             order.filled_price = match.entry_price
-            setattr(order, "reason", "resolved_by_reconcile")
+            setattr(order, "reason", "resolved_by_reconcile")  # noqa: B010
             self._trigger_callback("on_order_filled", order, match)
         self._disconnected_pending_orders = unresolved
 

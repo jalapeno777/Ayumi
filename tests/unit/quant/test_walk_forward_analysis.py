@@ -20,7 +20,7 @@ import pytest
 SCRIPT_DIR = Path(__file__).resolve().parents[3] / "scripts" / "quant"
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from walk_forward_analysis import (  # noqa: E402
+from walk_forward_analysis import (  # noqa: E402, I001
     CandidateResult,
     FTMO_CANDIDATES,
     KILL_THRESHOLD,
@@ -248,12 +248,8 @@ class TestAggregation:
     def test_all_none_metrics(self):
         """Runs with all-None metrics → no_data after aggregation."""
         runs = [
-            StrategyRun(
-                "test", "EURUSD", 5, "r1", None, None, 0, 5, "no-go", None, None, None
-            ),
-            StrategyRun(
-                "test", "EURUSD", 15, "r2", None, None, 0, 5, "no-go", None, None, None
-            ),
+            StrategyRun("test", "EURUSD", 5, "r1", None, None, 0, 5, "no-go", None, None, None),
+            StrategyRun("test", "EURUSD", 15, "r2", None, None, 0, 5, "no-go", None, None, None),
         ]
         result = aggregate_candidate("test", runs)
         assert result.avg_mean_sharpe is None
@@ -262,15 +258,9 @@ class TestAggregation:
     def test_best_run_tracking(self):
         """Best/worst Sharpe and pair/TF are tracked correctly."""
         runs = [
-            StrategyRun(
-                "test", "EURUSD", 5, "r1", -2.0, 0.0, 0, 5, "no-go", None, None, None
-            ),
-            StrategyRun(
-                "test", "XAUUSD", 60, "r2", 3.5, 0.1, 2, 5, "no-go", 0.3, 0.6, 0.4
-            ),
-            StrategyRun(
-                "test", "GBPUSD", 15, "r3", -5.0, 0.0, 0, 5, "no-go", None, None, None
-            ),
+            StrategyRun("test", "EURUSD", 5, "r1", -2.0, 0.0, 0, 5, "no-go", None, None, None),
+            StrategyRun("test", "XAUUSD", 60, "r2", 3.5, 0.1, 2, 5, "no-go", 0.3, 0.6, 0.4),
+            StrategyRun("test", "GBPUSD", 15, "r3", -5.0, 0.0, 0, 5, "no-go", None, None, None),
         ]
         result = aggregate_candidate("test", runs)
         assert result.best_sharpe == 3.5
@@ -281,9 +271,7 @@ class TestAggregation:
     def test_notes_for_no_go(self):
         """All no-go runs should add a note."""
         runs = [
-            StrategyRun(
-                "test", "EURUSD", 5, "r1", -1.0, 0.0, 0, 5, "no-go", None, None, None
-            ),
+            StrategyRun("test", "EURUSD", 5, "r1", -1.0, 0.0, 0, 5, "no-go", None, None, None),
         ]
         result = aggregate_candidate("test", runs)
         assert any("no-go" in note for note in result.notes)
@@ -300,9 +288,7 @@ class TestEdgeCases:
     def test_single_positive_run(self):
         """Single run with strong positive Sharpe."""
         runs = [
-            StrategyRun(
-                "test", "XAUUSD", 60, "r1", 3.3, 0.114, 2, 5, "no-go", 0.26, 0.61, 0.37
-            ),
+            StrategyRun("test", "XAUUSD", 60, "r1", 3.3, 0.114, 2, 5, "no-go", 0.26, 0.61, 0.37),
         ]
         result = aggregate_candidate("test", runs)
         assert result.avg_mean_sharpe == pytest.approx(3.3)

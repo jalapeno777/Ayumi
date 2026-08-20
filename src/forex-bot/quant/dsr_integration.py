@@ -47,7 +47,7 @@ Constraints
 * Does **not** modify ``oos_gate.py`` or ``go_nogo_criteria.py``.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from collections import defaultdict
@@ -288,9 +288,7 @@ def annotate_wf_results_with_dsr(
                 "min_track_record": int(min_trl),
                 "dsr_n_obs": int(n_obs),
                 "dsr_n_trials": int(n_trials),
-                "dsr_expected_max_sr": float(
-                    expected_max_sharpe(n_trials) if n_trials > 1 else 0.0
-                ),
+                "dsr_expected_max_sr": float(expected_max_sharpe(n_trials) if n_trials > 1 else 0.0),
                 "tier": tier,
                 "tier_reason": tier_reason,
                 "dsr_viable": bool(dsr_viable),

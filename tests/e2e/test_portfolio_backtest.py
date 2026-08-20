@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta
 
@@ -41,7 +41,7 @@ def _make_bars(n: int, base_close: float = 1.1000) -> list[Bar]:
         import random
 
         random.seed(i + 42)
-        price += (random.random() - 0.5) * 0.001
+        price += (random.random() - 0.5) * 0.001  # noqa: S311
         bars.append(_make_bar(price, i))
     return bars
 
@@ -173,10 +173,7 @@ class TestInventoryStrategies:
 
 class TestSignalCorrelation:
     def test_identical_strategies_high_correlation(self):
-        signals = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 5)
-        ]
+        signals = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 5)]
         inv = {
             "StratA": _make_inventory_result("StratA", signals),
             "StratB": _make_inventory_result("StratB", signals),
@@ -186,14 +183,8 @@ class TestSignalCorrelation:
         assert val > 0.9
 
     def test_opposite_strategies_negative_correlation(self):
-        signals_long = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 5)
-        ]
-        signals_short = [
-            SignalRecord(bar_index=i, direction=-1, confidence=0.6)
-            for i in range(0, 200, 5)
-        ]
+        signals_long = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 5)]
+        signals_short = [SignalRecord(bar_index=i, direction=-1, confidence=0.6) for i in range(0, 200, 5)]
         inv = {
             "Long": _make_inventory_result("Long", signals_long),
             "Short": _make_inventory_result("Short", signals_short),
@@ -208,14 +199,18 @@ class TestSignalCorrelation:
         random.seed(123)
         signals_a = [
             SignalRecord(
-                bar_index=i, direction=random.choice([-1, 0, 1]), confidence=0.6
+                bar_index=i,
+                direction=random.choice([-1, 0, 1]),  # noqa: S311
+                confidence=0.6,  # noqa: S311
             )
             for i in range(0, 200, 3)
         ]
         random.seed(456)
         signals_b = [
             SignalRecord(
-                bar_index=i, direction=random.choice([-1, 0, 1]), confidence=0.6
+                bar_index=i,
+                direction=random.choice([-1, 0, 1]),  # noqa: S311
+                confidence=0.6,  # noqa: S311
             )
             for i in range(0, 200, 4)
         ]
@@ -230,14 +225,8 @@ class TestSignalCorrelation:
 
 class TestSelectLeastCorrelated:
     def test_basic_selection(self):
-        signals_a = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 10)
-        ]
-        signals_b = [
-            SignalRecord(bar_index=i, direction=-1, confidence=0.6)
-            for i in range(0, 200, 12)
-        ]
+        signals_a = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 10)]
+        signals_b = [SignalRecord(bar_index=i, direction=-1, confidence=0.6) for i in range(0, 200, 12)]
         inv = {
             "A": _make_inventory_result("A", signals_a, sharpe=1.0),
             "B": _make_inventory_result("B", signals_b, sharpe=0.8),
@@ -252,14 +241,8 @@ class TestSelectLeastCorrelated:
         assert "B" in result.selected
 
     def test_skips_high_correlation(self):
-        signals_a = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 10)
-        ]
-        signals_b = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 10)
-        ]
+        signals_a = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 10)]
+        signals_b = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 10)]
         inv = {
             "A": _make_inventory_result("A", signals_a, sharpe=1.0),
             "B": _make_inventory_result("B", signals_b, sharpe=0.9),
@@ -268,19 +251,14 @@ class TestSelectLeastCorrelated:
             matrix={"A": {"A": 1.0, "B": 0.95}, "B": {"A": 0.95, "B": 1.0}},
             average_correlation=0.95,
         )
-        result = select_least_correlated(
-            inv, corr, max_strategies=4, max_pairwise_corr=0.5
-        )
+        result = select_least_correlated(inv, corr, max_strategies=4, max_pairwise_corr=0.5)
         assert len(result.selected) == 1
         assert "A" in result.selected
         assert "B" not in result.selected
         assert len(result.skipped) == 1
 
     def test_filters_negative_edge(self):
-        signals = [
-            SignalRecord(bar_index=i, direction=1, confidence=0.6)
-            for i in range(0, 200, 10)
-        ]
+        signals = [SignalRecord(bar_index=i, direction=1, confidence=0.6) for i in range(0, 200, 10)]
         inv = {
             "Good": _make_inventory_result("Good", signals, pf=1.5, wr=55.0),
             "Bad": _make_inventory_result("Bad", signals, pf=0.5, wr=30.0),

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass  # noqa: I001
 from datetime import datetime
 
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
@@ -86,9 +86,7 @@ def apply_lod_hod_stop_buffer(
 
 
 class MACrossStrategy(ISignalStrategy):
-    def __init__(
-        self, fast_period: int = 5, slow_period: int = 13, atr_multiplier: float = 2.0
-    ):
+    def __init__(self, fast_period: int = 5, slow_period: int = 13, atr_multiplier: float = 2.0):
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.atr_multiplier = atr_multiplier
@@ -119,26 +117,12 @@ class MACrossStrategy(ISignalStrategy):
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
-            entry - atr * self.atr_multiplier
-            if direction == TradeDirection.LONG
-            else entry + atr * self.atr_multiplier
+            entry - atr * self.atr_multiplier if direction == TradeDirection.LONG else entry + atr * self.atr_multiplier
         )
         risk = abs(entry - sl)
-        tp1 = (
-            entry + risk * 1.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 1.0
-        )
-        tp2 = (
-            entry + risk * 2.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 2.0
-        )
-        tp3 = (
-            entry + risk * 3.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
+        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
 
         trend_strength = self._calculate_trend_strength(fast_ma, slow_ma)
         confidence = min(0.95, 0.50 + trend_strength * 0.45)
@@ -188,9 +172,7 @@ class MACrossStrategy(ISignalStrategy):
 
 
 class BBStrategy(ISignalStrategy):
-    def __init__(
-        self, period: int = 20, std_dev: float = 2.0, atr_multiplier: float = 2.0
-    ):
+    def __init__(self, period: int = 20, std_dev: float = 2.0, atr_multiplier: float = 2.0):
         self.period = period
         self.std_dev = std_dev
         self.atr_multiplier = atr_multiplier
@@ -221,12 +203,8 @@ class BBStrategy(ISignalStrategy):
             tp1 = entry + risk * 1.0
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
-            confidence = min(
-                0.90, 0.60 + (lower_band - latest.close) / lower_band * 0.30
-            )
-            rationale = (
-                f"BB oversold: close={latest.close:.5f} < lower={lower_band:.5f}"
-            )
+            confidence = min(0.90, 0.60 + (lower_band - latest.close) / lower_band * 0.30)
+            rationale = f"BB oversold: close={latest.close:.5f} < lower={lower_band:.5f}"
         elif latest.close > upper_band:
             direction = TradeDirection.SHORT
             entry = latest.close
@@ -236,12 +214,8 @@ class BBStrategy(ISignalStrategy):
             tp1 = entry - risk * 1.0
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
-            confidence = min(
-                0.90, 0.60 + (latest.close - upper_band) / upper_band * 0.30
-            )
-            rationale = (
-                f"BB overbought: close={latest.close:.5f} > upper={upper_band:.5f}"
-            )
+            confidence = min(0.90, 0.60 + (latest.close - upper_band) / upper_band * 0.30)
+            rationale = f"BB overbought: close={latest.close:.5f} > upper={upper_band:.5f}"
         else:
             return None
 
@@ -333,9 +307,7 @@ class RSIStrategy(ISignalStrategy):
             tp1 = entry - risk * 1.0
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
-            confidence = min(
-                0.85, 0.55 + (rsi - self.overbought) / (100 - self.overbought) * 0.30
-            )
+            confidence = min(0.85, 0.55 + (rsi - self.overbought) / (100 - self.overbought) * 0.30)
             rationale = f"RSI overbought: rsi={rsi:.1f} > {self.overbought}"
         else:
             return None
@@ -448,9 +420,7 @@ class SRBreakoutStrategy(ISignalStrategy):
             tp1 = entry + risk * 1.0
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
-            confidence = min(
-                0.85, 0.50 + (latest.close - resistance) / resistance * 0.35
-            )
+            confidence = min(0.85, 0.50 + (latest.close - resistance) / resistance * 0.35)
             rationale = f"Bullish S/R breakout: close={latest.close:.5f} > resistance={resistance:.5f}"
         else:
             direction = TradeDirection.SHORT
@@ -492,9 +462,7 @@ class SRBreakoutStrategy(ISignalStrategy):
 
 
 class ROCMStrategy(ISignalStrategy):
-    def __init__(
-        self, period: int = 12, roc_threshold: float = 0.3, atr_multiplier: float = 2.0
-    ):
+    def __init__(self, period: int = 12, roc_threshold: float = 0.3, atr_multiplier: float = 2.0):
         self.period = period
         self.roc_threshold = roc_threshold
         self.atr_multiplier = atr_multiplier
@@ -533,9 +501,7 @@ class ROCMStrategy(ISignalStrategy):
             tp2 = entry - risk * 2.0
             tp3 = entry - risk * 3.0
             confidence = min(0.85, 0.50 + min(abs(roc), 2.0) / 2.0 * 0.35)
-            rationale = (
-                f"Negative momentum ROC: roc={roc:.3f}% < -{self.roc_threshold}%"
-            )
+            rationale = f"Negative momentum ROC: roc={roc:.3f}% < -{self.roc_threshold}%"
         else:
             return None
 
@@ -668,29 +634,13 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
-            entry - atr * self.atr_multiplier
-            if direction == TradeDirection.LONG
-            else entry + atr * self.atr_multiplier
+            entry - atr * self.atr_multiplier if direction == TradeDirection.LONG else entry + atr * self.atr_multiplier
         )
-        sl = apply_lod_hod_stop_buffer(
-            sl, direction, state.bars, self.lod_hod_stop_buffer_pips
-        )
+        sl = apply_lod_hod_stop_buffer(sl, direction, state.bars, self.lod_hod_stop_buffer_pips)
         risk = abs(entry - sl)
-        tp1 = (
-            entry + risk * 1.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 1.0
-        )
-        tp2 = (
-            entry + risk * 2.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 2.0
-        )
-        tp3 = (
-            entry + risk * 3.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp1 = entry + risk * 1.0 if direction == TradeDirection.LONG else entry - risk * 1.0
+        tp2 = entry + risk * 2.0 if direction == TradeDirection.LONG else entry - risk * 2.0
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
 
         if adx >= 40:
             confidence = 0.8
@@ -698,9 +648,9 @@ class MomentumBreakoutStrategy(ISignalStrategy):
             confidence = 0.6
 
         rationale = (
-            f"Bullish EMA cross + ADX confirm: fast={fast_ema:.5f} > slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"
+            f"Bullish EMA cross + ADX confirm: fast={fast_ema:.5f} > slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"  # noqa: E501
             if bullish_cross
-            else f"Bearish EMA cross + ADX confirm: fast={fast_ema:.5f} < slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"
+            else f"Bearish EMA cross + ADX confirm: fast={fast_ema:.5f} < slow={slow_ema:.5f}, ADX={adx:.1f} > {self.adx_threshold}"  # noqa: E501
         )
 
         return StrategySignal(
@@ -777,9 +727,7 @@ class MomentumBreakoutStrategy(ISignalStrategy):
         for i in range(self.adx_period, len(tr_list)):
             tr_sum = tr_sum - tr_sum / self.adx_period + tr_list[i]
             plus_dm_sum = plus_dm_sum - plus_dm_sum / self.adx_period + plus_dm_list[i]
-            minus_dm_sum = (
-                minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
-            )
+            minus_dm_sum = minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
 
             if tr_sum == 0:
                 continue
@@ -908,9 +856,7 @@ class CommodityTrendStrategy(ISignalStrategy):
         atr = state.atr if state.atr > 0 else self._calculate_atr(state.bars)
         entry = state.latest_bar.close
         sl = (
-            entry - atr * self.atr_multiplier
-            if direction == TradeDirection.LONG
-            else entry + atr * self.atr_multiplier
+            entry - atr * self.atr_multiplier if direction == TradeDirection.LONG else entry + atr * self.atr_multiplier
         )
         risk = abs(entry - sl)
         tp1 = (
@@ -1009,14 +955,8 @@ class CommodityTrendStrategy(ISignalStrategy):
                 continue
 
             smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
-            smoothed_plus_dm = (
-                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
-            )
-            smoothed_minus_dm = (
-                smoothed_minus_dm
-                - smoothed_minus_dm / self.adx_period
-                + minus_dm_list[i]
-            )
+            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
 
             if smoothed_tr == 0:
                 continue
@@ -1116,10 +1056,8 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
             tp1 = min(middle_band, entry + risk * 1.0)
             tp2 = entry + risk * 2.0
             tp3 = entry + risk * 3.0
-            confidence = min(
-                0.90, 0.55 + (self.rsi_oversold - rsi) / self.rsi_oversold * 0.35
-            )
-            rationale = f"BB oversold + RSI oversold + bullish reversal: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"
+            confidence = min(0.90, 0.55 + (self.rsi_oversold - rsi) / self.rsi_oversold * 0.35)
+            rationale = f"BB oversold + RSI oversold + bullish reversal: close={latest.close:.5f} < lower={lower_band:.5f}, RSI={rsi:.1f}"  # noqa: E501
         elif latest.close > upper_band and rsi > self.rsi_overbought:
             if not self._is_bearish_reversal(latest):
                 return None
@@ -1135,7 +1073,9 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
                 0.90,
                 0.55 + (rsi - self.rsi_overbought) / (100 - self.rsi_overbought) * 0.35,
             )
-            rationale = f"BB overbought + RSI overbought: close={latest.close:.5f} > upper={upper_band:.5f}, RSI={rsi:.1f}"
+            rationale = (
+                f"BB overbought + RSI overbought: close={latest.close:.5f} > upper={upper_band:.5f}, RSI={rsi:.1f}"  # noqa: E501
+            )
         else:
             return None
 
@@ -1158,9 +1098,7 @@ class CommodityMeanReversionStrategy(ISignalStrategy):
     def _calculate_std(self, bars: list[Bar], sma: float) -> float:
         if len(bars) < self.bb_period:
             return 0.0
-        variance = (
-            sum((b.close - sma) ** 2 for b in bars[-self.bb_period :]) / self.bb_period
-        )
+        variance = sum((b.close - sma) ** 2 for b in bars[-self.bb_period :]) / self.bb_period
         return variance**0.5
 
     def _calculate_rsi(self, bars: list[Bar]) -> float | None:
@@ -1300,35 +1238,23 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
         if sl_distance_pips > self.hard_cap_pips:
             sl_distance = self.hard_cap_pips / 10000
 
-        sl = (
-            entry - sl_distance
-            if direction == TradeDirection.LONG
-            else entry + sl_distance
-        )
+        sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
         risk = abs(entry - sl)
 
-        tp1 = (
-            entry + risk * self.tp1_atr
-            if direction == TradeDirection.LONG
-            else entry - risk * self.tp1_atr
-        )
-        tp2 = (
-            entry + risk * self.tp2_atr
-            if direction == TradeDirection.LONG
-            else entry - risk * self.tp2_atr
-        )
-        tp3 = (
-            entry + risk * 3.0
-            if direction == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp1 = entry + risk * self.tp1_atr if direction == TradeDirection.LONG else entry - risk * self.tp1_atr
+        tp2 = entry + risk * self.tp2_atr if direction == TradeDirection.LONG else entry - risk * self.tp2_atr
+        tp3 = entry + risk * 3.0 if direction == TradeDirection.LONG else entry - risk * 3.0
 
         confidence = min(0.85, 0.55 + abs(rsi - self.rsi_threshold) / 50 * 0.30)
 
         if long_conditions:
-            rationale = f"Supertrend Long flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} > {self.rsi_threshold}"
+            rationale = (
+                f"Supertrend Long flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} > {self.rsi_threshold}"  # noqa: E501
+            )
         else:
-            rationale = f"Supertrend Short flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} < {self.rsi_threshold}"
+            rationale = (
+                f"Supertrend Short flip + RSI confirm: ST={supertrend_value:.5f}, RSI={rsi:.1f} < {self.rsi_threshold}"  # noqa: E501
+            )
 
         return StrategySignal(
             direction=direction,
@@ -1341,9 +1267,7 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
             rationale=rationale,
         )
 
-    def _calculate_supertrend(
-        self, bars: list[Bar]
-    ) -> tuple[float | None, float | None]:
+    def _calculate_supertrend(self, bars: list[Bar]) -> tuple[float | None, float | None]:
         if len(bars) < self.supertrend_period + 1:
             return None, None
 
@@ -1494,14 +1418,8 @@ class SupertrendRSIBlendStrategy(ISignalStrategy):
                 continue
 
             smoothed_tr = smoothed_tr - smoothed_tr / self.adx_period + tr_list[i]
-            smoothed_plus_dm = (
-                smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
-            )
-            smoothed_minus_dm = (
-                smoothed_minus_dm
-                - smoothed_minus_dm / self.adx_period
-                + minus_dm_list[i]
-            )
+            smoothed_plus_dm = smoothed_plus_dm - smoothed_plus_dm / self.adx_period + plus_dm_list[i]
+            smoothed_minus_dm = smoothed_minus_dm - smoothed_minus_dm / self.adx_period + minus_dm_list[i]
 
             if smoothed_tr == 0:
                 continue
@@ -1668,9 +1586,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
             tp1 = entry - self.tp1_atr_multiplier * atr
             tp2 = entry - self.tp2_atr_multiplier * atr
 
-        sl = apply_lod_hod_stop_buffer(
-            sl, direction, state.bars, self.lod_hod_stop_buffer_pips
-        )
+        sl = apply_lod_hod_stop_buffer(sl, direction, state.bars, self.lod_hod_stop_buffer_pips)
 
         risk = abs(entry - sl)
         if direction == TradeDirection.LONG:
@@ -1782,9 +1698,7 @@ class KeltnerChannelBreakoutStrategy(ISignalStrategy):
         for i in range(self.adx_period, len(tr_list)):
             tr_sum = tr_sum - tr_sum / self.adx_period + tr_list[i]
             plus_dm_sum = plus_dm_sum - plus_dm_sum / self.adx_period + plus_dm_list[i]
-            minus_dm_sum = (
-                minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
-            )
+            minus_dm_sum = minus_dm_sum - minus_dm_sum / self.adx_period + minus_dm_list[i]
 
             if tr_sum == 0:
                 continue
@@ -1912,31 +1826,18 @@ class HighConvictionStrategy(ISignalStrategy):
 
         entry = state.latest_bar.close
         sl_distance = atr * self.sl_atr_mult
-        sl = (
-            entry - sl_distance
-            if trend_dir == TradeDirection.LONG
-            else entry + sl_distance
-        )
+        sl = entry - sl_distance if trend_dir == TradeDirection.LONG else entry + sl_distance
         risk = abs(entry - sl)
 
         rr_ratio = self.tp_atr_mult / self.sl_atr_mult
-        tp2 = (
-            entry + risk * rr_ratio
-            if trend_dir == TradeDirection.LONG
-            else entry - risk * rr_ratio
-        )
+        tp2 = entry + risk * rr_ratio if trend_dir == TradeDirection.LONG else entry - risk * rr_ratio
 
-        tp3 = (
-            entry + risk * 3.0
-            if trend_dir == TradeDirection.LONG
-            else entry - risk * 3.0
-        )
+        tp3 = entry + risk * 3.0 if trend_dir == TradeDirection.LONG else entry - risk * 3.0
 
         confidence = 0.75
         rationale = (
             f"High Conviction {trend_dir.value}: "
-            f"D1 trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, "
-            + ", ".join(labels)
+            f"D1 trend={'bullish' if trend_dir == TradeDirection.LONG else 'bearish'}, " + ", ".join(labels)
         )
 
         return StrategySignal(
@@ -2010,18 +1911,13 @@ class HighConvictionStrategy(ISignalStrategy):
             if len(swing_lows) < 5:
                 return False
             support_level = swing_lows[len(swing_lows) // 4]
-            return any(
-                abs(b.low - support_level) < support_level * 0.001 for b in recent
-            )
+            return any(abs(b.low - support_level) < support_level * 0.001 for b in recent)
         else:
             swing_highs = sorted(set(b.high for b in lookback), reverse=True)
             if len(swing_highs) < 5:
                 return False
             resistance_level = swing_highs[len(swing_highs) // 4]
-            return any(
-                abs(b.high - resistance_level) < resistance_level * 0.001
-                for b in recent
-            )
+            return any(abs(b.high - resistance_level) < resistance_level * 0.001 for b in recent)
 
     def _detect_momentum_shift(self, bars: list[Bar]) -> TradeDirection | None:
         if len(bars) < self.rsi_period + 2:
@@ -2154,10 +2050,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
 
     def reset(self) -> None:
         for strategy in (
-            self.trending_strategies
-            + self.ranging_strategies
-            + self.volatile_strategies
-            + self.transition_strategies
+            self.trending_strategies + self.ranging_strategies + self.volatile_strategies + self.transition_strategies
         ):
             if hasattr(strategy, "reset") and callable(strategy.reset):
                 strategy.reset()
@@ -2229,8 +2122,7 @@ class RegimeSwitchingRouter(ISignalStrategy):
             raw_confidence = min(adx / 50.0, 1.0)
         elif is_ranging:
             raw_confidence = min(
-                (self.config.adx_range_threshold - adx)
-                / self.config.adx_range_threshold,
+                (self.config.adx_range_threshold - adx) / self.config.adx_range_threshold,
                 1.0,
             )
         elif is_volatile:

@@ -21,7 +21,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 os.environ["FOREX_DB_PATH"] = str(project_root / "data" / "forex" / "forex.db")
 
-from ml.train_model import (  # noqa: E402
+from ml.train_model import (  # noqa: E402, I001
     walk_forward_train,
     FEATURE_COLUMNS,
     MODEL_TYPE_DEFAULT,
@@ -66,9 +66,7 @@ def compute_sharpe(returns: np.ndarray, risk_free_rate: float = 0.0) -> float:
     return float(np.mean(excess) / np.std(excess) * np.sqrt(252))
 
 
-def build_equity_curve(
-    trades: pd.DataFrame, starting_balance: float = 10000.0
-) -> np.ndarray:
+def build_equity_curve(trades: pd.DataFrame, starting_balance: float = 10000.0) -> np.ndarray:
     equity = [starting_balance]
     for _, trade in trades.iterrows():
         equity.append(equity[-1] + trade["pnl"])
@@ -117,9 +115,7 @@ def run_full_backtest():
 
     print("\n--- Walk-Forward Validation ---\n")
 
-    wf_results = walk_forward_train(
-        dataset, n_folds=N_FOLDS, random_state=SEED, model_types=[MODEL_TYPE_DEFAULT]
-    )
+    wf_results = walk_forward_train(dataset, n_folds=N_FOLDS, random_state=SEED, model_types=[MODEL_TYPE_DEFAULT])
 
     folds = wf_results.get("folds", [])
     if not folds:
@@ -181,7 +177,7 @@ def run_full_backtest():
         print(f"  Baseline: WR={baseline_wr:.1f}%, PF={baseline_pf:.2f}")
         print(f"  Filtered: WR={filtered_wr:.1f}%, PF={filtered_pf:.2f}")
         print(
-            f"  Optimized: threshold={opt_threshold:.2f}, WR={opt_wr:.1f}%, PF={opt_pf:.2f}, trades={opt_tc}, PnL={opt_pnl:.2f}"
+            f"  Optimized: threshold={opt_threshold:.2f}, WR={opt_wr:.1f}%, PF={opt_pf:.2f}, trades={opt_tc}, PnL={opt_pnl:.2f}"  # noqa: E501
         )
         print(f"  [{status}]\n")
 
@@ -228,12 +224,10 @@ def run_full_backtest():
     print("AGGREGATE RESULTS")
     print("=" * 70)
     print(f"\nWalk-Forward Windows: {len(window_results)}")
-    print(
-        f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ML_AGGREGATE.min_windows_passed})"
-    )
+    print(f"Passing Windows:     {passing_windows}/{len(window_results)} (need >= {ML_AGGREGATE.min_windows_passed})")
     print("\n--- Average Optimized Metrics ---")
     print(
-        f"  Win Rate:       {avg_wr:.2f}% (target: >= {ML_PER_WINDOW.win_rate * 100}%) [{'PASS' if meets_wr else 'FAIL'}]"
+        f"  Win Rate:       {avg_wr:.2f}% (target: >= {ML_PER_WINDOW.win_rate * 100}%) [{'PASS' if meets_wr else 'FAIL'}]"  # noqa: E501
     )
     print(
         f"  Profit Factor:  {avg_pf:.2f} (target: >= {ML_PER_WINDOW.profit_factor}) [{'PASS' if meets_pf else 'FAIL'}]"
@@ -244,12 +238,8 @@ def run_full_backtest():
     print(f"  Total PnL:      {total_pnl:.2f}")
     print(f"  Avg Threshold:  {avg_threshold:.2f}")
     print("\n--- Improvement over Baseline ---")
-    print(
-        f"  Win Rate:  {avg_baseline_wr:.1f}% -> {avg_wr:.1f}% (filtered: {avg_filtered_wr:.1f}%)"
-    )
-    print(
-        f"  PF:        {avg_baseline_pf:.2f} -> {avg_pf:.2f} (filtered: {avg_filtered_pf:.2f})"
-    )
+    print(f"  Win Rate:  {avg_baseline_wr:.1f}% -> {avg_wr:.1f}% (filtered: {avg_filtered_wr:.1f}%)")
+    print(f"  PF:        {avg_baseline_pf:.2f} -> {avg_pf:.2f} (filtered: {avg_filtered_pf:.2f})")
     print(f"\n{'=' * 70}")
     print(f"GO/NO-GO: {'GO' if go_nogo else 'NO-GO'}")
     print(f"{'=' * 70}")
@@ -300,9 +290,7 @@ def run_full_backtest():
     }
 
     if "feature_importance" in folds[-1]:
-        report["top_features"] = dict(
-            list(folds[-1]["feature_importance"].items())[:15]
-        )
+        report["top_features"] = dict(list(folds[-1]["feature_importance"].items())[:15])
 
     report_path = os.path.join(OUTPUT_DIR, "m15_backtest_report.json")
     os.makedirs(OUTPUT_DIR, exist_ok=True)

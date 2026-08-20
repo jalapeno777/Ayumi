@@ -1,4 +1,4 @@
-import unittest
+import unittest  # noqa: I001
 
 from datetime import datetime
 
@@ -214,9 +214,7 @@ class TestSessionRangeMRWithRegimeFilter(unittest.TestCase):
         base_result = SessionRangeMeanReversionStrategy().evaluate(state)
         if result is not None and base_result is not None:
             self.assertLess(result.confidence, base_result.confidence)
-            self.assertAlmostEqual(
-                result.confidence, base_result.confidence * 0.90, places=2
-            )
+            self.assertAlmostEqual(result.confidence, base_result.confidence * 0.90, places=2)
 
 
 if __name__ == "__main__":

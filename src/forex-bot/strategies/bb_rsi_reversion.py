@@ -114,9 +114,7 @@ def _rsi(closes: List[float], period: int = 14) -> float:
     return 100.0 - (100.0 / (1.0 + rs))
 
 
-def _bollinger_bands(
-    closes: List[float], period: int, std_dev: float
-) -> tuple[float, float, float]:
+def _bollinger_bands(closes: List[float], period: int, std_dev: float) -> tuple[float, float, float]:
     sma = _sma(closes, period)
     std = _std(closes, period)
     upper = sma + std * std_dev
@@ -250,9 +248,7 @@ class BBRSIMeanReversion(ISignalStrategy):
         bars = state.bars
         closes = [b.close for b in bars]
 
-        bb_upper, bb_middle, bb_lower = _bollinger_bands(
-            closes, cfg.bb_period, cfg.bb_std_dev
-        )
+        bb_upper, bb_middle, bb_lower = _bollinger_bands(closes, cfg.bb_period, cfg.bb_std_dev)
         rsi = _rsi(closes, cfg.rsi_period)
         atr = _atr(bars, cfg.atr_period)
         adx = _adx(bars, cfg.adx_period)

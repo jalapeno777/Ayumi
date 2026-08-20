@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import os
@@ -77,7 +77,7 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
 
 
 def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
-    from strategies.volatility_squeeze import VolatilitySqueezeConfig
+    from strategies.volatility_squeeze import VolatilitySqueezeConfig  # noqa: I001
     from dataclasses import asdict
 
     params = {}
@@ -127,10 +127,7 @@ class SweepRunner:
 
         if self._max_workers is not None and self._max_workers > 1 and len(tasks) > 1:
             with ProcessPoolExecutor(max_workers=self._max_workers) as executor:
-                future_to_idx = {
-                    executor.submit(_worker_entry, task): idx
-                    for idx, task in enumerate(tasks)
-                }
+                future_to_idx = {executor.submit(_worker_entry, task): idx for idx, task in enumerate(tasks)}
                 results: List[Optional[Dict[str, Any]]] = [None] * len(tasks)
                 for future in as_completed(future_to_idx):
                     idx = future_to_idx[future]
@@ -138,7 +135,7 @@ class SweepRunner:
         else:
             results = [_worker_entry(task) for task in tasks]
 
-        for point, result in zip(grid_points, results):
+        for point, result in zip(grid_points, results):  # noqa: B905
             if result is not None:
                 rows.append(SweepRow(params=point.params, **result))
 

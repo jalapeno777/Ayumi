@@ -14,7 +14,7 @@ Tests cover:
   - Kill switch FREEZE on portfolio drawdown breach
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # noqa: I001
 from unittest.mock import MagicMock
 
 import pytest
@@ -256,33 +256,23 @@ class TestMAEMFETRacking:
     def test_mfe_does_not_decrease(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Price up
-        monitor.update_positions(
-            prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081})
         peak_mfe = order_manager.get_position(pos.position_id).max_favorable_excursion
 
         # Price falls significantly
-        monitor.update_positions(
-            prices={"EURUSD": 1.0900}, bids={"EURUSD": 1.0900}, asks={"EURUSD": 1.0901}
-        )
-        current_mfe = order_manager.get_position(
-            pos.position_id
-        ).max_favorable_excursion
+        monitor.update_positions(prices={"EURUSD": 1.0900}, bids={"EURUSD": 1.0900}, asks={"EURUSD": 1.0901})
+        current_mfe = order_manager.get_position(pos.position_id).max_favorable_excursion
         assert current_mfe == peak_mfe  # MFE never decreases
 
     def test_mae_does_not_increase(self, monitor, order_manager):
         """MAE should stay at its worst (most negative) value."""
         pos = _make_long_position(order_manager, entry=1.1000)
         # Price drops
-        monitor.update_positions(
-            prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951})
         peak_mae = order_manager.get_position(pos.position_id).max_adverse_excursion
 
         # Price recovers
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         current_mae = order_manager.get_position(pos.position_id).max_adverse_excursion
         assert current_mae == peak_mae  # MAE stays at worst
 
@@ -293,15 +283,9 @@ class TestMAEMFETRacking:
 class TestWaterMarks:
     def test_long_high_water_mark_tracks_highest(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
-        monitor.update_positions(
-            prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081}
-        )
-        monitor.update_positions(
-            prices={"EURUSD": 1.1030}, bids={"EURUSD": 1.1030}, asks={"EURUSD": 1.1031}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
+        monitor.update_positions(prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081})
+        monitor.update_positions(prices={"EURUSD": 1.1030}, bids={"EURUSD": 1.1030}, asks={"EURUSD": 1.1031})
         updated = order_manager.get_position(pos.position_id)
         # For long: high_water_mark = highest bid seen
         assert updated.high_water_mark == pytest.approx(1.1080)
@@ -310,12 +294,8 @@ class TestWaterMarks:
 
     def test_short_water_mark_inverts(self, monitor, order_manager):
         pos = _make_short_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
-        monitor.update_positions(
-            prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
+        monitor.update_positions(prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951})
         updated = order_manager.get_position(pos.position_id)
         # For short: high_water_mark = lowest ask (best for short = price going down)
         assert updated.high_water_mark == pytest.approx(1.0951)
@@ -324,9 +304,7 @@ class TestWaterMarks:
 
     def test_water_marks_initialized_from_first_tick(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001})
         updated = order_manager.get_position(pos.position_id)
         assert updated.high_water_mark == pytest.approx(1.1000)
         assert updated.low_water_mark == pytest.approx(1.1000)
@@ -339,9 +317,7 @@ class TestTimeInTrade:
     def test_time_in_trade_increases(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Immediately after creation, time should be near 0
-        monitor.update_positions(
-            prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001})
         updated = order_manager.get_position(pos.position_id)
         assert updated.time_in_trade_sec >= 0.0
         assert updated.time_in_trade_sec < 5.0  # Should be very small
@@ -353,9 +329,7 @@ class TestTimeInTrade:
         pos.opened_at = past
         order_manager._positions[pos.position_id].opened_at = past
 
-        monitor.update_positions(
-            prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001})
         updated = order_manager.get_position(pos.position_id)
         assert updated.time_in_trade_sec >= 59.0
         assert updated.time_in_trade_sec <= 62.0
@@ -365,9 +339,7 @@ class TestTimeInTrade:
 
 
 class TestTimeExits:
-    def test_returns_positions_exceeding_duration(
-        self, order_manager, risk_guard, kill_switch
-    ):
+    def test_returns_positions_exceeding_duration(self, order_manager, risk_guard, kill_switch):
         # Create monitor with short duration for testing
         pm = PositionMonitor(
             order_manager=order_manager,
@@ -379,18 +351,14 @@ class TestTimeExits:
         # Set opened_at to 120 seconds ago
         past = datetime.now(timezone.utc) - timedelta(seconds=120)
         order_manager._positions[pos.position_id].opened_at = past
-        pm.update_positions(
-            prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001}
-        )
+        pm.update_positions(prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001})
 
         expired = pm.check_time_exits()
         assert pos.position_id in expired
 
     def test_does_not_return_recent_positions(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1000}, bids={"EURUSD": 1.1000}, asks={"EURUSD": 1.1001})
 
         expired = monitor.check_time_exits()
         assert pos.position_id not in expired
@@ -407,16 +375,10 @@ class TestDrawdownAlerts:
     def test_warning_at_threshold(self, monitor, order_manager):
         _pos = _make_long_position(order_manager, entry=1.1000)
         # Run price up to establish MFE
-        monitor.update_positions(
-            prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101})
         # Price gives back significantly (from 100 pip profit to ~20 pip profit)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1020}, bids={"EURUSD": 1.1020}, asks={"EURUSD": 1.1021}
-        )
-        alerts = monitor.check_drawdown_alerts(
-            warning_threshold=0.02, critical_threshold=0.05
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1020}, bids={"EURUSD": 1.1020}, asks={"EURUSD": 1.1021})
+        alerts = monitor.check_drawdown_alerts(warning_threshold=0.02, critical_threshold=0.05)
         # MFE was ~$1000, current is ~$200, drawdown from MFE = 80%
         assert len(alerts) >= 1
         assert any(a["level"] == "critical" for a in alerts)
@@ -425,28 +387,18 @@ class TestDrawdownAlerts:
         pos = _make_long_position(order_manager, entry=1.1000)
         # In the real flow, order_manager.update_position sets unrealized_pnl
         # before the monitor runs. Simulate that here.
-        order_manager.update_position(
-            pos.position_id, current_price=1.1050, bid=1.1050, ask=1.1051
-        )
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        order_manager.update_position(pos.position_id, current_price=1.1050, bid=1.1050, ask=1.1051)
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         alerts = monitor.check_drawdown_alerts()
         assert len(alerts) == 0
 
     def test_critical_alert_level(self, monitor, order_manager):
         _pos = _make_long_position(order_manager, entry=1.1000)
         # Run price way up
-        monitor.update_positions(
-            prices={"EURUSD": 1.1200}, bids={"EURUSD": 1.1200}, asks={"EURUSD": 1.1201}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1200}, bids={"EURUSD": 1.1200}, asks={"EURUSD": 1.1201})
         # Price falls back near entry
-        monitor.update_positions(
-            prices={"EURUSD": 1.1005}, bids={"EURUSD": 1.1005}, asks={"EURUSD": 1.1006}
-        )
-        alerts = monitor.check_drawdown_alerts(
-            warning_threshold=0.02, critical_threshold=0.05
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1005}, bids={"EURUSD": 1.1005}, asks={"EURUSD": 1.1006})
+        alerts = monitor.check_drawdown_alerts(warning_threshold=0.02, critical_threshold=0.05)
         # MFE was ~$2000, current ~$50 → drawdown = 97.5% → critical
         critical_alerts = [a for a in alerts if a["level"] == "critical"]
         assert len(critical_alerts) >= 1
@@ -470,9 +422,7 @@ class TestPortfolioSummary:
 
     def test_single_position(self, monitor, order_manager):
         _pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         summary = monitor.get_portfolio_summary()
         assert summary["position_count"] == 1
         assert summary["positions_by_symbol"] == {"EURUSD": 1}
@@ -482,9 +432,7 @@ class TestPortfolioSummary:
     def test_multiple_positions_same_symbol(self, monitor, order_manager):
         _make_long_position(order_manager, entry=1.1000)
         _make_long_position(order_manager, entry=1.1005)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         summary = monitor.get_portfolio_summary()
         assert summary["position_count"] == 2
         assert summary["positions_by_symbol"] == {"EURUSD": 2}
@@ -503,16 +451,12 @@ class TestPortfolioSummary:
 
     def test_summary_includes_mfe_mae(self, monitor, order_manager):
         _pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         summary = monitor.get_portfolio_summary()
         assert summary["total_mfe"] > 0
         assert summary["total_mae"] == 0
 
-    def test_summary_includes_kill_switch_status(
-        self, monitor, order_manager, kill_switch
-    ):
+    def test_summary_includes_kill_switch_status(self, monitor, order_manager, kill_switch):
         kill_switch.is_globally_killed.return_value = False
         kill_switch.is_globally_frozen.return_value = False
         summary = monitor.get_portfolio_summary()
@@ -532,9 +476,7 @@ class TestPortfolioSummary:
 class TestPositionReport:
     def test_returns_detailed_report(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051})
         report = monitor.get_position_report(pos.position_id)
         assert report is not None
         assert report["position_id"] == pos.position_id
@@ -558,13 +500,9 @@ class TestPositionReport:
     def test_report_mfe_tracked_correctly(self, monitor, order_manager):
         pos = _make_long_position(order_manager, entry=1.1000)
         # Price up
-        monitor.update_positions(
-            prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1080}, bids={"EURUSD": 1.1080}, asks={"EURUSD": 1.1081})
         # Price down
-        monitor.update_positions(
-            prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.0950}, bids={"EURUSD": 1.0950}, asks={"EURUSD": 1.0951})
         report = monitor.get_position_report(pos.position_id)
         mfe = report["max_favorable_excursion (MFE)"]
         mae = report["max_adverse_excursion (MAE)"]
@@ -606,9 +544,7 @@ class TestKillSwitchIntegration:
             triggered_by="position_monitor",
         )
 
-    def test_no_freeze_when_drawdown_within_limits(
-        self, order_manager, risk_guard, kill_switch
-    ):
+    def test_no_freeze_when_drawdown_within_limits(self, order_manager, risk_guard, kill_switch):
         # Normal balance, no drawdown
         pm = PositionMonitor(
             order_manager=order_manager,
@@ -625,9 +561,7 @@ class TestKillSwitchIntegration:
 
         kill_switch.activate_global_freeze.assert_not_called()
 
-    def test_no_freeze_when_already_active(
-        self, order_manager, risk_guard, kill_switch
-    ):
+    def test_no_freeze_when_already_active(self, order_manager, risk_guard, kill_switch):
         kill_switch.is_active.return_value = True
 
         config = FTMOConfig(total_drawdown_limit_pct=0.01)
@@ -689,17 +623,11 @@ class TestCallbacks:
 
     def test_drawdown_warning_callback(self, order_manager, monitor):
         warnings = []
-        monitor.register_callback(
-            "on_drawdown_warning", lambda alert: warnings.append(alert)
-        )
+        monitor.register_callback("on_drawdown_warning", lambda alert: warnings.append(alert))
 
         _pos = _make_long_position(order_manager, entry=1.1000)
-        monitor.update_positions(
-            prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101}
-        )
-        monitor.update_positions(
-            prices={"EURUSD": 1.1070}, bids={"EURUSD": 1.1070}, asks={"EURUSD": 1.1071}
-        )
+        monitor.update_positions(prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101})
+        monitor.update_positions(prices={"EURUSD": 1.1070}, bids={"EURUSD": 1.1070}, asks={"EURUSD": 1.1071})
         monitor.check_drawdown_alerts(warning_threshold=0.02, critical_threshold=0.05)
         # Should have triggered at least warning level
         assert len(warnings) >= 0  # Drawdown may or may not exceed warning threshold

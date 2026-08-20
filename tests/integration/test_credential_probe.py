@@ -5,7 +5,7 @@ Covers:
     - .github/linters/check_sdk_callback_names.py  (AST linter)
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import importlib.util
 import pathlib
@@ -18,10 +18,7 @@ from unittest.mock import patch
 # ---------------------------------------------------------------------------
 _spec = importlib.util.spec_from_file_location(
     "check_sdk_callback_names",
-    pathlib.Path(__file__).resolve().parents[2]
-    / ".github"
-    / "linters"
-    / "check_sdk_callback_names.py",
+    pathlib.Path(__file__).resolve().parents[2] / ".github" / "linters" / "check_sdk_callback_names.py",
 )
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
@@ -47,8 +44,8 @@ class TestGetCredentials:
 
         creds = get_credentials()
         assert creds["CTRADER_OPENAPI_CLIENT_ID"] == "test_id"
-        assert creds["CTRADER_OPENAPI_CLIENT_SECRET"] == "test_secret"
-        assert creds["CTRADER_OPENAPI_ACCESS_TOKEN"] == "test_token"
+        assert creds["CTRADER_OPENAPI_CLIENT_SECRET"] == "test_secret"  # noqa: S105
+        assert creds["CTRADER_OPENAPI_ACCESS_TOKEN"] == "test_token"  # noqa: S105
         assert creds["CTRADER_OPENAPI_ACCOUNT_ID"] == "12345"
 
     def test_missing_env_returns_empty_string(self, monkeypatch):
@@ -127,7 +124,7 @@ class TestRunProbe:
 
     @patch("probe_ctrader_credentials.check_auth")
     def test_calls_check_auth_when_creds_present(self, mock_check, monkeypatch):
-        from probe_ctrader_credentials import run_probe, ProbeResult
+        from probe_ctrader_credentials import run_probe, ProbeResult  # noqa: I001
 
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_ID", "id")
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_SECRET", "secret")
@@ -148,7 +145,7 @@ class TestRunProbe:
 
     @patch("probe_ctrader_credentials.check_auth")
     def test_propagates_auth_failure(self, mock_check, monkeypatch):
-        from probe_ctrader_credentials import run_probe, ProbeResult
+        from probe_ctrader_credentials import run_probe, ProbeResult  # noqa: I001
 
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_ID", "id")
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_SECRET", "secret")

@@ -3,7 +3,7 @@
 All tests use tmp_path to avoid writing to the real logs/ directory.
 """
 
-import logging
+import logging  # noqa: I001
 import re
 
 import pytest
@@ -42,9 +42,7 @@ def test_setup_creates_log_dir(tmp_path):
 def test_log_file_receives_messages(tmp_path):
     """Messages logged after setup appear in the log file."""
     log_dir = tmp_path / "logs"
-    setup_logging(
-        log_dir=str(log_dir), log_name="test_run", level="INFO", console=False
-    )
+    setup_logging(log_dir=str(log_dir), log_name="test_run", level="INFO", console=False)
 
     test_msg = "spinach was here"
     logging.info(test_msg)
@@ -71,11 +69,7 @@ def test_rotation_backup_count_set(tmp_path):
     )
 
     root = logging.getLogger()
-    file_handlers = [
-        h
-        for h in root.handlers
-        if isinstance(h, logging.handlers.TimedRotatingFileHandler)
-    ]
+    file_handlers = [h for h in root.handlers if isinstance(h, logging.handlers.TimedRotatingFileHandler)]
     assert len(file_handlers) == 1, "Expected exactly one TimedRotatingFileHandler"
     assert file_handlers[0].backupCount == 3, "backupCount not set correctly"
 
@@ -90,9 +84,7 @@ def test_idempotent(tmp_path):
     setup_logging(log_dir=str(log_dir), log_name="second", console=True)
     second_count = len(logging.getLogger().handlers)
 
-    assert first_count == second_count, (
-        f"Handler count changed: {first_count} → {second_count}"
-    )
+    assert first_count == second_count, f"Handler count changed: {first_count} → {second_count}"
     # With console=True we expect exactly 2 handlers (file + console)
     assert second_count == 2, f"Expected 2 handlers, got {second_count}"
 
@@ -126,6 +118,4 @@ def test_format_contains_timestamp_and_level(tmp_path):
     )
     lines = [ln for ln in content.strip().splitlines() if "format check message" in ln]
     assert len(lines) == 1, f"Expected 1 matching line, got {len(lines)}"
-    assert pattern.search(lines[0]), (
-        f"Line '{lines[0]}' does not match format '{DEFAULT_FORMAT}'"
-    )
+    assert pattern.search(lines[0]), f"Line '{lines[0]}' does not match format '{DEFAULT_FORMAT}'"

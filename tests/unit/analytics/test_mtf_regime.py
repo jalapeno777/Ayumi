@@ -46,13 +46,13 @@ def _make_bars(
         drift = 0.0002 if trend == "up" else -0.0002
         if trend == "flat":
             drift = 0.0
-        noise = random.uniform(-0.0003, 0.0003)
+        noise = random.uniform(-0.0003, 0.0003)  # noqa: S311
         change = drift + noise
         price += change
 
-        bar_open = price - random.uniform(0, 0.0001)
-        bar_high = price + random.uniform(0.0001, 0.0003)
-        bar_low = price - random.uniform(0.0001, 0.0003)
+        bar_open = price - random.uniform(0, 0.0001)  # noqa: S311
+        bar_high = price + random.uniform(0.0001, 0.0003)  # noqa: S311
+        bar_low = price - random.uniform(0.0001, 0.0003)  # noqa: S311
         bar_close = price
 
         bars.append(
@@ -374,9 +374,7 @@ class TestMTFFilteredMomentumStrategy(unittest.TestCase):
                 self.assertIsInstance(result.confidence, float)
 
     def test_momentum_breakout_wrapper(self):
-        inner = MomentumBreakoutStrategy(
-            fast_period=5, slow_period=10, adx_threshold=20.0
-        )
+        inner = MomentumBreakoutStrategy(fast_period=5, slow_period=10, adx_threshold=20.0)
         wrapper = MTFFilteredMomentumStrategy(
             inner,
             regime_config=MTFRegimeConfig(

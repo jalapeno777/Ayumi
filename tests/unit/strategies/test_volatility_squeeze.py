@@ -21,7 +21,7 @@ pre-existing) RSI filter. We isolate the bug fix by monkey-patching
 without the RSI filter masking the fix.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
@@ -103,9 +103,7 @@ def _append_breakout_bar(
     return breakout
 
 
-def _make_state(
-    bars: list[Bar], session: SessionType = SessionType.LONDON
-) -> MarketState:
+def _make_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -167,8 +165,7 @@ class TestVolatilitySqueezeBugfix:
         # observable on the breakout bar).
         running, _ = _drive_then_evaluate(strategy, flat[:-1])
         assert strategy._was_in_squeeze, (
-            "Pre-breakout bar must show the strategy in a squeeze so the "
-            "release transition is observable."
+            "Pre-breakout bar must show the strategy in a squeeze so the release transition is observable."
         )
         assert strategy._squeeze_bar_count >= config.min_squeeze_bars
 
@@ -176,8 +173,7 @@ class TestVolatilitySqueezeBugfix:
         bb_u, _, bb_l = _calculate_bollinger_bands(flat, 20, 2.0)
         kc_u, _, kc_l = _calculate_keltner_channels(flat, 20, 2.0)
         assert not (bb_u <= kc_u and bb_l >= kc_l), (
-            "Post-breakout bar must be outside the squeeze (BB > KC width) "
-            "so squeeze_just_released is True."
+            "Post-breakout bar must be outside the squeeze (BB > KC width) so squeeze_just_released is True."
         )
 
         # Drive the strategy bar-by-bar through the entire series.
@@ -258,15 +254,9 @@ class TestVolatilitySqueezeBugfix:
         assert signal is not None
         risk = signal.entry_price - signal.stop_loss
         assert risk > 0
-        assert signal.take_profit_1 == pytest.approx(
-            signal.entry_price + risk * config.tp1_rr, rel=1e-3
-        )
-        assert signal.take_profit_2 == pytest.approx(
-            signal.entry_price + risk * config.tp2_rr, rel=1e-3
-        )
-        assert signal.take_profit_3 == pytest.approx(
-            signal.entry_price + risk * config.tp3_rr, rel=1e-3
-        )
+        assert signal.take_profit_1 == pytest.approx(signal.entry_price + risk * config.tp1_rr, rel=1e-3)
+        assert signal.take_profit_2 == pytest.approx(signal.entry_price + risk * config.tp2_rr, rel=1e-3)
+        assert signal.take_profit_3 == pytest.approx(signal.entry_price + risk * config.tp3_rr, rel=1e-3)
         assert 0.0 < signal.confidence <= 0.95
 
 
@@ -316,9 +306,7 @@ class TestVolatilitySqueezeFilters:
         _append_breakout_bar(flat, magnitude=0.0050, direction="up")
 
         with patch("strategies.volatility_squeeze._calculate_rsi", return_value=50.0):
-            _, signal = _drive_then_evaluate(
-                strategy, flat, session=SessionType.OUTSIDE
-            )
+            _, signal = _drive_then_evaluate(strategy, flat, session=SessionType.OUTSIDE)
         assert signal is None, "Session filter must still reject OUTSIDE session"
 
     def test_session_filter_passes_london(self):

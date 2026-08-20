@@ -4,7 +4,7 @@ Run once to produce pickle files consumed by the regression test suite.
 Usage: PYTHONPATH=src python tests/regression/generate_golden.py
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pickle
 
@@ -158,9 +158,7 @@ def main():
         print(f"  Saved to {out_path}")
         n_strategies = len(golden)
         n_errors = sum(
-            1
-            for v in golden.values()
-            if "error" in v.get("single", {}) or "error" in v.get("walk_forward", {})
+            1 for v in golden.values() if "error" in v.get("single", {}) or "error" in v.get("walk_forward", {})
         )
         print(f"  {n_strategies} strategies, {n_errors} errors")
 

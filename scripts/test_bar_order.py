@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quick test: check bar ordering from cTrader API."""
 
-import sys
+import sys  # noqa: I001
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -24,14 +24,12 @@ client.connect()
 now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 from_ms = now_ms - 86400000  # 1 day ago
 
-bars = client.get_trendbars(
-    symbol_id=2, period="M1", from_ts=from_ms, to_ts=now_ms, max_bars=5
-)
+bars = client.get_trendbars(symbol_id=2, period="M1", from_ts=from_ms, to_ts=now_ms, max_bars=5)
 print(f"Got {len(bars)} bars")
 for b in bars:
     ts = b["timestamp"]
     print(
-        f"  ts_ms={ts} -> {datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')} close={b['close']}"
+        f"  ts_ms={ts} -> {datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')} close={b['close']}"  # noqa: E501
     )
 
 if len(bars) >= 2:

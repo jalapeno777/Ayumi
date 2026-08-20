@@ -124,9 +124,7 @@ class CurrencyExposureTracker:
         if pos.pair not in CURRENCY_LEGS:
             raise KeyError(f"Unknown pair: {pos.pair}")
         self._positions[pos.pair] = pos
-        logger.debug(
-            "Registered %s %s %.0f units", pos.direction, pos.pair, pos.size_units
-        )
+        logger.debug("Registered %s %s %.0f units", pos.direction, pos.pair, pos.size_units)
 
     def unregister_position(self, pair: str) -> bool:
         """Remove the position for *pair*.  Returns ``True`` if removed."""
@@ -254,10 +252,7 @@ class CurrencyExposureTracker:
         return {
             "adjusted_risk_pct": adjusted,
             "blocked": False,
-            "reason": (
-                f"Adjusted by (1 - {avg_rho:.3f}) due to "
-                f"{len(correlations)} correlated position(s)."
-            ),
+            "reason": (f"Adjusted by (1 - {avg_rho:.3f}) due to {len(correlations)} correlated position(s)."),
             "avg_correlation": avg_rho,
         }
 

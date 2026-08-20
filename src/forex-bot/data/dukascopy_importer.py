@@ -33,7 +33,7 @@ class-based API so it can be unit-tested and reused by the backtest
 pipeline.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import csv
 import lzma
@@ -129,10 +129,7 @@ class DukascopyImporter:
 
     def _hour_url(self, symbol: str, dt: date, hour: int) -> str:
         """Build the bi5 download URL for one hour of one day."""
-        return (
-            f"{self._base_url}/{symbol}/{dt.year}/{dt.month:02d}"
-            f"/{dt.day:02d}/{hour:02d}h_ticks.bi5"
-        )
+        return f"{self._base_url}/{symbol}/{dt.year}/{dt.month:02d}/{dt.day:02d}/{hour:02d}h_ticks.bi5"
 
     # -- Network ------------------------------------------------------------
 
@@ -150,8 +147,8 @@ class DukascopyImporter:
         """
         for attempt in range(self._max_retries):
             try:
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+                with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
                     return resp.read()
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
@@ -242,13 +239,9 @@ class DukascopyImporter:
 
         raw = self._fetch_bytes(url)
         if raw is None:
-            raise DukascopyFetchError(
-                f"Failed to fetch {url} after {self._max_retries} retries"
-            )
+            raise DukascopyFetchError(f"Failed to fetch {url} after {self._max_retries} retries")
 
-        hour_start = int(
-            datetime(dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc).timestamp()
-        )
+        hour_start = int(datetime(dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc).timestamp())
         ticks = self.parse_bi5(raw, symbol, hour_start)
 
         # Throttle
@@ -289,9 +282,7 @@ class DukascopyImporter:
         current = start
         while current <= end:
             if self.output_dir is not None:
-                fname = (
-                    f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
-                )
+                fname = f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
                 if (self.output_dir / fname).exists():
                     current += timedelta(days=1)
                     continue
@@ -314,13 +305,9 @@ class DukascopyImporter:
 
         with open(outpath, "w", newline="") as fh:
             writer = csv.writer(fh)
-            writer.writerow(
-                ["timestamp", "instrument", "bid", "ask", "bidVol", "askVol"]
-            )
+            writer.writerow(["timestamp", "instrument", "bid", "ask", "bidVol", "askVol"])
             for t in ticks:
-                writer.writerow(
-                    [t.timestamp_ms, t.symbol, t.bid, t.ask, t.bid_vol, t.ask_vol]
-                )
+                writer.writerow([t.timestamp_ms, t.symbol, t.bid, t.ask, t.bid_vol, t.ask_vol])
 
         return outpath
 

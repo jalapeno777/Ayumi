@@ -273,9 +273,7 @@ class TestHybridStrategy(unittest.TestCase):
     def test_metrics_tracked_across_multiple_evaluations(self):
         mock_engine = MagicMock()
 
-        high_signal = _make_confluence_signal(
-            direction=TradeDirection.LONG, confidence=0.7
-        )
+        high_signal = _make_confluence_signal(direction=TradeDirection.LONG, confidence=0.7)
         low_conf_signal = _make_confluence_signal(confidence=0.3)
         mock_engine.evaluate.side_effect = [
             high_signal,

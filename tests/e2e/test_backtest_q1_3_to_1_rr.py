@@ -1,6 +1,6 @@
 """Tests for BACKTEST Q1 3:1 R&R on EURUSD H1 M/W Formation"""
 
-from datetime import datetime
+from datetime import datetime  # noqa: I001
 from pathlib import Path
 
 import pytest

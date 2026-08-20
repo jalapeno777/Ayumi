@@ -1,4 +1,4 @@
-from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
+from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy  # noqa: I001
 from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
 from .amalgamation import (

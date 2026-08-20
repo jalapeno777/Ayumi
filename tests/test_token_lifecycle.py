@@ -11,7 +11,7 @@ Covers:
 Card 64a235ea — cTrader token refresh auto-recovery.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import threading
 from datetime import datetime, timedelta, timezone
@@ -31,8 +31,8 @@ from adapters.ctrader.token_lifecycle import (
 
 def _make_credentials(
     *,
-    access_token: str = "old-access-token",
-    refresh_token: str = "old-refresh-token",
+    access_token: str = "old-access-token",  # noqa: S107
+    refresh_token: str = "old-refresh-token",  # noqa: S107
     expires_at: datetime | None = None,
 ) -> Credentials:
     """Build a Credentials snapshot for testing."""
@@ -40,7 +40,7 @@ def _make_credentials(
         expires_at = datetime.now(timezone.utc) + timedelta(days=15)
     return Credentials(
         client_id="test-client-id",
-        client_secret="test-client-secret",
+        client_secret="test-client-secret",  # noqa: S106
         access_token=access_token,
         refresh_token=refresh_token,
         account_id=12345,
@@ -122,7 +122,7 @@ class TestRefreshDisabledDefault:
         lc = _make_lifecycle(expired_creds)
 
         refreshed_creds = _make_credentials(
-            access_token="refreshed-token",
+            access_token="refreshed-token",  # noqa: S106
             expires_at=datetime.now(timezone.utc) + timedelta(days=15),
         )
 
@@ -144,7 +144,7 @@ class TestRefreshDisabledDefault:
             mock_get.return_value = Mock(status_code=200)
 
             token = lc.ensure_valid()
-            assert token == "refreshed-token"
+            assert token == "refreshed-token"  # noqa: S105
             mock_update.assert_called_once()
 
 
@@ -162,7 +162,7 @@ class TestEnsureValid:
         lc = _make_lifecycle(creds)
 
         token = lc.ensure_valid()
-        assert token == "old-access-token"
+        assert token == "old-access-token"  # noqa: S105
 
     def test_returns_current_token_when_expires_at_unknown(self):
         """Token with expires_at=None is assumed fresh (manual token mode)."""
@@ -170,7 +170,7 @@ class TestEnsureValid:
         lc = _make_lifecycle(creds)
 
         token = lc.ensure_valid()
-        assert token == "old-access-token"
+        assert token == "old-access-token"  # noqa: S105
 
     def test_triggers_refresh_when_expired(self):
         """Token past expiry should trigger OAuth refresh."""
@@ -178,7 +178,7 @@ class TestEnsureValid:
             expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         lc = _make_lifecycle(expired_creds)
-        new_creds = _make_credentials(access_token="new-from-refresh")
+        new_creds = _make_credentials(access_token="new-from-refresh")  # noqa: S106
 
         with (
             patch("adapters.ctrader.token_lifecycle.requests.post") as mock_post,
@@ -190,7 +190,7 @@ class TestEnsureValid:
             mock_get.return_value = Mock(status_code=200)
 
             token = lc.ensure_valid()
-            assert token == "new-from-refresh"
+            assert token == "new-from-refresh"  # noqa: S105
 
     def test_disabled_returns_current_token_without_refresh(self):
         """When _refresh_disabled=True, ensure_valid returns current token."""
@@ -201,7 +201,7 @@ class TestEnsureValid:
         lc._refresh_disabled = True
 
         token = lc.ensure_valid()
-        assert token == "old-access-token"
+        assert token == "old-access-token"  # noqa: S105
 
 
 # ── force_refresh() ─────────────────────────────────────────────────────────
@@ -213,7 +213,7 @@ class TestForceRefresh:
     def test_force_refresh_success(self):
         """Successful refresh returns new access token."""
         lc = _make_lifecycle()
-        new_creds = _make_credentials(access_token="force-refreshed-token")
+        new_creds = _make_credentials(access_token="force-refreshed-token")  # noqa: S106
 
         with (
             patch("adapters.ctrader.token_lifecycle.requests.post") as mock_post,
@@ -225,7 +225,7 @@ class TestForceRefresh:
             mock_get.return_value = Mock(status_code=200)
 
             token = lc.force_refresh()
-            assert token == "force-refreshed-token"
+            assert token == "force-refreshed-token"  # noqa: S105
             mock_update.assert_called_once()
 
     def test_force_refresh_http_400_permanent_failure(self):
@@ -275,7 +275,7 @@ class TestForceRefresh:
         lc._refresh_disabled = True
 
         token = lc.force_refresh()
-        assert token == "old-access-token"
+        assert token == "old-access-token"  # noqa: S105
 
     def test_force_refresh_no_refresh_token_raises(self):
         """Missing refresh_token raises permanent TokenRefreshError."""
@@ -367,7 +367,7 @@ class TestRefreshValidationGate:
     def test_validation_success_persists_tokens(self):
         """If _validate_token returns True, tokens ARE persisted."""
         lc = _make_lifecycle()
-        new_creds = _make_credentials(access_token="validated-new-token")
+        new_creds = _make_credentials(access_token="validated-new-token")  # noqa: S106
 
         with (
             patch("adapters.ctrader.token_lifecycle.requests.post") as mock_post,
@@ -379,7 +379,7 @@ class TestRefreshValidationGate:
 
             # Use force=True to skip the pre-refresh validity re-check
             token = lc._do_refresh(force=True)
-            assert token == "validated-new-token"
+            assert token == "validated-new-token"  # noqa: S105
             mock_update.assert_called_once()
 
 
@@ -393,10 +393,10 @@ class TestThreadSafety:
         """Multiple concurrent ensure_valid() calls should trigger only one OAuth request."""
         expired_creds = _make_credentials(
             expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
-            access_token="pre-refresh-token",
+            access_token="pre-refresh-token",  # noqa: S106
         )
         refreshed_creds = _make_credentials(
-            access_token="concurrent-result",
+            access_token="concurrent-result",  # noqa: S106
             expires_at=datetime.now(timezone.utc) + timedelta(days=15),
         )
         lc = _make_lifecycle(expired_creds)
@@ -418,9 +418,7 @@ class TestThreadSafety:
             update_called.set()
 
         with (
-            patch(
-                "adapters.ctrader.token_lifecycle.requests.post", side_effect=fake_post
-            ),
+            patch("adapters.ctrader.token_lifecycle.requests.post", side_effect=fake_post),
             patch(
                 "adapters.ctrader.token_lifecycle.requests.get",
                 return_value=Mock(status_code=200),

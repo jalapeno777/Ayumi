@@ -7,7 +7,7 @@ of streak and drawdown inputs, including the most-restrictive-wins
 interaction between the two penalty sources and custom-config overrides.
 """
 
-import pytest
+import pytest  # noqa: I001
 
 from policy.behavioral import BehavioralPolicy, BehavioralResult
 
@@ -205,9 +205,7 @@ class TestMultiplierCeiling:
         """Sweep through every documented context — multiplier stays ≤ 1.0."""
         policy = BehavioralPolicy()
         result = policy.evaluate(base_size=1.0, context=context)
-        assert result.multiplier <= 1.0, (
-            f"Multiplier {result.multiplier} exceeded ceiling 1.0 for context {context}"
-        )
+        assert result.multiplier <= 1.0, f"Multiplier {result.multiplier} exceeded ceiling 1.0 for context {context}"
 
     def test_ceiling_holds_even_when_user_sets_higher_max(self):
         """Council invariant: ceiling ≤ 1.0 enforced by clamp regardless

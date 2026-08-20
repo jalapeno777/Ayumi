@@ -31,7 +31,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from quant.walk_forward import (
+from quant.walk_forward import (  # noqa: I001
     AggregatedMetrics,
     WalkForwardResults,
     WindowMetrics,
@@ -121,7 +121,7 @@ def make_results(
     with synthetic datetime boundaries so the date-column INSERT path is
     exercised.
     """
-    from datetime import datetime, timezone, timedelta as td
+    from datetime import datetime, timezone, timedelta as td  # noqa: I001
 
     per_window = [make_window(i, go=(i % 2 == 0)) for i in range(n_windows)]
     agg = AggregatedMetrics(
@@ -198,9 +198,7 @@ class TestRunnerPersistenceHappyPath:
             runner._write_results(conn, "mock_run_001", results)
 
         with seeded_db as conn:
-            count = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
+            count = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'").fetchone()[0]
         assert count == 5, f"Expected 5 window rows, got {count}"
 
     def test_trades_table_populated(
@@ -216,9 +214,7 @@ class TestRunnerPersistenceHappyPath:
             runner._write_results(conn, "mock_run_001", results)
 
         with seeded_db as conn:
-            count = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
+            count = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'").fetchone()[0]
         assert count == 8, f"Expected 8 trade rows, got {count}"
 
     def test_metrics_summary_still_written(
@@ -264,7 +260,7 @@ class TestRunnerPersistenceHappyPath:
         with seeded_db as conn:
             counts = {
                 t: conn.execute(
-                    f"SELECT COUNT(*) FROM {t} WHERE run_id='mock_run_001'"
+                    f"SELECT COUNT(*) FROM {t} WHERE run_id='mock_run_001'"  # noqa: S608
                 ).fetchone()[0]
                 for t in ("windows", "trades", "metrics_summary")
             }
@@ -299,18 +295,10 @@ class TestMultiRunIsolation:
             runner._write_results(conn, "mock_run_002", results_002)
 
         with seeded_db as conn:
-            rows_001 = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            rows_002 = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_002'"
-            ).fetchone()[0]
-            trades_001 = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            trades_002 = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_002'"
-            ).fetchone()[0]
+            rows_001 = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'").fetchone()[0]
+            rows_002 = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_002'").fetchone()[0]
+            trades_001 = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'").fetchone()[0]
+            trades_002 = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_002'").fetchone()[0]
         assert rows_001 == 5
         assert rows_002 == 3
         assert trades_001 == 8
@@ -330,8 +318,7 @@ class TestMultiRunIsolation:
 
         with seeded_db as conn:
             n = conn.execute(
-                "SELECT COUNT(*) FROM metrics_summary WHERE run_id IN "
-                "('mock_run_001', 'mock_run_002')"
+                "SELECT COUNT(*) FROM metrics_summary WHERE run_id IN ('mock_run_001', 'mock_run_002')"
             ).fetchone()[0]
         assert n == 2
 
@@ -377,15 +364,9 @@ class TestTradeRecordDefensive:
             runner._write_results(conn, "mock_run_001", results)
 
         with seeded_db as conn:
-            trades = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            windows = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            summary = conn.execute(
-                "SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
+            trades = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'").fetchone()[0]
+            windows = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'").fetchone()[0]
+            summary = conn.execute("SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'").fetchone()[0]
         assert trades == 0
         assert windows == 3
         assert summary == 1
@@ -430,8 +411,7 @@ class TestTradeRecordDefensive:
 
         with seeded_db as conn:
             rows = conn.execute(
-                "SELECT window_idx, direction, pnl, exit_reason "
-                "FROM trades WHERE run_id='mock_run_001' ORDER BY pnl"
+                "SELECT window_idx, direction, pnl, exit_reason FROM trades WHERE run_id='mock_run_001' ORDER BY pnl"
             ).fetchall()
         assert len(rows) == 3
         # All three valid entries should be present.
@@ -509,10 +489,7 @@ class TestWindowColumnIntegrity:
 
         with seeded_db as conn:
             indexes = sorted(
-                r[0]
-                for r in conn.execute(
-                    "SELECT window_idx FROM windows WHERE run_id='mock_run_001'"
-                ).fetchall()
+                r[0] for r in conn.execute("SELECT window_idx FROM windows WHERE run_id='mock_run_001'").fetchall()
             )
         assert indexes == [0, 1, 2, 3, 4]
 
@@ -605,15 +582,9 @@ class TestTransactionalRollback:
 
         # Confirm rollback: nothing leaked into any of the three tables.
         with seeded_db as conn:
-            windows = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            trades = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            summary = conn.execute(
-                "SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
+            windows = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'").fetchone()[0]
+            trades = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'").fetchone()[0]
+            summary = conn.execute("SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'").fetchone()[0]
         assert windows == 0, "Windows rows leaked despite transaction failure"
         assert trades == 0, "Trades rows leaked despite transaction failure"
         assert summary == 0, "metrics_summary row leaked despite transaction failure"
@@ -637,15 +608,9 @@ class TestTransactionalRollback:
                 runner._write_results(conn, "mock_run_001", results)
 
         with seeded_db as conn:
-            windows = conn.execute(
-                "SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            trades = conn.execute(
-                "SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
-            summary = conn.execute(
-                "SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'"
-            ).fetchone()[0]
+            windows = conn.execute("SELECT COUNT(*) FROM windows WHERE run_id='mock_run_001'").fetchone()[0]
+            trades = conn.execute("SELECT COUNT(*) FROM trades WHERE run_id='mock_run_001'").fetchone()[0]
+            summary = conn.execute("SELECT COUNT(*) FROM metrics_summary WHERE run_id='mock_run_001'").fetchone()[0]
         assert windows == 0
         assert trades == 0
         assert summary == 0
@@ -670,11 +635,8 @@ class TestTransactionalRollback:
                 with pytest.raises(RuntimeError):
                     runner._write_results(conn, "mock_run_001", results)
 
-        assert any(
-            "SRF persistence failed" in record.message for record in caplog.records
-        ), (
-            f"Expected 'SRF persistence failed' in logs, "
-            f"got {[r.message for r in caplog.records]}"
+        assert any("SRF persistence failed" in record.message for record in caplog.records), (
+            f"Expected 'SRF persistence failed' in logs, got {[r.message for r in caplog.records]}"
         )
 
 
@@ -925,9 +887,9 @@ class TestNamingNormalization:
             StrategyRunner.normalize_strategy_names(tmp_db_path, dry_run=True)
 
             with db as conn:
-                name = conn.execute(
-                    "SELECT strategy_name FROM runs WHERE run_id='srmrplus_XAUUSD_M15_001'"
-                ).fetchone()[0]
+                name = conn.execute("SELECT strategy_name FROM runs WHERE run_id='srmrplus_XAUUSD_M15_001'").fetchone()[
+                    0
+                ]
             assert name == "srmrplus"
         finally:
             db.close()
@@ -966,8 +928,7 @@ class TestNamingNormalization:
 
             with db as conn:
                 names = conn.execute(
-                    "SELECT DISTINCT strategy_name FROM runs "
-                    "WHERE run_id IN ('vsqueeze_001', 'vsqueeze_002')"
+                    "SELECT DISTINCT strategy_name FROM runs WHERE run_id IN ('vsqueeze_001', 'vsqueeze_002')"
                 ).fetchall()
             assert len(names) == 1
             assert names[0][0] == "volatility_squeeze"

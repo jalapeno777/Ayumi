@@ -112,9 +112,7 @@ def _parse_timestamp_series(series: pd.Series, file_label: str) -> pd.Series:
         ts = pd.to_datetime(s, utc=True, errors="coerce")
         if ts.isna().any():
             n_bad = int(ts.isna().sum())
-            log.warning(
-                "[%s] %d rows failed ISO-UTC parse; dropping", file_label, n_bad
-            )
+            log.warning("[%s] %d rows failed ISO-UTC parse; dropping", file_label, n_bad)
         return ts
 
     # Pattern B: naive timestamp strings ("YYYY-MM-DD HH:MM[:SS]") → NY local
@@ -159,19 +157,11 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
     # (symbol, timeframe, timestamp_utc) via UNIQUE constraint below, but
     # only when the table is fresh. For an existing DB we leave the
     # schema as-is.
-    if not con.execute(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'bars'"
-    ).fetchone()[0]:
-        con.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_bars_pk "
-            "ON bars(symbol, timeframe, timestamp_utc)"
-        )
+    if not con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'bars'").fetchone()[0]:
+        con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bars_pk ON bars(symbol, timeframe, timestamp_utc)")
     # If we are running on an existing DB that was built before we added
     # this index, idempotently create it now (the migration will dedup).
-    con.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_bars_unique "
-        "ON bars(symbol, timeframe, timestamp_utc)"
-    )
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bars_unique ON bars(symbol, timeframe, timestamp_utc)")
     con.execute(
         """
         CREATE TABLE IF NOT EXISTS symbols (
@@ -193,16 +183,12 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
         );
         """
     )
-    con.execute(
-        "CREATE INDEX IF NOT EXISTS idx_bars_lookup ON bars(symbol, timeframe, timestamp_utc)"
-    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_bars_lookup ON bars(symbol, timeframe, timestamp_utc)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_bars_holdout ON bars(is_holdout)")
 
 
 def populate_symbols(con: duckdb.DuckDBPyConnection) -> int:
-    rows = [
-        (sym, pip_value_for(sym), desc) for sym, desc in SYMBOL_DESCRIPTIONS.items()
-    ]
+    rows = [(sym, pip_value_for(sym), desc) for sym, desc in SYMBOL_DESCRIPTIONS.items()]
     con.executemany(
         "INSERT INTO symbols(symbol, pip_value, description) VALUES (?, ?, ?) "
         "ON CONFLICT (symbol) DO UPDATE SET "
@@ -273,9 +259,7 @@ def migrate_file(con: duckdb.DuckDBPyConnection, csv_path: Path) -> dict:
             ts_col = lower[cand]
             break
     if ts_col is None:
-        log.error(
-            "[%s] no date-like column found; cols=%s", csv_path.name, list(df.columns)
-        )
+        log.error("[%s] no date-like column found; cols=%s", csv_path.name, list(df.columns))
         return {
             "file": csv_path.name,
             "csv_rows": csv_row_count,
@@ -302,11 +286,7 @@ def migrate_file(con: duckdb.DuckDBPyConnection, csv_path: Path) -> dict:
     ts_utc = _parse_timestamp_series(df[ts_col], csv_path.name)
 
     # 5) Build clean DataFrame
-    vol = (
-        pd.to_numeric(df.get(cols_lower.get("volume", "Volume"), 0), errors="coerce")
-        .fillna(0)
-        .astype("int64")
-    )
+    vol = pd.to_numeric(df.get(cols_lower.get("volume", "Volume"), 0), errors="coerce").fillna(0).astype("int64")
     # pandas returns datetime64 in MICROSECONDS after tz_convert → divide by 1e6
     out = pd.DataFrame(
         {
@@ -323,11 +303,7 @@ def migrate_file(con: duckdb.DuckDBPyConnection, csv_path: Path) -> dict:
     )
     # Drop rows with NaN prices or unparseable timestamps
     bad_mask = (
-        out["timestamp_utc"].isna()
-        | out["open"].isna()
-        | out["high"].isna()
-        | out["low"].isna()
-        | out["close"].isna()
+        out["timestamp_utc"].isna() | out["open"].isna() | out["high"].isna() | out["low"].isna() | out["close"].isna()
     )
     n_bad = int(bad_mask.sum())
     if n_bad:
@@ -416,9 +392,7 @@ def migrate_file(con: duckdb.DuckDBPyConnection, csv_path: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def verify_random_samples(
-    con: duckdb.DuckDBPyConnection, n: int = 10, seed: int = 42
-) -> list[dict]:
+def verify_random_samples(con: duckdb.DuckDBPyConnection, n: int = 10, seed: int = 42) -> list[dict]:
     """Pull N random (symbol, timeframe, ts) tuples and verify OHLC match.
 
     Uses deterministic hash-based selection so the same rows are checked
@@ -436,29 +410,23 @@ def verify_random_samples(
         ) WHERE rn = 1
         ORDER BY hash(symbol || '|' || timeframe || '|' || CAST(timestamp_utc AS VARCHAR))
         LIMIT {n}
-        """
+        """  # noqa: S608
     ).fetchall()
     results = []
     for sym, tf, ts, o_db, h_db, l_db, c_db in rs:
         # Find the source CSV. If multiple files cover this symbol/timeframe
         # (e.g. base + fresh + 2026 variants), pick the one that has
         # this exact timestamp.
-        candidates = sorted(
-            (PROJECT_ROOT / "data" / "forex" / "historical").glob(f"{sym}_{tf}*.csv")
-        )
+        candidates = sorted((PROJECT_ROOT / "data" / "forex" / "historical").glob(f"{sym}_{tf}*.csv"))
         csv_path = None
         match_ohlc = None
         for cand in candidates:
             try:
                 df = pd.read_csv(cand)
-            except Exception:
+            except Exception:  # noqa: S112
                 continue
             ts_col = next(
-                (
-                    c
-                    for c in df.columns
-                    if c.lower() in ("date", "datetime", "timestamp")
-                ),
+                (c for c in df.columns if c.lower() in ("date", "datetime", "timestamp")),
                 None,
             )
             if ts_col is None:
@@ -526,14 +494,12 @@ def verify_dst_boundaries(con: duckdb.DuckDBPyConnection) -> list[dict]:
         ("2024-11-03 02:00:00", 7, 0),  # EST after fall-back → 07:00 UTC
     ]
     results = []
-    for ts_str, exp_h, exp_m in cases:
+    for ts_str, exp_h, exp_m in cases:  # noqa: B007
         naive = datetime.fromisoformat(ts_str)
         ts_ny = naive.replace(tzinfo=NY)
         ts_utc = ts_ny.astimezone(ZoneInfo("UTC"))
         expected_epoch = int(ts_utc.timestamp())
-        actual = con.execute(
-            f"SELECT epoch(CAST('{ts_str} America/New_York' AS TIMESTAMPTZ))"
-        ).fetchone()
+        actual = con.execute(f"SELECT epoch(CAST('{ts_str} America/New_York' AS TIMESTAMPTZ))").fetchone()
         actual_epoch = int(actual[0]) if actual else None
         results.append(
             {
@@ -554,9 +520,7 @@ def verify_dst_boundaries(con: duckdb.DuckDBPyConnection) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default=str(DEFAULT_DB), help="DuckDB output path")
-    parser.add_argument(
-        "--csv-dir", default=str(DEFAULT_CSV_DIR), help="CSV source directory"
-    )
+    parser.add_argument("--csv-dir", default=str(DEFAULT_CSV_DIR), help="CSV source directory")
     parser.add_argument(
         "--keep-db",
         action="store_true",
@@ -597,9 +561,7 @@ def main() -> int:
     # Per-file parity table
     print()
     print("=" * 100)
-    print(
-        f"{'file':<35} {'sym':<8} {'tf':<5} {'csv':>8} {'db':>8} {'dropped':>8} match"
-    )
+    print(f"{'file':<35} {'sym':<8} {'tf':<5} {'csv':>8} {'db':>8} {'dropped':>8} match")
     print("-" * 100)
     for r in parity:
         print(
@@ -614,9 +576,7 @@ def main() -> int:
     # Save parity to TSV for downstream consumption
     tsv_path = db_path.with_name(db_path.stem + "_migration.parity.tsv")
     with open(tsv_path, "w") as f:
-        f.write(
-            "file\tsymbol\ttimeframe\tcsv_rows\tcsv_raw\tbad_dropped\tdb_rows\tmatch\n"
-        )
+        f.write("file\tsymbol\ttimeframe\tcsv_rows\tcsv_raw\tbad_dropped\tdb_rows\tmatch\n")
         for r in parity:
             f.write(
                 "\t".join(
@@ -649,14 +609,10 @@ def main() -> int:
             n_match += 1
         if "csv_ohlc" in r:
             print(
-                f"  [{ok}] {r['symbol']:<8} {r['timeframe']:<5} "
-                f"ts={r['ts']:<12} csv={r['csv_ohlc']} db={r['db_ohlc']}"
+                f"  [{ok}] {r['symbol']:<8} {r['timeframe']:<5} ts={r['ts']:<12} csv={r['csv_ohlc']} db={r['db_ohlc']}"
             )
         else:
-            print(
-                f"  [{ok}] {r['symbol']:<8} {r['timeframe']:<5} "
-                f"ts={r['ts']:<12} reason={r.get('reason', '')}"
-            )
+            print(f"  [{ok}] {r['symbol']:<8} {r['timeframe']:<5} ts={r['ts']:<12} reason={r.get('reason', '')}")
     print(f"  Sample match rate: {n_match}/{len(samples)}")
 
     # DST boundary verification
@@ -667,17 +623,12 @@ def main() -> int:
     print("=" * 100)
     for r in dst:
         ok = "OK" if r["match"] else "FAIL"
-        print(
-            f"  [{ok}] input={r['input']} expected_epoch={r['expected_epoch']} "
-            f"actual_epoch={r['actual_epoch']}"
-        )
+        print(f"  [{ok}] input={r['input']} expected_epoch={r['expected_epoch']} actual_epoch={r['actual_epoch']}")
 
     # Sanity checks
     n_bars = con.execute("SELECT COUNT(*) FROM bars").fetchone()[0]
     n_holdout = con.execute("SELECT COUNT(*) FROM bars WHERE is_holdout").fetchone()[0]
-    n_spread = con.execute(
-        "SELECT COUNT(*) FROM bars WHERE spread_pips IS NOT NULL"
-    ).fetchone()[0]
+    n_spread = con.execute("SELECT COUNT(*) FROM bars WHERE spread_pips IS NOT NULL").fetchone()[0]
     print()
     print("=" * 100)
     print("Database totals")

@@ -40,9 +40,7 @@ def main():
     account_id = os.environ.get("CTRADER_ACCOUNT")
 
     if not all([client_id, client_secret, account_id]):
-        logger.error(
-            "Missing CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, or CTRADER_ACCOUNT in .env"
-        )
+        logger.error("Missing CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, or CTRADER_ACCOUNT in .env")
         sys.exit(1)
 
     account_id = int(account_id)

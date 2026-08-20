@@ -85,17 +85,11 @@ class FTMOProfile:
 
     def __post_init__(self):
         if self.risk_per_trade_pct <= 0:
-            raise ValueError(
-                f"risk_per_trade_pct must be positive, got {self.risk_per_trade_pct}"
-            )
+            raise ValueError(f"risk_per_trade_pct must be positive, got {self.risk_per_trade_pct}")
         if self.daily_loss_limit_pct <= 0:
-            raise ValueError(
-                f"daily_loss_limit_pct must be positive, got {self.daily_loss_limit_pct}"
-            )
+            raise ValueError(f"daily_loss_limit_pct must be positive, got {self.daily_loss_limit_pct}")
         if self.max_trades_per_day <= 0:
-            raise ValueError(
-                f"max_trades_per_day must be positive, got {self.max_trades_per_day}"
-            )
+            raise ValueError(f"max_trades_per_day must be positive, got {self.max_trades_per_day}")
         # Cross-check: theoretical worst-case risk (all trades hit SL) vs
         # daily limit.  This is a conservative guideline — the actual
         # enforcement happens at runtime via the daily loss circuit breaker
@@ -268,9 +262,7 @@ class RiskGuard:
             }
         )
         if not gate_result.passed:
-            threshold = self._gate_config.symbol_max_spreads.get(
-                symbol, self._gate_config.default_max_spread
-            )
+            threshold = self._gate_config.symbol_max_spreads.get(symbol, self._gate_config.default_max_spread)
             logger.warning(
                 "spread_too_wide: symbol=%s spread=%.2f threshold=%.2f — trade blocked",
                 symbol,
@@ -280,8 +272,7 @@ class RiskGuard:
             return RiskLimitResult(
                 allowed=False,
                 limit_type=RiskLimitType.SPREAD,
-                message=f"spread_too_wide: {symbol} spread={spread:.2f} "
-                f"threshold={threshold:.2f}",
+                message=f"spread_too_wide: {symbol} spread={spread:.2f} threshold={threshold:.2f}",
                 current_value=spread,
                 limit_value=threshold,
             )
@@ -321,12 +312,9 @@ class RiskGuard:
                 }
             )
             if not gate_result.passed:
-                threshold = self._gate_config.symbol_max_spreads.get(
-                    symbol, self._gate_config.default_max_spread
-                )
+                threshold = self._gate_config.symbol_max_spreads.get(symbol, self._gate_config.default_max_spread)
                 logger.warning(
-                    "spread_too_wide: symbol=%s spread=%.2f threshold=%.2f "
-                    "— trade blocked",
+                    "spread_too_wide: symbol=%s spread=%.2f threshold=%.2f — trade blocked",
                     symbol,
                     spread,
                     threshold,
@@ -334,8 +322,7 @@ class RiskGuard:
                 return RiskLimitResult(
                     allowed=False,
                     limit_type=RiskLimitType.SPREAD,
-                    message=f"spread_too_wide: {symbol} spread={spread:.2f} "
-                    f"threshold={threshold:.2f}",
+                    message=f"spread_too_wide: {symbol} spread={spread:.2f} threshold={threshold:.2f}",
                     current_value=spread,
                     limit_value=threshold,
                 )
@@ -361,15 +348,11 @@ class RiskGuard:
         daily_loss_pct = 0.0
         if self._daily_trade_count > 0:
             daily_loss_pct = (
-                (self._daily_start_balance - self._current_balance)
-                / self._starting_balance
+                (self._daily_start_balance - self._current_balance) / self._starting_balance
                 if self._starting_balance > 0
                 else 0.0
             )
-        if (
-            self._daily_trade_count > 0
-            and daily_loss_pct >= self._config.daily_loss_limit_pct
-        ):
+        if self._daily_trade_count > 0 and daily_loss_pct >= self._config.daily_loss_limit_pct:
             self._trigger_circuit_breaker(
                 RiskLimitType.DAILY_LOSS,
                 daily_loss_pct,
@@ -387,9 +370,7 @@ class RiskGuard:
         # not from the peak balance.  Craig's direction: "Everything based
         # on cTrader balance. Keep original 10k for drawdowns."
         if self._starting_balance > 0:
-            drawdown_pct = (
-                self._starting_balance - self._current_balance
-            ) / self._starting_balance
+            drawdown_pct = (self._starting_balance - self._current_balance) / self._starting_balance
         else:
             drawdown_pct = 0.0
         if drawdown_pct >= self._config.total_drawdown_limit_pct:
@@ -441,11 +422,7 @@ class RiskGuard:
                 pip_value_per_lot = 10.0
         sl_pips = sl_distance / pip_size if pip_size > 0 else 0
         risk_amount = volume * sl_pips * pip_value_per_lot
-        risk_pct = (
-            risk_amount / self._current_balance
-            if self._current_balance > 0
-            else float("inf")
-        )
+        risk_pct = risk_amount / self._current_balance if self._current_balance > 0 else float("inf")
         # Use >= with epsilon tolerance to avoid false rejections when risk
         # lands exactly at the limit due to rounding/approximation.
         epsilon = 0.0001  # 0.01% tolerance
@@ -532,9 +509,7 @@ class RiskGuard:
 
         total_positive_pnl = sum(s.pnl for s in positive_days)
         best_day_pnl = max(s.pnl for s in positive_days)
-        best_day_pct = (
-            best_day_pnl / total_positive_pnl if total_positive_pnl > 0 else 0
-        )
+        best_day_pct = best_day_pnl / total_positive_pnl if total_positive_pnl > 0 else 0
 
         if best_day_pct > self._config.best_day_rule_max_pct:
             logger.critical(
@@ -553,9 +528,7 @@ class RiskGuard:
                 f"Trading halted until UTC midnight ({next_midnight.isoformat()})."
             )
 
-    def _trigger_circuit_breaker(
-        self, limit_type: RiskLimitType, current: float, limit: float
-    ):
+    def _trigger_circuit_breaker(self, limit_type: RiskLimitType, current: float, limit: float):
         if limit_type == RiskLimitType.DAILY_LOSS:
             # R2: Daily loss = block until UTC midnight (NOT 5 min)
             next_midnight = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
@@ -593,17 +566,11 @@ class RiskGuard:
 
                 ks = KillSwitchManager()
             if limit_type == RiskLimitType.DAILY_LOSS:
-                ks.activate_global_kill(
-                    "ftmo_daily_loss_limit", "risk_guard", close_positions=True
-                )
+                ks.activate_global_kill("ftmo_daily_loss_limit", "risk_guard", close_positions=True)
             elif limit_type == RiskLimitType.TOTAL_DRAWDOWN:
-                ks.activate_global_kill(
-                    "ftmo_total_drawdown", "risk_guard", close_positions=True
-                )
+                ks.activate_global_kill("ftmo_total_drawdown", "risk_guard", close_positions=True)
         except Exception:
-            logger.error(
-                "Failed to activate kill switch from risk guard", exc_info=True
-            )
+            logger.error("Failed to activate kill switch from risk guard", exc_info=True)
 
         for callback in self._callbacks:
             try:
@@ -638,9 +605,7 @@ class RiskGuard:
             # This immediate check ensures the circuit breaker fires right
             # after any trade that breaches the daily loss limit.
             if self._daily_trade_count > 0 and self._starting_balance > 0:
-                daily_loss_pct = (
-                    self._daily_start_balance - self._current_balance
-                ) / self._starting_balance
+                daily_loss_pct = (self._daily_start_balance - self._current_balance) / self._starting_balance
                 if daily_loss_pct >= self._config.daily_loss_limit_pct:
                     self._trigger_circuit_breaker(
                         RiskLimitType.DAILY_LOSS,
@@ -658,9 +623,7 @@ class RiskGuard:
 
     def record_strategy_trade(self, strategy_id: str, pnl: float):
         with self._lock:
-            self._per_strategy_pnl[strategy_id] = (
-                self._per_strategy_pnl.get(strategy_id, 0.0) + pnl
-            )
+            self._per_strategy_pnl[strategy_id] = self._per_strategy_pnl.get(strategy_id, 0.0) + pnl
 
     def set_kill_switch(self, kill_switch):
         """Inject a kill switch instance (used by ForwardTestEngine to share state)."""
@@ -725,9 +688,7 @@ class RiskGuard:
         """
         with self._lock:
             if self._blocked_until is not None:
-                logger.warning(
-                    "Cannot reset time-based block (daily loss). Wait for UTC midnight."
-                )
+                logger.warning("Cannot reset time-based block (daily loss). Wait for UTC midnight.")
                 return False
             if not self._circuit_breaker_triggered:
                 logger.info("Circuit breaker not triggered — nothing to reset.")
@@ -747,9 +708,7 @@ class RiskGuard:
             "daily_trade_count": self._daily_trade_count,
             "total_trades": self._total_trades,
             "circuit_breaker_triggered": self._circuit_breaker_triggered,
-            "blocked_until": self._blocked_until.isoformat()
-            if self._blocked_until
-            else None,
+            "blocked_until": self._blocked_until.isoformat() if self._blocked_until else None,
             "last_save_ts": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -783,9 +742,7 @@ class RiskGuard:
         try:
             self._peak_balance = raw.get("peak_balance", self._peak_balance)
             self._current_balance = raw.get("current_balance", self._current_balance)
-            self._daily_start_balance = raw.get(
-                "daily_start_balance", self._daily_start_balance
-            )
+            self._daily_start_balance = raw.get("daily_start_balance", self._daily_start_balance)
 
             # Guard against stale state from a different account scale.
             # If restored balances are wildly out of proportion to the
@@ -802,8 +759,7 @@ class RiskGuard:
             )
             if _stale:
                 logger.warning(
-                    "Stale RiskGuard state (balances ~%.2f vs starting %.2f) "
-                    "— resetting to fresh",
+                    "Stale RiskGuard state (balances ~%.2f vs starting %.2f) — resetting to fresh",
                     self._current_balance,
                     self._starting_balance,
                 )
@@ -823,10 +779,7 @@ class RiskGuard:
             # is impossible in normal operation (would require 100% gain
             # in a single day).  Reset to fresh state if detected.
             _sanity_max = self._starting_balance * 2
-            if (
-                self._daily_start_balance > _sanity_max
-                or self._peak_balance > _sanity_max
-            ):
+            if self._daily_start_balance > _sanity_max or self._peak_balance > _sanity_max:
                 logger.warning(
                     "Startup sanity gate: impossible state values "
                     "(daily_start=%.2f peak=%.2f > 2x starting=%.2f) "
@@ -851,9 +804,7 @@ class RiskGuard:
 
             self._daily_trade_count = raw.get("daily_trade_count", 0)
             self._total_trades = raw.get("total_trades", 0)
-            self._circuit_breaker_triggered = raw.get(
-                "circuit_breaker_triggered", False
-            )
+            self._circuit_breaker_triggered = raw.get("circuit_breaker_triggered", False)
 
             blocked_str = raw.get("blocked_until")
             if blocked_str:
@@ -873,10 +824,7 @@ class RiskGuard:
                 self._daily_start_balance = self._current_balance
                 self._daily_trade_count = 0
                 # Clear expired daily-loss block
-                if (
-                    self._blocked_until
-                    and datetime.now(timezone.utc) >= self._blocked_until
-                ):
+                if self._blocked_until and datetime.now(timezone.utc) >= self._blocked_until:
                     self._blocked_until = None
 
             logger.info("Restored RiskGuard state from %s", path)
@@ -907,18 +855,13 @@ class RiskGuard:
 
     @property
     def current_daily_loss_pct(self) -> float:
-        return (
-            self._daily_start_balance - self._current_balance
-        ) / self._daily_start_balance
+        return (self._daily_start_balance - self._current_balance) / self._daily_start_balance
 
     @property
     def is_blocked(self) -> bool:
         if self._circuit_breaker_triggered:
             return True
-        if (
-            self._blocked_until is not None
-            and datetime.now(timezone.utc) < self._blocked_until
-        ):
+        if self._blocked_until is not None and datetime.now(timezone.utc) < self._blocked_until:
             return True
         return False
 

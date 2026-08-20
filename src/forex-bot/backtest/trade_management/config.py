@@ -76,9 +76,7 @@ class TradeManagementConfig:
     timeframe_minutes: int = 60
 
     @classmethod
-    def conservative(
-        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
-    ) -> "TradeManagementConfig":
+    def conservative(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,
@@ -108,9 +106,7 @@ class TradeManagementConfig:
         )
 
     @classmethod
-    def aggressive(
-        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
-    ) -> "TradeManagementConfig":
+    def aggressive(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,
@@ -140,9 +136,7 @@ class TradeManagementConfig:
         )
 
     @classmethod
-    def ftmo(
-        cls, pair: str = "EURUSD", timeframe_minutes: int = 60
-    ) -> "TradeManagementConfig":
+    def ftmo(cls, pair: str = "EURUSD", timeframe_minutes: int = 60) -> "TradeManagementConfig":
         return cls(
             partial_exit=PartialExitConfig(
                 enabled=True,

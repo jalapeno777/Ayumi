@@ -56,9 +56,7 @@ def _make_bar(
     )
 
 
-def _make_market_state(
-    bars: list[Bar], session: SessionType = SessionType.LONDON
-) -> MarketState:
+def _make_market_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -317,9 +315,7 @@ class TestStrategyPortfolio:
         assert len(signals) == 1
 
     def test_max_positions_per_symbol(self):
-        allocs = (
-            StrategyAllocation(strategy_name="MR", symbol="EURUSD", max_positions=1),
-        )
+        allocs = (StrategyAllocation(strategy_name="MR", symbol="EURUSD", max_positions=1),)
         portfolio = self._make_portfolio(allocations=allocs)
 
         long_signal = _make_long_signal(1.10)
@@ -408,9 +404,7 @@ class TestStrategyPortfolio:
 
     def test_position_size_respects_max_total_risk(self):
         constraints = PortfolioConstraints(max_total_risk_pct=2.0)
-        allocs = (
-            StrategyAllocation(strategy_name="MR", symbol="EURUSD", max_risk_pct=1.0),
-        )
+        allocs = (StrategyAllocation(strategy_name="MR", symbol="EURUSD", max_risk_pct=1.0),)
         portfolio = self._make_portfolio(allocations=allocs, constraints=constraints)
 
         signal = _make_long_signal(1.1000)
@@ -554,7 +548,7 @@ class TestPipelinePortfolioIntegration:
 
         pipeline.attach_portfolio(portfolio)
 
-        for i in range(60):
+        for i in range(60):  # noqa: B007
             pipeline.update_bars(
                 high=1.1,
                 low=1.09,
@@ -626,11 +620,7 @@ class TestBuildDefaultPortfolio:
 
     def test_anchor_strategy_has_highest_weight(self):
         portfolio = build_default_portfolio()
-        mr_allocs = [
-            a
-            for a in portfolio.config.allocations
-            if a.strategy_name == "Session-Range Mean Reversion"
-        ]
+        mr_allocs = [a for a in portfolio.config.allocations if a.strategy_name == "Session-Range Mean Reversion"]
         assert len(mr_allocs) == 2
         gbpusd = [a for a in mr_allocs if a.symbol == "GBPUSD"][0]
         assert gbpusd.weight == 1.5

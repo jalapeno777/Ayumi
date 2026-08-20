@@ -38,7 +38,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.data_loader import CsvDataLoader  # noqa: E402
+from backtest.data_loader import CsvDataLoader  # noqa: E402, I001
 from backtest.simple_engine import BacktestConfig, BacktestEngine  # noqa: E402
 from backtest.types import Bar  # noqa: E402
 from strategies.session_breakout_retest import SessionBreakoutStrategy  # noqa: E402
@@ -91,9 +91,7 @@ def _extract_metrics(name: str, bt_metrics) -> StrategyMetrics:
     return StrategyMetrics(
         name=name,
         total_trades=bt_metrics.total_trades,
-        win_rate=bt_metrics.win_rate / 100.0
-        if bt_metrics.win_rate > 1
-        else bt_metrics.win_rate,
+        win_rate=bt_metrics.win_rate / 100.0 if bt_metrics.win_rate > 1 else bt_metrics.win_rate,
         profit_factor=bt_metrics.profit_factor,
         sharpe_ratio=bt_metrics.sharpe_ratio,
         max_drawdown_pct=bt_metrics.max_drawdown_pct,
@@ -206,8 +204,7 @@ def run_ab_test(
         "win_rate_delta": orb_result.win_rate - baseline_result.win_rate,
         "profit_factor_delta": orb_result.profit_factor - baseline_result.profit_factor,
         "sharpe_delta": orb_result.sharpe_ratio - baseline_result.sharpe_ratio,
-        "max_drawdown_delta_pct": orb_result.max_drawdown_pct
-        - baseline_result.max_drawdown_pct,
+        "max_drawdown_delta_pct": orb_result.max_drawdown_pct - baseline_result.max_drawdown_pct,
         "pnl_delta": orb_result.total_pnl - baseline_result.total_pnl,
         "trade_count_delta": orb_result.total_trades - baseline_result.total_trades,
     }
@@ -283,9 +280,7 @@ def print_comparison(result: ABTestResult) -> None:
     print("-" * 70)
 
     def _row(label: str, baseline_val, orb_val, delta_val, fmt="{:.4f}"):
-        print(
-            f"  {label:<23} {fmt.format(baseline_val):>15} {fmt.format(orb_val):>15} {fmt.format(delta_val):>+15}"
-        )
+        print(f"  {label:<23} {fmt.format(baseline_val):>15} {fmt.format(orb_val):>15} {fmt.format(delta_val):>+15}")
 
     b = result.baseline
     o = result.variant
@@ -323,9 +318,7 @@ def print_comparison(result: ABTestResult) -> None:
         "{:.2f}",
     )
 
-    print(
-        f"\n  {'Trade Count':<23} {b.total_trades:>15} {o.total_trades:>15} {d['trade_count_delta']:>+15}"
-    )
+    print(f"\n  {'Trade Count':<23} {b.total_trades:>15} {o.total_trades:>15} {d['trade_count_delta']:>+15}")
     print(f"  {'Winning Trades':<23} {b.winning_trades:>15} {o.winning_trades:>15}")
     print(f"  {'Losing Trades':<23} {b.losing_trades:>15} {o.losing_trades:>15}")
 

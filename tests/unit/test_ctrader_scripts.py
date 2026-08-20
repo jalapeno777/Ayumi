@@ -237,9 +237,7 @@ class TestCallbackLinter:
         """)
         issues = linter_module._collect_issues(tmp_path / "bad.py", source)
         assert len(issues) >= 1
-        assert any(
-            "Recieved" in i["message"] or "Received" in i["message"] for i in issues
-        )
+        assert any("Recieved" in i["message"] or "Received" in i["message"] for i in issues)
 
     def test_undefined_callback_method_flagged(self, linter_module, tmp_path):
         """Callback referencing undefined self.method is flagged."""
@@ -250,9 +248,7 @@ class TestCallbackLinter:
         """)
         issues = linter_module._collect_issues(tmp_path / "bad.py", source)
         assert len(issues) >= 1
-        assert any(
-            "undefined" in i["type"] or "not defined" in i["message"] for i in issues
-        )
+        assert any("undefined" in i["type"] or "not defined" in i["message"] for i in issues)
 
     def test_non_method_callback_flagged(self, linter_module, tmp_path):
         """Callback registered with non-self argument is flagged."""
@@ -263,9 +259,7 @@ class TestCallbackLinter:
         """)
         issues = linter_module._collect_issues(tmp_path / "bad.py", source)
         assert len(issues) >= 1
-        assert any(
-            "non-self" in i["message"] or "non_method" in i["type"] for i in issues
-        )
+        assert any("non-self" in i["message"] or "non_method" in i["type"] for i in issues)
 
     def test_syntax_error_handled(self, linter_module, tmp_path):
         """Syntax errors produce a syntax_error issue, not a crash."""
@@ -282,14 +276,9 @@ class TestCallbackLinter:
     def test_common_typos_dict(self, linter_module):
         """COMMON_TYPOS maps typo → correction."""
         assert "setConnectCallback" in linter_module.COMMON_TYPOS
-        assert (
-            linter_module.COMMON_TYPOS["setConnectCallback"] == "setConnectedCallback"
-        )
+        assert linter_module.COMMON_TYPOS["setConnectCallback"] == "setConnectedCallback"
         assert "setDisconnectCallback" in linter_module.COMMON_TYPOS
-        assert (
-            linter_module.COMMON_TYPOS["setDisconnectCallback"]
-            == "setDisconnectedCallback"
-        )
+        assert linter_module.COMMON_TYPOS["setDisconnectCallback"] == "setDisconnectedCallback"
 
     def test_scan_directory_yields_python(self, linter_module, tmp_path):
         """_scan_directory yields .py files, skips __pycache__ and .venv."""

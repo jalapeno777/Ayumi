@@ -30,14 +30,14 @@ These tests lock the contract:
    parse, no tail loss.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
-import os
+import os  # noqa: F401
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: F401
 
 import pytest
 
@@ -52,8 +52,8 @@ SRC = WORKTREE / "src" / "forex-bot"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from forward_test.blend_runner import BlendForwardTestRunner  # noqa: E402
-from orchestrator.signal_orchestrator import OrchestratorTradeSignal  # noqa: E402
+from forward_test.blend_runner import BlendForwardTestRunner  # noqa: E402, I001
+from orchestrator.signal_orchestrator import OrchestratorTradeSignal  # noqa: E402, F401
 from signal_engine.signal_stats import SignalStatsRecorder  # noqa: E402
 
 
@@ -112,10 +112,10 @@ def _make_signal_data(
 
 def test_blend_runner_exposes_get_stats_recorder():
     """_get_stats_recorder() must exist and return a SignalStatsRecorder."""
-    runner = _build_runner(log_path="/tmp/_unused_signal_stats_wiring.jsonl")
+    runner = _build_runner(log_path="/tmp/_unused_signal_stats_wiring.jsonl")  # noqa: S108
     recorder = runner._get_stats_recorder()
     assert isinstance(recorder, SignalStatsRecorder)
-    assert recorder.log_path == "/tmp/_unused_signal_stats_wiring.jsonl"
+    assert recorder.log_path == "/tmp/_unused_signal_stats_wiring.jsonl"  # noqa: S108
 
 
 def test_blend_runner_stats_recorder_is_lazy(tmp_path):
@@ -193,14 +193,9 @@ def test_on_signal_records_open_line_for_accepted_order(tmp_path):
 
     # The JSONL file must exist with at least one row.
     assert Path(log_path).exists()
-    rows = [
-        json.loads(line)
-        for line in Path(log_path).read_text().splitlines()
-        if line.strip()
-    ]
+    rows = [json.loads(line) for line in Path(log_path).read_text().splitlines() if line.strip()]
     assert len(rows) == 1, (
-        f"Expected exactly 1 open row, got {len(rows)} — the writer "
-        "silence regression is back if this is 0."
+        f"Expected exactly 1 open row, got {len(rows)} — the writer silence regression is back if this is 0."
     )
     row = rows[0]
     assert row["strategy"] == "srmr_plus"
@@ -226,35 +221,25 @@ def test_on_signal_records_open_line_for_sustained_flow(tmp_path):
     for i in range(5):
         signal_data = _make_signal_data(
             strategy_id="srmr_plus",
-            timestamp=datetime(
-                2026, 8, 19, 12, 15 + i, 0, tzinfo=timezone.utc
-            ),
+            timestamp=datetime(2026, 8, 19, 12, 15 + i, 0, tzinfo=timezone.utc),
         )
         order = runner.on_signal(signal_data["strategy_id"], signal_data)
         # Some evals may reject (regime/edge), but if accepted they must
         # appear in the JSONL.
         if not order.rejected:
-            adapted = runner._adapter.adapt_signal(
-                signal_data["strategy_id"], signal_data
-            )
+            adapted = runner._adapter.adapt_signal(signal_data["strategy_id"], signal_data)
             expected_ids.append(runner.make_signal_id(adapted))
 
-    rows = [
-        json.loads(line)
-        for line in Path(log_path).read_text().splitlines()
-        if line.strip()
-    ]
+    rows = [json.loads(line) for line in Path(log_path).read_text().splitlines() if line.strip()]
     # At least 3 accepted (sustained flow floor).
     assert len(rows) >= 3, (
-        f"Expected ≥3 JSONL rows from 5 on_signal() calls, got {len(rows)}. "
-        "Writer silence is back if this is 0."
+        f"Expected ≥3 JSONL rows from 5 on_signal() calls, got {len(rows)}. Writer silence is back if this is 0."
     )
     # Every accepted signal_id must appear as an open row.
     recorded_ids = {r["signal_id"] for r in rows}
     for sid in expected_ids:
         assert sid in recorded_ids, (
-            f"Accepted signal_id={sid!r} not found in JSONL rows "
-            f"(recorded: {sorted(recorded_ids)})"
+            f"Accepted signal_id={sid!r} not found in JSONL rows (recorded: {sorted(recorded_ids)})"
         )
 
 
@@ -275,18 +260,11 @@ def test_on_signal_records_rejection_line(tmp_path):
     signal_data = _make_signal_data(strategy_id="srmr_plus", confidence=0.05)
     order = runner.on_signal(signal_data["strategy_id"], signal_data)
     assert order.rejected, (
-        f"Test setup error: expected rejection at confidence=0.05 but got "
-        f"accepted: lots={order.lots}"
+        f"Test setup error: expected rejection at confidence=0.05 but got accepted: lots={order.lots}"
     )
 
-    rows = [
-        json.loads(line)
-        for line in Path(log_path).read_text().splitlines()
-        if line.strip()
-    ]
-    assert len(rows) == 1, (
-        f"Expected exactly 1 rejection row, got {len(rows)}"
-    )
+    rows = [json.loads(line) for line in Path(log_path).read_text().splitlines() if line.strip()]
+    assert len(rows) == 1, f"Expected exactly 1 rejection row, got {len(rows)}"
     row = rows[0]
     assert row["outcome"] == "rejected"
     assert row["rejection_reason"]  # non-empty
@@ -311,11 +289,7 @@ def test_on_fill_records_outcome_line(tmp_path):
     signal_id = runner.make_signal_id(runner._adapter.adapt_signal(signal_data["strategy_id"], signal_data))
     runner.on_fill(signal_id, fill_price=2005.0, pnl=5.0)
 
-    rows = [
-        json.loads(line)
-        for line in Path(log_path).read_text().splitlines()
-        if line.strip()
-    ]
+    rows = [json.loads(line) for line in Path(log_path).read_text().splitlines() if line.strip()]
     # Expect: open row (from on_signal) + close row (from on_fill) = 2 rows
     assert len(rows) == 2, f"Expected 2 rows (open + close), got {len(rows)}"
 
@@ -394,8 +368,7 @@ def test_recorder_survives_simulated_restart_append_cleanly(tmp_path):
 
     lines_after = Path(log_path).read_text().splitlines()
     assert len(lines_after) == 4, (
-        f"Expected 4 lines after restart-append, got {len(lines_after)}. "
-        "The writer lost or truncated the tail."
+        f"Expected 4 lines after restart-append, got {len(lines_after)}. The writer lost or truncated the tail."
     )
 
     # Every line must parse as JSON (no torn lines).
@@ -406,10 +379,7 @@ def test_recorder_survives_simulated_restart_append_cleanly(tmp_path):
         "restart-A-2",
         "restart-A-3",
         "restart-B-1",
-    ], (
-        "Restart-append must preserve all pre-existing rows in their "
-        f"original order; got {ids_in_order}"
-    )
+    ], f"Restart-append must preserve all pre-existing rows in their original order; got {ids_in_order}"
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +438,5 @@ def test_blend_runner_on_fill_calls_record_outcome():
         if isinstance(n, __import__("ast").Call) and isinstance(n.func, __import__("ast").Attribute)
     }
     assert "record_outcome" in method_calls, (
-        "on_fill() must call record_outcome on the recorder for the "
-        "close row. Dropping this regresses card dcc7817d."
-    )
+        "on_fill() must call record_outcome on the recorder for the close row. Dropping this regresses card dcc7817d."
+    )  # noqa: W292

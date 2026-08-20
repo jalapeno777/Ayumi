@@ -4,7 +4,7 @@ These tests exercise the computation function, not the CLI, and use
 canned state dicts to avoid touching the live state file.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from pathlib import Path
@@ -21,9 +21,7 @@ def _import_ftmo():
     import importlib
     import sys
 
-    spec = importlib.util.spec_from_file_location(
-        "ftmo_daily", SCRIPTS_DIR / "ftmo_daily.py"
-    )
+    spec = importlib.util.spec_from_file_location("ftmo_daily", SCRIPTS_DIR / "ftmo_daily.py")
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     # Register first so dataclass introspection of cls.__module__ works

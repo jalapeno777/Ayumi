@@ -180,23 +180,15 @@ def _build_signal(
     if sl_distance <= 0:
         return None
 
-    sl = (
-        entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
-    )
+    sl = entry - sl_distance if direction == TradeDirection.LONG else entry + sl_distance
     tp1 = (
-        entry + sl_distance * config.tp1_rr
-        if direction == TradeDirection.LONG
-        else entry - sl_distance * config.tp1_rr
+        entry + sl_distance * config.tp1_rr if direction == TradeDirection.LONG else entry - sl_distance * config.tp1_rr
     )
     tp2 = (
-        entry + sl_distance * config.tp2_rr
-        if direction == TradeDirection.LONG
-        else entry - sl_distance * config.tp2_rr
+        entry + sl_distance * config.tp2_rr if direction == TradeDirection.LONG else entry - sl_distance * config.tp2_rr
     )
     tp3 = (
-        entry + sl_distance * config.tp3_rr
-        if direction == TradeDirection.LONG
-        else entry - sl_distance * config.tp3_rr
+        entry + sl_distance * config.tp3_rr if direction == TradeDirection.LONG else entry - sl_distance * config.tp3_rr
     )
 
     return StrategySignal(
@@ -251,9 +243,7 @@ class VolatilityRegimeBreakoutStrategy:
         if bars_since_last < self.config.cooldown_bars:
             return None
 
-        atr_pct = _atr_percentile(
-            state.bars, self.config.atr_period, self.config.atr_lookback
-        )
+        atr_pct = _atr_percentile(state.bars, self.config.atr_period, self.config.atr_lookback)
 
         range_pos = _range_position(state.bars, self.config.range_period)
         if range_pos is None:
@@ -334,8 +324,7 @@ class VolatilityRegimeBreakoutStrategy:
         atr_pct_boost = (
             max(
                 0.0,
-                (self.config.atr_percentile_low - atr_pct)
-                / self.config.atr_percentile_low,
+                (self.config.atr_percentile_low - atr_pct) / self.config.atr_percentile_low,
             )
             * 0.10
         )
@@ -343,17 +332,13 @@ class VolatilityRegimeBreakoutStrategy:
 
         # Boost: aligned trend (in addition to breakout direction) → higher
         # confidence. Mild effect; 0.05 cap.
-        if (direction == TradeDirection.LONG and trend > 0) or (
-            direction == TradeDirection.SHORT and trend < 0
-        ):
+        if (direction == TradeDirection.LONG and trend > 0) or (direction == TradeDirection.SHORT and trend < 0):
             confidence += 0.05
 
         # Boost: confirmed volatility expansion → higher confidence. The
         # magnitude above the minimum ratio scales the boost, capped at
         # 0.10.
-        expansion_boost = min(
-            max(expansion - self.config.vol_expansion_ratio, 0.0) * 0.20, 0.10
-        )
+        expansion_boost = min(max(expansion - self.config.vol_expansion_ratio, 0.0) * 0.20, 0.10)
         confidence += expansion_boost
 
         confidence = min(confidence, 0.95)
@@ -376,6 +361,4 @@ class VolatilityRegimeBreakoutStrategy:
         self._setup_bars_remaining = 0
         self._last_signal_bar_index = len(state.bars)
 
-        return _build_signal(
-            direction, latest.close, atr, self.config, confidence, rationale, pip
-        )
+        return _build_signal(direction, latest.close, atr, self.config, confidence, rationale, pip)

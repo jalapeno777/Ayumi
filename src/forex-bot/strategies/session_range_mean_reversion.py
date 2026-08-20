@@ -74,10 +74,7 @@ def _get_bar_session(bar_time: datetime) -> SessionType:
 
 def _is_in_asian_or_early_london(state: MarketState) -> bool:
     utc_hour = state.latest_bar.time.hour
-    return (
-        _ASIAN_START.hour <= utc_hour <= _ASIAN_END.hour
-        or _LONDON_START.hour <= utc_hour <= _EARLY_LONDON_END.hour
-    )
+    return _ASIAN_START.hour <= utc_hour <= _ASIAN_END.hour or _LONDON_START.hour <= utc_hour <= _EARLY_LONDON_END.hour
 
 
 def _is_in_london_ny_overlap(state: MarketState) -> bool:
@@ -201,9 +198,7 @@ def _build_signal(
             config.hard_cap_sl_pips * pip_value,
         )
     else:
-        sl_distance = min(
-            atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * pip_value
-        )
+        sl_distance = min(atr * config.atr_sl_multiplier, config.hard_cap_sl_pips * pip_value)
 
     if sl_distance <= 0:
         return None
@@ -226,16 +221,8 @@ def _build_signal(
         tp_baseline = entry - half_spread  # BID
 
     risk = sl_distance
-    tp1 = (
-        tp_baseline + risk * config.tp1_rr
-        if direction == TradeDirection.LONG
-        else tp_baseline - risk * config.tp1_rr
-    )
-    tp2 = (
-        tp_baseline + risk * config.tp2_rr
-        if direction == TradeDirection.LONG
-        else tp_baseline - risk * config.tp2_rr
-    )
+    tp1 = tp_baseline + risk * config.tp1_rr if direction == TradeDirection.LONG else tp_baseline - risk * config.tp1_rr
+    tp2 = tp_baseline + risk * config.tp2_rr if direction == TradeDirection.LONG else tp_baseline - risk * config.tp2_rr
 
     # Guard clause: ensure TP direction is consistent with trade direction
     # relative to the strategy's mid-price entry. Should be impossible with
@@ -298,11 +285,7 @@ class SessionRangeMeanReversionStrategy:
             )
 
         session_range_price = session_high - session_low
-        pip = (
-            self.config.pip_value
-            if self.config.pip_value is not None
-            else _pip_value_for_price(latest.close)
-        )
+        pip = self.config.pip_value if self.config.pip_value is not None else _pip_value_for_price(latest.close)
         session_range_width = session_range_price / pip
         if session_range_width < self.config.session_range_min_pips:
             return None
@@ -322,10 +305,7 @@ class SessionRangeMeanReversionStrategy:
         # f2317859 for the 2026-07-17 00:15:25 incident.
         spread_price = latest.spread_pips * pip
 
-        if (
-            price <= session_low + entry_near_extreme_pips
-            and rsi < self.config.rsi_long_level
-        ):
+        if price <= session_low + entry_near_extreme_pips and rsi < self.config.rsi_long_level:
             direction = TradeDirection.LONG
             rationale = (
                 f"Session range MR long: price={price:.5f} near session low={session_low:.5f}, "
@@ -342,10 +322,7 @@ class SessionRangeMeanReversionStrategy:
                 spread_price=spread_price,
             )
 
-        if (
-            price >= session_high - entry_near_extreme_pips
-            and rsi > self.config.rsi_short_level
-        ):
+        if price >= session_high - entry_near_extreme_pips and rsi > self.config.rsi_short_level:
             direction = TradeDirection.SHORT
             rationale = (
                 f"Session range MR short: price={price:.5f} near session high={session_high:.5f}, "
@@ -423,9 +400,7 @@ class SessionRangeMRWithRegimeFilter:
         if base_signal.confidence < self.config.base_min_confidence:
             return None
 
-        adjusted_confidence = (
-            base_signal.confidence * self.config.regime_confidence_multiplier
-        )
+        adjusted_confidence = base_signal.confidence * self.config.regime_confidence_multiplier
         return StrategySignal(
             direction=base_signal.direction,
             confidence=adjusted_confidence,

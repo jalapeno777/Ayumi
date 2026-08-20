@@ -37,7 +37,7 @@ These tests lock the contract:
    monotonic timestamp and the value becomes accurate.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 from pathlib import Path
@@ -49,7 +49,7 @@ import pytest
 # Ensure src/forex-bot is on path for imports
 sys.path.insert(0, str(Path.cwd() / "src" / "forex-bot"))
 
-from adapters.ctrader.forward_test_engine import (  # noqa: E402
+from adapters.ctrader.forward_test_engine import (  # noqa: E402, I001
     ForwardTestConfig,
     ForwardTestEngine,
 )
@@ -121,16 +121,12 @@ def test_strategy_last_eval_seeded_from_monotonic_at_init():
     with patch("time.monotonic", return_value=init_value):
         engine = _build_engine(strategies)
 
-    assert engine._strategy_last_eval["srmr_plus"] == pytest.approx(
-        init_value, abs=1e-6
-    ), (
+    assert engine._strategy_last_eval["srmr_plus"] == pytest.approx(init_value, abs=1e-6), (
         f"_strategy_last_eval['srmr_plus'] must equal init monotonic "
         f"({init_value}), got {engine._strategy_last_eval['srmr_plus']}. "
         "Seed of 0.0 would yield uptime-scale last_eval_ago."
     )
-    assert engine._strategy_last_eval["session_breakout"] == pytest.approx(
-        init_value, abs=1e-6
-    )
+    assert engine._strategy_last_eval["session_breakout"] == pytest.approx(init_value, abs=1e-6)
 
 
 def test_strategy_last_eval_is_not_zero():
@@ -195,14 +191,11 @@ def test_last_eval_ago_sec_state_field_is_fresh_start():
     with patch("time.monotonic", return_value=later):
         import time as _time
 
-        last_eval_ago_sec = round(
-            _time.monotonic() - engine._strategy_last_eval.get("srmr_plus", 0), 1
-        )
+        last_eval_ago_sec = round(_time.monotonic() - engine._strategy_last_eval.get("srmr_plus", 0), 1)
 
     assert last_eval_ago_sec == pytest.approx(7.0, abs=0.1)
     assert last_eval_ago_sec < 900, (
-        f"last_eval_ago_sec must be < bar_interval on fresh start, got "
-        f"{last_eval_ago_sec}s."
+        f"last_eval_ago_sec must be < bar_interval on fresh start, got {last_eval_ago_sec}s."
     )
 
 
@@ -217,9 +210,7 @@ def test_init_seed_uses_strategy_init_monotonic():
     future refactor drops the variable, this test fails before any
     runtime regression can ship.
     """
-    src = (
-        Path.cwd() / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
-    ).read_text()
+    src = (Path.cwd() / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py").read_text()
     # Locate the assignment to _strategy_last_eval in __init__.
     import re
 
@@ -229,9 +220,7 @@ def test_init_seed_uses_strategy_init_monotonic():
         src,
         re.DOTALL,
     )
-    assert match, (
-        "Could not find _strategy_last_eval assignment in forward_test_engine.py"
-    )
+    assert match, "Could not find _strategy_last_eval assignment in forward_test_engine.py"
     block = match.group(1)
     assert "_strategy_init_monotonic" in block, (
         "The _strategy_last_eval seed must source from "
@@ -267,4 +256,4 @@ def test_strategy_last_eval_updates_after_eval():
 
         last_eval_ago = _time.monotonic() - engine._strategy_last_eval["srmr_plus"]
 
-    assert last_eval_ago == pytest.approx(5.0, abs=1e-6)
+    assert last_eval_ago == pytest.approx(5.0, abs=1e-6)  # noqa: W292

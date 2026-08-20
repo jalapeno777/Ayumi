@@ -18,7 +18,7 @@ The module is designed to be imported by ``regime_cli.py`` (child card) which
 adds CSV I/O, ``run_all_pairs``, and command-line plumbing.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from dataclasses import dataclass
@@ -80,17 +80,11 @@ class RegimeParams:
         if self.stds.shape != (n,):
             raise ValueError(f"stds must have shape ({n},), got {self.stds.shape}")
         if self.weights.shape != (n,):
-            raise ValueError(
-                f"weights must have shape ({n},), got {self.weights.shape}"
-            )
+            raise ValueError(f"weights must have shape ({n},), got {self.weights.shape}")
         if self.transmat.shape != (n, n):
-            raise ValueError(
-                f"transmat must have shape ({n},{n}), got {self.transmat.shape}"
-            )
+            raise ValueError(f"transmat must have shape ({n},{n}), got {self.transmat.shape}")
         if self.startprob.shape != (n,):
-            raise ValueError(
-                f"startprob must have shape ({n},), got {self.startprob.shape}"
-            )
+            raise ValueError(f"startprob must have shape ({n},), got {self.startprob.shape}")
         # Stds must be positive
         if np.any(self.stds <= 0):
             raise ValueError("All stds must be positive")
@@ -167,9 +161,7 @@ def fit_gmm_returns(
     """
     arr = np.asarray(returns, dtype=float).ravel()
     if arr.size < MIN_OBSERVATIONS:
-        raise ValueError(
-            f"Need at least {MIN_OBSERVATIONS} returns for reliable fit, got {arr.size}"
-        )
+        raise ValueError(f"Need at least {MIN_OBSERVATIONS} returns for reliable fit, got {arr.size}")
     if n_regimes < 1:
         raise ValueError(f"n_regimes must be >= 1, got {n_regimes}")
 
@@ -229,9 +221,7 @@ def fit_hmm_returns(
     arr = np.asarray(returns, dtype=float).ravel().reshape(-1, 1)
     labels = np.asarray(component_labels, dtype=int).ravel()
     if arr.shape[0] != labels.shape[0]:
-        raise ValueError(
-            f"returns ({arr.shape[0]}) and labels ({labels.shape[0]}) must have same length"
-        )
+        raise ValueError(f"returns ({arr.shape[0]}) and labels ({labels.shape[0]}) must have same length")
 
     hmm = GaussianHMM(
         n_components=n_regimes,
@@ -405,10 +395,7 @@ def bootstrap_synthetic_returns(
     """
     returns = _to_log_returns(prices)
     if returns.size < MIN_OBSERVATIONS:
-        raise ValueError(
-            f"Price series too short: {returns.size} returns "
-            f"< {MIN_OBSERVATIONS} minimum"
-        )
+        raise ValueError(f"Price series too short: {returns.size} returns < {MIN_OBSERVATIONS} minimum")
 
     T = path_length if path_length is not None else returns.size
     rng = np.random.default_rng(random_state)
@@ -426,9 +413,7 @@ def bootstrap_synthetic_returns(
     weights = gmm.weights_.ravel().copy()
 
     # ── HMM ────────────────────────────────────────────────────────────
-    hmm = fit_hmm_returns(
-        returns, component_labels, n_regimes, random_state=random_state
-    )
+    hmm = fit_hmm_returns(returns, component_labels, n_regimes, random_state=random_state)
     transmat = hmm.transmat_.copy()
     startprob = hmm.startprob_.copy()
 

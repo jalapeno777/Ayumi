@@ -1,13 +1,13 @@
 """Walk-forward test for SRMR+ strategy across EURUSD, USDJPY, XAUUSD (M15)."""
 
-import sys
+import sys  # noqa: I001
 import os
 import json
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader
+from backtest.data_loader import CsvDataLoader  # noqa: I001
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
 
@@ -61,9 +61,7 @@ def run_pair(pair: str) -> dict | None:
         a = results.aggregated
         print(f"\n  AGGREGATED — {pair}")
         print(f"    Mean WR:     {a.mean_win_rate:.1%} (±{a.std_win_rate:.1%})")
-        print(
-            f"    Mean PF:     {a.mean_profit_factor:.2f} (±{a.std_profit_factor:.2f})"
-        )
+        print(f"    Mean PF:     {a.mean_profit_factor:.2f} (±{a.std_profit_factor:.2f})")
         print(f"    Mean DD:     {a.mean_max_drawdown:.1%} (±{a.std_max_drawdown:.1%})")
         print(f"    Mean Trades: {a.mean_trade_count:.0f} (±{a.std_trade_count:.0f})")
         print(f"    Mean PnL:    ${a.mean_total_pnl:.2f}")

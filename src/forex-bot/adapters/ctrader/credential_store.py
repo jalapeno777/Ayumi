@@ -76,9 +76,7 @@ class CredentialStore:
             return self.load()
         return self._cached
 
-    def update_tokens(
-        self, access_token: str, refresh_token: str, expires_in: int
-    ) -> None:
+    def update_tokens(self, access_token: str, refresh_token: str, expires_in: int) -> None:
         """Update tokens in .env. Called ONLY by token_lifecycle.
 
         Writes the new access_token, refresh_token, and computed expires_at
@@ -155,9 +153,7 @@ class CredentialStore:
 
         env_data = self._read_env_file()
         if "access_token" not in env_data or not env_data["access_token"]:
-            raise RuntimeError(
-                "No CTRADER_OPENAPI_ACCESS_TOKEN in .env — run OAuth setup first"
-            )
+            raise RuntimeError("No CTRADER_OPENAPI_ACCESS_TOKEN in .env — run OAuth setup first")
 
         creds = self._dict_to_credentials(env_data)
         self._cached = creds

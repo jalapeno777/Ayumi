@@ -10,7 +10,7 @@ Usage:
     python scripts/run_5window_walkforward.py
 """
 
-import argparse
+import argparse  # noqa: I001
 import sys
 import json
 from pathlib import Path
@@ -23,15 +23,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.runner import run_hybrid_backtest  # noqa: E402
+from backtest.runner import run_hybrid_backtest  # noqa: E402, I001
 from backtest import CsvDataLoader  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="5-window walk-forward evaluation (ICT/SMC hybrid)"
-    )
+    parser = argparse.ArgumentParser(description="5-window walk-forward evaluation (ICT/SMC hybrid)")
     add_resource_args(parser)
     _args = parser.parse_args()
 
@@ -84,20 +82,10 @@ def main() -> None:
             train_m = w.get("train_metrics", {})
             val_m = w.get("val_metrics", {})
             test_m = w.get("test_metrics", {})
-            total_evaluated += (
-                train_m.get("rejected", 0)
-                + val_m.get("rejected", 0)
-                + test_m.get("rejected", 0)
-            )
-            total_rejected += (
-                train_m.get("rejected", 0)
-                + val_m.get("rejected", 0)
-                + test_m.get("rejected", 0)
-            )
+            total_evaluated += train_m.get("rejected", 0) + val_m.get("rejected", 0) + test_m.get("rejected", 0)
+            total_rejected += train_m.get("rejected", 0) + val_m.get("rejected", 0) + test_m.get("rejected", 0)
         agg = result.get("aggregated", {})
-        print(
-            f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}"
-        )
+        print(f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}")
         print(f"    GO/NO-GO: {'GO' if result.get('go_nogo') else 'NO-GO'}")
 
     print(f"\n  Reports saved to: {REPORT_DIR}/")

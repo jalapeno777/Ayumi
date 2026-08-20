@@ -1,6 +1,6 @@
 """Tests for Confidence Engine, Gates, and integration with ProfileRouter + Sizer."""
 
-import pytest
+import pytest  # noqa: I001
 
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
@@ -44,12 +44,8 @@ class TestBasicScoring:
 
 class TestConfluenceBoost:
     def test_single_confluence(self, engine):
-        confluences = [
-            {"strategy": "ema_cross", "direction": "long", "timeframe": "H1"}
-        ]
-        result = engine.score(
-            0.60, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences
-        )
+        confluences = [{"strategy": "ema_cross", "direction": "long", "timeframe": "H1"}]
+        result = engine.score(0.60, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences)
         assert result.final_score > 0.60
         assert result.confluence_boost > 0
 
@@ -58,9 +54,7 @@ class TestConfluenceBoost:
             {"strategy": "ema_cross", "direction": "long", "timeframe": "H1"},
             {"strategy": "rsi_div", "direction": "long", "timeframe": "H4"},
         ]
-        result = engine.score(
-            0.60, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences
-        )
+        result = engine.score(0.60, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences)
         assert result.final_score > 0.60
         # Two agreeing strategies + two timeframes = bigger boost
         base = engine.score(0.60, symbol="EURUSD", spread=1.0, hour_utc=10)
@@ -72,15 +66,11 @@ class TestConfluenceBoost:
             {"strategy": "s2", "direction": "long", "timeframe": "H1"},
             {"strategy": "s3", "direction": "long", "timeframe": "H4"},
         ]
-        result = engine.score(
-            0.95, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences
-        )
+        result = engine.score(0.95, symbol="EURUSD", spread=1.0, hour_utc=10, confluences=confluences)
         assert result.final_score <= 1.0
 
     def test_opposite_direction_no_boost(self, engine):
-        confluences = [
-            {"strategy": "ema_cross", "direction": "short", "timeframe": "H1"}
-        ]
+        confluences = [{"strategy": "ema_cross", "direction": "short", "timeframe": "H1"}]
         result = engine.score(
             0.60,
             symbol="EURUSD",

@@ -74,9 +74,7 @@ class ConfluenceFeatureExtractor:
             if feat_name in self.NUMERIC_FEATURES:
                 val = trade_record.get(feat_name)
                 if val is None:
-                    logger.warning(
-                        "Missing feature '%s' in trade record, using 0.0", feat_name
-                    )
+                    logger.warning("Missing feature '%s' in trade record, using 0.0", feat_name)
                     features.append(0.0)
                 else:
                     features.append(float(val))

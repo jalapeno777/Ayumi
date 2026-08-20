@@ -8,7 +8,7 @@ Covers:
 - KellyConfig defaults and field validation
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 from datetime import datetime

@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 from typing import Optional
@@ -56,11 +56,7 @@ class SessionRangeMRWithICTFilter:
             "mr_signals": self._mr_signals,
             "passed_ict": self._passed_ict_filter,
             "rejected_ict": self._rejected_ict_filter,
-            "ict_pass_rate": (
-                self._passed_ict_filter / self._mr_signals
-                if self._mr_signals > 0
-                else 0.0
-            ),
+            "ict_pass_rate": (self._passed_ict_filter / self._mr_signals if self._mr_signals > 0 else 0.0),
         }
 
     def reset_stats(self) -> None:

@@ -35,7 +35,7 @@ These tests lock the contract:
 6. The detector stays silent inside the startup grace window.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import logging
@@ -49,7 +49,7 @@ import pytest
 
 sys.path.insert(0, str(Path.cwd() / "src" / "forex-bot"))
 
-from adapters.ctrader.forward_test_engine import (  # noqa: E402
+from adapters.ctrader.forward_test_engine import (  # noqa: E402, I001
     ForwardTestConfig,
     ForwardTestEngine,
 )
@@ -207,9 +207,7 @@ def test_detector_silent_when_bars_built_within_threshold(caplog):
                 # Would WARNING here if conditions matched.
                 pytest.fail("Detector triggered with bar_age=60s")
 
-    warning_records = [
-        r for r in caplog.records if "BARS STATIC" in r.getMessage()
-    ]
+    warning_records = [r for r in caplog.records if "BARS STATIC" in r.getMessage()]
     assert not warning_records, (
         f"Detector emitted BARS STATIC WARNING despite fresh bar "
         f"(now-last_bar={60}s): {[r.getMessage() for r in warning_records]}"
@@ -256,13 +254,10 @@ def test_detector_fires_when_bars_static_and_ticks_flowing(caplog):
             ):
                 if (now - engine._last_bars_static_warning_time) >= 300:
                     engine._last_bars_static_warning_time = now
-                    ticks_since = (
-                        engine._health.ticks_received - engine._ticks_at_last_bar_built
-                    )
+                    ticks_since = engine._health.ticks_received - engine._ticks_at_last_bar_built
                     logger = logging.getLogger("ayumi.forward_test")
                     logger.warning(
-                        "[B5 Pipeline] BARS STATIC: %d ticks since last bar, "
-                        "age=%.0fs, threshold=%.0fs, total_bars=%d",
+                        "[B5 Pipeline] BARS STATIC: %d ticks since last bar, age=%.0fs, threshold=%.0fs, total_bars=%d",
                         ticks_since,
                         now - engine._last_bar_built_at,
                         1200.0,
@@ -271,12 +266,8 @@ def test_detector_fires_when_bars_static_and_ticks_flowing(caplog):
                     triggered = True
 
     assert triggered, "Detector should have triggered under stale bars + ticking"
-    warning_records = [
-        r for r in caplog.records if "BARS STATIC" in r.getMessage()
-    ]
-    assert len(warning_records) == 1, (
-        f"Expected exactly one BARS STATIC WARNING, got {len(warning_records)}"
-    )
+    warning_records = [r for r in caplog.records if "BARS STATIC" in r.getMessage()]
+    assert len(warning_records) == 1, f"Expected exactly one BARS STATIC WARNING, got {len(warning_records)}"
     msg = warning_records[0].getMessage()
     assert "BARS STATIC" in msg
     assert "400" in msg  # ticks_since = 500 - 100
@@ -317,10 +308,7 @@ def test_detector_respects_300s_rate_limit(caplog):
                     engine._last_bars_static_warning_time = now
                     triggered_warning = True
 
-    assert not triggered_warning, (
-        "Detector emitted WARNING within 300s of the previous one "
-        "(rate-limit broken)"
-    )
+    assert not triggered_warning, "Detector emitted WARNING within 300s of the previous one (rate-limit broken)"
 
 
 # ---------------------------------------------------------------------------
@@ -360,10 +348,7 @@ def test_detector_silent_when_ticks_static(caplog):
             ):
                 triggered = True
 
-    assert not triggered, (
-        "Detector triggered even though ticks_received did not grow "
-        "(tick-gate broken)"
-    )
+    assert not triggered, "Detector triggered even though ticks_received did not grow (tick-gate broken)"
 
 
 # ---------------------------------------------------------------------------
@@ -399,9 +384,7 @@ def test_detector_silent_during_startup_grace(caplog):
             ):
                 triggered = True
 
-    assert not triggered, (
-        "Detector triggered inside startup grace window (uptime=600s)"
-    )
+    assert not triggered, "Detector triggered inside startup grace window (uptime=600s)"
 
 
 # ---------------------------------------------------------------------------
@@ -414,9 +397,7 @@ def test_heartbeat_contains_watchdog_keys_ast():
     ``bars_static_sec`` / ``bars_static`` / ``ticks_since_last_bar``
     so a future refactor that drops them is caught at CI time.
     """
-    src = (
-        Path.cwd() / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
-    ).read_text()
+    src = (Path.cwd() / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py").read_text()
     # Locate the _write_heartbeat function body.
     import ast
 
@@ -443,6 +424,5 @@ def test_heartbeat_contains_watchdog_keys_ast():
         "tps_recent",
     ):
         assert required in src_blob, (
-            f"_write_heartbeat must publish {required!r} for SH-002 / "
-            "Hayate daily audit to read it. Re-add the key."
-        )
+            f"_write_heartbeat must publish {required!r} for SH-002 / Hayate daily audit to read it. Re-add the key."
+        )  # noqa: W292

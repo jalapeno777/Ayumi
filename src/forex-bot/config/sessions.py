@@ -213,9 +213,6 @@ def is_tradable_session(
     # Asian session: 18:00–02:00 ET (wraps midnight)
     in_asian = et_hour >= 18 or et_hour < 2
     if in_asian and not is_jpy:
-        return False, (
-            f"Session blocked: Asian session for non-JPY pair {pair} "
-            f"(ET hour {et_hour:02d}:00)"
-        )
+        return False, (f"Session blocked: Asian session for non-JPY pair {pair} (ET hour {et_hour:02d}:00)")
 
     return True, ""

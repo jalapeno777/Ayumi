@@ -30,9 +30,7 @@ CLIENT_SECRET = os.getenv("CTRADER_OPENAPI_CLIENT_SECRET", "")
 ACCESS_TOKEN = os.getenv("CTRADER_OPENAPI_ACCESS_TOKEN", "")
 ACCOUNT_ID = os.getenv("CTRADER_OPENAPI_ACCOUNT_ID", "")
 
-SHOULD_RUN = HAS_DEPS and bool(
-    CLIENT_ID and CLIENT_SECRET and ACCESS_TOKEN and ACCOUNT_ID
-)
+SHOULD_RUN = HAS_DEPS and bool(CLIENT_ID and CLIENT_SECRET and ACCESS_TOKEN and ACCOUNT_ID)
 
 pytestmark = pytest.mark.live
 
@@ -136,7 +134,7 @@ class _ConnectionHelper:
         if self.client:
             try:
                 reactor.callFromThread(self.client.stopService)
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
             self.client = None
 
@@ -169,7 +167,7 @@ def test_subscribe_symbol(conn):
 
 def test_place_and_close_market_order(conn):
     """Place a small market order and close it."""
-    from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+    from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
         ProtoOANewOrderReq,
         ProtoOAClosePositionReq,
     )
@@ -210,11 +208,7 @@ def test_place_and_close_market_order(conn):
     if open_result[1] is not None:
         pytest.skip(f"Order rejected (demo may not support symbol): {open_result[1]}")
 
-    payload = (
-        Protobuf.extract(open_result[0])
-        if hasattr(open_result[0], "payloadType")
-        else open_result[0]
-    )
+    payload = Protobuf.extract(open_result[0]) if hasattr(open_result[0], "payloadType") else open_result[0]
     position_id = getattr(payload, "positionId", None)
     if position_id is None:
         pytest.skip("No positionId in response — demo may handle differently")

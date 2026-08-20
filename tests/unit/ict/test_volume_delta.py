@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # noqa: I001
 from backtest.engine import Bar
 from backtest.ict_smc.volume_delta import VolumeDeltaAnalyzer, VolumeDeltaResult
 
@@ -11,8 +11,8 @@ def _make_bars(n: int, base_vol: float = 500.0, seed: int = 42) -> list:
     price = 1.1000
     now = datetime(2024, 1, 1, 0, 0)
     for i in range(n):
-        change = random.uniform(-0.001, 0.001)
-        vol = base_vol + random.uniform(-200, 200)
+        change = random.uniform(-0.001, 0.001)  # noqa: S311
+        vol = base_vol + random.uniform(-200, 200)  # noqa: S311
         high = price + abs(change)
         low = price - abs(change)
         close = price + change

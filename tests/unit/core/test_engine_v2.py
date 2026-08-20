@@ -7,7 +7,7 @@ Rewritten for post-refactor API (card 99a4d28d).
 - WalkForwardConfig → quant.config
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 import numpy as np

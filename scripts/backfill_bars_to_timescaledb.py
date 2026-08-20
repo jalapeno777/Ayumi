@@ -10,7 +10,7 @@ and upserts into market_bars hypertable. Skips already-fetched ranges using the
 latest bar timestamp per (symbol, timeframe, broker) in the DB.
 """
 
-import argparse
+import argparse  # noqa: I001
 import logging
 import os
 import sys
@@ -147,9 +147,7 @@ def backfill_symbol_period(
     else:
         from_dt = datetime.now(timezone.utc) - timedelta(days=lookback_days)
         from_ts = int(from_dt.timestamp() * 1000)
-        logger.info(
-            f"  Starting from {from_dt.isoformat()} ({lookback_days}d lookback)"
-        )
+        logger.info(f"  Starting from {from_dt.isoformat()} ({lookback_days}d lookback)")
 
     cursor_end = int(datetime.now(timezone.utc).timestamp() * 1000)
     iteration = 0
@@ -172,16 +170,9 @@ def backfill_symbol_period(
                 break  # success
             except Exception as e:
                 err_str = str(e).lower()
-                if (
-                    "rate" in err_str
-                    or "429" in err_str
-                    or "limit" in err_str
-                    or "blocked" in err_str
-                ):
+                if "rate" in err_str or "429" in err_str or "limit" in err_str or "blocked" in err_str:
                     wait = retry_delays[retry] if retry < len(retry_delays) else 160
-                    logger.warning(
-                        f"  Rate limited, retry {retry + 1}/{MAX_RETRIES}, waiting {wait}s..."
-                    )
+                    logger.warning(f"  Rate limited, retry {retry + 1}/{MAX_RETRIES}, waiting {wait}s...")
                     time.sleep(wait)
                     continue
                 logger.error(f"  API error: {e}")
@@ -227,7 +218,7 @@ def backfill_symbol_period(
         # Log actual insert count
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT COUNT(*) FROM market_bars WHERE symbol = %s AND timeframe = %s AND broker = %s AND open_time >= %s",
+                "SELECT COUNT(*) FROM market_bars WHERE symbol = %s AND timeframe = %s AND broker = %s AND open_time >= %s",  # noqa: E501
                 (symbol, period, BROKER, bars[0]["timestamp"]),
             )
             actual_count = cur.fetchone()[0]
@@ -243,9 +234,7 @@ def backfill_symbol_period(
             logger.info("  Reached lookback start — done")
             break
         if new_cursor_end >= cursor_end:
-            logger.info(
-                f"  Cursor didn't move backwards (got {len(bars)} bars) — all data fetched"
-            )
+            logger.info(f"  Cursor didn't move backwards (got {len(bars)} bars) — all data fetched")
             break
         cursor_end = new_cursor_end
 
@@ -257,16 +246,12 @@ def backfill_symbol_period(
 
         time.sleep(REQUEST_DELAY_SECONDS)
 
-    logger.info(
-        f"  ✅ {symbol}/{period}: {total_fetched} fetched, ~{total_inserted} inserted"
-    )
+    logger.info(f"  ✅ {symbol}/{period}: {total_fetched} fetched, ~{total_inserted} inserted")
     return total_inserted
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Backfill historical bars into TimescaleDB"
-    )
+    parser = argparse.ArgumentParser(description="Backfill historical bars into TimescaleDB")
     parser.add_argument(
         "--symbols",
         default="GBPUSD,USDJPY",
@@ -303,15 +288,11 @@ def main():
             logger.error(f"Unknown period: {p}. Known: {list(PERIOD_SECONDS.keys())}")
             sys.exit(1)
 
-    logger.info(
-        f"Backfill: {len(symbols)} symbols × {len(periods)} periods = {len(symbols) * len(periods)} combos"
-    )
+    logger.info(f"Backfill: {len(symbols)} symbols × {len(periods)} periods = {len(symbols) * len(periods)} combos")
     logger.info(f"Symbols: {symbols}")
     logger.info(f"Periods: {periods}")
     logger.info(f"Lookback: {args.lookback_days} days")
-    logger.info(
-        f"{'DRY RUN — no writes' if args.dry_run else 'LIVE — writing to TimescaleDB'}"
-    )
+    logger.info(f"{'DRY RUN — no writes' if args.dry_run else 'LIVE — writing to TimescaleDB'}")
 
     # Load .env from project root
     from dotenv import load_dotenv

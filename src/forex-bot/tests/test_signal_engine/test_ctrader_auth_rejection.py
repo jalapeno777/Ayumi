@@ -8,7 +8,7 @@ Tests the fixes from card 7698bbd5:
 5. Kill switch is actually activated (not just logged) when policy says so
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import threading
 import time
@@ -76,12 +76,8 @@ class TestAuthCallbackMapping(unittest.TestCase):
 
         feed._on_message(None, msg)
 
-        self.assertTrue(
-            feed._app_authed.is_set(), "2101 (AppAuthRes) must set _app_authed"
-        )
-        self.assertFalse(
-            feed._authed.is_set(), "2101 (AppAuthRes) must NOT set _authed"
-        )
+        self.assertTrue(feed._app_authed.is_set(), "2101 (AppAuthRes) must set _app_authed")
+        self.assertFalse(feed._authed.is_set(), "2101 (AppAuthRes) must NOT set _authed")
 
     def test_msg_2103_sets_authed_not_app_authed(self):
         """ProtoOAAccountAuthRes (2103) must set _authed, not _app_authed."""
@@ -97,9 +93,7 @@ class TestAuthCallbackMapping(unittest.TestCase):
         feed._on_message(None, msg)
 
         self.assertTrue(feed._authed.is_set(), "2103 (AccountAuthRes) must set _authed")
-        self.assertFalse(
-            feed._app_authed.is_set(), "2103 (AccountAuthRes) must NOT set _app_authed"
-        )
+        self.assertFalse(feed._app_authed.is_set(), "2103 (AccountAuthRes) must NOT set _app_authed")
 
     def test_msg_2103_resets_error_count_and_circuit(self):
         """Successful account auth (2103) must reset error count and circuit breaker."""
@@ -112,9 +106,7 @@ class TestAuthCallbackMapping(unittest.TestCase):
 
         feed._on_message(None, msg)
 
-        self.assertEqual(
-            feed._auth_error_count, 0, "2103 must reset _auth_error_count to 0"
-        )
+        self.assertEqual(feed._auth_error_count, 0, "2103 must reset _auth_error_count to 0")
         self.assertFalse(feed._auth_circuit_open, "2103 must clear _auth_circuit_open")
 
 
@@ -123,7 +115,7 @@ class TestOrderTimeoutRejection(unittest.TestCase):
 
     def test_timeout_sets_rejected_status(self):
         """Order timeout must set status to REJECTED, not PENDING."""
-        from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
+        from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed  # noqa: I001
         from adapters.ctrader.models import OrderStatus
 
         feed = OpenApiSpotFeed.__new__(OpenApiSpotFeed)

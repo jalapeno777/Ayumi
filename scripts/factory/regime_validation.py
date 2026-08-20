@@ -55,7 +55,7 @@ _FX_ROOT = _REPO_ROOT / "src" / "forex-bot"
 if str(_FX_ROOT) not in sys.path:
     sys.path.insert(0, str(_FX_ROOT))
 
-import duckdb  # noqa: E402  (after sys.path manipulation)
+import duckdb  # noqa: E402, I001
 
 from regime.detector import Regime, RegimeConfig, RegimeDetector  # noqa: E402
 
@@ -187,10 +187,7 @@ EVENTS: list[EventSpec] = [
             {
                 "regime": "volatile",
                 "min_fraction": 0.20,
-                "rationale": (
-                    "Spillover volatility from BoJ surprise + safe-haven "
-                    "rotation lifts intraday gold range"
-                ),
+                "rationale": ("Spillover volatility from BoJ surprise + safe-haven rotation lifts intraday gold range"),
             },
         ],
     ),
@@ -212,9 +209,7 @@ EVENTS: list[EventSpec] = [
             {
                 "regime": "trending",
                 "min_fraction": 0.20,
-                "rationale": (
-                    "Post-FOMC breakout produces a sustained directional move in gold"
-                ),
+                "rationale": ("Post-FOMC breakout produces a sustained directional move in gold"),
             },
         ],
     ),
@@ -390,11 +385,7 @@ def build_ground_truth(
 
     r2 = compute_rolling_r2(closes, lookback=CONCEPTUAL_VOL_LOOKBACK)
     r2_pctl = pd.Series(r2).rank(pct=True)
-    trending_truth = (
-        ((r2_pctl > CONCEPTUAL_TRENDING_R2_TERCILE) & ~pd.isna(r2))
-        .fillna(False)
-        .astype(bool)
-    )
+    trending_truth = ((r2_pctl > CONCEPTUAL_TRENDING_R2_TERCILE) & ~pd.isna(r2)).fillna(False).astype(bool)
 
     return PerBarGroundTruth(
         volatile_truth=volatile_truth.reset_index(drop=True),
@@ -436,7 +427,7 @@ def confusion_matrix(
         [detector.rename("det"), truth.rename("truth")],
         axis=1,
     ).dropna()
-    for det, tru in zip(aligned["det"], aligned["truth"]):
+    for det, tru in zip(aligned["det"], aligned["truth"]):  # noqa: B905
         det_b = bool(det)
         tru_b = bool(tru)
         if det_b and tru_b:
@@ -536,9 +527,7 @@ def evaluate_event(
     )
 
     if n_scored == 0:
-        print(
-            f"WARN: {event.name}: n_total={n_total} ≤ WARMUP_BARS={WARMUP_BARS}, skipping"
-        )
+        print(f"WARN: {event.name}: n_total={n_total} ≤ WARMUP_BARS={WARMUP_BARS}, skipping")
         report.overall_pass = False
         report.reason = "insufficient_data"
         return report
@@ -548,9 +537,7 @@ def evaluate_event(
     counts = scored_regimes.value_counts().to_dict()
     for regime in ("trending", "choppy", "volatile", "quiet"):
         report.detector_label_counts[regime] = int(counts.get(regime, 0))
-        report.detector_label_pct[regime] = (
-            counts.get(regime, 0) / n_scored if n_scored else 0.0
-        )
+        report.detector_label_pct[regime] = counts.get(regime, 0) / n_scored if n_scored else 0.0
 
     # ── Implementation consistency ─────────────────────────────────────
     # VOLATILE iff regime == "volatile" (detector's own threshold).
@@ -594,14 +581,10 @@ def evaluate_event(
     for exp in event.expectations:
         regime_name = exp["regime"]
         min_fraction = float(exp["min_fraction"])
-        report.expectations_met[regime_name] = (
-            report.detector_label_pct.get(regime_name, 0.0) >= min_fraction
-        )
+        report.expectations_met[regime_name] = report.detector_label_pct.get(regime_name, 0.0) >= min_fraction
 
     # Pass/fail uses the combined conceptual accuracy.
-    report.overall_pass = report.accuracy_conceptual_combined >= ACCURACY_GATE and all(
-        report.expectations_met.values()
-    )
+    report.overall_pass = report.accuracy_conceptual_combined >= ACCURACY_GATE and all(report.expectations_met.values())
     return report
 
 
@@ -712,8 +695,7 @@ def render_markdown(
         "the detector's ADX/ATR internals."
     )
     lines.append(
-        f"**Accuracy gate:** ≥{ACCURACY_GATE * 100:.0f}% on combined conceptual "
-        "accuracy (avg of VOLATILE + TRENDING)."
+        f"**Accuracy gate:** ≥{ACCURACY_GATE * 100:.0f}% on combined conceptual accuracy (avg of VOLATILE + TRENDING)."
     )
     lines.append("")
 
@@ -740,7 +722,7 @@ def render_markdown(
 
     # ── Per-event detailed sections ─────────────────────────────────────
     lines.append("## Per-Event Detail")
-    for i, (event, r) in enumerate(zip(EVENTS, event_reports), start=1):
+    for i, (event, r) in enumerate(zip(EVENTS, event_reports), start=1):  # noqa: B905
         lines.append("")
         lines.append(f"### Event {i}: {event.name}")
         lines.append("")
@@ -749,8 +731,7 @@ def render_markdown(
         lines.append(f"**Description:** {event.description}")
         lines.append("")
         lines.append(
-            f"**Bars in window:** {r.n_bars_total} "
-            f"(warm-up skipped: {r.n_bars_warmup}, scored: {r.n_bars_scored})"
+            f"**Bars in window:** {r.n_bars_total} (warm-up skipped: {r.n_bars_warmup}, scored: {r.n_bars_scored})"
         )
         lines.append("")
         lines.append("**Detector label distribution:**")
@@ -800,8 +781,7 @@ def render_markdown(
             actual_pct = r.detector_label_pct.get(regime_name, 0.0) * 100
             check = "✅" if met else "❌"
             lines.append(
-                f"- {check} `{regime_name}` ≥ {min_frac * 100:.0f}% "
-                f"(actual: {actual_pct:.1f}% — {exp['rationale']})"
+                f"- {check} `{regime_name}` ≥ {min_frac * 100:.0f}% (actual: {actual_pct:.1f}% — {exp['rationale']})"
             )
         lines.append("")
         lines.append(f"**Verdict:** {'PASS' if r.overall_pass else 'FAIL'}")
@@ -816,12 +796,8 @@ def render_markdown(
         "Failure here means the regime taxonomy is degenerate on that data."
     )
     lines.append("")
-    lines.append(
-        "| Symbol | Timeframe | Total bars | Trending | Choppy | Volatile | Quiet | Pass |"
-    )
-    lines.append(
-        "|--------|-----------|-----------:|---------:|-------:|---------:|------:|:----:|"
-    )
+    lines.append("| Symbol | Timeframe | Total bars | Trending | Choppy | Volatile | Quiet | Pass |")
+    lines.append("|--------|-----------|-----------:|---------:|-------:|---------:|------:|:----:|")
     for d in distribution_reports:
         lines.append(
             f"| {d.symbol} | {d.timeframe} | {d.n_bars} | "
@@ -983,8 +959,7 @@ def run_atr_sensitivity(
                 reports.append(evaluate_event_with_config(detector, event, db_path))
             except Exception as exc:  # noqa: BLE001
                 print(
-                    f"[regime-validation][atr-sensitivity] ERROR: "
-                    f"{event.name} @ volatile_atr_pct={thr}: {exc}",
+                    f"[regime-validation][atr-sensitivity] ERROR: {event.name} @ volatile_atr_pct={thr}: {exc}",
                     file=sys.stderr,
                 )
                 traceback.print_exc()
@@ -1043,27 +1018,19 @@ def run_atr_sensitivity(
         "by AC 0.2 (overfitting)."
     )
     lines.append("")
-    lines.append(
-        f"**Thresholds swept:** {', '.join(f'{t:.2f}' for t in ATR_SENS_THRESHOLDS)}"
-    )
+    lines.append(f"**Thresholds swept:** {', '.join(f'{t:.2f}' for t in ATR_SENS_THRESHOLDS)}")
     lines.append("")
 
     # Per-threshold summary table.
     lines.append("## Combined Conceptual Accuracy vs. `volatile_atr_pct`")
     lines.append("")
-    lines.append(
-        "| `volatile_atr_pct` | "
-        + " | ".join(f"{r.name}" for r in EVENTS)
-        + " | Mean |"
-    )
+    lines.append("| `volatile_atr_pct` | " + " | ".join(f"{r.name}" for r in EVENTS) + " | Mean |")
     lines.append("|---:|" + "|".join(":---:" for _ in EVENTS) + "|---:|")
     for thr in ATR_SENS_THRESHOLDS:
         reports = sweep_event_reports[thr]
         per_event = [f"{r.accuracy_conceptual_combined * 100:.1f}%" for r in reports]
         mean_acc = sum(r.accuracy_conceptual_combined for r in reports) / len(reports)
-        lines.append(
-            f"| {thr:.2f} | " + " | ".join(per_event) + f" | {mean_acc * 100:.1f}% |"
-        )
+        lines.append(f"| {thr:.2f} | " + " | ".join(per_event) + f" | {mean_acc * 100:.1f}% |")
     lines.append("")
 
     # Per-event detail per threshold.
@@ -1072,14 +1039,9 @@ def run_atr_sensitivity(
         lines.append("")
         lines.append(f"### Event {i}: {event.name}")
         lines.append("")
-        lines.append(
-            f"**Window:** {event.start_utc} → {event.end_utc} UTC "
-            f"({event.symbol} {event.timeframe})"
-        )
+        lines.append(f"**Window:** {event.start_utc} → {event.end_utc} UTC ({event.symbol} {event.timeframe})")
         lines.append("")
-        lines.append(
-            "| `volatile_atr_pct` | Volatile acc | Trending acc | Combined | Pass |"
-        )
+        lines.append("| `volatile_atr_pct` | Volatile acc | Trending acc | Combined | Pass |")
         lines.append("|---:|---:|---:|---:|:---:|")
         for thr in ATR_SENS_THRESHOLDS:
             r = sweep_event_reports[thr][i - 1]
@@ -1221,9 +1183,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "n_bars_warmup": r.n_bars_warmup,
                 "n_bars_scored": r.n_bars_scored,
                 "detector_label_counts": r.detector_label_counts,
-                "detector_label_pct": {
-                    k: round(v, 6) for k, v in r.detector_label_pct.items()
-                },
+                "detector_label_pct": {k: round(v, 6) for k, v in r.detector_label_pct.items()},
                 "consistency_volatile": r.consistency_volatile,
                 "consistency_trending": r.consistency_trending,
                 "conceptual_volatile": r.conceptual_volatile,
@@ -1251,8 +1211,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
             for d in distribution_reports
         ],
-        "overall_pass": all(r.overall_pass for r in event_reports)
-        and all(d.passes for d in distribution_reports),
+        "overall_pass": all(r.overall_pass for r in event_reports) and all(d.passes for d in distribution_reports),
     }
     json_path.write_text(json.dumps(payload, indent=2, default=str))
     print(f"[regime-validation] Wrote JSON: {json_path}")

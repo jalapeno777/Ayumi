@@ -25,18 +25,8 @@ from backtest.statistical_study import (
     StatisticalStudyResult,
 )
 
-DATA_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "data"
-    / "forex"
-    / "parquet"
-    / "EURUSD_1h.parquet"
-)
-OUTPUT_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "reports"
-    / "backtest_q2_lod_hod_stop_rate.json"
-)
+DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "forex" / "parquet" / "EURUSD_1h.parquet"
+OUTPUT_PATH = Path(__file__).resolve().parent.parent / "reports" / "backtest_q2_lod_hod_stop_rate.json"
 
 PIP_VALUE = 0.0001
 
@@ -324,9 +314,7 @@ class Q2LODHODStudy(StatisticalStudy):
 
         avg_slippage = 0.0
         if intrabar_hits:
-            avg_slippage = sum(t.slippage_pips for t in intrabar_hits) / len(
-                intrabar_hits
-            )
+            avg_slippage = sum(t.slippage_pips for t in intrabar_hits) / len(intrabar_hits)
 
         optimal_buffer = compute_optimal_buffer(sl_trades)
 

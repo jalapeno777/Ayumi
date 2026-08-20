@@ -3,7 +3,7 @@
 Pipeline: Strategy Score → Confluence Boost → Gate Validator → Final Score
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 from typing import Optional
@@ -88,9 +88,7 @@ class ConfidenceEngine:
         strategy_score = max(0.0, min(1.0, raw_confidence))
 
         # Layer 2: Confluence boost (explicit confluences + detector)
-        confluence_boost = self._calc_confluence_boost(
-            confluences, direction, strategy_score
-        )
+        confluence_boost = self._calc_confluence_boost(confluences, direction, strategy_score)
 
         if self._confluence_detector is not None:
             from datetime import datetime, timezone
@@ -98,9 +96,7 @@ class ConfidenceEngine:
             now = datetime.now(timezone.utc)
             result = self._confluence_detector.get_confluence(symbol, direction, now)
             if result.confluence_score > 0:
-                confluence_boost = min(
-                    confluence_boost + result.confluence_score * 0.15, 0.30
-                )
+                confluence_boost = min(confluence_boost + result.confluence_score * 0.15, 0.30)
 
         # Layer 3: Gate validation
         gates_passed: list[str] = []

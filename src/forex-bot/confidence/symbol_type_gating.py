@@ -92,11 +92,7 @@ class SymbolTypeGate:
         self,
         instrument_registry: Optional[dict[str, Instrument]] = None,
     ) -> None:
-        self._registry = (
-            instrument_registry
-            if instrument_registry is not None
-            else DEFAULT_INSTRUMENTS
-        )
+        self._registry = instrument_registry if instrument_registry is not None else DEFAULT_INSTRUMENTS
 
     def check(self, ctx: dict[str, Any]) -> GateCheck:
         """Classify the symbol and return routing metadata.

@@ -1,6 +1,6 @@
 """Tests for DailyAnalytics."""
 
-import json
+import json  # noqa: I001
 
 import pytest
 

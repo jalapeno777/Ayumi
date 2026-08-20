@@ -21,7 +21,7 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
-from core.types import Bar, MarketState, SessionType, TradeDirection  # noqa: E402
+from core.types import Bar, MarketState, SessionType, TradeDirection  # noqa: E402, I001
 from strategies.donchian_atr_trend_v2 import (  # noqa: E402
     DonchianATRConfig,
     DonchianATRTrendV2Strategy,
@@ -64,12 +64,10 @@ def load_xauusd_m15_last_n(n: int = 5000) -> list[Bar]:
 
     rows = list(reversed(rows))
     bars: list[Bar] = []
-    for ts_utc, o, h, l, c, vol, spread in rows:
+    for ts_utc, o, h, l, c, vol, spread in rows:  # noqa: E741
         bars.append(
             Bar(
-                time=datetime.fromtimestamp(int(ts_utc), tz=timezone.utc).replace(
-                    tzinfo=None
-                ),
+                time=datetime.fromtimestamp(int(ts_utc), tz=timezone.utc).replace(tzinfo=None),
                 open=float(o),
                 high=float(h),
                 low=float(l),
@@ -88,9 +86,7 @@ def main():
 
     print("Loading last 5000 bars from DuckDB...", flush=True)
     bars = load_xauusd_m15_last_n(5000)
-    print(
-        f"Loaded {len(bars)} bars. Range: {bars[0].time} -> {bars[-1].time}", flush=True
-    )
+    print(f"Loaded {len(bars)} bars. Range: {bars[0].time} -> {bars[-1].time}", flush=True)
 
     cfg = DonchianATRConfig(symbol="XAUUSD")
     print(f"Config: {cfg}", flush=True)

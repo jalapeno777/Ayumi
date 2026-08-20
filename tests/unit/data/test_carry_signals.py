@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src" / "forex-bot"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from data.carry_signals import (
+from data.carry_signals import (  # noqa: I001
     CarryRegime,
     CarrySignalProvider,
     ECBSDMXProvider,
@@ -76,16 +76,12 @@ class TestStaticFredRates(unittest.TestCase):
                 {"date": "2023-01-01", "rate": 5.33},
             ]
         )
-        rows = src.get_series(
-            "FEDFUNDS", start_date="2019-01-01", end_date="2022-12-31"
-        )
+        rows = src.get_series("FEDFUNDS", start_date="2019-01-01", end_date="2022-12-31")
         self.assertEqual([r["date"] for r in rows], ["2020-01-01"])
 
     def test_default_table_includes_known_years(self):
         src = StaticFredRates()
-        rows = src.get_series(
-            "FEDFUNDS", start_date="2010-01-01", end_date="2025-12-31"
-        )
+        rows = src.get_series("FEDFUNDS", start_date="2010-01-01", end_date="2025-12-31")
         # Should span every year in the fallback table.
         self.assertGreaterEqual(len(rows), 5)
         self.assertEqual(rows[-1]["date"][:4], "2025")
@@ -251,10 +247,7 @@ class TestMT5SwapFileProvider(unittest.TestCase):
     def test_disk_roundtrip(self):
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = Path(tmp) / "swaps.csv"
-            csv_path.write_text(
-                "symbol,long_swap_points,short_swap_points,updated_at\n"
-                "EURUSD,8.5,-10.0,2026-07-01\n"
-            )
+            csv_path.write_text("symbol,long_swap_points,short_swap_points,updated_at\nEURUSD,8.5,-10.0,2026-07-01\n")
             prov = MT5SwapFileProvider(csv_path=str(csv_path))
             self.assertEqual(prov.get_swap_points("EURUSD"), (8.5, -10.0))
 

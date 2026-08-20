@@ -5,7 +5,7 @@ Verifies two-layer gating:
 2. ForwardTestEngine._execute_signal_live() blocks before broker interaction.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # noqa: I001
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.execution_permission import ExecutionPermissionPolicy
 
@@ -15,9 +15,9 @@ def test_new_order_blocked_by_policy():
     feed = OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="x",
-        client_secret="x",
-        access_token="x",
-        refresh_token="x",
+        client_secret="x",  # noqa: S106
+        access_token="x",  # noqa: S106
+        refresh_token="x",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
         token_lifecycle=MagicMock(),
@@ -39,9 +39,9 @@ def test_new_order_allowed_when_policy_clear():
     feed = OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="x",
-        client_secret="x",
-        access_token="x",
-        refresh_token="x",
+        client_secret="x",  # noqa: S106
+        access_token="x",  # noqa: S106
+        refresh_token="x",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
         token_lifecycle=MagicMock(),
@@ -69,9 +69,7 @@ def test_new_order_allowed_when_policy_clear():
         except Exception as e:
             # Expected — no real connection. But must NOT be policy-related.
             err_str = str(e).lower()
-            assert "not_initialized" not in err_str, (
-                f"Policy blocked order despite inactive kill switch: {e}"
-            )
+            assert "not_initialized" not in err_str, f"Policy blocked order despite inactive kill switch: {e}"
 
 
 # ------------------------------------------------------------------
@@ -81,7 +79,7 @@ def test_new_order_allowed_when_policy_clear():
 
 def test_api_client_has_policy_after_build_components():
     """After _build_components() in live mode, _api_client must have policy set."""
-    from adapters.ctrader.forward_test_engine import (
+    from adapters.ctrader.forward_test_engine import (  # noqa: I001
         ForwardTestEngine,
         ForwardTestConfig,
     )
@@ -110,9 +108,7 @@ def test_api_client_has_policy_after_build_components():
 
     with (
         patch.object(engine, "_build_live_credentials", return_value=live_creds),
-        patch(
-            "adapters.ctrader.forward_test_engine.cTraderAPIClient"
-        ) as mock_client_cls,
+        patch("adapters.ctrader.forward_test_engine.cTraderAPIClient") as mock_client_cls,
         patch("adapters.ctrader.forward_test_engine.OpenApiSpotFeed") as mock_feed_cls,
         patch("adapters.ctrader.forward_test_engine.PaperTrader") as mock_paper_cls,
         patch("adapters.ctrader.forward_test_engine.cTraderLiveAdapter"),
@@ -132,9 +128,5 @@ def test_api_client_has_policy_after_build_components():
         mock_client.set_permission_policy.assert_called_once()
         feed_policy = mock_feed.set_permission_policy.call_args[0][0]
         client_policy = mock_client.set_permission_policy.call_args[0][0]
-        assert feed_policy is client_policy, (
-            "_market_feed and _api_client must share the same policy instance"
-        )
-        assert client_policy is not None, (
-            "_api_client._permission_policy must be set after _build_components()"
-        )
+        assert feed_policy is client_policy, "_market_feed and _api_client must share the same policy instance"
+        assert client_policy is not None, "_api_client._permission_policy must be set after _build_components()"

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta  # noqa: I001
 
 from backtest.engine import Bar
 from scripts.backtest_q2_lod_hod_stop_rate import (
@@ -14,9 +14,7 @@ def _make_bar(dt: datetime, o: float, h: float, low: float, c: float) -> Bar:
     return Bar(time=dt, open=o, high=h, low=low, close=c)
 
 
-def _make_day_bars(
-    date: datetime, levels: list[tuple[float, float, float]]
-) -> list[Bar]:
+def _make_day_bars(date: datetime, levels: list[tuple[float, float, float]]) -> list[Bar]:
     bars = []
     for hour, (o, h, low, c) in enumerate(levels):
         bars.append(_make_bar(date + timedelta(hours=hour), o, h, low, c))

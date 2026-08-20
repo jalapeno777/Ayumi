@@ -24,7 +24,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.correlation import (
+from backtest.correlation import (  # noqa: I001
     compute_correlation_matrix,
     pearson_correlation,
 )
@@ -131,7 +131,7 @@ class TestCorrelationMatrix:
         """Matrix should be symmetric."""
         import random
 
-        rng = random.Random(42)
+        rng = random.Random(42)  # noqa: S311
         returns = {
             "s1": [rng.gauss(0, 0.01) for _ in range(50)],
             "s2": [rng.gauss(0, 0.01) for _ in range(50)],
@@ -211,7 +211,7 @@ class TestCorrelationCLI:
         infile = tmp_path / "returns.json"
         infile.write_text(json.dumps(data))
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "backtest.correlation", "--input", str(infile)],
             capture_output=True,
             text=True,
@@ -230,7 +230,7 @@ class TestCorrelationCLI:
         outfile = tmp_path / "out.json"
         infile.write_text(json.dumps(data))
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",

@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar
+from backtest.engine import Bar  # noqa: I001
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from common.resource_limits import add_resource_args, run_limited
 from signal_engine.risk_sizer import ConfidencePositionSizer
@@ -145,9 +145,7 @@ def main() -> None:
     args = parser.parse_args()
 
     risk_sizer = ConfidencePositionSizer(account_size=10000.0)
-    print(
-        f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}"
-    )
+    print(f"  Risk sizer tiers: {[(t.min_confidence, t.max_confidence, t.risk_pct) for t in risk_sizer.tiers]}")
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -156,9 +154,7 @@ def main() -> None:
     print(f"\n{'═' * 60}")
     print(f"  VRB Walk-Forward — {args.timeframe}")
     print(f"  Pairs: {args.pairs}")
-    print(
-        f"  Windows: {args.windows} | Train: {args.train_ratio} | Val: {args.val_ratio}"
-    )
+    print(f"  Windows: {args.windows} | Train: {args.train_ratio} | Val: {args.val_ratio}")
     print(f"  Min confidence: {args.min_confidence}")
     print(f"{'═' * 60}")
 
@@ -193,12 +189,7 @@ def main() -> None:
             windows_passed = getattr(agg, "windows_passed", 0)
             total_windows = getattr(agg, "total_windows", 0)
 
-            passes = (
-                total_trades >= 20
-                and max_dd <= 5.0
-                and net_profit > 0
-                and win_rate >= 0.40
-            )
+            passes = total_trades >= 20 and max_dd <= 5.0 and net_profit > 0 and win_rate >= 0.40
             go_nogo[pair] = {
                 "pass": passes,
                 "net_profit": net_profit,
@@ -220,7 +211,7 @@ def main() -> None:
 
     report_path = report_dir / f"vrb_{args.timeframe}_{timestamp}.json"
     flat_trades = []
-    for pair, records in all_trade_records.items():
+    for pair, records in all_trade_records.items():  # noqa: B007
         flat_trades.extend(records)
 
     report = {
@@ -234,7 +225,7 @@ def main() -> None:
         },
         "per_pair": {
             pair: {
-                "per_window": [
+                "per_window": [  # noqa: B035
                     {
                         "win_rate": m.win_rate,
                         "profit_factor": m.profit_factor,
@@ -260,9 +251,7 @@ def main() -> None:
     print(f"\n{'═' * 60}")
     print("  SUMMARY")
     print(f"{'═' * 60}")
-    print(
-        f"  {'Pair':<10} {'P&L':>10} {'WR':>7} {'PF':>6} {'DD%':>6} {'Trades':>7} {'Win':>4} {'Verdict':<10}"
-    )
+    print(f"  {'Pair':<10} {'P&L':>10} {'WR':>7} {'PF':>6} {'DD%':>6} {'Trades':>7} {'Win':>4} {'Verdict':<10}")
     print(f"  {'─' * 65}")
     for pair in args.pairs:
         verdict = go_nogo.get(pair, {})
@@ -274,7 +263,7 @@ def main() -> None:
         trades = verdict.get("total_trades", 0)
         wins = int(verdict.get("windows_passed", 0))
         print(
-            f"  {pair:<10} ${pnl:>8.2f} {wr:>6.1%} {pf:>5.2f} {dd:>5.2f}% {trades:>6} {wins:>3}/{verdict.get('total_windows', 0)} {status}"
+            f"  {pair:<10} ${pnl:>8.2f} {wr:>6.1%} {pf:>5.2f} {dd:>5.2f}% {trades:>6} {wins:>3}/{verdict.get('total_windows', 0)} {status}"  # noqa: E501
         )
     print(f"  {'─' * 65}")
 

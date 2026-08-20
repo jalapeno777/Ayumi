@@ -1,6 +1,6 @@
 """TTC/TBD Signal & Confidence Engine — Phase 1-4."""
 
-from .filters import TrendFilter, ATRFilter, FVGFilter, FilterChain
+from .filters import TrendFilter, ATRFilter, FVGFilter, FilterChain  # noqa: I001
 
 from .swing_detector import SwingDetector
 from .level_counter import LevelCounter
@@ -16,7 +16,7 @@ from .backtest_bridge import SignalEngineBridge
 
 BacktestBridge = SignalEngineBridge  # alias
 
-from .data_types import (
+from .data_types import (  # noqa: I001
     Signal,
     Level,
     Swing,

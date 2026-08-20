@@ -1,6 +1,6 @@
 """Production forward test runner wiring the full Ayumi signal pipeline."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import os
@@ -84,9 +84,7 @@ class BlendForwardTestRunner:
         # blend_mode=True is enabled. Lazy-init keeps unit tests that
         # never invoke on_signal() free of file-system side effects.
         self._stats_log_path: str = (
-            config.get("stats_log_path")
-            or os.environ.get("STATS_LOG_PATH")
-            or _DEFAULT_STATS_LOG_PATH
+            config.get("stats_log_path") or os.environ.get("STATS_LOG_PATH") or _DEFAULT_STATS_LOG_PATH
         )
         self._stats_recorder: SignalStatsRecorder | None = None
 
@@ -246,8 +244,7 @@ class BlendForwardTestRunner:
         sizer.reset_daily(cet_date=trading_day)
         self._current_day = trading_day
         logger.info(
-            "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, "
-            "positions_carried=%d, trading_day=%s",
+            "Daily risk reset: daily_used=%.2f→0.00, open_risk=%.2f, positions_carried=%d, trading_day=%s",
             pre_daily,
             pre_open,
             positions_carried,
@@ -430,14 +427,10 @@ class BlendForwardTestRunner:
 
         if not order.rejected:
             # Phase 4: Apply regime-aware exposure multiplier
-            exposure_mult = self._regime_thresholds.get_exposure_multiplier(
-                self._current_regime
-            )
+            exposure_mult = self._regime_thresholds.get_exposure_multiplier(self._current_regime)
 
             # Phase 4.2: Apply edge-based risk multiplier
-            edge_mult = self._edge_tracker.get_risk_multiplier(
-                strategy_id, signal.symbol
-            )
+            edge_mult = self._edge_tracker.get_risk_multiplier(strategy_id, signal.symbol)
 
             combined_mult = exposure_mult * edge_mult
             if combined_mult < 1.0:
@@ -488,9 +481,7 @@ class BlendForwardTestRunner:
                 recorder.record_signal(
                     SignalRecord(
                         signal_id=signal_id,
-                        timestamp=signal.timestamp.isoformat()
-                        if signal.timestamp
-                        else "",
+                        timestamp=signal.timestamp.isoformat() if signal.timestamp else "",
                         strategy=strategy_id,
                         symbol=signal.symbol,
                         direction=str(signal.direction),

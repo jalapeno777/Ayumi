@@ -67,9 +67,7 @@ def _has_fredapi() -> bool:
 class FredSource(Protocol):
     """Interface for any FRED-like rate source (real or test double)."""
 
-    def get_series(
-        self, series_id: str, start_date: str, end_date: str
-    ) -> list[dict]: ...
+    def get_series(self, series_id: str, start_date: str, end_date: str) -> list[dict]: ...
 
 
 class StaticFredRates:
@@ -82,10 +80,7 @@ class StaticFredRates:
 
     def __init__(self, history: Optional[list[dict]] = None) -> None:
         if history is None:
-            history = [
-                {"date": f"{year}-01-01", "rate": rate}
-                for year, rate in _FALLBACK_FED_FUNDS.items()
-            ]
+            history = [{"date": f"{year}-01-01", "rate": rate} for year, rate in _FALLBACK_FED_FUNDS.items()]
         self._history = sorted(history, key=lambda r: r["date"])
 
     def get_series(self, series_id: str, start_date: str, end_date: str) -> list[dict]:
@@ -117,13 +112,9 @@ class FredFetcher:
         force_offline: bool = False,
         source: Optional[FredSource] = None,
     ) -> None:
-        self._api_key = (
-            api_key if api_key is not None else os.environ.get("FRED_API_KEY", "")
-        )
+        self._api_key = api_key if api_key is not None else os.environ.get("FRED_API_KEY", "")
         self._cache_path = Path(cache_path) if cache_path else None
-        self._force_offline = force_offline or os.environ.get(
-            "FRED_OFFLINE", ""
-        ) not in ("", "0", "false", "False")
+        self._force_offline = force_offline or os.environ.get("FRED_OFFLINE", "") not in ("", "0", "false", "False")
         self._cache: dict[str, list[dict]] = self._load_cache()
         self._client = None
         self._explicit_source = source
@@ -135,9 +126,7 @@ class FredFetcher:
 
                     self._client = fredapi.Fred(api_key=self._api_key)
                 except Exception as exc:  # pragma: no cover - network init
-                    logger.warning(
-                        "fredapi init failed (%s); falling back to synthetic rates", exc
-                    )
+                    logger.warning("fredapi init failed (%s); falling back to synthetic rates", exc)
 
     # ------------------------------------------------------------------
     # Cache I/O
@@ -198,13 +187,10 @@ class FredFetcher:
                 rows = [
                     {"date": ts.strftime("%Y-%m-%d"), "rate": float(value)}
                     for ts, value in df.items()
-                    if value is not None
-                    and not (isinstance(value, float) and value != value)  # NaN check
+                    if value is not None and not (isinstance(value, float) and value != value)  # NaN check
                 ]
             except Exception as exc:  # pragma: no cover - network path
-                logger.warning(
-                    "FRED live fetch failed (%s); using synthetic history", exc
-                )
+                logger.warning("FRED live fetch failed (%s); using synthetic history", exc)
 
         if rows is None:
             rows = self._synthetic_us_rates(start_date, end_date)

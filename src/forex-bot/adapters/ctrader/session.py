@@ -276,9 +276,7 @@ class cTraderSession:
                     event.set()
 
                 def on_error(failure: Any) -> None:
-                    logger.warning(
-                        "Send failed (msg_id=%s): %s", client_msg_id, failure
-                    )
+                    logger.warning("Send failed (msg_id=%s): %s", client_msg_id, failure)
                     error_holder[0] = str(failure)
                     event.set()  # MUST fire on BOTH paths
 
@@ -290,9 +288,7 @@ class cTraderSession:
         reactor.callFromThread(do_send)
 
         if not event.wait(timeout=timeout):
-            logger.warning(
-                "Send timed out (msg_id=%s, timeout=%.1fs)", client_msg_id, timeout
-            )
+            logger.warning("Send timed out (msg_id=%s, timeout=%.1fs)", client_msg_id, timeout)
             return None
 
         if error_holder[0] is not None:

@@ -5,7 +5,7 @@ D-011 zero-trade fix (core.types TradeDirection now shared with
 backtest.types TradeDirection).
 """
 
-import unittest
+import unittest  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -58,9 +58,7 @@ def _make_flat_bars(
         close = base_price + change
         high = max(open_, close) + abs(random.gauss(0, volatility * 0.3))
         low = min(open_, close) - abs(random.gauss(0, volatility * 0.3))
-        bars.append(
-            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
-        )
+        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
     return bars
 
 
@@ -80,9 +78,7 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + abs(random.gauss(0, vol * 0.3))
         low = min(open_, close) - abs(random.gauss(0, vol * 0.3))
-        bars.append(
-            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
-        )
+        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
 
     # Phase 2: low-volatility squeeze (bars 56-69)
     for i in range(56, 70):
@@ -92,9 +88,7 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + abs(random.gauss(0, vol * 0.3))
         low = min(open_, close) - abs(random.gauss(0, vol * 0.3))
-        bars.append(
-            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
-        )
+        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
 
     # Phase 3: breakout bar (bar 70) — close above recent 10-bar high
     recent_high = max(b.high for b in bars[-11:-1])
@@ -116,9 +110,7 @@ def _make_mixed_vol_bars(n: int = 75) -> list[Bar]:
         close = open_ + change
         high = max(open_, close) + 0.0003
         low = min(open_, close) - 0.0003
-        bars.append(
-            _make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24)
-        )
+        bars.append(_make_bar(price=close, open_=open_, high=high, low=low, hour=i % 24))
 
     return bars
 
@@ -227,9 +219,7 @@ class TestVRBBreakoutSignal(unittest.TestCase):
         state = MarketState(bars=bars, current_session=SessionType.LONDON)
         signal = strategy.evaluate(state)
 
-        self.assertIsNotNone(
-            signal, "VRB strategy should produce SHORT signal on downside breakout"
-        )
+        self.assertIsNotNone(signal, "VRB strategy should produce SHORT signal on downside breakout")
         self.assertEqual(signal.direction, TradeDirection.SHORT)
 
     def test_cooldown_prevents_rapid_resignal(self):
@@ -275,9 +265,7 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
 
         self.assertIsNotNone(signal, "Strategy should produce a signal")
         # Type-identity check: strategy direction IS backtest direction
-        self.assertIs(
-            signal.direction, getattr(BacktestTradeDirection, signal.direction.name)
-        )
+        self.assertIs(signal.direction, getattr(BacktestTradeDirection, signal.direction.name))
         self.assertIn(signal.direction, BacktestTradeDirection)
 
     def test_short_signal_direction_is_backtest_direction(self):
@@ -306,9 +294,7 @@ class TestVRBSignalTypeIdentity(unittest.TestCase):
 
         self.assertIsNotNone(signal, "Strategy should produce a SHORT signal")
         self.assertIn(signal.direction, BacktestTradeDirection)
-        self.assertIs(
-            signal.direction, getattr(BacktestTradeDirection, signal.direction.name)
-        )
+        self.assertIs(signal.direction, getattr(BacktestTradeDirection, signal.direction.name))
 
 
 if __name__ == "__main__":

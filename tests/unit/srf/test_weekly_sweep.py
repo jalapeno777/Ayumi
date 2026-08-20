@@ -29,7 +29,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf import weekly_sweep as weekly_sweep_module
+from srf import weekly_sweep as weekly_sweep_module  # noqa: I001
 from srf.weekly_sweep import (
     DEFAULT_PAIRS,
     DEFAULT_TIMEFRAMES,
@@ -136,9 +136,7 @@ class TestResolveDataPath:
                 p = _resolve_data_path(pair, tf)
                 if not p.exists():
                     missing.append(f"{pair}_{tf} -> {p}")
-        assert missing == [], (
-            f"Default grid expects these data files to exist: {missing}"
-        )
+        assert missing == [], f"Default grid expects these data files to exist: {missing}"
 
     def test_known_pair_uses_convention(self):
         """Path should follow ``data/forex/historical/{pair}_{tf}.csv``."""
@@ -199,9 +197,7 @@ class TestWeeklySweepMockedRunner:
                 pairs=["GBPUSD"],
                 timeframes=["M15"],
             )
-        assert expected_keys.issubset(result.keys()), (
-            f"Missing keys: {expected_keys - set(result.keys())}"
-        )
+        assert expected_keys.issubset(result.keys()), f"Missing keys: {expected_keys - set(result.keys())}"
 
     def test_total_combos_is_cartesian_product(self, fake_factories, fake_runner):
         """total_combos = len(strategies) × len(pairs) × len(timeframes)."""
@@ -274,9 +270,7 @@ class TestWeeklySweepMockedRunner:
         # Runner should not have been called at all for invalid timeframes
         fake_runner.run.assert_not_called()
 
-    def test_missing_data_file_is_counted_as_failure(
-        self, fake_factories, fake_runner, caplog
-    ):
+    def test_missing_data_file_is_counted_as_failure(self, fake_factories, fake_runner, caplog):
         """A missing data file short-circuits the runner and counts as failure."""
         with (
             patch("srf.registry.get_strategy_factories", return_value=fake_factories),
@@ -304,9 +298,7 @@ class TestWeeklySweepMockedRunner:
         assert result["total_combos"] == 1
         assert result["strategies"] == ["alpha"]
 
-    def test_strategies_filter_unknown_logs_warning(
-        self, fake_factories, fake_runner, caplog
-    ):
+    def test_strategies_filter_unknown_logs_warning(self, fake_factories, fake_runner, caplog):
         """Unknown strategies are ignored but the run continues."""
         with (
             patch("srf.registry.get_strategy_factories", return_value=fake_factories),

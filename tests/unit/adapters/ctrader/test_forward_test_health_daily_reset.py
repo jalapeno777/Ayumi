@@ -5,7 +5,7 @@ when the 17:00 America/Toronto boundary has crossed, matching the
 risk_guard._current_trading_day() pattern.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime  # noqa: I001
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -48,9 +48,7 @@ def test_reset_daily_counters_preserves_lifetime_counters(
 ) -> None:
     """signals_generated is a lifetime diagnostic, NOT a daily guardrail."""
     health.reset_daily_counters()
-    assert health.signals_generated == 99, (
-        "signals_generated must NOT reset — it's a session-lifetime diagnostic"
-    )
+    assert health.signals_generated == 99, "signals_generated must NOT reset — it's a session-lifetime diagnostic"
 
 
 def test_last_health_trading_day_default_is_none() -> None:

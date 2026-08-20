@@ -12,7 +12,7 @@ This module tests the real order execution surface that already lives in
 All network calls are mocked; no real cTrader connection is established.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from unittest.mock import MagicMock
 
@@ -65,8 +65,8 @@ def _make_feed() -> OpenApiSpotFeed:
     feed = OpenApiSpotFeed(
         ctid_account_id=5795523,
         client_id="test_client",
-        client_secret="test_secret",
-        access_token="test_token",
+        client_secret="test_secret",  # noqa: S106
+        access_token="test_token",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
     )
@@ -192,9 +192,7 @@ class TestNewOrder:
         _set_connected(feed)
         _capture_send(feed)
 
-        order = feed.new_order(
-            symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01
-        )
+        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01)
         assert order.symbol == "EURUSD"
         assert order.direction == TradeDirection.LONG
         assert order.order_type == OrderType.MARKET
@@ -206,9 +204,7 @@ class TestNewOrder:
         _set_connected(feed)
         _capture_send(feed)
 
-        order = feed.new_order(
-            symbol_id=1, side=ProtoOATradeSide.SELL, volume=100_000, timeout=0.01
-        )
+        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.SELL, volume=100_000, timeout=0.01)
         assert order.direction == TradeDirection.SHORT
 
     def test_new_order_not_connected_returns_order_with_reason(self):
@@ -216,9 +212,7 @@ class TestNewOrder:
         _set_connected(feed, connected=False)
         _capture_send(feed)
 
-        order = feed.new_order(
-            symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01
-        )
+        order = feed.new_order(symbol_id=1, side=ProtoOATradeSide.BUY, volume=100_000, timeout=0.01)
 
         assert len(_capture_send(feed)) == 0
         assert order.status == OrderStatus.PENDING
@@ -442,9 +436,7 @@ class TestReconcile:
         _set_connected(feed, connected=False)
 
         def should_not_be_called(*a, **kw):
-            raise AssertionError(
-                "send_and_wait should not be called when not operational"
-            )
+            raise AssertionError("send_and_wait should not be called when not operational")
 
         feed._conn.send_and_wait = should_not_be_called
         assert feed.reconcile() == []

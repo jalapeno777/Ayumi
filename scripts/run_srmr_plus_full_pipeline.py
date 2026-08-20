@@ -59,21 +59,13 @@ def suggest_srmr_params(trial: optuna.Trial, pip_scale: float = 1.0) -> dict:
         "rsi_short_level": trial.suggest_float("rsi_short_level", 55.0, 80.0),
         "adx_period": trial.suggest_int("adx_period", 7, 28),
         "adx_max_threshold": trial.suggest_float("adx_max_threshold", 15.0, 40.0),
-        "session_range_min_pips": trial.suggest_float(
-            "session_range_min_pips", 5.0 * pip_scale, 50.0 * pip_scale
-        ),
-        "entry_near_extreme_pips": trial.suggest_float(
-            "entry_near_extreme_pips", 3.0 * pip_scale, 30.0 * pip_scale
-        ),
-        "hard_cap_sl_pips": trial.suggest_float(
-            "hard_cap_sl_pips", 10.0 * pip_scale, 50.0 * pip_scale
-        ),
+        "session_range_min_pips": trial.suggest_float("session_range_min_pips", 5.0 * pip_scale, 50.0 * pip_scale),
+        "entry_near_extreme_pips": trial.suggest_float("entry_near_extreme_pips", 3.0 * pip_scale, 30.0 * pip_scale),
+        "hard_cap_sl_pips": trial.suggest_float("hard_cap_sl_pips", 10.0 * pip_scale, 50.0 * pip_scale),
         "tp1_rr": trial.suggest_float("tp1_rr", 0.5, 3.0),
         "tp2_rr": trial.suggest_float("tp2_rr", 0.5, 3.0),
         "ema_trend_period": trial.suggest_int("ema_trend_period", 20, 100),
-        "use_same_day_range": trial.suggest_categorical(
-            "use_same_day_range", [True, False]
-        ),
+        "use_same_day_range": trial.suggest_categorical("use_same_day_range", [True, False]),
     }
 
 
@@ -217,12 +209,8 @@ def run_optuna_for_timeframe(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="SRMR+ full pipeline: Optuna + WF across timeframes"
-    )
-    parser.add_argument(
-        "--pair", type=str, default="XAUUSD", help="Currency pair (default: XAUUSD)"
-    )
+    parser = argparse.ArgumentParser(description="SRMR+ full pipeline: Optuna + WF across timeframes")
+    parser.add_argument("--pair", type=str, default="XAUUSD", help="Currency pair (default: XAUUSD)")
     parser.add_argument(
         "--timeframes",
         type=str,
@@ -235,12 +223,8 @@ def main():
         default=50,
         help="Optuna trials per timeframe (default: 50)",
     )
-    parser.add_argument(
-        "--windows", type=int, default=5, help="WF windows (default: 5)"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Show plan without running"
-    )
+    parser.add_argument("--windows", type=int, default=5, help="WF windows (default: 5)")
+    parser.add_argument("--dry-run", action="store_true", help="Show plan without running")
     args = parser.parse_args()
 
     pair = args.pair
@@ -301,7 +285,7 @@ def main():
                     trades = result.get("mean_trade_count", 0)
                     opt_val = result.get("optuna_best_value", 0)
                     print(
-                        f"DONE ({elapsed:.0f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f} | trades={trades:.0f} | optuna_best={opt_val:.0f}"
+                        f"DONE ({elapsed:.0f}s) — {passed}/{total} PASS | PF={pf:.2f} | WR={wr:.1%} | PnL={pnl:.0f} | trades={trades:.0f} | optuna_best={opt_val:.0f}"  # noqa: E501
                     )
                 elif result["status"] == "skipped":
                     print(f"SKIP — {result.get('reason', 'unknown')}")
@@ -315,11 +299,7 @@ def main():
                     f.write(json.dumps(result, default=str) + "\n")
 
     # Summary
-    viable = [
-        r
-        for r in all_results
-        if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3
-    ]
+    viable = [r for r in all_results if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3]
 
     summary = {
         "pair": pair,
@@ -337,7 +317,7 @@ def main():
     print(f"SUMMARY: {len(all_results)} timeframes evaluated, {len(viable)} viable")
     for v in viable:
         print(
-            f"  ✅ {v['timeframe']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS PnL={v['mean_total_pnl']:.0f}"
+            f"  ✅ {v['timeframe']} — PF={v['mean_profit_factor']:.2f} WR={v['mean_win_rate']:.1%} {v['windows_passed']}/{v['windows_total']} PASS PnL={v['mean_total_pnl']:.0f}"  # noqa: E501
         )
     print(f"\nFull report: {REPORT_DIR / f'{pair}_summary.json'}")
 

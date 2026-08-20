@@ -26,7 +26,7 @@ import numpy as np
 ROOT = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
-from backtest.db_data_loader import DbDataLoader  # noqa: E402
+from backtest.db_data_loader import DbDataLoader  # noqa: E402, I001
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine  # noqa: E402
 from backtest.types import BacktestConfig  # noqa: E402
 from backtest.walk_forward_runner import (  # noqa: E402
@@ -57,9 +57,7 @@ def summarize_trades(trades) -> dict:
     losses = [p for p in pnls if p < 0]
     total_win = sum(wins)
     total_loss = abs(sum(losses))
-    pf = (
-        (total_win / total_loss) if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
-    )
+    pf = (total_win / total_loss) if total_loss > 0 else (10.0 if total_win > 0 else 0.0)
     confs = [t.confidence_score for t in trades]
     return {
         "trade_count": len(trades),
@@ -105,9 +103,7 @@ def run_engine_on_bars(
         strategy = TTCXAUUSDStrategy()
         # Force SwingDetector to use overridden lookback (TTC init uses 5 hardcoded)
         if override_lookback is not None:
-            strategy._strategy._swing_detector = tts_mod.SwingDetector(
-                lookback=override_lookback
-            )
+            strategy._strategy._swing_detector = tts_mod.SwingDetector(lookback=override_lookback)
         risk_sizer = ConfidencePositionSizer(account_size=10000)
         engine = MultiStrategyBacktestEngine(config, [strategy], risk_sizer=risk_sizer)
         t0 = time.time()
@@ -167,17 +163,13 @@ def run_walk_forward(
         )
         risk_sizer = ConfidencePositionSizer(account_size=10000)
         t0 = time.time()
-        for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):
+        for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
             strategy = TTCXAUUSDStrategy()
             if override_lookback is not None:
-                strategy._strategy._swing_detector = tts_mod.SwingDetector(
-                    lookback=override_lookback
-                )
+                strategy._strategy._swing_detector = tts_mod.SwingDetector(lookback=override_lookback)
             if hasattr(strategy, "reset") and callable(strategy.reset):
                 strategy.reset()
-            engine = MultiStrategyBacktestEngine(
-                config, [strategy], risk_sizer=risk_sizer
-            )
+            engine = MultiStrategyBacktestEngine(config, [strategy], risk_sizer=risk_sizer)
             result = engine.run_all_strategies(test_bars)
             metrics_obj = result[strategy.name].metrics
             for t in metrics_obj.trades:
@@ -237,9 +229,7 @@ def run_walk_forward(
             "aggregated": {
                 "mean_win_rate": round(sum(wrs) / len(wrs), 4) if wrs else 0.0,
                 "mean_profit_factor": round(sum(pfs) / len(pfs), 4) if pfs else 0.0,
-                "mean_trade_count": round(sum(trades_per_w) / len(trades_per_w), 1)
-                if trades_per_w
-                else 0,
+                "mean_trade_count": round(sum(trades_per_w) / len(trades_per_w), 1) if trades_per_w else 0,
                 "mean_total_pnl": round(sum(pnls) / len(pnls), 2) if pnls else 0.0,
                 "windows_passed": windows_passed,
                 "total_windows": len(per_window),
@@ -268,7 +258,7 @@ def generate_gbm_bars(
     Open of bar_t = close of bar_{t-1}.
     High/Low are noisy around the close.
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timezone, timedelta  # noqa: I001
     from core.types import Bar, BarPeriod
 
     rng = np.random.default_rng(seed)
@@ -365,7 +355,7 @@ def test_inspect_trades(bars: list) -> dict:
     # Window 4 trades
     w4_trades = [(idx, t) for idx, t in trade_objects if idx == 4]
     sample_size = min(20, len(w4_trades))
-    rng = random.Random(7)
+    rng = random.Random(7)  # noqa: S311
     if w4_trades:
         sample = rng.sample(w4_trades, sample_size)
     else:
@@ -373,35 +363,25 @@ def test_inspect_trades(bars: list) -> dict:
 
     issues = []
     coherent_count = 0
-    for idx, t in sample:
+    for idx, t in sample:  # noqa: B007
         ok = True
         d = str(t.direction)
         if t.entry_price == t.exit_price:
-            issues.append(
-                f"{t.entry_time} {d}: entry=exit={t.entry_price:.5f} (zero move; pnl={t.profit_loss:.2f})"
-            )
+            issues.append(f"{t.entry_time} {d}: entry=exit={t.entry_price:.5f} (zero move; pnl={t.profit_loss:.2f})")
             ok = False
         # Long win: exit > entry; Long loss: exit < entry
         if d == "LONG" and t.profit_loss > 0 and t.exit_price <= t.entry_price:
-            issues.append(
-                f"{t.entry_time} LONG win with exit<=entry ({t.entry_price:.5f} → {t.exit_price:.5f})"
-            )
+            issues.append(f"{t.entry_time} LONG win with exit<=entry ({t.entry_price:.5f} → {t.exit_price:.5f})")
             ok = False
         if d == "SHORT" and t.profit_loss > 0 and t.exit_price >= t.entry_price:
-            issues.append(
-                f"{t.entry_time} SHORT win with exit>=entry ({t.entry_price:.5f} → {t.exit_price:.5f})"
-            )
+            issues.append(f"{t.entry_time} SHORT win with exit>=entry ({t.entry_price:.5f} → {t.exit_price:.5f})")
             ok = False
         # Stop loss should be on opposite side
         if d == "LONG" and t.stop_loss >= t.entry_price:
-            issues.append(
-                f"{t.entry_time} LONG with SL>=entry ({t.stop_loss:.5f} >= {t.entry_price:.5f})"
-            )
+            issues.append(f"{t.entry_time} LONG with SL>=entry ({t.stop_loss:.5f} >= {t.entry_price:.5f})")
             ok = False
         if d == "SHORT" and t.stop_loss <= t.entry_price and t.stop_loss > 0:
-            issues.append(
-                f"{t.entry_time} SHORT with SL<=entry ({t.stop_loss:.5f} <= {t.entry_price:.5f})"
-            )
+            issues.append(f"{t.entry_time} SHORT with SL<=entry ({t.stop_loss:.5f} <= {t.entry_price:.5f})")
             ok = False
         if ok:
             coherent_count += 1
@@ -536,20 +516,20 @@ def main() -> int:
     print("Per-window summary:")
     for w in t2["summary"]["per_window"]:
         print(
-            f"  W{w['window_index']}: WR={w['win_rate']:.3f}, PF={w['profit_factor']:.3f}, trades={w['trade_count']}, pnl={w['total_pnl']:.2f}"
+            f"  W{w['window_index']}: WR={w['win_rate']:.3f}, PF={w['profit_factor']:.3f}, trades={w['trade_count']}, pnl={w['total_pnl']:.2f}"  # noqa: E501
         )
     print(f"Aggregated: {t2['summary']['aggregated']}")
     print()
     print("Window 4 sample trades:")
     for s in t2["window4_samples"][:5]:
         print(
-            f"  {s['entry_time']} {s['direction']} entry={s['entry_price']:.5f} exit={s['exit_price']:.5f} SL={s['stop_loss']:.5f} pnl={s['pnl']:.2f} conf={s['confidence_score']:.3f}"
+            f"  {s['entry_time']} {s['direction']} entry={s['entry_price']:.5f} exit={s['exit_price']:.5f} SL={s['stop_loss']:.5f} pnl={s['pnl']:.2f} conf={s['confidence_score']:.3f}"  # noqa: E501
         )
     print()
     print("Per-window confidence distribution:")
     for c in t2["per_window_confidence"]:
         print(
-            f"  W{c['window']}: n={c['n_trades']}, conf min/max/mean = {c['conf_min']:.3f}/{c['conf_max']:.3f}/{c['conf_mean']:.3f}, high_conf(>=0.95)={c['high_conf_count']}"
+            f"  W{c['window']}: n={c['n_trades']}, conf min/max/mean = {c['conf_min']:.3f}/{c['conf_max']:.3f}/{c['conf_mean']:.3f}, high_conf(>=0.95)={c['high_conf_count']}"  # noqa: E501
         )
     print()
 
@@ -565,15 +545,13 @@ def main() -> int:
         else:
             s = c["summary"]
             agg = s["aggregated"]
+            print(f"  {c['config']} (lookback={c['lookback']}, hist={c['history_bars']}):")
             print(
-                f"  {c['config']} (lookback={c['lookback']}, hist={c['history_bars']}):"
-            )
-            print(
-                f"    mean PF={agg['mean_profit_factor']:.3f}, mean WR={agg['mean_win_rate']:.3f}, mean trades/w={agg['mean_trade_count']:.1f}, mean pnl={agg['mean_total_pnl']:.2f}, windows_passed={agg['windows_passed']}/{agg['total_windows']}"
+                f"    mean PF={agg['mean_profit_factor']:.3f}, mean WR={agg['mean_win_rate']:.3f}, mean trades/w={agg['mean_trade_count']:.1f}, mean pnl={agg['mean_total_pnl']:.2f}, windows_passed={agg['windows_passed']}/{agg['total_windows']}"  # noqa: E501
             )
             for w in s["per_window"]:
                 print(
-                    f"      W{w['window_index']}: WR={w['win_rate']:.3f}, PF={w['profit_factor']:.3f}, trades={w['trade_count']}, pnl={w['total_pnl']:.2f}"
+                    f"      W{w['window_index']}: WR={w['win_rate']:.3f}, PF={w['profit_factor']:.3f}, trades={w['trade_count']}, pnl={w['total_pnl']:.2f}"  # noqa: E501
                 )
     print()
 
@@ -584,7 +562,7 @@ def main() -> int:
         "test2_real_inspection": t2,
         "test3_param_sensitivity": t3,
     }
-    out_path = Path("/tmp/ttc_xauusd_verification.json")
+    out_path = Path("/tmp/ttc_xauusd_verification.json")  # noqa: S108
     out_path.write_text(json.dumps(out, indent=2, default=str))
     print(f"\nFull results written to: {out_path}")
     return 0

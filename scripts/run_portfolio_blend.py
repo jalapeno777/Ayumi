@@ -91,26 +91,20 @@ def get_strategy_factory(strategy_name: str, pair: str):
             return lambda: DonchianATRTrendStrategy()
 
         if strategy_name == "london_breakout_retest":
-            from strategies.london_breakout_retest import (
+            from strategies.london_breakout_retest import (  # noqa: I001
                 LondonBreakoutRetestStrategy,
                 LondonBreakoutConfig,
             )
 
-            return lambda: LondonBreakoutRetestStrategy(
-                LondonBreakoutConfig(symbol=pair)
-            )
+            return lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig(symbol=pair))
 
         if strategy_name == "session_breakout":
-            from strategies.session_breakout import SessionBreakoutConfig
+            from strategies.session_breakout import SessionBreakoutConfig  # noqa: I001
             import strategies.session_breakout as sb_mod
 
             for name in dir(sb_mod):
                 obj = getattr(sb_mod, name)
-                if (
-                    isinstance(obj, type)
-                    and "Breakout" in name
-                    and "Config" not in name
-                ):
+                if isinstance(obj, type) and "Breakout" in name and "Config" not in name:
                     return lambda: obj(SessionBreakoutConfig())
     except ImportError:
         return None
@@ -221,7 +215,7 @@ def run_self_test() -> bool:
     Uses synthetic bar data to avoid dependency on real CSV files.
     Verifies that run_portfolio_blend returns non-zero combined metrics.
     """
-    from backtest.portfolio_blend import (
+    from backtest.portfolio_blend import (  # noqa: I001
         StrategySpec,
         run_portfolio_blend,
     )
@@ -241,7 +235,7 @@ def run_self_test() -> bool:
         change = random.gauss(0, 0.0005)
         o = price
         h = o + abs(random.gauss(0, 0.0003))
-        l = o - abs(random.gauss(0, 0.0003))
+        l = o - abs(random.gauss(0, 0.0003))  # noqa: E741
         c = o + change
         bars.append(
             Bar(
@@ -256,7 +250,7 @@ def run_self_test() -> bool:
         price = c
 
     # Write temp CSV for CsvDataLoader
-    import csv as csv_mod
+    import csv as csv_mod  # noqa: I001
     import tempfile
     import os
 
@@ -403,32 +397,20 @@ def main() -> None:
         default=5,
         help="Maximum concurrent open trades across portfolio (default: 5)",
     )
-    parser.add_argument(
-        "--windows", type=int, default=5, help="Walk-forward windows (default: 5)"
-    )
-    parser.add_argument(
-        "--balance", type=float, default=10000, help="Starting balance (default: 10000)"
-    )
+    parser.add_argument("--windows", type=int, default=5, help="Walk-forward windows (default: 5)")
+    parser.add_argument("--balance", type=float, default=10000, help="Starting balance (default: 10000)")
 
     # ── Output ───────────────────────────────────────────────────────────
-    parser.add_argument(
-        "--output", type=str, default=None, help="Output JSON file path"
-    )
+    parser.add_argument("--output", type=str, default=None, help="Output JSON file path")
     parser.add_argument("--no-db", action="store_true", help="Skip DuckDB persistence")
-    parser.add_argument(
-        "--no-filter", action="store_true", help="Disable strategy filtering"
-    )
-    parser.add_argument(
-        "--compare", action="store_true", help="Compare all weight methods"
-    )
+    parser.add_argument("--no-filter", action="store_true", help="Disable strategy filtering")
+    parser.add_argument("--compare", action="store_true", help="Compare all weight methods")
     parser.add_argument(
         "--list-strategies",
         action="store_true",
         help="List available strategies and exit",
     )
-    parser.add_argument(
-        "--self-test", action="store_true", help="Run built-in unit test and exit"
-    )
+    parser.add_argument("--self-test", action="store_true", help="Run built-in unit test and exit")
 
     args = parser.parse_args()
 
@@ -473,9 +455,7 @@ def main() -> None:
     print()
 
     if not specs:
-        print(
-            "ERROR: No strategy specs to run. Check --strategies/--symbols/--timeframes."
-        )
+        print("ERROR: No strategy specs to run. Check --strategies/--symbols/--timeframes.")
         sys.exit(1)
 
     # ── Run blend ────────────────────────────────────────────────────────
@@ -509,9 +489,7 @@ def main() -> None:
             wf_score = 0
             if result.walk_forward and result.walk_forward.aggregated:
                 a = result.walk_forward.aggregated
-                wf_score = (
-                    a.mean_win_rate * 100 + a.mean_profit_factor + a.mean_sharpe_ratio
-                )
+                wf_score = a.mean_win_rate * 100 + a.mean_profit_factor + a.mean_sharpe_ratio
 
             score = (
                 (10 if result.ftmo_passed else 0)
@@ -530,12 +508,10 @@ def main() -> None:
                 _, filtered_out = _get_filtered(specs, args.balance, enable_filter)
 
         print(
-            f"{'Method':<20} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'PnL':>10} {'FTMO':>6} {'WF GO':>6} {'Score':>7}"
+            f"{'Method':<20} {'WR%':>6} {'PF':>7} {'Sharpe':>7} {'DD%':>7} {'PnL':>10} {'FTMO':>6} {'WF GO':>6} {'Score':>7}"  # noqa: E501
         )
         print("-" * 90)
-        for method_name, c in sorted(
-            comparison.items(), key=lambda x: -x[1].get("score", 0)
-        ):
+        for method_name, c in sorted(comparison.items(), key=lambda x: -x[1].get("score", 0)):
             ftmo_str = "PASS" if c["ftmo"] else "FAIL"
             wf_str = "GO" if c["wf_go"] else "NO"
             print(
@@ -560,9 +536,7 @@ def main() -> None:
         print(f"Completed in {elapsed:.1f}s\n")
 
     # ── Report ───────────────────────────────────────────────────────────
-    report = format_portfolio_report(
-        best_result, filtered_strategies=filtered_out if filtered_out else None
-    )
+    report = format_portfolio_report(best_result, filtered_strategies=filtered_out if filtered_out else None)
     print(report)
 
     # ── Build report data ────────────────────────────────────────────────
@@ -585,9 +559,7 @@ def main() -> None:
         "weight_method": best_method,
         "configs": configs,
         "strategy_filter_enabled": enable_filter,
-        "filtered_strategies": [
-            {"key": f.key, "reason": f.reason} for f in filtered_out
-        ],
+        "filtered_strategies": [{"key": f.key, "reason": f.reason} for f in filtered_out],
         "ftmo_passed": best_result.ftmo_passed,
         "ftmo_criteria": best_result.ftmo_criteria,
         "weights": best_result.weights.weights,

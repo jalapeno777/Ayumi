@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-import tempfile
+import tempfile  # noqa: F401
 import threading
 import time
 from dataclasses import dataclass
@@ -40,6 +40,7 @@ REQUEST_TIMEOUT_S = 10
 
 
 # ── Exceptions ─────────────────────────────────────────────────────────────
+
 
 class OAuthRefreshError(Exception):
     """Base exception for OAuth refresh failures."""
@@ -63,6 +64,7 @@ class OAuthHttpError(OAuthRefreshError):
 
 # ── Data class ─────────────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class OAuthToken:
     """Immutable token snapshot."""
@@ -73,6 +75,7 @@ class OAuthToken:
 
 
 # ── Manager ────────────────────────────────────────────────────────────────
+
 
 class OAuthRefreshManager:
     """Thread-safe OAuth token refresh wrapper.
@@ -179,9 +182,7 @@ class OAuthRefreshManager:
         refresh_token = creds.get("refresh_token", "")
 
         if not refresh_token:
-            raise NoRefreshTokenError(
-                f"No refresh_token in credentials file: {self._path}"
-            )
+            raise NoRefreshTokenError(f"No refresh_token in credentials file: {self._path}")
 
         logger.info("[OAuth] Refreshing token (refresh_token=%s…)", refresh_token[:8])
 
@@ -262,9 +263,7 @@ class OAuthRefreshManager:
             with open(self._path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as exc:
-            raise OAuthRefreshError(
-                f"Failed to read credentials: {exc}"
-            ) from exc
+            raise OAuthRefreshError(f"Failed to read credentials: {exc}") from exc
 
     def _write_credentials(
         self,
@@ -293,6 +292,4 @@ class OAuthRefreshManager:
                 os.unlink(tmp_path)
             except OSError:
                 pass
-            raise OAuthRefreshError(
-                f"Failed to write credentials atomically: {exc}"
-            ) from exc
+            raise OAuthRefreshError(f"Failed to write credentials atomically: {exc}") from exc

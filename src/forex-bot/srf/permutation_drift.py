@@ -107,11 +107,7 @@ class ImportanceResult:
         return "clear"
 
     def __str__(self) -> str:
-        flag = (
-            "🔴"
-            if self.severity() == "red"
-            else ("⚠️" if self.severity() == "yellow" else "✅")
-        )
+        flag = "🔴" if self.severity() == "red" else ("⚠️" if self.severity() == "yellow" else "✅")
         return (
             f"{flag}  {self.feature}: "
             f"ref={self.reference_importance:.4f} → cur={self.current_importance:.4f} "
@@ -128,9 +124,7 @@ class ImportanceReport:
 
     def alerts(self) -> list[ImportanceResult]:
         """Return only results where importance is declining or in red zone."""
-        return [
-            r for r in self.results if r.is_declining or r.is_red_zone or r.is_negative
-        ]
+        return [r for r in self.results if r.is_declining or r.is_red_zone or r.is_negative]
 
     def red_alerts(self) -> list[ImportanceResult]:
         """Return only red-zone results (feature may need replacement)."""
@@ -138,11 +132,7 @@ class ImportanceReport:
 
     def yellow_alerts(self) -> list[ImportanceResult]:
         """Return only yellow alerts (importance decaying but not critical)."""
-        return [
-            r
-            for r in self.results
-            if r.is_declining and not r.is_red_zone and not r.is_negative
-        ]
+        return [r for r in self.results if r.is_declining and not r.is_red_zone and not r.is_negative]
 
     @property
     def has_drift(self) -> bool:
@@ -154,8 +144,7 @@ class ImportanceReport:
         n_red = len(self.red_alerts())
         n_yellow = len(self.yellow_alerts())
         lines = [
-            f"Importance Drift Report: {n_alert}/{n_total} features affected "
-            f"({n_red} red, {n_yellow} yellow)",
+            f"Importance Drift Report: {n_alert}/{n_total} features affected ({n_red} red, {n_yellow} yellow)",
         ]
         if n_red > 0:
             lines.append("  🔴 Red alerts (consider replacement):")
@@ -247,12 +236,8 @@ class ShapDriftChecker:
 
         result: dict[str, dict[str, float]] = {}
         for i, feat in enumerate(ref.columns):
-            ref_vals = (
-                ref_shap.values[:, i] if ref_shap.values.ndim > 1 else ref_shap.values
-            )
-            cur_vals = (
-                cur_shap.values[:, i] if cur_shap.values.ndim > 1 else cur_shap.values
-            )
+            ref_vals = ref_shap.values[:, i] if ref_shap.values.ndim > 1 else ref_shap.values
+            cur_vals = cur_shap.values[:, i] if cur_shap.values.ndim > 1 else cur_shap.values
 
             ref_flat = np.asarray(ref_vals).ravel()
             cur_flat = np.asarray(cur_vals).ravel()
@@ -325,9 +310,7 @@ class PermutationDriftMonitor:
     ) -> None:
         self.model = model
         self.scoring = scoring
-        self.features = (
-            list(features) if features is not None else _infer_features(reference_X)
-        )
+        self.features = list(features) if features is not None else _infer_features(reference_X)
         self.decay_threshold = decay_threshold
         self.red_zone = red_zone
         self.n_repeats = n_repeats
@@ -337,9 +320,7 @@ class PermutationDriftMonitor:
         ref_X_df = _to_dataframe(reference_X, self.features)
         self._reference_y = np.asarray(reference_y)
 
-        self._reference_importance = self._compute_importance(
-            ref_X_df, self._reference_y
-        )
+        self._reference_importance = self._compute_importance(ref_X_df, self._reference_y)
 
     # ------------------------------------------------------------------
     # Public API
@@ -515,9 +496,7 @@ class CompositeDriftMonitor:
         CompositeReport
         """
         dist_report = self.drift_monitor.check_drift(current_dist_df)
-        imp_report = self.importance_monitor.check_importance_drift(
-            current_X, current_y
-        )
+        imp_report = self.importance_monitor.check_importance_drift(current_X, current_y)
 
         return CompositeReport(
             distribution=dist_report,

@@ -93,9 +93,7 @@ class SQLiteCandleLoader:
     def list_symbols(self) -> list[str]:
         conn = sqlite3.connect(str(self._db_path))
         try:
-            rows = conn.execute(
-                "SELECT DISTINCT symbol FROM candles ORDER BY symbol"
-            ).fetchall()
+            rows = conn.execute("SELECT DISTINCT symbol FROM candles ORDER BY symbol").fetchall()
         finally:
             conn.close()
         return [r[0] for r in rows]
@@ -158,9 +156,7 @@ class CSVCandleLoader:
 
         df = pd.read_csv(
             csv_path,
-            parse_dates=["Date"]
-            if "Date" in pd.read_csv(csv_path, nrows=0).columns
-            else False,
+            parse_dates=["Date"] if "Date" in pd.read_csv(csv_path, nrows=0).columns else False,
         )
 
         if "Date" in df.columns:

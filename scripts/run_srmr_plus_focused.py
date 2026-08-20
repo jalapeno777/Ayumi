@@ -137,19 +137,13 @@ def suggest_srmr_params(trial, pair: str) -> dict:
         "rsi_short_level": trial.suggest_float("rsi_short_level", 55.0, 80.0),
         "adx_period": trial.suggest_int("adx_period", 7, 28),
         "adx_max_threshold": trial.suggest_float("adx_max_threshold", 15.0, 40.0),
-        "session_range_min_pips": trial.suggest_float(
-            "session_range_min_pips", sr_lo, sr_hi
-        ),
-        "entry_near_extreme_pips": trial.suggest_float(
-            "entry_near_extreme_pips", en_lo, en_hi
-        ),
+        "session_range_min_pips": trial.suggest_float("session_range_min_pips", sr_lo, sr_hi),
+        "entry_near_extreme_pips": trial.suggest_float("entry_near_extreme_pips", en_lo, en_hi),
         "hard_cap_sl_pips": trial.suggest_float("hard_cap_sl_pips", hc_lo, hc_hi),
         "tp1_rr": trial.suggest_float("tp1_rr", 0.5, 3.0),
         "tp2_rr": trial.suggest_float("tp2_rr", 0.5, 3.0),
         "ema_trend_period": trial.suggest_int("ema_trend_period", 20, 100),
-        "use_same_day_range": trial.suggest_categorical(
-            "use_same_day_range", [True, False]
-        ),
+        "use_same_day_range": trial.suggest_categorical("use_same_day_range", [True, False]),
         # pip_value is fixed per pair (validated), not part of search space
         "pip_value": space["pip_value"],
         "dxy_overlay": False,
@@ -184,9 +178,7 @@ def _wf_aggregated_metric(wf, key: str, default: float = 0.0) -> float:
         }
         win_key = mapping.get(key)
         if win_key == "windows_passed" or key == "windows_passed":
-            return float(
-                sum(1 for m in per_window if getattr(m, "passed_go_nogo", False))
-            )
+            return float(sum(1 for m in per_window if getattr(m, "passed_go_nogo", False)))
         if win_key == "total_windows" or key == "total_windows":
             return float(len(per_window))
         if win_key:
@@ -281,13 +273,9 @@ def run_optuna_for_timeframe(
         result["status"] = "complete"
         # Aggregate metrics via dataclass access (wf.aggregated.*)
         result["windows_passed"] = int(_wf_aggregated_metric(wf, "windows_passed", 0))
-        result["windows_total"] = int(
-            _wf_aggregated_metric(wf, "total_windows", n_windows)
-        )
+        result["windows_total"] = int(_wf_aggregated_metric(wf, "total_windows", n_windows))
         result["go_nogo"] = bool(getattr(wf, "go_nogo", False))
-        result["mean_profit_factor"] = _wf_aggregated_metric(
-            wf, "mean_profit_factor", 0
-        )
+        result["mean_profit_factor"] = _wf_aggregated_metric(wf, "mean_profit_factor", 0)
         result["mean_win_rate"] = _wf_aggregated_metric(wf, "mean_win_rate", 0)
         result["mean_sharpe"] = _wf_aggregated_metric(wf, "mean_sharpe_ratio", 0)
         result["mean_max_drawdown"] = _wf_aggregated_metric(wf, "mean_max_drawdown", 0)
@@ -365,11 +353,7 @@ def main():
                 with open(REPORT_DIR / f"{pair}_focused_results.jsonl", "a") as f:
                     f.write(json.dumps(result, default=str) + "\n")
 
-    viable = [
-        r
-        for r in all_results
-        if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3
-    ]
+    viable = [r for r in all_results if r.get("mean_profit_factor", 0) > 1.0 and r.get("windows_passed", 0) >= 3]
     print(f"\n{'=' * 60}")
     print(f"Viable: {len(viable)} of {len(all_results)} timeframes")
     for v in viable:

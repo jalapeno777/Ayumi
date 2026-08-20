@@ -13,7 +13,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf.schema import SRFDatabase, SCHEMA_VERSION
+from srf.schema import SRFDatabase, SCHEMA_VERSION  # noqa: I001
 
 
 # ---------------------------------------------------------------------------
@@ -60,8 +60,7 @@ class TestSchemaIntegrity:
             tables = {
                 r[0]
                 for r in conn.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema='main'"
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema='main'"
                 ).fetchall()
             }
         missing = self.REQUIRED_TABLES - tables
@@ -164,8 +163,7 @@ class TestSchemaIntegrity:
             views = {
                 r[0]
                 for r in conn.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema='main' AND table_type='VIEW'"
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema='main' AND table_type='VIEW'"
                 ).fetchall()
             }
         assert "v_top_strategies" in views
@@ -175,7 +173,7 @@ class TestSchemaIntegrity:
     @staticmethod
     def _columns(conn, table: str) -> set[str]:
         rows = conn.execute(
-            f"SELECT column_name FROM information_schema.columns "
+            f"SELECT column_name FROM information_schema.columns "  # noqa: S608
             f"WHERE table_name='{table}' AND table_schema='main'"
         ).fetchall()
         return {r[0] for r in rows}

@@ -42,9 +42,7 @@ class ProgressiveSLMixin:
                 trade.stop_loss = min(trade.stop_loss, trade.entry_price - pip_size)
                 trade._sl_moved_to_be = True
 
-    def _check_trade_exit(
-        self, trade: SimulatedTrade, bar: Bar
-    ) -> tuple[bool, float, ExitReason]:
+    def _check_trade_exit(self, trade: SimulatedTrade, bar: Bar) -> tuple[bool, float, ExitReason]:
         if trade.direction == TradeDirection.LONG:
             if bar.low <= trade.stop_loss:
                 return (True, trade.stop_loss, ExitReason.STOP_LOSS)
@@ -116,25 +114,13 @@ class CombinedSignalMixin:
         short_signals: list[StrategySignal],
         min_confidence: float,
     ) -> StrategySignal | None:
-        long_conf = (
-            sum(s.confidence for s in long_signals) / len(long_signals)
-            if long_signals
-            else 0.0
-        )
-        short_conf = (
-            sum(s.confidence for s in short_signals) / len(short_signals)
-            if short_signals
-            else 0.0
-        )
+        long_conf = sum(s.confidence for s in long_signals) / len(long_signals) if long_signals else 0.0
+        short_conf = sum(s.confidence for s in short_signals) / len(short_signals) if short_signals else 0.0
 
         if long_conf > short_conf and long_conf >= min_confidence:
-            return self._aggregate_direction(
-                long_signals, TradeDirection.LONG, long_conf
-            )
+            return self._aggregate_direction(long_signals, TradeDirection.LONG, long_conf)
         elif short_conf > long_conf and short_conf >= min_confidence:
-            return self._aggregate_direction(
-                short_signals, TradeDirection.SHORT, short_conf
-            )
+            return self._aggregate_direction(short_signals, TradeDirection.SHORT, short_conf)
         return None
 
     def _combine_voted(
@@ -144,13 +130,9 @@ class CombinedSignalMixin:
         min_confidence: float,
     ) -> StrategySignal | None:
         if len(long_signals) > len(short_signals):
-            return self._aggregate_direction(
-                long_signals, TradeDirection.LONG, min_confidence
-            )
+            return self._aggregate_direction(long_signals, TradeDirection.LONG, min_confidence)
         elif len(short_signals) > len(long_signals):
-            return self._aggregate_direction(
-                short_signals, TradeDirection.SHORT, min_confidence
-            )
+            return self._aggregate_direction(short_signals, TradeDirection.SHORT, min_confidence)
         return None
 
     def _combine_best(
@@ -177,10 +159,7 @@ class CombinedSignalMixin:
         tp1 = sum(s.take_profit_1 for s in signals) / len(signals)
         tp2 = sum(s.take_profit_2 for s in signals) / len(signals)
         tp3 = sum(s.take_profit_3 for s in signals) / len(signals)
-        rationale = (
-            f"Combined {len(signals)} signals "
-            f"({direction.value}, conf={confidence:.2f})"
-        )
+        rationale = f"Combined {len(signals)} signals ({direction.value}, conf={confidence:.2f})"
         return StrategySignal(
             direction=direction,
             confidence=confidence,

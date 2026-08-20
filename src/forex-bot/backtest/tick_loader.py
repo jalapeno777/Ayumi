@@ -9,7 +9,7 @@ To populate the bars table from tick data:
     python3 scripts/aggregate_ticks_to_bars.py --symbol GBPUSD
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 from datetime import datetime, timezone
@@ -70,7 +70,7 @@ def load_bars_from_db(
         FROM bars
         WHERE {where_sql}
         ORDER BY timestamp_utc
-    """
+    """  # noqa: S608
 
     con = duckdb.connect(str(_TICK_DB), read_only=True)
     df = con.execute(query, params).fetchdf()

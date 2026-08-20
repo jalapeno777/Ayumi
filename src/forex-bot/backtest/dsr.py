@@ -103,9 +103,7 @@ def compute_sharpe(
 
     # Annualisation factor
     if bar_period_minutes > 0:
-        periods_per_year = (
-            TRADING_DAYS_PER_YEAR * HOURS_PER_TRADING_DAY * 60
-        ) / bar_period_minutes
+        periods_per_year = (TRADING_DAYS_PER_YEAR * HOURS_PER_TRADING_DAY * 60) / bar_period_minutes
     else:
         periods_per_year = TRADING_DAYS_PER_YEAR * HOURS_PER_TRADING_DAY
 
@@ -145,9 +143,9 @@ def compute_kurtosis(pnls: Sequence[float]) -> float:
         return 3.0
 
     # Excess kurtosis (Fisher's definition)
-    kurt_excess = (n * (n + 1) / ((n - 1) * (n - 2) * (n - 3))) * sum(
-        ((p - mean) / std) ** 4 for p in pnls
-    ) - (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
+    kurt_excess = (n * (n + 1) / ((n - 1) * (n - 2) * (n - 3))) * sum(((p - mean) / std) ** 4 for p in pnls) - (
+        3 * (n - 1) ** 2
+    ) / ((n - 2) * (n - 3))
 
     # Convert to regular kurtosis (excess + 3)
     return kurt_excess + 3.0
@@ -237,9 +235,7 @@ def deflated_sharpe_ratio(
 
     # Insufficient trades guard
     if n < MIN_TRADES_FOR_DSR:
-        sharpe = (
-            compute_sharpe(pnls, risk_free_rate, bar_period_minutes) if n >= 2 else 0.0
-        )
+        sharpe = compute_sharpe(pnls, risk_free_rate, bar_period_minutes) if n >= 2 else 0.0
         return {
             "verdict": "insufficient",
             "n_trades": n,
@@ -273,9 +269,7 @@ def deflated_sharpe_ratio(
     std_ret = math.sqrt(var_ret)
     non_ann_sharpe = (mean_ret - risk_free_rate) / std_ret if std_ret > 1e-15 else 0.0
 
-    sr_se_sq = (
-        1.0 - skew * non_ann_sharpe + (kurt - 3.0) / 4.0 * non_ann_sharpe**2
-    ) / (n - 1)
+    sr_se_sq = (1.0 - skew * non_ann_sharpe + (kurt - 3.0) / 4.0 * non_ann_sharpe**2) / (n - 1)
     sr_se = math.sqrt(max(sr_se_sq, 1e-15))
 
     # Expected max Sharpe under multiple testing
@@ -303,9 +297,7 @@ def deflated_sharpe_ratio(
     # MinTRL ≈ 1 + (1 - skew*SR + (kurt-3)/4*SR²) * (z_alpha / SR)²
     z_alpha = 1.6449  # z-value for α=0.05 (one-sided)
     if abs(non_ann_sharpe) > 1e-15:
-        min_trl_num = (
-            1.0 - skew * non_ann_sharpe + (kurt - 3.0) / 4.0 * non_ann_sharpe**2
-        )
+        min_trl_num = 1.0 - skew * non_ann_sharpe + (kurt - 3.0) / 4.0 * non_ann_sharpe**2
         min_trl = 1.0 + min_trl_num * (z_alpha / non_ann_sharpe) ** 2
     else:
         min_trl = float("inf")
@@ -330,9 +322,7 @@ def deflated_sharpe_ratio(
         "sharpe": round(sharpe, 6),
         "dsr_pvalue": round(dsr_pvalue, 6),
         "edge_probability": round(edge_probability, 6),
-        "min_track_record_length": round(min_trl, 2)
-        if math.isfinite(min_trl)
-        else None,
+        "min_track_record_length": round(min_trl, 2) if math.isfinite(min_trl) else None,
         "skewness": round(skew, 6),
         "kurtosis": round(kurt, 6),
         "n_independent_trials": n_independent_trials,
@@ -376,9 +366,7 @@ def _parse_pnls(data: dict) -> list[float]:
         if vals:
             return vals
 
-    raise ValueError(
-        "Could not extract PnL values. Expected 'pnls', 'pnl', 'returns', or 'trades' key."
-    )
+    raise ValueError("Could not extract PnL values. Expected 'pnls', 'pnl', 'returns', or 'trades' key.")
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         "--n-trials",
         type=int,
         default=DEFAULT_N_INDEPENDENT_TRIALS,
-        help=f"Number of independent strategy trials for multiple-testing correction (default: {DEFAULT_N_INDEPENDENT_TRIALS}).",
+        help=f"Number of independent strategy trials for multiple-testing correction (default: {DEFAULT_N_INDEPENDENT_TRIALS}).",  # noqa: E501
     )
     parser.add_argument(
         "--bar-minutes",

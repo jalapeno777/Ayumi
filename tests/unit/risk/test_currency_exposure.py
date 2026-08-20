@@ -1,6 +1,6 @@
 """Tests for risk.currency_exposure."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pytest
 
@@ -34,9 +34,7 @@ def _make_cm(symbols: list[str], corr_value: float = 0.0) -> CorrelationMatrix:
     return cm
 
 
-def _make_cm_with_pair_corr(
-    symbols: list[str], pair_corrs: dict[tuple[str, str], float]
-) -> CorrelationMatrix:
+def _make_cm_with_pair_corr(symbols: list[str], pair_corrs: dict[tuple[str, str], float]) -> CorrelationMatrix:
     """Build a CM with specific pairwise correlations."""
     cm = CorrelationMatrix()
     for s in symbols:

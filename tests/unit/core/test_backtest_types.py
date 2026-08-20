@@ -7,7 +7,7 @@ Covers:
   - BarPeriod constants and BacktestConfig.units_per_lot
 """
 
-from datetime import datetime
+from datetime import datetime  # noqa: I001
 
 import pytest
 

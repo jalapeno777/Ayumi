@@ -33,9 +33,7 @@ class SweepResult:
     def __iter__(self):
         return iter(self.rows)
 
-    def top_n(
-        self, n: int, metric: str = "sharpe_ratio", ascending: bool = False
-    ) -> list[SweepRow]:
+    def top_n(self, n: int, metric: str = "sharpe_ratio", ascending: bool = False) -> list[SweepRow]:
         sorted_rows = self.sort_by(metric, ascending=ascending)
         return sorted_rows[:n]
 

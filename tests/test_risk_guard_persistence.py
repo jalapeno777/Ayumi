@@ -9,7 +9,7 @@ Covers council decisions:
        since that's when the broker "day" rolls over for the block-expiry timer.
 """
 
-import json
+import json  # noqa: I001
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -126,9 +126,7 @@ class TestRestoreState:
         assert g2._daily_trade_count == 5
         assert g2._total_trades == 30
         assert g2._circuit_breaker_triggered is True
-        assert g2._blocked_until == datetime(
-            2026, 7, 1, 23, 59, 59, tzinfo=timezone.utc
-        )
+        assert g2._blocked_until == datetime(2026, 7, 1, 23, 59, 59, tzinfo=timezone.utc)
 
 
 # ---------------------------------------------------------------------------
@@ -149,15 +147,11 @@ class TestDailyLossHalt:
         )
 
         # Should NOT set permanent circuit breaker for daily loss
-        assert guard._circuit_breaker_triggered is False, (
-            "Daily loss must not set permanent circuit_breaker_triggered"
-        )
+        assert guard._circuit_breaker_triggered is False, "Daily loss must not set permanent circuit_breaker_triggered"
 
         # blocked_until should be close to next UTC midnight
         assert guard._blocked_until is not None
-        next_midnight = (now + timedelta(days=1)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         delta = abs((guard._blocked_until - next_midnight).total_seconds())
         assert delta < 5, (
             f"blocked_until should be ~UTC midnight, got {guard._blocked_until}, "
@@ -177,9 +171,7 @@ class TestDailyLossHalt:
             current=0.11,
             limit=0.10,
         )
-        assert guard._circuit_breaker_triggered is True, (
-            "Total drawdown must set permanent circuit_breaker_triggered"
-        )
+        assert guard._circuit_breaker_triggered is True, "Total drawdown must set permanent circuit_breaker_triggered"
 
 
 # ---------------------------------------------------------------------------
@@ -218,9 +210,7 @@ class TestStateSurvivesRestart:
         )
 
         # Verify all state was restored
-        assert g2._current_balance == g1_balance, (
-            f"Balance mismatch: g2={g2._current_balance}, g1={g1_balance}"
-        )
+        assert g2._current_balance == g1_balance, f"Balance mismatch: g2={g2._current_balance}, g1={g1_balance}"
         assert g2._peak_balance == g1_peak
         assert g2._daily_trade_count == g1_daily
         assert g2._total_trades == g1_total
@@ -244,9 +234,7 @@ class TestStateSurvivesRestart:
         )
 
         # Block must persist (today's date matches so no day-rollover reset)
-        assert g2._blocked_until == blocked_until_g1, (
-            "Daily loss block must survive restart when same day"
-        )
+        assert g2._blocked_until == blocked_until_g1, "Daily loss block must survive restart when same day"
         assert g2._circuit_breaker_triggered is False
 
 
@@ -265,22 +253,19 @@ class TestTradingDayConsistency:
 
     def test_no_date_today_in_source(self):
         """Verify risk_guard.py source has no date.today() calls (R3)."""
-        import inspect
+        import inspect  # noqa: I001
         from adapters.ctrader import risk_guard as rg_module
 
         source = inspect.getsource(rg_module.RiskGuard)
         assert "date.today()" not in source, (
-            "date.today() found in RiskGuard source — must use "
-            "_current_trading_day() instead"
+            "date.today() found in RiskGuard source — must use _current_trading_day() instead"
         )
 
     def test_update_daily_tracking_uses_trading_day(self, guard):
         """_update_daily_tracking sets _current_day to trading day (Toronto 17:00)."""
         guard._update_daily_tracking()
         trading_today = guard._current_trading_day()
-        assert guard._current_day == trading_today, (
-            f"_current_day={guard._current_day}, trading_day={trading_today}"
-        )
+        assert guard._current_day == trading_today, f"_current_day={guard._current_day}, trading_day={trading_today}"
 
     def test_trading_day_uses_toronto_tz(self, guard):
         """_current_trading_day uses America/Toronto timezone (not UTC)."""

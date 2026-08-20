@@ -14,7 +14,7 @@ Tests cover:
 11. Lazy reconnect path (_start_openapi_feed) also wires lifecycle.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -37,9 +37,9 @@ def _make_feed(token_lifecycle=None) -> OpenApiSpotFeed:
     return OpenApiSpotFeed(
         ctid_account_id=12345,
         client_id="test_client",
-        client_secret="test_secret",
-        access_token="test_token",
-        refresh_token="test_refresh",
+        client_secret="test_secret",  # noqa: S106
+        access_token="test_token",  # noqa: S106
+        refresh_token="test_refresh",  # noqa: S106
         host="demo.ctraderapi.com",
         port=5035,
         token_lifecycle=token_lifecycle,
@@ -55,8 +55,8 @@ def _make_mock_lifecycle() -> MagicMock:
     mock._refresh_disabled = False
     mock._store = MagicMock()
     mock._store.get.return_value = MagicMock(
-        refresh_token="new_refresh_token",
-        access_token="new_access_token",
+        refresh_token="new_refresh_token",  # noqa: S106
+        access_token="new_access_token",  # noqa: S106
     )
     return mock
 
@@ -94,9 +94,9 @@ class TestBuildLiveCredentialsIncludesLifecycle:
         mock_store.get.return_value = MagicMock(
             account_id=12345,
             client_id="test_client",
-            client_secret="test_secret",
-            access_token="test_token",
-            refresh_token="test_refresh",
+            client_secret="test_secret",  # noqa: S106
+            access_token="test_token",  # noqa: S106
+            refresh_token="test_refresh",  # noqa: S106
             expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
         )
 
@@ -116,9 +116,7 @@ class TestBuildLiveCredentialsIncludesLifecycle:
             result = engine._build_live_credentials()
 
         assert result is not None, "Expected non-None credentials dict"
-        assert "token_lifecycle" in result, (
-            "token_lifecycle key missing from credentials dict"
-        )
+        assert "token_lifecycle" in result, "token_lifecycle key missing from credentials dict"
         assert result["token_lifecycle"] is not None, "token_lifecycle must be non-None"
         assert result["token_lifecycle"] is mock_lifecycle
 
@@ -131,9 +129,9 @@ class TestBuildLiveCredentialsIncludesLifecycle:
         mock_store.get.return_value = MagicMock(
             account_id=12345,
             client_id="test_client",
-            client_secret="test_secret",
-            access_token="test_token",
-            refresh_token="test_refresh",
+            client_secret="test_secret",  # noqa: S106
+            access_token="test_token",  # noqa: S106
+            refresh_token="test_refresh",  # noqa: S106
             expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
         )
 
@@ -229,9 +227,7 @@ class TestReactiveRefreshDelegation:
         # TokenManager's _update_env_tokens should not be invoked
         # (feed._token_mgr is a real TokenManager; verify it wasn't used for env writes)
         assert (
-            not hasattr(feed._token_mgr, "_update_env_tokens")
-            or feed._token_mgr is None
-            or True
+            not hasattr(feed._token_mgr, "_update_env_tokens") or feed._token_mgr is None or True
         )  # TokenManager exists but shouldn't be called
         # The lifecycle's force_refresh WAS called — which is the correct path
         lifecycle.force_refresh.assert_called_once()
@@ -326,7 +322,6 @@ class TestNoOrderDuringRefresh:
         msg.errorCode = "CH_OAUTH_TOKEN_EXPIRED"
         msg.description = "Token expired"
 
-
         with (
             patch("threading.Thread", _SyncThread),
             patch.object(feed._conn, "send") as mock_send,
@@ -337,9 +332,7 @@ class TestNoOrderDuringRefresh:
         for call in mock_send.call_args_list:
             sent_obj = call.args[0] if call.args else call[0]
             sent_type_name = type(sent_obj).__name__
-            assert "NewOrder" not in sent_type_name, (
-                f"Order request {sent_type_name} was sent during refresh!"
-            )
+            assert "NewOrder" not in sent_type_name, f"Order request {sent_type_name} was sent during refresh!"
 
 
 # ── 11. Lazy reconnect path wiring ─────────────────────────────────────────
@@ -359,9 +352,9 @@ class TestLazyReconnectPathWiring:
         mock_store.get.return_value = MagicMock(
             account_id=12345,
             client_id="test_client",
-            client_secret="test_secret",
-            access_token="test_token",
-            refresh_token="test_refresh",
+            client_secret="test_secret",  # noqa: S106
+            access_token="test_token",  # noqa: S106
+            refresh_token="test_refresh",  # noqa: S106
             expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
         )
 

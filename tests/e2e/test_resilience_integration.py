@@ -181,7 +181,7 @@ _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 
-import pytest
+import pytest  # noqa: I001
 import threading
 import time
 import unittest
@@ -210,12 +210,8 @@ def _install_mock_stubs(monkeypatch):
     monkeypatch.setitem(_sys.modules, "ctrader_open_api", _ctrader)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.protobuf", _protobuf_mod)
     monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages", _messages_mod)
-    monkeypatch.setitem(
-        _sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs
-    )
-    monkeypatch.setitem(
-        _sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs
-    )
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", _openapi_msgs)
+    monkeypatch.setitem(_sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", _model_msgs)
 
 
 # ---------------------------------------------------------------------------
@@ -228,9 +224,9 @@ def _make_feed(**overrides):
     defaults = dict(
         ctid_account_id=12345,
         client_id="test_client_id",
-        client_secret="test_client_secret",
-        access_token="valid_access_token_abc123",
-        refresh_token="valid_refresh_token_xyz789",
+        client_secret="test_client_secret",  # noqa: S106
+        access_token="valid_access_token_abc123",  # noqa: S106
+        refresh_token="valid_refresh_token_xyz789",  # noqa: S106
         host="127.0.0.1",
         port=9999,
     )
@@ -486,7 +482,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
 
     def _make_engine(self):
         """Build a ForwardTestEngine with mocked internals."""
-        from adapters.ctrader.forward_test_engine import (
+        from adapters.ctrader.forward_test_engine import (  # noqa: I001
             ForwardTestEngine,
             ForwardTestConfig,
         )
@@ -508,7 +504,7 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
     # commented out (P5A scope-out). Requires implementing feed-disconnect detection
     # in ForwardTestEngine. Tracked in P5A closeout notes.
     @pytest.mark.xfail(
-        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out). Requires code change in production, not a test fix."
+        reason="BLOCKED: Feed-disconnect freeze activation not yet implemented in ForwardTestEngine (P5A scope-out). Requires code change in production, not a test fix."  # noqa: E501
     )
     def test_feed_disconnect_detected_via_is_running(self):
         """Feed disconnect detected when market_feed.is_running is False."""
@@ -588,7 +584,7 @@ class TestStateMachineTransitions(unittest.TestCase):
     """Verify ConnectionStateManager transition logic."""
 
     def test_full_reconnect_cycle(self):
-        """Full reconnect cycle: CONNECTED → APP_AUTHENTICATING → AUTHENTICATED → RECONNECTING → CONNECTED → APP_AUTHENTICATING → AUTHENTICATED."""
+        """Full reconnect cycle: CONNECTED → APP_AUTHENTICATING → AUTHENTICATED → RECONNECTING → CONNECTED → APP_AUTHENTICATING → AUTHENTICATED."""  # noqa: E501
         mgr = ConnectionStateManager(name="test_cycle")
         self.assertEqual(mgr.state, ConnectionState.DISCONNECTED)
 
@@ -679,13 +675,9 @@ class TestStateMachineTransitions(unittest.TestCase):
         mgr._state = ConnectionState.CONNECTING
 
         threads = [
-            threading.Thread(
-                target=do_transition, args=(ConnectionState.CONNECTED, True)
-            ),
+            threading.Thread(target=do_transition, args=(ConnectionState.CONNECTED, True)),
             threading.Thread(target=do_transition, args=(ConnectionState.FAILED, True)),
-            threading.Thread(
-                target=do_transition, args=(ConnectionState.DISCONNECTED, True)
-            ),
+            threading.Thread(target=do_transition, args=(ConnectionState.DISCONNECTED, True)),
         ]
         for t in threads:
             t.start()

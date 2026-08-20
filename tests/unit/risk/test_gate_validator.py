@@ -1,6 +1,6 @@
 """Tests for GateValidator: hard gates and quality threshold."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from signal_engine.gate_validator import GateValidator
@@ -102,17 +102,13 @@ class TestGateValidator:
     def test_g3_passes_matching_bias(self):
         """Long signal with bullish session bias → pass."""
         session = SessionState("LONDON", True, 0.8, "bullish")
-        result = self.validator.validate(
-            self._make_candidate(direction="long"), session_state=session
-        )
+        result = self.validator.validate(self._make_candidate(direction="long"), session_state=session)
         assert result.gate_details["G3_session_alignment"] is True
 
     def test_g3_fails_opposing_bias(self):
         """Long signal with bearish session bias → fail."""
         session = SessionState("LONDON", True, 0.8, "bearish")
-        result = self.validator.validate(
-            self._make_candidate(direction="long"), session_state=session
-        )
+        result = self.validator.validate(self._make_candidate(direction="long"), session_state=session)
         assert result.gate_details["G3_session_alignment"] is False
         assert "G3_session_alignment" in result.failed_gates
 
@@ -125,17 +121,13 @@ class TestGateValidator:
     def test_g4_passes_aligned_trend(self):
         """Long signal with positive EMA slope → pass."""
         htf = HTFState(HTFPhase.ALIGNED, 0.8, 0.001, 0.01)
-        result = self.validator.validate(
-            self._make_candidate(direction="long"), htf_state=htf
-        )
+        result = self.validator.validate(self._make_candidate(direction="long"), htf_state=htf)
         assert result.gate_details["G4_htf_alignment"] is True
 
     def test_g4_fails_conflicting_trend(self):
         """Long signal with negative EMA slope → fail."""
         htf = HTFState(HTFPhase.ALIGNED, 0.8, -0.001, 0.01)
-        result = self.validator.validate(
-            self._make_candidate(direction="long"), htf_state=htf
-        )
+        result = self.validator.validate(self._make_candidate(direction="long"), htf_state=htf)
         assert result.gate_details["G4_htf_alignment"] is False
 
     def test_g4_fails_conflicting_phase(self):

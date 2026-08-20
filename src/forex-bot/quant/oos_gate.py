@@ -41,7 +41,7 @@ Tier definitions follow the research doc §8:
   ``dsr_alpha=0.10``.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 from dataclasses import dataclass, field
@@ -60,9 +60,7 @@ from scipy import stats
 TRADING_DAYS_PER_YEAR = 252
 HOURS_PER_TRADING_DAY = 24
 MINUTES_PER_HOUR = 60
-MINUTES_PER_YEAR = (
-    TRADING_DAYS_PER_YEAR * HOURS_PER_TRADING_DAY * MINUTES_PER_HOUR
-)  # 362_880
+MINUTES_PER_YEAR = TRADING_DAYS_PER_YEAR * HOURS_PER_TRADING_DAY * MINUTES_PER_HOUR  # 362_880
 
 # Euler-Mascheroni constant (used in the expected-max-Sharpe approximation).
 EULER_MASCHERONI = 0.5772156649015329
@@ -97,9 +95,7 @@ def annualization_from_bar_period(bar_period_minutes: int) -> float:
         ValueError: if ``bar_period_minutes`` is not a positive integer.
     """
     if not isinstance(bar_period_minutes, (int, np.integer)) or bar_period_minutes <= 0:
-        raise ValueError(
-            f"bar_period_minutes must be a positive integer, got {bar_period_minutes!r}"
-        )
+        raise ValueError(f"bar_period_minutes must be a positive integer, got {bar_period_minutes!r}")
     return MINUTES_PER_YEAR / int(bar_period_minutes)
 
 
@@ -168,9 +164,7 @@ def deflated_sharpe_ratio(
 
     # Bailey & López de Prado (2014) Eq. 5 — variance of SR estimator with
     # non-normality adjustment. ``kurtosis_regular`` is γ₄ (3 for normal).
-    sr_var = (
-        1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2
-    ) / (n_obs - 1)
+    sr_var = (1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2) / (n_obs - 1)
     se_sr = math.sqrt(max(sr_var, 1e-12))
 
     if se_sr == 0:
@@ -236,9 +230,7 @@ def min_track_record_length(
     z_alpha = stats.norm.ppf(1.0 - alpha)
 
     # Non-normality-adjusted variance term (same as DSR's SE² numerator).
-    variance_term = (
-        1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2
-    )
+    variance_term = 1.0 - skewness * observed_sr + (kurtosis_regular - 1.0) / 4.0 * observed_sr**2
     # Ensure variance term is positive (it can go negative for extreme skew/kurt).
     variance_term = max(variance_term, 1e-12)
 
@@ -531,10 +523,7 @@ def evaluate_oos_gate(
         ):
             windows_passed += 1
 
-    wf_passed = (
-        windows_passed >= cfg.min_windows_passed
-        and total_oos_trades >= cfg.min_total_oos_trades
-    )
+    wf_passed = windows_passed >= cfg.min_windows_passed and total_oos_trades >= cfg.min_total_oos_trades
 
     if not wf_passed:
         return GateResult(
@@ -552,9 +541,7 @@ def evaluate_oos_gate(
 
     # --- Aggregate Sharpe from per-trade returns (Defect 4 fix) ---
     returns_arr = np.asarray(all_trade_returns, dtype=float)
-    sharpe_per_trade, skew_from_data, kurt_regular_from_data, n_obs = (
-        _compute_sharpe_and_moments(returns_arr)
-    )
+    sharpe_per_trade, skew_from_data, kurt_regular_from_data, n_obs = _compute_sharpe_and_moments(returns_arr)
 
     trades_per_year = _trades_per_year(
         total_trades=total_oos_trades,
@@ -574,9 +561,7 @@ def evaluate_oos_gate(
         moments_source = "from_data"
 
     # --- DSR (Defect 2 fix: n_independent_trials default = 160) ---
-    n_eff_trials = (
-        cfg.n_independent_trials if cfg.apply_multiple_testing_correction else 1
-    )
+    n_eff_trials = cfg.n_independent_trials if cfg.apply_multiple_testing_correction else 1
     dsr_p = deflated_sharpe_ratio(
         observed_sr=aggregate_sharpe,
         n_trials=n_eff_trials,
@@ -592,9 +577,7 @@ def evaluate_oos_gate(
         "aggregate_sharpe_annualized": aggregate_sharpe,
         "sharpe_per_trade": sharpe_per_trade,
         "trades_per_year": trades_per_year,
-        "annualization_factor": annualization_from_bar_period(
-            wf_results.bar_period_minutes
-        ),
+        "annualization_factor": annualization_from_bar_period(wf_results.bar_period_minutes),
         "bar_period_minutes": wf_results.bar_period_minutes,
         "expected_max_sr_under_null": e_max,
         "dsr_pvalue": dsr_p,
@@ -610,10 +593,7 @@ def evaluate_oos_gate(
     if aggregate_sharpe < cfg.min_aggregate_sharpe:
         return GateResult(
             go_nogo=False,
-            reason=(
-                f"Aggregate Sharpe {aggregate_sharpe:.2f} below floor "
-                f"{cfg.min_aggregate_sharpe:.2f}"
-            ),
+            reason=(f"Aggregate Sharpe {aggregate_sharpe:.2f} below floor {cfg.min_aggregate_sharpe:.2f}"),
             tier="REJECT",
             wf_passed=True,
             dsr_pvalue=dsr_p,
@@ -645,8 +625,7 @@ def evaluate_oos_gate(
     return GateResult(
         go_nogo=True,
         reason=(
-            f"GO: {windows_passed}/{n_windows} windows passed; "
-            f"DSR p={dsr_p:.4f}, aggregate SR={aggregate_sharpe:.2f}"
+            f"GO: {windows_passed}/{n_windows} windows passed; DSR p={dsr_p:.4f}, aggregate SR={aggregate_sharpe:.2f}"
         ),
         tier="PASS",  # tier_rank_streams may upgrade
         wf_passed=True,

@@ -26,7 +26,7 @@ pytestmark = pytest.mark.skip(
 # collection clean. When BQ-133 ships, remove the skip and the try/except.
 
 try:
-    from signal_engine.spread_classifier import (  # noqa: E402, F401
+    from signal_engine.spread_classifier import (  # noqa: E402, F401, I001
         SpreadRegime,
         SpreadRegimeClassifier,
         _DEFAULT_PENALTIES,
@@ -43,7 +43,7 @@ except ImportError:
 
 # Original test code preserved below, gated by the skip above.
 
-from types import SimpleNamespace  # noqa: E402
+from types import SimpleNamespace  # noqa: E402, I001
 
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────
@@ -70,18 +70,9 @@ class TestDefaultPenalties:
         assert _DEFAULT_PENALTIES[SpreadRegime.EXTREME] == 0.50
 
     def test_penalty_ordering(self):
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.TIGHT]
-            >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
-        )
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
-            >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
-        )
-        assert (
-            _DEFAULT_PENALTIES[SpreadRegime.WIDE]
-            >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
-        )
+        assert _DEFAULT_PENALTIES[SpreadRegime.TIGHT] >= _DEFAULT_PENALTIES[SpreadRegime.NORMAL]
+        assert _DEFAULT_PENALTIES[SpreadRegime.NORMAL] >= _DEFAULT_PENALTIES[SpreadRegime.WIDE]
+        assert _DEFAULT_PENALTIES[SpreadRegime.WIDE] >= _DEFAULT_PENALTIES[SpreadRegime.EXTREME]
 
 
 # ── Classification ──────────────────────────────────────────────────

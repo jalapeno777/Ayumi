@@ -356,9 +356,7 @@ def subscribe_balance_updates(
             ``setMessageReceivedCallback``.
     """
     if not hasattr(client, "setMessageReceivedCallback"):
-        raise BalanceSubscriptionError(
-            f"client {type(client).__name__} has no setMessageReceivedCallback"
-        )
+        raise BalanceSubscriptionError(f"client {type(client).__name__} has no setMessageReceivedCallback")
 
     dispatcher = _BalanceDispatcher.get_for(client)
     if dispatcher.has_callback(callback):
@@ -507,11 +505,7 @@ class _BalanceDispatcher:
                 return
 
             account_id = getattr(payload, "ctidTraderAccountId", None)
-            if (
-                self._account_filter is not None
-                and account_id is not None
-                and int(account_id) != self._account_filter
-            ):
+            if self._account_filter is not None and account_id is not None and int(account_id) != self._account_filter:
                 return
 
             trader = getattr(payload, "trader", None)
@@ -558,9 +552,7 @@ class _BalanceDispatcher:
             client.setMessageReceivedCallback(self.on_message)
         except Exception as exc:
             self.clear()
-            raise BalanceSubscriptionError(
-                f"setMessageReceivedCallback failed: {exc}"
-            ) from exc
+            raise BalanceSubscriptionError(f"setMessageReceivedCallback failed: {exc}") from exc
         self.is_installed = True
         logger.info(
             "subscribe_balance_updates: dispatcher installed (account=%d)",
@@ -611,9 +603,7 @@ def _safe_send(client: Any, message: Any, *, prefix: str, timeout: float) -> Any
         client_msg_id = f"{prefix}_{uuid.uuid4().hex}"
         return send(message, client_msg_id=client_msg_id, timeout=timeout)
 
-    raise BalanceQueryError(
-        f"client {type(client).__name__} has no compatible send() or send_and_wait()"
-    )
+    raise BalanceQueryError(f"client {type(client).__name__} has no compatible send() or send_and_wait()")
 
 
 def _is_magicmock_with_spec(client: Any) -> bool:
@@ -687,9 +677,7 @@ def _parse_trader_money(trader: Any) -> tuple[Decimal, int]:
     try:
         money_digits_int = int(money_digits)
     except (TypeError, ValueError) as exc:
-        raise BalanceQueryError(
-            f"ProtoOATrader.moneyDigits is not an integer: {money_digits!r}"
-        ) from exc
+        raise BalanceQueryError(f"ProtoOATrader.moneyDigits is not an integer: {money_digits!r}") from exc
 
     if money_digits_int < 0 or money_digits_int > 18:
         raise BalanceQueryError(
@@ -787,11 +775,7 @@ def _parse_one_position(
 
     raw_volume = getattr(td, "volume", 0) or 0
     if lot_size_lookup is not None:
-        contract_size = (
-            lot_size_lookup(raw_symbol_id)
-            if raw_symbol_id is not None
-            else _CONTRACT_SIZE
-        )
+        contract_size = lot_size_lookup(raw_symbol_id) if raw_symbol_id is not None else _CONTRACT_SIZE
     else:
         contract_size = _CONTRACT_SIZE
     volume_lots = Decimal(int(raw_volume)) / Decimal(contract_size)

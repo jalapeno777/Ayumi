@@ -14,7 +14,7 @@ Writes a JSONL record to data/ops/ctrader_credential_health.jsonl and exits:
 
 Cron example (daily at 06:00):
   0 6 * * * cd /home/TacoPants/projects/Ayumi && source .venv/bin/activate && python3 scripts/ctrader_credential_probe.py >> data/ops/ctrader_credential_probe.log 2>&1
-"""
+"""  # noqa: E501
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from urllib.parse import urlparse
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from adapters.ctrader.auth import CTraderAuth, CredentialError
+from adapters.ctrader.auth import CTraderAuth, CredentialError  # noqa: I001
 from adapters.ctrader.token_manager import TokenStatus
 
 logger = logging.getLogger("ctrader_credential_probe")
@@ -64,9 +64,7 @@ def _write_health_record(record: dict) -> None:
         f.write(json.dumps(record, default=str) + "\n")
 
 
-def _api_reachable(
-    url: str = CTRADER_OAUTH_REFRESH_URL, timeout: float = 10.0
-) -> tuple[bool, str]:
+def _api_reachable(url: str = CTRADER_OAUTH_REFRESH_URL, timeout: float = 10.0) -> tuple[bool, str]:
     """Lightweight HTTPS reachability check; no credentials sent."""
     parsed = urlparse(url)
     host = parsed.hostname or "openapi.ctrader.com"
@@ -77,9 +75,7 @@ def _api_reachable(
             with context.wrap_socket(sock, server_hostname=host) as ssock:
                 ssock.settimeout(timeout)
                 ssock.sendall(
-                    f"HEAD {parsed.path or '/'} HTTP/1.1\r\n"
-                    f"Host: {host}\r\n"
-                    f"Connection: close\r\n\r\n".encode("utf-8")
+                    f"HEAD {parsed.path or '/'} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n".encode("utf-8")
                 )
                 response = ssock.recv(1024).decode("utf-8", errors="ignore")
         if "HTTP/1.1" in response or "HTTP/2" in response or "400" in response:

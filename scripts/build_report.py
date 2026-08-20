@@ -105,15 +105,11 @@ def fmt_delta(new: float, old: float | None, higher_better: bool = True) -> str:
     delta = new - old
     sign = "+" if delta >= 0 else ""
     good = (delta > 0) == higher_better
-    indicator = (
-        "✅" if good and delta != 0 else ("⚠️" if not good and delta != 0 else "")
-    )
+    indicator = "✅" if good and delta != 0 else ("⚠️" if not good and delta != 0 else "")
     return f"{old:.3f} → {new:.3f} ({sign}{delta:.3f}) {indicator}"
 
 
-def fmt_delta_raw(
-    new: float | None, old: float | None, higher_better: bool = True
-) -> str:
+def fmt_delta_raw(new: float | None, old: float | None, higher_better: bool = True) -> str:
     """Format delta without emoji (for markdown tables)."""
     if old is None:
         if new is not None:
@@ -144,29 +140,15 @@ def generate_report(new_data: dict, old_data: dict) -> str:
     lines.append("| Parameter | Value |")
     lines.append("|---|---|")
     lines.append(f"| Initial Balance | ${params.get('initial_balance', 100000):,.0f} |")
-    lines.append(
-        f"| Risk per Trade | {params.get('risk_per_trade_pct', 0.005) * 100:.1f}% |"
-    )
-    lines.append(
-        f"| Daily DD Limit | {params.get('daily_dd_limit_pct', 0.03) * 100:.1f}% |"
-    )
+    lines.append(f"| Risk per Trade | {params.get('risk_per_trade_pct', 0.005) * 100:.1f}% |")
+    lines.append(f"| Daily DD Limit | {params.get('daily_dd_limit_pct', 0.03) * 100:.1f}% |")
     lines.append(f"| Max Open Trades | {params.get('max_open_trades', 3)} |")
     lines.append("")
-    lines.append(
-        "> **⚠ PROVISIONAL:** All strategy decisions based on historical sweeps prior to"
-    )
-    lines.append(
-        "> this revalidation are marked **PROVISIONAL** throughout this report. The"
-    )
-    lines.append(
-        "> corrected FTMO parameters (0.5% risk, 3% daily DD, $100k balance) reflect"
-    )
-    lines.append(
-        "> actual FTMO challenge conditions. Prior sweeps used incorrect parameters"
-    )
-    lines.append(
-        "> (1% risk, 5% daily DD) that inflated trade counts and drawdown tolerance."
-    )
+    lines.append("> **⚠ PROVISIONAL:** All strategy decisions based on historical sweeps prior to")
+    lines.append("> this revalidation are marked **PROVISIONAL** throughout this report. The")
+    lines.append("> corrected FTMO parameters (0.5% risk, 3% daily DD, $100k balance) reflect")
+    lines.append("> actual FTMO challenge conditions. Prior sweeps used incorrect parameters")
+    lines.append("> (1% risk, 5% daily DD) that inflated trade counts and drawdown tolerance.")
     lines.append("")
 
     # Per-strategy comparison
@@ -184,9 +166,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         # Profit Factor
         old_pf = old.get("profit_factor")
         new_pf = s["profit_factor"]
-        lines.append(
-            f"| {strat} | {pair} | {tf} | **PF** | {fmt_delta_raw(new_pf, old_pf)} | | |"
-        )
+        lines.append(f"| {strat} | {pair} | {tf} | **PF** | {fmt_delta_raw(new_pf, old_pf)} | | |")
 
         # Win Rate
         old_wr = old.get("win_rate")
@@ -201,15 +181,13 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         # Max DD
         old_dd = old.get("max_dd")
         new_dd = s.get("max_dd")
-        lines.append(
-            f"| | | | **Max DD** | {fmt_delta_raw(new_dd, old_dd, higher_better=False)} | | |"
-        )
+        lines.append(f"| | | | **Max DD** | {fmt_delta_raw(new_dd, old_dd, higher_better=False)} | | |")
 
         # Trades
         old_t = old.get("total_trades", 0)
         new_t = s.get("total_trades", 0)
         lines.append(
-            f"| | | | **Trades** | {old_t or 0} → {new_t} ({'+' if new_t - (old_t or 0) >= 0 else ''}{new_t - (old_t or 0)}) | | |"
+            f"| | | | **Trades** | {old_t or 0} → {new_t} ({'+' if new_t - (old_t or 0) >= 0 else ''}{new_t - (old_t or 0)}) | | |"  # noqa: E501
         )
 
         # Go/No-Go (normalize case: DB stores lowercase, report uses uppercase)
@@ -218,9 +196,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         new_go = "GO" if s.get("go_nogo") else "NO-GO"
         change = ""
         if old_go != new_go and old_go != "N/A":
-            change = (
-                "🔥 **STATUS CHANGE**" if new_go == "GO" else "📉 **STATUS CHANGE**"
-            )
+            change = "🔥 **STATUS CHANGE**" if new_go == "GO" else "📉 **STATUS CHANGE**"
         lines.append(f"| | | | **GO/NO-GO** | {old_go} → {new_go} {change} | | |")
         lines.append("| | | | | | | |")
 
@@ -231,9 +207,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
     for s in new_data["strategies"]:
         strat = s["strategy"]
         old = old_data.get(strat, {})
-        lines.append(
-            f"### {strat} ({s.get('pair', 'XAUUSD')} {s.get('timeframe', '?')})"
-        )
+        lines.append(f"### {strat} ({s.get('pair', 'XAUUSD')} {s.get('timeframe', '?')})")
         lines.append("")
 
         new_go = "GO" if s.get("go_nogo") else "NO-GO"
@@ -245,9 +219,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         if old:
             if old_go != new_go and old_go != "N/A":
                 if new_go == "GO":
-                    lines.append(
-                        f"- **Status: ↑ Newly passing** (was {old_go}, now GO)"
-                    )
+                    lines.append(f"- **Status: ↑ Newly passing** (was {old_go}, now GO)")
                     lines.append(
                         f"- PF improved: {old_pf:.3f} → {s['profit_factor']:.3f}"
                         if old_pf
@@ -258,36 +230,28 @@ def generate_report(new_data: dict, old_data: dict) -> str:
                             "- **Critical:** Old sweep generated 0 trades — strategy was untestable with prior params"
                         )
                 else:
-                    lines.append(
-                        f"- **Status: 📉 Newly failing** (was {old_go}, now NO-GO)"
-                    )
+                    lines.append(f"- **Status: 📉 Newly failing** (was {old_go}, now NO-GO)")
             else:
                 lines.append(f"- **Status: {new_go}** (unchanged from prior sweep)")
         else:
-            lines.append(
-                f"- **Status: {new_go}** (no prior sweep data for this strategy/TF combination)"
-            )
+            lines.append(f"- **Status: {new_go}** (no prior sweep data for this strategy/TF combination)")
 
         lines.append(
-            f"- Profit Factor: {s['profit_factor']:.3f} (95% CI: [{s.get('ci_lower', 0):.3f}, {s.get('ci_upper', 0):.3f}])"
+            f"- Profit Factor: {s['profit_factor']:.3f} (95% CI: [{s.get('ci_lower', 0):.3f}, {s.get('ci_upper', 0):.3f}])"  # noqa: E501
         )
         lines.append(f"- Win Rate: {s.get('win_rate', 0):.1%}")
         lines.append(f"- Sharpe Ratio: {s.get('sharpe', 0):.3f}")
         lines.append(f"- Max Drawdown: {s.get('max_dd', 0):.2%}")
-        lines.append(
-            f"- Windows Passed: {s.get('windows_passed', 0)}/{s.get('total_windows', 5)}"
-        )
+        lines.append(f"- Windows Passed: {s.get('windows_passed', 0)}/{s.get('total_windows', 5)}")
         lines.append(f"- Total Trades: {s.get('total_trades', 0)}")
 
         # Flag anomalies
         if s.get("ci_lower", 1) < 1.0 and new_go == "GO":
             lines.append(
-                f"- ⚠ **CI concern:** Lower bound ({s.get('ci_lower', 0):.3f}) < 1.0 — profitability not statistically certain"
+                f"- ⚠ **CI concern:** Lower bound ({s.get('ci_lower', 0):.3f}) < 1.0 — profitability not statistically certain"  # noqa: E501
             )
         if old_trades == 0 and s.get("total_trades", 0) > 0:
-            lines.append(
-                "- ⚠ **Old sweep had 0 trades** — comparison may not be meaningful"
-            )
+            lines.append("- ⚠ **Old sweep had 0 trades** — comparison may not be meaningful")
 
         lines.append("")
 
@@ -303,31 +267,25 @@ def generate_report(new_data: dict, old_data: dict) -> str:
     lines.append("")
     for s in sorted(clean_go, key=lambda x: x.get("profit_factor", 0), reverse=True):
         lines.append(
-            f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%}"
+            f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%}"  # noqa: E501
         )
     lines.append("")
     if anomalous_go:
         lines.append(f"### ⚠ ANOMALOUS — Criteria Conflict ({len(anomalous_go)})")
         lines.append("")
-        lines.append(
-            "These strategies have GO=true (passed ≥3/5 windows) but PF < 1.0 (net losses)."
-        )
+        lines.append("These strategies have GO=true (passed ≥3/5 windows) but PF < 1.0 (net losses).")
         lines.append("**DO NOT DEPLOY until criteria conflict is resolved.**")
         lines.append("")
-        for s in sorted(
-            anomalous_go, key=lambda x: x.get("profit_factor", 0), reverse=True
-        ):
+        for s in sorted(anomalous_go, key=lambda x: x.get("profit_factor", 0), reverse=True):
             lines.append(
-                f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%} (GO by window count {s.get('windows_passed', 0)}/{s.get('total_windows', 5)}, but PF indicates losses)"
+                f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%} (GO by window count {s.get('windows_passed', 0)}/{s.get('total_windows', 5)}, but PF indicates losses)"  # noqa: E501
             )
         lines.append("")
     lines.append(f"### ❌ NO-GO ({len(nogo_strategies)})")
     lines.append("")
-    for s in sorted(
-        nogo_strategies, key=lambda x: x.get("profit_factor", 0), reverse=True
-    ):
+    for s in sorted(nogo_strategies, key=lambda x: x.get("profit_factor", 0), reverse=True):
         lines.append(
-            f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%}"
+            f"1. **{s['strategy']}** — PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f}, WR={s.get('win_rate', 0):.1%}"  # noqa: E501
         )
     lines.append("")
 
@@ -351,12 +309,10 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         lines.append("### ↑ Newly Passing")
         for strat in newly_passing:
             # Check if this strategy is anomalous (GO but PF < 1.0)
-            strat_data = next(
-                (s for s in new_data["strategies"] if s["strategy"] == strat), None
-            )
+            strat_data = next((s for s in new_data["strategies"] if s["strategy"] == strat), None)
             if strat_data and is_anomalous_go(strat_data):
                 lines.append(
-                    f"- **{strat}** — ↑ Newly passing BY WINDOW COUNT ({strat_data.get('windows_passed', 0)}/{strat_data.get('total_windows', 5)}) but PF={strat_data['profit_factor']:.2f} indicates losses — criteria conflict, see anomaly section. Prior decisions are **PROVISIONAL**."
+                    f"- **{strat}** — ↑ Newly passing BY WINDOW COUNT ({strat_data.get('windows_passed', 0)}/{strat_data.get('total_windows', 5)}) but PF={strat_data['profit_factor']:.2f} indicates losses — criteria conflict, see anomaly section. Prior decisions are **PROVISIONAL**."  # noqa: E501
                 )
             else:
                 lines.append(
@@ -385,63 +341,37 @@ def generate_report(new_data: dict, old_data: dict) -> str:
             lines.append(f"### {s['strategy']}")
             lines.append("")
             lines.append(
-                f"- **GO flag:** True (passed {s.get('windows_passed', 0)}/{s.get('total_windows', 5)} walk-forward windows)"
+                f"- **GO flag:** True (passed {s.get('windows_passed', 0)}/{s.get('total_windows', 5)} walk-forward windows)"  # noqa: E501
             )
-            lines.append(
-                f"- **Profit Factor:** {s['profit_factor']:.3f} — below 1.0, indicating net losses"
-            )
+            lines.append(f"- **Profit Factor:** {s['profit_factor']:.3f} — below 1.0, indicating net losses")
             lines.append(f"- **Sharpe Ratio:** {s.get('sharpe', 0):.3f} — negative")
-            lines.append(
-                f"- **CI lower bound:** {s.get('ci_lower', 0):.3f} — well below 1.0 profitability threshold"
-            )
+            lines.append(f"- **CI lower bound:** {s.get('ci_lower', 0):.3f} — well below 1.0 profitability threshold")
             lines.append("")
-            lines.append(
-                "**Root cause:** The GO/NO-GO gate uses window-count (≥3/5 passed) as its criterion,"
-            )
-            lines.append(
-                f"but PF={s['profit_factor']:.2f} means the strategy loses money on average. These two"
-            )
+            lines.append("**Root cause:** The GO/NO-GO gate uses window-count (≥3/5 passed) as its criterion,")
+            lines.append(f"but PF={s['profit_factor']:.2f} means the strategy loses money on average. These two")
             lines.append("criteria conflict for this strategy.")
             lines.append("")
-            lines.append(
-                "**Recommendation:** Resolve the criterion conflict BEFORE any FTMO deployment decision."
-            )
-            lines.append(
-                "Either:(a) add a PF ≥ 1.0 floor to the GO gate, or (b) accept window-count as sole"
-            )
-            lines.append(
-                "criterion and document the risk. This is the issue parent card d8c5aead flagged"
-            )
+            lines.append("**Recommendation:** Resolve the criterion conflict BEFORE any FTMO deployment decision.")
+            lines.append("Either:(a) add a PF ≥ 1.0 floor to the GO gate, or (b) accept window-count as sole")
+            lines.append("criterion and document the risk. This is the issue parent card d8c5aead flagged")
             lines.append("for this report to address.")
             lines.append("")
-            lines.append(
-                f"**Status: DO NOT DEPLOY {s['strategy']} until this conflict is resolved.**"
-            )
+            lines.append(f"**Status: DO NOT DEPLOY {s['strategy']} until this conflict is resolved.**")
             lines.append("")
 
     # Provisional decisions warning
     lines.append("## ⚠ PROVISIONAL Decisions Flag")
     lines.append("")
-    lines.append(
-        "All strategy deployment, shelving, or parameter decisions made between the original"
-    )
-    lines.append(
-        "sweep (Jul 13–19, 2026) and this revalidation (Jul 24, 2026) are **PROVISIONAL**."
-    )
-    lines.append(
-        "They were based on sweeps with incorrect FTMO parameters and must be re-evaluated"
-    )
+    lines.append("All strategy deployment, shelving, or parameter decisions made between the original")
+    lines.append("sweep (Jul 13–19, 2026) and this revalidation (Jul 24, 2026) are **PROVISIONAL**.")
+    lines.append("They were based on sweeps with incorrect FTMO parameters and must be re-evaluated")
     lines.append("against the corrected results in this report.")
     lines.append("")
     lines.append("**Affected decisions:**")
-    lines.append(
-        "- Any strategy promoted to forward testing based on old sweep GO status"
-    )
+    lines.append("- Any strategy promoted to forward testing based on old sweep GO status")
     lines.append("- Any strategy archived based on old sweep NO-GO status")
     lines.append("- Any parameter optimization performed against old sweep metrics")
-    lines.append(
-        "- The multiple testing correction (Jul 12) results — p-values were computed from"
-    )
+    lines.append("- The multiple testing correction (Jul 12) results — p-values were computed from")
     lines.append("  old sweep data and may change with corrected params")
     lines.append("")
 
@@ -454,9 +384,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
     if deploy_go:
         lines.append("**Proceed to FTMO live capital:**")
         for s in deploy_go:
-            lines.append(
-                f"- {s['strategy']} (PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f})"
-            )
+            lines.append(f"- {s['strategy']} (PF={s['profit_factor']:.2f}, Sharpe={s.get('sharpe', 0):.2f})")
     lines.append("")
     not_deploy = sorted(
         nogo_strategies + anomalous_go,
@@ -468,7 +396,7 @@ def generate_report(new_data: dict, old_data: dict) -> str:
         for s in not_deploy:
             note = ""
             if is_anomalous_go(s):
-                note = f" (⚠ ANOMALOUS: GO by window count but PF={s['profit_factor']:.2f} — criteria conflict, see anomaly section)"
+                note = f" (⚠ ANOMALOUS: GO by window count but PF={s['profit_factor']:.2f} — criteria conflict, see anomaly section)"  # noqa: E501
             lines.append(f"- {s['strategy']} (PF={s['profit_factor']:.2f}){note}")
     lines.append("")
     lines.append("---")
@@ -498,9 +426,7 @@ def generate_ranking(new_data: dict) -> str:
     lines.append(f"**Generated:** {now}")
     lines.append("**Source:** docs/strategies/revalidation-2026-07/raw/_summary.json")
     lines.append("")
-    lines.append(
-        "Ranking derived from corrected FTMO parameter re-sweep. Sorted by Profit Factor"
-    )
+    lines.append("Ranking derived from corrected FTMO parameter re-sweep. Sorted by Profit Factor")
     lines.append("(primary), Sharpe ratio (secondary), Win Rate (tertiary).")
     lines.append("")
     lines.append(
@@ -533,24 +459,14 @@ def generate_ranking(new_data: dict) -> str:
     lines.append("")
     lines.append("- **Tier S** (PF > 5.0, GO): Elite — deploy with confidence")
     lines.append("- **Tier A** (PF > 1.5, GO): Strong — deploy with monitoring")
-    lines.append(
-        "- **Tier B** (PF > 1.0, GO): Marginal — deploy with caution, CI lower must be > 1.0"
-    )
+    lines.append("- **Tier B** (PF > 1.0, GO): Marginal — deploy with caution, CI lower must be > 1.0")
     lines.append("- **Tier C** (PF < 1.0, NO-GO): Do not deploy")
     lines.append("- **Tier D** (PF < 0.5, NO-GO): Archive")
     lines.append("")
-    lines.append(
-        "> **⚠ Anomaly note:** Strategies with GO=true but PF < 1.0 are marked `⚠ GO*` in the"
-    )
-    lines.append(
-        "> table above. These passed the window-count gate (≥3/5) but have Profit Factors"
-    )
-    lines.append(
-        "> indicating net losses. The GO flag and profitability criteria conflict."
-    )
-    lines.append(
-        "> **DO NOT DEPLOY these strategies until the criteria conflict is resolved.**"
-    )
+    lines.append("> **⚠ Anomaly note:** Strategies with GO=true but PF < 1.0 are marked `⚠ GO*` in the")
+    lines.append("> table above. These passed the window-count gate (≥3/5) but have Profit Factors")
+    lines.append("> indicating net losses. The GO flag and profitability criteria conflict.")
+    lines.append("> **DO NOT DEPLOY these strategies until the criteria conflict is resolved.**")
     lines.append("")
 
     for s in strategies:
@@ -589,9 +505,7 @@ def generate_ranking(new_data: dict) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate revalidation-2026-07 comparative report"
-    )
+    parser = argparse.ArgumentParser(description="Generate revalidation-2026-07 comparative report")
     parser.add_argument(
         "--db",
         default="data/research/research.duckdb",

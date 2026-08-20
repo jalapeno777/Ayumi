@@ -5,7 +5,7 @@ Precomputes regime + ADX for all bars ONCE (cached to disk).
 Then tests gate variants as fast filter lookups.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 import time
 import logging
@@ -21,7 +21,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 from core.types import Bar, MarketState, SessionType, BarPeriod
 from strategies.killzone_momentum import (
     KillzoneMomentumStrategy,
@@ -64,22 +64,16 @@ class GateConfig:
 
 
 BASELINE = {
-    "killzone_momentum": GateConfig(
-        {Regime.QUIET, Regime.CHOPPY}, (18.0, 25.0), {"london"}
-    ),
-    "dual_tf_squeeze_pro": GateConfig(
-        {Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}
-    ),
-    "donchian_atr_trend_v2": GateConfig(
-        {Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None
-    ),
+    "killzone_momentum": GateConfig({Regime.QUIET, Regime.CHOPPY}, (18.0, 25.0), {"london"}),
+    "dual_tf_squeeze_pro": GateConfig({Regime.VOLATILE, Regime.CHOPPY}, (0.0, 100.0), {"asia", "ny_am"}),
+    "donchian_atr_trend_v2": GateConfig({Regime.QUIET, Regime.CHOPPY, Regime.TRENDING}, (0.0, 30.0), None),
     "srmr_plus": GateConfig({Regime.QUIET}, (0.0, 100.0), {"london"}),
 }
 
 
 def load_bars(con, symbol, tf):
     rows = con.execute(
-        f"SELECT timestamp_utc, open, high, low, close, volume FROM bars WHERE symbol='{symbol}' AND timeframe='{tf}' ORDER BY timestamp_utc ASC"
+        f"SELECT timestamp_utc, open, high, low, close, volume FROM bars WHERE symbol='{symbol}' AND timeframe='{tf}' ORDER BY timestamp_utc ASC"  # noqa: E501, S608
     ).fetchall()
     bm = {"M15": BarPeriod.M15, "H1": BarPeriod.H1}
     # Auto-detect timestamp scale: > 1e12 = milliseconds, else seconds
@@ -130,11 +124,11 @@ def precompute(bars, detector):
         if i >= WINDOW:
             w = bars[max(0, i - WINDOW) : i + 1]
             h = np.array([b.high for b in w])
-            l = np.array([b.low for b in w])
+            l = np.array([b.low for b in w])  # noqa: E741
             c = np.array([b.close for b in w])
             try:
                 regimes[i] = detector.detect_current(h, l, c)
-            except:
+            except:  # noqa: E722, S110
                 pass
             try:
                 a = calc_adx(h, l, c, 14)
@@ -142,38 +136,28 @@ def precompute(bars, detector):
                     val = float(a.iloc[-1]) if hasattr(a, "iloc") else float(a[-1])
                     if not np.isnan(val):
                         adxs[i] = val
-            except:
+            except:  # noqa: E722, S110
                 pass
         hr = bars[i].time.hour
-        sess[i] = (
-            "asia"
-            if 0 <= hr < 7
-            else "london"
-            if 7 <= hr < 12
-            else "ny_am"
-            if 12 <= hr < 17
-            else "other"
-        )
+        sess[i] = "asia" if 0 <= hr < 7 else "london" if 7 <= hr < 12 else "ny_am" if 12 <= hr < 17 else "other"
     return regimes, adxs, sess
 
 
 def get_or_cache_labels(symbol, tf, bars, detector):
     """Cache precomputed labels to disk."""
     # Hash based on symbol, tf, bar count, first/last timestamps
-    h = hashlib.md5(
+    h = hashlib.md5(  # noqa: S324
         f"{symbol}_{tf}_{len(bars)}_{bars[0].time}_{bars[-1].time}".encode()
     ).hexdigest()[:12]
     cache_file = CACHE_DIR / f"labels_{symbol}_{tf}_{h}.pkl"
     if cache_file.exists():
         print(f"Loading cached labels from {cache_file.name}", flush=True)
         with open(cache_file, "rb") as f:
-            return pickle.load(f)
+            return pickle.load(f)  # noqa: S301
     print(f"Precomputing labels for {symbol} {tf} ({len(bars)} bars)...", flush=True)
     t0 = time.time()
     result = precompute(bars, detector)
-    print(
-        f"  Done in {time.time() - t0:.1f}s — caching to {cache_file.name}", flush=True
-    )
+    print(f"  Done in {time.time() - t0:.1f}s — caching to {cache_file.name}", flush=True)
     with open(cache_file, "wb") as f:
         pickle.dump(result, f)
     return result
@@ -234,12 +218,10 @@ def run_variant(factory, bars, gate, regimes, adxs, sess):
         if not gate_ok(i, gate, regimes, adxs, sess):
             continue
         start = max(0, i - 299)
-        state = MarketState(
-            bars=bars[start : i + 1], current_session=session_for(bar.time.hour)
-        )
+        state = MarketState(bars=bars[start : i + 1], current_session=session_for(bar.time.hour))
         try:
             sig = s.evaluate(state)
-        except:
+        except:  # noqa: E722, S112
             continue
         if sig is None:
             continue
@@ -268,7 +250,7 @@ def metrics(trades):
     if not trades:
         return {"trades": 0, "pf": 0, "net": 0, "dd_pct": 0, "wr": 0}
     w = [t for t in trades if t > 0]
-    l = [t for t in trades if t <= 0]
+    l = [t for t in trades if t <= 0]  # noqa: E741
     gw, gl = sum(w), abs(sum(l))
     pf = gw / gl if gl > 0 else 999.0
     eq = np.cumsum(trades)
@@ -417,9 +399,7 @@ def variants_for(sid, base):
         v.append(
             (
                 "combo_mod",
-                base.copy(
-                    regimes={Regime.QUIET, Regime.CHOPPY}, sessions={"london", "ny_am"}
-                ),
+                base.copy(regimes={Regime.QUIET, Regime.CHOPPY}, sessions={"london", "ny_am"}),
             )
         )
         v.append(
@@ -460,7 +440,7 @@ def main():
     det = RegimeDetector(RegimeConfig())
 
     tf_cache = {}
-    for sid, ((sym, tf), _) in INFO.items():
+    for sid, ((sym, tf), _) in INFO.items():  # noqa: B007
         if (sym, tf) not in tf_cache:
             bars = load_bars(con, sym, tf)
             labels = get_or_cache_labels(sym, tf, bars, det)
@@ -505,17 +485,13 @@ def main():
     for sid, vr in all_r.items():
         b = vr["BASELINE"]
         tb += b["trades"]
-        viable = {
-            k: v
-            for k, v in vr.items()
-            if v["pf"] > 1.0 and v["dd_pct"] < 10.0 and k != "BASELINE"
-        }
+        viable = {k: v for k, v in vr.items() if v["pf"] > 1.0 and v["dd_pct"] < 10.0 and k != "BASELINE"}
         if viable:
             bn = max(viable, key=lambda k: viable[k]["trades"])
             best = viable[bn]
             ts += best["trades"]
             print(
-                f"| {sid} | {bn} | {best['trades']} | {best['pf']} | ${best['net']} | {best['dd_pct']}% | +{best['trades'] - b['trades']} |",
+                f"| {sid} | {bn} | {best['trades']} | {best['pf']} | ${best['net']} | {best['dd_pct']}% | +{best['trades'] - b['trades']} |",  # noqa: E501
                 flush=True,
             )
         else:
@@ -527,29 +503,17 @@ def main():
     print(f"| **TOTAL** | | **{ts}** | | | | +{ts - tb} |", flush=True)
     yrs = 4.5
     print(
-        f"\n**Base:** {tb / yrs:.0f}/yr → **Loosened:** {ts / yrs:.0f}/yr → **Target:** 250/yr → **Gap:** {max(0, 250 - ts / yrs):.0f}/yr",
+        f"\n**Base:** {tb / yrs:.0f}/yr → **Loosened:** {ts / yrs:.0f}/yr → **Target:** 250/yr → **Gap:** {max(0, 250 - ts / yrs):.0f}/yr",  # noqa: E501
         flush=True,
     )
 
-    out = (
-        project_root
-        / "docs"
-        / "research"
-        / "strategy-profiles"
-        / "gate_loosening_study_2026-07-22.md"
-    )
+    out = project_root / "docs" / "research" / "strategy-profiles" / "gate_loosening_study_2026-07-22.md"
     with open(out, "w") as f:
-        f.write(
-            f"# Gate Loosening Study\n\n_Generated: {time.strftime('%Y-%m-%dT%H:%M:%S%z')}_\n\n"
-        )
+        f.write(f"# Gate Loosening Study\n\n_Generated: {time.strftime('%Y-%m-%dT%H:%M:%S%z')}_\n\n")
         for sid, vr in all_r.items():
-            f.write(
-                f"## {sid}\n\n| Variant | Trades | PF | Net $ | DD % | WR % |\n|---|---:|---:|---:|---:|---:|\n"
-            )
+            f.write(f"## {sid}\n\n| Variant | Trades | PF | Net $ | DD % | WR % |\n|---|---:|---:|---:|---:|---:|\n")
             for vn, m in vr.items():
-                f.write(
-                    f"| {vn} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% |\n"
-                )
+                f.write(f"| {vn} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% |\n")
             f.write("\n")
     print(f"\nSaved to {out}", flush=True)
     con.close()

@@ -6,7 +6,7 @@ Tests that:
      while preserving open_positions.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import uuid
@@ -18,7 +18,7 @@ from forward_test.blend_runner import BlendForwardTestRunner
 
 
 def _fresh_state_path() -> str:
-    return f"/tmp/test_risk_lifecycle_{uuid.uuid4().hex}.json"
+    return f"/tmp/test_risk_lifecycle_{uuid.uuid4().hex}.json"  # noqa: S108
 
 
 class TestCloseLifecycle:
@@ -243,9 +243,7 @@ class TestDailyReset:
 
     def test_daily_reset_after_losses_allows_new_trades(self):
         """After daily reset, daily_risk_remaining should reflect the reset."""
-        daily_cap = (
-            self.runner._sizer.account_balance * self.runner._sizer.daily_risk_cap_pct
-        )
+        daily_cap = self.runner._sizer.account_balance * self.runner._sizer.daily_risk_cap_pct
         self.runner._sizer._daily_risk_used = daily_cap * 0.95
 
         remaining_before = self.runner._sizer.daily_risk_remaining

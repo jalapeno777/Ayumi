@@ -58,21 +58,14 @@ def _pip_size(symbol: str) -> float:
 
 def get_available_symbols(con: duckdb.DuckDBPyConnection) -> list[str]:
     """Get all symbols that have tick data."""
-    return [
-        r[0]
-        for r in con.execute(
-            "SELECT DISTINCT symbol FROM ticks ORDER BY symbol"
-        ).fetchall()
-    ]
+    return [r[0] for r in con.execute("SELECT DISTINCT symbol FROM ticks ORDER BY symbol").fetchall()]
 
 
 def get_aggregated(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
     """Get (symbol, timeframe) pairs already in bars table."""
     return [
         (r[0], r[1])
-        for r in con.execute(
-            "SELECT DISTINCT symbol, timeframe FROM bars ORDER BY symbol, timeframe"
-        ).fetchall()
+        for r in con.execute("SELECT DISTINCT symbol, timeframe FROM bars ORDER BY symbol, timeframe").fetchall()
     ]
 
 
@@ -136,9 +129,7 @@ def aggregate_symbol_timeframe(
         logger.warning("  %s %s: no tick data available, skipping", symbol, timeframe)
         return 0
 
-    logger.info(
-        "  %s %s: aggregating from %d ticks...", symbol, timeframe, coverage["count"]
-    )
+    logger.info("  %s %s: aggregating from %d ticks...", symbol, timeframe, coverage["count"])
 
     start = time.monotonic()
 
@@ -175,7 +166,7 @@ def aggregate_symbol_timeframe(
         FROM ranked
         GROUP BY bar_ts
         ORDER BY bar_ts
-    """
+    """  # noqa: S608
 
     con.execute(query, [symbol, symbol, timeframe])
 
@@ -247,10 +238,7 @@ def aggregate_symbol(
             results[tf] = count
 
         # Create index for fast lookups (if not exists)
-        con.execute(
-            "CREATE INDEX IF NOT EXISTS idx_bars_symbol_tf "
-            "ON bars (symbol, timeframe, timestamp_utc)"
-        )
+        con.execute("CREATE INDEX IF NOT EXISTS idx_bars_symbol_tf ON bars (symbol, timeframe, timestamp_utc)")
 
         return results
 
@@ -266,12 +254,8 @@ def main():
         default="M1,M5,M15,M30,H1,H4,D1",
         help="Comma-separated timeframes to aggregate",
     )
-    parser.add_argument(
-        "--force", action="store_true", help="Re-aggregate even if bars exist"
-    )
-    parser.add_argument(
-        "--list", action="store_true", help="List aggregated bars and exit"
-    )
+    parser.add_argument("--force", action="store_true", help="Re-aggregate even if bars exist")
+    parser.add_argument("--list", action="store_true", help="List aggregated bars and exit")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -298,24 +282,18 @@ def main():
             import datetime
 
             for _, row in df.iterrows():
-                e = datetime.datetime.fromtimestamp(
-                    row["earliest_s"], tz=datetime.timezone.utc
-                )
-                l = datetime.datetime.fromtimestamp(
+                e = datetime.datetime.fromtimestamp(row["earliest_s"], tz=datetime.timezone.utc)
+                l = datetime.datetime.fromtimestamp(  # noqa: E741
                     row["latest_s"], tz=datetime.timezone.utc
                 )
-                print(
-                    f"  {row['symbol']:<8} {row['timeframe']:<4} {row['bars']:>8} bars  {e.date()} → {l.date()}"
-                )
+                print(f"  {row['symbol']:<8} {row['timeframe']:<4} {row['bars']:>8} bars  {e.date()} → {l.date()}")
 
         print("\n=== Available Tick Data ===")
         symbols = get_available_symbols(con)
         for sym in symbols:
             cov = check_tick_coverage(con, sym)
-            e = datetime.datetime.fromtimestamp(
-                cov["earliest"] / 1000, tz=datetime.timezone.utc
-            )
-            l = datetime.datetime.fromtimestamp(
+            e = datetime.datetime.fromtimestamp(cov["earliest"] / 1000, tz=datetime.timezone.utc)
+            l = datetime.datetime.fromtimestamp(  # noqa: E741
                 cov["latest"] / 1000, tz=datetime.timezone.utc
             )
             print(f"  {sym:<8} {cov['count']:>12,} ticks  {e.date()} → {l.date()}")

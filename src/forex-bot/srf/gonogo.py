@@ -45,9 +45,7 @@ def evaluate_go_nogo(
 
     # ── 1. Profit factor per window ──────────────────────────────────────
     pf_passing = sum(
-        1
-        for w in windows
-        if w.get("profit_factor", 0) >= min_pf and w.get("trade_count", 0) >= min_trades
+        1 for w in windows if w.get("profit_factor", 0) >= min_pf and w.get("trade_count", 0) >= min_trades
     )
     checks["windows_passed"] = pf_passing >= min_windows
     if not checks["windows_passed"]:
@@ -57,9 +55,7 @@ def evaluate_go_nogo(
     total_trades = sum(w.get("trade_count", 0) for w in windows)
     checks["sufficient_trades"] = total_trades >= min_trades * len(windows) * 0.5
     if not checks["sufficient_trades"]:
-        reasons.append(
-            f"Only {total_trades} total trades (need ~{min_trades * len(windows)})"
-        )
+        reasons.append(f"Only {total_trades} total trades (need ~{min_trades * len(windows)})")
 
     # ── 3. PF consistency (std not too high) ─────────────────────────────
     pfs = [w.get("profit_factor", 0) for w in windows if w.get("trade_count", 0) > 0]
@@ -89,9 +85,7 @@ def evaluate_go_nogo(
         detail = "All go/no-go criteria met"
     elif near_pass:
         decision = "watch"
-        detail = "Core criteria met but stability/consistency concerns: " + "; ".join(
-            reasons
-        )
+        detail = "Core criteria met but stability/consistency concerns: " + "; ".join(reasons)
     else:
         decision = "no-go"
         detail = "; ".join(reasons)

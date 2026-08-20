@@ -9,7 +9,7 @@ No live cTrader connection required. Time is patched via freezegun-style
 monkeypatching of time.monotonic / datetime.now.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 import time
@@ -70,9 +70,7 @@ def _ctrader_stubs(monkeypatch):
         "ProtoOAGetTrendbarsReq",
     ]:
         setattr(msgs_mod, _name, type(_name, (), {"__init__": lambda self, **kw: None}))
-    monkeypatch.setitem(
-        sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod
-    )
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiMessages_pb2", msgs_mod)
 
     model_mod = types.ModuleType("ctrader_open_api.messages.OpenApiModelMessages_pb2")
 
@@ -96,9 +94,7 @@ def _ctrader_stubs(monkeypatch):
     model_mod.ProtoOATradeSide = _TS
     model_mod.ProtoOATimeInForce = _TIF
     model_mod.ProtoOAExecutionType = _ET
-    monkeypatch.setitem(
-        sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod
-    )
+    monkeypatch.setitem(sys.modules, "ctrader_open_api.messages.OpenApiModelMessages_pb2", model_mod)
 
 
 def _drive_to_state(state_mgr: ConnectionStateManager, target: ConnectionState) -> None:

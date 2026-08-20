@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 from typing import List
 
 from dataclasses import dataclass
@@ -214,9 +214,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     for i in range(period, len(true_ranges)):
         smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
         smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dms[i]
-        smoothed_minus_dm = (
-            smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
-        )
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dms[i]
 
         if smoothed_tr == 0:
             dx_list.append(0.0)
@@ -239,9 +237,7 @@ def _calculate_adx(bars: list[Bar], period: int = 14) -> float:
     return adx
 
 
-def _calculate_bollinger_bands(
-    bars: list[Bar], period: int, std_dev: float
-) -> tuple[float, float, float]:
+def _calculate_bollinger_bands(bars: list[Bar], period: int, std_dev: float) -> tuple[float, float, float]:
     closes = [b.close for b in bars]
     sma = _calculate_sma(closes, period)
     std = _calculate_std(closes, period)
@@ -250,9 +246,7 @@ def _calculate_bollinger_bands(
     return upper, sma, lower
 
 
-def _calculate_keltner_channels(
-    bars: list[Bar], period: int, atr_multiplier: float
-) -> tuple[float, float, float]:
+def _calculate_keltner_channels(bars: list[Bar], period: int, atr_multiplier: float) -> tuple[float, float, float]:
     closes = [b.close for b in bars]
     ema = _calculate_ema(closes, period)
     atr = _calculate_atr(bars, period)
@@ -276,12 +270,8 @@ def _detect_squeeze_duration(
         slice_bars = bars[: i + 1]
         if len(slice_bars) < max(bb_period, kc_period) + 1:
             continue
-        bb_upper, _, bb_lower = _calculate_bollinger_bands(
-            slice_bars, bb_period, bb_std_dev
-        )
-        kc_upper, _, kc_lower = _calculate_keltner_channels(
-            slice_bars, kc_period, kc_atr_multiplier
-        )
+        bb_upper, _, bb_lower = _calculate_bollinger_bands(slice_bars, bb_period, bb_std_dev)
+        kc_upper, _, kc_lower = _calculate_keltner_channels(slice_bars, kc_period, kc_atr_multiplier)
         if bb_upper <= kc_upper and bb_lower >= kc_lower:
             count += 1
         else:
@@ -349,9 +339,7 @@ class VolatilitySqueezeStrategy:
 
     def evaluate(self, state: MarketState) -> StrategySignal | None:
         min_required = (
-            max(self.config.bb_period, self.config.kc_period, self.config.ema_period)
-            + self.config.adx_period
-            + 5
+            max(self.config.bb_period, self.config.kc_period, self.config.ema_period) + self.config.adx_period + 5
         )
 
         if len(state.bars) < min_required:
@@ -361,9 +349,7 @@ class VolatilitySqueezeStrategy:
             return None
 
         bars = state.bars
-        bb_upper, bb_middle, bb_lower = _calculate_bollinger_bands(
-            bars, self.config.bb_period, self.config.bb_std_dev
-        )
+        bb_upper, bb_middle, bb_lower = _calculate_bollinger_bands(bars, self.config.bb_period, self.config.bb_std_dev)
         kc_upper, kc_middle, kc_lower = _calculate_keltner_channels(
             bars, self.config.kc_period, self.config.kc_atr_multiplier
         )
@@ -386,9 +372,7 @@ class VolatilitySqueezeStrategy:
         if ema == 0:
             return None
 
-        atr = (
-            state.atr if state.atr > 0 else _calculate_atr(bars, self.config.atr_period)
-        )
+        atr = state.atr if state.atr > 0 else _calculate_atr(bars, self.config.atr_period)
 
         adx = _calculate_adx(bars, self.config.adx_period)
 

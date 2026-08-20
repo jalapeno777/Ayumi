@@ -114,9 +114,7 @@ class TestKillSwitchQueryVsOrder:
 
         for prefix in query_prefixes:
             feed._activate_kill_switch_freeze.reset_mock()
-            msg = _make_error_message(
-                "INVALID_REQUEST", "Trading account is not authorized"
-            )
+            msg = _make_error_message("INVALID_REQUEST", "Trading account is not authorized")
             envelope = _make_envelope(prefix)
 
             feed._handle_error(msg, envelope)

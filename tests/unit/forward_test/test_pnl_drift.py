@@ -28,7 +28,7 @@ def _mock_ctrader(monkeypatch):
 @pytest.fixture
 def risk_guard(tmp_path):
     """Create a RiskGuard with isolated state file."""
-    from adapters.ctrader.risk_guard import RiskGuard, FTMOConfig
+    from adapters.ctrader.risk_guard import RiskGuard, FTMOConfig  # noqa: I001
 
     return RiskGuard(
         ftmo_config=FTMOConfig(),
@@ -60,8 +60,7 @@ class TestRootA_RiskGuardNoDoubleCount:
         rg.record_trade(pnl=200.0, is_win=True)
 
         assert rg._current_balance == balance_before, (
-            f"record_trade() inflated _current_balance by +=pnl: "
-            f"expected {balance_before}, got {rg._current_balance}"
+            f"record_trade() inflated _current_balance by +=pnl: expected {balance_before}, got {rg._current_balance}"
         )
 
     def test_record_trade_still_increments_counters(self, risk_guard):
@@ -97,8 +96,7 @@ class TestRootA_RiskGuardNoDoubleCount:
         # Without the fix, balance would be: 10200 + 100 - 50 + 150 = 10400
         # With the fix, balance matches the last update_balance() call: 10200
         assert rg._current_balance == 10_200.0, (
-            f"Balance drifted: expected 10200.0 (last update_balance), "
-            f"got {rg._current_balance}"
+            f"Balance drifted: expected 10200.0 (last update_balance), got {rg._current_balance}"
         )
 
 
@@ -174,8 +172,7 @@ class TestRootC_DailyStartBalanceSync:
             rg._daily_trade_count = 0
 
         assert rg._daily_start_balance == 10_100.0, (
-            f"daily_start_balance not reset for new day: "
-            f"expected 10100.0, got {rg._daily_start_balance}"
+            f"daily_start_balance not reset for new day: expected 10100.0, got {rg._daily_start_balance}"
         )
         assert rg._daily_trade_count == 0
         assert rg._current_day == today
@@ -199,8 +196,7 @@ class TestRootC_DailyStartBalanceSync:
             rg._daily_start_balance = live_balance
 
         assert rg._daily_start_balance == 10_000.0, (
-            f"daily_start_balance was incorrectly reset mid-day: "
-            f"expected 10000.0, got {rg._daily_start_balance}"
+            f"daily_start_balance was incorrectly reset mid-day: expected 10000.0, got {rg._daily_start_balance}"
         )
         assert rg._daily_trade_count == 5
 

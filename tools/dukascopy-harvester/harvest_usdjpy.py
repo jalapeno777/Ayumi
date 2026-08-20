@@ -22,6 +22,7 @@ Usage:
     # Custom date range
     python3 harvest_usdjpy.py --start 2023-01-01 --end 2023-12-31
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,9 +43,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from bi5_gap_fill import (
-    build_urls_for_day,
-    decode_bi5,
-    fetch_url,
+    build_urls_for_day,  # noqa: F401
+    decode_bi5,  # noqa: F401
+    fetch_url,  # noqa: F401
     get_existing_dates,
     harvest_day,
 )
@@ -72,6 +73,7 @@ TIMEFRAMES = [
 
 
 # ─── Phase 1: Download ───────────────────────────────────────────────────────
+
 
 async def download_missing_days(start: datetime, end: datetime) -> dict:
     """Download all missing USDJPY .bi5 files in the date range."""
@@ -106,20 +108,30 @@ async def download_missing_days(start: datetime, end: datetime) -> dict:
                     stats["downloaded"] += files
                     stats["ticks"] += ticks
                     if stats["downloaded"] % 50 == 0:
-                        logger.info("  Progress: %d days downloaded, %d skipped, %d ticks",
-                                    stats["downloaded"], stats["skipped"], stats["ticks"])
+                        logger.info(
+                            "  Progress: %d days downloaded, %d skipped, %d ticks",
+                            stats["downloaded"],
+                            stats["skipped"],
+                            stats["ticks"],
+                        )
             except Exception as e:
                 logger.error("Error harvesting %s: %s", current.date(), e)
                 stats["errors"] += 1
 
             current += timedelta(days=1)
 
-    logger.info("Download complete: %d downloaded, %d skipped, %d ticks, %d errors",
-                stats["downloaded"], stats["skipped"], stats["ticks"], stats["errors"])
+    logger.info(
+        "Download complete: %d downloaded, %d skipped, %d ticks, %d errors",
+        stats["downloaded"],
+        stats["skipped"],
+        stats["ticks"],
+        stats["errors"],
+    )
     return stats
 
 
 # ─── Phase 2: DuckDB Import ─────────────────────────────────────────────────
+
 
 def import_ticks_to_duckdb(db_path: Path) -> int:
     """Import all USDJPY tick CSVs into DuckDB. Returns total tick count."""
@@ -149,15 +161,15 @@ def import_ticks_to_duckdb(db_path: Path) -> int:
         try:
             # CSV format: timestamp,instrument,bid,ask,bidVol,askVol
             conn.execute(
-                "INSERT INTO ticks SELECT timestamp, instrument, bid, ask, bidVol, askVol FROM read_csv_auto(?, header=true)",
-                [csv_file]
+                "INSERT INTO ticks SELECT timestamp, instrument, bid, ask, bidVol, askVol FROM read_csv_auto(?, header=true)",  # noqa: E501
+                [csv_file],
             )
         except Exception as e:
             logger.warning("Failed to import %s: %s, trying explicit schema", fname, e)
             try:
                 conn.execute(
-                    "INSERT INTO ticks SELECT CAST(timestamp AS BIGINT), instrument, CAST(bid AS DOUBLE), CAST(ask AS DOUBLE), CAST(bidVol AS DOUBLE), CAST(askVol AS DOUBLE) FROM read_csv(?, header=true, columns={'timestamp': 'VARCHAR', 'instrument': 'VARCHAR', 'bid': 'VARCHAR', 'ask': 'VARCHAR', 'bidVol': 'VARCHAR', 'askVol': 'VARCHAR'})",
-                    [csv_file]
+                    "INSERT INTO ticks SELECT CAST(timestamp AS BIGINT), instrument, CAST(bid AS DOUBLE), CAST(ask AS DOUBLE), CAST(bidVol AS DOUBLE), CAST(askVol AS DOUBLE) FROM read_csv(?, header=true, columns={'timestamp': 'VARCHAR', 'instrument': 'VARCHAR', 'bid': 'VARCHAR', 'ask': 'VARCHAR', 'bidVol': 'VARCHAR', 'askVol': 'VARCHAR'})",  # noqa: E501
+                    [csv_file],
                 )
             except Exception as e2:
                 logger.error("Skipping %s: %s", fname, e2)
@@ -176,6 +188,7 @@ def import_ticks_to_duckdb(db_path: Path) -> int:
 
 
 # ─── Phase 3: Bar Generation ────────────────────────────────────────────────
+
 
 def generate_bars(db_path: Path) -> dict:
     """Generate M5, M15, H1, H4, D1 bar tables from ticks."""
@@ -210,9 +223,9 @@ def generate_bars(db_path: Path) -> dict:
             FROM ticks
             GROUP BY bar_start
             ORDER BY bar_start
-        """)
+        """)  # noqa: S608
 
-        count = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+        count = conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]  # noqa: S608
         results[suffix] = count
         logger.info("  %s: %d bars", table_name.upper(), count)
 
@@ -221,6 +234,7 @@ def generate_bars(db_path: Path) -> dict:
 
 
 # ─── Phase 4: Integrity Check ───────────────────────────────────────────────
+
 
 def run_integrity_check(db_path: Path, bar_counts: dict) -> dict:
     """Run integrity checks on the generated data."""
@@ -298,6 +312,7 @@ def run_integrity_check(db_path: Path, bar_counts: dict) -> dict:
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(description="Harvest USDJPY tick data and build DuckDB bars")
     parser.add_argument("--start", default=START_DATE, help="Start date YYYY-MM-DD")
@@ -362,7 +377,9 @@ def main():
     print("Integrity checks:")
     gap = checks.get("gap_check", {})
     status = "✅" if gap.get("pass") else "❌"
-    print(f"  {status} Gap check: max gap {gap.get('max_gap_days', '?')} days, {gap.get('gaps_over_7_days', '?')} gaps >7d")
+    print(
+        f"  {status} Gap check: max gap {gap.get('max_gap_days', '?')} days, {gap.get('gaps_over_7_days', '?')} gaps >7d"  # noqa: E501
+    )  # noqa: E501
     dr = checks.get("date_range", {})
     status = "✅" if dr.get("pass") else "❌"
     print(f"  {status} Date range: {dr.get('start', '?')} → {dr.get('end', '?')}")

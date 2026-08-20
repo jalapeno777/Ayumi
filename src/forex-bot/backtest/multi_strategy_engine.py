@@ -13,7 +13,7 @@ The multi-strategy-specific concerns retained here are:
 * ``run_combined_strategies()``   — combined run with individual results
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass
 
@@ -101,9 +101,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         ProgressiveSLMixin.__init__(self, config)
         self.strategies = strategies
         self.multi_config = multi_config or MultiStrategyConfig()
-        self.risk_sizer = risk_sizer or ConfidencePositionSizer(
-            account_size=config.starting_balance
-        )
+        self.risk_sizer = risk_sizer or ConfidencePositionSizer(account_size=config.starting_balance)
         self._kelly_config = kelly_config or KellyConfig()
         self._kelly_closed_trades: list[SimulatedTrade] = []
         self._kelly_skips = 0
@@ -145,10 +143,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
 
             self._check_open_trades_kelly(open_trades, bar, i, trades, equity_curve)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
@@ -162,30 +157,20 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
 
                 if all_signals:
                     combined = self._combine_signals(all_signals)
-                    if (
-                        combined is not None
-                        and combined.confidence
-                        >= self.multi_config.min_combined_confidence
-                    ):
+                    if combined is not None and combined.confidence >= self.multi_config.min_combined_confidence:
                         trade = self._open_trade_kelly(combined, bar, i)
                         if trade is not None:
                             open_trades.append(trade)
 
             equity_curve.append(self.balance)
 
-        trades.extend(
-            self._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
+        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
         combined_metrics = self._calculate_metrics(trades, equity_curve)
         return individual, combined_metrics
 
     # ── single-strategy runner (private) ────────────────────────────
 
-    def _run_single_strategy(
-        self, strategy: ISignalStrategy, bars: list[Bar]
-    ) -> StrategyBacktestResult:
+    def _run_single_strategy(self, strategy: ISignalStrategy, bars: list[Bar]) -> StrategyBacktestResult:
         if len(bars) < self.config.min_bars_before_signal:
             raise ValueError(f"Need at least {self.config.min_bars_before_signal} bars")
 
@@ -211,20 +196,14 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
 
             self._check_open_trades_kelly(open_trades, bar, i, trades, equity_curve)
 
-            if (
-                len(open_trades) < self.config.max_open_trades
-                and i >= self.config.min_bars_before_signal
-            ):
+            if len(open_trades) < self.config.max_open_trades and i >= self.config.min_bars_before_signal:
                 state = MarketState(
                     bars=bars[: i + 1],
                     current_session=determine_session(bar.time),
                 )
 
                 signal = strategy.evaluate(state)
-                if (
-                    signal is not None
-                    and signal.confidence >= self.config.min_confidence
-                ):
+                if signal is not None and signal.confidence >= self.config.min_confidence:
                     trade = self._open_trade_kelly(signal, bar, i)
                     if trade is not None:
                         open_trades.append(trade)
@@ -232,15 +211,9 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
 
             equity_curve.append(self.balance)
 
-        trades.extend(
-            self._close_all_open_trades(
-                open_trades, len(bars) - 1, bars[-1].time, bars[-1].close
-            )
-        )
+        trades.extend(self._close_all_open_trades(open_trades, len(bars) - 1, bars[-1].time, bars[-1].close))
         metrics = self._calculate_metrics(trades, equity_curve)
-        return StrategyBacktestResult(
-            strategy_name=strategy.name, metrics=metrics, last_signal=last_signal
-        )
+        return StrategyBacktestResult(strategy_name=strategy.name, metrics=metrics, last_signal=last_signal)
 
     # ── signal combination (multi-strategy specific) ────────────────
 
@@ -252,14 +225,9 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         short_signals = [s for s in signals if s.direction == TradeDirection.SHORT]
 
         long_conf = sum(s.confidence for s in long_signals) / max(1, len(long_signals))
-        short_conf = sum(s.confidence for s in short_signals) / max(
-            1, len(short_signals)
-        )
+        short_conf = sum(s.confidence for s in short_signals) / max(1, len(short_signals))
 
-        if (
-            long_conf > short_conf
-            and long_conf >= self.multi_config.min_combined_confidence
-        ):
+        if long_conf > short_conf and long_conf >= self.multi_config.min_combined_confidence:
             direction = TradeDirection.LONG
             confidence = long_conf
             entry = sum(s.entry_price for s in long_signals) / len(long_signals)
@@ -267,10 +235,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
             tp1 = sum(s.take_profit_1 for s in long_signals) / len(long_signals)
             tp2 = sum(s.take_profit_2 for s in long_signals) / len(long_signals)
             tp3 = sum(s.take_profit_3 for s in long_signals) / len(long_signals)
-        elif (
-            short_conf > long_conf
-            and short_conf >= self.multi_config.min_combined_confidence
-        ):
+        elif short_conf > long_conf and short_conf >= self.multi_config.min_combined_confidence:
             direction = TradeDirection.SHORT
             confidence = short_conf
             entry = sum(s.entry_price for s in short_signals) / len(short_signals)
@@ -281,10 +246,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         else:
             return None
 
-        rationale = (
-            f"Combined {len(signals)} signals: "
-            f"{len(long_signals)} long, {len(short_signals)} short"
-        )
+        rationale = f"Combined {len(signals)} signals: {len(long_signals)} long, {len(short_signals)} short"
 
         return StrategySignal(
             direction=direction,
@@ -312,9 +274,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         n = len(recent)
         win_rate = len(wins) / n if n > 0 else 0.0
         avg_win = sum(t.profit_loss for t in wins) / len(wins) if wins else 0.0
-        avg_loss = (
-            abs(sum(t.profit_loss for t in losses) / len(losses)) if losses else 0.0
-        )
+        avg_loss = abs(sum(t.profit_loss for t in losses) / len(losses)) if losses else 0.0
 
         if avg_win <= 0.0 or win_rate <= 0.0:
             return 0.0
@@ -324,9 +284,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         # Normalize: kelly_criterion returns [0.0, 0.5].  Map to [0.0, 1.0].
         return min(kelly_frac / 0.5, 1.0)
 
-    def _open_trade_kelly(
-        self, signal: StrategySignal, bar: Bar, bar_index: int
-    ) -> SimulatedTrade | None:
+    def _open_trade_kelly(self, signal: StrategySignal, bar: Bar, bar_index: int) -> SimulatedTrade | None:
         """Open a trade with confidence-based sizing + Kelly overlay.
 
         Uses ``ConfidencePositionSizer`` (unlike ``EngineCore._open_trade``
@@ -341,9 +299,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         stop_pips = risk / pip_value
 
         vol_multiplier = 0.5 if signal.is_volatile else 1.0
-        risk_amount = (
-            self.risk_sizer.get_risk_amount(signal.confidence) * vol_multiplier
-        )
+        risk_amount = self.risk_sizer.get_risk_amount(signal.confidence) * vol_multiplier
         lot_size = self.risk_sizer.get_lot_size(signal.confidence, stop_pips, pip_value)
         if lot_size <= 0:
             return None
@@ -371,10 +327,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
             return None
 
         # Kelly overlay — diminish lot size based on estimated edge
-        if (
-            self._kelly_config.enabled
-            and len(self._kelly_closed_trades) >= self._kelly_config.min_trades
-        ):
+        if self._kelly_config.enabled and len(self._kelly_closed_trades) >= self._kelly_config.min_trades:
             kelly_mult = self._compute_kelly_multiplier(self._kelly_closed_trades)
             if kelly_mult <= 0.0:
                 self._kelly_skips += 1
@@ -423,9 +376,7 @@ class MultiStrategyBacktestEngine(EngineCore, ProgressiveSLMixin):
         actual SL/exit logic, then records closed trades for Kelly.
         """
         trades_before = len(closed_trades)
-        self._check_open_trades(
-            open_trades, bar, bar_index, closed_trades, equity_curve
-        )
+        self._check_open_trades(open_trades, bar, bar_index, closed_trades, equity_curve)
         # Track newly closed trades for Kelly overlay
         for t in closed_trades[trades_before:]:
             self._kelly_closed_trades.append(t)

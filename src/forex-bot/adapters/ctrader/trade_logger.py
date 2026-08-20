@@ -34,9 +34,7 @@ class TradeLogger:
         self._records: list[TradeRecord] = []
         os.makedirs(log_dir, exist_ok=True)
 
-    def log_trade_opened(
-        self, order: Order, position: Optional[Position] = None, strategy_id: str = ""
-    ):
+    def log_trade_opened(self, order: Order, position: Optional[Position] = None, strategy_id: str = ""):
         record = TradeRecord(
             trade_id=position.position_id if position else order.order_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -77,10 +75,7 @@ class TradeLogger:
         )
         self._records.append(record)
         self._flush_record(record)
-        logger.info(
-            f"[TRADE LOG] CLOSED {record.direction} {record.symbol} "
-            f"PnL={record.closed_pnl:.2f}"
-        )
+        logger.info(f"[TRADE LOG] CLOSED {record.direction} {record.symbol} PnL={record.closed_pnl:.2f}")
 
     def get_summary(self) -> dict:
         closed = [r for r in self._records if r.status == "closed"]
@@ -94,9 +89,7 @@ class TradeLogger:
             "win_rate": len(wins) / len(closed) if closed else 0.0,
             "total_pnl": total_pnl,
             "avg_win": sum(r.closed_pnl for r in wins) / len(wins) if wins else 0.0,
-            "avg_loss": sum(r.closed_pnl for r in losses) / len(losses)
-            if losses
-            else 0.0,
+            "avg_loss": sum(r.closed_pnl for r in losses) / len(losses) if losses else 0.0,
             "open_positions": sum(1 for r in self._records if r.status == "open"),
         }
 

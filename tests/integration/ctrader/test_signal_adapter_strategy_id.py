@@ -4,7 +4,7 @@ Verifies that the strategy name is correctly threaded through to
 the CTraderTradeSignal.strategy_id field when signals are adapted.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock  # noqa: I001
 
 
 from adapters.ctrader.models import TradeDirection, CTraderTradeSignal

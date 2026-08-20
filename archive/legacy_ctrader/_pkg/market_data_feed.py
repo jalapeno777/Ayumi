@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from .protocols import Bar as _ProtoBar
-from .protocols import MarketFeedProtocol
+from .protocols import MarketFeedProtocol  # noqa: F401
 from .protocols import Tick as _ProtoTick
 
 logger = logging.getLogger("ayumi.market_data")
@@ -331,8 +331,7 @@ class LiveMarketDataFeed:
 
     def __init__(self, credentials):
         raise NotImplementedError(
-            "LiveMarketDataFeed (FIX mode) is deprecated. "
-            "Use MarketDataFeed with the new session.py instead."
+            "LiveMarketDataFeed (FIX mode) is deprecated. Use MarketDataFeed with the new session.py instead."
         )
 
     def on_tick(self, handler):

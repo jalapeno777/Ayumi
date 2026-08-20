@@ -1,4 +1,4 @@
-import tempfile
+import tempfile  # noqa: I001
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path

@@ -225,9 +225,7 @@ class TestCloseTrade:
             rationale="",
         )
         cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
-        _close_trade(
-            trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg
-        )
+        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg)
         assert trade.exit_price == 1.12
         assert trade.outcome == TradeOutcome.WIN
         assert trade.profit_loss > 0
@@ -256,9 +254,7 @@ class TestCloseTrade:
             rationale="",
         )
         cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
-        _close_trade(
-            trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg
-        )
+        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg)
         assert trade.exit_price == 1.11
         assert trade.outcome == TradeOutcome.LOSS
         assert trade.profit_loss < 0
@@ -294,9 +290,7 @@ class TestCalculateMetrics:
             confluence_count=1,
             rationale="",
         )
-        metrics = _calculate_metrics(
-            [trade], [10000.0, 10190.0], 0, 10000.0, 0.0, 0.0, 10190.0
-        )
+        metrics = _calculate_metrics([trade], [10000.0, 10190.0], 0, 10000.0, 0.0, 0.0, 10190.0)
         assert metrics.total_trades == 1
         assert metrics.winning_trades == 1
         assert metrics.losing_trades == 0
@@ -447,9 +441,7 @@ class TestSelectivePairingHarness:
         harness = SelectivePairingHarness()
         results = harness.run_individual(asian_only_bars)
         for comp, cr in results.items():
-            assert cr.total_trades == 0, (
-                f"{comp} should have no trades in Asian-only bars"
-            )
+            assert cr.total_trades == 0, f"{comp} should have no trades in Asian-only bars"
 
     def test_full_report_structure(self):
         bars = _make_trending_bars(300)
@@ -537,9 +529,7 @@ class TestAnalyzeRollingWalkForward:
                 )
             }
 
-        results = analyze_rolling_walk_forward(
-            bars, config, [], n_windows=2, run_fn=mock_run
-        )
+        results = analyze_rolling_walk_forward(bars, config, [], n_windows=2, run_fn=mock_run)
         assert call_count == 4
         assert len(results) == 2
 

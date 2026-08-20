@@ -268,7 +268,7 @@ def main():
     )
     model.fit(X, y)
 
-    importances = dict(zip(aug_feature_names, model.feature_importances_.tolist()))
+    importances = dict(zip(aug_feature_names, model.feature_importances_.tolist()))  # noqa: B905
     print("\n  Feature Importances:")
     for name, imp in sorted(importances.items(), key=lambda x: -x[1]):
         bar = "█" * int(imp * 200)
@@ -305,7 +305,7 @@ def main():
 
     best_agg = None
     best_agg_pnl = float("-inf")
-    for config_name, params in CONFIGS.items():
+    for config_name, params in CONFIGS.items():  # noqa: B007
         total_trades = 0
         total_wins = 0
         total_pnl = 0.0
@@ -318,9 +318,7 @@ def main():
             total_wins += s["wins"]
             total_pnl += s["total_pnl"]
         wr = total_wins / total_trades if total_trades else 0
-        print(
-            f"  {config_name:<35s} trades={total_trades:>4d}  WR={wr:>6.1%}  P&L=${total_pnl:>10.2f}"
-        )
+        print(f"  {config_name:<35s} trades={total_trades:>4d}  WR={wr:>6.1%}  P&L=${total_pnl:>10.2f}")
         if total_pnl > best_agg_pnl:
             best_agg_pnl = total_pnl
             best_agg = config_name
@@ -350,9 +348,7 @@ def main():
     print(f"    base_confidence_val: {importances.get('base_confidence_val', 0):.4f}")
 
     if best_params["kill_zone"] < 0:
-        print(
-            "\n  ✅ Best config penalizes kill zone (not boosting). Removing the boost helped."
-        )
+        print("\n  ✅ Best config penalizes kill zone (not boosting). Removing the boost helped.")
     else:
         print("\n  ❌ Best config still boosts kill zone. Penalty did not help.")
 
@@ -373,9 +369,7 @@ def main():
         "best_aggregate_pnl": best_agg_pnl,
     }
 
-    report_path = (
-        PROJECT_ROOT / "reports" / "ml_confidence" / f"weight_opt_{timestamp}.json"
-    )
+    report_path = PROJECT_ROOT / "reports" / "ml_confidence" / f"weight_opt_{timestamp}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2, default=str)

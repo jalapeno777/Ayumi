@@ -22,7 +22,7 @@ These tests verify:
 - Setup expiry, cooldown, and session-filter invariants still work.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import random
 from datetime import datetime, timedelta, timezone
@@ -52,7 +52,7 @@ def _make_bars_with_regimes(
     consolidation → small upward drift. The history creates a rolling
     ATR baseline; the consolidation makes the current ATR-percentile
     low enough to arm the setup."""
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     bars: list[Bar] = []
     t = datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
     price = base_price
@@ -173,9 +173,7 @@ def _append_downside_breakout(
     return breakout
 
 
-def _make_state(
-    bars: list[Bar], session: SessionType = SessionType.LONDON
-) -> MarketState:
+def _make_state(bars: list[Bar], session: SessionType = SessionType.LONDON) -> MarketState:
     return MarketState(bars=bars, current_session=session)
 
 
@@ -292,8 +290,7 @@ class TestVRBBugfix:
                 break
 
         assert strategy._setup_active, (
-            "Strategy should arm a setup when the market enters a "
-            "low-vol + mid-range regime."
+            "Strategy should arm a setup when the market enters a low-vol + mid-range regime."
         )
         assert strategy._setup_bars_remaining > 0
 
@@ -369,15 +366,9 @@ class TestVRBBugfix:
         assert signal is not None
         risk = signal.entry_price - signal.stop_loss
         assert risk > 0
-        assert signal.take_profit_1 == pytest.approx(
-            signal.entry_price + risk * config.tp1_rr, rel=1e-3
-        )
-        assert signal.take_profit_2 == pytest.approx(
-            signal.entry_price + risk * config.tp2_rr, rel=1e-3
-        )
-        assert signal.take_profit_3 == pytest.approx(
-            signal.entry_price + risk * config.tp3_rr, rel=1e-3
-        )
+        assert signal.take_profit_1 == pytest.approx(signal.entry_price + risk * config.tp1_rr, rel=1e-3)
+        assert signal.take_profit_2 == pytest.approx(signal.entry_price + risk * config.tp2_rr, rel=1e-3)
+        assert signal.take_profit_3 == pytest.approx(signal.entry_price + risk * config.tp3_rr, rel=1e-3)
         assert config.min_confidence <= signal.confidence <= 0.95
         assert "VRB" in signal.rationale
 
@@ -421,9 +412,7 @@ class TestVRBTrendFilter:
         _, signal = _drive_then_evaluate(strategy, bars)
 
         if signal is not None:
-            assert signal.direction != TradeDirection.LONG, (
-                "Long signal must be blocked when trend is bearish"
-            )
+            assert signal.direction != TradeDirection.LONG, "Long signal must be blocked when trend is bearish"
 
     def test_setup_resets_after_signaling(self):
         """After a successful signal, the setup flag must be reset so
@@ -443,9 +432,7 @@ class TestVRBTrendFilter:
 
         _, signal = _drive_then_evaluate(strategy, bars)
         assert signal is not None
-        assert not strategy._setup_active, (
-            "Setup should be disarmed after a signal fires"
-        )
+        assert not strategy._setup_active, "Setup should be disarmed after a signal fires"
         assert strategy._setup_bars_remaining == 0
 
 
@@ -473,9 +460,7 @@ class TestVRBFilters:
         _append_upside_breakout(bars, magnitude=0.0010)
 
         _, signal = _drive_then_evaluate(strategy, bars, session=SessionType.OUTSIDE)
-        assert signal is None, (
-            "Session filter must reject OUTSIDE before signal evaluation"
-        )
+        assert signal is None, "Session filter must reject OUTSIDE before signal evaluation"
 
     def test_reset_clears_internal_state(self):
         config = VRBConfig()

@@ -68,9 +68,7 @@ def _toronto_midnight_utc(now: Optional[datetime] = None) -> datetime:
     if now is None:
         now = datetime.now(timezone.utc)
     now_tz = now.astimezone(_TRADING_TZ)
-    next_midnight = (now_tz + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    next_midnight = (now_tz + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     return next_midnight.astimezone(timezone.utc)
 
 
@@ -85,9 +83,7 @@ class FTMOBreachType(str, Enum):
     DD_REDUCE = "dd_reduce"
     DD_FREEZE = "dd_freeze"
     BEST_DAY_RULE = "best_day_rule"  # Phase 0: FTMO 1-Step best-day rule (50% cap)
-    TRAILING_DD_FLOOR = (
-        "trailing_dd_floor"  # Max-loss floor breach (trailing or static)
-    )
+    TRAILING_DD_FLOOR = "trailing_dd_floor"  # Max-loss floor breach (trailing or static)
 
 
 class FTMOAction(str, Enum):
@@ -106,9 +102,7 @@ class KillSwitchLike(Protocol):
     """Protocol for kill switch objects (duck-typed)."""
 
     def activate_global_freeze(self, reason: str, triggered_by: str) -> None: ...
-    def activate_global_kill(
-        self, reason: str, triggered_by: str, close_positions: bool = True
-    ) -> None: ...
+    def activate_global_kill(self, reason: str, triggered_by: str, close_positions: bool = True) -> None: ...
     def is_active(self) -> bool: ...
 
 
@@ -123,9 +117,7 @@ class FTMOState:
     peak_balance: float = 0.0
     current_balance: float = 0.0
     daily_loss_pct: float = 0.0
-    daily_loss_date: Optional[str] = (
-        None  # Trading date for the current daily loss tracking
-    )
+    daily_loss_date: Optional[str] = None  # Trading date for the current daily loss tracking
     open_position_count: int = 0
     current_dd_pct: float = 0.0
     action_level: str = FTMOAction.ALLOW.value
@@ -133,9 +125,7 @@ class FTMOState:
     # Phase 0: Best-day rule tracking (FTMO 1-Step: best day ≤ 50% of total positive-days profit)
     daily_pnl: float = 0.0  # P&L for current trading day
     daily_pnl_date: Optional[str] = None  # Trading date for daily_pnl tracking
-    daily_pnl_history: list = field(
-        default_factory=list
-    )  # [{date, pnl}] for completed days
+    daily_pnl_history: list = field(default_factory=list)  # [{date, pnl}] for completed days
     # Trailing-DD floor tracking (enabled via FTMOGuard(trailing_dd=True))
     challenge_type: str = "1-step"  # FTMO challenge type
     highest_midnight_balance: float = 0.0  # Peak midnight balance for trailing floor
@@ -213,9 +203,7 @@ class FTMOGuard:
         trailing_dd: bool = False,
     ):
         if dd_reduce_pct >= dd_freeze_pct:
-            raise ValueError(
-                f"dd_reduce_pct ({dd_reduce_pct}) must be < dd_freeze_pct ({dd_freeze_pct})"
-            )
+            raise ValueError(f"dd_reduce_pct ({dd_reduce_pct}) must be < dd_freeze_pct ({dd_freeze_pct})")
 
         # Derive daily loss pct from challenge type if not explicitly provided
         if max_daily_loss_pct is not None:
@@ -316,10 +304,7 @@ class FTMOGuard:
                     today_str,
                 )
                 # Phase 0: Roll over daily P&L before resetting
-                if (
-                    self._state.daily_pnl_date is not None
-                    and self._state.daily_pnl_date != today_str
-                ):
+                if self._state.daily_pnl_date is not None and self._state.daily_pnl_date != today_str:
                     self._state.daily_pnl_history.append(
                         {
                             "date": self._state.daily_pnl_date,
@@ -327,9 +312,7 @@ class FTMOGuard:
                         }
                     )
                     if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
-                        self._state.daily_pnl_history = self._state.daily_pnl_history[
-                            -self.MAX_PNL_HISTORY :
-                        ]
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY :]
                     logger.info(
                         "FTMO daily P&L rollover: %s P&L=%.2f",
                         self._state.daily_pnl_date,
@@ -341,9 +324,7 @@ class FTMOGuard:
                 self._state.daily_pnl_date = today_str
                 # If we were frozen due to daily loss, allow trading again
                 if self._state.action_level == FTMOAction.FREEZE.value:
-                    self._set_action(
-                        FTMOAction.ALLOW, "Daily reset at America/Toronto midnight"
-                    )
+                    self._set_action(FTMOAction.ALLOW, "Daily reset at America/Toronto midnight")
 
             # ── Update balance metrics ─────────────────────────────────────
             self._state.current_balance = current_balance
@@ -355,17 +336,11 @@ class FTMOGuard:
             # ── Calculate daily loss ───────────────────────────────────────
             daily_loss = self._state.starting_balance - current_balance
             if self._state.starting_balance > 0:
-                self._state.daily_loss_pct = max(
-                    0.0, (daily_loss / self._state.starting_balance) * 100.0
-                )
+                self._state.daily_loss_pct = max(0.0, (daily_loss / self._state.starting_balance) * 100.0)
 
             # ── Calculate drawdown from peak ───────────────────────────────
             if self._state.peak_balance > 0:
-                dd = (
-                    (self._state.peak_balance - current_balance)
-                    / self._state.peak_balance
-                    * 100.0
-                )
+                dd = (self._state.peak_balance - current_balance) / self._state.peak_balance * 100.0
                 self._state.current_dd_pct = max(0.0, dd)
             else:
                 self._state.current_dd_pct = 0.0
@@ -463,7 +438,7 @@ class FTMOGuard:
             if level == FTMOAction.FREEZE:
                 return (
                     False,
-                    f"FTMO freeze active: daily_loss={self._state.daily_loss_pct:.2f}%, dd={self._state.current_dd_pct:.2f}%",
+                    f"FTMO freeze active: daily_loss={self._state.daily_loss_pct:.2f}%, dd={self._state.current_dd_pct:.2f}%",  # noqa: E501
                 )
 
             if level == FTMOAction.KILL:
@@ -519,9 +494,7 @@ class FTMOGuard:
                         }
                     )
                     if len(self._state.daily_pnl_history) > self.MAX_PNL_HISTORY:
-                        self._state.daily_pnl_history = self._state.daily_pnl_history[
-                            -self.MAX_PNL_HISTORY :
-                        ]
+                        self._state.daily_pnl_history = self._state.daily_pnl_history[-self.MAX_PNL_HISTORY :]
                 self._state.daily_pnl = 0.0
                 self._state.daily_pnl_date = date
             self._state.daily_pnl += pnl
@@ -547,9 +520,7 @@ class FTMOGuard:
     def _check_best_day_rule(self) -> Optional[str]:
         """Internal best-day rule check (caller holds lock)."""
         # Need at least 2 positive days to evaluate
-        positive_days = [
-            d for d in self._state.daily_pnl_history if d.get("pnl", 0) > 0
-        ]
+        positive_days = [d for d in self._state.daily_pnl_history if d.get("pnl", 0) > 0]
         # Include today if positive
         if self._state.daily_pnl > 0:
             positive_days.append(
@@ -651,9 +622,7 @@ class FTMOGuard:
         self._state.breach_history.append(event)
         self._set_action(action, detail)
 
-        logger.warning(
-            "FTMO BREACH [%s]: %s → action=%s", breach_type.value, detail, action.value
-        )
+        logger.warning("FTMO BREACH [%s]: %s → action=%s", breach_type.value, detail, action.value)
 
         # Activate kill switch for freeze/kill actions
         if self._kill_switch is not None:

@@ -3,7 +3,7 @@
 Used by run_live_paper.py to instantiate strategies from parameter configs.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from strategies.session_range_mean_reversion import (
     SessionRangeMRConfig,

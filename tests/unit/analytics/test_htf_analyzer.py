@@ -1,6 +1,6 @@
 """Tests for HTFAnalyzer: phase detection, MTF alignment, dual-mechanism reconciliation."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 
@@ -175,15 +175,11 @@ class TestDualMechanism:
         assert result["htf_modifier"] == 0.10
 
     def test_aligned_matching_direction(self):
-        result = self.analyzer.reconcile_dual_mechanism(
-            HTFPhase.ALIGNED, "long", htf_direction="long"
-        )
+        result = self.analyzer.reconcile_dual_mechanism(HTFPhase.ALIGNED, "long", htf_direction="long")
         assert result["htf_modifier"] == 0.15
 
     def test_aligned_conflicting_direction(self):
-        result = self.analyzer.reconcile_dual_mechanism(
-            HTFPhase.ALIGNED, "long", htf_direction="short"
-        )
+        result = self.analyzer.reconcile_dual_mechanism(HTFPhase.ALIGNED, "long", htf_direction="short")
         assert result["htf_modifier"] == -0.25
 
     def test_neutral(self):

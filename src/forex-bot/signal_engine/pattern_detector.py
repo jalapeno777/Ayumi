@@ -1,6 +1,6 @@
 """§5 — Pattern detection: M/W formations, SVCs, traps, liquidity grabs, FL."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import dataclass, field
 from datetime import datetime, time as dt_time
@@ -10,7 +10,7 @@ import pytz
 
 _ET = pytz.timezone("America/New_York")
 
-from .data_types import Level, LevelType, Swing, SwingType
+from .data_types import Level, LevelType, Swing, SwingType  # noqa: I001
 from .thresholds import (
     MW_SYMMETRY_MAX,
     MW_EQUAL_THRESHOLD,
@@ -108,26 +108,13 @@ class AsiaSessionAnalyzer:
         is_tradable = range_pct < self.max_range_pct
         touch_tol_high = asia_high * (self.touch_tolerance_pct / 100)
         touch_tol_low = asia_low * (self.touch_tolerance_pct / 100)
-        high_touches = sum(
-            1 for b in asia_bars if abs(b["high"] - asia_high) <= touch_tol_high
-        )
-        low_touches = sum(
-            1 for b in asia_bars if abs(b["low"] - asia_low) <= touch_tol_low
-        )
-        is_consolidated = (
-            high_touches >= self.min_touches_per_side
-            and low_touches >= self.min_touches_per_side
-        )
-        range_score = (
-            max(0, 1.0 - range_pct / self.max_range_pct)
-            if self.max_range_pct > 0
-            else 0
-        )
+        high_touches = sum(1 for b in asia_bars if abs(b["high"] - asia_high) <= touch_tol_high)
+        low_touches = sum(1 for b in asia_bars if abs(b["low"] - asia_low) <= touch_tol_low)
+        is_consolidated = high_touches >= self.min_touches_per_side and low_touches >= self.min_touches_per_side
+        range_score = max(0, 1.0 - range_pct / self.max_range_pct) if self.max_range_pct > 0 else 0
         consolidation_score = 1.0 if is_consolidated else 0.3
         touch_score = min(high_touches + low_touches, 10) / 10.0
-        quality_score = (
-            range_score * 0.5 + consolidation_score * 0.3 + touch_score * 0.2
-        )
+        quality_score = range_score * 0.5 + consolidation_score * 0.3 + touch_score * 0.2
 
         # ILOD/IHOD: first swing high/low in Asia (timing-based, not size-based)
         ilod, ilhod = self._detect_ilod_ihod_from_bars(asia_bars)
@@ -182,18 +169,14 @@ class AsiaSessionAnalyzer:
             # Check swing low
             if ilod is None:
                 is_swing_low = all(
-                    bar["low"] <= asia_bars[j]["low"]
-                    for j in range(i - lookback, i + lookback + 1)
-                    if j != i
+                    bar["low"] <= asia_bars[j]["low"] for j in range(i - lookback, i + lookback + 1) if j != i
                 )
                 if is_swing_low:
                     ilod = bar["low"]
             # Check swing high
             if ilhod is None:
                 is_swing_high = all(
-                    bar["high"] >= asia_bars[j]["high"]
-                    for j in range(i - lookback, i + lookback + 1)
-                    if j != i
+                    bar["high"] >= asia_bars[j]["high"] for j in range(i - lookback, i + lookback + 1) if j != i
                 )
                 if is_swing_high:
                     ilhod = bar["high"]
@@ -278,9 +261,7 @@ class AsiaSessionAnalyzer:
             return result
         if first_utc.tzinfo is not None:
             first_utc = first_utc.replace(tzinfo=None)
-        et_offset_hours = round(
-            _ET.localize(first_utc).utcoffset().total_seconds() / 3600
-        )
+        et_offset_hours = round(_ET.localize(first_utc).utcoffset().total_seconds() / 3600)
         is_dst = et_offset_hours == -4
         for b in bars:
             t = b.get("time")
@@ -338,12 +319,8 @@ class PatternDetector:
         Scans all possible 5-swing windows and returns the best-matching pattern.
         """
         best = None
-        best = self._scan_m_patterns(
-            swings, levels, current_price, best, current_bar_index
-        )
-        best = self._scan_w_patterns(
-            swings, levels, current_price, best, current_bar_index
-        )
+        best = self._scan_m_patterns(swings, levels, current_price, best, current_bar_index)
+        best = self._scan_w_patterns(swings, levels, current_price, best, current_bar_index)
         return best
 
     def _scan_m_patterns(
@@ -359,14 +336,9 @@ class PatternDetector:
             return best
         for i in range(len(pattern_swings) - 4):
             sh3 = pattern_swings[i + 4]
-            if (
-                current_bar_index >= 0
-                and (current_bar_index - sh3.bar_index) > self.MW_MAX_BARS_AGO
-            ):
+            if current_bar_index >= 0 and (current_bar_index - sh3.bar_index) > self.MW_MAX_BARS_AGO:
                 continue
-            candidate = self._evaluate_m_window(
-                pattern_swings, i, levels, current_price
-            )
+            candidate = self._evaluate_m_window(pattern_swings, i, levels, current_price)
             if candidate and candidate.confidence > 0.3:
                 if best is None or candidate.confidence > best.confidence:
                     best = candidate
@@ -385,14 +357,9 @@ class PatternDetector:
             return best
         for i in range(len(pattern_swings) - 4):
             sl3 = pattern_swings[i + 4]
-            if (
-                current_bar_index >= 0
-                and (current_bar_index - sl3.bar_index) > self.MW_MAX_BARS_AGO
-            ):
+            if current_bar_index >= 0 and (current_bar_index - sl3.bar_index) > self.MW_MAX_BARS_AGO:
                 continue
-            candidate = self._evaluate_w_window(
-                pattern_swings, i, levels, current_price
-            )
+            candidate = self._evaluate_w_window(pattern_swings, i, levels, current_price)
             if candidate and candidate.confidence > 0.3:
                 if best is None or candidate.confidence > best.confidence:
                     best = candidate
@@ -501,9 +468,7 @@ class PatternDetector:
             checklist_details=checklist,
         )
 
-    def _extract_alternating(
-        self, swings: list[Swing], start_type: SwingType
-    ) -> list[Swing]:
+    def _extract_alternating(self, swings: list[Swing], start_type: SwingType) -> list[Swing]:
         """Extract alternating H-L-H-L... or L-H-L-H... sequence from swings."""
         sorted_swings = sorted(swings, key=lambda s: s.bar_index)
         result: list[Swing] = []
@@ -511,9 +476,7 @@ class PatternDetector:
         for s in sorted_swings:
             if s.swing_type == expected:
                 result.append(s)
-                expected = (
-                    SwingType.LOW if expected == SwingType.HIGH else SwingType.HIGH
-                )
+                expected = SwingType.LOW if expected == SwingType.HIGH else SwingType.HIGH
         return result
 
     def _mw_checklist(
@@ -550,9 +513,7 @@ class PatternDetector:
             # 2. SL2 < SL1 (lower low)
             checks["second_low_lower"] = sl2 < sl1
             # 3. SH1 ≈ SH3 (equality within tolerance)
-            checks["equality_first_extremes"] = (
-                abs(sh3 - sh1) / sh1 <= self.equal_threshold * 10
-            )
+            checks["equality_first_extremes"] = abs(sh3 - sh1) / sh1 <= self.equal_threshold * 10
             # 4. SH2 < SH1 (second high doesn't exceed first)
             checks["second_high_below_first"] = sh2 < sh1
             # 5. SL symmetry
@@ -560,16 +521,12 @@ class PatternDetector:
             sl1_dist = abs(sl1 - sl_mid)
             sl2_dist = abs(sl2 - sl_mid)
             sl_avg = (sl1_dist + sl2_dist) / 2
-            checks["sl_symmetry"] = (
-                sl_avg > 0 and abs(sl1_dist - sl2_dist) / sl_avg <= self.symmetry_max
-            )
+            checks["sl_symmetry"] = sl_avg > 0 and abs(sl1_dist - sl2_dist) / sl_avg <= self.symmetry_max
             # 6. SH symmetry
             sh1_dist = abs(sh1 - sl_mid)
             sh2_dist = abs(sh2 - sl_mid)
             sh_avg = (sh1_dist + sh2_dist) / 2
-            checks["sh_symmetry"] = (
-                sh_avg > 0 and abs(sh1_dist - sh2_dist) / sh_avg <= self.symmetry_max
-            )
+            checks["sh_symmetry"] = sh_avg > 0 and abs(sh1_dist - sh2_dist) / sh_avg <= self.symmetry_max
             # 7. Clear rejection (SH2 significantly below SH1)
             checks["clear_rejection"] = (sh1 - sh2) / sh1 > self.near_threshold
         else:
@@ -577,25 +534,19 @@ class PatternDetector:
             sl3 = sh3  # reuse
             checks["break_first_extreme"] = sl3 < sl1
             checks["second_high_higher"] = sh2 > sh1
-            checks["equality_first_extremes"] = (
-                abs(sl3 - sl1) / sl1 <= self.equal_threshold * 10
-            )
+            checks["equality_first_extremes"] = abs(sl3 - sl1) / sl1 <= self.equal_threshold * 10
             checks["second_low_above_first"] = sl2 > sl1
             # SH symmetry (now SH1/SH2 are the symmetric pair)
             sh_mid = (sl1 + sl2) / 2
             sh1_dist = abs(sh1 - sh_mid)
             sh2_dist = abs(sh2 - sh_mid)
             sh_avg = (sh1_dist + sh2_dist) / 2
-            checks["sh_symmetry"] = (
-                sh_avg > 0 and abs(sh1_dist - sh2_dist) / sh_avg <= self.symmetry_max
-            )
+            checks["sh_symmetry"] = sh_avg > 0 and abs(sh1_dist - sh2_dist) / sh_avg <= self.symmetry_max
             # SL symmetry
             sl1_dist = abs(sl1 - sh_mid)
             sl2_dist = abs(sl2 - sh_mid)
             sl_avg = (sl1_dist + sl2_dist) / 2
-            checks["sl_symmetry"] = (
-                sl_avg > 0 and abs(sl1_dist - sl2_dist) / sl_avg <= self.symmetry_max
-            )
+            checks["sl_symmetry"] = sl_avg > 0 and abs(sl1_dist - sl2_dist) / sl_avg <= self.symmetry_max
             checks["clear_rejection"] = (sl2 - sl1) / sl1 > self.near_threshold
 
         # 8. Structure completion (always true if we got here — 5 swings found)
@@ -696,11 +647,7 @@ class PatternDetector:
         if not bars:
             return None
 
-        min_break = (
-            self.trap_break_london_ny
-            if session in ("LONDON", "NY", "LONDON_NY")
-            else self.trap_break_asia
-        )
+        min_break = self.trap_break_london_ny if session in ("LONDON", "NY", "LONDON_NY") else self.trap_break_asia
 
         # Find the maximum excursion beyond the level
         max_above = max(b.get("high", 0) for b in bars)
@@ -811,16 +758,8 @@ class PatternDetector:
                     )
                 )
 
-        session_high = (
-            max(b.get("high", 0) for b in bars[:-1])
-            if len(bars) > 1
-            else bars[0].get("high", 0)
-        )
-        session_low = (
-            min(b.get("low", 0) for b in bars[:-1])
-            if len(bars) > 1
-            else bars[0].get("low", 0)
-        )
+        session_high = max(b.get("high", 0) for b in bars[:-1]) if len(bars) > 1 else bars[0].get("high", 0)
+        session_low = min(b.get("low", 0) for b in bars[:-1]) if len(bars) > 1 else bars[0].get("low", 0)
 
         # ILOD break — price breaks below prior session low then shows rejection
         if last_bar["low"] < session_low and last_bar["close"] > session_low:
@@ -927,9 +866,7 @@ class PatternDetector:
             return None
 
         # Extract alternating swings starting from the most common type
-        starts_high = sum(
-            1 for s in sorted_swings[:3] if s.swing_type == SwingType.HIGH
-        )
+        starts_high = sum(1 for s in sorted_swings[:3] if s.swing_type == SwingType.HIGH)
         start_type = SwingType.HIGH if starts_high >= 2 else SwingType.LOW
         alt = self._extract_alternating(sorted_swings, start_type)
 
@@ -988,9 +925,7 @@ class PatternDetector:
 
     # ── SVC (Vector Candle) Helper ──────────────────────────────────
 
-    def _detect_svc(
-        self, bar: dict, direction: str, bars_for_vol: Optional[list[dict]] = None
-    ) -> bool:
+    def _detect_svc(self, bar: dict, direction: str, bars_for_vol: Optional[list[dict]] = None) -> bool:
         """Check if a single bar is an SVC (Stopping Volume Candle / Vector).
 
         TTC Rules:
@@ -1033,9 +968,7 @@ class PatternDetector:
         # Volume check
         bar_vol = bar.get("volume", 0)
         if bar_vol > 0 and bars_for_vol and len(bars_for_vol) >= 9:
-            prior_vols = [
-                b.get("volume", 0) for b in bars_for_vol[-9:] if b.get("volume", 0) > 0
-            ]
+            prior_vols = [b.get("volume", 0) for b in bars_for_vol[-9:] if b.get("volume", 0) > 0]
             if prior_vols:
                 avg_vol = sum(prior_vols) / len(prior_vols)
                 if avg_vol > 0 and bar_vol < avg_vol * 1.3:
@@ -1072,16 +1005,12 @@ class PatternDetector:
 
         # Traps (check each level)
         for lv in levels:
-            trap = self.detect_trap(
-                bars[-5:] if len(bars) >= 5 else bars, lv.price, session
-            )
+            trap = self.detect_trap(bars[-5:] if len(bars) >= 5 else bars, lv.price, session)
             if trap:
                 patterns.append(trap)
 
         # ILOD/IHOD
-        patterns.extend(
-            self.detect_ilod_ihod(bars, session, asia_analyzer=asia_analyzer)
-        )
+        patterns.extend(self.detect_ilod_ihod(bars, session, asia_analyzer=asia_analyzer))
 
         # Liquidity grab (on last bar)
         if bars:
@@ -1164,9 +1093,7 @@ class PatternDetector:
 
         return patterns
 
-    def _detect_fl001(
-        self, swings, bars, current_price, asia
-    ) -> Optional[DetectedPattern]:
+    def _detect_fl001(self, swings, bars, current_price, asia) -> Optional[DetectedPattern]:
         """FL-001: Single Session M/W — both peaks inside Asia range.
 
         Key TTC rules enforced:
@@ -1216,9 +1143,7 @@ class PatternDetector:
 
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sl1.bar_index
-            first_bar = (
-                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
-            )
+            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
             is_svc = False
             if first_bar:
                 prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
@@ -1226,9 +1151,7 @@ class PatternDetector:
 
             stop = sl1.price - (asia.asia_high - asia.asia_low) * 0.1
             target = asia.asia_high
-            conf = (
-                asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
-            )
+            conf = asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
             conf = min(conf, 1.0)
             candidates.append(
                 DetectedPattern(
@@ -1258,9 +1181,7 @@ class PatternDetector:
                 continue
             if not (asia.asia_low <= sh2.price <= asia.asia_high):
                 continue
-            in_range = [
-                sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index
-            ]
+            in_range = [sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index]
             sl1 = min(in_range, key=lambda sw: sw.price) if in_range else None
             if sl1 is None or not (asia.asia_low <= sl1.price <= asia.asia_high):
                 continue
@@ -1279,9 +1200,7 @@ class PatternDetector:
                 continue
 
             first_bar_idx = len(bars) - window + sh1.bar_index
-            first_bar = (
-                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
-            )
+            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
             is_svc = False
             if first_bar:
                 prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
@@ -1289,9 +1208,7 @@ class PatternDetector:
 
             stop = sh1.price + (asia.asia_high - asia.asia_low) * 0.1
             target = asia.asia_low
-            conf = (
-                asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
-            )
+            conf = asia.quality_score * 0.3 + 0.25 + (0.15 if is_svc else 0) + 0.15 + 0.15
             conf = min(conf, 1.0)
             candidates.append(
                 DetectedPattern(
@@ -1361,12 +1278,7 @@ class PatternDetector:
             target = asia.asia_high
             risk = asia.asia_low - stop
             rr = (target - asia.asia_low) / risk if risk > 0 else 0
-            conf = (
-                min(wick_ratio, 0.9) * 0.35
-                + min(sweep / 0.1, 1.0) * 0.25
-                + asia.quality_score * 0.25
-                + 0.15
-            )
+            conf = min(wick_ratio, 0.9) * 0.35 + min(sweep / 0.1, 1.0) * 0.25 + asia.quality_score * 0.25 + 0.15
             return DetectedPattern(
                 pattern_type="LIQUIDITY_GRAB",
                 direction="long",
@@ -1396,12 +1308,7 @@ class PatternDetector:
             target = asia.asia_low
             risk = stop - asia.asia_high
             rr = (asia.asia_high - target) / risk if risk > 0 else 0
-            conf = (
-                min(wick_ratio, 0.9) * 0.35
-                + min(sweep / 0.1, 1.0) * 0.25
-                + asia.quality_score * 0.25
-                + 0.15
-            )
+            conf = min(wick_ratio, 0.9) * 0.35 + min(sweep / 0.1, 1.0) * 0.25 + asia.quality_score * 0.25 + 0.15
             return DetectedPattern(
                 pattern_type="LIQUIDITY_GRAB",
                 direction="short",
@@ -1423,9 +1330,7 @@ class PatternDetector:
             )
         return None
 
-    def _detect_fl003(
-        self, swings, bars, current_price, asia
-    ) -> Optional[DetectedPattern]:
+    def _detect_fl003(self, swings, bars, current_price, asia) -> Optional[DetectedPattern]:
         """FL-003: Multi-Session M/W — first peak Asia, second near Asia boundary."""
         if len(swings) < 4 or len(bars) < 4:
             return None
@@ -1450,9 +1355,7 @@ class PatternDetector:
                 continue
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sl1.bar_index
-            first_bar = (
-                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
-            )
+            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
             is_svc = False
             if first_bar:
                 prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
@@ -1487,9 +1390,7 @@ class PatternDetector:
                 continue
             if sh2.price > asia.asia_high * 1.002:
                 continue
-            in_range = [
-                sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index
-            ]
+            in_range = [sw for sw in lows if sh1.bar_index < sw.bar_index < sh2.bar_index]
             sl1 = min(in_range, key=lambda sw: sw.price) if in_range else None
             if sl1 is None:
                 continue
@@ -1497,9 +1398,7 @@ class PatternDetector:
                 continue
             # SVC check on first peak
             first_bar_idx = len(bars) - window + sh1.bar_index
-            first_bar = (
-                bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
-            )
+            first_bar = bars[max(0, first_bar_idx)] if first_bar_idx < len(bars) else None
             is_svc = False
             if first_bar:
                 prior = bars[max(0, first_bar_idx - 9) : first_bar_idx]
@@ -1552,20 +1451,14 @@ class PatternDetector:
             # SVC check on breakout candle
             breakout_bar = max(
                 pre,
-                key=lambda b: (
-                    (asia.asia_low - b["low"]) if b["low"] < asia.asia_low else 0
-                ),
+                key=lambda b: (asia.asia_low - b["low"]) if b["low"] < asia.asia_low else 0,
             )
             prior = bars[max(0, len(bars) - 6 - 9) : len(bars) - 6]
             is_svc = self._detect_svc(breakout_bar, "long", prior) if prior else False
             sweep_low = min(b["low"] for b in pre)
             stop = sweep_low - (asia.asia_high - asia.asia_low) * 0.05
             conf = (
-                asia.quality_score * 0.25
-                + min(closed_below / 4.0, 1.0) * 0.35
-                + 0.25
-                + 0.15
-                + (0.15 if is_svc else 0)
+                asia.quality_score * 0.25 + min(closed_below / 4.0, 1.0) * 0.35 + 0.25 + 0.15 + (0.15 if is_svc else 0)
             )
             return DetectedPattern(
                 pattern_type="W",
@@ -1591,20 +1484,14 @@ class PatternDetector:
             # SVC check on breakout candle
             breakout_bar = max(
                 pre,
-                key=lambda b: (
-                    (b["high"] - asia.asia_high) if b["high"] > asia.asia_high else 0
-                ),
+                key=lambda b: (b["high"] - asia.asia_high) if b["high"] > asia.asia_high else 0,
             )
             prior = bars[max(0, len(bars) - 6 - 9) : len(bars) - 6]
             is_svc = self._detect_svc(breakout_bar, "short", prior) if prior else False
             sweep_high = max(b["high"] for b in pre)
             stop = sweep_high + (asia.asia_high - asia.asia_low) * 0.05
             conf = (
-                asia.quality_score * 0.25
-                + min(closed_above / 4.0, 1.0) * 0.35
-                + 0.25
-                + 0.15
-                + (0.15 if is_svc else 0)
+                asia.quality_score * 0.25 + min(closed_above / 4.0, 1.0) * 0.35 + 0.25 + 0.15 + (0.15 if is_svc else 0)
             )
             return DetectedPattern(
                 pattern_type="M",

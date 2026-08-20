@@ -60,9 +60,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
-ENGINE = (
-    WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
-)
+ENGINE = WORKSPACE / "src" / "forex-bot" / "adapters" / "ctrader" / "forward_test_engine.py"
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +122,7 @@ def _attach_blend_runner(engine, blend_runner):
     canonical pattern in ``BlendForwardTestRunner.make_signal_id`` —
     avoids side-effect signature mismatches with the real bound method.
     """
-    blend_runner.make_signal_id.side_effect = lambda sig: (
-        sig.strategy_id + "_" + str(sig.timestamp.timestamp())
-    )
+    blend_runner.make_signal_id.side_effect = lambda sig: sig.strategy_id + "_" + str(sig.timestamp.timestamp())
     engine._blend_runner = blend_runner
 
 
@@ -138,9 +134,7 @@ def _attach_blend_runner(engine, blend_runner):
 class TestRegisterBlendPositionMapping:
     """Direct tests for ``_register_blend_position_mapping``."""
 
-    def test_happy_path_registers_mapping_with_string_position_id(
-        self, engine_mock, mock_signal
-    ):
+    def test_happy_path_registers_mapping_with_string_position_id(self, engine_mock, mock_signal):
         """Valid int positionId + blend_runner → register_position_mapping
         is invoked with ``str(positionId)`` and the canonical signal_id.
         """
@@ -156,9 +150,7 @@ class TestRegisterBlendPositionMapping:
         assert args[0] == "12345"
         # Second arg must be the canonical signal_id built by the lambda
         # in _attach_blend_runner.
-        expected_signal_id = (
-            mock_signal.strategy_id + "_" + str(mock_signal.timestamp.timestamp())
-        )
+        expected_signal_id = mock_signal.strategy_id + "_" + str(mock_signal.timestamp.timestamp())
         assert args[1] == expected_signal_id
         # make_signal_id must be invoked exactly once (no duplicate
         # construction of the id elsewhere).
@@ -174,9 +166,7 @@ class TestRegisterBlendPositionMapping:
         engine_mock._register_blend_position_mapping(mock_signal, 99999)
 
     @pytest.mark.parametrize("bad_value", [0, None, "abc", "99999", 3.14])
-    def test_invalid_position_id_skips_wiring(
-        self, engine_mock, mock_signal, bad_value
-    ):
+    def test_invalid_position_id_skips_wiring(self, engine_mock, mock_signal, bad_value):
         """PositionId of 0, None, string (even numeric), or float must NOT
         trigger wiring. Mirrors the late-fill ``ctrader_position_id``
         validation at ``forward_test_engine.py:1768-1787``.
@@ -192,9 +182,7 @@ class TestRegisterBlendPositionMapping:
         # keeping the helper's side-effect surface tight.
         blend_runner.make_signal_id.assert_not_called()
 
-    def test_register_position_mapping_exception_swallowed(
-        self, engine_mock, mock_signal
-    ):
+    def test_register_position_mapping_exception_swallowed(self, engine_mock, mock_signal):
         """A failure inside ``register_position_mapping`` (e.g. blend
         runner is in a half-initialised state) MUST NOT propagate — the
         helper lives in the trade-execution path where raising would
@@ -240,13 +228,9 @@ class TestExecuteSignalLiveWiring:
         engine_mock._register_blend_position_mapping = MagicMock()
         engine_mock._register_blend_position_mapping(mock_signal, order.position_id)
 
-        engine_mock._register_blend_position_mapping.assert_called_once_with(
-            mock_signal, 7654321
-        )
+        engine_mock._register_blend_position_mapping.assert_called_once_with(mock_signal, 7654321)
 
-    def test_filled_amend_sl_tp_fallback_branch_calls_helper(
-        self, engine_mock, mock_signal
-    ):
+    def test_filled_amend_sl_tp_fallback_branch_calls_helper(self, engine_mock, mock_signal):
         """The ``FILLED and amend-SL/TP fallback`` branch at
         ``forward_test_engine.py:1410-1421`` must also call the helper.
         Defends against partial fixes that only patch one branch.
@@ -256,14 +240,10 @@ class TestExecuteSignalLiveWiring:
         # Simulate the fallback branch's position_id extraction.
         order = MagicMock()
         order.position_id = 7654322  # different cTrader int
-        position_id = getattr(order, "position_id", None) or getattr(
-            order, "order_id", None
-        )
+        position_id = getattr(order, "position_id", None) or getattr(order, "order_id", None)
         engine_mock._register_blend_position_mapping(mock_signal, position_id)
 
-        engine_mock._register_blend_position_mapping.assert_called_once_with(
-            mock_signal, 7654322
-        )
+        engine_mock._register_blend_position_mapping.assert_called_once_with(mock_signal, 7654322)
 
 
 class TestReleaseLateWiring:
@@ -321,9 +301,7 @@ class TestReleaseLateWiring:
 
             # Spy on the helper.
             helper_calls = []
-            engine._register_blend_position_mapping = lambda sig, pid: (
-                helper_calls.append((sig, pid))
-            )
+            engine._register_blend_position_mapping = lambda sig, pid: helper_calls.append((sig, pid))
 
             blend_runner = MagicMock()
             engine._blend_runner = blend_runner
@@ -362,9 +340,7 @@ class TestReleaseLateWiring:
 
             # The helper MUST have been called with the signal and the
             # extracted int positionId.  This locks the audit §5.4 fix.
-            assert len(helper_calls) == 1, (
-                f"Expected 1 helper call, got {len(helper_calls)}: {helper_calls}"
-            )
+            assert len(helper_calls) == 1, f"Expected 1 helper call, got {len(helper_calls)}: {helper_calls}"
             called_signal, called_position_id = helper_calls[0]
             assert called_signal is signal
             assert called_position_id == 424242
@@ -408,8 +384,7 @@ def test_engine_calls_helper_in_two_execute_signal_live_branches():
                         call_lines.append(sub.lineno)
 
     assert len(call_lines) >= 1, (
-        "_execute_signal_live must invoke _register_blend_position_mapping "
-        "at least once (synchronous FILLED paths)."
+        "_execute_signal_live must invoke _register_blend_position_mapping at least once (synchronous FILLED paths)."
     )
 
 

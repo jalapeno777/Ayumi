@@ -61,9 +61,7 @@ load_dotenv()
 
 
 PAPERCLIP_API_URL = os.environ.get("PAPERCLIP_API_URL", "http://localhost:3101")
-PAPERCLIP_ALERT_KEY = os.environ.get(
-    "PAPERCLIP_ALERT_KEY", os.environ.get("PAPERCLIP_API_KEY", "")
-)
+PAPERCLIP_ALERT_KEY = os.environ.get("PAPERCLIP_ALERT_KEY", os.environ.get("PAPERCLIP_API_KEY", ""))
 PAPERCLIP_ISSUE_ID = os.environ.get("PAPERCLIP_ISSUE_ID", "")
 
 
@@ -223,15 +221,9 @@ def check_last_trade_time(state: TradingState) -> Alert:
 
 def check_daily_pnl(state: TradingState) -> Alert:
     equity_change = state.current_balance - state.daily_starting_balance
-    equity_change_pct = (
-        (equity_change / state.daily_starting_balance) * 100
-        if state.daily_starting_balance > 0
-        else 0
-    )
+    equity_change_pct = (equity_change / state.daily_starting_balance) * 100 if state.daily_starting_balance > 0 else 0
 
-    win_rate = (
-        (state.daily_wins / state.daily_trades * 100) if state.daily_trades > 0 else 0
-    )
+    win_rate = (state.daily_wins / state.daily_trades * 100) if state.daily_trades > 0 else 0
 
     if state.circuit_breaker_triggered:
         return Alert(
@@ -253,7 +245,7 @@ def check_daily_pnl(state: TradingState) -> Alert:
         return Alert(
             severity="info",
             check_type="daily_pnl",
-            message=f"Daily P&L: ${equity_change:.2f} ({equity_change_pct:+.2f}%) | Trades: {state.daily_trades} | Win rate: {win_rate:.0f}%",
+            message=f"Daily P&L: ${equity_change:.2f} ({equity_change_pct:+.2f}%) | Trades: {state.daily_trades} | Win rate: {win_rate:.0f}%",  # noqa: E501
             details={
                 "daily_pnl": state.daily_pnl,
                 "equity_change": equity_change,
@@ -283,8 +275,7 @@ def check_daily_pnl(state: TradingState) -> Alert:
 
 def check_circuit_breaker(state: TradingState) -> Alert:
     daily_loss_pct = (
-        (state.daily_starting_balance - state.current_balance)
-        / state.daily_starting_balance
+        (state.daily_starting_balance - state.current_balance) / state.daily_starting_balance
         if state.daily_starting_balance > 0
         else 0
     )
@@ -295,7 +286,7 @@ def check_circuit_breaker(state: TradingState) -> Alert:
         return Alert(
             severity="critical",
             check_type="circuit",
-            message=f"CIRCUIT BREAKER: Daily loss {daily_loss_pct * 100:.2f}% exceeds FTMO limit {FTMO_DAILY_LOSS_LIMIT * 100}%",
+            message=f"CIRCUIT BREAKER: Daily loss {daily_loss_pct * 100:.2f}% exceeds FTMO limit {FTMO_DAILY_LOSS_LIMIT * 100}%",  # noqa: E501
             details={
                 "daily_loss_pct": daily_loss_pct,
                 "ftmo_limit_pct": FTMO_DAILY_LOSS_LIMIT * 100,
@@ -434,23 +425,17 @@ def post_alert_to_paperclip(alert: Alert, issue_id: str) -> bool:
             timeout=10,
         )
         if response.status_code in (200, 201):
-            logger.info(
-                f"Alert posted to Paperclip: {alert.check_type} - {alert.message}"
-            )
+            logger.info(f"Alert posted to Paperclip: {alert.check_type} - {alert.message}")
             return True
         else:
-            logger.error(
-                f"Failed to post alert: {response.status_code} {response.text}"
-            )
+            logger.error(f"Failed to post alert: {response.status_code} {response.text}")
             return False
     except Exception as e:
         logger.error(f"Error posting to Paperclip: {e}")
         return False
 
 
-def run_check(
-    check_type: CheckType, state: TradingState, dry_run: bool = False
-) -> list[Alert]:
+def run_check(check_type: CheckType, state: TradingState, dry_run: bool = False) -> list[Alert]:
     alerts = []
 
     if check_type == CheckType.HEALTH:
@@ -487,12 +472,8 @@ def main():
         default="all",
         help="Type of check to run",
     )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Don't post to Paperclip"
-    )
-    parser.add_argument(
-        "--update-state", type=str, help="Update state from JSON string"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Don't post to Paperclip")
+    parser.add_argument("--update-state", type=str, help="Update state from JSON string")
     args = parser.parse_args()
 
     state = load_state()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test London Breakout with regime gates using precomputed labels."""
 
-import sys
+import sys  # noqa: I001
 import time
 from pathlib import Path
 from datetime import datetime, timezone
@@ -11,7 +11,7 @@ project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb
+import duckdb  # noqa: I001
 import pickle
 from core.types import Bar, MarketState, SessionType, BarPeriod
 from strategies.london_breakout_retest import (
@@ -25,7 +25,7 @@ from indicators import adx as calc_adx
 con = duckdb.connect(str(project_root / "data" / "ayumi_market.duckdb"), read_only=True)
 con.execute("SET threads=1; SET memory_limit='512MB'")
 rows = con.execute(
-    "SELECT timestamp_utc, open, high, low, close, volume FROM bars WHERE symbol='XAUUSD' AND timeframe='M15' ORDER BY timestamp_utc ASC"
+    "SELECT timestamp_utc, open, high, low, close, volume FROM bars WHERE symbol='XAUUSD' AND timeframe='M15' ORDER BY timestamp_utc ASC"  # noqa: E501
 ).fetchall()
 is_ms = rows[0][0] > 1e12
 bars = []
@@ -48,14 +48,10 @@ print(f"Loaded {len(bars)} bars")
 
 # Precompute regime + adx + session (use cached labels if available)
 cache_dir = project_root / "data" / "cache"
-cache_file = (
-    next(cache_dir.glob("labels_XAUUSD_M15_*.pkl"), None)
-    if cache_dir.exists()
-    else None
-)
+cache_file = next(cache_dir.glob("labels_XAUUSD_M15_*.pkl"), None) if cache_dir.exists() else None
 if cache_file:
     with open(cache_file, "rb") as f:
-        regimes, adxs, sessions = pickle.load(f)
+        regimes, adxs, sessions = pickle.load(f)  # noqa: S301
     print(f"Loaded cached labels: {len(regimes)} entries")
 else:
     print("No cached labels — computing...")
@@ -68,11 +64,11 @@ else:
         if i >= 100:
             w = bars[max(0, i - 100) : i + 1]
             h = np.array([b.high for b in w])
-            l = np.array([b.low for b in w])
+            l = np.array([b.low for b in w])  # noqa: E741
             c = np.array([b.close for b in w])
             try:
                 r = det.detect_current(h, l, c)
-            except:
+            except:  # noqa: E722, S110
                 pass
             try:
                 av = calc_adx(h, l, c, 14)
@@ -80,20 +76,12 @@ else:
                     val = float(av.iloc[-1]) if hasattr(av, "iloc") else float(av[-1])
                     if not np.isnan(val):
                         a = val
-            except:
+            except:  # noqa: E722, S110
                 pass
         regimes.append(r)
         adxs.append(a)
         hr = bars[i].time.hour
-        sessions.append(
-            "asia"
-            if 0 <= hr < 7
-            else "london"
-            if 7 <= hr < 12
-            else "ny_am"
-            if 12 <= hr < 17
-            else "other"
-        )
+        sessions.append("asia" if 0 <= hr < 7 else "london" if 7 <= hr < 12 else "ny_am" if 12 <= hr < 17 else "other")
     print(f"Computed in {time.time() - t0:.1f}s")
 
 # Backtest London Breakout with default regime gates
@@ -152,13 +140,11 @@ def run_backtest(gate_regimes, gate_adx, gate_sessions, name):
         # Strategy signal — pass full bar history (strategies need warmup)
         state = MarketState(
             bars=bars[: i + 1],
-            current_session=SessionType.LONDON
-            if 7 <= bar.time.hour < 12
-            else SessionType.OUTSIDE,
+            current_session=SessionType.LONDON if 7 <= bar.time.hour < 12 else SessionType.OUTSIDE,
         )
         try:
             sig = s.evaluate(state)
-        except:
+        except:  # noqa: E722, S112
             continue
         if sig is None:
             continue
@@ -243,6 +229,4 @@ print("| Variant | Trades | PF | Net $ | DD % | WR % |")
 print("|---|---:|---:|---:|---:|---:|")
 for name, gr, ga, gs in variants:
     m = run_backtest(gr, ga, gs, name)
-    print(
-        f"| {name} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% |"
-    )
+    print(f"| {name} | {m['trades']} | {m['pf']} | ${m['net']} | {m['dd_pct']}% | {m['wr']}% |")

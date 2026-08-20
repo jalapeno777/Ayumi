@@ -1,4 +1,4 @@
-from core.types import TradeDirection
+from core.types import TradeDirection  # noqa: I001
 from engine.protocol import CanonicalSignal
 from engine.signal_router import SignalRouter
 from adapters.ctrader.risk_guard import FTMOConfig
@@ -6,9 +6,7 @@ from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
 from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
 
 
-def _make_signal(
-    strategy_id="srmr_gbpusd_h1", symbol="GBPUSD", confidence=0.85, **kwargs
-):
+def _make_signal(strategy_id="srmr_gbpusd_h1", symbol="GBPUSD", confidence=0.85, **kwargs):
     defaults = dict(
         entry_price=1.2500,
         stop_loss=1.2450,

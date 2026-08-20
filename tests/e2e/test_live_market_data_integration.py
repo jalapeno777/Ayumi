@@ -1,4 +1,4 @@
-import pytest
+import pytest  # noqa: I001
 
 from adapters.ctrader.models import (
     TradeDirection,
@@ -80,9 +80,7 @@ class TestSlippageModel:
     def test_zero_spread_no_effect(self):
         model = SlippageModel(base_pips=0.1, random_pips=0.0, pip_value=0.0001)
         fill_no_spread = model.apply(1.26000, TradeDirection.LONG)
-        fill_zero_spread = model.apply_with_spread(
-            1.26000, TradeDirection.LONG, spread=0.0
-        )
+        fill_zero_spread = model.apply_with_spread(1.26000, TradeDirection.LONG, spread=0.0)
         assert fill_no_spread == fill_zero_spread
 
 
@@ -189,9 +187,7 @@ class TestPaperTraderSpreadPassthrough:
 
     def test_process_signal_with_real_bid_ask_uses_bid_for_short(self):
         trader = self._make_trader()
-        signal = _make_signal(
-            direction=TradeDirection.SHORT, entry=1.26000, sl=1.26450, tp=1.25100
-        )
+        signal = _make_signal(direction=TradeDirection.SHORT, entry=1.26000, sl=1.26450, tp=1.25100)
         result = trader.process_signal(signal, bid=1.25980, ask=1.26000)
         assert result.success
         assert result.position is not None

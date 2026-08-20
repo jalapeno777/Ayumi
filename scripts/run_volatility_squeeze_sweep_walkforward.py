@@ -187,15 +187,11 @@ def filter_min_trades_per_window(
             params=params,
             n_windows=n_windows,
         )
-        min_trades_in_windows = min(
-            w.trade_count for w in wf_result.per_window if w is not None
-        )
+        min_trades_in_windows = min(w.trade_count for w in wf_result.per_window if w is not None)
         if min_trades_in_windows >= min_trades:
             filtered.append((row, wf_result))
         else:
-            print(
-                f"    Rejected {params}: min trades {min_trades_in_windows} < {min_trades}"
-            )
+            print(f"    Rejected {params}: min trades {min_trades_in_windows} < {min_trades}")
 
     return filtered
 
@@ -219,13 +215,9 @@ def top_n_with_scores(trade_results, n: int = 5) -> list:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Volatility Squeeze sweep + walk-forward"
-    )
+    parser = argparse.ArgumentParser(description="Volatility Squeeze sweep + walk-forward")
     add_resource_args(parser)
-    parser.add_argument(
-        "--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers"
-    )
+    parser.add_argument("--max-workers", type=int, default=2, help="ProcessPoolExecutor max workers")
     args = parser.parse_args()
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -260,9 +252,7 @@ def main() -> None:
 
         trade_results = sweep_result["trade_results"]
         if not trade_results:
-            print(
-                f"\n  WARNING: No trades generated for {pair} with any parameter combination!"
-            )
+            print(f"\n  WARNING: No trades generated for {pair} with any parameter combination!")
             all_sweep_results[pair] = {"trade_results": [], "all_results": []}
             all_top_params[pair] = []
             continue
@@ -301,9 +291,7 @@ def main() -> None:
             continue
 
         bars = loader.load(EURUSD_PATH if pair == "EURUSD" else GBPJPY_PATH)
-        print(
-            f"\n  Running 5-window walk-forward for {pair} top 5 params on {len(bars)} bars..."
-        )
+        print(f"\n  Running 5-window walk-forward for {pair} top 5 params on {len(bars)} bars...")
 
         pair_wf_results = []
         for i, row in enumerate(top5):
@@ -342,9 +330,7 @@ def main() -> None:
             )
 
         any_go = any(r["go_nogo"] for r in pair_wf_results)
-        print(
-            f"\n  {pair} Summary: {'AT LEAST ONE PARAM SET PASSED' if any_go else 'ALL PARAM SETS FAILED'}"
-        )
+        print(f"\n  {pair} Summary: {'AT LEAST ONE PARAM SET PASSED' if any_go else 'ALL PARAM SETS FAILED'}")
 
         walkforward_results[pair] = {
             "go_nogo": any_go,
@@ -385,9 +371,7 @@ def main() -> None:
             print(f"    Windows passed: {best_windows_passed}/5")
 
     overall_go = any(r["go_nogo"] for r in walkforward_results.values())
-    print(
-        f"\n  OVERALL: {'GO' if overall_go else 'NO-GO'} (need at least one pair with 3/5 windows passing)"
-    )
+    print(f"\n  OVERALL: {'GO' if overall_go else 'NO-GO'} (need at least one pair with 3/5 windows passing)")
 
     final_report = {
         "strategy": "VolatilitySqueeze",
@@ -396,9 +380,7 @@ def main() -> None:
         "pair_results": walkforward_results,
     }
 
-    final_report_path = (
-        WALKFORWARD_REPORT_DIR / "volatility_squeeze_sweep_walkforward_results.json"
-    )
+    final_report_path = WALKFORWARD_REPORT_DIR / "volatility_squeeze_sweep_walkforward_results.json"
     with open(final_report_path, "w") as f:
         json.dump(final_report, f, indent=2, default=str)
     print(f"\n  Final report saved: {final_report_path}")

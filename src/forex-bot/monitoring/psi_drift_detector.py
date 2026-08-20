@@ -20,7 +20,7 @@ References
 - Original BQ items: BQ-1154, BQ-1139
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import math
 import logging
@@ -156,9 +156,7 @@ class PSIAlert:
     feature: str
     psi: float
     threshold: float
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     severity: str = field(default="none")
 
     def __post_init__(self) -> None:
@@ -271,9 +269,7 @@ class PSIDriftDetector:
         PSIAlert with the computed PSI, severity, and alert flag.
         """
         if feature not in self._baselines:
-            raise KeyError(
-                f"No baseline set for feature '{feature}'. Call set_baseline() first."
-            )
+            raise KeyError(f"No baseline set for feature '{feature}'. Call set_baseline() first.")
 
         psi = compute_psi(
             self._baselines[feature],

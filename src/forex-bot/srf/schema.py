@@ -1,6 +1,6 @@
 """SRF schema — DuckDB table definitions, single-writer lock, migrations."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import fcntl
@@ -248,7 +248,7 @@ class SRFDatabase:
                 if time.monotonic() > deadline:
                     os.close(self._lock_fd)
                     self._lock_fd = None
-                    raise RuntimeError(
+                    raise RuntimeError(  # noqa: B904
                         f"SRF database is locked by another writer: {self._lock_path}"
                     )
                 time.sleep(0.1)
@@ -293,7 +293,7 @@ class SRFDatabase:
 
     def _migrate(self) -> None:
         """Run additive migrations. No destructive changes."""
-        assert self._conn is not None
+        assert self._conn is not None  # noqa: S101
         cur = self._conn.cursor()
 
         # Check current version

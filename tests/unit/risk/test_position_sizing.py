@@ -105,16 +105,12 @@ class TestDynamicSizing(unittest.TestCase):
         self.assertLess(result, 1.0)
 
     def test_max_multiplier_cap(self):
-        cfg = DynamicSizingConfig(
-            max_multiplier=1.5, win_increase=1.0, max_streak_impact=10.0
-        )
+        cfg = DynamicSizingConfig(max_multiplier=1.5, win_increase=1.0, max_streak_impact=10.0)
         result = dynamic_sizing(1.0, 5000, 10, 0, config=cfg)
         self.assertAlmostEqual(result, 1.5, places=4)
 
     def test_min_multiplier_floor(self):
-        cfg = DynamicSizingConfig(
-            min_multiplier=0.5, loss_reduction=1.0, max_streak_impact=10.0
-        )
+        cfg = DynamicSizingConfig(min_multiplier=0.5, loss_reduction=1.0, max_streak_impact=10.0)
         result = dynamic_sizing(1.0, -5000, 0, 10, config=cfg)
         self.assertAlmostEqual(result, 0.5, places=4)
 

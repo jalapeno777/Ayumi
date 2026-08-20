@@ -15,7 +15,7 @@ Covers:
 These are integration-light unit tests: no backtest engine is involved.
 """
 
-import unittest
+import unittest  # noqa: I001
 from datetime import datetime, timedelta, timezone
 from typing import List
 
@@ -42,7 +42,7 @@ def _make_bar(
     time: datetime,
     o: float,
     h: float,
-    l: float,
+    l: float,  # noqa: E741
     c: float,
     vol: float = 1000,
     period_minutes: int = 15,
@@ -233,9 +233,7 @@ class TestDualTFSqueezeProStrategy(unittest.TestCase):
         # produce one (depending on how the H1 aggregation aligns). But
         # the run must complete cleanly.
         if last_signal is not None:
-            self.assertIn(
-                last_signal.direction, (TradeDirection.LONG, TradeDirection.SHORT)
-            )
+            self.assertIn(last_signal.direction, (TradeDirection.LONG, TradeDirection.SHORT))
             self.assertGreaterEqual(last_signal.confidence, s.config.min_confidence)
             self.assertLessEqual(last_signal.confidence, 0.85)
             # TP ordering.
@@ -274,9 +272,7 @@ class TestDualTFSqueezeProStrategy(unittest.TestCase):
             # But evaluate() asserts len(m15_bars) >= min_required. So
             # rebuild state from scratch every call: the incremental
             # path inside evaluate() takes care of late bars only.
-            state = MarketState(
-                bars=bars[: bars.index(b) + 1], current_session=SessionType.NY_AM
-            )
+            state = MarketState(bars=bars[: bars.index(b) + 1], current_session=SessionType.NY_AM)
             sig = s.evaluate(state)
             if sig is not None:
                 last_signal = sig
@@ -349,9 +345,7 @@ class TestDuckDBIntegration(unittest.TestCase):
     def setUpClass(cls):
         import os
 
-        cls.db_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "data", "ayumi_market.duckdb"
-        )
+        cls.db_path = os.path.join(os.path.dirname(__file__), "..", "..", "data", "ayumi_market.duckdb")
         cls.db_path = os.path.abspath(cls.db_path)
         # Skip if the DB doesn't exist or python module is unavailable.
         try:
@@ -383,7 +377,7 @@ class TestDuckDBIntegration(unittest.TestCase):
         self.assertGreater(len(rows), 100, "need at least 100 bars to feed strategy")
 
         bars: List[Bar] = []
-        for ts, o, h, l, c, v, sp in rows:
+        for ts, o, h, l, c, v, sp in rows:  # noqa: E741
             # ts is in seconds (unix epoch)
             t = datetime.fromtimestamp(ts, tz=timezone.utc).replace(tzinfo=None)
             bars.append(
@@ -410,9 +404,7 @@ class TestDuckDBIntegration(unittest.TestCase):
                 signals_found += 1
                 last_signal = sig
         # Smoke: at least one signal on the last 5000 M15 bars.
-        self.assertGreater(
-            signals_found, 0, "expected at least one signal on real XAUUSD M15"
-        )
+        self.assertGreater(signals_found, 0, "expected at least one signal on real XAUUSD M15")
         self.assertIsNotNone(last_signal)
         self.assertGreaterEqual(last_signal.confidence, s.config.min_confidence)
         self.assertLessEqual(last_signal.confidence, 0.85)

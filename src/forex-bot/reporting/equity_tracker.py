@@ -4,7 +4,7 @@ Records periodic balance snapshots and generates markdown reports
 for monitoring forward-test performance against FTMO-style drawdown limits.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 from dataclasses import dataclass, asdict
@@ -240,9 +240,7 @@ class EquityTracker:
 
     # ── Summaries ────────────────────────────────────────────────────────
 
-    def daily_summary(
-        self, target_date: Optional[str] = None
-    ) -> Optional[DailySummary]:
+    def daily_summary(self, target_date: Optional[str] = None) -> Optional[DailySummary]:
         """Return aggregated stats for *target_date* (YYYY-MM-DD).
 
         Defaults to the most recent date present in snapshots.
@@ -289,9 +287,7 @@ class EquityTracker:
             ftmo_status=ftmo,
         )
 
-    def weekly_summary(
-        self, week_start: Optional[str] = None
-    ) -> Optional[WeeklySummary]:
+    def weekly_summary(self, week_start: Optional[str] = None) -> Optional[WeeklySummary]:
         """Return aggregated stats for the ISO week containing *week_start*.
 
         Defaults to the most recent week present in snapshots.

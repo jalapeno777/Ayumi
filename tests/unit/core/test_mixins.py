@@ -8,7 +8,7 @@ Rewritten for post-refactor API (card 99a4d28d).
 - CombinedSignalMixin._combine_signals uses StrategySignal objects
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -197,7 +197,5 @@ class TestCombinedSignalMixin:
     def test_weighted_below_threshold_returns_none(self):
         combo = CombinedSignalMixin()
         signals = [self._make_signal(TradeDirection.LONG, 0.3)]
-        result = combo._combine_signals(
-            signals, method=CombineMethod.WEIGHTED, min_confidence=0.5
-        )
+        result = combo._combine_signals(signals, method=CombineMethod.WEIGHTED, min_confidence=0.5)
         assert result is None

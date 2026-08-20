@@ -12,7 +12,7 @@ Usage:
     nohup python3 scripts/harvest_ticks_overnight.py &
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import csv
 import lzma
@@ -58,17 +58,15 @@ def fetch_url(url: str) -> bytes | None:
     """Fetch URL with retries, return raw bytes or None on failure."""
     for attempt in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})  # noqa: S310
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
                 return resp.read()
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return b""  # 404 = no data for this hour/day (normal)
             log(f"  HTTP {e.code} for {url}, attempt {attempt + 1}/{MAX_RETRIES}")
         except Exception as e:
-            log(
-                f"  Error fetching {url}: {e.__class__.__name__}: {e}, attempt {attempt + 1}/{MAX_RETRIES}"
-            )
+            log(f"  Error fetching {url}: {e.__class__.__name__}: {e}, attempt {attempt + 1}/{MAX_RETRIES}")
 
         if attempt < MAX_RETRIES - 1:
             time.sleep(RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)])
@@ -99,14 +97,10 @@ def fetch_hour_ticks(symbol: str, dt: date, hour: int) -> list[tuple] | None:
     n_records = len(decompressed) // TICK_SIZE
     for i in range(n_records):
         offset = i * TICK_SIZE
-        ms_within_hour, ask_raw, bid_raw, ask_vol, bid_vol = struct.unpack_from(
-            ">IIIff", decompressed, offset
-        )
+        ms_within_hour, ask_raw, bid_raw, ask_vol, bid_vol = struct.unpack_from(">IIIff", decompressed, offset)
 
         # Convert epoch: base is start of hour UTC
-        hour_start_epoch = int(
-            datetime(dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc).timestamp()
-        )
+        hour_start_epoch = int(datetime(dt.year, dt.month, dt.day, hour, tzinfo=timezone.utc).timestamp())
         epoch_ms = hour_start_epoch * 1000 + ms_within_hour
 
         # Price conversion: raw int / 1_000_000
@@ -187,9 +181,7 @@ def main():
                     continue
 
                 # Check if we already have this day's file
-                fname = (
-                    f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
-                )
+                fname = f"{symbol}_{current.year}{current.month:02d}{current.day:02d}.csv"
                 if (OUTPUT_DIR / fname).exists():
                     current += timedelta(days=1)
                     continue
@@ -220,9 +212,7 @@ def main():
                     year_ticks += count
                     year_days += 1
                     if year_days % 50 == 0:
-                        log(
-                            f"  {symbol} {current}: {year_days} days, {year_ticks:,} ticks so far for {year}"
-                        )
+                        log(f"  {symbol} {current}: {year_days} days, {year_ticks:,} ticks so far for {year}")
                 elif not day_had_error:
                     pass  # Holiday/no data, skip silently
                 else:
@@ -232,9 +222,7 @@ def main():
 
             total_ticks += year_ticks
             total_days += year_days
-            log(
-                f"  --- {symbol} {year} done: {year_days} days, {year_ticks:,} ticks, {year_errors} errors ---"
-            )
+            log(f"  --- {symbol} {year} done: {year_days} days, {year_ticks:,} ticks, {year_errors} errors ---")
 
         log(f"\n  {symbol} COMPLETE: {total_days} days, {total_ticks:,} ticks total")
 

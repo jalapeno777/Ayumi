@@ -18,16 +18,10 @@ class CycleDetector:
         *,
         project_root: Path | str | None = None,
     ) -> None:
-        root = (
-            Path(project_root).resolve()
-            if project_root is not None
-            else self._default_project_root()
-        )
+        root = Path(project_root).resolve() if project_root is not None else self._default_project_root()
         self.project_root = root
         self.remediation_log_path = (
-            Path(remediation_log_path)
-            if remediation_log_path is not None
-            else root / "data/ops/remediation_log.jsonl"
+            Path(remediation_log_path) if remediation_log_path is not None else root / "data/ops/remediation_log.jsonl"
         )
         self.escalation_queue_path = (
             Path(escalation_queue_path)
@@ -60,9 +54,7 @@ class CycleDetector:
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, sort_keys=True) + "\n")
 
-    def append_remediation(
-        self, pattern_name: str, result: dict[str, Any] | Any
-    ) -> None:
+    def append_remediation(self, pattern_name: str, result: dict[str, Any] | Any) -> None:
         """Append one remediation result to the wrapped log.
 
         ``result`` may be a plain dict or a dataclass-like object with
@@ -107,8 +99,7 @@ class CycleDetector:
                 "status": "queued",
                 "priority": "high",
                 "reason": (
-                    f"{pattern_name} remediated {count} times in the last "
-                    f"{days} days; threshold is >{threshold}"
+                    f"{pattern_name} remediated {count} times in the last {days} days; threshold is >{threshold}"
                 ),
                 "source": str(self.remediation_log_path),
             },

@@ -34,15 +34,11 @@ def get_credentials() -> cTraderCredentials:
         host=os.environ.get("CTRADER_HOST", "h1.p.ctrader.com"),
         port=int(os.environ.get("CTRADER_PORT", "5211")),
         use_ssl=os.environ.get("CTRADER_SSL", "true").lower() == "true",
-        sender_comp_id=os.environ.get(
-            "CTRADER_SENDER_ID", os.environ.get("CTRADER_ACCOUNT", "")
-        ),
+        sender_comp_id=os.environ.get("CTRADER_SENDER_ID", os.environ.get("CTRADER_ACCOUNT", "")),
         target_comp_id=os.environ.get("CTRADER_TARGET_ID", "cServer"),
         sender_sub_id=os.environ.get("CTRADER_SENDER_SUB", "QUOTE"),
         target_sub_id=os.environ.get("CTRADER_TARGET_SUB", "QUOTE"),
-        username=os.environ.get(
-            "CTRADER_USERNAME", os.environ.get("CTRADER_ACCOUNT", "")
-        ),
+        username=os.environ.get("CTRADER_USERNAME", os.environ.get("CTRADER_ACCOUNT", "")),
         password=os.environ.get("CTRADER_PASSWORD", ""),
     )
 
@@ -77,7 +73,7 @@ def cmd_discover(args):
 
 def cmd_backfill(args):
     """Backfill historical data."""
-    from data.backfill import HistoricalDataBackfill
+    from data.backfill import HistoricalDataBackfill  # noqa: I001
     from adapters.ctrader.symbol_discovery import SymbolDiscovery
 
     creds = get_credentials()
@@ -110,7 +106,7 @@ def cmd_status(args):
         logger.info(f"Cache: {len(data)} symbols in {cache_path}")
 
         categories = {}
-        for sid, info in data.items():
+        for sid, info in data.items():  # noqa: B007
             cat = info.get("category", "other")
             categories.setdefault(cat, []).append(info["name"])
 
@@ -134,20 +130,14 @@ def cmd_status(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="cTrader symbol discovery and data backfill"
-    )
-    parser.add_argument(
-        "--timeout", type=float, default=10.0, help="Timeout for FIX requests"
-    )
+    parser = argparse.ArgumentParser(description="cTrader symbol discovery and data backfill")
+    parser.add_argument("--timeout", type=float, default=10.0, help="Timeout for FIX requests")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("discover", help="Discover available symbols")
 
     bp = sub.add_parser("backfill", help="Backfill historical data")
-    bp.add_argument(
-        "--timeframe", default="H1", help="Timeframe (M1, M5, M15, M30, H1, H4, D1)"
-    )
+    bp.add_argument("--timeframe", default="H1", help="Timeframe (M1, M5, M15, M30, H1, H4, D1)")
     bp.add_argument("--symbols", default=None, help="Comma-separated symbol list")
 
     sub.add_parser("status", help="Show current discovery and data status")

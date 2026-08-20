@@ -21,7 +21,7 @@ src_dir = Path(__file__).resolve().parents[3] / "src" / "forex-bot"
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
-from risk.recovery_protocol import (  # noqa: E402
+from risk.recovery_protocol import (  # noqa: E402, I001
     COOLDOWN_DURATION_SEC,
     COOLDOWN_RISK_MULTIPLIER,
     FULL_RISK_MULTIPLIER,
@@ -218,9 +218,7 @@ def test_margin_failure_aborts(protocol, ks_manager, bad_margin, matching_positi
 # ── Test 4: Gradual Unfreeze Sets 50% Risk ──────────────────────────────────
 
 
-def test_gradual_unfreeze_sets_half_risk(
-    protocol, ks_manager, good_margin, matching_positions
-):
+def test_gradual_unfreeze_sets_half_risk(protocol, ks_manager, good_margin, matching_positions):
     """After successful recovery, risk multiplier is 50% during cooldown."""
     local, broker = matching_positions
 
@@ -250,9 +248,7 @@ def test_gradual_unfreeze_sets_half_risk(
 # ── Test 5: Cooldown Expiry Restores Full Risk ─────────────────────────────
 
 
-def test_cooldown_expiry_restores_full_risk(
-    protocol, ks_manager, good_margin, matching_positions
-):
+def test_cooldown_expiry_restores_full_risk(protocol, ks_manager, good_margin, matching_positions):
     """After cooldown expires, risk is restored to 100%."""
     local, broker = matching_positions
 
@@ -285,9 +281,7 @@ def test_cooldown_expiry_restores_full_risk(
     assert protocol.get_cooldown_state("beta") is None
 
 
-def test_restore_full_risk_before_cooldown_fails(
-    protocol, ks_manager, good_margin, matching_positions
-):
+def test_restore_full_risk_before_cooldown_fails(protocol, ks_manager, good_margin, matching_positions):
     """restore_full_risk returns False if cooldown hasn't expired."""
     local, broker = matching_positions
 

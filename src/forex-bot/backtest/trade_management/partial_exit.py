@@ -99,10 +99,7 @@ class PartialExitManager:
                 tp3,
             )
 
-        if (
-            state.highest_tier_reached.value >= ExitTier.TIER_2.value
-            and self.final_trail
-        ):
+        if state.highest_tier_reached.value >= ExitTier.TIER_2.value and self.final_trail:
             if not state.trail_enabled:
                 state.trail_enabled = True
                 return PartialExitResult(
@@ -223,9 +220,7 @@ class PartialExitManager:
         return mapping.get(tier, ExitReason.TAKE_PROFIT_1)
 
     @staticmethod
-    def _calculate_rr(
-        bar: Bar, direction: TradeDirection, entry_price: float, stop_loss: float
-    ) -> float:
+    def _calculate_rr(bar: Bar, direction: TradeDirection, entry_price: float, stop_loss: float) -> float:
         risk = abs(entry_price - stop_loss)
         if risk == 0:
             return 0.0

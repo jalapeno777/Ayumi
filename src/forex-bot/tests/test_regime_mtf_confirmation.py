@@ -34,7 +34,7 @@ can be asserted precisely without depending on real price-derived ADX
 values.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import numpy as np
 import pandas as pd
@@ -128,7 +128,7 @@ def test_backward_compat(monkeypatch):
     det_explicit_none = RegimeDetector(RegimeConfig(mtf_confirmation="none"))
 
     # Identity / sanity check on the dataclass.
-    assert det_default.config == det_explicit_none.config
+    assert det_default.config == det_explicit_none.config  # noqa: S101
 
     s_default = det_default.detect(highs, lows, closes)
     s_explicit = det_explicit_none.detect(highs, lows, closes)
@@ -139,9 +139,7 @@ def test_backward_compat(monkeypatch):
     # is a small but important contract — it guarantees the MTF addition
     # has zero runtime cost when not requested.
     def _explode(self, highs, lows, closes, n):
-        raise AssertionError(
-            "_compute_htf_adx must not be called when mtf_confirmation='none'"
-        )
+        raise AssertionError("_compute_htf_adx must not be called when mtf_confirmation='none'")
 
     monkeypatch.setattr(RegimeDetector, "_compute_htf_adx", _explode)
     RegimeDetector().detect(highs, lows, closes)  # must not raise
@@ -168,15 +166,13 @@ def test_hard_mode_blocks_trending(monkeypatch):
     # No bar — including those with clearly trending base-TF behavior —
     # should land on TRENDING.  Compare to 'none' mode on identical data:
     # that detector WILL mark some bars trending on this synthetic series.
-    baseline = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(
-        highs, lows, closes
-    )
-    assert int((baseline.dropna() == Regime.TRENDING).sum()) > 0, (
+    baseline = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(highs, lows, closes)
+    assert int((baseline.dropna() == Regime.TRENDING).sum()) > 0, (  # noqa: S101
         "sanity: baseline should mark some bars TRENDING on synthetic data"
     )
 
     hard_scored = regimes.dropna()
-    assert (hard_scored != Regime.TRENDING).all(), (
+    assert (hard_scored != Regime.TRENDING).all(), (  # noqa: S101
         "hard mode with HTF stubbed below thresholds must label no bar TRENDING"
     )
 
@@ -210,10 +206,8 @@ def test_hard_mode_blocks_when_only_h4_disagrees(monkeypatch):
     # the neutral zone must actually be populated so the override path
     # is exercised.  Without these preconditions the test could pass
     # vacuously even if the bug returned.
-    baseline = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(
-        highs, lows, closes
-    )
-    assert int((baseline.dropna() == Regime.TRENDING).sum()) > 0, (
+    baseline = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(highs, lows, closes)
+    assert int((baseline.dropna() == Regime.TRENDING).sum()) > 0, (  # noqa: S101
         "sanity: baseline should mark some bars TRENDING on synthetic data"
     )
 
@@ -224,7 +218,7 @@ def test_hard_mode_blocks_when_only_h4_disagrees(monkeypatch):
     # H4 disagrees, and the neutral-zone override clears the
     # rising-slope lean).
     hard_scored = regimes.dropna()
-    assert (hard_scored != Regime.TRENDING).all(), (
+    assert (hard_scored != Regime.TRENDING).all(), (  # noqa: S101
         "hard mode with H1 confirming but H4 disagreeing must label no "
         "bar TRENDING (H4-only leakage into the neutral-zone lean)"
     )
@@ -258,13 +252,13 @@ def test_soft_mode_raises_threshold(monkeypatch):
     # Where 'none' mode trends, soft mode MAY still trend — but it can
     # never trend where 'none' mode did not, because the only difference
     # is that the trending threshold can only go up (or stay equal).
-    assert soft_trending.sum() <= none_trending.sum(), (
+    assert soft_trending.sum() <= none_trending.sum(), (  # noqa: S101
         f"soft trending ({soft_trending.sum()}) must be ≤ none trending "
         f"({none_trending.sum()}) when H1 ADX is below threshold"
     )
     # And on this synthetic data the strict difference should hold —
     # otherwise the test does not exercise the soft-mode override.
-    assert soft_trending.sum() < none_trending.sum(), (
+    assert soft_trending.sum() < none_trending.sum(), (  # noqa: S101
         "expected at least some bars to drop from TRENDING → non-TRENDING "
         "in soft mode when H1 ADX is below threshold; "
         f"got none={none_trending.sum()} soft={soft_trending.sum()}"
@@ -282,18 +276,12 @@ def test_short_data_degrades_gracefully():
     """
     highs, lows, closes = _synthetic_ohlc(n=200, seed=21)
 
-    det_short = RegimeDetector(RegimeConfig(mtf_confirmation="hard")).detect(
-        highs, lows, closes
-    )
-    det_short_soft = RegimeDetector(RegimeConfig(mtf_confirmation="soft")).detect(
-        highs, lows, closes
-    )
-    det_none = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(
-        highs, lows, closes
-    )
+    det_short = RegimeDetector(RegimeConfig(mtf_confirmation="hard")).detect(highs, lows, closes)
+    det_short_soft = RegimeDetector(RegimeConfig(mtf_confirmation="soft")).detect(highs, lows, closes)
+    det_none = RegimeDetector(RegimeConfig(mtf_confirmation="none")).detect(highs, lows, closes)
 
     # Series lengths match the input — detect() must not drop or add bars.
-    assert len(det_short) == len(closes) == 200
+    assert len(det_short) == len(closes) == 200  # noqa: S101
 
     # Hard and soft mode on short data should match none-mode output
     # because the HTF ADX is all-NaN, signalling 'no MTF overlay'.
@@ -322,7 +310,7 @@ def test_weekend_gap_handling(monkeypatch):
     # Default detector — must run cleanly even with the long flat stretches.
     det_none = RegimeDetector(RegimeConfig(mtf_confirmation="none"))
     s_none = det_none.detect(highs, lows, closes)
-    assert len(s_none) == n
+    assert len(s_none) == n  # noqa: S101
 
     # Hard-mode detector with synthetic HTF ADX (bypass real aggregation
     # for the timeout-prone case of H4-warm-up, keep the test fast).
@@ -333,14 +321,14 @@ def test_weekend_gap_handling(monkeypatch):
     )
     det_hard = RegimeDetector(RegimeConfig(mtf_confirmation="hard"))
     s_hard = det_hard.detect(highs, lows, closes)
-    assert len(s_hard) == n
+    assert len(s_hard) == n  # noqa: S101
 
     # Soft mode too — verify it also tolerates the weekend-flat pattern.
     det_soft = RegimeDetector(RegimeConfig(mtf_confirmation="soft"))
     s_soft = det_soft.detect(highs, lows, closes)
-    assert len(s_soft) == n
+    assert len(s_soft) == n  # noqa: S101
 
     # Sanity: labels are a subset of the Regime enum (no rogue values).
     valid_labels = {r.value for r in Regime}
-    assert set(s_hard.dropna().unique()).issubset(valid_labels)
-    assert set(s_soft.dropna().unique()).issubset(valid_labels)
+    assert set(s_hard.dropna().unique()).issubset(valid_labels)  # noqa: S101
+    assert set(s_soft.dropna().unique()).issubset(valid_labels)  # noqa: S101

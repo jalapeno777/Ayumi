@@ -1,4 +1,4 @@
-import pytest
+import pytest  # noqa: I001
 from core.types import TradeDirection
 from engine.protocol import CanonicalSignal
 from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard

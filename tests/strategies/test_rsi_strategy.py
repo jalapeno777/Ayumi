@@ -14,7 +14,7 @@ Run with:
       && python3 -m pytest tests/test_rsi_strategy.py -q --tb=short
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import unittest
 from datetime import datetime, timedelta
@@ -240,15 +240,9 @@ class TestSignalBehavior(unittest.TestCase):
         sig = s.evaluate(state)
         self.assertIsNotNone(sig)
         risk = abs(sig.entry_price - sig.stop_loss)
-        self.assertAlmostEqual(
-            sig.take_profit_1, sig.entry_price + risk * 1.0, places=5
-        )
-        self.assertAlmostEqual(
-            sig.take_profit_2, sig.entry_price + risk * 2.0, places=5
-        )
-        self.assertAlmostEqual(
-            sig.take_profit_3, sig.entry_price + risk * 3.0, places=5
-        )
+        self.assertAlmostEqual(sig.take_profit_1, sig.entry_price + risk * 1.0, places=5)
+        self.assertAlmostEqual(sig.take_profit_2, sig.entry_price + risk * 2.0, places=5)
+        self.assertAlmostEqual(sig.take_profit_3, sig.entry_price + risk * 3.0, places=5)
 
 
 if __name__ == "__main__":

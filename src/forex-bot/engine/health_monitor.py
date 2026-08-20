@@ -117,8 +117,7 @@ class HealthMonitor:
 
         # -- Core [B5 Health] line (Amendment A6 format) -------------------
         logger.info(
-            "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d "
-            "paper_trades=%d live_fills=%d balance=%.2f uptime=%.0fs",
+            "[B5 Health] ticks=%d tps=%.2f bars=%d signals=%d paper_trades=%d live_fills=%d balance=%.2f uptime=%.0fs",
             ticks,
             tps,
             bars,
@@ -146,12 +145,8 @@ class HealthMonitor:
             # default) for any attribute access, which breaks numeric
             # comparisons. Guard with isinstance so test scaffolding that
             # uses ``_make_mock(live_fills=2)`` does not crash.
-            session_conflict_raw = self._safe_attr(
-                self._order_gateway, "_order_error_session_conflict_count", 0
-            )
-            session_conflict = (
-                session_conflict_raw if isinstance(session_conflict_raw, int) else 0
-            )
+            session_conflict_raw = self._safe_attr(self._order_gateway, "_order_error_session_conflict_count", 0)
+            session_conflict = session_conflict_raw if isinstance(session_conflict_raw, int) else 0
             if session_conflict > 0:
                 extras.append(f"order_error_session_conflict={session_conflict}")
             # Card ce6de98d (E): surface the unmatched_late_fills counter
@@ -160,12 +155,8 @@ class HealthMonitor:
             # always logged; the counter is additive so the B5 health line
             # shows the rate at which broker events arrive too late to be
             # matched.
-            unmatched_late_raw = self._safe_attr(
-                self._order_gateway, "_unmatched_late_fills_count", 0
-            )
-            unmatched_late = (
-                unmatched_late_raw if isinstance(unmatched_late_raw, int) else 0
-            )
+            unmatched_late_raw = self._safe_attr(self._order_gateway, "_unmatched_late_fills_count", 0)
+            unmatched_late = unmatched_late_raw if isinstance(unmatched_late_raw, int) else 0
             if unmatched_late > 0:
                 extras.append(f"unmatched_late_fills={unmatched_late}")
             # Card 8ad140c5 finding #5 (sprint reina-2026-08-18-106):
@@ -179,14 +170,8 @@ class HealthMonitor:
             # counter into the heartbeat JSON via _write_heartbeat. We
             # surface it here too so the B5 health line stays consistent
             # across both launcher paths.
-            signals_indeterminate_raw = self._safe_attr(
-                self._order_gateway, "_signals_indeterminate", 0
-            )
-            signals_indeterminate = (
-                signals_indeterminate_raw
-                if isinstance(signals_indeterminate_raw, int)
-                else 0
-            )
+            signals_indeterminate_raw = self._safe_attr(self._order_gateway, "_signals_indeterminate", 0)
+            signals_indeterminate = signals_indeterminate_raw if isinstance(signals_indeterminate_raw, int) else 0
             if signals_indeterminate > 0:
                 extras.append(f"signals_indeterminate={signals_indeterminate}")
 
@@ -197,20 +182,14 @@ class HealthMonitor:
                 extras.append(f"session_state={session_state}")
 
         if self._position_tracker is not None:
-            open_positions = self._safe_attr(
-                self._position_tracker, "open_positions", 0
-            )
+            open_positions = self._safe_attr(self._position_tracker, "open_positions", 0)
             extras.append(f"open_positions={open_positions}")
 
         if extras:
             logger.info("[B5 Health] %s", " ".join(extras))
 
         # -- Warning: session not subscribed after grace period -------------
-        if (
-            session_state is not None
-            and str(session_state) != "SessionState.SUBSCRIBED"
-            and uptime > 60.0
-        ):
+        if session_state is not None and str(session_state) != "SessionState.SUBSCRIBED" and uptime > 60.0:
             logger.warning(
                 "[B5 Health] session_state=%s after %.0fs — expected SUBSCRIBED",
                 session_state,

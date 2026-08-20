@@ -10,7 +10,7 @@ Usage:
     python scripts/run_supertrend_rsi_walkforward.py
 """
 
-import argparse
+import argparse  # noqa: I001
 import sys
 import json
 from pathlib import Path
@@ -23,7 +23,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, BacktestMetrics
+from backtest.engine import BacktestConfig, BacktestMetrics  # noqa: I001
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import SupertrendRSIBlendStrategy
 from backtest import CsvDataLoader
@@ -79,9 +79,7 @@ def _aggregate_metrics(results: list) -> dict:
     return {
         "total_windows": total_windows,
         "windows_passed": windows_passed,
-        "windows_passed_ratio": windows_passed / total_windows
-        if total_windows > 0
-        else 0,
+        "windows_passed_ratio": windows_passed / total_windows if total_windows > 0 else 0,
         "total_test_trades": test_trades,
         "avg_test_win_rate": avg_test_winrate,
         "avg_test_profit_factor": avg_test_pf,
@@ -133,10 +131,7 @@ def run_supertrend_walkforward(
     print("   SUPERTREND + RSI BLEND — WALK-FORWARD BACKTEST")
     print("=" * 70)
     print(f"   Pair: {pair} | Bars: {total} | Windows: {n_windows}")
-    print(
-        f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} "
-        f"test={test_ratio:.0%} buffer={buffer_ratio:.0%}"
-    )
+    print(f"   Split: train={train_ratio:.0%} val={val_ratio:.0%} test={test_ratio:.0%} buffer={buffer_ratio:.0%}")
     print("   Config: FTMO (0.5% risk, 3% daily DD, 5% total DD, max 3 trades)")
     print("   Strategy: Supertrend RSI Blend (H1)")
 
@@ -306,9 +301,7 @@ def main() -> None:
     for pair, result in all_results.items():
         agg = result.get("aggregated", {})
         print(f"\n  {pair}:")
-        print(
-            f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}"
-        )
+        print(f"    Windows passed: {agg.get('windows_passed', 0)}/{agg.get('total_windows', 0)}")
         print(f"    GO/NO-GO: {'GO' if result.get('go_nogo') else 'NO-GO'}")
 
     print(f"\n  Reports saved to: {REPORT_DIR}/")

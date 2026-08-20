@@ -77,9 +77,7 @@ if REPO_ROOT == REPO_ROOT.parent:
     if (fallback / "src" / "forex-bot").exists():
         REPO_ROOT = fallback
 DEFAULT_DB = REPO_ROOT / "data" / "research" / "research.duckdb"
-DEFAULT_REPORT = (
-    REPO_ROOT / "reports" / "quant" / f"bootstrap_ci_{date.today().isoformat()}.md"
-)
+DEFAULT_REPORT = REPO_ROOT / "reports" / "quant" / f"bootstrap_ci_{date.today().isoformat()}.md"
 
 # Bootstrap configuration constants.
 DEFAULT_ITERATIONS = 10_000
@@ -201,17 +199,12 @@ def load_strategy_runs(db_path: Path) -> list[StrategyRuns]:
             new = StrategyRuns(
                 name=cur.name,
                 n_runs=cur.n_runs + 1,
-                n_runs_with_trades=cur.n_runs_with_trades
-                + (1 if total_trades > 0 else 0),
+                n_runs_with_trades=cur.n_runs_with_trades + (1 if total_trades > 0 else 0),
                 total_trades=cur.total_trades + int(total_trades),
-                sharpe=cur.sharpe
-                + ([float(mean_sharpe)] if mean_sharpe is not None else []),
-                profit_factor=cur.profit_factor
-                + ([float(mean_pf)] if mean_pf is not None else []),
-                win_rate=cur.win_rate
-                + ([float(mean_wr)] if mean_wr is not None else []),
-                max_drawdown=cur.max_drawdown
-                + ([float(mean_dd)] if mean_dd is not None else []),
+                sharpe=cur.sharpe + ([float(mean_sharpe)] if mean_sharpe is not None else []),
+                profit_factor=cur.profit_factor + ([float(mean_pf)] if mean_pf is not None else []),
+                win_rate=cur.win_rate + ([float(mean_wr)] if mean_wr is not None else []),
+                max_drawdown=cur.max_drawdown + ([float(mean_dd)] if mean_dd is not None else []),
                 has_per_window=name in per_window,
                 per_window_sharpe=per_window.get(name, {}).get("sharpe", []),
                 per_window_pf=per_window.get(name, {}).get("pf", []),
@@ -230,9 +223,7 @@ def load_strategy_runs(db_path: Path) -> list[StrategyRuns]:
 # ---------------------------------------------------------------------------
 
 
-def _percentile_ci(
-    samples: np.ndarray, alpha: float = 0.05
-) -> tuple[float, float, float]:
+def _percentile_ci(samples: np.ndarray, alpha: float = 0.05) -> tuple[float, float, float]:
     """Percentile-method bootstrap CI. Returns (point, lower, upper)."""
     point = float(np.mean(samples))
     lower = float(np.percentile(samples, 100 * (alpha / 2)))
@@ -250,9 +241,7 @@ def bootstrap_metric(
     Returns ``None`` when the sample is empty or has fewer than 2 finite
     observations — the caller is expected to render that as ``n/a``.
     """
-    arr = np.asarray(
-        [v for v in values if v is not None and math.isfinite(v)], dtype=float
-    )
+    arr = np.asarray([v for v in values if v is not None and math.isfinite(v)], dtype=float)
     if arr.size < 2:
         return None
     n = arr.size
@@ -260,9 +249,7 @@ def bootstrap_metric(
     idx = rng.integers(0, n, size=(iterations, n))
     samples = arr[idx].mean(axis=1)
     point, lower, upper = _percentile_ci(samples)
-    return BootstrapResult(
-        metric="mean", point=point, lower=lower, upper=upper, n_obs=n
-    )
+    return BootstrapResult(metric="mean", point=point, lower=lower, upper=upper, n_obs=n)
 
 
 def bootstrap_metric_with_note(
@@ -299,24 +286,14 @@ def derive_run_level_ci(
     variability that a per-window bootstrap would expose. We mark the
     result so the report can be honest about which path produced it.
     """
-    note = (
-        "run-level resample (per-window table empty — wider, coarser CI)"
-        if not strategy.has_per_window
-        else ""
-    )
+    note = "run-level resample (per-window table empty — wider, coarser CI)" if not strategy.has_per_window else ""
     return {
-        "sharpe": bootstrap_metric_with_note(
-            "sharpe", strategy.sharpe, iterations, rng, note=note
-        ),
+        "sharpe": bootstrap_metric_with_note("sharpe", strategy.sharpe, iterations, rng, note=note),
         "profit_factor": bootstrap_metric_with_note(
             "profit_factor", strategy.profit_factor, iterations, rng, note=note
         ),
-        "win_rate": bootstrap_metric_with_note(
-            "win_rate", strategy.win_rate, iterations, rng, note=note
-        ),
-        "max_drawdown": bootstrap_metric_with_note(
-            "max_drawdown", strategy.max_drawdown, iterations, rng, note=note
-        ),
+        "win_rate": bootstrap_metric_with_note("win_rate", strategy.win_rate, iterations, rng, note=note),
+        "max_drawdown": bootstrap_metric_with_note("max_drawdown", strategy.max_drawdown, iterations, rng, note=note),
     }
 
 
@@ -327,18 +304,10 @@ def derive_per_window_ci(
 ) -> dict[str, BootstrapResult | None]:
     """Bootstraps across per-window scalars (preferred path)."""
     return {
-        "sharpe": bootstrap_metric_with_note(
-            "sharpe", strategy.per_window_sharpe, iterations, rng
-        ),
-        "profit_factor": bootstrap_metric_with_note(
-            "profit_factor", strategy.per_window_pf, iterations, rng
-        ),
-        "win_rate": bootstrap_metric_with_note(
-            "win_rate", strategy.per_window_wr, iterations, rng
-        ),
-        "max_drawdown": bootstrap_metric_with_note(
-            "max_drawdown", strategy.per_window_dd, iterations, rng
-        ),
+        "sharpe": bootstrap_metric_with_note("sharpe", strategy.per_window_sharpe, iterations, rng),
+        "profit_factor": bootstrap_metric_with_note("profit_factor", strategy.per_window_pf, iterations, rng),
+        "win_rate": bootstrap_metric_with_note("win_rate", strategy.per_window_wr, iterations, rng),
+        "max_drawdown": bootstrap_metric_with_note("max_drawdown", strategy.per_window_dd, iterations, rng),
     }
 
 
@@ -367,14 +336,12 @@ def kill_recommendation(
     if total_trades <= 0:
         return (
             "KILL",
-            "no trades across any run — strategy is non-functional or not "
-            "wired to a live data feed",
+            "no trades across any run — strategy is non-functional or not wired to a live data feed",
         )
     if pf_ci is None:
         return (
             "WATCH",
-            "PF CI undefined (need ≥2 finite per-window observations); "
-            "re-run after windows table populates",
+            "PF CI undefined (need ≥2 finite per-window observations); re-run after windows table populates",
         )
     if pf_ci.lower < PF_KILL_THRESHOLD:
         return (
@@ -436,9 +403,7 @@ def render_markdown_report(
         "the bootstrap drew from."
     )
     lines.append("")
-    lines.append(
-        "| Strategy | Metric | Point | 95% CI low | 95% CI high | n | Bootstrap path |"
-    )
+    lines.append("| Strategy | Metric | Point | 95% CI low | 95% CI high | n | Bootstrap path |")
     lines.append("| --- | --- | ---: | ---: | ---: | ---: | --- |")
     for r in rows:
         strategy = r["strategy"]
@@ -452,9 +417,7 @@ def render_markdown_report(
         ]:
             ci = ci_map.get(metric_key)
             if ci is None:
-                lines.append(
-                    f"| {strategy} | {label} | n/a | n/a | n/a | n/a | {path} |"
-                )
+                lines.append(f"| {strategy} | {label} | n/a | n/a | n/a | n/a | {path} |")
             else:
                 lines.append(
                     f"| {strategy} | {label} | {_fmt(ci.point)} | "
@@ -465,9 +428,7 @@ def render_markdown_report(
     # Sample size + kill verdict table.
     lines.append("## Sample Size & Verdict")
     lines.append("")
-    lines.append(
-        "| Strategy | n_runs | n_runs_w_trades | total_trades | PF lower CI | Verdict | Reason |"
-    )
+    lines.append("| Strategy | n_runs | n_runs_w_trades | total_trades | PF lower CI | Verdict | Reason |")
     lines.append("| --- | ---: | ---: | ---: | ---: | --- | --- |")
     for r in rows:
         pf_ci = r["ci"].get("profit_factor")
@@ -525,8 +486,7 @@ def render_markdown_report(
         "windows."
     )
     lines.append(
-        "- All CIs use the percentile method on 10,000 bootstrap "
-        "iterations with a fixed RNG seed for reproducibility."
+        "- All CIs use the percentile method on 10,000 bootstrap iterations with a fixed RNG seed for reproducibility."
     )
     lines.append(
         "- `total_trades = 0` strategies are kill-eligible on data "
@@ -566,9 +526,7 @@ def compute_all(
         else:
             ci_map = derive_run_level_ci(s, iterations, rng)
             path = "run-level"
-        verdict, reason = kill_recommendation(
-            ci_map.get("profit_factor"), s.total_trades
-        )
+        verdict, reason = kill_recommendation(ci_map.get("profit_factor"), s.total_trades)
         rows.append(
             {
                 "strategy": s.name,
@@ -585,9 +543,7 @@ def compute_all(
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Bootstrap CIs on SRF candidate strategy metrics."
-    )
+    parser = argparse.ArgumentParser(description="Bootstrap CIs on SRF candidate strategy metrics.")
     parser.add_argument(
         "--db",
         type=Path,
@@ -610,8 +566,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--report",
         type=Path,
         default=None,
-        help="Path to write markdown report (default: "
-        "reports/quant/bootstrap_ci_<today>.md)",
+        help="Path to write markdown report (default: reports/quant/bootstrap_ci_<today>.md)",
     )
     parser.add_argument(
         "--json",
@@ -662,11 +617,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     rows.sort(
         key=lambda r: (
             verdict_order.get(r["verdict"], 99),
-            -(
-                r["ci"].get("profit_factor").point
-                if r["ci"].get("profit_factor")
-                else float("-inf")
-            ),
+            -(r["ci"].get("profit_factor").point if r["ci"].get("profit_factor") else float("-inf")),
         )
     )
 
@@ -692,9 +643,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Print a compact summary to stdout.
     print(f"Wrote report: {report_path}")
     print()
-    print(
-        f"{'Strategy':<32} {'Verdict':<8} {'PF point':>9} {'PF 95% CI':>17} {'Trades':>7}"
-    )
+    print(f"{'Strategy':<32} {'Verdict':<8} {'PF point':>9} {'PF 95% CI':>17} {'Trades':>7}")
     print("-" * 80)
     for r in rows:
         pf_ci = r["ci"].get("profit_factor")
@@ -704,10 +653,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             ci_str = f"[{pf_ci.lower:.3f}, {pf_ci.upper:.3f}]"
             point_str = f"{pf_ci.point:.3f}"
-        print(
-            f"{r['strategy']:<32} {r['verdict']:<8} {point_str:>9} {ci_str:>17} "
-            f"{r['total_trades']:>7}"
-        )
+        print(f"{r['strategy']:<32} {r['verdict']:<8} {point_str:>9} {ci_str:>17} {r['total_trades']:>7}")
     return 0
 
 

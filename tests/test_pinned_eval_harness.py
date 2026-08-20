@@ -29,7 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-import pinned_eval_harness  # noqa: E402,F401  # exercised via subprocess CLI tests
+import pinned_eval_harness  # noqa: E402, F401, I001
 
 # Import the runtime pieces directly to keep tests fast and dependency-free.
 from pinned_eval_harness import (  # noqa: E402
@@ -112,7 +112,7 @@ class TestTierThresholds:
     def test_min_capability_strictly_increasing(self):
         caps = [TIER_THRESHOLDS[t].min_capability for t in TIER_ORDER]
         assert caps == sorted(caps)
-        for a, b in zip(caps, caps[1:]):
+        for a, b in zip(caps, caps[1:]):  # noqa: B905
             assert b > a, f"non-monotonic min_capability: {caps}"
 
     def test_min_capability_within_unit_interval(self):
@@ -128,7 +128,7 @@ class TestTierThresholds:
     def test_max_atomic_subtasks_positive_and_increasing(self):
         ms = [TIER_THRESHOLDS[t].max_atomic_subtasks for t in TIER_ORDER]
         assert all(m >= 1 for m in ms)
-        for a, b in zip(ms, ms[1:]):
+        for a, b in zip(ms, ms[1:]):  # noqa: B905
             assert b > a, f"non-monotonic max_atomic_subtasks: {ms}"
 
     def test_as_dict_round_trip_shape(self):
@@ -140,7 +140,7 @@ class TestTierThresholds:
             assert key in d
 
     def test_tier_threshold_is_frozen(self):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             TIER_THRESHOLDS["T1"].min_capability = 0.99  # type: ignore[misc]
 
 
@@ -419,16 +419,10 @@ class TestDecompositionScore:
             task_id="x",
             prompt="do the thing",
             tier="T1",
-            acceptance_criteria=(
-                "must return exactly one entry; verifies via assert; "
-                "given input X then result is Y"
-            ),
+            acceptance_criteria=("must return exactly one entry; verifies via assert; given input X then result is Y"),
             expected_outputs=["diff", "test_log", "schema"],
         )
-        assert (
-            decomposition_score(rich_acc)["clarity"]
-            > decomposition_score(no_acc)["clarity"]
-        )
+        assert decomposition_score(rich_acc)["clarity"] > decomposition_score(no_acc)["clarity"]
 
     def test_clarity_floor_when_no_acceptance_no_outputs(self):
         t = PinnedTask(task_id="x", prompt="do the thing", tier="T1")
@@ -447,10 +441,7 @@ class TestDecompositionScore:
             tier="T2",
             tags=["shared-state", "race", "migration"],
         )
-        assert (
-            decomposition_score(clean)["dependency"]
-            > decomposition_score(coupled)["dependency"]
-        )
+        assert decomposition_score(clean)["dependency"] > decomposition_score(coupled)["dependency"]
 
     def test_long_prompt_increments_subtasks(self):
         # Build a single long sentence (no coupling flags) > 250 words.
@@ -479,9 +470,7 @@ class TestDecompositionScore:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def _make_result(
-    task_id: str, tier: str, cap: float, decomp: float
-) -> PinnedEvalResult:
+def _make_result(task_id: str, tier: str, cap: float, decomp: float) -> PinnedEvalResult:
     return PinnedEvalResult(
         task_id=task_id,
         content_hash="x" * 64,
@@ -684,7 +673,7 @@ class TestCLI:
         out = tmp_path / "demo.jsonl"
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 str(self._script_path()),
@@ -699,9 +688,7 @@ class TestCLI:
             env=env,
             timeout=60,
         )
-        assert result.returncode == 0, (
-            f"stderr={result.stderr!r}\nstdout={result.stdout!r}"
-        )
+        assert result.returncode == 0, f"stderr={result.stderr!r}\nstdout={result.stdout!r}"
         assert out.exists()
         rows = [json.loads(line) for line in out.read_text().strip().split("\n")]
         assert len(rows) == 5
@@ -720,7 +707,7 @@ class TestCLI:
         out = tmp_path / "demo.jsonl"
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 str(self._script_path()),
@@ -738,9 +725,7 @@ class TestCLI:
         assert result.returncode == 0
         # The summary JSON is appended to stdout after INFO logs; pull the
         # block that starts with '{' on its own line.
-        json_blocks = [
-            blk for blk in result.stdout.split("\n\n") if blk.strip().startswith("{")
-        ]
+        json_blocks = [blk for blk in result.stdout.split("\n\n") if blk.strip().startswith("{")]
         assert json_blocks, "no summary JSON found"
         summary = json.loads(json_blocks[-1])
         assert summary["total_tasks"] == 5
@@ -748,7 +733,7 @@ class TestCLI:
         assert "overall" in summary
 
     def test_no_args_exits_one(self):
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [sys.executable, str(self._script_path())],
             capture_output=True,
             text=True,
@@ -758,7 +743,7 @@ class TestCLI:
 
     def test_bad_capability_exits_one(self, tmp_path: Path):
         out = tmp_path / "demo.jsonl"
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 str(self._script_path()),
@@ -792,7 +777,7 @@ class TestCLI:
         out = tmp_path / "results.jsonl"
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SCRIPTS_DIR) + os.pathsep + env.get("PYTHONPATH", "")
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 str(self._script_path()),
@@ -827,7 +812,7 @@ class TestDeterminism:
         out1 = tmp_path / "a.jsonl"
         out2 = tmp_path / "b.jsonl"
         for o in (out1, out2):
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 [
                     sys.executable,
                     str(SCRIPTS_DIR / "pinned_eval_harness.py"),
@@ -842,14 +827,8 @@ class TestDeterminism:
                 env=env,
                 timeout=30,
             )
-        hashes1 = [
-            json.loads(line)["content_hash"]
-            for line in out1.read_text().strip().split("\n")
-        ]
-        hashes2 = [
-            json.loads(line)["content_hash"]
-            for line in out2.read_text().strip().split("\n")
-        ]
+        hashes1 = [json.loads(line)["content_hash"] for line in out1.read_text().strip().split("\n")]
+        hashes2 = [json.loads(line)["content_hash"] for line in out2.read_text().strip().split("\n")]
         assert hashes1 == hashes2
 
     def test_demo_runs_produce_identical_scores(self, tmp_path: Path):
@@ -858,7 +837,7 @@ class TestDeterminism:
         out1 = tmp_path / "a.jsonl"
         out2 = tmp_path / "b.jsonl"
         for o in (out1, out2):
-            subprocess.run(
+            subprocess.run(  # noqa: S603
                 [
                     sys.executable,
                     str(SCRIPTS_DIR / "pinned_eval_harness.py"),
@@ -878,7 +857,7 @@ class TestDeterminism:
         # Compare all numeric fields (timestamps will be identical because
         # we run them in the same second here, but content_hash is the main
         # tamper-evidence check).
-        for r1, r2 in zip(rows1, rows2):
+        for r1, r2 in zip(rows1, rows2):  # noqa: B905
             assert r1["task_id"] == r2["task_id"]
             assert r1["content_hash"] == r2["content_hash"]
             assert r1["capability"]["final_score"] == r2["capability"]["final_score"]

@@ -3,7 +3,7 @@
 Tests use a temp sqlite DB (no production DB read).
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import importlib
 import importlib.util
@@ -23,9 +23,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 def kh_module() -> ModuleType:
     """Import kanban_hygiene.py as a fresh module so its module-level
     argparse defaults don't bleed into other tests."""
-    spec = importlib.util.spec_from_file_location(
-        "kanban_hygiene", SCRIPTS_DIR / "kanban_hygiene.py"
-    )
+    spec = importlib.util.spec_from_file_location("kanban_hygiene", SCRIPTS_DIR / "kanban_hygiene.py")
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules["kanban_hygiene"] = mod
@@ -109,9 +107,7 @@ def _insert_card(
         conn.close()
 
 
-def test_run_hygiene_dry_run_detects_done_and_stale(
-    kh_module, workboard_db: Path, tmp_path: Path
-) -> None:
+def test_run_hygiene_dry_run_detects_done_and_stale(kh_module, workboard_db: Path, tmp_path: Path) -> None:
     """Dry run identifies done cards >3d, stale >7d, blocked >48h."""
     ops = tmp_path / "ops"
     ops.mkdir()
@@ -146,9 +142,7 @@ def test_run_hygiene_dry_run_detects_done_and_stale(
     assert not list(ops.iterdir()), "no files should be created in dry-run"
 
 
-def test_run_hygiene_apply_writes_files(
-    kh_module, workboard_db: Path, tmp_path: Path
-) -> None:
+def test_run_hygiene_apply_writes_files(kh_module, workboard_db: Path, tmp_path: Path) -> None:
     """Apply mode writes JSONL logs and updates archived_at in the DB."""
     ops = tmp_path / "ops"
     ops.mkdir()
@@ -187,9 +181,7 @@ def test_run_hygiene_apply_writes_files(
     assert escalation_path.exists() and escalation_path.read_text().strip() != ""
 
 
-def test_run_hygiene_respects_max_archive(
-    kh_module, workboard_db: Path, tmp_path: Path
-) -> None:
+def test_run_hygiene_respects_max_archive(kh_module, workboard_db: Path, tmp_path: Path) -> None:
     """--max-archive should cap how many cards get archived per run."""
     ops = tmp_path / "ops"
     ops.mkdir()

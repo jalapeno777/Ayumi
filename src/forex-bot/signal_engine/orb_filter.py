@@ -327,11 +327,7 @@ class ORBFilter:
 
         # ── Composite score ──
         dir_score = 1.0 if direction_aligned else 0.0
-        composite = (
-            W_DIRECTION * dir_score
-            + W_DISTANCE * distance_score
-            + W_VOLUME * volume_score
-        )
+        composite = W_DIRECTION * dir_score + W_DISTANCE * distance_score + W_VOLUME * volume_score
 
         detail = (
             f"type={breakout_type} dir={'✓' if direction_aligned else '✗'} "
@@ -361,9 +357,7 @@ class ORBFilter:
 
         Signals below *min_score* are filtered out.
         """
-        scored = [
-            self.score_signal(sig, opening_range, current_volume) for sig in signals
-        ]
+        scored = [self.score_signal(sig, opening_range, current_volume) for sig in signals]
         scored = [s for s in scored if s.score >= min_score]
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored
@@ -377,9 +371,7 @@ class ORBFilter:
         source of truth for session boundaries.
         """
         if session not in SESSIONS:
-            raise ValueError(
-                f"Unknown session '{session}'. Valid sessions: {list(SESSIONS.keys())}"
-            )
+            raise ValueError(f"Unknown session '{session}'. Valid sessions: {list(SESSIONS.keys())}")
         return SESSIONS[session]
 
     def get_active_sessions(self, utc_dt: datetime) -> list[str]:

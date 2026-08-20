@@ -6,7 +6,7 @@ Verifies that:
 3. ``OrderResult`` covers all ``OrderStatus`` transitions.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from datetime import datetime, timezone
 
@@ -72,9 +72,7 @@ class _StubMarketFeed:
     def resolve_symbol_id(self, name: str) -> int:
         return 1
 
-    def fetch_trendbars(
-        self, symbol: str, period_minutes: int, count: int
-    ) -> list[Bar]:
+    def fetch_trendbars(self, symbol: str, period_minutes: int, count: int) -> list[Bar]:
         return []
 
     def on_tick(self, callback) -> None:

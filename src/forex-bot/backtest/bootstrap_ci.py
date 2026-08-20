@@ -142,7 +142,7 @@ def bootstrap_pf(
     gp, gl = _gross(pnls)
 
     # Bootstrap
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     alpha = 1.0 - confidence
     lower_pct = alpha / 2.0 * 100  # e.g. 2.5 for 95% CI
     upper_pct = (1.0 - alpha / 2.0) * 100  # e.g. 97.5

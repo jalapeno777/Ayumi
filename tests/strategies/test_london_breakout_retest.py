@@ -7,7 +7,7 @@ Validates:
 4. SL/TP ratios are reasonable
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +19,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from core.types import Bar, MarketState, SessionType, BarPeriod
+from core.types import Bar, MarketState, SessionType, BarPeriod  # noqa: I001
 from strategies.london_breakout_retest import (
     LondonBreakoutRetestStrategy,
     LondonBreakoutConfig,
@@ -27,9 +27,7 @@ from strategies.london_breakout_retest import (
 
 
 def load_xauusd_m15(limit: int = 10000):
-    con = duckdb.connect(
-        str(project_root / "data" / "ayumi_market.duckdb"), read_only=True
-    )
+    con = duckdb.connect(str(project_root / "data" / "ayumi_market.duckdb"), read_only=True)
     con.execute("SET threads=1; SET memory_limit='512MB'")
     rows = con.execute(
         "SELECT timestamp_utc, open, high, low, close, volume FROM bars "
@@ -85,7 +83,7 @@ def test_smoke_produces_signals():
         state = MarketState(bars=window, current_session=cs)
         try:
             sig = s.evaluate(state)
-        except Exception:
+        except Exception:  # noqa: S112
             continue
         if sig is None:
             continue
@@ -101,31 +99,21 @@ def test_smoke_produces_signals():
             if tp_dist > 0:
                 rr_ratios.append(tp_dist / sl_dist)
 
-    print(
-        f"LondonBreakoutRetest smoke test: {len(bars)} bars, {sigs} signals "
-        f"(L={sigs_long}, S={sigs_short})"
-    )
+    print(f"LondonBreakoutRetest smoke test: {len(bars)} bars, {sigs} signals (L={sigs_long}, S={sigs_short})")
     print(
         f"  SL distances: min={min(sl_distances):.2f}, "
         f"max={max(sl_distances):.2f}, "
         f"median={np.median(sl_distances):.2f}"
     )
     if rr_ratios:
-        print(
-            f"  RR ratios: min={min(rr_ratios):.2f}, "
-            f"median={np.median(rr_ratios):.2f}, max={max(rr_ratios):.2f}"
-        )
+        print(f"  RR ratios: min={min(rr_ratios):.2f}, median={np.median(rr_ratios):.2f}, max={max(rr_ratios):.2f}")
 
     # Assertions
     assert sigs > 0, "Strategy produced zero signals on 10k XAUUSD M15 bars"
     assert sigs >= 5, f"Expected ≥5 signals for viability, got {sigs}"
-    assert all(d > 0 for d in sl_distances), (
-        "All signals must have positive SL distance"
-    )
+    assert all(d > 0 for d in sl_distances), "All signals must have positive SL distance"
     if rr_ratios:
-        assert min(rr_ratios) >= 1.0, (
-            f"Min RR={min(rr_ratios):.2f} < 1.0 (expect positive R)"
-        )
+        assert min(rr_ratios) >= 1.0, f"Min RR={min(rr_ratios):.2f} < 1.0 (expect positive R)"
 
 
 def test_instantiation():
@@ -148,7 +136,7 @@ def test_no_signals_outside_london():
         state = MarketState(bars=window, current_session=SessionType.OUTSIDE)
         try:
             sig = s.evaluate(state)
-        except Exception:
+        except Exception:  # noqa: S112
             continue
         if sig is not None:
             sigs += 1

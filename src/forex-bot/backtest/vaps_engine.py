@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 
 from quant.vaps import VAPSConfig, vaps_regime
@@ -56,9 +56,7 @@ class VAPSBacktestEngine(MultiStrategyBacktestEngine):
         if len(self._atr_history) < 2:
             return trade
 
-        _regime, _percentile, multiplier = vaps_regime(
-            self._atr_history, config=self._vaps_config
-        )
+        _regime, _percentile, multiplier = vaps_regime(self._atr_history, config=self._vaps_config)
         trade.lot_size *= multiplier
         trade.risk_amount *= multiplier
         return trade

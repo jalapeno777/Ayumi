@@ -50,20 +50,14 @@ def main():
         print(f"Avg recall:              {summary.get('avg_recall', 'N/A')}")
         print(f"Avg F1:                  {summary.get('avg_f1', 'N/A')}")
         print("\n--- Default Threshold (0.5) ---")
-        print(
-            f"Baseline win rate:       {summary.get('avg_baseline_win_rate', 'N/A')}%"
-        )
-        print(
-            f"Filtered win rate:       {summary.get('avg_filtered_win_rate', 'N/A')}%"
-        )
+        print(f"Baseline win rate:       {summary.get('avg_baseline_win_rate', 'N/A')}%")
+        print(f"Filtered win rate:       {summary.get('avg_filtered_win_rate', 'N/A')}%")
         print(f"Avg filter rate:         {summary.get('avg_filter_rate', 'N/A')}")
         print("\n--- Optimized Threshold ---")
         print(f"Avg opt threshold:       {summary.get('avg_opt_threshold', 'N/A')}")
         print(f"Avg opt win rate:        {summary.get('avg_opt_win_rate', 'N/A')}%")
         print(f"Avg opt PF:              {summary.get('avg_opt_profit_factor', 'N/A')}")
-        print(
-            f"Avg baseline PF:         {summary.get('avg_baseline_profit_factor', 'N/A')}"
-        )
+        print(f"Avg baseline PF:         {summary.get('avg_baseline_profit_factor', 'N/A')}")
         print(f"Avg opt total PnL:       {summary.get('avg_opt_total_pnl', 'N/A')}")
         print(f"Avg opt filter rate:     {summary.get('avg_opt_filter_rate', 'N/A')}")
         print(f"Avg opt trade count:     {summary.get('avg_opt_trade_count', 'N/A')}")
@@ -71,9 +65,7 @@ def main():
     if "folds" in results:
         print("\n--- Per-Fold Details ---")
         for fold in results["folds"]:
-            print(
-                f"\nFold {fold['fold']}: train={fold['train_size']}, test={fold['test_size']}"
-            )
+            print(f"\nFold {fold['fold']}: train={fold['train_size']}, test={fold['test_size']}")
             print(
                 f"  Default: WR {fold['baseline_win_rate']}% -> {fold['filtered_win_rate']}% "
                 f"({fold['n_filtered_trades']}/{fold['n_total_trades']} trades), "

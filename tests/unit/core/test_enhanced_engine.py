@@ -74,9 +74,7 @@ class TestEnhancedBacktestEngine(unittest.TestCase):
     def _default_tm_config(self):
         return TradeManagementConfig(
             partial_exit=PartialExitConfig(enabled=True),
-            trailing_stop=TrailingStopConfig(
-                enabled=True, method=TrailingStopMethod.ATR
-            ),
+            trailing_stop=TrailingStopConfig(enabled=True, method=TrailingStopMethod.ATR),
             session_filter=SessionFilterConfig(enabled=True),
             exit_refinement=ExitRefinementConfig(enabled=True),
         )
@@ -209,9 +207,7 @@ class TestEnhancedBacktestEngine(unittest.TestCase):
             rationale="test",
             profit_loss=50.0,
             pips=50.0,
-            partial_closes=[
-                {"bar_index": 15, "price": 1.0020, "pct": 0.5, "reason": "tp1"}
-            ],
+            partial_closes=[{"bar_index": 15, "price": 1.0020, "pct": 0.5, "reason": "tp1"}],
             partial_realized_pnl=20.0,
         )
 

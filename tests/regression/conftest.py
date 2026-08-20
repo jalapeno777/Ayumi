@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import pickle
 
@@ -15,7 +15,7 @@ HAS_GOLDEN_GBPUSD = (GOLDEN_DIR / "golden_gbpusd_h1.pkl").exists()
 def _load_golden(filename: str) -> dict:
     path = GOLDEN_DIR / filename
     with open(path, "rb") as f:
-        return pickle.load(f)
+        return pickle.load(f)  # noqa: S301
 
 
 @pytest.fixture(scope="session")

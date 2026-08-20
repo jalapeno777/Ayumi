@@ -51,13 +51,13 @@ def _make_trending_bars(n: int = 200, trend: float = 0.00005) -> list:
 
 class TestGetPipValue:
     def test_jpy_pair(self):
-        assert _get_pip_value(150.0) == 0.01
+        assert _get_pip_value(150.0) == 0.01  # noqa: S101
 
     def test_major_pair(self):
-        assert _get_pip_value(1.1000) == 0.0001
+        assert _get_pip_value(1.1000) == 0.0001  # noqa: S101
 
     def test_exotic_pair(self):
-        assert _get_pip_value(0.00005) == 0.00000001
+        assert _get_pip_value(0.00005) == 0.00000001  # noqa: S101
 
 
 class TestCheckTradeExit:
@@ -92,9 +92,9 @@ class TestCheckTradeExit:
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
-        assert hit is True
-        assert price == 1.088
-        assert reason == ExitReason.STOP_LOSS
+        assert hit is True  # noqa: S101
+        assert price == 1.088  # noqa: S101
+        assert reason == ExitReason.STOP_LOSS  # noqa: S101
 
     def test_long_tp3_hit(self):
         bar = Bar(
@@ -127,9 +127,9 @@ class TestCheckTradeExit:
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
-        assert hit is True
-        assert price == 1.13
-        assert reason == ExitReason.TAKE_PROFIT_3
+        assert hit is True  # noqa: S101
+        assert price == 1.13  # noqa: S101
+        assert reason == ExitReason.TAKE_PROFIT_3  # noqa: S101
 
     def test_short_stop_loss_hit(self):
         bar = Bar(
@@ -162,9 +162,9 @@ class TestCheckTradeExit:
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
-        assert hit is True
-        assert price == 1.115
-        assert reason == ExitReason.STOP_LOSS
+        assert hit is True  # noqa: S101
+        assert price == 1.115  # noqa: S101
+        assert reason == ExitReason.STOP_LOSS  # noqa: S101
 
     def test_no_exit(self):
         bar = Bar(
@@ -197,7 +197,7 @@ class TestCheckTradeExit:
             rationale="",
         )
         hit, price, reason = _check_trade_exit(trade, bar)
-        assert hit is False
+        assert hit is False  # noqa: S101
 
 
 class TestCloseTrade:
@@ -225,12 +225,10 @@ class TestCloseTrade:
             rationale="",
         )
         cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
-        _close_trade(
-            trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg
-        )
-        assert trade.exit_price == 1.12
-        assert trade.outcome == TradeOutcome.WIN
-        assert trade.profit_loss > 0
+        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.12, ExitReason.TAKE_PROFIT_2, cfg)
+        assert trade.exit_price == 1.12  # noqa: S101
+        assert trade.outcome == TradeOutcome.WIN  # noqa: S101
+        assert trade.profit_loss > 0  # noqa: S101
 
     def test_short_loss(self):
         trade = SimulatedTrade(
@@ -256,20 +254,18 @@ class TestCloseTrade:
             rationale="",
         )
         cfg = PairingConfig(round_trip_spread=False, slippage_pips=0.0)
-        _close_trade(
-            trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg
-        )
-        assert trade.exit_price == 1.11
-        assert trade.outcome == TradeOutcome.LOSS
-        assert trade.profit_loss < 0
+        _close_trade(trade, 1, datetime(2024, 1, 1, 11, 0), 1.11, ExitReason.STOP_LOSS, cfg)
+        assert trade.exit_price == 1.11  # noqa: S101
+        assert trade.outcome == TradeOutcome.LOSS  # noqa: S101
+        assert trade.profit_loss < 0  # noqa: S101
 
 
 class TestCalculateMetrics:
     def test_no_trades(self):
         metrics = _calculate_metrics([], [10000.0], 0, 10000.0, 0.0, 0.0, 10000.0)
-        assert metrics.total_trades == 0
-        assert metrics.win_rate == 0.0
-        assert metrics.ending_balance == 10000.0
+        assert metrics.total_trades == 0  # noqa: S101
+        assert metrics.win_rate == 0.0  # noqa: S101
+        assert metrics.ending_balance == 10000.0  # noqa: S101
 
     def test_with_winning_trade(self):
         trade = SimulatedTrade(
@@ -294,31 +290,29 @@ class TestCalculateMetrics:
             confluence_count=1,
             rationale="",
         )
-        metrics = _calculate_metrics(
-            [trade], [10000.0, 10190.0], 0, 10000.0, 0.0, 0.0, 10190.0
-        )
-        assert metrics.total_trades == 1
-        assert metrics.winning_trades == 1
-        assert metrics.losing_trades == 0
-        assert metrics.win_rate == 100.0
-        assert metrics.total_pnl == 190.0
+        metrics = _calculate_metrics([trade], [10000.0, 10190.0], 0, 10000.0, 0.0, 0.0, 10190.0)
+        assert metrics.total_trades == 1  # noqa: S101
+        assert metrics.winning_trades == 1  # noqa: S101
+        assert metrics.losing_trades == 0  # noqa: S101
+        assert metrics.win_rate == 100.0  # noqa: S101
+        assert metrics.total_pnl == 190.0  # noqa: S101
 
 
 class TestPairingConfig:
     def test_defaults(self):
         cfg = PairingConfig()
-        assert cfg.risk_per_trade_pct == 0.005
-        assert cfg.max_open_trades == 3
-        assert cfg.sl_atr_multiplier == 1.5
-        assert cfg.min_confidence == 0.55
-        assert "london" in cfg.allow_entry_sessions
-        assert "ny_am" in cfg.allow_entry_sessions
-        assert "ny_pm" in cfg.allow_entry_sessions
+        assert cfg.risk_per_trade_pct == 0.005  # noqa: S101
+        assert cfg.max_open_trades == 3  # noqa: S101
+        assert cfg.sl_atr_multiplier == 1.5  # noqa: S101
+        assert cfg.min_confidence == 0.55  # noqa: S101
+        assert "london" in cfg.allow_entry_sessions  # noqa: S101
+        assert "ny_am" in cfg.allow_entry_sessions  # noqa: S101
+        assert "ny_pm" in cfg.allow_entry_sessions  # noqa: S101
 
     def test_custom(self):
         cfg = PairingConfig(risk_per_trade_pct=0.01, max_open_trades=5)
-        assert cfg.risk_per_trade_pct == 0.01
-        assert cfg.max_open_trades == 5
+        assert cfg.risk_per_trade_pct == 0.01  # noqa: S101
+        assert cfg.max_open_trades == 5  # noqa: S101
 
 
 class TestComponentResult:
@@ -352,10 +346,10 @@ class TestComponentResult:
             rejected_signals=0,
         )
         cr = ComponentResult.from_metrics("test_comp", m)
-        assert cr.component == "test_comp"
-        assert cr.win_rate == 60.0
-        assert cr.profit_factor == 2.5
-        assert cr.total_pnl == 500.0
+        assert cr.component == "test_comp"  # noqa: S101
+        assert cr.win_rate == 60.0  # noqa: S101
+        assert cr.profit_factor == 2.5  # noqa: S101
+        assert cr.total_pnl == 500.0  # noqa: S101
 
 
 class TestComponentNames:
@@ -368,34 +362,34 @@ class TestComponentNames:
             "premium_discount",
             "h4_context",
         }
-        assert set(COMPONENT_NAMES) == expected
+        assert set(COMPONENT_NAMES) == expected  # noqa: S101
 
     def test_pair_count(self):
         from itertools import combinations
 
         pairs = list(combinations(COMPONENT_NAMES, 2))
-        assert len(pairs) == 15
+        assert len(pairs) == 15  # noqa: S101
 
 
 class TestSelectivePairingHarness:
     def test_init_defaults(self):
         harness = SelectivePairingHarness()
-        assert harness.config.risk_per_trade_pct == 0.005
+        assert harness.config.risk_per_trade_pct == 0.005  # noqa: S101
 
     def test_init_custom_config(self):
         cfg = PairingConfig(risk_per_trade_pct=0.01)
         harness = SelectivePairingHarness(cfg)
-        assert harness.config.risk_per_trade_pct == 0.01
+        assert harness.config.risk_per_trade_pct == 0.01  # noqa: S101
 
     def test_run_individual_returns_all_components(self):
         bars = _make_trending_bars(200)
         harness = SelectivePairingHarness()
         results = harness.run_individual(bars)
-        assert set(results.keys()) == set(COMPONENT_NAMES)
+        assert set(results.keys()) == set(COMPONENT_NAMES)  # noqa: S101
         for comp_name, cr in results.items():
-            assert isinstance(cr, ComponentResult)
-            assert cr.component == comp_name
-            assert cr.total_trades >= 0
+            assert isinstance(cr, ComponentResult)  # noqa: S101
+            assert cr.component == comp_name  # noqa: S101
+            assert cr.total_trades >= 0  # noqa: S101
 
     def test_run_pairs_returns_all_pairs(self):
         from itertools import combinations
@@ -404,30 +398,30 @@ class TestSelectivePairingHarness:
         harness = SelectivePairingHarness()
         results = harness.run_pairs(bars)
         expected_pairs = {f"{a}+{b}" for a, b in combinations(COMPONENT_NAMES, 2)}
-        assert set(results.keys()) == expected_pairs
+        assert set(results.keys()) == expected_pairs  # noqa: S101
 
     def test_run_walk_forward_returns_correct_windows(self):
         bars = _make_trending_bars(600)
         harness = SelectivePairingHarness()
         windows = harness.run_walk_forward(bars, n_windows=3)
-        assert len(windows) == 3
+        assert len(windows) == 3  # noqa: S101
         for w in windows:
-            assert isinstance(w, WindowMetrics)
-            assert w.train_bars > 0
-            assert w.test_bars > 0
+            assert isinstance(w, WindowMetrics)  # noqa: S101
+            assert w.train_bars > 0  # noqa: S101
+            assert w.test_bars > 0  # noqa: S101
 
     def test_run_walk_forward_single_window(self):
         bars = _make_trending_bars(300)
         harness = SelectivePairingHarness()
         windows = harness.run_walk_forward(bars, n_windows=1)
-        assert len(windows) == 1
+        assert len(windows) == 1  # noqa: S101
 
     def test_walk_forward_too_few_bars(self):
         bars = _make_trending_bars(50)
         harness = SelectivePairingHarness()
         windows = harness.run_walk_forward(bars, n_windows=1)
-        assert len(windows) == 1
-        assert windows[0].train_bars == 0
+        assert len(windows) == 1  # noqa: S101
+        assert windows[0].train_bars == 0  # noqa: S101
 
     def test_session_filtering(self):
         asian_only_bars = []
@@ -447,7 +441,7 @@ class TestSelectivePairingHarness:
         harness = SelectivePairingHarness()
         results = harness.run_individual(asian_only_bars)
         for comp, cr in results.items():
-            assert cr.total_trades == 0, (
+            assert cr.total_trades == 0, (  # noqa: S101
                 f"{comp} should have no trades in Asian-only bars"
             )
 
@@ -455,23 +449,23 @@ class TestSelectivePairingHarness:
         bars = _make_trending_bars(300)
         harness = SelectivePairingHarness()
         report = harness.run_full_report(bars, n_windows=2)
-        assert isinstance(report, PairingReport)
-        assert "risk_per_trade_pct" in report.config
-        assert len(report.windows) == 2
-        assert len(report.aggregate_components) == len(COMPONENT_NAMES)
-        assert len(report.aggregate_pairs) == 15
+        assert isinstance(report, PairingReport)  # noqa: S101
+        assert "risk_per_trade_pct" in report.config  # noqa: S101
+        assert len(report.windows) == 2  # noqa: S101
+        assert len(report.aggregate_components) == len(COMPONENT_NAMES)  # noqa: S101
+        assert len(report.aggregate_pairs) == 15  # noqa: S101
 
     def test_full_report_json_output(self, tmp_path):
         bars = _make_trending_bars(200)
         harness = SelectivePairingHarness()
         output = str(tmp_path / "report.json")
         harness.run_full_report(bars, n_windows=1, output_path=output)
-        assert Path(output).exists()
+        assert Path(output).exists()  # noqa: S101
         data = json.loads(Path(output).read_text())
-        assert "config" in data
-        assert "windows" in data
-        assert "aggregate_components" in data
-        assert "aggregate_pairs" in data
+        assert "config" in data  # noqa: S101
+        assert "windows" in data  # noqa: S101
+        assert "aggregate_components" in data  # noqa: S101
+        assert "aggregate_pairs" in data  # noqa: S101
 
     def test_custom_config_affects_trades(self):
         bars = _make_trending_bars(200)
@@ -483,7 +477,7 @@ class TestSelectivePairingHarness:
         loose_results = loose.run_individual(bars)
         strict_total = sum(cr.total_trades for cr in strict_results.values())
         loose_total = sum(cr.total_trades for cr in loose_results.values())
-        assert loose_total >= strict_total
+        assert loose_total >= strict_total  # noqa: S101
 
 
 class TestAnalyzeRollingWalkForward:
@@ -492,11 +486,11 @@ class TestAnalyzeRollingWalkForward:
         config = BacktestConfig(min_bars_before_signal=10)
         strategies = [MACrossStrategy(), BBStrategy()]
         results = analyze_rolling_walk_forward(bars, config, strategies, n_windows=3)
-        assert len(results) == 3
+        assert len(results) == 3  # noqa: S101
         for w in results:
-            assert "train_results" in w
-            assert "test_results" in w
-            assert w["train_bars"] > 0
+            assert "train_results" in w  # noqa: S101
+            assert "test_results" in w  # noqa: S101
+            assert w["train_bars"] > 0  # noqa: S101
 
     def test_custom_run_fn(self):
         bars = _make_trending_bars(200)
@@ -537,16 +531,14 @@ class TestAnalyzeRollingWalkForward:
                 )
             }
 
-        results = analyze_rolling_walk_forward(
-            bars, config, [], n_windows=2, run_fn=mock_run
-        )
-        assert call_count == 4
-        assert len(results) == 2
+        results = analyze_rolling_walk_forward(bars, config, [], n_windows=2, run_fn=mock_run)
+        assert call_count == 4  # noqa: S101
+        assert len(results) == 2  # noqa: S101
 
     def test_insufficient_bars_window(self):
         bars = _make_trending_bars(50)
         config = BacktestConfig()
         strategies = [MACrossStrategy()]
         results = analyze_rolling_walk_forward(bars, config, strategies, n_windows=1)
-        assert len(results) == 1
-        assert results[0].get("error") == "Insufficient bars for window"
+        assert len(results) == 1  # noqa: S101
+        assert results[0].get("error") == "Insufficient bars for window"  # noqa: S101

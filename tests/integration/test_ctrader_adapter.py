@@ -6,7 +6,7 @@ Verifies the three archived fixes are present in the live code:
 3. _reauth_in_progress guard preventing concurrent auth races
 """
 
-import threading
+import threading  # noqa: I001
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -184,7 +184,7 @@ class TestAuthResponseValidation:
     """BQ-1327: _is_valid_auth_response validates payload types."""
 
     def test_valid_app_auth_response(self):
-        from adapters.ctrader.open_api_client import (
+        from adapters.ctrader.open_api_client import (  # noqa: I001
             CTraderOpenApiClient,
             _APP_AUTH_RES_PAYLOAD_TYPE,
         )
@@ -192,13 +192,10 @@ class TestAuthResponseValidation:
         client = CTraderOpenApiClient("id", "secret", 123)
         response = MagicMock()
         response.payloadType = _APP_AUTH_RES_PAYLOAD_TYPE
-        assert (
-            client._is_valid_auth_response(response, _APP_AUTH_RES_PAYLOAD_TYPE, "app")
-            is True
-        )
+        assert client._is_valid_auth_response(response, _APP_AUTH_RES_PAYLOAD_TYPE, "app") is True
 
     def test_valid_acct_auth_response(self):
-        from adapters.ctrader.open_api_client import (
+        from adapters.ctrader.open_api_client import (  # noqa: I001
             CTraderOpenApiClient,
             _ACCT_AUTH_RES_PAYLOAD_TYPE,
         )
@@ -206,15 +203,10 @@ class TestAuthResponseValidation:
         client = CTraderOpenApiClient("id", "secret", 123)
         response = MagicMock()
         response.payloadType = _ACCT_AUTH_RES_PAYLOAD_TYPE
-        assert (
-            client._is_valid_auth_response(
-                response, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account"
-            )
-            is True
-        )
+        assert client._is_valid_auth_response(response, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account") is True
 
     def test_error_payload_type_rejected(self):
-        from adapters.ctrader.open_api_client import (
+        from adapters.ctrader.open_api_client import (  # noqa: I001
             CTraderOpenApiClient,
             _APP_AUTH_RES_PAYLOAD_TYPE,
         )
@@ -226,9 +218,7 @@ class TestAuthResponseValidation:
             mock_payload = MagicMock()
             mock_payload.errorCode = "CH_AUTH_FAILED"
             mock_extract.return_value = mock_payload
-            result = client._is_valid_auth_response(
-                response, _APP_AUTH_RES_PAYLOAD_TYPE, "app"
-            )
+            result = client._is_valid_auth_response(response, _APP_AUTH_RES_PAYLOAD_TYPE, "app")
         assert result is False
 
     def test_unexpected_payload_type_rejected(self):

@@ -19,7 +19,7 @@ Usage::
     scripts/daily_audit.py --report-date 2026-07-08
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import argparse
 import json
@@ -89,15 +89,11 @@ def _read_jsonl_window(path: Path, since_iso: str) -> list[dict]:
     return out
 
 
-def _try_attach_extra(
-    check: CheckResult, source: str, extra: dict[str, Any]
-) -> CheckResult:
+def _try_attach_extra(check: CheckResult, source: str, extra: dict[str, Any]) -> CheckResult:
     """Attach a source-tagged extra detail blob to a CheckResult."""
-    setattr(check, "source", source)
+    setattr(check, "source", source)  # noqa: B010
     if extra:
-        check.notes = (check.notes + " | " if check.notes else "") + json.dumps(
-            extra, sort_keys=True
-        )
+        check.notes = (check.notes + " | " if check.notes else "") + json.dumps(extra, sort_keys=True)
     return check
 
 
@@ -188,9 +184,7 @@ def _ch_tick_flow() -> CheckResult:
         hb = json.loads(hb_path.read_text())
         tps = hb.get("tps_5min_avg") or hb.get("tps_recent") or hb.get("tps") or 0.0
     except (json.JSONDecodeError, OSError) as exc:
-        return CheckResult(
-            "SH-002", "System Health", "WARN", f"Heartbeat unreadable: {exc}"
-        )
+        return CheckResult("SH-002", "System Health", "WARN", f"Heartbeat unreadable: {exc}")
     if tps >= 1.0:
         return CheckResult("SH-002", "System Health", "OK", f"tps_5min_avg={tps:.2f}")
     if tps >= 0.1:
@@ -214,8 +208,8 @@ def _ch_tick_flow() -> CheckResult:
 def _ch_disk() -> CheckResult:
     """df on the project root."""
     try:
-        out = subprocess.run(
-            ["df", "-P", str(ROOT)],
+        out = subprocess.run(  # noqa: S603
+            ["df", "-P", str(ROOT)],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=5,
@@ -232,9 +226,7 @@ def _ch_disk() -> CheckResult:
     try:
         pct = int(use_pct.rstrip("%"))
     except ValueError:
-        return CheckResult(
-            "SH-004", "System Health", "WARN", f"df pct parse fail: {use_pct!r}"
-        )
+        return CheckResult("SH-004", "System Health", "WARN", f"df pct parse fail: {use_pct!r}")
     if pct < 70:
         return CheckResult("SH-004", "System Health", "OK", f"disk use {pct}%")
     if pct < 85:
@@ -258,9 +250,7 @@ def _ch_disk() -> CheckResult:
 def _ch_stale_pid_files() -> CheckResult:
     data_dir = ROOT / "data"
     if not data_dir.exists():
-        return CheckResult(
-            "SH-005", "System Health", "OK", "data/ dir missing — no PIDs to scan"
-        )
+        return CheckResult("SH-005", "System Health", "OK", "data/ dir missing — no PIDs to scan")
     stale_count = 0
     forward_stale = False
     for pid_path in data_dir.glob("*.pid"):
@@ -320,8 +310,8 @@ def _ch_log_error_rate() -> CheckResult:
     try:
         # Read last 200 lines for efficiency.
         # Use tail in a subprocess (always available on Linux).
-        out = subprocess.run(
-            ["tail", "-n", "200", str(log)],
+        out = subprocess.run(  # noqa: S603
+            ["tail", "-n", "200", str(log)],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=5,
@@ -331,13 +321,9 @@ def _ch_log_error_rate() -> CheckResult:
         return CheckResult("SH-008", "System Health", "WARN", f"tail failed: {exc}")
     if not recent:
         return CheckResult("SH-008", "System Health", "OK", "log empty")
-    errors = sum(
-        1 for line in recent.splitlines() if "ERROR" in line or "Traceback" in line
-    )
+    errors = sum(1 for line in recent.splitlines() if "ERROR" in line or "Traceback" in line)
     if errors == 0:
-        return CheckResult(
-            "SH-008", "System Health", "OK", "no ERROR/Traceback in last 200 lines"
-        )
+        return CheckResult("SH-008", "System Health", "OK", "no ERROR/Traceback in last 200 lines")
     if errors <= 5:
         return CheckResult(
             "SH-008",
@@ -363,22 +349,16 @@ def _ch_log_error_rate() -> CheckResult:
 def _ch_ft_daily_dd(state_path: Path, daily_limit_pct: float = 0.03) -> CheckResult:
     state_path = ROOT / "data" / "state" / "risk_guard_state.json"
     if not state_path.exists():
-        return CheckResult(
-            "FT-003", "Trading Health", "OK", "risk_guard_state.json missing"
-        )
+        return CheckResult("FT-003", "Trading Health", "OK", "risk_guard_state.json missing")
     try:
         s = json.loads(state_path.read_text())
     except (json.JSONDecodeError, OSError) as exc:
-        return CheckResult(
-            "FT-003", "Trading Health", "WARN", f"state unreadable: {exc}"
-        )
+        return CheckResult("FT-003", "Trading Health", "WARN", f"state unreadable: {exc}")
     starting = 100_000.0
     daily_open = s.get("daily_start_balance") or starting
     current = s.get("current_balance") or starting
     loss_frac = max(0.0, (daily_open - current) / starting) if starting else 0.0
-    detail = (
-        f"daily_loss={loss_frac * 100:.2f}% (vs {daily_limit_pct * 100:.0f}% limit)"
-    )
+    detail = f"daily_loss={loss_frac * 100:.2f}% (vs {daily_limit_pct * 100:.0f}% limit)"
     if loss_frac >= daily_limit_pct * 0.85:
         return CheckResult(
             "FT-003",
@@ -402,15 +382,11 @@ def _ch_ft_daily_dd(state_path: Path, daily_limit_pct: float = 0.03) -> CheckRes
 def _ch_ft_total_dd(state_path: Path, total_limit_pct: float = 0.10) -> CheckResult:
     state_path = ROOT / "data" / "state" / "risk_guard_state.json"
     if not state_path.exists():
-        return CheckResult(
-            "FT-004", "Trading Health", "OK", "risk_guard_state.json missing"
-        )
+        return CheckResult("FT-004", "Trading Health", "OK", "risk_guard_state.json missing")
     try:
         s = json.loads(state_path.read_text())
     except (json.JSONDecodeError, OSError) as exc:
-        return CheckResult(
-            "FT-004", "Trading Health", "WARN", f"state unreadable: {exc}"
-        )
+        return CheckResult("FT-004", "Trading Health", "WARN", f"state unreadable: {exc}")
     peak = s.get("peak_balance") or 100_000.0
     current = s.get("current_balance") or 100_000.0
     dd = max(0.0, (peak - current) / peak) if peak else 0.0
@@ -446,7 +422,7 @@ def _ch_ft_target_reached() -> CheckResult:
             "FT-AUX-TARGET",
             "Trading Health",
             "OK",
-            f"+10% target REACHED at ${res.current_balance:,.2f} (target ${res.required_balance:,.2f}); freezes engaged",
+            f"+10% target REACHED at ${res.current_balance:,.2f} (target ${res.required_balance:,.2f}); freezes engaged",  # noqa: E501
             auto_remediation="A5 — KillSwitchManager.activate_global_freeze already wired",
             notes=f"distance_to_target=${res.distance_to_target:+,.2f}",
         )
@@ -454,7 +430,7 @@ def _ch_ft_target_reached() -> CheckResult:
         "FT-AUX-TARGET",
         "Trading Health",
         "OK",
-        f"target not reached (need ${res.required_balance:,.2f}, current ${res.current_balance:,.2f}, distance ${res.distance_to_target:+,.2f})",
+        f"target not reached (need ${res.required_balance:,.2f}, current ${res.current_balance:,.2f}, distance ${res.distance_to_target:+,.2f})",  # noqa: E501
     )
 
 
@@ -471,15 +447,11 @@ def _ch_signal_to_trade() -> CheckResult:
     try:
         h = json.loads(health.read_text())
     except (json.JSONDecodeError, OSError):
-        return CheckResult(
-            "FT-009", "Trading Health", "WARN", "forward_test_health.json unreadable"
-        )
+        return CheckResult("FT-009", "Trading Health", "WARN", "forward_test_health.json unreadable")
     signals = h.get("signals_generated") or 0
     fills = h.get("live_fills") or 0
     if signals == 0:
-        return CheckResult(
-            "FT-009", "Trading Health", "OK", "no signals observed today"
-        )
+        return CheckResult("FT-009", "Trading Health", "OK", "no signals observed today")
     ratio = fills / signals if signals else 0.0
     detail = f"live_fills/signals={ratio:.3f} ({fills}/{signals})"
     if ratio == 0.0 and signals >= 5:
@@ -520,9 +492,7 @@ def _ch_ft_open_positions_vs_limits(max_positions: int = 3) -> CheckResult:
         count = cursor.fetchone()[0]
         conn.close()
     except Exception as exc:
-        return CheckResult(
-            "FT-002", "Trading Health", "WARN", f"trading.db query failed: {exc}"
-        )
+        return CheckResult("FT-002", "Trading Health", "WARN", f"trading.db query failed: {exc}")
     if count > max_positions:
         return CheckResult(
             "FT-002",
@@ -566,9 +536,7 @@ def _ch_ft_best_day_ratio() -> CheckResult:
         ).fetchall()
         conn.close()
     except Exception as exc:
-        return CheckResult(
-            "FT-005", "Trading Health", "WARN", f"daily_summary query failed: {exc}"
-        )
+        return CheckResult("FT-005", "Trading Health", "WARN", f"daily_summary query failed: {exc}")
     if not rows:
         return CheckResult(
             "FT-005",
@@ -579,9 +547,7 @@ def _ch_ft_best_day_ratio() -> CheckResult:
     best_day_pnl = rows[0][1]
     total_positive = sum(r[1] for r in rows)
     if total_positive <= 0:
-        return CheckResult(
-            "FT-005", "Trading Health", "OK", "no positive P&L days — ratio undefined"
-        )
+        return CheckResult("FT-005", "Trading Health", "OK", "no positive P&L days — ratio undefined")
     ratio = best_day_pnl / total_positive
     detail = f"best_day=${best_day_pnl:.2f} / total_positive=${total_positive:.2f} = {ratio * 100:.1f}%"
     if ratio > 0.48:
@@ -633,15 +599,13 @@ def _ch_ft_fill_latency_p50() -> CheckResult:
                     has_fill_data = True
                     break
     except OSError:
-        return CheckResult(
-            "FT-007", "Trading Health", "WARN", "signal_stats.jsonl read error"
-        )
+        return CheckResult("FT-007", "Trading Health", "WARN", "signal_stats.jsonl read error")
     if not has_fill_data:
         return CheckResult(
             "FT-007",
             "Trading Health",
             "WARN",
-            "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",
+            "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",  # noqa: E501
             notes="Engine needs filled_at field on SignalRecord. See design doc §6.2 FT-010 (1.5 SP dependency).",
         )
     latencies: list[float] = []
@@ -660,8 +624,7 @@ def _ch_ft_fill_latency_p50() -> CheckResult:
                 if filled_at and signal_ts:
                     try:
                         latency = (
-                            datetime.fromisoformat(filled_at)
-                            - datetime.fromisoformat(signal_ts)
+                            datetime.fromisoformat(filled_at) - datetime.fromisoformat(signal_ts)
                         ).total_seconds()
                         if latency > 0:
                             latencies.append(latency)
@@ -735,15 +698,13 @@ def _ch_ft_fill_latency_p95() -> CheckResult:
                     has_fill_data = True
                     break
     except OSError:
-        return CheckResult(
-            "FT-008", "Trading Health", "WARN", "signal_stats.jsonl read error"
-        )
+        return CheckResult("FT-008", "Trading Health", "WARN", "signal_stats.jsonl read error")
     if not has_fill_data:
         return CheckResult(
             "FT-008",
             "Trading Health",
             "WARN",
-            "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",
+            "fill latency data not yet instrumented (no filled_at field in signal_stats.jsonl); manual monitoring required",  # noqa: E501
             notes="Engine needs filled_at field on SignalRecord. See design doc §6.2 FT-010 (1.5 SP dependency).",
         )
     latencies: list[float] = []
@@ -762,8 +723,7 @@ def _ch_ft_fill_latency_p95() -> CheckResult:
                 if filled_at and signal_ts:
                     try:
                         latency = (
-                            datetime.fromisoformat(filled_at)
-                            - datetime.fromisoformat(signal_ts)
+                            datetime.fromisoformat(filled_at) - datetime.fromisoformat(signal_ts)
                         ).total_seconds()
                         if latency > 0:
                             latencies.append(latency)
@@ -836,22 +796,17 @@ def _ch_ft_slippage_analysis() -> CheckResult:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if (
-                    rec.get("requested_price") is not None
-                    or rec.get("expected_price") is not None
-                ):
+                if rec.get("requested_price") is not None or rec.get("expected_price") is not None:
                     has_slippage_data = True
                     break
     except OSError:
-        return CheckResult(
-            "FT-010", "Trading Health", "WARN", "signal_stats.jsonl read error"
-        )
+        return CheckResult("FT-010", "Trading Health", "WARN", "signal_stats.jsonl read error")
     if not has_slippage_data:
         return CheckResult(
             "FT-010",
             "Trading Health",
             "WARN",
-            "slippage data not yet instrumented (no requested_price/expected_price field in signal_stats.jsonl); manual monitoring required",
+            "slippage data not yet instrumented (no requested_price/expected_price field in signal_stats.jsonl); manual monitoring required",  # noqa: E501
             notes="Engine needs requested_price or expected_price field on SignalRecord for slippage analysis.",
         )
     slippages: list[float] = []
@@ -886,9 +841,7 @@ def _ch_ft_slippage_analysis() -> CheckResult:
         )
     avg_slip = sum(slippages) / len(slippages)
     max_slip = max(slippages)
-    detail = (
-        f"avg_slippage={avg_slip:.5f}, max_slippage={max_slip:.5f} (n={len(slippages)})"
-    )
+    detail = f"avg_slippage={avg_slip:.5f}, max_slippage={max_slip:.5f} (n={len(slippages)})"
     if avg_slip > 0.001:
         return CheckResult(
             "FT-010",
@@ -899,9 +852,7 @@ def _ch_ft_slippage_analysis() -> CheckResult:
             escalated=True,
         )
     if avg_slip > 0.0003:
-        return CheckResult(
-            "FT-010", "Trading Health", "WARN", detail + " — slippage elevated"
-        )
+        return CheckResult("FT-010", "Trading Health", "WARN", detail + " — slippage elevated")
     return CheckResult("FT-010", "Trading Health", "OK", detail)
 
 
@@ -932,9 +883,7 @@ def _ch_ft_order_rejection_rate() -> CheckResult:
                 if outcome in ("failed_order_error", "rejected", "order_rejected"):
                     rejected += 1
     except OSError:
-        return CheckResult(
-            "FT-011", "Trading Health", "WARN", "signal_stats.jsonl read error"
-        )
+        return CheckResult("FT-011", "Trading Health", "WARN", "signal_stats.jsonl read error")
     if total == 0:
         return CheckResult(
             "FT-011",
@@ -954,18 +903,14 @@ def _ch_ft_order_rejection_rate() -> CheckResult:
             escalated=True,
         )
     if rate > 0.03:
-        return CheckResult(
-            "FT-011", "Trading Health", "WARN", detail + " (3-10% — elevated)"
-        )
+        return CheckResult("FT-011", "Trading Health", "WARN", detail + " (3-10% — elevated)")
     return CheckResult("FT-011", "Trading Health", "OK", detail)
 
 
 # ── Data Health (DH-NNN) ────────────────────────────────────────────────────
 
 
-def _ch_dh_file_freshness(
-    path: Path, check_id: str, label: str, max_age_seconds: float = 60.0
-) -> CheckResult:
+def _ch_dh_file_freshness(path: Path, check_id: str, label: str, max_age_seconds: float = 60.0) -> CheckResult:
     if not path.exists():
         return CheckResult(
             check_id,
@@ -977,9 +922,7 @@ def _ch_dh_file_freshness(
     try:
         age = time.time() - path.stat().st_mtime
     except OSError as exc:
-        return CheckResult(
-            check_id, "Data Health", "WARN", f"{label} stat failed: {exc}"
-        )
+        return CheckResult(check_id, "Data Health", "WARN", f"{label} stat failed: {exc}")
     if age < max_age_seconds:
         return CheckResult(check_id, "Data Health", "OK", f"{label} mtime={age:.0f}s")
     if age < max_age_seconds * 5:
@@ -1005,9 +948,7 @@ def _ch_dh_signal_stats() -> CheckResult:
     market_status = _get_market_status()
     # During market closure, stale signal_stats.jsonl is expected
     max_age = 3600.0 if market_status in ("weekend", "closed") else 60.0
-    return _ch_dh_file_freshness(
-        stats_path, "DH-003", "signal_stats.jsonl", max_age_seconds=max_age
-    )
+    return _ch_dh_file_freshness(stats_path, "DH-003", "signal_stats.jsonl", max_age_seconds=max_age)
 
 
 def _ch_dh_risk_state() -> CheckResult:
@@ -1053,9 +994,7 @@ def _ch_dh_tick_feed_latency() -> CheckResult:
     try:
         last_tick = datetime.fromisoformat(last_tick_str)
     except (ValueError, TypeError) as exc:
-        return CheckResult(
-            "DH-001", "Data Health", "WARN", f"last_tick_time unparseable: {exc}"
-        )
+        return CheckResult("DH-001", "Data Health", "WARN", f"last_tick_time unparseable: {exc}")
     now = _now()
     latency_s = (now - last_tick).total_seconds()
     if latency_s < 0:
@@ -1088,9 +1027,7 @@ def _ch_dh_tick_feed_latency() -> CheckResult:
         )
 
     if latency_s < 2:
-        return CheckResult(
-            "DH-001", "Data Health", "OK", f"tick feed latency={latency_s:.2f}s"
-        )
+        return CheckResult("DH-001", "Data Health", "OK", f"tick feed latency={latency_s:.2f}s")
     if latency_s < 30:
         return CheckResult(
             "DH-001",
@@ -1193,8 +1130,8 @@ def _ch_dh_signal_stats_write_health() -> CheckResult:
     # Read last line to check its timestamp
     last_ts: str | None = None
     try:
-        out = subprocess.run(
-            ["tail", "-n", "1", str(stats_path)],
+        out = subprocess.run(  # noqa: S603
+            ["tail", "-n", "1", str(stats_path)],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=5,
@@ -1212,9 +1149,7 @@ def _ch_dh_signal_stats_write_health() -> CheckResult:
     # During market closure, stale writer is expected — relax thresholds
     if market_status in ("weekend", "closed"):
         if file_age_s < 3600:
-            detail = (
-                f"signal_stats.jsonl mtime={file_age_s:.0f}s (market={market_status})"
-            )
+            detail = f"signal_stats.jsonl mtime={file_age_s:.0f}s (market={market_status})"
             if last_ts:
                 detail += f", last_record_ts={last_ts}"
             return CheckResult("DH-005", "Data Health", "OK", detail)
@@ -1271,9 +1206,7 @@ def _ch_ph_extraction() -> CheckResult:
     except OSError as exc:
         return CheckResult("PH-001", "Pipeline Health", "WARN", f"stat failed: {exc}")
     if age_min < 35:
-        return CheckResult(
-            "PH-001", "Pipeline Health", "OK", f"trajectories mtime={age_min:.1f}min"
-        )
+        return CheckResult("PH-001", "Pipeline Health", "OK", f"trajectories mtime={age_min:.1f}min")
     if age_min < 90:
         return CheckResult(
             "PH-001",
@@ -1303,9 +1236,7 @@ def _ch_kanban_drift(detector: DriftDetector) -> list[CheckResult]:
 
     # KH-001 (todo) + KH-002 (ready) — combined view in the audit table.
     todo_warn = sum(1 for c in stale_cards if c.level == "warn" and c.status == "todo")
-    ready_warn = sum(
-        1 for c in stale_cards if c.level == "warn" and c.status == "ready"
-    )
+    ready_warn = sum(1 for c in stale_cards if c.level == "warn" and c.status == "ready")
     out.append(
         CheckResult(
             "KH-001",
@@ -1386,12 +1317,8 @@ def run_all_checkpoints(detector: DriftDetector | None = None) -> list[CheckResu
     checks.append(_ch_log_error_rate())  # SH-008
 
     # Trading Health
-    checks.append(
-        _ch_ft_daily_dd(ROOT / "data" / "state" / "risk_guard_state.json")
-    )  # FT-003
-    checks.append(
-        _ch_ft_total_dd(ROOT / "data" / "state" / "risk_guard_state.json")
-    )  # FT-004
+    checks.append(_ch_ft_daily_dd(ROOT / "data" / "state" / "risk_guard_state.json"))  # FT-003
+    checks.append(_ch_ft_total_dd(ROOT / "data" / "state" / "risk_guard_state.json"))  # FT-004
     checks.append(_ch_ft_target_reached())  # FT-AUX-TARGET (Phase 6 audit marker)
     checks.append(_ch_signal_to_trade())  # FT-009
     checks.append(_ch_ft_open_positions_vs_limits())  # FT-002
@@ -1477,9 +1404,7 @@ def render_report(
     lines.append("## Remediation Actions Taken")
     lines.append("")
     if not remediation_log:
-        lines.append(
-            "- No auto-remediations recorded in `data/ops/remediation_log.jsonl` in the last 24 h."
-        )
+        lines.append("- No auto-remediations recorded in `data/ops/remediation_log.jsonl` in the last 24 h.")
     else:
         for entry in remediation_log[:20]:
             ts = entry.get("ts", "?")
@@ -1491,9 +1416,7 @@ def render_report(
     lines.append("## Items Escalated")
     lines.append("")
     if not escalation_log:
-        lines.append(
-            "- No escalations recorded in `data/ops/escalation_queue.jsonl` in the last 24 h."
-        )
+        lines.append("- No escalations recorded in `data/ops/escalation_queue.jsonl` in the last 24 h.")
     else:
         for entry in escalation_log[:20]:
             ts = entry.get("ts", "?")
@@ -1508,14 +1431,12 @@ def render_report(
     if not drift_cards:
         lines.append("- Drift detector reported no stale cards today.")
     else:
-        lines.append(
-            f"- {len(drift_cards)} stale card(s) returned by `DriftDetector.check_card_staleness()`."
-        )
+        lines.append(f"- {len(drift_cards)} stale card(s) returned by `DriftDetector.check_card_staleness()`.")
         # Show first few at the 7d+ level
         auto_create = [c for c in drift_cards if c.level == "auto_create"]
         if auto_create:
             lines.append(
-                f"  - **{len(auto_create)}** card(s) over 7d — auto-create follows-up drafted in `data/ops/stale_cards.jsonl`."
+                f"  - **{len(auto_create)}** card(s) over 7d — auto-create follows-up drafted in `data/ops/stale_cards.jsonl`."  # noqa: E501
             )
         warn = [c for c in drift_cards if c.level == "warn"]
         if warn:
@@ -1532,9 +1453,9 @@ def render_report(
             break
     if not recs:
         recs = [
-            "No critical findings — keep monitoring. Consider tuning warning thresholds against trailing 30d distributions.",
-            "Phase 0 reconciliation (`starting_balance` = $100K canonical) is still pending; the FTMO daily tracker notes the peak mismatch.",
-            "Phase 6 is operational; next priorities are (a) audit_trail instrumentation on the quest plan so KH-004 produces real signals, (b) activate the cron at 18:00 UTC once Ava approves.",
+            "No critical findings — keep monitoring. Consider tuning warning thresholds against trailing 30d distributions.",  # noqa: E501
+            "Phase 0 reconciliation (`starting_balance` = $100K canonical) is still pending; the FTMO daily tracker notes the peak mismatch.",  # noqa: E501
+            "Phase 6 is operational; next priorities are (a) audit_trail instrumentation on the quest plan so KH-004 produces real signals, (b) activate the cron at 18:00 UTC once Ava approves.",  # noqa: E501
         ]
     for r in recs[:3]:
         lines.append(f"- {r}")
@@ -1542,24 +1463,16 @@ def render_report(
 
     lines.append("## Appendix: Data Sources Queried")
     lines.append("")
-    lines.append(
-        "- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002, DH-001)"
-    )
+    lines.append("- `data/forward_test.pid`, `data/heartbeat_trading.json` (SH-001, SH-002, DH-001)")
     lines.append("- `df -h /home/TacoPants/projects/Ayumi/` (SH-004)")
     lines.append("- `logs/forward_test.log` (SH-008)")
-    lines.append(
-        "- `data/state/risk_guard_state.json` (FT-003, FT-004, FT-AUX-TARGET, DH-004)"
-    )
+    lines.append("- `data/state/risk_guard_state.json` (FT-003, FT-004, FT-AUX-TARGET, DH-004)")
     lines.append("- `data/forward_test_health.json` (FT-009, DH-001, DH-002)")
-    lines.append(
-        "- `data/signal_stats.jsonl` (DH-003, DH-005, FT-007, FT-008, FT-010, FT-011)"
-    )
+    lines.append("- `data/signal_stats.jsonl` (DH-003, DH-005, FT-007, FT-008, FT-010, FT-011)")
     lines.append("- `data/trading.db` trades + daily_summary tables (FT-002, FT-005)")
     lines.append("- `data/learning/trajectories.jsonl` (PH-001)")
     lines.append("- OpenClaw workboard sqlite (KH-001..KH-007 via DriftDetector)")
-    lines.append(
-        "- `data/ops/remediation_log.jsonl` and `data/ops/escalation_queue.jsonl` (remediation/escalation)"
-    )
+    lines.append("- `data/ops/remediation_log.jsonl` and `data/ops/escalation_queue.jsonl` (remediation/escalation)")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -1592,7 +1505,7 @@ def _send_telegram(text: str, dry_run: bool = False) -> bool:
             import gog  # type: ignore  # noqa: F401
 
             return bool(gog.send_message(chat_id=chat, text=text))  # pragma: no cover
-        except Exception:
+        except Exception:  # noqa: S110
             pass
         # No-op gracefully — the audit is also written to disk.
         print(

@@ -11,7 +11,7 @@ here to avoid interaction with watchdog-based tests that run later in the
 session.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # noqa: I001
 from pathlib import Path
 
 import pytest
@@ -49,9 +49,9 @@ def test_load_from_env(tmp_path):
     creds = store.load()
 
     assert creds.client_id == "test_client_id"
-    assert creds.client_secret == "test_secret"
-    assert creds.access_token == "test_access_token"
-    assert creds.refresh_token == "test_refresh_token"
+    assert creds.client_secret == "test_secret"  # noqa: S105
+    assert creds.access_token == "test_access_token"  # noqa: S105
+    assert creds.refresh_token == "test_refresh_token"  # noqa: S105
     assert creds.account_id == 12345678
     assert creds.trader_login == 5795523
     assert creds.expires_at is not None
@@ -84,8 +84,8 @@ def test_update_tokens_computes_expires_at(tmp_path):
     after = datetime.now(timezone.utc)
 
     creds = store.get()
-    assert creds.access_token == "new_access"
-    assert creds.refresh_token == "new_refresh"
+    assert creds.access_token == "new_access"  # noqa: S105
+    assert creds.refresh_token == "new_refresh"  # noqa: S105
     assert creds.expires_at is not None
     delta = creds.expires_at - before
     assert 3590 <= delta.total_seconds() <= 3615

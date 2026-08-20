@@ -13,7 +13,7 @@ Covers:
 - CLI invocation
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import json
 import subprocess
@@ -25,7 +25,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.dsr import (
+from backtest.dsr import (  # noqa: I001
     compute_kurtosis,
     compute_sharpe,
     compute_skewness,
@@ -105,7 +105,7 @@ class TestMoments:
         """Near-normal distribution → kurtosis near 3."""
         import random
 
-        rng = random.Random(42)
+        rng = random.Random(42)  # noqa: S311
         pnls = [rng.gauss(0, 0.01) for _ in range(200)]
         kurt = compute_kurtosis(pnls)
         assert 2.0 < kurt < 4.0  # approximately normal
@@ -158,7 +158,7 @@ class TestDeflatedSharpeRatio:
         """Exactly 30 trades → should compute DSR (sufficient)."""
         import random
 
-        rng = random.Random(42)
+        rng = random.Random(42)  # noqa: S311
         pnls = [rng.gauss(0.002, 0.01) for _ in range(30)]
         result = deflated_sharpe_ratio(pnls)
         assert result["verdict"] == "sufficient"
@@ -182,7 +182,7 @@ class TestDeflatedSharpeRatio:
         """50 trades with consistent positive edge → DSR should compute."""
         import random
 
-        rng = random.Random(123)
+        rng = random.Random(123)  # noqa: S311
         pnls = [rng.gauss(0.003, 0.008) for _ in range(50)]
         result = deflated_sharpe_ratio(pnls, n_independent_trials=6)
         assert result["verdict"] == "sufficient"
@@ -202,7 +202,7 @@ class TestDeflatedSharpeRatio:
         """All losing trades → negative Sharpe → reject."""
         import random
 
-        rng = random.Random(99)
+        rng = random.Random(99)  # noqa: S311
         pnls = [rng.gauss(-0.005, 0.008) for _ in range(40)]
         result = deflated_sharpe_ratio(pnls)
         assert result["verdict"] == "sufficient"
@@ -228,7 +228,7 @@ class TestDeflatedSharpeRatio:
         """More trials → stricter DSR → higher p-value (harder to reject)."""
         import random
 
-        rng = random.Random(42)
+        rng = random.Random(42)  # noqa: S311
         pnls = [rng.gauss(0.002, 0.008) for _ in range(50)]
         r_few = deflated_sharpe_ratio(pnls, n_independent_trials=2)
         r_many = deflated_sharpe_ratio(pnls, n_independent_trials=100)
@@ -258,7 +258,7 @@ class TestDSRCLI:
             + [str(p) for p in pnls]
             + ["--name", "test_strategy", "--n-trials", "3"]
         )
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             args,
             capture_output=True,
             text=True,
@@ -273,7 +273,7 @@ class TestDSRCLI:
         """--input flag should read JSON file."""
         import random
 
-        rng = random.Random(7)
+        rng = random.Random(7)  # noqa: S311
         data = {
             "name": "cli_test",
             "pnls": [rng.gauss(0.001, 0.005) for _ in range(35)],
@@ -283,7 +283,7 @@ class TestDSRCLI:
         infile = tmp_path / "strategy.json"
         infile.write_text(json.dumps(data))
 
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603
             [sys.executable, "-m", "backtest.dsr", "--input", str(infile)],
             capture_output=True,
             text=True,

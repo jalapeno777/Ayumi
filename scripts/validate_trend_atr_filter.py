@@ -70,15 +70,7 @@ class Bar:
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-DEFAULT_DATA_PATH = (
-    PROJECT_ROOT
-    / "worktrees"
-    / "media"
-    / "data"
-    / "forex"
-    / "historical"
-    / "EURUSD_H1.csv"
-)
+DEFAULT_DATA_PATH = PROJECT_ROOT / "worktrees" / "media" / "data" / "forex" / "historical" / "EURUSD_H1.csv"
 DEFAULT_FAST_MA = 5
 DEFAULT_SLOW_MA = 13
 DEFAULT_TREND_EMA = 50
@@ -280,9 +272,7 @@ def evaluate_baseline(bars: list[Bar], fast: int, slow: int) -> BaselineSignal |
         return None
 
     direction = TradeDirection.LONG if bullish else TradeDirection.SHORT
-    return BaselineSignal(
-        direction=direction, entry=bars[-1].close, fast_ma=f_ma, slow_ma=s_ma
-    )
+    return BaselineSignal(direction=direction, entry=bars[-1].close, fast_ma=f_ma, slow_ma=s_ma)
 
 
 def evaluate_filtered(
@@ -332,10 +322,7 @@ def evaluate_filtered(
         trend_ema=current_trend,
         atr_pips=round(a_pips, 2),
         adx_value=round(adx_val, 1) if adx_val is not None else None,
-        filter_reason=(
-            f"MA cross + EMA({trend_ema_period}) trend confirm + "
-            f"ATR({atr_period}) >= {atr_min_pips} pips"
-        ),
+        filter_reason=(f"MA cross + EMA({trend_ema_period}) trend confirm + ATR({atr_period}) >= {atr_min_pips} pips"),
     )
 
 
@@ -413,9 +400,7 @@ def simulate(
         if open_trade is not None:
             hit, exit_price, reason = _check_exit(open_trade, bar)
             if hit:
-                pnl, pips, outcome = _close_trade(
-                    open_trade, exit_price, balance, risk_pct, starting_balance
-                )
+                pnl, pips, outcome = _close_trade(open_trade, exit_price, balance, risk_pct, starting_balance)
                 balance += pnl
                 if balance > peak:
                     peak = balance
@@ -484,9 +469,7 @@ def simulate(
     # --- Close any remaining open trade at last close ---
     if open_trade is not None:
         last_bar = bars[-1]
-        pnl, pips, outcome = _close_trade(
-            open_trade, last_bar.close, balance, risk_pct, starting_balance
-        )
+        pnl, pips, outcome = _close_trade(open_trade, last_bar.close, balance, risk_pct, starting_balance)
         balance += pnl
         closed_trades.append(
             TradeRecord(
@@ -547,9 +530,7 @@ def _close_trade(
     return pnl, pips, outcome
 
 
-def _compute_stats(
-    trades: list[TradeRecord], starting: float, ending: float, max_dd: float
-) -> BacktestStats:
+def _compute_stats(trades: list[TradeRecord], starting: float, ending: float, max_dd: float) -> BacktestStats:
     if not trades:
         return BacktestStats()
 
@@ -559,9 +540,7 @@ def _compute_stats(
     total_l = abs(sum(t.profit_loss for t in losses))
 
     win_rate = len(wins) / len(trades) * 100
-    profit_factor = (
-        total_w / total_l if total_l > 0 else (total_w if total_w > 0 else 0.0)
-    )
+    profit_factor = total_w / total_l if total_l > 0 else (total_w if total_w > 0 else 0.0)
     avg_win = total_w / len(wins) if wins else 0.0
     avg_loss = total_l / len(losses) if losses else 0.0
     expectancy = (win_rate / 100 * avg_win) - ((1 - win_rate / 100) * avg_loss)
@@ -626,8 +605,7 @@ def statistical_significance(baseline: BacktestStats, filtered: BacktestStats) -
         "p_value": round(p_value, 4),
         "significant_at_0_05": p_value < 0.05,
         "note": (
-            "Normal-approximation z-test on win-rate difference. "
-            "Does not account for serial correlation in returns."
+            "Normal-approximation z-test on win-rate difference. Does not account for serial correlation in returns."
         ),
     }
 
@@ -703,12 +681,8 @@ def build_report(
         },
         "comparison": {
             "win_rate_delta": round(filtered.win_rate - baseline.win_rate, 2),
-            "profit_factor_delta": round(
-                filtered.profit_factor - baseline.profit_factor, 2
-            ),
-            "max_drawdown_delta": round(
-                filtered.max_drawdown_pct - baseline.max_drawdown_pct, 2
-            ),
+            "profit_factor_delta": round(filtered.profit_factor - baseline.profit_factor, 2),
+            "max_drawdown_delta": round(filtered.max_drawdown_pct - baseline.max_drawdown_pct, 2),
             "trade_count_reduction": baseline.total_trades - filtered.total_trades,
         },
         "statistical_significance": stats,
@@ -717,9 +691,7 @@ def build_report(
             "Trend filter: EMA(50) slope must confirm trade direction "
             "(rising for longs, falling for shorts). "
             "ATR gate: ATR(14) must be >= {atr_min} pips to ensure "
-            "sufficient volatility for the signal.".format(
-                atr_min=params.get("atr_min_pips", DEFAULT_ATR_MIN_PIPS)
-            )
+            "sufficient volatility for the signal.".format(atr_min=params.get("atr_min_pips", DEFAULT_ATR_MIN_PIPS))
         ),
         "source_references": [
             "strategy_legacy.py: MomentumBreakoutStrategy (EMA + ADX + ATR pattern)",
@@ -730,9 +702,7 @@ def build_report(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Validate trend+ATR filter combination against backtest data"
-    )
+    parser = argparse.ArgumentParser(description="Validate trend+ATR filter combination against backtest data")
     parser.add_argument(
         "--data",
         default=str(DEFAULT_DATA_PATH),
@@ -764,9 +734,7 @@ def main() -> int:
     print(f"Loading bars from {data_path}...", file=sys.stderr)
     bars = load_csv_bars(data_path)
     if len(bars) < 200:
-        print(
-            f"ERROR: only {len(bars)} bars loaded — need at least 200", file=sys.stderr
-        )
+        print(f"ERROR: only {len(bars)} bars loaded — need at least 200", file=sys.stderr)
         return 1
     print(f"Loaded {len(bars)} bars.", file=sys.stderr)
 

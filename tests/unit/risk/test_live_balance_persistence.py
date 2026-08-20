@@ -5,7 +5,7 @@ PaperTrader.update_market_prices recalculates _current_balance from
 starting_balance on every tick, overwriting the live-synced balance.
 """
 
-import json
+import json  # noqa: I001
 from pathlib import Path
 
 import pytest
@@ -55,9 +55,7 @@ class TestLiveBalanceMode:
         # Simulate PaperTrader tick recalculation
         guard.update_balance(10_000.0)
 
-        assert guard._current_balance == 9_324.58, (
-            "update_balance should be ignored after sync_live_balance"
-        )
+        assert guard._current_balance == 9_324.58, "update_balance should be ignored after sync_live_balance"
 
     def test_update_balance_updates_peak_before_live_mode(self, guard):
         """update_balance updates peak_balance before live mode."""
@@ -96,9 +94,7 @@ class TestLiveBalanceMode:
             guard.update_balance(10_000.0)  # PaperTrader recalculation
 
         assert guard._current_balance == 9_324.58
-        assert guard.current_drawdown_pct == pytest.approx(
-            (10_000.0 - 9_324.58) / 10_000.0, rel=1e-4
-        )
+        assert guard.current_drawdown_pct == pytest.approx((10_000.0 - 9_324.58) / 10_000.0, rel=1e-4)
 
     def test_daily_pnl_stays_realistic_after_sync(self, guard):
         """daily_pnl should not show phantom $675.42 after sync.
@@ -117,9 +113,7 @@ class TestLiveBalanceMode:
         guard.update_balance(10_000.0)
 
         daily_pnl = guard._current_balance - guard._daily_start_balance
-        assert daily_pnl == pytest.approx(0.0, abs=0.01), (
-            f"daily_pnl should be ~$0.00, got ${daily_pnl:.2f}"
-        )
+        assert daily_pnl == pytest.approx(0.0, abs=0.01), f"daily_pnl should be ~$0.00, got ${daily_pnl:.2f}"
 
     def test_drawdown_correct_after_sync(self, guard):
         """Drawdown% should reflect real cTrader balance, not $10K default."""

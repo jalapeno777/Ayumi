@@ -45,9 +45,7 @@ logger = logging.getLogger("ayumi.trading_db")
 # Configurable via TRADING_DB_PATH env var for testing.
 # This must match the path used by readers (trade_store.py, audit_bar_close.py).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-_DB_PATH = Path(
-    os.environ.get("TRADING_DB_PATH", str(_PROJECT_ROOT / "data" / "trading.db"))
-)
+_DB_PATH = Path(os.environ.get("TRADING_DB_PATH", str(_PROJECT_ROOT / "data" / "trading.db")))
 
 _CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS trades (
@@ -208,7 +206,7 @@ def _self_test() -> None:
 
     global _DB_PATH
     orig_path = _DB_PATH
-    tmpdb = Path(tempfile.mktemp(suffix=".db"))
+    tmpdb = Path(tempfile.mktemp(suffix=".db"))  # noqa: S306
     _DB_PATH = tmpdb
 
     try:
@@ -231,7 +229,7 @@ def _self_test() -> None:
             close_reason="tp_hit",
             metadata={"signal_id": "test_1234"},
         )
-        assert ok, "insert_closed_trade returned False"
+        assert ok, "insert_closed_trade returned False"  # noqa: S101
 
         conn = sqlite3.connect(str(tmpdb))
         try:
@@ -244,19 +242,19 @@ def _self_test() -> None:
         finally:
             conn.close()
 
-        assert row is not None, "No row found in trades table"
-        assert row[0] == test_trade_id, f"trade_id mismatch: {row[0]}"
-        assert row[1] == "GBPUSD", f"symbol mismatch: {row[1]}"
-        assert row[2] == "BUY", f"direction mismatch: {row[2]}"
-        assert row[3] == 1.2750, f"entry_price mismatch: {row[3]}"
-        assert row[4] == 1.2760, f"exit_price mismatch: {row[4]}"
-        assert row[5] == 10.0, f"pnl mismatch: {row[5]}"
-        assert row[6] == 10.0, (
+        assert row is not None, "No row found in trades table"  # noqa: S101
+        assert row[0] == test_trade_id, f"trade_id mismatch: {row[0]}"  # noqa: S101
+        assert row[1] == "GBPUSD", f"symbol mismatch: {row[1]}"  # noqa: S101
+        assert row[2] == "BUY", f"direction mismatch: {row[2]}"  # noqa: S101
+        assert row[3] == 1.2750, f"entry_price mismatch: {row[3]}"  # noqa: S101
+        assert row[4] == 1.2760, f"exit_price mismatch: {row[4]}"  # noqa: S101
+        assert row[5] == 10.0, f"pnl mismatch: {row[5]}"  # noqa: S101
+        assert row[6] == 10.0, (  # noqa: S101
             f"pnl_pips mismatch: {row[6]}"
         )  # (1.2760-1.2750)/0.0001 = 10.0
-        assert row[7] == "closed", f"status mismatch: {row[7]}"
-        assert row[8] == "tp_hit", f"close_reason mismatch: {row[8]}"
-        assert row[9] == "test_strategy", f"strategy_name mismatch: {row[9]}"
+        assert row[7] == "closed", f"status mismatch: {row[7]}"  # noqa: S101
+        assert row[8] == "tp_hit", f"close_reason mismatch: {row[8]}"  # noqa: S101
+        assert row[9] == "test_strategy", f"strategy_name mismatch: {row[9]}"  # noqa: S101
 
         # Test SELL direction pips
         ok2 = insert_closed_trade(
@@ -272,19 +270,17 @@ def _self_test() -> None:
             pnl=15.0,
             source="self_test",
         )
-        assert ok2, "insert for SELL trade returned False"
+        assert ok2, "insert for SELL trade returned False"  # noqa: S101
 
         conn = sqlite3.connect(str(tmpdb))
         try:
-            row2 = conn.execute(
-                "SELECT pnl_pips FROM trades WHERE trade_id = 'TEST_CLOSE_002'"
-            ).fetchone()
+            row2 = conn.execute("SELECT pnl_pips FROM trades WHERE trade_id = 'TEST_CLOSE_002'").fetchone()
         finally:
             conn.close()
 
         # SELL: diff = entry - exit = 157.50 - 157.20 = 0.30; pip_size JPY = 0.01
         # pips = 0.30 / 0.01 = 30.0
-        assert row2[0] == 30.0, f"JPY SELL pnl_pips mismatch: {row2[0]} (expected 30.0)"
+        assert row2[0] == 30.0, f"JPY SELL pnl_pips mismatch: {row2[0]} (expected 30.0)"  # noqa: S101
 
         print("SELF-TEST PASSED: 2 trades inserted and verified")
         print("  Trade 1: GBPUSD BUY, pnl=$10.00, pips=10.0")
