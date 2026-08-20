@@ -220,7 +220,7 @@ class TestReconcileWithBroker:
                 stop_loss=0.0520,  # 30 pips under FX defaults
             ),
         ]
-        result = self.sizer.reconcile_with_broker(positions)
+        _result = self.sizer.reconcile_with_broker(positions)
         # 30 pips * 0.10 lots * $10/pip = $30
         assert self.sizer.open_positions["seeded_exotic-1"] == pytest.approx(30.0)
 

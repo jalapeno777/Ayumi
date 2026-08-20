@@ -519,7 +519,7 @@ class DualTFSqueezeProStrategy(ISignalStrategy):
         m15_bars = state.bars
 
         # Warm-up: need enough H1 bars for every H1 indicator.
-        adx_lookback_bars_h1 = max(14 * 2 + 1, cfg.h1_ema_period + 6)
+        adx_lookback_bars_h1 = max(14 * 2 + 1, cfg.h1_ema_period + 6)  # noqa: F841 — live strategy; dead helper preserved
         h1_required = max(
             cfg.h1_bb_period,
             cfg.h1_kc_period,

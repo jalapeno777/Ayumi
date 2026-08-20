@@ -141,7 +141,7 @@ def main():
             "spread_pips": {"GBPUSD": 1.5},
             "state_path": str(PROJECT_ROOT / "data" / "forward_test_state.json"),
         }
-        runner = BlendForwardTestRunner(runner_config)
+        _runner = BlendForwardTestRunner(runner_config)
         logger.info("BlendForwardTestRunner initialized OK")
         logger.info("=== DRY RUN PASSED ===")
         return

@@ -196,7 +196,7 @@ class TestBlendForwardTestRunner:
         runner.start()
 
         sig = _make_signal(confidence=0.85, spread=1.0)
-        order = runner.on_signal("ema_cross", sig)
+        _order = runner.on_signal("ema_cross", sig)
         oid = f"ema_cross_{sig['timestamp'].timestamp()}"
         runner.on_fill(oid, 1.1000, -30.0)
 
@@ -209,14 +209,14 @@ class TestBlendForwardTestRunner:
 
     def test_state_restore_on_start(self, tmp_path):
         """start() restores previously saved state."""
-        state_path = os.path.join(tmp_path, "risk_state.json")
+        _state_path = os.path.join(tmp_path, "risk_state.json")
         cfg = _runner_config(str(tmp_path))
 
         # First runner: modify state and stop
         r1 = BlendForwardTestRunner(cfg)
         r1.start()
         sig = _make_signal(confidence=0.85, spread=1.0)
-        order = r1.on_signal("ema_cross", sig)
+        _order = r1.on_signal("ema_cross", sig)
         oid = f"ema_cross_{sig['timestamp'].timestamp()}"
         r1.on_fill(oid, 1.1000, -30.0)
         r1.stop()

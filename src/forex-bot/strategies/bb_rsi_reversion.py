@@ -256,7 +256,7 @@ class BBRSIMeanReversion(ISignalStrategy):
         rsi = _rsi(closes, cfg.rsi_period)
         atr = _atr(bars, cfg.atr_period)
         adx = _adx(bars, cfg.adx_period)
-        ema = _ema(closes, cfg.ema_trend_period)
+        ema = _ema(closes, cfg.ema_trend_period)  # noqa: F841 — strategy live path; dead indicator preserved
 
         if adx > cfg.adx_max_threshold:
             return None
@@ -266,7 +266,7 @@ class BBRSIMeanReversion(ISignalStrategy):
                 return None
 
         pip = cfg.pip_value or _pip_for(latest.close)
-        bb_width_pips = (bb_upper - bb_lower) / pip
+        bb_width_pips = (bb_upper - bb_lower) / pip  # noqa: F841 — strategy live path; dead indicator preserved
 
         direction = None
         rationale = ""

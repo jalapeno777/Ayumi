@@ -75,11 +75,10 @@ def main():
     connected_event = threading.Event()
     app_authed_event = threading.Event()
     account_authed_event = threading.Event()
-    symbol_resolved_event = threading.Event()
+    _symbol_resolved_event = threading.Event()
     order_result = {"status": None, "data": None, "error": None}
     order_event = threading.Event()
 
-    symbol_id_holder = {"id": None}
     client_holder = {"client": None}
 
     def on_message(client, message):

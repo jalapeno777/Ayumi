@@ -201,7 +201,7 @@ class TestWatchdogWeekend:
         _write_heartbeat(tmp_heartbeat_file, age_seconds=120)
 
         # Mock Saturday
-        saturday = datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)  # Saturday
+        _saturday = datetime(2026, 6, 6, 12, 0, 0, tzinfo=timezone.utc)  # Saturday
         with patch(
             "scripts.kill_switch_watchdog._is_forex_market_closed", return_value=True
         ):

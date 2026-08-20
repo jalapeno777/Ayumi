@@ -207,7 +207,7 @@ class TestCorruptFile:
         state_file.write_text("not json at all")
 
         with caplog.at_level(logging.CRITICAL):
-            ksm = KillSwitchManager(state_dir=tmp_state_dir)
+            _ksm = KillSwitchManager(state_dir=tmp_state_dir)
 
         assert any("CORRUPT" in record.message for record in caplog.records)
 
@@ -215,7 +215,7 @@ class TestCorruptFile:
         state_file = Path(tmp_state_dir) / "global.state"
         state_file.write_text("garbage")
 
-        ksm = KillSwitchManager(state_dir=tmp_state_dir)
+        _ksm = KillSwitchManager(state_dir=tmp_state_dir)
         # After fail-safe activation, state file should be valid
         data = json.loads(state_file.read_text())
         assert data["active"] is True

@@ -405,7 +405,7 @@ class TestTimeExits:
 
 class TestDrawdownAlerts:
     def test_warning_at_threshold(self, monitor, order_manager):
-        pos = _make_long_position(order_manager, entry=1.1000)
+        _pos = _make_long_position(order_manager, entry=1.1000)
         # Run price up to establish MFE
         monitor.update_positions(
             prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101}
@@ -435,7 +435,7 @@ class TestDrawdownAlerts:
         assert len(alerts) == 0
 
     def test_critical_alert_level(self, monitor, order_manager):
-        pos = _make_long_position(order_manager, entry=1.1000)
+        _pos = _make_long_position(order_manager, entry=1.1000)
         # Run price way up
         monitor.update_positions(
             prices={"EURUSD": 1.1200}, bids={"EURUSD": 1.1200}, asks={"EURUSD": 1.1201}
@@ -469,7 +469,7 @@ class TestPortfolioSummary:
         assert summary["largest_position_notional"] == 0.0
 
     def test_single_position(self, monitor, order_manager):
-        pos = _make_long_position(order_manager, entry=1.1000)
+        _pos = _make_long_position(order_manager, entry=1.1000)
         monitor.update_positions(
             prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
         )
@@ -502,7 +502,7 @@ class TestPortfolioSummary:
         assert summary["positions_by_symbol"] == {"EURUSD": 1, "GBPUSD": 1}
 
     def test_summary_includes_mfe_mae(self, monitor, order_manager):
-        pos = _make_long_position(order_manager, entry=1.1000)
+        _pos = _make_long_position(order_manager, entry=1.1000)
         monitor.update_positions(
             prices={"EURUSD": 1.1050}, bids={"EURUSD": 1.1050}, asks={"EURUSD": 1.1051}
         )
@@ -693,7 +693,7 @@ class TestCallbacks:
             "on_drawdown_warning", lambda alert: warnings.append(alert)
         )
 
-        pos = _make_long_position(order_manager, entry=1.1000)
+        _pos = _make_long_position(order_manager, entry=1.1000)
         monitor.update_positions(
             prices={"EURUSD": 1.1100}, bids={"EURUSD": 1.1100}, asks={"EURUSD": 1.1101}
         )

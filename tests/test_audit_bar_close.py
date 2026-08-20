@@ -439,7 +439,7 @@ class TestRunAudit:
 
     def test_audit_creates_output(self, signals_dir, trading_db, tmp_path):
         output = tmp_path / "audit" / "output.jsonl"
-        summary = run_audit(signals_dir, output, trading_db)
+        _summary = run_audit(signals_dir, output, trading_db)
         assert output.exists()
         lines = output.read_text().strip().split("\n")
         assert len(lines) == 4  # 4 signals

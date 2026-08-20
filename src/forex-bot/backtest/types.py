@@ -12,9 +12,6 @@ from core.types import (
 )
 
 
-from engine.engine import BacktestEngine
-
-
 class TradeOutcome(Enum):
     WIN = "win"
     LOSS = "loss"

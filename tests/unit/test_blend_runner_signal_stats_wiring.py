@@ -221,7 +221,7 @@ def test_on_signal_records_open_line_for_sustained_flow(tmp_path):
 
     # Five signals with monotonically-increasing timestamps to mimic
     # successive bar evaluations.
-    base = datetime(2026, 8, 19, 12, 15, 0, tzinfo=timezone.utc)
+    _base = datetime(2026, 8, 19, 12, 15, 0, tzinfo=timezone.utc)
     expected_ids = []
     for i in range(5):
         signal_data = _make_signal_data(

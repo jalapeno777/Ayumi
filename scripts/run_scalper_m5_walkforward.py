@@ -262,7 +262,7 @@ def run_scalper_walkforward(pair: str) -> PairResult:
 def main():
     parser = argparse.ArgumentParser(description="M5 Scalper walk-forward validation")
     add_resource_args(parser)
-    args = parser.parse_args()
+    _args = parser.parse_args()
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")

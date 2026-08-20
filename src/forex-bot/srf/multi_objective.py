@@ -125,13 +125,6 @@ def build_multi_objective(
     n_windows, train_ratio : walk-forward params
     stability_fn : optional callable(performance_list) -> float stability score
     """
-    spread_pips_default = {
-        "GBPUSD": 1.5,
-        "EURUSD": 1.2,
-        "USDJPY": 1.5,
-        "XAUUSD": 25,
-        "GBPJPY": 2.5,
-    }.get(pair, 2.0)
 
     def objective(trial: optuna.Trial) -> tuple[float, float, float, float]:
         try:

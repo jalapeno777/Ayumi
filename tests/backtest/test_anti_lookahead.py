@@ -356,7 +356,7 @@ class TestKellyNoFutureLeak:
             KellyConfig,
         )
 
-        bars = _make_bars(60)
+        _bars = _make_bars(60)
         config = BacktestConfig(
             starting_balance=10000,
             min_bars_before_signal=10,
@@ -389,7 +389,6 @@ class TestConservativeExitOrder:
         entry_time = datetime(2025, 1, 6, 0, 0, tzinfo=timezone.utc)
 
         # Bar 30: entry bar (signal fires here)
-        entry_price = 1.1000
         bars = _make_bars(31, base_price=1.1000)
 
         # Bar 31: wide bar that hits both SL (1.0950) and TP2 (1.1050)

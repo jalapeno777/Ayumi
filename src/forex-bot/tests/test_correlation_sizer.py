@@ -129,13 +129,6 @@ class TestCorrelationAwareSizer:
         )
 
         # Strategy B wants to go long GBPUSD (corr=1 with EURUSD, same direction)
-        result = sizer.compute_adjusted_size(
-            pair="GBPUSD",
-            direction="long",
-            base_size_lots=0.50,
-            base_risk_pct=0.005,
-        )
-        # Correlated exposure = 0.005 * 1.0 = 0.005
         # Remaining = 0.01 - 0.005 = 0.005 → exactly enough for full trade
         # But since remaining equals the new trade's risk, scale = 1.0
         # Actually that means the aggregate would be 1.0% which is the cap,

@@ -268,7 +268,7 @@ class TestMagnitudeSanityGuard:
             "adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload
         ):
             with caplog.at_level(logging.WARNING, logger="ayumi.openapi_spot_feed"):
-                bars = feed_mock.fetch_trendbars("USDJPY", period_minutes=60, count=1)
+                _bars = feed_mock.fetch_trendbars("USDJPY", period_minutes=60, count=1)
 
         # Verify warning was logged
         warning_records = [
@@ -299,7 +299,7 @@ class TestMagnitudeSanityGuard:
             "adapters.ctrader.open_api_spot_feed.Protobuf.extract", return_value=payload
         ):
             with caplog.at_level(logging.WARNING, logger="ayumi.openapi_spot_feed"):
-                bars = feed_mock.fetch_trendbars("XAUUSD", period_minutes=60, count=1)
+                _bars = feed_mock.fetch_trendbars("XAUUSD", period_minutes=60, count=1)
 
         # No JPY-related warning should be logged
         jpy_warnings = [

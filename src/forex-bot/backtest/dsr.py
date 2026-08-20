@@ -267,10 +267,6 @@ def deflated_sharpe_ratio(
 
     # Sharpe standard error (Bailey & López de Prado 2014, Eq. 2)
     # SE[SR] = sqrt((1 - skew*SR + (kurt-3)/4 * SR²) / (n-1))
-    sr_se_num = (
-        1.0 - skew * sharpe / math.sqrt(max(1.0, 1.0)) + (kurt - 3.0) / 4.0 * sharpe**2
-    )
-    # The Sharpe used in SE should be the non-annualised Sharpe
     # Recompute with non-annualised for the DSR formula
     mean_ret = sum(pnls) / n
     var_ret = sum((p - mean_ret) ** 2 for p in pnls) / (n - 1)

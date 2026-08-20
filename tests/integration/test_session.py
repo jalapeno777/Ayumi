@@ -227,7 +227,8 @@ class TestMessageRouting:
         session = _make_session()
 
         received = []
-        handler = lambda msg: received.append(msg)
+        def handler(msg):
+            return received.append(msg)
 
         session.register_message_handler(2126, handler)
 
@@ -273,7 +274,8 @@ class TestDisconnect:
         session._set_state(SessionState.CONNECTED)
 
         stopped = []
-        original_dispatch = lambda fn, *a, **kw: stopped.append(fn)
+        def original_dispatch(fn, *a, **kw):
+            return stopped.append(fn)
 
         mock_reactor.callFromThread.side_effect = original_dispatch
 

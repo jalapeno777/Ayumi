@@ -69,7 +69,7 @@ class TestRejectionCircuitBreaker:
         """Engine should have runtime counter fields initialized."""
         from adapters.ctrader.forward_test_engine import ForwardTestEngine
 
-        engine = ForwardTestEngine.__new__(ForwardTestEngine)
+        _engine = ForwardTestEngine.__new__(ForwardTestEngine)
         # These are set in __init__, verify they're documented/expected
         assert hasattr(ForwardTestEngine, "_REJECTION_BREAKER_THRESHOLD")
         assert hasattr(ForwardTestEngine, "_REJECTION_COOLDOWN_SEC")

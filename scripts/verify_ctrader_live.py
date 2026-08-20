@@ -94,7 +94,7 @@ def check_connection_and_balance(creds: dict) -> dict:
         log.info("ctrader_open_api not available (use venv for full check)")
 
     client_id = get_env_or_cred("CTRADER_OPENAPI_CLIENT_ID", creds)
-    client_secret = get_env_or_cred("CTRADER_OPENAPI_CLIENT_SECRET", creds)
+    _client_secret = get_env_or_cred("CTRADER_OPENAPI_CLIENT_SECRET", creds)
     access_token = creds.get("access_token") or creds.get("accessToken")
     account_id = get_env_or_cred("CTRADER_OPENAPI_ACCOUNT_ID", creds)
     trader_login = get_env_or_cred("CTRADER_OPENAPI_TRADER_LOGIN", creds)
@@ -247,7 +247,7 @@ def main():
     parser.add_argument(
         "--symbol", default="GBPUSD", help="Symbol for test order (default: GBPUSD)"
     )
-    args = parser.parse_args()
+    _args = parser.parse_args()
 
     print("=" * 60)
     print("  Ayumi cTrader Sanity Check")

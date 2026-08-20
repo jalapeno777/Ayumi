@@ -437,7 +437,7 @@ def test_rejection_recording(tmp_path=None):
     recorder = SignalStatsRecorder(log_path=log_path)
 
     # Record a normal signal (open line)
-    sig_id = recorder.record_signal(
+    sig_id = recorder.record_signal(  # noqa: F841 — live signal recording: write side-effect preserved
         SignalRecord(
             signal_id="test-sig-001",
             timestamp="2026-07-16T12:00:00Z",

@@ -104,8 +104,8 @@ class TestBacktestEngineInit:
 class TestRunSingle:
     def test_run_single_returns_metrics(self):
         engine = _make_engine()
-        data = _generate_test_data()
-        strategy = DummyStrategy()
+        _data = _generate_test_data()
+        _strategy = DummyStrategy()
         # Engine processes bar-by-bar; verify it runs without error
         # The exact API depends on internal run method
         assert engine.config.starting_balance > 0

@@ -707,7 +707,6 @@ class StrategyRunner:
         """
         import duckdb
 
-        DEFAULT_N_WINDOWS = 5
         DEFAULT_TRAIN_RATIO = 0.7
         DEFAULT_VAL_RATIO = 0.15
         DEFAULT_OVERLAP_RATIO = 0.2

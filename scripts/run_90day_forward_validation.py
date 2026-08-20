@@ -364,9 +364,7 @@ def run_simulation(signals: list[dict], data: dict[str, pd.DataFrame]) -> dict:
     daily_peak = {}
 
     trade_idx = 0
-    open_trades = []
     daily_trade_count = {}
-    position_count = 0
 
     for sig in signals:
         pair = sig["pair"]
@@ -617,7 +615,6 @@ def apply_go_nogo(metrics: dict, ftmo: dict, pair_results: dict) -> dict:
     one_tailed_p = p_value / 2.0 if t_stat > 0 else 1.0 - p_value / 2.0
 
     sig_passed = one_tailed_p < 0.10
-    trades_passed = len(oos_pnls) >= 50
 
     pairs_with_positive_pf = {
         p: r["profit_factor"]

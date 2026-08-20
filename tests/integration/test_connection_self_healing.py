@@ -546,13 +546,13 @@ class TestReconciliation:
 
     def test_on_reconnected_registers_callback(self, feed):
         """on_reconnected() adds callback to list."""
-        cb = lambda duration: None
+        def cb(duration):
+            return None
         feed.on_reconnected(cb)
         assert cb in feed._on_reconnected_callbacks
 
     def test_reconciliation_callback_fires(self, feed):
         """_fire_reconnect_callbacks fires callbacks with outage duration."""
-        outage = 0
         captured = []
 
         def callback(duration):

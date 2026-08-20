@@ -84,7 +84,7 @@ def build_client(creds: dict):
         clientId=creds["client_id"],
         clientSecret=creds["client_secret"],
     )
-    app_res = conn.send_and_wait(app_req, timeout=15.0, prefix="auth_app")
+    _app_res = conn.send_and_wait(app_req, timeout=15.0, prefix="auth_app")
     log.info("✓ App auth OK")
 
     acct_req = ProtoOAAccountAuthReq(

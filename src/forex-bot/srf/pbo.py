@@ -142,8 +142,6 @@ def compute_pbo(
     all_indices = list(range(2 * S))
     from math import comb
 
-    total_combos = comb(2 * S, S) // 2
-
     # To avoid double-counting, only consider combos where the smallest
     # element of the IS set < smallest element of the OOS set.
     breach_count = 0
