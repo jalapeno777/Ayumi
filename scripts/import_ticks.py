@@ -74,7 +74,7 @@ def import_csv(con: duckdb.DuckDBPyConnection, csv_path: Path, keep_csv: bool) -
     """)
 
     # Insert into ticks, ignoring duplicates
-    result = con.execute(f"""
+    _result = con.execute(f"""
         INSERT OR IGNORE INTO ticks (timestamp_ms, symbol, bid, ask, bid_vol, ask_vol)
         SELECT timestamp_ms, symbol, bid, ask, bid_vol, ask_vol
         FROM {temp_table}

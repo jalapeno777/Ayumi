@@ -73,7 +73,6 @@ def _make_squeeze_then_breakout_bars(
         start = datetime(2025, 1, 2, 0, 0, 0)
     bars: List[Bar] = []
     price = base_price
-    rng = 0.5  # tight range initially
     for i in range(n):
         # Expand volatility after the consolidation phase.
         phase = "tight" if i < int(n * 0.7) else "expand"
@@ -218,7 +217,7 @@ class TestDualTFSqueezeProStrategy(unittest.TestCase):
         """Smoke: should not raise, even if no signal is produced."""
         s = DualTFSqueezeProStrategy()
         bars = _make_squeeze_then_breakout_bars(n=600, base_price=2000.0)
-        state = MarketState(bars=bars, current_session=SessionType.NY_AM)
+        _state = MarketState(bars=bars, current_session=SessionType.NY_AM)
         # Run through the whole series via evaluate() so on_bar() is also
         # exercised via the sync path (engine may not always call on_bar).
         last_signal = None
@@ -323,7 +322,7 @@ class TestDualTFSqueezeProStrategy(unittest.TestCase):
             )
             price = close
 
-        state = MarketState(bars=bars, current_session=SessionType.NY_AM)
+        _state = MarketState(bars=bars, current_session=SessionType.NY_AM)
         signal = None
         # Use rolling windows so we don't refeed the same MarketState.
         for end in range(s.config.min_bars_for_setup, len(bars) + 1, 50):

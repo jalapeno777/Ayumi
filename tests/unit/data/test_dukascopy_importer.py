@@ -371,7 +371,7 @@ class TestDownloadRangeRestart(unittest.TestCase):
                 "download_day",
                 return_value=[Tick(1, "EURUSD", 1.0, 1.1, 0.0, 0.0)],
             ) as mock_dl:
-                days = list(
+                _days = list(
                     importer.download_range(
                         "EURUSD", date(2024, 6, 3), date(2024, 6, 4)
                     )

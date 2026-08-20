@@ -168,7 +168,6 @@ def render_markdown_report(
     # rest are negative-Sharpe trials with p=1.0, which are uninformative
     # in the table view and bloat the report. We still count them in the
     # summary above so the n_trials total remains accurate.
-    max_table_rows = 15
 
     lines: list[str] = []
     lines.append(f"# Multiple Testing Correction — {today}")

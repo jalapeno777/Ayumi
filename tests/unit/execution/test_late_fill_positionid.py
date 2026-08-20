@@ -26,7 +26,7 @@ class TestLateFillPositionIdValidation:
         )
 
         # Create a minimal mock engine — we only need the callback registration
-        config = ForwardTestConfig(
+        _config = ForwardTestConfig(
             symbol="GBPUSD",
             symbols=["GBPUSD"],
             starting_balance=10_000.0,

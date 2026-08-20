@@ -79,7 +79,6 @@ def test_weekly_summary_aggregates(tracker):
     """weekly_summary() should aggregate across the full week."""
     # Simulate a week of data using direct JSONL injection
     snapshots_file = tracker._snapshots_path
-    base_date = "2025-01-06"  # Monday of ISO week 2025-W02
     lines = []
     bal = 10_000.0
     trades = 0

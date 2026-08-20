@@ -258,7 +258,6 @@ class TestBreakoutEntry(unittest.TestCase):
         """Price inside the range produces no signal."""
         strategy = ORBStrategy(self.config)
         date = datetime(2026, 1, 5, tzinfo=timezone.utc)
-        pip = 0.0001
 
         preroll = _make_preroll_bars(date.replace(hour=5, minute=0), n=20)
         range_bars = _make_range_bars(date, 7, 8, range_high=1.2515, range_low=1.2485)

@@ -517,7 +517,7 @@ class FTMOBrokerSession:
             trader_login = 0
             expires_at = None
 
-        store = _FTMOCredStore()
+        _store = _FTMOCredStore()
         self._feed = OpenApiSpotFeed(
             ctid_account_id=self.account_id,
             client_id=self.client_id,

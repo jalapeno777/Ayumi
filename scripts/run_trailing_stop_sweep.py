@@ -296,7 +296,6 @@ def main():
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     WALKFORWARD_REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    all_results: list[dict] = []
     method_results: dict[str, list[dict]] = {}
 
     for method, method_params in ALL_METHODS.items():

@@ -33,7 +33,6 @@ def main():
     # Read last_signal.txt for tick count — engine writes this on each signal
     # For actual tick monitoring, parse the engine health log
     signal_file = DATA_DIR / "last_signal.txt"
-    current_ticks = None
 
     # Try to get ticks from engine stats via state file approach
     # The engine writes health stats to logs; we use the signal file timestamp

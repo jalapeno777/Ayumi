@@ -226,7 +226,6 @@ class TestBBRSIMeanReversion:
         if result is not None:
             risk = abs(result.entry_price - result.stop_loss)
             expected_tp1_dist = risk * cfg.tp1_rr
-            expected_tp2_dist = risk * cfg.tp2_rr
             if result.direction == TradeDirection.LONG:
                 assert result.take_profit_1 == pytest.approx(
                     result.entry_price + expected_tp1_dist, rel=1e-4
@@ -294,13 +293,11 @@ class TestConfidenceFormula:
 
         if direction == "long":
             # Drive price down to push RSI below 30
-            target_rsi = 30.0 - rsi_value  # rsi_distance = 30 - target_rsi
             base = 1.2500
             closes = [base] * 20
             for i in range(80):
                 closes.append(base - (i + 1) * (0.0005 + rsi_value * 0.00005))
         else:
-            target_rsi = 70.0 + rsi_value
             base = 1.2500
             closes = [base] * 20
             for i in range(80):

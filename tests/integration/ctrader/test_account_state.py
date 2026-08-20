@@ -919,7 +919,6 @@ class TestSubscribeBalanceUpdates:
     def test_callback_exception_does_not_break_dispatcher(self):
         """A throwing callback logs and swallows; other callbacks still fire."""
         client = MagicMock()
-        received: list[BalanceUpdate] = []
 
         # Note: subscribe_balance_updates currently supports only one
         # callback at a time (singleton dispatcher). To test resilience,

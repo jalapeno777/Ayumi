@@ -1298,7 +1298,7 @@ def _ch_ph_extraction() -> CheckResult:
 def _ch_kanban_drift(detector: DriftDetector) -> list[CheckResult]:
     out: list[CheckResult] = []
     stale_cards = detector.check_card_staleness()
-    warn_count = sum(1 for c in stale_cards if c.level == "warn")
+    _warn_count = sum(1 for c in stale_cards if c.level == "warn")
     auto_count = sum(1 for c in stale_cards if c.level == "auto_create")
 
     # KH-001 (todo) + KH-002 (ready) — combined view in the audit table.

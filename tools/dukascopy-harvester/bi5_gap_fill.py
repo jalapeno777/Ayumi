@@ -210,7 +210,6 @@ async def harvest_range(symbol: str, start: datetime, end: datetime, existing_da
     total_files = 0
     total_ticks = 0
     total_days = 0
-    failed_days = 0
 
     async with httpx.AsyncClient(http2=False, headers=headers) as client:
         current = start

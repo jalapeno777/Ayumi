@@ -326,7 +326,6 @@ class TestNoOrderDuringRefresh:
         msg.errorCode = "CH_OAUTH_TOKEN_EXPIRED"
         msg.description = "Token expired"
 
-        original_send = feed._conn.send
 
         with (
             patch("threading.Thread", _SyncThread),

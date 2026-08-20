@@ -102,7 +102,6 @@ class StrategyBlendOptimizer:
     def objective(self, trial: optuna.Trial) -> float:
         """Optuna objective function."""
         # CPU metering
-        now = time.monotonic()
         if (
             self._cpu_budget_seconds > 0
             and self._cpu_used_seconds >= self._cpu_budget_seconds

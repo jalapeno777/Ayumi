@@ -243,7 +243,7 @@ def test_strategy_tracker_roundtrip(tmp_path):
     from risk.state_persistence import StatePersistence
 
     state_file = str(tmp_path / "risk_state.json")
-    persist = StatePersistence(state_path=state_file)
+    _persist = StatePersistence(state_path=state_file)
 
     tracker = StrategyTracker()
     tracker.register("momentum")

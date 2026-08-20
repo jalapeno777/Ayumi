@@ -412,7 +412,7 @@ class TestPaperTraderSLTPEnforcement:
         stay open instead of being closed at SL.
         """
         signal = _make_signal(entry=1.1000, sl=1.0950, tp=1.1120)
-        pos = _open_paper_position(trader, signal)
+        _pos = _open_paper_position(trader, signal)
 
         # Price drops well below SL — pass ONLY prices, no bids/asks
         trader.update_market_prices(prices={"EURUSD": 1.0900})
@@ -423,7 +423,7 @@ class TestPaperTraderSLTPEnforcement:
     def test_tp_closes_via_update_market_prices_no_bid_ask(self, trader):
         """TP fires when update_market_prices is called with only prices."""
         signal = _make_signal(entry=1.1000, sl=1.0950, tp=1.1120)
-        pos = _open_paper_position(trader, signal)
+        _pos = _open_paper_position(trader, signal)
 
         trader.update_market_prices(prices={"EURUSD": 1.1150})
 

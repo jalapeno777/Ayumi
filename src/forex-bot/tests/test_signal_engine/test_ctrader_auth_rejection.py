@@ -304,7 +304,7 @@ class TestReconnectAuthRaceResilience(unittest.TestCase):
             if "CTRADER_RECONNECT_DELAY" in os.environ:
                 del os.environ["CTRADER_RECONNECT_DELAY"]
             # Verify default via direct attribute check on a mock
-            feed = self._make_feed()
+            _feed = self._make_feed()  # mock setup, return value unused
             # _make_feed sets it to 0.0, but the production default in __init__ is 3.0
             # Here we verify the env-config logic works
             os.environ["CTRADER_RECONNECT_DELAY"] = "5.5"

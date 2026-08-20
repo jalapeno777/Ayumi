@@ -438,7 +438,7 @@ class TestMultiSymbolSubscription:
     def test_subscribe_multiple_symbols(self):
         with patch(
             "archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"
-        ) as mock_reactor:
+        ) as _:
             assert self.feed.subscribe("EUR/USD")
             assert self.feed.subscribe("GBP/USD")
             assert 1 in self.feed._subscribed_symbol_ids
@@ -447,7 +447,7 @@ class TestMultiSymbolSubscription:
     def test_unsubscribe_removes_symbol(self):
         with patch(
             "archive.legacy_ctrader._pkg.open_api_spot_feed.reactor"
-        ) as mock_reactor:
+        ) as _:
             self.feed.subscribe("EUR/USD")
             self.feed.subscribe("GBP/USD")
             self.feed.unsubscribe("EUR/USD")

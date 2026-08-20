@@ -359,7 +359,7 @@ class TestDonchianATRTrendRiskCalculation:
         strategy = DonchianATRTrendStrategy(
             DonchianATRConfig(cooldown_bars=0, atr_trail_multiplier=2.0)
         )
-        bars = self = TestDonchianATRTrendBreakoutSignals._make_breakout_bars("long")
+        bars = TestDonchianATRTrendBreakoutSignals._make_breakout_bars("long")
         state = MarketState(bars=bars)
         signal = strategy.evaluate(state)
 

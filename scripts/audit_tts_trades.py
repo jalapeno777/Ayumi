@@ -99,7 +99,6 @@ def main():
             rationale = t.rationale
             pattern_type = "unknown"
             direction_raw = "unknown"
-            session_name = "unknown"
 
             # Parse pattern type from rationale: "TTC/TBD EURUSD: M long @ ..."
             if (

@@ -245,7 +245,7 @@ def test_backup_created_on_token_update(tmp_path):
 def test_backup_not_created_if_env_doesnt_exist(tmp_path):
     """FIX 3: No backup if .env doesn't exist (first-time creation)."""
     env_path = tmp_path / ".env"
-    store = CredentialStore(env_path=str(env_path))
+    _store = CredentialStore(env_path=str(env_path))
 
     # This should work without error and not create a backup
     # (though in practice .env should always exist)

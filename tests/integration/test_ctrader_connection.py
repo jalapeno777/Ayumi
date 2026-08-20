@@ -87,7 +87,7 @@ class TestConnectDisconnect:
         conn._connected_at = time.monotonic()
         conn._client = MagicMock()
 
-        with patch("adapters.ctrader.connection.reactor") as mock_reactor:
+        with patch("adapters.ctrader.connection.reactor") as _:
             conn.disconnect()
 
         assert not conn.is_connected

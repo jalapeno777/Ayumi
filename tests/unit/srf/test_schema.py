@@ -31,7 +31,7 @@ def tmp_db_path(tmp_path):
 def db(tmp_db_path):
     """Yield a connected SRFDatabase, closed after test."""
     d = SRFDatabase(tmp_db_path)
-    conn = d.connect()
+    _conn = d.connect()
     yield d
     d.close()
 

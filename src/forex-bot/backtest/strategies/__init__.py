@@ -3,9 +3,8 @@
 # Import the formal ABC first (no circular deps)
 from .isignal_strategy import ISignalStrategy, Tick, StrategyConfig
 
-# Load legacy strategies (ISignalStrategy re-exported from here)
+# Load legacy strategies (ISignalStrategy re-exported from line above)
 from ..strategy_legacy import (
-    ISignalStrategy,
     MACrossStrategy,
     BBStrategy,
     RSIStrategy,

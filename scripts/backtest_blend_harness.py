@@ -472,9 +472,6 @@ def run_backtest(args: argparse.Namespace) -> dict:
     spread_price = args.spread if args.costs else 0.0
 
     bars_processed = 0
-    signals_evaluated = 0
-    h1_idx = 0
-    m15_idx = 0
 
     for tf_label, bar in events:
         key = h1_key if tf_label == "H1" else m15_key

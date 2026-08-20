@@ -234,7 +234,7 @@ class TestBackwardCompatibility(unittest.TestCase):
         state = MarketState(bars=bars)
         # h4_bars is None by default
         self.assertIsNone(state.h4_bars)
-        result = strategy.evaluate(state)
+        _result = strategy.evaluate(state)
         # May or may not return a signal — the point is no crash
 
     def test_killzone_still_works_in_summer(self):

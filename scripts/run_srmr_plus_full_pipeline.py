@@ -126,7 +126,7 @@ def run_optuna_for_timeframe(
         def objective(trial: optuna.Trial) -> float:
             params = suggest_srmr_params(trial, pip_scale=pip_scale)
             try:
-                strategy = make_strategy(params)
+                _strategy = make_strategy(params)
                 wf_result = run_strategy_walk_forward(
                     bars=bars,
                     strategy_factory=lambda: make_strategy(params),

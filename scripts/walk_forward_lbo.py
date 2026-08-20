@@ -750,7 +750,7 @@ def generate_report(lbo_wf, blend_wf, lbo_mc, blend_mc, lbo_full, blend_full, wi
     # Overall verdict
     lbo_pass = lbo_wf["pass_rate"] >= 80.0
     blend_pass = blend_wf["pass_rate"] >= 80.0
-    mc_pass = (
+    _mc_pass = (
         lbo_mc["ftmo_pass_rate"] >= 50.0
     )  # 50% MC pass is reasonable for low trade count
 

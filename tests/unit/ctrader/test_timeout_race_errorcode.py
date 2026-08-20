@@ -105,7 +105,7 @@ class TestTimeoutRaceErrorCodePropagation:
         mock_envelope = MagicMock()
         mock_envelope.clientMsgId = "order_msg_123"
 
-        callbacks_before = list(callback_calls)
+        _callbacks_before = list(callback_calls)
         result = feed._handle_pending_order_error(mock_message, mock_envelope)
 
         assert result is True, "Should have matched the pending order"
@@ -146,7 +146,6 @@ class TestTimeoutRaceErrorCodePropagation:
         feed = _make_minimal_feed()
 
         callback_count = [0]
-        original_callback = feed._trigger_callback
 
         def counting_trigger(event_name, *args):
             if event_name == "on_order_rejected":

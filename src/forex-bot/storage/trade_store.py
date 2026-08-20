@@ -378,7 +378,7 @@ class TradeStore:
                 """,
                 (f"{date}T00:00:00",),
             ).fetchall()
-            open_at_start = [_row_to_dict(r) for r in open_start]
+            open_at_start = [_row_to_dict(r) for r in open_start]  # noqa: F841 — live storage analytics; dead result preserved per zero-live-path-change policy
 
             winning = sum(1 for t in closed if t.get("pnl", 0) > 0)
             losing = sum(1 for t in closed if t.get("pnl", 0) < 0)

@@ -141,7 +141,7 @@ def load_strategy_runs(db_path: Path) -> list[StrategyRuns]:
     try:
         # Count of per-window rows — if any, we have per-window data.
         n_windows = conn.execute("SELECT COUNT(*) FROM windows").fetchone()[0]
-        n_trades = conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
+        _n_trades = conn.execute("SELECT COUNT(*) FROM trades").fetchone()[0]
 
         # Always read the run-level summary so we can report run counts.
         runs_rows = conn.execute(

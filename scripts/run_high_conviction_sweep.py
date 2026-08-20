@@ -218,7 +218,7 @@ def main():
         description="High Conviction Strategy parameter sweep"
     )
     add_resource_args(parser)
-    args = parser.parse_args()
+    _args = parser.parse_args()
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     loader = CsvDataLoader()

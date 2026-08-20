@@ -129,7 +129,7 @@ class TestReconnectTier2Backoff(unittest.TestCase):
 
         # TIER_1 first to establish baseline
         t1_classified = classify_error("CONNECTION_LOST", "drop")
-        t1_decision = strategy.decide(t1_classified, attempt=1)
+        _t1_decision = strategy.decide(t1_classified, attempt=1)
 
         # Now TIER_2 — should sleep at least as long (multiplier=2)
         t2_classified = classify_error("TOO_MANY_REQUESTS", "rate")
