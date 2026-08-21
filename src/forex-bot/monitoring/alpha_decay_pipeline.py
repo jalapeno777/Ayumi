@@ -40,14 +40,14 @@ Usage
 Reference: SRB-AYU-001 (BQ-1154, BQ-1139)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Protocol, Sequence
 
-from .psi_drift_detector import PSIDriftDetector, PSIAlert
+from .psi_drift_detector import PSIAlert, PSIDriftDetector
 
 logger = logging.getLogger(__name__)
 

@@ -1,15 +1,14 @@
 """Tests for centralized auth error classification (WP-B)."""
 
-from unittest.mock import MagicMock, patch  # noqa: I001
+from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.auth_error_types import (
-    AuthFaultType,
-    AuthFaultPolicy,
     POLICIES,
+    AuthFaultPolicy,
+    AuthFaultType,
     classify_error,
     get_policy,
 )
-
 
 # ── Unit tests: classification buckets ─────────────────────────────────────
 

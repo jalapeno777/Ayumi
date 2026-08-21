@@ -11,8 +11,7 @@ from a previously-removed file).  We update its skip-line behavior here
 and verify the new class directly.
 """
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed

@@ -30,7 +30,7 @@ This test module covers the three ACs:
 3. LONG and SHORT signals still pass the guard (reach ``new_order``).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import os
@@ -39,7 +39,6 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── Path setup ─────────────────────────────────────────────────────────
 #

@@ -10,9 +10,9 @@ Usage:
     python scripts/run_supertrend_rsi_walkforward.py
 """
 
-import argparse  # noqa: I001
-import sys
+import argparse
 import json
+import sys
 from pathlib import Path
 
 EURUSD_PATH = "data/forex/historical/EURUSD_H1.csv"
@@ -23,10 +23,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, BacktestMetrics  # noqa: I001
+from backtest import CsvDataLoader
+from backtest.engine import BacktestConfig, BacktestMetrics
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import SupertrendRSIBlendStrategy
-from backtest import CsvDataLoader
 from common.resource_limits import add_resource_args, run_limited
 from quant.go_nogo_criteria import PerWindowCriteria
 

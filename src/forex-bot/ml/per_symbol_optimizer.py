@@ -21,14 +21,13 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-from backtest.engine import Bar, TradeOutcome, get_spread_for_pair  # noqa: I001
-from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
-from backtest.strategies import TTSStrategy
-from ml.confluence_features import ConfluenceFeatureExtractor
-from ml.confidence_learner import ConfidenceLearner
-
 # We monkey-patch TTSStrategy constants per config variant
 import backtest.strategies.tts_strategy as tts_module
+from backtest.engine import Bar, TradeOutcome, get_spread_for_pair
+from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
+from backtest.strategies import TTSStrategy
+from ml.confidence_learner import ConfidenceLearner
+from ml.confluence_features import ConfluenceFeatureExtractor
 
 logger = logging.getLogger(__name__)
 

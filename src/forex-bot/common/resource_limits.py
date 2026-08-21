@@ -22,9 +22,9 @@ CLI flags for scripts:
     python scripts/run_wf.py --max-cpu 20 --max-memory-mb 2048
 """
 
-import os  # noqa: I001
-import resource
 import logging
+import os
+import resource
 import threading
 from contextlib import contextmanager
 from functools import wraps

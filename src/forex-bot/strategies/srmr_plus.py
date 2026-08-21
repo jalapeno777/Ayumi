@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import warnings
@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from backtest.strategies.isignal_strategy import ISignalStrategy
 from config.sessions import SessionRangeHours
 from core.types import (
@@ -23,7 +22,7 @@ from utils.pip_value import DEFAULT_PIP, JPY_PIP, pip_value_for_symbol
 _DEFAULT_STRATEGIES_YAML = Path("src/forex-bot/config/strategies.yaml")
 
 try:
-    from overlays.dxy_regime_overlay import DxyRegimeOverlay, DxyBar  # noqa: I001
+    from overlays.dxy_regime_overlay import DxyBar, DxyRegimeOverlay
 except ImportError:
     DxyRegimeOverlay = None  # type: ignore[assignment,misc]
     DxyBar = None  # type: ignore[assignment,misc]

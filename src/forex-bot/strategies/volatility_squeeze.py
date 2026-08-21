@@ -1,7 +1,7 @@
-from __future__ import annotations  # noqa: I001
-from typing import List
+from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import List
 
 from core.types import (
     Bar,

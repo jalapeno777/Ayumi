@@ -7,7 +7,7 @@ Triggered multiple times in production by SRMR+ and Session-Range Mean
 Reversion on XAUUSD bars (forward_test-stderr.log: 2026-07-08..10).
 """
 
-from unittest.mock import MagicMock  # noqa: I001
+from unittest.mock import MagicMock
 
 from adapters.ctrader.models import CTraderTradeSignal
 from adapters.ctrader.signal_adapter import (
@@ -17,7 +17,6 @@ from adapters.ctrader.signal_adapter import (
     cTraderSignalAdapter,
 )
 from backtest.engine import StrategySignal, TradeDirection
-
 
 # ── Helpers ────────────────────────────────────────────────────────────
 

@@ -25,13 +25,12 @@ These tests lock the contract:
 5. AST check: no caller constructs an id like X + "_" + str(timestamp)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import ast
 import re
 import sys
 from pathlib import Path
-
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
 LAUNCHER = WORKSPACE / "scripts" / "launch_blend_forward_test.py"
@@ -57,9 +56,10 @@ def test_blend_runner_has_make_signal_id_method():
 def test_blend_runner_make_signal_id_uses_strategy_id_and_timestamp():
     """make_signal_id must produce 'strategy_id' + '_' + str(timestamp)."""
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
-    from forward_test.blend_runner import BlendForwardTestRunner  # noqa: I001
-    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from datetime import datetime, timezone
+
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
+    from forward_test.blend_runner import BlendForwardTestRunner
 
     # Minimal construction — use __new__ to skip init.
     runner = BlendForwardTestRunner.__new__(BlendForwardTestRunner)

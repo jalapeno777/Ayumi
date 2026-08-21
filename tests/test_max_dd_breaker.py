@@ -7,17 +7,15 @@ Verifies council decision R2 (Kaito):
   - No auto-recovery after time passes
 """
 
-import json  # noqa: I001
+import json
 from pathlib import Path
 
 import pytest
-
 from adapters.ctrader.risk_guard import (
     FTMOConfig,
     RiskGuard,
     RiskLimitType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -62,7 +60,7 @@ class TestMaxDrawdownPermanentBlock:
     def test_max_dd_breach_is_blocked_in_check_signal(self, guard):
         """After max drawdown breach, check_signal must reject."""
         guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
@@ -116,7 +114,7 @@ class TestNoAutoRecovery:
     def test_no_auto_recovery_persists_in_check_signal(self, guard):
         """Even after simulating time passage, check_signal still blocks."""
         guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
         signal = CTraderTradeSignal(
             symbol="USDJPY",
@@ -157,7 +155,7 @@ class TestResetCircuitBreaker:
     def test_reset_allows_trading_again(self, guard):
         """After reset, check_signal must allow trades again."""
         guard._trigger_circuit_breaker(RiskLimitType.TOTAL_DRAWDOWN, 0.11, 0.10)
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
@@ -220,7 +218,7 @@ class TestResetRefusesDailyLoss:
         guard._trigger_circuit_breaker(RiskLimitType.DAILY_LOSS, 0.06, 0.05)
         guard.reset_circuit_breaker(reason="should fail")
 
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
         signal = CTraderTradeSignal(
             symbol="GBPUSD",

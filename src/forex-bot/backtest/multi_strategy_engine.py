@@ -13,7 +13,7 @@ The multi-strategy-specific concerns retained here are:
 * ``run_combined_strategies()``   — combined run with individual results
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -28,14 +28,12 @@ from core.types import (
     TradeDirection,
     TradeOutcome,
 )
-
 from engine.base import EngineCore, determine_session
 from engine.mixins import ProgressiveSLMixin
+from quant.position_sizing import kelly_criterion
+from signal_engine.risk_sizer import ConfidencePositionSizer
 
 from .strategies import ISignalStrategy
-from signal_engine.risk_sizer import ConfidencePositionSizer
-from quant.position_sizing import kelly_criterion
-
 
 # ────────────────────────────────────────────────────────────────────
 # Configuration dataclasses

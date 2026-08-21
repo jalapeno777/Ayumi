@@ -20,10 +20,10 @@ References
 - Original BQ items: BQ-1154, BQ-1139
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import math
 import logging
+import math
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

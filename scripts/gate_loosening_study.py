@@ -5,39 +5,41 @@ Precomputes regime + ADX for all bars ONCE (cached to disk).
 Then tests gate variants as fast filter lookups.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
+
+import hashlib
+import logging
+import pickle
 import sys
 import time
-import logging
-import hashlib
-from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
 import numpy as np
-import pickle
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb  # noqa: I001
-from core.types import Bar, MarketState, SessionType, BarPeriod
-from strategies.killzone_momentum import (
-    KillzoneMomentumStrategy,
-    KillzoneMomentumConfig,
-)
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
+import duckdb
+from core.types import Bar, BarPeriod, MarketState, SessionType
+from indicators import adx as calc_adx
+from regime.detector import Regime, RegimeConfig, RegimeDetector
 from strategies.donchian_atr_trend_v2 import (
-    DonchianATRTrendV2Strategy,
     DonchianATRConfig,
+    DonchianATRTrendV2Strategy,
 )
 from strategies.dual_tf_squeeze_pro import (
-    DualTFSqueezeProStrategy,
     DualTFSqueezeProConfig,
+    DualTFSqueezeProStrategy,
 )
-from regime.detector import RegimeDetector, RegimeConfig, Regime
-from indicators import adx as calc_adx
+from strategies.killzone_momentum import (
+    KillzoneMomentumConfig,
+    KillzoneMomentumStrategy,
+)
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 logging.basicConfig(level=logging.WARNING)
 DB_PATH = project_root / "data" / "ayumi_market.duckdb"

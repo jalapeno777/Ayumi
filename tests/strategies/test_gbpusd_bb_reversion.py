@@ -1,25 +1,25 @@
-import unittest  # noqa: I001
 import dataclasses
+import unittest
 
 import pytest
 
 pytest.skip("strategies.gbpusd_bb_reversion module removed", allow_module_level=True)
 
-from datetime import datetime  # noqa: I001
+from datetime import datetime
 
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.gbpusd_bb_reversion import (
+    GBPUSD_H1_PRESET,
     BBMeanReversionStrategy,
     BBReversionConfig,
-    GBPUSD_H1_PRESET,
+    _build_signal,
+    _calculate_atr,
+    _calculate_bollinger_bands,
+    _calculate_rsi,
     _calculate_sma,
     _calculate_std,
-    _calculate_atr,
-    _calculate_rsi,
-    _calculate_bollinger_bands,
     _is_low_volatility,
     _passes_session_filter,
-    _build_signal,
 )
 
 

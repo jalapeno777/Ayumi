@@ -13,19 +13,17 @@ Covers acceptance criterion: "New DST boundary test added (spring forward,
 fall back)"
 """
 
-from datetime import datetime, timezone  # noqa: I001
-
-import pytest
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+import pytest
 from risk.ftmo_guard import (
+    _TRADING_TZ,
     FTMOAction,
     FTMOGuard,
-    _TRADING_TZ,
     _toronto_midnight_utc,
     _trading_date,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

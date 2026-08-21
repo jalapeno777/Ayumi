@@ -13,26 +13,24 @@ Covers:
 - CLI invocation
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.dsr import (  # noqa: I001
+from backtest.dsr import (
     compute_kurtosis,
     compute_sharpe,
     compute_skewness,
     deflated_sharpe_ratio,
     expected_max_sharpe,
 )
-
 
 # ---------------------------------------------------------------------------
 # compute_sharpe

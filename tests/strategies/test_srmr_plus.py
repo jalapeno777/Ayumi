@@ -1,11 +1,10 @@
-import unittest  # noqa: I001
-
+import unittest
 from datetime import datetime
 
 from backtest.engine import Bar, MarketState, TradeDirection
 from strategies.srmr_plus import (
-    SRMRPlusStrategy,
     SRMRPlusConfig,
+    SRMRPlusStrategy,
     _calculate_adx,
     _calculate_atr,
     _calculate_rsi,

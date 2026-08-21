@@ -1,9 +1,9 @@
-from core.types import TradeDirection  # noqa: I001
+from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
+from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
+from adapters.ctrader.risk_guard import FTMOConfig
+from core.types import TradeDirection
 from engine.protocol import CanonicalSignal
 from engine.signal_router import SignalRouter
-from adapters.ctrader.risk_guard import FTMOConfig
-from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
-from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
 
 
 def _make_signal(strategy_id="srmr_gbpusd_h1", symbol="GBPUSD", confidence=0.85, **kwargs):

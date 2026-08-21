@@ -1,6 +1,6 @@
 """Wire the signal engine into the existing backtest engine."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
@@ -8,15 +8,15 @@ from typing import Optional
 import pandas as pd
 
 from .data_types import (
-    Signal,
-    Swing,
     Level,
     LevelType,
+    Signal,
+    Swing,
 )
-from .swing_detector import SwingDetector
-from .level_counter import LevelCounter
 from .htf_analyzer import HTFAnalyzer
+from .level_counter import LevelCounter
 from .session_logic import SessionAnalyzer
+from .swing_detector import SwingDetector
 
 
 class SignalEngineBridge:

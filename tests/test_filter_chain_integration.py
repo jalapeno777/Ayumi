@@ -4,17 +4,16 @@ Tests the full chain lifecycle: config-driven construction, short-circuit
 evaluation, ORB IFilter compatibility, and strategies.yaml parsing.
 """
 
-import pytest  # noqa: I001
-import yaml
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
-from signal_engine.filters.filter_chain import FilterChain, build_chain_from_config
-from signal_engine.filters.trend_filter import TrendFilter
+import pytest
+import yaml
 from signal_engine.filters.atr_filter import ATRFilter
+from signal_engine.filters.filter_chain import FilterChain, build_chain_from_config
 from signal_engine.filters.fvg_filter import FVGFilter
-from signal_engine.orb_filter import ORBFilter, OpeningRange
-
+from signal_engine.filters.trend_filter import TrendFilter
+from signal_engine.orb_filter import OpeningRange, ORBFilter
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

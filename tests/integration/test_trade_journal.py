@@ -1,4 +1,5 @@
-import os  # noqa: I001
+import os
+
 from adapters.ctrader.models import Order, Position, PositionStatus, TradeDirection
 from adapters.ctrader.trade_journal import TradeJournal
 

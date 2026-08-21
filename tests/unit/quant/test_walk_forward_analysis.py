@@ -21,15 +21,14 @@ SCRIPT_DIR = Path(__file__).resolve().parents[3] / "scripts" / "quant"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from walk_forward_analysis import (  # noqa: E402, I001
-    CandidateResult,
     FTMO_CANDIDATES,
     KILL_THRESHOLD,
+    CandidateResult,
     StrategyRun,
     _normalize_name,
     aggregate_candidate,
     generate_report,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Haircut computation tests

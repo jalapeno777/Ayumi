@@ -6,12 +6,11 @@ cooldown behavior, retest window expiry (16 bars), risk calculation
 (stop/TP at R multiples), confidence bounds, and helper functions.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-
 from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.london_breakout_retest import (
     LondonBreakoutConfig,
@@ -20,7 +19,6 @@ from strategies.london_breakout_retest import (
     _pip_size,
 )
 from utils.pip_value import DEFAULT_PIP
-
 
 # ---------------------------------------------------------------------------
 # Helpers

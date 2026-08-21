@@ -16,19 +16,17 @@ and rebuilds ONLY from the broker-supplied list using
 ``seeded_{position_id}`` keys.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional
 
 import pytest
-
 from risk.sl_position_sizer import (
     SLPositionSizer,
     _compute_position_risk_usd,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 

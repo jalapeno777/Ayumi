@@ -5,14 +5,15 @@ This gives old strategies the TTC quality filters without modifying their intern
   old strategy logic (entry triggers) + TTC gates + confluence scoring.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from signal_engine import ConfluenceScorer, GateValidator
+from signal_engine.data_types import HTFPhase, HTFState, SessionState
+
 from ..engine import Bar, MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
-from signal_engine import GateValidator, ConfluenceScorer
-from signal_engine.data_types import HTFState, HTFPhase, SessionState
 
 
 @dataclass(frozen=True)

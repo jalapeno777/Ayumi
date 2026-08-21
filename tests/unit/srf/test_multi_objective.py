@@ -1,7 +1,6 @@
 """Tests for SRF Multi-Objective Optuna."""
 
-import optuna  # noqa: I001
-
+import optuna
 from srf.multi_objective import (
     pareto_front_trials,
     summarize_pareto_front,

@@ -21,8 +21,7 @@ _SRC_ROOT = _REPO_ROOT / "src" / "forex-bot"
 if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
-from srf.runner import StrategyRunner  # noqa: I001
-
+from srf.runner import StrategyRunner
 
 # ── Fixtures ────────────────────────────────────────────────────────────
 

@@ -41,7 +41,7 @@ Tier definitions follow the research doc §8:
   ``dsr_alpha=0.10``.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
@@ -49,7 +49,6 @@ from typing import Sequence
 
 import numpy as np
 from scipy import stats
-
 
 # ---------------------------------------------------------------------------
 # Constants

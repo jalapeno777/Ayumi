@@ -52,15 +52,14 @@ SRC_FOREX_BOT = PROJECT_ROOT / "src" / "forex-bot"
 if str(SRC_FOREX_BOT) not in sys.path:
     sys.path.insert(0, str(SRC_FOREX_BOT))
 
+from quant.dsr_integration import (  # noqa: E402
+    DEFAULT_N_INDEPENDENT_TRIALS,
+)
 from quant.oos_gate import (  # noqa: E402, I001
     deflated_sharpe_ratio,
     expected_max_sharpe,
     min_track_record_length,
 )
-from quant.dsr_integration import (  # noqa: E402
-    DEFAULT_N_INDEPENDENT_TRIALS,
-)
-
 
 # ---------------------------------------------------------------------------
 # Data models

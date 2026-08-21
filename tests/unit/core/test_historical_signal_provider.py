@@ -1,10 +1,9 @@
 """Tests for HistoricalSignalProvider."""
 
-import pytest  # noqa: I001
-
-from strategies.registry import StrategyConfig, StrategyRegistry
-from ml.signal_provider import HistoricalSignalProvider
+import pytest
 from ml.blend_optimizer import BlendConfig
+from ml.signal_provider import HistoricalSignalProvider
+from strategies.registry import StrategyConfig, StrategyRegistry
 
 
 @pytest.fixture

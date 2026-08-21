@@ -21,13 +21,12 @@ pre-existing) RSI filter. We isolate the bug fix by monkey-patching
 without the RSI filter masking the fix.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-
 from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
 from strategies.volatility_squeeze import (
     VolatilitySqueezeConfig,
@@ -35,7 +34,6 @@ from strategies.volatility_squeeze import (
     _calculate_bollinger_bands,
     _calculate_keltner_channels,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

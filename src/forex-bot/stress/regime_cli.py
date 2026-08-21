@@ -23,7 +23,7 @@ Usage examples
     python -m stress.regime_cli single -i data.csv -o output/ --n-regimes 4 --n-paths 5000
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
 import json
@@ -34,7 +34,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-
 from stress.regime_generator import (
     DEFAULT_N_REGIMES,
     DEFAULT_RANDOM_STATE,

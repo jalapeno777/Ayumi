@@ -1,10 +1,11 @@
 """§3 — N-bar swing detection. Foundation for all pattern and level analysis."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from typing import Optional
 
 from .data_types import Swing, SwingType
 from .thresholds import EQUAL_SWING_THRESHOLD

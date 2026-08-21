@@ -5,13 +5,12 @@ Covers:
     - .github/linters/check_sdk_callback_names.py  (AST linter)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import importlib.util
 import pathlib
 import textwrap
 from unittest.mock import patch
-
 
 # ---------------------------------------------------------------------------
 # Load check_sdk_callback_names from its actual location (.github/linters/)
@@ -124,7 +123,7 @@ class TestRunProbe:
 
     @patch("probe_ctrader_credentials.check_auth")
     def test_calls_check_auth_when_creds_present(self, mock_check, monkeypatch):
-        from probe_ctrader_credentials import run_probe, ProbeResult  # noqa: I001
+        from probe_ctrader_credentials import ProbeResult, run_probe
 
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_ID", "id")
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_SECRET", "secret")
@@ -145,7 +144,7 @@ class TestRunProbe:
 
     @patch("probe_ctrader_credentials.check_auth")
     def test_propagates_auth_failure(self, mock_check, monkeypatch):
-        from probe_ctrader_credentials import run_probe, ProbeResult  # noqa: I001
+        from probe_ctrader_credentials import ProbeResult, run_probe
 
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_ID", "id")
         monkeypatch.setenv("CTRADER_OPENAPI_CLIENT_SECRET", "secret")

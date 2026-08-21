@@ -9,7 +9,7 @@ Covers credential isolation, concurrent operation, 60s liveness,
 and the second-app configuration path.
 """
 
-import os  # noqa: I001
+import os
 import sys
 import time
 import types
@@ -18,7 +18,6 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock
 
 import pytest
-
 
 # ── Stub ctrader_open_api via autouse fixture ─────────────────────────────────
 # The cTrader SDK is not installed in the test environment.

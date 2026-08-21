@@ -15,10 +15,11 @@ Covers:
 These are integration-light unit tests: no backtest engine is involved.
 """
 
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime, timedelta, timezone
 from typing import List
 
+from backtest.strategies.isignal_strategy import ISignalStrategy
 from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
 from strategies.dual_tf_squeeze_pro import (
     DualTFSqueezeProConfig,
@@ -30,8 +31,6 @@ from strategies.dual_tf_squeeze_pro import (
     _sma,
     _stddev,
 )
-from backtest.strategies.isignal_strategy import ISignalStrategy
-
 
 # ---------------------------------------------------------------------------
 # Helpers — synthetic bar construction

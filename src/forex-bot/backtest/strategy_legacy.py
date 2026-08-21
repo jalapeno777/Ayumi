@@ -1,8 +1,8 @@
-from dataclasses import dataclass  # noqa: I001
+from dataclasses import dataclass
 from datetime import datetime
 
 from .engine import Bar, MarketState, SessionType, StrategySignal, TradeDirection
-from .strategies.isignal_strategy import ISignalStrategy, Tick, StrategyConfig
+from .strategies.isignal_strategy import ISignalStrategy, StrategyConfig, Tick
 
 # Re-export for backward compatibility — all existing imports of
 # ISignalStrategy from strategy_legacy continue to work.

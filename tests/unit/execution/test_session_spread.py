@@ -5,10 +5,9 @@ Rewritten for post-refactor API (card 99a4d28d).
 - config.sessions → core.types.SessionType + engine.base.determine_session
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
-
 
 from core.spread import RealisticSpreadModel, SpreadModel
 from engine.base import determine_session

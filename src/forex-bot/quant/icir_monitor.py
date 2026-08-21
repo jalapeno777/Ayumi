@@ -37,7 +37,7 @@ Per the research doc (§7.6) this is the *single highest-value* live ICIR
 use — independently of PnL, it is the earliest signal of skill decay.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 from collections import defaultdict
@@ -49,9 +49,10 @@ from .icir import (
     DECAY_ALERT_THRESHOLD,
     MIN_PERIODS_FOR_ICIR,
     information_coefficient,
+)
+from .icir import (
     icir as compute_icir,
 )
-
 
 # ---------------------------------------------------------------------------
 # Configuration

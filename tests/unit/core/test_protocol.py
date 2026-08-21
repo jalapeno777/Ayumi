@@ -1,5 +1,6 @@
-import pytest  # noqa: I001
 from datetime import datetime, timezone
+
+import pytest
 from core.types import TradeDirection
 from engine.protocol import CanonicalSignal
 

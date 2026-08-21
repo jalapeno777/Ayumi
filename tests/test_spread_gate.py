@@ -9,23 +9,21 @@ Validates:
 6. _strategy_result_to_dict includes spread from bar
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 # Ensure src is on the path
 SRC = Path(__file__).resolve().parent.parent / "src" / "forex-bot"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from confidence.gates import GateConfig, SpreadGate  # noqa: I001
+from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 from adapters.ctrader.risk_guard import RiskGuard, RiskLimitType
-from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
-
+from confidence.gates import GateConfig, SpreadGate
 
 # ---------------------------------------------------------------------------
 # SpreadGate unit tests

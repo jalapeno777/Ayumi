@@ -5,10 +5,9 @@ and H4 cross-timeframe filter.
 These tests complement the existing suite at tests/strategies/test_killzone_momentum_strategy.py.
 """
 
-import unittest  # noqa: I001
+import unittest
 from datetime import date, datetime, time, timedelta
 
-from core.types import Bar, MarketState, BarPeriod
 from config.sessions import (
     DSTAwareKillzoneHours,
     KillzoneHours,
@@ -16,11 +15,12 @@ from config.sessions import (
     is_london_dst,
     is_ny_dst,
 )
+from core.types import Bar, BarPeriod, MarketState
 from strategies.killzone_momentum import (
-    KillzoneMomentumStrategy,
     KillzoneMomentumConfig,
-    _is_killzone_dst,
+    KillzoneMomentumStrategy,
     _get_killzone_name_dst,
+    _is_killzone_dst,
     _resolve_kz_hours,
 )
 

@@ -47,7 +47,7 @@ Constraints
 * Does **not** modify ``oos_gate.py`` or ``go_nogo_criteria.py``.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 from collections import defaultdict
@@ -64,7 +64,6 @@ from .oos_gate import (
     expected_max_sharpe,
     min_track_record_length,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -1,6 +1,7 @@
-import pytest  # noqa: I001
+import pytest
 from adapters.ctrader.models import (
     AccountInfo,
+    CTraderTradeSignal,
     MarketDataSnapshot,
     Order,
     OrderStatus,
@@ -8,7 +9,6 @@ from adapters.ctrader.models import (
     Position,
     PositionStatus,
     TradeDirection,
-    CTraderTradeSignal,
     cTraderCredentials,
 )
 

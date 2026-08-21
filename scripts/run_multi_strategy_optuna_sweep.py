@@ -9,30 +9,31 @@ Usage:
     python scripts/run_multi_strategy_optuna_sweep.py --strategy SESSION_RANGE_MR --pair GBPUSD --timeframe H1 --trials 100
 """  # noqa: E501
 
-import argparse  # noqa: I001
-from common.resource_limits import add_resource_args
+import argparse
 import json
-import sys
 import logging
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from common.resource_limits import add_resource_args
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
+from backtest import CsvDataLoader
+from backtest.engine import Bar
 from backtest.parameter_sweep.optuna_optimizer import (  # noqa: I001
+    OptimizationResult,
     OptunaOptimizer,
     SearchSpace,
-    int_range,
-    float_range,
     categorical,
-    OptimizationResult,
+    float_range,
+    int_range,
 )
-from backtest.engine import Bar
 from backtest.walk_forward_runner import run_strategy_walk_forward
-from backtest import CsvDataLoader
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -169,8 +170,8 @@ def _make_srm_factory():
 
 def _make_volatility_squeeze_factory():
     from strategies.volatility_squeeze import (  # noqa: I001
-        VolatilitySqueezeStrategy,
         VolatilitySqueezeConfig,
+        VolatilitySqueezeStrategy,
     )
 
     def factory(params: dict[str, Any]):
@@ -199,7 +200,7 @@ def _make_keltner_factory():
 
 
 def _make_bb_rsi_factory():
-    from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig  # noqa: I001
+    from strategies.bb_rsi_reversion import BBRSIConfig, BBRSIMeanReversion
 
     def factory(params: dict[str, Any]):
         config = BBRSIConfig(**params)

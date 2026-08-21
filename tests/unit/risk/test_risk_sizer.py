@@ -1,15 +1,13 @@
 """Tests for risk_sizer: ConfidencePositionSizer, tier mapping, lot sizing."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from signal_engine.risk_sizer import (
     ConfidencePositionSizer,
     ConfidenceTier,
     parse_tiers,
 )
-
 
 # ── Default Tier Mapping ────────────────────────────────────────────
 

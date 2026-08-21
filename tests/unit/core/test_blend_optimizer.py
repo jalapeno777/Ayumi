@@ -1,18 +1,17 @@
 """Tests for StrategyBlendOptimizer."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 
 import pytest
-
-from strategies.registry import StrategyRegistry, StrategyConfig
 from ml.blend_optimizer import (
-    StrategyBlendOptimizer,
-    BlendOptConfig,
     BlendConfig,
+    BlendOptConfig,
     BlendResult,
+    StrategyBlendOptimizer,
 )
+from strategies.registry import StrategyConfig, StrategyRegistry
 
 
 def _make_registry(strategies: list[StrategyConfig] | None = None) -> StrategyRegistry:

@@ -8,16 +8,16 @@ Uses existing BlendForwardTestRunner for confidence/risk/sizing and
 existing cTraderLiveAdapter for strategy evaluation.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import os
-import sys
 import argparse
 import json
-import signal as sig_module
-import time
 import logging
+import os
+import signal as sig_module
+import sys
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -52,44 +52,43 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
+import numpy as np
 from adapters.ctrader.forward_test_engine import (  # noqa: I001
     ForwardTestConfig,
     ForwardTestEngine,
     _is_forex_market_closed,
 )
-from adapters.ctrader.models import cTraderCredentials, CTraderTradeSignal
+from adapters.ctrader.models import CTraderTradeSignal, cTraderCredentials
 from adapters.ctrader.risk_guard import FTMOConfig
-from forward_test.blend_runner import BlendForwardTestRunner
-from risk.ftmo_guard import FTMOGuard
-from risk.ftmo_params import FTMO_REFERENCE_ACCOUNT_SIZE
-from strategies.srmr_plus import (
-    SRMRPlusStrategy,
-    SRMRPlusConfig,
-    load_srmr_config_from_yaml,
-)
-from strategies.killzone_momentum import (
-    KillzoneMomentumStrategy,
-    KillzoneMomentumConfig,
-)
-from strategies.dual_tf_squeeze_pro import (
-    DualTFSqueezeProStrategy,
-    DualTFSqueezeProConfig,
-)
-from strategies.donchian_atr_trend_v2 import (
-    DonchianATRTrendV2Strategy,
-    DonchianATRConfig,
-)
-from strategies.london_breakout_retest import (
-    LondonBreakoutRetestStrategy,
-    LondonBreakoutConfig,
-)
-from strategies.ttc_xauusd import TTCXAUUSDStrategy
-from reporting.equity_tracker import EquityTracker
-from regime.detector import RegimeDetector, Regime, RegimeConfig
-
-import numpy as np
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
+from forward_test.blend_runner import BlendForwardTestRunner
+from regime.detector import Regime, RegimeConfig, RegimeDetector
+from reporting.equity_tracker import EquityTracker
+from risk.ftmo_guard import FTMOGuard
+from risk.ftmo_params import FTMO_REFERENCE_ACCOUNT_SIZE
+from strategies.donchian_atr_trend_v2 import (
+    DonchianATRConfig,
+    DonchianATRTrendV2Strategy,
+)
+from strategies.dual_tf_squeeze_pro import (
+    DualTFSqueezeProConfig,
+    DualTFSqueezeProStrategy,
+)
+from strategies.killzone_momentum import (
+    KillzoneMomentumConfig,
+    KillzoneMomentumStrategy,
+)
+from strategies.london_breakout_retest import (
+    LondonBreakoutConfig,
+    LondonBreakoutRetestStrategy,
+)
+from strategies.srmr_plus import (
+    SRMRPlusConfig,
+    SRMRPlusStrategy,
+    load_srmr_config_from_yaml,
+)
+from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
 logger = logging.getLogger("ayumi.blend_launcher")
 

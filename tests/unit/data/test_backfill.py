@@ -4,16 +4,14 @@ import pytest
 
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
-import tempfile  # noqa: I001
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
 import pytest
-
-from adapters.ctrader.models import cTraderCredentials
-from adapters.ctrader.models import SymbolInfo
-from data.backfill import HistoricalDataBackfill, VALID_TIMEFRAMES
+from adapters.ctrader.models import SymbolInfo, cTraderCredentials
+from data.backfill import VALID_TIMEFRAMES, HistoricalDataBackfill
 
 
 def _make_creds():

@@ -1,12 +1,8 @@
 """Integration tests for Kelly Criterion wiring in MultiStrategyBacktestEngine."""
 
-from unittest.mock import MagicMock  # noqa: I001
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
-from backtest.multi_strategy_engine import (
-    KellyConfig,
-    MultiStrategyBacktestEngine,
-)
 from backtest.engine import (
     BacktestConfig,
     Bar,
@@ -15,6 +11,10 @@ from backtest.engine import (
     StrategySignal,
     TradeDirection,
     TradeOutcome,
+)
+from backtest.multi_strategy_engine import (
+    KellyConfig,
+    MultiStrategyBacktestEngine,
 )
 from backtest.strategies import ISignalStrategy
 

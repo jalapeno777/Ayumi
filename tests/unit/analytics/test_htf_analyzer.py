@@ -1,11 +1,10 @@
 """Tests for HTFAnalyzer: phase detection, MTF alignment, dual-mechanism reconciliation."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import numpy as np
-
-from signal_engine.htf_analyzer import HTFAnalyzer
 from signal_engine.data_types import HTFPhase, HTFState
+from signal_engine.htf_analyzer import HTFAnalyzer
 
 
 def _bullish_data(n=60):

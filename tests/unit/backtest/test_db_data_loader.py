@@ -16,7 +16,7 @@ instead of failing — the goal is to ship the loader with parity coverage,
 not to gate the suite on a specific environment.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import tempfile
 import unittest
@@ -24,11 +24,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from _project_root import PROJECT_ROOT
-
 from backtest.data_loader import CsvDataLoader
 from backtest.db_data_loader import DEFAULT_CSV_DIR, DEFAULT_DB_PATH, DbDataLoader
 from backtest.engine import Bar
-
 
 DB_PATH = PROJECT_ROOT / "data" / "ayumi_market.duckdb"
 

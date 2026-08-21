@@ -1,10 +1,11 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
 from utils.pip_value import DEFAULT_PIP, pip_value_for_symbol
+
 from .engine import Bar, MarketState, StrategySignal, TradeDirection
 from .strategies import ISignalStrategy
 

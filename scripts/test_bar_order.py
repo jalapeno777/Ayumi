@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Quick test: check bar ordering from cTrader API."""
 
-import sys  # noqa: I001
 import os
-from pathlib import Path
-from dotenv import load_dotenv
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))

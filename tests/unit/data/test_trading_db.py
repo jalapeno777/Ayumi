@@ -20,7 +20,8 @@ from unittest import mock
 
 def _import_trading_db():
     """Import trading_db fresh to pick up env var changes."""
-    import importlib  # noqa: I001
+    import importlib
+
     import data.trading_db as mod
 
     importlib.reload(mod)

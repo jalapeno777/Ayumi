@@ -5,10 +5,9 @@ gets current_session resolved from determine_session() instead of defaulting
 to SessionType.OUTSIDE.
 """
 
-import sys  # noqa: I001
+import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
-
 
 # Ensure src is on path
 sys.path.insert(0, "src/forex-bot")

@@ -76,8 +76,8 @@ def build_client(creds: dict):
         raise RuntimeError("cTrader connection timeout")
 
     from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
-        ProtoOAApplicationAuthReq,
         ProtoOAAccountAuthReq,
+        ProtoOAApplicationAuthReq,
     )
 
     app_req = ProtoOAApplicationAuthReq(

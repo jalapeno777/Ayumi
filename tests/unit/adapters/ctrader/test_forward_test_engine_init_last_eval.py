@@ -37,14 +37,13 @@ These tests lock the contract:
    monotonic timestamp and the value becomes accurate.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 
 # Ensure src/forex-bot is on path for imports
 sys.path.insert(0, str(Path.cwd() / "src" / "forex-bot"))
@@ -53,7 +52,6 @@ from adapters.ctrader.forward_test_engine import (  # noqa: E402, I001
     ForwardTestConfig,
     ForwardTestEngine,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

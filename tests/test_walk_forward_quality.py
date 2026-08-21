@@ -6,20 +6,18 @@ Covers:
 - Trade count warning flag when < 15 trades
 """
 
-import math  # noqa: I001
+import math
 import sys
-
 
 sys.path.insert(0, "src/forex-bot")
 
 from backtest.walk_forward_runner import (  # noqa: I001
-    PF_CAP,
     MIN_TRADES_WARNING,
-    _sanitize_profit_factor,
+    PF_CAP,
     _check_trade_count_warning,
+    _sanitize_profit_factor,
 )
 from quant.walk_forward import _compute_metrics
-
 
 # ---------------------------------------------------------------------------
 # Test 1: PF with zero loss returns a capped value, not Infinity

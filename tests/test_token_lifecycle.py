@@ -11,20 +11,18 @@ Covers:
 Card 64a235ea — cTrader token refresh auto-recovery.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import threading
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from adapters.ctrader.credential_store import Credentials
 from adapters.ctrader.token_lifecycle import (
     TokenLifecycle,
     TokenRefreshError,
 )
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

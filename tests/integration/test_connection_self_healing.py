@@ -177,12 +177,11 @@ _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 
-import time  # noqa: I001
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.connection_state import ConnectionState
 
 # Sprint 1A.1: The orchestrator at adapters.ctrader.open_api_spot_feed uses
@@ -191,11 +190,11 @@ from adapters.ctrader.connection_state import ConnectionState
 # test MUST call transition_to() with the ModernCS enum (identity-based
 # dict lookup). Assert by .value to stay enum-identity-agnostic.
 from adapters.ctrader.open_api_spot_feed import (
-    OpenApiSpotFeed,
     _HEARTBEAT_DEGRADED_SEC,
     _HEARTBEAT_RECONNECT_SEC,
-    _STALE_TICK_WARN_SEC,
     _STALE_TICK_FREEZE_SEC,
+    _STALE_TICK_WARN_SEC,
+    OpenApiSpotFeed,
 )
 
 

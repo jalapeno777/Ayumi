@@ -5,13 +5,11 @@ import tempfile
 from pathlib import Path
 
 import pytest  # noqa: F401
-
 from adapters.ctrader.symbol_discovery import (
-    SymbolInfo,
     SymbolDiscovery,
+    SymbolInfo,
     classify_symbol,
 )
-
 
 # --- classify_symbol tests ---
 

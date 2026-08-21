@@ -41,9 +41,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 from backtest.data_loader import CsvDataLoader  # noqa: E402, I001
 from backtest.simple_engine import BacktestConfig, BacktestEngine  # noqa: E402
 from backtest.types import Bar  # noqa: E402
-from strategies.session_breakout_retest import SessionBreakoutStrategy  # noqa: E402
 from strategies.orb import ORBStrategy  # noqa: E402
-
+from strategies.session_breakout_retest import SessionBreakoutStrategy  # noqa: E402
 
 # ── Result containers ──────────────────────────────────────────────────────
 

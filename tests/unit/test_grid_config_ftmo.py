@@ -17,10 +17,9 @@ These tests exist alongside ``tests/unit/backtest/test_grid_config_ftmo.py``
 forward specifically.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest  # noqa: F401
-
 from backtest.grid_strategy import GRID_PRESETS, GridConfig
 
 

@@ -9,34 +9,33 @@ Enhanced with:
 - New confluence detections: Asia gap type, ILOD/IHOD boundary, VWAP rejection
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
+from ml.per_symbol_configs import DEFAULT_SYMBOL_CONFIG, PER_SYMBOL_CONFIGS
+from signal_engine import (
+    ConfluenceScorer,
+    GateValidator,
+    PatternDetector,
+    SessionAnalyzer,
+    StopTargetCalculator,
+    TPManager,
+)
+from signal_engine.data_types import HTFState, Level, SessionState, Swing
+from signal_engine.htf_analyzer import HTFAnalyzer
+from signal_engine.level_counter import LevelCounter
+from signal_engine.pattern_detector import (
+    AsiaRangeResult,
+    AsiaSessionAnalyzer,
+)
+from signal_engine.swing_detector import SwingDetector
 
 from ..engine import Bar, MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
-from signal_engine import (
-    PatternDetector,
-    GateValidator,
-    ConfluenceScorer,
-    StopTargetCalculator,
-    SessionAnalyzer,
-    TPManager,
-)
-from signal_engine.pattern_detector import (
-    AsiaSessionAnalyzer,
-    AsiaRangeResult,
-)
-from signal_engine.data_types import HTFState, SessionState, Swing, Level
-from signal_engine.swing_detector import SwingDetector
-from signal_engine.level_counter import LevelCounter
-from signal_engine.htf_analyzer import HTFAnalyzer
-from ml.per_symbol_configs import PER_SYMBOL_CONFIGS, DEFAULT_SYMBOL_CONFIG
-
-import numpy as np
 
 logger = logging.getLogger(__name__)
 

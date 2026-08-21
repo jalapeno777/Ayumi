@@ -25,7 +25,7 @@ class TestSRMRPlusLogging:
 
     def test_build_signal_zero_atr_logs(self, caplog):
         """_build_signal with zero ATR should log."""
-        from strategies.srmr_plus import _build_signal, SRMRPlusConfig  # noqa: I001
+        from strategies.srmr_plus import SRMRPlusConfig, _build_signal
 
         with caplog.at_level(logging.DEBUG, logger="strategies.srmr_plus"):
             result = _build_signal(

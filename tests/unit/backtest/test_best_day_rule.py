@@ -45,7 +45,6 @@ from best_day_rule import (  # noqa: E402, I001
     BestDayRuleTracker,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

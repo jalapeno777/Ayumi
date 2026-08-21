@@ -47,14 +47,13 @@ These thresholds are intentionally conservative — COT is a weekly
 structural indicator, not a tactical timing signal.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from confidence.gates import GateCheck
-
 from data.cot_fetcher import (
     COTDivergenceSignal,
     COTFetcher,

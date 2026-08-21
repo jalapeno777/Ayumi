@@ -23,22 +23,21 @@ Pipeline breaks documented:
     - Position sizer blocks if SL distance < 5 pips or daily risk exceeded
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 
-from orchestrator.signal_orchestrator import (
-    SignalOrchestrator,
-    OrchestratorTradeSignal,
-    OrchestratedOrder,
-)
-from orchestrator.strategy_adapter import StrategyAdapter
+import pytest
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
-from risk.profile_router import ProfileRouter, Profile
+from orchestrator.signal_orchestrator import (
+    OrchestratedOrder,
+    OrchestratorTradeSignal,
+    SignalOrchestrator,
+)
+from orchestrator.strategy_adapter import StrategyAdapter
+from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────
 

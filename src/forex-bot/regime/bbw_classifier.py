@@ -28,15 +28,13 @@ Usage
     bbw_pct = bbw_percentile(highs, lows, closes)   # pd.Series in [0, 1]
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
-
 from indicators import bollinger_bands
-
 
 # Default guard against zero/flat denominators.  Chosen small enough not
 # to perturb any realistic forex/gold price (XAUUSD trades at ~$1,800 —

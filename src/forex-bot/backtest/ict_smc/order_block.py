@@ -1,5 +1,4 @@
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from ..engine import TradeDirection
 from .models import ICTMarketState, OrderBlock

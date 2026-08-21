@@ -1,8 +1,8 @@
 """Tests for CTraderOpenApiClient helpers (period mapping, price conversion, chunking)."""
 
-import pytest  # noqa: I001
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from adapters.ctrader.open_api_client import (
     PERIOD_MAP,
     PERIOD_SECONDS,

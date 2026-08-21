@@ -1,16 +1,15 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
 
+from backtest.ict_smc.confluence_engine import SignalConfluenceEngine
+from backtest.ict_smc.h4_context import H4ContextModule
+from backtest.ict_smc.models import ICTMarketState
 from core.types import (
     MarketState,
     StrategySignal,
 )
-from backtest.ict_smc.confluence_engine import SignalConfluenceEngine
-from backtest.ict_smc.models import ICTMarketState
-from backtest.ict_smc.h4_context import H4ContextModule
-
 from strategies.session_range_mean_reversion import (
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,

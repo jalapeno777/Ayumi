@@ -1,16 +1,15 @@
 """Walk-forward test for SRMR+ strategy on GBPUSD M15."""
 
-import sys  # noqa: I001
-import os
 import json
+import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader  # noqa: I001
+from backtest.data_loader import CsvDataLoader
 from backtest.walk_forward_runner import run_strategy_walk_forward
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
-
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "forex", "historical", "GBPUSD_M15.csv")
 

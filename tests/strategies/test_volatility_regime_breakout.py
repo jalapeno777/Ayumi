@@ -5,15 +5,14 @@ D-011 zero-trade fix (core.types TradeDirection now shared with
 backtest.types TradeDirection).
 """
 
-import unittest  # noqa: I001
-
+import unittest
 from datetime import datetime, timezone
 
-from core.types import Bar, MarketState, SessionType, TradeDirection
 from backtest.types import TradeDirection as BacktestTradeDirection
+from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_regime_breakout import (
-    VRBConfig,
     VolatilityRegimeBreakoutStrategy,
+    VRBConfig,
 )
 
 

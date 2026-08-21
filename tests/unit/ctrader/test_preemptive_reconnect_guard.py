@@ -12,13 +12,12 @@ AC4 from card d88336dc: Test that reproduces the timeout condition and
 validates the fix.
 """
 
-import sys  # noqa: I001
+import sys
 import threading
 import time
 import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
 
 # Ensure src/forex-bot is importable
 _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")

@@ -4,17 +4,15 @@ import pytest
 
 pytest.skip("adapters.ctrader.symbol_discovery module removed", allow_module_level=True)
 
-import tempfile  # noqa: I001
+import tempfile
 from pathlib import Path
 
 import pytest
-
 from adapters.ctrader.symbol_discovery import (
-    SymbolInfo,
     SymbolDiscovery,
+    SymbolInfo,
     classify_symbol,
 )
-
 
 # --- classify_symbol tests ---
 

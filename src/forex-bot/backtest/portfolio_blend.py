@@ -25,7 +25,7 @@ events (NFP, FOMC, ECB, BOJ, BOE rate decisions, CPI).  The filter wraps
 ``docs/runbooks/backtesting-strategy.md`` (News Blackout section).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import math
@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
+from data.news_calendar import NewsCalendarFilter
 from quant.walk_forward import (
     AggregatedMetrics,
     WalkForwardResults,
@@ -58,7 +59,6 @@ from .engine import (
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
-from data.news_calendar import NewsCalendarFilter
 
 logger = logging.getLogger(__name__)
 

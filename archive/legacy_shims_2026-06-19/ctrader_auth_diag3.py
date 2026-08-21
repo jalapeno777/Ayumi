@@ -1,24 +1,27 @@
-import os, sys, threading, time  # noqa: E401, I001
+import os  # noqa: E401, I001
+import sys
+import threading
+import time
 
 sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
 os.chdir("/home/TacoPants/projects/Ayumi")
 
-from dotenv import load_dotenv  # noqa: I001
+from dotenv import load_dotenv
 
 load_dotenv("/home/TacoPants/projects/Ayumi/.env")
 
-from ctrader_open_api.client import Client  # noqa: I001
+from adapters.ctrader.reactor_manager import ReactorManager
+from ctrader_open_api.client import Client
 from ctrader_open_api.endpoints import EndPoints
-from ctrader_open_api.tcpProtocol import TcpProtocol
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAApplicationAuthReq,
     ProtoOAAccountAuthReq,
+    ProtoOAApplicationAuthReq,
     ProtoOAGetAccountListByAccessTokenReq,
 )
 from ctrader_open_api.protobuf import Protobuf
+from ctrader_open_api.tcpProtocol import TcpProtocol
 from twisted.internet import reactor
-from adapters.ctrader.reactor_manager import ReactorManager
 
 client_id = os.getenv("CTRADER_OPENAPI_CLIENT_ID")
 client_secret = os.getenv("CTRADER_OPENAPI_CLIENT_SECRET")

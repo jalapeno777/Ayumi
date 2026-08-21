@@ -21,16 +21,15 @@ sys.path.insert(0, str(project_root / "src"))
 
 os.environ["FOREX_DB_PATH"] = str(project_root / "data" / "forex" / "forex.db")
 
+from common.resource_limits import add_resource_args, run_limited  # noqa: E402
+from ml.features import add_multi_timeframe_features, build_feature_matrix, load_csv  # noqa: E402
+from ml.signal_simulator import build_labeled_dataset
 from ml.train_model import (  # noqa: E402, I001
-    walk_forward_train,
     FEATURE_COLUMNS,
     MODEL_TYPE_DEFAULT,
+    walk_forward_train,
 )
-from ml.features import build_feature_matrix, add_multi_timeframe_features, load_csv  # noqa: E402
-from ml.signal_simulator import build_labeled_dataset
-from common.resource_limits import add_resource_args, run_limited  # noqa: E402
-from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria  # noqa: E402
-
+from quant.go_nogo_criteria import AggregateCriteria, PerWindowCriteria  # noqa: E402
 
 SEED = 42
 SYMBOL = "EURUSD"

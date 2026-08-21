@@ -7,13 +7,12 @@ state.  T5 raises a ``RuntimeError`` with an actionable message instead,
 listing the missing env vars.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import os
 from unittest.mock import patch
 
 import pytest
-
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
     ForwardTestEngine,

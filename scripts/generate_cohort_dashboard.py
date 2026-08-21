@@ -56,7 +56,6 @@ if str(_SRC) not in sys.path:
 
 from quant.icir import evaluate_icir  # noqa: E402, I001
 
-
 # ---------------------------------------------------------------------------
 # Defaults — paths under the Ayumi repo layout as of 2026-07-08.
 # ---------------------------------------------------------------------------

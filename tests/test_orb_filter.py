@@ -8,19 +8,17 @@ Covers:
     - Volume confirmation behaviour
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, time, timezone
 
 import pytest
-
+from signal_engine.data_types import Signal
 from signal_engine.orb_filter import (
+    OpeningRange,
     ORBFilter,
     ORBScore,
-    OpeningRange,
 )
-from signal_engine.data_types import Signal
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

@@ -4,10 +4,10 @@ This test is intentionally skipped in normal CI because it burns 60 seconds
 of CPU time. Run it manually when validating the advisory CPU limiter.
 """
 
-import time  # noqa: I001
+import time
+
 import psutil
 import pytest
-
 from common.resource_limits import cpu_limited
 
 

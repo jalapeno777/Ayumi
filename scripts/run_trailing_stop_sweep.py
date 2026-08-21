@@ -24,19 +24,18 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from quant.walk_forward import WalkForwardValidator  # noqa: I001
-
+from backtest.data_loader import CsvDataLoader
 from backtest.engine import BacktestConfig, Bar
+from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.parameter_sweep.grid import ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
-from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.strategies import MomentumBreakoutStrategy
 from backtest.trade_management import (
     TradeManagementConfig,
     TrailingStopMethod,
 )
-from backtest.data_loader import CsvDataLoader
 from common.resource_limits import add_resource_args, run_limited
+from quant.walk_forward import WalkForwardValidator  # noqa: I001
 
 REPORT_DIR = Path("reports/parameter_sweeps")
 WALKFORWARD_REPORT_DIR = Path("reports/walk_forward")

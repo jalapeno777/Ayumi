@@ -1,7 +1,7 @@
 """Versioned schema migrations for the trade store database."""
 
-import sqlite3  # noqa: I001
 import logging
+import sqlite3
 
 logger = logging.getLogger(__name__)
 

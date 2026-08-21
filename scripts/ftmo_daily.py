@@ -42,10 +42,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from reporting.equity_tracker import (  # noqa: E402, I001
     DEFAULT_PROFIT_TARGET_PCT,
-    check_profit_target,
     ProfitTargetResult,
+    check_profit_target,
 )
-
 
 # ── FTMO 1-Step canonical values ───────────────────────────────────────────
 

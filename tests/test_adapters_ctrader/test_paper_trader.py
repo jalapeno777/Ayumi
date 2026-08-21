@@ -31,7 +31,6 @@ from adapters.ctrader.order_manager import (
 from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig
 
-
 # ── Helpers ────────────────────────────────────────────────────────────
 
 

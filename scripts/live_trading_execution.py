@@ -29,12 +29,12 @@ from typing import Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "forex-bot"))
 
-from adapters.ctrader.api_client import cTraderAPIClient  # noqa: I001
-from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick, SymbolInfo
+from adapters.ctrader.api_client import cTraderAPIClient
+from adapters.ctrader.market_data_feed import LiveMarketDataFeed, SymbolInfo, Tick
 from adapters.ctrader.models import (
-    cTraderCredentials,
     TradeDirection,
     TradeSignal,
+    cTraderCredentials,
 )
 from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
 from adapters.ctrader.paper_trader import PaperTrader

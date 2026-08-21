@@ -10,11 +10,11 @@ Usage:
     PYTHONPATH=src/forex-bot python3 scripts/revalidate_ttc_embargo.py
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import csv
-import sys
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -22,8 +22,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar  # noqa: I001
-from quant.walk_forward import run_strategy, WalkForwardResults
+from backtest.engine import Bar
+from quant.walk_forward import WalkForwardResults, run_strategy
 
 
 def load_m15_bars(csv_path: str, max_rows: int | None = None) -> list[Bar]:

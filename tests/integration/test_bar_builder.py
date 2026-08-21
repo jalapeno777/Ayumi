@@ -1,11 +1,10 @@
 """Tests for BarBuilder — OHLCV bar aggregation."""
 
-import threading  # noqa: I001
-from datetime import datetime, timedelta, timezone
+import threading
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from adapters.ctrader.bar_builder import BarBuilder
 
 

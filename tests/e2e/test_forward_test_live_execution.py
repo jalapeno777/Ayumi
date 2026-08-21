@@ -8,8 +8,9 @@ package. Fixed by importing the real module — ctrader_open_api is installed
 and the import works fine.)
 """
 
-import pytest  # noqa: I001
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestOpenApiSpotFeedLiveProperties:

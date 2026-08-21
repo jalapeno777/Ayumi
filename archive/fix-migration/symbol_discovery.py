@@ -428,7 +428,8 @@ class SymbolDiscovery:
 
         More reliable than FIX SecurityListRequest.
         """
-        import os  # noqa: I001
+        import os
+
         from .open_api_client import CTraderOpenApiClient
 
         client_id = os.environ.get("CTRADER_OPENAPI_CLIENT_ID", "")

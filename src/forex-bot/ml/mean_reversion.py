@@ -11,7 +11,7 @@ Public API
 - ``MLMeanReversionStrategy`` -- ISignalStrategy backed by a trained model
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import logging
@@ -24,16 +24,15 @@ import numpy as np
 import pandas as pd
 from backtest.engine import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import train_test_split
-
 from ml.features import (
     atr,
     bollinger_bands,
     build_feature_matrix,
 )
 from ml.signal_simulator import bb_mean_reversion_signals, label_trades
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.metrics import accuracy_score, f1_score
+from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
 

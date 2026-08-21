@@ -1,22 +1,20 @@
 """Tests for SRF Monte Carlo robustness module."""
 
-import numpy as np  # noqa: I001
+import numpy as np
 import pytest
-
 from srf.monte_carlo import (
     TradeRecord,
-    run_monte_carlo,
-    trade_shuffle,
-    block_bootstrap,
-    slippage_stress,
-    spread_stress,
-    missed_trade_sim,
     _max_drawdown,
     _profit_factor,
     _sharpe,
+    block_bootstrap,
+    missed_trade_sim,
+    run_monte_carlo,
+    slippage_stress,
+    spread_stress,
     store_mc_results,
+    trade_shuffle,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 

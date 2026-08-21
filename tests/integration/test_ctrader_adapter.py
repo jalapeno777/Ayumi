@@ -6,11 +6,10 @@ Verifies the three archived fixes are present in the live code:
 3. _reauth_in_progress guard preventing concurrent auth races
 """
 
-import threading  # noqa: I001
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── Module-level constant verification ───────────────────────────────────
 
@@ -184,9 +183,9 @@ class TestAuthResponseValidation:
     """BQ-1327: _is_valid_auth_response validates payload types."""
 
     def test_valid_app_auth_response(self):
-        from adapters.ctrader.open_api_client import (  # noqa: I001
-            CTraderOpenApiClient,
+        from adapters.ctrader.open_api_client import (
             _APP_AUTH_RES_PAYLOAD_TYPE,
+            CTraderOpenApiClient,
         )
 
         client = CTraderOpenApiClient("id", "secret", 123)
@@ -195,9 +194,9 @@ class TestAuthResponseValidation:
         assert client._is_valid_auth_response(response, _APP_AUTH_RES_PAYLOAD_TYPE, "app") is True
 
     def test_valid_acct_auth_response(self):
-        from adapters.ctrader.open_api_client import (  # noqa: I001
-            CTraderOpenApiClient,
+        from adapters.ctrader.open_api_client import (
             _ACCT_AUTH_RES_PAYLOAD_TYPE,
+            CTraderOpenApiClient,
         )
 
         client = CTraderOpenApiClient("id", "secret", 123)
@@ -206,9 +205,9 @@ class TestAuthResponseValidation:
         assert client._is_valid_auth_response(response, _ACCT_AUTH_RES_PAYLOAD_TYPE, "account") is True
 
     def test_error_payload_type_rejected(self):
-        from adapters.ctrader.open_api_client import (  # noqa: I001
-            CTraderOpenApiClient,
+        from adapters.ctrader.open_api_client import (
             _APP_AUTH_RES_PAYLOAD_TYPE,
+            CTraderOpenApiClient,
         )
 
         client = CTraderOpenApiClient("id", "secret", 123)

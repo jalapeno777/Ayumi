@@ -26,6 +26,7 @@ import numpy as np
 ROOT = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
+import backtest.strategies.tts_strategy as tts_mod  # noqa: E402
 from backtest.db_data_loader import DbDataLoader  # noqa: E402, I001
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine  # noqa: E402
 from backtest.types import BacktestConfig  # noqa: E402
@@ -36,7 +37,6 @@ from backtest.walk_forward_runner import (  # noqa: E402
 )
 from signal_engine.risk_sizer import ConfidencePositionSizer  # noqa: E402
 from strategies.ttc_xauusd import TTCXAUUSDStrategy  # noqa: E402
-import backtest.strategies.tts_strategy as tts_mod  # noqa: E402
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -258,7 +258,8 @@ def generate_gbm_bars(
     Open of bar_t = close of bar_{t-1}.
     High/Low are noisy around the close.
     """
-    from datetime import datetime, timezone, timedelta  # noqa: I001
+    from datetime import datetime, timedelta, timezone
+
     from core.types import Bar, BarPeriod
 
     rng = np.random.default_rng(seed)

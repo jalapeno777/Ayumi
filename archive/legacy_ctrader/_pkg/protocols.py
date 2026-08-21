@@ -11,14 +11,13 @@ clean dependency inversion.
 Reference: BQ-1043 Phase 0.5 — Interface Contracts (Amendment A2)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
-
 
 # ── Enums ────────────────────────────────────────────────────────────────────
 

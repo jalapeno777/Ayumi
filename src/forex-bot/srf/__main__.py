@@ -27,7 +27,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         strategy_cls = getattr(mod, parts[1])
     else:
         # Registered name — try discovery
-        from .registry import get_strategy, discover_strategies  # noqa: I001
+        from .registry import discover_strategies, get_strategy
 
         discover_strategies()
         reg = get_strategy(args.strategy)

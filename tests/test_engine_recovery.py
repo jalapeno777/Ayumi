@@ -8,16 +8,14 @@ Tests that ConnectionManager.authenticate_with_retry() correctly:
 - Gives up after max retries exhausted
 """
 
-from unittest.mock import MagicMock, patch  # noqa: I001
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.connection_manager import (
     AUTH_RETRY_BACKOFF_SECONDS,
     AUTH_RETRY_MAX_ATTEMPTS,
     ConnectionManager,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

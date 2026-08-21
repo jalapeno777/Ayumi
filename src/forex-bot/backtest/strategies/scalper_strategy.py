@@ -19,12 +19,11 @@ Entry Logic:
   7. Max 1 trade per pair per session
 """
 
-from __future__ import annotations  # noqa: I001
-
-from datetime import datetime, time
-from typing import Optional
+from __future__ import annotations
 
 import logging
+from datetime import datetime, time
+from typing import Optional
 
 import numpy as np
 

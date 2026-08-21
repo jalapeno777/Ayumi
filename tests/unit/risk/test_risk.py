@@ -6,16 +6,15 @@ Rewritten for post-refactor API (card 99a4d28d).
 - KellyCriterion() → kelly_criterion()
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from quant.position_sizing import (
     DynamicSizingConfig,
+    check_position_limits,
+    dynamic_sizing,
     fixed_fractional,
     kelly_criterion,
-    dynamic_sizing,
-    check_position_limits,
 )
 
 

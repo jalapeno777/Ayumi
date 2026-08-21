@@ -53,7 +53,7 @@ class TestLateFillPositionIdValidation:
 
     def _make_signal(self):
         """Create a CTraderTradeSignal for testing."""
-        from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+        from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
         return CTraderTradeSignal(
             symbol="GBPUSD",

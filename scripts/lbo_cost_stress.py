@@ -12,23 +12,25 @@ Cost model:
 - This is ~0.8% of risk ($50), so it's material
 """
 
-from __future__ import annotations  # noqa: I001
-import sys
+from __future__ import annotations
+
 import pickle
+import sys
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+
 import numpy as np
 
 project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb  # noqa: I001
-from core.types import Bar, MarketState, SessionType, BarPeriod
+import duckdb
+from core.types import Bar, BarPeriod, MarketState, SessionType
 from strategies.london_breakout_retest import (
-    LondonBreakoutRetestStrategy,
     LondonBreakoutConfig,
+    LondonBreakoutRetestStrategy,
 )
 
 # Load bars

@@ -1,12 +1,12 @@
 """SRF schema — DuckDB table definitions, single-writer lock, migrations."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import os
 import fcntl
 import hashlib
-import time
 import logging
+import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 

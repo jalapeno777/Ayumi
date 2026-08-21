@@ -1,4 +1,4 @@
-import logging  # noqa: I001
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -7,10 +7,10 @@ from zoneinfo import ZoneInfo
 import duckdb
 import pandas as pd
 import pyarrow.parquet as pq
+from core.pip import PipCalculator
 
 from .abstract_data_loader import AbstractDataLoader
 from .engine import Bar, BarPeriod
-from core.pip import PipCalculator
 
 logger = logging.getLogger(__name__)
 

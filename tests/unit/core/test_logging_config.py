@@ -3,11 +3,10 @@
 All tests use tmp_path to avoid writing to the real logs/ directory.
 """
 
-import logging  # noqa: I001
+import logging
 import re
 
 import pytest
-
 from common.logging_config import (
     DEFAULT_FORMAT,
     setup_logging,

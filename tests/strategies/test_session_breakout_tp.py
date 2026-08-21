@@ -16,20 +16,18 @@ These tests verify:
 * TPs more than 1000 pips from entry are rejected.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-
 from core.types import Bar, MarketState, TradeDirection
 from strategies.session_breakout import (
-    SessionBreakoutStrategy,
     _FX_MAX_PRICE,
     _FX_MIN_PRICE,
     _MAX_RANGE_PIPS,
     _MAX_TP_DISTANCE_PIPS,
+    SessionBreakoutStrategy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,12 +1,11 @@
 """Tests for TPManager: 3-level TP system with progressive SL management."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime
 
-import pytz
 import pytest
-
+import pytz
 from signal_engine.tp_manager import TPManager
 
 

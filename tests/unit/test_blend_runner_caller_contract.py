@@ -22,14 +22,13 @@ Three layers of protection:
    TWO arguments (signal_id + risk_amount).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import ast
 import re
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
-
 
 # Resolve project paths
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
@@ -132,12 +131,13 @@ def test_route_signal_cancel_risk_receives_signal_id_and_risk_amount(monkeypatch
     # Import inside the test so we don't trigger heavy imports at collection.
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
     sys.path.insert(0, str(WORKSPACE))
+    from datetime import datetime, timezone
+
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from launch_blend_forward_test import (  # noqa: I001
         BlendForwardTestEngine,
         CorrelationGate,
     )
-    from adapters.ctrader.signal_adapter import CTraderTradeSignal
-    from datetime import datetime, timezone
 
     # Mock the blend_runner to capture cancel_risk calls AND delegate
     # the signal_id construction to the canonical helper.
@@ -211,11 +211,12 @@ def test_route_signal_paper_failure_calls_cancel_risk_with_two_args():
     """
     sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
     sys.path.insert(0, str(WORKSPACE))
+    from datetime import datetime, timezone
+
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
     from launch_blend_forward_test import (  # noqa: I001
         BlendForwardTestEngine,
     )
-    from adapters.ctrader.signal_adapter import CTraderTradeSignal
-    from datetime import datetime, timezone
 
     engine = BlendForwardTestEngine.__new__(BlendForwardTestEngine)
     # _blend_signal_id now delegates to blend_runner.make_signal_id; provide

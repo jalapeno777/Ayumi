@@ -73,8 +73,8 @@ def cmd_discover(args):
 
 def cmd_backfill(args):
     """Backfill historical data."""
-    from data.backfill import HistoricalDataBackfill  # noqa: I001
     from adapters.ctrader.symbol_discovery import SymbolDiscovery
+    from data.backfill import HistoricalDataBackfill
 
     creds = get_credentials()
     discovery = SymbolDiscovery(creds)

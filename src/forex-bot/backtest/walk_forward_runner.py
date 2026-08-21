@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import inspect
 import logging
@@ -17,11 +17,11 @@ from quant.walk_forward import (
     _std,
     detect_regime_for_window,
 )
+from signal_engine.risk_sizer import ConfidencePositionSizer
 
 from .engine import BacktestConfig, Bar, get_spread_for_pair
 from .multi_strategy_engine import MultiStrategyBacktestEngine
 from .strategies import ISignalStrategy
-from signal_engine.risk_sizer import ConfidencePositionSizer
 
 logger = logging.getLogger(__name__)
 

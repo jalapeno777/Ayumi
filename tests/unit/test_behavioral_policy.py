@@ -7,10 +7,8 @@ of streak and drawdown inputs, including the most-restrictive-wins
 interaction between the two penalty sources and custom-config overrides.
 """
 
-import pytest  # noqa: I001
-
+import pytest
 from policy.behavioral import BehavioralPolicy, BehavioralResult
-
 
 # ---------------------------------------------------------------------------
 # Defaults — single source of truth for the council-approved band

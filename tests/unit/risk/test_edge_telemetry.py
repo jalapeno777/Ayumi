@@ -1,9 +1,9 @@
 """Tests for edge telemetry — R-multiple expectancy tracking."""
 
-import json  # noqa: I001
-import pytest
+import json
 from pathlib import Path
 
+import pytest
 from risk.edge_telemetry import EdgeTelemetryTracker
 
 

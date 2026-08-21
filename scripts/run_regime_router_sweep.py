@@ -9,7 +9,7 @@ Focus areas:
 - Walk-forward window configurations
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
 import json
@@ -22,18 +22,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, Bar  # noqa: I001
+from backtest.engine import BacktestConfig, Bar
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.parameter_sweep.grid import GridPoint, ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
 from backtest.strategies import (
-    RegimeSwitchingRouter,
     RegimeRouterConfig,
+    RegimeSwitchingRouter,
 )
 from common.resource_limits import add_resource_args, run_limited
 from quant.walk_forward import run_strategy as run_walk_forward

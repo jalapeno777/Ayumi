@@ -7,7 +7,8 @@ Validates:
 4. SL/TP ratios are reasonable
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
+
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,10 +20,10 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from core.types import Bar, MarketState, SessionType, BarPeriod  # noqa: I001
+from core.types import Bar, BarPeriod, MarketState, SessionType
 from strategies.london_breakout_retest import (
-    LondonBreakoutRetestStrategy,
     LondonBreakoutConfig,
+    LondonBreakoutRetestStrategy,
 )
 
 

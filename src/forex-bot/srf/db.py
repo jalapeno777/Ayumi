@@ -5,12 +5,11 @@ callers don't need to hand-write SQL.  For raw access, use SRFDatabase directly
 as a context manager.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime
-
 
 logger = logging.getLogger(__name__)
 

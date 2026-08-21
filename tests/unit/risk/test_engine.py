@@ -16,12 +16,11 @@ Covers all FTMO 1-Step Standard rules:
 * LOCKED FTMO constants — verify they cannot be overridden
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-
 from risk.engine import (
     FTMO_DAILY_DD_LIMIT_PCT,
     FTMO_TOTAL_DD_LIMIT_PCT,

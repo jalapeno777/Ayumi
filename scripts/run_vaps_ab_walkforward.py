@@ -36,11 +36,11 @@ from backtest.walk_forward_runner import (  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from quant.vaps import VAPSConfig  # noqa: E402
 from quant.walk_forward import (  # noqa: E402
+    AggregatedMetrics,
     WalkForwardValidator,
     _compute_metrics,
     _mean,
     _std,
-    AggregatedMetrics,
 )
 
 

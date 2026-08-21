@@ -29,7 +29,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf import weekly_sweep as weekly_sweep_module  # noqa: I001
+from srf import weekly_sweep as weekly_sweep_module
 from srf.weekly_sweep import (
     DEFAULT_PAIRS,
     DEFAULT_TIMEFRAMES,
@@ -38,7 +38,6 @@ from srf.weekly_sweep import (
     main,
     weekly_sweep,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -8,11 +8,11 @@ Covers:
 - KellyConfig defaults and field validation
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import pytest
 from datetime import datetime
 
+import pytest
 from backtest.engine import (
     ExitReason,
     SimulatedTrade,

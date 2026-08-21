@@ -32,7 +32,6 @@ from data.carry_signals import (  # noqa: I001
 )
 from data.fred_fetcher import FredFetcher, StaticFredRates
 
-
 # ---------------------------------------------------------------------------
 # Test doubles
 # ---------------------------------------------------------------------------

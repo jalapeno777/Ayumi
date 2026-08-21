@@ -1,17 +1,16 @@
 """Tests for GateValidator: hard gates and quality threshold."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-
-from signal_engine.gate_validator import GateValidator
 from signal_engine.data_types import (
-    HTFState,
     HTFPhase,
+    HTFState,
     Level,
     LevelType,
     SessionState,
     Signal,
 )
+from signal_engine.gate_validator import GateValidator
 
 
 class TestGateValidator:

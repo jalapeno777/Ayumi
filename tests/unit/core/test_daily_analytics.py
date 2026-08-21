@@ -1,9 +1,8 @@
 """Tests for DailyAnalytics."""
 
-import json  # noqa: I001
+import json
 
 import pytest
-
 from analytics.daily_report import DailyAnalytics
 
 

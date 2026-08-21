@@ -11,18 +11,17 @@ Covers:
 - Rolling window tracking
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
-import pytest
 
+import pytest
 from monitoring.psi_drift_detector import (
-    compute_psi,
+    FeatureWindow,
     PSIAlert,
     PSIDriftDetector,
-    FeatureWindow,
+    compute_psi,
 )
-
 
 # ── compute_psi — basic correctness ────────────────────────────────────────
 

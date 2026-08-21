@@ -13,20 +13,18 @@ The tests cover:
 - :meth:`SpreadRegimeClassifier.confidence_penalty` range constraint.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-
 from signals.spread_regime_classifier import (
+    _DEFAULT_PENALTIES,
     DEFAULT_WINDOW,
     TIMEFRAME_WINDOW,
     SpreadRegime,
     SpreadRegimeClassifier,
-    _DEFAULT_PENALTIES,
 )
-
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────
 

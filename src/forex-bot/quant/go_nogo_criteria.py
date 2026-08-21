@@ -1,7 +1,6 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-
 
 # Production-grade go/no-go gating threshold.
 # Use this when evaluating a strategy for live deployment, not for dev/CI

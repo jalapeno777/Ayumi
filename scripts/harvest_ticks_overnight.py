@@ -12,14 +12,14 @@ Usage:
     nohup python3 scripts/harvest_ticks_overnight.py &
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import csv
 import lzma
 import struct
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 

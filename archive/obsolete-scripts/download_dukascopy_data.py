@@ -15,14 +15,25 @@ Output:
     e.g., data/forex/EURUSD_M1.parquet, data/forex/EURUSD_H1.parquet
 """
 
-import argparse  # noqa: I001
+import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
-
 import dukascopy_python  # noqa: F401
+import pandas as pd
+from dukascopy_python import (
+    INTERVAL_DAY_1,
+    INTERVAL_HOUR_1,
+    INTERVAL_HOUR_4,
+    INTERVAL_MIN_1,
+    INTERVAL_MIN_5,
+    INTERVAL_MIN_15,
+    INTERVAL_MIN_30,
+    OFFER_SIDE_ASK,
+    OFFER_SIDE_BID,
+    fetch,
+)
 from dukascopy_python.instruments import (
     INSTRUMENT_FX_MAJORS_AUD_USD,
     INSTRUMENT_FX_MAJORS_EUR_USD,
@@ -31,18 +42,6 @@ from dukascopy_python.instruments import (
     INSTRUMENT_FX_MAJORS_USD_CAD,
     INSTRUMENT_FX_MAJORS_USD_CHF,
     INSTRUMENT_FX_MAJORS_USD_JPY,
-)
-from dukascopy_python import (
-    INTERVAL_DAY_1,
-    INTERVAL_HOUR_1,
-    INTERVAL_HOUR_4,
-    INTERVAL_MIN_1,
-    INTERVAL_MIN_15,
-    INTERVAL_MIN_30,
-    INTERVAL_MIN_5,
-    OFFER_SIDE_ASK,
-    OFFER_SIDE_BID,
-    fetch,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

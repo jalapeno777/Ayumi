@@ -11,9 +11,8 @@ engine compared against backtest.types.TradeDirection. The identity mismatch
 silently dropped every signal.
 """
 
-from core import types as core_types  # noqa: I001
 from backtest import types as backtest_types
-
+from core import types as core_types
 
 # ---------------------------------------------------------------------------
 # IDENTITY PARITY: All types now share identity (bug fixed)

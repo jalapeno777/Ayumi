@@ -92,15 +92,15 @@ def get_strategy_factory(strategy_name: str, pair: str):
 
         if strategy_name == "london_breakout_retest":
             from strategies.london_breakout_retest import (  # noqa: I001
-                LondonBreakoutRetestStrategy,
                 LondonBreakoutConfig,
+                LondonBreakoutRetestStrategy,
             )
 
             return lambda: LondonBreakoutRetestStrategy(LondonBreakoutConfig(symbol=pair))
 
         if strategy_name == "session_breakout":
-            from strategies.session_breakout import SessionBreakoutConfig  # noqa: I001
             import strategies.session_breakout as sb_mod
+            from strategies.session_breakout import SessionBreakoutConfig
 
             for name in dir(sb_mod):
                 obj = getattr(sb_mod, name)
@@ -215,12 +215,13 @@ def run_self_test() -> bool:
     Uses synthetic bar data to avoid dependency on real CSV files.
     Verifies that run_portfolio_blend returns non-zero combined metrics.
     """
+    from datetime import datetime, timedelta
+
+    from backtest.engine import Bar
     from backtest.portfolio_blend import (  # noqa: I001
         StrategySpec,
         run_portfolio_blend,
     )
-    from backtest.engine import Bar
-    from datetime import datetime, timedelta
 
     print("Running self-test: 2 strategies x 1 symbol x 1 TF...")
 
@@ -250,9 +251,9 @@ def run_self_test() -> bool:
         price = c
 
     # Write temp CSV for CsvDataLoader
-    import csv as csv_mod  # noqa: I001
-    import tempfile
+    import csv as csv_mod
     import os
+    import tempfile
 
     tmpdir = tempfile.mkdtemp()
     csv_path = os.path.join(tmpdir, "TEST_M15.csv")

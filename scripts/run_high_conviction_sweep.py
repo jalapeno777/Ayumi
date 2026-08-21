@@ -23,9 +23,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig, get_spread_for_pair  # noqa: E402, I001
 from backtest.data_loader import CsvDataLoader  # noqa: E402
-from backtest.strategies import HighConvictionStrategy  # noqa: E402
+from backtest.engine import BacktestConfig, get_spread_for_pair  # noqa: E402, I001
 from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.parameter_sweep import (  # noqa: E402
     ParameterGrid,
@@ -34,6 +33,7 @@ from backtest.parameter_sweep import (  # noqa: E402
     to_csv,
     to_json,
 )
+from backtest.strategies import HighConvictionStrategy  # noqa: E402
 from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 

@@ -10,15 +10,13 @@ Covers:
 - Laplace smoothing: unseen transitions are still reachable
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 
 import numpy as np
 import pytest
-
 from quant.markov_regime import MarkovRegimeFilter, MarkovRegimeSummary
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

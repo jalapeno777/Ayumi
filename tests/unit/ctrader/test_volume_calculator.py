@@ -3,17 +3,16 @@
 All tests construct SymbolInfo objects directly — no cTrader connection required.
 """
 
-import sys  # noqa: I001
 import os
+import sys
 
 import pytest
 
 # Ensure src/forex-bot is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))
 
-from adapters.ctrader.market_data_feed import SymbolInfo  # noqa: I001
+from adapters.ctrader.market_data_feed import SymbolInfo
 from adapters.ctrader.volume_calculator import VolumeCalculator
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

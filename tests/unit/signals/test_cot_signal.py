@@ -8,27 +8,26 @@ Tests cover:
 - AC5: Test suite execution
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+from confidence.gates import GateCheck
 from data.cot_fetcher import (
+    COTDivergenceSignal,
     COTFetcher,
     COTFormat,
     COTPositioning,
-    COTDivergenceSignal,
 )
-from confidence.gates import GateCheck
 from signals.cot_signal import (
-    COTConfidenceGate,
-    assess_cot,
-    adjust_confidence,
     DEFAULT_LOOKBACK_WEEKS,
     DEFAULT_MAX_ADJUSTMENT,
     SUPPORTED_PAIRS,
+    COTConfidenceGate,
+    adjust_confidence,
+    assess_cot,
 )
-
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 

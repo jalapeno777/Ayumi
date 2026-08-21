@@ -6,11 +6,10 @@ Verifies that Wilder smoothing initialization is correct:
 - Subsequent DX values use Wilder smoothing: adx = (adx * (period-1) + dx) / period
 """
 
-import unittest  # noqa: I001
+import unittest
 
 import numpy as np
 import pandas as pd
-
 from backtest.engine import Bar
 
 

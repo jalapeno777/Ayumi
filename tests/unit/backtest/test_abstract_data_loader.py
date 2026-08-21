@@ -7,7 +7,7 @@ Tests cover:
 - Backward compatibility of existing file-based API
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import csv
 import tempfile
@@ -15,12 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-
 from backtest.abstract_data_loader import AbstractDataLoader
 from backtest.data_loader import CsvDataLoader
 from backtest.db_data_loader import DbDataLoader
 from backtest.engine import Bar
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Fixtures

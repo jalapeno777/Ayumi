@@ -4,28 +4,26 @@ Run once to produce pickle files consumed by the regression test suite.
 Usage: PYTHONPATH=src python tests/regression/generate_golden.py
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pickle
 
 import numpy as np
 import pandas as pd
-
 from _project_root import PROJECT_ROOT
-
 from src.forex_trading.services.backtest.engine_v2 import (
     BacktestEngine,
     WalkForwardConfig,
 )
 from src.forex_trading.services.backtest.prop_firm_rules import PropFirmConfig
-from src.forex_trading.strategies.momentum import MomentumCrossoverStrategy
-from src.forex_trading.strategies.mean_reversion import MeanReversionStrategy
 from src.forex_trading.strategies.breakout import BreakoutStrategy
+from src.forex_trading.strategies.carry import CarryTradeStrategy
+from src.forex_trading.strategies.mean_reversion import MeanReversionStrategy
+from src.forex_trading.strategies.momentum import MomentumCrossoverStrategy
 from src.forex_trading.strategies.regime_aware import (
     RegimeAwareStrategy,
     RegimeClassifier,
 )
-from src.forex_trading.strategies.carry import CarryTradeStrategy
 from src.forex_trading.strategies.regime_switching_momentum import (
     RegimeSwitchingMomentumStrategy,
 )

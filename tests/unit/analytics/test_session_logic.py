@@ -1,6 +1,6 @@
 """Tests for session_logic: session detection, kill zones, DST, weekly modifiers."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, time
 
@@ -9,7 +9,6 @@ from signal_engine.session_logic import (
     _is_dst,
     get_ny_kz_hours,
 )
-
 
 # ── Helpers ─────────────────────────────────────────────────────────
 

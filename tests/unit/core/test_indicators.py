@@ -1,10 +1,10 @@
-import math  # noqa: I001
+import math
 import unittest
 
 import numpy as np
 import pandas as pd
-
 from indicators import (
+    adx,
     atr,
     atr_percentile,
     bollinger_bands,
@@ -15,7 +15,6 @@ from indicators import (
     sma,
     std,
     stochastic,
-    adx,
 )
 
 CLOSES_20 = [

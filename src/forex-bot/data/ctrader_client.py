@@ -14,7 +14,7 @@ Usage:
     df = client.get_historical_bars("EURUSD", "M15", "2026-01-01", "2026-04-10")
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
@@ -25,15 +25,15 @@ import pandas as pd
 import requests
 from ctrader_open_api import Client, TcpProtocol
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOAApplicationAuthReq,
     ProtoOAAccountAuthReq,
+    ProtoOAApplicationAuthReq,
+    ProtoOAErrorRes,
     ProtoOAGetAccountListByAccessTokenReq,
     ProtoOAGetAccountListByAccessTokenRes,
     ProtoOAGetTrendbarsReq,
+    ProtoOAGetTrendbarsRes,
     ProtoOASymbolsListReq,
     ProtoOASymbolsListRes,
-    ProtoOAGetTrendbarsRes,
-    ProtoOAErrorRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOATrendbarPeriod
 from twisted.internet import reactor

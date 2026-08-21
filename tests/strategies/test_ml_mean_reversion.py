@@ -1,4 +1,4 @@
-import os  # noqa: I001
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from backtest.engine import Bar, MarketState
 from ml.mean_reversion import (
     MLMeanReversionStrategy,

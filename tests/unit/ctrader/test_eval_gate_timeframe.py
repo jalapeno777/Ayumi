@@ -9,13 +9,12 @@ instead of XAUUSD:15 (199 bars), so evaluation never fired.
 Fix: use min(_required_timeframes) instead of bar_period_minutes.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 
 

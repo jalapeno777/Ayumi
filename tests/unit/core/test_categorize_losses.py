@@ -1,6 +1,6 @@
 """Tests for the loss categorization script (BQ-344)."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import math
@@ -8,13 +8,11 @@ import subprocess
 import sys
 
 import pytest
-
 from _project_root import PROJECT_ROOT
 
 from scripts.categorize_losses import (  # noqa: E402
     ALL_CATEGORIES,
     BAD_ENTRY_STD_DEV_THRESHOLD,
-    CONFIDENCE_FLOOR,
     CATEGORY_BAD_ENTRY,
     CATEGORY_LATE_EXIT,
     CATEGORY_NEWS_EVENT,
@@ -23,6 +21,7 @@ from scripts.categorize_losses import (  # noqa: E402
     CATEGORY_SPREAD_WIDENING,
     CATEGORY_STOP_PLACEMENT,
     CATEGORY_WRONG_DIRECTION,
+    CONFIDENCE_FLOOR,
     SLIPPAGE_TOLERANCE_PIPS,
     SPREAD_WIDENING_MULTIPLIER,
     STOP_PLACEMENT_ATR_MULTIPLIER,
@@ -32,7 +31,6 @@ from scripts.categorize_losses import (  # noqa: E402
     summarize,
     summary_to_dict,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

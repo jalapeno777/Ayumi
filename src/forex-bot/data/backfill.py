@@ -4,14 +4,13 @@ Backfills bar data from cTrader Open API (protobuf) with
 fallback to existing CSV files and gap detection.
 """
 
-import logging  # noqa: I001
+import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
-
 from adapters.ctrader.models import cTraderCredentials
 from adapters.ctrader.open_api_client import (
     CTraderOpenApiClient,

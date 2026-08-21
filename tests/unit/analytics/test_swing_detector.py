@@ -1,12 +1,10 @@
 """Tests for SwingDetector: N-bar swing detection with equal-swing merging."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import numpy as np
-
-from signal_engine.swing_detector import SwingDetector
 from signal_engine.data_types import SwingType
-
+from signal_engine.swing_detector import SwingDetector
 
 # ── Helpers ─────────────────────────────────────────────────────────
 

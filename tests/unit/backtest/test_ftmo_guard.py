@@ -1,11 +1,9 @@
 """Unit tests for backtest FTMO guard — trailing drawdown model."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from backtest.ftmo_guard import FTMOGuard, FTMOGuardConfig
-
 
 # ── Walk-through scenarios from research doc ────────────────────────────────
 # Day 1: balance $10,000 → floor $9,000

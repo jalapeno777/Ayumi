@@ -36,7 +36,6 @@ from data.dukascopy_importer import (  # type: ignore  # noqa: E402, I001
     _is_weekend,
 )
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 

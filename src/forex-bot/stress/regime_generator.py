@@ -18,15 +18,15 @@ The module is designed to be imported by ``regime_cli.py`` (child card) which
 adds CSV I/O, ``run_all_pairs``, and command-line plumbing.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from typing import Sequence
 
 import numpy as np
-from sklearn.mixture import GaussianMixture
 from hmmlearn.hmm import GaussianHMM
+from sklearn.mixture import GaussianMixture
 
 logger = logging.getLogger(__name__)
 

@@ -36,10 +36,8 @@ from quant.walk_forward import (  # noqa: I001
     WalkForwardResults,
     WindowMetrics,
 )
-
 from srf.runner import StrategyRunner
 from srf.schema import SRFDatabase
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -121,7 +119,8 @@ def make_results(
     with synthetic datetime boundaries so the date-column INSERT path is
     exercised.
     """
-    from datetime import datetime, timezone, timedelta as td  # noqa: I001
+    from datetime import datetime, timezone
+    from datetime import timedelta as td
 
     per_window = [make_window(i, go=(i % 2 == 0)) for i in range(n_windows)]
     agg = AggregatedMetrics(

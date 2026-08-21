@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta, timezone  # noqa: I001
+from datetime import datetime, timedelta, timezone
+
 from backtest.engine import TradeDirection
+from engine.protocol import CanonicalSignal
 from engine.strategy_executor import StrategyExecutor
 from engine.strategy_registry import StrategySlot
-from engine.protocol import CanonicalSignal
 
 
 class _AlwaysSignalStrategy:

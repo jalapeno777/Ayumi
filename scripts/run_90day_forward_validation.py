@@ -9,8 +9,7 @@ Simulates 90 trading days (Jan-Mar 2026) with:
 - Full statistical analysis + GO/NO-GO assessment
 """
 
-import argparse  # noqa: I001
-from common.resource_limits import add_resource_args
+import argparse
 import json
 import sys
 import warnings
@@ -18,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from common.resource_limits import add_resource_args
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))

@@ -20,15 +20,14 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar  # noqa: I001
+from backtest.engine import Bar
 from backtest.walk_forward_runner import run_strategy_walk_forward
 from common.resource_limits import add_resource_args, run_limited
 from signal_engine.risk_sizer import ConfidencePositionSizer
 from strategies.volatility_regime_breakout import (
-    VRBConfig,
     VolatilityRegimeBreakoutStrategy,
+    VRBConfig,
 )
-
 
 PAIRS_CONFIG = {
     "GBPUSD": {

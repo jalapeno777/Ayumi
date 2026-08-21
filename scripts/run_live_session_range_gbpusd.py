@@ -8,13 +8,14 @@ Usage:
     python scripts/run_live_session_range_gbpusd.py [--live] [--bar-minutes 15] [--reset]
 """
 
-import argparse  # noqa: I001
-from common.resource_limits import add_resource_args
+import argparse
 import logging
 import shutil
 import sys
 import time
 from pathlib import Path
+
+from common.resource_limits import add_resource_args
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))

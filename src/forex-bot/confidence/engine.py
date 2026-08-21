@@ -3,7 +3,7 @@
 Pipeline: Strategy Score → Confluence Boost → Gate Validator → Final Score
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
@@ -11,8 +11,8 @@ from typing import Optional
 from confidence.gates import (
     GateCheck,
     GateConfig,
-    SpreadGate,
     SessionGate,
+    SpreadGate,
     VolatilityGate,
 )
 

@@ -1,8 +1,8 @@
-import pytest  # noqa: I001
-from core.types import TradeDirection
-from engine.protocol import CanonicalSignal
+import pytest
 from adapters.ctrader.portfolio_risk_guard import PortfolioRiskGuard
 from adapters.ctrader.risk_guard import FTMOConfig
+from core.types import TradeDirection
+from engine.protocol import CanonicalSignal
 
 
 def _make_signal(strategy_id="s1", symbol="GBPUSD", confidence=0.85, **kwargs):

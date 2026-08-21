@@ -1,16 +1,15 @@
 """Tests for AsiaSessionAnalyzer and flight-log pattern detection."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-from datetime import datetime, timedelta, time as dt_time
-
+from datetime import datetime, timedelta
+from datetime import time as dt_time
 
 from signal_engine.data_types import Swing, SwingType
 from signal_engine.pattern_detector import (
     AsiaSessionAnalyzer,
     PatternDetector,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────
 # ET offset: April = EDT (UTC-4). Bars store UTC timestamps.

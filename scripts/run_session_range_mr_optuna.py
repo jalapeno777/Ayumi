@@ -20,19 +20,19 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
+from backtest import CsvDataLoader  # noqa: E402
 from backtest.engine import Bar  # noqa: E402, I001
-from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 from backtest.parameter_sweep.optuna_optimizer import (  # noqa: E402
     OptunaOptimizer,
     session_range_mr_search_space,
 )
-from backtest import CsvDataLoader  # noqa: E402
+from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
+from quant.walk_forward import comparison_report  # noqa: E402
 from strategies.session_range_mean_reversion import (  # noqa: E402
     SessionRangeMeanReversionStrategy,
     SessionRangeMRConfig,
 )
-from quant.walk_forward import comparison_report  # noqa: E402
 
 DATA_DIR = Path("data/forex/historical")
 REPORT_DIR = Path("reports/optuna")

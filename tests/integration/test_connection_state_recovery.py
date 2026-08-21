@@ -21,14 +21,14 @@ import unittest
 # Ensure the source path is available
 sys.path.insert(0, "src/forex-bot")
 
+from adapters.ctrader.connection_manager import (
+    AUTH_FULL_RECONNECT_THRESHOLD,
+    ConnectionManager,
+)
 from adapters.ctrader.connection_state import (  # noqa: I001
     ConnectionState,
     ConnectionStateManager,
     is_valid_transition,
-)
-from adapters.ctrader.connection_manager import (
-    AUTH_FULL_RECONNECT_THRESHOLD,
-    ConnectionManager,
 )
 
 

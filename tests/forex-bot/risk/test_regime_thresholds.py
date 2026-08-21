@@ -8,13 +8,12 @@ Covers:
     5. classify_signal validation
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
-from risk.regime_thresholds import Regime, RegimeAwareThresholds
 from risk.correlation_matrix import CorrelationMatrix
 from risk.correlation_sizer import CorrelationAwareSizer, Direction
+from risk.regime_thresholds import Regime, RegimeAwareThresholds
 
 
 # --------------------------------------------------------------------------- #

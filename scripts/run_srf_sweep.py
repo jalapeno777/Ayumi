@@ -152,8 +152,8 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
     # Session Breakout
     try:
-        from strategies.session_breakout import SessionBreakoutConfig  # noqa: I001
         import strategies.session_breakout as sb_mod
+        from strategies.session_breakout import SessionBreakoutConfig
 
         for name in dir(sb_mod):
             obj = getattr(sb_mod, name)
@@ -170,8 +170,8 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
     # London Breakout + Retest
     from strategies.london_breakout_retest import (  # noqa: I001
-        LondonBreakoutRetestStrategy,
         LondonBreakoutConfig,
+        LondonBreakoutRetestStrategy,
     )
 
     lb_cfg = LondonBreakoutConfig(symbol=pair)
@@ -182,8 +182,8 @@ def get_strategies_for_pair(pair: str) -> dict[str, callable]:
 
 def run_sweep(pair: str, timeframes: list[str], n_windows: int = 5) -> list[dict]:
     """Run full sweep for a pair across strategies and timeframes."""
-    from srf.schema import SRFDatabase  # noqa: I001
     from srf.gonogo import evaluate_go_nogo
+    from srf.schema import SRFDatabase  # noqa: I001
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = SRFDatabase(str(DB_PATH))

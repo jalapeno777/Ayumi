@@ -4,14 +4,13 @@ Records periodic balance snapshots and generates markdown reports
 for monitoring forward-test performance against FTMO-style drawdown limits.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone, date
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
-
 
 # ── Challenge-completion detector (Phase 6, Quest §6) ─────────────────────
 

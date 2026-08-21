@@ -1,5 +1,4 @@
-import unittest  # noqa: I001
-
+import unittest
 from datetime import datetime
 
 from backtest.engine import Bar, MarketState, TradeDirection

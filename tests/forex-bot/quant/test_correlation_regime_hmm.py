@@ -9,14 +9,13 @@ Covers:
     - BtcRegimeOverlay backward-compatibility
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import warnings
 
 import numpy as np
 import pandas as pd
 import pytest
-
 from quant.correlation_regime_hmm import (
     BREAKDOWN,
     STABLE,
@@ -25,7 +24,6 @@ from quant.correlation_regime_hmm import (
     FeatureEngineer,
     RegimeHistory,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

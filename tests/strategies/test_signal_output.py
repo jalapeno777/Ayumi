@@ -1,13 +1,14 @@
 """Tests for signal_output.py"""
 
-import json  # noqa: I001
+import json
 from datetime import datetime, timezone
+
+from signal_engine.data_types import Signal
 from signal_engine.signal_output import (
+    create_signal,
     format_signal_json,
     parse_signal_json,
-    create_signal,
 )
-from signal_engine.data_types import Signal
 
 
 def _make_signal(**overrides):

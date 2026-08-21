@@ -9,7 +9,7 @@ Individual tests or modules can override by calling resource_limits directly.
 # Without this, OpenBLAS/MKL/OpenMP spawn worker threads that share memory and
 # corrupt state under pytest's suite ordering, manifesting as exit-139 segfaults
 # (see diagnosis card 92243d36). setdefault preserves any caller-supplied value.
-import os  # noqa: I001
+import os
 
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")

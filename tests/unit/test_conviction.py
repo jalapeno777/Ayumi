@@ -6,10 +6,8 @@ clamping, weighted aggregate, custom-weights override, and string
 serialization contracts explicitly here.
 """
 
-import pytest  # noqa: I001
-
+import pytest
 from core.conviction import ConvictionVector, KillCriterion
-
 
 # ---------------------------------------------------------------------------
 # ConvictionVector — clamping

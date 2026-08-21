@@ -1,11 +1,11 @@
-import os  # noqa: I001
+import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from backtest.data_loader import CsvDataLoader, _parse_csv_timestamp
-from backtest.engine import determine_session, SessionType
+from backtest.engine import SessionType, determine_session
 
 
 class TestParseCsvTimestamp(unittest.TestCase):

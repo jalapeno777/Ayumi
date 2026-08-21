@@ -28,7 +28,7 @@ def _mock_ctrader(monkeypatch):
 @pytest.fixture
 def risk_guard(tmp_path):
     """Create a RiskGuard with isolated state file."""
-    from adapters.ctrader.risk_guard import RiskGuard, FTMOConfig  # noqa: I001
+    from adapters.ctrader.risk_guard import FTMOConfig, RiskGuard
 
     return RiskGuard(
         ftmo_config=FTMOConfig(),

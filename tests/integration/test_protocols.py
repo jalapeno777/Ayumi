@@ -6,12 +6,11 @@ Verifies that:
 3. ``OrderResult`` covers all ``OrderStatus`` transitions.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-
 from adapters.ctrader.protocols import (
     Bar,
     MarketFeedProtocol,
@@ -24,7 +23,6 @@ from adapters.ctrader.protocols import (
     Tick,
     TradeSide,
 )
-
 
 # ── Stub implementations ─────────────────────────────────────────────────────
 

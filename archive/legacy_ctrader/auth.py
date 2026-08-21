@@ -16,15 +16,15 @@ Usage::
     )
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from pathlib import Path
 from typing import Optional  # noqa: F401
 
 from .credentials import (
-    CredentialManager,
     CredentialError,
+    CredentialManager,
     PlaceholderCredentialError,  # noqa: F401
 )
 from .token_manager import TokenManager

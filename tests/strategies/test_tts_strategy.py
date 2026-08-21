@@ -1,13 +1,13 @@
 """Tests for TTSStrategy signal engine adapter — HTF, session, quality gates, and ConfidenceBuilder."""
 
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime, timedelta
 
 from backtest.engine import Bar, MarketState
 from backtest.strategies.tts_strategy import (
-    TTSStrategy,
-    ConfidenceBuilder,
     _CONFLUENCE_DENSITY_BUCKETS,
+    ConfidenceBuilder,
+    TTSStrategy,
 )
 
 

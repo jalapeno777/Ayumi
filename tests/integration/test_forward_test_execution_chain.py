@@ -14,18 +14,12 @@ Run:
     python3 -m pytest tests/integration/test_forward_test_execution_chain.py -v
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
-from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAOrderType,
-    ProtoOATradeSide,
-)
-
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
     ForwardTestEngine,
@@ -33,18 +27,21 @@ from adapters.ctrader.forward_test_engine import (
 )
 from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.models import (
+    CTraderTradeSignal,
     Order,
     OrderStatus,
     OrderType,
     PositionStatus,
     TradeDirection,
-    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.order_manager import PositionSizeConfig, SlippageModel
 from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig
-
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
+    ProtoOAOrderType,
+    ProtoOATradeSide,
+)
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

@@ -10,24 +10,24 @@ Usage:
     python scripts/run_multi_strategy_wf.py --dry-run
 """
 
-import argparse  # noqa: I001
+import argparse
 import json
 import sys
 import time
 import traceback
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.builtin_strategies import register_builtin_strategies  # noqa: I001
+from backtest import CsvDataLoader
+from backtest.builtin_strategies import register_builtin_strategies
+from backtest.engine import get_spread_for_pair
 from backtest.walk_forward_runner import (
     run_named_strategy_walk_forward,
 )
-from backtest import CsvDataLoader
-from backtest.engine import get_spread_for_pair
 from common.resource_limits import cpu_limited, memory_capped
 
 # Register all builtin strategies before any WF runs

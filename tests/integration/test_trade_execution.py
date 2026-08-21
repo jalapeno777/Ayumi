@@ -12,34 +12,32 @@ This module tests the real order execution surface that already lives in
 All network calls are mocked; no real cTrader connection is established.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 import pytest
+from adapters.ctrader.connection_state import ConnectionState
+from adapters.ctrader.models import (
+    OrderStatus,
+    OrderType,
+    PositionStatus,
+    TradeDirection,
+)
+from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _normalize_symbol_name
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOANewOrderReq,
     ProtoOAClosePositionReq,
+    ProtoOANewOrderReq,
     ProtoOAReconcileReq,
     ProtoOAReconcileRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAOrderType,
-    ProtoOATradeSide,
-    ProtoOATimeInForce,
     ProtoOAPositionStatus,
+    ProtoOATimeInForce,
+    ProtoOATradeSide,
 )
-
-from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _normalize_symbol_name
-from adapters.ctrader.connection_state import ConnectionState
-from adapters.ctrader.models import (
-    TradeDirection,
-    OrderType,
-    OrderStatus,
-    PositionStatus,
-)
-
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 

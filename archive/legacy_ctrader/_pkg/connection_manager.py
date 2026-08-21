@@ -6,7 +6,7 @@ providing a single health gate (SplitBrainGate) and unified metrics.
 BQ-716 Phase 1.
 """
 
-import json  # noqa: I001
+import json
 import logging
 import threading
 import time
@@ -20,8 +20,7 @@ from typing import Optional
 from .connection_state import ConnectionState, ConnectionStateManager
 from .error_classifier import ErrorTier, classify_error
 from .oauth_refresh import OAuthRefreshManager, OAuthToken
-from .reconnect_strategy import ReconnectStrategy, ReconnectDecision, ReconnectAction  # noqa: F401
-
+from .reconnect_strategy import ReconnectAction, ReconnectDecision, ReconnectStrategy  # noqa: F401
 
 # ── Decision context ──────────────────────────────────────────────────────────
 

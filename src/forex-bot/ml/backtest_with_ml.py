@@ -31,9 +31,8 @@ from backtest.engine import (  # noqa: I001
 )
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import TTSStrategy
-from ml.confluence_features import ConfluenceFeatureExtractor
 from ml.confidence_learner import ConfidenceLearner
-
+from ml.confluence_features import ConfluenceFeatureExtractor
 
 # ── Configuration ──────────────────────────────────────────────────────
 

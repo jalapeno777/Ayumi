@@ -41,7 +41,7 @@ See Also
 * ``docs/research/icir-research-2026-07-08.md`` — full research note.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 from collections.abc import Sequence
@@ -50,7 +50,6 @@ from typing import Any, Iterable
 
 import numpy as np
 from scipy.stats import spearmanr
-
 
 # ---------------------------------------------------------------------------
 # Constants

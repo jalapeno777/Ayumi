@@ -1,3 +1,7 @@
+from core.config import BacktestConfig, BacktestMetrics
+from core.pip import PipCalculator
+from core.protocol import IStrategy
+from core.spread import SpreadModel
 from core.types import (  # noqa: I001
     Bar,
     BarPeriod,
@@ -9,10 +13,6 @@ from core.types import (  # noqa: I001
     TradeDirection,
     TradeOutcome,
 )
-from core.pip import PipCalculator
-from core.spread import SpreadModel
-from core.protocol import IStrategy
-from core.config import BacktestConfig, BacktestMetrics
 
 __all__ = [
     "Bar",

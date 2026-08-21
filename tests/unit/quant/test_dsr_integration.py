@@ -13,17 +13,16 @@ Covers:
 - Edge cases: empty results list, zero-trade streams, missing fields.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import pytest
-
 from quant.dsr_integration import (
+    _MIN_TRADES_FLOOR,
     DEFAULT_N_INDEPENDENT_TRIALS,
     TIER_THRESHOLDS,
-    _MIN_TRADES_FLOOR,
     annotate_wf_results_with_dsr,
     estimate_n_obs,
     generate_tier_ranking,
@@ -38,7 +37,6 @@ from quant.oos_gate import (
     deflated_sharpe_ratio,
     expected_max_sharpe,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test helpers

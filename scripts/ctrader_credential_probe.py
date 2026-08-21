@@ -32,7 +32,7 @@ from urllib.parse import urlparse
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from adapters.ctrader.auth import CTraderAuth, CredentialError  # noqa: I001
+from adapters.ctrader.auth import CredentialError, CTraderAuth
 from adapters.ctrader.token_manager import TokenStatus
 
 logger = logging.getLogger("ctrader_credential_probe")

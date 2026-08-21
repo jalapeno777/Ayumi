@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Initialize SQLite database and migrate CSV data for Ayumi Forex."""
 
-import sqlite3  # noqa: I001
 import csv
+import sqlite3
 import sys
 from pathlib import Path
 

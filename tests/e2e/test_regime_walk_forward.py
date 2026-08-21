@@ -1,16 +1,14 @@
 """BQ-508: Regime labels on walk-forward windows."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-
 
 from quant.walk_forward import (
     WindowMetrics,
     detect_regime_for_window,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

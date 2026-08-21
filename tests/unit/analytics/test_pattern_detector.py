@@ -1,10 +1,9 @@
 """Tests for PatternDetector: M/W formations, SVC, traps, liquidity grabs, FL."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-
-from signal_engine.pattern_detector import PatternDetector
 from signal_engine.data_types import Level, LevelType, Swing, SwingType
+from signal_engine.pattern_detector import PatternDetector
 
 
 def _make_swings(prices: list[tuple[int, float, str]]) -> list[Swing]:

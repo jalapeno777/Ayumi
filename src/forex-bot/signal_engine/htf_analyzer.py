@@ -1,12 +1,12 @@
 """§4.4-4.6 — HTF phase analysis, multi-timeframe alignment, and dual-mechanism reconciliation."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from typing import Optional
 
 import numpy as np
 
-from .data_types import HTFState, HTFPhase
+from .data_types import HTFPhase, HTFState
 from .thresholds import BOARDROOM_RANGE
 
 

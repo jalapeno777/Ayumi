@@ -6,11 +6,11 @@ Verifies that:
 - 2B: Rejection logs include positionId, errorCode, and description
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
-import sys
 import os
+import sys
 import time
 import types
 from unittest.mock import MagicMock, patch

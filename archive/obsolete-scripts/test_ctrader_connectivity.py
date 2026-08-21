@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Direct cTrader FIX connectivity test — read-only (5211) and live (5212)."""
 
-import os  # noqa: I001
-import ssl
+import os
 import socket
+import ssl
 import sys
 import time
 from pathlib import Path

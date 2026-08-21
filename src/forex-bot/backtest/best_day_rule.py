@@ -22,12 +22,11 @@ Caveat (per research §Caveats):
     for live trading. The threshold is configurable via constructor arg.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
 
 # Conservative default threshold per FTMO research §A.7.
 DEFAULT_THRESHOLD = 0.50

@@ -1,11 +1,10 @@
 """Unit tests for the synthetic regime generator core module."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import numpy as np
 import pytest
 from sklearn.mixture import GaussianMixture
-
 from stress.regime_generator import (
     RegimeParams,
     _sample_regime_sequence,

@@ -12,7 +12,7 @@ The amalgamation-specific concerns retained here are:
 * ``AmalgamatedBacktestEngine`` — backtest runner using amalgamation logic
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -29,13 +29,11 @@ from core.types import (
     TradeDirection,
     TradeOutcome,
 )
-
 from engine.base import EngineCore, determine_session
 from engine.mixins import ProgressiveSLMixin
-
-from .strategies import ISignalStrategy
 from signal_engine.risk_sizer import ConfidencePositionSizer
 
+from .strategies import ISignalStrategy
 
 # ────────────────────────────────────────────────────────────────────
 # Enums

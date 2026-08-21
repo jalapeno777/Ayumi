@@ -1,10 +1,11 @@
 """Tests for GateTuner."""
 
-import json  # noqa: I001
+import json
+
 from confidence.gate_tuner import (
+    DEFAULT_MAX_SPREADS,
     GateTuner,
     GateTuneResult,
-    DEFAULT_MAX_SPREADS,
 )
 
 

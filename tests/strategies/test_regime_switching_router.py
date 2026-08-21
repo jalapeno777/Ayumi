@@ -1,14 +1,14 @@
-import os  # noqa: I001
+import os
 import unittest
 from unittest.mock import MagicMock
 
-from core.types import Bar, MarketState, StrategySignal, TradeDirection
 from backtest.strategies import (
     ISignalStrategy,
     MomentumBreakoutStrategy,
     RegimeRouterConfig,
     RegimeSwitchingRouter,
 )
+from core.types import Bar, MarketState, StrategySignal, TradeDirection
 
 
 def make_test_bars(n=100, seed=42, trend="flat"):

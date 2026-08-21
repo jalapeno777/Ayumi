@@ -347,9 +347,10 @@ class TestPendingOrderTimeoutConfig:
 
 class TestOrderManagerPendingTimeout:
     def test_pending_order_times_out(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
         from unittest.mock import MagicMock, patch
+
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
 
         config = PendingOrderTimeoutConfig(timeout_seconds=30.0)
         manager = OrderManager(pending_timeout_config=config)
@@ -372,9 +373,10 @@ class TestOrderManagerPendingTimeout:
         mock_trigger.assert_called_once_with("on_order_timeout", expired[0])
 
     def test_non_pending_order_not_timed_out(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
         from unittest.mock import MagicMock
+
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
 
         config = PendingOrderTimeoutConfig(timeout_seconds=30.0)
         manager = OrderManager(pending_timeout_config=config)
@@ -391,8 +393,9 @@ class TestOrderManagerPendingTimeout:
         assert len(expired) == 0
 
     def test_filled_order_clears_timestamp(self):
-        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig  # noqa: I001
         from datetime import datetime, timezone
+
+        from adapters.ctrader.order_manager import PendingOrderTimeoutConfig
 
         config = PendingOrderTimeoutConfig(timeout_seconds=30.0)
         manager = OrderManager(pending_timeout_config=config)

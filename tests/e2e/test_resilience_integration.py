@@ -181,13 +181,13 @@ _model_msgs.ProtoOATradeSide = _ProtoOATradeSide
 _model_msgs.ProtoOATimeInForce = _ProtoOATimeInForce
 _model_msgs.ProtoOAExecutionType = _ProtoOAExecutionType
 
-import pytest  # noqa: I001
 import threading
 import time
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
 from adapters.ctrader.connection_state import (
     ConnectionState,
     ConnectionStateManager,
@@ -483,8 +483,8 @@ class TestFeedDisconnectFreeze(unittest.TestCase):
     def _make_engine(self):
         """Build a ForwardTestEngine with mocked internals."""
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
         from backtest.strategies import ISignalStrategy
 

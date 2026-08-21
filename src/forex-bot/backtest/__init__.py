@@ -1,4 +1,4 @@
-from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy  # noqa: I001
+from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
 from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
 from .amalgamation import (
@@ -12,25 +12,6 @@ from .amalgamation import (
     VotingMethod,
 )
 from .data_loader import CsvDataLoader
-from .types import (
-    DEFAULT_SPREAD_PIPS,
-    PAIR_SPREAD_PIPS,
-    BacktestConfig,
-    BacktestEngine,
-    BacktestMetrics,
-    Bar,
-    BarPeriod,
-    ExitReason,
-    MarketState,
-    SessionType,
-    SimulatedTrade,
-    StrategyBacktestResult,
-    StrategySignal,
-    TradeDirection,
-    TradeOutcome,
-    determine_session,
-    get_spread_for_pair,
-)
 from .enhanced_engine import EnhancedBacktestEngine
 from .grid_strategy import GridStrategy
 from .hybrid_strategy import HybridConfig, HybridStrategy
@@ -40,7 +21,19 @@ from .ict_smc import (
     SignalConfluenceEngine,
 )
 from .multi_strategy_engine import MultiStrategyBacktestEngine, MultiStrategyConfig
+from .pattern_detector import (
+    ConsolidationFilter,
+    ConsolidationMetrics,
+    MWPattern,
+    MWPatternDetector,
+)
 from .stat_arb import StatArbBacktestResult, StatArbStrategy
+from .statistical_study import (
+    CriterionResult,
+    GoNoGoCriteria,
+    StatisticalStudy,
+    StatisticalStudyResult,
+)
 from .strategies import (
     BBStrategy,
     CommodityMeanReversionStrategy,
@@ -61,17 +54,24 @@ from .trade_management import (
     TradeManagementConfig,
     TradeManager,
 )
-from .statistical_study import (
-    CriterionResult,
-    GoNoGoCriteria,
-    StatisticalStudy,
-    StatisticalStudyResult,
-)
-from .pattern_detector import (
-    ConsolidationFilter,
-    ConsolidationMetrics,
-    MWPattern,
-    MWPatternDetector,
+from .types import (
+    DEFAULT_SPREAD_PIPS,
+    PAIR_SPREAD_PIPS,
+    BacktestConfig,
+    BacktestEngine,
+    BacktestMetrics,
+    Bar,
+    BarPeriod,
+    ExitReason,
+    MarketState,
+    SessionType,
+    SimulatedTrade,
+    StrategyBacktestResult,
+    StrategySignal,
+    TradeDirection,
+    TradeOutcome,
+    determine_session,
+    get_spread_for_pair,
 )
 
 try:

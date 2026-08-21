@@ -16,25 +16,25 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.tick_loader import load_bars  # noqa: I001
+from backtest.tick_loader import load_bars
 from backtest.walk_forward_runner import run_strategy_walk_forward
-from strategies.killzone_momentum import (
-    KillzoneMomentumStrategy,
-    KillzoneMomentumConfig,
+from strategies.donchian_atr_trend_v2 import (
+    DonchianATRConfig,
+    DonchianATRTrendV2Strategy,
 )
 from strategies.dual_tf_squeeze_pro import (
-    DualTFSqueezeProStrategy,
     DualTFSqueezeProConfig,
+    DualTFSqueezeProStrategy,
 )
-from strategies.donchian_atr_trend_v2 import (
-    DonchianATRTrendV2Strategy,
-    DonchianATRConfig,
+from strategies.killzone_momentum import (
+    KillzoneMomentumConfig,
+    KillzoneMomentumStrategy,
 )
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
 from strategies.london_breakout_retest import (
-    LondonBreakoutRetestStrategy,
     LondonBreakoutConfig,
+    LondonBreakoutRetestStrategy,
 )
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
 # Mirror launch_blend_forward_test STRATEGY_TIMEFRAMES

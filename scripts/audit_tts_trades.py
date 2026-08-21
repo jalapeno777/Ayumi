@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.engine import Bar, BacktestConfig  # noqa: I001
+from backtest.engine import BacktestConfig, Bar
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies.tts_strategy import TTSStrategy
 from quant.walk_forward import WalkForwardValidator

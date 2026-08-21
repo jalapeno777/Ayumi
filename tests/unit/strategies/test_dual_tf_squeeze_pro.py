@@ -7,12 +7,11 @@ filtering, risk calculation (stop at KC band or ATR-based, TP at R
 multiples), confidence bounds, and cooldown behavior.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.dual_tf_squeeze_pro import (
     DualTFSqueezeProConfig,
@@ -26,7 +25,6 @@ from strategies.dual_tf_squeeze_pro import (
     _std,
     _true_range,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

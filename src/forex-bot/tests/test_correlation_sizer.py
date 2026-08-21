@@ -1,10 +1,8 @@
 """Tests for correlation-aware position sizing (BQ-1237)."""
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 import pytest
-
 from risk.correlation_matrix import CorrelationMatrix
 from risk.correlation_sizer import CorrelationAwareSizer, Direction
 

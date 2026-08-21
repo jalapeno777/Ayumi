@@ -8,12 +8,11 @@ Covers the 18 boundary cases specified in card ee53643d (fix-weekend-market-clos
 Real forex weekend: closes Friday 22:00 UTC, reopens Sunday 21:00 UTC.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-
 from adapters.ctrader.market_hours import is_forex_market_closed
 
 

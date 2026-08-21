@@ -100,9 +100,9 @@ class TestApplyTrialParams(unittest.TestCase):
 
     def test_booster_switches(self):
         from ml.optuna_optimizer import (  # noqa: I001
+            BOOSTER_SWITCHES,
             _apply_trial_params,
             restore_defaults,
-            BOOSTER_SWITCHES,
         )
 
         trial = MagicMock()
@@ -287,9 +287,10 @@ class TestUpdateConfig(unittest.TestCase):
         self.assertFalse(update_per_symbol_config("EURUSD", "M15", result))
 
     def test_skip_when_no_config_file(self):
-        from pathlib import Path  # noqa: I001
-        from ml.optuna_optimizer import update_per_symbol_config
+        from pathlib import Path
+
         import ml.optuna_optimizer as opt_mod
+        from ml.optuna_optimizer import update_per_symbol_config
 
         orig = opt_mod.PROJECT_ROOT
         opt_mod.PROJECT_ROOT = Path("/tmp/nonexistent_ayumi_test")  # noqa: S108

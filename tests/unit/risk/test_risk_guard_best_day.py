@@ -17,25 +17,23 @@ Covers:
    10. Best-day rule interacts correctly with can_trade()
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
+import sys
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
 
-import sys
-
 sys.path.insert(0, "src/forex-bot")
 sys.path.insert(0, "src/forex-bot/adapters/ctrader")
 
 from adapters.ctrader.risk_guard import (  # noqa: I001
-    RiskGuard,
+    DailyTradingStats,
     FTMOConfig,
     FTMOProfile,
-    DailyTradingStats,
+    RiskGuard,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

@@ -1,12 +1,11 @@
 """Tests for Q1BacktestStudy — M/W Formation 3:1 R&R"""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 from datetime import datetime
 
 import pytest
-
 from backtest.engine import Bar  # noqa: E402
 from backtest.pattern_detector import MWPattern  # noqa: E402
 from backtest_q1_mw_formation_study import Q1BacktestStudy  # noqa: E402

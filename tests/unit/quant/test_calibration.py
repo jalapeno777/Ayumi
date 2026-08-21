@@ -8,13 +8,12 @@ Covers:
 - Hand-computed Brier example from the module docstring
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 
 import numpy as np
 import pytest
-
 from quant.calibration import (
     CalibrationBin,
     CalibrationReport,
@@ -24,7 +23,6 @@ from quant.calibration import (
     evaluate_calibration,
 )
 from quant.oos_gate import WalkForwardResults
-
 
 # ---------------------------------------------------------------------------
 # brier_score tests

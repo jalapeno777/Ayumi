@@ -6,10 +6,10 @@ Traces which SRMR+ filters reject each bar during trading session hours.
 Uses the same logic as SRMRPlusStrategy.evaluate() but with per-filter logging.
 """
 
-import csv  # noqa: I001
+import csv
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, time, date  # noqa: F401
+from datetime import date, datetime, time  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Config mirrors (default SRMRPlusConfig)

@@ -1,10 +1,11 @@
 """§8 — Session definitions, phase scoring, weekly model, and Asia rules."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import pytz
 from datetime import datetime, time
 from typing import Optional
+
+import pytz
 
 _ET = pytz.timezone("America/New_York")
 

@@ -1,7 +1,6 @@
 """Tests for Signal Orchestrator + P1 gate fixes."""
 
-from datetime import datetime, timezone  # noqa: I001
-
+from datetime import datetime, timezone
 
 from confidence.engine import ConfidenceEngine
 from confidence.gates import (
@@ -15,7 +14,6 @@ from orchestrator.signal_orchestrator import (
 )
 from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
-
 
 # ---------------------------------------------------------------------------
 # Helpers

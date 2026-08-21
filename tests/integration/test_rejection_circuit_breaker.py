@@ -22,8 +22,8 @@ class TestRejectionCircuitBreaker:
     def test_cooldown_blocks_evaluation(self):
         """When cooldown_until is in the future, evaluation should skip."""
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
 
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
@@ -41,8 +41,8 @@ class TestRejectionCircuitBreaker:
     def test_no_cooldown_allows_evaluation(self):
         """When cooldown has expired, evaluation should proceed past cooldown check."""
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
 
         engine = ForwardTestEngine.__new__(ForwardTestEngine)

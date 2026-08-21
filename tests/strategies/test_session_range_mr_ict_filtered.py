@@ -1,15 +1,16 @@
-from datetime import datetime, timedelta  # noqa: I001
+from datetime import datetime, timedelta
+
 from backtest.engine import (
     Bar,
     MarketState,
     SessionType,
     StrategySignal,
 )
-from strategies.session_range_mr_ict_filtered import (
-    SessionRangeMRWithICTFilter,
-    ICTFilterConfig,
-)
 from strategies.session_range_mean_reversion import SessionRangeMRConfig
+from strategies.session_range_mr_ict_filtered import (
+    ICTFilterConfig,
+    SessionRangeMRWithICTFilter,
+)
 
 
 def _make_h1_bars(n: int, base_price: float = 1.1000, seed: int = 42) -> list:

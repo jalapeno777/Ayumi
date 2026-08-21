@@ -14,20 +14,18 @@ Covers:
 - Edge cases: JPY pairs, cross pairs, extreme values
 """
 
-import pytest  # noqa: I001
-
+import pytest
 from backtest.slippage_model import (
     SlippageConfig,
     SlippageContext,
     SlippageModel,
     TradeSide,
+    _pip_size_for_price,
+    apply_slippage_to_price,
+    apply_to_trade,
     compute_slippage,
     compute_slippage_pips,
-    apply_to_trade,
-    apply_slippage_to_price,
-    _pip_size_for_price,
 )
-
 
 # ---------------------------------------------------------------------------
 # Config / Context validation

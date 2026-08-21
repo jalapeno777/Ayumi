@@ -19,12 +19,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader  # noqa: I001
+from backtest.data_loader import CsvDataLoader
 from backtest.engine import BacktestConfig, get_spread_for_pair
 from backtest.multi_strategy_engine import MultiStrategyBacktestEngine
 from backtest.strategies import ScalperStrategy
 from common.resource_limits import add_resource_args, run_limited
-from quant.go_nogo_criteria import PerWindowCriteria, AggregateCriteria
+from quant.go_nogo_criteria import AggregateCriteria, PerWindowCriteria
 from quant.walk_forward import WalkForwardValidator
 from signal_engine.risk_sizer import ConfidencePositionSizer
 

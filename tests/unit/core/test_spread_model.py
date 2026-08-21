@@ -1,7 +1,7 @@
-import unittest  # noqa: I001
+import unittest
 
-from core.spread import SpreadModel
 from core.pip import PipCalculator
+from core.spread import SpreadModel
 
 
 class TestSpreadModel(unittest.TestCase):

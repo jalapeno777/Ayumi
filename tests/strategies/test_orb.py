@@ -14,12 +14,11 @@ Covers:
     - ATR-buffered stop-loss distance validation
 """
 
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime, timedelta, timezone
 
 from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.orb import ORBStrategy, _calculate_atr, _pip_size_for_symbol
-
 
 # ---------------------------------------------------------------------------
 # Helpers

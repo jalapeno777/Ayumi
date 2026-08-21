@@ -7,10 +7,9 @@ Covers SRB-AYUMI-001 acceptance criteria:
 - Edge cases: empty portfolio, unknown pairs, multi-cluster membership
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from risk.correlation_matrix import CorrelationMatrix
 from risk.pair_selection import (
     PairSelectionPolicy,

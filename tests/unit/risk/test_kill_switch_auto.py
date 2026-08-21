@@ -11,22 +11,20 @@ Tests cover:
   - Kill switch audit log entries for auto-triggers
 """
 
-import json  # noqa: I001
-from pathlib import Path
+import json
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.risk_guard import (
     FTMOConfig,
     RiskGuard,
     RiskLimitType,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -380,8 +378,8 @@ class TestFeedDisconnectFreeze:
     def _make_engine_mock(self, tmp_state_dir):
         """Create a mock engine with minimal attrs for feed health check."""
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
 
         config = ForwardTestConfig()
@@ -471,8 +469,8 @@ class TestErrorRateFreeze:
     def _make_engine_mock(self, tmp_state_dir):
         """Create a mock engine with minimal attrs for error rate check."""
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
 
         engine = ForwardTestEngine.__new__(ForwardTestEngine)
@@ -577,8 +575,8 @@ class TestErrorRateFreeze:
 class TestHeartbeatAtomicWrite:
     def _make_engine_mock(self, tmp_path, tmp_state_dir):
         from adapters.ctrader.forward_test_engine import (  # noqa: I001
-            ForwardTestEngine,
             ForwardTestConfig,
+            ForwardTestEngine,
         )
 
         engine = ForwardTestEngine.__new__(ForwardTestEngine)

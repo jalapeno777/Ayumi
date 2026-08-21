@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test: import run_paper_mvp module, then create feed directly."""
 
-import sys  # noqa: I001
 import os
+import sys
 import time
 from pathlib import Path
 

@@ -43,7 +43,7 @@ sys.path.insert(
 
 def _make_signal(**overrides):
     """Construct a CTraderTradeSignal with all multi-TP fields populated."""
-    from adapters.ctrader.models import TradeDirection, CTraderTradeSignal  # noqa: I001
+    from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 
     base = dict(
         symbol="GBPUSD",

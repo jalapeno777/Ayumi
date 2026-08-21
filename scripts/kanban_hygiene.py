@@ -25,7 +25,7 @@ The script is deliberately conservative:
     one cron invocation.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
 import json
@@ -37,7 +37,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
-
 
 DEFAULT_WORKBOARD_DB = os.path.expanduser("~/.openclaw/plugins/workboard/workboard.sqlite")
 DEFAULT_OPS_DIR = Path("data/ops")

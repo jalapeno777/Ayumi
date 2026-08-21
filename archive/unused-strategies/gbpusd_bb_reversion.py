@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Optional, Set
@@ -10,7 +10,6 @@ from backtest.engine import (
     StrategySignal,
     TradeDirection,
 )
-
 
 _PREFERRED_SESSIONS: Set[SessionType] = {
     SessionType.LONDON,

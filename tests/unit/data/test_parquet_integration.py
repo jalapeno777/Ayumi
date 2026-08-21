@@ -1,19 +1,18 @@
-import tempfile  # noqa: I001
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-
 from backtest.data_loader import (
     CsvDataLoader,
     _compute_spread_pips,
     _detect_ask_columns,
 )
 from backtest.engine import Bar as LegacyBar
+from core.pip import PipCalculator
 from core.spread import RealisticSpreadModel, SpreadModel
 from core.types import Bar
-from core.pip import PipCalculator
 
 
 class TestComputeSpreadPips(unittest.TestCase):

@@ -33,11 +33,11 @@ class-based API so it can be unit-tested and reused by the backtest
 pipeline.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import csv
-import lzma
 import logging
+import lzma
 import struct
 import time
 import urllib.error
