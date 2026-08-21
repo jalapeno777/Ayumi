@@ -875,7 +875,13 @@ class ForwardTestEngine:
         """Build kwargs dict for the cTrader Open API spot feed."""
         try:
             store = CredentialStore(".env")
-            lifecycle = TokenLifecycle(store)
+            # Sprint 024 (card 591cbfe6): inject the engine's KillSwitchManager
+            # so the kill-switch re-arm in TokenLifecycle can dispatch to it
+            # after ``auth_failure_threshold`` consecutive auth failures.
+            lifecycle = TokenLifecycle(
+                store,
+                kill_switch=getattr(self, "_kill_switch", None),
+            )
             access_token = lifecycle.ensure_valid()
             creds = store.get()
         except Exception as exc:

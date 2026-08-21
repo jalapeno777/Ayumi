@@ -341,13 +341,20 @@ class TestValidateToken:
 class TestRefreshValidationGate:
     """Tests for the validation gate in _do_refresh_inner().
 
-    Ensures refreshed tokens are validated against cTrader API before
-    being committed to .env. If validation fails, old tokens are retained.
+    Sprint 024 (card 591cbfe6): validation is now ADVISORY by default.
+    The OAuth endpoint returned 200 with a fresh token — that is the
+    source of truth. The hard-fail behaviour is preserved for ops who
+    opt in via ``strict_validation=True``.
     """
 
-    def test_validation_failure_prevents_persist(self):
-        """If _validate_token returns False, tokens are NOT persisted."""
-        lc = _make_lifecycle()
+    def test_validation_failure_with_strict_raises(self):
+        """If strict_validation=True and _validate_token returns False, raise.
+
+        Legacy hard-fail behaviour preserved for ops who want the old
+        behaviour. Default mode (strict_validation=False) is now
+        advisory — see test_validation_failure_advisory_persists_tokens.
+        """
+        lc = TokenLifecycle(_make_mock_store(), strict_validation=True)
 
         with (
             patch("adapters.ctrader.token_lifecycle.requests.post") as mock_post,
@@ -361,6 +368,31 @@ class TestRefreshValidationGate:
                 lc._do_refresh(force=True)
             assert "failed validation" in str(exc_info.value).lower()
             mock_update.assert_not_called()
+
+    def test_validation_failure_advisory_persists_tokens(self):
+        """Default mode: validation failure logs a warning and PERSISTS the token.
+
+        Sprint 024 (card 591cbfe6): the OAuth endpoint returned 200 with a
+        fresh token — that is the source of truth. A failing advisory
+        validation (validation endpoint temporarily unreachable, or
+        response shape changed) must NOT discard the fresh token.
+        """
+        lc = _make_lifecycle()
+        # _validate_token returns False -> advisory mode logs + persists
+        new_creds = _make_credentials(access_token="advisory-validated-token")  # noqa: S106
+
+        with (
+            patch("adapters.ctrader.token_lifecycle.requests.post") as mock_post,
+            patch.object(lc, "_validate_token", return_value=False),
+            patch.object(lc._store, "get", return_value=new_creds),
+            patch.object(lc._store, "update_tokens") as mock_update,
+        ):
+            mock_post.return_value = _mock_oauth_response()
+
+            # Use force=True to skip the pre-refresh validity re-check
+            token = lc._do_refresh(force=True)
+            assert token == "advisory-validated-token"  # noqa: S105
+            mock_update.assert_called_once()
 
     def test_validation_success_persists_tokens(self):
         """If _validate_token returns True, tokens ARE persisted."""

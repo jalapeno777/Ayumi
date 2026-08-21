@@ -4,14 +4,29 @@ Proactive refresh: refreshes when expires_at < now + 5 days
 Reactive refresh: called by session on AUTH_EXPIRED error
 Thread-safe: uses a lock to prevent concurrent refreshes within a process
 Process-safe: uses a file lock to prevent concurrent refreshes across processes
+
+Sprint 024 / card 591cbfe6 hardening (2026-08-21):
+    * Validation is now ADVISORY — the OAuth endpoint is the source of truth.
+      Previously a failing pre-commit validation call would discard the
+      fresh token and raise ``TokenRefreshError``, causing the proactive
+      timer to log "Refreshed token failed validation" every cycle while
+      the token aged 12.4+ days (forward-test incident, 4/4 days at 21:00Z).
+    * Stale lock-file detection: if the inter-process lock file's mtime is
+      older than ``STALE_LOCK_THRESHOLD_S`` we treat it as an orphan from a
+      crashed process and steal it instead of deadlocking.
+    * ``token_age_s`` property exposes the elapsed time since the current
+      token was issued — used by health checks (AC: ``token_age_s < 3600``
+      across refresh cycles) and by tests.
 """
 
 from __future__ import annotations
 
+import errno
 import fcntl
 import logging
 import os
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -28,6 +43,23 @@ OAUTH_URL = "https://openapi.ctrader.com/apps/token"
 REFRESH_BUFFER = timedelta(days=5)  # refresh when < 5 days remaining (token TTL is 30 days)
 REQUEST_TIMEOUT = 10  # seconds
 PROACTIVE_CHECK_INTERVAL = 300  # seconds between proactive timer checks (5min)
+
+# Sprint 024: orphan lock-file threshold. If the .token_refresh.lock file's
+# mtime is older than this, the holding process is presumed dead and we
+# steal the lock instead of waiting forever (Unix advisory locks are
+# released on process death but a stale file can still confuse diagnostics).
+STALE_LOCK_THRESHOLD_S = 300
+
+# Sprint 024: token-age guard rail for health checks. Matches the AC
+# ``token_age_s < 3600 across refresh cycles``.
+TOKEN_AGE_HEALTH_BUDGET_S = 3600
+
+# Sprint 024: kill-switch re-arm threshold. After this many CONSECUTIVE
+# retryable auth failures (network errors, HTTP 5xx), arm the global-freeze
+# halt via KillSwitchManager.activate_global_freeze() instead of letting
+# the proactive timer retry forever (forward-test incident 4/4 days at
+# 21:00Z, auth_errors 5→9+). Default 5 — configurable per-card AC.
+DEFAULT_AUTH_FAILURE_THRESHOLD = 5
 
 # Inter-process lock file path (relative to CWD or absolute)
 # Read dynamically so tests can override via monkeypatch
@@ -87,21 +119,69 @@ class TokenLifecycle:
 
     _refresh_disabled: bool = False
 
-    def __init__(self, credential_store: CredentialStore):
+    def __init__(
+        self,
+        credential_store: CredentialStore,
+        *,
+        strict_validation: bool = False,
+        clock: Callable[[], datetime] | None = None,
+        auth_failure_threshold: int = DEFAULT_AUTH_FAILURE_THRESHOLD,
+        kill_switch: Optional[object] = None,
+    ):
         """Initialize with a CredentialStore.
 
         Reads client_id and client_secret from the credential store.
+
+        Args:
+            credential_store: Source of cTrader credentials and tokens.
+            strict_validation: If True, treat ``_validate_token`` returning
+                False as a hard failure (legacy behaviour). Default is
+                False — validation is advisory only and the OAuth endpoint
+                is the source of truth. See module docstring for context.
+            clock: Optional callable returning the current UTC datetime.
+                Defaults to ``datetime.now(timezone.utc)``. Exposed so
+                unit tests can inject a deterministic clock.
+            auth_failure_threshold: Number of consecutive retryable auth
+                failures (network error, HTTP 5xx) before arming the
+                global-freeze kill switch via the injected ``kill_switch``
+                (if provided). Default :data:`DEFAULT_AUTH_FAILURE_THRESHOLD`
+                (5). Permanent failures (HTTP 400 invalid grant) do NOT
+                count toward this threshold — they require manual
+                intervention regardless.
+            kill_switch: Optional :class:`KillSwitchManager` instance
+                injected by the engine. When None, the re-arm call is
+                logged but not dispatched (production wiring sets this
+                in ForwardTestEngine.startup; tests inject a mock).
         """
         self._store = credential_store
         creds = credential_store.get()
         self._client_id = creds.client_id
         self._client_secret = creds.client_secret
+        self._auth_failure_threshold = max(1, int(auth_failure_threshold))
+        self._kill_switch = kill_switch
 
         self._lock = threading.Lock()
         self._refreshing = threading.Event()
         # Track the last-known access token to avoid redundant reads
         self._access_token: str = creds.access_token
         self._expires_at: Optional[datetime] = creds.expires_at
+        # Sprint 024: clock injection MUST be set before any code path
+        # that calls ``self._now()`` (e.g. ``_issued_at = self._now()``
+        # below). Tests pass a deterministic callable to advance time
+        # without sleeping.
+        self._clock: Callable[[], datetime] = clock or (
+            lambda: datetime.now(timezone.utc)
+        )
+        # Track when the current access token was issued so we can report
+        # ``token_age_s`` for the health gate. ``_issued_at`` is bumped on
+        # every successful ``_do_refresh_inner`` and at construction time
+        # when a token is loaded from the credential store.
+        self._issued_at: datetime = self._now()
+        self._strict_validation: bool = strict_validation
+        # Sprint 024: count consecutive auth failures to arm the global-freeze
+        # kill switch instead of retrying forever. Reset to 0 on any
+        # successful refresh.
+        self._consecutive_auth_failures: int = 0
 
         # Proactive timer
         self._timer_thread: Optional[threading.Thread] = None
@@ -171,6 +251,42 @@ class TokenLifecycle:
         """Return the current token's expiry time, or None if unknown."""
         return self._expires_at
 
+    @property
+    def issued_at(self) -> datetime:
+        """Return the UTC datetime when the current access token was issued."""
+        return self._issued_at
+
+    @property
+    def token_age_s(self) -> float:
+        """Seconds elapsed since the current access token was issued.
+
+        Used by health checks (sprint 024 AC: ``token_age_s < 3600`` after a
+        refresh cycle) and by unit tests to assert rotation actually
+        produced a fresh token.
+        """
+        now = self._now()
+        return max(0.0, (now - self._issued_at).total_seconds())
+
+    @property
+    def consecutive_auth_failures(self) -> int:
+        """Count of consecutive OAuth refresh failures since last success.
+
+        Cleared on every successful ``_do_refresh_inner`` (counter reset
+        to 0). Compared against ``auth_failure_threshold`` by the
+        kill-switch re-arm logic in :meth:`_do_refresh_inner`.
+        """
+        return self._consecutive_auth_failures
+
+    def _now(self) -> datetime:
+        """Return the current UTC datetime via the injected clock.
+
+        Default (no clock provided) is ``datetime.now(timezone.utc)``.
+        Tests inject a deterministic callable to advance time without
+        touching the wall clock — required for the AC
+        ``token_age_s < 3600 across refresh cycles`` test.
+        """
+        return self._clock()
+
     def start_proactive_timer(self, on_refreshed: Optional[Callable[[str], None]] = None) -> None:
         """Start a daemon thread that proactively refreshes before expiry.
 
@@ -231,7 +347,7 @@ class TokenLifecycle:
             # manual-token mode — the INFO-level message is misleading noise.
             logger.debug("No EXPIRES_AT in credentials — assuming token valid (manual token mode)")
             return True
-        now = datetime.now(timezone.utc)
+        now = self._now()
         return self._expires_at - now > REFRESH_BUFFER
 
     def _sync_from_store(self) -> None:
@@ -247,6 +363,14 @@ class TokenLifecycle:
         Acquires an inter-process file lock to prevent concurrent refreshes
         across multiple processes (forward test, test scripts, subagents).
 
+        Sprint 024 (card 591cbfe6): stale-lock-file detection. If the lock
+        file's mtime is older than ``STALE_LOCK_THRESHOLD_S``, we treat it
+        as an orphan from a crashed process and steal the lock instead of
+        blocking forever. POSIX ``fcntl.flock`` is released automatically on
+        process death, so the holding process is presumed crashed and the
+        kernel will release its lock as soon as we request an exclusive
+        one — stealing is just a logging + diagnostic step.
+
         Args:
             force: If True, skip the post-lock validity re-check (used by
                    force_refresh which must always refresh).
@@ -261,11 +385,12 @@ class TokenLifecycle:
         lock_path = Path(_get_lock_file_path())
         lock_path.parent.mkdir(parents=True, exist_ok=True)
 
+        lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
         try:
-            lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            self._acquire_lock_with_steal_check(lock_fd, lock_path)
         except OSError as exc:
             logger.error("Cannot acquire inter-process token lock: %s", exc)
+            os.close(lock_fd)
             raise TokenRefreshError(f"Cannot acquire inter-process lock: {exc}", retry=True) from exc
 
         try:
@@ -281,6 +406,57 @@ class TokenLifecycle:
         finally:
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
             os.close(lock_fd)
+
+    def _acquire_lock_with_steal_check(self, lock_fd: int, lock_path: Path) -> None:
+        """Acquire the inter-process lock, stealing if the file is stale.
+
+        Sprint 024 (card 591cbfe6): POSIX ``fcntl.flock`` releases on
+        process death, so a crashed holder is not a real deadlock hazard.
+        The remaining concern is operator confusion: a stale lock file
+        with an old mtime suggests a crashed refresh, even if the kernel
+        has already released the underlying lock.
+
+        We attempt ``LOCK_EX | LOCK_NB`` first to avoid blocking on a
+        healthy concurrent refresh. If that fails, we check the mtime:
+          - mtime older than ``STALE_LOCK_THRESHOLD_S`` → log a
+            "stealing stale lock file" warning, then fall back to
+            blocking ``LOCK_EX`` (kernel will release the dead holder's
+            lock and we proceed).
+          - mtime fresh → blocking ``LOCK_EX`` (another process is
+            actively refreshing — wait our turn normally).
+        """
+        # Non-blocking first attempt
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except OSError as exc:
+            if exc.errno not in (errno.EWOULDBLOCK, errno.EAGAIN):
+                raise
+
+        # Failed non-blocking — another holder exists. Check staleness.
+        try:
+            mtime = os.fstat(lock_fd).st_mtime
+        except OSError:
+            mtime = 0.0
+        age_s = max(0.0, time.time() - mtime) if mtime > 0 else float("inf")
+
+        if age_s >= STALE_LOCK_THRESHOLD_S:
+            logger.warning(
+                "Stealing stale token-refresh lock file %s (mtime age=%.1fs "
+                ">= threshold=%ds) — holding process presumed crashed",
+                lock_path,
+                age_s,
+                STALE_LOCK_THRESHOLD_S,
+            )
+        else:
+            logger.debug(
+                "Token-refresh lock held by another process (mtime age=%.1fs) — waiting",
+                age_s,
+            )
+
+        # Blocking acquire. The kernel releases any dead holder's lock
+        # automatically; for a live holder we wait normally.
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
 
     def _do_refresh_inner(self) -> str:
         """Inner refresh logic — no locking, caller handles all locks.
@@ -310,6 +486,7 @@ class TokenLifecycle:
             )
         except requests.RequestException as exc:
             logger.error("Token refresh network error: %s", exc)
+            self._record_auth_failure(retryable=True, kind="network_error")
             raise TokenRefreshError(
                 f"Network error during token refresh: {exc}",
                 retry=True,
@@ -319,6 +496,10 @@ class TokenLifecycle:
         if resp.status_code == 400:
             body = resp.text[:500]
             logger.error("Token refresh failed — HTTP 400: %s", body)
+            # Permanent failure — do NOT increment the re-arm counter.
+            # Re-arming the kill switch on an invalid refresh token would
+            # halt trading for a problem that requires manual intervention
+            # (rotating refresh_token in .env), not a transient outage.
             raise TokenRefreshError(
                 "Refresh token invalid — manual intervention required",
                 retry=False,
@@ -332,6 +513,7 @@ class TokenLifecycle:
                 resp.status_code,
                 body,
             )
+            self._record_auth_failure(retryable=True, kind=f"http_{resp.status_code}")
             raise TokenRefreshError(
                 f"OAuth server error (HTTP {resp.status_code})",
                 retry=True,
@@ -368,12 +550,34 @@ class TokenLifecycle:
             new_refresh = refresh_token
 
         # Validate the refreshed token before committing to .env.
-        # If validation fails, keep the old tokens and raise.
+        # Sprint 024 (card 591cbfe6): validation is now ADVISORY. The OAuth
+        # endpoint returned 200 with a fresh token — that is the source of
+        # truth. Previously a failing pre-commit validation call would
+        # discard the fresh token and raise TokenRefreshError, causing
+        # the proactive timer to log "Refreshed token failed validation"
+        # every cycle while the token aged 12.4+ days.
+        #
+        # Legacy behaviour (hard-fail) remains available via
+        # strict_validation=True for ops who want the old behaviour.
         if not self._validate_token(new_access):
-            logger.error("Refreshed token failed validation — keeping old tokens")
-            raise TokenRefreshError(
-                "Refreshed token failed validation — old tokens retained",
-                retry=False,
+            if self._strict_validation:
+                logger.error(
+                    "Refreshed token failed validation (strict_validation=True) "
+                    "— keeping old tokens",
+                )
+                # Strict-mode failure is operator-induced (the validation
+                # endpoint really did reject the token). Record as a
+                # NON-retryable failure so the consecutive-failure counter
+                # is not corrupted by config errors.
+                self._record_auth_failure(retryable=False, kind="strict_validation")
+                raise TokenRefreshError(
+                    "Refreshed token failed validation — old tokens retained",
+                    retry=False,
+                )
+            logger.warning(
+                "Refreshed token failed advisory validation — accepting anyway "
+                "(OAuth returned 200; validation endpoint may be temporarily "
+                "unavailable or its response shape changed)",
             )
 
         # Persist to credential store (computes expires_at internally)
@@ -383,6 +587,22 @@ class TokenLifecycle:
         creds = self._store.get()
         self._access_token = creds.access_token
         self._expires_at = creds.expires_at
+
+        # Bump _issued_at so token_age_s reflects the fresh refresh.
+        # Done AFTER the credential store write so the value is always
+        # consistent with the cached token.
+        self._issued_at = self._now()
+
+        # Reset the consecutive-failure counter on any successful refresh
+        # — a working auth path is the only way the system can self-recover
+        # from an extended outage, so we don't want to carry old failures
+        # past a single successful rotation.
+        if self._consecutive_auth_failures != 0:
+            logger.info(
+                "Token refresh succeeded after %d consecutive failures — resetting counter",
+                self._consecutive_auth_failures,
+            )
+            self._consecutive_auth_failures = 0
 
         logger.info("Token refreshed — new expires_at=%s", self._expires_at)
 
@@ -424,6 +644,76 @@ class TokenLifecycle:
         except requests.RequestException as exc:
             logger.warning("Token validation network error — assuming valid: %s", exc)
             return True
+
+    def _record_auth_failure(self, *, retryable: bool, kind: str) -> None:
+        """Increment the consecutive auth-failure counter and arm the kill switch.
+
+        Sprint 024 (card 591cbfe6): after ``auth_failure_threshold`` consecutive
+        retryable failures (network error, HTTP 5xx), arm the global-freeze
+        halt instead of letting the proactive timer retry forever.
+
+        Args:
+            retryable: True for transient failures (network/5xx). False is
+                a no-op — permanent failures (HTTP 400 invalid grant) are
+                not the kind that an automated retry loop can recover from,
+                so they don't count toward the threshold.
+            kind: Short string identifying the failure class for logging
+                (e.g. ``network_error``, ``http_503``).
+        """
+        if not retryable:
+            return
+        self._consecutive_auth_failures += 1
+        logger.warning(
+            "Token refresh auth failure (%s) — consecutive count: %d/%d",
+            kind,
+            self._consecutive_auth_failures,
+            self._auth_failure_threshold,
+        )
+        if self._consecutive_auth_failures >= self._auth_failure_threshold:
+            self._arm_global_freeze(kind=kind)
+
+    def _arm_global_freeze(self, *, kind: str) -> None:
+        """Activate the global-freeze halt via the injected KillSwitchManager.
+
+        Sprint 024 (card 591cbfe6): caps the unbounded retry loop. Without
+        this, an extended outage (e.g. cTrader regional unavailability during
+        a closure window) keeps re-trying forever and floods logs with
+        "Refreshed token failed validation" / 5xx / network errors while
+        the in-memory token continues to age.
+
+        Fail-safe: if no kill switch was injected at construction time,
+        log a CRITICAL warning and continue — the operator wiring is
+        expected but the refresh machinery itself must not raise here
+        (we are already in a failure path).
+        """
+        reason = (
+            f"token_refresh_re_arm: {self._consecutive_auth_failures} consecutive "
+            f"auth failures (kind={kind}, threshold={self._auth_failure_threshold})"
+        )
+        ks = getattr(self, "_kill_switch", None)
+        if ks is None:
+            logger.critical(
+                "Kill-switch re-arm REACHED but no KillSwitchManager injected "
+                "— global freeze will NOT be activated. reason=%s",
+                reason,
+            )
+            return
+        try:
+            ks.activate_global_freeze(reason=reason, triggered_by="token_lifecycle")
+            logger.critical(
+                "Kill-switch re-armed: GLOBAL FREEZE ACTIVATED after %d consecutive "
+                "auth failures (kind=%s)",
+                self._consecutive_auth_failures,
+                kind,
+            )
+        except Exception as exc:
+            # Re-arm must never raise — the refresh path is already in an
+            # error state and we don't want to mask the original failure.
+            logger.error(
+                "Kill-switch re-arm failed: %s — refresh path continues",
+                exc,
+                exc_info=True,
+            )
 
     def _timer_loop(self, on_refreshed: Optional[Callable[[str], None]]) -> None:
         """Proactive timer loop — runs in a daemon thread.
