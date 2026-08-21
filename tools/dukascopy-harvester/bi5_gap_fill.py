@@ -10,7 +10,7 @@ Usage:
     python3 bi5_gap_fill.py --symbol XAUUSD --start 2026-07-11 --end 2026-07-13
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
 import asyncio
@@ -18,9 +18,9 @@ import logging
 import lzma
 import struct
 import time  # noqa: F401
+from collections import namedtuple
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from collections import namedtuple
 
 import httpx
 

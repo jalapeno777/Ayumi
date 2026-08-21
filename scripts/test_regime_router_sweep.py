@@ -10,14 +10,14 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import json  # noqa: I001
+import json
 import logging
 
+from backtest import CsvDataLoader
 from backtest.engine import BacktestConfig
 from backtest.enhanced_engine import EnhancedBacktestEngine
 from backtest.parameter_sweep.grid import GridPoint, ParameterGrid
-from backtest.strategies import RegimeSwitchingRouter, RegimeRouterConfig
-from backtest import CsvDataLoader
+from backtest.strategies import RegimeRouterConfig, RegimeSwitchingRouter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -70,8 +70,9 @@ def worker_entry(args):
     (grid_point, bars_data, config_dict) = args
 
     try:
-        from backtest.engine import Bar  # noqa: I001
         from datetime import datetime
+
+        from backtest.engine import Bar
 
         bars = []
         for b in bars_data:

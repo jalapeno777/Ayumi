@@ -1,4 +1,4 @@
-import logging  # noqa: I001
+import logging
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -13,7 +13,6 @@ from .paper_trader import PaperTrader
 from .risk_guard import FTMOConfig
 from .signal_adapter import cTraderSignalAdapter
 from .trade_logger import TradeLogger
-
 
 logger = logging.getLogger(__name__)
 

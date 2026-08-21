@@ -1,20 +1,20 @@
 """Walk-forward validation: Baseline vs MTF-Filtered momentum strategies."""
 
-import sys  # noqa: I001
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader  # noqa: I001
+from backtest.data_loader import CsvDataLoader
 from backtest.walk_forward_runner import run_strategy_walk_forward
+from quant.mtf_regime import MTFRegimeConfig
 from quant.walk_forward import comparison_report
 from strategies.momentum import (
-    DonchianBreakoutStrategy,
     ATRVolatilityBreakoutStrategy,
+    DonchianBreakoutStrategy,
     MATrendFollowingStrategy,
 )
 from strategies.mtf_filtered_momentum import MTFFilteredMomentumStrategy
-from quant.mtf_regime import MTFRegimeConfig
 
 loader = CsvDataLoader()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "forex", "historical")

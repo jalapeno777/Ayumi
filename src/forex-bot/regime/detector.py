@@ -36,7 +36,7 @@ Usage
     alloc = detector.get_allocation(current)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -44,11 +44,9 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
-
 from indicators import adx, atr_percentile
 
 from .bbw_classifier import bbw_percentile
-
 
 # ── Regime enum ────────────────────────────────────────────────────────────
 

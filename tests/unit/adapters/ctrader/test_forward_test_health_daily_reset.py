@@ -5,11 +5,10 @@ when the 17:00 America/Toronto boundary has crossed, matching the
 risk_guard._current_trading_day() pattern.
 """
 
-from datetime import date, datetime  # noqa: I001
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
-
 from adapters.ctrader.forward_test_engine import ForwardTestHealth
 
 

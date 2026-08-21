@@ -13,8 +13,7 @@ Covers:
 - _pip_for_price and _PIP removed from the module
 """
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from strategies.killzone_momentum import KillzoneMomentumConfig
 from utils.pip_value import pip_value_for_symbol

@@ -18,17 +18,17 @@ Run explicitly::
 Without ``-m live`` the tests are auto-skipped via marker deselection.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
+import logging
 import os
 import time
-import logging
 from datetime import datetime, timezone
 
 import pytest
+from adapters.ctrader.credential_store import CredentialStore
 
 # ── cTrader protobuf imports ─────────────────────────────────────────────
-
 # ── Ayumi imports ────────────────────────────────────────────────────────
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
@@ -37,12 +37,11 @@ from adapters.ctrader.forward_test_engine import (
     _is_forex_market_closed,
 )
 from adapters.ctrader.models import (
+    CTraderTradeSignal,
     OrderStatus,
     TradeDirection,
-    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
-from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import TokenLifecycle
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,6 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from quant.go_nogo_criteria import (
     CANONICAL_AGGREGATE,
     CANONICAL_PER_WINDOW,

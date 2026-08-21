@@ -4,9 +4,9 @@ Test cTrader FIX connection using Spotware's official cTraderFixPy library forma
 Falls back to manual connection if ctrader-fix not installed.
 """
 
-import os  # noqa: I001
-import ssl
+import os
 import socket
+import ssl
 import sys
 import time
 from datetime import datetime, timezone
@@ -81,8 +81,8 @@ def main():
 
     # Try official library first
     try:
-        from ctrader_fix.messages import LogonRequest  # noqa: I001
         from ctrader_fix import Client
+        from ctrader_fix.messages import LogonRequest
         from twisted.internet import reactor
 
         state = {"logon": False, "reason": None}

@@ -1,7 +1,7 @@
-from dataclasses import dataclass  # noqa: I001
+import math
+from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-import math
 
 from core.types import ExitReason, TradeDirection
 

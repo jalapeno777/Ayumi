@@ -7,19 +7,17 @@ each test instantiates a fresh ``SignalStatsRecorder`` and exercises
 the real filesystem code path.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import threading
 from datetime import datetime, timezone
 
 import pytest
-
 from signal_engine.signal_stats import (
     SignalRecord,
     SignalStatsRecorder,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

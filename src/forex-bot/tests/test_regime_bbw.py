@@ -36,14 +36,12 @@ so the soft/hard mode logic can be asserted precisely without depending
 on real BBW-derived values.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from regime.bbw_classifier import bbw_percentile
 from regime.detector import Regime, RegimeConfig, RegimeDetector
-
 
 # ── Test helpers ──────────────────────────────────────────────────────────
 

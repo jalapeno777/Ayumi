@@ -6,23 +6,21 @@ happy-path breakout signals (long/short), edge cases
 (stop-loss, take-profit levels, confidence bounds).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from core.types import Bar, BarPeriod, MarketState, TradeDirection
 from strategies.donchian_atr_trend import (
     DonchianATRConfig,
     DonchianATRTrendStrategy,
-    _calculate_atr,
     _calculate_adx,
+    _calculate_atr,
     _calculate_ema,
     _donchian_high,
     _donchian_low,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

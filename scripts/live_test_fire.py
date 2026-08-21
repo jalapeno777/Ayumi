@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Live test fire: send a real micro-order to cTrader to verify the signal->order chain."""
 
-import sys  # noqa: I001
-import os
-import time
 import logging
+import os
+import sys
+import time
 
 sys.path.insert(0, "src/forex-bot")
 os.chdir("/home/TacoPants/projects/Ayumi")

@@ -1,12 +1,11 @@
 """Direct unit coverage for previously untested signal_engine components."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pandas as pd
 import pytest
-
 from signal_engine.backtest_bridge import SignalEngineBridge
 from signal_engine.data_types import (
     HTFPhase,

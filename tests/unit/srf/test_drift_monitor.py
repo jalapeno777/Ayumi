@@ -17,27 +17,27 @@ Layer 2 (permutation importance) and Layer 3 (SHAP) tests:
 - Realistic signal_engine feature-decay scenarios
 """
 
-import math  # noqa: I001
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.linear_model import LinearRegression
-
 from srf.drift_monitor import (
+    DEFAULT_KS_ALPHA,
+    DEFAULT_PSI_THRESHOLD,
     DriftMonitor,
     DriftReport,
     DriftResult,
-    compute_psi,
     compute_ks_test,
-    DEFAULT_PSI_THRESHOLD,
-    DEFAULT_KS_ALPHA,
+    compute_psi,
 )
 from srf.permutation_drift import (
-    PermutationDriftMonitor,
-    ImportanceResult,
-    ImportanceReport,
     CompositeDriftMonitor,
     CompositeReport,
+    ImportanceReport,
+    ImportanceResult,
+    PermutationDriftMonitor,
     ShapDriftChecker,
 )
 

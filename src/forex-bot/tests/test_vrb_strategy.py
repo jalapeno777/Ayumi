@@ -1,11 +1,11 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 from backtest.engine import Bar, MarketState, SessionType, TradeDirection
 from strategies.volatility_regime_breakout import (
-    VRBConfig,
     VolatilityRegimeBreakoutStrategy,
+    VRBConfig,
     _atr_percentile,
     _calculate_atr,
     _range_position,

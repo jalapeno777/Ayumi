@@ -28,7 +28,7 @@ try:
 except ImportError:
     pass
 
-from adapters.ctrader.forward_test_engine import ForwardTestEngine, ForwardTestConfig  # noqa: I001
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 from adapters.ctrader.risk_guard import FTMOConfig
 from strategies.ttc_xauusd import TTCXAUUSDStrategy
 

@@ -7,9 +7,10 @@ Verifies that:
 4. Convention drift is detected between modules
 """
 
-import pytest  # noqa: I001
-import sys
 import os
+import sys
+
+import pytest
 
 # Add src to path so imports work without full package install
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "forex-bot"))

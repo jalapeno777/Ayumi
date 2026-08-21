@@ -4,13 +4,12 @@ These tests exercise the computation function, not the CLI, and use
 canned state dicts to avoid touching the live state file.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import pytest
-
 
 # Import via path so we don't depend on package layout; ftmo_daily.py
 # self-injects ``src/forex-bot`` and ``src`` into sys.path.

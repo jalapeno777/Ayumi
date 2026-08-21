@@ -1,26 +1,26 @@
-from datetime import datetime, timedelta, timezone  # noqa: I001
-from backtest.engine import (
-    Bar,
-    MarketState,
-    SessionType,
-    TradeDirection,
-    StrategySignal,
-)
-from backtest.strategies import ISignalStrategy
+from datetime import datetime, timedelta, timezone
 
 from adapters.ctrader.models import (
     TradeDirection as CTraderDirection,
 )
 from adapters.ctrader.paper_trader import PaperTrader
-from adapters.ctrader.signal_adapter import cTraderSignalAdapter
-from adapters.ctrader.trade_logger import TradeLogger
 from adapters.ctrader.session_range_gbpusd import (
-    build_gbpusd_paper_trader,
     GBPUSD_FTMO_CONFIG,
     GBPUSD_POSITION_CONFIG,
     SYMBOL,
     SessionRangeGBPUSDConfig,
+    build_gbpusd_paper_trader,
 )
+from adapters.ctrader.signal_adapter import cTraderSignalAdapter
+from adapters.ctrader.trade_logger import TradeLogger
+from backtest.engine import (
+    Bar,
+    MarketState,
+    SessionType,
+    StrategySignal,
+    TradeDirection,
+)
+from backtest.strategies import ISignalStrategy
 
 
 class _StubStrategy(ISignalStrategy):

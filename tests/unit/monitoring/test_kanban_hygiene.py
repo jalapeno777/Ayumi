@@ -3,18 +3,17 @@
 Tests use a temp sqlite DB (no production DB read).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import importlib
 import importlib.util
 import sqlite3
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
 
 import pytest
-
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 

@@ -1,10 +1,9 @@
 """Tests for Confidence Engine, Gates, and integration with ProfileRouter + Sizer."""
 
-import pytest  # noqa: I001
-
+import pytest
 from confidence.engine import ConfidenceEngine
 from confidence.gates import GateConfig
-from risk.profile_router import ProfileRouter, Profile
+from risk.profile_router import Profile, ProfileRouter
 from risk.sl_position_sizer import SLPositionSizer
 
 

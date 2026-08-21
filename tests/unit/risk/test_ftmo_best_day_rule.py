@@ -20,20 +20,18 @@ Covers:
    12. State serialization includes all best-day fields
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
 from risk.ftmo_guard import (
     FTMOAction,
     FTMOBreachType,
     FTMOGuard,
     _trading_date,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

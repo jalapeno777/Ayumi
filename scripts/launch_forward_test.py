@@ -13,14 +13,14 @@ Usage:
     --dry-run: Validate config and imports without connecting to cTrader
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import argparse
-import os
-import sys
-import signal as sig_module
-import time
 import logging
+import os
+import signal as sig_module
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,12 +32,12 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine  # noqa: I001
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 from adapters.ctrader.models import cTraderCredentials
-from adapters.ctrader.risk_guard import FTMOConfig
 from adapters.ctrader.order_manager import PositionSizeConfig
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
+from adapters.ctrader.risk_guard import FTMOConfig
 from common.logging_config import setup_logging
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 logger = logging.getLogger("ayumi.launcher")
 

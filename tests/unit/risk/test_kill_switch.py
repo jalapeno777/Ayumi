@@ -11,20 +11,17 @@ Tests cover:
   - CLI tool integration
 """
 
-import json  # noqa: I001
+import json
 import subprocess
 import time
 from pathlib import Path
 
 import pytest
-
 from _project_root import PROJECT_ROOT
-
 from adapters.ctrader.kill_switch import (
     GlobalKillState,
     KillSwitchManager,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

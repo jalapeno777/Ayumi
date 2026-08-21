@@ -14,7 +14,7 @@ serialised with a single ``threading.Lock`` so the JSONL invariant
 (one JSON object per line) is preserved even under heavy contention.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import os
@@ -24,7 +24,6 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
-
 
 # Outcome vocabulary. ``OPEN`` is a sentinel used internally for lines
 # written by ``record_signal`` (no outcome yet) so consumers can tell
@@ -417,8 +416,8 @@ __all__ = [
 
 def test_rejection_recording(tmp_path=None):
     """Verify that rejected orders are recorded in stats with rejection metadata."""
-    import tempfile  # noqa: I001
     import os
+    import tempfile
 
     tmpdir = tmp_path or tempfile.mkdtemp()
     log_path = os.path.join(str(tmpdir), "test_signal_stats.jsonl")

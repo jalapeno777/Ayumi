@@ -1,10 +1,8 @@
 """Tests for StopTargetCalculator: ATR-based SL/TP, RR enforcement, spread buffer."""
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from signal_engine.stop_target import StopTargetCalculator
-
 
 # ── Helpers ─────────────────────────────────────────────────────────
 

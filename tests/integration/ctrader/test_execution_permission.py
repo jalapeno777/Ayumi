@@ -6,7 +6,8 @@ Covers the three critical safety properties:
 3. Never propagates exceptions.
 """
 
-from unittest.mock import MagicMock  # noqa: I001
+from unittest.mock import MagicMock
+
 from adapters.ctrader.execution_permission import ExecutionPermissionPolicy
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 

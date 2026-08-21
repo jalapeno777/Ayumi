@@ -37,8 +37,7 @@ def _alarm(seconds: int) -> None:
 
 
 def main() -> int:
-    import duckdb  # noqa: I001
-
+    import duckdb
     from core.types import Bar, BarPeriod, MarketState, SessionType
     from strategies.dual_tf_squeeze_pro import DualTFSqueezeProStrategy
 

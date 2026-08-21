@@ -65,10 +65,10 @@ ACCESS_TOKEN = env.get("CTRADER_OPENAPI_ACCESS_TOKEN", env.get("CTRADER_ACCESS_T
 def run_spike():
     """Run the dual-instance spike test."""
 
-    from ctrader_open_api import Client, TcpProtocol  # noqa: I001
+    from ctrader_open_api import Client, TcpProtocol
     from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-        ProtoOAApplicationAuthReq,
         ProtoOAAccountAuthReq,
+        ProtoOAApplicationAuthReq,
     )
 
     results = {

@@ -1,9 +1,8 @@
 """Tests for ATRProvider."""
 
-import json  # noqa: I001
+import json
 
 import pytest
-
 from confidence.providers import ATRProvider
 
 

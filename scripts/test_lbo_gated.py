@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 """Test London Breakout with regime gates using precomputed labels."""
 
-import sys  # noqa: I001
+import sys
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+
 import numpy as np
 
 project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb  # noqa: I001
 import pickle
-from core.types import Bar, MarketState, SessionType, BarPeriod
-from strategies.london_breakout_retest import (
-    LondonBreakoutRetestStrategy,
-    LondonBreakoutConfig,
-)
-from regime.detector import Regime, RegimeConfig, RegimeDetector
+
+import duckdb
+from core.types import Bar, BarPeriod, MarketState, SessionType
 from indicators import adx as calc_adx
+from regime.detector import Regime, RegimeConfig, RegimeDetector
+from strategies.london_breakout_retest import (
+    LondonBreakoutConfig,
+    LondonBreakoutRetestStrategy,
+)
 
 # Load bars (autodetect ms vs sec)
 con = duckdb.connect(str(project_root / "data" / "ayumi_market.duckdb"), read_only=True)

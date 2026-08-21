@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta  # noqa: I001
+from datetime import datetime, timedelta
+
 from backtest.engine import Bar
 from backtest.ict_smc.volume_delta import VolumeDeltaAnalyzer, VolumeDeltaResult
 

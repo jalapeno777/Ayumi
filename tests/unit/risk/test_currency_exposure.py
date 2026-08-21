@@ -1,9 +1,8 @@
 """Tests for risk.currency_exposure."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from risk.correlation_matrix import CorrelationMatrix
 from risk.currency_exposure import (
     CURRENCY_LEGS,
@@ -11,7 +10,6 @@ from risk.currency_exposure import (
     PositionExposure,
     default_tracker,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Fixtures

@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from collections.abc import Callable
@@ -6,13 +6,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import optuna
+from backtest.engine import Bar
 from optuna.samplers import TPESampler
 from quant.walk_forward import (
     AggregatedMetrics,
     WalkForwardResults,
 )
-
-from backtest.engine import Bar
 
 logger = logging.getLogger(__name__)
 

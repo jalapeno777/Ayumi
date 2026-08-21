@@ -19,7 +19,7 @@ Best on: XAUUSD M15 (gold trends persistently), GBPUSD M15, EURUSD M15.
 Timeframes: M15, H1
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -31,7 +31,6 @@ from core.types import (
     TradeDirection,
 )
 from utils.pip_value import pip_value_for_symbol
-
 
 # ---------------------------------------------------------------------------
 # Indicator helpers (intentionally duplicated from the legacy file so that

@@ -1,20 +1,19 @@
 """Tests for CPU and memory resource limit context managers (BQ-1038)."""
 
-import os  # noqa: I001
+import os
 import resource
-import pytest
 
+import pytest
 from common.resource_limits import (
+    _cgroup_v2_available,
+    _cleanup_cgroup,
+    _set_cgroup_cpu_limit,
+    add_resource_args,
+    configure_pytest_defaults,
     cpu_limited,
     memory_capped,
     run_limited,
-    configure_pytest_defaults,
-    add_resource_args,
-    _cgroup_v2_available,
-    _set_cgroup_cpu_limit,
-    _cleanup_cgroup,
 )
-
 
 # ── cpu_limited ─────────────────────────────────────────────────────────
 

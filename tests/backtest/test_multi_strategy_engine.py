@@ -5,40 +5,37 @@ essential behaviors of the multi-strategy, VAPS, and amalgamation engines
 without the code duplication that existed before.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import sys
-from pathlib import Path
 from datetime import datetime, timezone
-
+from pathlib import Path
 
 # Ensure src/forex-bot is on sys.path
 _src = Path(__file__).resolve().parents[2] / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from core.config import BacktestConfig  # noqa: I001
+from backtest.amalgamation import (
+    AmalgamatedBacktestEngine,
+    AmalgamationConfig,
+    AmalgamationEngine,
+    ComponentExtractor,
+)
+from backtest.multi_strategy_engine import (
+    KellyConfig,
+    MultiStrategyBacktestEngine,
+    MultiStrategyConfig,
+    StrategyBacktestResult,
+)
+from core.config import BacktestConfig
 from core.types import (
     Bar,
     StrategySignal,
     TradeDirection,
 )
-
-from backtest.multi_strategy_engine import (
-    MultiStrategyBacktestEngine,
-    MultiStrategyConfig,
-    KellyConfig,
-    StrategyBacktestResult,
-)
-from backtest.amalgamation import (
-    AmalgamationConfig,
-    AmalgamationEngine,
-    AmalgamatedBacktestEngine,
-    ComponentExtractor,
-)
 from engine.base import EngineCore
 from engine.mixins import ProgressiveSLMixin
-
 
 # ────────────────────────────────────────────────────────────────────
 # Helpers
@@ -219,7 +216,7 @@ class TestKellyOverlay:
 
     def test_kelly_multiplier_all_wins(self):
         """Kelly should return a positive multiplier with a healthy win/loss mix."""
-        from core.types import TradeOutcome, SimulatedTrade  # noqa: I001
+        from core.types import SimulatedTrade, TradeOutcome
 
         config = _make_config()
         engine = MultiStrategyBacktestEngine(

@@ -8,13 +8,11 @@ Five test cases covering every classification branch:
   5. Signal filled after max_bars_to_fill → missed (no_fill)
 """
 
-from datetime import datetime, timedelta  # noqa: I001
+from datetime import datetime, timedelta
 
 import pytest
-
 from analysis.missed_bid_detector import MissedBidDetector
 from orchestrator.signal_orchestrator import OrchestratorTradeSignal
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -3,13 +3,12 @@
 All HTTP calls are mocked. No real OAuth requests are made.
 """
 
-import json  # noqa: I001
+import json
 import threading
 import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import (
     OAUTH_URL,

@@ -124,7 +124,8 @@ def ttc_strategy_factory(
 
 def load_bars(pair: str, timeframe: str = "H1") -> list:
     """Load CSV data for a pair/timeframe into Bar objects."""
-    from datetime import datetime as _dt  # noqa: I001
+    from datetime import datetime as _dt
+
     from backtest.engine import Bar
 
     csv_path = _DATA_DIR / f"{pair.upper()}_{timeframe}.csv"
@@ -198,8 +199,9 @@ def run_ttc_optuna(
     Returns:
         OptimizationResult with best params and walk-forward results.
     """
-    import optuna  # noqa: I001
+    import optuna
     from optuna.samplers import TPESampler
+
     from .optuna_optimizer import WalkForwardObjective
 
     bars = load_bars(pair, timeframe)

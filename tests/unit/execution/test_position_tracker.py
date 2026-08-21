@@ -5,15 +5,13 @@ All network / SDK calls are mocked. No real cTrader connection is made.
 Reference: BQ-1043 Phase 3c.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 import pytest
-
-from adapters.ctrader.protocols import PositionStatus
 from adapters.ctrader.position_tracker import PositionTracker
-
+from adapters.ctrader.protocols import PositionStatus
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

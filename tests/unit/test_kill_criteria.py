@@ -7,13 +7,11 @@ the any_triggered helper, the evidence-string contract, and the
 midnight wrap-around semantics for the session window.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from core.conviction import KillCriterion
 from policy.kill_criteria import KillCriteriaChecker
-
 
 # ---------------------------------------------------------------------------
 # Spread criterion (global)

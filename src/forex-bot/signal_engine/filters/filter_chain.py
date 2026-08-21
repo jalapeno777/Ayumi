@@ -19,15 +19,15 @@ Usage:
         logger.info(chain.last_rejection)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .trend_filter import TrendFilter, TrendConfig
 from .atr_filter import ATRFilter
 from .fvg_filter import FVGFilter
+from .trend_filter import TrendConfig, TrendFilter
 
 logger = logging.getLogger(__name__)
 

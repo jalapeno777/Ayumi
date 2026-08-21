@@ -15,9 +15,9 @@ Key protocol details extracted from the reference implementation:
 - Checksum: sum of all bytes before tag-10, mod 256, zero-padded to 3 digits
 """
 
-import os  # noqa: I001
-import ssl
+import os
 import socket
+import ssl
 import sys
 import time
 from datetime import datetime, timezone

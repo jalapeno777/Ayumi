@@ -14,8 +14,7 @@ Covers:
 - ValueError path when symbol is None and price >= 50
 """
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from strategies.volatility_regime_breakout import (
     VRBConfig,

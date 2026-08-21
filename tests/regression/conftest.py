@@ -1,9 +1,8 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pickle
 
 import pytest
-
 from _project_root import PROJECT_ROOT
 
 GOLDEN_DIR = PROJECT_ROOT / "tests" / "regression"

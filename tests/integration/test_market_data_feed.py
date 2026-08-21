@@ -4,16 +4,14 @@ These tests call ``on_spot_event`` directly with synthetic data — no
 protobuf or network required.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import threading
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from adapters.ctrader.market_data_feed import MarketDataFeed
 from adapters.ctrader.protocols import Bar, Tick
-
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 

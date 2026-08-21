@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta  # noqa: I001
+from datetime import datetime, timedelta
 
 from backtest.engine import Bar
+
 from scripts.backtest_q2_lod_hod_stop_rate import (
     Q2LODHODStudy,
     classify_stop_hit,

@@ -1,8 +1,7 @@
-from datetime import datetime  # noqa: I001
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
 from backtest.engine import TradeDirection
 from backtest.ict_smc.models import ConfluenceSignal, SignalStrength
 from ml.features import (

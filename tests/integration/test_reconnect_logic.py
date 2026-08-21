@@ -9,7 +9,7 @@ No live cTrader connection required. Time is patched via freezegun-style
 monkeypatching of time.monotonic / datetime.now.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import sys
 import time
@@ -19,7 +19,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 

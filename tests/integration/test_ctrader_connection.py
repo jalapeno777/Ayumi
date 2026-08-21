@@ -1,10 +1,9 @@
 """Tests for CTraderConnection — TCP connection management."""
 
-import time  # noqa: I001
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.connection import (
     CTraderConnection,
 )

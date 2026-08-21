@@ -13,13 +13,12 @@ Covers:
 - SL/TP geometry
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from core.types import (
     Bar,
     BarPeriod,
@@ -31,10 +30,9 @@ from core.types import (
 from strategies.momentum_m15 import (
     MomentumM15Config,
     MomentumM15Strategy,
-    calculate_position_size,
     _calculate_ema,
+    calculate_position_size,
 )
-
 
 # ---------------------------------------------------------------------------
 # Bar helpers

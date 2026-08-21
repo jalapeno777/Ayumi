@@ -1,6 +1,8 @@
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime
 
+from core.config import BacktestConfig, BacktestMetrics
+from core.protocol import IStrategy
 from core.types import (
     Bar,
     BarPeriod,
@@ -12,8 +14,6 @@ from core.types import (
     TradeDirection,
     TradeOutcome,
 )
-from core.config import BacktestConfig, BacktestMetrics
-from core.protocol import IStrategy
 
 
 class TestTradeDirection(unittest.TestCase):

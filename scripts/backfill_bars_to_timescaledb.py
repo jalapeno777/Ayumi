@@ -10,12 +10,12 @@ and upserts into market_bars hypertable. Skips already-fetched ranges using the
 latest bar timestamp per (symbol, timeframe, broker) in the DB.
 """
 
-import argparse  # noqa: I001
+import argparse
 import logging
 import os
 import sys
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg2

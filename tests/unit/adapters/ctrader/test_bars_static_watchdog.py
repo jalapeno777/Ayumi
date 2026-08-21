@@ -35,7 +35,7 @@ These tests lock the contract:
 6. The detector stays silent inside the startup grace window.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import logging
@@ -46,14 +46,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 sys.path.insert(0, str(Path.cwd() / "src" / "forex-bot"))
 
 from adapters.ctrader.forward_test_engine import (  # noqa: E402, I001
     ForwardTestConfig,
     ForwardTestEngine,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

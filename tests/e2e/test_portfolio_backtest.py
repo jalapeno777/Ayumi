@@ -1,7 +1,6 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta
-
 
 from backtest.engine import (
     BacktestConfig,

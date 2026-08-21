@@ -168,13 +168,13 @@ def test_subscribe_symbol(conn):
 def test_place_and_close_market_order(conn):
     """Place a small market order and close it."""
     from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
-        ProtoOANewOrderReq,
         ProtoOAClosePositionReq,
+        ProtoOANewOrderReq,
     )
     from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
         ProtoOAOrderType,
-        ProtoOATradeSide,
         ProtoOATimeInForce,
+        ProtoOATradeSide,
     )
     from ctrader_open_api.protobuf import Protobuf
 

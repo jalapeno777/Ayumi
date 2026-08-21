@@ -17,10 +17,9 @@ What we DO NOT cover here (pre-existing, separate cards):
     tests/unit/execution/test_position_monitor.py)
 """
 
-from unittest.mock import MagicMock  # noqa: I001
+from unittest.mock import MagicMock
 
 import pytest
-
 from adapters.ctrader.models import (
     Position,
     TradeDirection,
@@ -28,7 +27,6 @@ from adapters.ctrader.models import (
 from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
 from adapters.ctrader.position_monitor import PositionMonitor, TpRatchetAction
 from adapters.ctrader.risk_guard import FTMOConfig, RiskGuard
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

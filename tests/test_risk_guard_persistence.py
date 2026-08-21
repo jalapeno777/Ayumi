@@ -9,18 +9,16 @@ Covers council decisions:
        since that's when the broker "day" rolls over for the block-expiry timer.
 """
 
-import json  # noqa: I001
+import json
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-
 from adapters.ctrader.risk_guard import (
     FTMOConfig,
     RiskGuard,
     RiskLimitType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -253,7 +251,8 @@ class TestTradingDayConsistency:
 
     def test_no_date_today_in_source(self):
         """Verify risk_guard.py source has no date.today() calls (R3)."""
-        import inspect  # noqa: I001
+        import inspect
+
         from adapters.ctrader import risk_guard as rg_module
 
         source = inspect.getsource(rg_module.RiskGuard)

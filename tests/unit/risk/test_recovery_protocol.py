@@ -21,6 +21,7 @@ src_dir = Path(__file__).resolve().parents[3] / "src" / "forex-bot"
 if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
+from adapters.ctrader.kill_switch import KillSwitchManager  # noqa: E402
 from risk.recovery_protocol import (  # noqa: E402, I001
     COOLDOWN_DURATION_SEC,
     COOLDOWN_RISK_MULTIPLIER,
@@ -32,8 +33,6 @@ from risk.recovery_protocol import (  # noqa: E402, I001
     RecoveryProtocol,
 )
 from risk.state_persistence import StatePersistence, StrategyTracker  # noqa: E402
-from adapters.ctrader.kill_switch import KillSwitchManager  # noqa: E402
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

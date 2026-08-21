@@ -69,9 +69,10 @@ class TestCanaryDisable:
 
     def test_canary_evaluate_returns_none_when_disabled(self):
         """evaluate() returns None when canary is disabled."""
-        from strategies.test_canary import TestCanaryStrategy  # noqa: I001
-        from backtest.types import Bar
         from datetime import datetime, timezone
+
+        from backtest.types import Bar
+        from strategies.test_canary import TestCanaryStrategy
 
         canary = TestCanaryStrategy(tp_sl_pct=0.0)
         bar = Bar(
@@ -96,9 +97,10 @@ class TestCanaryDisable:
 
     def test_canary_warning_log_when_enabled(self, caplog):
         """evaluate() emits WARNING log when canary is enabled (hardening)."""
-        from strategies.test_canary import TestCanaryStrategy  # noqa: I001
-        from backtest.types import Bar
         from datetime import datetime, timezone
+
+        from backtest.types import Bar
+        from strategies.test_canary import TestCanaryStrategy
 
         canary = TestCanaryStrategy(tp_sl_pct=0.005)
 

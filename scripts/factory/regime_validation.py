@@ -56,9 +56,7 @@ if str(_FX_ROOT) not in sys.path:
     sys.path.insert(0, str(_FX_ROOT))
 
 import duckdb  # noqa: E402, I001
-
 from regime.detector import Regime, RegimeConfig, RegimeDetector  # noqa: E402
-
 
 # ── Configuration constants ────────────────────────────────────────────────
 

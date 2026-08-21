@@ -4,15 +4,14 @@ Tests use a temp workboard sqlite fixture so the production DB is not
 read during unit tests.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -159,8 +158,8 @@ def _make_detector(workboard_db, plans_dir, ops_dir, now):
 def test_check_card_staleness_warns_and_auto_creates(workboard_db: Path, now: datetime) -> None:
     """Cards older than 3d → warn, older than 7d → auto_create."""
     from monitoring.drift_detector import (  # noqa: I001
-        CARD_WARN_DAYS,
         CARD_AUTO_CREATE_DAYS,
+        CARD_WARN_DAYS,
     )
 
     det = _make_detector(workboard_db, Path("."), Path("."), now)

@@ -1,9 +1,8 @@
-import os  # noqa: I001
+import os
 import tempfile
 
 import numpy as np
 import pandas as pd
-
 from ml.features import (
     atr,
     bollinger_bands,

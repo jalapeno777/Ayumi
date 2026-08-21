@@ -1,15 +1,15 @@
 """Walk-forward test for BB+RSI Mean Reversion strategy on GBPUSD H1, EURUSD H1, XAUUSD H1."""
 
-import sys  # noqa: I001
-import os
 import json
+import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src", "forex-bot"))
 
-from backtest.data_loader import CsvDataLoader  # noqa: I001
+from backtest.data_loader import CsvDataLoader
 from backtest.walk_forward_runner import run_strategy_walk_forward
-from strategies.bb_rsi_reversion import BBRSIMeanReversion, BBRSIConfig
+from strategies.bb_rsi_reversion import BBRSIConfig, BBRSIMeanReversion
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "forex", "historical")
 

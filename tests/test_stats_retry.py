@@ -10,13 +10,12 @@ These tests use mocks to simulate the SignalStatsRecorder behaviour and
 verify retry/degradation logic without requiring a live cTrader connection.
 """
 
-import json  # noqa: I001
+import json
 import os
 import sys
 import time
 from pathlib import Path
 from unittest.mock import MagicMock
-
 
 # Ensure src is importable
 SRC = Path(__file__).resolve().parent.parent / "src"

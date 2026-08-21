@@ -13,14 +13,13 @@ Covers:
   ``decay_alert`` flag triggering on sub-threshold 30-day ICIR.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
-
 from quant.icir import (
     CONF_HIGH_MIN_N,
     CONF_MEDIUM_MIN_N,
@@ -30,7 +29,6 @@ from quant.icir import (
     information_coefficient,
 )
 from quant.icir_monitor import IcirMonitor
-
 
 # ---------------------------------------------------------------------------
 # Helpers

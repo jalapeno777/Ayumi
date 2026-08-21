@@ -1,10 +1,11 @@
-import os, sys  # noqa: E401, I001
+import os  # noqa: E401, I001
+import sys
 
 sys.path.insert(0, "/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, "/home/TacoPants/projects/Ayumi/src/forex-bot")
 os.chdir("/home/TacoPants/projects/Ayumi")
 
-from dotenv import load_dotenv  # noqa: I001
+from dotenv import load_dotenv
 
 load_dotenv("/home/TacoPants/projects/Ayumi/.env")
 

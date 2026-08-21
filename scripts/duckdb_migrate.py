@@ -8,18 +8,17 @@ Imports all bar data CSVs from data/forex/historical/ with timezone conversion
 Runs row-count parity checks, random sample diffs, and DST boundary spot-checks.
 """
 
-import json  # noqa: I001
+# Flush stdout immediately so we see output in real-time
+import functools
+import json
 import random
 import re
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import duckdb
-
-# Flush stdout immediately so we see output in real-time
-import functools
 
 print = functools.partial(print, flush=True)
 

@@ -22,19 +22,17 @@ These tests verify:
 - Setup expiry, cooldown, and session-filter invariants still work.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from core.types import Bar, BarPeriod, MarketState, SessionType, TradeDirection
 from strategies.volatility_regime_breakout import (
-    VRBConfig,
     VolatilityRegimeBreakoutStrategy,
+    VRBConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

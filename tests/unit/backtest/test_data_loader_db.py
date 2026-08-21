@@ -14,7 +14,7 @@ guarded with ``@unittest.skipUnless`` so the suite still passes when the
 ``data/ayumi_market.duckdb`` file is absent.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import tempfile
 import unittest
@@ -22,9 +22,7 @@ from datetime import timezone
 from pathlib import Path
 
 import duckdb
-
 from _project_root import PROJECT_ROOT
-
 from backtest.data_loader import (
     DEFAULT_CSV_DIR,
     DEFAULT_DB_PATH,

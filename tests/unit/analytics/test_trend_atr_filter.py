@@ -7,12 +7,11 @@ Covers:
   - Baseline vs filtered signal generation logic
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import sys
 from datetime import datetime, timedelta, timezone
-
 
 from _project_root import PROJECT_ROOT
 
@@ -22,23 +21,22 @@ for _p in (str(PROJECT_ROOT / "scripts"),):
         sys.path.insert(0, _p)
 
 from validate_trend_atr_filter import (  # noqa: E402, I001
-    atr,
-    evaluate_baseline,
-    evaluate_filtered,
-    build_report,
-    pip_value,
-    simulate,
-    statistical_significance,
-    BacktestStats,
-    FilteredSignal,
-    Bar,
-    TradeDirection,
     DEFAULT_ATR_MIN_PIPS,
     DEFAULT_FAST_MA,
     DEFAULT_SLOW_MA,
     DEFAULT_TREND_EMA,
+    BacktestStats,
+    Bar,
+    FilteredSignal,
+    TradeDirection,
+    atr,
+    build_report,
+    evaluate_baseline,
+    evaluate_filtered,
+    pip_value,
+    simulate,
+    statistical_significance,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers — synthetic bar generators

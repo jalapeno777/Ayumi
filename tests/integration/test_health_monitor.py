@@ -1,15 +1,13 @@
 """Tests for the structured health-reporting HealthMonitor."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import time
 from unittest.mock import MagicMock
 
 import pytest
-
 from engine.health_monitor import HealthMonitor
-
 
 # --------------------------------------------------------------------- #
 # Test capture handler

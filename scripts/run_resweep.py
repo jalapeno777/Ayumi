@@ -32,11 +32,11 @@ FOREX_BOT = PROJECT_ROOT / "src" / "forex-bot"
 sys.path.insert(0, str(FOREX_BOT))
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from backtest.types import Bar  # noqa: E402, I001
-from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
-
 # bootstrap_ci lives in the root-level backtest/ package
 import importlib.util as _ilu
+
+from backtest.types import Bar  # noqa: E402, I001
+from backtest.walk_forward_runner import run_strategy_walk_forward  # noqa: E402
 
 _bc_path = PROJECT_ROOT / "backtest" / "bootstrap_ci.py"
 _spec = _ilu.spec_from_file_location("bootstrap_ci", _bc_path)
@@ -45,9 +45,9 @@ _spec.loader.exec_module(_bc_mod)
 bootstrap_pf = _bc_mod.bootstrap_pf
 
 from risk.ftmo_params import (  # noqa: E402, I001
-    FTMO_RISK_PER_TRADE_PCT,
     FTMO_DAILY_DD_LIMIT_PCT,
     FTMO_MAX_CONCURRENT_POSITIONS,
+    FTMO_RISK_PER_TRADE_PCT,
 )
 
 logger = logging.getLogger("resweep")

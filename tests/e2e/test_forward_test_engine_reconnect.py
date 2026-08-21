@@ -1,13 +1,13 @@
 """Tests for ForwardTestEngine reconnect circuit-breaker (AYUAA-787)."""
 
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.forward_test_engine import (
+    _DEFAULT_MAX_RECONNECT_ATTEMPTS,
     ForwardTestConfig,
     ForwardTestEngine,
-    _DEFAULT_MAX_RECONNECT_ATTEMPTS,
     _is_forex_market_closed,
 )
 

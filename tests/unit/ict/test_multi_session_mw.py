@@ -1,7 +1,6 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime
-
 
 from backtest.engine import Bar, SessionType, TradeDirection
 from backtest.ict_smc.confluence_engine import (

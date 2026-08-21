@@ -9,13 +9,12 @@ exercised separately in the integration suite.  Here we test the pure
 classifier function which is the heart of the fix.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
     ForwardTestEngine,
@@ -23,10 +22,10 @@ from adapters.ctrader.forward_test_engine import (
     LiveExecutionStatus,
 )
 from adapters.ctrader.models import (
+    CTraderTradeSignal,
     Order,
     OrderStatus,
     TradeDirection,
-    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 

@@ -12,13 +12,13 @@ Coverage:
 - Symbol resolution
 """
 
-import threading  # noqa: I001
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
-from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _lots_to_units
 from adapters.ctrader.connection_state import ConnectionState
 from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirection
+from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed, _lots_to_units
 
 # ProtoOAExecutionType enum pulled from the same vendored pb2 module the
 # production code uses (ctrader_open_api). Importing the enum (not magic

@@ -7,20 +7,18 @@ Covers:
   - BarPeriod constants and BacktestConfig.units_per_lot
 """
 
-from datetime import datetime  # noqa: I001
+from datetime import datetime
 
 import pytest
-
 from backtest.types import (
-    PAIR_SPREAD_PIPS,
     DEFAULT_SPREAD_PIPS,
+    PAIR_SPREAD_PIPS,
+    BacktestConfig,
     Bar,
     BarPeriod,
-    BacktestConfig,
     MarketState,
     get_spread_for_pair,
 )
-
 
 # ---------------------------------------------------------------------------
 # get_spread_for_pair

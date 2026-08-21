@@ -27,11 +27,11 @@ pytestmark = pytest.mark.skip(
 
 try:
     from signal_engine.spread_classifier import (  # noqa: E402, F401, I001
+        _DEFAULT_PENALTIES,
+        DEFAULT_WINDOW,
+        TIMEFRAME_WINDOW,
         SpreadRegime,
         SpreadRegimeClassifier,
-        _DEFAULT_PENALTIES,
-        TIMEFRAME_WINDOW,
-        DEFAULT_WINDOW,
     )
 except ImportError:
     SpreadRegime = None  # type: ignore[assignment]
@@ -44,7 +44,6 @@ except ImportError:
 # Original test code preserved below, gated by the skip above.
 
 from types import SimpleNamespace  # noqa: E402, I001
-
 
 # ── SpreadRegime Enum ───────────────────────────────────────────────
 

@@ -1,15 +1,14 @@
 """Tests for SRF parameter stability module."""
 
-import numpy as np  # noqa: I001
+import numpy as np
 import pytest
-
 from srf.param_stability import (
+    assess_stability,
     coefficient_of_variation,
-    plateau_detection,
-    neighbor_robustness,
     cross_window_rank_correlation,
     generate_heatmap,
-    assess_stability,
+    neighbor_robustness,
+    plateau_detection,
 )
 
 

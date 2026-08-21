@@ -18,14 +18,13 @@ as Eastern (preserving historical behaviour); tz-aware inputs are kept as
 supplied and only converted to UTC.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
-
-from backtest.data_loader import _parse_csv_timestamp, CsvDataLoader
-from zoneinfo import ZoneInfo
+from backtest.data_loader import CsvDataLoader, _parse_csv_timestamp
 
 _UTC = timezone.utc
 _EASTERN = ZoneInfo("America/New_York")

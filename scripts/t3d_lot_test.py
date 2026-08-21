@@ -51,17 +51,17 @@ def main():
     # Step 2: Import SDK and connect
     print("\n── Step 2: Connect to cTrader ──")
     try:
-        from twisted.internet import reactor  # noqa: I001
         from ctrader_open_api import Client, TcpProtocol
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-            ProtoOAApplicationAuthReq,
-            ProtoOAApplicationAuthRes,  # noqa: F401
             ProtoOAAccountAuthReq,
             ProtoOAAccountAuthRes,  # noqa: F401
+            ProtoOAApplicationAuthReq,
+            ProtoOAApplicationAuthRes,  # noqa: F401
             ProtoOANewOrderReq,
             ProtoOASubscribeSpotsReq,
         )
         from ctrader_open_api.protobuf import Protobuf  # noqa: F401
+        from twisted.internet import reactor
 
         print("✓ SDK imported")
     except ImportError as e:

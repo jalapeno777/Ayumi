@@ -1,7 +1,7 @@
-from datetime import date  # noqa: I001
+from datetime import date
 
 import pytest
-from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 from adapters.ctrader.risk_guard import (
     FTMO_PROFILE_CHALLENGE,
     FTMOConfig,

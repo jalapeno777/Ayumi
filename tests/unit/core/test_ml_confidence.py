@@ -1,11 +1,11 @@
 """Tests for ML confidence pipeline — confluence features, learner, integration."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import unittest
 
-from ml.confluence_features import ConfluenceFeatureExtractor
 from ml.confidence_learner import ConfidenceLearner
+from ml.confluence_features import ConfluenceFeatureExtractor
 
 
 class TestConfluenceFeatureExtractor(unittest.TestCase):

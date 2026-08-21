@@ -14,13 +14,12 @@ Test coverage:
 If any of these tests fail, a look-ahead bias regression has been introduced.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-
 
 # Ensure src/forex-bot is on sys.path (matches existing test convention)
 _src = Path(__file__).resolve().parents[2] / "src" / "forex-bot"
@@ -35,7 +34,6 @@ from backtest.engine import (  # noqa: I001
 )
 from backtest.strategies import ISignalStrategy
 from quant.walk_forward import WalkForwardValidator
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -343,8 +341,8 @@ class TestKellyNoFutureLeak:
     def test_kelly_skips_until_min_trades(self):
         """Kelly should not influence trades until min_trades closed trades exist."""
         from backtest.multi_strategy_engine import (  # noqa: I001
-            MultiStrategyBacktestEngine,
             KellyConfig,
+            MultiStrategyBacktestEngine,
         )
 
         _bars = _make_bars(60)

@@ -40,8 +40,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src" / "forex-bot"))
 
 from backtest.data_loader import CsvDataLoader  # noqa: E402, I001
-from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.engine import Bar  # noqa: E402
+from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
 from backtest.strategy_legacy import MACrossStrategy  # noqa: E402
 from backtest.trade_management import TradeManagementConfig  # noqa: E402
 from backtest.types import BacktestConfig  # noqa: E402

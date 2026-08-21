@@ -12,11 +12,11 @@ from adapters.ctrader.api_client import (  # noqa: I001
     get_reject_message,
 )
 from adapters.ctrader.models import (
+    CTraderTradeSignal,
     Order,
     OrderStatus,
     OrderType,
     TradeDirection,
-    CTraderTradeSignal,
 )
 from adapters.ctrader.order_manager import (
     OrderManager,

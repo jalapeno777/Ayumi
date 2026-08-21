@@ -16,45 +16,45 @@ Symbol name normalization (canonical format):
     Strip '/' and '_' characters, uppercase. Example: "EUR/USD" → "EURUSD".
 """
 
-import logging  # noqa: I001
+import logging
 import os  # noqa: F401
 import random  # noqa: F401
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from twisted.internet import reactor
-from ctrader_open_api.protobuf import Protobuf
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-    ProtoOASymbolsListReq,
-    ProtoOASubscribeSpotsReq,
-    ProtoOAUnsubscribeSpotsReq,
-    ProtoOASymbolByIdReq,
-    ProtoOANewOrderReq,
-    ProtoOAClosePositionReq,
     ProtoOAAmendOrderReq,
-    ProtoOACancelOrderReq,
-    ProtoOAReconcileReq,
     ProtoOAAmendPositionSLTPReq,
+    ProtoOACancelOrderReq,
+    ProtoOAClosePositionReq,
     ProtoOAExecutionEvent,  # noqa: F401
+    ProtoOANewOrderReq,
     ProtoOAOrderErrorEvent,  # noqa: F401
+    ProtoOAReconcileReq,
+    ProtoOASubscribeSpotsReq,
+    ProtoOASymbolByIdReq,
+    ProtoOASymbolsListReq,
+    ProtoOAUnsubscribeSpotsReq,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
-    ProtoOAOrderType,
-    ProtoOATradeSide,
-    ProtoOATimeInForce,
     ProtoOAExecutionType,
+    ProtoOAOrderType,
+    ProtoOATimeInForce,
+    ProtoOATradeSide,
 )
-from .market_data_feed import Tick, SymbolInfo
+from ctrader_open_api.protobuf import Protobuf
+from twisted.internet import reactor
+
+from .auth import CTraderAuth  # noqa: F401
 from .connection import CTraderConnection
 from .connection_state import ConnectionState, ConnectionStateManager
-from .token_manager import TokenManager, TokenStatus
-from .auth import CTraderAuth  # noqa: F401
+from .market_data_feed import SymbolInfo, Tick
 from .models import (
     Order,
     OrderStatus,
@@ -63,6 +63,7 @@ from .models import (
     PositionStatus,
     TradeDirection,
 )
+from .token_manager import TokenManager, TokenStatus
 
 logger = logging.getLogger("ayumi.openapi_spot_feed")
 
@@ -380,8 +381,8 @@ class OpenApiSpotFeed:
                 return False
 
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
-            ProtoOAApplicationAuthReq,
             ProtoOAAccountAuthReq,
+            ProtoOAApplicationAuthReq,
         )
 
         # App auth
@@ -1113,8 +1114,8 @@ class OpenApiSpotFeed:
     def _reconnect_restore(self) -> None:
         try:
             from ctrader_open_api.messages.OpenApiMessages_pb2 import (  # noqa: I001
-                ProtoOAApplicationAuthReq,
                 ProtoOAAccountAuthReq,
+                ProtoOAApplicationAuthReq,
             )
 
             if not self._conn.is_connected:

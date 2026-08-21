@@ -16,13 +16,12 @@ After T4:
   engine has been built.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.api_client import cTraderAPIClient
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
@@ -30,10 +29,10 @@ from adapters.ctrader.forward_test_engine import (
     LiveExecutionStatus,
 )
 from adapters.ctrader.models import (
+    CTraderTradeSignal,
     Order,
     OrderStatus,
     TradeDirection,
-    CTraderTradeSignal,
 )
 from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 

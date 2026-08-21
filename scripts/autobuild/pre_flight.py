@@ -14,15 +14,15 @@ card. If none are provided the guards that depend on allowed files will report
 an empty check set.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
 # Local import: add repo root to sys.path so the package resolves regardless of
 # how the script is invoked.
 import sys as _sys
+from pathlib import Path
 
 _sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 

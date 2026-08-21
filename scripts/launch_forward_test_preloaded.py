@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Forward test launcher with historical bar preloading via OpenAPI."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import os
-import sys
-import signal as sig_module
-import time
 import logging
+import os
+import signal as sig_module
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,14 +18,14 @@ from dotenv import load_dotenv
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine  # noqa: I001
+from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
 from adapters.ctrader.models import cTraderCredentials
-from adapters.ctrader.risk_guard import FTMOConfig
-from adapters.ctrader.order_manager import PositionSizeConfig
 from adapters.ctrader.open_api_client import CTraderOpenApiClient
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
+from adapters.ctrader.order_manager import PositionSizeConfig
+from adapters.ctrader.risk_guard import FTMOConfig
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 logger = logging.getLogger("ayumi.launcher")
 

@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
-from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed  # noqa: I001
 from adapters.ctrader.credential_store import CredentialStore
+from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 
 
 def main():

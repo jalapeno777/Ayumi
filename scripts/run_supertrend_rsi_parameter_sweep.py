@@ -11,11 +11,11 @@ Usage:
 GO Criteria: 3/5 windows pass (WR>55%, PF>1.2, DD<10%)
 """
 
-import argparse  # noqa: I001
-import sys
+import argparse
 import json
+import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 EURUSD_PATH = "data/forex/historical/EURUSD_H1.csv"
 GBPUSD_PATH = "data/forex/historical/GBPUSD_H1.csv"
@@ -26,11 +26,11 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
+from backtest import CsvDataLoader  # noqa: E402
 from backtest.engine import BacktestConfig  # noqa: E402, I001
 from backtest.enhanced_engine import EnhancedBacktestEngine  # noqa: E402
-from backtest.strategies import SupertrendRSIBlendStrategy  # noqa: E402
-from backtest import CsvDataLoader  # noqa: E402
 from backtest.parameter_sweep import ParameterGrid, SweepRunner  # noqa: E402
+from backtest.strategies import SupertrendRSIBlendStrategy  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 from quant.go_nogo_criteria import PerWindowCriteria  # noqa: E402
 

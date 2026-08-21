@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Extract content from VTT files and create formatted markdown batches."""
 
-import re  # noqa: I001
 import os
+import re
 from datetime import datetime
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
 
 
 def parse_vtt_full(vtt_path: str) -> List[Dict]:

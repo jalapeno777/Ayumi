@@ -8,16 +8,15 @@ Rewritten for post-refactor API (card 99a4d28d).
 - CombinedSignalMixin._combine_signals uses StrategySignal objects
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-
 from core.config import BacktestConfig
 from core.types import Bar, StrategySignal, TradeDirection
 from engine.base import EngineCore
-from engine.mixins import CombineMethod, CombinedSignalMixin, ProgressiveSLMixin
+from engine.mixins import CombinedSignalMixin, CombineMethod, ProgressiveSLMixin
 
 
 def _make_bar(close=1.1000, high=None, low=None, opn=None) -> Bar:

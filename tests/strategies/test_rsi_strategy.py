@@ -14,14 +14,12 @@ Run with:
       && python3 -m pytest tests/test_rsi_strategy.py -q --tb=short
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import unittest
 from datetime import datetime, timedelta
 
-
 from core.types import Bar, MarketState, TradeDirection
-
 from strategies.rsi_threshold import (
     RSIThresholdConfig,
     SimpleRSIThresholdStrategy,

@@ -19,13 +19,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
+from backtest import CsvDataLoader  # noqa: E402
 from backtest.builtin_strategies import register_builtin_strategies  # noqa: E402, I001
+from backtest.engine import get_spread_for_pair  # noqa: E402
 from backtest.walk_forward_runner import (  # noqa: E402
     get_registered_strategies,
     run_named_strategy_walk_forward,
 )
-from backtest import CsvDataLoader  # noqa: E402
-from backtest.engine import get_spread_for_pair  # noqa: E402
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 

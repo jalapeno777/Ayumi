@@ -1,17 +1,16 @@
 """Tests for CTraderHistoricalClient with mocked API responses."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
-
 from data.ctrader_client import (
-    CTraderHistoricalClient,
-    TIMEFRAME_MAP,
     SYMBOL_NAME_MAP,
+    TIMEFRAME_MAP,
+    CTraderHistoricalClient,
 )
 
 

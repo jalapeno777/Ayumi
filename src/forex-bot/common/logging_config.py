@@ -8,13 +8,12 @@ Usage (at the START of main()):
     setup_logging(log_dir="logs", level="INFO")
 """
 
-import logging  # noqa: I001
+import logging
 import logging.handlers
 import os
 import sys
 import tempfile
 from pathlib import Path
-
 
 # PROJECT_ROOT is 3 levels up from src/forex-bot/common/logging_config.py:
 #   parents[0] = common/  parents[1] = forex-bot/  parents[2] = src/  parents[3] = <repo root>

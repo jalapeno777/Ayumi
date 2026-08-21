@@ -1,8 +1,7 @@
-import pytest  # noqa: I001
-
+import pytest
 from adapters.ctrader.models import (
-    TradeDirection,
     CTraderTradeSignal,
+    TradeDirection,
 )
 from adapters.ctrader.order_manager import (
     OrderManager,

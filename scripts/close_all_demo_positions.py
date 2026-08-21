@@ -22,8 +22,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 async def main():
-    from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed  # noqa: I001
     from adapters.ctrader.credential_store import CredentialStore
+    from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
     from adapters.ctrader.token_lifecycle import TokenLifecycle
 
     # Use the same loader the engine uses — handles refresh via lifecycle.

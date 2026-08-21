@@ -1,11 +1,11 @@
 """Tests for BACKTEST Q1 3:1 R&R on EURUSD H1 M/W Formation"""
 
-from datetime import datetime  # noqa: I001
+from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 from backtest.engine import Bar, SessionType  # noqa: E402
+
 from scripts.backtest_q1_3_to_1_rr import (  # noqa: E402
     SwingPoint,
     calculate_atr,

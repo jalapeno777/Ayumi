@@ -13,10 +13,10 @@ the confidence distribution using baseline vs ict_filtered stats where:
     WR and PF differences between filtered and unfiltered trades.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-import json
 import glob
+import json
 import logging
 import os
 from dataclasses import dataclass, field

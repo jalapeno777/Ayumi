@@ -6,12 +6,12 @@ constructing the strategy instance, following the same pattern as
 ttc_strategy_factory() in backtest/parameter_sweep/ttc_optimizer.py.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 
-from backtest.strategies.tts_strategy import TTSStrategy
 from backtest.strategies.isignal_strategy import ISignalStrategy
+from backtest.strategies.tts_strategy import TTSStrategy
 
 logger = logging.getLogger(__name__)
 

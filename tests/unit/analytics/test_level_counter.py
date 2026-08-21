@@ -1,10 +1,9 @@
 """Tests for LevelCounter: rise/drop counting, level validation, type mapping."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-
+from signal_engine.data_types import LevelType, Swing, SwingType
 from signal_engine.level_counter import LevelCounter
-from signal_engine.data_types import Swing, SwingType, LevelType
 
 
 def _swing(idx, price, stype):

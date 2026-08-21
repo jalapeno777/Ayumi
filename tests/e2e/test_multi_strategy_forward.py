@@ -86,8 +86,8 @@ class TestHeartbeatTracker:
 
 class TestSignalConversion:
     def test_trade_signal_to_blend_dict(self):
-        from launch_blend_forward_test import trade_signal_to_blend_dict  # noqa: I001
         from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
+        from launch_blend_forward_test import trade_signal_to_blend_dict
 
         signal = CTraderTradeSignal(
             symbol="GBPUSD",
@@ -112,12 +112,12 @@ class TestSignalConversion:
 
 class TestStrategyRegistration:
     def test_three_strategies_instantiated(self):
-        from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig  # noqa: I001
         from strategies.killzone_momentum import (
-            KillzoneMomentumStrategy,
             KillzoneMomentumConfig,
+            KillzoneMomentumStrategy,
         )
         from strategies.momentum import DonchianBreakoutStrategy, MomentumConfig
+        from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
         strategies = [
             SRMRPlusStrategy(config=SRMRPlusConfig()),
@@ -140,8 +140,8 @@ class TestStrategyRegistration:
 class TestBlendSignalAttribution:
     def test_signal_carries_strategy_id(self):
         """Verify blend runner receives strategy_id in signal dict."""
-        from launch_blend_forward_test import trade_signal_to_blend_dict  # noqa: I001
         from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
+        from launch_blend_forward_test import trade_signal_to_blend_dict
 
         signal = CTraderTradeSignal(
             symbol="GBPUSD",

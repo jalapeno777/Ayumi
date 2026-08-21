@@ -1,6 +1,6 @@
 """SRF Runner — wraps existing walk-forward engine, writes results to DuckDB."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import logging
@@ -16,9 +16,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .schema import SRFDatabase, compute_data_hash, generate_run_id
 from .data_qa import validate_data
 from .param_stability import perturbation_stability_score
+from .schema import SRFDatabase, compute_data_hash, generate_run_id
 
 logger = logging.getLogger(__name__)
 

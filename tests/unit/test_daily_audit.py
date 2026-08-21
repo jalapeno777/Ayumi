@@ -10,16 +10,16 @@ Each checkpoint is tested for:
 3. Warning/Critical thresholds
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -32,20 +32,19 @@ SRC_DIR = Path(__file__).resolve().parent.parent.parent / "src"
 sys.path.insert(0, str(SRC_DIR / "forex-bot"))
 sys.path.insert(0, str(SRC_DIR))
 
-from daily_audit import (  # noqa: I001
-    _ch_dh_tick_feed_latency,
+from daily_audit import (
     _ch_dh_bar_building_rate,
     _ch_dh_signal_stats_write_health,
-    _ch_ft_open_positions_vs_limits,
+    _ch_dh_tick_feed_latency,
     _ch_ft_best_day_ratio,
     _ch_ft_fill_latency_p50,
     _ch_ft_fill_latency_p95,
-    _ch_ft_slippage_analysis,
+    _ch_ft_open_positions_vs_limits,
     _ch_ft_order_rejection_rate,
+    _ch_ft_slippage_analysis,
     _get_market_status,
     run_all_checkpoints,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 

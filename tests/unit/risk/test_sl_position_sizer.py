@@ -1,7 +1,6 @@
 """Tests for SL-Derived Position Sizer."""
 
-import pytest  # noqa: I001
-
+import pytest
 from risk.sl_position_sizer import SLPositionSizer
 
 
@@ -164,7 +163,7 @@ class TestSLPositionSizer:
         assert result.blocked  # Still halted
 
         # Manually expire it
-        from datetime import datetime, timezone, timedelta  # noqa: I001
+        from datetime import datetime, timedelta, timezone
 
         self.sizer.breaker.halted_until = datetime.now(timezone.utc) - timedelta(seconds=1)
         result = self.sizer.calculate("EURUSD", 1.0850, 1.0820, profile="sniper")

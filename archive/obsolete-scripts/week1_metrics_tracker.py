@@ -5,8 +5,8 @@ This script tracks key metrics for the Week 1 Community Growth Sprint.
 Run daily to collect and report on growth metrics.
 """
 
-import sys  # noqa: I001
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 src_path = Path(__file__).parent.parent / "src"

@@ -28,7 +28,6 @@ from strategies.donchian_atr_trend_v2 import (  # noqa: E402
 )
 from utils.pip_value import pip_value_for_symbol  # noqa: E402
 
-
 DB_PATH = ROOT / "data" / "ayumi_market.duckdb"
 
 

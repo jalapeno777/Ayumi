@@ -36,8 +36,8 @@ try:
 except ImportError:
     # When run as script from src/forex-bot/backtest/crisis_replay.py
     # Load simple_engine.py directly to avoid heavy backtest/__init__.py
-    from pathlib import Path as _Path  # noqa: I001
     import importlib.util as _ilu
+    from pathlib import Path as _Path
 
     _FXBOT = _Path(__file__).resolve().parent.parent  # src/forex-bot/
     sys.path.append(str(_FXBOT))  # for core.types, engine, etc.

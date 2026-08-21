@@ -39,18 +39,17 @@ sys.modules["simple_engine_standalone"] = _se_mod
 _se_spec.loader.exec_module(_se_mod)
 
 from crisis_replay import (  # noqa: E402, I001
+    _CRISIS_BY_EVENT,
     CRISIS_WINDOWS,
     MAX_DRAWDOWN_PCT,
     MAX_RECOVERY_BARS,
     MIN_SHARPE_RATIO,
     CrisisWindow,
-    _CRISIS_BY_EVENT,
     load_crisis_data,
     run_crisis_replay,
     survival_metrics,
 )
 from simple_engine_standalone import SimulatedTrade, TradeOutcome  # noqa: E402
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────────
 

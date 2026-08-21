@@ -23,12 +23,12 @@ CLI::
     python -m forex_bot.backtest.run_ftmo_sim --input data/forex/historical/wf_results.csv
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import csv
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Sequence
 

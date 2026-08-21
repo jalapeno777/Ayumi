@@ -6,7 +6,7 @@ plus pattern_type as a bonus factor (uses the 5% slack in the weight budget).
 Weight total: 0.95 (spec) + 0.05 (pattern_type slack) = 1.00
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
@@ -17,7 +17,6 @@ from .thresholds import (
     PERIOD_EXTREME_T2,
     PERIOD_EXTREME_T3,
 )
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Spec §7.1 Forex Weight Table (total 0.95, 5% slack)

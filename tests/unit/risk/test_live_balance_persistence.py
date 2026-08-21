@@ -5,11 +5,10 @@ PaperTrader.update_market_prices recalculates _current_balance from
 starting_balance on every tick, overwriting the live-synced balance.
 """
 
-import json  # noqa: I001
+import json
 from pathlib import Path
 
 import pytest
-
 from adapters.ctrader.risk_guard import FTMOConfig, RiskGuard
 
 

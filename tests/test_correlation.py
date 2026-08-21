@@ -24,11 +24,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from backtest.correlation import (  # noqa: I001
+from backtest.correlation import (
     compute_correlation_matrix,
     pearson_correlation,
 )
-
 
 # ---------------------------------------------------------------------------
 # pearson_correlation

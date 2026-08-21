@@ -42,7 +42,7 @@ data is wired into the walk-forward pipeline, the integration card can
 populate these parameters directly from per-trade signal records.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Sequence
@@ -50,7 +50,6 @@ from typing import Sequence
 import numpy as np
 
 from .oos_gate import WalkForwardResults
-
 
 # ---------------------------------------------------------------------------
 # Dataclasses

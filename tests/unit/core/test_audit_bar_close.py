@@ -12,15 +12,13 @@ Tests cover:
 - Output file format
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import sqlite3
 from datetime import datetime, timezone
 
 import pytest
-
-
 from backtest.audit_bar_close import (
     _generate_signal_id,
     _get_spread_for_pair,
@@ -32,7 +30,6 @@ from backtest.audit_bar_close import (
     main,
     run_audit,
 )
-
 
 # ---------------------------------------------------------------------------
 # Timestamp parsing

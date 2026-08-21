@@ -30,7 +30,7 @@ These tests lock the contract:
    parse, no tail loss.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import os  # noqa: F401
@@ -40,7 +40,6 @@ from pathlib import Path
 from unittest.mock import patch  # noqa: F401
 
 import pytest
-
 
 WORKSPACE = Path("/home/TacoPants/projects/Ayumi")
 # Tests run from the worktree directory (autodev/sigstats-dcc7817d).
@@ -55,7 +54,6 @@ if str(SRC) not in sys.path:
 from forward_test.blend_runner import BlendForwardTestRunner  # noqa: E402, I001
 from orchestrator.signal_orchestrator import OrchestratorTradeSignal  # noqa: E402, F401
 from signal_engine.signal_stats import SignalStatsRecorder  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers

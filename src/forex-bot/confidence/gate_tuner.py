@@ -1,11 +1,10 @@
 """Confidence gate tuner — finds optimal thresholds from historical trade data."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from collections import defaultdict
-
+from dataclasses import dataclass
 
 # Default gate values when data is insufficient
 DEFAULT_MAX_SPREADS = {

@@ -1,5 +1,4 @@
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from quant.vaps import VAPSConfig, vaps_regime
 

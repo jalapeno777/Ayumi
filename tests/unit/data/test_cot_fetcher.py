@@ -9,7 +9,7 @@ Covers:
   - Edge cases: missing data, malformed rows, empty archives
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import tempfile
@@ -17,10 +17,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-
 from data.cot_cache import CACHE_VERSION, COTCache
-from data.cot_fetcher import COTFormat, COTFetcher
-
+from data.cot_fetcher import COTFetcher, COTFormat
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 

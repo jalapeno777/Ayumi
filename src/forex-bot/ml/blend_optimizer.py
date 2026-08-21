@@ -1,6 +1,6 @@
 """Strategy Blend Optimizer — uses Optuna to find the best strategy combination."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 import time
@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import optuna
-
 from backtest.blend_backtest import BacktestConfig, BlendBacktest
 from ml.signal_provider import HistoricalSignalProvider
 

@@ -11,7 +11,7 @@ Covers:
     - ISignalStrategy lifecycle (reset)
 """
 
-import unittest  # noqa: I001
+import unittest
 from datetime import datetime
 
 from core.types import Bar, MarketState, SessionType, TradeDirection
@@ -24,7 +24,6 @@ from strategies.donchian_atr_trend_v2 import (
     _donchian_high,
     _donchian_low,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

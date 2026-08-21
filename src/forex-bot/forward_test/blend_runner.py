@@ -1,6 +1,6 @@
 """Production forward test runner wiring the full Ayumi signal pipeline."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import os
@@ -16,15 +16,15 @@ from orchestrator.signal_orchestrator import (
     SignalOrchestrator,
 )
 from orchestrator.strategy_adapter import StrategyAdapter
-from risk.profile_router import ProfileRouter
-from risk.sl_position_sizer import SLPositionSizer
-from risk.regime_thresholds import Regime, RegimeAwareThresholds
 from risk.edge_telemetry import EdgeTelemetryTracker
-from risk.state_persistence import StatePersistence
 
 # Import the canonical trading-date helper from ftmo_guard — do NOT duplicate it.
 # The daily reset boundary is FTMO-defined: America/Toronto midnight (Eastern).
 from risk.ftmo_guard import _trading_date
+from risk.profile_router import ProfileRouter
+from risk.regime_thresholds import Regime, RegimeAwareThresholds
+from risk.sl_position_sizer import SLPositionSizer
+from risk.state_persistence import StatePersistence
 
 # Phase 0 forward-test diagnostics — mirror PaperTrader wiring.
 # The blend-mode pipeline does NOT route through PaperTrader.process_signal

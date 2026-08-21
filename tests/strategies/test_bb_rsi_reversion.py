@@ -1,7 +1,6 @@
-from datetime import datetime, timezone  # noqa: I001
+from datetime import datetime, timezone
 
 import pytest
-
 from core.types import Bar, MarketState, SessionType, TradeDirection
 from strategies.bb_rsi_reversion import (
     BBRSIConfig,

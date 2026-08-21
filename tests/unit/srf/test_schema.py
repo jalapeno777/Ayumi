@@ -13,8 +13,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf.schema import SRFDatabase, SCHEMA_VERSION  # noqa: I001
-
+from srf.schema import SCHEMA_VERSION, SRFDatabase
 
 # ---------------------------------------------------------------------------
 # Fixtures

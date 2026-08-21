@@ -1,8 +1,8 @@
 """Flatten account: send BUY orders to close net short."""
 
-import os  # noqa: I001
-import time
+import os
 import socket
+import time
 
 from dotenv import load_dotenv
 

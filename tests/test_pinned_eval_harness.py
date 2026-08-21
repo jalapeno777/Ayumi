@@ -33,11 +33,11 @@ import pinned_eval_harness  # noqa: E402, F401, I001
 
 # Import the runtime pieces directly to keep tests fast and dependency-free.
 from pinned_eval_harness import (  # noqa: E402
-    PinnedEvalResult,
-    PinnedTask,
     SCHEMA_VERSION,
     TIER_ORDER,
     TIER_THRESHOLDS,
+    PinnedEvalResult,
+    PinnedTask,
     _demo_tasks,
     aggregate,
     capability_score,
@@ -47,7 +47,6 @@ from pinned_eval_harness import (  # noqa: E402
     load_tasks_jsonl,
     write_results_jsonl,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fixtures

@@ -11,11 +11,10 @@ portfolio_blend.py:1006, tests x11) import this method — those callers are
 not edited here, they merely rely on GridConfig.ftmo being defined.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
-from backtest.grid_strategy import GridConfig, GRID_PRESETS
+from backtest.grid_strategy import GRID_PRESETS, GridConfig
 
 
 class TestGridConfigFtmo:

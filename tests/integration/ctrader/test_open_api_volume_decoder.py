@@ -19,7 +19,7 @@ These tests verify:
 * Unknown symbol_id: ``_handle_spot_event`` raises ``KeyError``
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import gc
 import logging
@@ -27,11 +27,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 from archive.legacy_ctrader._pkg.open_api_spot_feed import (  # noqa: E402
     OpenApiSpotFeed,
     ProtoOATradeSide,
 )
+
 # NOTE: do NOT import OrderStatus from adapters.ctrader.models — that's a
 # *different* enum class than the one open_api_spot_feed uses internally
 # (legacy_ctrader._pkg.models.OrderStatus). We compare by string value

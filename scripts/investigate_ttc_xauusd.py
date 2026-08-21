@@ -162,9 +162,9 @@ def run_strategy_on_bars(bars: list, label: str, pair: str = "XAUUSD", timeframe
     total_pnl. Lightweight: does not write to DuckDB.
     """
     try:
-        from strategies.ttc_xauusd import TTCXAUUSDStrategy  # noqa: I001
         from backtest.engine import TradeDirection  # noqa: F401
         from backtest.walk_forward_runner import run_strategy_walk_forward
+        from strategies.ttc_xauusd import TTCXAUUSDStrategy
     except ImportError as exc:
         return {
             "label": label,

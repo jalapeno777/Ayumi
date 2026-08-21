@@ -4,12 +4,11 @@ Tests the new signal_id-keyed API, thread-safety, and error cases
 introduced in the Phase 5 risk-sizer refactor.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import threading
 
 import pytest
-
 from risk.sl_position_sizer import SLPositionSizer
 
 

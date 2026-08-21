@@ -7,20 +7,18 @@ These tests verify the four fixes:
 4. Invalid refreshed tokens are rejected and old tokens retained
 """
 
-import json  # noqa: I001
+import json
 import threading
 import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.credential_store import CredentialStore
 from adapters.ctrader.token_lifecycle import (
     TokenLifecycle,
     TokenRefreshError,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 

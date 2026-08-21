@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from .cointegration import (
     CointegrationEngine,
@@ -8,6 +8,11 @@ from .cointegration import (
     parameter_sweep,
 )
 from .config import QuantConfig
+from .go_nogo_criteria import (
+    AggregateCriteria,
+    EvaluateResult,
+    PerWindowCriteria,
+)
 from .pipeline import (
     PortfolioState,
     QuantPipeline,
@@ -25,11 +30,6 @@ from .portfolio import (
     StrategyAllocation,
     StrategyPortfolio,
     build_default_portfolio,
-)
-from .go_nogo_criteria import (
-    AggregateCriteria,
-    EvaluateResult,
-    PerWindowCriteria,
 )
 from .statistical_validation import (
     CheckResult,

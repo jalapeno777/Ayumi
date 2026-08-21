@@ -11,13 +11,11 @@ here to avoid interaction with watchdog-based tests that run later in the
 session.
 """
 
-from datetime import datetime, timedelta, timezone  # noqa: I001
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-
 from adapters.ctrader.credential_store import CredentialStore
-
 
 VALID_ENV = """\
 CTRADER_OPENAPI_CLIENT_ID="test_client_id"

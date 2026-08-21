@@ -1,6 +1,5 @@
-import dataclasses  # noqa: I001
+import dataclasses
 import unittest
-
 from datetime import datetime
 
 from core.types import Bar, MarketState, SessionType, TradeDirection

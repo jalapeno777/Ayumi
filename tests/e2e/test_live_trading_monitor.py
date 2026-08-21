@@ -1,11 +1,10 @@
-import importlib.util  # noqa: I001
+import importlib.util
 import os
 import sys
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
-
 from _project_root import PROJECT_ROOT
 
 SCRIPT_PATH = PROJECT_ROOT / "scripts" / "live_trading_monitor.py"

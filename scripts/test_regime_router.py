@@ -10,12 +10,12 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import logging  # noqa: I001
+import logging
 
+from backtest import CsvDataLoader
 from backtest.engine import BacktestConfig
 from backtest.enhanced_engine import EnhancedBacktestEngine
-from backtest.strategies import RegimeSwitchingRouter, RegimeRouterConfig
-from backtest import CsvDataLoader
+from backtest.strategies import RegimeRouterConfig, RegimeSwitchingRouter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

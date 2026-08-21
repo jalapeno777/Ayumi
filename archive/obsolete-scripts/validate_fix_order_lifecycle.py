@@ -28,12 +28,12 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from adapters.ctrader.models import (  # noqa: I001
-    cTraderCredentials,
-    TradeDirection,
-    OrderType,
-)
 from adapters.ctrader.api_client import FIXClient, FIXMessage
+from adapters.ctrader.models import (  # noqa: I001
+    OrderType,
+    TradeDirection,
+    cTraderCredentials,
+)
 
 SOH = "\x01"
 

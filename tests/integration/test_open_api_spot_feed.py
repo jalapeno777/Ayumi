@@ -6,13 +6,12 @@ between tests to prevent memory accumulation from connection objects, thread
 pools, and Twisted reactor references.
 """
 
-import gc  # noqa: I001
+import gc
 import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.open_api_spot_feed import (
     OpenApiSpotFeed,
     _normalize_symbol_name,
@@ -39,8 +38,10 @@ _STABLE_CONNECTION_SECONDS = getattr(
     "_STABLE_CONNECTION_SECONDS",
     60,
 )
-from adapters.ctrader.market_data_feed import Tick  # noqa: I001
-from adapters.ctrader.market_data_feed import SymbolInfo
+from adapters.ctrader.market_data_feed import (
+    SymbolInfo,
+    Tick,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -10,9 +10,9 @@ Usage:
     python scripts/run_5window_walkforward.py
 """
 
-import argparse  # noqa: I001
-import sys
+import argparse
 import json
+import sys
 from pathlib import Path
 
 EURUSD_PATH = "data/forex/historical/EURUSD_H1.csv"
@@ -23,8 +23,8 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.runner import run_hybrid_backtest  # noqa: E402, I001
 from backtest import CsvDataLoader  # noqa: E402
+from backtest.runner import run_hybrid_backtest  # noqa: E402, I001
 from common.resource_limits import add_resource_args, run_limited  # noqa: E402
 
 

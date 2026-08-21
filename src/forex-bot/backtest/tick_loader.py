@@ -9,7 +9,7 @@ To populate the bars table from tick data:
     python3 scripts/aggregate_ticks_to_bars.py --symbol GBPUSD
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-
 from core.types import Bar
 
 logger = logging.getLogger(__name__)

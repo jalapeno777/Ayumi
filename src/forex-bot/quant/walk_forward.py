@@ -446,8 +446,8 @@ def detect_regime_for_window(
     via :class:`~quant.btc_regime_overlay.BtcRegimeOverlay`.
     """
     from quant.regime import (  # noqa: I001
-        TrendDirection,
         SessionName,
+        TrendDirection,
         combined_regime,
         session_regime,
         trend_regime,

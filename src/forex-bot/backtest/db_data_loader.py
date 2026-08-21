@@ -24,7 +24,7 @@ Drop-in usage
     bars = loader.load_by_filepath("data/forex/historical/XAUUSD_M15.csv")
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import re
@@ -33,7 +33,6 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
-
 from backtest.abstract_data_loader import AbstractDataLoader
 from backtest.data_loader import CsvDataLoader
 from backtest.engine import Bar

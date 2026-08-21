@@ -41,7 +41,7 @@ Risk
     (``max_bars_to_tp1``); the framework's trade manager enforces it.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -55,7 +55,6 @@ from core.types import (
     TradeDirection,
 )
 from utils.pip_value import pip_value_for_symbol
-
 
 # ---------------------------------------------------------------------------
 # Indicator helpers

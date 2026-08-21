@@ -3,13 +3,13 @@
 Used by run_live_paper.py to instantiate strategies from parameter configs.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
-from strategies.session_range_mean_reversion import (
-    SessionRangeMRConfig,
-    SessionRangeMeanReversionStrategy,
-)
 from backtest.strategy_legacy import ISignalStrategy
+from strategies.session_range_mean_reversion import (
+    SessionRangeMeanReversionStrategy,
+    SessionRangeMRConfig,
+)
 
 
 def legacy_strategy_factory(

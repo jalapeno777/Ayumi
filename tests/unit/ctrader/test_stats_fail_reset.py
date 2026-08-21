@@ -9,8 +9,9 @@ mocking the SignalStatsRecorder to first fail, then succeed, and checking
 that _stats_fail_count resets to 0 on success.
 """
 
-import pytest  # noqa: I001
 from unittest.mock import MagicMock
+
+import pytest
 
 
 @pytest.fixture
@@ -58,8 +59,8 @@ class TestStatsFailReset:
 
     def test_reset_logic_exists_in_source(self):
         """Verify the source code contains the reset-on-success line."""
-        import sys  # noqa: I001
         import inspect
+        import sys
         from pathlib import Path
 
         src = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
@@ -135,7 +136,7 @@ class TestStatsRecorderIntegration:
         if src not in sys.path:
             sys.path.insert(0, src)
 
-        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord  # noqa: I001
+        from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
 
         recorder = SignalStatsRecorder(log_path=str(tmp_path / "test_stats.jsonl"))
         record = SignalRecord(
@@ -168,7 +169,7 @@ class TestStatsRecorderIntegration:
         if src not in sys.path:
             sys.path.insert(0, src)
 
-        from signal_engine.signal_stats import SignalStatsRecorder, SignalRecord  # noqa: I001
+        from signal_engine.signal_stats import SignalRecord, SignalStatsRecorder
 
         # Create a recorder whose _append_line always raises
         recorder = SignalStatsRecorder(log_path=str(tmp_path / "stats.jsonl"))

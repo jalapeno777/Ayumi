@@ -16,10 +16,10 @@ Parameter mapping (parent params -> existing strategy params):
 GO Criteria: 3/5 windows pass (WR>55%, PF>1.2, DD<10%)
 """
 
-import sys  # noqa: I001
 import json
+import sys
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 PAIRS = {
     "EURUSD": "data/forex/historical/EURUSD_H1.csv",
@@ -37,10 +37,10 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-from backtest.engine import BacktestConfig  # noqa: E402, I001
-from backtest.strategies import MomentumBreakoutStrategy  # noqa: E402
 from backtest.data_loader import CsvDataLoader  # noqa: E402
-from backtest.parameter_sweep import ParameterGrid, SweepRunner, SweepResult  # noqa: E402
+from backtest.engine import BacktestConfig  # noqa: E402, I001
+from backtest.parameter_sweep import ParameterGrid, SweepResult, SweepRunner  # noqa: E402
+from backtest.strategies import MomentumBreakoutStrategy  # noqa: E402
 
 PARAM_SPACE_NO_RSI: Dict[str, List[Any]] = {
     "fast_period": [5, 9, 12],

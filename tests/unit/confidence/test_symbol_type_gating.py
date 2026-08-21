@@ -11,10 +11,9 @@ Covers:
 - Instrument.detector_stack property
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import pytest
-
 from confidence.symbol_type_gating import (
     SymbolTypeGate,
     get_detector_stack,
@@ -26,7 +25,6 @@ from models.instrument import (
     SymbolType,
     classify_symbol,
 )
-
 
 # ---------------------------------------------------------------------------
 # SymbolType enum

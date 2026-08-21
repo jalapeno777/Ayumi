@@ -1,24 +1,24 @@
 """Tests for confluence_scorer.py — all 14 spec §7.1 boosters + pattern_type bonus."""
 
-import pytest  # noqa: I001
+import pytest
 from signal_engine.confluence_scorer import (
-    BoosterResult,
-    ConfluenceScorer,
-    WEIGHT_MTF_ALIGNMENT,
-    WEIGHT_MULTI_SESSION,
-    WEIGHT_SVC_PRESENT,
+    WEIGHT_ASIA_CONTROL,
+    WEIGHT_DAY_OF_WEEK,
+    WEIGHT_DXY_CORRELATION,
+    WEIGHT_EMA_BOUNCE,
     WEIGHT_HITS_TO_LEVEL,
     WEIGHT_HITS_WITH_VOLUME,
-    WEIGHT_NEAR_PERIOD_EXTREME,
     WEIGHT_HTF_NOT_CONSOLIDATING,
     WEIGHT_KILL_ZONE,
+    WEIGHT_MTF_ALIGNMENT,
+    WEIGHT_MULTI_SESSION,
+    WEIGHT_NEAR_PERIOD_EXTREME,
+    WEIGHT_PATTERN_TYPE,
     WEIGHT_SESSION_OVERLAP,
     WEIGHT_SESSION_PHASE,
-    WEIGHT_DAY_OF_WEEK,
-    WEIGHT_ASIA_CONTROL,
-    WEIGHT_EMA_BOUNCE,
-    WEIGHT_DXY_CORRELATION,
-    WEIGHT_PATTERN_TYPE,
+    WEIGHT_SVC_PRESENT,
+    BoosterResult,
+    ConfluenceScorer,
 )
 
 

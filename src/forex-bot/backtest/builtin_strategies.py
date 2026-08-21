@@ -6,12 +6,6 @@ except ImportError:
     GridConfig = None  # type: ignore
     GridStrategyAdapter = None  # type: ignore
 
-from strategies.session_range_mean_reversion import (  # noqa: I001
-    SessionRangeMeanReversionStrategy,
-    SessionRangeMRWithRegimeFilter,
-)
-from strategies.volatility_squeeze import VolatilitySqueezeStrategy
-
 from backtest.stat_arb import StatArbStrategy
 from backtest.strategies import (
     BBStrategy,
@@ -28,6 +22,11 @@ from backtest.strategies import (
     SRBreakoutStrategy,
 )
 from backtest.walk_forward_runner import register_strategy
+from strategies.session_range_mean_reversion import (  # noqa: I001
+    SessionRangeMeanReversionStrategy,
+    SessionRangeMRWithRegimeFilter,
+)
+from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
 
 def _make_ma_crossover() -> ISignalStrategy:

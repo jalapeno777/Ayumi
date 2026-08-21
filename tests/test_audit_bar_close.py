@@ -26,7 +26,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
-from backtest.audit_bar_close import (  # noqa: I001
+from backtest.audit_bar_close import (
     _generate_signal_id,
     _get_spread_for_pair,
     _parse_timestamp,
@@ -37,7 +37,6 @@ from backtest.audit_bar_close import (  # noqa: I001
     main,
     run_audit,
 )
-
 
 # ---------------------------------------------------------------------------
 # Timestamp parsing

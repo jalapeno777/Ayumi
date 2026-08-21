@@ -14,11 +14,10 @@ Tests cover:
   - Kill switch FREEZE on portfolio drawdown breach
 """
 
-from datetime import datetime, timedelta, timezone  # noqa: I001
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
 from adapters.ctrader.models import (
     Position,
     PositionStatus,
@@ -27,7 +26,6 @@ from adapters.ctrader.models import (
 from adapters.ctrader.order_manager import OrderManager, PositionSizeConfig
 from adapters.ctrader.position_monitor import PositionMonitor
 from adapters.ctrader.risk_guard import FTMOConfig, RiskGuard
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

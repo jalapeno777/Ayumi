@@ -10,12 +10,11 @@ Key API differences from the old test suite:
   ``total_pnl``/``total_pnl_pct`` rather than ``total_return``.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 
 import pytest
-
 from core.config import BacktestConfig, BacktestMetrics
 from core.spread import SpreadModel
 from core.types import (
@@ -26,8 +25,7 @@ from core.types import (
     TradeDirection,
     TradeOutcome,
 )
-from engine.base import EngineCore, UNITS_PER_LOT
-
+from engine.base import UNITS_PER_LOT, EngineCore
 
 # ---------------------------------------------------------------------------
 # Helpers

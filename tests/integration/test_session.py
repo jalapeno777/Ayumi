@@ -7,16 +7,14 @@ Reactor bridge pattern (Amendment A1):
     reactor thread → client.send() → deferred.addCallbacks → event.set()
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from adapters.ctrader.protocols import SessionState
-from adapters.ctrader.session import cTraderSession, SendError
-
+from adapters.ctrader.session import SendError, cTraderSession
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

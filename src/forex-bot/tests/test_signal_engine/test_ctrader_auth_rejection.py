@@ -8,7 +8,7 @@ Tests the fixes from card 7698bbd5:
 5. Kill switch is actually activated (not just logged) when policy says so
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import threading
 import time
@@ -16,8 +16,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from adapters.ctrader.open_api_spot_feed import (
-    _APP_AUTH_RES_PAYLOAD_TYPE,
     _ACCT_AUTH_RES_PAYLOAD_TYPE,
+    _APP_AUTH_RES_PAYLOAD_TYPE,
 )
 
 
@@ -115,8 +115,8 @@ class TestOrderTimeoutRejection(unittest.TestCase):
 
     def test_timeout_sets_rejected_status(self):
         """Order timeout must set status to REJECTED, not PENDING."""
-        from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed  # noqa: I001
         from adapters.ctrader.models import OrderStatus
+        from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 
         feed = OpenApiSpotFeed.__new__(OpenApiSpotFeed)
         feed._pending_orders = {}

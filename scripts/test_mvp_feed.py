@@ -16,9 +16,9 @@ try:
 except ImportError:
     pass
 
-import os  # noqa: I001
-import time
 import logging
+import os
+import time
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 

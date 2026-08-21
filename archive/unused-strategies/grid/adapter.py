@@ -1,5 +1,4 @@
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 from backtest.engine import MarketState, StrategySignal, TradeDirection
 from backtest.strategies import ISignalStrategy

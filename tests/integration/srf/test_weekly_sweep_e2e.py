@@ -33,8 +33,7 @@ _src = _repo_root / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from srf.weekly_sweep import PROJECT_ROOT, weekly_sweep  # noqa: I001
-
+from srf.weekly_sweep import PROJECT_ROOT, weekly_sweep
 
 # ---------------------------------------------------------------------------
 # Marker registration

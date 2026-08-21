@@ -13,21 +13,19 @@ oos_gate.py):
    ``n < 30``).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import math
 
 import numpy as np
 import pytest
-from scipy import stats
-
 from quant.oos_gate import (
     MINUTES_PER_YEAR,
-    GateConfig,
-    GateResult,
     TIER_A_PRODUCTION,
     TIER_B_DEMO,
     TIER_C_PAPER,
+    GateConfig,
+    GateResult,
     WalkForwardResults,
     annualization_from_bar_period,
     deflated_sharpe_ratio,
@@ -35,7 +33,7 @@ from quant.oos_gate import (
     expected_max_sharpe,
     tier_rank_streams,
 )
-
+from scipy import stats
 
 # ---------------------------------------------------------------------------
 # Test helpers

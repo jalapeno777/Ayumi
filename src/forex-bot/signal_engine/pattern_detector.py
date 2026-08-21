@@ -1,22 +1,23 @@
 """§5 — Pattern detection: M/W formations, SVCs, traps, liquidity grabs, FL."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time as dt_time
+from datetime import datetime
+from datetime import time as dt_time
 from typing import Optional
 
 import pytz
 
 _ET = pytz.timezone("America/New_York")
 
-from .data_types import Level, LevelType, Swing, SwingType  # noqa: I001
+from .data_types import Level, LevelType, Swing, SwingType
 from .thresholds import (
-    MW_SYMMETRY_MAX,
     MW_EQUAL_THRESHOLD,
-    TRAP_BREAK_LONDON_NY,
-    TRAP_BREAK_ASIA,
+    MW_SYMMETRY_MAX,
     NEAR_THRESHOLD,
+    TRAP_BREAK_ASIA,
+    TRAP_BREAK_LONDON_NY,
 )
 
 

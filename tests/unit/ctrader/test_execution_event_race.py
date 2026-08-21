@@ -32,19 +32,17 @@ _SRC = str(Path(__file__).resolve().parents[3] / "src" / "forex-bot")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
+from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirection
+from adapters.ctrader.open_api_spot_feed import (
+    _INDETERMINATE_TIMEOUT_REASON,
+    _LATE_FILL_TTL_SEC,
+    _TERMINAL_EXEC_TYPES,
+    OpenApiSpotFeed,
+)
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (  # noqa: I001
     ProtoOAExecutionType,
     ProtoOAOrderStatus,  # noqa: F401
 )
-
-from adapters.ctrader.models import Order, OrderStatus, OrderType, TradeDirection
-from adapters.ctrader.open_api_spot_feed import (
-    OpenApiSpotFeed,
-    _INDETERMINATE_TIMEOUT_REASON,
-    _LATE_FILL_TTL_SEC,
-    _TERMINAL_EXEC_TYPES,
-)
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 

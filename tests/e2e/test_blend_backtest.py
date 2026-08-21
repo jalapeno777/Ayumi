@@ -1,9 +1,9 @@
 """Tests for Strategy Blend Backtest."""
 
-import pytest  # noqa: I001
 from datetime import datetime, timezone
 
-from backtest.blend_backtest import BlendBacktest, BacktestConfig
+import pytest
+from backtest.blend_backtest import BacktestConfig, BlendBacktest
 
 
 def _make_signal(

@@ -11,20 +11,18 @@ Covers:
     8. Edge cases (zero starting balance, DD reduce→freeze escalation)
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
 from risk.ftmo_guard import (
     FTMOAction,
     FTMOGuard,
-    _trading_date,
     _toronto_midnight_utc,
+    _trading_date,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

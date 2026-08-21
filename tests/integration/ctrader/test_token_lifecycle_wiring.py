@@ -14,20 +14,18 @@ Tests cover:
 11. Lazy reconnect path (_start_openapi_feed) also wires lifecycle.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.forward_test_engine import (
     ForwardTestConfig,
     ForwardTestEngine,
 )
+from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 from adapters.ctrader.token_lifecycle import TokenLifecycle
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 

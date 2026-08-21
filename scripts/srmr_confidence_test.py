@@ -13,22 +13,24 @@ Usage:
     python3 scripts/srmr_confidence_test.py
 """
 
-from __future__ import annotations  # noqa: I001
-import sys
+from __future__ import annotations
+
 import pickle
+import sys
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+
 import numpy as np
 
 project_root = Path("/home/TacoPants/projects/Ayumi")
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(project_root / "src" / "forex-bot"))
 
-import duckdb  # noqa: I001
-from core.types import Bar, MarketState, SessionType, BarPeriod
-from strategies.srmr_plus import SRMRPlusStrategy, SRMRPlusConfig
+import duckdb
+from core.types import Bar, BarPeriod, MarketState, SessionType
 from regime.detector import Regime
+from strategies.srmr_plus import SRMRPlusConfig, SRMRPlusStrategy
 
 # Load XAUUSD M15
 con = duckdb.connect(str(project_root / "data" / "ayumi_market.duckdb"), read_only=True)

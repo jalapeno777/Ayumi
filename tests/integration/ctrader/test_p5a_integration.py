@@ -5,9 +5,10 @@ Verifies two-layer gating:
 2. ForwardTestEngine._execute_signal_live() blocks before broker interaction.
 """
 
-from unittest.mock import MagicMock, patch  # noqa: I001
-from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
+from unittest.mock import MagicMock, patch
+
 from adapters.ctrader.execution_permission import ExecutionPermissionPolicy
+from adapters.ctrader.open_api_spot_feed import OpenApiSpotFeed
 
 
 def test_new_order_blocked_by_policy():
@@ -80,8 +81,8 @@ def test_new_order_allowed_when_policy_clear():
 def test_api_client_has_policy_after_build_components():
     """After _build_components() in live mode, _api_client must have policy set."""
     from adapters.ctrader.forward_test_engine import (  # noqa: I001
-        ForwardTestEngine,
         ForwardTestConfig,
+        ForwardTestEngine,
     )
 
     cfg = ForwardTestConfig(

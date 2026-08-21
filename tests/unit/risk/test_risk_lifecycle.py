@@ -6,14 +6,13 @@ Tests that:
      while preserving open_positions.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from forward_test.blend_runner import BlendForwardTestRunner
 
 

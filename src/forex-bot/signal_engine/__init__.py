@@ -1,30 +1,29 @@
 """TTC/TBD Signal & Confidence Engine — Phase 1-4."""
 
-from .filters import TrendFilter, ATRFilter, FVGFilter, FilterChain  # noqa: I001
-
-from .swing_detector import SwingDetector
-from .level_counter import LevelCounter
-from .htf_analyzer import HTFAnalyzer
-from .session_logic import SessionAnalyzer
-from .pattern_detector import PatternDetector
-from .gate_validator import GateValidator
-from .confluence_scorer import ConfluenceScorer
-from .signal_output import format_signal_json, parse_signal_json, create_signal
-from .stop_target import StopTargetCalculator
-from .tp_manager import TPManager
 from .backtest_bridge import SignalEngineBridge
+from .confluence_scorer import ConfluenceScorer
+from .filters import ATRFilter, FilterChain, FVGFilter, TrendFilter
+from .gate_validator import GateValidator
+from .htf_analyzer import HTFAnalyzer
+from .level_counter import LevelCounter
+from .pattern_detector import PatternDetector
+from .session_logic import SessionAnalyzer
+from .signal_output import create_signal, format_signal_json, parse_signal_json
+from .stop_target import StopTargetCalculator
+from .swing_detector import SwingDetector
+from .tp_manager import TPManager
 
 BacktestBridge = SignalEngineBridge  # alias
 
 from .data_types import (  # noqa: I001
-    Signal,
-    Level,
-    Swing,
-    HTFState,
-    SessionState,
-    LevelType,
-    SwingType,
     HTFPhase,
+    HTFState,
+    Level,
+    LevelType,
+    SessionState,
+    Signal,
+    Swing,
+    SwingType,
 )
 
 __all__ = [

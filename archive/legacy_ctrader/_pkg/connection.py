@@ -8,22 +8,22 @@ connection concerns from business logic (subscriptions, tick handling,
 order execution).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import random
 import threading
 import time
 import uuid
-from typing import Optional, Callable
+from typing import Callable, Optional
 
-from twisted.internet import reactor
 from ctrader_open_api import Client, TcpProtocol
 from ctrader_open_api.protobuf import Protobuf  # noqa: F401
+from twisted.internet import reactor
 
 from .connection_state import ConnectionState, ConnectionStateManager
-from .reactor_manager import ReactorManager
 from .market_hours import is_forex_market_closed
+from .reactor_manager import ReactorManager
 
 logger = logging.getLogger("ayumi.ctrader_connection")
 

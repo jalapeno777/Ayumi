@@ -34,13 +34,11 @@ can be asserted precisely without depending on real price-derived ADX
 values.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from regime.detector import Regime, RegimeConfig, RegimeDetector
-
 
 # ── Test helpers ──────────────────────────────────────────────────────────
 

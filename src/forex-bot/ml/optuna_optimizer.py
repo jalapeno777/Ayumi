@@ -24,11 +24,10 @@ from optuna.samplers import TPESampler
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
-from backtest.engine import Bar, get_spread_for_pair  # noqa: I001
+import backtest.strategies.tts_strategy as tts_module
+from backtest.engine import Bar, get_spread_for_pair
 from backtest.strategies import TTSStrategy
 from backtest.walk_forward_runner import run_strategy_walk_forward
-
-import backtest.strategies.tts_strategy as tts_module
 
 logger = logging.getLogger(__name__)
 

@@ -33,13 +33,15 @@ try:
 except ImportError:
     pass
 
-from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick  # noqa: I001
 from adapters.ctrader.api_client import cTraderAPIClient
+from adapters.ctrader.market_data_feed import LiveMarketDataFeed, Tick
 from adapters.ctrader.models import (
     OrderType,
-    TradeDirection as CTradeDirection,
     TradeSignal,
     cTraderCredentials,
+)
+from adapters.ctrader.models import (
+    TradeDirection as CTradeDirection,
 )
 from adapters.ctrader.paper_trader import PaperTrader
 from adapters.ctrader.risk_guard import FTMOConfig

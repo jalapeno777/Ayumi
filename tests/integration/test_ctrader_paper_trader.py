@@ -1,6 +1,6 @@
-import pytest  # noqa: I001
+import pytest
 from adapters.ctrader.kill_switch import KillSwitchManager
-from adapters.ctrader.models import TradeDirection, CTraderTradeSignal
+from adapters.ctrader.models import CTraderTradeSignal, TradeDirection
 from adapters.ctrader.paper_trader import (
     PaperTrader,
     PaperTradeResult,

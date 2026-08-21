@@ -13,14 +13,12 @@ Tick-aggregation regression fixture (card d69e3542): documents the
 from the original 4/5 baseline on non-tick-aggregated data.
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 import pytest
-
 from backtest.types import Bar, MarketState, TradeDirection
-
 
 XAUUSD_BASE = 2400.00
 BAR_COUNT = 60  # > min_bars_for_evaluation=50
@@ -134,8 +132,8 @@ def test_evaluate_does_not_leak_tts_module_state():
     restore originals in the finally block — that would silently corrupt
     the shared tts_strategy module for every other caller.
     """
-    from strategies.ttc_xauusd import TTCXAUUSDStrategy  # noqa: I001
     import backtest.strategies.tts_strategy as tts_mod
+    from strategies.ttc_xauusd import TTCXAUUSDStrategy
 
     # Snapshot one of the monkeypatched constants
     original_value = getattr(tts_mod, "MW_BASE_CONFIDENCE", None)
@@ -245,7 +243,8 @@ def test_ttc_optimizer_has_embargo_parameter():
     leakage prevention. Even though the walk-forward runner doesn't
     wire it through yet, the parameter must exist for forward compatibility.
     """
-    import inspect  # noqa: I001
+    import inspect
+
     from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
 
     sig = inspect.signature(run_ttc_optuna)
@@ -296,7 +295,8 @@ def test_ttc_optimizer_prunes_pf_zero_trials():
     This verifies the code path exists. Full integration testing
     requires historical data and is out of scope for this card.
     """
-    import inspect  # noqa: I001
+    import inspect
+
     from backtest.parameter_sweep.ttc_optimizer import run_ttc_optuna
 
     source = inspect.getsource(run_ttc_optuna)

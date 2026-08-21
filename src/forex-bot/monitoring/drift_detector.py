@@ -16,7 +16,7 @@ the OpenClaw workboard sqlite (read-only) or from this repo's
 ``workboard_create`` against the live board (the watcher cron wraps that).
 """
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import json
 import os
@@ -24,11 +24,10 @@ import re
 import sqlite3
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
-
 
 # ── Thresholds — sourced from the Hayate design doc (§3.7) ──────────────────
 

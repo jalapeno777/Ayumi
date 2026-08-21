@@ -1,8 +1,7 @@
 """Unit tests for SymbolInfo dataclass."""
 
-import sys  # noqa: I001
 import os
-
+import sys
 
 # Ensure src/forex-bot is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src", "forex-bot"))

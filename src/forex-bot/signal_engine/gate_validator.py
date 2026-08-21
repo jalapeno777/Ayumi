@@ -1,12 +1,12 @@
 """§6 — Gate validator: hard gates and quality threshold for signal candidates."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .data_types import HTFState, HTFPhase, Level, LevelType, SessionState, Signal
-from .thresholds import MW_SYMMETRY_MAX, LEVEL_COMPLETION_RATIO
+from .data_types import HTFPhase, HTFState, Level, LevelType, SessionState, Signal
+from .thresholds import LEVEL_COMPLETION_RATIO, MW_SYMMETRY_MAX
 
 
 @dataclass

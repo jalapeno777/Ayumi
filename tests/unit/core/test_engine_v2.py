@@ -7,12 +7,10 @@ Rewritten for post-refactor API (card 99a4d28d).
 - WalkForwardConfig → quant.config
 """
 
-from __future__ import annotations  # noqa: I001
-
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from core.config import BacktestConfig
 from engine.engine import BacktestEngine
 from engine.mixins import CombineMethod, ProgressiveSLMixin

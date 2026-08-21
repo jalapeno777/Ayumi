@@ -1,4 +1,4 @@
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 import logging
 import os
@@ -7,9 +7,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 from backtest.engine import BacktestConfig, Bar
 from backtest.enhanced_engine import EnhancedBacktestEngine
-from backtest.strategies import ISignalStrategy
 from backtest.parameter_sweep.grid import GridPoint, ParameterGrid
 from backtest.parameter_sweep.result import SweepResult, SweepRow
+from backtest.strategies import ISignalStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +77,9 @@ def _rebuild_strategy(config: Dict[str, Any]) -> ISignalStrategy:
 
 
 def _serialize_strategy(strategy: ISignalStrategy) -> Dict[str, Any]:
-    from strategies.volatility_squeeze import VolatilitySqueezeConfig  # noqa: I001
     from dataclasses import asdict
+
+    from strategies.volatility_squeeze import VolatilitySqueezeConfig
 
     params = {}
     for k, v in strategy.__dict__.items():

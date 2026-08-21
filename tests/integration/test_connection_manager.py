@@ -1,21 +1,21 @@
 """Tests for BQ-716 ConnectionManager with SplitBrainGate."""
 
-import json  # noqa: I001
+import json
 import os
 import time
 import unittest
 from tempfile import TemporaryDirectory
 
-from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.connection_manager import (
-    ConnectionManager,
-    ConnectionRole,
     ConnectionHealth,
-    DualConnectionHealth,
+    ConnectionManager,
     ConnectionMetrics,
+    ConnectionRole,
     ConnectionStateSnapshot,
+    DualConnectionHealth,
     _StateTransition,
 )
+from adapters.ctrader.connection_state import ConnectionState, ConnectionStateManager
 from adapters.ctrader.error_classifier import ErrorTier
 
 

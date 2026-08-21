@@ -1,13 +1,11 @@
 """Integration tests for multi-timeframe forward test architecture."""
 
-from datetime import datetime, timezone  # noqa: I001
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
-from core.types import Bar, BarPeriod
 from adapters.ctrader.forward_test_engine import ForwardTestConfig, ForwardTestEngine
-
+from core.types import Bar, BarPeriod
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
