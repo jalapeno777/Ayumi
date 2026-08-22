@@ -84,7 +84,7 @@ class TestTimeoutRaceErrorCodePropagation:
             status=OrderStatus.REJECTED,
         )
         # Simulate deferred timeout having already set this
-        setattr(order, "reason", "deferred_error")  # noqa: B010
+        order.reason = "deferred_error"
         order.comment = "deferred_error"
 
         event = threading.Event()
@@ -124,7 +124,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,
         )
-        setattr(order, "reason", "timeout_awaiting_event")  # noqa: B010
+        order.reason = "timeout_awaiting_event"
         order.comment = "timeout_awaiting_event"
 
         event = threading.Event()
@@ -132,7 +132,7 @@ class TestTimeoutRaceErrorCodePropagation:
         feed._pending_orders[request_id] = (event, order)
 
         # No broker error event arrives — the order stays as timeout
-        assert getattr(order, "reason") == "timeout_awaiting_event"  # noqa: B009
+        assert order.reason == "timeout_awaiting_event"
         assert order.status == OrderStatus.REJECTED
 
     def test_late_broker_error_does_not_double_callback(self):
@@ -156,7 +156,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,  # Already rejected by deferred timeout
         )
-        setattr(order, "reason", "deferred_error")  # noqa: B010
+        order.reason = "deferred_error"
 
         event = threading.Event()
         event.set()
@@ -190,7 +190,7 @@ class TestTimeoutRaceErrorCodePropagation:
             volume=1.0,
             status=OrderStatus.REJECTED,  # Already handled by broker error event
         )
-        setattr(order, "reason", "TRADING_BAD_STOPS: Stops too close")  # noqa: B010
+        order.reason = "TRADING_BAD_STOPS: Stops too close"
 
         event = threading.Event()
         feed._pending_orders[request_id] = (event, order)
@@ -202,7 +202,7 @@ class TestTimeoutRaceErrorCodePropagation:
         def on_error_simulated():
             if order.status == OrderStatus.PENDING:
                 order.status = OrderStatus.REJECTED
-                setattr(order, "reason", "deferred_error")  # noqa: B010
+                order.reason = "deferred_error"
                 callback_fired[0] = True
             # event.set()
 

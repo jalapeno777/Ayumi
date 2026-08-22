@@ -500,7 +500,7 @@ class TestDesignDocumentation(unittest.TestCase):
         from adapters.ctrader.connection_manager import ConnectionManager
 
         self.assertTrue(hasattr(ConnectionManager, "stop"))
-        self.assertTrue(callable(getattr(ConnectionManager, "stop")))  # noqa: B009
+        self.assertTrue(callable(ConnectionManager.stop))
 
 
 class TestCredentialIsolation(unittest.TestCase):

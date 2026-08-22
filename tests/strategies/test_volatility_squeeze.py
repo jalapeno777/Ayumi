@@ -393,7 +393,7 @@ class TestPresets(unittest.TestCase):
         import dataclasses
 
         self.assertTrue(dataclasses.is_dataclass(VolatilitySqueezeConfig))
-        self.assertTrue(getattr(VolatilitySqueezeConfig, "__dataclass_params__").frozen)  # noqa: B009
+        self.assertTrue(VolatilitySqueezeConfig.__dataclass_params__.frozen)
 
 
 class TestVolatilitySqueezeConfig(unittest.TestCase):

@@ -404,7 +404,7 @@ class TestLateFillRegistryUpgrade:
         request_id = "test_req_late"
         order = _make_order(order_id=request_id)
         order.status = OrderStatus.PENDING  # Indeterminate timeout left it PENDING
-        setattr(order, "reason", _INDETERMINATE_TIMEOUT_REASON)  # noqa: B010
+        order.reason = _INDETERMINATE_TIMEOUT_REASON
         client_msg_id = f"order_late_{request_id}"
 
         # Simulate the timeout path having registered the late-fill entry.
@@ -621,7 +621,7 @@ class TestLateFillDedupeOnUpgrade:
         order = _make_order(order_id=request_id)
         # Simulate the order having already fired on_order_filled (the
         # _fill_cb_fired flag is set).
-        setattr(order, "_fill_cb_fired", True)  # noqa: B010
+        order._fill_cb_fired = True
         client_msg_id = f"order_dedupe_{request_id}"
 
         feed._register_late_fill(request_id, order, client_msg_id)
