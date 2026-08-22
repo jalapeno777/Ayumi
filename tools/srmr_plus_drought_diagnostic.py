@@ -9,7 +9,7 @@ Uses the same logic as SRMRPlusStrategy.evaluate() but with per-filter logging.
 import csv
 import sys
 from collections import Counter, defaultdict
-from datetime import date, datetime, time  # noqa: F401
+from datetime import datetime, time
 
 # ---------------------------------------------------------------------------
 # Config mirrors (default SRMRPlusConfig)

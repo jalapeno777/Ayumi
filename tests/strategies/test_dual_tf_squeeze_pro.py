@@ -348,6 +348,7 @@ class TestDuckDBIntegration(unittest.TestCase):
         cls.db_path = os.path.abspath(cls.db_path)
         # Skip if the DB doesn't exist or python module is unavailable.
         try:
+            # Side-effect import: only used to probe optional duckdb availability.
             import duckdb  # noqa: F401
         except Exception:
             cls.skip = True

@@ -29,8 +29,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-import pinned_eval_harness  # noqa: E402, F401, I001
-
 # Import the runtime pieces directly to keep tests fast and dependency-free.
 from pinned_eval_harness import (  # noqa: E402
     SCHEMA_VERSION,

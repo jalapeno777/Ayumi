@@ -403,6 +403,7 @@ def sample_live_ticks(
 
     # Check for ctrader_open_api availability
     try:
+        # Side-effect import: only used to probe SDK availability.
         from ctrader_open_api import Client  # noqa: F401
     except ImportError:
         logger.error("ctrader_open_api is not installed. Install with: pip install ctrader-open-api-py")

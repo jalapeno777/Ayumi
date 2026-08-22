@@ -43,7 +43,6 @@ from honcho_message_backfill import (  # noqa: E402
     LIVE_ENV_VALUE,
     LIVE_ENV_VAR,
     HonchoAPIError,
-    MessageEvent,  # noqa: F401
     ScanStats,
     detect_gap,
     extract_text_content,

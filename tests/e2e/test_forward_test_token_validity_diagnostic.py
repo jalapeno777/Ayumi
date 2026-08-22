@@ -18,7 +18,6 @@ These tests cover:
 
 import json
 import logging
-import re  # noqa: F401
 import unittest
 from unittest.mock import MagicMock, patch
 

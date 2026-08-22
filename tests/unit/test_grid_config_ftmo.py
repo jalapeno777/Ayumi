@@ -19,7 +19,6 @@ forward specifically.
 
 from __future__ import annotations
 
-import pytest  # noqa: F401
 from backtest.grid_strategy import GRID_PRESETS, GridConfig
 
 

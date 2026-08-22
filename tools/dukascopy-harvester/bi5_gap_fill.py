@@ -17,7 +17,6 @@ import asyncio
 import logging
 import lzma
 import struct
-import time  # noqa: F401
 from collections import namedtuple
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
