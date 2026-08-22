@@ -255,7 +255,13 @@ def test_backup_not_created_if_env_doesnt_exist(tmp_path):
 
 
 def test_invalid_refreshed_token_rejected(tmp_path, monkeypatch):
-    """FIX 4: If the refreshed token fails validation, old tokens are retained."""
+    """FIX 4: If the refreshed token fails validation, old tokens are retained.
+
+    Sprint 024 rework (card 591cbfe6, M1): default validation is advisory
+    (accept OAuth-200 tokens even if the validation endpoint rejects them).
+    This test asserts the *preserved* strict path — ops who want the legacy
+    hard-fail behaviour construct TokenLifecycle(strict_validation=True).
+    """
     lock_file = tmp_path / ".token_refresh.lock"
     monkeypatch.setenv("AYUMI_TOKEN_LOCK_FILE", str(lock_file))
 
@@ -269,7 +275,7 @@ def test_invalid_refreshed_token_rejected(tmp_path, monkeypatch):
 
     store2 = CredentialStore(env_path=str(env_path))
     store2.load()
-    tl = TokenLifecycle(credential_store=store2)
+    tl = TokenLifecycle(credential_store=store2, strict_validation=True)
 
     with patch("adapters.ctrader.token_lifecycle.requests") as mock_req:
         # OAuth refresh succeeds
