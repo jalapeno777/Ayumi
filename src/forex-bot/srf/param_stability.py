@@ -464,7 +464,7 @@ def _self_test() -> None:
         return 3.0 * math.exp(-(dt**2 + dp**2))
 
     overfit_result = perturbation_stability_score(overfit_eval, overfit_best)
-    assert overfit_result.is_overfit_spike, (  # noqa: S101
+    assert overfit_result.is_overfit_spike, (  # noqa: S101 — self-test invariant; debug-only result check, intentionally silenced under `python -O`
         f"Overfit config should be flagged as spike, got score={overfit_result.stability_score:.3f}"
     )
     print(f"  [PASS] Overfit config flagged: score={overfit_result.stability_score:.3f}")
@@ -482,14 +482,14 @@ def _self_test() -> None:
         return 2.0 * math.exp(-(dt**2 + dp**2) * 0.5)
 
     stable_result = perturbation_stability_score(stable_eval, stable_best)
-    assert not stable_result.is_overfit_spike, (  # noqa: S101
+    assert not stable_result.is_overfit_spike, (  # noqa: S101 — self-test invariant; debug-only result check, intentionally silenced under `python -O`
         f"Stable config should NOT be flagged as spike, got score={stable_result.stability_score:.3f}"
     )
     print(f"  [PASS] Stable config passes: score={stable_result.stability_score:.3f}")
 
     # ── Per-parameter breakdown ──────────────────────────────────────
     for name, ratio in stable_result.per_param.items():
-        assert ratio >= 0.5, (  # noqa: S101
+        assert ratio >= 0.5, (  # noqa: S101 — self-test invariant; debug-only per-param retention check, intentionally silenced under `python -O`
             f"Stable param '{name}' retention {ratio:.0%} should be ≥50%"
         )
     print(f"  [PASS] Per-param breakdown: {stable_result.per_param}")

@@ -149,7 +149,7 @@ class CorrelationMatrix:
         """
         if self._matrix is None:
             self.compute()
-        assert self._matrix is not None  # noqa: S101 — invariant after lazy init; removal changes crash semantics in live-trading (stripped under `python -O`)
+        assert self._matrix is not None  # noqa: S101 — invariant after lazy init; `compute()` either raises or populates `_matrix`, intentionally silenced under `python -O`
         if symbol_a not in self._matrix or symbol_b not in self._matrix:
             return 0.0
         return self._matrix[symbol_a][symbol_b]

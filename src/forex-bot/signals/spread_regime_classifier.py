@@ -149,7 +149,8 @@ class SpreadRegimeClassifier:
         if regime is None and spread_pips is None:
             raise TypeError("confidence_penalty requires either 'regime' or 'spread_pips'")
         if regime is None:
-            assert spread_pips is not None  # for type-checkers  # noqa: S101
+            # type-checkers: assert narrows spread_pips after the early-exit TypeError
+            assert spread_pips is not None  # noqa: S101 — silenced under python -O
             regime = self.classify(spread_pips)
         return _DEFAULT_PENALTIES[regime]
 

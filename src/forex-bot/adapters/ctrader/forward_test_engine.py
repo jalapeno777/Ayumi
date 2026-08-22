@@ -402,20 +402,27 @@ class ForwardTestEngine:
             set(self._strategy_timeframes.values()) if self._strategy_timeframes else {config.bar_period_minutes}
         )
 
-        # Startup assertion: whitelist check
+        # Startup config fail-fast: whitelist check.
+        # These were previously ``assert`` statements but asserts are stripped
+        # under ``python -O``. Misconfigured timeframes/strategies must crash
+        # at startup on every Python invocation, not only debug runs — converted
+        # to explicit raises so the fail-fast gate survives optimization.
         for tf in self._required_timeframes:
-            assert tf in self._ALLOWED_TIMEFRAMES, (  # noqa: S101 — startup config fail-fast; removal changes crash semantics (stripped under `python -O`)
-                f"Timeframe {tf} not in allowed whitelist {self._ALLOWED_TIMEFRAMES}"
-            )
+            if tf not in self._ALLOWED_TIMEFRAMES:
+                raise ValueError(
+                    f"Timeframe {tf} not in allowed whitelist {self._ALLOWED_TIMEFRAMES}"
+                )
 
-        # Startup assertion: every key in strategy_timeframes must match a registered strategy .name
+        # Startup config fail-fast: every key in strategy_timeframes must
+        # match a registered strategy .name
         if self._strategy_timeframes:
             registered_names = {s.name for s in strategies}
             for stg_name in self._strategy_timeframes:
-                assert stg_name in registered_names, (  # noqa: S101 — startup config fail-fast; removal changes crash semantics (stripped under `python -O`)
-                    f"strategy_timeframes key '{stg_name}' does not match any registered "
-                    f"strategy .name property. Registered: {sorted(registered_names)}"
-                )
+                if stg_name not in registered_names:
+                    raise ValueError(
+                        f"strategy_timeframes key '{stg_name}' does not match any registered "
+                        f"strategy .name property. Registered: {sorted(registered_names)}"
+                    )
 
         self._bars: dict[str, list[Bar]] = {}  # key = _bar_key(symbol, period_minutes)
         self._current_bar: dict[str, Optional[Bar]] = {}  # same key scheme
@@ -1149,13 +1156,22 @@ class ForwardTestEngine:
         return finalized
 
     def _assert_bar_integrity(self, bar: Bar):
-        """Verify bar OHLC integrity."""
-        assert bar.high >= max(bar.open, bar.close), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
-            f"Bar integrity fail: high={bar.high} < max(open={bar.open}, close={bar.close})"
-        )
-        assert bar.low <= min(bar.open, bar.close), (  # noqa: S101 — live-trading OHLC integrity gate; removal changes crash semantics (stripped under `python -O`)
-            f"Bar integrity fail: low={bar.low} > min(open={bar.open}, close={bar.close})"
-        )
+        """Verify bar OHLC integrity.
+
+        These were previously ``assert`` statements but asserts are stripped
+        under ``python -O``. Bar data flows in from the live tick stream, so
+        a malformed bar (high < close, low > open) must fail loudly on every
+        Python invocation, not just debug runs — converted to explicit raises
+        so the live-trading integrity gate survives optimization.
+        """
+        if not bar.high >= max(bar.open, bar.close):
+            raise ValueError(
+                f"Bar integrity fail: high={bar.high} < max(open={bar.open}, close={bar.close})"
+            )
+        if not bar.low <= min(bar.open, bar.close):
+            raise ValueError(
+                f"Bar integrity fail: low={bar.low} > min(open={bar.open}, close={bar.close})"
+            )
 
     def _store_bar(self, key: str, bar: Bar):
         self._assert_bar_integrity(bar)

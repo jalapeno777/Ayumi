@@ -457,25 +457,25 @@ def test_rejection_recording(tmp_path=None):
 
     # Verify stats
     stats = recorder.get_stats()
-    assert stats["total_signals"] == 2, (  # noqa: S101
+    assert stats["total_signals"] == 2, (  # noqa: S101 — self-test invariant in `test_rejection_recording()`; debug-only result check, intentionally silenced under `python -O`
         f"Expected 2 signals, got {stats['total_signals']}"
     )
-    assert stats["closed_signals"] == 2, (  # noqa: S101
+    assert stats["closed_signals"] == 2, (  # noqa: S101 — self-test invariant; debug-only result check, intentionally silenced under `python -O`
         f"Expected 2 closed, got {stats['closed_signals']}"
     )
-    assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"  # noqa: S101
-    assert stats["rejection_rate"] == 0.5, (  # noqa: S101
+    assert stats["rejections"] == 1, f"Expected 1 rejection, got {stats['rejections']}"  # noqa: S101 — self-test invariant; debug-only result check, intentionally silenced under `python -O`
+    assert stats["rejection_rate"] == 0.5, (  # noqa: S101 — self-test invariant; debug-only result check, intentionally silenced under `python -O`
         f"Expected 0.5 rejection rate, got {stats['rejection_rate']}"
     )
 
     # Verify rejection metadata is persisted in the JSONL
     rows = recorder._read_all_rows()
     rejection_rows = [r for r in rows if r.get("outcome") == "rejected"]
-    assert len(rejection_rows) == 1, (  # noqa: S101
+    assert len(rejection_rows) == 1, (  # noqa: S101 — self-test invariant; debug-only row-count check, intentionally silenced under `python -O`
         f"Expected 1 rejection row, got {len(rejection_rows)}"
     )
-    assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"  # noqa: S101
-    assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"  # noqa: S101
+    assert rejection_rows[0]["rejection_reason"] == "NOT_ENOUGH_MONEY"  # noqa: S101 — self-test invariant; debug-only column check, intentionally silenced under `python -O`
+    assert rejection_rows[0]["error_code"] == "INSUFFICIENT_FUNDS"  # noqa: S101 — self-test invariant; debug-only column check, intentionally silenced under `python -O`
 
     # Cleanup
     if tmp_path is None:
