@@ -117,8 +117,8 @@ class BtcRegimeOverlay:
         if not self._ensure_loaded():
             return "neutral"
 
-        assert self._timestamps is not None  # noqa: S101
-        assert self._entries is not None  # noqa: S101
+        assert self._timestamps is not None  # noqa: S101 — invariant after `_ensure_loaded()` returns True; type-narrowing aid for mypy, intentionally silenced under `python -O`
+        assert self._entries is not None  # noqa: S101 — invariant after `_ensure_loaded()` returns True; type-narrowing aid for mypy, intentionally silenced under `python -O`
 
         # Binary search for nearest-prior timestamp
         import bisect
@@ -145,8 +145,8 @@ class BtcRegimeOverlay:
         if not self._ensure_loaded():
             return "neutral"
 
-        assert self._timestamps is not None  # noqa: S101
-        assert self._entries is not None  # noqa: S101
+        assert self._timestamps is not None  # noqa: S101 — invariant after `_ensure_loaded()` returns True; type-narrowing aid for mypy, intentionally silenced under `python -O`
+        assert self._entries is not None  # noqa: S101 — invariant after `_ensure_loaded()` returns True; type-narrowing aid for mypy, intentionally silenced under `python -O`
 
         import bisect
         from collections import Counter
@@ -239,5 +239,5 @@ class BtcRegimeOverlay:
         """Number of loaded entries (0 if not loadable)."""
         if not self._ensure_loaded():
             return 0
-        assert self._entries is not None  # noqa: S101
+        assert self._entries is not None  # noqa: S101 — invariant after `_ensure_loaded()` returns True; type-narrowing aid for mypy, intentionally silenced under `python -O`
         return len(self._entries)

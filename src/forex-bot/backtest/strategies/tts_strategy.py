@@ -681,15 +681,21 @@ class TTSStrategy(ISignalStrategy):
         if stop_price is None:
             return None
 
-        # Sanity check: SL on correct side
+        # Sanity check: SL on correct side of entry.
+        # These were previously ``assert`` statements but asserts are stripped
+        # under ``python -O``. A stop placed on the wrong side of entry is a
+        # strategy-level bug that must surface on every Python invocation,
+        # not only debug runs — converted to explicit raises.
         if best_pattern.direction == "long":
-            assert stop_price < entry_price, (  # noqa: S101
-                f"SL ({stop_price:.5f}) must be below entry ({entry_price:.5f}) for long"
-            )
+            if not stop_price < entry_price:
+                raise ValueError(
+                    f"SL ({stop_price:.5f}) must be below entry ({entry_price:.5f}) for long"
+                )
         else:
-            assert stop_price > entry_price, (  # noqa: S101
-                f"SL ({stop_price:.5f}) must be above entry ({entry_price:.5f}) for short"
-            )
+            if not stop_price > entry_price:
+                raise ValueError(
+                    f"SL ({stop_price:.5f}) must be above entry ({entry_price:.5f}) for short"
+                )
 
         # Use ATR-based TP levels from StopTargetCalculator
         tp_levels = st_result["tp_levels"]

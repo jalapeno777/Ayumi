@@ -293,7 +293,7 @@ class SRFDatabase:
 
     def _migrate(self) -> None:
         """Run additive migrations. No destructive changes."""
-        assert self._conn is not None  # noqa: S101
+        assert self._conn is not None  # noqa: S101 — invariant; `_migrate()` is only called from the context-manager `connect()` path which guarantees `_conn` is set, intentionally silenced under `python -O`
         cur = self._conn.cursor()
 
         # Check current version

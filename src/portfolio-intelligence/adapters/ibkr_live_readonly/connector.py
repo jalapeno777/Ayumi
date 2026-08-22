@@ -285,7 +285,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None  # noqa: S101
+        assert self._last_statement is not None  # noqa: S101 — invariant after `_ensure_fetched()`; `fetch_statement()` either raises or populates `_last_statement`, intentionally silenced under `python -O`
         return [p.to_dict() for p in self._last_statement.positions]
 
     def get_cash_summary(self) -> dict[str, float]:
@@ -294,7 +294,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None  # noqa: S101
+        assert self._last_statement is not None  # noqa: S101 — invariant after `_ensure_fetched()`; `fetch_statement()` either raises or populates `_last_statement`, intentionally silenced under `python -O`
         return {c.currency: c.ending_cash for c in self._last_statement.cash_report}
 
     def get_account_nav(self) -> float:
@@ -308,7 +308,7 @@ class IBKRFlexConnector:
         Calls `fetch_statement()` if no statement has been fetched yet.
         """
         self._ensure_fetched()
-        assert self._last_statement is not None  # noqa: S101
+        assert self._last_statement is not None  # noqa: S101 — invariant after `_ensure_fetched()`; `fetch_statement()` either raises or populates `_last_statement`, intentionally silenced under `python -O`
         positions_total = sum(p.position_value for p in self._last_statement.positions)
         cash_total = sum(c.ending_cash for c in self._last_statement.cash_report)
         return positions_total + cash_total
