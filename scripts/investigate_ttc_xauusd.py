@@ -162,6 +162,7 @@ def run_strategy_on_bars(bars: list, label: str, pair: str = "XAUUSD", timeframe
     total_pnl. Lightweight: does not write to DuckDB.
     """
     try:
+        # Side-effect import: only used to probe backtest engine availability.
         from backtest.engine import TradeDirection  # noqa: F401
         from backtest.walk_forward_runner import run_strategy_walk_forward
         from strategies.ttc_xauusd import TTCXAUUSDStrategy

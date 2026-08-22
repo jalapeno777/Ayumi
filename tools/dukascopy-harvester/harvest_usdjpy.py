@@ -43,9 +43,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from bi5_gap_fill import (
-    build_urls_for_day,  # noqa: F401
-    decode_bi5,  # noqa: F401
-    fetch_url,  # noqa: F401
     get_existing_dates,
     harvest_day,
 )

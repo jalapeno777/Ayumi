@@ -33,11 +33,9 @@ These tests lock the contract:
 from __future__ import annotations
 
 import json
-import os  # noqa: F401
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch  # noqa: F401
 
 import pytest
 
@@ -52,7 +50,6 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from forward_test.blend_runner import BlendForwardTestRunner  # noqa: E402, I001
-from orchestrator.signal_orchestrator import OrchestratorTradeSignal  # noqa: E402, F401
 from signal_engine.signal_stats import SignalStatsRecorder  # noqa: E402
 
 # ---------------------------------------------------------------------------

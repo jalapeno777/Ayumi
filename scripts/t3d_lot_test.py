@@ -53,6 +53,8 @@ def main():
     try:
         from ctrader_open_api import Client, TcpProtocol
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+            # Response classes referenced indirectly via str(type(...)) matching in handlers below;
+            # OpenApiMessages_pb2 import also registers all protobuf descriptors.
             ProtoOAAccountAuthReq,
             ProtoOAAccountAuthRes,  # noqa: F401
             ProtoOAApplicationAuthReq,
@@ -60,7 +62,7 @@ def main():
             ProtoOANewOrderReq,
             ProtoOASubscribeSpotsReq,
         )
-        from ctrader_open_api.protobuf import Protobuf  # noqa: F401
+        from ctrader_open_api.protobuf import Protobuf  # noqa: F401  # re-imported in inner scope (line 88)
         from twisted.internet import reactor
 
         print("✓ SDK imported")

@@ -181,6 +181,7 @@ class ShapDriftChecker:
     def is_available() -> bool:
         """Check if the shap library is installed."""
         try:
+            # Side-effect import: only used to probe optional dependency availability.
             import shap  # noqa: F401
 
             return True

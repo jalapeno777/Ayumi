@@ -290,6 +290,7 @@ class TestModelRegistry:
 
     def test_xgboost_conditionally_in_registry(self):
         try:
+            # Side-effect import: only used to probe optional xgboost availability.
             import xgboost  # noqa: F401
 
             assert "xgboost" in MODEL_REGISTRY
@@ -349,6 +350,7 @@ class TestTrainSingleModelMultiModel:
 
     def test_xgboost_when_available(self):
         try:
+            # Side-effect import: only used to probe optional xgboost availability.
             import xgboost  # noqa: F401
         except ImportError:
             return

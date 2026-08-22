@@ -80,6 +80,8 @@ def check_connection_and_balance(creds: dict) -> dict:
     # The ctrader_open_api package is only installed in the venv.
     # If not available, we fall back to log-based checks only.
     try:
+        # Side-effect imports: only used to probe SDK availability;
+        # protobuf descriptors register on first import. Names unused by design.
         from ctrader_open_api import Client, Protobuf, TcpClient, TcpProtocol  # noqa: F401
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
             ProtoOAAccountAuthReq,  # noqa: F401

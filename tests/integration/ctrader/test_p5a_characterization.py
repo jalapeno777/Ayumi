@@ -88,6 +88,7 @@ def test_execute_signal_live_blocked_by_policy_after_p5a(tmp_path):
 
 def test_execution_permission_policy_class_exists_after_p5a():
     """After P5A implementation, the policy class is importable."""
+    # Import-only test: existence verified by import not raising ImportError.
     from adapters.ctrader.execution_permission import ExecutionPermissionPolicy  # noqa: F401
 
     assert True

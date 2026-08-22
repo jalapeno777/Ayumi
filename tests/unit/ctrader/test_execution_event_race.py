@@ -41,7 +41,6 @@ from adapters.ctrader.open_api_spot_feed import (
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (  # noqa: I001
     ProtoOAExecutionType,
-    ProtoOAOrderStatus,  # noqa: F401
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────

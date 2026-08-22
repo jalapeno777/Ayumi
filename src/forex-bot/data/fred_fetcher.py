@@ -57,6 +57,7 @@ _FALLBACK_FED_FUNDS: dict[int, float] = {
 def _has_fredapi() -> bool:
     """Check if the optional fredapi library is available."""
     try:
+        # Side-effect import: only used to probe optional dependency availability.
         import fredapi  # noqa: F401
 
         return True
