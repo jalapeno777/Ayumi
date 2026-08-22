@@ -319,6 +319,22 @@ class OpenApiSpotFeed:
         self._last_reactive_refresh_time: float = 0.0
         self._last_successful_auth_time: float = 0.0
 
+        # Card 1e32c408 (session-conflict guard, sprint reina-2026-08-21-024):
+        # Single-session mutex shared between the token-refresh-driven
+        # re-auth (``_refresh_token_and_reauth._do_refresh_offthread``) and
+        # the reconnect-driven re-auth (``_reconnect_restore``). Prevents
+        # concurrent re-auth sends on the same cTrader channel — without
+        # this lock, a reactive AUTH_EXPIRED refresh and a proactive
+        # refresh could interleave and produce duplicate account-auth
+        # requests, which the broker rejects with ALREADY_LOGGED_IN. The
+        # token-Lifecycle level (``_refresh_lock``) protects the OAuth
+        # HTTP call itself; this lock is at the spot-feed layer and
+        # covers the *broker side* of the auth cycle. Non-blocking
+        # acquire keeps the proactive timer from stalling — if another
+        # re-auth is already in flight, the caller skips (the holder
+        # will finish or the next cycle will retry).
+        self._session_reauth_lock = threading.Lock()
+
         # Reconnect stabilization delay — cTrader demo server needs time to
         # accept auth after TCP connect (market-open race, see card 23cb1091).
         self._reconnect_stabilization_delay: float = float(os.environ.get("CTRADER_RECONNECT_DELAY", "3.0"))
@@ -2446,6 +2462,53 @@ class OpenApiSpotFeed:
 
         If no TokenLifecycle is wired or refresh is disabled, falls back to
         no-op (migration safety).
+
+        Card 1e32c408 (session-conflict guard, sprint reina-2026-08-21-024):
+
+        The pre-fix version unconditionally sent ``ProtoOAAccountAuthReq``
+        after every token refresh, even when the channel was already
+        authenticated. cTrader enforces a single-session rule per
+        OpenAPI app per channel — re-authenticating an already-authenticated
+        channel returns ``ALREADY_LOGGED_IN`` (``errorCode``,
+        ``description='Trading account is already authorized in this
+        channel'``). Because the re-auth was fire-and-forget
+        (``reactor.callFromThread(self._conn.send, req)``), the response
+        surfaced as an ``ORDER_ERROR`` event with empty ``clientOrderId``,
+        which the existing 18b74ea7 SESSION-CONFLICT detector caught and
+        logged but could not silence.
+
+        2026-08-20T17:12:55Z live XAUUSD/SRMR+ forward test reproduced
+        this once: a proactive token refresh at 17:12:53–54 fired a
+        ``ProtoOAAccountAuthReq`` at 17:12:55 against the already-authenticated
+        channel. Broker returned ``ALREADY_LOGGED_IN``; the warning fired,
+        feed stayed healthy (one-off, no cascading failure).
+
+        The fix has two parts:
+
+        1. **Skip when already authenticated** — if the channel is
+           authenticated (``_authed.is_set()`` and ``_conn.is_connected``),
+           the existing channel binding to the OLD access token is still
+           valid for the lifetime of the current connection. The new token
+           is committed to ``self._access_token``, ``self._refresh_token``,
+           and the on-disk credential store; it will be used on the next
+           reconnect (when ``_reconnect_restore`` re-auths the channel
+           with the fresh token). No broker round-trip, no
+           ``ALREADY_LOGGED_IN``, no SESSION-CONFLICT warning.
+
+        2. **Session mutex** — wraps the entire refresh+re-auth sequence
+           in ``self._session_reauth_lock`` so that a reactive
+           AUTH_EXPIRED-driven refresh and a proactive refresh cannot
+           interleave their re-auth sends. ``_reconnect_restore`` acquires
+           the same lock (see its docstring). The lock is non-blocking on
+           acquisition: if another thread holds it, we skip the re-auth
+           (the holder will complete it or the next refresh cycle will
+           retry) rather than deadlock.
+
+        The defensive SESSION-CONFLICT detector at
+        ``_handle_order_error_event`` is preserved unchanged — it remains
+        the safety net for any ALREADY_LOGGED_IN that does slip through
+        (e.g., from an external process authenticating against the same
+        account, card 18b74ea7).
         """
         if self._token_lifecycle is None:
             logger.warning("_refresh_token_and_reauth: no TokenLifecycle wired — skipping")
@@ -2462,6 +2525,20 @@ class OpenApiSpotFeed:
             return
 
         def _do_refresh_offthread():
+            # Card 1e32c408 (session-conflict guard): acquire the session
+            # mutex BEFORE doing the OAuth refresh + re-auth send. The
+            # lock is also acquired by ``_reconnect_restore`` — see that
+            # method's docstring for why. Non-blocking acquire: if a
+            # reconnect-driven re-auth is already in flight, skip this
+            # refresh (the holder will complete it; if it fails, the next
+            # reactive / proactive cycle will retry).
+            if not self._session_reauth_lock.acquire(blocking=False):
+                logger.info(
+                    "Session re-auth lock held — skipping this token "
+                    "refresh cycle (another re-auth is in flight). proactive=%s",
+                    proactive,
+                )
+                return
             try:
                 new_token = self._token_lifecycle.force_refresh()
                 self._access_token = new_token
@@ -2476,7 +2553,43 @@ class OpenApiSpotFeed:
                     )
                 else:
                     self._token_expires_at = time.monotonic() + 86400
-                # Re-auth via reactor
+                # Card 1e32c408 (session-conflict guard): skip the
+                # account re-auth when the channel is already
+                # authenticated, OR when the underlying TCP connection
+                # is gone. The cTrader OpenAPI single-session rule means
+                # re-authenticating an already-authenticated channel is a
+                # no-op that the broker rejects with ALREADY_LOGGED_IN.
+                # Sending on a dead connection is pointless — the
+                # reconnect loop will handle re-auth when it gets a fresh
+                # TCP connection. The new access token is committed to
+                # the credential store (above) and will be used on the
+                # next reconnect — see the function-level docstring for
+                # the full rationale.
+                if not self._conn.is_connected:
+                    logger.info(
+                        "Token refreshed via TokenLifecycle delegation — "
+                        "connection down, skipping re-auth (reconnect "
+                        "loop owns auth when TCP is restored; "
+                        "fresh token_age_s=%.1f, proactive=%s)",
+                        self._token_lifecycle.token_age_s,
+                        proactive,
+                    )
+                    self._auth_error_count = 0
+                    return
+                if self._authed.is_set():
+                    logger.info(
+                        "Token refreshed via TokenLifecycle delegation — "
+                        "channel already authenticated, skipping re-auth "
+                        "(new token will be used on next reconnect; "
+                        "fresh token_age_s=%.1f, expires_at=%s, proactive=%s)",
+                        self._token_lifecycle.token_age_s,
+                        self._token_lifecycle.expires_at.isoformat() if self._token_lifecycle.expires_at else "None",
+                        proactive,
+                    )
+                    self._auth_error_count = 0
+                    return
+                # Re-auth via reactor (channel is NOT authenticated and
+                # the connection is live — the recovery path).
                 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
                     ProtoOAAccountAuthReq,
                 )
@@ -2491,6 +2604,8 @@ class OpenApiSpotFeed:
                 self._auth_error_count += 1
                 self._check_circuit_breaker()
                 logger.error("Token refresh delegation failed: %s", exc)
+            finally:
+                self._session_reauth_lock.release()
 
         threading.Thread(target=_do_refresh_offthread, daemon=True).start()
 
@@ -2594,6 +2709,19 @@ class OpenApiSpotFeed:
     # ── Reconnection ───────────────────────────────────────────────────────
 
     def _reconnect_restore(self) -> None:
+        # Card 1e32c408 (session-conflict guard): acquire the session
+        # mutex around the entire reconnect-driven re-auth cycle so a
+        # token-refresh-driven re-auth cannot interleave. Non-blocking:
+        # if a refresh is already in flight, skip this reconnect (the
+        # holder will complete the auth; if it fails, the connection's
+        # own reconnect loop will retry).
+        if not self._session_reauth_lock.acquire(blocking=False):
+            logger.info(
+                "Session re-auth lock held — skipping reconnect-driven "
+                "re-auth (token refresh in flight will handle it)"
+            )
+            self._reauth_in_progress.clear()
+            return
         try:
             from ctrader_open_api.messages.OpenApiMessages_pb2 import (
                 ProtoOAAccountAuthReq,
@@ -2675,6 +2803,11 @@ class OpenApiSpotFeed:
             logger.error("Reconnect restore failed: %s", exc, exc_info=True)
         finally:
             self._reauth_in_progress.clear()
+            # Card 1e32c408: release the session mutex. Use a guarded
+            # release because the early-return path on lock contention
+            # (above) does not own the lock.
+            if self._session_reauth_lock.locked():
+                self._session_reauth_lock.release()
 
     def _resolve_disconnected_orders(self, positions: list[Position]) -> None:
         if not self._disconnected_pending_orders:
