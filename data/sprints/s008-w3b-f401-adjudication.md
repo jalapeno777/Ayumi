@@ -21,7 +21,7 @@ archive/ scope: 39 sites deferred to Ava's pending archive-disposition decision 
 | # | File:Line | Symbol | Tier | Verdict | Reason |
 |---|-----------|--------|------|---------|--------|
 | 1 | scripts/verify_ctrader_live.py:83 | `Client`, `Protobuf`, `TcpClient`, `TcpProtocol` | T2 | KEEP-justified | Inside `try/except` SDK availability check; `_HAS_CTRADER_SDK` is the only signal used downstream. Names are unused by design. Targeted `# noqa: F401` + comment added. |
-| 2 | scripts/verify_ctrader_live.py:85 | `ProtoOAAccountAuthReq` | T2 | KEEP-justified | Sole import of `OpenApiMessages_pb2` symbols; protobuf descriptors register on first import. Response classes referenced indirectly via `str(type(...))` matching downstream. Targeted noqa + comment added. |
+| 2 | scripts/verify_ctrader_live.py:85 | `ProtoOAAccountAuthReq` | T2 | KEEP-justified | Sole import of `OpenApiMessages_pb2` symbols; protobuf descriptors register on first import. Targeted noqa + comment added. |
 | 3 | scripts/verify_ctrader_live.py:86 | `ProtoOAApplicationAuthReq` | T2 | KEEP-justified | Same module as #2; same reasoning. Targeted noqa + comment added. |
 | 4 | scripts/t3d_lot_test.py:57 | `ProtoOAAccountAuthRes` | T2 | KEEP-justified | Sole import of this module in the file; response classes referenced indirectly via `str(type(...))` matching. Targeted noqa + comment added. |
 | 5 | scripts/t3d_lot_test.py:59 | `ProtoOAApplicationAuthRes` | T2 | KEEP-justified | Same module as #4; same reasoning. Targeted noqa + comment added. |
