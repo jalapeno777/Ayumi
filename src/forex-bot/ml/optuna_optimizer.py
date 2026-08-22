@@ -210,9 +210,9 @@ def _apply_trial_params(trial: optuna.Trial) -> dict[str, Any]:
     neg_weight = trial.suggest_float("negative_weight", *NEG_WEIGHT_RANGE, step=0.1)
     kz_penalty = trial.suggest_float("kz_penalty", *KZ_PENALTY_RANGE, step=0.01)
 
-    setattr(tts_module, "MW_BASE_CONFIDENCE", base_conf)  # noqa: B010
-    setattr(tts_module, "NEGATIVE_WEIGHT", neg_weight)  # noqa: B010
-    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz_penalty)  # noqa: B010
+    tts_module.MW_BASE_CONFIDENCE = base_conf
+    tts_module.NEGATIVE_WEIGHT = neg_weight
+    tts_module.KILL_ZONE_ACTIVE_BOOST = kz_penalty
     applied.update(base_confidence=base_conf, negative_weight=neg_weight, kz_penalty=kz_penalty)
 
     # 2. Booster on/off switches
@@ -258,9 +258,9 @@ def restore_defaults() -> None:
         setattr(tts_module, name, val)
     for name, val in _OTHER_NEGATIVE_DEFAULTS.items():
         setattr(tts_module, name, val)
-    setattr(tts_module, "MW_BASE_CONFIDENCE", 0.30)  # noqa: B010
-    setattr(tts_module, "NEGATIVE_WEIGHT", 1.0)  # noqa: B010
-    setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", -0.05)  # noqa: B010
+    tts_module.MW_BASE_CONFIDENCE = 0.30
+    tts_module.NEGATIVE_WEIGHT = 1.0
+    tts_module.KILL_ZONE_ACTIVE_BOOST = -0.05
 
 
 # ── Walk-forward objective ──────────────────────────────────────────────────
@@ -442,9 +442,9 @@ def run_grid(
         for nw in neg_weight_values:
             for kz in kz_penalty_values:
                 # Apply params
-                setattr(tts_module, "MW_BASE_CONFIDENCE", base)  # noqa: B010
-                setattr(tts_module, "NEGATIVE_WEIGHT", nw)  # noqa: B010
-                setattr(tts_module, "KILL_ZONE_ACTIVE_BOOST", kz)  # noqa: B010
+                tts_module.MW_BASE_CONFIDENCE = base
+                tts_module.NEGATIVE_WEIGHT = nw
+                tts_module.KILL_ZONE_ACTIVE_BOOST = kz
                 # Enable all switchable boosters
                 for name, val in _BOOSTER_DEFAULTS.items():
                     setattr(tts_module, name, val)

@@ -87,7 +87,7 @@ class TestNewOrderMarket(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.PENDING,
         )
-        setattr(mock_order, "reason", "timeout_awaiting_event")  # noqa: B010
+        mock_order.reason = "timeout_awaiting_event"
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(symbol_id=1, side=MagicMock(), volume=1000)
@@ -151,7 +151,7 @@ class TestNewOrderMarket(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.REJECTED,
         )
-        setattr(mock_order, "reason", "send_failed")  # noqa: B010
+        mock_order.reason = "send_failed"
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(symbol_id=1, side=MagicMock(), volume=1000)
@@ -201,7 +201,7 @@ class TestNewOrderLimit(unittest.TestCase):
             volume=0.01,
             status=OrderStatus.PENDING,
         )
-        setattr(mock_order, "reason", "timeout_awaiting_event")  # noqa: B010
+        mock_order.reason = "timeout_awaiting_event"
         self.feed.new_order = MagicMock(return_value=mock_order)
 
         result = self.feed.new_order(

@@ -400,7 +400,7 @@ class TestPresets(unittest.TestCase):
 
     def test_preset_is_frozen(self):
         self.assertTrue(dataclasses.is_dataclass(BBReversionConfig))
-        self.assertTrue(getattr(BBReversionConfig, "__dataclass_params__").frozen)  # noqa: B009
+        self.assertTrue(BBReversionConfig.__dataclass_params__.frozen)
 
 
 if __name__ == "__main__":

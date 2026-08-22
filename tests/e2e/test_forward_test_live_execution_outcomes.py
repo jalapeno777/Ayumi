@@ -57,7 +57,7 @@ def _make_order(*, status: OrderStatus, reason: str | None = None, order_id: str
         status=status,
     )
     if reason is not None:
-        setattr(o, "reason", reason)  # noqa: B010
+        o.reason = reason
     return o
 
 
