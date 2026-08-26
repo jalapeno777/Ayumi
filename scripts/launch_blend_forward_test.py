@@ -1393,9 +1393,63 @@ def main():
         config.min_confidence,
     )
     logger.info("Startup diagnostic: strategy_timeframes=%s", STRATEGY_TIMEFRAMES)
-    started = engine.start()
+    # ── Startup retry guard (card 237f5427) ───────────────────────────────
+    # Bug: 2026-08-24 21:50–21:53 UTC — cTrader demo API outage caused TCP
+    # connect timeouts on initial startup. The engine's 20-attempt reconnect
+    # circuit breaker only covers mid-flight sessions; an initial-startup
+    # timeout fails the launch immediately → systemd status=1/FAILURE. With
+    # StartLimitBurst=10 in 600s, a sustained outage silently stops the
+    # service. Wrap engine.start() with bounded exponential backoff so a
+    # brief broker outage (~60s) is absorbed at startup. systemd
+    # Restart=always + StartLimitBurst remain as last-resort backstop if
+    # all retries fail.
+    _STARTUP_RETRY_ATTEMPTS = 5  # total attempts (1 initial + 4 retries)
+    _STARTUP_RETRY_BACKOFFS_S = (2.0, 4.0, 8.0, 16.0, 30.0)  # 4 backoffs between 5 attempts
+    started = False
+    for _startup_attempt in range(1, _STARTUP_RETRY_ATTEMPTS + 1):
+        try:
+            started = engine.start()
+        except Exception as _startup_exc:
+            # Treat unexpected exceptions as transient — log + retry.
+            if _startup_attempt < _STARTUP_RETRY_ATTEMPTS:
+                _backoff = _STARTUP_RETRY_BACKOFFS_S[_startup_attempt - 1]
+                logger.warning(
+                    "Engine start raised %s (attempt %d/%d) — retrying in %.1fs",
+                    type(_startup_exc).__name__,
+                    _startup_attempt,
+                    _STARTUP_RETRY_ATTEMPTS,
+                    _backoff,
+                )
+                time.sleep(_backoff)
+                continue
+            logger.error(
+                "Engine start raised %s on final attempt (%d/%d): %s",
+                type(_startup_exc).__name__,
+                _startup_attempt,
+                _STARTUP_RETRY_ATTEMPTS,
+                _startup_exc,
+            )
+            started = False
+            break
+        if started:
+            if _startup_attempt > 1:
+                logger.info(
+                    "Engine started on attempt %d/%d after transient failures",
+                    _startup_attempt,
+                    _STARTUP_RETRY_ATTEMPTS,
+                )
+            break
+        if _startup_attempt < _STARTUP_RETRY_ATTEMPTS:
+            _backoff = _STARTUP_RETRY_BACKOFFS_S[_startup_attempt - 1]
+            logger.warning(
+                "Engine failed to start (attempt %d/%d) — retrying in %.1fs",
+                _startup_attempt,
+                _STARTUP_RETRY_ATTEMPTS,
+                _backoff,
+            )
+            time.sleep(_backoff)
     if not started:
-        logger.error("Engine failed to start. See logs above for the specific failure reason.")
+        logger.error("Engine failed to start after %d attempts. See logs above for the specific failure reason.", _STARTUP_RETRY_ATTEMPTS)
         logger.error(
             "For live mode, verify: CTRADER_OPENAPI_CLIENT_ID, CTRADER_OPENAPI_CLIENT_SECRET, "
             "CTRADER_OPENAPI_ACCESS_TOKEN, CTRADER_OPENAPI_REFRESH_TOKEN, "
