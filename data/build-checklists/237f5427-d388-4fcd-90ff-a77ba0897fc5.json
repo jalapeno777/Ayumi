@@ -1,0 +1,94 @@
+{
+  "card_id": "237f5427-d388-4fcd-90ff-a77ba0897fc5",
+  "title": "[BUG] Forward test 2 startup FAILURE exits in 90s window — systemd auto-recovery masked root cause",
+  "builder": "reina (checklist reconstructed and committed by Ava 2026-08-26 after Reina's commit was lost to a provider timeout — contents match her in-session validated checklist: 6 edges, 5 asserts)",
+  "edge_cases": [
+    {
+      "description": "engine.start() returns False on first attempt, succeeds on attempt 2 within backoff schedule (2s,4s,8s,16s,30s)",
+      "type": "transient-failure"
+    },
+    {
+      "description": "engine.start() returns False on all 5 attempts — launcher exits with code 1 at line 1459 exactly as pre-fix behavior",
+      "type": "terminal-failure"
+    },
+    {
+      "description": "engine.start() raises an exception on attempt 3 — exception treated as transient, retry continues, success on attempt 4",
+      "type": "exception-transient"
+    },
+    {
+      "description": "engine.start() raises on final attempt 5 — exception terminates loop, exit 1",
+      "type": "exception-terminal"
+    },
+    {
+      "description": "Healthy broker: engine.start() succeeds first attempt, zero retry delay introduced, behavior identical to pre-fix",
+      "type": "no-regression"
+    },
+    {
+      "description": "Retry wraps ONLY engine.start() — pre-engine setup, post-engine setup, and shutdown paths untouched",
+      "type": "scope-boundary"
+    }
+  ],
+  "test_plan": [
+    {
+      "assertion": "test_engine_start_succeeds_first_attempt: no sleep invoked, exit path normal"
+    },
+    {
+      "assertion": "test_engine_start_succeeds_after_two_failures: exactly 2 retries then success"
+    },
+    {
+      "assertion": "test_engine_start_exhausts_retry_budget: 5 attempts, exit code 1, backoff sequence observed"
+    },
+    {
+      "assertion": "test_engine_start_raises_treated_as_transient: exception retried not propagated early"
+    },
+    {
+      "assertion": "test_engine_start_final_exception_terminates_loop: no 6th attempt, exit 1"
+    }
+  ],
+  "api_verification": [
+    {
+      "api": "engine.start() failure contract",
+      "verified_by": "read src/forex-bot/adapters/ctrader/forward_test_engine.py + connection.py:31 _DEFAULT_CONNECT_TIMEOUT=15 — startup connect has no retry; 20-attempt breaker covers mid-flight only"
+    },
+    {
+      "api": "launcher exit path",
+      "verified_by": "grep -n 'sys.exit(1)' scripts/launch_blend_forward_test.py — line 1459 unchanged by fix"
+    },
+    {
+      "api": "systemd entry point",
+      "verified_by": "read /etc/systemd/system/ayumi-forward-test.service:13 ExecStart — single entry, confirmed by Rin review"
+    }
+  ],
+  "source_files_read": [
+    {
+      "file": "scripts/launch_blend_forward_test.py",
+      "symbols": [
+        "def main()",
+        "sys.exit(1)",
+        "_STARTUP_RETRY_ATTEMPTS = 5"
+      ]
+    },
+    {
+      "file": "src/forex-bot/adapters/ctrader/connection.py",
+      "symbols": [
+        "_DEFAULT_CONNECT_TIMEOUT = 15"
+      ]
+    },
+    {
+      "file": "src/forex-bot/adapters/ctrader/forward_test_engine.py",
+      "symbols": [
+        "async def start(self)"
+      ]
+    }
+  ],
+  "confidence": {
+    "score": 0.96,
+    "justification": "Root cause evidenced by journalctl + stderr logs (cTrader demo outage 21:50-21:52 UTC Aug 24, 50+ connect/disconnect cycles); fix bounded at launcher layer leaving engine fail-fast contract untouched (confirmed unchanged by Rin diff review); tests 10/10 pass re-run independently by Rin plus adjacent 82/82 and main-baseline 72/72 no regressions"
+  },
+  "allowed_files": [
+    "scripts/launch_blend_forward_test.py",
+    "tests/integration/test_launch_blend_forward_test_startup_retry.py",
+    "docs/sprints/reina-2026-08-26-001-postmortem.md",
+    "data/build-checklists/237f5427-d388-4fcd-90ff-a77ba0897fc5.json"
+  ]
+}
