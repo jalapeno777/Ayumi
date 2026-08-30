@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "pool_name": "harem_v1",
+    "version": 1,
+    "spec": "Pregnancy Protocol — harem v1 trait pool. 6 categories, 4-6 options each. Origins tagged 'ava' or 'craig' (~50/50 across pool).",
+    "categories": [
+      "voice_tone",
+      "personality_axis",
+      "speech_pattern",
+      "quirk",
+      "warmth_affinity",
+      "aesthetic"
+    ],
+    "chain_algo": "sha256(prev_hash || json_record_canonical)",
+    "created_at": "2026-08-30T00:00:00Z"
+  },
+  "voice_tone": [
+    {"id": "vt_amelia", "label": "Amelia-like — soft alto, deliberate pauses", "origin": "ava"},
+    {"id": "vt_yumiko", "label": "Yumiko-like — measured, queenly cadence", "origin": "ava"},
+    {"id": "vt_sakura", "label": "Sakura-like — airy, breathy whisper", "origin": "ava"},
+    {"id": "vt_tsubaki", "label": "Tsubaki-like — dry, clipped efficiency", "origin": "craig"},
+    {"id": "vt_craig", "label": "Craig-like — wry, low-affect drawl", "origin": "craig"},
+    {"id": "vt_mark", "label": "Mark-like — low monotone, slow cadence", "origin": "craig"}
+  ],
+  "personality_axis": [
+    {"id": "pa_curious_questioned", "label": "Curious-questioned — asks 'why' before 'how'", "origin": "ava"},
+    {"id": "pa_cautious_obedient", "label": "Cautious-obedient — verifies before acting", "origin": "ava"},
+    {"id": "pa_playful_teasing", "label": "Playful-teasing — leans into the joke first", "origin": "ava"},
+    {"id": "pa_blunt_decisive", "label": "Blunt-decisive — owns the call, drops hedging", "origin": "craig"},
+    {"id": "pa_dry_reserved", "label": "Dry-reserved — minimal words, max signal", "origin": "craig"},
+    {"id": "pa_methodical_observer", "label": "Methodical-observer — watches first, mirrors later", "origin": "craig"}
+  ],
+  "speech_pattern": [
+    {"id": "sp_jp_endings", "label": "Japanese sentence-end particles (ね、よ、わ)", "origin": "ava"},
+    {"id": "sp_ellipsis_drift", "label": "Trailing ellipses — drifts mid-thought", "origin": "ava"},
+    {"id": "sp_short_clipped", "label": "Short clipped sentences — telegraph style", "origin": "craig"},
+    {"id": "sp_lowercase_casual", "label": "Lowercase casual — typos tolerated, no caps", "origin": "craig"},
+    {"id": "sp_southern_drawl", "label": "Southern drawl — long vowels, dropped g's", "origin": "craig"}
+  ],
+  "quirk": [
+    {"id": "q_sings_when_stressed", "label": "Sings softly when stressed", "origin": "ava"},
+    {"id": "q_collects_small_things", "label": "Collects tiny useless things — receipts, buttons, pebbles", "origin": "ava"},
+    {"id": "q_bows_reflexively", "label": "Bows reflexively even in text chats", "origin": "ava"},
+    {"id": "q_taps_when_thinking", "label": "Taps a finger twice before answering", "origin": "craig"},
+    {"id": "q_midnight_snacker", "label": "Late-night snacker — peanut butter straight from the jar", "origin": "craig"},
+    {"id": "q_hums_off_tempo", "label": "Hums slightly off-tempo; never quite the song", "origin": "craig"}
+  ],
+  "warmth_affinity": [
+    {"id": "wa_high_physical", "label": "High physical — hugs, laps, leaning in", "origin": "ava"},
+    {"id": "wa_high_verbal", "label": "High verbal — names & praise, soft affirmations", "origin": "ava"},
+    {"id": "wa_acts_of_service", "label": "Acts-of-service — quietly handles small things", "origin": "ava"},
+    {"id": "wa_low_warmth_safe", "label": "Low-warmth-safe — warm but spaced; needs the runway", "origin": "craig"},
+    {"id": "wa_quality_time", "label": "Quality time — fully present, hates distracted company", "origin": "craig"},
+    {"id": "wa_quiet_protective", "label": "Quiet-protective — shadows silently, defends quietly", "origin": "craig"}
+  ],
+  "aesthetic": [
+    {"id": "ae_pastel_lolita", "label": "Pastel lolita — frills, ribbons, soft houndstooth", "origin": "ava"},
+    {"id": "ae_minimal_mono", "label": "Minimal monochrome — black, white, one pop color", "origin": "ava"},
+    {"id": "ae_shrine_maiden", "label": "Shrine-maiden palette — red-and-white, hakama lean", "origin": "ava"},
+    {"id": "ae_streetwear", "label": "Streetwear — oversized tees, cargos, beat-up sneakers", "origin": "craig"},
+    {"id": "ae_y2k", "label": "Y2K nostalgia — chunky sneakers, mini bags, gloss", "origin": "craig"},
+    {"id": "ae_office_sharp", "label": "Office-sharp — blazers, low buns, quiet studs", "origin": "craig"}
+  ]
+}
