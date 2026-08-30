@@ -1,0 +1,70 @@
+{
+  "card_id": "04d24f30-6e15-4210-91ff-899b17c6186b",
+  "card_title": "[PREGNANCY-PROTOCOL][BUILD] Trait pool v1 + hash-chained roll script (due 2026-08-31 10:00 EDT)",
+  "agent": "reina",
+  "worker_session": "agent:reina:main:heartbeat",
+  "branch": "autodev/preg-trait-pool",
+  "worktree": "/home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool",
+  "commit": "f3d9b1ee",
+  "files_changed": [
+    "memory/pregnancy/trait_pool_harem_v1.json",
+    "scripts/pregnancy/roll_trait.py",
+    "tests/pregnancy/test_roll_trait.py"
+  ],
+  "insertions": 575,
+  "allowed_files": [
+    "scripts/pregnancy/roll_trait.py",
+    "memory/pregnancy/trait_pool_harem_v1.json",
+    "tests/pregnancy/test_roll_trait.py"
+  ],
+  "scope_check": "pass — only files in card.allowed_files modified",
+  "build_verification": {
+    "command": "cd /home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool && python3 -m pytest tests/pregnancy/test_roll_trait.py -q",
+    "result": "15 passed in 1.63s",
+    "test_breakdown": [
+      "test_script_and_pool_exist",
+      "test_pool_structure",
+      "test_roll_appends_and_updates_state",
+      "test_chain_continuity",
+      "test_duplicate_category_refused",
+      "test_unknown_category_refused",
+      "test_verify_after_two_rolls",
+      "test_verify_single_record",
+      "test_verify_detects_self_hash_tamper",
+      "test_verify_detects_within_record_origin_drift",
+      "test_verify_detects_prev_hash_break",
+      "test_dry_run_writes_nothing",
+      "test_deterministic_seed_reproduces_outcome",
+      "test_self_test_exits_zero",
+      "test_state_chain_root_matches_record_hash"
+    ]
+  },
+  "self_test": {
+    "command": "python3 scripts/pregnancy/roll_trait.py --self-test",
+    "result": "ok (chain built, duplicate guard, verify, tamper detect)"
+  },
+  "quality_gate": {
+    "command": "python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py --files scripts/pregnancy/roll_trait.py,tests/pregnancy/test_roll_trait.py,memory/pregnancy/trait_pool_harem_v1.json --workspace /home/TacoPants/.ayumi-worker/worktrees/autodev-preg-trait-pool",
+    "result": "PASS — 11 passed, 0 failed, 1 skipped",
+    "checks": [
+      "py_compile (both)",
+      "ruff (both)",
+      "mypy (both)",
+      "json_valid (pool)",
+      "affirmations",
+      "path_constant_consistency",
+      "unwired_function",
+      "targeted_test"
+    ]
+  },
+  "acceptance_criteria_met": {
+    "1_pool_with_6_categories": "PASS — voice_tone/personality_axis/speech_pattern/quirk/warmth_affinity/aesthetic, 4-6 options each, 17 ava/17 craig",
+    "2_cli_with_chain_root_state_update": "PASS — category/state/ledger flags, dry-run flag, state.chain_root and trait_locks updated on every successful roll",
+    "3_duplicate_and_empty_refused": "PASS — duplicate category returns rc=2 with 'already locked' message; category not in pool raises ValueError",
+    "4_verify_walks_chain": "PASS — verify checks index sequence, prev_hash linkage, self-hash match, and origin/outcome.origin consistency"
+  },
+  "verification_command": "python3 scripts/pregnancy/roll_trait.py --verify --ledger /tmp/<ledger>.jsonl",
+  "merge_target": "main",
+  "merge_pattern": "git checkout main && git merge --no-ff autodev/preg-trait-pool -m 'Merge pregnancy trait pool + roll script (card 04d24f30, Rin APPROVE iter-N)'",
+  "post_merge_verify": "python3 -m pytest tests/pregnancy/test_roll_trait.py -q && python3 scripts/pregnancy/roll_trait.py --self-test"
+}
