@@ -7,6 +7,12 @@ from typing import Optional
 
 from .models import Order, Position
 
+try:  # Discord notifier is optional; degrade silently if missing.
+    from .discord_notifier import DiscordNotifier, TradeOpenedEvent
+except ImportError:  # pragma: no cover - import-time defensive guard
+    DiscordNotifier = None  # type: ignore[assignment]
+    TradeOpenedEvent = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,16 +34,34 @@ class TradeRecord:
 
 
 class TradeLogger:
-    def __init__(self, log_dir: str = "logs/trades", strategy_name: str = "unknown"):
+    def __init__(
+        self,
+        log_dir: str = "logs/trades",
+        strategy_name: str = "unknown",
+        notifier: Optional["DiscordNotifier"] = None,
+    ):
         self._log_dir = log_dir
         self._strategy_name = strategy_name
         self._records: list[TradeRecord] = []
+        # Notifier is auto-instantiated from env when DISCORD_WEBHOOK is set,
+        # unless an explicit one is passed in (used by tests + future wiring).
+        if notifier is not None:
+            self._notifier: Optional["DiscordNotifier"] = notifier
+        elif DiscordNotifier is not None:
+            try:
+                self._notifier = DiscordNotifier()
+            except Exception as e:  # pragma: no cover - defensive
+                logger.warning("[TradeLogger] notifier init failed: %s", e)
+                self._notifier = None
+        else:
+            self._notifier = None
         os.makedirs(log_dir, exist_ok=True)
 
     def log_trade_opened(self, order: Order, position: Optional[Position] = None, strategy_id: str = ""):
+        timestamp = datetime.now(timezone.utc).isoformat()
         record = TradeRecord(
             trade_id=position.position_id if position else order.order_id,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=timestamp,
             symbol=order.symbol,
             direction=order.direction.value,
             volume=order.volume,
@@ -56,6 +80,29 @@ class TradeLogger:
             f"[TRADE LOG] OPENED {record.direction} {record.volume} {record.symbol} "
             f"@ {record.entry_price} SL={record.stop_loss} TP={record.take_profit}"
         )
+        # Discord notification is fire-and-forget; never raises.
+        self._notify_trade_opened(record, order)
+
+    def _notify_trade_opened(self, record: TradeRecord, order: Order) -> None:
+        if self._notifier is None or not self._notifier.enabled:
+            return
+        try:
+            self._notifier.notify_trade_opened(
+                TradeOpenedEvent(
+                    symbol=record.symbol,
+                    direction=record.direction,
+                    volume=record.volume,
+                    entry_price=record.entry_price,
+                    stop_loss=record.stop_loss,
+                    take_profit=record.take_profit,
+                    strategy_id=record.strategy_id,
+                    timestamp=record.timestamp,
+                    timeframe=getattr(order, "timeframe", "") or "",
+                    comment=record.comment,
+                )
+            )
+        except Exception as e:  # pragma: no cover - defensive
+            logger.warning("[TradeLogger] notifier raised unexpectedly: %s", e)
 
     def log_position_closed(self, position: Position, strategy_id: str = ""):
         record = TradeRecord(
