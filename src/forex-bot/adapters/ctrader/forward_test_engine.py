@@ -3363,7 +3363,15 @@ class ForwardTestEngine:
                 blend_runner.register_position_mapping(position_id, signal_id)
 
         if self._trade_logger and result.order:
-            self._trade_logger.log_trade_opened(result.order, result.position)
+            # Propagate strategy_id from the originating signal so downstream
+            # surfaces (TradeRecord + Discord notification) carry real provenance
+            # instead of "unknown". Card 21bf4320 / Rin F-1.
+            strategy_id = ""
+            if getattr(result, "signal", None) is not None:
+                strategy_id = getattr(result.signal, "strategy_id", "") or ""
+            self._trade_logger.log_trade_opened(
+                result.order, result.position, strategy_id=strategy_id
+            )
         self._trigger_callback("on_trade_executed", result)
 
     def _on_position_closed(self, position):
