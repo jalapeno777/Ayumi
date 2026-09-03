@@ -1,0 +1,12 @@
+[Unit]
+Description=Ayumi forward-test quiet-window stop timer (16:55 America/New_York daily)
+
+[Timer]
+# DST-correct wall-clock anchor: the timezone suffix makes systemd evaluate
+# 16:55 in New York local time year-round (EDT and EST both correct).
+OnCalendar=*-*-* 16:55:00 America/New_York
+Persistent=false
+Unit=ayumi-quiet-window-stop.service
+
+[Install]
+WantedBy=timers.target

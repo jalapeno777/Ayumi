@@ -1,0 +1,19 @@
+[Unit]
+Description=Ayumi forward-test quiet-window start timer (18:05 America/New_York daily)
+
+[Timer]
+# DST-correct wall-clock anchor: the timezone suffix makes systemd evaluate
+# 18:05 in New York local time year-round (EDT and EST both correct).
+OnCalendar=*-*-* 18:05:00 America/New_York
+Persistent=false
+Unit=ayumi-quiet-window-start.service
+
+# FLIP-ABLE (kept per Craig Option 2, no objection, 2026-08-20):
+# On Sundays this fires ~65 minutes after the 17:00 ET weekend reopen.
+# To start immediately at Sunday reopen instead, add a Sunday-specific
+# OnCalendar=Sun *-*-* 17:00:30 America/New_York entry here and note the
+# flip on the workboard card. This comment is asserted by
+# tests/test_quiet_window_units.py.
+
+[Install]
+WantedBy=timers.target

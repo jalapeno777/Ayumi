@@ -1,0 +1,11 @@
+[Unit]
+Description=Ayumi forward-test quiet-window STOP (fires 16:55 America/New_York)
+Documentation=man:systemd.timer(5)
+# Part of the Craig-approved (Option 2, 2026-08-20) NY-anchored quiet-window
+# package. Stops the forward-test service just before the 17:00 ET daily close.
+# Target unit name is confirmed at pre-deploy time (Ava/Hayate gate).
+
+[Service]
+Type=oneshot
+# systemctl stop on an already-stopped unit exits 0; harmless on weekends.
+ExecStart=/usr/bin/systemctl stop ayumi.forward-test.service
