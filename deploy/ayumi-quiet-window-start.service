@@ -1,0 +1,10 @@
+[Unit]
+Description=Ayumi forward-test quiet-window START (fires 18:05 America/New_York)
+Documentation=man:systemd.timer(5)
+# Part of the Craig-approved (Option 2, 2026-08-20) NY-anchored quiet-window
+# package. Restarts the forward-test service 65 minutes after the 18:00 ET
+# reopen (market fully settled). Target unit name confirmed at pre-deploy time.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl start ayumi.forward-test.service
