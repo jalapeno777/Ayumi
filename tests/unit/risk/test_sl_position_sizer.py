@@ -28,11 +28,16 @@ class TestSLPositionSizer:
         assert result.risk_amount == pytest.approx(50.0, abs=1.0)
 
     def test_basic_xauusd(self):
-        """XAUUSD trade: $50 risk, $30 SL distance (30 pips on XAUUSD)."""
+        """XAUUSD trade: $50 risk, $30 SL distance (300 pips on XAUUSD).
+
+        Canonical XAUUSD pip_size per cTrader convention = 0.1; so a
+        $30 price-distance SL is 30 / 0.1 = 300 pips (not 3000).
+        See ``utils.pip_value.pip_value_for_symbol``.
+        """
         result = self.sizer.calculate("XAUUSD", 3350.0, 3320.0, profile="sniper")
         assert not result.blocked
         assert result.lots > 0
-        assert result.sl_distance_pips == pytest.approx(3000.0)
+        assert result.sl_distance_pips == pytest.approx(300.0)
 
     def test_swarm_half_risk(self):
         """Swarm profile should use half the per-trade risk."""
