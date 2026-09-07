@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import deque
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -141,6 +142,14 @@ class BlendForwardTestRunner:
         # Populated by register_position_mapping() when the engine links
         # a PaperTrader position_id to the blend_runner's signal_id.
         self._position_id_to_signal_id: dict[str, str] = {}
+        self._signal_id_to_position_id: dict[str, str] = {}
+        self._unmapped_signal_ids: deque[str] = deque()
+        self._mapped_signal_ids: set[str] = set()
+
+        # The engine normally creates the PaperTrader after this runner.  A
+        # caller may still bind one explicitly (or pass it in config) so a
+        # missing Position can be mirrored at the existing mapping boundary.
+        self._paper_trader = config.get("paper_trader")
 
     # ------------------------------------------------------------------
     # Phase 0 forward-test diagnostics (signal_stats wiring)
@@ -462,6 +471,7 @@ class BlendForwardTestRunner:
                 "risk_amount": order.risk_amount,
             }
             self._sizer.register(signal_id, order.risk_amount)
+            self._queue_signal_for_mapping(signal_id)
             logger.info(
                 "Order accepted: %s %s %.4f lots risk=$%.2f",
                 signal.symbol,
@@ -529,22 +539,205 @@ class BlendForwardTestRunner:
 
     def cancel_risk(self, signal_id: str, risk_amount: float) -> None:
         """Free risk budget when a sized order is rejected downstream."""
-        self._sizer.cancel(signal_id)
+        resolved_signal_id = self._resolve_registered_signal_id(signal_id)
+        self._forget_signal_mapping(resolved_signal_id)
+        self._sizer.cancel(resolved_signal_id)
         logger.info(
             "Risk cancelled: signal_id=%s risk=$%.2f freed, daily remaining=$%.2f",
-            signal_id,
+            resolved_signal_id,
             risk_amount,
             self._sizer.daily_risk_remaining,
         )
 
-    def register_position_mapping(self, position_id: str, signal_id: str) -> None:
-        """Map a PaperTrader position_id to the blend_runner's signal_id.
+    def bind_paper_trader(self, paper_trader) -> None:
+        """Bind the PaperTrader used by the blend execution path.
 
-        Called by the engine when a trade is executed, so that
-        :meth:`close_position` can resolve the correct signal_id when
-        the PaperTrader fires ``on_position_closed`` with a position_id.
+        The normal engine creates the PaperTrader after the runner, so this
+        optional binding keeps the mapping boundary usable for tests and for
+        callers that construct the runner in a different order.
         """
+        self._paper_trader = paper_trader
+
+    def _queue_signal_for_mapping(self, signal_id: str) -> None:
+        """Queue one accepted signal whose execution identity is not known yet."""
+        if signal_id in self._mapped_signal_ids or signal_id in self._unmapped_signal_ids:
+            return
+        self._unmapped_signal_ids.append(signal_id)
+
+    def _forget_signal_mapping(self, signal_id: str) -> None:
+        """Remove one signal's execution mapping after cancel/close."""
+        self._mapped_signal_ids.discard(signal_id)
+        self._signal_id_to_position_id.pop(signal_id, None)
+        try:
+            self._unmapped_signal_ids.remove(signal_id)
+        except ValueError:
+            pass
+
+    def _resolve_registered_signal_id(self, signal_id: str) -> str:
+        """Resolve a display/default alias to its registered canonical ID.
+
+        The launcher may pass the strategy display name (for example,
+        ``"TTC XAUUSD M15_<timestamp>"``) to ``cancel_risk``.  The blend
+        runner stores the normalized ID, so a close or cancel must perform the
+        same identity repair at its boundary instead of leaking risk.
+        """
+        identity = str(signal_id)
+        if identity in self._open_positions:
+            return identity
+        try:
+            sizer_open = self._sizer.open_positions
+        except AttributeError:
+            return identity
+        if isinstance(sizer_open, dict) and identity in sizer_open:
+            return identity
+        try:
+            requested_timestamp = float(identity.rsplit("_", 1)[-1])
+        except (TypeError, ValueError):
+            return identity
+
+        matches: list[str] = []
+        for candidate in self._unmapped_signal_ids:
+            if not isinstance(sizer_open, dict) or candidate not in sizer_open:
+                continue
+            try:
+                candidate_timestamp = float(candidate.rsplit("_", 1)[-1])
+            except (TypeError, ValueError):
+                continue
+            if abs(candidate_timestamp - requested_timestamp) <= 1.0:
+                matches.append(candidate)
+        if len(matches) == 1:
+            return matches[0]
+        return identity
+
+    def _resolve_unmapped_signal_id(self) -> str | None:
+        """Return the oldest accepted signal that can back a synthetic ID.
+
+        Paper-mode callbacks have historically carried a default timestamp
+        identity, while the sizer uses the blend runner's canonical signal ID.
+        Keep the resolution deterministic and prefer a signal that is still
+        reserved in the sizer, so cancelled/rejected orders cannot be mapped.
+        """
+        pending = [sid for sid in self._unmapped_signal_ids if sid in self._open_positions]
+        if not pending:
+            return None
+
+        try:
+            sizer_open = self._sizer.open_positions
+        except AttributeError:
+            sizer_open = {}
+        if isinstance(sizer_open, dict) and sizer_open:
+            for signal_id in pending:
+                if signal_id in sizer_open and signal_id not in self._mapped_signal_ids:
+                    return signal_id
+        if len(pending) == 1 and not sizer_open:
+            return pending[0]
+        return None
+
+    def _bind_position_mapping(self, position_id: str, signal_id: str) -> None:
+        """Persist both directions of a resolved position/signal mapping."""
+        old_position_id = self._signal_id_to_position_id.get(signal_id)
+        if old_position_id is not None and old_position_id != position_id:
+            self._position_id_to_signal_id.pop(old_position_id, None)
         self._position_id_to_signal_id[position_id] = signal_id
+        self._signal_id_to_position_id[signal_id] = position_id
+        self._mapped_signal_ids.add(signal_id)
+        try:
+            self._unmapped_signal_ids.remove(signal_id)
+        except ValueError:
+            pass
+
+    def _mirror_position_to_order_manager(self, position_id: str, signal_id: str) -> None:
+        """Mirror a blend-accepted order when the paper position is absent.
+
+        PaperTrader normally creates the Position before its callback reaches
+        this method.  The defensive branch preserves the established
+        close-on-SL/TP behavior for alternate construction orders and keeps
+        the order-manager state in the same shape as a normal paper fill.
+        """
+        paper_trader = self._paper_trader
+        if paper_trader is None:
+            return
+        order_manager = getattr(paper_trader, "_order_manager", None)
+        positions = getattr(order_manager, "_positions", None)
+        if not isinstance(positions, dict) or position_id in positions:
+            return
+
+        tracked = self._open_positions.get(signal_id)
+        if not isinstance(tracked, dict):
+            return
+        order = tracked.get("order")
+        signal = getattr(order, "signal", None)
+        if order is None or signal is None:
+            return
+
+        from adapters.ctrader.models import Position, TradeDirection
+
+        direction_value = str(getattr(signal, "direction", "LONG")).upper()
+        try:
+            direction = TradeDirection(direction_value)
+        except ValueError:
+            direction = TradeDirection.LONG
+
+        volume = float(getattr(order, "lots", 0.0) or 0.0)
+        entry_price = float(getattr(signal, "entry_price", 0.0) or 0.0)
+        if volume <= 0 or entry_price <= 0:
+            return
+
+        position = Position(
+            position_id=position_id,
+            symbol=str(signal.symbol),
+            direction=direction,
+            volume=volume,
+            entry_price=entry_price,
+            current_price=entry_price,
+            stop_loss=getattr(signal, "stop_loss", None),
+            take_profit=getattr(signal, "take_profit", None),
+        )
+        lock = getattr(order_manager, "_lock", None)
+        if lock is None:
+            positions[position_id] = position
+        else:
+            with lock:
+                positions[position_id] = position
+        logger.info(
+            "Mirrored blend position %s to PaperTrader order manager for signal_id=%s",
+            position_id,
+            signal_id,
+        )
+
+    def register_position_mapping(
+        self,
+        position_id: str,
+        signal_id: str,
+        paper_trader=None,
+    ) -> None:
+        """Map an execution position to its canonical blend signal ID.
+
+        The callback may supply a synthetic/default identity (for example, a
+        paper ``CTraderTradeSignal`` timestamp created after the blend signal).
+        In that case, resolve the oldest still-open accepted blend order before
+        recording the position mapping.  A bound PaperTrader is used only to
+        restore a missing order-manager Position; existing fills are never
+        overwritten.
+        """
+        if paper_trader is not None:
+            self.bind_paper_trader(paper_trader)
+
+        raw_signal_id = str(signal_id)
+        resolved_signal_id = raw_signal_id
+        if raw_signal_id not in self._open_positions:
+            resolved_signal_id = self._resolve_unmapped_signal_id()
+        if resolved_signal_id is None:
+            logger.warning(
+                "Could not resolve blend signal_id for position_id=%s; callback_identity=%s",
+                position_id,
+                raw_signal_id,
+            )
+            self._position_id_to_signal_id[position_id] = raw_signal_id
+            return
+
+        self._bind_position_mapping(position_id, resolved_signal_id)
+        self._mirror_position_to_order_manager(position_id, resolved_signal_id)
 
     def on_fill(self, order_id: str, fill_price: float, pnl: float) -> None:
         """Handle position fill/close — update sizer state and persist.
@@ -555,10 +748,8 @@ class BlendForwardTestRunner:
             fill_price: Closing price (used for logging only).
             pnl: Realized PnL from the close.
         """
+        order_id = self._resolve_registered_signal_id(order_id)
         pos = self._open_positions.pop(order_id, None)
-
-        # Also clean up any position_id mapping pointing to this signal_id
-        self._position_id_to_signal_id.pop(order_id, None)
 
         try:
             self._sizer.close(order_id, pnl)
@@ -568,6 +759,10 @@ class BlendForwardTestRunner:
                 self._open_positions[order_id] = pos
             logger.warning("on_fill: signal_id %s not registered in sizer", order_id)
             return
+
+        # The close completed, so release the execution mapping only after
+        # sizer.close() succeeds. A retry can then use the restored runner entry.
+        self._forget_signal_mapping(order_id)
 
         self._balance = self._sizer.account_balance
         self._orchestrator.update_balance(self._balance)
@@ -650,6 +845,7 @@ class BlendForwardTestRunner:
             # No mapping registered — fall back to using position_id as-is
             signal_id = position_id
 
+        signal_id = self._resolve_registered_signal_id(signal_id)
         self.on_fill(signal_id, fill_price=0.0, pnl=pnl)
 
     def stop(self) -> None:
