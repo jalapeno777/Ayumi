@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Generator
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from backtest.engine import Bar, MarketState, determine_session
@@ -11,6 +13,19 @@ from quant.statistical_validation import (
     GoNogoResult,
     evaluate_statistical_checks,
 )
+
+#: Default fallback annualization factor used when ``bars_in_window`` is not
+#: supplied to :func:`_compute_metrics`. **This value preserves the legacy
+#: (and incorrect) formula and is retained only for backward-compatibility**
+#: — see :func:`_compute_metrics` migration note. New callers should pass
+#: ``bars_in_window`` so the annualization is computed from the actual
+#: window duration. Card 2bd35527-e118-44c8-aca7-019901b8fbe5.
+_LEGACY_TRADES_PER_YEAR_FALLBACK = 252
+
+#: Seconds in a tropical year (365.25 days). Used to convert a window's bar
+#: time span into years for ``trades_per_year`` annualization. Card
+#: 2bd35527-e118-44c8-aca7-019901b8fbe5.
+_SECONDS_PER_YEAR = 365.25 * 24 * 3600.0
 
 
 @dataclass(frozen=True)
@@ -139,7 +154,49 @@ def _compute_metrics(
     window_index: int,
     trades: list[dict[str, Any]],
     initial_balance: float = 10000.0,
+    bars_in_window: list[Bar] | None = None,
 ) -> WindowMetrics:
+    """Compute per-window metrics for a walk-forward slice.
+
+    Migration note (card 2bd35527-e118-44c8-aca7-019901b8fbe5)
+    ----------------------------------------------------------
+    The Sharpe computation was changed from a per-trade dollar-PnL formula
+    annualised as if daily to a returns-based formula annualised by the
+    strategy's actual trade frequency. The legacy formula
+
+        (mean_pnl / std_pnl) * sqrt(252)
+
+    annualised per-trade dollar PnL as if it were a daily return and used
+    raw dollars instead of returns. For M15–H4 strategies (30–2000+
+    trades/yr) this inflated Sharpe by orders of magnitude — e.g. 917 on
+    EURUSD H4 with 32 trades — making absolute values uninterpretable
+    while still preserving the relative stream ranking.
+
+    The fixed formula is
+
+        sharpe = (mean_return / std_return) * sqrt(trades_per_year)
+
+    where ``return_i = pnl_i / equity_before_trade_i`` and
+    ``trades_per_year = trade_count / window_duration_years`` is derived
+    from the bar times in ``bars_in_window``. Industry-typical FX Sharpe
+    is 0.5–2.0; the fixed formula yields values in that band.
+
+    Threshold semantics: DSR tier thresholds (``TIER_A_PRODUCTION.
+    min_aggregate_sharpe=1.50`` etc., see ``quant/oos_gate.py:323``)
+    compare mean Sharpe across streams on the same scale. After this fix
+    the scale is a returns-based, properly-annualised Sharpe, so absolute
+    tier membership may shift even when relative ranking is preserved.
+    **The threshold *values* are unchanged.** Tuning the thresholds to
+    recover the pre-fix tier membership would mask the bug; any
+    threshold change requires a separate spec with explicit approval.
+
+    Backward compatibility
+    ----------------------
+    ``bars_in_window`` is optional. When omitted (or ``None``) the legacy
+    formula is used and a ``DeprecationWarning`` is emitted so callers
+    can detect that they are still on the unfixed path. New callers
+    should pass ``bars_in_window=test_bars`` to receive the fixed Sharpe.
+    """
     if not trades:
         return WindowMetrics(
             window_index=window_index,
@@ -180,13 +237,54 @@ def _compute_metrics(
             if dd > max_dd:
                 max_dd = dd
 
+    # ---- Sharpe (returns-based, properly annualised) --------------------
+    # See migration note in the docstring above.
     if trade_count < 2:
         sharpe_ratio = 0.0
-    else:
+    elif bars_in_window is None:
+        # Legacy path: dollar PnL Sharpe, annualised as if daily. Kept for
+        # back-compat with callers that have not migrated yet. Emits a
+        # DeprecationWarning so the unfixed path is loud, not silent.
+        warnings.warn(
+            "_compute_metrics called without bars_in_window; using the "
+            "legacy Sharpe formula (per-trade dollar PnL annualised as "
+            "if daily). This is the pre-fix Sharpe-inflation bug. Pass "
+            "bars_in_window=<bars for this window> to receive the fixed "
+            "returns-based Sharpe. Card 2bd35527.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         mean_pnl = total_pnl / trade_count
         variance = sum((p - mean_pnl) ** 2 for p in pnls) / (trade_count - 1)
         std_pnl = math.sqrt(variance) if variance > 0 else 0.0
-        sharpe_ratio = (mean_pnl / std_pnl) * math.sqrt(252) if std_pnl > 0 else 0.0
+        sharpe_ratio = (
+            (mean_pnl / std_pnl) * math.sqrt(_LEGACY_TRADES_PER_YEAR_FALLBACK)
+            if std_pnl > 0
+            else 0.0
+        )
+    else:
+        # Fixed path: per-trade returns scaled by sqrt(trades_per_year).
+        # - returns_i = pnl_i / equity_before_trade_i  (returns basis)
+        # - trades_per_year = trade_count / window_duration_years
+        # - window_duration_years from bar.time span of bars_in_window
+        equities: list[float] = []
+        returns: list[float] = []
+        running = initial_balance
+        for pnl in pnls:
+            equities.append(running)
+            ret = pnl / running if running > 0 else 0.0
+            returns.append(ret)
+            running = max(0.0, running + pnl)
+
+        mean_return = sum(returns) / trade_count
+        variance = sum((r - mean_return) ** 2 for r in returns) / (trade_count - 1)
+        std_return = math.sqrt(variance) if variance > 0 else 0.0
+
+        trades_per_year = _trades_per_year_from_bars(bars_in_window, trade_count)
+        if std_return > 0 and trades_per_year > 0:
+            sharpe_ratio = (mean_return / std_return) * math.sqrt(trades_per_year)
+        else:
+            sharpe_ratio = 0.0
 
     min_trades = 5
     passed = trade_count >= min_trades and win_rate > 0.55 and profit_factor > 1.0 and total_pnl > 0 and max_dd < 0.10
@@ -201,6 +299,34 @@ def _compute_metrics(
         total_pnl=total_pnl,
         passed_go_nogo=passed,
     )
+
+
+def _trades_per_year_from_bars(
+    bars_in_window: list[Bar], trade_count: int
+) -> float:
+    """Estimate ``trades_per_year`` from a window's bars.
+
+    Uses the bar-time span of ``bars_in_window`` as the window duration.
+    Falls back to ``trade_count`` (i.e. assume the window *is* one year)
+    when bar times are missing, monotonic-inverse, or zero-span. Card
+    2bd35527-e118-44c8-aca7-019901b8fbe5.
+    """
+    if trade_count <= 0 or len(bars_in_window) < 2:
+        return float(trade_count) if trade_count > 0 else 0.0
+    try:
+        t_first = bars_in_window[0].time
+        t_last = bars_in_window[-1].time
+    except AttributeError:
+        return float(trade_count)
+    if not isinstance(t_first, datetime) or not isinstance(t_last, datetime):
+        return float(trade_count)
+    duration_seconds = (t_last - t_first).total_seconds()
+    if duration_seconds <= 0:
+        return float(trade_count)
+    duration_years = duration_seconds / _SECONDS_PER_YEAR
+    if duration_years <= 0:
+        return float(trade_count)
+    return trade_count / duration_years
 
 
 def _mean(values: list[float]) -> float:
@@ -257,7 +383,12 @@ def run_strategy(
             initial_balance=initial_balance,
             risk_per_trade_pct=risk_per_trade_pct,
         )
-        metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
+        metrics = _compute_metrics(
+            idx,
+            trades,
+            initial_balance=initial_balance,
+            bars_in_window=test,
+        )
         per_window.append(metrics)
         all_oos_pnls.extend(t["pnl"] for t in trades)
 
