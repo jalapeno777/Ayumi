@@ -100,6 +100,80 @@ _os.umask(0o022)  # Ensure files are created 644/755 regardless of process owner
 # ── Correlation Gate ──────────────────────────────────────────────────────────
 
 
+def _compute_pnl_from_start_pct(start: float, current: float) -> float:
+    """Account P&L % from starting balance (positive = up, negative = down).
+
+    Canonical display field for the heartbeat ``risk:`` segment.  Renamed
+    from the buggy ``_dd_pct`` whose formula ``(start - current) / start``
+    produced a drawdown with flipped sign — the account would report
+    ``dd=-2.62%`` while it was UP +2.62% (see card 627b4f66, evidence
+    DA-1).
+
+    The canonical peak-based drawdown lives in
+    ``FTMOGuard.get_status()['current_dd_pct']`` and is reported
+    separately in the ``ftmo:`` segment of the heartbeat.
+
+    Returns 0.0 for non-positive starting balance (sentinel — never
+    divide by zero or report a misleading percentage for a zero/negative
+    baseline).
+    """
+    if start <= 0:
+        return 0.0
+    return (current - start) / start * 100.0
+
+
+def _reconcile_ftmo_peak_from_persisted_state(
+    ftmo_guard: FTMOGuard,
+    state_path: Path,
+) -> float:
+    """Reconcile ``FTMOGuard._state.peak_balance`` with the persisted RiskGuard
+    state file on startup (card 627b4f66, evidence DA-8).
+
+    Why: ``FTMOGuard.__init__`` (see ``risk/ftmo_guard.py``) seeds
+    ``peak_balance = starting_balance``.  Without reconcile, every restart
+    would silently reset the FTMO peak high-water-mark to the reference
+    account size ($10K), even when the broker has previously reported a
+    higher balance (e.g. $10,415.81).  This corrupts the trailing-DD
+    calculation (drawdown reads larger than reality after each restart).
+
+    Paper-vs-live semantics: ``data/state/risk_guard_state.json`` is
+    written by ``RiskGuard`` in both paper and live modes.  The same
+    reconcile applies to both — a high-water-mark observed in paper
+    mode must not be silently lost on the next live restart, and vice
+    versa.  Peak is peak regardless of trading mode.
+
+    The reconcile is the MAX of persisted peak and the guard's current
+    peak, never below.  If persisted peak <= current peak, no mutation
+    is performed and the guard's existing value is preserved (the
+    in-memory value is at least as fresh as the persisted one).
+
+    Failure handling: any I/O or parse error returns the guard's existing
+    peak unchanged and logs a warning.  The reconcile is best-effort
+    startup hygiene — never fatal.
+
+    Returns the resolved peak after reconcile (for tests + logging).
+    """
+    try:
+        if not state_path.exists():
+            return ftmo_guard._state.peak_balance
+        raw = json.loads(state_path.read_text())
+        persisted_peak = float(raw.get("peak_balance", 0.0))
+    except (json.JSONDecodeError, OSError, ValueError, TypeError) as exc:
+        logger.warning(
+            "FTMO peak reconcile skipped: %s (%s)", state_path, exc,
+        )
+        return ftmo_guard._state.peak_balance
+
+    if persisted_peak > ftmo_guard._state.peak_balance:
+        logger.info(
+            "FTMO peak reconciled UP: %.2f -> %.2f (persisted state)",
+            ftmo_guard._state.peak_balance,
+            persisted_peak,
+        )
+        ftmo_guard._state.peak_balance = persisted_peak
+    return ftmo_guard._state.peak_balance
+
+
 class CorrelationGate:
     """Blocks duplicate symbol-direction signals — max 1 position per (symbol, direction)."""
 
@@ -1477,6 +1551,20 @@ def main():
         "wired" if getattr(engine, "_kill_switch", None) is not None else "NONE",
     )
 
+    # Card 627b4f66: Reconcile persisted peak from RiskGuard state file
+    # BEFORE any FTMO update() call, so trailing-DD computation uses the
+    # true high-water-mark from the previous session (see
+    # ``_reconcile_ftmo_peak_from_persisted_state`` docstring for the
+    # full rationale + paper-vs-live semantics).
+    _reconciled_peak = _reconcile_ftmo_peak_from_persisted_state(
+        _ftmo_guard,
+        PROJECT_ROOT / "data" / "state" / "risk_guard_state.json",
+    )
+    logger.info(
+        "FTMO peak reconcile complete: peak=$%.2f (post-reconcile)",
+        _reconciled_peak,
+    )
+
     # ── Startup reconciliation (card 0e0338d4) ─────────────────────────────
     # engine.start() already calls _seed_existing_positions() which ADDS
     # to the sizer's _open_positions dict, but does not clear phantom
@@ -1658,19 +1746,26 @@ def main():
 
                     # Risk guard status (B5 health extension — A6)
                     # Uses two-balance model: starting=$10K baseline, live=cTrader
+                    # NOTE (card 627b4f66): ``_display_pnl_from_start_pct`` is
+                    # the canonical P&L-from-start field.  The previous
+                    # ``_dd_pct`` formula ``(start - current) / start`` had a
+                    # flipped sign and was mislabeled as drawdown; the
+                    # canonical peak-based drawdown is reported separately
+                    # in the ``ftmo:`` segment from
+                    # ``FTMOGuard.get_status()['current_dd_pct']``.
                     _rg = getattr(engine._paper_trader, "_risk_guard", None)
                     if _rg is not None:
                         _start_bal = _rg._starting_balance
                         _bal = _rg._current_balance
                         _daily_pnl = _bal - _rg._daily_start_balance
-                        _dd_pct = (_start_bal - _bal) / _start_bal * 100 if _start_bal > 0 else 0.0
+                        _display_pnl_from_start_pct = _compute_pnl_from_start_pct(_start_bal, _bal)
                         _breaker = "ON" if _rg._circuit_breaker_triggered else "OFF"
                         _halt = "NONE"
                         if _rg._blocked_until is not None:
                             _halt = f"until {_rg._blocked_until.isoformat()}"
                         _risk_str = (
                             f"risk: starting=${_start_bal:.2f} balance=${_bal:.2f} "
-                            f"daily_pnl=${_daily_pnl:.2f} dd={_dd_pct:.2f}% "
+                            f"daily_pnl=${_daily_pnl:.2f} pnl_from_start={_display_pnl_from_start_pct:+.2f}% "
                             f"dd_breaker={_breaker} halt={_halt}"
                         )
                     else:
