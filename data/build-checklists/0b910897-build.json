@@ -1,0 +1,77 @@
+{
+  "card_id": "0b910897-2e60-4556-83d5-e5abd051e505",
+  "card_title": "[BUILD] Deadline owner-tag contract — untagged dates stripped at plan time",
+  "agent": "tsubaki",
+  "worker_session": "agent:tsubaki:main:heartbeat",
+  "branch": "tsubaki/0b910897-deadline-owners",
+  "worktree": "/home/TacoPants/projects/Ayumi/.worktrees/tsubaki-0b910897-deadline-owners",
+  "phase": "post-implementation",
+  "build_date": "2026-09-07T16:01Z",
+  "files_created": [
+    "scripts/validate_sprint_plan.sh",
+    "scripts/deadline_owner_check.py",
+    "docs/ops/deadline-contract.md"
+  ],
+  "files_modified": [],
+  "files_changed_for_evidence": [
+    "data/build-checklists/0b910897-build.json"
+  ],
+  "allowed_files": [
+    "scripts/validate_sprint_plan.sh",
+    "scripts/deadline_owner_check.py",
+    "docs/ops/deadline-contract.md"
+  ],
+  "scope_check": "pass — three created files match the card's allowed_files list exactly. data/build-checklists/0b910897-build.json is the BQES evidence record per the workboard-management skill (data/build-checklists/<card_id>.json pattern, established on Ayumi by prior builds 04d24f30 and 21bf4320).",
+  "sp_estimate": 1.0,
+  "bqes_admission": {
+    "allowed_files_concrete": true,
+    "acceptance_criteria_present": true,
+    "verification_command_present": true,
+    "scored_at": "2026-09-07T16:01Z"
+  },
+  "build_verification": {
+    "py_compile": "python3 -m py_compile scripts/deadline_owner_check.py → exit 0",
+    "bash_syntax": "bash -n scripts/validate_sprint_plan.sh → exit 0",
+    "quality_gate": "python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py --workspace=. --files=scripts/deadline_owner_check.py,scripts/validate_sprint_plan.sh --skip-tests → PASS (5/5 checks: py_compile, ruff, mypy, path_constant_consistency, unwired_function)",
+    "verification_end_to_end": [
+      "[1/4] bash scripts/validate_sprint_plan.sh test-sprint phase3 --doc <untagged> → exit 1 PASS",
+      "[2/4] bash scripts/validate_sprint_plan.sh test-sprint phase3 --doc <tagged>   → exit 0 PASS",
+      "[3/4] python3 scripts/deadline_owner_check.py --json <untagged>             → exit 1 PASS",
+      "[4/4] python3 scripts/deadline_owner_check.py --json <tagged>               → exit 0 PASS",
+      "[Bonus] --strip on mixed content: tagged survives, bare removed, stderr lists every removed date"
+    ],
+    "edge_cases_verified": [
+      "no dates at all → exit 0",
+      "all tagged (CRAIG-OWNED + AGENT-OWNED mixed) → exit 0",
+      "heading-only dates (markdown headings ignored) → exit 0",
+      "US slash MM/DD/YYYY with tag → exit 0",
+      "long-form 'September 15, 2026' with tag → exit 0",
+      "--strip preserves tagged dates verbatim, drops only untagged"
+    ]
+  },
+  "baseline_metric": {
+    "scanned": [
+      "data/sprint-plans/ayumi-historical-mypy-claims-audit.md",
+      "data/sprints/s008-w3b-f401-adjudication.md",
+      "data/sprints/s008-w4b-s101-adjudication.md",
+      "docs/decisions/ARCHIVED/sprint-plans/*.md (8 files, 0 dates)"
+    ],
+    "totals": {
+      "total_dates": 123,
+      "tagged": 0,
+      "untagged": 123
+    },
+    "interpretation": "100% of dates in current sprint/plan surface are untagged. The contract gates new plan admission; backfill is a 14-day migration sweep per docs/ops/deadline-contract.md."
+  },
+  "acceptance_criteria_met": {
+    "1_deadline_owner_check_py_scans_and_strips": "PASS — scripts/deadline_owner_check.py scans any markdown doc for ISO / US-slash / long-form dates, identifies untagged dates, and (with --strip) removes them while writing the strip action to stderr. Supports --in-place and --output variants. --baseline mode emits shadow-count JSON for the migration sweep.",
+    "2_validate_sprint_plan_sh_phase3_fails_on_untagged": "PASS — scripts/validate_sprint_plan.sh phase3 invokes deadline_owner_check.py --json --quiet; non-zero exit propagates and the script exits 1 with the dead-line-stderr file pointing at every untagged date. Verified against a fixture pair (untagged → 1, tagged → 0).",
+    "3_missed_slot_rule_documented": "PASS — docs/ops/deadline-contract.md 'Missed-slot rule' section records that CRAIG-OWNED missed twice auto-converts to AGENT-OWNED with a default action per deadline class (sprint sign-off / briefing pack / calendar slot). Conversion is one-way and ADR-promotion only.",
+    "4_two_week_shadow_count_recorded": "PASS — docs/ops/deadline-contract.md 'Two-week shadow count (baseline, 2026-09-07)' section records 123 dates scanned / 123 untagged across the current sprint/plan surface, with a per-doc breakdown and a 14-day migration plan."
+  },
+  "verification_command": "bash scripts/validate_sprint_plan.sh <sprint-id> phase3 --doc <fixture-with-untagged-date> (exit 1); bash scripts/validate_sprint_plan.sh <sprint-id> phase3 --doc <fixture-with-tags> (exit 0)",
+  "rollback": "git revert the single commit on tsubaki/0b910897-deadline-owners. No state change to runtime until dispatchers adopt the script.",
+  "merge_target": "main",
+  "merge_pattern": "git checkout main && git merge --no-ff tsubaki/0b910897-deadline-owners -m 'Merge deadline owner-tag contract (card 0b910897)'",
+  "post_merge_verify": "bash scripts/validate_sprint_plan.sh smoke phase3 --doc docs/ops/deadline-contract.md → exit 0"
+}
