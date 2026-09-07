@@ -646,6 +646,53 @@ class BlendForwardTestRunner:
         except ValueError:
             pass
 
+    @staticmethod
+    def _resolve_mirror_direction(
+        signal,
+        TradeDirectionCls,
+        SignalDirectionCls,
+    ):
+        """Map an orchestrator signal's direction to a TradeDirection.
+
+        The orchestrator's ``OrchestratorTradeSignal.direction`` is the
+        uppercase string ``"LONG"`` or ``"SHORT"`` (see
+        ``strategy_adapter.adapt_signal``).  Older adapters also emit the
+        ``signal_validator.Direction`` enum.  A blind
+        ``str(signal.direction).upper()`` round-trip into ``TradeDirection``
+        always raised ``ValueError`` because ``TradeDirection`` is a
+        ``StrEnum`` with lowercase values (``"long"``/``"short"``); the
+        previous fallback silently coerced every SHORT into LONG, reversing
+        the order-manager's SL/TP semantics and the eventual PnL sign.
+
+        Returns the matching ``TradeDirection`` member, or ``None`` when the
+        direction cannot be interpreted (callers must then skip the mirror).
+        """
+        raw = getattr(signal, "direction", None)
+        if raw is None:
+            return None
+        # Direct TradeDirection (e.g. tests that pass the enum in directly).
+        if isinstance(raw, TradeDirectionCls):
+            if raw == TradeDirectionCls.NEUTRAL:
+                return None
+            return raw
+        # signal_validator.Direction enum — compare by enum identity.
+        if isinstance(raw, SignalDirectionCls):
+            if raw == SignalDirectionCls.SHORT:
+                return TradeDirectionCls.SHORT
+            if raw == SignalDirectionCls.LONG:
+                return TradeDirectionCls.LONG
+            return None
+        # String form — uppercase or lowercase, possibly with surrounding
+        # whitespace.  Anything else is treated as unparseable.
+        if isinstance(raw, str):
+            normalized = raw.strip().upper()
+            if normalized in {"LONG", "BUY"}:
+                return TradeDirectionCls.LONG
+            if normalized in {"SHORT", "SELL"}:
+                return TradeDirectionCls.SHORT
+            return None
+        return None
+
     def _mirror_position_to_order_manager(self, position_id: str, signal_id: str) -> None:
         """Mirror a blend-accepted order when the paper position is absent.
 
@@ -671,12 +718,17 @@ class BlendForwardTestRunner:
             return
 
         from adapters.ctrader.models import Position, TradeDirection
+        from signal_validator import Direction as SignalDirection
 
-        direction_value = str(getattr(signal, "direction", "LONG")).upper()
-        try:
-            direction = TradeDirection(direction_value)
-        except ValueError:
-            direction = TradeDirection.LONG
+        direction = self._resolve_mirror_direction(signal, TradeDirection, SignalDirection)
+        if direction is None:
+            logger.warning(
+                "Mirrored blend position %s has unparseable direction=%r; "
+                "skipping order-manager mirror to avoid reversed SL/TP semantics",
+                position_id,
+                getattr(signal, "direction", None),
+            )
+            return
 
         volume = float(getattr(order, "lots", 0.0) or 0.0)
         entry_price = float(getattr(signal, "entry_price", 0.0) or 0.0)
