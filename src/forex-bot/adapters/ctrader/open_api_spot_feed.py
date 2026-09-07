@@ -2410,6 +2410,26 @@ class OpenApiSpotFeed:
         # lookup, but the real issue is account authorization. Upgrade to
         # ACCOUNT_AUTHORIZATION_FAULT so the kill switch activates.
         if not policy.activate_kill_switch and "not authorized" in description.lower():
+            # Card f37e7b74: emit an explicit, unmistakable error log line
+            # naming the authorization fault when the server reports the
+            # trading account is not authorized. This surfaces the actual
+            # server-side fault in operator logs (rather than letting it
+            # bubble up later as the misleading "ProtoOATraderRes missing
+            # 'trader' field" schema complaint raised downstream by
+            # account_state.get_balance). The exact phrasing "trading
+            # account" is the canonical cTrader broker message emitted on
+            # the trader/balance query path; we gate on both phrases to
+            # avoid false positives from generic "not authorized" wording.
+            desc_lower = description.lower()
+            if "trading account" in desc_lower and "not authorized" in desc_lower:
+                logger.error(
+                    "[Account Auth] server reports not authorized — broker "
+                    "intervention required: code=%s description='%s' "
+                    "clientMsgId=%s",
+                    error_code,
+                    description,
+                    client_msg_id,
+                )
             if is_query_call:
                 logger.warning(
                     "Query error contains 'not authorized' — kill switch NOT activated "

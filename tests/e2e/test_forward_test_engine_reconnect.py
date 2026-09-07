@@ -81,17 +81,49 @@ class TestCheckConnectionHealthResetsCounter(unittest.TestCase):
         engine._running = True
         return engine
 
-    def test_healthy_connection_resets_reconnect_counter(self):
+    def test_healthy_connection_does_not_reset_counter_on_single_tick(self):
+        """Card f37e7b74: a SINGLE healthy tick post-reconnect must NOT
+        reset the consecutive-failure counter. The reconnect-flap bug
+        (122 counter-resets in 64h, source: Satsuki research brief
+        17c3afed) was that cTrader emits exactly one snapshot spot event
+        per ProtoOASubscribeSpotsReq, so any "is_healthy" path that
+        resets on a single tick lets a silent-but-subscribed broker
+        reset the counter. The new sustained-tick gate only resets
+        after >=N ticks within T seconds post-reconnect.
+
+        This test replaces the previous
+        ``test_healthy_connection_resets_reconnect_counter`` which
+        asserted the OLD (buggy) contract that the card spec explicitly
+        overturns: "The single snapshot spot event from
+        ProtoOASubscribeSpotsReq must NOT count as recovery".
+        """
+        import time as _time
+
         engine = self._make_engine()
         engine._health.reconnection_attempts = 5
 
         mock_feed = MagicMock()
         mock_feed.is_running = True
+        mock_feed._token_expires_at = None  # avoid json serialization error in diagnostic
         engine._market_feed = mock_feed
         engine._health.last_tick_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+        # Open the post-reconnect window with zero ticks so the gate
+        # branch in _check_connection_health is exercised. This mirrors
+        # the production failure shape: a window opened by a successful
+        # reconnect, then no further ticks arrive.
+        engine._post_reconnect_at = _time.monotonic()
+        engine._post_reconnect_ticks = []
 
         engine._check_connection_health()
-        assert engine._health.reconnection_attempts == 0
+        # The counter MUST stay at 5 — this is the bug card f37e7b74
+        # fixes. The old behavior (counter == 0) is the flap loop.
+        assert engine._health.reconnection_attempts == 5, (
+            "Card f37e7b74: single healthy tick must NOT reset the "
+            "counter. The flap-loop bug was that any healthy tick "
+            "cleared the counter, letting a subscribed-but-silent "
+            "broker prevent the breaker from reaching "
+            "max_reconnect_attempts."
+        )
 
     def test_unhealthy_connection_does_not_reset_counter(self):
         engine = self._make_engine()
