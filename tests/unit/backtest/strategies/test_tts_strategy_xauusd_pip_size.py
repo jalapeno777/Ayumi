@@ -37,7 +37,6 @@ from utils.pip_value import (  # noqa: E402  -- path injection above
     pip_value_for_symbol,
 )
 
-
 # ---------------------------------------------------------------------------
 # Canonical pip_value_for_symbol convention
 # ---------------------------------------------------------------------------
