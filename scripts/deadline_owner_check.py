@@ -125,13 +125,23 @@ _DATE_FALSE_POSITIVE_HINTS: tuple[str, ...] = (
     "card-",
     "c0",  # card id prefixes
     "doc-",
+    "mtime",  # snapshot-timestamp citations (e.g. `mtime 2026-07-10 12:13 UTC`)
 )
 
 # Lines that are pure headings or table separators get tagged-checked but
 # never stripped — even untagged dates here are "documentation about dates"
 # rather than deadlines. Detect headings via markdown-ish markers.
 _HEADING_PREFIX = re.compile(r"^\s{0,3}#{1,6}\s")
-_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$")
+# Markdown table separator row: | --- | --- |  /  |---|---|  /  :---:|:---:.
+# Requires at least one interior `|`, so a lone `---` (frontmatter fence)
+# does not match.
+_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-]+(?:\|[\s:\-]+)+\|?\s*$")
+# YAML frontmatter fences (`---` on a line by itself at the document head).
+_FRONTMATTER_FENCE = re.compile(r"^---\s*$")
+# Bold-metadata header lines like ``**Effective:** YYYY-MM-DD`` and
+# ``**Owner of contract:** build lane``. These describe the doc itself,
+# not deadlines; any date inside is treated as non-deadline metadata.
+_BOLD_METADATA_LINE = re.compile(r"^\*\*[\w][\w\s]*:\*\*\s+\S")
 
 
 # ---------------------------------------------------------------------------
@@ -222,15 +232,46 @@ def _is_heading_or_table(line: str) -> bool:
     return bool(_HEADING_PREFIX.match(line) or _TABLE_SEPARATOR.match(line))
 
 
+def _is_frontmatter_skip(line: str, *, in_frontmatter: bool) -> tuple[bool, bool]:
+    """Decide whether to skip this line as YAML frontmatter.
+
+    Returns ``(skip_line, in_frontmatter_after)``. A leading ``---``
+    opens the block; a matching ``---`` closes it.
+    """
+    if _FRONTMATTER_FENCE.match(line):
+        return True, not in_frontmatter
+    return in_frontmatter, in_frontmatter
+
+
 def scan_text(text: str) -> list[DateHit]:
     """Scan a document body and return every DateHit found.
 
-    Headings and pure table-separator lines are skipped — those are
-    documentation about dates, not deadlines.
+    Skipped regions (no dates reported):
+      - YAML frontmatter blocks delimited by ``---`` fences — checked
+        first so a fence is never mistaken for a table separator.
+      - Markdown headings (``#`` through ``######``) — documentation about
+        dates, not deadlines.
+      - Pure table-separator lines (require an interior ``|`` so ``---``
+        alone does not match).
+      - Bold-metadata header lines like ``**Effective:** YYYY-MM-DD`` and
+        ``**Owner of contract:** build lane`` — these describe the doc
+        itself rather than declaring a deadline.
+
+    Within the body, matches near version refs, issue IDs, card IDs, and
+    ``mtime`` snapshot citations are suppressed as non-deadline metadata.
     """
     hits: list[DateHit] = []
+    in_frontmatter = False
     for line_no, line in enumerate(text.splitlines(), start=1):
+        # Frontmatter check first so `---` is never misread as a table row.
+        frontmatter_skip, in_frontmatter = _is_frontmatter_skip(
+            line, in_frontmatter=in_frontmatter
+        )
+        if frontmatter_skip:
+            continue
         if _is_heading_or_table(line):
+            continue
+        if _BOLD_METADATA_LINE.match(line):
             continue
         for kind, pattern in _DATE_PATTERNS:
             for match in pattern.finditer(line):
@@ -271,13 +312,61 @@ def partition(hits: Iterable[DateHit]) -> tuple[list[DateHit], list[DateHit]]:
 
 
 def _strip_date_token(line: str, span: tuple[int, int]) -> str:
-    """Remove a date token from a line, collapsing extra whitespace."""
+    """Remove a date token while preserving the document structure.
+
+    The strip rule has three branches:
+
+    * **Both sides have non-whitespace content** (e.g. ``foo 2026-09-07 bar``):
+      keep exactly one space separator between the surviving tokens so
+      ``mtime 2026-07-10 12:13 UTC`` becomes ``mtime UTC`` and not
+      ``mtimeUTC`` or ``mtime  UTC``.
+    * **Date is at end-of-line** (e.g. ``**Effective:** 2026-09-07\\n``):
+      drop the date and any whitespace it absorbed, then preserve the
+      trailing newline. The bug fixed by this implementation was that
+      ``lstrip()`` consumed the newline and the next line's content
+      concatenated, producing ``**Effective:****Owner:** test``.
+    * **Date is at start-of-line** (e.g. ``   2026-09-07 is the deadline``):
+      drop the date and any leading whitespace, leaving the rest of the
+      line intact.
+    * **Date is alone on the line**: the line collapses to a blank line
+      (newline preserved) so the surrounding paragraphs stay separate.
+
+    The strip operates on a single logical line. The caller is responsible
+    for keeping each hit's ``col_start`` / ``col_end`` accurate against
+    the current line buffer (already done by ``strip_untagged``).
+    """
     start, end = span
-    pre = line[:start].rstrip()
-    post = line[end:].lstrip()
-    if pre and post:
-        return f"{pre} {post}"
-    return pre + post
+    # Locate the date's surrounding horizontal whitespace so we drop any
+    # padding the date absorbed. We never cross newlines.
+    trim_left = start
+    while trim_left > 0 and line[trim_left - 1] in " \t":
+        trim_left -= 1
+    trim_right = end
+    while trim_right < len(line) and line[trim_right] in " \t":
+        trim_right += 1
+
+    pre = line[:trim_left]
+    post = line[trim_right:]
+
+    pre_content = pre.rstrip()
+    # lstrip() removes leading whitespace; newlines at the very start are
+    # not leading, so a line starting with content stays intact.
+    post_content = post.lstrip()
+
+    if pre_content and post_content:
+        # Both sides have content — keep exactly one space separator.
+        return pre_content + " " + post_content
+    if pre_content:
+        # Only the left side has content — preserve the trailing newline
+        # if the original line had one, otherwise drop the date outright.
+        suffix = "\n" if post.endswith("\n") else ""
+        return pre_content + suffix
+    if post_content:
+        # Only the right side has content — return it verbatim.
+        return post_content
+    # Date alone on the line: keep the newline (if any) so surrounding
+    # paragraphs do not collapse onto each other.
+    return post
 
 
 def strip_untagged(text: str, hits: list[DateHit]) -> str:

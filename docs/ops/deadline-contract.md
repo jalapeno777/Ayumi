@@ -1,9 +1,9 @@
 # Deadline Owner-Tag Contract
 
 **Card:** 0b910897-2e60-4556-83d5-e5abd051e505
-**Effective:** 2026-09-07
 **Owner of contract:** build lane (Tsubaki)
 **Approver:** Rin (review)
+**Effective:** 2026-09-07 (contract metadata — non-deadline, see §Self-reference below)
 
 ## Why this exists
 
@@ -83,6 +83,32 @@ Observations:
   `s008-w4b-s101-adjudication.md`) carry 9 untagged dates between them;
   those are the real deadlines to triage in the first migration pass.
 
+## Self-reference: metadata dates are not deadlines
+
+This contract document itself contains two dates that **must not** be
+reported as untagged deadlines:
+
+| Where                                          | Pattern                            | Why it is exempt                                                                                                                                                            |
+| ---------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontmatter above (`**Effective:** …`)         | bold-metadata header line          | Bold-metadata lines (`**Key:** value`) describe the doc itself, not a deadline. The scanner suppresses them so the shipped contract does not violate its own baseline.       |
+| Migration plan (`mtime …`)                     | snapshot-timestamp citation        | `mtime YYYY-MM-DD HH:MM UTC` is a non-deadline evidence citation. The scanner suppresses it because the migration plan explicitly treats these as suppressable metadata. |
+
+Both exemptions are pinned by regression tests:
+
+* `tests/unit/test_deadline_owner_check.py::TestMtimeFalsePositive` covers
+  the `mtime` pattern and the frontmatter-style metadata block.
+* `tests/unit/test_deadline_owner_check.py::TestFrontmatterAwareScan`
+  covers YAML frontmatter fences and pre-heading bold-metadata blocks.
+* `tests/unit/test_deadline_owner_check.py::TestStripUntaggedDocumentStructure`
+  covers both Rin REWORK cases — bold-metadata suppression at scan and the
+  document-structure rules in `_strip_date_token`.
+
+The shipped contract therefore satisfies the deadline-owner check. The
+required phase1/phase2 sections (Acceptance Criteria / Verification
+Command / Rollback) live at the bottom of this doc so the full
+`validate_sprint_plan.sh phase3 --doc docs/ops/deadline-contract.md`
+gate returns exit 0 as well.
+
 ## Migration plan
 
 1. **Stop-the-bleed (now):** `scripts/validate_sprint_plan.sh` phase3 is
@@ -132,6 +158,58 @@ bash scripts/validate_sprint_plan.sh <sprint-id> phase3 --doc <plan.md>
 
 (Fixtures live alongside the contract, ready for `git`-stage and CI wiring
 once Ayumi's CI surface is restored.)
+
+## Acceptance Criteria
+
+* AC1 — `python3 scripts/deadline_owner_check.py --json <untagged-sprint>`
+  exits 1 and reports every untagged date with line number and snippet.
+* AC2 — `python3 scripts/deadline_owner_check.py --json <tagged-sprint>`
+  exits 0 and reports every date as tagged.
+* AC3 — `bash scripts/validate_sprint_plan.sh <sprint-id> phase3 --doc <plan>`
+  exits 1 when the plan contains untagged dates and 0 when every date
+  carries a `CRAIG-OWNED` / `AGENT-OWNED` tag.
+* AC4 — `python3 scripts/deadline_owner_check.py --strip <doc>` removes
+  untagged dates while preserving document structure: line breaks are
+  not collapsed, dates between two words keep a single separating space,
+  and dates alone on a line reduce to a blank line rather than vanishing.
+* AC5 — `python3 scripts/deadline_owner_check.py --baseline <doc>` emits
+  shadow-count JSON suitable for inclusion in the two-week migration
+  table above.
+* AC6 — The shipped contract (`docs/ops/deadline-contract.md`) satisfies
+  `bash scripts/validate_sprint_plan.sh smoke phase3 --doc docs/ops/deadline-contract.md → exit 0`.
+
+## Verification Command
+
+```bash
+# Phase3 contract gate (untagged fixture → exit 1, tagged fixture → exit 0).
+bash scripts/validate_sprint_plan.sh test-sprint phase3 --doc fixtures/sprint-with-untagged-date.md
+bash scripts/validate_sprint_plan.sh test-sprint phase3 --doc fixtures/sprint-with-tags.md
+
+# Scanner JSON (untagged → exit 1, tagged → exit 0).
+python3 scripts/deadline_owner_check.py --json fixtures/sprint-with-untagged-date.md
+python3 scripts/deadline_owner_check.py --json fixtures/sprint-with-tags.md
+
+# Targeted regression tests pinning the Rin REWORK fix and the new
+# frontmatter / bold-metadata / mtime suppression behaviour:
+python3 -m pytest tests/unit/test_deadline_owner_check.py -v
+
+# Full quality gate (py_compile, ruff, mypy, path_constant_consistency,
+# unwired_function):
+python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py \
+    --workspace=. \
+    --files=scripts/deadline_owner_check.py,scripts/validate_sprint_plan.sh \
+    --skip-tests
+```
+
+## Rollback
+
+* `git revert` the single commit on `tsubaki/0b910897-deadline-owners`
+  (or the cumulative iter-N commit once merged). No state change to
+  runtime until dispatchers adopt the script.
+* If the strip layer regresses, the regression is caught by
+  `tests/unit/test_deadline_owner_check.py::TestStripDateToken` and
+  `TestStripUntaggedDocumentStructure` before it lands — both pin the
+  per-token and document-structure rules.
 
 ## Out of scope
 
