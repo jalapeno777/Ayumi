@@ -152,7 +152,9 @@ def run_strategy_walk_forward(
     all_trade_records: list[dict] = []
     for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test_bars) < config.min_bars_before_signal:
-            window_metrics = _compute_metrics(idx, [], initial_balance=initial_balance)
+            window_metrics = _compute_metrics(
+                idx, [], initial_balance=initial_balance, bars_in_window=test_bars
+            )
             per_window.append(window_metrics)
             continue
 
@@ -188,6 +190,11 @@ def run_strategy_walk_forward(
                     all_trade_records.append(rec)
 
             if not trades and metrics_obj.total_trades > 0:
+                # Synthetic avg-pnl fallback (card ef11b0dd). Trades here
+                # have no per-trade timing; pass bars_in_window anyway so
+                # the returns-based Sharpe formula degrades gracefully
+                # (std_return=0 short-circuits to sharpe=0.0 rather than
+                # dividing by zero).
                 trades = [
                     {"pnl": metrics_obj.total_pnl / metrics_obj.total_trades} for _ in range(metrics_obj.total_trades)
                 ]
@@ -195,7 +202,9 @@ def run_strategy_walk_forward(
             logger.warning("Trade extraction failed for window %d, skipping", idx)
             raise
 
-        window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
+        window_metrics = _compute_metrics(
+            idx, trades, initial_balance=initial_balance, bars_in_window=test_bars
+        )
 
         # T6: Sanitise PF (no Infinity) and warn on low trade count
         _check_trade_count_warning(idx, window_metrics.trade_count)
@@ -313,7 +322,9 @@ def run_multi_strategy_walk_forward(
     all_trade_records: list[dict] = []
     for idx, (train_bars, val_bars, test_bars) in enumerate(validator.split(bars)):  # noqa: B007
         if len(test_bars) < config.min_bars_before_signal:
-            window_metrics = _compute_metrics(idx, [], initial_balance=initial_balance)
+            window_metrics = _compute_metrics(
+                idx, [], initial_balance=initial_balance, bars_in_window=test_bars
+            )
             per_window.append(window_metrics)
             continue
 
@@ -347,7 +358,9 @@ def run_multi_strategy_walk_forward(
             logger.warning("Trade extraction failed for window %d, skipping", idx)
             raise
 
-        window_metrics = _compute_metrics(idx, trades, initial_balance=initial_balance)
+        window_metrics = _compute_metrics(
+            idx, trades, initial_balance=initial_balance, bars_in_window=test_bars
+        )
 
         # T6: Sanitise PF (no Infinity) and warn on low trade count
         _check_trade_count_warning(idx, window_metrics.trade_count)
