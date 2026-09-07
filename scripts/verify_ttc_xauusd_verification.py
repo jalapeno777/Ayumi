@@ -190,7 +190,9 @@ def run_walk_forward(
                 for t in metrics_obj.trades
             ]
             all_trade_records.extend(trade_dicts)
-            window_metrics = _compute_metrics(idx, trade_dicts, initial_balance=10000)
+            window_metrics = _compute_metrics(
+                idx, trade_dicts, initial_balance=10000, bars_in_window=test_bars
+            )
             window_metrics = window_metrics.__class__(
                 window_index=window_metrics.window_index,
                 win_rate=window_metrics.win_rate,

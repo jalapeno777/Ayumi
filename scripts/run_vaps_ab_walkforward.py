@@ -127,7 +127,9 @@ def run_vaps_ab_walk_forward(
             spread_pips=effective_spread,
             vaps_config=cfg,
         )
-        vaps_metrics = _compute_metrics(idx, vaps_trades, initial_balance=initial_balance)
+        vaps_metrics = _compute_metrics(
+            idx, vaps_trades, initial_balance=initial_balance, bars_in_window=test_bars
+        )
         vaps_per_window.append(vaps_metrics)
 
         fixed_m = fixed_results.per_window[idx]
