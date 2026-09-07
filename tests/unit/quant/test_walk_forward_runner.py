@@ -21,7 +21,6 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -37,7 +36,6 @@ from backtest.walk_forward_runner import (  # noqa: E402, I001
     run_multi_strategy_walk_forward,
     run_strategy_walk_forward,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -193,7 +191,7 @@ class TestRunStrategyWalkForwardCallSites:
             initial_balance=10000.0,
         )
         assert len(captured) >= 1
-        for args, kwargs in captured:
+        for args, kwargs in captured:  # noqa: B007
             assert "bars_in_window" in kwargs
             assert kwargs["bars_in_window"] is not None
 
@@ -205,9 +203,9 @@ class TestRunStrategyWalkForwardCallSites:
         uses the legacy path)."""
         bars = _bars_spanning(datetime(2026, 1, 1), "H1", 200)
 
-        # Restore the real _compute_metrics so the recorder DOES use the
-        # fixed path. We capture kwargs in parallel for the assertion.
-        captured = _capture_compute_kwargs(
+        # Install the recorder so _compute_metrics is patched away; this
+        # test asserts on DeprecationWarnings, not on captured kwargs.
+        _capture_compute_kwargs(  # noqa: F841
             monkeypatch, "backtest.walk_forward_runner._compute_metrics"
         )
         run_strategy_walk_forward(
@@ -264,7 +262,7 @@ class TestRunMultiStrategyWalkForwardCallSites:
             f"_compute_metrics was never called; expected at least one "
             f"short-window branch call. Captured={captured}"
         )
-        for args, kwargs in captured:
+        for args, kwargs in captured:  # noqa: B007
             assert "bars_in_window" in kwargs
             assert kwargs["bars_in_window"] is not None
 
@@ -286,7 +284,7 @@ class TestRunMultiStrategyWalkForwardCallSites:
             initial_balance=10000.0,
         )
         assert len(captured) >= 1
-        for args, kwargs in captured:
+        for args, kwargs in captured:  # noqa: B007
             assert "bars_in_window" in kwargs
             assert kwargs["bars_in_window"] is not None
 
@@ -380,7 +378,7 @@ class TestSyntheticTradeFallback:
             initial_balance=10000.0,
         )
         assert len(captured) >= 1
-        for args, kwargs in captured:
+        for args, kwargs in captured:  # noqa: B007
             assert "bars_in_window" in kwargs
             assert kwargs["bars_in_window"] is not None, (
                 "Synthetic-trade fallback branch did not thread "
