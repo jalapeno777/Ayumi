@@ -1,1 +1,2 @@
 {"ts": "2026-08-18T05:53:40.896884+00:00", "gate": "dirty_tree_check", "card_id": "0d7d7557-a7cd-48b0-9a8a-34177b066da7", "action": "passed"}
+{"ts": "2026-09-07T22:07:00.136207+00:00", "gate": "extract", "card_id": "62615197-2af2-447e-adaf-e409a3f0291c", "action": "failed"}

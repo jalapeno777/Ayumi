@@ -33,6 +33,7 @@ from signal_engine.pattern_detector import (
     AsiaSessionAnalyzer,
 )
 from signal_engine.swing_detector import SwingDetector
+from utils.pip_value import pip_value_for_symbol
 
 from ..engine import Bar, MarketState, StrategySignal, TradeDirection
 from ..strategy_legacy import ISignalStrategy
@@ -229,8 +230,8 @@ class TTSStrategy(ISignalStrategy):
         self._asia_range_thresholds = self._get_asia_range_thresholds(symbol)
         # Phase 3 components
         self._confluence_scorer = ConfluenceScorer()
-        # Pair-specific pip size
-        pip_size = 0.01 if symbol.upper().endswith("JPY") or symbol.upper() == "XAUUSD" else 0.0001
+        # Pair-specific pip size — canonical via utils.pip_value (XAUUSD=0.1, JPY=0.01, FX=0.0001)
+        pip_size = pip_value_for_symbol(symbol)
         self._stop_target = StopTargetCalculator(pip_size=pip_size, timeframe=timeframe)
         # Session
         self._session_analyzer = SessionAnalyzer()
