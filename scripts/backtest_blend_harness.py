@@ -75,6 +75,7 @@ from adapters.ctrader.forward_test_engine import ForwardTestConfig
 from adapters.ctrader.risk_guard import FTMOConfig
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
+from risk.ftmo_guard import FTMOGuard
 from strategies.donchian_atr_trend_v2 import (
     DonchianATRConfig,
     DonchianATRTrendV2Strategy,
@@ -382,6 +383,29 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # it skips OpenApiSpotFeed construction entirely.
     engine._build_components()
 
+    # ── Wire FTMO guard (card aa3a1cbe — Bug 1 fix) ────────────────────────
+    # Production main loop (scripts/launch_blend_forward_test.py:1708-1741)
+    # instantiates an FTMOGuard bound to the engine's kill_switch and calls
+    # .update() after every iteration. The harness drives _evaluate_strategies()
+    # directly per bar and was missing this enforcer, letting one runaway trade
+    # drain -$123,700 on a $10K starting balance. Mirror the production pattern
+    # so the 3% daily-DD + 10% trailing-DD circuit breakers are enforced here too.
+    # engine._kill_switch is constructed in forward_test_engine.py:513 inside
+    # BlendForwardTestEngine.__init__, so it is non-None at this point.
+    _ftmo_guard = FTMOGuard(
+        kill_switch=engine._kill_switch,
+        starting_balance=10_000.0,
+        challenge_type="1-step",
+        trailing_dd=True,
+    )
+    logger.info(
+        "FTMOGuard active in harness: kill_switch=%s starting_balance=$%.2f daily_loss=%.1f%% dd_freeze=%.1f%%",
+        "wired" if engine._kill_switch is not None else "NONE",
+        10_000.0,
+        _ftmo_guard._max_daily_loss_pct,
+        _ftmo_guard._dd_freeze_pct,
+    )
+
     # Mark engine as running so internal guards pass
     engine._running = True
     engine._start_time = datetime.now(timezone.utc)
@@ -481,6 +505,29 @@ def run_backtest(args: argparse.Namespace) -> dict:
         engine._bar_completed[key] = True
         engine._evaluate_strategies(symbol)
         engine._bar_completed[key] = False
+
+        # ── FTMO guard update (card aa3a1cbe — Bug 1 fix) ────────────────
+        # Production invokes _ftmo_guard.update(balance, open_n) after every
+        # fill/iteration (launch_blend_forward_test.py:1724). Without this call
+        # daily_loss_pct stays 0.0, kill_switch never engages, and the harness
+        # lets a losing position run unbounded. We mirror the production
+        # pattern here; on FREEZE/KILL we halt the eval loop so downstream
+        # compute_stats() reflects the guard-engaged state, not the unbounded
+        # post-breach state the harness originally surfaced.
+        open_n = len(paper_trader._order_manager._positions)
+        _ftmo_action = _ftmo_guard.update(paper_trader._current_balance, open_n)
+        if _ftmo_action.value in ("freeze", "kill"):
+            engine._running = False
+            logger.warning(
+                "FTMO guard engaged in harness: %s — halting eval loop "
+                "(balance=$%.2f, open=%d, daily_loss=%.2f%%, dd=%.2f%%)",
+                _ftmo_action.value,
+                paper_trader._current_balance,
+                open_n,
+                _ftmo_guard.daily_loss_pct,
+                _ftmo_guard.current_dd_pct,
+            )
+            break
 
         bars_processed += 1
         if bars_processed % 5000 == 0:
