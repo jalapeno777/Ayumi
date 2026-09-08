@@ -45,3 +45,21 @@ Harness re-run #3 (run as root) wrote a **fake global kill + test balance into L
 3. Phase 2 tournament scaffold (architecture-lane doc)
 
 *Written by Ava 2026-09-08 12:45 EDT. ~wm~mode:sharp~*
+
+---
+
+## Afternoon addendum (2026-09-08 ~15:45 EDT) — FULL STACK LIVE
+
+**Second Craig-approved restart** (PID 3236819, 19:39 UTC) applied the afternoon stack:
+- 3de9203f — per-symbol 3-AT-RISK slot policy (breakeven/in-profit exempt; production ratchet wire-up releases slots live)
+- 98f080c6 — sane_max 5000→10000 + loud rejection counter (~25% of signal flow was silently discarded)
+- 0d229f0d — KZ leg restored (duplicate MarketState h4_bars; was dead since H4 filter)
+- 88f42e94 — SL fills at level + pre-trade FTMO gate
+- 342f91db — harness state isolation (post-incident)
+
+Startup verified: broker synced $10,262.45, peak truth-reconciled to current balance, 0 positions, FTMOGuard active kill_switch=wired, D5 envelope live.
+
+**Open Ayumi debt (workboard):** e1e32b07 (worktree PID-guard gap, high) · 171dcc39 (MarketState consolidation) · 644c565b (eval-loop halt) · 46b631ab (slippage param, w/ XAU port) · a2d68d3c (OOS trade exports) · 51462fc5 (GBPUSD/USDJPY cost runs) · d996375c (directional-lock sweep, post Asia-freeze) · 75b24f98+047cd91d (lifecycle closes blocked by claim-gate bug, work verified on disk).
+**Next milestone:** 1-week live window → gate-loosening decision (~Sep 15) → Phase 2 tournament scaffold.
+
+*— Ava*
