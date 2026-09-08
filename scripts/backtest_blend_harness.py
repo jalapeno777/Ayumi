@@ -927,6 +927,10 @@ def run_backtest(args: argparse.Namespace) -> dict:
         spread_price = args.spread if args.costs else 0.0
 
         bars_processed = 0
+        # Card 75b24f98: rate-limit per-key FTMO pre-trade-gate log lines
+        # (moved out of the loop to avoid locals() mutation — locals()
+        # assignment is not reliably observable inside CPython loops).
+        _pre_gate_keys_seen: set[str] = set()
 
         for tf_label, bar in events:
             key = h1_key if tf_label == "H1" else m15_key
@@ -958,10 +962,38 @@ def run_backtest(args: argparse.Namespace) -> dict:
             else:
                 engine._current_spread = 0.0
 
-            # Trigger evaluation
-            engine._bar_completed[key] = True
-            engine._evaluate_strategies(symbol)
-            engine._bar_completed[key] = False
+            # ── FTMO pre-trade gate (card 75b24f98 — pre-trade ordering) ────
+            # The post-eval call on _ftmo_guard below only RECORDS state and
+            # FREEZEs a breach that has already been realized — it does not
+            # gate entry.  A same-bar entry that would push daily-DD past the
+            # 3% line is accepted first, then the guard fires, but the P&L
+            # damage is already inside that bar.  Call should_allow_new_position()
+            # BEFORE _evaluate_strategies() so the breach is preempted.
+            # The post-eval update() is kept intact (production main loop pattern
+            # in scripts/launch_blend_forward_test.py:1984-2010) — it still
+            # detects intraday escalations and triggers FREEZE/KILL via the
+            # shared kill_switch.
+            _pre_gate_open, _pre_gate_reason = _ftmo_guard.should_allow_new_position()
+            if not _pre_gate_open:
+                # Block entry on this bar; log the gate reason (rate-limited
+                # to once per key to avoid log spam during prolonged freezes).
+                if key not in _pre_gate_keys_seen:
+                    logger.info(
+                        "FTMO pre-trade gate BLOCKED entry on %s (%s); "
+                        "post-eval update() will still detect escalation.",
+                        key,
+                        _pre_gate_reason,
+                    )
+                    _pre_gate_keys_seen.add(key)
+                skip_evaluate = True
+            else:
+                skip_evaluate = False
+
+            # Trigger evaluation (skipped when FTMO gate blocks entry)
+            if not skip_evaluate:
+                engine._bar_completed[key] = True
+                engine._evaluate_strategies(symbol)
+                engine._bar_completed[key] = False
 
             # ── FTMO guard update (card aa3a1cbe — Bug 1 fix) ────────────────
             # Production invokes _ftmo_guard.update(balance, open_n) after every
