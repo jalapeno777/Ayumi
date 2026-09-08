@@ -32,7 +32,11 @@ import argparse
 import importlib.util
 import json
 import logging
+import os
+import pwd
+import shutil
 import sys
+import tempfile
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +54,149 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 logger = logging.getLogger("ayumi.backtest_harness")
 
+# ── Live state paths (card 758273a7-c3f1-41fa-95dc-7384c260acd7) ───────────
+# Card 758273a7 (2026-09-08): the harness previously wrote to these paths,
+# overwriting live forward-test state during root-run re-runs and
+# contaminating the live engine's startup state. The harness now uses an
+# isolated per-run temp directory by default and refuses to run if any of
+# these live paths show a contamination signal (active PID or foreign
+# ownership).
+LIVE_FORWARD_TEST_PID = PROJECT_ROOT / "data" / "forward_test.pid"
+LIVE_KILL_SWITCH_GLOBAL_STATE = PROJECT_ROOT / "data" / "kill_switches" / "global.state"
+LIVE_RISK_STATE_BLEND = PROJECT_ROOT / "data" / "risk_state_blend.json"
+
+
+class RefuseToRun(RuntimeError):
+    """Raised by the isolation guard when a contamination signal is detected.
+
+    Card 758273a7: the harness refuses to start rather than risk writing to
+    live forward-test state files. Distinct from RuntimeError so callers
+    (including the CLI entrypoint) can surface a clear, actionable error.
+    """
+
+
+# ── Isolation guard (card 758273a7) ─────────────────────────────────────────
+
+
+def _resolve_state_dir(args: argparse.Namespace) -> Path:
+    """Resolve the harness state directory.
+
+    Default: a fresh ``tempfile.mkdtemp(prefix="ayumi_harness_state_")``
+    per-run, deleted on success. This directory holds the isolated
+    risk_state_blend.json and kill_switches/ subdirectory. The harness
+    never writes to ``data/kill_switches/`` or ``data/risk_state_blend.json``
+    when this default is used.
+
+    Operators may pass ``--state-dir PATH`` for debugging; the guard then
+    enforces strict ownership checks on the live paths regardless.
+    """
+    if getattr(args, "state_dir", None):
+        resolved = Path(args.state_dir).expanduser().resolve()
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
+    tmp = Path(tempfile.mkdtemp(prefix="ayumi_harness_state_"))
+    logger.info("Isolation: state dir = %s (auto-cleaned on success)", tmp)
+    return tmp
+
+
+def _cleanup_state_dir(state_dir: Path, keep: bool = False) -> None:
+    """Remove the harness state dir on successful exit unless ``keep`` is True.
+
+    Card 758273a7: ensures harness temp state never accumulates on disk.
+    On failure paths the directory is preserved so an operator can
+    inspect what the harness wrote.
+    """
+    if keep:
+        return
+    if not str(state_dir).startswith(tempfile.gettempdir()):
+        # Defensive: only auto-clean state dirs we created under tempfile.gettempdir()
+        return
+    try:
+        shutil.rmtree(state_dir, ignore_errors=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to clean harness state dir %s: %s", state_dir, exc)
+
+
+def _verify_isolation_or_refuse(args: argparse.Namespace, state_dir: Path) -> None:
+    """Startup guard (card 758273a7).
+
+    Refuses to start the harness when:
+
+      (a) ``data/forward_test.pid`` exists AND the PID responds to
+          ``kill -0`` (live engine is active). A stale PID file (process
+          gone) is logged and the harness continues.
+
+      (b) Any of the live state files is owned by a different user than
+          the invoking user. This catches (i) prior contamination from
+          a foreign-user harness run, and (ii) a foreign-user harness
+          about to contaminate state again. Bypass with
+          ``--allow-foreign-ownership``.
+
+    The guard always runs against the LIVE paths, not ``state_dir``,
+    because the bug pattern is harness-writes-touching-live-data.
+    """
+    allow_foreign = bool(getattr(args, "allow_foreign_ownership", False))
+
+    # (a) live forward_test PID check
+    if LIVE_FORWARD_TEST_PID.exists():
+        try:
+            pid = int(LIVE_FORWARD_TEST_PID.read_text().strip())
+            os.kill(pid, 0)  # signal 0 = existence/permission probe
+            raise RefuseToRun(
+                f"LIVE forward_test engine is running (PID {pid} responds to "
+                f"signal 0). Harness refuses to start while live engine is "
+                f"active to prevent concurrent state writes. Stop the live "
+                f"engine or remove {LIVE_FORWARD_TEST_PID} if it is a stale marker."
+            )
+        except (ValueError, ProcessLookupError, PermissionError) as exc:
+            logger.warning(
+                "Stale PID file at %s (probe: %s); continuing — operator "
+                "should remove the stale marker.",
+                LIVE_FORWARD_TEST_PID,
+                exc,
+            )
+
+    # (b) foreign-ownership check on live state files
+    if not allow_foreign:
+        invoking_uid = os.getuid()
+        try:
+            invoking_user = pwd.getpwuid(invoking_uid).pw_name
+        except KeyError:
+            invoking_user = f"uid:{invoking_uid}"
+
+        for live_file in (LIVE_KILL_SWITCH_GLOBAL_STATE, LIVE_RISK_STATE_BLEND):
+            if not live_file.exists():
+                continue
+            st = live_file.stat()
+            if st.st_uid == invoking_uid:
+                continue
+            try:
+                file_owner = pwd.getpwuid(st.st_uid).pw_name
+            except KeyError:
+                file_owner = f"uid:{st.st_uid}"
+            raise RefuseToRun(
+                f"LIVE state file {live_file} is owned by {file_owner} "
+                f"(uid={st.st_uid}); invoking user is {invoking_user} "
+                f"(uid={invoking_uid}). This signals prior harness "
+                f"contamination (card 758273a7 — root-run harness wrote "
+                f"live state on 2026-09-08). Use chown to align ownership, "
+                f"or pass --allow-foreign-ownership if you understand the risk."
+            )
+
+
+def _build_isolated_kill_switch(state_dir: Path) -> KillSwitchManager:
+    """Construct a KillSwitchManager bound to the harness's isolated state dir.
+
+    Card 758273a7: this replaces the engine's default KillSwitchManager
+    (which would point at ``data/kill_switches/`` and contaminate live
+    state on every FTMO guard activation). All consumers wired by
+    ``engine._build_components()`` see THIS instance via
+    ``self._kill_switch`` once the harness reassigns it.
+    """
+    isolated_ks_dir = state_dir / "kill_switches"
+    isolated_ks_dir.mkdir(parents=True, exist_ok=True)
+    return KillSwitchManager(state_dir=str(isolated_ks_dir), disabled=False)
+
 # ── Import blend pipeline from launch script ─────────────────────────────────
 # The BlendForwardTestEngine, CorrelationGate, RegimeGate, HeartbeatTracker,
 # and supporting constants live in launch_blend_forward_test.py at module
@@ -60,7 +207,21 @@ _spec = importlib.util.spec_from_file_location(
     "_launch_blend",
     str(PROJECT_ROOT / "scripts" / "launch_blend_forward_test.py"),
 )
+if _spec is None:
+    # Card 758273a7 (mypy baseline fix): spec_from_file_location can return
+    # None on missing modules / read errors. Raise explicitly so the failure
+    # mode is loud at startup rather than a downstream AttributeError on
+    # _spec.loader. Survives ``python -O`` (asserts would not).
+    raise ImportError(
+        f"Could not load module spec for {PROJECT_ROOT / 'scripts' / 'launch_blend_forward_test.py'} "
+        f"(spec_from_file_location returned None)"
+    )
 _launch = importlib.util.module_from_spec(_spec)
+if _spec.loader is None:
+    raise ImportError(
+        f"Module spec for {PROJECT_ROOT / 'scripts' / 'launch_blend_forward_test.py'} "
+        f"has no loader (loader=None)"
+    )
 _spec.loader.exec_module(_launch)
 
 BlendForwardTestEngine = _launch.BlendForwardTestEngine
@@ -268,6 +429,17 @@ def run_backtest(args: argparse.Namespace) -> dict:
     symbol = args.symbol.upper()
     symbols = [symbol]
 
+    # ── Isolation (card 758273a7-c3f1-41fa-95dc-7384c260acd7) ────────────
+    # Resolve an isolated per-run state dir, then run the guard. On any
+    # RefuseToRun the function returns immediately with an error dict so
+    # the CLI surfaces a clear exit-1 message instead of crashing.
+    state_dir = _resolve_state_dir(args)
+    try:
+        _verify_isolation_or_refuse(args, state_dir)
+    except RefuseToRun as exc:
+        logger.error("HARNESS REFUSED TO START: %s", exc)
+        return {"error": "isolation_guard_refused", "detail": str(exc)}
+
     # ── Parse date range ──────────────────────────────────────────────────
     start_ts = None
     end_ts = None
@@ -306,17 +478,43 @@ def run_backtest(args: argparse.Namespace) -> dict:
 
     logger.info("Strategy pool: %s", [s.name for s in strategies])
 
-    # ── Reset stale risk state ───────────────────────────────────────────
+    # ── Reset stale risk state — ISOLATED (card 758273a7) ───────────────
     # The blend runner loads risk_state_blend.json on start(), which may
     # contain stale open_risk from a previous live/session run.  This would
     # block all new signals (open_risk + new > max).  Delete before run.
-    state_path = PROJECT_ROOT / "data" / "risk_state_blend.json"
+    # The path is now isolated to the harness's per-run state dir — never
+    # the live data/risk_state_blend.json (card 758273a7 fix: harness must
+    # never overwrite live forward-test state).
+    state_path = state_dir / "risk_state_blend.json"
     if state_path.exists():
         state_path.unlink()
-        logger.info("Cleared stale risk state: %s", state_path)
+        logger.info("Cleared stale risk state: %s (isolated)", state_path)
 
     # ── Build blend runner ────────────────────────────────────────────────
     blend_runner = build_blend_runner()
+
+    # Card 758273a7 (2026-09-08): build_blend_runner() (defined in
+    # scripts/launch_blend_forward_test.py:1285+) defaults its state_path
+    # config to "data/risk_state_blend.json" (the LIVE engine state file).
+    # The runner's _persistence attribute then writes to that path on
+    # blend_runner.stop(). Patch the persistence path to the isolated
+    # state dir BEFORE the eval loop so any save call (including the one
+    # fired by blend_runner.stop() at the end of run_backtest) targets
+    # the isolated dir, never the live engine state file.
+    if hasattr(blend_runner, "_persistence") and blend_runner._persistence is not None:
+        isolated_risk_state = state_dir / "risk_state_blend.json"
+        blend_runner._persistence._path = isolated_risk_state
+        logger.info(
+            "Isolation: blend_runner._persistence._path redirected to %s "
+            "(was default data/risk_state_blend.json)",
+            isolated_risk_state,
+        )
+    else:
+        logger.warning(
+            "Isolation: blend_runner has no _persistence attribute; "
+            "skipping risk state redirect (card 758273a7 — may indicate "
+            "build_blend_runner API drift)."
+        )
 
     # Verify clean risk state after construction
     if hasattr(blend_runner, "_sizer") and blend_runner._sizer:
@@ -388,6 +586,71 @@ def run_backtest(args: argparse.Namespace) -> dict:
         "and remains administratively disabled until Craig re-enables it."
     )
 
+    # Card 758273a7 (2026-09-08): construct an ISOLATED KillSwitchManager
+    # bound to the harness state dir (NOT data/kill_switches/). The engine's
+    # __init__ at forward_test_engine.py:535 still constructs a default
+    # KillSwitchManager() — we will replace engine._kill_switch with this
+    # isolated instance BEFORE engine._build_components() so every consumer
+    # (market_feed at :989/:1100, ExecutionPermissionPolicy at :992/:1103,
+    # PositionMonitor at :1029, PaperTrader._risk_guard at :1041) sees the
+    # isolated instance via self._kill_switch. FTMO guard activations then
+    # write to state_dir/kill_switches/, never to live data/kill_switches/.
+    isolated_ks = _build_isolated_kill_switch(state_dir)
+    logger.info(
+        "Isolation: kill switch bound to %s (NOT %s)",
+        isolated_ks._state_dir,
+        LIVE_KILL_SWITCH_GLOBAL_STATE.parent,
+    )
+
+    # Card 758273a7 — broader patch: ANY ``KillSwitchManager()`` default
+    # construction inside the harness run must also point at the isolated
+    # dir. This includes:
+    #   * forward_test_engine.py:535 (engine._kill_switch)
+    #   * paper_trader.py:75 (paper_trader._kill_switch, created BEFORE
+    #     the engine's set_kill_switch override at :1041)
+    #   * risk_guard.py:567 (fallback when self._kill_switch is None)
+    # We patch the canonical ``adapters.ctrader.kill_switch.KillSwitchManager``
+    # itself so every module that imports it (including the ``from .kill_switch
+    # import KillSwitchManager`` inside risk_guard.py's fallback) sees the
+    # patched class. The patch is reverted after engine construction.
+    import adapters.ctrader.kill_switch as _ks_module
+
+    class _HarnessIsolatedKS(KillSwitchManager):
+        """Subclass used only inside the harness — defaults state_dir to
+        the harness's isolated dir so EVERY ``KillSwitchManager()`` call
+        (engine.__init__, PaperTrader.__init__, RiskGuard fallback) writes
+        to the isolated dir, never to live data/kill_switches/. Card 758273a7.
+        """
+
+        def __init__(self, *args, **kwargs):
+            kwargs.setdefault("state_dir", str(isolated_ks._state_dir))
+            kwargs.setdefault("disabled", False)
+            super().__init__(*args, **kwargs)
+
+    _saved_ks_cls = _ks_module.KillSwitchManager
+    _ks_module.KillSwitchManager = _HarnessIsolatedKS
+    # Also patch every already-imported reference (each module holds its
+    # own binding via ``from .kill_switch import KillSwitchManager``).
+    import adapters.ctrader.forward_test_engine as _fte_module
+    _saved_fte_ks = _fte_module.KillSwitchManager
+    _fte_module.KillSwitchManager = _HarnessIsolatedKS
+    try:
+        from adapters.ctrader import paper_trader as _pt_module
+        _saved_pt_ks = getattr(_pt_module, "KillSwitchManager", None)
+        _pt_module.KillSwitchManager = _HarnessIsolatedKS
+    except ImportError:
+        _saved_pt_ks = None
+    try:
+        from adapters.ctrader import risk_guard as _rg_module
+        # risk_guard.py does ``from .kill_switch import KillSwitchManager``
+        # INSIDE the function (lazy), not at module level — so the module
+        # attribute may not exist. Patch only if present.
+        _saved_rg_ks = getattr(_rg_module, "KillSwitchManager", None)
+        if _saved_rg_ks is not None:
+            _rg_module.KillSwitchManager = _HarnessIsolatedKS
+    except ImportError:
+        _saved_rg_ks = None
+
     # ── Create engine ─────────────────────────────────────────────────────
     engine = BlendForwardTestEngine(
         config=config,
@@ -401,6 +664,20 @@ def run_backtest(args: argparse.Namespace) -> dict:
         regime_gate=regime_gate,
         blend_mode=True,
     )
+
+    # Card 758273a7: defensively re-affirm engine._kill_switch is the
+    # isolated instance. The subclassed __init__ used during engine
+    # construction already wrote to the isolated dir, but we also
+    # explicitly set the canonical isolated_ks reference here so any
+    # later code reading engine._kill_switch sees the exact instance we
+    # built at the top of this section (consistent identity for tests).
+    # NOTE: the module-level KillSwitchManager patch stays in effect
+    # through engine._build_components() below — PaperTrader.__init__
+    # (paper_trader.py:75) and any RiskGuard fallback (risk_guard.py:567)
+    # also need the patched subclass so their default-state-dir kill
+    # switch instances point at the isolated dir. Patch restore is
+    # deferred to AFTER the eval loop completes (see end of run_backtest).
+    engine._kill_switch = isolated_ks
 
     # ── Build internal components WITHOUT starting the feed ───────────────
     # _build_components() creates PaperTrader, cTraderLiveAdapter,
@@ -673,6 +950,24 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # ── Cleanup ───────────────────────────────────────────────────────────
     blend_runner.stop()
 
+    # Card 758273a7: restore the KillSwitchManager references in every
+    # module we patched. The patches were kept in effect through the
+    # engine's _build_components() so PaperTrader / RiskGuard defaults
+    # also point at the isolated dir. Now that the run is complete,
+    # restore originals so any subsequent in-process code (rare in this
+    # one-shot CLI) sees the canonical KillSwitchManager class.
+    _ks_module.KillSwitchManager = _saved_ks_cls  # noqa: F821
+    _fte_module.KillSwitchManager = _saved_fte_ks  # noqa: F821
+    if _saved_pt_ks is not None:  # noqa: F821
+        _pt_module.KillSwitchManager = _saved_pt_ks  # noqa: F821
+    if _saved_rg_ks is not None:  # noqa: F821
+        _rg_module.KillSwitchManager = _saved_rg_ks  # noqa: F821
+
+    # Card 758273a7: surface the isolated state dir + auto-clean policy.
+    results["_state_dir"] = str(state_dir)
+    results["_state_dir_kept"] = bool(getattr(args, "keep_state_dir", False))
+    _cleanup_state_dir(state_dir, keep=bool(getattr(args, "keep_state_dir", False)))
+
     return results
 
 
@@ -703,6 +998,33 @@ def main():
     parser.add_argument("--db-path", default=None, help="Override DuckDB path")
     parser.add_argument("--output", default="data/backtest_results.json", help="Output JSON path")
     parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging")
+    parser.add_argument(
+        "--state-dir",
+        default=None,
+        help=(
+            "Harness state directory (risk_state_blend.json + kill_switches/). "
+            "Default: fresh tempfile.mkdtemp per run, auto-cleaned on success. "
+            "Card 758273a7: harness must NEVER write to data/kill_switches/ or "
+            "data/risk_state_blend.json unless --allow-foreign-ownership is set."
+        ),
+    )
+    parser.add_argument(
+        "--allow-foreign-ownership",
+        action="store_true",
+        help=(
+            "Bypass the foreign-ownership guard on live state files. Operator-only "
+            "debugging flag — does NOT bypass the live-PID guard. Card 758273a7."
+        ),
+    )
+    parser.add_argument(
+        "--keep-state-dir",
+        action="store_true",
+        help=(
+            "Preserve the harness state dir after a successful run (default: "
+            "auto-clean). Useful for post-mortem inspection of isolated "
+            "kill_switch/global.state or risk_state_blend.json. Card 758273a7."
+        ),
+    )
     args = parser.parse_args()
 
     level = "DEBUG" if args.verbose else "INFO"
