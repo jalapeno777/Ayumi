@@ -11,3 +11,7 @@ ignore = ["E402"]
 "src/forex-bot/tests/*.py" = ["E402", "S101"]
 "scripts/**/*.py" = ["E402", "S101"]
 "scripts/*.py" = ["E402", "S101"]
+# Card 758273a7: test exercises regex source matching; `.start()` returns
+# a regex match offset (int), not SQL. S608 false-positive on
+# f"...{[m.start() for m in matches]}".
+"tests/unit/scripts/test_blend_harness_isolation.py" = ["S608"]

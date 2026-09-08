@@ -32,8 +32,13 @@ import argparse
 import importlib.util
 import json
 import logging
+import os
+import pwd
+import shutil
 import sys
+import tempfile
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -50,6 +55,281 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 logger = logging.getLogger("ayumi.backtest_harness")
 
+# ── Live state paths (card 758273a7-c3f1-41fa-95dc-7384c260acd7) ───────────
+# Card 758273a7 (2026-09-08): the harness previously wrote to these paths,
+# overwriting live forward-test state during root-run re-runs and
+# contaminating the live engine's startup state. The harness now uses an
+# isolated per-run temp directory by default and refuses to run if any of
+# these live paths show a contamination signal (active PID or foreign
+# ownership).
+LIVE_FORWARD_TEST_PID = PROJECT_ROOT / "data" / "forward_test.pid"
+LIVE_KILL_SWITCH_GLOBAL_STATE = PROJECT_ROOT / "data" / "kill_switches" / "global.state"
+LIVE_RISK_STATE_BLEND = PROJECT_ROOT / "data" / "risk_state_blend.json"
+
+
+class RefuseToRun(RuntimeError):
+    """Raised by the isolation guard when a contamination signal is detected.
+
+    Card 758273a7: the harness refuses to start rather than risk writing to
+    live forward-test state files. Distinct from RuntimeError so callers
+    (including the CLI entrypoint) can surface a clear, actionable error.
+    """
+
+
+# ── Isolation guard (card 758273a7) ─────────────────────────────────────────
+
+
+def _resolve_state_dir(args: argparse.Namespace) -> Path:
+    """Resolve the harness state directory.
+
+    Default: a fresh ``tempfile.mkdtemp(prefix="ayumi_harness_state_")``
+    per-run, deleted on success. This directory holds the isolated
+    risk_state_blend.json and kill_switches/ subdirectory. The harness
+    never writes to ``data/kill_switches/`` or ``data/risk_state_blend.json``
+    when this default is used.
+
+    Operators may pass ``--state-dir PATH`` for debugging; the guard then
+    enforces strict ownership checks on the live paths regardless.
+    """
+    if getattr(args, "state_dir", None):
+        resolved = Path(args.state_dir).expanduser().resolve()
+        resolved.mkdir(parents=True, exist_ok=True)
+        return resolved
+    tmp = Path(tempfile.mkdtemp(prefix="ayumi_harness_state_"))
+    logger.info("Isolation: state dir = %s (auto-cleaned on success)", tmp)
+    return tmp
+
+
+def _cleanup_state_dir(state_dir: Path, keep: bool = False) -> None:
+    """Remove the harness state dir on successful exit unless ``keep`` is True.
+
+    Card 758273a7: ensures harness temp state never accumulates on disk.
+    On failure paths the directory is preserved so an operator can
+    inspect what the harness wrote.
+    """
+    if keep:
+        return
+    if not str(state_dir).startswith(tempfile.gettempdir()):
+        # Defensive: only auto-clean state dirs we created under tempfile.gettempdir()
+        return
+    try:
+        shutil.rmtree(state_dir, ignore_errors=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to clean harness state dir %s: %s", state_dir, exc)
+
+
+def _verify_isolation_or_refuse(args: argparse.Namespace, state_dir: Path) -> None:
+    """Startup guard (card 758273a7).
+
+    Refuses to start the harness when:
+
+      (a) ``data/forward_test.pid`` exists AND the PID responds to
+          ``kill -0`` (live engine is active). A stale PID file (process
+          gone) is logged and the harness continues.
+
+      (b) Any of the live state files is owned by a different user than
+          the invoking user. This catches (i) prior contamination from
+          a foreign-user harness run, and (ii) a foreign-user harness
+          about to contaminate state again. Bypass with
+          ``--allow-foreign-ownership``.
+
+    The guard always runs against the LIVE paths, not ``state_dir``,
+    because the bug pattern is harness-writes-touching-live-data.
+    """
+    allow_foreign = bool(getattr(args, "allow_foreign_ownership", False))
+
+    # (a) live forward_test PID check
+    # Rin REWORK (card 758273a7 verdict 4f384bfc, comment 4f384bfc): the
+    # pre-rework guard caught PermissionError as STALE (fail-open). That
+    # was wrong on two axes:
+    #   * PermissionError on read_text() — the file is locked or owned by
+    #     a foreign user. That is a SECURITY signal, not a stale marker.
+    #   * PermissionError on os.kill(pid, 0) — the process exists but is
+    #     not owned by us (EPERM). That is exactly the live engine running
+    #     under a foreign user account, which is the contamination pattern
+    #     that caused the 2026-09-08 incident.
+    # Split the exception handling: read errors and EPERM refuse; only
+    # ProcessLookupError (PID is gone) is treated as stale.
+    if LIVE_FORWARD_TEST_PID.exists():
+        # Read phase — fail closed on any read failure.
+        try:
+            pid = int(LIVE_FORWARD_TEST_PID.read_text().strip())
+        except (ValueError, OSError, PermissionError) as exc:
+            raise RefuseToRun(
+                f"LIVE forward_test PID file {LIVE_FORWARD_TEST_PID} is "
+                f"unreadable ({exc.__class__.__name__}: {exc}). Failing "
+                f"closed — refusing to run. Investigate the PID file's "
+                f"permissions/ownership before retrying. "
+                f"Card 758273a7 rework (Rin verdict 4f384bfc HIGH #3)."
+            ) from exc
+
+        # Probe phase — signal 0 returns ESRCH for missing PID, EPERM
+        # for foreign-owned alive PID, 0 for our-owned alive PID.
+        try:
+            os.kill(pid, 0)
+            # Probe succeeded without exception — the PID exists and we
+            # own it (or it's accessible). Refuse — live engine is active.
+            raise RefuseToRun(
+                f"LIVE forward_test engine is running (PID {pid} responds "
+                f"to signal 0). Harness refuses to start while live engine "
+                f"is active to prevent concurrent state writes. Stop the "
+                f"live engine or remove {LIVE_FORWARD_TEST_PID} if it is "
+                f"a stale marker."
+            )
+        except ProcessLookupError as exc:
+            # PID is genuinely gone — stale marker. Log + continue.
+            logger.warning(
+                "Stale PID file at %s (PID %d does not exist: %s); "
+                "continuing — operator should remove the stale marker.",
+                LIVE_FORWARD_TEST_PID,
+                pid,
+                exc,
+            )
+        except PermissionError as exc:
+            # EPERM — PID exists but is owned by a foreign user. This is
+            # the contamination pattern from the 2026-09-08 incident.
+            # FAIL CLOSED.
+            raise RefuseToRun(
+                f"LIVE forward_test PID {pid} exists but is not owned by "
+                f"the invoking user (EPERM: {exc}). This may indicate the "
+                f"live engine is running under a foreign user account — "
+                f"exactly the contamination pattern from the 2026-09-08 "
+                f"Phase 1 restart incident. Harness refuses to start. "
+                f"Card 758273a7 rework (Rin verdict 4f384bfc HIGH #3)."
+            ) from exc
+
+    # (b) foreign-ownership check on live state files
+    if not allow_foreign:
+        invoking_uid = os.getuid()
+        try:
+            invoking_user = pwd.getpwuid(invoking_uid).pw_name
+        except KeyError:
+            invoking_user = f"uid:{invoking_uid}"
+
+        for live_file in (LIVE_KILL_SWITCH_GLOBAL_STATE, LIVE_RISK_STATE_BLEND):
+            if not live_file.exists():
+                continue
+            st = live_file.stat()
+            if st.st_uid == invoking_uid:
+                continue
+            try:
+                file_owner = pwd.getpwuid(st.st_uid).pw_name
+            except KeyError:
+                file_owner = f"uid:{st.st_uid}"
+            raise RefuseToRun(
+                f"LIVE state file {live_file} is owned by {file_owner} "
+                f"(uid={st.st_uid}); invoking user is {invoking_user} "
+                f"(uid={invoking_uid}). This signals prior harness "
+                f"contamination (card 758273a7 — root-run harness wrote "
+                f"live state on 2026-09-08). Use chown to align ownership, "
+                f"or pass --allow-foreign-ownership if you understand the risk."
+            )
+
+
+def _build_isolated_kill_switch(state_dir: Path) -> KillSwitchManager:
+    """Construct a KillSwitchManager bound to the harness's isolated state dir.
+
+    Card 758273a7: this replaces the engine's default KillSwitchManager
+    (which would point at ``data/kill_switches/`` and contaminate live
+    state on every FTMO guard activation). All consumers wired by
+    ``engine._build_components()`` see THIS instance via
+    ``self._kill_switch`` once the harness reassigns it.
+    """
+    isolated_ks_dir = state_dir / "kill_switches"
+    isolated_ks_dir.mkdir(parents=True, exist_ok=True)
+    return KillSwitchManager(state_dir=str(isolated_ks_dir), disabled=False)
+
+
+@contextmanager
+def _isolation_patch(isolated_ks: KillSwitchManager):
+    """Exception-safe context that patches all KillSwitchManager bindings
+    and flips ``_disabled=False`` for the harness run, restoring the
+    originals on EVERY exit path (success, exception, RefuseToRun).
+
+    Card 758273a7 REWORK (Rin verdict 4f384bfc HIGH #1 + #2):
+      * Original module-level patches restored on exception (was: only
+        restored on success path, leaking _HarnessIsolatedKS into
+        subsequent in-process constructions).
+      * Original ``KillSwitchManager._disabled`` value restored (was:
+        flipped to False and never restored, leaking into subsequent
+        in-process runs that would default to enabled despite the
+        production class default).
+
+    Caller is responsible for building ``isolated_ks`` BEFORE entering
+    the context (the subclass defined inside this context references
+    ``isolated_ks._state_dir``).
+    """
+    # Capture originals BEFORE any flip / patch.
+    _saved_disabled = KillSwitchManager._disabled
+
+    import adapters.ctrader.forward_test_engine as _fte_module
+    import adapters.ctrader.kill_switch as _ks_module
+    _saved_ks_cls = _ks_module.KillSwitchManager
+    _saved_fte_ks = _fte_module.KillSwitchManager
+
+    _pt_module = None
+    _saved_pt_ks = None
+    try:
+        from adapters.ctrader import paper_trader as _pt_module  # type: ignore[no-redef]  # noqa: F841
+        _saved_pt_ks = getattr(_pt_module, "KillSwitchManager", None)
+    except ImportError:
+        pass
+
+    _rg_module = None
+    _saved_rg_ks = None
+    try:
+        from adapters.ctrader import risk_guard as _rg_module  # type: ignore[no-redef]  # noqa: F841
+        # risk_guard.py does ``from .kill_switch import KillSwitchManager``
+        # INSIDE the function (lazy), not at module level — so the module
+        # attribute may not exist. Capture only if present.
+        _saved_rg_ks = getattr(_rg_module, "KillSwitchManager", None)
+    except ImportError:
+        pass
+
+    # Define the patched subclass using the caller-supplied isolated_ks.
+    class _HarnessIsolatedKS(KillSwitchManager):
+        """Subclass used only inside the harness — defaults state_dir to
+        the harness's isolated dir so EVERY ``KillSwitchManager()`` call
+        (engine.__init__, PaperTrader.__init__, RiskGuard fallback) writes
+        to the isolated dir, never to live data/kill_switches/. Card 758273a7.
+        """
+
+        def __init__(self, *args, **kwargs):
+            kwargs.setdefault("state_dir", str(isolated_ks._state_dir))
+            kwargs.setdefault("disabled", False)
+            super().__init__(*args, **kwargs)
+
+    try:
+        # Apply patches.
+        KillSwitchManager._disabled = False
+        _ks_module.KillSwitchManager = _HarnessIsolatedKS
+        _fte_module.KillSwitchManager = _HarnessIsolatedKS
+        if _pt_module is not None and _saved_pt_ks is not None:
+            _pt_module.KillSwitchManager = _HarnessIsolatedKS
+        if _rg_module is not None and _saved_rg_ks is not None:
+            _rg_module.KillSwitchManager = _HarnessIsolatedKS
+        logger.debug(
+            "Harness isolation patches APPLIED (_disabled=%s -> False, "
+            "modules: ks,fte,pt=%s,rg=%s)",
+            _saved_disabled,
+            _pt_module is not None,
+            _rg_module is not None,
+        )
+        yield
+    finally:
+        # ALWAYS restore — even on exception, RefuseToRun, or KeyboardInterrupt.
+        KillSwitchManager._disabled = _saved_disabled
+        _ks_module.KillSwitchManager = _saved_ks_cls
+        _fte_module.KillSwitchManager = _saved_fte_ks
+        if _pt_module is not None and _saved_pt_ks is not None:
+            _pt_module.KillSwitchManager = _saved_pt_ks
+        if _rg_module is not None and _saved_rg_ks is not None:
+            _rg_module.KillSwitchManager = _saved_rg_ks
+        logger.debug(
+            "Harness isolation patches RESTORED (_disabled=%s, modules restored)",
+            _saved_disabled,
+        )
+
 # ── Import blend pipeline from launch script ─────────────────────────────────
 # The BlendForwardTestEngine, CorrelationGate, RegimeGate, HeartbeatTracker,
 # and supporting constants live in launch_blend_forward_test.py at module
@@ -60,7 +340,21 @@ _spec = importlib.util.spec_from_file_location(
     "_launch_blend",
     str(PROJECT_ROOT / "scripts" / "launch_blend_forward_test.py"),
 )
+if _spec is None:
+    # Card 758273a7 (mypy baseline fix): spec_from_file_location can return
+    # None on missing modules / read errors. Raise explicitly so the failure
+    # mode is loud at startup rather than a downstream AttributeError on
+    # _spec.loader. Survives ``python -O`` (asserts would not).
+    raise ImportError(
+        f"Could not load module spec for {PROJECT_ROOT / 'scripts' / 'launch_blend_forward_test.py'} "
+        f"(spec_from_file_location returned None)"
+    )
 _launch = importlib.util.module_from_spec(_spec)
+if _spec.loader is None:
+    raise ImportError(
+        f"Module spec for {PROJECT_ROOT / 'scripts' / 'launch_blend_forward_test.py'} "
+        f"has no loader (loader=None)"
+    )
 _spec.loader.exec_module(_launch)
 
 BlendForwardTestEngine = _launch.BlendForwardTestEngine
@@ -268,6 +562,17 @@ def run_backtest(args: argparse.Namespace) -> dict:
     symbol = args.symbol.upper()
     symbols = [symbol]
 
+    # ── Isolation (card 758273a7-c3f1-41fa-95dc-7384c260acd7) ────────────
+    # Resolve an isolated per-run state dir, then run the guard. On any
+    # RefuseToRun the function returns immediately with an error dict so
+    # the CLI surfaces a clear exit-1 message instead of crashing.
+    state_dir = _resolve_state_dir(args)
+    try:
+        _verify_isolation_or_refuse(args, state_dir)
+    except RefuseToRun as exc:
+        logger.error("HARNESS REFUSED TO START: %s", exc)
+        return {"error": "isolation_guard_refused", "detail": str(exc)}
+
     # ── Parse date range ──────────────────────────────────────────────────
     start_ts = None
     end_ts = None
@@ -306,17 +611,43 @@ def run_backtest(args: argparse.Namespace) -> dict:
 
     logger.info("Strategy pool: %s", [s.name for s in strategies])
 
-    # ── Reset stale risk state ───────────────────────────────────────────
+    # ── Reset stale risk state — ISOLATED (card 758273a7) ───────────────
     # The blend runner loads risk_state_blend.json on start(), which may
     # contain stale open_risk from a previous live/session run.  This would
     # block all new signals (open_risk + new > max).  Delete before run.
-    state_path = PROJECT_ROOT / "data" / "risk_state_blend.json"
+    # The path is now isolated to the harness's per-run state dir — never
+    # the live data/risk_state_blend.json (card 758273a7 fix: harness must
+    # never overwrite live forward-test state).
+    state_path = state_dir / "risk_state_blend.json"
     if state_path.exists():
         state_path.unlink()
-        logger.info("Cleared stale risk state: %s", state_path)
+        logger.info("Cleared stale risk state: %s (isolated)", state_path)
 
     # ── Build blend runner ────────────────────────────────────────────────
     blend_runner = build_blend_runner()
+
+    # Card 758273a7 (2026-09-08): build_blend_runner() (defined in
+    # scripts/launch_blend_forward_test.py:1285+) defaults its state_path
+    # config to "data/risk_state_blend.json" (the LIVE engine state file).
+    # The runner's _persistence attribute then writes to that path on
+    # blend_runner.stop(). Patch the persistence path to the isolated
+    # state dir BEFORE the eval loop so any save call (including the one
+    # fired by blend_runner.stop() at the end of run_backtest) targets
+    # the isolated dir, never the live engine state file.
+    if hasattr(blend_runner, "_persistence") and blend_runner._persistence is not None:
+        isolated_risk_state = state_dir / "risk_state_blend.json"
+        blend_runner._persistence._path = isolated_risk_state
+        logger.info(
+            "Isolation: blend_runner._persistence._path redirected to %s "
+            "(was default data/risk_state_blend.json)",
+            isolated_risk_state,
+        )
+    else:
+        logger.warning(
+            "Isolation: blend_runner has no _persistence attribute; "
+            "skipping risk state redirect (card 758273a7 — may indicate "
+            "build_blend_runner API drift)."
+        )
 
     # Verify clean risk state after construction
     if hasattr(blend_runner, "_sizer") and blend_runner._sizer:
@@ -380,16 +711,60 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # flip BEFORE construction so engine._kill_switch = KillSwitchManager()
     # inside BlendForwardTestEngine.__init__ picks up `_disabled=False` via
     # class default and propagates the enabled instance to every consumer.
-    KillSwitchManager._disabled = False
-    logger.warning(
-        "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest harness "
-        "(disabled=False; class default is True per Craig directive). "
-        "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
-        "and remains administratively disabled until Craig re-enables it."
+    #
+    # NOTE (Rin verdict 4f384bfc REWORK-2, 2026-09-08): the ``_disabled=False``
+    # flip itself happens INSIDE ``_isolation_patch(isolated_ks)`` below, in
+    # its try block (line ~304). Doing the flip HERE (before the context
+    # manager runs) would cause ``_isolation_patch`` to capture the
+    # already-flipped False at its capture site (~line 263), so its finally
+    # would restore False instead of the production default True — leaking
+    # the harness-enabled state into subsequent in-process runs.
+    # The ``logger.warning`` that announces the flip also lives INSIDE the
+    # ``with`` block below (single source of truth for the override log).
+
+    # Card 758273a7 (2026-09-08): construct an ISOLATED KillSwitchManager
+    # bound to the harness state dir (NOT data/kill_switches/). The engine's
+    # __init__ at forward_test_engine.py:535 still constructs a default
+    # KillSwitchManager() — we will replace engine._kill_switch with this
+    # isolated instance BEFORE engine._build_components() so every consumer
+    # (market_feed at :989/:1100, ExecutionPermissionPolicy at :992/:1103,
+    # PositionMonitor at :1029, PaperTrader._risk_guard at :1041) sees the
+    # isolated instance via self._kill_switch. FTMO guard activations then
+    # write to state_dir/kill_switches/, never to live data/kill_switches/.
+    isolated_ks = _build_isolated_kill_switch(state_dir)
+    logger.info(
+        "Isolation: kill switch bound to %s (NOT %s)",
+        isolated_ks._state_dir,
+        LIVE_KILL_SWITCH_GLOBAL_STATE.parent,
     )
 
-    # ── Create engine ─────────────────────────────────────────────────────
-    engine = BlendForwardTestEngine(
+    # Card 758273a7 (REWORK, Rin verdict 4f384bfc): all module-level
+    # ``KillSwitchManager`` patches and the ``_disabled = False`` flip
+    # are applied by ``_isolation_patch(isolated_ks)`` below, in an
+    # exception-safe ``try/finally`` (via contextmanager). On ANY exit
+    # path (success, exception, RefuseToRun, KeyboardInterrupt) the
+    # original module references AND the original ``_disabled`` value
+    # are restored — addressing Rin HIGH findings #1 and #2.
+    #
+    # Card 758273a7 — broader patch covers these ``KillSwitchManager()``
+    # default construction sites:
+    #   * forward_test_engine.py:535 (engine._kill_switch)
+    #   * paper_trader.py:75 (paper_trader._kill_switch, created BEFORE
+    #     the engine's set_kill_switch override at :1041)
+    #   * risk_guard.py:567 (fallback when self._kill_switch is None)
+    # All resolve to the ``_HarnessIsolatedKS`` subclass while inside
+    # the context manager, defaulting ``state_dir`` to the isolated dir.
+
+    with _isolation_patch(isolated_ks):
+        logger.warning(
+            "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest "
+            "harness (disabled=False; class default is True per Craig directive). "
+            "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
+            "and remains administratively disabled until Craig re-enables it."
+        )
+
+        # ── Create engine ─────────────────────────────────────────────
+        engine = BlendForwardTestEngine(
         config=config,
         strategies=strategies,
         ftmo_config=FTMOConfig(min_risk_reward=0.0),
@@ -402,278 +777,298 @@ def run_backtest(args: argparse.Namespace) -> dict:
         blend_mode=True,
     )
 
-    # ── Build internal components WITHOUT starting the feed ───────────────
-    # _build_components() creates PaperTrader, cTraderLiveAdapter,
-    # TradeLogger, and PositionMonitor.  In paper mode (live_mode=False)
-    # it skips OpenApiSpotFeed construction entirely.
-    # Because we flipped KillSwitchManager._disabled=False above BEFORE
-    # engine construction, every consumer built here (PositionMonitor at
-    # forward_test_engine.py:1026, risk_guard at :1041, ExecutionPermissionPolicy
-    # at :992/:1103, market_feed at :989/:1100) receives the SAME enabled
-    # instance via `self._kill_switch`. There is no post-hoc rewire.
-    engine._build_components()
+        # Card 758273a7: defensively re-affirm engine._kill_switch is the
+        # isolated instance. The subclassed __init__ used during engine
+        # construction already wrote to the isolated dir, but we also
+        # explicitly set the canonical isolated_ks reference here so any
+        # later code reading engine._kill_switch sees the exact instance we
+        # built at the top of this section (consistent identity for tests).
+        # NOTE: the module-level KillSwitchManager patch stays in effect
+        # through engine._build_components() below — PaperTrader.__init__
+        # (paper_trader.py:75) and any RiskGuard fallback (risk_guard.py:567)
+        # also need the patched subclass so their default-state-dir kill
+        # switch instances point at the isolated dir. Patch restore is
+        # deferred to AFTER the eval loop completes (see end of run_backtest).
+        engine._kill_switch = isolated_ks
 
-    # ── Verify all consumers reference the enabled instance (defense-in-depth) ──
-    # Asserts that the engine's kill_switch is enabled AND that PositionMonitor
-    # + risk_guard see the same enabled instance. A split-state regression would
-    # cause assertions here to fail.
-    _enabled_ks = engine._kill_switch
-    if _enabled_ks.is_disabled:
-        raise RuntimeError(
-            f"REGRESSION: engine._kill_switch is still disabled after harness override; "
-            f"class default was {KillSwitchManager._disabled}"
-        )
-    if engine._paper_trader is not None and getattr(engine._paper_trader, "_risk_guard", None) is not None:
-        _rg_ks = engine._paper_trader._risk_guard._kill_switch
-        if _rg_ks is not _enabled_ks or _rg_ks.is_disabled:
+        # ── Build internal components WITHOUT starting the feed ───────────────
+        # _build_components() creates PaperTrader, cTraderLiveAdapter,
+        # TradeLogger, and PositionMonitor.  In paper mode (live_mode=False)
+        # it skips OpenApiSpotFeed construction entirely.
+        # Because we flipped KillSwitchManager._disabled=False above BEFORE
+        # engine construction, every consumer built here (PositionMonitor at
+        # forward_test_engine.py:1026, risk_guard at :1041, ExecutionPermissionPolicy
+        # at :992/:1103, market_feed at :989/:1100) receives the SAME enabled
+        # instance via `self._kill_switch`. There is no post-hoc rewire.
+        engine._build_components()
+
+        # ── Verify all consumers reference the enabled instance (defense-in-depth) ──
+        # Asserts that the engine's kill_switch is enabled AND that PositionMonitor
+        # + risk_guard see the same enabled instance. A split-state regression would
+        # cause assertions here to fail.
+        _enabled_ks = engine._kill_switch
+        if _enabled_ks.is_disabled:
             raise RuntimeError(
-                f"REGRESSION: PaperTrader._risk_guard sees disabled kill_switch "
-                f"({_rg_ks!r}, is_disabled={_rg_ks.is_disabled}) instead of the "
-                f"enabled engine._kill_switch ({_enabled_ks!r})"
+                f"REGRESSION: engine._kill_switch is still disabled after harness override; "
+                f"class default was {KillSwitchManager._disabled}"
             )
-    if engine._position_monitor is not None:
-        _pm_ks = engine._position_monitor._kill_switch
-        if _pm_ks is not _enabled_ks or _pm_ks.is_disabled:
-            raise RuntimeError(
-                f"REGRESSION: PositionMonitor sees disabled kill_switch "
-                f"({_pm_ks!r}, is_disabled={_pm_ks.is_disabled}) instead of the "
-                f"enabled engine._kill_switch ({_enabled_ks!r})"
-            )
+        if engine._paper_trader is not None and getattr(engine._paper_trader, "_risk_guard", None) is not None:
+            _rg_ks = engine._paper_trader._risk_guard._kill_switch
+            if _rg_ks is not _enabled_ks or _rg_ks.is_disabled:
+                raise RuntimeError(
+                    f"REGRESSION: PaperTrader._risk_guard sees disabled kill_switch "
+                    f"({_rg_ks!r}, is_disabled={_rg_ks.is_disabled}) instead of the "
+                    f"enabled engine._kill_switch ({_enabled_ks!r})"
+                )
+        if engine._position_monitor is not None:
+            _pm_ks = engine._position_monitor._kill_switch
+            if _pm_ks is not _enabled_ks or _pm_ks.is_disabled:
+                raise RuntimeError(
+                    f"REGRESSION: PositionMonitor sees disabled kill_switch "
+                    f"({_pm_ks!r}, is_disabled={_pm_ks.is_disabled}) instead of the "
+                    f"enabled engine._kill_switch ({_enabled_ks!r})"
+                )
 
-    logger.info(
-        "HARNESS: Kill switch ENABLED — all consumers (PositionMonitor, risk_guard) "
-        "reference the same enabled instance (id=%s); eval loop will HALT on breach",
-        id(_enabled_ks),
-    )
-    if engine._kill_switch.is_globally_killed():
-        logger.warning(
-            "HARNESS: Kill switch state file shows ACTIVE (%s) — orders will be BLOCKED",
-            engine._kill_switch.get_status().get("reason", "unknown"),
+        logger.info(
+            "HARNESS: Kill switch ENABLED — all consumers (PositionMonitor, risk_guard) "
+            "reference the same enabled instance (id=%s); eval loop will HALT on breach",
+            id(_enabled_ks),
         )
-
-    # ── Wire FTMO guard (card aa3a1cbe — Bug 1 fix) ────────────────────────
-    # Production main loop (scripts/launch_blend_forward_test.py:1708-1741)
-    # instantiates an FTMOGuard bound to the engine's kill_switch and calls
-    # .update() after every iteration. The harness drives _evaluate_strategies()
-    # directly per bar and was missing this enforcer, letting one runaway trade
-    # drain -$123,700 on a $10K starting balance. Mirror the production pattern
-    # so the 3% daily-DD + 10% trailing-DD circuit breakers are enforced here too.
-    # engine._kill_switch is constructed in forward_test_engine.py:513 inside
-    # BlendForwardTestEngine.__init__, so it is non-None at this point.
-    _ftmo_guard = FTMOGuard(
-        kill_switch=engine._kill_switch,
-        starting_balance=10_000.0,
-        challenge_type="1-step",
-        trailing_dd=True,
-    )
-    logger.info(
-        "FTMOGuard active in harness: kill_switch=%s starting_balance=$%.2f daily_loss=%.1f%% dd_freeze=%.1f%%",
-        "wired" if engine._kill_switch is not None else "NONE",
-        10_000.0,
-        _ftmo_guard._max_daily_loss_pct,
-        _ftmo_guard._dd_freeze_pct,
-    )
-
-    # Mark engine as running so internal guards pass
-    engine._running = True
-    engine._start_time = datetime.now(timezone.utc)
-    engine._preload_complete = True
-
-    # Configure slippage model if --costs
-    if args.costs and engine._paper_trader:
-        om = engine._paper_trader._order_manager
-        # For XAUUSD, pip_value = 0.01 ($0.01 per pip)
-        om._slippage_model.base_pips = 0.0
-        om._slippage_model.random_pips = 0.0
-        om._slippage_model.pip_value = args.slippage  # interpret as price units
-
-    paper_trader = engine._paper_trader
-
-    # ── Strategy tracking via patched _route_signal ──────────────────────
-    # The production _route_signal constructs a new CTraderTradeSignal
-    # (exec_signal) without carrying strategy_id, so positions lose their
-    # strategy attribution.  We patch the method to capture position_id →
-    # strategy_id mapping by comparing open positions before/after each
-    # signal routing.
-
-    position_strategy_map: dict[str, str] = {}
-    _orig_route = engine._route_signal
-
-    def _tracked_route(signal, strategy_name):
-        sid = active_strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
-        pos_before = set()
-        if engine._paper_trader:
-            pos_before = set(engine._paper_trader._order_manager._positions.keys())
-        _orig_route(signal, strategy_name)
-        if engine._paper_trader:
-            pos_after = set(engine._paper_trader._order_manager._positions.keys())
-            for pid in pos_after - pos_before:
-                position_strategy_map[pid] = sid
-
-    engine._route_signal = _tracked_route
-
-    logger.info("Engine constructed. PaperTrader balance: $%.2f", paper_trader._starting_balance)
-    logger.info("Strategies in live_adapter: %s", list(engine._live_adapter._strategies.keys()))
-    logger.info(
-        "Adapters: %s",
-        [k for k in engine._live_adapter._adapters.keys() if symbol in k],
-    )
-
-    # ── Drive evaluation loop ─────────────────────────────────────────────
-    # Merge M15 and H1 bars into a single chronological event stream.
-    # Each event is (timeframe_label, bar).  When multiple events share
-    # the same timestamp, H1 bars are processed before M15 bars (H1
-    # closes before M15 evaluation sees the updated H1 window).
-    m15_key = f"{symbol}:15"
-    h1_key = f"{symbol}:60"
-
-    events: list[tuple[str, Bar]] = []
-    for bar in m15_bars:
-        events.append(("M15", bar))
-    for bar in h1_bars:
-        events.append(("H1", bar))
-    events.sort(key=lambda x: (x[1].time, 0 if x[0] == "H1" else 1))
-
-    # Determine spread for price updates
-    spread_price = args.spread if args.costs else 0.0
-
-    bars_processed = 0
-
-    for tf_label, bar in events:
-        key = h1_key if tf_label == "H1" else m15_key
-
-        # Append bar to engine's bar store (respecting max_bars limit)
-        if key not in engine._bars:
-            engine._bars[key] = []
-        engine._bars[key].append(bar)
-        if len(engine._bars[key]) > config.max_bars_per_symbol:
-            engine._bars[key] = engine._bars[key][-config.max_bars_per_symbol :]
-
-        # Update paper trader prices (for open position TP/SL checks)
-        close = bar.close
-        bid = close - spread_price / 2 if spread_price > 0 else close
-        ask = close + spread_price / 2 if spread_price > 0 else close
-        paper_trader.update_market_prices(
-            {symbol: close},
-            bids={symbol: bid},
-            asks={symbol: ask},
-        )
-
-        # Set engine spread from bar data or --costs override
-        bar_spread = getattr(bar, "spread_pips", 0.0)
-        if args.costs:
-            engine._current_spread = spread_price
-        elif bar_spread > 0:
-            # Convert bar spread_pips to approximate price units
-            engine._current_spread = bar_spread * 0.01  # rough pip→price for XAUUSD
-        else:
-            engine._current_spread = 0.0
-
-        # Trigger evaluation
-        engine._bar_completed[key] = True
-        engine._evaluate_strategies(symbol)
-        engine._bar_completed[key] = False
-
-        # ── FTMO guard update (card aa3a1cbe — Bug 1 fix) ────────────────
-        # Production invokes _ftmo_guard.update(balance, open_n) after every
-        # fill/iteration (launch_blend_forward_test.py:1724). Without this call
-        # daily_loss_pct stays 0.0, kill_switch never engages, and the harness
-        # lets a losing position run unbounded. We mirror the production
-        # pattern here; on FREEZE/KILL we halt the eval loop so downstream
-        # compute_stats() reflects the guard-engaged state, not the unbounded
-        # post-breach state the harness originally surfaced.
-        open_n = len(paper_trader._order_manager._positions)
-        _ftmo_action = _ftmo_guard.update(paper_trader._current_balance, open_n)
-        if _ftmo_action.value in ("freeze", "kill"):
-            engine._running = False
+        if engine._kill_switch.is_globally_killed():
             logger.warning(
-                "FTMO guard engaged in harness: %s — halting eval loop "
-                "(balance=$%.2f, open=%d, daily_loss=%.2f%%, dd=%.2f%%)",
-                _ftmo_action.value,
-                paper_trader._current_balance,
-                open_n,
-                _ftmo_guard.daily_loss_pct,
-                _ftmo_guard.current_dd_pct,
-            )
-            break
-
-        bars_processed += 1
-        if bars_processed % 5000 == 0:
-            stats = paper_trader.get_stats()
-            logger.info(
-                "Progress: %d/%d events | trades=%d | balance=$%.2f",
-                bars_processed,
-                len(events),
-                stats.trades_executed,
-                paper_trader._current_balance,
+                "HARNESS: Kill switch state file shows ACTIVE (%s) — orders will be BLOCKED",
+                engine._kill_switch.get_status().get("reason", "unknown"),
             )
 
-    logger.info("Evaluation complete: %d events processed", bars_processed)
-
-    # ── Compute and return results ────────────────────────────────────────
-    commission = args.commission if args.costs else 0.0
-    results = compute_stats(
-        paper_trader,
-        blend_runner,
-        commission_per_lot=commission,
-        position_strategy_map=position_strategy_map,
-    )
-    results["symbol"] = symbol
-    results["bars_processed"] = bars_processed
-    results["m15_bars"] = len(m15_bars)
-    results["h1_bars"] = len(h1_bars)
-    results["costs_applied"] = args.costs
-    if args.costs:
-        results["cost_params"] = {
-            "spread": args.spread,
-            "commission_per_lot": args.commission,
-            "slippage": args.slippage,
-        }
-    results["date_range"] = {
-        "start": m15_bars[0].time.isoformat(),
-        "end": m15_bars[-1].time.isoformat(),
-    }
-
-    # ── Print summary ─────────────────────────────────────────────────────
-    print("\n" + "=" * 60)
-    print(f"  BACKTEST RESULTS — {symbol}")
-    print("=" * 60)
-    print(f"  Date Range:     {results['date_range']['start'][:10]} → {results['date_range']['end'][:10]}")
-    print(f"  Bars Processed: {bars_processed:,} ({len(m15_bars):,} M15 + {len(h1_bars):,} H1)")
-    print(f"  Total Trades:   {results['total_trades']}")
-    print(f"  Win Rate:       {results['win_rate']:.1%} ({results['wins']}W / {results['losses']}L)")
-    print(f"  Profit Factor:  {results['profit_factor']:.4f}")
-    print(f"  Net P&L:        ${results['net_pnl']:,.2f}")
-    print(f"  Gross Profit:   ${results['gross_profit']:,.2f}")
-    print(f"  Gross Loss:     ${results['gross_loss']:,.2f}")
-    print(f"  Max Drawdown:   ${results['max_drawdown']:,.2f}")
-    print(f"  Final Balance:  ${results['final_balance']:,.2f}")
-    print(f"  Open Positions: {results['open_positions']} (unrealized: ${results['open_unrealized']:,.2f})")
-    if results["costs_applied"]:
-        cp = results["cost_params"]
-        print(
-            f"  Costs:          spread={cp['spread']}, commission=${cp['commission_per_lot']}/lot, slippage={cp['slippage']}"  # noqa: E501
+        # ── Wire FTMO guard (card aa3a1cbe — Bug 1 fix) ────────────────────────
+        # Production main loop (scripts/launch_blend_forward_test.py:1708-1741)
+        # instantiates an FTMOGuard bound to the engine's kill_switch and calls
+        # .update() after every iteration. The harness drives _evaluate_strategies()
+        # directly per bar and was missing this enforcer, letting one runaway trade
+        # drain -$123,700 on a $10K starting balance. Mirror the production pattern
+        # so the 3% daily-DD + 10% trailing-DD circuit breakers are enforced here too.
+        # engine._kill_switch is constructed in forward_test_engine.py:513 inside
+        # BlendForwardTestEngine.__init__, so it is non-None at this point.
+        _ftmo_guard = FTMOGuard(
+            kill_switch=engine._kill_switch,
+            starting_balance=10_000.0,
+            challenge_type="1-step",
+            trailing_dd=True,
+        )
+        logger.info(
+            "FTMOGuard active in harness: kill_switch=%s starting_balance=$%.2f daily_loss=%.1f%% dd_freeze=%.1f%%",
+            "wired" if engine._kill_switch is not None else "NONE",
+            10_000.0,
+            _ftmo_guard._max_daily_loss_pct,
+            _ftmo_guard._dd_freeze_pct,
         )
 
-    print("\n  Per-Strategy Contribution:")
-    print("  " + "-" * 56)
-    print(f"  {'Strategy':<30} {'Trades':>7} {'P&L':>12} {'Win Rate':>10}")
-    print("  " + "-" * 56)
-    for sid, s in results["per_strategy"].items():
-        print(f"  {sid:<30} {s['trades']:>7} ${s['pnl']:>10,.2f} {s['win_rate']:>9.1%}")
-    print("=" * 60)
+        # Mark engine as running so internal guards pass
+        engine._running = True
+        engine._start_time = datetime.now(timezone.utc)
+        engine._preload_complete = True
 
-    # ── Save JSON output ──────────────────────────────────────────────────
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    logger.info("Results saved to %s", output_path)
+        # Configure slippage model if --costs
+        if args.costs and engine._paper_trader:
+            om = engine._paper_trader._order_manager
+            # For XAUUSD, pip_value = 0.01 ($0.01 per pip)
+            om._slippage_model.base_pips = 0.0
+            om._slippage_model.random_pips = 0.0
+            om._slippage_model.pip_value = args.slippage  # interpret as price units
 
-    # ── Cleanup ───────────────────────────────────────────────────────────
-    blend_runner.stop()
+        paper_trader = engine._paper_trader
 
-    return results
+        # ── Strategy tracking via patched _route_signal ──────────────────────
+        # The production _route_signal constructs a new CTraderTradeSignal
+        # (exec_signal) without carrying strategy_id, so positions lose their
+        # strategy attribution.  We patch the method to capture position_id →
+        # strategy_id mapping by comparing open positions before/after each
+        # signal routing.
+
+        position_strategy_map: dict[str, str] = {}
+        _orig_route = engine._route_signal
+
+        def _tracked_route(signal, strategy_name):
+            sid = active_strategy_id_map.get(strategy_name, strategy_name.lower().replace(" ", "_"))
+            pos_before = set()
+            if engine._paper_trader:
+                pos_before = set(engine._paper_trader._order_manager._positions.keys())
+            _orig_route(signal, strategy_name)
+            if engine._paper_trader:
+                pos_after = set(engine._paper_trader._order_manager._positions.keys())
+                for pid in pos_after - pos_before:
+                    position_strategy_map[pid] = sid
+
+        engine._route_signal = _tracked_route
+
+        logger.info("Engine constructed. PaperTrader balance: $%.2f", paper_trader._starting_balance)
+        logger.info("Strategies in live_adapter: %s", list(engine._live_adapter._strategies.keys()))
+        logger.info(
+            "Adapters: %s",
+            [k for k in engine._live_adapter._adapters.keys() if symbol in k],
+        )
+
+        # ── Drive evaluation loop ─────────────────────────────────────────────
+        # Merge M15 and H1 bars into a single chronological event stream.
+        # Each event is (timeframe_label, bar).  When multiple events share
+        # the same timestamp, H1 bars are processed before M15 bars (H1
+        # closes before M15 evaluation sees the updated H1 window).
+        m15_key = f"{symbol}:15"
+        h1_key = f"{symbol}:60"
+
+        events: list[tuple[str, Bar]] = []
+        for bar in m15_bars:
+            events.append(("M15", bar))
+        for bar in h1_bars:
+            events.append(("H1", bar))
+        events.sort(key=lambda x: (x[1].time, 0 if x[0] == "H1" else 1))
+
+        # Determine spread for price updates
+        spread_price = args.spread if args.costs else 0.0
+
+        bars_processed = 0
+
+        for tf_label, bar in events:
+            key = h1_key if tf_label == "H1" else m15_key
+
+            # Append bar to engine's bar store (respecting max_bars limit)
+            if key not in engine._bars:
+                engine._bars[key] = []
+            engine._bars[key].append(bar)
+            if len(engine._bars[key]) > config.max_bars_per_symbol:
+                engine._bars[key] = engine._bars[key][-config.max_bars_per_symbol :]
+
+            # Update paper trader prices (for open position TP/SL checks)
+            close = bar.close
+            bid = close - spread_price / 2 if spread_price > 0 else close
+            ask = close + spread_price / 2 if spread_price > 0 else close
+            paper_trader.update_market_prices(
+                {symbol: close},
+                bids={symbol: bid},
+                asks={symbol: ask},
+            )
+
+            # Set engine spread from bar data or --costs override
+            bar_spread = getattr(bar, "spread_pips", 0.0)
+            if args.costs:
+                engine._current_spread = spread_price
+            elif bar_spread > 0:
+                # Convert bar spread_pips to approximate price units
+                engine._current_spread = bar_spread * 0.01  # rough pip→price for XAUUSD
+            else:
+                engine._current_spread = 0.0
+
+            # Trigger evaluation
+            engine._bar_completed[key] = True
+            engine._evaluate_strategies(symbol)
+            engine._bar_completed[key] = False
+
+            # ── FTMO guard update (card aa3a1cbe — Bug 1 fix) ────────────────
+            # Production invokes _ftmo_guard.update(balance, open_n) after every
+            # fill/iteration (launch_blend_forward_test.py:1724). Without this call
+            # daily_loss_pct stays 0.0, kill_switch never engages, and the harness
+            # lets a losing position run unbounded. We mirror the production
+            # pattern here; on FREEZE/KILL we halt the eval loop so downstream
+            # compute_stats() reflects the guard-engaged state, not the unbounded
+            # post-breach state the harness originally surfaced.
+            open_n = len(paper_trader._order_manager._positions)
+            _ftmo_action = _ftmo_guard.update(paper_trader._current_balance, open_n)
+            if _ftmo_action.value in ("freeze", "kill"):
+                engine._running = False
+                logger.warning(
+                    "FTMO guard engaged in harness: %s — halting eval loop "
+                    "(balance=$%.2f, open=%d, daily_loss=%.2f%%, dd=%.2f%%)",
+                    _ftmo_action.value,
+                    paper_trader._current_balance,
+                    open_n,
+                    _ftmo_guard.daily_loss_pct,
+                    _ftmo_guard.current_dd_pct,
+                )
+                break
+
+            bars_processed += 1
+            if bars_processed % 5000 == 0:
+                stats = paper_trader.get_stats()
+                logger.info(
+                    "Progress: %d/%d events | trades=%d | balance=$%.2f",
+                    bars_processed,
+                    len(events),
+                    stats.trades_executed,
+                    paper_trader._current_balance,
+                )
+
+        logger.info("Evaluation complete: %d events processed", bars_processed)
+
+        # ── Compute and return results ────────────────────────────────────────
+        commission = args.commission if args.costs else 0.0
+        results = compute_stats(
+            paper_trader,
+            blend_runner,
+            commission_per_lot=commission,
+            position_strategy_map=position_strategy_map,
+        )
+        results["symbol"] = symbol
+        results["bars_processed"] = bars_processed
+        results["m15_bars"] = len(m15_bars)
+        results["h1_bars"] = len(h1_bars)
+        results["costs_applied"] = args.costs
+        if args.costs:
+            results["cost_params"] = {
+                "spread": args.spread,
+                "commission_per_lot": args.commission,
+                "slippage": args.slippage,
+            }
+        results["date_range"] = {
+            "start": m15_bars[0].time.isoformat(),
+            "end": m15_bars[-1].time.isoformat(),
+        }
+
+        # ── Print summary ─────────────────────────────────────────────────────
+        print("\n" + "=" * 60)
+        print(f"  BACKTEST RESULTS — {symbol}")
+        print("=" * 60)
+        print(f"  Date Range:     {results['date_range']['start'][:10]} → {results['date_range']['end'][:10]}")
+        print(f"  Bars Processed: {bars_processed:,} ({len(m15_bars):,} M15 + {len(h1_bars):,} H1)")
+        print(f"  Total Trades:   {results['total_trades']}")
+        print(f"  Win Rate:       {results['win_rate']:.1%} ({results['wins']}W / {results['losses']}L)")
+        print(f"  Profit Factor:  {results['profit_factor']:.4f}")
+        print(f"  Net P&L:        ${results['net_pnl']:,.2f}")
+        print(f"  Gross Profit:   ${results['gross_profit']:,.2f}")
+        print(f"  Gross Loss:     ${results['gross_loss']:,.2f}")
+        print(f"  Max Drawdown:   ${results['max_drawdown']:,.2f}")
+        print(f"  Final Balance:  ${results['final_balance']:,.2f}")
+        print(f"  Open Positions: {results['open_positions']} (unrealized: ${results['open_unrealized']:,.2f})")
+        if results["costs_applied"]:
+            cp = results["cost_params"]
+            print(
+                f"  Costs:          spread={cp['spread']}, commission=${cp['commission_per_lot']}/lot, slippage={cp['slippage']}"  # noqa: E501
+            )
+
+        print("\n  Per-Strategy Contribution:")
+        print("  " + "-" * 56)
+        print(f"  {'Strategy':<30} {'Trades':>7} {'P&L':>12} {'Win Rate':>10}")
+        print("  " + "-" * 56)
+        for sid, s in results["per_strategy"].items():
+            print(f"  {sid:<30} {s['trades']:>7} ${s['pnl']:>10,.2f} {s['win_rate']:>9.1%}")
+        print("=" * 60)
+
+        # ── Save JSON output ──────────────────────────────────────────────────
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2, default=str)
+        logger.info("Results saved to %s", output_path)
+
+        # ── Cleanup ───────────────────────────────────────────────────────────
+        blend_runner.stop()
+
+
+        # Card 758273a7: surface the isolated state dir + auto-clean policy.
+        results["_state_dir"] = str(state_dir)
+        results["_state_dir_kept"] = bool(getattr(args, "keep_state_dir", False))
+        _cleanup_state_dir(state_dir, keep=bool(getattr(args, "keep_state_dir", False)))
+
+        return results
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -703,6 +1098,33 @@ def main():
     parser.add_argument("--db-path", default=None, help="Override DuckDB path")
     parser.add_argument("--output", default="data/backtest_results.json", help="Output JSON path")
     parser.add_argument("--verbose", action="store_true", help="Enable DEBUG logging")
+    parser.add_argument(
+        "--state-dir",
+        default=None,
+        help=(
+            "Harness state directory (risk_state_blend.json + kill_switches/). "
+            "Default: fresh tempfile.mkdtemp per run, auto-cleaned on success. "
+            "Card 758273a7: harness must NEVER write to data/kill_switches/ or "
+            "data/risk_state_blend.json unless --allow-foreign-ownership is set."
+        ),
+    )
+    parser.add_argument(
+        "--allow-foreign-ownership",
+        action="store_true",
+        help=(
+            "Bypass the foreign-ownership guard on live state files. Operator-only "
+            "debugging flag — does NOT bypass the live-PID guard. Card 758273a7."
+        ),
+    )
+    parser.add_argument(
+        "--keep-state-dir",
+        action="store_true",
+        help=(
+            "Preserve the harness state dir after a successful run (default: "
+            "auto-clean). Useful for post-mortem inspection of isolated "
+            "kill_switch/global.state or risk_state_blend.json. Card 758273a7."
+        ),
+    )
     args = parser.parse_args()
 
     level = "DEBUG" if args.verbose else "INFO"
