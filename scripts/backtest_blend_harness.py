@@ -711,13 +711,16 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # flip BEFORE construction so engine._kill_switch = KillSwitchManager()
     # inside BlendForwardTestEngine.__init__ picks up `_disabled=False` via
     # class default and propagates the enabled instance to every consumer.
-    KillSwitchManager._disabled = False
-    logger.warning(
-        "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest harness "
-        "(disabled=False; class default is True per Craig directive). "
-        "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
-        "and remains administratively disabled until Craig re-enables it."
-    )
+    #
+    # NOTE (Rin verdict 4f384bfc REWORK-2, 2026-09-08): the ``_disabled=False``
+    # flip itself happens INSIDE ``_isolation_patch(isolated_ks)`` below, in
+    # its try block (line ~304). Doing the flip HERE (before the context
+    # manager runs) would cause ``_isolation_patch`` to capture the
+    # already-flipped False at its capture site (~line 263), so its finally
+    # would restore False instead of the production default True — leaking
+    # the harness-enabled state into subsequent in-process runs.
+    # The ``logger.warning`` that announces the flip also lives INSIDE the
+    # ``with`` block below (single source of truth for the override log).
 
     # Card 758273a7 (2026-09-08): construct an ISOLATED KillSwitchManager
     # bound to the harness state dir (NOT data/kill_switches/). The engine's

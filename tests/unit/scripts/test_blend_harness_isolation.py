@@ -508,6 +508,61 @@ def test_isolation_patch_restores_disabled_flag_on_exception(tmp_path):
     )
 
 
+def test_isolation_patch_restores_disabled_flag_true_after_mid_run_exception(
+    tmp_path, monkeypatch
+):
+    """Rin verdict 4f384bfc REWORK-2, 2026-09-08: assert the production
+    default ``_disabled = True`` (per Craig directive Jun 27) is the value
+    restored on the exception path — not the harness-flipped ``False``.
+
+    Pre-REWORK-2 bug: ``run_backtest`` flipped ``KillSwitchManager._disabled
+    = False`` BEFORE entering ``_isolation_patch``, so the context manager
+    captured the already-flipped False and its finally restored False
+    instead of the production default True. The harness leaked the
+    enabled state into subsequent in-process runs.
+
+    The pre-existing ``test_isolation_patch_restores_disabled_flag_on_exception``
+    did NOT catch this bug because it captured the current value of
+    ``_disabled`` first — if a prior test had left it at False, the test
+    captured False as "original" and verified False was restored.
+    This test forces ``_disabled = True`` (production default) as the
+    precondition so the bug is observable.
+    """
+    from adapters.ctrader.kill_switch import KillSwitchManager
+
+    # Force production default as precondition.
+    monkeypatch.setattr(KillSwitchManager, "_disabled", True)
+
+    isolated_ks_dir = tmp_path / "isolated_ks"
+    isolated_ks_dir.mkdir()
+    isolated_ks = harness._build_isolated_kill_switch(isolated_ks_dir)
+
+    # Sanity: pre-condition holds.
+    assert KillSwitchManager._disabled is True, (
+        "precondition: KillSwitchManager._disabled must be True (production default)"
+    )
+
+    # Simulate a mid-run exception. Use a try/except so the test itself
+    # doesn't fail — we just need to verify post-exception restoration.
+    try:
+        with harness._isolation_patch(isolated_ks):
+            assert KillSwitchManager._disabled is False, (
+                "_disabled must be False inside the with-block (harness-enabled)"
+            )
+            raise RuntimeError("simulated mid-run failure")
+    except RuntimeError:
+        pass
+
+    # Post-condition: must be back to production default (True), not
+    # the harness-flipped False. This is the exact bug Rin flagged.
+    assert KillSwitchManager._disabled is True, (
+        f"_disabled must be restored to production default True (Craig directive "
+        f"Jun 27) after a mid-run exception; got {KillSwitchManager._disabled}. "
+        f"REGRESSION: _isolation_patch captured an already-flipped value instead "
+        f"of the production default (Rin verdict 4f384bfc REWORK-2 HIGH #2)."
+    )
+
+
 def test_isolation_patch_restores_on_normal_return(tmp_path):
     """``_isolation_patch`` must restore on the normal-return path too
     (Rin HIGH #1 + #2 — both paths must restore). Two sequential in-process
