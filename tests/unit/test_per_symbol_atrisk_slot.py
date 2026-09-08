@@ -519,3 +519,347 @@ def test_active_count_back_compat():
     gate.release("XAUUSD", "LONG")
     # Pending LONG cleared; SHORRT remains.
     assert gate.active_count == 1
+
+
+# ── REGRESSION (Rin rework iter2) ────────────────────────────────────────────
+# Two findings addressed here:
+#   HIGH  — production SL amendments now flow through gate.update_sl via the
+#           slot_tracker callback wired into PositionMonitor._fire_ratchet.
+#   MEDIUM — rejection-path release calls use strategy-specific
+#           release_pending(symbol, strategy_id); legacy release() falls back
+#           only on position close.
+
+
+def test_slot_tracker_callback_fires_on_ratchet_to_breakeven():
+    """HIGH (Rin iter2): PositionMonitor._fire_ratchet, after a successful
+    broker amend, calls the slot_tracker with (position_id, new_sl).  The
+    gate wired to that tracker fires slot_release exactly when SL crosses
+    from at-risk to breakeven.
+
+    This drives the real PositionMonitor._fire_ratchet with a stub
+    market_feed that reports ``amend_sl_tp`` success, so we exercise the
+    actual production path — not a parallel re-implementation.
+    """
+    from unittest.mock import MagicMock
+
+    sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
+
+    from adapters.ctrader.models import Position, PositionStatus, TradeDirection
+    from adapters.ctrader.position_monitor import PositionMonitor
+
+    gate = CorrelationGate()
+    # Open a real LONG at-risk position via the canonical flow.
+    ok, _ = gate.check("XAUUSD", "LONG", "kz_breakout")
+    assert ok
+    gate.attach_position(
+        symbol="XAUUSD",
+        strategy_id="kz_breakout",
+        position_id="pos_real",
+        direction="LONG",
+        entry_price=2000.0,
+        sl=1990.0,  # at-risk (LONG: 1990 < 2000)
+    )
+    assert gate.at_risk_count("XAUUSD") == 1
+
+    # Construct a real PositionMonitor with the gate's update_sl as the
+    # slot_tracker. Stub the order_manager + market_feed so the ratchet
+    # path runs without an actual broker.
+    monitor = PositionMonitor(
+        order_manager=MagicMock(),
+        slot_tracker=gate.update_sl,
+        market_feed=MagicMock(),
+    )
+    monitor._market_feed.resolve_symbol_id.return_value = 12345
+    monitor._market_feed.amend_sl_tp.return_value = True
+
+    position = Position(
+        position_id="pos_real",
+        symbol="XAUUSD",
+        direction=TradeDirection.LONG,
+        volume=0.1,
+        entry_price=2000.0,
+        current_price=2005.0,
+        stop_loss=1990.0,
+        status=PositionStatus.OPEN,
+    )
+
+    # Simulate TP2 crossing — _fire_ratchet should move SL to breakeven
+    # (entry) and call slot_tracker.  Returns TpRatchetAction with
+    # amend_status='fired'.
+    action = monitor._fire_ratchet(
+        position,
+        level=2,
+        new_sl=2000.0,  # breakeven — LONG risk-free after this
+        new_tp=2010.0,
+        direction="LONG",
+        entry_price=2000.0,
+    )
+    assert action.amend_status == "fired"
+    assert position.stop_loss == 2000.0, "position.stop_loss must be updated to new SL"
+
+    # The slot_tracker (gate.update_sl) should have fired slot_release
+    # because the position transitioned at-risk -> risk-free.
+    log = gate.slot_release_log()
+    assert len(log) == 1
+    assert log[0]["position_id"] == "pos_real"
+    assert log[0]["new_sl"] == 2000.0
+    assert log[0]["reason"] == "sl_to_breakeven_or_profit"
+    assert gate.at_risk_count("XAUUSD") == 0, "slot freed on breakeven"
+
+
+def test_slot_tracker_callback_not_called_on_amend_failure():
+    """HIGH (Rin iter2): if the broker amend FAILS (returns False or
+    raises), the slot_tracker must NOT be called — the position's SL is
+    unchanged at the broker, so the gate's view should not change either.
+    """
+    from unittest.mock import MagicMock
+
+    sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
+
+    from adapters.ctrader.models import Position, PositionStatus, TradeDirection
+    from adapters.ctrader.position_monitor import PositionMonitor
+
+    gate = CorrelationGate()
+    ok, _ = gate.check("XAUUSD", "LONG", "s1")
+    assert ok
+    gate.attach_position(
+        symbol="XAUUSD",
+        strategy_id="s1",
+        position_id="pos_fail",
+        direction="LONG",
+        entry_price=2000.0,
+        sl=1990.0,
+    )
+    initial_log_len = len(gate.slot_release_log())
+
+    monitor = PositionMonitor(
+        order_manager=MagicMock(),
+        slot_tracker=gate.update_sl,
+        market_feed=MagicMock(),
+    )
+    monitor._market_feed.resolve_symbol_id.return_value = 99
+    monitor._market_feed.amend_sl_tp.return_value = False  # amend fails
+
+    position = Position(
+        position_id="pos_fail",
+        symbol="XAUUSD",
+        direction=TradeDirection.LONG,
+        volume=0.1,
+        entry_price=2000.0,
+        current_price=2005.0,
+        stop_loss=1990.0,
+        status=PositionStatus.OPEN,
+    )
+
+    action = monitor._fire_ratchet(
+        position,
+        level=2,
+        new_sl=2000.0,
+        new_tp=2010.0,
+        direction="LONG",
+        entry_price=2000.0,
+    )
+    assert action.amend_status == "amend_failed"
+    # No slot_release fired.
+    assert len(gate.slot_release_log()) == initial_log_len
+    # Gate still considers the position at-risk.
+    assert gate.at_risk_count("XAUUSD") == 1
+
+
+def test_slot_tracker_exception_does_not_break_ratchet():
+    """HIGH (Rin iter2): if slot_tracker raises, the ratchet must still
+    succeed (amend_status='fired', position.stop_loss updated) and the
+    exception must be logged but swallowed.
+    """
+    from unittest.mock import MagicMock
+
+    sys.path.insert(0, str(WORKSPACE / "src" / "forex-bot"))
+
+    from adapters.ctrader.models import Position, PositionStatus, TradeDirection
+    from adapters.ctrader.position_monitor import PositionMonitor
+
+    def _explode(position_id: str, new_sl: float) -> None:
+        raise RuntimeError("tracker exploded (test fixture)")
+
+    monitor = PositionMonitor(
+        order_manager=MagicMock(),
+        slot_tracker=_explode,
+        market_feed=MagicMock(),
+    )
+    monitor._market_feed.resolve_symbol_id.return_value = 7
+    monitor._market_feed.amend_sl_tp.return_value = True
+
+    position = Position(
+        position_id="pos_x",
+        symbol="XAUUSD",
+        direction=TradeDirection.LONG,
+        volume=0.1,
+        entry_price=2000.0,
+        current_price=2005.0,
+        stop_loss=1990.0,
+        status=PositionStatus.OPEN,
+    )
+
+    action = monitor._fire_ratchet(
+        position,
+        level=2,
+        new_sl=2000.0,
+        new_tp=2010.0,
+        direction="LONG",
+        entry_price=2000.0,
+    )
+    assert action.amend_status == "fired"
+    assert position.stop_loss == 2000.0
+
+
+def test_release_pending_only_clears_callers_reservation():
+    """MEDIUM (Rin iter2): rejection path uses release_pending(symbol,
+    strategy_id).  Strategy A's rejection must NOT remove Strategy B's
+    pending reservation on the same symbol/direction.
+    """
+    gate = CorrelationGate()
+    sym = "XAUUSD"
+    # Two strategies hold pending reservations for the same symbol/direction.
+    ok_a, _ = gate.check(sym, "LONG", "strat_a")
+    ok_b, _ = gate.check(sym, "LONG", "strat_b")
+    assert ok_a and ok_b
+    assert gate.active_count == 2
+
+    # Strategy A's signal is rejected — release only its pending reservation.
+    gate.release_pending(sym, "strat_a")
+    assert gate.active_count == 1, "B's reservation must remain after A's reject"
+
+    # The remaining slot belongs to B — verify by direction/symbol counts.
+    counts = gate.at_risk_counts()
+    # Both pending reservations counted as at-risk (conservative default).
+    # After A's release, only B remains.
+    assert counts.get(sym, 0) == 1
+
+    # Strategy B's reservation is still usable — can be promoted to a real slot.
+    gate.attach_position(
+        symbol=sym,
+        strategy_id="strat_b",
+        position_id="pos_b",
+        direction="LONG",
+        entry_price=2000.0,
+        sl=1990.0,
+    )
+    assert gate.at_risk_count(sym) == 1
+    assert gate.active_count == 1
+
+
+def test_release_pending_no_op_when_no_matching_reservation():
+    """MEDIUM (Rin iter2): release_pending with an unknown strategy_id is a
+    no-op (does not raise, does not affect other reservations).
+    """
+    gate = CorrelationGate()
+    sym = "XAUUSD"
+    gate.check(sym, "LONG", "real_strat")
+    assert gate.active_count == 1
+    # No reservation for "unknown_strat" — should be a silent no-op.
+    gate.release_pending(sym, "unknown_strat")
+    assert gate.active_count == 1, "real_strat's reservation must remain"
+
+
+def test_legacy_release_symbol_direction_drops_all_pending_for_pair():
+    """Legacy release(symbol, direction) (used only in the on_position_closed
+    fallback path now) drops ALL pending reservations for the (symbol,
+    direction) pair AND cleans up orphan _pending entries.
+    """
+    gate = CorrelationGate()
+    sym = "XAUUSD"
+    gate.check(sym, "LONG", "strat_a")
+    gate.check(sym, "LONG", "strat_b")
+    gate.check(sym, "SHORT", "strat_c")
+    assert gate.active_count == 3
+
+    # Legacy release drops both LONG pending reservations but leaves SHORT.
+    gate.release(sym, "LONG")
+    assert gate.active_count == 1
+    # Only the SHORT reservation remains.
+    counts = gate.at_risk_counts()
+    assert counts.get(sym, 0) == 1
+
+    # Internal invariant: no orphan _pending entries whose slot is gone.
+    # Verify by inspecting _pending dict directly.
+    assert len(gate._pending) == 1, f"orphan _pending entries: {list(gate._pending.keys())}"
+
+
+def test_blend_runner_reject_uses_strategy_specific_pending_cleanup():
+    """MEDIUM (Rin iter2): end-to-end — BlendForwardTestEngine on blend
+    reject must only clear the rejecting strategy's pending reservation,
+    leaving other strategies' reservations on the same symbol/direction
+    intact.
+
+    This drives the real launcher source through BlendForwardTestEngine
+    __new__ + _route_signal's blend-reject branch (line ~1218-1225) and
+    asserts the gate ends up with one remaining pending reservation.
+    """
+    from launch_blend_forward_test import BlendForwardTestEngine  # noqa: I001
+
+    engine = BlendForwardTestEngine.__new__(BlendForwardTestEngine)
+    gate = CorrelationGate()
+    engine._correlation_gate = gate
+    engine._lock = MagicMock()  # type: ignore[assignment]
+    engine._lock.__enter__ = lambda self: None
+    engine._lock.__exit__ = lambda self, *args: None
+    engine._health = MagicMock()
+    engine._heartbeat = MagicMock()
+    engine._strategy_id_map = {}
+
+    # Pre-seed two strategies' pending reservations on XAUUSD LONG.
+    gate.check("XAUUSD", "LONG", "strat_keep")
+    gate.check("XAUUSD", "LONG", "strat_reject")
+    assert gate.active_count == 2
+
+    # Stub the blend_runner to reject the incoming signal so the
+    # blend-reject branch fires.
+    blend_runner = MagicMock()
+    blend_runner.make_signal_id.side_effect = lambda signal: (
+        signal.strategy_id + "_" + str(signal.timestamp.timestamp())
+    )
+    order = MagicMock()
+    order.rejected = True
+    order.rejection_reason = "blend_cap_reached"
+    order.lots = 0.0
+    order.risk_amount = 25.0
+    blend_runner.on_signal.return_value = order
+    engine._blend_runner = blend_runner
+
+    # Build the signal with the rejecting strategy_id.
+    from adapters.ctrader.signal_adapter import CTraderTradeSignal
+
+    sig = CTraderTradeSignal(
+        symbol="XAUUSD",
+        direction="LONG",
+        entry_price=2000.0,
+        stop_loss=1990.0,
+        take_profit_1=2010.0,
+        take_profit_2=None,
+        take_profit_3=None,
+        volume=0.1,
+        confidence=0.9,
+        rationale="test",
+        timestamp=datetime(2026, 9, 8, 14, 0, 0, tzinfo=timezone.utc),
+        strategy_id="strat_reject",
+    )
+
+    # Reset mocks (record_signal will be called).
+    engine._heartbeat.record_signal = MagicMock()
+
+    engine._route_signal(sig, "strat_reject")
+
+    # Only strat_reject's reservation should be gone; strat_keep's remains.
+    assert gate.active_count == 1, (
+        f"rejection must clear only caller's pending; got active_count={gate.active_count}"
+    )
+    # Verify via the at_risk_counts diagnostic that exactly 1 at-risk slot remains.
+    assert gate.at_risk_counts().get("XAUUSD", 0) == 1
+
+
+# ── Helpers / imports for the new tests ───────────────────────────────────────
+
+
+from datetime import datetime, timezone  # noqa: E402  # isort: skip
+from unittest.mock import MagicMock  # noqa: E402  # isort: skip
+

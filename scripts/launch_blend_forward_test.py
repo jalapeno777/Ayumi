@@ -381,19 +381,32 @@ class CorrelationGate:
             if position_id is not None:
                 self._slots.pop(position_id, None)
                 return
-            # Drop pending reservations matching (symbol, direction) only.
-            for key in [k for k in self._pending if k[0] == sym and k[1] == dir_]:
-                # NOTE: k is (symbol, strategy_id); direction is not in the key.
-                # Use the matching slot's direction to filter.
-                pid = self._pending.get(key)
-                slot = self._slots.get(pid) if pid else None
-                if slot is not None and slot.direction == dir_:
-                    self._pending.pop(key, None)
-                    self._slots.pop(pid, None)
-            # Defensive: drop any pending slot whose (symbol, direction)
-            # matches and that wasn't caught by the pending-key sweep above.
-            for pid in [p for p, s in self._slots.items() if s.is_pending and s.symbol == sym and s.direction == dir_]:
+            # Legacy back-compat path.  Drops ALL pending reservations
+            # matching (symbol, direction) regardless of strategy_id — only
+            # used as a fallback in on_position_closed_release when the
+            # position has no position_id.  Pre-fill rejection paths use
+            # release_pending(symbol, strategy_id) instead so they don't
+            # remove other strategies' pending reservations.
+            #
+            # Walk pending slots, drop matching ones, then sweep orphan
+            # _pending entries whose slot no longer exists so the dict
+            # stays consistent.  (The previous version of this block had a
+            # dead loop that compared k[1] (strategy_id) to direction —
+            # never matched, so it never ran.  The _slots sweep below did
+            # the actual work but left orphan _pending entries behind.)
+            for pid in [
+                p
+                for p, s in self._slots.items()
+                if s.is_pending and s.symbol == sym and s.direction == dir_
+            ]:
                 self._slots.pop(pid, None)
+            orphan_keys = [
+                k
+                for k, pid in self._pending.items()
+                if pid not in self._slots
+            ]
+            for k in orphan_keys:
+                self._pending.pop(k, None)
 
     # ── Diagnostics / hooks ──────────────────────────────────────────────────
 
@@ -967,9 +980,18 @@ class BlendForwardTestEngine(ForwardTestEngine):
         regime_gate: Optional[RegimeGate] = None,
         **kwargs,
     ):
+        # Card 4083ac2d-...: when a correlation gate is provided, wire its
+        # update_sl method as the engine's slot_tracker so live SL amends
+        # keep the per-symbol at-risk cap accurate. Resolved eagerly so the
+        # gate reference passed by the caller is the same instance used
+        # elsewhere in the launcher (otherwise the engine would hold a
+        # different CorrelationGate than _route_signal uses).
+        gate = correlation_gate or CorrelationGate()
+        if "slot_tracker" not in kwargs:
+            kwargs["slot_tracker"] = gate.update_sl
         super().__init__(*args, **kwargs)
         self._blend_runner = blend_runner
-        self._correlation_gate = correlation_gate or CorrelationGate()
+        self._correlation_gate = gate
         self._heartbeat = heartbeat or HeartbeatTracker()
         self._strategy_id_map = strategy_id_map or {}  # strategy_name -> strategy_id
         self._regime_gate = regime_gate or RegimeGate()
@@ -1211,7 +1233,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     )
                     with self._lock:
                         self._health.signals_rejected += 1
-                    self._correlation_gate.release(signal.symbol, direction_str)
+                    self._correlation_gate.release_pending(signal.symbol, strategy_id)
                     self._heartbeat.record_signal(accepted=False)
                 else:
                     logger.info(
@@ -1283,7 +1305,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(signal.symbol, direction_str)
+                                self._correlation_gate.release_pending(signal.symbol, strategy_id)
                             elif outcome.status == LiveExecutionStatus.FILLED:
                                 self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
                                 with self._lock:
@@ -1385,7 +1407,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(signal.symbol, direction_str)
+                                self._correlation_gate.release_pending(signal.symbol, strategy_id)
                             else:
                                 # REJECTED / CANCELLED — terminal broker
                                 # rejection only. SENT, TIMEOUT, and
@@ -1408,7 +1430,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(signal.symbol, direction_str)
+                                self._correlation_gate.release_pending(signal.symbol, strategy_id)
                         except Exception as exec_err:
                             logger.error("Live execution error: %s", exec_err, exc_info=True)
                             # Card 0d7d7557 (iter2): the exception path
@@ -1432,7 +1454,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 self._blend_signal_id(signal),
                                 order.risk_amount,
                             )
-                            self._correlation_gate.release(signal.symbol, direction_str)
+                            self._correlation_gate.release_pending(signal.symbol, strategy_id)
                     else:
                         # Paper mode — exceptions here are paper-trader
                         # state bugs / network simulation issues, NOT
@@ -1498,7 +1520,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                     self._blend_signal_id(signal),
                                     order.risk_amount,
                                 )
-                                self._correlation_gate.release(signal.symbol, direction_str)
+                                self._correlation_gate.release_pending(signal.symbol, strategy_id)
                         except Exception as exec_err:
                             logger.error("Paper execution error: %s", exec_err, exc_info=True)
                             # Paper-mode exceptions must NOT touch live
@@ -1508,7 +1530,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 self._blend_signal_id(signal),
                                 order.risk_amount,
                             )
-                            self._correlation_gate.release(signal.symbol, direction_str)
+                            self._correlation_gate.release_pending(signal.symbol, strategy_id)
 
                     # Write last_signal.txt for watchdog health check
                     try:
@@ -1532,7 +1554,7 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         pass  # Non-critical — don't break signal flow
             except Exception as exc:
                 logger.error("Blend runner error: %s", exc, exc_info=True)
-                self._correlation_gate.release(signal.symbol, direction_str)
+                self._correlation_gate.release_pending(signal.symbol, strategy_id)
                 with self._lock:
                     self._health.signals_rejected += 1
                 self._heartbeat.record_signal(accepted=False)
