@@ -72,6 +72,7 @@ STRATEGY_TIMEFRAMES = _launch.STRATEGY_TIMEFRAMES
 build_blend_runner = _launch.build_blend_runner
 
 from adapters.ctrader.forward_test_engine import ForwardTestConfig
+from adapters.ctrader.kill_switch import KillSwitchManager
 from adapters.ctrader.risk_guard import FTMOConfig
 from common.logging_config import setup_logging
 from core.types import Bar, BarPeriod
@@ -363,6 +364,30 @@ def run_backtest(args: argparse.Namespace) -> dict:
         sender_sub_id="",
     )
 
+    # ── Explicit kill-switch enable for harness (card 09e99147) ──────────
+    # Card 09e99147 (2026-09-08, REWORK): the production launcher has
+    # KillSwitchManager class default `_disabled = True` (Craig directive Jun 27),
+    # which suppresses all FTMOGuard/RiskGuard activations. The harness is the
+    # safety-critical backtest path — it must enforce the kill switch so a
+    # runaway trade cannot drain the account unbounded (parent card 76046374
+    # evidence: harness re-run on 2026-09-07 lost -$123,700 because
+    # activate_global_kill was suppressed with "kill switch disabled").
+    #
+    # Rin REWORK (2026-09-08): flipping the class attribute AFTER engine
+    # construction leaves PositionMonitor and PaperTrader._risk_guard holding
+    # the original disabled instance — the engine wires them in
+    # _build_components() (forward_test_engine.py:1026,1041). The fix is to
+    # flip BEFORE construction so engine._kill_switch = KillSwitchManager()
+    # inside BlendForwardTestEngine.__init__ picks up `_disabled=False` via
+    # class default and propagates the enabled instance to every consumer.
+    KillSwitchManager._disabled = False
+    logger.warning(
+        "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest harness "
+        "(disabled=False; class default is True per Craig directive). "
+        "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
+        "and remains administratively disabled until Craig re-enables it."
+    )
+
     # ── Create engine ─────────────────────────────────────────────────────
     engine = BlendForwardTestEngine(
         config=config,
@@ -381,34 +406,50 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # _build_components() creates PaperTrader, cTraderLiveAdapter,
     # TradeLogger, and PositionMonitor.  In paper mode (live_mode=False)
     # it skips OpenApiSpotFeed construction entirely.
+    # Because we flipped KillSwitchManager._disabled=False above BEFORE
+    # engine construction, every consumer built here (PositionMonitor at
+    # forward_test_engine.py:1026, risk_guard at :1041, ExecutionPermissionPolicy
+    # at :992/:1103, market_feed at :989/:1100) receives the SAME enabled
+    # instance via `self._kill_switch`. There is no post-hoc rewire.
     engine._build_components()
 
-    # ── Explicit kill-switch enable for harness (card 09e99147) ──────────
-    # Card 09e99147 (2026-09-08): the production launcher has KillSwitchManager
-    # class default `_disabled = True` (Craig directive Jun 27 2026-09-08),
-    # which suppresses all FTMOGuard/RiskGuard activations. The harness is the
-    # safety-critical backtest path — it must enforce the kill switch so a
-    # runaway trade cannot drain the account unbounded (parent card 76046374
-    # evidence: harness re-run on 2026-09-07 lost -$123,700 because
-    # activate_global_kill was suppressed with "kill switch disabled").
-    # Flip the class attribute BEFORE re-constructing the engine's kill switch
-    # so the new instance picks up `_disabled=False` via class default. We then
-    # log loudly so operators can never lose visibility into enforcement state.
-    KillSwitchManager._disabled = False
-    logger.warning(
-        "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest harness "
-        "(disabled=False; class default is True per Craig directive). "
-        "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
-        "and remains administratively disabled until Craig re-enables it."
+    # ── Verify all consumers reference the enabled instance (defense-in-depth) ──
+    # Asserts that the engine's kill_switch is enabled AND that PositionMonitor
+    # + risk_guard see the same enabled instance. A split-state regression would
+    # cause assertions here to fail.
+    _enabled_ks = engine._kill_switch
+    if _enabled_ks.is_disabled:
+        raise RuntimeError(
+            f"REGRESSION: engine._kill_switch is still disabled after harness override; "
+            f"class default was {KillSwitchManager._disabled}"
+        )
+    if engine._paper_trader is not None and getattr(engine._paper_trader, "_risk_guard", None) is not None:
+        _rg_ks = engine._paper_trader._risk_guard._kill_switch
+        if _rg_ks is not _enabled_ks or _rg_ks.is_disabled:
+            raise RuntimeError(
+                f"REGRESSION: PaperTrader._risk_guard sees disabled kill_switch "
+                f"({_rg_ks!r}, is_disabled={_rg_ks.is_disabled}) instead of the "
+                f"enabled engine._kill_switch ({_enabled_ks!r})"
+            )
+    if engine._position_monitor is not None:
+        _pm_ks = engine._position_monitor._kill_switch
+        if _pm_ks is not _enabled_ks or _pm_ks.is_disabled:
+            raise RuntimeError(
+                f"REGRESSION: PositionMonitor sees disabled kill_switch "
+                f"({_pm_ks!r}, is_disabled={_pm_ks.is_disabled}) instead of the "
+                f"enabled engine._kill_switch ({_enabled_ks!r})"
+            )
+
+    logger.info(
+        "HARNESS: Kill switch ENABLED — all consumers (PositionMonitor, risk_guard) "
+        "reference the same enabled instance (id=%s); eval loop will HALT on breach",
+        id(_enabled_ks),
     )
-    engine._kill_switch = KillSwitchManager(state_dir=str(engine._kill_switch._state_dir))
     if engine._kill_switch.is_globally_killed():
         logger.warning(
             "HARNESS: Kill switch state file shows ACTIVE (%s) — orders will be BLOCKED",
             engine._kill_switch.get_status().get("reason", "unknown"),
         )
-    else:
-        logger.info("HARNESS: Kill switch ENABLED — eval loop will HALT on breach")
 
     # ── Wire FTMO guard (card aa3a1cbe — Bug 1 fix) ────────────────────────
     # Production main loop (scripts/launch_blend_forward_test.py:1708-1741)
