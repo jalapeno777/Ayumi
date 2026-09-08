@@ -109,12 +109,28 @@ class PaperTrader:
                     risk_guard_result=risk_result,
                 )
 
-            volume = self._order_manager.calculate_position_size(
-                self._current_balance,
-                signal.entry_price,
-                signal.stop_loss,
-                signal.symbol,
-            )
+            # Phase 0 (card 047cd91d): when the caller (typically
+            # ``BlendForwardTestRunner`` wrapping an ``OrchestratedOrder``
+            # into a ``CTraderTradeSignal``) already supplied a sized
+            # ``volume``, treat it as canonical and skip the
+            # ``OrderManager.calculate_position_size`` recomputation.
+            # The previous path always recomputed, which produced a 2×
+            # lot mismatch for SWARM-profile signals (orchestrator: 0.05
+            # lots at half risk, paper trade: 0.10 lots at full risk).
+            supplied_volume = getattr(signal, "volume", None)
+            if supplied_volume is not None and float(supplied_volume) > 0.0:
+                volume = float(supplied_volume)
+                logger.info(
+                    "[PAPER] Using orchestrator-sized volume=%.4f (skipping recompute)",
+                    volume,
+                )
+            else:
+                volume = self._order_manager.calculate_position_size(
+                    self._current_balance,
+                    signal.entry_price,
+                    signal.stop_loss,
+                    signal.symbol,
+                )
 
             trade_check = self._risk_guard.check_trade_allowed(
                 direction=signal.direction,

@@ -13,6 +13,7 @@ from .models import (
     Position,
     PositionStatus,
     TradeDirection,
+    get_symbol_info,
 )
 
 if TYPE_CHECKING:
@@ -548,7 +549,7 @@ class OrderManager:
         current_price: float,
         bid: float = 0,
         ask: float = 0,
-        contract_size: float = 100_000.0,
+        contract_size: float | None = None,
     ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
@@ -556,13 +557,24 @@ class OrderManager:
 
             position = self._positions[position_id]
             position.current_price = current_price
+            effective_contract_size = self._resolve_contract_size(
+                position.symbol, contract_size
+            )
 
             if position.direction == TradeDirection.LONG:
                 exit_price = bid if bid > 0 else current_price
-                position.unrealized_pnl = (exit_price - position.entry_price) * position.volume * contract_size
+                position.unrealized_pnl = (
+                    (exit_price - position.entry_price)
+                    * position.volume
+                    * effective_contract_size
+                )
             else:
                 exit_price = ask if ask > 0 else current_price
-                position.unrealized_pnl = (position.entry_price - exit_price) * position.volume * contract_size
+                position.unrealized_pnl = (
+                    (position.entry_price - exit_price)
+                    * position.volume
+                    * effective_contract_size
+                )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
                 sl_fill = bid if position.direction == TradeDirection.LONG else ask
@@ -570,7 +582,7 @@ class OrderManager:
                     position,
                     sl_fill if sl_fill > 0 else position.stop_loss,
                     reason="sl_hit",
-                    contract_size=contract_size,
+                    contract_size=effective_contract_size,
                 )
             elif self._check_take_profit_hit(position, current_price, bid, ask):
                 tp_fill = ask if position.direction == TradeDirection.LONG else bid
@@ -578,7 +590,7 @@ class OrderManager:
                     position,
                     tp_fill if tp_fill > 0 else position.take_profit,
                     reason="tp_hit",
-                    contract_size=contract_size,
+                    contract_size=effective_contract_size,
                 )
 
             return position
@@ -621,14 +633,51 @@ class OrderManager:
         position_id: str,
         exit_price: float | None = None,
         reason: str = "manual",
-        contract_size: float = 100_000.0,
+        contract_size: float | None = None,
     ) -> Position | None:
         with self._lock:
             if position_id not in self._positions:
                 return None
 
             position = self._positions[position_id]
-            return self._close_position(position, exit_price, reason, contract_size=contract_size)
+            effective_contract_size = self._resolve_contract_size(
+                position.symbol, contract_size
+            )
+            return self._close_position(
+                position,
+                exit_price,
+                reason,
+                contract_size=effective_contract_size,
+            )
+
+    def _resolve_contract_size(
+        self, symbol: str, contract_size: float | None
+    ) -> float:
+        """Resolve the contract size to use for P&L math.
+
+        Falls back to the symbol-specific canonical contract_size
+        (e.g. 100 oz/lot for XAUUSD via
+        ``models.SYMBOL_METADATA``/``get_symbol_info``) when the caller
+        does not pass an explicit ``contract_size``. This prevents the
+        ~1000× P&L distortion on non-FX symbols (card
+        ``047cd91d-51b1-46f1-b8a9-dd1add80338a``) where the previous
+        default of ``100_000.0`` (FX standard lot units) silently
+        mis-scaled P&L by 1000× for XAUUSD's 100-oz contract.
+
+        Args:
+            symbol: Trading symbol the position is held on.
+            contract_size: Caller-provided value, or ``None`` for
+                symbol-canonical lookup.
+
+        Returns:
+            The contract size to use (caller value wins when provided).
+        """
+        if contract_size is not None:
+            return contract_size
+        try:
+            return float(get_symbol_info(symbol).contract_size)
+        except Exception:  # noqa: BLE001 — defensive fallback for unknown symbols
+            return 100_000.0
 
     def _close_position(
         self,
@@ -636,14 +685,17 @@ class OrderManager:
         exit_price: float | None = None,
         reason: str = "unknown",
         *,
-        contract_size: float = 100_000.0,
+        contract_size: float | None = None,
     ) -> Position:
         exit_price = exit_price or position.current_price
+        effective_contract_size = self._resolve_contract_size(
+            position.symbol, contract_size
+        )
 
         if position.direction == TradeDirection.LONG:
-            pnl = (exit_price - position.entry_price) * position.volume * contract_size
+            pnl = (exit_price - position.entry_price) * position.volume * effective_contract_size
         else:
-            pnl = (position.entry_price - exit_price) * position.volume * contract_size
+            pnl = (position.entry_price - exit_price) * position.volume * effective_contract_size
 
         position.status = PositionStatus.CLOSED
         position.closed_at = datetime.utcnow()
