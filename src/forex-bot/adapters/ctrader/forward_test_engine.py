@@ -401,12 +401,19 @@ class ForwardTestEngine:
         credentials: Optional[cTraderCredentials] = None,
         *,
         blend_mode: bool = False,
+        slot_tracker: Optional[Callable[[str, float], None]] = None,
     ):
         self._config = config
         self._strategies = strategies
         self._ftmo_config = ftmo_config
         self._position_config = position_config
         self._blend_mode = blend_mode
+        # Card 4083ac2d-...: optional observer for live SL amendments.
+        # Stored on the engine and forwarded to PositionMonitor in
+        # _build_components so the per-symbol at-risk cap stays accurate
+        # after each successful broker amend. Mirrors the slot_tracker
+        # constructor arg on PositionMonitor.
+        self._slot_tracker = slot_tracker
         self._running = False
         self._lock = threading.RLock()
         self._eval_semaphore = threading.Semaphore(1)
@@ -1033,6 +1040,9 @@ class ForwardTestEngine:
             # still constructed (no live creds required) but amend_sl_tp is
             # a no-op against the local PaperTrader so it's safe to wire.
             market_feed=self._market_feed,
+            # Card 4083ac2d-...: forward the engine's slot_tracker so the
+            # per-symbol at-risk cap is updated after each successful ratchet.
+            slot_tracker=self._slot_tracker,
         )
 
         # Share kill switch with risk guard so circuit breaker uses
