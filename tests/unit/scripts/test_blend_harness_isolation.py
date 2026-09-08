@@ -425,3 +425,161 @@ def test_keep_state_dir_preserves_directory(tmp_path):
 
     harness._cleanup_state_dir(state_dir, keep=True)
     assert state_dir.exists(), "--keep-state-dir must preserve the state dir"
+
+
+# ── AC7 (Rin rework 4f384bfc MEDIUM): failure-path tests ────────────────
+
+
+def test_isolation_patch_restores_module_bindings_on_exception(tmp_path, monkeypatch):
+    """``_isolation_patch`` must restore ALL module-level KillSwitchManager
+    bindings on the exception path. Card 758273a7 REWORK (Rin verdict
+    4f384bfc HIGH #1) — pre-rework restoration was success-only, leaking
+    _HarnessIsolatedKS into subsequent in-process constructions.
+    """
+    import adapters.ctrader.forward_test_engine as fte_mod
+    import adapters.ctrader.kill_switch as ks_mod
+    from adapters.ctrader import paper_trader as pt_mod
+
+    # Capture originals for the assertion at the end.
+    orig_ks = ks_mod.KillSwitchManager
+    orig_fte = fte_mod.KillSwitchManager
+    orig_pt = getattr(pt_mod, "KillSwitchManager", None)
+
+    # Build an isolated_ks to feed into the context manager.
+    isolated_ks_dir = tmp_path / "isolated_ks"
+    isolated_ks_dir.mkdir()
+    isolated_ks = harness._build_isolated_kill_switch(isolated_ks_dir)
+
+    # Inject an exception inside the with-block.
+    sentinel = RuntimeError("simulated mid-run failure")
+    with pytest.raises(RuntimeError) as excinfo:
+        with harness._isolation_patch(isolated_ks):
+            # Verify patches are applied inside the with-block.
+            assert ks_mod.KillSwitchManager is not orig_ks, (
+                "ks_module.KillSwitchManager must be patched inside the with-block"
+            )
+            assert fte_mod.KillSwitchManager is not orig_fte
+            raise sentinel
+    assert excinfo.value is sentinel
+
+    # After the with-block exits (via exception), originals MUST be restored.
+    assert ks_mod.KillSwitchManager is orig_ks, (
+        "ks_module.KillSwitchManager must be restored after exception"
+    )
+    assert fte_mod.KillSwitchManager is orig_fte, (
+        "fte_module.KillSwitchManager must be restored after exception"
+    )
+    if orig_pt is not None:
+        assert getattr(pt_mod, "KillSwitchManager", None) is orig_pt, (
+            "pt_module.KillSwitchManager must be restored after exception"
+        )
+
+
+def test_isolation_patch_restores_disabled_flag_on_exception(tmp_path):
+    """``_isolation_patch`` must restore ``KillSwitchManager._disabled``
+    on the exception path. Card 758273a7 REWORK (Rin verdict 4f384bfc
+    HIGH #2) — pre-rework flipped ``_disabled = False`` and never
+    restored, leaking enabled state into subsequent in-process runs.
+    """
+    from adapters.ctrader.kill_switch import KillSwitchManager
+
+    # Capture the original class-level value.
+    orig_disabled = KillSwitchManager._disabled
+
+    # Pre-condition: verify we are starting from a known state. If the
+    # harness left _disabled=False from a previous failed test, this
+    # assertion catches it.
+    isolated_ks_dir = tmp_path / "isolated_ks"
+    isolated_ks_dir.mkdir()
+    isolated_ks = harness._build_isolated_kill_switch(isolated_ks_dir)
+
+    with pytest.raises(RuntimeError, match="simulated"):
+        with harness._isolation_patch(isolated_ks):
+            # Inside the with-block, _disabled must be False (patched).
+            assert KillSwitchManager._disabled is False, (
+                "_disabled must be False inside the with-block (harness-enabled)"
+            )
+            raise RuntimeError("simulated")
+
+    # After the with-block, _disabled must be restored to the captured value.
+    assert KillSwitchManager._disabled is orig_disabled, (
+        f"_disabled must be restored to original ({orig_disabled}) after "
+        f"exception; got {KillSwitchManager._disabled}"
+    )
+
+
+def test_isolation_patch_restores_on_normal_return(tmp_path):
+    """``_isolation_patch`` must restore on the normal-return path too
+    (Rin HIGH #1 + #2 — both paths must restore). Two sequential in-process
+    runs must not leak state into each other.
+    """
+    import adapters.ctrader.kill_switch as ks_mod
+    from adapters.ctrader.kill_switch import KillSwitchManager
+
+    orig_ks = ks_mod.KillSwitchManager
+    orig_disabled = KillSwitchManager._disabled
+
+    isolated_ks_dir = tmp_path / "isolated_ks"
+    isolated_ks_dir.mkdir()
+    isolated_ks = harness._build_isolated_kill_switch(isolated_ks_dir)
+
+    # First run — normal completion.
+    with harness._isolation_patch(isolated_ks):
+        assert KillSwitchManager._disabled is False
+        assert ks_mod.KillSwitchManager is not orig_ks
+
+    # After first run: originals restored.
+    assert KillSwitchManager._disabled is orig_disabled
+    assert ks_mod.KillSwitchManager is orig_ks
+
+    # Second run — must also restore cleanly (proving no leakage).
+    with harness._isolation_patch(isolated_ks):
+        assert KillSwitchManager._disabled is False
+        assert ks_mod.KillSwitchManager is not orig_ks
+
+    assert KillSwitchManager._disabled is orig_disabled, (
+        "_disabled must be restored after second in-process run too"
+    )
+    assert ks_mod.KillSwitchManager is orig_ks
+
+
+def test_guard_refuses_on_unreadable_pid_file_via_permission_error(
+    monkeypatch, tmp_path, caplog
+):
+    """PID file that raises PermissionError on read_text() must REFUSE,
+    not proceed. Card 758273a7 REWORK (Rin verdict 4f384bfc HIGH #3).
+    Pre-rework guard treated PermissionError as STALE (fail-open), which
+    let an unreadable / foreign-owned PID file slip past the guard.
+    """
+    import logging
+
+    _make_fake_live_files(monkeypatch, tmp_path)
+    pid_file = harness.LIVE_FORWARD_TEST_PID
+    pid_file.write_text("99999")  # content exists, but read will be denied
+
+    # Monkeypatch read_text to raise PermissionError (simulates a file
+    # locked or owned by a foreign user).
+    def fake_read_text(*_args, **_kwargs):
+        raise PermissionError(13, "Permission denied", str(pid_file))
+
+    monkeypatch.setattr(type(pid_file), "read_text", fake_read_text)
+
+    args = argparse.Namespace(allow_foreign_ownership=False, keep_state_dir=False)
+    state_dir = tmp_path / "harness_state"
+    state_dir.mkdir()
+
+    with caplog.at_level(logging.WARNING, logger="ayumi.backtest_harness"):
+        with pytest.raises(harness.RefuseToRun) as excinfo:
+            harness._verify_isolation_or_refuse(args, state_dir)
+
+    # The error message must mention fail-closed / unreadable.
+    err = str(excinfo.value)
+    assert "unreadable" in err.lower(), (
+        f"RefuseToRun message must explain unreadable PID file; got: {err}"
+    )
+    assert "failing closed" in err.lower() or "FAIL CLOSED" in err or "refuses" in err.lower(), (
+        f"RefuseToRun message must indicate fail-closed semantics; got: {err}"
+    )
+    assert "4f384bfc" in err, (
+        f"RefuseToRun message must cite Rin verdict 4f384bfc; got: {err}"
+    )
