@@ -355,6 +355,15 @@ if _spec.loader is None:
         f"Module spec for {PROJECT_ROOT / 'scripts' / 'launch_blend_forward_test.py'} "
         f"has no loader (loader=None)"
     )
+# Card 4083ac2d-... (harness spec-load crash fix): register the spec-loaded
+# module in sys.modules under its __name__ BEFORE exec_module.  The
+# @dataclass decorator does a sys.modules[cls.__module__] lookup at class-
+# creation time (via typing.get_type_hints under PEP 563 / from __future__
+# import annotations), and the launcher's _Slot dataclass triggers that
+# path.  Without this registration, dataclass evaluation raises
+# AttributeError: 'NoneType' object has no attribute '__dict__'.
+# Standard library idiom for importlib.util.spec_from_file_location.
+sys.modules[_spec.name] = _launch
 _spec.loader.exec_module(_launch)
 
 BlendForwardTestEngine = _launch.BlendForwardTestEngine
