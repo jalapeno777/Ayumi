@@ -23,7 +23,7 @@ _DEFAULT_ADAPTER_SPREADS: dict[str, float] = dict(_DEFAULT_SYMBOL_SPREADS)
 # ── Price sanity guardrail ─────────────────────────────────────────────────────
 #
 # Defense against data-feed / decoder bugs that emit physically impossible
-# entry prices (e.g. $4.1M for XAUUSD when gold trades at ~$3,300). Triggered
+# entry prices (e.g. $4.1M for XAUUSD when gold trades at ~$5,000+). Triggered
 # multiple times in production by SRMR+ and Session-Range Mean Reversion on
 # XAUUSD bars (forward_test-stderr.log: 2026-07-08 to 2026-07-10). Root cause
 # is upstream in the spot-feed trendbar/tick decode for non-JPY pairs where
@@ -31,11 +31,14 @@ _DEFAULT_ADAPTER_SPREADS: dict[str, float] = dict(_DEFAULT_SYMBOL_SPREADS)
 # does not cover XAUUSD. This guardrail blocks the corrupted signal BEFORE it
 # reaches the orchestrator, sizing gate, paper trader, or live broker.
 #
-# Values are intentionally generous — gold has never traded above ~$3,500
-# historically, so XAUUSD=5000 leaves >40% headroom while still rejecting
-# any 100x+ inflation bug. Defaults catch any unknown symbol at $10k.
+# Values are intentionally generous — gold has traded above $5,000 (Q3 2026),
+# so XAUUSD=10000 leaves >85% headroom while still rejecting any 100x+ inflation
+# bug or fat-finger entry. TODO (card 271cba95 follow-up): derive the bound
+# dynamically from a rolling percentile of recent closes × margin so this does
+# not rot again as gold price drifts upward. Defaults catch any unknown symbol
+# at $10k.
 _MAX_REASONABLE_PRICES: dict[str, float] = {
-    "XAUUSD": 5000.0,  # gold sane max — never traded above ~$3,500
+    "XAUUSD": 10_000.0,  # gold sane max — gold Q3 2026 spot ~$5,000+ (was 5000; bumped 2026-09-08, card 271cba95)
     "EURUSD": 2.0,
     "GBPUSD": 3.0,
     "USDJPY": 300.0,
@@ -44,6 +47,12 @@ _MAX_REASONABLE_PRICES: dict[str, float] = {
     "USDCAD": 3.0,
 }
 _DEFAULT_SANE_PRICE_MAX = 10_000.0
+
+# Periodic loud summary: emit a "PRICE-SANITY REJECTION SUMMARY" ERROR every N
+# rejections so operators watching harness output see the running total (the
+# "silent discard" failure pattern is the disease this guards against — card
+# 271cba95).
+_SANITY_SUMMARY_EVERY_N = 5
 
 
 def _max_reasonable_price(symbol: str) -> float:
@@ -95,6 +104,11 @@ class cTraderSignalAdapter:
             resolved.update(max_spread_thresholds)
         self._max_spread_thresholds = resolved
         self._default_max_spread = default_max_spread
+        # Loud rejection counter (card 271cba95). The original guardrail logged
+        # WARNING on each rejection but produced no aggregate signal — silent
+        # discards ate ~25% of valid XAUUSD signals during integration re-run
+        # #4 because nobody noticed the bound was stale. Track and surface.
+        self._sanity_rejection_count: int = 0
 
     def set_min_confidence(self, confidence: float):
         self._min_confidence = confidence
@@ -155,16 +169,32 @@ class cTraderSignalAdapter:
             ("take_profit_3", signal.take_profit_3),
         ):
             if _price_exceeds_sanity_bound(self._symbol, field_value):
-                logger.warning(
-                    "Signal REJECTED by price-sanity guardrail: strategy=%s symbol=%s "
-                    "%s=%.5f exceeds sane_max=%.2f — likely data-feed decoder bug "
+                self._sanity_rejection_count += 1
+                # ERROR level (was WARNING): makes the line visible in harness
+                # stdout instead of being swallowed by default WARN-only
+                # filters. Counter is included so operators see accumulation.
+                logger.error(
+                    "PRICE-SANITY REJECTION [#%d]: strategy=%s symbol=%s %s=%.5f "
+                    "exceeds sane_max=%.2f — likely data-feed decoder bug OR "
+                    "stale sane_max bound "
                     "(see open_api_spot_feed._handle_spot_event non-JPY path)",
+                    self._sanity_rejection_count,
                     self._strategy.name,
                     self._symbol,
                     field_name,
                     field_value if field_value is not None else 0.0,
                     sane_max,
                 )
+                if self._sanity_rejection_count % _SANITY_SUMMARY_EVERY_N == 0:
+                    # Loud periodic summary: visible without scrolling.
+                    logger.error(
+                        "PRICE-SANITY REJECTION SUMMARY: symbol=%s strategy=%s "
+                        "total_rejected=%d since adapter init — investigate "
+                        "sane_max bound or upstream decoder",
+                        self._symbol,
+                        self._strategy.name,
+                        self._sanity_rejection_count,
+                    )
                 return None
 
         trade_direction = self._convert_direction(signal.direction)
@@ -251,6 +281,15 @@ class cTraderSignalAdapter:
     @property
     def last_signal_time(self) -> datetime | None:
         return self._last_signal_time
+
+    def get_sanity_rejection_count(self) -> int:
+        """Return the count of price-sanity rejections since adapter init.
+
+        Card 271cba95: surface aggregate rejection counts so operators can
+        detect a stale bound (silent discard pattern) without grepping the
+        full log. Reset semantics: lifetime of the adapter instance.
+        """
+        return self._sanity_rejection_count
 
 
 class cTraderLiveAdapter:
