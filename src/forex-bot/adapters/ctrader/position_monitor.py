@@ -71,6 +71,7 @@ class PositionMonitor:
         check_interval_sec: float = 5.0,
         contract_sizes: dict[str, float] | None = None,
         market_feed=None,
+        slot_tracker: Optional[Callable[[str, float], None]] = None,
     ):
         self._order_manager = order_manager
         self._risk_guard = risk_guard
@@ -84,6 +85,12 @@ class PositionMonitor:
         # can wire a fallback (manual amend, alert, etc.) without losing the
         # monitoring visibility.
         self._market_feed = market_feed
+        # Card 4083ac2d-...: optional callback fired AFTER a successful
+        # broker amend with (position_id, new_sl). The launcher wires this
+        # to CorrelationGate.update_sl so the per-symbol at-risk cap stays
+        # in sync with live SL trailing. Defensive: callback exceptions
+        # are caught and logged so the trailing loop is never broken.
+        self._slot_tracker = slot_tracker
         self._lock = threading.RLock()
 
         # Background monitoring thread
@@ -111,6 +118,17 @@ class PositionMonitor:
         """
         with self._lock:
             self._market_feed = market_feed
+
+    def set_slot_tracker(self, slot_tracker: Optional[Callable[[str, float], None]]) -> None:
+        """Attach (or replace) the SL-change observer (card 4083ac2d-...).
+
+        The launcher wires ``CorrelationGate.update_sl`` here so the gate's
+        at-risk cap stays in sync with live SL trails.  ``None`` clears the
+        observer (useful for tests).  Mirrors ``set_market_feed``'s lazy-
+        wiring pattern for the engine path.
+        """
+        with self._lock:
+            self._slot_tracker = slot_tracker
 
     # ── Core: update_positions ─────────────────────────────────────────────
 
@@ -506,6 +524,21 @@ class PositionMonitor:
 
         # Success: record the fired level for idempotency.
         position.tp_levels_fired.append(level)
+        # Card 4083ac2d-...: keep the position object in sync with the
+        # broker's new SL and notify the optional slot tracker so the
+        # per-symbol at-risk cap stays accurate after a trailing ratchet.
+        # Wrapped so a buggy tracker cannot break the trailing loop.
+        position.stop_loss = new_sl
+        if self._slot_tracker is not None:
+            try:
+                self._slot_tracker(position.position_id, new_sl)
+            except Exception as tracker_exc:  # noqa: BLE001
+                logger.warning(
+                    "Position %s: TP%d ratchet fired but slot_tracker raised %s (non-fatal)",
+                    position.position_id,
+                    level,
+                    tracker_exc,
+                )
         logger.info(
             "Position %s: TP%d ratchet FIRED (sl=%.5f tp=%.5f fired=%s)",
             position.position_id,
