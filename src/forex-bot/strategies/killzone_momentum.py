@@ -491,8 +491,14 @@ class KillzoneMomentumStrategy:
         # H4 cross-timeframe filter: when H4 bars are available, require
         # the H4 candle direction to align with the breakout direction.
         # If h4_bars is None or empty (backward-compatible), skip this filter.
-        if state.h4_bars and len(state.h4_bars) >= 2:
-            h4_trend = _get_trend_direction(state.h4_bars, min(10, len(state.h4_bars) - 1))
+        # Use getattr() so a future type-divergence on h4_bars surfaces as a
+        # real AttributeError rather than silently killing the strategy via
+        # the swallowed-exception path. See card f30917a6-a8e9-465c-8032-
+        # 1230e9b858cc — the duplicate MarketState in backtest.types caused
+        # exactly that silent-kill failure.
+        h4_bars = getattr(state, "h4_bars", None)
+        if h4_bars and len(h4_bars) >= 2:
+            h4_trend = _get_trend_direction(h4_bars, min(10, len(h4_bars) - 1))
             if h4_trend is not None and h4_trend != breakout_direction:
                 return None
 
