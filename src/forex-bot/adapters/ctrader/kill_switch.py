@@ -140,7 +140,31 @@ class KillSwitchManager:
     MODE_KILL = "kill"
     MODE_FREEZE = "freeze"
 
-    def __init__(self, state_dir: str = DEFAULT_STATE_DIR):
+    def __init__(
+        self,
+        state_dir: str = DEFAULT_STATE_DIR,
+        disabled: bool | None = None,
+    ):
+        """Initialize the kill switch manager.
+
+        Args:
+            state_dir: Directory for state persistence.
+            disabled: Explicit override for the administratively-disabled flag.
+                - ``True``  — suppress all activations (production launcher default).
+                - ``False`` — enable activations (harness/backtest default).
+                - ``None``  — inherit the class-level default (Craig directive Jun 27,
+                  ``_disabled = True``). The class-level default is preserved so
+                  production paths that do not pass an explicit value continue to
+                  behave the same way; the chosen value is logged loudly at
+                  startup so operators can never silently lose enforcement.
+        """
+        # Honor explicit override; otherwise fall through to class default.
+        # Class-level ``_disabled`` is a flag owned by Craig's directive; do not
+        # flip it silently. The harness path passes ``disabled=False``; the
+        # production launcher leaves it None (→ class default True).
+        if disabled is not None:
+            self._disabled: bool = disabled
+
         self._state_dir = Path(state_dir)
         self._state_file = self._state_dir / GLOBAL_STATE_FILE
         self._history_file = self._state_dir / HISTORY_FILE
@@ -163,6 +187,24 @@ class KillSwitchManager:
         self._strategy_state_file = self._state_dir / STRATEGY_STATE_FILE
         self._strategy_states: dict[str, StrategyFreezeState] = {}
         self._load_strategy_states()
+
+        # Loud startup log — operators must never be uncertain about whether
+        # the kill switch is enforcing. Card 09e99147 (2026-09-08): the prior
+        # default was set silently; this line makes the choice unmissable.
+        effective_disabled = getattr(self, "_disabled", KillSwitchManager._disabled)
+        if effective_disabled:
+            logger.warning(
+                "KillSwitch STARTUP: ADMINISTRATIVELY DISABLED — FTMOGuard/RiskGuard "
+                "activations will be SUPPRESSED (no-op). Pass disabled=False to "
+                "the KillSwitchManager constructor to enable enforcement. "
+                "(class default: Craig directive Jun 27 2026-09-08)"
+            )
+        else:
+            logger.warning(
+                "KillSwitch STARTUP: ENABLED — FTMOGuard/RiskGuard activations "
+                "will HALT the eval loop on breach. (explicit disabled=False "
+                "override applied)"
+            )
 
     # ── Public API: Query ──────────────────────────────────────────────────
 

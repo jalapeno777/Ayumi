@@ -383,6 +383,33 @@ def run_backtest(args: argparse.Namespace) -> dict:
     # it skips OpenApiSpotFeed construction entirely.
     engine._build_components()
 
+    # ── Explicit kill-switch enable for harness (card 09e99147) ──────────
+    # Card 09e99147 (2026-09-08): the production launcher has KillSwitchManager
+    # class default `_disabled = True` (Craig directive Jun 27 2026-09-08),
+    # which suppresses all FTMOGuard/RiskGuard activations. The harness is the
+    # safety-critical backtest path — it must enforce the kill switch so a
+    # runaway trade cannot drain the account unbounded (parent card 76046374
+    # evidence: harness re-run on 2026-09-07 lost -$123,700 because
+    # activate_global_kill was suppressed with "kill switch disabled").
+    # Flip the class attribute BEFORE re-constructing the engine's kill switch
+    # so the new instance picks up `_disabled=False` via class default. We then
+    # log loudly so operators can never lose visibility into enforcement state.
+    KillSwitchManager._disabled = False
+    logger.warning(
+        "HARNESS KILL-SWITCH OVERRIDE: explicitly ENABLED for backtest harness "
+        "(disabled=False; class default is True per Craig directive). "
+        "Production launcher scripts/launch_blend_forward_test.py is UNAFFECTED "
+        "and remains administratively disabled until Craig re-enables it."
+    )
+    engine._kill_switch = KillSwitchManager(state_dir=str(engine._kill_switch._state_dir))
+    if engine._kill_switch.is_globally_killed():
+        logger.warning(
+            "HARNESS: Kill switch state file shows ACTIVE (%s) — orders will be BLOCKED",
+            engine._kill_switch.get_status().get("reason", "unknown"),
+        )
+    else:
+        logger.info("HARNESS: Kill switch ENABLED — eval loop will HALT on breach")
+
     # ── Wire FTMO guard (card aa3a1cbe — Bug 1 fix) ────────────────────────
     # Production main loop (scripts/launch_blend_forward_test.py:1708-1741)
     # instantiates an FTMOGuard bound to the engine's kill_switch and calls
