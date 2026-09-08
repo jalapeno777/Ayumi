@@ -577,10 +577,18 @@ class OrderManager:
                 )
 
             if self._check_stop_loss_hit(position, current_price, bid, ask):
-                sl_fill = bid if position.direction == TradeDirection.LONG else ask
+                # Card 75b24f98: SL-triggered closes fill AT the configured
+                # stop_loss level — NOT at the bar's bid (LONG) / ask
+                # (SHORT) excursion. The previous code used the same tick
+                # that triggered the hit as the fill price, landing fills
+                # 50–275 pips past tight XAUUSD stops (≈2.27× P&L bias on
+                # SL closes, per 2026-09-08 Satsuki re-run #3 in
+                # reports/blend-harness-2026-09-08/). Conservative pips-
+                # per-side slippage is a SEPARATE concern (card 46b631ab);
+                # the base fill-at-level fix lives here.
                 self._close_position(
                     position,
-                    sl_fill if sl_fill > 0 else position.stop_loss,
+                    position.stop_loss,
                     reason="sl_hit",
                     contract_size=effective_contract_size,
                 )
