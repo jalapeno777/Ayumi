@@ -1285,8 +1285,8 @@ STRATEGY_TIMEFRAMES = {
 def build_blend_runner() -> BlendForwardTestRunner:
     config = {
         "account_balance": 10_000.0,
-        "risk_per_trade_pct": 0.005,
-        "daily_risk_cap_pct": 0.05,
+        "risk_per_trade_pct": 0.0025,
+        "daily_risk_cap_pct": 0.02,
         "max_sniper": 3,
         "max_swarm": 5,
         "spread_pips": {"GBPUSD": 2.0, "EURUSD": 0.8, "XAUUSD": 0.3, "USDJPY": 0.8},
