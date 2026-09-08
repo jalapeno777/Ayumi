@@ -317,6 +317,224 @@ class RegimeGate:
         return True, "passed"
 
 
+# ── Counterfactual Regime-Gate Observability (card d2be30f4) ─────────────────
+
+# Expanded gate that Phase 1.3 will experiment with: same regimes the
+# OPTUNA-validated 3-strategy blend runs under, plus the two killzones
+# where London Breakout Retest and Donchian ATR Trailing Trend v2
+# historically do their best work.  This is a dict literal — there is NO
+# env override for the expanded gate (F-1, deliberately out of scope for
+# this card; the override would land on a follow-up card before the
+# gate-loosening experiment).
+_EXPANDED_REGIMES: frozenset = frozenset({Regime.QUIET, Regime.CHOPPY, Regime.TRENDING})
+_EXPANDED_SESSIONS: frozenset = frozenset({"london", "ny_am"})
+
+# Path is project-root-relative so the live process writes to the same
+# location the operator reads from in heartbeats.  Default off — the
+# logger singleton returns None until AYUMI_COUNTERFACTUAL_LOG=1 is set.
+_COUNTERFACTUAL_LOG_PATH: Path = PROJECT_ROOT / "data" / "counterfactual_gate_log.jsonl"
+
+
+def _counterfactual_log_enabled() -> bool:
+    """Card d2be30f4 AC1: only the literal env value '1' enables the log.
+
+    Re-evaluated on every call so the operator can toggle the flag at
+    runtime without restarting the live launcher (the next per-bar call
+    will pick up the new value via ``os.getenv``).
+    """
+    return os.getenv("AYUMI_COUNTERFACTUAL_LOG", "") == "1"
+
+
+def _expanded_gate_would_pass(
+    regime: Regime | None,
+    session: str,
+) -> str:
+    """Apply the expanded gate (regimes {QUIET, CHOPPY, TRENDING} AND sessions {london, ny_am}).
+
+    Returns ``"pass"`` iff the bar's detected regime is in the expanded
+    regime set AND the bar's session is in the expanded session set.
+    Returns ``"reject"`` otherwise — including when the regime detector
+    returned ``None`` (insufficient bars or detector failure) so the
+    counterfactual log is honest about the unknown case.  This matches
+    the spec's pass/reject-only schema.
+    """
+    if regime is None:
+        return "reject"
+    if regime not in _EXPANDED_REGIMES:
+        return "reject"
+    if session not in _EXPANDED_SESSIONS:
+        return "reject"
+    return "pass"
+
+
+def _extract_regime_and_session(
+    bars: list,
+    current_bar,
+) -> tuple[Regime | None, float | None, str]:
+    """Strategy-agnostic regime / ADX / session extraction for the counterfactual log.
+
+    Mirrors :meth:`RegimeGate.check`'s data extraction (last 100 bars,
+    ``RegimeDetector.detect_current``, ADX(14), hour-to-session mapping)
+    but does NOT apply the strategy-specific regime / ADX / session
+    filters.  Returns ``(None, None, session)`` when there are fewer
+    than 100 bars or the detector raises — the log line must still
+    emit so operators can see the unknown-regime cases.
+
+    The session is computed independently of the regime because the
+    current gate may reject on session before the regime even matters;
+    the expanded gate's two predicates (regime AND session) are
+    evaluated separately by :func:`_expanded_gate_would_pass`.
+    """
+    session = "unknown"
+    try:
+        hour_utc = getattr(getattr(current_bar, "time", None), "hour", None)
+        if hour_utc is not None:
+            session = RegimeGate._hour_to_session(int(hour_utc))
+    except Exception:  # noqa: S110 — defensive, never crash the launcher
+        session = "unknown"
+
+    if len(bars) < 100:
+        return None, None, session
+
+    try:
+        highs = np.array([b.high for b in bars[-100:]])
+        lows = np.array([b.low for b in bars[-100:]])
+        closes = np.array([b.close for b in bars[-100:]])
+        regime = RegimeDetector(RegimeConfig()).detect_current(highs, lows, closes)
+    except Exception:
+        return None, None, session
+
+    adx_value: float | None = None
+    try:
+        from indicators import adx as _adx
+
+        adx_series = _adx(highs, lows, closes, 14)
+        if adx_series is not None and len(adx_series) > 0:
+            adx_value = float(adx_series.iloc[-1]) if hasattr(adx_series, "iloc") else float(adx_series[-1])
+    except Exception:  # noqa: S110 — ADX failure must not block logging
+        adx_value = None
+
+    return regime, adx_value, session
+
+
+def _build_counterfactual_payload(
+    symbol: str,
+    strategy_id: str,
+    regime: Regime | None,
+    session: str,
+    adx: float | None,
+    current_gate_decision: str,
+    expanded_gate_decision: str,
+    strategy_emitted: bool,
+) -> dict:
+    """Build one JSONL line per card d2be30f4 spec.
+
+    Field shape matches the spec exactly: ``{ts, symbol, strategy_id,
+    regime, session, adx, current_gate, expanded_gate_would,
+    strategy_emitted}``.  ``ts`` is set by the caller (UTC ISO-8601) so
+    this helper stays pure and easy to test.
+    """
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "symbol": symbol,
+        "strategy_id": strategy_id,
+        "regime": regime.value if regime is not None else "unknown",
+        "session": session,
+        "adx": adx,
+        "current_gate": current_gate_decision,
+        "expanded_gate_would": expanded_gate_decision,
+        "strategy_emitted": strategy_emitted,
+    }
+
+
+class _CounterfactualLogger:
+    """Best-effort JSONL writer for card d2be30f4.
+
+    The file handle is opened lazily on the first write so the off-by-
+    default path pays zero I/O cost.  All OSError paths (open failure,
+    write failure, full disk, permission denied) are caught and logged
+    ONCE — subsequent failures stay silent so a flaky disk does not
+    flood the logs.  This logger is observability infrastructure and
+    must never crash the live launcher (AC: ``Log writes must never
+    crash the live launcher``).
+    """
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._path: Path = path if path is not None else _COUNTERFACTUAL_LOG_PATH
+        self._fh = None
+        self._warned_failure = False
+
+    def _open_if_needed(self) -> None:
+        if self._fh is not None:
+            return
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._fh = open(self._path, "a", encoding="utf-8")
+        except OSError as exc:
+            if not self._warned_failure:
+                logger.warning(
+                    "Counterfactual log: failed to open %s: %s (further errors suppressed)",
+                    self._path,
+                    exc,
+                )
+                self._warned_failure = True
+            self._fh = None
+
+    def write(self, payload: dict) -> None:
+        """Best-effort JSONL write.  Never raises."""
+        try:
+            self._open_if_needed()
+            if self._fh is None:
+                return
+            self._fh.write(json.dumps(payload, default=str) + "\n")
+            self._fh.flush()
+        except OSError as exc:
+            if not self._warned_failure:
+                logger.warning(
+                    "Counterfactual log: write failed: %s (further errors suppressed)",
+                    exc,
+                )
+                self._warned_failure = True
+
+    def close(self) -> None:
+        if self._fh is not None:
+            try:
+                self._fh.close()
+            except OSError:
+                pass
+            self._fh = None
+
+    @property
+    def warned_failure(self) -> bool:
+        return self._warned_failure
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+
+# Module-level singleton — lazily initialized by ``_get_counterfactual_logger``
+# only when the env flag is on.  Kept at module scope so the file handle
+# stays open for the lifetime of the launcher (closing/reopening on
+# every bar would defeat the point of streaming observability).
+_counterfactual_logger: _CounterfactualLogger | None = None
+
+
+def _get_counterfactual_logger() -> _CounterfactualLogger | None:
+    """Return the lazy singleton logger, or ``None`` if the flag is off.
+
+    Off-by-default (returns ``None`` and pays zero I/O cost) — the
+    calling code uses ``if _cf_logger is None: continue`` as the
+    default-off branch.
+    """
+    global _counterfactual_logger
+    if not _counterfactual_log_enabled():
+        return None
+    if _counterfactual_logger is None:
+        _counterfactual_logger = _CounterfactualLogger()
+    return _counterfactual_logger
+
+
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
 
 
@@ -576,7 +794,42 @@ class BlendForwardTestEngine(ForwardTestEngine):
                     self._strategy_no_signal_counts[strategy_name],
                 )
 
+                # Card d2be30f4: resolve the canonical strategy_id BEFORE
+                # the no-signal short-circuit so it is available to both
+                # branches of the counterfactual log.
+                _strategy_id_for_regime = self._strategy_id_map.get(
+                    strategy_name,
+                    strategy_name.lower().replace(" ", "_"),
+                )
+
                 if s is None:
+                    # Card d2be30f4: counterfactual observability —
+                    # log the no-signal evaluation so operators can
+                    # distinguish "strategy never fires" (this branch)
+                    # from "gate blocks fires" (the next branch).
+                    # Gate behavior is UNCHANGED — the live launcher
+                    # still skips the broker path on no-signal.  The
+                    # log is additive only, env-gated off by default.
+                    _cf_logger = _get_counterfactual_logger()
+                    if _cf_logger is not None:
+                        _cf_regime, _cf_adx, _cf_session = _extract_regime_and_session(
+                            bars,
+                            bars[-1] if bars else None,
+                        )
+                        _cf_logger.write(
+                            _build_counterfactual_payload(
+                                symbol=symbol,
+                                strategy_id=_strategy_id_for_regime,
+                                regime=_cf_regime,
+                                session=_cf_session,
+                                adx=_cf_adx,
+                                current_gate_decision="reject",
+                                expanded_gate_decision=_expanded_gate_would_pass(
+                                    _cf_regime, _cf_session,
+                                ),
+                                strategy_emitted=False,
+                            )
+                        )
                     continue
 
                 generated += 1
@@ -586,10 +839,6 @@ class BlendForwardTestEngine(ForwardTestEngine):
                 # which is invoked by _route_signal).  The gate is
                 # internally defensive (try/except around detector +
                 # ADX) so a single bad bar cannot crash the eval loop.
-                _strategy_id_for_regime = self._strategy_id_map.get(
-                    strategy_name,
-                    strategy_name.lower().replace(" ", "_"),
-                )
                 try:
                     regime_allowed, regime_reason = self._regime_gate.check(
                         _strategy_id_for_regime,
@@ -604,6 +853,33 @@ class BlendForwardTestEngine(ForwardTestEngine):
                         _rg_exc,
                     )
                     regime_allowed, regime_reason = True, "gate_error_fail_open"
+                # Card d2be30f4: counterfactual observability — log the
+                # actual gate decision (pass/reject) and what the
+                # EXPANDED gate would have done.  Reads the gate's
+                # already-computed verdict; does NOT call the gate
+                # twice.  Off by default; when on, the log line
+                # distinguishes "gate rejects" from "strategy never
+                # fired" in hb177-style heartbeat analyses.
+                _cf_logger = _get_counterfactual_logger()
+                if _cf_logger is not None:
+                    _cf_regime, _cf_adx, _cf_session = _extract_regime_and_session(
+                        bars,
+                        bars[-1] if bars else None,
+                    )
+                    _cf_logger.write(
+                        _build_counterfactual_payload(
+                            symbol=symbol,
+                            strategy_id=_strategy_id_for_regime,
+                            regime=_cf_regime,
+                            session=_cf_session,
+                            adx=_cf_adx,
+                            current_gate_decision="pass" if regime_allowed else "reject",
+                            expanded_gate_decision=_expanded_gate_would_pass(
+                                _cf_regime, _cf_session,
+                            ),
+                            strategy_emitted=True,
+                        )
+                    )
                 if not regime_allowed:
                     logger.info(
                         "[REGIME-GATE] %s signal rejected: %s",
