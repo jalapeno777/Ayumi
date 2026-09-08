@@ -1,0 +1,41 @@
+{
+  "total_trades": 2,
+  "wins": 0,
+  "losses": 2,
+  "win_rate": 0.0,
+  "profit_factor": 0.0,
+  "net_pnl": -23.91,
+  "gross_profit": 0,
+  "gross_loss": 23.91,
+  "max_drawdown": 23.91,
+  "open_positions": 0,
+  "open_unrealized": 0,
+  "starting_balance": 10000.0,
+  "final_balance": 9976.09,
+  "per_strategy": {
+    "donchian_atr_trend_v2": {
+      "trades": 1,
+      "pnl": -12.57,
+      "win_rate": 0.0
+    },
+    "ttc_xauusd": {
+      "trades": 1,
+      "pnl": -11.34,
+      "win_rate": 0.0
+    }
+  },
+  "symbol": "XAUUSD",
+  "bars_processed": 2657,
+  "m15_bars": 2144,
+  "h1_bars": 513,
+  "costs_applied": true,
+  "cost_params": {
+    "spread": 2.5,
+    "commission_per_lot": 3.5,
+    "slippage": 0.2
+  },
+  "date_range": {
+    "start": "2026-06-01T00:00:00+00:00",
+    "end": "2026-07-13T23:45:00+00:00"
+  }
+}

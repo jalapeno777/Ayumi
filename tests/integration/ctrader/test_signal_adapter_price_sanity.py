@@ -1,10 +1,16 @@
 """Tests for the price-sanity guardrail in cTraderSignalAdapter.
 
 Defends against data-feed / decoder bugs that emit physically impossible
-entry prices (e.g. $4.1M for XAUUSD when gold trades at ~$3,300).
+entry prices (e.g. $4.1M for XAUUSD when gold trades at ~$5,000+).
 
 Triggered multiple times in production by SRMR+ and Session-Range Mean
 Reversion on XAUUSD bars (forward_test-stderr.log: 2026-07-08..10).
+
+Card 271cba95 (2026-09-08): the XAUUSD bound was bumped from 5000.00 →
+10000.00 because gold trades above $5,000 in Q3 2026 and the stale bound
+was silently rejecting ~25% of valid XAUUSD signals during integration
+re-run #4. Tests below cover both the new bound and the loud-rejection
+counter introduced in the same fix.
 """
 
 from unittest.mock import MagicMock
@@ -33,15 +39,17 @@ def _make_strategy(
 ):
     """Create a mock ISignalStrategy that returns a StrategySignal with given prices.
 
-    By default SL/TP are tight (1-3% from entry) so the bound test on entry_price
-    is unambiguous. Tests that want to corrupt SL/TP must pass them explicitly.
-    Tests at the bound (e.g. entry=5000) must pass explicit SL/TP below the bound.
+    By default SL/TP are tight ($1-3 increments from entry) so the bound test
+    on entry_price is unambiguous. Tests that want to corrupt SL/TP must pass
+    them explicitly. Tests at the bound (e.g. entry=10000 for XAUUSD) must
+    pass explicit SL/TP below the bound.
     """
     strategy = MagicMock()
     strategy.name = name
 
     # When entry_price is the corrupted value (huge), SL/TP must also be huge
     # so the test of "entry corruption" matches production bug behavior.
+    # Card 271cba95: threshold bumped 5000 → 10000 to match the new bound.
     if entry_price > 10_000.0:
         default_sl = entry_price - 0.25
         default_tp1 = entry_price + 0.5
@@ -49,7 +57,7 @@ def _make_strategy(
         default_tp3 = entry_price + 1.5
     else:
         # Sane SL/TP within the bound — fixed $1 increments from entry, never
-        # exceeding sane-max of $5000 for XAUUSD.
+        # exceeding sane-max of $10,000 for XAUUSD (card 271cba95).
         default_sl = entry_price - 1.0
         default_tp1 = entry_price + 1.0
         default_tp2 = entry_price + 2.0
@@ -77,7 +85,9 @@ def _make_market_state():
 
 class TestMaxReasonablePrice:
     def test_known_symbols_have_tight_bounds(self):
-        assert _max_reasonable_price("XAUUSD") == 5000.0
+        # Card 271cba95 (2026-09-08): XAUUSD bumped 5000 → 10000 (gold trades
+        # at $5,000+ in Q3 2026; stale bound ate ~25% of valid signals).
+        assert _max_reasonable_price("XAUUSD") == 10_000.0
         assert _max_reasonable_price("EURUSD") == 2.0
         assert _max_reasonable_price("GBPUSD") == 3.0
         assert _max_reasonable_price("USDJPY") == 300.0
@@ -88,12 +98,14 @@ class TestMaxReasonablePrice:
         assert _DEFAULT_SANE_PRICE_MAX == 10_000.0
 
     def test_case_insensitive(self):
-        assert _max_reasonable_price("xauusd") == 5000.0
-        assert _max_reasonable_price("XauUsd") == 5000.0
+        assert _max_reasonable_price("xauusd") == 10_000.0
+        assert _max_reasonable_price("XauUsd") == 10_000.0
 
     def test_xauusd_bound_is_above_current_price_but_below_observed_bug(self):
-        # Current gold ~$3,300, observed bug prices ~$4.1M
-        assert _max_reasonable_price("XAUUSD") > 3300.0  # legit price passes
+        # Card 271cba95: current gold ~$5,000+ (was $3,300 at original 5000 bound).
+        # Observed bug prices ~$4.1M. New bound 10000 leaves ~85% headroom above
+        # current spot while still rejecting any 100x+ inflation bug.
+        assert _max_reasonable_price("XAUUSD") > 5_100.0  # legit price passes
         assert _max_reasonable_price("XAUUSD") < 4_000_000.0  # bug price fails
 
 
@@ -106,8 +118,8 @@ class TestPriceExceedsSanityBound:
         assert _price_exceeds_sanity_bound("XAUUSD", 4_126_545.0) is True
 
     def test_just_above_bound_fails(self):
-        # Just above XAUUSD bound of 5000
-        assert _price_exceeds_sanity_bound("XAUUSD", 5000.01) is True
+        # Just above XAUUSD bound of 10000 (card 271cba95, was 5000).
+        assert _price_exceeds_sanity_bound("XAUUSD", 10_000.01) is True
 
     def test_just_at_bound_passes(self):
         # At the bound exactly (inclusive limit)
@@ -212,8 +224,14 @@ class TestPriceSanityGuardrailAllows:
     """Verify the guardrail does NOT block legitimate signals."""
 
     def test_normal_xauusd_signal_passes(self):
-        """Gold at ~$3300 should pass."""
-        strategy = _make_strategy("SRMR+", entry_price=3300.50)
+        """Gold at current Q3 2026 levels (~$5,100) should pass.
+
+        Card 271cba95: the original test used $3,300 which is below the old
+        5000 bound — it could never have detected the bound-stale bug. Updated
+        to a representative current-level price so a future bound-rot regression
+        also fails this test.
+        """
+        strategy = _make_strategy("SRMR+", entry_price=5_100.50)
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
             strategy=strategy,
@@ -223,7 +241,7 @@ class TestPriceSanityGuardrailAllows:
         result = adapter.evaluate_and_trade(_make_market_state())
         assert result is not None
         assert isinstance(result, CTraderTradeSignal)
-        assert result.entry_price == 3300.50
+        assert result.entry_price == 5_100.50
 
     def test_normal_eurusd_signal_passes(self):
         strategy = _make_strategy(
@@ -245,14 +263,17 @@ class TestPriceSanityGuardrailAllows:
         assert result.entry_price == 1.08500
 
     def test_xauusd_at_bound_passes(self):
-        """At the sane-max bound of $5000, signal should still be allowed."""
+        """At the sane-max bound of $10,000, signal should still be allowed.
+
+        Card 271cba95: bound bumped 5000 → 10000 (was the stale value).
+        """
         strategy = _make_strategy(
             "SRMR+",
-            entry_price=5000.0,
-            stop_loss=4999.0,
-            take_profit_1=4999.5,
-            take_profit_2=4999.6,
-            take_profit_3=4999.7,
+            entry_price=10_000.0,
+            stop_loss=9_999.0,
+            take_profit_1=9_999.5,
+            take_profit_2=9_999.6,
+            take_profit_3=9_999.7,
         )
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
@@ -262,16 +283,16 @@ class TestPriceSanityGuardrailAllows:
         )
         result = adapter.evaluate_and_trade(_make_market_state())
         assert result is not None
-        assert result.entry_price == 5000.0
+        assert result.entry_price == 10_000.0
 
     def test_xauusd_just_below_bound_passes(self):
         strategy = _make_strategy(
             "SRMR+",
-            entry_price=4999.99,
-            stop_loss=4999.0,
-            take_profit_1=4999.5,
-            take_profit_2=4999.6,
-            take_profit_3=4999.7,
+            entry_price=9_999.99,
+            stop_loss=9_999.0,
+            take_profit_1=9_999.5,
+            take_profit_2=9_999.6,
+            take_profit_3=9_999.7,
         )
         adapter = cTraderSignalAdapter(
             paper_trader=MagicMock(),
@@ -297,3 +318,174 @@ class TestGuardrailPriorityVsOtherGates:
         )
         result = adapter.evaluate_and_trade(_make_market_state())
         assert result is None  # confidence gate (or guardrail) blocked it
+
+
+# ── Card 271cba95: bound bump + loud-rejection counter ───────────────────────
+
+
+class TestPriceSanityBumpedBoundCurrentLevels:
+    """Card 271cba95 acceptance: XAUUSD at current Q3 2026 spot levels must
+    pass the guardrail, and pathological fat-finger prices must still be
+    rejected. The previous bound (5000) failed both — it accepted only
+    prices that gold hadn't traded at in months, and rejected the prices
+    gold actually traded at.
+    """
+
+    def test_xauusd_5100_passes_acceptance(self):
+        """$5,100 XAUUSD entry (representative Q3 2026 spot) MUST pass.
+
+        The original bug: this exact price class was being rejected by the
+        stale 5000 bound. This test locks the new bound at 10000.
+        """
+        strategy = _make_strategy("SRMR+", entry_price=5_100.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        result = adapter.evaluate_and_trade(_make_market_state())
+        assert result is not None, "5100 XAUUSD must pass the new 10000 bound"
+        assert isinstance(result, CTraderTradeSignal)
+        assert result.entry_price == 5_100.00
+
+    def test_xauusd_50000_rejected_fat_finger(self):
+        """$50,000 XAUUSD entry (clearly impossible — fat-finger or decoder
+        bug) MUST be rejected by the new 10000 bound.
+        """
+        strategy = _make_strategy("SRMR+", entry_price=50_000.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        result = adapter.evaluate_and_trade(_make_market_state())
+        assert result is None, "50000 XAUUSD must be rejected as a fat-finger/decoder bug"
+
+    def test_xauusd_observed_rerun4_prices_now_pass(self):
+        """Exact prices that integration re-run #4 silently rejected must
+        now pass. Proves the bound bump unblocks the real signal flow.
+
+        Sample from reports/blend-harness-2026-09-08-rerun4/harness.stdout.log:
+          - 5071.175 (SRMR+)
+          - 5068.705 (SRMR+)
+          - 5054.3235 (Killzone Momentum)
+          - 5059.00 (SRMR+)
+          - 5100.1265 (SRMR+)
+        """
+        for rerun4_price in (5_071.175, 5_068.705, 5_054.3235, 5_059.00, 5_100.1265):
+            strategy = _make_strategy("SRMR+", entry_price=rerun4_price)
+            adapter = cTraderSignalAdapter(
+                paper_trader=MagicMock(),
+                strategy=strategy,
+                symbol="XAUUSD",
+                blend_mode=True,
+            )
+            result = adapter.evaluate_and_trade(_make_market_state())
+            assert result is not None, (
+                f"Re-run #4 price {rerun4_price} must now pass the new 10000 bound"
+            )
+            assert result.entry_price == rerun4_price
+
+
+class TestLoudRejectionCounter:
+    """Card 271cba95: surface aggregate rejection counts so operators can
+    detect a stale bound (silent discard pattern) without grepping logs.
+    """
+
+    def test_initial_counter_is_zero(self):
+        strategy = _make_strategy("SRMR+", entry_price=5_100.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        assert adapter.get_sanity_rejection_count() == 0
+
+    def test_counter_increments_on_each_rejection(self):
+        strategy = _make_strategy("SRMR+", entry_price=50_000.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        assert adapter.get_sanity_rejection_count() == 0
+        adapter.evaluate_and_trade(_make_market_state())
+        assert adapter.get_sanity_rejection_count() == 1
+        adapter.evaluate_and_trade(_make_market_state())
+        assert adapter.get_sanity_rejection_count() == 2
+        adapter.evaluate_and_trade(_make_market_state())
+        assert adapter.get_sanity_rejection_count() == 3
+
+    def test_counter_does_not_increment_on_accepted_signal(self):
+        strategy = _make_strategy("SRMR+", entry_price=5_100.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        result = adapter.evaluate_and_trade(_make_market_state())
+        assert result is not None
+        assert adapter.get_sanity_rejection_count() == 0
+
+    def test_rejection_logs_at_error_level_with_counter(self, caplog):
+        """The rejection message must be at ERROR level (loud) and include
+        the running counter so operators see accumulation at a glance.
+        """
+        import logging as _logging
+
+        strategy = _make_strategy("SRMR+", entry_price=50_000.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        with caplog.at_level(_logging.ERROR, logger="adapters.ctrader.signal_adapter"):
+            adapter.evaluate_and_trade(_make_market_state())
+            adapter.evaluate_and_trade(_make_market_state())
+
+        error_records = [r for r in caplog.records if r.levelno >= _logging.ERROR]
+        sanity_records = [
+            r for r in error_records if "PRICE-SANITY" in r.getMessage()
+        ]
+        assert len(sanity_records) >= 2, (
+            f"Expected at least 2 ERROR-level PRICE-SANITY records, got "
+            f"{len(sanity_records)}: {[r.getMessage() for r in error_records]}"
+        )
+        # First message includes the counter
+        assert "[#1]" in sanity_records[0].getMessage()
+        assert "[#2]" in sanity_records[1].getMessage()
+
+    def test_periodic_summary_log_emitted_every_n_rejections(self, caplog):
+        """Every Nth rejection (default 5) emits a SUMMARY line so operators
+        see aggregate counts without counting lines manually.
+        """
+        import logging as _logging
+
+        strategy = _make_strategy("SRMR+", entry_price=50_000.00)
+        adapter = cTraderSignalAdapter(
+            paper_trader=MagicMock(),
+            strategy=strategy,
+            symbol="XAUUSD",
+            blend_mode=True,
+        )
+        with caplog.at_level(_logging.ERROR, logger="adapters.ctrader.signal_adapter"):
+            # Fire 5 rejections — the 5th should trigger the SUMMARY.
+            for _ in range(5):
+                adapter.evaluate_and_trade(_make_market_state())
+
+        summary_records = [
+            r for r in caplog.records
+            if "PRICE-SANITY REJECTION SUMMARY" in r.getMessage()
+        ]
+        assert len(summary_records) == 1, (
+            f"Expected exactly 1 SUMMARY on the 5th rejection, got "
+            f"{len(summary_records)}"
+        )
+        assert "total_rejected=5" in summary_records[0].getMessage()
+        assert adapter.get_sanity_rejection_count() == 5
