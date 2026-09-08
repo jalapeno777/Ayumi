@@ -87,6 +87,14 @@ _DEFAULT_RECONNECT_DELAY_SEC = 5.0
 _DEFAULT_MAX_RECONNECT_DELAY_SEC = 120.0
 _DEFAULT_STALE_TICK_THRESHOLD_SEC = 300.0
 _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
+# Card f37e7b74: sustained-tick gate for reconnect-success classification.
+# cTrader sends exactly ONE snapshot spot event per ProtoOASubscribeSpotsReq,
+# so a naive "any tick" reset condition lets a subscribed-but-silent broker
+# farm one tick → counter reset → health-check fires → reconnect (flap loop).
+# Gate: counter resets only after this many ticks arrive within
+# _DEFAULT_SUSTAINED_TICKS_WINDOW_SEC seconds of a successful reconnect.
+_DEFAULT_SUSTAINED_TICKS_REQUIRED = 5
+_DEFAULT_SUSTAINED_TICKS_WINDOW_SEC = 120.0
 # PROJECT_ROOT mirrors .env resolution at line ~1000: Path(__file__).resolve().parents[4]
 #   parents[0] = ctrader/  parents[1] = adapters/  parents[2] = forex-bot/
 #   parents[3] = src/      parents[4] = <repo root>
@@ -146,6 +154,13 @@ class ForwardTestConfig:
     reconnect_delay_sec: float = _DEFAULT_RECONNECT_DELAY_SEC
     max_reconnect_delay_sec: float = _DEFAULT_MAX_RECONNECT_DELAY_SEC
     max_reconnect_attempts: int = _DEFAULT_MAX_RECONNECT_ATTEMPTS
+    # Card f37e7b74: sustained-tick gate thresholds. The reconnect counter
+    # only resets once sustained_ticks_required ticks have arrived within
+    # sustained_ticks_window_sec seconds of the last successful reconnect.
+    # The single snapshot spot event from ProtoOASubscribeSpotsReq is
+    # explicitly NOT enough — that is what allowed the reconnect-flap loop.
+    sustained_ticks_required: int = _DEFAULT_SUSTAINED_TICKS_REQUIRED
+    sustained_ticks_window_sec: float = _DEFAULT_SUSTAINED_TICKS_WINDOW_SEC
     health_monitor_interval_sec: float = 5.0  # Runs every 5s for heartbeat + error monitoring
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
@@ -503,6 +518,13 @@ class ForwardTestEngine:
         # persist for hours (the previous behavior with stale_tick_threshold=900s).
         self._reconnect_stuck_at: Optional[float] = None
         self._stuck_reconnect_threshold_sec: float = 60.0
+        # Card f37e7b74: sustained-tick gate state. Set when a reconnect
+        # attempt succeeds; cleared when the gate either passes (counter
+        # reset) or expires (window elapsed without enough ticks). Window
+        # uses engine-side monotonic time, not feed timestamps, so clock
+        # skew between broker and engine cannot widen or shrink the gate.
+        self._post_reconnect_at: Optional[float] = None
+        self._post_reconnect_ticks: list[float] = []
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
@@ -1235,6 +1257,24 @@ class ForwardTestEngine:
             self._health.last_tick_at = now
 
             self._tick_timestamps.append(now)
+
+            # Card f37e7b74: sustained-tick gate bookkeeping. If a reconnect
+            # has just succeeded, accumulate this tick's monotonic time so
+            # the health monitor can decide whether we've truly recovered.
+            # Prune ticks that fall after the window-end boundary — these
+            # arrived too late to count toward recovery. The single
+            # snapshot spot event from ProtoOASubscribeSpotsReq only fires
+            # ONCE per subscribe, so the first tick is necessary but not
+            # sufficient for the gate to pass.
+            if self._post_reconnect_at is not None:
+                now_mono = time.monotonic()
+                window_end = self._post_reconnect_at + self._config.sustained_ticks_window_sec
+                self._post_reconnect_ticks.append(now_mono)
+                while (
+                    self._post_reconnect_ticks
+                    and self._post_reconnect_ticks[0] > window_end
+                ):
+                    self._post_reconnect_ticks.pop(0)
             cutoff = now.timestamp() - self._tick_rate_window_sec
             self._tick_timestamps = [t for t in self._tick_timestamps if t.timestamp() > cutoff]
             if self._tick_timestamps:
@@ -3183,13 +3223,49 @@ class ForwardTestEngine:
         is_healthy = feed_connected and last_tick is not None and staleness < self._config.stale_tick_threshold_sec
         if is_healthy:
             self._reconnect_delay = self._config.reconnect_delay_sec
-            with self._lock:
-                if self._health.reconnection_attempts > 0:
-                    logger.info(
-                        "Connection healthy — reset consecutive reconnect counter (%d -> 0)",
+            # Card f37e7b74: sustained-tick gate. The counter is NOT reset
+            # merely because the feed is currently sending ticks — the
+            # single snapshot spot event from ProtoOASubscribeSpotsReq used
+            # to short-circuit the gate and let a silent-but-subscribed
+            # broker farm one tick per reconnect. We require N ticks within
+            # T seconds of the last successful reconnect before clearing
+            # the consecutive-failure counter. If the window has elapsed
+            # without enough ticks, the gate expires and the counter is
+            # left untouched (next reconnect attempt will trip the breaker
+            # once max_reconnect_attempts is reached).
+            if self._post_reconnect_at is not None:
+                now_mono = time.monotonic()
+                window_age = now_mono - self._post_reconnect_at
+                if window_age > self._config.sustained_ticks_window_sec:
+                    # Window expired without sustained recovery — drop the
+                    # window state so we don't keep evaluating it forever.
+                    logger.warning(
+                        "Sustained-tick gate EXPIRED after %.1fs with only "
+                        "%d/%d ticks — counter NOT reset (attempt=%d)",
+                        window_age,
+                        len(self._post_reconnect_ticks),
+                        self._config.sustained_ticks_required,
                         self._health.reconnection_attempts,
                     )
-                    self._health.reconnection_attempts = 0
+                    self._post_reconnect_at = None
+                    self._post_reconnect_ticks = []
+                elif len(self._post_reconnect_ticks) >= self._config.sustained_ticks_required:
+                    with self._lock:
+                        if self._health.reconnection_attempts > 0:
+                            logger.info(
+                                "Sustained tick recovery — reset consecutive "
+                                "reconnect counter (%d -> 0) after %d ticks "
+                                "in %.1fs (gate: %d ticks / %.1fs)",
+                                self._health.reconnection_attempts,
+                                len(self._post_reconnect_ticks),
+                                window_age,
+                                self._config.sustained_ticks_required,
+                                self._config.sustained_ticks_window_sec,
+                            )
+                            self._health.reconnection_attempts = 0
+                    self._post_reconnect_at = None
+                    self._post_reconnect_ticks = []
+                # else: gate not yet satisfied — leave counter alone.
             return
 
         if feed_connected and last_tick is None:
@@ -3225,6 +3301,12 @@ class ForwardTestEngine:
         with self._lock:
             self._health.reconnection_attempts += 1
             attempts = self._health.reconnection_attempts
+
+        # Card f37e7b74: clear any stale post-reconnect window state at the
+        # top of every attempt so a stalled-mid-window reconnect doesn't
+        # carry forward a half-filled tick list from the previous cycle.
+        self._post_reconnect_at = None
+        self._post_reconnect_ticks = []
 
         if attempts >= self._config.max_reconnect_attempts:
             logger.critical(
@@ -3280,11 +3362,23 @@ class ForwardTestEngine:
         if success:
             with self._lock:
                 self._health.reconnection_successes += 1
-                self._health.reconnection_attempts = 0
             self._reconnect_delay = self._config.reconnect_delay_sec
             # BQ-1335: Clear the stuck-state timer now that we've recovered.
             self._reconnect_stuck_at = None
-            logger.info("Reconnection successful — reset consecutive failure counter")
+            # Card f37e7b74: do NOT reset reconnection_attempts=0 here.
+            # The first tick we receive after this point is the snapshot
+            # spot event from ProtoOASubscribeSpotsReq, which alone is not
+            # evidence of a healthy feed. Open the sustained-tick window;
+            # the reset happens in _health_monitor_loop once N ticks have
+            # arrived within T seconds.
+            self._post_reconnect_at = time.monotonic()
+            self._post_reconnect_ticks = []
+            logger.info(
+                "Reconnection successful — sustained-tick gate active "
+                "(need %d ticks in %.1fs to reset counter)",
+                self._config.sustained_ticks_required,
+                self._config.sustained_ticks_window_sec,
+            )
         else:
             # Full-jitter backoff per AWS recommendations
             import random
