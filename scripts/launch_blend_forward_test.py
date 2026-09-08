@@ -18,9 +18,10 @@ import signal as sig_module
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
 import yaml  # noqa: F401  — Kept for backward compat (legacy YAML loader removed)
 
@@ -175,34 +176,297 @@ def _reconcile_ftmo_peak_from_persisted_state(
 
 
 class CorrelationGate:
-    """Blocks duplicate symbol-direction signals — max 1 position per (symbol, direction)."""
+    """Per-symbol at-risk slot cap (Craig policy, card 4083ac2d-...).
 
-    def __init__(self):
-        self._active: dict[tuple[str, str], str] = {}  # (symbol, direction) -> strategy_id
+    Replaces the legacy single-slot-per-(symbol, direction) cap with a cap
+    of ``MAX_ATRISK_PER_SYMBOL`` concurrent AT-RISK positions per symbol.
+    Risk-free positions (LONG with SL >= entry, SHORT with SL <= entry) do
+    NOT count against the cap and may breathe without occupying slots.
+
+    At-risk definition (Craig, 2026-09-08):
+      LONG  at-risk iff current SL <  entry  (a stop-out loses money).
+      SHORT at-risk iff current SL >  entry.
+      Risk-free iff LONG: SL >= entry  OR  SHORT: SL <= entry.
+
+    Lifecycle:
+      check()             — atomically reserves a pending slot if the symbol
+                            has < MAX_ATRISK_PER_SYMBOL at-risk positions.
+                            Pending slots are counted as at-risk (conservative)
+                            until the trade fills.
+      attach_position()   — promotes a pending slot to a real slot using the
+                            actual position_id, entry_price, and SL after fill.
+      update_sl()         — updates a real slot's SL; emits slot_release when
+                            the position transitions from at-risk to risk-free.
+      release_position()  — removes a specific position slot (on close).
+      release_pending()   — removes a pending reservation (on signal reject
+                            downstream, before the trade fills).
+      release()           — legacy back-compat: release by (symbol, direction).
+
+    External API preserved where cheap (``check``, ``release``, ``active_count``)
+    so the 12 internal call sites and the harness import path
+    (``scripts/backtest_blend_harness.py:361``) keep working without churn.
+    """
+
+    MAX_ATRISK_PER_SYMBOL = 3  # Craig policy 2026-09-08: max 3 at-risk per symbol.
+
+    def __init__(self) -> None:
+        # Real slots: position_id -> _Slot (entry+sl known, is_at_risk computable).
+        self._slots: dict[str, _Slot] = {}
+        # Pending reservations (signal accepted, trade not yet filled).
+        # Key: (symbol, strategy_id) so attach_position() can find and promote.
+        # Value: position_id placeholder (string starting with "_pending:").
+        self._pending: dict[tuple[str, str], str] = {}
         self._lock = threading.Lock()
+        # Slot-release event log (in-memory diagnostics; not persisted).
+        self._slot_release_log: list[dict[str, Any]] = []
+        self._slot_release_callbacks: list[Callable[[dict[str, Any]], None]] = []
+
+    # ── Public API ───────────────────────────────────────────────────────────
 
     def check(self, symbol: str, direction: str, strategy_id: str) -> tuple[bool, str]:
-        """Returns (allowed, reason). Reserves slot on success."""
-        key = (symbol.upper(), direction.upper())
+        """Reserve a pending slot iff symbol has < MAX_ATRISK_PER_SYMBOL at-risk.
+
+        Returns (allowed, reason). Pending slots count as at-risk (conservative)
+        until the trade fills and ``attach_position`` is called.
+        """
+        sym = symbol.upper()
+        dir_ = direction.upper()
         with self._lock:
-            existing = self._active.get(key)
-            if existing:
+            at_risk = self._count_at_risk_locked(sym)
+            if at_risk >= self.MAX_ATRISK_PER_SYMBOL:
                 return (
                     False,
-                    f"correlation_block: {existing} already holds {symbol}/{direction}",
+                    (
+                        f"symbol_atrisk_cap: {sym} has {at_risk} at-risk positions "
+                        f"(max {self.MAX_ATRISK_PER_SYMBOL})"
+                    ),
                 )
-            self._active[key] = strategy_id
+            pending_id = f"_pending:{sym}:{strategy_id}:{len(self._slots) + len(self._pending)}"
+            self._pending[(sym, strategy_id)] = pending_id
+            self._slots[pending_id] = _Slot(
+                position_id=pending_id,
+                symbol=sym,
+                direction=dir_,
+                strategy_id=strategy_id,
+                entry_price=None,
+                sl=None,
+                is_pending=True,
+            )
             return True, ""
 
-    def release(self, symbol: str, direction: str):
-        key = (symbol.upper(), direction.upper())
+    def attach_position(
+        self,
+        symbol: str,
+        strategy_id: str,
+        position_id: str,
+        direction: str,
+        entry_price: float,
+        sl: float,
+    ) -> None:
+        """Promote the pending reservation to a real slot with entry + SL.
+
+        Called after the trade fills (paper or live). Looks up the pending
+        slot by (symbol, strategy_id) and replaces it with a slot keyed by
+        the actual ``position_id``.
+        """
+        sym = symbol.upper()
+        dir_ = direction.upper()
         with self._lock:
-            self._active.pop(key, None)
+            self._pending.pop((sym, strategy_id), None)
+            # Drop the pending placeholder slot if present.
+            attach_pids = [
+                p
+                for p, s in self._slots.items()
+                if s.is_pending and s.symbol == sym and s.strategy_id == strategy_id
+            ]
+            for pid in attach_pids:
+                self._slots.pop(pid, None)
+            self._slots[position_id] = _Slot(
+                position_id=position_id,
+                symbol=sym,
+                direction=dir_,
+                strategy_id=strategy_id,
+                entry_price=entry_price,
+                sl=sl,
+                is_pending=False,
+            )
+
+    def update_sl(self, position_id: str, new_sl: float) -> bool:
+        """Update a real slot's SL; emit slot_release when at-risk → risk-free.
+
+        Returns True if a slot_release event fired. No-op for unknown or
+        pending slots (no SL known yet).
+        """
+        with self._lock:
+            slot = self._slots.get(position_id)
+            if not slot or slot.is_pending or slot.entry_price is None:
+                return False
+            was_at_risk = slot.is_at_risk
+            updated = _Slot(
+                position_id=slot.position_id,
+                symbol=slot.symbol,
+                direction=slot.direction,
+                strategy_id=slot.strategy_id,
+                entry_price=slot.entry_price,
+                sl=new_sl,
+                is_pending=False,
+            )
+            self._slots[position_id] = updated
+            now_at_risk = updated.is_at_risk
+            transitioned = was_at_risk and not now_at_risk
+            if transitioned:
+                event = {
+                    "event": "slot_release",
+                    "position_id": position_id,
+                    "symbol": updated.symbol,
+                    "direction": updated.direction,
+                    "strategy_id": updated.strategy_id,
+                    "entry_price": updated.entry_price,
+                    "new_sl": new_sl,
+                    "reason": "sl_to_breakeven_or_profit",
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+                self._slot_release_log.append(event)
+                logger.info(
+                    "slot_release: %s %s position_id=%s SL=%.5f entry=%.5f "
+                    "(transitioned at-risk → risk-free, slot freed)",
+                    updated.symbol,
+                    updated.direction,
+                    position_id,
+                    new_sl,
+                    updated.entry_price if updated.entry_price is not None else 0.0,
+                )
+                for cb in self._slot_release_callbacks:
+                    try:
+                        cb(event)
+                    except Exception as cb_exc:  # noqa: BLE001
+                        logger.warning("slot_release callback failed: %s", cb_exc)
+            return transitioned
+
+    def release_position(self, position_id: str) -> None:
+        """Remove a specific position's slot (called on position close)."""
+        with self._lock:
+            self._slots.pop(position_id, None)
+
+    def release_pending(self, symbol: str, strategy_id: str) -> None:
+        """Remove a pending reservation by (symbol, strategy_id).
+
+        Used when the blend runner rejects a signal after the gate already
+        reserved a pending slot but before the trade fills.
+        """
+        sym = symbol.upper()
+        with self._lock:
+            self._pending.pop((sym, strategy_id), None)
+            pending_pids = [
+                p
+                for p, s in self._slots.items()
+                if s.is_pending and s.symbol == sym and s.strategy_id == strategy_id
+            ]
+            for pid in pending_pids:
+                self._slots.pop(pid, None)
+
+    def release(self, symbol: str, direction: str, position_id: Optional[str] = None) -> None:
+        """Legacy back-compat release.
+
+        With ``position_id``: removes only that slot (preferred post-fill path).
+        Without ``position_id``: drops ONLY the pending reservation matching
+        (symbol, direction) — matches the legacy single-slot semantics where
+        each (symbol, direction) tuple had its own slot. Real (filled) slots
+        are NEVER removed by this overload; they are managed via
+        ``release_position(position_id)`` after the trade fills.
+        """
+        sym = symbol.upper()
+        dir_ = direction.upper()
+        with self._lock:
+            if position_id is not None:
+                self._slots.pop(position_id, None)
+                return
+            # Drop pending reservations matching (symbol, direction) only.
+            for key in [k for k in self._pending if k[0] == sym and k[1] == dir_]:
+                # NOTE: k is (symbol, strategy_id); direction is not in the key.
+                # Use the matching slot's direction to filter.
+                pid = self._pending.get(key)
+                slot = self._slots.get(pid) if pid else None
+                if slot is not None and slot.direction == dir_:
+                    self._pending.pop(key, None)
+                    self._slots.pop(pid, None)
+            # Defensive: drop any pending slot whose (symbol, direction)
+            # matches and that wasn't caught by the pending-key sweep above.
+            for pid in [p for p, s in self._slots.items() if s.is_pending and s.symbol == sym and s.direction == dir_]:
+                self._slots.pop(pid, None)
+
+    # ── Diagnostics / hooks ──────────────────────────────────────────────────
+
+    def on_slot_release(self, callback: Callable[[dict[str, Any]], None]) -> None:
+        """Register a callback fired on slot_release events (SL → breakeven/profit)."""
+        with self._lock:
+            self._slot_release_callbacks.append(callback)
 
     @property
     def active_count(self) -> int:
+        """Total tracked slots (pending + real). Back-compat with the prior API."""
         with self._lock:
-            return len(self._active)
+            return len(self._slots)
+
+    def at_risk_count(self, symbol: str) -> int:
+        """Number of currently at-risk positions for the symbol (incl. pending)."""
+        sym = symbol.upper()
+        with self._lock:
+            return self._count_at_risk_locked(sym)
+
+    def at_risk_counts(self) -> dict[str, int]:
+        """Per-symbol at-risk counts snapshot for diagnostics."""
+        with self._lock:
+            counts: dict[str, int] = {}
+            for slot in self._slots.values():
+                if slot.is_at_risk:
+                    counts[slot.symbol] = counts.get(slot.symbol, 0) + 1
+            return counts
+
+    def slot_release_log(self) -> list[dict[str, Any]]:
+        """Snapshot of slot_release events fired (most recent last)."""
+        with self._lock:
+            return list(self._slot_release_log)
+
+    # ── Internal helpers ─────────────────────────────────────────────────────
+
+    def _count_at_risk_locked(self, symbol_upper: str) -> int:
+        """Caller MUST hold ``self._lock``."""
+        n = 0
+        for slot in self._slots.values():
+            if slot.symbol == symbol_upper and slot.is_at_risk:
+                n += 1
+        return n
+
+
+@dataclass(frozen=True)
+class _Slot:
+    """Internal record for a single tracked slot (pending reservation or real position).
+
+    ``is_at_risk`` follows Craig's verbatim definition:
+      LONG  at-risk iff SL <  entry.
+      SHORT at-risk iff SL >  entry.
+      Pending slots (entry/SL unknown) count as at-risk (conservative default).
+    """
+
+    position_id: str
+    symbol: str
+    direction: str
+    strategy_id: str
+    entry_price: Optional[float]
+    sl: Optional[float]
+    is_pending: bool
+
+    @property
+    def is_at_risk(self) -> bool:
+        if self.is_pending or self.entry_price is None or self.sl is None:
+            return True  # conservative default until entry/SL known
+        if self.direction == "LONG":
+            return self.sl < self.entry_price
+        if self.direction == "SHORT":
+            return self.sl > self.entry_price
+        # Unknown direction — conservative default.
+        return True
 
 
 # ── Regime Gate ───────────────────────────────────────────────────────────────
@@ -1024,12 +1288,35 @@ class BlendForwardTestEngine(ForwardTestEngine):
                                 self._live_fill_count = getattr(self, "_live_fill_count", 0) + 1
                                 with self._lock:
                                     self._health.signals_traded += 1
+                                # Card 4083ac2d-...: promote the pending
+                                # reservation to a real slot keyed by the
+                                # actual position_id so the per-symbol at-risk
+                                # cap reflects entry+SL on subsequent checks.
+                                _filled_position_id = (
+                                    getattr(outcome.order, "order_id", None)
+                                    or getattr(outcome, "position_id", None)
+                                    or f"live:{signal.symbol}:{strategy_id}:{int(time.time() * 1000)}"
+                                )
+                                try:
+                                    self._correlation_gate.attach_position(
+                                        symbol=signal.symbol,
+                                        strategy_id=strategy_id,
+                                        position_id=str(_filled_position_id),
+                                        direction=direction_str,
+                                        entry_price=signal.entry_price,
+                                        sl=signal.stop_loss,
+                                    )
+                                except Exception as _attach_exc:
+                                    logger.warning(
+                                        "correlation_gate.attach_position (live) failed: %s",
+                                        _attach_exc,
+                                    )
                                 logger.info(
                                     "Live trade executed: %s %s %.4f lots order_id=%s",
                                     strategy_id,
                                     direction_str,
                                     order.lots,
-                                    getattr(outcome.order, "order_id", ""),
+                                    str(_filled_position_id),
                                 )
                             elif outcome.status == LiveExecutionStatus.SENT:
                                 # Order sent to cTrader but no execution event
@@ -1172,11 +1459,35 @@ class BlendForwardTestEngine(ForwardTestEngine):
                             if exec_result.success:
                                 with self._lock:
                                     self._health.signals_traded += 1
+                                # Card 4083ac2d-...: promote pending reservation
+                                # to a real slot keyed by the actual position_id
+                                # so the per-symbol at-risk cap reflects entry+SL
+                                # on subsequent checks.
+                                _paper_position_id = (
+                                    getattr(getattr(exec_result, "position", None), "position_id", None)
+                                    or getattr(getattr(exec_result, "order", None), "order_id", None)
+                                    or f"paper:{signal.symbol}:{strategy_id}:{int(time.time() * 1000)}"
+                                )
+                                try:
+                                    self._correlation_gate.attach_position(
+                                        symbol=signal.symbol,
+                                        strategy_id=strategy_id,
+                                        position_id=str(_paper_position_id),
+                                        direction=direction_str,
+                                        entry_price=signal.entry_price,
+                                        sl=signal.stop_loss,
+                                    )
+                                except Exception as _attach_exc:
+                                    logger.warning(
+                                        "correlation_gate.attach_position (paper) failed: %s",
+                                        _attach_exc,
+                                    )
                                 logger.info(
-                                    "Paper trade executed: %s %s %.4f lots",
+                                    "Paper trade executed: %s %s %.4f lots position_id=%s",
                                     strategy_id,
                                     direction_str,
                                     order.lots,
+                                    str(_paper_position_id),
                                 )
                             else:
                                 logger.warning(
@@ -1240,14 +1551,26 @@ class BlendForwardTestEngine(ForwardTestEngine):
             self._heartbeat.record_signal(accepted=True)
 
     def on_position_closed_release(self, position):
-        """Release correlation gate on position close to avoid stale blocks."""
+        """Release correlation gate on position close to avoid stale blocks.
+
+        Card 4083ac2d-...: per-symbol at-risk cap. On close, free the
+        specific position's slot via ``release_position(position_id)`` so
+        the gate's pending reservations are not affected. Falls back to the
+        legacy (symbol, direction) release if the position has no
+        ``position_id`` attribute (defensive).
+        """
         try:
             direction = position.direction.value if hasattr(position.direction, "value") else str(position.direction)
-            self._correlation_gate.release(position.symbol, direction)
+            position_id = getattr(position, "position_id", None)
+            if position_id is not None:
+                self._correlation_gate.release_position(position_id)
+            else:
+                self._correlation_gate.release(position.symbol, direction)
             logger.info(
-                "Correlation gate released: %s %s (active=%d)",
+                "Correlation gate released: %s %s position_id=%s (active=%d)",
                 direction,
                 position.symbol,
+                position_id,
                 self._correlation_gate.active_count,
             )
         except Exception as exc:
