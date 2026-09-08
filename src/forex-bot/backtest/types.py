@@ -58,6 +58,12 @@ BarPeriod._init()
 class MarketState:
     bars: list[Bar]
     current_session: SessionType = SessionType.OUTSIDE
+    # Optional H4 bars for cross-timeframe filtering (backward-compatible).
+    # Mirrors core.types.MarketState; default None keeps the H4 filter
+    # short-circuit when callers don't supply H4 context. See card
+    # f30917a6-a8e9-465c-8032-1230e9b858cc — duplicate MarketState in
+    # backtest.types was missing this field and silently killed KZ.
+    h4_bars: list[Bar] | None = None
 
     @property
     def latest_bar(self) -> Bar:
