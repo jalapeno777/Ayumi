@@ -7,8 +7,93 @@ fixture and the ``pytest_pycollect_makemodule`` hook below.
 """
 
 import sys
+from pathlib import Path
 
 import pytest
+
+
+# Autouse safety net (card 84df1bcc): fail any test that writes under
+# <repo>/data/. Snapshots mtime/size of every file under data/ before the
+# test body and compares after yield. Any modified, created, or deleted
+# file under data/ causes ``pytest.fail`` so unisolated test writes never
+# reach production state. Tests that legitimately need to write under
+# data/ must use ``tmp_path`` (the path is captured per-test by pytest
+# and is not under the repo tree).
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(autouse=True)
+def _guard_repo_data_writes():
+    """Fail any test that writes under ``<repo>/data/``.
+
+    Snapshots ``(mtime_ns, size, inode)`` for every file under
+    ``<repo>/data/`` before yielding, then re-scans after the test body
+    returns. Any modified, created, or deleted file is reported as a hard
+    test failure with ``pytest.fail``.
+
+    The fixture is a pure observer: it does not patch or redirect any
+    code path, so it works alongside the per-test ``tmp_path`` fixtures
+    that isolate signal-stats and risk-guard writes. Tests that already
+    use ``tmp_path`` (or any non-``data/`` location) are unaffected.
+
+    Performance: ``data_dir.rglob('*')`` is O(N) on the file count; with
+    a few hundred state files this adds <5ms per test, which is well
+    within the per-test overhead budget. The fixture short-circuits when
+    ``<repo>/data/`` does not exist.
+    """
+    data_dir = _REPO_ROOT / "data"
+    if not data_dir.is_dir():
+        yield
+        return
+
+    snapshot: dict[str, tuple[int, int, int]] = {}
+    for path in data_dir.rglob("*"):
+        if path.is_file():
+            st = path.stat()
+            snapshot[str(path.resolve())] = (st.st_mtime_ns, st.st_size, st.st_ino)
+
+    yield
+
+    violations: list[str] = []
+    current_files: set[str] = set()
+    if data_dir.is_dir():
+        for path in data_dir.rglob("*"):
+            if path.is_file():
+                key = str(path.resolve())
+                current_files.add(key)
+                if key in snapshot:
+                    pre_mtime, pre_size, pre_ino = snapshot[key]
+                    st = path.stat()
+                    if (
+                        st.st_mtime_ns != pre_mtime
+                        or st.st_size != pre_size
+                        or st.st_ino != pre_ino
+                    ):
+                        try:
+                            rel = path.relative_to(_REPO_ROOT)
+                        except ValueError:
+                            rel = path
+                        violations.append(f"modified: {rel}")
+                else:
+                    try:
+                        rel = path.relative_to(_REPO_ROOT)
+                    except ValueError:
+                        rel = path
+                    violations.append(f"created: {rel}")
+
+    deleted = set(snapshot.keys()) - current_files
+    for key in sorted(deleted):
+        try:
+            rel = Path(key).relative_to(_REPO_ROOT)
+        except ValueError:
+            rel = Path(key)
+        violations.append(f"deleted: {rel}")
+
+    if violations:
+        pytest.fail(
+            "Test wrote under <repo>/data/ — use tmp_path-based fixtures "
+            "instead. Violations: " + "; ".join(violations[:5])
+        )
 
 
 # Autouse: ensure RiskGuard default state file doesn't leak between tests.

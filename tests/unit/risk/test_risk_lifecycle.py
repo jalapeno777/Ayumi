@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from forward_test.blend_runner import BlendForwardTestRunner
@@ -20,6 +21,26 @@ def _fresh_state_path() -> str:
     return f"/tmp/test_risk_lifecycle_{uuid.uuid4().hex}.json"  # noqa: S108
 
 
+@pytest.fixture(autouse=True)
+def _inject_tmp_stats_path(request, tmp_path):
+    """Inject a tmp_path-based stats_log_path onto every test instance.
+
+    ``BlendForwardTestRunner.__init__`` resolves ``stats_log_path`` in this
+    order: ``config["stats_log_path"]`` → ``os.environ["STATS_LOG_PATH"]`` →
+    ``data/signal_stats.jsonl``. Without explicit injection, the runner falls
+    back to the third option and writes under the repo's ``data/`` tree on
+    any ``on_fill`` call — polluting production state from tests.
+
+    This fixture populates ``self._stats_log_path`` from ``tmp_path`` so each
+    ``setup_method`` can inject it into the runner config explicitly. The
+    autouse ``_guard_repo_data_writes`` fixture in ``tests/conftest.py``
+    independently fails any test that still writes under ``<repo>/data/``.
+    """
+    if request.instance is not None:
+        request.instance._stats_log_path = str(tmp_path / "signal_stats.jsonl")
+    yield
+
+
 class TestCloseLifecycle:
     """Verify that closing a position releases risk via sizer.close()."""
 
@@ -27,11 +48,14 @@ class TestCloseLifecycle:
         # Use a fresh state path per test so StatePersistence restore() does
         # not leak daily_risk_used or account_balance across test cases.
         self.state_path = _fresh_state_path()
+        # stats_log_path is injected by the _inject_tmp_stats_path fixture so
+        # signal stats writes go to per-test tmp_path, not <repo>/data/.
         self.config = {
             "account_balance": 10_000.0,
             "risk_per_trade_pct": 0.005,
             "daily_risk_cap_pct": 0.03,
             "state_path": self.state_path,
+            "stats_log_path": self._stats_log_path,
         }
         self.runner = BlendForwardTestRunner(self.config)
         self.runner.start()
@@ -160,11 +184,14 @@ class TestDailyReset:
 
     def setup_method(self):
         self.state_path = _fresh_state_path()
+        # stats_log_path is injected by the _inject_tmp_stats_path fixture so
+        # signal stats writes go to per-test tmp_path, not <repo>/data/.
         self.config = {
             "account_balance": 10_000.0,
             "risk_per_trade_pct": 0.005,
             "daily_risk_cap_pct": 0.03,
             "state_path": self.state_path,
+            "stats_log_path": self._stats_log_path,
         }
         self.runner = BlendForwardTestRunner(self.config)
         self.runner.start()
@@ -252,6 +279,50 @@ class TestDailyReset:
 
         remaining_after = self.runner._sizer.daily_risk_remaining
         assert remaining_after == pytest.approx(daily_cap, rel=1e-3)
+
+
+class TestRepoDataWriteGuard:
+    """Negative tests verifying the autouse repo-data-write guard fires.
+
+    The autouse ``_guard_repo_data_writes`` fixture in ``tests/conftest.py``
+    snapshots the ``<repo>/data/`` tree before each test and fails the test
+    if any file under it was modified, created, or deleted during the run.
+
+    These tests deliberately violate that contract to demonstrate the guard
+    catches unisolated writes. They are filtered out of the standard
+    verification run with ``-k "not negative_"``; their failing status IS
+    the proof that the guard works.
+    """
+
+    def test_negative_unisolated_signal_stats_write_is_caught(self):
+        """Negative test: writes to ``<repo>/data/signal_stats.jsonl``.
+
+        Expectation: the autouse ``_guard_repo_data_writes`` fixture detects
+        the unisolated write after this body yields and ``pytest.fail()``s
+        the test. The test name prefix ``test_negative_`` lets the standard
+        verification run skip it via ``-k "not negative_"`` so it never
+        masks a clean PASS for the rest of the file.
+
+        If the guard were broken (didn't fire), the body would silently
+        PASS — a regression. The trailing ``pytest.fail`` makes the negative
+        outcome visible in the test summary as a body-level failure rather
+        than only a teardown error, which would otherwise look like the
+        test passed cleanly.
+        """
+        # __file__ lives at tests/unit/risk/test_risk_lifecycle.py, so
+        # parents[3] is the repo root (the directory that contains both
+        # tests/ and data/). parents[2] would resolve to tests/, which has
+        # its own data/ fixtures directory and would NOT be caught by the
+        # repo-level guard.
+        repo_data = Path(__file__).resolve().parents[3] / "data" / "signal_stats.jsonl"
+        repo_data.parent.mkdir(parents=True, exist_ok=True)
+        with open(repo_data, "a", encoding="utf-8") as fh:
+            fh.write('{"unisolated_test": true}\n')
+        pytest.fail(
+            "Unisolated write to <repo>/data/signal_stats.jsonl was NOT caught "
+            "by the autouse _guard_repo_data_writes fixture. Either the guard "
+            "is broken or the test is no longer exercising the unisolated path."
+        )
 
 
 if __name__ == "__main__":
