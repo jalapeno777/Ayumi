@@ -991,3 +991,217 @@ def test_harness_source_uses_git_worktree_list_for_main_root():
         "(unchanged) so non-guard uses (duckdb path, launcher import) "
         "stay on the current tree per card e1e32b07 spec."
     )
+
+
+# ── AC8.3 (card e1e32b07 REWORK, Rin HIGH finding) ─────────────────────────
+#
+# Card e1e32b07 REWORK (2026-09-09): the pre-rework resolver scanned
+# `git worktree list --porcelain` LINE BY LINE and returned the FIRST
+# ``worktree <path>`` line regardless of any flags carried by that
+# block. In a bare-repo layout the bare repo's path appears first and
+# would be selected, anchoring LIVE paths to a directory with no
+# ``data/`` subdirectory — silently bypassing the refuse-when-live
+# guard. The pre-rework tests above did NOT cover this because the
+# fake ``_FakeCompleted.stdout`` strings in the existing tests always
+# started with a non-bare block.
+#
+# The fix: parse output as BLOCKS separated by blank lines; skip blocks
+# that carry ``bare`` or ``detached`` flags; anchor only to the first
+# non-bare, non-detached block. The tests below exercise the bare and
+# detached paths.
+
+
+def test_guard_main_root_resolver_skips_bare_first_block(monkeypatch, tmp_path):
+    """Card e1e32b07 REWORK (Rin HIGH finding): when the FIRST block in
+    ``git worktree list --porcelain`` output carries the ``bare`` flag,
+    ``_main_worktree_root`` must SKIP it and return the path of the next
+    non-bare, non-detached block.
+
+    Pre-rework bug: the resolver scanned line-by-line and returned the
+    FIRST ``worktree <path>`` line regardless of the ``bare`` flag. In
+    a bare-repo layout, that path pointed at the bare repo (which has
+    no ``data/``), so LIVE paths resolved to a directory with no
+    ``forward_test.pid`` and the refuse-when-live guard silently
+    skipped its check.
+
+    Test setup: a fake ``git worktree list --porcelain`` output whose
+    FIRST block is a bare repo (with the ``bare`` flag) and whose
+    SECOND block is a normal (non-bare, non-detached) checkout. The
+    resolver must skip the bare block and return the SECOND block's
+    path.
+    """
+    import scripts.backtest_blend_harness as harness_mod
+
+    bare_path = tmp_path / "bare_repo"
+    bare_path.mkdir()
+    main_path = tmp_path / "main_checkout"
+    main_path.mkdir()
+
+    class _FakeCompleted:
+        returncode = 0
+        # IMPORTANT: FIRST block is the bare repo; SECOND block is the
+        # real primary checkout. Pre-rework would return bare_path.
+        stdout = (
+            f"worktree {bare_path}\n"
+            "bare\n"
+            "\n"
+            f"worktree {main_path}\n"
+            "HEAD abcdef0123456789\n"
+            "branch refs/heads/main\n"
+        )
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+
+    result = harness_mod._main_worktree_root()
+    assert result == main_path, (
+        f"_main_worktree_root must skip the bare entry and return the "
+        f"non-bare primary worktree ({main_path}); got {result}. "
+        f"REGRESSION: pre-rework resolver scanned line-by-line and "
+        f"would return {bare_path} (bare repo path with no data/), "
+        f"anchoring LIVE paths away from the real checkout."
+    )
+    assert result != bare_path, (
+        f"_main_worktree_root must NEVER return a bare repo path; got {result}. "
+        f"REGRESSION (card e1e32b07 REWORK Rin HIGH): bare-repo entries must be "
+        f"skipped so LIVE paths land on the real primary checkout."
+    )
+
+
+def test_guard_main_root_resolver_returns_none_when_only_bare(monkeypatch, tmp_path):
+    """Card e1e32b07 REWORK (Rin HIGH finding): when ``git worktree list
+    --porcelain`` returns ONLY bare entries (e.g. a bare-only repo with
+    no checkouts), ``_main_worktree_root`` must return ``None`` so the
+    caller falls back to ``PROJECT_ROOT``.
+
+    Pre-rework bug: the resolver would return the bare repo's path,
+    anchoring LIVE paths to a directory with no ``data/`` and
+    silently bypassing the refuse-when-live guard.
+    """
+    import scripts.backtest_blend_harness as harness_mod
+
+    bare_path = tmp_path / "only_bare"
+    bare_path.mkdir()
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = f"worktree {bare_path}\nbare\n"
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+
+    result = harness_mod._main_worktree_root()
+    assert result is None, (
+        f"_main_worktree_root must return None when the only entry is "
+        f"bare; got {result}. REGRESSION (card e1e32b07 REWORK Rin "
+        f"HIGH): the resolver would otherwise return the bare path "
+        f"and the refuse-when-live guard would silently skip its check."
+    )
+
+
+def test_guard_main_root_resolver_skips_bare_middle_block(monkeypatch, tmp_path):
+    """Card e1e32b07 REWORK (Rin HIGH finding): when a ``bare`` block
+    appears BETWEEN non-bare blocks, the resolver must still return the
+    FIRST non-bare, non-detached block (not the bare one, not any
+    block that follows the bare one).
+
+    This guards against a regression where a future refactor might
+    accidentally pick a worktree that appears AFTER a bare block in
+    the list — e.g. a feature worktree registered alongside a bare
+    sibling.
+    """
+    import scripts.backtest_blend_harness as harness_mod
+
+    bare_path = tmp_path / "bare_sibling"
+    bare_path.mkdir()
+    primary_path = tmp_path / "primary"
+    primary_path.mkdir()
+    feature_path = tmp_path / "feature"
+    feature_path.mkdir()
+
+    class _FakeCompleted:
+        returncode = 0
+        # Block order: primary → bare → feature. The resolver must
+        # return ``primary`` (FIRST non-bare, non-detached), not
+        # ``bare_path`` and not ``feature_path``.
+        stdout = (
+            f"worktree {primary_path}\n"
+            "HEAD abcdef0123456789\n"
+            "branch refs/heads/main\n"
+            "\n"
+            f"worktree {bare_path}\n"
+            "bare\n"
+            "\n"
+            f"worktree {feature_path}\n"
+            "HEAD 1234567890abcdef\n"
+            "branch refs/heads/feature/x\n"
+        )
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+
+    result = harness_mod._main_worktree_root()
+    assert result == primary_path, (
+        f"_main_worktree_root must return the FIRST non-bare, non-detached "
+        f"block ({primary_path}); got {result}. A bare block between the "
+        f"primary and a feature worktree must NOT shift the anchor."
+    )
+    assert result != bare_path, (
+        f"_main_worktree_root must NEVER return a bare repo path; got {result}"
+    )
+    assert result != feature_path, (
+        f"_main_worktree_root must return the PRIMARY (first non-bare) "
+        f"block, not a later feature worktree; got {result}"
+    )
+
+
+def test_guard_main_root_resolver_skips_detached_first_block(monkeypatch, tmp_path):
+    """Card e1e32b07 REWORK (Rin HIGH finding): when the FIRST block
+    carries the ``detached`` flag, the resolver must skip it and return
+    the path of the next non-bare, non-detached block.
+
+    The spec anchors LIVE paths to the PRIMARY (non-detached) worktree
+    only — a detached worktree (e.g. mid-bisect) is not the primary
+    checkout and must not anchor LIVE paths.
+    """
+    import scripts.backtest_blend_harness as harness_mod
+
+    detached_path = tmp_path / "detached_wt"
+    detached_path.mkdir()
+    primary_path = tmp_path / "primary"
+    primary_path.mkdir()
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = (
+            f"worktree {detached_path}\n"
+            "HEAD abcdef0123456789\n"
+            "detached\n"
+            "\n"
+            f"worktree {primary_path}\n"
+            "HEAD 1234567890abcdef\n"
+            "branch refs/heads/main\n"
+        )
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+
+    result = harness_mod._main_worktree_root()
+    assert result == primary_path, (
+        f"_main_worktree_root must skip the detached entry and return "
+        f"the primary ({primary_path}); got {result}. REGRESSION: "
+        f"pre-rework resolver returned the FIRST worktree line and "
+        f"would have anchored LIVE paths to the detached worktree."
+    )
+    assert result != detached_path, (
+        f"_main_worktree_root must NEVER return a detached worktree path "
+        f"as the primary; got {result}"
+    )

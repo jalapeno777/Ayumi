@@ -82,11 +82,20 @@ logger = logging.getLogger("ayumi.backtest_harness")
 def _main_worktree_root() -> Path | None:
     """Return the MAIN (primary) worktree's repo root, or ``None`` on failure.
 
-    Runs ``git worktree list --porcelain`` with a short timeout and returns
-    the path of the FIRST ``worktree`` entry (the primary worktree — the
-    one without ``bare`` / ``detached`` flags). Any failure (non-zero
-    exit, empty output, parse error, missing first entry, path not a
-    directory) returns ``None`` so the caller can fall back.
+    Runs ``git worktree list --porcelain`` with a short timeout and parses
+    the output as BLOCKS (records separated by blank lines; each block
+    starts with ``worktree <path>`` and may carry flags ``bare``,
+    ``detached``, etc.). Returns the path of the FIRST non-bare,
+    non-detached worktree entry — the primary checkout.
+
+    Bare and detached blocks are SKIPPED: in a bare-repo layout, the
+    bare entry would otherwise be selected, anchoring LIVE paths to the
+    bare repo (which has no ``data/`` directory) and bypassing the
+    refuse-when-live guard. Card e1e32b07 REWORK (Rin HIGH finding).
+
+    Any failure (non-zero exit, empty output, parse error, no valid
+    non-bare primary entry, path not a directory) returns ``None`` so
+    the caller can fall back to ``PROJECT_ROOT``.
 
     NOTE: This function is deliberately permissive — it never raises. The
     caller decides what fallback to use (here: ``PROJECT_ROOT``). Card
@@ -116,21 +125,45 @@ def _main_worktree_root() -> Path | None:
             completed.stderr.strip()[:200] if completed.stderr else "",
         )
         return None
-    # Porcelain format: blocks separated by blank lines; first line of the
-    # first block is `worktree <path>`. The primary worktree is the FIRST
-    # entry (no preceding `bare` / `detached` flags before it).
-    for line in completed.stdout.splitlines():
-        if line.startswith("worktree "):
-            raw = line[len("worktree "):].strip()
-            if not raw:
-                return None
-            try:
-                candidate = Path(raw)
-            except (TypeError, ValueError):
-                return None
-            if candidate.is_dir():
-                return candidate
+    # Porcelain format: BLOCKS separated by blank lines (`\n\n`). Each
+    # block starts with `worktree <path>` and may carry flags `bare`,
+    # `detached`, etc. We want the FIRST non-bare, non-detached block —
+    # the primary worktree's checkout directory.
+    #
+    # Card e1e32b07 REWORK (Rin HIGH finding): a bare entry MUST be
+    # skipped, otherwise in a bare-repo layout the bare repo's path
+    # would be selected, anchoring LIVE paths to a directory with no
+    # `data/` and bypassing the refuse-when-live guard.
+    for block in completed.stdout.split("\n\n"):
+        path_line: str | None = None
+        bare = False
+        detached = False
+        for line in block.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped == "bare":
+                bare = True
+            elif stripped == "detached":
+                detached = True
+            elif stripped.startswith("worktree "):
+                path_line = stripped[len("worktree "):].strip()
+        if path_line is None:
+            # Block has no worktree line (corrupt / unexpected); skip.
+            continue
+        if bare or detached:
+            # Skip bare and detached entries — only the primary
+            # non-bare, non-detached worktree anchors LIVE paths.
+            continue
+        if not path_line:
             return None
+        try:
+            candidate = Path(path_line)
+        except (TypeError, ValueError):
+            return None
+        if candidate.is_dir():
+            return candidate
+        return None
     return None
 
 
