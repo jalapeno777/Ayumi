@@ -346,7 +346,34 @@ class SignalStatsRecorder:
                         # sandboxed filesystems. The data is already
                         # in the OS write buffer, so fall through.
                         pass
+                    # tempfile.mkstemp creates files with mode 0600; that
+                    # mode would carry over via os.replace and lock out
+                    # any other uid (e.g. forward-test running as uid 1000
+                    # after a root-run service restart left a 0600 file
+                    # behind). fchmod the temp fd to 0o644 inside the
+                    # with-block (fd still valid) so the eventual target
+                    # is group/other readable. Guarded so a chmod failure
+                    # cannot lose the write — bytes are already on disk.
+                    try:
+                        os.fchmod(fd, 0o644)
+                    except (OSError, AttributeError):
+                        # AttributeError on Windows; OSError on
+                        # filesystems without chmod support. Either way,
+                        # the data is safe and the replace proceeds.
+                        pass
                 os.replace(tmp_path, str(target))
+                # Self-heal: if the target ended up with restrictive
+                # mode (e.g. a root-owned file from a prior service
+                # restart left behind 0600), chmod it back to 0o644 so
+                # subsequent writers (uid 1000) can append. Guarded so
+                # a chmod failure never raises — the data is already
+                # on disk and the write succeeded.
+                try:
+                    target_st = os.stat(str(target))
+                    if (target_st.st_mode & 0o777) != 0o644:
+                        os.chmod(str(target), 0o644)
+                except OSError:
+                    pass
             except Exception:
                 try:
                     os.unlink(tmp_path)

@@ -1816,12 +1816,76 @@ def compress_stale_logs(log_dir: Path, max_age_days: int = _STALE_LOG_MAX_AGE_DA
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
+def _check_signal_stats_uid(
+    path: Path,
+    current_uid: int,
+    allow_foreign_uid: bool,
+) -> tuple[bool, str]:
+    """Pre-launch ownership guard for ``data/signal_stats.jsonl`` (card a38b853d).
+
+    A root-run process can create the stats file as root:root mode 0600
+    during a service-restart gap, which blocks subsequent forward-test
+    writes (uid 1000) with EACCES. ``signal_stats._append_line`` now
+    enforces 0o644 and self-heals on every write, but this guard surfaces
+    the ownership mismatch loudly at startup so operators notice the
+    underlying root-contamination issue instead of silently relying on
+    self-heal.
+
+    Returns ``(ok, reason)``:
+      - missing file               -> ``(True, "missing_ok")``
+      - same-owner file            -> ``(True, "owner_match")``
+      - foreign-owned, allowed     -> ``(True, reason)``  (warns via logger)
+      - foreign-owned, not allowed -> ``(False, reason)`` (caller should exit)
+
+    ``allow_foreign_uid`` should be the OR of the ``--allow-foreign-uid``
+    CLI flag and the ``AYUMI_ALLOW_FOREIGN_UID`` env override.
+    """
+    if not path.exists():
+        return True, "missing_ok"
+    try:
+        st = path.stat()
+    except OSError as exc:
+        return False, f"stat_failed:{exc}"
+    if st.st_uid == current_uid:
+        return True, "owner_match"
+    try:
+        import pwd
+
+        owner = pwd.getpwuid(st.st_uid).pw_name
+    except (KeyError, OSError):
+        owner = str(st.st_uid)
+    reason = (
+        f"data/signal_stats.jsonl owned by {owner} (uid={st.st_uid}) "
+        f"but current process is uid={current_uid} "
+        f"(mode={oct(st.st_mode & 0o777)}). "
+        f"Likely root contamination from a prior service-restart gap."
+    )
+    if allow_foreign_uid:
+        logging.getLogger("ayumi.blend_launcher").warning(
+            "signal_stats foreign-uid BYPASSED via --allow-foreign-uid/env: %s",
+            reason,
+        )
+        return True, reason
+    return False, reason
+
+
 def main():
     parser = argparse.ArgumentParser(description="Ayumi Multi-Strategy Forward Test")
     parser.add_argument(
         "--symbols",
         default="GBPUSD,USDJPY,EURUSD",
         help="Comma-separated symbols (default: GBPUSD,USDJPY,EURUSD)",
+    )
+    parser.add_argument(
+        "--allow-foreign-uid",
+        action="store_true",
+        help=(
+            "Proceed even when data/signal_stats.jsonl is owned by a "
+            "different uid (typically root contamination from a prior "
+            "service-restart gap). signal_stats._append_line self-heals "
+            "to mode 0644 on every write, so the file will be repaired "
+            "on the first append. Also settable via AYUMI_ALLOW_FOREIGN_UID=1."
+        ),
     )
     parser.add_argument(
         "--mode",
@@ -1851,6 +1915,30 @@ def main():
         execution_mode = args.mode
     else:
         execution_mode = "live" if args.live else "paper"
+
+    # Pre-launch signal_stats ownership guard (card a38b853d). Refuses to
+    # start when data/signal_stats.jsonl is foreign-owned unless the
+    # operator explicitly opts in via --allow-foreign-uid or
+    # AYUMI_ALLOW_FOREIGN_UID=1. Missing file = OK (forward test will
+    # create it with the correct ownership on the first signal).
+    _allow_foreign_uid = bool(
+        args.allow_foreign_uid
+        or os.getenv("AYUMI_ALLOW_FOREIGN_UID", "").lower() in ("1", "true", "yes"),
+    )
+    _stats_path = PROJECT_ROOT / "data" / "signal_stats.jsonl"
+    _stats_ok, _stats_reason = _check_signal_stats_uid(
+        _stats_path,
+        os.getuid(),
+        _allow_foreign_uid,
+    )
+    if not _stats_ok:
+        logger.error(
+            "REFUSING to start: %s. Re-run with --allow-foreign-uid (or set "
+            "AYUMI_ALLOW_FOREIGN_UID=1) to proceed; the stats file will be "
+            "self-healed to mode 0644 on the first write.",
+            _stats_reason,
+        )
+        sys.exit(2)
 
     # Fail-closed: refuse paper mode on a live endpoint
     from adapters.ctrader.environment import (
