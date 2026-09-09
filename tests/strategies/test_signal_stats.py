@@ -10,14 +10,26 @@ the real filesystem code path.
 from __future__ import annotations
 
 import json
+import os
+import stat
+import sys
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 from signal_engine.signal_stats import (
     SignalRecord,
     SignalStatsRecorder,
 )
+
+# Make scripts/ importable so we can exercise the launcher's pre-launch
+# ownership guard (_check_signal_stats_uid) directly, without spawning
+# the full launcher subprocess. Card a38b853d.
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from launch_blend_forward_test import _check_signal_stats_uid  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -247,3 +259,118 @@ class TestSignalStatsRecorder:
         # Combined filter: USDJPY + S2 -> 2 signals
         combo = recorder.get_stats(strategy="S2", symbol="USDJPY")
         assert combo["total_signals"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Card a38b853d: file-mode + launcher-guard regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestSignalStatsFileMode:
+    """Verify _append_line produces mode 0o644 regardless of umask and
+    self-heals a pre-existing 0o600 target. Card a38b853d."""
+
+    def test_append_yields_0644_regardless_of_umask(self, tmp_path):
+        """Even with a restrictive umask (0o077), a fresh append must
+        yield mode 0o644 on the target file. tempfile.mkstemp creates
+        0o600; the new fchmod inside _append_line normalises it to 0o644
+        before os.replace carries the mode onto the target."""
+        log = tmp_path / "signal_stats.jsonl"
+        assert not log.exists()
+
+        old_umask = os.umask(0o077)
+        try:
+            recorder = SignalStatsRecorder(log_path=str(log))
+            recorder.record_signal(_make_signal(signal_id="umask-001"))
+        finally:
+            os.umask(old_umask)
+
+        assert log.exists()
+        mode = stat.S_IMODE(os.stat(str(log)).st_mode)
+        assert mode == 0o644, f"expected 0o644, got {oct(mode)}"
+
+    def test_pre_existing_0600_self_heals_to_0644(self, tmp_path):
+        """A target file with mode 0o600 (e.g. root-owned 0o600 left
+        behind by a service-restart gap) must self-heal to 0o644 after
+        the first _append_line. The pre-existing content is preserved."""
+        log = tmp_path / "signal_stats.jsonl"
+
+        # Seed with one valid open line + force 0o600
+        log.write_text(
+            '{"signal_id":"legacy","timestamp":"","strategy":"","symbol":"",'
+            '"direction":"","confidence":0,"rationale_tags":[],'
+            '"confluence_score":0,"lots":0,"entry_price":0,"sl_price":0,'
+            '"tp_price":0,"outcome":"open","pips_realized":null,'
+            '"time_to_close_seconds":null,"closed_at":null}\n',
+            encoding="utf-8",
+        )
+        os.chmod(str(log), 0o600)
+        assert stat.S_IMODE(os.stat(str(log)).st_mode) == 0o600
+
+        recorder = SignalStatsRecorder(log_path=str(log))
+        recorder.record_signal(_make_signal(signal_id="heal-001"))
+
+        mode = stat.S_IMODE(os.stat(str(log)).st_mode)
+        assert mode == 0o644, f"expected self-heal to 0o644, got {oct(mode)}"
+
+        # Pre-existing content preserved + new line appended.
+        with open(log, "r", encoding="utf-8") as f:
+            lines = [ln for ln in f.read().splitlines() if ln.strip()]
+        assert len(lines) == 2
+        assert json.loads(lines[0])["signal_id"] == "legacy"
+        assert json.loads(lines[1])["signal_id"] == "heal-001"
+
+
+class TestLauncherUidGuard:
+    """Verify _check_signal_stats_uid (card a38b853d) refuses a
+    foreign-owned stats file unless explicitly bypassed."""
+
+    def test_launcher_guard_missing_file_passes(self, tmp_path):
+        """Missing stats file is always OK — forward test will create it."""
+        log = tmp_path / "does_not_exist.jsonl"
+        ok, reason = _check_signal_stats_uid(
+            log, current_uid=1000, allow_foreign_uid=False,
+        )
+        assert ok is True
+        assert reason == "missing_ok"
+
+    def test_launcher_guard_flags_foreign_uid(self, tmp_path):
+        """A file owned by a different uid must be refused without
+        --allow-foreign-uid, and accepted (with a loud warning) with it."""
+        log = tmp_path / "signal_stats.jsonl"
+        log.write_text('{"signal_id":"seed"}\n', encoding="utf-8")
+        os.chmod(str(log), 0o644)
+
+        # The test process is the actual file owner; simulate a foreign
+        # owner by passing a current_uid that does not match the real
+        # stat().st_uid.
+        ok, reason = _check_signal_stats_uid(
+            log, current_uid=99999, allow_foreign_uid=False,
+        )
+        assert ok is False
+        assert "99999" in reason  # current uid mentioned
+        assert "uid=" in reason
+        assert "signal_stats.jsonl" in reason
+
+        # With bypass, the guard accepts (and logs a warning).
+        ok2, reason2 = _check_signal_stats_uid(
+            log, current_uid=99999, allow_foreign_uid=True,
+        )
+        assert ok2 is True
+        assert reason2 == reason  # same diagnostic reason, just allowed
+
+    def test_launcher_guard_same_owner_passes(self, tmp_path):
+        """A file owned by the current uid passes silently with no
+        foreign-uid warning — no log spam on every restart."""
+        import getpass
+
+        log = tmp_path / "signal_stats.jsonl"
+        log.write_text('{"signal_id":"seed"}\n', encoding="utf-8")
+        current_uid = os.getuid()
+        ok, reason = _check_signal_stats_uid(
+            log, current_uid=current_uid, allow_foreign_uid=False,
+        )
+        assert ok is True
+        assert reason == "owner_match"
+        # getpass used to ensure the import resolves in this env
+        assert getpass.getuser()  # noqa: F841 — sanity check
