@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import sys
 import time
@@ -46,6 +47,31 @@ def load_pool(pool_path: Path) -> dict[str, Any]:
     if "_meta" not in raw:
         raise ValueError(f"trait pool missing _meta: {pool_path}")
     return raw
+
+
+def resolve_snapshot_pool(pool_version: str, base_pool_path: Path) -> dict[str, Any] | None:
+    """Resolve a snapshot pool for a record whose `pool_version` differs from the loaded pool.
+
+    Search order:
+      1. $PREGNANCY_POOL_DIR / <pool_version> / <base_pool_path.name>
+      2. <base_pool_path.parent> / pools / <pool_version> / <base_pool_path.name>
+
+    Returns the loaded snapshot pool, or None when no usable snapshot exists.
+    """
+    if not pool_version or pool_version == "(absent)":
+        return None
+    candidates: list[Path] = []
+    env_dir = os.environ.get("PREGNANCY_POOL_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir) / pool_version / base_pool_path.name)
+    candidates.append(base_pool_path.parent / "pools" / pool_version / base_pool_path.name)
+    for cand in candidates:
+        if cand.exists():
+            try:
+                return load_pool(cand)
+            except (FileNotFoundError, ValueError):
+                return None
+    return None
 
 
 def load_state(state_path: Path) -> dict[str, Any]:
@@ -142,7 +168,11 @@ def record_self_hash(rec: dict[str, Any]) -> str:
     return sha256_hex(canonical(record_body(rec)))
 
 
-def verify_ledger(ledger_path: Path) -> tuple[bool, str]:
+def verify_ledger(
+    ledger_path: Path,
+    pool: dict[str, Any] | None = None,
+    pool_path: Path | None = None,
+) -> tuple[bool, str]:
     if not ledger_path.exists():
         return False, f"ledger not found: {ledger_path}"
     prev = GENESIS_HASH
@@ -155,7 +185,10 @@ def verify_ledger(ledger_path: Path) -> tuple[bool, str]:
     # is intentionally NOT in the required-fields list above: chain entries
     # recorded before protocol v0.5 A9 did not carry the field, and the spec
     # requires backward-compatible verification for that legacy content.
-    per_record: list[tuple[int, str, str, str]] = []  # (idx, category, pool_version, hash)
+    per_record: list[tuple[int, str, str, str]] = []  # (idx, label, pool_version, hash)
+    warnings: list[str] = []
+    snapshot_cache: dict[str, dict[str, Any] | None] = {}
+    current_pv: str | None = pool_version_from_pool(pool) if pool is not None else None
     for n, line in enumerate(lines, start=1):
         try:
             rec = json.loads(line)
@@ -177,15 +210,54 @@ def verify_ledger(ledger_path: Path) -> tuple[bool, str]:
         if rec["hash"] != computed:
             return False, f"line {n}: self-hash mismatch (stored {rec['hash'][:12]}..., computed {computed[:12]}...)"
         pv = rec.get("pool_version", "(absent)")
-        per_record.append((rec["index"], rec["category"], pv, rec["hash"]))
+        outcome = rec["outcome"]
+        label_text: str = outcome.get("label", "")
+        # Version-aware label resolution (Pregnancy Protocol v0.5 A9): when a
+        # record's pool_version differs from the loaded pool's version, try to
+        # resolve labels via the matching snapshot pool. Verification still
+        # passes on hash integrity; missing snapshots emit an explicit warning
+        # line and render the label as <unresolved-label:pool_version>.
+        if (
+            pool is not None
+            and pool_path is not None
+            and pv not in ("(absent)",)
+            and current_pv is not None
+            and pv != current_pv
+        ):
+            if pv not in snapshot_cache:
+                snapshot_cache[pv] = resolve_snapshot_pool(pv, pool_path)
+            snapshot = snapshot_cache[pv]
+            if snapshot is None:
+                unresolved = f"<unresolved-label:{pv}>"
+                label_text = unresolved
+                warnings.append(
+                    f"warning: line {n}: snapshot pool for pool_version={pv} not found "
+                    f"(searched $PREGNANCY_POOL_DIR/{pv}/* and {pool_path.parent}/pools/{pv}/*); "
+                    f"label rendered as {unresolved}"
+                )
+            else:
+                options = snapshot.get(rec["category"]) or []
+                match = next((opt for opt in options if opt.get("id") == outcome.get("id")), None)
+                if match is None:
+                    unresolved = f"<unresolved-label:{pv}>"
+                    label_text = unresolved
+                    warnings.append(
+                        f"warning: line {n}: snapshot pool {pv} loaded but category "
+                        f"'{rec['category']}' or outcome id '{outcome.get('id')}' not present; "
+                        f"label rendered as {unresolved}"
+                    )
+                else:
+                    label_text = match.get("label", "") or label_text
+        per_record.append((rec["index"], label_text, pv, rec["hash"]))
         prev = rec["hash"]
         expected_index += 1
     summary = f"chain verified: {expected_index} record(s), root={prev[:12]}..."
-    detail = "\n".join(
-        f"  [{idx}] {category:<18} pool_version={pv:<10} hash={h[:12]}..."
-        for (idx, category, pv, h) in per_record
+    detail_lines: list[str] = list(warnings)
+    detail_lines.extend(
+        f"  [{idx}] {label:<22} pool_version={pv:<10} hash={h[:12]}..."
+        for (idx, label, pv, h) in per_record
     )
-    return True, f"{summary}\n{detail}"
+    return True, f"{summary}\n" + "\n".join(detail_lines)
 
 
 def cmd_roll(args: argparse.Namespace, pool: dict[str, Any]) -> int:
@@ -243,7 +315,14 @@ def cmd_roll(args: argparse.Namespace, pool: dict[str, Any]) -> int:
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    ok, msg = verify_ledger(Path(args.ledger))
+    pool_path = Path(args.pool)
+    pool: dict[str, Any] | None = None
+    if pool_path.exists():
+        try:
+            pool = load_pool(pool_path)
+        except (FileNotFoundError, ValueError):
+            pool = None
+    ok, msg = verify_ledger(Path(args.ledger), pool=pool, pool_path=pool_path)
     print(msg)
     return 0 if ok else 1
 
@@ -278,7 +357,7 @@ def cmd_self_test(args: argparse.Namespace, pool: dict[str, Any]) -> int:
         if rc != 2:
             print(f"self-test: duplicate guard failed rc={rc}", file=sys.stderr)
             return 1
-        v = argparse.Namespace(ledger=str(ledger_p))
+        v = argparse.Namespace(ledger=str(ledger_p), pool=args.pool)
         rc = cmd_verify(v)
         if rc != 0:
             print(f"self-test: verify failed rc={rc}", file=sys.stderr)
@@ -319,14 +398,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    pool = load_pool(args.pool) if not (args.verify or args.self_test) or args.self_test else None
+    pool: dict[str, Any] | None = None
+    if not args.verify and not args.self_test:
+        # Roll path: pool must exist and load.
+        pool = load_pool(args.pool)
+    elif args.self_test:
+        # Self-test needs the pool to validate options exist.
+        pool = load_pool(args.pool)
 
     if args.verify:
         return cmd_verify(args)
     if args.self_test:
-        # self-test still needs the pool to validate options exist
-        if pool is None:
-            pool = load_pool(args.pool)
+        assert pool is not None  # loaded above
         return cmd_self_test(args, pool)
     if not args.category:
         parser.error("either --category, --verify, or --self-test is required")
