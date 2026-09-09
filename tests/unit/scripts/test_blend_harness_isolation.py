@@ -638,3 +638,356 @@ def test_guard_refuses_on_unreadable_pid_file_via_permission_error(
     assert "4f384bfc" in err, (
         f"RefuseToRun message must cite Rin verdict 4f384bfc; got: {err}"
     )
+
+
+# ── AC8 (card e1e32b07) — guard LIVE paths anchored to MAIN worktree root ──
+#
+# Card e1e32b07 (2026-09-09): when the harness is loaded from a non-primary
+# git worktree, the pre-fix guard's LIVE_* paths resolved against
+# ``PROJECT_ROOT`` (the per-worktree root), so the guard's
+# ``data/forward_test.pid`` probe was scoped to the WORKTREE's data/
+# directory — which typically does NOT contain the live PID file. The live
+# engine running in the MAIN tree consequently slipped past the
+# refuse-when-live check by construction (the bug pattern was that the
+# guard was effectively a no-op from any worktree).
+#
+# The fix re-resolves the guard's LIVE_* paths against the MAIN worktree's
+# root via ``_main_worktree_root()`` (``git worktree list --porcelain``,
+# first entry). These tests verify the fix WITHOUT touching the real repo
+# or the live engine: they monkeypatch the main-root resolver to a tmp
+# skeleton so the harness's LIVE paths resolve against an isolated
+# fake main tree.
+
+
+# ── AC8.1: regression — guard refuses when MAIN root has a live PID ───────
+
+
+def test_guard_uses_main_root_for_live_pid_check_when_running_from_worktree(
+    monkeypatch, tmp_path, caplog
+):
+    """Regression for card e1e32b07: when the harness is running from a
+    non-primary worktree and the MAIN tree's data/forward_test.pid points
+    at a live PID, the guard MUST refuse.
+
+    Pre-fix bug: ``LIVE_FORWARD_TEST_PID`` resolved against the worktree's
+    PROJECT_ROOT, so the guard never saw the MAIN tree's PID file and the
+    harness silently proceeded (the refuse-when-live gate was bypassed by
+    construction).
+
+    Test setup: monkeypatch ``_main_worktree_root`` to return a tmp skeleton
+    containing ``data/forward_test.pid`` containing ``os.getpid()`` (which
+    is alive for the test process). Also monkeypatch the existing LIVE_*
+    constants to point at the SAME tmp skeleton so the ownership check
+    has the matching LIVE_KILL_SWITCH_GLOBAL_STATE / LIVE_RISK_STATE_BLEND
+    paths. Force ``_GUARD_LIVE_ROOT`` to match.
+    """
+    import logging
+
+    fake_main = tmp_path / "fake_main"
+    fake_main.mkdir()
+    live_data = fake_main / "data"
+    live_data.mkdir()
+    pid_file = live_data / "forward_test.pid"
+    pid_file.write_text(str(os.getpid()))  # live PID (this test process)
+
+    # Sentinel kill switch + risk state owned by us so the ownership check
+    # does not also fire (we are testing the PID refusal path specifically).
+    ks_dir = live_data / "kill_switches"
+    ks_dir.mkdir()
+    live_ks = ks_dir / "global.state"
+    live_ks.write_text(json.dumps({"active": False, "version": 1}) + "\n")
+    live_risk = live_data / "risk_state_blend.json"
+    live_risk.write_text(json.dumps({"starting_balance": 10000.0}) + "\n")
+
+    # Point the guard's LIVE_* constants at the fake main skeleton.
+    monkeypatch.setattr(harness, "_GUARD_LIVE_ROOT", fake_main)
+    monkeypatch.setattr(harness, "LIVE_FORWARD_TEST_PID", pid_file)
+    monkeypatch.setattr(harness, "LIVE_KILL_SWITCH_GLOBAL_STATE", live_ks)
+    monkeypatch.setattr(harness, "LIVE_RISK_STATE_BLEND", live_risk)
+
+    # Make _main_worktree_root() also return the fake main so any code path
+    # that re-resolves the root mid-flight stays consistent. (Defensive —
+    # the LIVE_* constants above are the ones _verify_isolation_or_refuse
+    # actually reads.)
+    monkeypatch.setattr(harness, "_main_worktree_root", lambda: fake_main)
+
+    args = argparse.Namespace(allow_foreign_ownership=False, keep_state_dir=False)
+    state_dir = tmp_path / "harness_state"
+    state_dir.mkdir()
+
+    with caplog.at_level(logging.INFO, logger="ayumi.backtest_harness"):
+        with pytest.raises(harness.RefuseToRun) as excinfo:
+            harness._verify_isolation_or_refuse(args, state_dir)
+
+    err = str(excinfo.value)
+    assert "LIVE forward_test engine is running" in err, (
+        f"RefuseToRun message must indicate live engine detected; got: {err}"
+    )
+    assert str(os.getpid()) in err, (
+        f"RefuseToRun message must include the live PID ({os.getpid()}); got: {err}"
+    )
+    # The refused path must be the fake main tree's PID file, NOT a path
+    # under the current worktree. This is the structural assertion that
+    # proves the guard is reading MAIN-root LIVE paths.
+    assert str(pid_file) in err, (
+        f"RefuseToRun message must reference the MAIN-root LIVE_FORWARD_TEST_PID "
+        f"({pid_file}); got: {err}. "
+        f"REGRESSION: guard is still resolving LIVE paths against PROJECT_ROOT "
+        f"instead of the main worktree root (card e1e32b07)."
+    )
+    assert "data/forward_test.pid" in err
+
+
+def test_guard_main_root_resolver_runs_git_worktree_list(monkeypatch, tmp_path):
+    """``_main_worktree_root`` must run ``git worktree list --porcelain``
+    and return the FIRST ``worktree`` entry as a ``Path``.
+
+    We intercept ``subprocess.run`` to verify the call args without
+    actually invoking git (which depends on the host environment).
+    """
+    import scripts.backtest_blend_harness as harness_mod
+
+    # Use a real directory so _main_worktree_root's `Path.is_dir()` check
+    # passes (it must return None for non-existent paths — see
+    # test_guard_main_root_resolver_nonexistent_path_returns_none).
+    fake_main = tmp_path / "fake_main"
+    fake_main.mkdir()
+    fake_feature = tmp_path / "fake_feature"
+    fake_feature.mkdir()
+
+    captured = {}
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = (
+            f"worktree {fake_main}\n"
+            "HEAD abcdef0123456789\n"
+            "branch refs/heads/main\n"
+            "\n"
+            f"worktree {fake_feature}\n"
+            "HEAD 1234567890abcdef\n"
+            "branch refs/heads/feature/x\n"
+        )
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return _FakeCompleted()
+
+    monkeypatch.setattr(harness_mod.subprocess, "run", fake_run)
+
+    result = harness_mod._main_worktree_root()
+    assert result == fake_main, (
+        f"Expected FIRST worktree entry {fake_main} (the primary); got {result}"
+    )
+    # Verify the cmd, timeout, cwd, and capture-output contract.
+    assert captured["cmd"] == ["git", "worktree", "list", "--porcelain"], (
+        f"_main_worktree_root must invoke 'git worktree list --porcelain'; got {captured['cmd']}"
+    )
+    assert captured["kwargs"].get("timeout") is not None, (
+        "_main_worktree_root must pass a timeout to subprocess.run (HR5 bounded exec)"
+    )
+    assert captured["kwargs"].get("cwd"), (
+        "_main_worktree_root must set cwd (run from PROJECT_ROOT)"
+    )
+
+
+def test_guard_main_root_resolver_timeout_returns_none(monkeypatch):
+    """``_main_worktree_root`` must return ``None`` (not raise) when git
+    times out, so the caller can fall back to ``PROJECT_ROOT``.
+    """
+    import subprocess as sp
+
+    import scripts.backtest_blend_harness as harness_mod
+
+    def fake_run(*_args, **_kwargs):
+        raise sp.TimeoutExpired(cmd=["git"], timeout=5)
+
+    monkeypatch.setattr(harness_mod.subprocess, "run", fake_run)
+
+    assert harness_mod._main_worktree_root() is None, (
+        "_main_worktree_root must return None on TimeoutExpired, not raise"
+    )
+
+
+def test_guard_main_root_resolver_nonzero_exit_returns_none(monkeypatch):
+    """``_main_worktree_root`` must return ``None`` when git exits non-zero
+    (e.g. not in a git repo, corrupt .git, etc.)."""
+    import scripts.backtest_blend_harness as harness_mod
+
+    class _FakeCompleted:
+        returncode = 128
+        stdout = ""
+        stderr = "fatal: not a git repository"
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+    assert harness_mod._main_worktree_root() is None
+
+
+def test_guard_main_root_resolver_missing_first_entry_returns_none(monkeypatch):
+    """``_main_worktree_root`` must return ``None`` when ``git worktree
+    list --porcelain`` returns no ``worktree`` line at all (corrupt output,
+    exotic git version)."""
+    import scripts.backtest_blend_harness as harness_mod
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = "HEAD abcdef0123456789\nbranch refs/heads/main\n"
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+    assert harness_mod._main_worktree_root() is None
+
+
+def test_guard_main_root_resolver_nonexistent_path_returns_none(monkeypatch, tmp_path):
+    """``_main_worktree_root`` must return ``None`` when the first parsed
+    path does not exist on disk (e.g. stale worktree after ``git worktree
+    remove``)."""
+    import scripts.backtest_blend_harness as harness_mod
+
+    ghost = "/nonexistent/path/that/does/not/exist"
+
+    class _FakeCompleted:
+        returncode = 0
+        stdout = f"worktree {ghost}\nHEAD abcdef\nbranch refs/heads/main\n"
+        stderr = ""
+
+    monkeypatch.setattr(
+        harness_mod.subprocess, "run", lambda *a, **kw: _FakeCompleted()
+    )
+    assert harness_mod._main_worktree_root() is None, (
+        "_main_worktree_root must return None when the parsed path is not a "
+        "directory; otherwise we'd resolve LIVE paths to a stale/removed "
+        "worktree and miss the actual main tree's data/."
+    )
+
+
+def test_guard_resolve_guard_live_root_falls_back_to_project_root_on_failure(
+    monkeypatch,
+):
+    """``_resolve_guard_live_root`` must return ``PROJECT_ROOT`` (current
+    tree) when ``_main_worktree_root`` returns ``None``. This preserves
+    pre-fix behavior on every failure path — fail-closed guard semantics
+    are still the safety net."""
+    import scripts.backtest_blend_harness as harness_mod
+
+    monkeypatch.setattr(harness_mod, "_main_worktree_root", lambda: None)
+    # Defensive: ensure no env-bypass is set for this test.
+    monkeypatch.delenv(harness_mod._GUARD_LIVE_ENV_BYPASS, raising=False)
+
+    assert harness_mod._resolve_guard_live_root() == harness_mod.PROJECT_ROOT, (
+        "_resolve_guard_live_root must fall back to PROJECT_ROOT when "
+        "_main_worktree_root returns None — preserving pre-fix behavior on "
+        "git failures."
+    )
+
+
+def test_guard_resolve_guard_live_root_env_bypass_logs_loudly(
+    monkeypatch, caplog
+):
+    """When ``AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT=1`` is set,
+    ``_resolve_guard_live_root`` must:
+      (1) return ``PROJECT_ROOT`` (NOT the main root), AND
+      (2) emit a WARNING-level log so any unexpected use surfaces loudly.
+
+    Card e1e32b07: the bypass exists for operator debugging on the main
+    tree itself (where PROJECT_ROOT IS the main root) and for tests that
+    drive the guard via monkeypatched LIVE_* constants. It must NOT be
+    silent — an unexpected use in production must show up in operator
+    logs.
+    """
+    import logging
+
+    import scripts.backtest_blend_harness as harness_mod
+
+    fake_main = Path("/some/main/root/that/should/not/be/used")
+    monkeypatch.setattr(harness_mod, "_main_worktree_root", lambda: fake_main)
+    monkeypatch.setenv(harness_mod._GUARD_LIVE_ENV_BYPASS, "1")
+
+    with caplog.at_level(logging.WARNING, logger="ayumi.backtest_harness"):
+        result = harness_mod._resolve_guard_live_root()
+
+    assert result == harness_mod.PROJECT_ROOT, (
+        f"Bypass env var must force _resolve_guard_live_root to PROJECT_ROOT; "
+        f"got {result}"
+    )
+    bypass_warnings = [
+        rec for rec in caplog.records
+        if rec.levelno == logging.WARNING and "AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT" in rec.message
+    ]
+    assert bypass_warnings, (
+        f"Bypass env var must emit a WARNING log so unexpected use surfaces "
+        f"loudly. Got caplog records: "
+        f"{[(r.levelname, r.message) for r in caplog.records]}"
+    )
+
+
+def test_guard_resolve_guard_live_root_uses_main_root_by_default(monkeypatch):
+    """Default (no env-bypass, git succeeds): ``_resolve_guard_live_root``
+    returns the main root (not PROJECT_ROOT). This is the structural fix
+    for card e1e32b07."""
+    import scripts.backtest_blend_harness as harness_mod
+
+    fake_main = Path("/home/test/fake_main_root")
+    monkeypatch.setattr(harness_mod, "_main_worktree_root", lambda: fake_main)
+    monkeypatch.delenv(harness_mod._GUARD_LIVE_ENV_BYPASS, raising=False)
+
+    result = harness_mod._resolve_guard_live_root()
+    assert result == fake_main, (
+        f"_resolve_guard_live_root must return the main root by default; "
+        f"got {result}. Pre-fix bug was that LIVE paths were anchored to "
+        f"PROJECT_ROOT (worktree-local), bypassing the refuse-when-live gate."
+    )
+
+
+# ── AC8.2: source-level — guard does NOT silence the structural fix ────────
+
+
+def test_harness_source_uses_git_worktree_list_for_main_root():
+    """Source-level guard: ``_main_worktree_root`` must invoke ``git
+    worktree list --porcelain`` so the structural fix for card e1e32b07
+    is observable in the source. Detects accidental regressions where the
+    function is simplified away or the subprocess invocation is removed.
+    """
+    src = _harness_source_path().read_text(encoding="utf-8")
+    assert '"git"' in src and '"worktree"' in src and '"list"' in src and '"--porcelain"' in src, (
+        "Harness source must contain the git worktree list --porcelain "
+        "invocation — the structural fix for card e1e32b07 depends on it. "
+        "If this fails, the main-root resolver has been removed and the "
+        "guard's refuse-when-live check is again bypassed from worktrees."
+    )
+    assert "_main_worktree_root" in src, (
+        "Harness source must define _main_worktree_root()"
+    )
+    assert "_resolve_guard_live_root" in src, (
+        "Harness source must define _resolve_guard_live_root() that wraps "
+        "_main_worktree_root() with fallback + env-bypass"
+    )
+    # LIVE_* constants must be anchored to _GUARD_LIVE_ROOT, not PROJECT_ROOT.
+    assert "LIVE_FORWARD_TEST_PID = _GUARD_LIVE_ROOT" in src, (
+        "LIVE_FORWARD_TEST_PID must be anchored to _GUARD_LIVE_ROOT, not "
+        "PROJECT_ROOT — card e1e32b07"
+    )
+    assert "LIVE_KILL_SWITCH_GLOBAL_STATE = _GUARD_LIVE_ROOT" in src, (
+        "LIVE_KILL_SWITCH_GLOBAL_STATE must be anchored to _GUARD_LIVE_ROOT"
+    )
+    assert "LIVE_RISK_STATE_BLEND = _GUARD_LIVE_ROOT" in src, (
+        "LIVE_RISK_STATE_BLEND must be anchored to _GUARD_LIVE_ROOT"
+    )
+    # And the env-bypass must exist and log loudly.
+    assert "AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT" in src, (
+        "Harness must expose AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT env-bypass "
+        "with loud WARNING logging for operator/main-tree debugging."
+    )
+    # PROJECT_ROOT itself must NOT have changed (preserved for non-guard uses
+    # like duckdb path / launcher import).
+    assert "PROJECT_ROOT = Path(__file__).resolve().parent.parent" in src, (
+        "PROJECT_ROOT must remain anchored to the current worktree "
+        "(unchanged) so non-guard uses (duckdb path, launcher import) "
+        "stay on the current tree per card e1e32b07 spec."
+    )
