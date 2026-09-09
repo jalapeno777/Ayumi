@@ -82,6 +82,31 @@ def choose_outcome(pool: dict[str, Any], category: str, rng: random.Random) -> d
     return rng.choice(options)
 
 
+def pool_version_from_pool(pool: dict[str, Any]) -> str:
+    """Derive pool_version string for new rolls (Pregnancy Protocol v0.5 A9).
+
+    Reads `_meta.version` from the loaded pool. Integer versions render as
+    "v{N}.0"; string versions are used as-is (preserving any existing "v"
+    prefix); floats render as their compact string form. Falls back to "v1.0"
+    when the field is absent or unusable.
+    """
+    meta = pool.get("_meta") or {}
+    version = meta.get("version")
+    if version is None:
+        return "v1.0"
+    if isinstance(version, str):
+        return version if version.startswith("v") else f"v{version}"
+    if isinstance(version, bool):  # bool is an int subclass; treat defensively.
+        return "v1.0"
+    if isinstance(version, int):
+        return f"v{version}.0"
+    if isinstance(version, float):
+        if version.is_integer():
+            return f"v{int(version)}.0"
+        return f"v{version:g}"
+    return f"v{version}"
+
+
 def make_record(
     *,
     index: int,
@@ -89,6 +114,7 @@ def make_record(
     seed: int,
     category: str,
     outcome: dict[str, str],
+    pool_version: str,
 ) -> dict[str, Any]:
     return {
         "index": index,
@@ -97,6 +123,7 @@ def make_record(
         "category": category,
         "outcome": outcome,
         "origin": outcome.get("origin", "unknown"),
+        "pool_version": pool_version,
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -123,6 +150,12 @@ def verify_ledger(ledger_path: Path) -> tuple[bool, str]:
     lines = [ln for ln in ledger_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
     if not lines:
         return False, "ledger is empty"
+    # Per-record summary (collected during the walk; reported at the end so a
+    # single trailing failure still surfaces the prior records). pool_version
+    # is intentionally NOT in the required-fields list above: chain entries
+    # recorded before protocol v0.5 A9 did not carry the field, and the spec
+    # requires backward-compatible verification for that legacy content.
+    per_record: list[tuple[int, str, str, str]] = []  # (idx, category, pool_version, hash)
     for n, line in enumerate(lines, start=1):
         try:
             rec = json.loads(line)
@@ -143,9 +176,16 @@ def verify_ledger(ledger_path: Path) -> tuple[bool, str]:
         computed = record_self_hash(rec)
         if rec["hash"] != computed:
             return False, f"line {n}: self-hash mismatch (stored {rec['hash'][:12]}..., computed {computed[:12]}...)"
+        pv = rec.get("pool_version", "(absent)")
+        per_record.append((rec["index"], rec["category"], pv, rec["hash"]))
         prev = rec["hash"]
         expected_index += 1
-    return True, f"chain verified: {expected_index} record(s), root={prev[:12]}..."
+    summary = f"chain verified: {expected_index} record(s), root={prev[:12]}..."
+    detail = "\n".join(
+        f"  [{idx}] {category:<18} pool_version={pv:<10} hash={h[:12]}..."
+        for (idx, category, pv, h) in per_record
+    )
+    return True, f"{summary}\n{detail}"
 
 
 def cmd_roll(args: argparse.Namespace, pool: dict[str, Any]) -> int:
@@ -167,6 +207,7 @@ def cmd_roll(args: argparse.Namespace, pool: dict[str, Any]) -> int:
         seed=seed,
         category=args.category,
         outcome=outcome,
+        pool_version=pool_version_from_pool(pool),
     )
     # Self-hash: SHA-256 of canonical(body) — body excludes the 'hash' field.
     record["hash"] = record_self_hash(record)
