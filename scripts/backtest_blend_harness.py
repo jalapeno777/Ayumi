@@ -35,6 +35,7 @@ import logging
 import os
 import pwd
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections import defaultdict
@@ -55,6 +56,117 @@ sys.path.insert(0, str(PROJECT_ROOT / "src" / "forex-bot"))
 
 logger = logging.getLogger("ayumi.backtest_harness")
 
+
+# ── Main-worktree root resolver (card e1e32b07) ────────────────────────────
+# Card e1e32b07 (2026-09-09): when the harness is imported from a non-primary
+# git worktree, ``PROJECT_ROOT`` resolves to the worktree's repo root, so the
+# guard's ``LIVE_*`` paths point at the worktree's ``data/`` directory (which
+# typically does NOT contain ``forward_test.pid``). The live engine running
+# in the MAIN tree therefore slips past the refuse-when-live check by
+# construction — the guard is bypassed from any worktree that does not have
+# its own ``data/forward_test.pid``.
+#
+# The fix: resolve a separate ``_GUARD_LIVE_ROOT`` that prefers the MAIN
+# worktree (the FIRST entry of ``git worktree list --porcelain``) and
+# resolves the LIVE paths against that root. ``PROJECT_ROOT`` itself is
+# unchanged so non-guard uses (duckdb path, launcher import) stay on the
+# current tree where the harness's own dependencies live.
+#
+# Fallback policy: ANY failure (git missing, timeout, parse error, missing
+# entry, non-existent dir) falls back to ``PROJECT_ROOT`` — i.e. the
+# pre-fix behavior. This preserves fail-closed guard semantics (the guard
+# still runs against SOME data/ directory; it just may not see the main
+# one). The guard's own fail-closed logic remains the safety net.
+
+
+def _main_worktree_root() -> Path | None:
+    """Return the MAIN (primary) worktree's repo root, or ``None`` on failure.
+
+    Runs ``git worktree list --porcelain`` with a short timeout and parses
+    the output as BLOCKS (records separated by blank lines; each block
+    starts with ``worktree <path>`` and may carry flags ``bare``,
+    ``detached``, etc.). Returns the path of the FIRST non-bare,
+    non-detached worktree entry — the primary checkout.
+
+    Bare and detached blocks are SKIPPED: in a bare-repo layout, the
+    bare entry would otherwise be selected, anchoring LIVE paths to the
+    bare repo (which has no ``data/`` directory) and bypassing the
+    refuse-when-live guard. Card e1e32b07 REWORK (Rin HIGH finding).
+
+    Any failure (non-zero exit, empty output, parse error, no valid
+    non-bare primary entry, path not a directory) returns ``None`` so
+    the caller can fall back to ``PROJECT_ROOT``.
+
+    NOTE: This function is deliberately permissive — it never raises. The
+    caller decides what fallback to use (here: ``PROJECT_ROOT``). Card
+    e1e32b07.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],  # noqa: S607 — hard-coded binary name, no shell interpolation
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (subprocess.SubprocessError, OSError, ValueError) as exc:
+        logger.debug(
+            "_main_worktree_root: git worktree list failed (%s); "
+            "falling back to PROJECT_ROOT",
+            exc,
+        )
+        return None
+    if completed.returncode != 0:
+        logger.debug(
+            "_main_worktree_root: git worktree list rc=%s stderr=%r; "
+            "falling back to PROJECT_ROOT",
+            completed.returncode,
+            completed.stderr.strip()[:200] if completed.stderr else "",
+        )
+        return None
+    # Porcelain format: BLOCKS separated by blank lines (`\n\n`). Each
+    # block starts with `worktree <path>` and may carry flags `bare`,
+    # `detached`, etc. We want the FIRST non-bare, non-detached block —
+    # the primary worktree's checkout directory.
+    #
+    # Card e1e32b07 REWORK (Rin HIGH finding): a bare entry MUST be
+    # skipped, otherwise in a bare-repo layout the bare repo's path
+    # would be selected, anchoring LIVE paths to a directory with no
+    # `data/` and bypassing the refuse-when-live guard.
+    for block in completed.stdout.split("\n\n"):
+        path_line: str | None = None
+        bare = False
+        detached = False
+        for line in block.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped == "bare":
+                bare = True
+            elif stripped == "detached":
+                detached = True
+            elif stripped.startswith("worktree "):
+                path_line = stripped[len("worktree "):].strip()
+        if path_line is None:
+            # Block has no worktree line (corrupt / unexpected); skip.
+            continue
+        if bare or detached:
+            # Skip bare and detached entries — only the primary
+            # non-bare, non-detached worktree anchors LIVE paths.
+            continue
+        if not path_line:
+            return None
+        try:
+            candidate = Path(path_line)
+        except (TypeError, ValueError):
+            return None
+        if candidate.is_dir():
+            return candidate
+        return None
+    return None
+
+
 # ── Live state paths (card 758273a7-c3f1-41fa-95dc-7384c260acd7) ───────────
 # Card 758273a7 (2026-09-08): the harness previously wrote to these paths,
 # overwriting live forward-test state during root-run re-runs and
@@ -62,9 +174,68 @@ logger = logging.getLogger("ayumi.backtest_harness")
 # isolated per-run temp directory by default and refuses to run if any of
 # these live paths show a contamination signal (active PID or foreign
 # ownership).
-LIVE_FORWARD_TEST_PID = PROJECT_ROOT / "data" / "forward_test.pid"
-LIVE_KILL_SWITCH_GLOBAL_STATE = PROJECT_ROOT / "data" / "kill_switches" / "global.state"
-LIVE_RISK_STATE_BLEND = PROJECT_ROOT / "data" / "risk_state_blend.json"
+#
+# Card e1e32b07 (2026-09-09): LIVE_* paths are resolved against the MAIN
+# worktree's root, not the per-worktree PROJECT_ROOT. The guard must see the
+# MAIN tree's ``data/forward_test.pid`` etc. even when the harness runs from
+# a non-primary worktree — otherwise the refuse-when-live gate is bypassed
+# by construction.
+_GUARD_LIVE_ENV_BYPASS = "AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT"
+
+
+def _resolve_guard_live_root() -> Path:
+    """Resolve the root the guard's LIVE paths are anchored to.
+
+    Default: the MAIN (primary) worktree's repo root via
+    ``_main_worktree_root()``. On ANY failure, falls back to
+    ``PROJECT_ROOT`` (current worktree) — i.e. the pre-fix behavior.
+
+    Bypass: setting ``AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT=1`` forces the
+    guard's LIVE paths back onto the current ``PROJECT_ROOT``. This is
+    intended ONLY for operator debugging on the main tree itself (where
+    ``PROJECT_ROOT`` IS the main root) or for tests that drive the guard
+    via monkeypatched ``LIVE_*`` constants. When set, the bypass is
+    logged at WARNING level so any unexpected use shows up loudly in
+    operator logs. Card e1e32b07.
+    """
+    if os.environ.get(_GUARD_LIVE_ENV_BYPASS, "").strip() in ("1", "true", "yes"):
+        logger.warning(
+            "Isolation guard: AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT=1 — LIVE "
+            "paths anchored to current PROJECT_ROOT (%s) instead of main "
+            "worktree. Card e1e32b07 bypass; use only for tests/main-tree "
+            "operator debugging. The refuse-when-live check is operating "
+            "on the CURRENT tree only.",
+            PROJECT_ROOT,
+        )
+        return PROJECT_ROOT
+    main_root = _main_worktree_root()
+    if main_root is None:
+        logger.debug(
+            "Isolation guard: could not resolve main worktree root; "
+            "LIVE paths anchored to PROJECT_ROOT (%s). The guard still "
+            "runs (fail-closed) but may not see the main tree's "
+            "data/forward_test.pid. Card e1e32b07.",
+            PROJECT_ROOT,
+        )
+        return PROJECT_ROOT
+    if main_root == PROJECT_ROOT:
+        # Already running from the main tree — no divergence to log.
+        return main_root
+    logger.info(
+        "Isolation guard: LIVE paths anchored to MAIN worktree root %s "
+        "(current PROJECT_ROOT=%s). The refuse-when-live check covers "
+        "the main tree even when the harness runs from a non-primary "
+        "worktree. Card e1e32b07.",
+        main_root,
+        PROJECT_ROOT,
+    )
+    return main_root
+
+
+_GUARD_LIVE_ROOT = _resolve_guard_live_root()
+LIVE_FORWARD_TEST_PID = _GUARD_LIVE_ROOT / "data" / "forward_test.pid"
+LIVE_KILL_SWITCH_GLOBAL_STATE = _GUARD_LIVE_ROOT / "data" / "kill_switches" / "global.state"
+LIVE_RISK_STATE_BLEND = _GUARD_LIVE_ROOT / "data" / "risk_state_blend.json"
 
 
 class RefuseToRun(RuntimeError):
