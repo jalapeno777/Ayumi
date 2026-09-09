@@ -49,28 +49,165 @@ def load_pool(pool_path: Path) -> dict[str, Any]:
     return raw
 
 
+SNAPSHOT_MANIFEST_FILENAME = "snapshots-manifest.json"
+SNAPSHOT_DATED_GLOB = "trait_pool_*.snapshot-*.json"
+
+
+def _normalize_pool_version(pv: str) -> str:
+    """Normalize "v1", "v1.0", "v1.0.0" to "v1" for tolerant matching.
+
+    Records produced by protocol v0.5 A9 carry `pool_version` rendered as
+    `"v{N}.0"` (e.g. `"v1.0"`), while snapshots produced by snapshot_pool.py
+    record `"v{N}"` (e.g. `"v1"`). Both forms must resolve to the same pool.
+    """
+    if not pv:
+        return ""
+    s = str(pv).strip()
+    body = s[1:] if s[:1] in ("v", "V") else s
+    if not body:
+        return s
+    parts = body.split(".")
+    while len(parts) > 1 and parts[-1] == "0":
+        parts.pop()
+    return "v" + ".".join(parts)
+
+
+def _load_pool_bytes(path: Path) -> dict[str, Any] | None:
+    """Read JSON pool from path; return parsed dict, or None on any failure."""
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict) or "_meta" not in data:
+        return None
+    return data
+
+
+def _resolve_from_manifest(out_dir: Path, target_pv: str) -> dict[str, Any] | None:
+    """Find a snapshot in `out_dir/snapshots-manifest.json` matching `target_pv`.
+
+    Match order per entry: exact `pool_version`, then normalized
+    (`_normalize_pool_version`). Among matches we pick the latest by
+    `date` (YYYY-MM-DD lex order = chronological), tie-broken by
+    `created_at`. The recorded `sha256` is verified when present; a
+    mismatch yields None so the resolver can fall through to the glob.
+    """
+    manifest_path = out_dir / SNAPSHOT_MANIFEST_FILENAME
+    if not manifest_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(manifest, dict):
+        return None
+    entries = manifest.get("snapshots")
+    if not isinstance(entries, list):
+        return None
+    target_norm = _normalize_pool_version(target_pv)
+    matches: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        epv = entry.get("pool_version", "")
+        if not isinstance(epv, str) or not epv:
+            continue
+        if epv == target_pv or _normalize_pool_version(epv) == target_norm:
+            matches.append(entry)
+    if not matches:
+        return None
+    matches.sort(key=lambda e: (str(e.get("date", "")), str(e.get("created_at", ""))), reverse=True)
+    chosen = matches[0]
+    snap_file = chosen.get("snapshot_file", "")
+    if not isinstance(snap_file, str) or not snap_file:
+        return None
+    snap_path = out_dir / snap_file
+    if not snap_path.exists():
+        return None
+    expected_sha = chosen.get("sha256", "")
+    if isinstance(expected_sha, str) and expected_sha:
+        try:
+            raw = snap_path.read_bytes()
+        except OSError:
+            return None
+        if hashlib.sha256(raw).hexdigest() != expected_sha:
+            return None
+    return _load_pool_bytes(snap_path)
+
+
+def _resolve_from_dated_glob(out_dir: Path, target_pv: str) -> dict[str, Any] | None:
+    """Fallback: glob `trait_pool_*.snapshot-*.json` in `out_dir`.
+
+    Mirrors snapshot_pool.py's derivation (`f"v{int(_meta.version)}"`) so a
+    hand-placed snapshot is also discoverable when the manifest is absent.
+    Returns the newest (by filename lex order, descending) snapshot whose
+    `_meta.version` normalizes to `target_pv`, or None.
+    """
+    target_norm = _normalize_pool_version(target_pv)
+    try:
+        candidates = sorted(out_dir.glob(SNAPSHOT_DATED_GLOB), reverse=True)
+    except OSError:
+        return None
+    for cand in candidates:
+        data = _load_pool_bytes(cand)
+        if data is None:
+            continue
+        meta = data.get("_meta") or {}
+        v = meta.get("version")
+        if isinstance(v, bool) or v is None:
+            continue
+        try:
+            cand_pv = f"v{int(v)}"
+        except (TypeError, ValueError):
+            cand_pv = str(v)
+        if cand_pv == target_pv or _normalize_pool_version(cand_pv) == target_norm:
+            return data
+    return None
+
+
 def resolve_snapshot_pool(pool_version: str, base_pool_path: Path) -> dict[str, Any] | None:
-    """Resolve a snapshot pool for a record whose `pool_version` differs from the loaded pool.
+    """Resolve a frozen snapshot pool produced by scripts/pregnancy/snapshot_pool.py.
 
-    Search order:
-      1. $PREGNANCY_POOL_DIR / <pool_version> / <base_pool_path.name>
-      2. <base_pool_path.parent> / pools / <pool_version> / <base_pool_path.name>
+    A snapshot lives in a snapshot directory together with
+    `snapshots-manifest.json`. Candidate directories, in order:
 
-    Returns the loaded snapshot pool, or None when no usable snapshot exists.
+      1. $PREGNANCY_POOL_DIR (if set)
+      2. <base_pool_path.parent>          (adjacent to the live pool)
+      3. <base_pool_path.parent>/pools    (legacy `pools/` subdir)
+
+    For each candidate we try:
+      A. snapshots-manifest.json — match `pool_version` exactly, then
+         normalized (`v1` == `v1.0` == `v1.0.0`), pick the latest snapshot
+         by date/created_at, verify sha256 if recorded.
+      B. Dated-filename glob `trait_pool_*.snapshot-*.json` as a fallback
+         for hand-placed snapshots without a manifest.
+
+    Returns the loaded snapshot pool, or None when no usable snapshot can
+    be located. Missing-snapshot is a warning, not a verify failure — the
+    chain still passes on hash integrity alone (see verify_ledger).
     """
     if not pool_version or pool_version == "(absent)":
         return None
-    candidates: list[Path] = []
+    candidate_dirs: list[Path] = []
     env_dir = os.environ.get("PREGNANCY_POOL_DIR")
     if env_dir:
-        candidates.append(Path(env_dir) / pool_version / base_pool_path.name)
-    candidates.append(base_pool_path.parent / "pools" / pool_version / base_pool_path.name)
-    for cand in candidates:
-        if cand.exists():
-            try:
-                return load_pool(cand)
-            except (FileNotFoundError, ValueError):
-                return None
+        candidate_dirs.append(Path(env_dir))
+    base_parent = base_pool_path.parent
+    candidate_dirs.append(base_parent)
+    pools_dir = base_parent / "pools"
+    if pools_dir.exists():
+        candidate_dirs.append(pools_dir)
+    for out_dir in candidate_dirs:
+        snap = _resolve_from_manifest(out_dir, pool_version)
+        if snap is not None:
+            return snap
+        snap = _resolve_from_dated_glob(out_dir, pool_version)
+        if snap is not None:
+            return snap
     return None
 
 
@@ -232,7 +369,9 @@ def verify_ledger(
                 label_text = unresolved
                 warnings.append(
                     f"warning: line {n}: snapshot pool for pool_version={pv} not found "
-                    f"(searched $PREGNANCY_POOL_DIR/{pv}/* and {pool_path.parent}/pools/{pv}/*); "
+                    f"(searched $PREGNANCY_POOL_DIR, {pool_path.parent}, "
+                    f"{pool_path.parent}/pools for snapshots-manifest.json and "
+                    f"trait_pool_*.snapshot-*.json); "
                     f"label rendered as {unresolved}"
                 )
             else:
