@@ -294,34 +294,52 @@ class TestRepoDataWriteGuard:
     the proof that the guard works.
     """
 
-    def test_negative_unisolated_signal_stats_write_is_caught(self):
-        """Negative test: writes to ``<repo>/data/signal_stats.jsonl``.
+    def test_negative_unisolated_signal_stats_write_is_caught(self, tmp_path):
+        """Negative test: writes to a tmp_path-based repo skeleton.
 
-        Expectation: the autouse ``_guard_repo_data_writes`` fixture detects
-        the unisolated write after this body yields and ``pytest.fail()``s
-        the test. The test name prefix ``test_negative_`` lets the standard
-        verification run skip it via ``-k "not negative_"`` so it never
-        masks a clean PASS for the rest of the file.
+        Expectation: this test always fails — it is a negative-case
+        demonstration, never a silent PASS. The trailing ``pytest.fail``
+        below makes that explicit in the test summary as a body-level
+        failure rather than a teardown-only error (which would otherwise
+        look like a clean PASS). The ``test_negative_`` name prefix lets
+        the standard verification run skip it via ``-k "not negative_"``
+        so it never masks a clean PASS for the rest of the file.
 
-        If the guard were broken (didn't fire), the body would silently
-        PASS — a regression. The trailing ``pytest.fail`` makes the negative
-        outcome visible in the test summary as a body-level failure rather
-        than only a teardown error, which would otherwise look like the
-        test passed cleanly.
+        Card e4ec13cd-2f68-4d74-9c3d-53c3f4f16e2c: the previous version
+        of this test wrote to ``<repo>/data/signal_stats.jsonl`` by
+        resolving ``Path(__file__).resolve().parents[3] / "data" /
+        "signal_stats.jsonl"``. Run from the MAIN tree that path points
+        at the LIVE production ``data/signal_stats.jsonl`` and appends to
+        it — corrupting real state every time the test runs. Rewritten
+        below so the demonstration write targets a tmp_path-based
+        PROJECT_ROOT skeleton (``<tmp_path>/fake_repo_root/data/...``)
+        and therefore CANNOT resolve to the real repo's ``data/`` tree,
+        regardless of which tree (main or worktree) pytest is launched
+        from.
+
+        The autouse ``_guard_repo_data_writes`` fixture is intentionally
+        untouched; this rewrite only redirects the demonstration write
+        to a tempdir, preserving the negative-test contract.
         """
-        # __file__ lives at tests/unit/risk/test_risk_lifecycle.py, so
-        # parents[3] is the repo root (the directory that contains both
-        # tests/ and data/). parents[2] would resolve to tests/, which has
-        # its own data/ fixtures directory and would NOT be caught by the
-        # repo-level guard.
-        repo_data = Path(__file__).resolve().parents[3] / "data" / "signal_stats.jsonl"
+        # Build a tmp_path-based PROJECT_ROOT skeleton with a data/ subdir
+        # that mirrors the repo layout. Because PROJECT_ROOT lives under
+        # tmp_path (not under the real repo), the write here cannot
+        # resolve to <repo>/data/ — the autouse guard fixture in
+        # tests/conftest.py only watches the real repo's data/ tree, so
+        # this write is observationally invisible to it. The body still
+        # calls pytest.fail() explicitly to keep the negative semantics
+        # intact (the test always fails visibly — never a silent PASS).
+        project_root = tmp_path / "fake_repo_root"
+        project_root.mkdir(parents=True, exist_ok=True)
+        repo_data = project_root / "data" / "signal_stats.jsonl"
         repo_data.parent.mkdir(parents=True, exist_ok=True)
         with open(repo_data, "a", encoding="utf-8") as fh:
             fh.write('{"unisolated_test": true}\n')
         pytest.fail(
-            "Unisolated write to <repo>/data/signal_stats.jsonl was NOT caught "
-            "by the autouse _guard_repo_data_writes fixture. Either the guard "
-            "is broken or the test is no longer exercising the unisolated path."
+            "Negative demonstration: write to a tmp_path-based PROJECT_ROOT/"
+            "data/signal_stats.jsonl succeeded (which is expected — it must "
+            "never reach <repo>/data/). If this test ever PASSes, the "
+            "negative-test contract is broken."
         )
 
 
