@@ -142,68 +142,111 @@ class TestCheckConnectionHealthResetsCounter(unittest.TestCase):
 
 
 class TestIsForexMarketClosed(unittest.TestCase):
+    # Regression note (card 8849c670): ``_is_forex_market_closed`` lives in
+    # ``adapters.ctrader.market_hours`` (line 32: ``datetime.now(timezone.utc)``).
+    # It reads ``datetime`` from its OWN module globals, so the patch target
+    # MUST be ``adapters.ctrader.market_hours.datetime``. Patching the parent
+    # module (``forward_test_engine.datetime``) is a silent trap — no error
+    # fires, the test just asserts against real ``datetime.now()`` instead of
+    # the patched date. Saturday/Friday-close tests silently passed/failed
+    # depending on the actual current day.
+
+    _PATCH_TARGET = "adapters.ctrader.market_hours.datetime"
+
     def test_friday_before_close(self):
         friday = datetime(2026, 4, 17, 21, 54, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = friday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is False
 
     def test_friday_after_close(self):
         friday = datetime(2026, 4, 17, 22, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = friday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is True
 
-    def test_friday_at_close_minute(self):
-        friday = datetime(2026, 4, 17, 21, 55, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+    def test_friday_one_minute_before_close(self):
+        # Card cc50ae64 (2026-07-06) moved the Friday close boundary from
+        # 21:55 UTC to 22:00 UTC. This boundary test pins the new contract:
+        # 21:59 UTC is still OPEN (close fires at 22:00 sharp).
+        friday = datetime(2026, 4, 17, 21, 59, tzinfo=timezone.utc)
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = friday
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            assert _is_forex_market_closed() is True
+            assert _is_forex_market_closed() is False
 
     def test_saturday(self):
         sat = datetime(2026, 4, 18, 12, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = sat
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is True
 
     def test_sunday_before_open(self):
         sun = datetime(2026, 4, 19, 20, 59, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = sun
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is True
 
     def test_sunday_at_open(self):
         sun = datetime(2026, 4, 19, 21, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = sun
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is False
 
-    def test_monday_before_open(self):
+    def test_monday_early_morning_open(self):
+        # Card cc50ae64 (2026-07-06) removed the Monday 00:00–20:59 UTC
+        # phantom-close window. Market now reopens Sunday 21:00 UTC, so
+        # Monday is always OPEN. This test pins the new contract: Monday
+        # 00:00 UTC is open (the test name reflects the corrected
+        # semantics, replacing the stale 'before_open' phrasing that
+        # assumed the phantom window was real).
         mon = datetime(2026, 4, 20, 0, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = mon
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            assert _is_forex_market_closed() is True
+            assert _is_forex_market_closed() is False
 
     def test_monday_after_open(self):
         mon = datetime(2026, 4, 20, 22, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = mon
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is False
 
     def test_wednesday(self):
         wed = datetime(2026, 4, 15, 14, 0, tzinfo=timezone.utc)
-        with patch("adapters.ctrader.forward_test_engine.datetime") as mock_dt:
+        with patch(self._PATCH_TARGET) as mock_dt:
             mock_dt.now.return_value = wed
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             assert _is_forex_market_closed() is False
+
+    def test_patch_target_must_target_market_hours(self):
+        """Regression (card 8849c670): pins that the patch target MUST be
+        ``adapters.ctrader.market_hours.datetime``. If a maintainer reverts
+        to the wrong target (``forward_test_engine.datetime``), the date
+        injection silently fails and the boundary tests above start
+        asserting against real ``datetime.now()`` — masking any drift in
+        market_hours.py until someone runs the suite on a real closed
+        day.
+
+        Saturday 12:00 UTC is deterministically CLOSED regardless of the
+        real current day, which makes this pin independent of run time.
+        """
+        sat = datetime(2026, 4, 18, 12, 0, tzinfo=timezone.utc)
+        with patch(self._PATCH_TARGET) as mock_dt:
+            mock_dt.now.return_value = sat
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            assert _is_forex_market_closed() is True, (
+                "Patch target did not inject the Saturday date — the "
+                "implementation may have left market_hours. Review "
+                "TestIsForexMarketClosed._PATCH_TARGET against the "
+                "actual implementation module."
+            )
 
 
 class TestMarketClosedSuppressesReconnect(unittest.TestCase):
