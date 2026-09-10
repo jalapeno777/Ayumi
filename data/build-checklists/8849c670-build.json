@@ -1,0 +1,69 @@
+{
+  "card_id": "8849c670-1285-46b3-ba0e-f85cdec14bc9",
+  "card_title": "[DEBT][AYUMI] Date-sensitive tests + wrong patch target in tests/e2e/test_forward_test_engine_reconnect.py",
+  "agent": "tsubaki",
+  "worker_session": "agent:tsubaki:main:heartbeat",
+  "branch": "tsubaki/8849c670-market-hours",
+  "worktree": "/home/TacoPants/projects/Ayumi/.worktrees/tsubaki-8849c670-market-hours",
+  "commit": "7307192234d33dda6574ba2e221c100c214e67a0",
+  "files_changed": [
+    "tests/e2e/test_forward_test_engine_reconnect.py"
+  ],
+  "insertions": 57,
+  "deletions": 14,
+  "allowed_files": [
+    "tests/e2e/test_forward_test_engine_reconnect.py"
+  ],
+  "scope_check": "pass — only file in card.allowed_files modified (1/1)",
+  "build_verification": {
+    "command": "python3 -m pytest tests/e2e/test_forward_test_engine_reconnect.py::TestIsForexMarketClosed -v",
+    "result": "10 passed in 2.17s",
+    "test_breakdown": [
+      "test_friday_before_close",
+      "test_friday_one_minute_before_close (renamed from test_friday_at_close_minute; synced to cc50ae64 boundary)",
+      "test_friday_after_close",
+      "test_saturday",
+      "test_sunday_before_open",
+      "test_sunday_at_open",
+      "test_monday_early_morning_open (renamed from test_monday_before_open; synced to cc50ae64 boundary)",
+      "test_monday_after_open",
+      "test_wednesday",
+      "test_patch_target_must_target_market_hours (new regression pin)"
+    ]
+  },
+  "baseline_pre_change": {
+    "command": "python3 -m pytest tests/e2e/test_forward_test_engine_reconnect.py::TestIsForexMarketClosed -v",
+    "result": "5 failed, 4 passed — patch target was wrong (forward_test_engine.datetime); tests asserted against real datetime.now() instead of patched date"
+  },
+  "post_change_unchanged_failures": {
+    "scope": "out of card scope per AC #3 ('the four reconnect test fixes already landed on the f37e7b74 branch')",
+    "tests": [
+      "TestReconnectCircuitBreaker.test_reconnect_stops_engine_after_max_attempts (MagicMock JSON serialization)",
+      "TestReconnectCircuitBreaker.test_reconnect_counter_resets_on_successful_reconnect",
+      "TestReconnectCircuitBreaker.test_reconnect_does_not_trip_below_max",
+      "TestReconnectCircuitBreaker.test_custom_max_reconnect_attempts",
+      "TestCheckConnectionHealthResetsCounter.test_unhealthy_connection_does_not_reset_counter",
+      "TestMarketClosedSuppressesReconnect.test_reconnect_still_fires_when_market_open_and_disconnected",
+      "TestMarketClosedSuppressesReconnect.test_reconnect_fires_when_market_closed_and_feed_disconnected"
+    ],
+    "note": "pre-existing on main; verified via baseline pytest before change (same 7 failed). Card 8849c670 scope explicitly excludes these."
+  },
+  "py_compile": {
+    "command": "python3 -m py_compile tests/e2e/test_forward_test_engine_reconnect.py",
+    "result": "OK"
+  },
+  "patch_id": "5dd532b0130f9412f0e0e17c251d32a3cb93f700",
+  "rationale": {
+    "root_cause": "_is_forex_market_closed lives in adapters.ctrader.market_hours (line 32: datetime.now(timezone.utc)). The 9 boundary tests patched adapters.ctrader.forward_test_engine.datetime — the wrong module — so the patch had no effect and the tests asserted against real datetime.now(). On 2026-09-09 (Wednesday, market open) 5 of 9 failed; on a real closed day they would all silently pass.",
+    "fix_layers": [
+      "1. _PATCH_TARGET class attribute centralises the patch target at adapters.ctrader.market_hours.datetime.",
+      "2. All 9 boundary tests now use the class attribute (single source of truth).",
+      "3. New test_patch_target_must_target_market_hours pins the correct target with a Saturday fixture (deterministically closed). Reverting to forward_test_engine.datetime would fail loudly the next time the suite runs.",
+      "4. Two boundary tests had stale expectations left over from before cc50ae64 (2026-07-06, weekend market-closed fix): test_friday_at_close_minute (21:55 UTC) and test_monday_before_open (Mon 00:00). Updated to the cc50ae64-correct boundaries (Friday 22:00 close; Monday always open) and renamed to reflect new semantics."
+    ],
+    "out_of_scope_explanation": "AC #3 forbids modifying reconnect/feed implementation. The 7 remaining reconnect-class failures are pre-existing MagicMock JSON serialization issues — same failures on main baseline. Card explicitly defers them to f37e7b74."
+  },
+  "hr47_compliance": "Full UUID cited: 8849c670-1285-46b3-ba0e-f85cdec14bc9. No 8-char prefixes used in any external communication.",
+  "deleg_ref": "card=8849c670-1285-46b3-ba0e-f85cdec14bc9",
+  "sp_estimate": "1.0 (within Phase-5 3.0 cap; 1/4 modified file cap)"
+}
