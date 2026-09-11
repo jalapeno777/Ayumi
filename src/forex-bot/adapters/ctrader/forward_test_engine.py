@@ -93,8 +93,15 @@ _DEFAULT_MAX_RECONNECT_ATTEMPTS = 20
 # farm one tick → counter reset → health-check fires → reconnect (flap loop).
 # Gate: counter resets only after this many ticks arrive within
 # _DEFAULT_SUSTAINED_TICKS_WINDOW_SEC seconds of a successful reconnect.
-_DEFAULT_SUSTAINED_TICKS_REQUIRED = 5
-_DEFAULT_SUSTAINED_TICKS_WINDOW_SEC = 120.0
+_DEFAULT_SUSTAINED_TICKS_REQUIRED = 3  # 7d3b535d iter2: 5 -> 3 (faster recovery from snapshot-only state)
+_DEFAULT_SUSTAINED_TICKS_WINDOW_SEC = 60.0  # 7d3b535d iter2: 120 -> 60s (gate before 24m secondary flap)
+# Proactive session rotation: cTrader Open API closes authenticated sessions on
+# a server-side ~24h rolling window measured from auth time. Waiting for the
+# server-side cap to land produces a chaotic reconnect storm (card 7d3b535d;
+# 4 restart deaths observed Sep 8-10 at the 21:21 UTC + 21:45 UTC daily
+# double-flap). Rotating proactively 30 min before the cap gives a clean,
+# predictable exit so systemd's auto-restart is the only churn — no flap.
+_DEFAULT_PROACTIVE_ROTATION_SEC = 23 * 3600 + 30 * 60  # 23h30m — well under the 24h server cap.
 # PROJECT_ROOT mirrors .env resolution at line ~1000: Path(__file__).resolve().parents[4]
 #   parents[0] = ctrader/  parents[1] = adapters/  parents[2] = forex-bot/
 #   parents[3] = src/      parents[4] = <repo root>
@@ -161,6 +168,11 @@ class ForwardTestConfig:
     # explicitly NOT enough — that is what allowed the reconnect-flap loop.
     sustained_ticks_required: int = _DEFAULT_SUSTAINED_TICKS_REQUIRED
     sustained_ticks_window_sec: float = _DEFAULT_SUSTAINED_TICKS_WINDOW_SEC
+    # Card 7d3b535d (rework of f37e7b74 INSUFFICIENT verdict): proactive
+    # 24h session rotation. The cTrader Open API closes server-side
+    # sessions on a 24h rolling window; rotating 30 min before the cap
+    # is the primary mitigation against the 21:21 UTC daily primary flap.
+    proactive_rotation_sec: float = _DEFAULT_PROACTIVE_ROTATION_SEC
     health_monitor_interval_sec: float = 5.0  # Runs every 5s for heartbeat + error monitoring
     clear_stuck_positions_on_start: bool = False
     reset_on_start: bool = False
@@ -532,6 +544,12 @@ class ForwardTestEngine:
         # skew between broker and engine cannot widen or shrink the gate.
         self._post_reconnect_at: Optional[float] = None
         self._post_reconnect_ticks: list[float] = []
+        # Card 7d3b535d (rework of f37e7b74 INSUFFICIENT verdict): engine
+        # monotonic-start timestamp used for proactive 24h session rotation.
+        # Set in :meth:`start` after a successful feed bring-up; consulted
+        # by :meth:`_health_monitor_loop` to log + trigger a clean exit
+        # before the server-side 24h cap lands. ``None`` before start.
+        self._start_monotonic: Optional[float] = None
         self._health_monitor_thread: Optional[threading.Thread] = None
         self._stop_health_monitor = threading.Event()
         self._current_spread: float = 0.0
@@ -706,6 +724,11 @@ class ForwardTestEngine:
 
         self._running = True
         self._start_time = datetime.now(timezone.utc)
+        # Card 7d3b535d: monotonic-start anchor for proactive 24h session
+        # rotation. Must be set AFTER the feed bring-up succeeds so we
+        # measure from a healthy state, not from a half-wired start that
+        # immediately entered a reconnect storm.
+        self._start_monotonic = time.monotonic()
 
         # Phase 6B: Initialize daily reset tracker using trading date.
         # America/Toronto midnight is the canonical daily reset boundary.
@@ -3004,6 +3027,28 @@ class ForwardTestEngine:
 
         while not self._stop_health_monitor.wait(self._config.health_monitor_interval_sec):
             try:
+                # Card 7d3b535d: proactive 24h session rotation. cTrader
+                # Open API terminates authenticated sessions on a 24h
+                # rolling window; waiting for the server-side cap causes
+                # a chaotic reconnect storm with daily double-flap
+                # (21:21 + 21:45 UTC). Rotating proactively 30 min before
+                # the cap gives a clean predictable exit so systemd's
+                # auto-restart is the only churn.
+                if self._running and self._start_monotonic is not None:
+                    age_mono = time.monotonic() - self._start_monotonic
+                    if age_mono >= self._config.proactive_rotation_sec:
+                        logger.info(
+                            "[Rotation] Engine uptime %.0fs reached proactive "
+                            "rotation threshold (%.0fs); requesting clean stop "
+                            "for systemd auto-restart with fresh 24h session",
+                            age_mono,
+                            self._config.proactive_rotation_sec,
+                        )
+                        self._running = False
+                        # Set the stop event so the while-loop exits and
+                        # the launcher main loop sees is_running=False.
+                        self._stop_health_monitor.set()
+                        return
                 self._update_health()
                 self._check_connection_health()
 
@@ -3257,6 +3302,18 @@ class ForwardTestEngine:
                         self._config.sustained_ticks_required,
                         self._health.reconnection_attempts,
                     )
+                    # Card 7d3b535d (rework of f37e7b74 INSUFFICIENT): when
+                    # the gate expires with only the snapshot event tick
+                    # (``_post_reconnect_ticks <= 1``), the feed is in a
+                    # "subscribed-but-silent" state — exactly the 21:45 UTC
+                    # secondary flap mode. Bypass the reconnect-storm path
+                    # (``_attempt_reconnect`` which counts toward the
+                    # circuit breaker) and call ``_start_market_feed``
+                    # directly so the feed gets a fresh subscribe cycle.
+                    # This is the primary mitigation against the 24-min
+                    # secondary flap observed Sep 8-10.
+                    if len(self._post_reconnect_ticks) <= 1:
+                        self._resubscribe_market_feed(skip_circuit=True)
                     self._post_reconnect_at = None
                     self._post_reconnect_ticks = []
                 elif len(self._post_reconnect_ticks) >= self._config.sustained_ticks_required:
@@ -3404,6 +3461,68 @@ class ForwardTestEngine:
                 self._reconnect_delay,
                 attempts,
             )
+
+    def _resubscribe_market_feed(self, *, skip_circuit: bool = False) -> bool:
+        """Quiet re-subscribe path for the single-snapshot-only state.
+
+        Card 7d3b535d (rework of f37e7b74 INSUFFICIENT). When the
+        sustained-tick gate expires with <=1 tick in the window, the feed
+        is in "subscribed-but-silent" state — the snapshot event from
+        ProtoOASubscribeSpotsReq fires once but subsequent ticks never
+        arrive (server-side subscription propagation lag). This is the
+        21:45 UTC secondary flap mode observed Sep 8-10.
+
+        Bypasses :meth:`_attempt_reconnect` (which counts each failed
+        attempt toward ``max_reconnect_attempts`` and trips the
+        circuit-breaker after 20 attempts — the chaotic flap). Instead
+        this calls :meth:`_start_market_feed` directly which:
+        - Stops the existing feed cleanly.
+        - Re-runs the OpenAPI bring-up (TCP + auth + fresh subscribe).
+        - Opens a new sustained-tick gate window so we can detect
+          whether the re-subscribe itself delivered ticks.
+
+        Returns True iff re-subscribe succeeded; False if the feed could
+        not be brought up (caller should fall through to standard
+        stale-threshold handling in that case).
+        """
+        if not skip_circuit:
+            # Defensive: callers must opt in to skipping the circuit
+            # counter. Standard reconnect storm path is the right tool
+            # when we genuinely don't know what's wrong.
+            return self._attempt_reconnect()
+        logger.info(
+            "[Resubscribe] Single-snapshot-only detected — bypassing "
+            "reconnect storm; calling _start_market_feed() directly"
+        )
+        if self._market_feed is not None:
+            try:
+                self._market_feed.stop()
+            except Exception as exc:
+                logger.warning("[Resubscribe] feed.stop() raised: %s", exc)
+        success = self._start_market_feed()
+        if success:
+            with self._lock:
+                self._health.reconnection_successes += 1
+            self._reconnect_delay = self._config.reconnect_delay_sec
+            self._reconnect_stuck_at = None
+            # Open a new sustained-tick gate window so we can verify the
+            # re-subscribe actually delivers ticks (vs repeating the
+            # same snapshot-only state). Behaviour mirrors
+            # ``_attempt_reconnect``'s success branch.
+            self._post_reconnect_at = time.monotonic()
+            self._post_reconnect_ticks = []
+            logger.info(
+                "[Resubscribe] successful — sustained-tick gate reopened "
+                "(need %d ticks in %.1fs)",
+                self._config.sustained_ticks_required,
+                self._config.sustained_ticks_window_sec,
+            )
+        else:
+            logger.warning(
+                "[Resubscribe] _start_market_feed returned False — "
+                "fall through to standard stale-threshold handling"
+            )
+        return success
 
     def _register_blend_position_mapping(self, signal: "CTraderTradeSignal", ctrader_position_id) -> None:
         """Wire a live-mode cTrader ``positionId`` to the blend_runner's
