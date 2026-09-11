@@ -156,3 +156,44 @@ data/ftmo_broker_validation/results.json
 tools/dukascopy-harvester/*.log
 tools/dukascopy-harvester/harvest_log.txt
 data/backtest_results.json
+
+# Agent-generated diagnostic / build artifacts (card da9aea66)
+# These are produced by agent (root) build/runtime processes and are
+# not curated source. Real research lives in tracked docs/research/*.
+
+# Bug diagnoses written by build agents (card UUIDs as filenames)
+data/bug-diagnoses/*.md
+data/bug-diagnoses/
+data/bug-diagnoses-or-research/
+
+# Rin review clearance files (mirrored to data/build-provenance/registry)
+data/build-rin-reviews/
+
+# Build pipeline artifacts (md summaries written per build run)
+data/durability/pipeline/build_*.md
+data/durability/pipeline/build_summary_*.md
+
+# Overseer runtime state
+data/overseer-state/
+
+# Parent-integration rerun/verify research notes (agent build outputs)
+data/research/ayumi-parent-integration-rerun-*.md
+data/research/ayumi-parent-integration-verify-*.md
+data/research/backups/
+data/research/research.duckdb.bak*
+
+# Feed-stall openapi research note (agent build output, root-owned)
+docs/research/feed-stall-openapi-*.md
+
+# Blend harness / srmr wf revalidation runtime reports
+reports/blend-harness-*/
+reports/srmr-wf-revalidation-*/
+reports/blend-harness-*.json
+
+# Disk cleanup reports (agent ops outputs)
+reports/disk-cleanup-*.md
+reports/disk-cleanup-*/
+
+# Archive directories that are operational/diagnostic (not source)
+archive/disk-cleanup-*/
+archive/poisoned-state-*/
