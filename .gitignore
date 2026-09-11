@@ -54,6 +54,7 @@ Thumbs.db
 
 # Worktrees (they're linked, not nested)
 worktrees/
+.worktrees/
 
 # Agent instruction files (managed outside git)
 agents/
