@@ -2336,7 +2336,35 @@ def main():
         while True:
             time.sleep(1)
             if not engine.is_running:
-                logger.warning("Engine is no longer running — exiting health loop")
+                # Card 7d3b535d (rework of f37e7b74 INSUFFICIENT): surface the
+                # exit reason so post-mortem analysis can distinguish proactive
+                # 24h rotation from chaotic circuit-breaker flap. The
+                # ``_running`` flag is the single observed signal here —
+                # ``_start_monotonic`` being None indicates engine never
+                # properly started; attempts counter surviving the run
+                # indicates a circuit-breaker flap.
+                _exit_uptime = None
+                try:
+                    if getattr(engine, "_start_monotonic", None) is not None:
+                        _exit_uptime = time.monotonic() - engine._start_monotonic
+                except Exception:  # noqa: BLE001
+                    _exit_uptime = None
+                _attempts = getattr(getattr(engine, "_health", None), "reconnection_attempts", None)
+                if _exit_uptime is not None and _exit_uptime >= 23 * 3600 + 30 * 60:
+                    logger.info(
+                        "[Rotation] Engine exited cleanly at uptime=%.0fs "
+                        "after proactive 24h rotation (reconnection_attempts=%s) — "
+                        "systemd will auto-restart with fresh session",
+                        _exit_uptime,
+                        _attempts,
+                    )
+                else:
+                    logger.warning(
+                        "[Exit] Engine is no longer running — uptime=%s reconnection_attempts=%s "
+                        "(card 7d3b535d: investigate flap if not proactive rotation)",
+                        f"{_exit_uptime:.0f}s" if _exit_uptime is not None else "n/a",
+                        _attempts,
+                    )
                 break
             now = time.monotonic()
             if now - _last_health_log >= _health_interval:
