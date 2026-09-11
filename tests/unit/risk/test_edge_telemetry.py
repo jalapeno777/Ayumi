@@ -151,3 +151,98 @@ class TestLoadHistory:
         stats = tracker.get_stats("s", "X")
         assert stats is not None
         assert stats.total_trades == 1
+
+
+class TestWriteStateSnapshot:
+    """Tests for canonical-state snapshot writer (card d8c2a10b).
+
+    The snapshot writer is what closes the 47h+ drift between the
+    trade-by-trade JSONL (only updates on record_close) and the
+    operational path (5-min equity/health cadence). It rewrites a
+    JSON file atomically so external readers always see fresh state.
+    """
+
+    def test_snapshot_writes_atomic_file(self, tracker, tmp_path):
+        """Snapshot should atomically rewrite the JSON file."""
+        snap_path = tmp_path / "edge_telemetry_state.json"
+
+        tracker.record_close("srmr_xauusd", "XAUUSD", risk_amount=50.0, pnl=35.0)
+        tracker.record_close("srmr_xauusd", "XAUUSD", risk_amount=50.0, pnl=-25.0)
+        tracker.record_close("srmr_plus", "XAUUSD", risk_amount=25.0, pnl=10.0)
+
+        result = tracker.write_state_snapshot(snapshot_path=str(snap_path))
+
+        # File exists and is valid JSON
+        assert snap_path.exists()
+        with open(snap_path) as f:
+            on_disk = json.load(f)
+        assert on_disk["kind"] == "edge_telemetry_state_snapshot"
+        assert on_disk["schema_version"] == 1
+        assert on_disk["total_strategy_symbol_pairs"] == 2
+        assert on_disk["total_trades"] == 3
+
+        # Returned dict matches what was written
+        assert result == on_disk
+
+        # Stats contain rolling metrics for each pair
+        strategy_ids = {s["strategy_id"] for s in on_disk["stats"]}
+        assert strategy_ids == {"srmr_xauusd", "srmr_plus"}
+
+    def test_snapshot_excludes_empty_pairs(self, tracker, tmp_path):
+        """Snapshot should not include pairs with zero trades."""
+        snap_path = tmp_path / "state.json"
+
+        tracker.record_close("strat_a", "SYM_A", risk_amount=10.0, pnl=5.0)
+        # strat_b has no trades
+
+        result = tracker.write_state_snapshot(snapshot_path=str(snap_path))
+
+        assert result["total_strategy_symbol_pairs"] == 1
+        assert result["total_trades"] == 1
+        assert len(result["stats"]) == 1
+
+    def test_snapshot_default_path(self, tracker, monkeypatch, tmp_path):
+        """Default snapshot path should be data/edge_telemetry_state.json."""
+        # Run from tmp_path so default data/ path is local
+        monkeypatch.chdir(tmp_path)
+        result = tracker.write_state_snapshot()
+        assert Path(tmp_path / "data" / "edge_telemetry_state.json").exists()
+        assert result["kind"] == "edge_telemetry_state_snapshot"
+
+    def test_snapshot_overwrites_existing(self, tracker, tmp_path):
+        """Re-writing should atomically replace (no stale content)."""
+        snap_path = tmp_path / "state.json"
+
+        tracker.record_close("strat_a", "SYM_A", risk_amount=10.0, pnl=5.0)
+        tracker.write_state_snapshot(snapshot_path=str(snap_path))
+        first_ts = json.loads(snap_path.read_text())["timestamp"]
+
+        # Wait a moment then re-record + re-snapshot
+        import time
+        time.sleep(0.01)
+        tracker.record_close("strat_b", "SYM_B", risk_amount=10.0, pnl=7.0)
+        result = tracker.write_state_snapshot(snapshot_path=str(snap_path))
+        second_ts = result["timestamp"]
+
+        assert first_ts != second_ts
+        assert result["total_trades"] == 2
+
+    def test_snapshot_has_iso_timestamp(self, tracker, tmp_path):
+        """Timestamp should be ISO-8601 UTC for downstream parsers."""
+        snap_path = tmp_path / "state.json"
+        result = tracker.write_state_snapshot(snapshot_path=str(snap_path))
+        ts = result["timestamp"]
+        # ISO-8601 UTC: ends with +00:00, parses round-trip
+        from datetime import datetime
+        parsed = datetime.fromisoformat(ts)
+        assert parsed.tzinfo is not None
+
+    def test_snapshot_handles_no_trades(self, tracker, tmp_path):
+        """Snapshot with zero trades should write valid empty state."""
+        snap_path = tmp_path / "state.json"
+        result = tracker.write_state_snapshot(snapshot_path=str(snap_path))
+
+        assert snap_path.exists()
+        assert result["total_strategy_symbol_pairs"] == 0
+        assert result["total_trades"] == 0
+        assert result["stats"] == []

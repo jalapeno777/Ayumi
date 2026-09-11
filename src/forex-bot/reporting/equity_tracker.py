@@ -7,10 +7,13 @@ for monitoring forward-test performance against FTMO-style drawdown limits.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # ── Challenge-completion detector (Phase 6, Quest §6) ─────────────────────
 
@@ -180,6 +183,15 @@ class EquityTracker:
         """Record a single equity snapshot and append it to the JSONL log.
 
         Returns the snapshot that was recorded.
+
+        Day rollover handling (card d8c2a10b): when the first snapshot of
+        a new UTC day is recorded, the prior day's canonical export
+        (``equity_reports/<prior_day>.md``) is written before the new
+        snapshot is appended. This keeps the canonical export in sync with
+        the operational feed (5-min snapshots) even when the forward
+        test process never exits cleanly — the previous behaviour wrote
+        the daily report only on process shutdown, leaving canonical
+        exports stale for the entire continuous-run lifetime.
         """
         now = datetime.now(timezone.utc)
         today = now.strftime("%Y-%m-%d")
@@ -190,9 +202,33 @@ class EquityTracker:
             self._daily_open = balance
             self._trade_count_at_day_open = trade_count
         elif self._current_day != today:
+            # Day boundary crossed — flush the prior day's canonical
+            # export BEFORE recording the first snapshot of the new day,
+            # so the markdown reflects only the prior day's data.
+            prior_day = self._current_day
             self._current_day = today
             self._daily_open = balance
             self._trade_count_at_day_open = trade_count
+            try:
+                _prior_report = self.write_daily_report(prior_day)
+                if _prior_report is not None:
+                    logger.info(
+                        "[A8 Equity] Day rollover: wrote prior-day "
+                        "canonical export %s for %s",
+                        _prior_report,
+                        prior_day,
+                    )
+            except Exception as _rollover_err:  # noqa: BLE001
+                # Non-fatal: a failed rollover report must not break
+                # the operational snapshot pipeline. The next explicit
+                # write_daily_report() call (e.g. on exit or by cron)
+                # will still surface the prior day.
+                logger.warning(
+                    "[A8 Equity] Day rollover report for %s failed "
+                    "(non-fatal): %s",
+                    prior_day,
+                    _rollover_err,
+                )
 
         if balance > self._peak_balance:
             self._peak_balance = balance

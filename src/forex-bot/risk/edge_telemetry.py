@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from collections import defaultdict, deque
 from dataclasses import asdict, dataclass, field
@@ -288,3 +289,60 @@ class EdgeTelemetryTracker:
                 return 1.0
             else:
                 return 0.6
+
+    def write_state_snapshot(self, snapshot_path: Optional[str] = None) -> dict:
+        """Atomically write current stats state to a JSON snapshot file.
+
+        Card d8c2a10b: the canonical observability export (data/edge_telemetry_state.json)
+        was drifting 47h+ from the operational path because the trade-by-trade JSONL
+        only writes on record_close(). With the 75+ day zero-signal dry spell,
+        record_close() rarely fires, so scorecards/evals read stale data.
+
+        This method snapshots the CURRENT in-memory stats (rolling expectancy,
+        win rate, profit factor, etc.) on a periodic cadence (matched to the
+        launcher's 5-min operational loop) so external readers always see
+        fresh state, even between trade closes.
+
+        Snapshot file is rewritten atomically (tmp + rename) — readers can
+        safely load it without locking concerns.
+
+        Args:
+            snapshot_path: Output path. Defaults to "data/edge_telemetry_state.json".
+
+        Returns:
+            The snapshot dict that was written (also useful for tests).
+        """
+        if snapshot_path is None:
+            snapshot_path = "data/edge_telemetry_state.json"
+        out_path = Path(snapshot_path)
+
+        with self._lock:
+            stats_list = [
+                s.to_dict()
+                for s in self._stats.values()
+                if s.total_trades > 0
+            ]
+            snapshot = {
+                "kind": "edge_telemetry_state_snapshot",
+                "schema_version": 1,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "total_strategy_symbol_pairs": len(stats_list),
+                "total_trades": sum(s["total_trades"] for s in stats_list),
+                "stats": stats_list,
+            }
+
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, indent=2, default=str)
+            os.replace(str(tmp_path), str(out_path))
+            logger.debug(
+                "EdgeTelemetry: state snapshot written (%d pairs, %d trades)",
+                snapshot["total_strategy_symbol_pairs"],
+                snapshot["total_trades"],
+            )
+        except Exception as exc:
+            logger.warning("EdgeTelemetry: failed to write state snapshot: %s", exc)
+
+        return snapshot

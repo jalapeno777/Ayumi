@@ -2676,6 +2676,27 @@ def main():
                             )
                         except Exception as _eq_err:
                             logger.warning("[A8 Equity] Record failed: %s", _eq_err)
+
+                        # ── Edge telemetry canonical-state snapshot (card d8c2a10b)
+                        # Re-writes data/edge_telemetry_state.json with the current
+                        # strategy×symbol rolling stats on the same 5-min cadence as
+                        # the operational equity record. Closes the 47h+ drift gap
+                        # between the trade-by-trade JSONL (only writes on close) and
+                        # the operating live feed (health/equity/signal_stats every
+                        # 60s–5min). Best-effort: any error logs and continues.
+                        try:
+                            _edge_tracker = blend_runner.get_edge_tracker()
+                            _snap = _edge_tracker.write_state_snapshot()
+                            logger.info(
+                                "[F4 EdgeTelemetry] Canonical state snapshot written: "
+                                "pairs=%d trades=%d",
+                                _snap.get("total_strategy_symbol_pairs", 0),
+                                _snap.get("total_trades", 0),
+                            )
+                        except Exception as _snap_err:
+                            logger.warning(
+                                "[F4 EdgeTelemetry] State snapshot failed: %s", _snap_err
+                            )
                 except Exception as exc:
                     logger.warning("[B5 Health] Error logging health: %s", exc)
     except KeyboardInterrupt:

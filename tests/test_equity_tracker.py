@@ -159,3 +159,154 @@ def test_write_daily_report(tracker, tmp_path):
     assert "Equity Daily Report" in content
     assert "P&L" in content
     assert "FTMO" in content
+
+
+# ── Test 6: day rollover flushes prior-day canonical export (card d8c2a10b) ─
+
+
+def test_record_writes_prior_day_canonical_on_rollover(tracker, tmp_path):
+    """When record() detects a UTC day rollover, it must write the prior
+    day's canonical export (equity_reports/<prior_day>.md) before appending
+    the first snapshot of the new day.
+
+    This prevents the canonical export from drifting behind the
+    operational feed while the forward-test process keeps running.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    reports_dir = tmp_path / "forex" / "equity_reports"
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_iso = f"{yesterday}T12:00:00+00:00"
+
+    # Pre-seed the JSONL with snapshots dated YESTERDAY so the
+    # rollover flush has data to summarize.
+    snapshots_file = tmp_path / "forex" / "equity_snapshots.jsonl"
+    snapshots_file.parent.mkdir(parents=True, exist_ok=True)
+    snapshots_file.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": f"{yesterday}T09:00:00+00:00",
+                        "balance": 10_000.00,
+                        "daily_pnl": 0.0,
+                        "peak_balance": 10_000.00,
+                        "drawdown_pct": 0.0,
+                        "trade_count": 0,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": f"{yesterday}T16:00:00+00:00",
+                        "balance": 10_250.00,
+                        "daily_pnl": 250.0,
+                        "peak_balance": 10_250.00,
+                        "drawdown_pct": 0.0,
+                        "trade_count": 2,
+                    }
+                ),
+                "",  # trailing newline
+            ]
+        )
+    )
+
+    # Force the tracker to think it last wrote on YESTERDAY.
+    tracker._current_day = yesterday
+    tracker._daily_open = 10_000.00
+    tracker._trade_count_at_day_open = 0
+    tracker._peak_balance = 10_250.00
+
+    # First record() of "today" must trigger the rollover flush.
+    tracker.record(10_250.00, 2)
+
+    prior_report = reports_dir / f"{yesterday}.md"
+    assert prior_report.exists(), (
+        f"Day rollover should write {prior_report} for {yesterday}"
+    )
+    content = prior_report.read_text()
+    assert yesterday in content
+    assert "Equity Daily Report" in content
+    # Prior day closed at 10250.00, opened at 10000.00 → P&L +250.00.
+    assert "+250" in content or "250" in content
+
+    # The new-day snapshot must still be appended AFTER the rollover flush,
+    # so the JSONL reflects operational continuity.
+    # (2 seeded prior-day + 1 new-day = 3 total — the rollover flush
+    # writes a markdown file, it does NOT add a JSONL line.)
+    lines = [ln for ln in snapshots_file.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 3, (
+        f"Expected 3 lines after rollover (2 prior-day + 1 new day), "
+        f"got {len(lines)}"
+    )
+
+    # Today's snapshot must reference a date > yesterday's.
+    last_snap = json.loads(lines[-1])
+    last_day = last_snap["timestamp"][:10]
+    assert last_day > yesterday, (
+        f"Last snapshot should be on the new day, got {last_day}"
+    )
+
+
+def test_record_no_rollover_report_on_same_day(tracker, tmp_path):
+    """Repeated record() calls on the same UTC day must NOT emit
+    extra canonical-export writes — the rollover flush fires only on
+    the first snapshot of a new day.
+    """
+    tracker.record(10_000.00, 0)
+    tracker.record(10_100.00, 1)
+    tracker.record(10_050.00, 2)
+
+    # No explicit write_daily_report() was called → reports dir empty.
+    reports_dir = tmp_path / "forex" / "equity_reports"
+    if reports_dir.exists():
+        files = list(reports_dir.glob("*.md"))
+        assert files == [], (
+            f"Same-day record() should not write canonical exports; "
+            f"found {files}"
+        )
+
+
+def test_record_rollover_failure_does_not_break_snapshots(tracker, tmp_path):
+    """A failed prior-day report write on rollover must not break the
+    operational snapshot pipeline — the new-day snapshot must still
+    append and the process must keep running.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    snapshots_file = tmp_path / "forex" / "equity_snapshots.jsonl"
+    snapshots_file.parent.mkdir(parents=True, exist_ok=True)
+    snapshots_file.write_text(
+        json.dumps(
+            {
+                "timestamp": f"{yesterday}T10:00:00+00:00",
+                "balance": 10_000.00,
+                "daily_pnl": 0.0,
+                "peak_balance": 10_000.00,
+                "drawdown_pct": 0.0,
+                "trade_count": 0,
+            }
+        )
+        + "\n"
+    )
+
+    tracker._current_day = yesterday
+    tracker._daily_open = 10_000.00
+    tracker._trade_count_at_day_open = 0
+
+    # Sabotage: make write_daily_report raise.
+    def _boom(_target_date=None):  # noqa: ANN001
+        raise OSError("simulated fs error")
+
+    tracker.write_daily_report = _boom  # type: ignore[method-assign]
+
+    # Must not raise — operational pipeline continues.
+    snap = tracker.record(10_050.00, 1)
+    assert snap.balance == 10_050.00
+
+    # JSONL must still record the new-day snapshot despite the rollover
+    # report failure.
+    lines = [ln for ln in snapshots_file.read_text().splitlines() if ln.strip()]
+    assert len(lines) == 2
+    assert json.loads(lines[-1])["balance"] == 10_050.00

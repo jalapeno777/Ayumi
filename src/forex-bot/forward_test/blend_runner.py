@@ -151,6 +151,17 @@ class BlendForwardTestRunner:
         # missing Position can be mirrored at the existing mapping boundary.
         self._paper_trader = config.get("paper_trader")
 
+    def get_edge_tracker(self) -> EdgeTelemetryTracker:
+        """Return the EdgeTelemetryTracker instance for this runner.
+
+        Card d8c2a10b: the launch script's periodic health loop calls
+        ``write_state_snapshot()`` on the tracker to reconcile the canonical
+        observability path (data/edge_telemetry_state.json) with the
+        operational cadence. Returning the live instance avoids the loader
+        from re-reading the trade JSONL and prevents double-counting.
+        """
+        return self._edge_tracker
+
     # ------------------------------------------------------------------
     # Phase 0 forward-test diagnostics (signal_stats wiring)
     # ------------------------------------------------------------------
