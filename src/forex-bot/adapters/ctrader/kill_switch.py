@@ -32,6 +32,103 @@ GLOBAL_STATE_FILE = "global.state"
 STRATEGY_STATE_FILE = "strategies.json"
 HISTORY_FILE = "history.jsonl"
 
+
+# ── Harness / Production Boundary Guards (card d85c8d89) ────────────────────
+#
+# Root-cause finding (card d85c8d89 / diagnosis card 37227dea): on 2026-09-08
+# 16:30:25 UTC a backtest-harness KillSwitch instance ran WITHOUT the
+# ``_state_dir`` isolation monkey-patch and wrote ``ftmo_daily_loss_limit``
+# to the production ``data/kill_switches/history.jsonl``. The matching
+# ``global.state`` is still missing on disk. Harness events reached the
+# production write path because the WRITE-SIDE had no ownership-binding
+# guard at the framework boundary.
+#
+# Fix: detect harness-mode processes via env vars and treat any state_dir
+# that resolves outside the OS tmp prefix as production. A harness-mode
+# process MUST redirect ``state_dir`` to a temp dir; if it doesn't, the
+# ``__init__`` constructor and every persistence call refuse with a
+# ``RuntimeError`` so the contamination is fail-loud at the boundary
+# instead of silently leaking into production audit logs.
+#
+# The guard is opt-in via ``AYUMI_HARNESS=1`` so production launcher paths
+# (which never set the env var) are unaffected by this check.
+
+# Environment variables that mark a process as a harness / backtest / test
+# runner. A process is in harness mode when ANY of these are set to "1",
+# "true", or "yes". See scripts/backtest_blend_harness.py for the canonical
+# harness env vars; pytest also sets ``PYTEST_CURRENT_TEST`` per-test, but
+# we intentionally do NOT treat that as harness mode here — pytest tests
+# already use ``tmp_path`` fixtures and the conftest's
+# ``_guard_repo_data_writes`` autouse fixture (card 84df1bcc) catches any
+# test that writes under ``<repo>/data/``. Treating pytest as harness
+# mode would break legitimate tests that exercise this module.
+_HARNESS_ENV_VARS: tuple[str, ...] = (
+    "AYUMI_HARNESS",
+    "AYUMI_HARNESS_GUARD_USE_LOCAL_ROOT",
+)
+
+
+def _is_harness_mode() -> bool:
+    """Return True if the current process is a harness / backtest run.
+
+    The check is explicit and opt-in via env vars so production launcher
+    paths (which never set the env var) are unaffected. Card d85c8d89.
+    """
+    for var in _HARNESS_ENV_VARS:
+        val = os.environ.get(var, "").strip().lower()
+        if val in ("1", "true", "yes"):
+            return True
+    return False
+
+
+def _is_production_state_dir(state_dir: Path) -> bool:
+    """Return True if ``state_dir`` resolves outside the OS tmp prefix.
+
+    A state_dir is treated as "production" (i.e., not isolated) when its
+    resolved path is NOT under any of:
+      - ``tempfile.gettempdir()`` (canonical OS tmp)
+      - the conventional ``/tmp`` and macOS ``/private/tmp`` prefixes
+      - a pytest ``tmp_path`` fixture (``/tmp/pytest-*`` / ``.../pytest-*``)
+
+    Any harness-mode process that lands here would write audit entries to
+    production ``data/kill_switches/history.jsonl`` — exactly the regression
+    that surfaced on 2026-09-08. Card d85c8d89.
+
+    Note: the check is conservative. If a relative path like
+    ``"data/kill_switches"`` is passed and the CWD is the main repo, the
+    resolved path is ``<main>/data/kill_switches`` which is NOT under tmp
+    and therefore flagged as production. If CWD is a worktree, the resolved
+    path is the worktree's data dir, which is also not under tmp — this is
+    intentional: harness runs MUST redirect state_dir to a temp dir; using
+    the worktree's data dir would still pollute the worktree and risk
+    leaking via ``git add`` to the main tree.
+    """
+    try:
+        resolved = Path(state_dir).resolve()
+    except (OSError, RuntimeError):
+        # If resolution fails (e.g., path doesn't exist on Windows UNC),
+        # be conservative: treat as production so the guard fires.
+        return True
+    resolved_str = str(resolved)
+    # Collect tmp prefixes from the platform plus the conventional names.
+    tmp_prefixes: list[str] = []
+    try:
+        tmp_prefixes.append(tempfile.gettempdir())
+    except (OSError, FileNotFoundError):
+        pass
+    tmp_prefixes.extend(
+        [
+            "/tmp",
+            "/private/tmp",  # macOS canonical /tmp alias
+            "/var/folders",  # macOS per-user tmp
+        ]
+    )
+    for prefix in tmp_prefixes:
+        prefix = prefix.rstrip("/")
+        if resolved_str == prefix or resolved_str.startswith(prefix + "/"):
+            return False
+    return True
+
 # ── Auto-Freeze Thresholds ───────────────────────────────────────────────────
 
 AUTO_FREEZE_CONSECUTIVE_LOSSES = 3
@@ -164,6 +261,32 @@ class KillSwitchManager:
         # production launcher leaves it None (→ class default True).
         if disabled is not None:
             self._disabled: bool = disabled
+
+        # ── Harness isolation guard (card d85c8d89) ─────────────────────────
+        # Fail-loud at construction time when a harness-mode process lands on
+        # a non-tmp state_dir. The 2026-09-08 16:30:25 UTC regression wrote
+        # harness events to the production ``data/kill_switches/`` directory
+        # because the harness entry path skipped the per-run isolation patch
+        # (see card 758273a7 / 37227dea). Raising here means any future
+        # entry path that forgets the redirect fails loudly at startup
+        # instead of silently corrupting the production audit log.
+        if _is_harness_mode() and _is_production_state_dir(state_dir):
+            logger.error(
+                "REFUSED: harness-mode process attempted to construct "
+                "KillSwitchManager with a production state_dir=%s. "
+                "Card d85c8d89: harness runs MUST redirect state_dir to a "
+                "temp dir (see scripts/backtest_blend_harness.py "
+                "_isolation_patch / _resolve_state_dir).",
+                state_dir,
+            )
+            raise RuntimeError(
+                "Harness-mode process attempted to construct "
+                f"KillSwitchManager with production state_dir={state_dir!r}. "
+                "Harness runs MUST redirect state_dir to a temp dir "
+                "(unset AYUMI_HARNESS for production paths, or pass an "
+                "explicit state_dir under tempfile.gettempdir()). "
+                "Card d85c8d89."
+            )
 
         self._state_dir = Path(state_dir)
         self._state_file = self._state_dir / GLOBAL_STATE_FILE
@@ -684,13 +807,71 @@ class KillSwitchManager:
 
     # ── Persistence ────────────────────────────────────────────────────────
 
+    def _assert_no_harness_production_write(self, source: str) -> None:
+        """Belt-and-suspenders guard against harness → production writes.
+
+        Called at every persistence site (``_save_state``, ``_append_history``,
+        ``_save_strategy_states``) to refuse writes from a harness-mode
+        process whose ``self._state_dir`` resolves to a non-tmp production
+        path.
+
+        The ``__init__`` constructor fires the primary guard at construction
+        time. This method re-checks at each write so subclasses that bypass
+        ``__init__`` (e.g. ``scripts/backtest_blend_harness.py:_HarnessIsolatedKS``
+        constructed via ``__new__`` in tests, or any code that reassigns
+        ``self._state_dir`` post-init) cannot silently leak harness events
+        into the production ``data/kill_switches/history.jsonl`` audit log.
+
+        Card d85c8d89 (root-cause diagnosis card 37227dea): the 2026-09-08
+        16:30:25 UTC regression wrote ``ftmo_daily_loss_limit`` to the
+        production audit log because the harness entry path skipped the
+        per-run isolation patch and the WRITE-SIDE had no ownership-binding
+        check. Adding this guard at every persistence site closes the gap.
+
+        Args:
+            source: short label of the calling site (e.g. ``"_save_state"``)
+                for the error message and log line.
+
+        Raises:
+            RuntimeError: when harness mode is active and ``self._state_dir``
+                resolves outside the OS tmp prefix.
+        """
+        if not _is_harness_mode():
+            return
+        if not _is_production_state_dir(self._state_dir):
+            return
+        logger.error(
+            "REFUSED: harness-mode process attempted %s with production "
+            "state_dir=%s. Card d85c8d89: harness runs MUST redirect "
+            "state_dir to a temp dir.",
+            source,
+            self._state_dir,
+        )
+        raise RuntimeError(
+            f"Harness-mode process attempted {source} with production "
+            f"state_dir={self._state_dir!r}. Card d85c8d89: harness runs "
+            "MUST redirect state_dir to a temp dir."
+        )
+
     def _save_state(self) -> None:
         """Atomic write state to file (temp + rename).
 
         Never raises on failure — logs CRITICAL but continues operating
         in-memory. The safety implication of a failed write is that the
         kill switch won't survive a restart, which is logged.
+
+        Harness isolation (card d85c8d89): if this method is called from
+        a harness-mode process whose ``self._state_dir`` resolves to a
+        non-tmp production path, refuse the write loudly. The ``__init__``
+        guard normally catches this at construction time, but subclasses
+        like ``scripts/backtest_blend_harness.py:_HarnessIsolatedKS`` or
+        any post-init ``self._state_dir = ...`` reassignment would slip
+        past it; this is the belt-and-suspenders second line of defense.
         """
+        # Belt-and-suspenders harness isolation guard (card d85c8d89).
+        # ``__init__`` raises if harness + production state_dir, but a
+        # subclass or reassignment can land here, so re-check before write.
+        self._assert_no_harness_production_write("_save_state")
         try:
             data = self._state.to_dict()
             json_str = json.dumps(data, indent=2)
@@ -792,7 +973,18 @@ class KillSwitchManager:
         """Append event to history.jsonl (append-only audit log).
 
         Uses >> append mode. Never raises on failure — logs warning.
+
+        Harness isolation (card d85c8d89): the 2026-09-08 16:30:25 UTC
+        regression wrote ``ftmo_daily_loss_limit`` to the production
+        ``data/kill_switches/history.jsonl`` from this method, so it is
+        the most critical guard site. Refuse the append if harness mode
+        is active and ``self._state_dir`` is production-anchored.
         """
+        # Belt-and-suspenders harness isolation guard (card d85c8d89).
+        # This is the primary regression site (the harness run wrote
+        # through this method on 2026-09-08), so it fires loudly here
+        # even though __init__ would normally catch it at construction.
+        self._assert_no_harness_production_write("_append_history")
         try:
             with open(self._history_file, "a") as f:
                 f.write(json.dumps(event) + "\n")
@@ -802,7 +994,15 @@ class KillSwitchManager:
     # ── Per-Strategy Persistence ───────────────────────────────────────────
 
     def _save_strategy_states(self) -> None:
-        """Atomically persist all strategy freeze states to JSON."""
+        """Atomically persist all strategy freeze states to JSON.
+
+        Harness isolation (card d85c8d89): refuse the write if harness
+        mode is active and ``self._state_dir`` resolves outside the OS
+        tmp prefix. The guard is belt-and-suspenders; ``__init__``
+        catches this at construction time in the standard case.
+        """
+        # Belt-and-suspenders harness isolation guard (card d85c8d89).
+        self._assert_no_harness_production_write("_save_strategy_states")
         try:
             data = {
                 "version": STATE_VERSION,
