@@ -16,8 +16,14 @@ def _reset_kill_switch_state(tmp_path, monkeypatch):
     PaperTrader creates its own KillSwitchManager and RiskGuard using
     default paths.  If a prior test activated either, the persisted
     state leaks into subsequent tests and blocks order processing.
+    Route KillSwitchManager through a per-test tmp_path and patch the
+    module-level default path so PaperTrader's internal construction
+    never reaches the production data/ tree (card d25244c4 cluster A:
+    teardown-isolation guard).
     """
-    ks = KillSwitchManager()
+    isolated_dir = tmp_path / "kill_switches"
+    isolated_dir.mkdir(parents=True, exist_ok=True)
+    ks = KillSwitchManager(state_dir=str(isolated_dir))
     if ks.is_active():
         ks.deactivate(reason="test_isolation")
     # Redirect RiskGuard default state file to tmp so PaperTrader's

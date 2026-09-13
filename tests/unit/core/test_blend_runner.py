@@ -50,6 +50,10 @@ def _runner_config(tmp_path: str, **overrides) -> dict:
         "max_swarm": 5,
         "spread_pips": {"EURUSD": 1.0},
         "state_path": os.path.join(tmp_path, "risk_state.json"),
+        # Stats log path goes to the per-test tmp_path so the runner
+        # never falls back to the default ``data/signal_stats.jsonl``
+        # during teardown-isolation (card d25244c4 cluster A).
+        "stats_log_path": os.path.join(tmp_path, "signal_stats.jsonl"),
         "log_level": "WARNING",
     }
     cfg.update(overrides)

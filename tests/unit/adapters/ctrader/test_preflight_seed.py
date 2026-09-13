@@ -188,10 +188,16 @@ class TestLiveModeBlock:
             config=ForwardTestConfig(live_mode=True, execution_mode="live"),
             strategies=[],
         )
-        # Ensure no flag exists
-        flag_path = Path("data/ayumi/remediation_validated.flag")
-        if flag_path.exists():
-            flag_path.unlink()
+        # Redirect the flag lookup to a tmp_path-resident file so the test
+        # never reads or writes the production data/ tree. We patch the
+        # module constant (``_REMEDIATION_VALIDATED_FLAG``) to a
+        # tmp_path file guaranteed to be absent so the hard-block branch
+        # fires without touching ``<repo>/data/ayumi/``.
+        isolated_flag = tmp_path / "remediation_validated.flag"
+        monkeypatch.setattr(
+            "adapters.ctrader.forward_test_engine._REMEDIATION_VALIDATED_FLAG",
+            str(isolated_flag),
+        )
 
         with pytest.raises(RuntimeError, match="Refusing to start in live mode"):
             engine.start()
