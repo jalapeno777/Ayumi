@@ -43,6 +43,7 @@ from tournament.scorecard import (
     SCORECARD_ROW_COLUMNS,
     Scorecard,
     ScorecardRow,
+    _daily_dd_breach_counts,
     build_scorecard_row,
     rank_scorecard_rows,
     render_console_table,
@@ -486,3 +487,90 @@ def test_isolated_test_path(tmp_path: Path) -> None:
     # And no other test files outside tests/tournament/ are introduced by this card.
     # (We can't audit the whole tree inline; the structural check above is the
     # contract: tests/tournament/ contains the new file.)
+
+
+# ── 9. Daily-DD breach counting (regression after Rin REWORK r1) ───────────
+#
+# Card db04d5b5 r1 had a MEDIUM finding: ``_daily_dd_breach_counts`` skipped
+# day 1's equity-vs-baseline comparison (initialized ``prev_equity`` to
+# ``curve[0][1]`` and iterated ``curve[1:]``).  This caused a single-day
+# curve with a >3% day-1 drop to silently report zero breaches.  These
+# tests pin the corrected behavior: day 1 compares against the starting
+# equity baseline, day N+1 against day N's equity, and the total-DD
+# sweep is independent.
+
+
+def test_daily_dd_breach_counts_first_day_loss() -> None:
+    """Rin repro: single-entry curve with a 4% day-1 loss must flag 1 daily breach.
+
+    Pre-fix, this returned ``(0, 0)`` because day 1 was never compared
+    against the starting-equity baseline.  The fixed implementation uses
+    ``starting_equity`` (default 1.0) as the day-1 baseline.
+    """
+    curve = [(dt.date(2024, 1, 1), 0.96)]
+    daily, total = _daily_dd_breach_counts(
+        curve, daily_limit_pct=3.0, total_limit_pct=10.0
+    )
+    assert (daily, total) == (1, 0)
+
+
+def test_daily_dd_breach_counts_empty_curve_is_zero() -> None:
+    """Empty curve → ``(0, 0)`` (preserved behavior — no entries to compare)."""
+    daily, total = _daily_dd_breach_counts(
+        [], daily_limit_pct=3.0, total_limit_pct=10.0
+    )
+    assert (daily, total) == (0, 0)
+
+
+def test_daily_dd_breach_counts_single_entry_no_loss_is_zero() -> None:
+    """Single-entry curve with a gain → ``(0, 0)`` (no daily-DD breach).
+
+    Pins the "single entry + positive move" branch of the corrected
+    implementation: day 1 vs starting baseline is computed but doesn't
+    cross the daily threshold.
+    """
+    curve = [(dt.date(2024, 1, 1), 1.02)]  # +2% day-1 gain
+    daily, total = _daily_dd_breach_counts(
+        curve, daily_limit_pct=3.0, total_limit_pct=10.0
+    )
+    assert (daily, total) == (0, 0)
+
+
+def test_daily_dd_breach_counts_multi_entry_day_two_loss() -> None:
+    """Multi-entry curve with a 4% drop on day 2 → ``daily_breaches == 1``.
+
+    Day 1: starting→e1 (no breach).  Day 2: e1→e2 with 4% drop
+    (breach).  Total-DD sweep runs independently; ``total_breaches`` is
+    asserted non-negative (the spec says it is determined by the sweep,
+    not a fixed value, so we only pin that branch fired at least once or
+    zero for this small case).
+    """
+    curve = [
+        (dt.date(2024, 1, 1), 1.0),   # day 1 flat
+        (dt.date(2024, 1, 2), 0.96),  # day 2 -4% from day 1
+    ]
+    daily, total = _daily_dd_breach_counts(
+        curve, daily_limit_pct=3.0, total_limit_pct=10.0
+    )
+    assert daily == 1
+    # Total-DD is set by the second sweep; for a 4% drop it does not
+    # cross the 10% threshold, so total stays at 0.
+    assert total == 0
+
+
+def test_daily_dd_breach_counts_respects_explicit_starting_equity() -> None:
+    """Explicit ``starting_equity`` is honored when the curve is pre-scaled.
+
+    Calls the spec's parameterization contract: callers that pre-scale
+    the curve to a non-1.0 baseline MUST pass ``starting_equity`` so
+    day 1's comparison uses the correct baseline (not silently 1.0).
+    Here the curve starts at 9600.0 with a 10000.0 baseline → 4% drop.
+    """
+    curve = [(dt.date(2024, 1, 1), 9600.0)]
+    daily, total = _daily_dd_breach_counts(
+        curve,
+        daily_limit_pct=3.0,
+        total_limit_pct=10.0,
+        starting_equity=10000.0,
+    )
+    assert (daily, total) == (1, 0)

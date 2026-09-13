@@ -154,9 +154,9 @@ def _max_drawdown_pct(curve: list[tuple[date, float]]) -> float:
 
 def _daily_dd_breach_counts(
     curve: list[tuple[date, float]],
-    *,
     daily_limit_pct: float,
     total_limit_pct: float,
+    starting_equity: float = 1.0,
 ) -> tuple[int, int]:
     """Count distinct trading days where intra-day DD crossed the limits.
 
@@ -166,23 +166,29 @@ def _daily_dd_breach_counts(
     decline from prior day's equity (or starting equity, day 1) exceeded
     the threshold.  Days are counted by calendar date, NOT by bar — a
     single large gap is one breach, not many.
+
+    ``starting_equity`` defaults to 1.0 (curve-normalized baseline).
+    Callers that pre-scale the curve (e.g. by passing a non-1.0 account
+    baseline) MUST pass the matching starting equity so day 1's
+    comparison uses the correct baseline — otherwise a 4% loss on day 1
+    of a 10000.0-baseline curve is silently mis-counted as a 0% drop.
     """
     if not curve:
         return 0, 0
 
     daily_breaches = 0
     total_breaches = 0
-    prev_equity = curve[0][1]
-    for _, equity in curve[1:]:
-        # Per-day drop is from prev close to today's close.
+    # Day 1 is compared against starting equity (baseline).  Day N+1 is
+    # compared against day N's end-of-day equity (track prior day's
+    # close unconditionally — both gain and loss days update the
+    # baseline, otherwise a loss streak would overstate day-2's drop).
+    prev_equity = starting_equity
+    for _, equity in curve:
         if prev_equity > 0:
             day_dd_pct = (prev_equity - equity) / prev_equity * 100.0
             if day_dd_pct >= daily_limit_pct:
                 daily_breaches += 1
-        # Total DD is peak-to-trough in the running series.
-        if equity > prev_equity:
-            prev_equity = equity
-            continue
+        prev_equity = equity
 
     # Total-DD breach: sweep the curve again, counting distinct dates
     # whose trough crossed 10%.
@@ -249,6 +255,7 @@ def build_scorecard_row(
         curve,
         daily_limit_pct=daily_limit,
         total_limit_pct=total_limit,
+        starting_equity=starting,
     )
 
     return ScorecardRow(
