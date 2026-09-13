@@ -148,6 +148,37 @@ class ICTMarketState:
         self.day_low: float = 0.0
         self.atr: float = 0.0
 
+    def calculate_atr(self, period: int = 14) -> float:
+        """Compute Average True Range over the trailing ``period`` bars.
+
+        Thin wrapper around the True Range calculation that
+        ``MarketStructureAnalyzer`` historically applied to a state.
+        Returns 0.0 when there are fewer than two bars (no prior close
+        available to form a TR), otherwise the simple average of TR
+        over the trailing ``period`` (capped at ``len(self.bars) - 1``).
+        Does not mutate :attr:`atr`; callers can assign the result.
+        """
+        bars = self.bars
+        if len(bars) < 2:
+            return 0.0
+
+        window = min(period, len(bars) - 1)
+        if window <= 0:
+            return 0.0
+
+        start = len(bars) - window
+        atr_sum = 0.0
+        for i in range(start, len(bars)):
+            bar = bars[i]
+            prev_close = bars[i - 1].close
+            tr = max(
+                bar.high - bar.low,
+                abs(bar.high - prev_close),
+                abs(bar.low - prev_close),
+            )
+            atr_sum += tr
+        return atr_sum / window
+
     @property
     def latest_bar(self) -> Bar:
         return self.bars[-1]
