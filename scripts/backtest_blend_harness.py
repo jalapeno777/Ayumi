@@ -1198,6 +1198,28 @@ def run_backtest(args: argparse.Namespace) -> dict:
                 )
                 break
 
+            # Card 644c565b: also halt when engine._kill_switch reports
+            # GLOBAL KILL. _ftmo_guard.update() keys on realized loss; risk_guard
+            # can fire GLOBAL KILL on a 3.17% daily-DD breach while _ftmo_guard
+            # only ever sees the 0.55% realized leg (re-run #3). Without this
+            # second condition the eval loop drains all events past the kill
+            # point and compute_stats() reflects post-kill phantom activity.
+            if engine._kill_switch.is_globally_killed():
+                engine._running = False
+                _ks_status = engine._kill_switch.get_status()
+                logger.warning(
+                    "Global kill_switch engaged — halting eval loop "
+                    "(reason=%s, triggered_by=%s, balance=$%.2f, open=%d, "
+                    "daily_loss=%.2f%%, dd=%.2f%%)",
+                    _ks_status.get("reason", "unknown"),
+                    _ks_status.get("triggered_by", "unknown"),
+                    paper_trader._current_balance,
+                    open_n,
+                    _ftmo_guard.daily_loss_pct,
+                    _ftmo_guard.current_dd_pct,
+                )
+                break
+
             bars_processed += 1
             if bars_processed % 5000 == 0:
                 stats = paper_trader.get_stats()
