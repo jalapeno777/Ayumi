@@ -47,19 +47,23 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 
 
 @pytest.fixture(autouse=True)
-def _reset_kill_switch_state():
+def _reset_kill_switch_state(tmp_path):
     """Clear any persisted kill-switch state so tests start clean.
 
     PaperTrader and ForwardTestEngine each construct their own
     KillSwitchManager; if a prior test activated the global kill switch,
     the persisted state would leak into subsequent tests and block
-    order processing.
+    order processing. Route every KillSwitchManager created in this
+    module through a per-test tmp_path so no production data/ tree is
+    touched (card d25244c4 cluster A: teardown-isolation guard).
     """
-    ks = KillSwitchManager()
+    isolated_dir = tmp_path / "kill_switches"
+    isolated_dir.mkdir(parents=True, exist_ok=True)
+    ks = KillSwitchManager(state_dir=str(isolated_dir))
     if ks.is_active():
         ks.deactivate(reason="test_isolation_setup")
     yield
-    ks2 = KillSwitchManager()
+    ks2 = KillSwitchManager(state_dir=str(isolated_dir))
     if ks2.is_active():
         ks2.deactivate(reason="test_isolation_teardown")
 

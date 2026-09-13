@@ -100,14 +100,38 @@ def _guard_repo_data_writes():
 @pytest.fixture(autouse=True)
 def _isolate_risk_guard_state(monkeypatch, tmp_path):
     """Redirect RiskGuard's default state_path to a temp dir so tests
-    don't pick up production state or pollute each other."""
+    don't pick up production state or pollute each other.
+
+    Two layers: (a) patch ``RiskGuard.__init__.__defaults__`` so direct
+    ``RiskGuard()`` calls without args resolve to the tmp_path, and
+    (b) wrap ``RiskGuard.__init__`` so any caller that explicitly passes
+    the production literal path ``data/state/risk_guard_state.json``
+    (e.g. PaperTrader, which always passes ``state_path=state_path or
+    "data/state/risk_guard_state.json"``) is redirected to the tmp_path.
+    """
+    from adapters.ctrader.risk_guard import RiskGuard as _RG
+
     fake_state = str(tmp_path / "risk_guard_state.json")
-    # Patch the default parameter value so any RiskGuard() created
-    # without an explicit state_path uses the temp path.
     monkeypatch.setattr(
         "adapters.ctrader.risk_guard.RiskGuard.__init__.__defaults__",
         (None, 100000.0, fake_state),
     )
+
+    _PROD_RG_PATH = "data/state/risk_guard_state.json"
+
+    original_init = _RG.__init__
+
+    def _init_wrapper(self, *args, **kwargs):
+        # If state_path was not provided as kwarg AND positional args
+        # don't carry an explicit state_path (3rd positional), don't
+        # touch anything — defaults already patched.
+        # If state_path was provided AND it equals the production
+        # literal, swap to tmp_path.
+        if "state_path" in kwargs and kwargs["state_path"] == _PROD_RG_PATH:
+            kwargs["state_path"] = fake_state
+        return original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(_RG, "__init__", _init_wrapper)
     yield
 
 
@@ -125,6 +149,34 @@ def _isolate_signal_stats(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "adapters.ctrader.paper_trader.PaperTrader.__init__.__defaults__",
         (None, None, 100000.0, None, None, fake_log),
+    )
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_edge_telemetry(monkeypatch, tmp_path):
+    """Redirect EdgeTelemetryTracker's default persist path to a temp
+    dir so tests don't pollute the production data/edge_telemetry.jsonl
+    file. Pair with cluster A teardown-isolation guard.
+    """
+    fake_path = str(tmp_path / "edge_telemetry.jsonl")
+    monkeypatch.setattr(
+        "risk.edge_telemetry.EdgeTelemetryTracker.__init__.__defaults__",
+        (fake_path,),
+    )
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_heartbeat(monkeypatch, tmp_path):
+    """Redirect ForwardTestEngine's ``_HEARTBEAT_FILE`` module constant
+    so tests don't pollute the production data/heartbeat_trading.json
+    file. Pair with cluster A teardown-isolation guard.
+    """
+    fake_path = str(tmp_path / "heartbeat_trading.json")
+    monkeypatch.setattr(
+        "adapters.ctrader.forward_test_engine._HEARTBEAT_FILE",
+        fake_path,
     )
     yield
 

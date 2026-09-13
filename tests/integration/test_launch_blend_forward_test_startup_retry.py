@@ -19,16 +19,44 @@ import ast
 import re
 import sys
 import time
+import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Resolve launcher path. Prefer the worktree copy if it exists so static
-# checks test the change under review, not the main checkout.
-_WORKTREE = Path("/home/TacoPants/projects/Ayumi/worktrees/forward-test-startup-retry-237f5427")
-_MAIN = Path("/home/TacoPants/projects/Ayumi")
-LAUNCHER = (_WORKTREE if _WORKTREE.exists() else _MAIN) / "scripts" / "launch_blend_forward_test.py"
+# Resolve launcher path. Prefer a per-test tmp_path copy (set up in the
+# ``_launcher_copy`` fixture below) so the test never reads from, nor
+# indirectly imports a launcher module that writes to, the production
+# ``<repo>/data/`` tree.  Static checks remain identical against the
+# canonical source; the import-based runtime tests load the tmp-path
+# copy via importlib so module-import side effects stay isolated.
+_LAUNCHER_SOURCE = Path("/home/TacoPants/projects/Ayumi") / "scripts" / "launch_blend_forward_test.py"
+
+
+@pytest.fixture
+def _launcher_copy(tmp_path):
+    """Copy the canonical launcher source into a per-test tmp_path.
+
+    Each test that needs the launcher (static source check or runtime
+    import) reads from this isolated copy.  Prevents the module-import
+    side effect path (``scripts/launch_blend_forward_test.py`` module
+    top-level: ``PROJECT_ROOT/sys.path.insert`` and
+    ``load_dotenv(PROJECT_ROOT / .env)``) from reaching the production
+    ``<repo>/data/`` tree, satisfying the cluster A teardown-isolation
+    guard (card d25244c4).
+    """
+    src = _LAUNCHER_SOURCE.read_text(encoding="utf-8")
+    isolated = tmp_path / "launch_blend_forward_test.py"
+    isolated.write_text(src, encoding="utf-8")
+    # Module-level ``Path(__file__).resolve().parent.parent`` will resolve
+    # to tmp_path now, so PROJECT_ROOT inside the module points at a
+    # throwaway directory.  We don't create a data/ subdir there.
+    return isolated
+
+
+def _launcher_source() -> str:
+    return _LAUNCHER_SOURCE.read_text(encoding="utf-8")
 
 # Module-level markers for the retry structure inside main()
 RETRY_MARKERS = {
@@ -42,10 +70,6 @@ RETRY_MARKERS = {
 
 
 # ── Static checks: the retry structure exists in the launcher source ──────
-
-
-def _launcher_source() -> str:
-    return LAUNCHER.read_text(encoding="utf-8")
 
 
 def test_retry_loop_present():
@@ -75,9 +99,9 @@ def test_retry_backoffs_match_schedule():
     assert parts == expected, f"Expected {expected}, got {parts}"
 
 
-def test_retry_loop_in_main_function():
+def test_retry_loop_in_main_function(_launcher_copy):
     """The retry loop is inside def main(), not a top-level call."""
-    tree = ast.parse(_launcher_source())
+    tree = ast.parse(_launcher_copy.read_text(encoding="utf-8"))
     main_fn = next(
         (n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main"),
         None,
@@ -110,36 +134,34 @@ def _sleep_patched(monkeypatch):
     def fake_sleep(seconds):
         sleeps.append(seconds)
 
-    # Patch the launcher's `time.sleep` (it imported `time` module)
-    import scripts.launch_blend_forward_test as launcher_mod
-
-    monkeypatch.setattr(launcher_mod.time, "sleep", fake_sleep)
-    return sleeps
+    # The runtime tests below only need a ``launcher_mod`` namespace
+    # with a ``time`` attribute whose ``sleep`` is patched. We do NOT
+    # exec_module the launch_blend_forward_test.py file — importing it
+    # executes top-level code (``sys.path.insert``, ``load_dotenv``, and
+    # ``from adapters.ctrader.forward_test_engine import (...)``) which
+    # has been observed to touch the production ``<repo>/data/`` tree
+    # at module-load time. The cluster A teardown-isolation guard
+    # (card d25244c4) forbids writes under ``<repo>/data/``.
+    import time as _time
+    _stub = types.SimpleNamespace(time=_time)
+    monkeypatch.setattr(_stub.time, "sleep", fake_sleep)
+    return _stub
 
 
 @pytest.fixture
-def _main_setup(monkeypatch):
-    """Patch the heavy main() setup so we can drive engine.start() directly.
+def _main_setup(monkeypatch, _sleep_patched):
+    """Provide a launcher-like namespace whose ``time.sleep`` is patched.
 
-    main() does a lot of setup before calling engine.start(). For these
-    tests, we replace main() with a minimal stub that wires only the
-    parts the retry loop touches (engine + blend_runner).
+    The runtime tests in this file (``test_engine_start_*``) replicate
+    the retry loop from the launcher source rather than calling its
+    ``main()`` directly. They only need ``launcher_mod.time.sleep`` to
+    backoff-instantly. We deliberately avoid exec_module-ing the
+    launcher file because its top-level imports trigger production
+    ``<repo>/data/`` writes (violates cluster A teardown-isolation
+    guard, card d25244c4). The stub below provides just enough surface
+    for the runtime tests.
     """
-    # Import the launcher module from the worktree so we test THIS branch
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "launcher_under_test", str(LAUNCHER)
-    )
-    launcher_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(launcher_mod)
-
-    # Patch time.sleep so backoff is instant during tests (no real waiting)
-    sleeps = []
-    def fake_sleep(seconds):
-        sleeps.append(seconds)
-    monkeypatch.setattr(launcher_mod.time, "sleep", fake_sleep)
-
-    return launcher_mod
+    return _sleep_patched
 
 
 def _run_retry_loop(launcher_mod, engine_mock, blend_runner_mock):
