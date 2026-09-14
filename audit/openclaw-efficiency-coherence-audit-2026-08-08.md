@@ -78,7 +78,7 @@ The user crontab independently runs, among other things: `dispatch_cron.py` ever
 
 ### Systemd
 
-Active/relevant units include `heartbeat-bridge.service`, `ava-gate-serve.service`, `ayumi-watchdog.service`, and the OpenClaw gateway process. `backup-agents.timer` and `daily-agent-report.timer` are installed but their associated services were inactive at inspection time. `openclaw-dashboard.service` is loaded but intentionally parked with `ExecStart=/bin/true`.
+Active/relevant units include `heartbeat-bridge.service`, `ava-gate-serve.service`, `ayumi-watchdog.service` (retired 2026-09-14, card 3bf43e02-b643-4dad-9faf-73273f14dcc6), and the OpenClaw gateway process. `backup-agents.timer` and `daily-agent-report.timer` are installed but their associated services were inactive at inspection time. `openclaw-dashboard.service` is loaded but intentionally parked with `ExecStart=/bin/true`.
 
 ### Scheduling finding
 

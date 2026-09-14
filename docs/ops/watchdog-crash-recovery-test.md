@@ -1,5 +1,12 @@
 # Watchdog Crash-Recovery Test
 
+> **[RETIRED 2026-09-14]** `ayumi-watchdog.service` was formally retired on 2026-09-14
+> (masked since 2026-09-03; masked unit symlink removed). Crash recovery is now owned
+> entirely by systemd `Restart=always` on `ayumi-forward-test.service`, and process
+> safety by the blend-launcher B5 Health loop + FTMO guard. This document is retained
+> for historical reference only. See workboard card
+> 3bf43e02-b643-4dad-9faf-73273f14dcc6.
+
 ## Objective
 
 Verify that the forward test process auto-recovers after an unexpected termination (e.g., crash, OOM kill, manual kill).
