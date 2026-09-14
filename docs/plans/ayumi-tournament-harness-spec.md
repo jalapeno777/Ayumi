@@ -312,3 +312,126 @@ These exist as backlog notes but are NOT part of this card:
 
 See `data/build-rin-reports/db04d5b5-build.md` for the per-commit
 post-mortem + BUILD-METADATA footer.
+
+---
+
+## Appendix A — SRMR+ hours rejection diagnosis (card c4b86732, AC2)
+
+> **Status:** documentation-only (no strategy-code edits per card scope).
+> **Investigation date:** 2026-09-14.
+> **Author:** Tsubaki (builder lane).
+> **Evidence:** harness spec §3 smoke run output (`srmr_plus signals=0 trades=0`)
+> + `src/forex-bot/strategies/srmr_plus.py:292-310` (`_is_trading_session`,
+> `_get_bar_session_type`) + `src/forex-bot/config/sessions.py:104-114`
+> (`SessionRangeHours`).
+
+### A.1 Symptom
+
+When the tournament harness runs `srmr_plus` on the default smoke window
+(USDJPY H1, 2024-06-03 → 2024-06-09, 120 bars), it produces 0 signals
+and 0 trades. The harness exits 0 (success) without surfacing the
+silent-zero-signals case (this is what card c4b86732 AC1 now addresses).
+
+When run on wider windows (e.g. 2024-01-01 → 2024-06-30, ~4350 H1 bars),
+the same strategy also produces 0 signals — but exits cleanly. This is
+the "silent grind" failure mode observed in the 2026-09-14 GBPUSD
+2h13m run.
+
+### A.2 Root cause (timezone / bar-time contract)
+
+The hours-rejection is NOT a timezone bug — both sides are in UTC. The
+contract is:
+
+| Side | Source | Type | TZ |
+|---|---|---|---|
+| Bar time | `harness.py:load_bars_for_window` — `datetime.fromtimestamp(int(ts), tz=timezone.utc)` | tz-aware datetime | UTC |
+| Session boundaries | `config/sessions.py:SessionRangeHours` (LONDON_START=time(7,0), NY_OPEN_START=time(12,0), etc.) | `time` object | UTC |
+| Filter | `srmr_plus.py:_is_trading_session(bar_time)` — reads `bar_time.hour` and compares to `SessionRangeHours.X.hour` | hour-integer | UTC |
+
+`bar.time.hour` returns the UTC hour (the bar's `datetime` is tz-aware
+in UTC), and the session boundary constants are defined as UTC `time`
+objects. The contract is consistent end-to-end.
+
+### A.3 Why the smoke window produces 0 signals
+
+The 5-day USDJPY H1 window has **8 in-session hours per day** (London
+7–11 UTC + NY 12–16 UTC = 8 hours, 33% of the 24-hour day). Combined
+with the harness's **30-bar warm-up gate** (bars 0–29 skipped, no
+`evaluate(state)` call), only ~10 in-session bars are evaluated on the
+5-day window.
+
+`SRMRPlusStrategy` then requires a **prior-session range lookup**
+(≥51 bars of history + a clean prior London/NY session anchor in
+`state.bars`). With only ~10 in-session bars after warm-up and no
+prior-session anchor, the strategy's internal session-range filter
+never completes — every `evaluate(state)` returns `None`.
+
+This is **not** a harness bug. It is the documented behavior for the
+5-day smoke slice (harness spec §3): the smoke run is a structural
+sanity check, not a signal-exercise benchmark.
+
+### A.4 Why wider windows also produce 0 signals on some setups
+
+When invoked on wider windows via the harness (e.g. `--window
+2024-01-01:2024-06-30`), the same filter chain runs but with enough
+bars to clear warm-up and prior-session lookup. The strategy's session
+filter then operates on the in-session subset. If the wider window
+happens to be low-volatility (e.g. holiday period), SRMR+'s additional
+volatility / range filters can still suppress every signal.
+
+The card c4b86732 AC1 fail-loud guard now surfaces this as a
+non-zero CLI exit + clear `TournamentNoSignals(strategy_id=...,
+symbol=..., timeframe=..., start_date=..., end_date=..., bars_processed=...,
+signals_emitted=0)` error instead of a silent zero-trade row.
+
+### A.5 Correct invocation
+
+To exercise `srmr_plus` with real signals on the harness:
+
+1. **Window:** at least 60 days of USDJPY H1 (≥30 bars warm-up + ≥51
+   bars prior-session anchor + session-coverage of London/NY).
+   Recommended: 90+ days so volatility / range filters also have data.
+2. **Symbol:** USDJPY (default) is fine. For XAUUSD, pass
+   `symbol="XAUUSD"` (the harness propagates `symbol` to
+   `SRMRPlusConfig.symbol` automatically — see
+   `harness.py:_build_strategy_instance`).
+3. **Timeframe:** H1 (the strategy's documented default). M15
+   requires sufficient M15 bars; H1 is the safer smoke-grade
+   timeframe.
+4. **CLI invocation:**
+   ```
+   python3 scripts/run_tournament.py \
+       --strategies srmr_plus \
+       --symbol USDJPY \
+       --timeframe H1 \
+       --window 2024-01-01:2024-06-30 \
+       --output data/tournament/srmr_plus_6m.json
+   ```
+5. **Expected outcome:** ≥1 signal per week on average; ~10–40 trades
+   on a 6-month window depending on volatility regime. If 0 signals
+   persist, the new fail-loud guard surfaces this as
+   `TournamentNoSignals` (card c4b86732 AC1) — investigate the wider
+   window's volatility / session-coverage before declaring the
+   strategy dead.
+
+### A.6 Why no strategy-code edits
+
+The card explicitly scopes SRMR+ out of the buildable surface
+(`allowed_files` lists only harness/scripts/tests/docs). The hours
+contract IS correct as-is — modifying `_is_trading_session` would
+require a dedicated child card with its own allowed_files and review
+lane (e.g. "SRMR+ M5/M15 timeframe support" or "SRMR+ session-window
+config externalization"). This appendix documents the diagnosis so
+Ava/Rin can scope a follow-up card if the silent-zero pattern
+persists on the recommended 90-day window.
+
+### A.7 Verification path
+
+- Read `src/forex-bot/strategies/srmr_plus.py` lines 290–310 (session
+  filter) + lines 640–655 (filter call site) for the contract.
+- Read `src/forex-bot/config/sessions.py` lines 104–115 for the
+  boundary constants.
+- Read `src/tournament/harness.py:load_bars_for_window` for the bar
+  UTC construction.
+- Compare `Bar(time=...)` → `bar.time.tzinfo` (must be `UTC`) and
+  `bar.time.hour` (must equal the UTC hour of the timestamp).

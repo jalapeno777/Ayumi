@@ -55,8 +55,42 @@ logger = logging.getLogger("ayumi.tournament.harness")
 # source code under src/forex-bot/strategies/ remains unmodified.
 STRATEGY_CLASS_MAP: dict[str, str] = {
     # id : "module:class_name"
+    # ── Pre-existing (card db04d5b5) ──
     "srmr_plus": "strategies.srmr_plus:SRMRPlusStrategy",
     "bb_rsi_reversion": "strategies.bb_rsi_reversion:BBRSIMeanReversion",
+    # ── Card c4b86732 registration sweep (runnable-as-is, config=None pattern) ──
+    # Donchian + ATR trend-following (v2 — ISignalStrategy with init/shutdown)
+    "donchian_atr_trend_v2": "strategies.donchian_atr_trend_v2:DonchianATRTrendV2Strategy",
+    # Dual-timeframe squeeze (H1 context + M15 entry trigger)
+    "dual_tf_squeeze_pro": "strategies.dual_tf_squeeze_pro:DualTFSqueezeProStrategy",
+    # Killzone momentum (XAUUSD M5/H1 FX)
+    "killzone_momentum": "strategies.killzone_momentum:KillzoneMomentumStrategy",
+    # London breakout + retest (XAUUSD M15 primary)
+    "london_breakout_retest": "strategies.london_breakout_retest:LondonBreakoutRetestStrategy",
+    # Momentum trio (donchian / ATR-volatility / MA-trend)
+    "momentum_donchian": "strategies.momentum:DonchianBreakoutStrategy",
+    "momentum_atr_breakout": "strategies.momentum:ATRVolatilityBreakoutStrategy",
+    "momentum_ma_trend": "strategies.momentum:MATrendFollowingStrategy",
+    # EURUSD M15 momentum (M15-tuned)
+    "momentum_m15": "strategies.momentum_m15:MomentumM15Strategy",
+    # RSI threshold crossover (execution-path validation)
+    "rsi_threshold": "strategies.rsi_threshold:SimpleRSIThresholdStrategy",
+    # Session-range mean reversion
+    "session_range_mean_reversion": "strategies.session_range_mean_reversion:SessionRangeMeanReversionStrategy",
+    # Session-range MR + ICT confluence filter
+    "session_range_mr_ict_filtered": "strategies.session_range_mr_ict_filtered:SessionRangeMRWithICTFilter",
+    # TTC XAUUSD M15 (TTSStrategy adapter)
+    "ttc_xauusd": "strategies.ttc_xauusd:TTCXAUUSDStrategy",
+    # Volatility regime breakout
+    "volatility_regime_breakout": "strategies.volatility_regime_breakout:VolatilityRegimeBreakoutStrategy",
+    # Volatility squeeze (BB-in-KC)
+    "volatility_squeeze": "strategies.volatility_squeeze:VolatilitySqueezeStrategy",
+    # Donchian + ATR trend v1 (legacy)
+    "donchian_atr_trend_v1": "strategies.donchian_atr_trend:DonchianATRTrendStrategy",
+    # ── DEAD/STALE — listed here for triage visibility, NOT registered ──
+    # ORBStrategy: requires non-Optional `dict` config (config=None raises).
+    # MTFFilteredMomentumStrategy: requires positional `inner_strategy`.
+    # SessionBreakoutStrategy: requires non-Optional `dict` config.
 }
 
 
@@ -103,6 +137,39 @@ class TournamentEmptyWindow(Exception):
     def __init__(self, detail: str):
         super().__init__(detail)
         self.detail = detail
+
+
+class TournamentNoSignals(TournamentEmptyWindow):
+    """Raised when a registered strategy emits 0 signals over the window.
+
+    Card c4b86732 (fail-loud guard, AC1).  A registered strategy that
+    processes 0 bars OR emits 0 signals over the window must never exit
+    silently — the harness raises this exception so the CLI surfaces a
+    non-zero exit + clear error naming strategy/symbol/window.
+
+    Subclasses :class:`TournamentEmptyWindow` so existing
+    ``except TournamentEmptyWindow`` handlers in the CLI catch both
+    cases (0 bars in window AND 0 signals per registered strategy).
+    """
+
+    def __init__(self, strategy_id: str, symbol: str, timeframe: str,
+                 start_date: str | None, end_date: str | None,
+                 bars_processed: int, signals_emitted: int):
+        detail = (
+            f"strategy '{strategy_id}' produced 0 signals on "
+            f"{symbol}/{timeframe} window {start_date}..{end_date} "
+            f"(bars_processed={bars_processed}, signals={signals_emitted}). "
+            f"This indicates a configuration/window mismatch — the harness "
+            f"exits non-zero to surface the silent-death failure mode."
+        )
+        super().__init__(detail)
+        self.strategy_id = strategy_id
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.start_date = start_date
+        self.end_date = end_date
+        self.bars_processed = bars_processed
+        self.signals_emitted = signals_emitted
 
 
 # ── DuckDB path resolution ───────────────────────────────────────────────────
@@ -426,6 +493,7 @@ def _extract_signals_from_strategy(
     it_time = df["time_utc"].tolist()
     it_spread = df["spread_pips"].fillna(0.0).tolist()
 
+    bars_processed = 0
     try:
         for i in range(len(df)):
             bar = Bar(
@@ -451,6 +519,19 @@ def _extract_signals_from_strategy(
                 direction = 1 if signal.direction == TradeDirection.LONG else -1
                 signals.append(
                     (i, signal.stop_loss, signal.take_profit_1, direction)
+                )
+
+            # Progress logging — every 1000 bars (card c4b86732 AC4)
+            # Observed at the inner-loop granularity so long runs are
+            # observable (2026-09-14 GBPUSD run was 2h13m silent without
+            # this line).  Logged at INFO so default verbosity shows it.
+            bars_processed = i + 1
+            if bars_processed % 1000 == 0:
+                logger.info(
+                    "[tournament.harness] progress strategy=%s bars_processed=%d signals_so_far=%d",
+                    strategy_id,
+                    bars_processed,
+                    len(signals),
                 )
     finally:
         strategy.shutdown()
@@ -569,6 +650,32 @@ class TournamentHarness:
                 )
                 run_meta[strategy_id] = {"signals": 0, "skipped": True, "error": str(exc)}
                 continue
+
+            # Fail-loud guard (card c4b86732 AC1): a registered strategy
+            # that processes 0 bars OR emits 0 signals over the window
+            # must not exit silently.  Raise TournamentNoSignals so the
+            # CLI catches it and exits non-zero with a clear error naming
+            # strategy/symbol/window.  bars_processed == 0 means the
+            # warm-up gate (30 bars) was never cleared (window too small
+            # for this strategy); 0 signals with bars_processed > 0 means
+            # the strategy was evaluated but never triggered.
+            bars_processed = len(df)
+            if bars_processed == 0 or len(signals) == 0:
+                logger.error(
+                    "fail-loud guard: strategy=%s symbol=%s window=%s..%s "
+                    "bars_processed=%d signals=%d — raising TournamentNoSignals",
+                    strategy_id, self.symbol, self.start_date, self.end_date,
+                    bars_processed, len(signals),
+                )
+                raise TournamentNoSignals(
+                    strategy_id=strategy_id,
+                    symbol=self.symbol,
+                    timeframe=self.timeframe,
+                    start_date=self.start_date,
+                    end_date=self.end_date,
+                    bars_processed=bars_processed,
+                    signals_emitted=len(signals),
+                )
 
             trades = _simulate_trades(df, signals)
             row = build_scorecard_row(
