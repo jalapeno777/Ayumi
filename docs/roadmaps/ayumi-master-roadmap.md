@@ -433,10 +433,14 @@ python3 -m pytest tests/ -q --timeout=30 -m "not live"
 > workstation, stronger CPUs + GPU access) can offset heavy processing. Not yet wired
 > for Ayumi dispatch; GPU use deferred (Craig: "don't worry about the GPU stuff tonight").
 
-- **Near-term (CPU):** tournament harness + walk-forward/backtest batches offloaded to
-  avaworker to avoid competing with the gateway cgroup on the server (2026-09-14
-  GBPUSD tournament run took 2h13m pinned to one shared-cgroup core; XAUUSD runs died
-  silently inside openclaw-gateway.service — see card c4b86732).
+- **Policy (Craig, 2026-09-14 18:25):** avaworker is the DEFAULT target for
+  tournament/backtest/walk-forward runs whenever it is connected — it frees server
+  resources AND is inherently faster (stronger CPUs + GPU). Local server runs are
+  acceptable only for small tests (<5-10 min). Provenance: 2026-09-14 GBPUSD
+  tournament run took 2h13m pinned to one shared-cgroup core on the server; XAUUSD
+  runs died silently inside openclaw-gateway.service (card c4b86732).
+- **Prerequisite:** Ayumi checkout + venv + bars-only DuckDB staged on the node
+  (container is ephemeral; needs a persistent volume or re-stage per batch).
 - **GPU track (unblock-later):** once wired, evaluate GPU acceleration for
   vectorized backtests / parameter sweeps (Optuna `blend_optimizer`, tournament
   multi-symbol matrix) and ML training (`confidence_learner` RandomForest,
