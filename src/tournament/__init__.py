@@ -18,6 +18,7 @@ from tournament.harness import (
     STRATEGY_CLASS_MAP,
     TournamentEmptyWindow,
     TournamentHarness,
+    TournamentNoSignals,
     load_bars_for_window,
     resolve_default_duckdb_path,
 )
@@ -31,6 +32,7 @@ from tournament.scorecard import (
 __all__ = [
     "TournamentHarness",
     "TournamentEmptyWindow",
+    "TournamentNoSignals",
     "STRATEGY_CLASS_MAP",
     "load_bars_for_window",
     "resolve_default_duckdb_path",
