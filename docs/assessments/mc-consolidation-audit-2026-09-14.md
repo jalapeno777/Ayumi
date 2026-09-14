@@ -10,13 +10,14 @@
 ## Per-component findings (evidence cited)
 
 ### 1. signal_engine/ → ABSORBED_PARTIAL (Ayumi)
-- **Live path:** `src/forex-bot/engine/strategy_executor.py:53` imports `signal_engine.filters.filter_chain.build_chain_from_config` — the filter chain is on the live execution path.
+- **Live path (updated 2026-09-14, deep component audit):** `signal_engine` is more live than first recorded — `signal_stats` is the live telemetry spine (`forward_test/blend_runner.py:34`, ctrader adapters), and 11 more modules load transitively via `backtest/strategies/tts_strategy.py` (TTC_XAUUSD chain). Full evidence: workspace `docs/assessments/mc-consolidation-component-audit-2026-09-14.md`.
 - **Idle remainder:** `confluence_scorer.py` (ConfluenceScorer, 7/14 booster features), `gate_validator.py`, `htf_analyzer.py`, `pattern_detector.py`, etc. are not imported by the live blend launcher or engine.
 - **Open item transferred:** master roadmap task **1C.6** ("Audit signal_engine/ modules against v2.3 spec") is explicitly deferred to post-FTMO. 8/13 components lack test coverage.
 - **MC disposition:** archived; 1C.6 + coverage debt recorded on the Ayumi project record.
 
 ### 2. ml/ → SUPERSEDED_PARTIAL (split: Ayumi idle / Portfolio Intelligence owns live prediction loops)
 - **Evidence:** `scripts/launch_blend_forward_test.py` and `src/forex-bot/forward_test/blend_runner.py` import **nothing** from `ml/` (grep 2026-09-14). The live forward test runs strategies + regime detector + risk stack without the ML confidence layer.
+- **NOT superseded by PI:** correction — `ml/` (forex historical-feature ML) and Portfolio Intelligence (multi-asset crypto/equity prediction loops) are different domains. `per_symbol_configs.py` is the lone load-bearing ml module (TTC chain); the rest is idle for the post-FTMO blend-confidence phase.
 - **Portfolio Intelligence** (workspace `src/portfolio-intelligence/`) now owns the production prediction/outcome loop — its own `models/` (gradient_boosting, logistic, calibration, challenger lab, risk engine) and `features/` stacks, verified live 2026-09-10 (3,973 predictions, 3,766 outcomes, freshness canary armed — `docs/audits/portfolio-intelligence-audit-2026-09-10.md`).
 - **Residual in Ayumi:** `ml/blend_optimizer.py` (Optuna) + `ml/confidence_learner.py` remain roadmap infrastructure for the post-FTMO blend-confidence phase (roadmap rev 4 §3 ML Pipeline).
 - **MC disposition:** archived; prediction/outcome ownership noted on the portfolio-intelligence project record; blend-confidence remainder noted on the Ayumi record.
@@ -31,7 +32,7 @@
 - **Evidence:** heavy script consumption (`walk_forward_bb_rsi_mean_reversion.py`, `run_tts_walkforward.py`, `run_multi_strategy_optuna_sweep.py`, etc.); fresh artifacts in `reports/` (`blend-harness-2026-09-08-rerun4`, `srmr-wf-revalidation-2026-09-07`); tournament-harness spec designates `scripts/backtest_blend_harness.py` as the production reference harness.
 - **Historical MC notes:** risk-cap bug fix (commit a78bfaf) and portfolio_blend normalization are already landed in-tree.
 - **Open item transferred:** roadmap Phase 1D blend reconciliation (5-strategy blend position-management model mismatch, `run_blend_5strat.py`) — verify against the Sep 7-8 blend-harness runs during the post-FTMO blend phase.
-- **MC disposition:** archived; open item noted on the Ayumi record.
+- **MC disposition:** archived; open item noted on the Ayumi record. 23 dead `backtest/` modules (zero callsites) tracked by card `6f06c041-1c7c-47f5-9f72-6c34893e95fc`; Phase 1D.5/1D.6 closure tracked by card `e7b2a23a-4ce0-4e54-8851-b839b959a64b`.
 
 ---
 
