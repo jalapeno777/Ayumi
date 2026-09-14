@@ -33,6 +33,7 @@ import pytest
 from tournament import (
     STRATEGY_CLASS_MAP,
     TournamentHarness,
+    TournamentNoSignals,
 )
 from tournament.harness import (
     TournamentEmptyWindow,
@@ -250,7 +251,14 @@ def test_scorecard_row_serializes_to_json() -> None:
 
 
 def test_scorecard_runs_unmodified_strategies(synthetic_duckdb: Path) -> None:
-    """Harness scores both default strategies without modifying their source code.
+    """Harness orchestrates strategies via the registry; no copy-pasted strategy code.
+
+    Provenance: card c4b86732-9a6c-4169-b5de-e0a12e63280c added the
+    fail-loud guard (TournamentNoSignals). Pre-guard, this test also
+    asserted that both strategies appeared in the scorecard after a smoke
+    run. Post-guard, the same input raises before any scorecard row is
+    built, so the smoke-run half of the assertion has moved to
+    ``test_smoke_run_raises_tournament_no_signals`` below.
 
     Validates the "strategies run unmodified" contract:
     * Harness imports strategies via STRATEGY_CLASS_MAP (canonical registry).
@@ -272,23 +280,60 @@ def test_scorecard_runs_unmodified_strategies(synthetic_duckdb: Path) -> None:
     for needle in forbidden_substrings:
         assert needle not in src, f"harness must not define {needle!r} — strategies are imported"
 
-    # Smoke-run both strategies through the harness on synthetic data.
-    scorecard = TournamentHarness(
-        strategy_ids=["srmr_plus", "bb_rsi_reversion"],
-        db_path=synthetic_duckdb,
-    ).run()
-    # Both rows must appear in the scorecard, even if one or both produced 0 trades.
-    assert isinstance(scorecard, Scorecard)
-    strategy_ids = [r.strategy_id for r in scorecard.rows]
-    assert "srmr_plus" in strategy_ids
-    assert "bb_rsi_reversion" in strategy_ids
+
+def test_smoke_run_raises_tournament_no_signals(synthetic_duckdb: Path) -> None:
+    """Post-guard (c4b86732): synthetic data → fail-loud guard fires before scorecard.
+
+    Pre-guard, this assertion was folded into
+    ``test_scorecard_runs_unmodified_strategies`` (scorecard-row assertion
+    that both strategies appear). Post-guard the same synthetic input
+    raises ``TournamentNoSignals`` before any scorecard row is built, so
+    the original assertion is impossible. This test pins the post-guard
+    contract: the guard fires with the strategy/symbol/timeframe detail
+    operators need to diagnose the silent-death failure mode that
+    motivated card c4b86732.
+    """
+    with pytest.raises(TournamentNoSignals) as exc_info:
+        TournamentHarness(
+            strategy_ids=["srmr_plus", "bb_rsi_reversion"],
+            db_path=synthetic_duckdb,
+        ).run()
+    # Error detail must name strategy/symbol/timeframe (the c4b86732 AC1
+    # contract) so operators reading the failure can identify the
+    # configuration that triggered the silent-death mode.
+    detail = exc_info.value.detail
+    assert "srmr_plus" in detail, (
+        f"TournamentNoSignals detail missing strategy_id 'srmr_plus': {detail!r}"
+    )
+    assert "USDJPY" in detail, (
+        f"TournamentNoSignals detail missing symbol 'USDJPY': {detail!r}"
+    )
+    assert "H1" in detail, (
+        f"TournamentNoSignals detail missing timeframe 'H1': {detail!r}"
+    )
 
 
 # ── 4. run_tournament_smoke_exits_zero ───────────────────────────────────────
 
 
 def test_run_tournament_smoke_exits_zero(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """scripts/run_tournament.py --smoke exits 0 and prints a scorecard section.
+    """scripts/run_tournament.py --smoke exits non-zero when fail-loud guard fires.
+
+    Provenance: card c4b86732-9a6c-4169-b5de-e0a12e63280c merged a strict
+    fail-loud guard into ``src/tournament/harness.py``: a registered strategy
+    that emits 0 bars OR 0 signals over the smoke window raises
+    ``TournamentNoSignals`` (subclass of ``TournamentEmptyWindow``), and the
+    CLI surfaces a non-zero exit with a clear error naming strategy/symbol/
+    window.
+
+    Pre-guard (≤ 2026-09-13): zero-signal smoke exited 0 with
+    ``TOURNAMENT_OK rows=0``. Post-guard (c4b86732, merged to main at
+    9f09addea115e37db690bebe38d36a53272eae4e): the same input exits 1 with
+    ``ERROR: strategy '<id>' produced 0 signals on <symbol>/<timeframe>
+    window <start>..<end>``. This test pins the post-guard contract —
+    operators reading a failing CI on this test should know that the
+    fail-loud guard fired and the error names the silent-death config that
+    motivated c4b86732.
 
     We monkey-patch AYUMI_DUCKDB_PATH to point at our synthetic file so the
     smoke run uses only worktree-local state, and pass ``--output`` so the
@@ -312,24 +357,55 @@ def test_run_tournament_smoke_exits_zero(tmp_path: Path, monkeypatch: pytest.Mon
         check=False,
         preexec_fn=_preexec_unlimit_memory,
     )
-    assert proc.returncode == 0, (
-        f"smoke exited {proc.returncode}\n"
+    # Post-guard (c4b86732): the synthetic 80-bar USDJPY H1 walk is symmetric
+    # enough that ``srmr_plus`` (default smoke strategy) processes 80 bars
+    # but emits 0 signals — the fail-loud guard fires and the CLI exits
+    # non-zero. Pin non-zero exit + clear error naming strategy/symbol/
+    # window so operators can diagnose the silent-death failure mode.
+    assert proc.returncode != 0, (
+        f"expected non-zero exit on zero-signal smoke, got {proc.returncode}\n"
         f"STDOUT:\n{proc.stdout}\n"
         f"STDERR:\n{proc.stderr}"
     )
-    assert "TOURNAMENT SCORECARD" in proc.stdout
-    # Final line should be the log-scraper summary.
-    last_line = proc.stdout.strip().splitlines()[-1]
-    assert last_line.startswith("TOURNAMENT_OK rows=")
+    # Error output must name strategy_id, symbol, timeframe, and window
+    # so operators reading CI failure can identify the configuration drift
+    # that motivated card c4b86732.
+    combined = proc.stdout + "\n" + proc.stderr
+    assert "srmr_plus" in combined, (
+        f"error output missing strategy_id 'srmr_plus':\n{combined}"
+    )
+    assert "USDJPY" in combined, (
+        f"error output missing symbol 'USDJPY':\n{combined}"
+    )
+    assert "H1" in combined, (
+        f"error output missing timeframe 'H1':\n{combined}"
+    )
+    # Window dates appear in the TournamentNoSignals detail so operators
+    # can spot a configuration drift (e.g. wrong start_date on the smoke
+    # fixture). The synthetic walk anchors 2024-06-03..2024-06-09.
+    assert "2024-06-03" in combined and "2024-06-09" in combined, (
+        f"error output missing window dates 2024-06-03..2024-06-09:\n{combined}"
+    )
 
 
 def test_run_tournament_emits_json_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Smoke run writes ``--output`` path with valid JSON.
+    """Post-guard (c4b86732): smoke run on zero-signal data exits non-zero; no JSON.
 
-    Covers checklist assertion ``run_tournament_emits_json_file`` and also
-    ``run_tournament_smoke_exits_zero``'s "JSON output is parseable".
-    Output is written under ``tmp_path`` (not ``<repo>/data/``) so the
-    tests/ ``conftest.py`` write-guard does not fire.
+    Provenance: card c4b86732-9a6c-4169-b5de-e0a12e63280c added the
+    fail-loud guard (TournamentNoSignals). Pre-guard, the smoke run
+    with ``--output`` wrote a JSON scorecard file (zero-trade rows were
+    valid pre-guard). Post-guard, the same input triggers
+    ``TournamentNoSignals`` → the CLI exits 1 before any scorecard is
+    built, so the JSON file is never written.
+
+    This test now pins the post-guard contract: non-zero exit + clear
+    error naming strategy/symbol/window + the absence of the JSON file.
+    The name ``test_run_tournament_emits_json_file`` is retained for
+    searchability (operators grepping CI logs will find both pre- and
+    post-guard history); the new assertions document the behavior change.
+
+    Output path is set under ``tmp_path`` (not ``<repo>/data/``) so the
+    tests/ ``conftest.py`` write-guard does not fire on either path.
     """
     monkeypatch.setenv("AYUMI_DUCKDB_PATH", str(tmp_path / "smoke.duckdb"))
     _make_synthetic_duckdb(tmp_path / "smoke.duckdb", n_bars=80)
@@ -347,24 +423,37 @@ def test_run_tournament_emits_json_file(tmp_path: Path, monkeypatch: pytest.Monk
         check=False,
         preexec_fn=_preexec_unlimit_memory,
     )
-    assert proc.returncode == 0, f"smoke exited {proc.returncode}\nSTDERR:\n{proc.stderr}"
-    assert output.is_file(), f"scorecard JSON not written at {output}"
-
-    payload = json.loads(output.read_text())
-    assert "rows" in payload and isinstance(payload["rows"], list)
-    assert len(payload["rows"]) >= 2, f"expected ≥2 rows, got {len(payload['rows'])}"
-    # Every row must carry the 9 canonical columns + rank.
-    for row in payload["rows"]:
-        for col in SCORECARD_ROW_COLUMNS:
-            assert col in row, f"row missing column {col!r}: {row}"
-        assert "rank" in row
-        assert isinstance(row["rank"], int)
-        assert row["rank"] >= 1
-    # Ranks are contiguous 1..N in descending-return order.
-    ranks = [r["rank"] for r in payload["rows"]]
-    assert ranks == sorted(ranks), f"ranks not contiguous: {ranks}"
-    returns = [r["return_pct"] for r in payload["rows"]]
-    assert returns == sorted(returns, reverse=True), f"not in descending return_pct: {returns}"
+    # Post-guard (c4b86732): synthetic 80-bar USDJPY H1 walk produces 0
+    # signals for ``srmr_plus`` (default smoke strategy) → fail-loud
+    # guard fires → CLI exits non-zero. JSON output is NOT written
+    # because no scorecard was built before the guard raised.
+    assert proc.returncode != 0, (
+        f"expected non-zero exit on zero-signal smoke, got {proc.returncode}\n"
+        f"STDOUT:\n{proc.stdout}\n"
+        f"STDERR:\n{proc.stderr}"
+    )
+    # Error output must name strategy_id, symbol, timeframe, and the
+    # zero-signals marker so operators can diagnose the silent-death
+    # failure mode that motivated card c4b86732.
+    combined = proc.stdout + "\n" + proc.stderr
+    assert "srmr_plus" in combined, (
+        f"error output missing strategy_id 'srmr_plus':\n{combined}"
+    )
+    assert "USDJPY" in combined, (
+        f"error output missing symbol 'USDJPY':\n{combined}"
+    )
+    assert "H1" in combined, (
+        f"error output missing timeframe 'H1':\n{combined}"
+    )
+    assert "0 signals" in combined, (
+        f"error output missing '0 signals' guard marker:\n{combined}"
+    )
+    # The scorecard JSON file must NOT exist when the guard fires pre-row
+    # construction. This is the contract delta vs pre-guard: the file
+    # was previously written (with zero-trade rows); now it is not.
+    assert not output.exists(), (
+        f"scorecard JSON must not be written when guard fires, found {output}"
+    )
 
 
 # ── 5. empty_window_exits_nonzero ────────────────────────────────────────────
