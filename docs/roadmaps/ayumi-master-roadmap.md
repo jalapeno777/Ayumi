@@ -424,3 +424,40 @@ python3 -m pytest tests/ -q --timeout=30 -m "not live"
 ---
 
 *This is the canonical roadmap. All work should trace back to a phase and task here. If it's not in this roadmap, it doesn't get done.*
+
+---
+
+## Compute Offload: avaworker node (added 2026-09-14)
+
+> Craig directive 2026-09-14: new worker node `avaworker` (Docker container on local
+> workstation, stronger CPUs + GPU access) can offset heavy processing. Not yet wired
+> for Ayumi dispatch; GPU use deferred (Craig: "don't worry about the GPU stuff tonight").
+
+- **Near-term (CPU):** tournament harness + walk-forward/backtest batches offloaded to
+  avaworker to avoid competing with the gateway cgroup on the server (2026-09-14
+  GBPUSD tournament run took 2h13m pinned to one shared-cgroup core; XAUUSD runs died
+  silently inside openclaw-gateway.service — see card c4b86732).
+- **GPU track (unblock-later):** once wired, evaluate GPU acceleration for
+  vectorized backtests / parameter sweeps (Optuna `blend_optimizer`, tournament
+  multi-symbol matrix) and ML training (`confidence_learner` RandomForest,
+  Phase 2 blend-confidence validation). GPU warmup ~120s, ~30-50s/image-class
+  workloads reported — realistic for batch backtest kernels only if they
+  vectorize; sequential per-bar harness will NOT benefit without refactor.
+- **Constraint:** workstation-class node — throttle concurrent jobs, no unattended
+  fire-and-forget marathons without a resource cap.
+
+## Strategy Candidate Pipeline (added 2026-09-14)
+
+> Craig priority 2026-09-14: "my biggest concern is getting more potential strategies."
+
+- **Pool A — unbenchmarked in-tree strategies (~17 classes):** the tournament's
+  STRATEGY_CLASS_MAP currently registers only 2 (srmr_plus, bb_rsi_reversion) while
+  `src/forex-bot/strategies/` holds ~19 ISignalStrategy classes (donchian_atr_trend_v2,
+  dual_tf_squeeze_pro, killzone_momentum, london_breakout_retest, ttc_xauusd,
+  volatility_regime_breakout, session_range_mr_ict_filtered, orb, ...). First lever:
+  register these into the tournament and score them.
+- **Pool B — strategy factory:** `docs/roadmaps/strategy-factory/` vision + implementation
+  spec exist; systematic candidate generation is spec'd but not operational.
+- **Gate:** all candidates enter live consideration only via tournament scorecard
+  (FTMO columns) — 2026-09-14 GBPUSD leg disqualified both registered strategies
+  on that symbol; the bar is the scorecard, not code existence.
