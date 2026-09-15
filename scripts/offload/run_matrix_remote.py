@@ -57,6 +57,7 @@ from offload.transport import (
     BundleTransport,
     BundleTransportError,
     CodeSHARejectedError,
+    OpenClawNodeBundleTransport,
     Port8877StubTransport,
 )
 
@@ -370,8 +371,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--worker", default="ava-worker-local")
     parser.add_argument(
+        "--transport", choices=["stub", "node"], default="node",
+        help=(
+            "Which BundleTransport impl to dispatch through. "
+            "'node' (default, c3134271): OpenClawNodeBundleTransport — "
+            "real push/exec/fetch on the ava-worker-local node. "
+            "'stub' (legacy v1): Port8877StubTransport — raises on real "
+            "invoke, drives local fallback (kept for the v1.0 contract "
+            "until the node wire is fully smoke-validated)."
+        ),
+    )
+    parser.add_argument(
+        "--worker-node", default="ava-worker-local",
+        help="Node name for OpenClawNodeBundleTransport (default: ava-worker-local).",
+    )
+    parser.add_argument(
         "--simulate-transport", action="store_true",
-        help="Use Port8877StubTransport.simulate_success=True (ABC contract tests).",
+        help=(
+            "(legacy) Force Port8877StubTransport.simulate_success=True "
+            "regardless of --transport. Overrides --transport=node."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -383,11 +402,14 @@ def main(argv: list[str] | None = None) -> int:
     bundle_path = _bundle_path(repo_root)
     bundle_sha, bundle_files = _bundle_sha_and_files(bundle_path)
 
-    transport: BundleTransport = (
-        Port8877StubTransport(simulate_success=True)
-        if args.simulate_transport
-        else Port8877StubTransport()  # raises on real invoke → drives local fallback
-    )
+    # --simulate-transport (legacy) overrides --transport; otherwise --transport picks the impl.
+    if args.simulate_transport:
+        transport: BundleTransport = Port8877StubTransport(simulate_success=True)
+    elif args.transport == "node":
+        transport = OpenClawNodeBundleTransport(node=args.worker_node)
+    else:
+        # 'stub' legacy path: raises on real invoke → drives local fallback.
+        transport = Port8877StubTransport(simulate_success=False)
 
     statuses: list[str] = []
     for strategy, symbol, timeframe in SMOKE_MATRIX:
