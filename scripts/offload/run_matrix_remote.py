@@ -137,91 +137,112 @@ def _run_one_cell(
     bundle_sha: str,
     bundle_files: list[str],
     current_db_sha: str | None = None,
-) -> tuple[Manifest, str]:
-    """Dispatch one cell; returns ``(manifest, status)``.
+) -> tuple[Manifest | None, str]:
+    """Dispatch one cell; returns ``(manifest | None, status)``.
 
     Status values:
       - ``"dispatched"``       — remote path succeeded (Q2 happy)
       - ``"local_fallback"``   — transport errored; local score emitted (Q7)
-      - ``"skipped_resume"``   — ``--resume`` hit a terminal manifest (Q4.b)
+      - ``"skipped_resume"``   — ``--resume`` hit a terminal manifest (Q4.b),
+                                 OR per_cell_lock contention (Q4.c)
 
     Q1 loud skew (``CodeSHARejectedError``) → log to dispatch_skipped.jsonl
     + ABORT (re-raises; no atomic write; nothing recorded as "skipped").
+
+    Q4.c lock contention (``per_cell_lock`` raises ``RuntimeError``) →
+    caught at the function boundary; converted to skipped_resume + stderr
+    warning so ``main()`` doesn't crash on parallel ``--resume``. The
+    parallel-resume test in cycle 4b reproduces + verifies the wire end
+    to end. Single-cell unit of ``per_cell_lock`` raising is covered in
+    ``tests/offload/test_manifest.py::test_per_cell_lock_raises_runtime_error_on_contention``.
     """
     cid = cell_id(strategy, symbol, timeframe)
     cell_out = output_root / cid
 
-    with per_cell_lock(cell_out):
-        manifest_path = cell_out / "manifest.json"
-        draft_path = cell_out / "manifest.draft.json"
+    try:
+        with per_cell_lock(cell_out):  # Q4.c; raises RuntimeError on contention
+            manifest_path = cell_out / "manifest.json"
+            draft_path = cell_out / "manifest.draft.json"
 
-        # --resume: skip if a terminal manifest already exists (Q4.b).
-        # db_sha-drift detection is deferred to a follow-up; for now, any
-        # existing manifest with finished_at populated wins.
-        if args.resume:
-            if manifest_path.is_file():
-                try:
-                    prior = Manifest.from_dict(
-                        json.loads(manifest_path.read_text())
-                    )
-                    if prior.finished_at is not None:
-                        return prior, "skipped_resume"
-                except (json.JSONDecodeError, KeyError):
-                    pass  # corrupt prior — fall through to fresh run
-            elif draft_path.is_file():
-                # In-flight per Q4.b — refuse to clobber an in-progress cell.
-                return Manifest(), "skipped_resume"
+            # --resume: skip if a terminal manifest already exists (Q4.b).
+            # db_sha-drift detection is deferred to a follow-up; for now, any
+            # existing manifest with finished_at populated wins.
+            if args.resume:
+                if manifest_path.is_file():
+                    try:
+                        prior = Manifest.from_dict(
+                            json.loads(manifest_path.read_text())
+                        )
+                        if prior.finished_at is not None:
+                            return prior, "skipped_resume"
+                    except (json.JSONDecodeError, KeyError):
+                        pass  # corrupt prior — fall through to fresh run
+                elif draft_path.is_file():
+                    # In-flight per Q4.b — refuse to clobber an in-progress cell.
+                    return None, "skipped_resume"
 
-        m = Manifest(
-            cell_id=cid,
-            seed=cid,                    # Q4 v1: cell_id == seed (binding)
-            strategy=strategy,
-            symbol=symbol,
-            timeframe=timeframe,
-            git_sha=git_sha,
-            env_lock_hash=env_lock_hash_val,
-            env_lock_files=env_lock_files_names,
-            bundle_files=bundle_files,   # Tomoe watch item 1
-            db_sha=current_db_sha,
-            local_fallback=False,
-        )
-
-        try:
-            transport.push_bundle(args.run_id, bundle_path, bundle_sha)
-        except CodeSHARejectedError:
-            # Q1 loud skew: log row + ABORT. Log BEFORE re-raise so the
-            # audit row is on disk even though no manifest is written.
-            append_skipped(
-                output_root,
+            m = Manifest(
                 cell_id=cid,
-                reason="code_skew",
-                expected=bundle_sha,
-                actual="<worker-side; see logs>",
-                extra={"git_sha": git_sha, "env_lock_hash": env_lock_hash_val},
+                seed=cid,                    # Q4 v1: cell_id == seed (binding)
+                strategy=strategy,
+                symbol=symbol,
+                timeframe=timeframe,
+                git_sha=git_sha,
+                env_lock_hash=env_lock_hash_val,
+                env_lock_files=env_lock_files_names,
+                bundle_files=bundle_files,   # Tomoe watch item 1
+                db_sha=current_db_sha,
+                local_fallback=False,
             )
-            raise
-        except BundleTransportError:
-            # Q2 unreachable → local-fallback score + flag (Q7 observability,
-            # not control flow). Same scorecard schema as the remote path.
-            m.local_fallback = True
-            score_path = cell_out / "scorecard.json"
-            score_cell_local(
-                strategy=strategy, symbol=symbol, timeframe=timeframe,
-                seed=cid, output_path=score_path,
-            )
-            m.finished_at = datetime.now(timezone.utc).isoformat()
-            m.exit_code = 0
-            m.output_path = str(score_path)
-            status = "local_fallback"
-        else:
-            # Remote dispatch succeeded. manifest records the dispatch only;
-            # output_hash stays None until cycle 4 wires worker-side retrieval.
-            m.finished_at = datetime.now(timezone.utc).isoformat()
-            m.exit_code = 0
-            status = "dispatched"
 
-        atomic_write_manifest(m, cell_out)  # Q4.b POSIX-atomic, inside the lock
-        return m, status
+            try:
+                transport.push_bundle(args.run_id, bundle_path, bundle_sha)
+            except CodeSHARejectedError:
+                # Q1 loud skew: log row + ABORT. Log BEFORE re-raise so the
+                # audit row is on disk even though no manifest is written.
+                append_skipped(
+                    output_root,
+                    cell_id=cid,
+                    reason="code_skew",
+                    expected=bundle_sha,
+                    actual="<worker-side; see logs>",
+                    extra={"git_sha": git_sha, "env_lock_hash": env_lock_hash_val},
+                )
+                raise
+            except BundleTransportError:
+                # Q2 unreachable → local-fallback score + flag (Q7 observability,
+                # not control flow). Same scorecard schema as the remote path.
+                m.local_fallback = True
+                score_path = cell_out / "scorecard.json"
+                score_cell_local(
+                    strategy=strategy, symbol=symbol, timeframe=timeframe,
+                    seed=cid, output_path=score_path,
+                )
+                m.finished_at = datetime.now(timezone.utc).isoformat()
+                m.exit_code = 0
+                m.output_path = str(score_path)
+                status = "local_fallback"
+            else:
+                # Remote dispatch succeeded. manifest records the dispatch only;
+                # output_hash stays None until cycle 4 wires worker-side retrieval.
+                m.finished_at = datetime.now(timezone.utc).isoformat()
+                m.exit_code = 0
+                status = "dispatched"
+
+            atomic_write_manifest(m, cell_out)  # Q4.b POSIX-atomic, inside the lock
+            return m, status
+    except RuntimeError as exc:
+        # Q4.c "skip-with-warning": a parallel --resume is mid-dispatching
+        # this cell. Don't propagate (would crash main()); convert to
+        # skipped_resume so the loop continues. The lost cell will be
+        # retried naturally on the next --resume invocation.
+        print(
+            f"warn: cell {cid!r} ({strategy}/{symbol}/{timeframe}): "
+            f"lock contended by another runner; skipping (Q4.c "
+            f"skip-with-warning): {exc}",
+            file=sys.stderr,
+        )
+        return None, "skipped_resume"
 
 
 def main(argv: list[str] | None = None) -> int:
