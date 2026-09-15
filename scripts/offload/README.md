@@ -269,16 +269,41 @@ Wire trace at: `data/offload/c3134271-smoke-1/wire_trace.json`
 ## Open consumers (must be aware of the c3134271 smoke fixture + real-wire caveats)
 
 - Card `05fa0065-2e96-46ee-a57b-2842d451e8df` (Tsubaki, 68-cell tournament):
-  - The c3134271 smoke uses a synthetic Python fixture (no real strategy
+  - **Production wire for the 68-cell matrix requires ONE of:**
+    - **Port-8877 HTTP receiver** — card AC option (b). An ACL
+      `server→avaworker:8877` already exists, but the receiver process
+      itself has to be stood up on `ava-worker-local` and the dispatcher
+      has to be retargeted at it.
+    - **A worker-side runner** — a long-running Python process on
+      `ava-worker-local` that the gateway posts jobs to (via
+      `terminal.upload` of bundle + a side-channel poll) and reads
+      outputs back from. Same gateway surface, different receiver.
+  - **`scripts/offload/live_smoke.py`'s agent-exec path is the INTERIM
+    pattern, NOT the production wire.** It's the only path from the
+    current gateway `openclaw nodes invoke` surface that reaches the
+    worker shell, because `system.run` and `system.run.prepare` are
+    "reserved for shell execution; use the exec tool with host=node
+    instead" at the gateway layer (only an agent's
+    `exec(host=node, node=ava-worker-local)` actually shells on the
+    worker). The smoke works because the agent stays in the dispatch
+    loop; that doesn't scale to 68 cells per session, so the matrix
+    card must replace this with port-8877 OR a worker-side runner
+    before the 68-cell run can dispatch from `run_matrix_remote.py`
+    end-to-end without a human/agent in the loop.
+  - **`file.fetch` is `NO_POLICY` for `ava-worker-local` today** (gateway
+    `plugins.entries.file-transfer.config.nodes` is deny-by-default).
+    Even with port-8877 OR a worker-side runner in place, the matrix
+    card will need that allowlist configured before
+    `OpenClawNodeBundleTransport.fetch_output` returns bytes end-to-end
+    without falling through to the runner's `output_missing` ABORT path.
+    (See the Known-limitations table below for the full wire-state map.)
+  - **Smoke-scorecard caveat** (re-stated for completeness): the
+    c3134271 live smoke uses a synthetic Python fixture (no real strategy
     engine, no DuckDB). The matrix card MUST NOT ingest c3134271 smoke
-    scorecards as real PnL; use the `local_fallback=false + remote_execution=true`
-    markers as a STARTING condition but VALIDATE with the real strategy
-    engine before treating numbers as authoritative.
-  - The matrix card WILL need: file-fetch policy configured for
-    `ava-worker-local` (so `OpenClawNodeBundleTransport.fetch_output`
-    returns bytes instead of `None`) AND/OR a port-8877 receiver (card
-    AC option (b)) AND a worker-side Ayumi venv + DuckDB read-only mount.
-    None of those are c3134271 scope.
+    scorecards as real PnL — use the `local_fallback=false +
+    remote_execution=true` markers as a STARTING condition, then VALIDATE
+    with the real strategy engine before treating numbers as
+    authoritative.
 - Card `27dea9ee-90dc-4e01-a3b8-2531a0688771` (Riko, fault injection): reads
   `dispatch_skipped.jsonl` for skew-rejection replay. Suite lives in
   `tests/offload/test_fault_injection.py` (4 scenarios; see "Fault
