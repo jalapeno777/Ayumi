@@ -2166,7 +2166,7 @@ class OpenApiSpotFeed:
             or order.price
         )
         # Stamp cTrader positionId onto Order for downstream amend calls
-        # (Sprint Task N1.3, card fcXXXXXX — naked-position bug). cTrader
+        # Naked-position fix landed in commit 1ed0cdee (2026-07-06). cTrader
         # exposes the positionId in three places depending on event variant;
         # try each in priority order.
         _pos_source = (

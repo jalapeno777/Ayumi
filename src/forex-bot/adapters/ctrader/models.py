@@ -54,7 +54,7 @@ class Order:
     filled_at: datetime | None = None
     filled_price: float | None = None
     comment: str = ""
-    # ── Naked-position bug fix (Sprint Task N1.3, card fcXXXXXX) ───────────
+    # ── Naked-position fix: cTrader positionId (commit 1ed0cdee, 2026-07-06) ──
     # cTrader ``positionId`` from the fill event — required for downstream
     # ``amend_sl_tp`` calls when SL/TP could not be sent inline on the
     # MARKET order. ``None`` until the fill event arrives.

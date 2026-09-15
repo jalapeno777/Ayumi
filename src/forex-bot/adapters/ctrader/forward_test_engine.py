@@ -1639,7 +1639,7 @@ class ForwardTestEngine:
         # 2026-07-06 — the broker accepts absolute SL/TP on MARKET orders;
         # previous naked-then-amend pattern was unnecessary). Fall back to
         # the amend path only when the signal has no SL/TP (strategies
-        # without protection). Sprint Task N1.3, card fcXXXXXX.
+        # without protection). Fix landed in commit 1ed0cdee (2026-07-06).
         inline_sl = signal.stop_loss if signal.stop_loss else None
         inline_tp = signal.take_profit_1 if signal.take_profit_1 else None
 
