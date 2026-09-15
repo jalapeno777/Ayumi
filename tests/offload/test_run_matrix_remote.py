@@ -79,8 +79,11 @@ def test_main_simulate_mode_dispatches_two_cells(tmp_path: Path, capsys) -> None
 def test_main_default_mode_runs_local_fallback(tmp_path: Path, capsys) -> None:
     """Default mode (no ``--simulate``) → stub raises → local fallback for both cells."""
     output_root = tmp_path / "smoke-fb"
+    # --transport=stub keeps the v1.0 default-mode behavior (raises on real
+    # invoke → local fallback). Default --transport is now 'node' (c3134271).
     rc = _invoke(
-        ["--run-id", "smoke-fb", "--output-root", str(output_root)]
+        ["--run-id", "smoke-fb", "--output-root", str(output_root),
+         "--transport", "stub"]
     )
     assert rc == 0
     captured = capsys.readouterr()
