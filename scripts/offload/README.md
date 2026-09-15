@@ -133,11 +133,9 @@ python3 /root/.openclaw/workspace/scripts/builder_quality_gate.py \
 ## Verification
 
 ```bash
-# Cycle 4 + 5 test surface (47 tests, ~3s):
+# Cycle 4 + 5 test surface (52 tests, ~3s):
 cd /home/TacoPants/projects/Ayumi
-python3 scripts/run_test_scope.sh tests/offload/
-
-# Or direct pytest:
+# Note: scripts/run_test_scope.sh does not accept raw test paths; use direct pytest.
 python3 -m pytest tests/offload/ -v
 ```
 
