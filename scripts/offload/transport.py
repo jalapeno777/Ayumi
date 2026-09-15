@@ -121,6 +121,12 @@ class Port8877StubTransport(BundleTransport):
         )
 
     def fetch_output(self, run_id: str, cell_id: str) -> bytes | None:
-        # v1 stub: no fetch implementation. Real impl wires either
-        # port-8877 GET (today) or terminal.upload GET (post-9.5).
-        return None
+        # Fix #3 (Rin): simulate-success path returns deterministic
+        # synthetic output bytes; the runner then persists them, computes
+        # sha256 (becomes output_hash), and writes its own output_path
+        # in the manifest. Real mode returns None (the stub raises
+        # WorktreeUnreachableError before this would be called in
+        # production).
+        if not self._simulate:
+            return None
+        return f"simulated-worker-output:{run_id}:{cell_id}\n".encode("utf-8")

@@ -53,6 +53,7 @@ from offload.manifest import (
 from offload.scoring import score_cell_local
 from offload.seed import cell_id, lock_files_hash
 from offload.transport import (
+    BundleTooLargeError,
     BundleTransport,
     BundleTransportError,
     CodeSHARejectedError,
@@ -164,9 +165,10 @@ def _run_one_cell(
             manifest_path = cell_out / "manifest.json"
             draft_path = cell_out / "manifest.draft.json"
 
-            # --resume: skip if a terminal manifest already exists (Q4.b).
-            # db_sha-drift detection is deferred to a follow-up; for now, any
-            # existing manifest with finished_at populated wins.
+            # --resume: skip ONLY if a terminal manifest exists AND its
+            # output is verifiable + SHA matches (Rin finding #4).
+            # Tampered or missing output → fall through to fresh run +
+            # log an audit row (output_hash_mismatch / output_path_missing).
             if args.resume:
                 if manifest_path.is_file():
                     try:
@@ -174,7 +176,38 @@ def _run_one_cell(
                             json.loads(manifest_path.read_text())
                         )
                         if prior.finished_at is not None:
-                            return prior, "skipped_resume"
+                            skip_verified = False
+                            if prior.output_path and prior.output_hash:
+                                out_p = Path(prior.output_path)
+                                if out_p.is_file():
+                                    actual = hashlib.sha256(
+                                        out_p.read_bytes()
+                                    ).hexdigest()
+                                    if actual == prior.output_hash:
+                                        skip_verified = True
+                                    else:
+                                        append_skipped(
+                                            output_root,
+                                            cell_id=cid,
+                                            reason="output_hash_mismatch",
+                                            expected=prior.output_hash,
+                                            actual=actual,
+                                            extra={
+                                                "prior_manifest": str(manifest_path),
+                                            },
+                                        )
+                                else:
+                                    append_skipped(
+                                        output_root,
+                                        cell_id=cid,
+                                        reason="output_path_missing",
+                                        expected=prior.output_path,
+                                        actual="<file not found>",
+                                    )
+                            # else: incomplete prior (no output_path/hash)
+                            # → fall through to fresh run.
+                            if skip_verified:
+                                return prior, "skipped_resume"
                     except (json.JSONDecodeError, KeyError):
                         pass  # corrupt prior — fall through to fresh run
                 elif draft_path.is_file():
@@ -196,7 +229,9 @@ def _run_one_cell(
             )
 
             try:
-                transport.push_bundle(args.run_id, bundle_path, bundle_sha)
+                worker_cell = transport.push_bundle(
+                    args.run_id, bundle_path, bundle_sha
+                )
             except CodeSHARejectedError:
                 # Q1 loud skew: log row + ABORT. Log BEFORE re-raise so the
                 # audit row is on disk even though no manifest is written.
@@ -207,6 +242,20 @@ def _run_one_cell(
                     expected=bundle_sha,
                     actual="<worker-side; see logs>",
                     extra={"git_sha": git_sha, "env_lock_hash": env_lock_hash_val},
+                )
+                raise
+            except BundleTooLargeError:
+                # Rin finding #1: BundleTooLargeError must FAIL LOUD, never
+                # trigger local fallback (Tomoe explicit at checkpoint 2
+                # sign-off). Audit row + propagate so the runner exits
+                # nonzero with NO fallback manifest written.
+                append_skipped(
+                    output_root,
+                    cell_id=cid,
+                    reason="bundle_too_large",
+                    expected=bundle_sha,
+                    actual=None,
+                    extra={"bundle_size_exceeded": "see worker logs"},
                 )
                 raise
             except BundleTransportError:
@@ -223,10 +272,56 @@ def _run_one_cell(
                 m.output_path = str(score_path)
                 status = "local_fallback"
             else:
-                # Remote dispatch succeeded. manifest records the dispatch only;
-                # output_hash stays None until cycle 4 wires worker-side retrieval.
+                # Fix #2 (Rin): validate the worker's reported SHA matches what
+                # we sent. Trust boundary; mismatch routes through
+                # CodeSHARejectedError semantics (audit row + ABORT, no
+                # fallback manifest).
+                if worker_cell.sha256 != bundle_sha:
+                    append_skipped(
+                        output_root,
+                        cell_id=cid,
+                        reason="code_skew",
+                        expected=bundle_sha,
+                        actual=worker_cell.sha256,
+                        extra={
+                            "validation": "post-push_bundle",
+                            "git_sha": git_sha,
+                            "env_lock_hash": env_lock_hash_val,
+                        },
+                    )
+                    raise CodeSHARejectedError(
+                        f"WorkerCell.sha256={worker_cell.sha256!r} != "
+                        f"expected {bundle_sha!r}"
+                    )
+
+                # Fix #3 (Rin): retrieve + persist + hash the worker's output.
+                # The runner's terminalize contract: every successful dispatch
+                # MUST carry output_path + output_hash (AC4).
+                output_bytes = transport.fetch_output(args.run_id, cid)
+                if output_bytes is None:
+                    append_skipped(
+                        output_root,
+                        cell_id=cid,
+                        reason="output_missing",
+                        expected="non-empty bytes",
+                        actual=None,
+                    )
+                    raise BundleTransportError(
+                        f"fetch_output returned None for cell {cid!r} after "
+                        f"successful push_bundle; refusing to terminalize "
+                        f"without output_hash (Rin finding #3 / AC4)"
+                    )
+
+                output_hash = hashlib.sha256(output_bytes).hexdigest()
+                output_path = cell_out / "output"
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(output_bytes)
+
+                m.output_path = str(output_path)
+                m.output_hash = output_hash
                 m.finished_at = datetime.now(timezone.utc).isoformat()
                 m.exit_code = 0
+                status = "dispatched"
                 status = "dispatched"
 
             atomic_write_manifest(m, cell_out)  # Q4.b POSIX-atomic, inside the lock

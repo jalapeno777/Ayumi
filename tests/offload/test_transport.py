@@ -153,13 +153,25 @@ def test_stub_synthetic_path_uses_run_id(tmp_path) -> None:
     assert "my-traceable-run" in cell.path
 
 
-def test_stub_fetch_output_returns_none() -> None:
-    """v1 stub doesn't implement output retrieval — always ``None``."""
+def test_stub_fetch_output_returns_simulated_bytes_when_simulating() -> None:
+    """Fix #3 (Rin): simulate-success path returns deterministic synthetic
+    bytes so the runner can compute output_hash from the worker's actual
+    output. Real mode (no ``simulate_success``) returns ``None`` — the stub
+    raises ``WorktreeUnreachableError`` before this would be called in
+    production.
+    """
+    stub_real = Port8877StubTransport(simulate_success=False)
+    assert stub_real.fetch_output(run_id="r1", cell_id="any-cell") is None
 
-    stub = Port8877StubTransport(simulate_success=False)
-    assert stub.fetch_output(run_id="r1", cell_id="any-cell") is None
     stub_sim = Port8877StubTransport(simulate_success=True)
-    assert stub_sim.fetch_output(run_id="r1", cell_id="any-cell") is None
+    out_a = stub_sim.fetch_output(run_id="rA", cell_id="cA")
+    out_b = stub_sim.fetch_output(run_id="rA", cell_id="cA")
+    out_c = stub_sim.fetch_output(run_id="rA", cell_id="cB")
+
+    assert out_a is not None
+    assert out_a == out_b, "deterministic: same args must produce same bytes"
+    assert out_a != out_c, "deterministic: different args must produce different bytes"
+    assert out_a.startswith(b"simulated-worker-output:"), "synthetic prefix"
 
 
 def test_stub_is_subclass_of_bundle_transport() -> None:
