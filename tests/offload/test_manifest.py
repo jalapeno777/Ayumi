@@ -16,7 +16,6 @@ import json
 import pathlib
 
 import pytest
-
 from offload.manifest import (
     Manifest,
     atomic_write_manifest,
