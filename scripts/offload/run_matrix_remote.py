@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -53,7 +54,6 @@ from offload.transport import (
     CodeSHARejectedError,
     Port8877StubTransport,
 )
-
 
 # v1 default output_root base (Q6(a) CLI > env > default). Subdir layout
 # (e.g. {manifests,scorecards,logs}/) deferred to cycle 3.
@@ -78,8 +78,9 @@ def _resolve_output_root(cli_root: str | None, repo_root: Path) -> Path:
 
 def _current_git_sha(repo_root: Path) -> str:
     """Pin dispatcher-side git_sha at dispatch time (Q4.e two-SHA split)."""
-    out = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+    git_bin = shutil.which("git") or "/usr/bin/git"
+    out = subprocess.run(  # noqa: S603 — args hardcoded; binary resolved via shutil.which w/ /usr/bin/git fallback (lint false positive)
+        [git_bin, "rev-parse", "HEAD"],
         cwd=str(repo_root),
         capture_output=True,
         text=True,
