@@ -108,14 +108,14 @@ def main(argv: list[str] | None = None) -> int:
         "fixture_worker_path": cell.path,
         "fixture_bundle_sha": cell.sha256,
         "fixture_size_bytes": fixture_path.stat().st_size,
-        "worker_scratch_root": f"/tmp/ayumi-offload/{args.run_id}",
+        "worker_scratch_root": f"/tmp/ayumi-offload/{args.run_id}",  # noqa: S108 — descriptive remote scratch root (matches run_matrix_remote.py convention)
         "cells": [
             {
                 "cell_id": _derive_cell_id(*c),
                 "strategy": c[0],
                 "symbol": c[1],
                 "timeframe": c[2],
-                "output_path": f"/tmp/ayumi-offload/{args.run_id}/{_derive_cell_id(*c)}/output.json",
+                "output_path": f"/tmp/ayumi-offload/{args.run_id}/{_derive_cell_id(*c)}/output.json",  # noqa: S108 — descriptive per-cell output path
             }
             for c in smoke_cells
         ],

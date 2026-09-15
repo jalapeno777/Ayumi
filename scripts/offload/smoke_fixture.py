@@ -26,7 +26,6 @@ DELEG-REF: c3134271-601e-42c2-9797-6407ae25048c
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import os
@@ -62,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     strategy = args.get("--strategy", "")
     symbol = args.get("--symbol", "")
     timeframe = args.get("--timeframe", "")
-    output_path = Path(args.get("--output", "/tmp/ayumi-offload/output.json"))
+    output_path = Path(args.get("--output", "/tmp/ayumi-offload/output.json"))  # noqa: S108 — default scratch path on worker (overridable via --output)
 
     if not (strategy and symbol and timeframe):
         print(
