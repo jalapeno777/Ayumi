@@ -46,6 +46,7 @@ class Manifest:
     git_sha: str
     env_lock_hash: str
     env_lock_files: list[str] = field(default_factory=list)  # Q3 flag
+    bundle_files: list[str] = field(default_factory=list)   # Tomoe watch 1: actual files in bundle
     db_sha: str | None = None
 
     # Execution
