@@ -109,14 +109,14 @@ class Port8877StubTransport(BundleTransport):
         if not self._simulate:
             raise WorktreeUnreachableError(
                 f"Port8877StubTransport: would push to "
-                f"/tmp/ayumi-offload/{run_id}/ — wire TBD post-9.5 upgrade; "
+                f"/tmp/ayumi-offload/{run_id}/ — wire TBD post-9.5 upgrade; "  # noqa: S108 — descriptive path only; stub raises before any FS access (Q2)
                 f"runner falls back to local execution"
             )
         # Simulate-success path: synthetic WorkerCell for ABC contract tests.
         # The dispatcher-side computed SHA is preserved so downstream
         # equality checks pass.
         return WorkerCell(
-            path=f"/tmp/ayumi-offload/{run_id}/bundle.simulated",
+            path=f"/tmp/ayumi-offload/{run_id}/bundle.simulated",  # noqa: S108 — descriptive synthetic path for ABC contract tests (Q2)
             sha256=expected_sha256,
         )
 
