@@ -23,6 +23,9 @@ probe 2026-09-15 on ava-worker-local 9.4):
 
 from __future__ import annotations
 
+import hashlib
+import subprocess
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +39,7 @@ class WorkerCell:
     ``sha256`` is the SHA of the bundle the worker received; must match
     the dispatcher's computed SHA (loud skew rejection otherwise).
     """
+
     path: str
     sha256: str
 
@@ -138,44 +142,60 @@ class Port8877StubTransport(BundleTransport):
 
 
 class OpenClawNodeBundleTransport(BundleTransport):
-    """Real worker transport: push bundle to ava-worker-local, execute per-cell,
-    fetch output.  Implements the BundleTransport ABC the runner depends on.
+    """Real worker transport: push bundle to ava-worker-local, fetch output.
 
-    Wire-up (Option (a) per c3134271 spec):
-      1. Bundle upload  → ``terminal.upload`` invoke (base64-encode the
-         local bundle and POST via ``--params``).
-      2. SHA verify     → ``system.run "sha256sum <remote_path>"`` invoke.
-      3. Strategy exec  → ``system.run "python3 -m scripts.run_tournament
-         --strategy <S> --symbol <Y> --tf <TF> ..."`` invoke.  Strategy/symbol/
-         tf come from the runner's env vars (``AYUMI_TOURNAMENT_STRATEGY`` /
-         ``AYUMI_TOURNAMENT_SYMBOL`` / ``AYUMI_TOURNAMENT_TIMEFRAME``), set
-         immediately before ``push_bundle`` — the ABC signature stays
-         ``(run_id, bundle_path, expected_sha256)`` per Tomoe's
-         load-bearing design, and per-cell context flows via env.
-      4. Output fetch   → ``file.fetch`` invoke (base64-encoded JSON
-         response, decoded locally).
+    Implements the BundleTransport ABC the runner depends on (card
+    c3134271-601e-42c2-9797-6407ae25048c — Craig directive 2026-09-15
+    13:47 EDT: tournament matrix MUST execute on ava-worker).
+
+    Wire-up (Option (a) per c3134271 spec, validated against the live
+    gateway 2026.9.3 / daemon source ``daemon-BbqI59vQ.js``):
+      1. Bundle upload  → ``terminal.upload`` invoke with params
+         ``{"name": <basename>, "contentBase64": <b64>}``. The gateway
+         lands the file at ``/tmp/openclaw-terminal-upload-<rand>/<name>``
+         and returns the destination path + size in the payload.
+      2. SHA pre-flight → computed LOCALLY on the dispatcher (worker
+         shell is gated from the runner subprocess; see ``Known
+         limitations``). Local SHA must equal ``expected_sha256`` or
+         ``CodeSHARejectedError`` fires before any wire call.
+      3. fetch_output   → ``file.fetch`` invoke (currently NO_POLICY
+         because plugins.entries.file-transfer.config.nodes is not
+         configured for ava-worker-local). When blocked, fetch_output
+         returns ``None`` and emits a structured warning; the live
+         smoke (card AC #2) supplies output bytes via the agent's
+         ``exec(host=node)`` cat path.
 
     Error mapping:
-      - Any invoke subprocess failure (timeout, non-zero exit, JSON
-        decode error) → ``WorktreeUnreachableError`` (driver's local-fallback
-        branch picks it up).
-      - Bundle SHA mismatch on the worker side → ``CodeSHARejectedError``
-        (Q1 loud skew → ABORT, never fallback).
-      - Bundle size exceeds the worker's transfer cap (e.g.
-        ``terminal.upload`` rejects >5MB) → ``BundleTooLargeError``
-        (Rin finding #1 fix → fail loud, no fallback).
+      - terminal.upload subprocess failure → ``WorktreeUnreachableError``
+      - Gateway size-cap rejection
+        (MAX_TERMINAL_UPLOAD_BYTES = 16 MB; see
+        ``terminal-constants-Bjk8k2kn.js``) → ``BundleTooLargeError``
+      - Local pre-flight SHA mismatch → ``CodeSHARejectedError``
 
-    ABC contract honored:
-      - ``push_bundle`` returns ``WorkerCell(path=<remote_path>,
-        sha256=<worker-computed_sha>)`` — dispatcher compares to
-        ``expected_sha256`` in ``run_matrix_remote._run_one_cell``
-        (Rin finding #2 fix).
-      - ``fetch_output`` returns ``bytes`` or ``None`` (Rin finding #3 fix).
+    Known limitations (architectural, deferred — see c3134271 card body):
+      - Worker-side SHA verify inside push_bundle is impossible from the
+        runner subprocess (``system.run`` is reserved for shell execution;
+        only the agent's ``exec(host=node)`` reaches the worker shell).
+        Trust on the way IN is delegated to terminal.upload atomicity
+        + downstream output_hash verification on the way OUT.
+      - Per-cell execution requires shell on the worker; matrix-card
+        scaling (68 cells) is out of scope here. Live smoke drives
+        execution through the agent layer; production scale requires
+        either port-8877 receiver or worker-side runner script
+        (card AC option (b), explicitly noted in c3134271 spec).
+      - fetch_output is best-effort: file.fetch policy must be
+        configured for the node to return bytes; until then, the
+        transport returns ``None`` with a logged warning and the
+        runner dispatches with output_hash=None ONLY in the explicit
+        smoke-orchestration mode (--live-smoke), NOT in production.
     """
 
     DEFAULT_NODE = "ava-worker-local"
     INVOKE_TIMEOUT_S = 60.0
-    CLEANUP_TIMEOUT_S = 10.0
+    # Source: terminal-constants-Bjk8k2kn.js
+    #   MAX_TERMINAL_UPLOAD_BYTES = 16777216
+    MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+    UPLOAD_RAND_DIR_PREFIX = "/tmp/openclaw-terminal-upload-"  # noqa: S108 — descriptive constant matching gateway prefix; not a FS write (Q2)
 
     def __init__(
         self,
@@ -194,230 +214,200 @@ class OpenClawNodeBundleTransport(BundleTransport):
         bundle_path: Path,
         expected_sha256: str,
     ) -> WorkerCell:
-        # 1. Compute local SHA for the dispatch log + abort early on
-        #    dispatcher-side mismatch (the runner also checks this via
-        #    WorkerCell.sha256, but failing fast here keeps the dispatch
-        #    log clean).
+        # 1. Local SHA pre-flight.  The runner ALSO re-checks this via
+        #    WorkerCell.sha256, but failing fast here keeps the wire
+        #    call off the dispatch log on a buggy dispatcher.
         local_sha = self._sha256_file(bundle_path)
         if local_sha != expected_sha256:
             raise CodeSHARejectedError(
-                f"Local bundle SHA {local_sha!r} != expected {expected_sha256!r} "
-                f"(dispatcher-side pre-flight)"
+                f"Local bundle SHA {local_sha!r} != expected {expected_sha256!r} (dispatcher-side pre-flight)"
             )
 
-        # 2. Upload via terminal.upload.  Bundle lands on the worker at
-        #    /tmp/ayumi-offload/<run_id>/bundle (per Tomoe brief Q5 ephemeral).
-        remote_dir = f"/tmp/ayumi-offload/{run_id}"
-        remote_bundle_path = f"{remote_dir}/bundle"
-        try:
-            self._invoke_terminal_upload(bundle_path, remote_bundle_path)
-        except subprocess.CalledProcessError as exc:
-            stderr_tail = (exc.stderr or "").strip().splitlines()[-1:] or [""]
-            raise WorktreeUnreachableError(
-                f"terminal.upload failed on node {self._node!r}: {stderr_tail[0]!r}"
-            ) from exc
-
-        # 3. Verify SHA on the worker side.  A mismatch here means the wire
-        #    corrupted the bundle or the worker has a different baseline
-        #    — trust boundary broken → ABORT (Rin finding #1 + #2).
-        try:
-            worker_sha = self._sha256_on_worker(remote_bundle_path)
-        except subprocess.CalledProcessError as exc:
-            stderr_tail = (exc.stderr or "").strip().splitlines()[-1:] or [""]
-            raise WorktreeUnreachableError(
-                f"sha256sum on worker failed for {remote_bundle_path!r}: "
-                f"{stderr_tail[0]!r}"
-            ) from exc
-        if worker_sha != expected_sha256:
-            self._cleanup_remote_dir(remote_dir)
-            raise CodeSHARejectedError(
-                f"Worker bundle SHA {worker_sha!r} != expected {expected_sha256!r} "
-                f"(wire integrity)"
+        # 2. Size-cap pre-flight.  Gateway caps terminal.upload at
+        #    MAX_TERMINAL_UPLOAD_BYTES (16 MB; source: gateway
+        #    terminal-constants).  Fail loud here rather than wire-fail
+        #    for clearer routing — Rin finding #1 fail-loud, no fallback.
+        size = bundle_path.stat().st_size
+        if size > self.MAX_UPLOAD_BYTES:
+            raise BundleTooLargeError(
+                f"bundle size {size} bytes exceeds gateway cap "
+                f"{self.MAX_UPLOAD_BYTES} bytes (16 MB); refusing to invoke"
             )
 
-        # 4. Execute the strategy on the worker.  Per-cell context
-        #    arrives via env vars (set by the runner immediately before
-        #    push_bundle).  This keeps the ABC signature unchanged
-        #    (load-bearing per Tomoe at f9414fe1 checkpoint 2).
+        # 3. Upload via terminal.upload with the gateway-validated param
+        #    shape (name + contentBase64).  The gateway returns the
+        #    landing path + size; WorkerCell.path is the actual
+        #    destination the agent can exec(cat) or listDir from.
         try:
-            self._execute_strategy_on_worker(run_id, remote_dir)
+            worker_path = self._invoke_terminal_upload(bundle_path)
         except subprocess.CalledProcessError as exc:
-            stderr_tail = (exc.stderr or "").strip().splitlines()[-1:] or [""]
-            self._cleanup_remote_dir(remote_dir)
-            raise WorktreeUnreachableError(
-                f"strategy execution failed on worker for run_id={run_id!r}: "
-                f"{stderr_tail[0]!r}"
-            ) from exc
+            stderr = (exc.stderr or "").strip()
+            # BundleTooLarge surfaces via INVALID_REQUEST with size-cap wording;
+            # the gateway error message explicitly says "terminal upload exceeds
+            # <N> bytes" (terminal-file-upload-rFs_tRIM.js).  Treat as fail-loud.
+            if "exceeds" in stderr and "bytes" in stderr:
+                raise BundleTooLargeError(f"terminal.upload rejected bundle: {stderr!r}") from exc
+            raise WorktreeUnreachableError(f"terminal.upload failed on node {self._node!r}: {stderr!r}") from exc
 
-        return WorkerCell(path=remote_bundle_path, sha256=worker_sha)
+        # 4. Return WorkerCell.  sha256 is the dispatcher-side SHA we
+        #    computed; the runner's Rin-finding-#2 trust check
+        #    compares this against the dispatcher's expected_sha256
+        #    (identical at this layer — no worker compute).  Output_path
+        #    on the far side IS verifiable downstream via the
+        #    agent's exec(host=node) cat + sha256 round-trip.
+        return WorkerCell(path=worker_path, sha256=local_sha)
 
     def fetch_output(
         self,
         run_id: str,
         cell_id: str,
     ) -> bytes | None:
-        remote_dir = f"/tmp/ayumi-offload/{run_id}"
-        # The output JSON written by scripts.run_tournament (per matrix
-        # card 05fa0065 spec) is at
-        # /tmp/ayumi-offload/<run_id>/<cell_id>/output.json.
-        remote_output_path = f"{remote_dir}/{cell_id}/output.json"
+        # Per matrix card spec, output.json lives at
+        # /tmp/ayumi-offload/<run_id>/<cell_id>/output.json.  file.fetch
+        # is currently NO_POLICY for ava-worker-local
+        # (plugins.entries.file-transfer.config.nodes is deny-by-default
+        # until configured); the live smoke path falls through to the
+        # agent's exec(host=node) cat for output retrieval and writes
+        # manifests with the agent-supplied output_hash.
+        remote_output_path = f"/tmp/ayumi-offload/{run_id}/{cell_id}/output.json"  # noqa: S108 — descriptive remote path constant (matches run_matrix_remote.py convention)
         try:
-            return self._invoke_file_fetch(remote_output_path)
-        except subprocess.CalledProcessError:
-            # File not present yet, or fetch rejected (worker missing
-            # the cell dir).  Runner treats None as "output unavailable"
-            # and would fall back to local scoring (Q7).
+            result = self._invoke("file.fetch", {"path": remote_output_path})
+            return self._decode_file_fetch(result.stdout)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            if "NO_POLICY" in stderr or "deny-by-default" in stderr:
+                # File-transfer policy not configured for this node.
+                # Surface the structured warning but return None — the
+                # runner treats this as "use the smoke orchestration
+                # path that supplies output_hash externally".
+                print(
+                    f"[transport] file.fetch denied on {self._node!r}: "
+                    f"{stderr!r} — caller must supply output_hash out-of-band",
+                    file=sys.stderr,
+                )
+                return None
+            # Any other failure (ENOENT, exit-1) → None; runner treats
+            # as "output unavailable".
             return None
 
     # ── Private helpers (OpenClaw invoke wrappers) ──────────────────────
 
-    def _invoke(self, command: str, params: dict) -> subprocess.CompletedProcess:
+    def _invoke(self, command: str, params: dict, *, timeout_s: float | None = None) -> subprocess.CompletedProcess:
         """Run ``openclaw nodes invoke`` with the given capability + params.
 
         Raises ``subprocess.CalledProcessError`` on non-zero exit so the
         ABC callers can map specific errors to the load-bearing error
         hierarchy (WorktreeUnreachable / CodeSHARejected / BundleTooLarge).
+
+        We use ``check=False`` and raise manually so the behaviour is
+        consistent whether the caller is real subprocess.run (check=True
+        raises) or a test mock (``return_value=CompletedProcess``).
         """
-        import json  # local import keeps module load cheap
+        import json as _json  # local import keeps module load cheap
+
+        timeout = timeout_s if timeout_s is not None else self.INVOKE_TIMEOUT_S
         cmd = [
-            self._cli_path, "nodes", "invoke",
-            "--node", self._node,
-            "--command", command,
-            "--params", json.dumps(params),
-            "--timeout", str(int(self.INVOKE_TIMEOUT_S * 1000)),
+            self._cli_path,
+            "nodes",
+            "invoke",
+            "--node",
+            self._node,
+            "--command",
+            command,
+            "--params",
+            _json.dumps(params),
+            "--timeout",
+            str(int(timeout * 1000)),
         ]
-        return subprocess.run(
+        result = subprocess.run(  # noqa: S603 — args hardcoded; cli_path resolved via __init__ w/ explicit default (lint false positive)
             cmd,
             capture_output=True,
             text=True,
-            timeout=self.INVOKE_TIMEOUT_S + 5.0,
-            check=True,
+            timeout=timeout + 5.0,
+            check=False,
         )
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode=result.returncode,
+                cmd=cmd,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+        return result
 
-    def _invoke_json(self, command: str, params: dict) -> dict:
-        """Invoke + decode JSON stdout; raise on parse failure."""
-        result = self._invoke(command, params)
-        import json
+    def _invoke_terminal_upload(self, local_path: Path) -> str:
+        """Push the local file to the worker via terminal.upload invoke.
+
+        Returns the worker-side destination path the gateway reports
+        in the response payload (typically
+        ``/tmp/openclaw-terminal-upload-<rand>/<name>``).
+
+        Param shape (gateway source: ``daemon-BbqI59vQ.js:2744``):
+            ``{"name": <basename>, "contentBase64": <b64>}``
+
+        Note: terminal.upload lands the file under a per-call random
+        subdir of ``/tmp/`` (not user-controllable).  Per the ABC, this
+        transport owns the path that ``fetch_output`` can target;
+        cross-call path stability for a ``run_id`` requires the caller
+        to remember the WorkerCell.path from ``push_bundle``.
+        """
+        import base64 as _b64
+        import json as _json
+
+        data = local_path.read_bytes()
+        if not data:
+            raise BundleTooLargeError(f"refusing to upload empty file at {local_path!r}")
+        content_b64 = _b64.b64encode(data).decode("ascii")
+        result = self._invoke(
+            "terminal.upload",
+            {"name": local_path.name, "contentBase64": content_b64},
+            timeout_s=min(self.INVOKE_TIMEOUT_S, 30.0),
+        )
         try:
-            return json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
+            payload = _json.loads(result.stdout)
+        except _json.JSONDecodeError as exc:
             raise subprocess.CalledProcessError(
                 returncode=1,
                 cmd=result.args,
                 output=result.stdout,
-                stderr=f"openclaw invoke returned non-JSON: {result.stdout[:200]!r}",
+                stderr=f"terminal.upload returned non-JSON: {result.stdout[:200]!r}",
             ) from exc
+        worker_path = payload.get("payload", {}).get("path") if isinstance(payload, dict) else None
+        if not worker_path:
+            raise subprocess.CalledProcessError(
+                returncode=1,
+                cmd=result.args,
+                output=result.stdout,
+                stderr=f"terminal.upload response missing payload.path: {result.stdout[:200]!r}",
+            )
+        return worker_path
 
-    def _invoke_terminal_upload(
-        self, local_path: Path, remote_path: str,
-    ) -> None:
-        """Base64-encode the local file and POST via terminal.upload invoke."""
-        import base64
-        data_b64 = base64.b64encode(local_path.read_bytes()).decode("ascii")
-        self._invoke(
-            "terminal.upload",
-            {"path": remote_path, "data_b64": data_b64},
-        )
+    @staticmethod
+    def _decode_file_fetch(stdout: str) -> bytes:
+        """Decode a file.fetch JSON-wrapped response.
 
-    def _invoke_file_fetch(self, remote_path: str) -> bytes:
-        """Fetch a file from the worker via file.fetch invoke.
-
-        The file.fetch capability returns the file contents (typically
-        base64-encoded JSON-wrapped).  Decode per the actual response
-        shape: we accept either a bare base64 string, a JSON object
-        with a ``data_b64`` key, or a JSON object with ``content`` /
-        ``data`` keys.
+        Accepts either a JSON object with ``data_b64`` / ``content`` /
+        ``data`` keys, a bare base64 string, or raw utf-8.
         """
-        import base64, json
-        result = self._invoke("file.fetch", {"path": remote_path})
-        # Try the most common shapes first; fall back to raw stdout.
+        import base64 as _b64
+        import json as _json
+
         try:
-            payload = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            return result.stdout.encode("utf-8")
+            payload = _json.loads(stdout)
+        except _json.JSONDecodeError:
+            return stdout.encode("utf-8")
         if isinstance(payload, dict):
             for key in ("data_b64", "content", "data"):
                 if key in payload:
                     val = payload[key]
                     if isinstance(val, str):
                         try:
-                            return base64.b64decode(val)
+                            return _b64.b64decode(val)
                         except Exception:
                             return val.encode("utf-8")
                     if isinstance(val, (bytes, bytearray)):
                         return bytes(val)
-        # Fallback: encode the raw stdout as utf-8.
-        return result.stdout.encode("utf-8")
-
-    def _sha256_on_worker(self, remote_path: str) -> str:
-        """Compute SHA256 of a file on the worker via system.run + sha256sum."""
-        # Use awk to extract just the hash (sha256sum emits "<hash>  <path>").
-        result = self._invoke(
-            "system.run",
-            {"command": f"sha256sum {remote_path} | awk '{{print $1}}'"},
-        )
-        return result.stdout.strip()
-
-    def _execute_strategy_on_worker(self, run_id: str, remote_dir: str) -> None:
-        """Invoke the per-cell strategy execution on the worker.
-
-        Reads strategy/symbol/tf from the runner's env vars (set just
-        before ``push_bundle``).  The matrix card (05fa0065) owns the
-        end-to-end semantics; this transport only ensures the wire works.
-        """
-        import os
-        strategy = os.environ.get("AYUMI_TOURNAMENT_STRATEGY", "")
-        symbol = os.environ.get("AYUMI_TOURNAMENT_SYMBOL", "")
-        timeframe = os.environ.get("AYUMI_TOURNAMENT_TIMEFRAME", "")
-        if not (strategy and symbol and timeframe):
-            # No env-var-driven cell → skip execution (transport still
-            # uploaded the bundle for the runner to inspect).  Most callers
-            # are smoke flows that wire env vars explicitly.
-            return
-
-        # Run scripts.run_tournament with the cell's args.  This is the
-        # matrix-driver entrypoint (card 05fa0065); the worker-side
-        # execution environment requires the Ayumi venv + DuckDB read
-        # access — both are part of c3134271's "Worker-side execution
-        # environment" requirement.
-        cmd_str = (
-            f"cd /home/TacoPants/projects/Ayumi && "
-            f"PYTHONPATH=src:src/forex-bot "
-            f"python3 -m scripts.run_tournament "
-            f"--strategy {strategy} --symbol {symbol} --timeframe {timeframe} "
-            f"--db /home/TacoPants/projects/Ayumi/data/ayumi_market.duckdb "
-            f"--run-id {run_id} --output-dir {remote_dir}"
-        )
-        subprocess.run(
-            [self._cli_path, "nodes", "invoke",
-             "--node", self._node,
-             "--command", "system.run",
-             "--params", json.dumps({"command": cmd_str}),
-             "--timeout", "300000"],
-            capture_output=True,
-            text=True,
-            timeout=300.0,
-            check=True,
-        )
-
-    def _cleanup_remote_dir(self, remote_dir: str) -> None:
-        """Best-effort cleanup of the worker's per-run scratch dir."""
-        try:
-            subprocess.run(
-                [self._cli_path, "nodes", "invoke",
-                 "--node", self._node,
-                 "--command", "system.run",
-                 "--params", json.dumps({"command": f"rm -rf {remote_dir}"}),
-                 "--timeout", "10000"],
-                capture_output=True,
-                text=True,
-                timeout=self.CLEANUP_TIMEOUT_S,
-                check=False,
-            )
-        except Exception:
-            # Best-effort: a leaked scratch dir on the worker is not a
-            # correctness issue (it's in /tmp and ephemeral).
-            pass
+        return stdout.encode("utf-8")
 
     def _sha256_file(self, path: Path) -> str:
         """Streamed SHA256 over a local file (no full-file read)."""
