@@ -357,7 +357,10 @@ def _ch_log_rotation_state() -> CheckResult:
             "System Health",
             "WARN",
             "rotation state file missing — cron has never run scripts/rotate_logs.py",
-            auto_remediation="A2 — run `python3 scripts/rotate_logs.py --dry-run` to verify; register the weekly cron entry",
+            auto_remediation=(
+                "A2 — run scripts/rotate_logs.py --dry-run to verify; "
+                "register the weekly cron entry"
+            ),
             notes="Card 2ecfc254 logs the rotation policy. Cron entry lands in the same merge.",
         )
     try:

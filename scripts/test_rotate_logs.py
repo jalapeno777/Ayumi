@@ -185,8 +185,6 @@ class RotateLogsTests(unittest.TestCase):
             self.assertEqual(fin.read(), original)
 
     def test_main_returns_hard_failure_for_missing_root(self) -> None:
-        import os
-
         missing = self.tmp / "nope"
         rc = rotate_logs.main(
             [
