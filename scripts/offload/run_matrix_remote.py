@@ -31,10 +31,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Allow running this script directly (python3 scripts/offload/run_matrix_remote.py)
@@ -42,11 +44,13 @@ from pathlib import Path
 # module-load time; benefit is the simpler user-facing invocation.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from offload.dispatch_skipped import append_skipped
 from offload.manifest import (
     Manifest,
     atomic_write_manifest,
     per_cell_lock,
 )
+from offload.scoring import score_cell_local
 from offload.seed import cell_id, lock_files_hash
 from offload.transport import (
     BundleTransport,
@@ -132,17 +136,42 @@ def _run_one_cell(
     bundle_path: Path,
     bundle_sha: str,
     bundle_files: list[str],
-) -> Manifest:
-    """Dispatch one cell; returns the atomic-written manifest.
+    current_db_sha: str | None = None,
+) -> tuple[Manifest, str]:
+    """Dispatch one cell; returns ``(manifest, status)``.
 
-    Q1 skew raises CodeSHARejectedError (loud ABORT, never fallback).
-    Q2 WorktreeUnreachableError + other BundleTransportError → set
-    local_fallback=True and continue (Q7: same schema, observability only).
+    Status values:
+      - ``"dispatched"``       — remote path succeeded (Q2 happy)
+      - ``"local_fallback"``   — transport errored; local score emitted (Q7)
+      - ``"skipped_resume"``   — ``--resume`` hit a terminal manifest (Q4.b)
+
+    Q1 loud skew (``CodeSHARejectedError``) → log to dispatch_skipped.jsonl
+    + ABORT (re-raises; no atomic write; nothing recorded as "skipped").
     """
     cid = cell_id(strategy, symbol, timeframe)
     cell_out = output_root / cid
 
     with per_cell_lock(cell_out):
+        manifest_path = cell_out / "manifest.json"
+        draft_path = cell_out / "manifest.draft.json"
+
+        # --resume: skip if a terminal manifest already exists (Q4.b).
+        # db_sha-drift detection is deferred to a follow-up; for now, any
+        # existing manifest with finished_at populated wins.
+        if args.resume:
+            if manifest_path.is_file():
+                try:
+                    prior = Manifest.from_dict(
+                        json.loads(manifest_path.read_text())
+                    )
+                    if prior.finished_at is not None:
+                        return prior, "skipped_resume"
+                except (json.JSONDecodeError, KeyError):
+                    pass  # corrupt prior — fall through to fresh run
+            elif draft_path.is_file():
+                # In-flight per Q4.b — refuse to clobber an in-progress cell.
+                return Manifest(), "skipped_resume"
+
         m = Manifest(
             cell_id=cid,
             seed=cid,                    # Q4 v1: cell_id == seed (binding)
@@ -153,21 +182,46 @@ def _run_one_cell(
             env_lock_hash=env_lock_hash_val,
             env_lock_files=env_lock_files_names,
             bundle_files=bundle_files,   # Tomoe watch item 1
-            db_sha=None,
+            db_sha=current_db_sha,
             local_fallback=False,
         )
 
         try:
             transport.push_bundle(args.run_id, bundle_path, bundle_sha)
         except CodeSHARejectedError:
-            # Q1 loud skew: ABORT, never fallback.
+            # Q1 loud skew: log row + ABORT. Log BEFORE re-raise so the
+            # audit row is on disk even though no manifest is written.
+            append_skipped(
+                output_root,
+                cell_id=cid,
+                reason="code_skew",
+                expected=bundle_sha,
+                actual="<worker-side; see logs>",
+                extra={"git_sha": git_sha, "env_lock_hash": env_lock_hash_val},
+            )
             raise
         except BundleTransportError:
-            # WorktreeUnreachableError + everything else → local fallback (Q7).
+            # Q2 unreachable → local-fallback score + flag (Q7 observability,
+            # not control flow). Same scorecard schema as the remote path.
             m.local_fallback = True
+            score_path = cell_out / "scorecard.json"
+            score_cell_local(
+                strategy=strategy, symbol=symbol, timeframe=timeframe,
+                seed=cid, output_path=score_path,
+            )
+            m.finished_at = datetime.now(timezone.utc).isoformat()
+            m.exit_code = 0
+            m.output_path = str(score_path)
+            status = "local_fallback"
+        else:
+            # Remote dispatch succeeded. manifest records the dispatch only;
+            # output_hash stays None until cycle 4 wires worker-side retrieval.
+            m.finished_at = datetime.now(timezone.utc).isoformat()
+            m.exit_code = 0
+            status = "dispatched"
 
-    atomic_write_manifest(m, cell_out)  # Q4.b POSIX-atomic
-    return m
+        atomic_write_manifest(m, cell_out)  # Q4.b POSIX-atomic, inside the lock
+        return m, status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -191,7 +245,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--resume", action="store_true",
-        help=argparse.SUPPRESS,  # cycle 3 will populate
+        help=(
+            "Skip cells whose terminal manifest already exists at "
+            "{output_root}/{cell_id}/manifest.json (Q4.b). Does NOT yet "
+            "detect db_sha drift (deferred to a follow-up; for now, any "
+            "existing terminal manifest is reused as-is)."
+        ),
     )
     parser.add_argument("--worker", default="ava-worker-local")
     parser.add_argument(
@@ -214,9 +273,9 @@ def main(argv: list[str] | None = None) -> int:
         else Port8877StubTransport()  # raises on real invoke → drives local fallback
     )
 
-    manifests: list[Manifest] = []
+    statuses: list[str] = []
     for strategy, symbol, timeframe in SMOKE_MATRIX:
-        m = _run_one_cell(
+        _m, status = _run_one_cell(
             strategy=strategy,
             symbol=symbol,
             timeframe=timeframe,
@@ -230,15 +289,15 @@ def main(argv: list[str] | None = None) -> int:
             bundle_sha=bundle_sha,
             bundle_files=bundle_files,
         )
-        manifests.append(m)
+        statuses.append(status)
 
     # CLI summary (Q7 — observability; never silent).
-    n_total = len(manifests)
-    n_local = sum(1 for m in manifests if m.local_fallback)
-    if n_local:
-        print(f"{n_total}/{n_total} cells: local fallback (worker unreachable)")
-    else:
-        print(f"{n_total}/{n_total} cells: dispatched")
+    n_total = len(statuses)
+    counts: dict[str, int] = {}
+    for s in statuses:
+        counts[s] = counts.get(s, 0) + 1
+    breakdown = ", ".join(f"{v} {k}" for k, v in sorted(counts.items()))
+    print(f"{n_total}/{n_total} cells: {breakdown}")
     return 0
 
 
