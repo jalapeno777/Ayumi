@@ -21,8 +21,6 @@ import sys
 import threading
 from pathlib import Path
 
-import pytest
-
 from offload.run_matrix_remote import (
     SMOKE_MATRIX,
     _run_one_cell,
@@ -193,7 +191,7 @@ def test_parallel_resume_exactly_once(tmp_path: Path, capsys) -> None:
             env_lock_files_names=[
                 "requirements.txt", "requirements-duckdb.txt",
             ],
-            bundle_path=Path("/tmp/no-bundle"),
+            bundle_path=Path("/tmp/no-bundle"),  # noqa: S108 — descriptive test fixture (no FS op; same family as cycle 1 fca6a63b fix)
             bundle_sha="deadbeef",
             bundle_files=[],
         )

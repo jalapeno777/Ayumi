@@ -22,17 +22,15 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from offload.transport import (
+    BundleTooLargeError,
     BundleTransport,
     BundleTransportError,
-    BundleTooLargeError,
     CodeSHARejectedError,
     Port8877StubTransport,
-    WorktreeUnreachableError,
     WorkerCell,
+    WorktreeUnreachableError,
 )
-
 
 # ---------------------------------------------------------------------------
 # WorkerCell dataclass (frozen)
@@ -41,7 +39,7 @@ from offload.transport import (
 
 def test_worker_cell_is_frozen() -> None:
     """``WorkerCell`` is ``frozen=True``; attribute assignment raises."""
-    cell = WorkerCell(path="/tmp/ayumi-offload/r1/bundle.simulated", sha256="deadbeef")
+    cell = WorkerCell(path="/tmp/ayumi-offload/r1/bundle.simulated", sha256="deadbeef")  # noqa: S108 — descriptive test fixture (no FS op; same family as cycle 1 fca6a63b fix)
     with pytest.raises(dataclasses.FrozenInstanceError):
         cell.sha256 = "newhash"  # type: ignore[misc]
 
@@ -157,7 +155,6 @@ def test_stub_synthetic_path_uses_run_id(tmp_path) -> None:
 
 def test_stub_fetch_output_returns_none() -> None:
     """v1 stub doesn't implement output retrieval — always ``None``."""
-    from pathlib import Path
 
     stub = Port8877StubTransport(simulate_success=False)
     assert stub.fetch_output(run_id="r1", cell_id="any-cell") is None
