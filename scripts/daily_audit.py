@@ -343,6 +343,83 @@ def _ch_log_error_rate() -> CheckResult:
     )
 
 
+def _ch_log_rotation_state() -> CheckResult:
+    """SH-009: surface forward-test log rotation state from rotate_logs.py.
+
+    Reads ``logs/archive/.rotation_state.json`` (written by the rotation
+    cron) and surfaces stale runs or script errors. State file is the
+    single source of truth for whether rotation is keeping up.
+    """
+    state_path = ROOT / "logs" / "archive" / ".rotation_state.json"
+    if not state_path.exists():
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "WARN",
+            "rotation state file missing — cron has never run scripts/rotate_logs.py",
+            auto_remediation=(
+                "A2 — run scripts/rotate_logs.py --dry-run to verify; "
+                "register the weekly cron entry"
+            ),
+            notes="Card 2ecfc254 logs the rotation policy. Cron entry lands in the same merge.",
+        )
+    try:
+        payload = json.loads(state_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "WARN",
+            f"rotation state unreadable: {exc}",
+        )
+    last_run_at = payload.get("last_run_at")
+    if not last_run_at:
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "WARN",
+            "rotation state file has no last_run_at field",
+        )
+    try:
+        last_run = datetime.fromisoformat(last_run_at)
+    except ValueError:
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "WARN",
+            f"rotation last_run_at unparseable: {last_run_at}",
+        )
+    if last_run.tzinfo is None:
+        last_run = last_run.replace(tzinfo=timezone.utc)
+    age = datetime.now(timezone.utc) - last_run
+    age_days = age.total_seconds() / 86400.0
+    archived = payload.get("archived_count", 0)
+    purged = payload.get("purged_count", 0)
+    if age_days > 14:
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "CRITICAL",
+            f"rotation last run {age_days:.1f}d ago (>{14}d threshold); archived={archived}, purged={purged}",
+            auto_remediation="A3 — verify cron registration; rerun scripts/rotate_logs.py manually",
+            escalated=True,
+        )
+    if age_days > 8:
+        return CheckResult(
+            "SH-009",
+            "System Health",
+            "WARN",
+            f"rotation last run {age_days:.1f}d ago (>8d cron slack); archived={archived}, purged={purged}",
+            auto_remediation="A2 — verify cron registration; rerun scripts/rotate_logs.py",
+        )
+    return CheckResult(
+        "SH-009",
+        "System Health",
+        "OK",
+        f"rotation last run {age_days:.1f}d ago; archived={archived}, purged={purged}",
+    )
+
+
 # ── Trading Health (FT-NNN) — use FTMOGuard + state ────────────────────────
 
 
@@ -1315,6 +1392,7 @@ def run_all_checkpoints(detector: DriftDetector | None = None) -> list[CheckResu
     checks.append(_ch_stale_pid_files())  # SH-005
     checks.append(_ch_disk())  # SH-004
     checks.append(_ch_log_error_rate())  # SH-008
+    checks.append(_ch_log_rotation_state())  # SH-009
 
     # Trading Health
     checks.append(_ch_ft_daily_dd(ROOT / "data" / "state" / "risk_guard_state.json"))  # FT-003

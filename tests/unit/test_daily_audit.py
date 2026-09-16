@@ -42,6 +42,7 @@ from daily_audit import (
     _ch_ft_open_positions_vs_limits,
     _ch_ft_order_rejection_rate,
     _ch_ft_slippage_analysis,
+    _ch_log_rotation_state,
     _get_market_status,
     run_all_checkpoints,
 )
@@ -771,8 +772,12 @@ class TestFT011OrderRejectionRate:
 
 
 class TestRunAllCheckpoints:
-    def test_returns_25_checkpoints(self, tmp_data_root):
-        """Verify run_all_checkpoints returns exactly 25 results."""
+    def test_returns_26_checkpoints(self, tmp_data_root):
+        """Verify run_all_checkpoints returns exactly 26 results.
+
+        26 = 25 historical + SH-009 added by card 2ecfc254 (forward-test
+        log rotation audit hook).
+        """
         # We need to mock DriftDetector since it requires workboard access
         with patch("daily_audit.DriftDetector") as MockDetector:
             mock_instance = MagicMock()
@@ -782,7 +787,7 @@ class TestRunAllCheckpoints:
 
             results = run_all_checkpoints(mock_instance)
 
-            assert len(results) == 25, f"Expected 25 checkpoints, got {len(results)}"
+            assert len(results) == 26, f"Expected 26 checkpoints, got {len(results)}"
 
             # Verify all have valid statuses (no SKIP)
             for r in results:
@@ -1002,3 +1007,127 @@ class TestDH005WeekendBehavior:
             result = _ch_dh_signal_stats_write_health()
         assert result.status == "CRITICAL"
         assert result.escalated
+
+
+# ── SH-009: Log Rotation State ─────────────────────────────────────────────
+
+
+class TestSH009LogRotationState:
+    """Card 2ecfc254 — forward-test log rotation audit hook."""
+
+    def test_missing_state_file(self, tmp_data_root):
+        # No state file written — cron has never run.
+        result = _ch_log_rotation_state()
+        assert result.check_id == "SH-009"
+        assert result.status == "WARN"
+        assert "missing" in result.detail.lower()
+
+    def test_healthy_recent_run(self, tmp_data_root):
+        # State file with last_run_at = 1 day ago → OK.
+        recent = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "last_run_at": recent,
+                "archived_count": 6,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "OK"
+        assert "archived=6" in result.detail
+        assert "purged=0" in result.detail
+
+    def test_stale_run_warns(self, tmp_data_root):
+        # State file with last_run_at = 10 days ago → WARN (>8d slack).
+        stale = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "last_run_at": stale,
+                "archived_count": 0,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "WARN"
+        assert "10" in result.detail
+
+    def test_very_stale_run_critical(self, tmp_data_root):
+        # State file with last_run_at = 30 days ago → CRITICAL (>14d).
+        ancient = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "last_run_at": ancient,
+                "archived_count": 0,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "CRITICAL"
+        assert result.escalated is True
+
+    def test_unparseable_last_run_at(self, tmp_data_root):
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "last_run_at": "not-a-timestamp",
+                "archived_count": 0,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "WARN"
+        assert "unparseable" in result.detail.lower()
+
+    def test_naive_timestamp_treated_as_utc(self, tmp_data_root):
+        # State file written by older rotate_logs version with naive ISO.
+        naive = (datetime.now(timezone.utc) - timedelta(days=2)).replace(tzinfo=None).isoformat()
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "last_run_at": naive,
+                "archived_count": 3,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "OK"
+
+    def test_missing_last_run_at_field(self, tmp_data_root):
+        _write_json(
+            tmp_data_root / "logs" / "archive" / ".rotation_state.json",
+            {
+                "archived_count": 0,
+                "purged_count": 0,
+                "dry_run": False,
+            },
+        )
+        result = _ch_log_rotation_state()
+        assert result.status == "WARN"
+        assert "last_run_at" in result.detail
+
+    def test_unreadable_state_file(self, tmp_data_root):
+        # Write a directory where the state file should be — open() fails.
+        state_dir = tmp_data_root / "logs" / "archive"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / ".rotation_state.json").mkdir()  # dir, not file
+        result = _ch_log_rotation_state()
+        assert result.status == "WARN"
+        assert "unreadable" in result.detail.lower()
+
+    def test_run_all_checkpoints_includes_sh009(self, tmp_data_root):
+        # Confirms SH-009 is wired into the orchestrator (line added in
+        # run_all_checkpoints after SH-008).
+        checks = run_all_checkpoints(detector=MagicMock())
+        ids = [c.check_id for c in checks]
+        assert "SH-008" in ids
+        assert "SH-009" in ids
+        # SH-009 should land immediately after SH-008 in the ordering.
+        assert ids.index("SH-009") == ids.index("SH-008") + 1
