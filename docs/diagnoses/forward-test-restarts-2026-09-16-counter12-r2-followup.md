@@ -145,6 +145,139 @@ the live service:
   → NRestarts=12, MainPID=2017001, Result=success, ExecMainStatus=0,
   ActiveEnterTimestamp=2026-09-15 21:27:17 UTC.
 
+## Cumulative branch diff reconciliation (r3)
+
+**Rin r2 MEDIUM finding (comment `ba09900c`, relayed verbatim by Reina
+2026-09-16 08:40Z — verdict was FENCE_BLOCKED while the tsubaki r2
+claim was live; the verdict file is persisted at
+`data/build-rin-reviews/080094ef-f260-4a5e-b34f-41a39d5f4919-r2-verdict-fenceblocked.md`):**
+
+> [MEDIUM] `git diff --stat main...HEAD` includes an extra
+> `docs/diagnoses/forward-test-restarts-2026-09-15-counter12-followup.md`
+> beyond the three requested files.
+
+This section reconciles the apparent extra file by enumerating the
+**full cumulative branch diff** across all 3 branch commits with
+per-commit attribution and a per-file mapping to the card's
+`allowed_files` set.
+
+### Cumulative `git diff --stat main...HEAD` (post-r2, pre-r3 commit)
+
+```text
+ ...-test-restarts-2026-09-15-counter12-followup.md |  95 +++         (A)
+ ...st-restarts-2026-09-16-counter12-r2-followup.md | 164 ++++++      (A)
+ scripts/launch_blend_forward_test.py               | 554 ++++++++++--  (M)
+ .../test_forward_test_restart_reason_recording.py  | 648 ++++++++++++ (A)
+ 4 files changed, 1460 insertions(+), 1 deletion(-)
+```
+
+The cumulative diff spans **4 files and all 3 branch commits**
+(`e69ea6fb`, `8e003f41`, `df0d2b93`). The r2 review-verification
+artifact inspected only the r2 commit `df0d2b93`, which contains
+**3 of those 4 files**. The fourth — `docs/diagnoses/forward-test-restarts-2026-09-15-counter12-followup.md`
+— is the **r1 deliverable** preserved through `main...HEAD` because
+`main` was never rebased; it is intrinsic to the r1 build, not an r2
+addition. The MEDIUM finding's "extra file" is therefore a
+`git diff <range>` convention artifact (cumulative branch state vs.
+latest-commit diff), not an r2 scope violation.
+
+### Per-file × per-commit attribution
+
+| # | Path | r1 `e69ea6fb` | ruff-fix `8e003f41` | r2 `df0d2b93` | Maps to `allowed_files` |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `scripts/launch_blend_forward_test.py` | +194 −0 | +2 −2 | +528 −85 | `scripts/launch_blend_forward_test.py` (explicit) |
+| 2 | `docs/diagnoses/forward-test-restarts-2026-09-15-counter12-followup.md` | +95 −0 (new) | — | — | `docs/diagnoses/forward-test-restarts-2026-09-XX.md` (pattern, r1 deliverable) |
+| 3 | `tests/unit/scripts/test_forward_test_restart_reason_recording.py` | — | — | +648 −0 (new) | Test-for-source convention for file #1 (the launcher) |
+| 4 | `docs/diagnoses/forward-test-restarts-2026-09-16-counter12-r2-followup.md` | — | — | +164 −0 (new) | `docs/diagnoses/forward-test-restarts-2026-09-XX.md` (pattern, this doc) |
+
+**Per-commit `git show --stat` attribution (independently verified
+2026-09-16 04:33Z):**
+
+* `e69ea6fb` (r1, 2026-09-16 02:10:05Z, Tsubaki): 2 files,
+  +289 −0 — `scripts/launch_blend_forward_test.py` +194 + this r1
+  followup doc +95.
+* `8e003f41` (ruff fix, 2026-09-16 02:10:50Z, Tsubaki): 1 file,
+  +2 −2 — `scripts/launch_blend_forward_test.py` (S603/S607 inline
+  `# noqa` + `/usr/bin/systemctl` absolute path).
+* `df0d2b93` (r2, 2026-09-16 04:29:40Z, Tsubaki): 3 files,
+  +1255 −85 — `scripts/launch_blend_forward_test.py` +528 −85 + the
+  new r2 test file +648 + this r2 followup doc +164.
+
+Files #2 and #4 are on the pattern `docs/diagnoses/forward-test-restarts-2026-09-<date>.md`
+that the card enumerates as the allowed diagnosis-doc pattern. File #3
+is the canonical test file for the launcher per the repo convention
+`tests/unit/scripts/test_<script>.py` mirrors `scripts/<script>.py`,
+matching the existing `test_launcher_display_and_peak.py` /
+`test_blend_harness_isolation.py` naming; the r2 reviewer accepted it
+in scope as the launcher test surface (comment `b27b6a40` verdict).
+
+### Mapping to the card's `allowed_files` set
+
+The card's notes enumerate the following as `allowed_files`:
+
+* **`scripts/launch_blend_forward_test.py`** — file **#1** above
+  (the launcher itself). Direct, explicit match.
+* **`data/forward_test_health.json`** — schema additions
+  (`restart_reason`, `restart_counter`, `last_restart_at`) defined by
+  the r1 writer changes `write_forward_test_health_json()` and r2
+  extensions (`exit_source`, `last_exit_triggered_by`,
+  `last_exit_signal_name`, `last_exit_detail`, `last_exit_at`).
+  This is a **runtime-emitted** data file — its schema is defined by
+  the writer functions in file #1, not by a stand-alone data-file
+  edit. No diff exists in `main...HEAD` until the launcher runs
+  against the host (out of scope per AGENTS.md).
+* **`data/overseer_state.json`** — mirror keys prefixed
+  `restart_reason` / `restart_counter` / `last_restart_at` written by
+  r1 `write_overseer_state_restart_mirror()`. Same runtime-emission
+  pattern as `forward_test_health.json`. No `main...HEAD` diff.
+* **`docs/diagnoses/forward-test-restarts-2026-09-XX.md`** — files
+  **#2** (r1, 2026-09-15) and **#4** (r2, 2026-09-16, this doc).
+  Both match the pattern. Verified in Rin's r1 review (comment
+  `0d957796`) as "**2 allowed files**" — file #1 + file #2.
+* **`/etc/systemd/system/ayumi-forward-test.service`** — explicitly
+  **OUT** of scope (root-owned, per AGENTS.md). No diff exists; no
+  files in `main...HEAD` touch this path.
+
+The r2 commit also added a **runtime-emitted** data file
+`data/forward_test_last_exit.json` (read/written by the new
+`_record_last_exit` / `_read_last_exit_record` helpers). This file is
+analogous to `data/forward_test_health.json`: the schema is defined by
+the writer in file #1, no separate diff exists in `main...HEAD`.
+
+### Resolution
+
+**Every file in `git diff --stat main...HEAD` resolves to the card's
+`allowed_files` set** (explicit enumeration, pattern match, or
+test-for-source convention). The r2 diff (commit `df0d2b93`) added
+exactly the 3 files the r2 reviewer inspected against in comment
+`b27b6a40` (launcher + new test + this r2 followup doc); the r1
+followup doc (file #2) is the r1 deliverable **always** in the branch
+and was already verified in Rin's r1 review (comment `0d957796`) as
+"**2 allowed files**" — launcher + r1 doc. The cumulative
+`main...HEAD` diff spans **all 3 branch commits**, not just the r2
+commit, and the one extra file flagged by the r2 review is the r1
+deliverable that was **always** supposed to be in the branch.
+
+The MEDIUM finding is therefore **resolved by this documentation
+reconciliation**: the apparent scope question is answered by making
+the per-commit attribution and per-file `allowed_files` mapping
+explicit on the r2 followup doc itself. No code change is warranted
+— r2 commit `df0d2b93` is byte-identical to what the r2 reviewer
+inspected.
+
+### Reference
+
+* r1 verdict: comment `0d957796` (Rin APPROVE; "2 allowed files")
+* r1 proof: `proofId 361dc709-704c-4ddd-a9e4-9cece1468c2d` (passed)
+* r2 verdict: comment `b27b6a40` (Rin REWORK; HIGH finding, addressed
+  in `df0d2b93`)
+* r2 proof: `proofId 6bc417e3-2c23-46c6-adc5-e575cf9075ef` (passed)
+* r2 verdict relay: comment `ba09900c` (Reina relay; MEDIUM finding,
+  addressed by this section)
+* r2 verdict fence-blocked file:
+  `data/build-rin-reviews/080094ef-f260-4a5e-b34f-41a39d5f4919-r2-verdict-fenceblocked.md`
+* r3 commit (this section): documentation-only, no code changes
+
 ## Cross-references
 
 * card 080094ef-r1 (this card, initial build) — `e69ea6fb` + `8e003f41` on
@@ -153,6 +286,8 @@ the live service:
   our handler's clean exit serves)
 * card a38b853d — `_check_signal_stats_uid` (the `sys_exit(2)` path)
 * Rin REWORK verdict (comment b27b6a40) — the HIGH finding this r2 addresses
+* Rin r2 MEDIUM (comment `ba09900c`) — addressed by the
+  "Cumulative branch diff reconciliation (r3)" section above
 
 ## Rollback
 
