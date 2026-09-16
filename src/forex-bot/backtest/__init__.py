@@ -1,16 +1,6 @@
 from strategies.session_range_mean_reversion import SessionRangeMeanReversionStrategy
 from strategies.volatility_squeeze import VolatilitySqueezeStrategy
 
-from .amalgamation import (
-    AmalgamatedBacktestEngine,
-    AmalgamationConfig,
-    AmalgamationEngine,
-    ComponentExtractor,
-    ComponentProfile,
-    ConfidenceMethod,
-    ExtractionResult,
-    VotingMethod,
-)
 from .data_loader import CsvDataLoader
 from .enhanced_engine import EnhancedBacktestEngine
 from .grid_strategy import GridStrategy
@@ -132,14 +122,6 @@ __all__ = [
     "VolatilitySqueezeStrategy",
     "MultiStrategyConfig",
     "MultiStrategyBacktestEngine",
-    "AmalgamationConfig",
-    "AmalgamationEngine",
-    "AmalgamatedBacktestEngine",
-    "ComponentExtractor",
-    "ComponentProfile",
-    "ExtractionResult",
-    "VotingMethod",
-    "ConfidenceMethod",
     "ICTSMCStrategy",
     "SignalConfluenceEngine",
     "ICTMarketState",
