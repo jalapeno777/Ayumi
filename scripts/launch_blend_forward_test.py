@@ -1705,8 +1705,8 @@ def _read_systemd_restart_status(unit: str = _SYSTEMD_UNIT_NAME) -> dict:
         "last_exit_code": None,
     }
     try:
-        proc = _sp.run(
-            ["systemctl", "show", unit,
+        proc = _sp.run(  # noqa: S603 — fully-controlled argv, check=False, timeout=1s; unit name is module constant.
+            ["/usr/bin/systemctl", "show", unit,
              "-p", "NRestarts",
              "-p", "ActiveEnterTimestamp",
              "-p", "Result",
