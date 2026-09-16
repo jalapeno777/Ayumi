@@ -1662,6 +1662,175 @@ def wire_connection_reliability(connection_manager):
 # ── Forward Test Health JSON Writer ──────────────────────────────────────────
 
 _HEALTH_JSON_PATH = PROJECT_ROOT / "data" / "forward_test_health.json"
+_OVERSEER_STATE_PATH = PROJECT_ROOT / "data" / "overseer_state.json"
+_SYSTEMD_UNIT_NAME = "ayumi-forward-test.service"
+_RESTART_REASON_LABELS = {
+    "success": "clean_24h_rotation",
+    "exit-code": "launch_failure",
+    "signal": "external_signal_termination",
+    "watchdog": "watchdog_timeout",
+    "core-dump": "core_dump",
+    "timeout": "startup_timeout",
+}
+
+
+def _read_systemd_restart_status(unit: str = _SYSTEMD_UNIT_NAME) -> dict:
+    """Read the systemd unit's restart counter + last-exit metadata.
+
+    Returns a dict with keys ``n_restarts`` (int), ``last_restart_at`` (ISO-8601
+    UTC string or None), ``last_result`` (raw systemd ``Result=`` value), and
+    ``last_exit_code`` (parsed int or None). Never raises — systemctl is
+    unavailable in some test/dev environments and the caller must always
+    receive a fully-populated dict with safe defaults.
+
+    Implementation: shells out to ``systemctl show <unit> -p NRestarts,
+    -p ActiveEnterTimestamp, -p Result, -p ExecMainStatus`` with a 1s
+    timeout. Output is key=value lines; values are split on the first ``=``
+    and stripped. ``ExecMainStatus`` is the systemd-reported status code for
+    the main process (e.g. ``2/INVALIDARGUMENT``); the leading integer is
+    captured as ``last_exit_code`` for classification.
+
+    Card 080094ef context: the forward-test service accumulates restart
+    counter ticks every time ``Restart=always`` fires (which is every
+    exit, including exit 0 from the clean-shutdown signal handler).
+    Without this observability, operators cannot distinguish "daily 24h
+    rotation" from "uncaught exit from a script bug" — both look the
+    same in the systemd restart counter.
+    """
+    import subprocess as _sp
+    out: dict = {
+        "n_restarts": 0,
+        "last_restart_at": None,
+        "last_result": "unknown",
+        "last_exit_code": None,
+    }
+    try:
+        proc = _sp.run(
+            ["systemctl", "show", unit,
+             "-p", "NRestarts",
+             "-p", "ActiveEnterTimestamp",
+             "-p", "Result",
+             "-p", "ExecMainStatus"],
+            capture_output=True, text=True, timeout=1.0, check=False,
+        )
+    except (FileNotFoundError, _sp.TimeoutExpired, OSError):
+        return out
+    if proc.returncode != 0:
+        return out
+    for line in proc.stdout.splitlines():
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key == "NRestarts":
+            try:
+                out["n_restarts"] = int(value)
+            except ValueError:
+                pass
+        elif key == "ActiveEnterTimestamp":
+            # systemctl timestamp format: "Tue 2026-09-15 21:27:17 UTC"
+            # or "[not set]". Parse the human form only if it matches.
+            if value and value != "[not set]":
+                try:
+                    _ts = datetime.strptime(value, "%a %Y-%m-%d %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+                    out["last_restart_at"] = _ts.isoformat()
+                except ValueError:
+                    out["last_restart_at"] = None
+        elif key == "Result":
+            out["last_result"] = value or "unknown"
+        elif key == "ExecMainStatus":
+            # Format: "2/INVALIDARGUMENT" or "0/SUCCESS" or "[not set]"
+            head = value.split("/", 1)[0].strip()
+            try:
+                out["last_exit_code"] = int(head)
+            except ValueError:
+                out["last_exit_code"] = None
+    return out
+
+
+def _classify_restart_reason(last_result: str, last_exit_code: int | None) -> str:
+    """Map a systemd ``Result=`` value + raw exit code to a stable reason label.
+
+    Card 080094ef: the reason label makes the restart counter self-documenting
+    in the health JSON. Label priority:
+
+      1. ``watchdog`` if the unit was killed by systemd watchdog (infinite-loop
+         guard fired).
+      2. ``signal`` if the main process exited via an unhandled signal
+         (systemd ``Result=signal``).
+      3. ``core-dump`` for core-dump exits (operator alert).
+      4. ``clean_24h_rotation`` for exit 0 (the proactive rotation path:
+         signal handler → engine.stop() → sys.exit(0); Restart=always then
+         re-launches, so the counter ticks every cycle, which is expected
+         behaviour and not a fault — see card 7d3b535d for the rotation
+         provenance, and ``docs/diagnoses/forward-test-restarts-2026-09-15.md``
+         for the BENIGN classification).
+      5. ``foreign_uid_signal_stats`` if exit code 2 (the script's pre-launch
+         signal_stats foreign-UID guard — see card a38b853d and
+         ``_check_signal_stats_uid`` above; this is the Sep 11 anomaly path).
+      6. ``pid_guard_duplicate`` if exit code 1 AND the unit just started
+         quickly (PID-guard contention from the previous failed process —
+         see diagnosis §5.3).
+      7. ``engine_start_failure`` if exit code 1 after the retry loop
+         (5 attempts exhausted — see ``_STARTUP_RETRY_ATTEMPTS``).
+      8. ``unknown_exit_<n>`` for any other exit code, so an unknown failure
+         mode is visible in the health JSON instead of being silently
+         classified as ``clean_24h_rotation``.
+
+    Returns a non-empty string label. ``last_exit_code`` of ``None`` (no
+    ExecMainStatus yet — service has never been started under systemd) maps
+    to ``"pre_startup"``.
+    """
+    if last_result == "watchdog":
+        return "watchdog_timeout"
+    if last_result == "signal":
+        return "external_signal_termination"
+    if last_result == "core-dump":
+        return "core_dump"
+    if last_exit_code is None:
+        return "pre_startup"
+    if last_exit_code == 0:
+        return "clean_24h_rotation"
+    if last_exit_code == 2:
+        return "foreign_uid_signal_stats"
+    if last_exit_code == 1:
+        return "pid_guard_or_launch_failure"
+    return f"unknown_exit_{last_exit_code}"
+
+
+def write_overseer_state_restart_mirror(n_restarts: int, last_restart_at: str | None, reason: str) -> None:
+    """Mirror the systemd restart counter into ``data/overseer_state.json``.
+
+    Card 080094ef AC2: overseer heartbeats consume this file (not
+    ``forward_test_health.json``) so a stripped-down field mirror prevents
+    shape drift and keeps the existing field contract intact. We read the
+    current overseer state (best-effort, may be missing on a fresh deploy),
+    overwrite only the restart fields, and atomic-write the result.
+
+    Never raises — any parse/permission error is logged at WARNING and
+    swallowed so the health loop never breaks on a write failure. Matches
+    the defensive posture of ``write_forward_test_health_json`` above.
+    """
+    try:
+        if _OVERSEER_STATE_PATH.exists():
+            try:
+                raw = json.loads(_OVERSEER_STATE_PATH.read_text())
+            except (json.JSONDecodeError, OSError) as _ov_exc:
+                logger.warning("overseer_state.json unreadable: %s — resetting mirror", _ov_exc)
+                raw = {}
+        else:
+            raw = {}
+        raw["forward_test_restart_counter"] = n_restarts
+        raw["forward_test_last_restart_at"] = last_restart_at
+        raw["forward_test_last_restart_reason"] = reason
+        raw["forward_test_restart_mirror_updated_at"] = datetime.now(timezone.utc).isoformat()
+        tmp = _OVERSEER_STATE_PATH.with_suffix(".json.tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(raw, indent=2) + "\n")
+        os.replace(str(tmp), str(_OVERSEER_STATE_PATH))
+    except Exception as _ov_exc:
+        logger.warning("Failed to mirror restart counter to overseer_state.json: %s", _ov_exc)
 
 
 def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
@@ -1706,6 +1875,16 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
             trades_executed = trading.get("trades_executed", 0)
             closed_trades_live = 0
 
+        # Card 080094ef: enrich with systemd restart observability. These
+        # three fields (restart_reason, restart_counter, last_restart_at)
+        # let operators distinguish proactive-24h rotation from a real
+        # exit fault at a glance — without them the counter ticks up on
+        # every clean exit and the alert signal is buried.
+        _sd_status = _read_systemd_restart_status()
+        _restart_reason = _classify_restart_reason(
+            _sd_status["last_result"], _sd_status["last_exit_code"],
+        )
+
         health_data = {
             "service_status": "up" if engine.is_running else "down",
             "ticks_received": health.ticks_received,
@@ -1717,6 +1896,11 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
             "connection_state": connection_state,
             "market_closed": _is_forex_market_closed(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            # Card 080094ef: restart observability surface (was missing
+            # pre-card; only "previous_pid"+"rotation_kind" existed).
+            "restart_reason": _restart_reason,
+            "restart_counter": _sd_status["n_restarts"],
+            "last_restart_at": _sd_status["last_restart_at"],
         }
 
         json_str = json.dumps(health_data, indent=2)
@@ -1725,6 +1909,16 @@ def write_forward_test_health_json(engine: ForwardTestEngine) -> None:
         tmp_path = _HEALTH_JSON_PATH.with_suffix(".json.tmp")
         tmp_path.write_text(json_str)
         os.replace(str(tmp_path), str(_HEALTH_JSON_PATH))
+
+        # Mirror the counter into the overseer's heartbeat intake so
+        # restart-flap alerts can route through the existing overseer
+        # channel instead of needing a new consumer. Mirrors the health
+        # JSON semantics — same source of truth, different consumer.
+        write_overseer_state_restart_mirror(
+            _sd_status["n_restarts"],
+            _sd_status["last_restart_at"],
+            _restart_reason,
+        )
     except Exception as exc:
         logger.warning("Failed to write forward_test_health.json: %s", exc)
 
