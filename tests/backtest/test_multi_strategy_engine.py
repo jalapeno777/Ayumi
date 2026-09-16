@@ -1,8 +1,12 @@
-"""Tests for the refactored MultiStrategyBacktestEngine and related engines.
+"""Tests for the refactored MultiStrategyBacktestEngine.
 
 These tests verify that the mixin-composition refactor preserves the
-essential behaviors of the multi-strategy, VAPS, and amalgamation engines
-without the code duplication that existed before.
+essential behaviors of the multi-strategy engine without the code
+duplication that existed before.
+
+Note (2026-09-16, card 6f06c041 rework r1): Amalgamation/AmalgamatedBacktestEngine
+tests were removed when backtest.amalgamation was retired as a dead module
+(zero callsites). See card 6f06c041-1c7c-47f5-9f72-6c34893e95fc.
 """
 
 from __future__ import annotations
@@ -16,12 +20,6 @@ _src = Path(__file__).resolve().parents[2] / "src" / "forex-bot"
 if str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
-from backtest.amalgamation import (
-    AmalgamatedBacktestEngine,
-    AmalgamationConfig,
-    AmalgamationEngine,
-    ComponentExtractor,
-)
 from backtest.multi_strategy_engine import (
     KellyConfig,
     MultiStrategyBacktestEngine,
@@ -114,18 +112,6 @@ class TestMixinComposition:
     def test_multi_strategy_inherits_progressive_sl(self):
         """MultiStrategyBacktestEngine must inherit ProgressiveSLMixin."""
         assert issubclass(MultiStrategyBacktestEngine, ProgressiveSLMixin)
-
-    def test_amalgamated_inherits_engine_core(self):
-        """AmalgamatedBacktestEngine must inherit from EngineCore."""
-        assert issubclass(AmalgamatedBacktestEngine, EngineCore)
-
-    def test_amalgamated_inherits_progressive_sl(self):
-        """AmalgamatedBacktestEngine must inherit ProgressiveSLMixin."""
-        assert issubclass(AmalgamatedBacktestEngine, ProgressiveSLMixin)
-
-    def test_amalgamation_engine_is_standalone(self):
-        """AmalgamationEngine should NOT inherit from EngineCore (pure signal logic)."""
-        assert not issubclass(AmalgamationEngine, EngineCore)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -256,66 +242,13 @@ class TestKellyOverlay:
 
 
 # ────────────────────────────────────────────────────────────────────
-# Tests: AmalgamationEngine (signal combiner)
+# Tests: AmalgamationEngine + AmalgamatedBacktestEngine
 # ────────────────────────────────────────────────────────────────────
-
-
-class TestAmalgamationEngine:
-    def test_combine_empty_signals(self):
-        engine = AmalgamationEngine(AmalgamationConfig())
-        state = type("S", (), {"current_session": None})()
-        result = engine.combine([], state)
-        assert result is None
-
-    def test_component_extractor_returns_none_for_no_signal(self):
-        extractor = ComponentExtractor()
-
-        class _NoSignalStrategy:
-            name = "NoSignal"
-
-            def evaluate(self, state):
-                return None
-
-        result = extractor.extract(_NoSignalStrategy(), None)
-        assert result is None
-
-    def test_component_extractor_extracts_signal(self):
-        extractor = ComponentExtractor()
-        strategy = _DummyStrategy("TestStrategy")
-        state = type("S", (), {"bars": [], "current_session": None})()
-        result = extractor.extract(strategy, state)
-        assert result is not None
-        assert result.strategy_name == "TestStrategy"
-        assert result.direction == TradeDirection.LONG
-
-
-# ────────────────────────────────────────────────────────────────────
-# Tests: AmalgamatedBacktestEngine
-# ────────────────────────────────────────────────────────────────────
-
-
-class TestAmalgamatedBacktestEngine:
-    def test_init(self):
-        config = _make_config()
-        engine = AmalgamatedBacktestEngine(
-            config=config,
-            strategies=[_DummyStrategy()],
-        )
-        assert engine.balance == config.starting_balance
-        assert isinstance(engine.amalgamation, AmalgamationConfig)
-
-    def test_run_returns_metrics(self):
-        config = _make_config()
-        engine = AmalgamatedBacktestEngine(
-            config=config,
-            strategies=[_DummyStrategy()],
-            amalgamation_config=AmalgamationConfig(
-                ict_smc_only=False,
-                min_confluence=1,
-                session_filter_enabled=False,
-            ),
-        )
-        bars = _make_bars(50)
-        metrics = engine.run(bars)
-        assert metrics is not None
-        assert metrics.total_trades >= 0
+#
+# Removed 2026-09-16 (card 6f06c041 rework r1): backtest.amalgamation was
+# retired as a dead module (zero callsites). The classes it exported
+# (AmalgamatedBacktestEngine, AmalgamationEngine, AmalgamationConfig,
+# ComponentExtractor) no longer exist. The tests that exercised them were
+# tightly coupled to those symbols; the rest of the file
+# (TestMultiStrategyBacktestEngine, TestKellyOverlay) is preserved
+# because it tests the still-live backtest.multi_strategy_engine.
