@@ -1,7 +1,8 @@
 """Root conftest.py — applies resource limits to all test runs.
 
-Prevents unit tests from consuming more than 20% CPU / 2GB memory on the shared server.
-Individual tests or modules can override by calling resource_limits directly.
+Prevents unit tests from consuming more than 20% CPU / 8GB memory on the shared server.
+Individual tests or modules can override by calling resource_limits directly, or by
+exporting MEMRAY_MAX_MEMORY=<mb> before invoking pytest.
 """
 
 # ── BLAS thread guard (card 53505568) ─────────────────────────────────────
@@ -22,8 +23,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from common.resource_limits import configure_pytest_defaults
 
-# Apply memory limit at collection time
-configure_pytest_defaults(max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "2048")))
+# Apply memory limit at collection time. Default raised to 8GB (was 2GB) so the
+# full pytest suite can complete without an undocumented MEMRAY_MAX_MEMORY override;
+# the env var remains honored for callers who want a tighter or looser cap (card 75e04b13).
+configure_pytest_defaults(max_memory_mb=int(os.environ.get("MEMRAY_MAX_MEMORY", "8192")))
 
 
 def pytest_collection_modifyitems(config, items):
