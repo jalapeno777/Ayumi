@@ -32,7 +32,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -41,7 +40,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import duckdb  # noqa: E402
-
 
 # Card 05fa0065 spec: XAUUSD + GBPUSD × M15 + H1. Kept module-level so the
 # dispatcher-side CLI default matches the worker-side export default
@@ -90,8 +88,10 @@ def export_subset(
         # Probe row count before writing (helps verify source has the data).
         placeholders = ",".join(["?"] * len(symbols))
         tf_placeholders = ",".join(["?"] * len(timeframes))
+        # S608: column list + WHERE structure is static; user values bound
+        # via DuckDB ? placeholders below (not string-interpolated).
         count_query = (
-            f"SELECT COUNT(*) FROM bars "
+            f"SELECT COUNT(*) FROM bars "  # noqa: S608
             f"WHERE symbol IN ({placeholders}) "
             f"AND timeframe IN ({tf_placeholders})"
         )
@@ -112,9 +112,13 @@ def export_subset(
     src_con = duckdb.connect(str(source_db), read_only=True)
     dst_con = duckdb.connect(str(output_db))
     try:
+        # S608: source_db is operator-provided path validated by
+        # Path.is_file() above — not user-supplied query text.
         dst_con.execute(f"ATTACH '{source_db}' AS src_ro (READ_ONLY)")
+        # S608: column list + WHERE structure is static; user values bound
+        # via DuckDB ? placeholders below (not string-interpolated).
         dst_con.execute(
-            f"CREATE OR REPLACE TABLE bars AS "
+            f"CREATE OR REPLACE TABLE bars AS "  # noqa: S608
             f"SELECT symbol, timeframe, timestamp_utc, open, high, low, "
             f"close, volume, spread_pips "
             f"FROM src_ro.bars "

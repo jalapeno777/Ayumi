@@ -36,6 +36,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -264,8 +265,38 @@ def _run_one_cell(
             )
 
             try:
+                if isinstance(transport, JobDirBundleTransport):
+                    # Jobdir wire: push_bundle expects the per-cell job
+                    # descriptor JSON (basename = cell_id), NOT the bundle
+                    # directory. Write it, hash it, and let the transport
+                    # pre-flight that hash.
+                    descriptor = {
+                        "schema_version": 1,
+                        "cell_id": cid,
+                        "seed": cid,
+                        "run_id": args.run_id,
+                        "strategy": strategy,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "git_sha": git_sha,
+                        "env_lock_hash": env_lock_hash_val,
+                        "data_db_path": args.data_db_path,
+                        "data_db_sha": args.data_db_sha,
+                    }
+                    descriptor_path = cell_out / f"{cid}.json"
+                    descriptor_path.parent.mkdir(parents=True, exist_ok=True)
+                    descriptor_path.write_text(
+                        json.dumps(descriptor, indent=2, sort_keys=True)
+                    )
+                    push_path: Path = descriptor_path
+                    push_sha = hashlib.sha256(
+                        push_path.read_bytes()
+                    ).hexdigest()
+                else:
+                    push_path = bundle_path
+                    push_sha = bundle_sha
                 worker_cell = transport.push_bundle(
-                    args.run_id, bundle_path, bundle_sha
+                    args.run_id, push_path, push_sha
                 )
             except CodeSHARejectedError:
                 # Q1 loud skew: log row + ABORT. Log BEFORE re-raise so the
@@ -332,7 +363,25 @@ def _run_one_cell(
                 # Fix #3 (Rin): retrieve + persist + hash the worker's output.
                 # The runner's terminalize contract: every successful dispatch
                 # MUST carry output_path + output_hash (AC4).
-                output_bytes = transport.fetch_output(args.run_id, cid)
+                #
+                # Jobdir wire: the worker_runner executes asynchronously —
+                # poll for the done/ output (file.fetch first, exec-cat
+                # fallback when the gateway denies file.fetch) until the
+                # per-cell timeout expires.
+                output_bytes: bytes | None = None
+                if isinstance(transport, JobDirBundleTransport):
+                    deadline = time.monotonic() + args.cell_timeout_s
+                    while time.monotonic() < deadline:
+                        output_bytes = transport.fetch_output(args.run_id, cid)
+                        if output_bytes is None:
+                            output_bytes = transport.fetch_output_via_exec(
+                                args.run_id, cid
+                            )
+                        if output_bytes is not None:
+                            break
+                        time.sleep(args.poll_interval_s)
+                else:
+                    output_bytes = transport.fetch_output(args.run_id, cid)
                 if output_bytes is None:
                     append_skipped(
                         output_root,
@@ -351,6 +400,43 @@ def _run_one_cell(
                 output_path = cell_out / "output"
                 output_path.parent.mkdir(parents=True, exist_ok=True)
                 output_path.write_bytes(output_bytes)
+
+                # Jobdir wire: the worker writes a fail-loud JSON payload —
+                # a non-zero exit_code is a cell failure (db_missing /
+                # empty_window / no_signals / exception). Persist the output
+                # for forensics, audit-row it, and leave the manifest
+                # non-terminal so --resume re-runs the cell.
+                if isinstance(transport, JobDirBundleTransport):
+                    try:
+                        worker_payload = json.loads(output_bytes.decode("utf-8"))
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        worker_payload = None
+                    if (
+                        not isinstance(worker_payload, dict)
+                        or int(worker_payload.get("exit_code", 1) or 1) != 0
+                    ):
+                        err = (
+                            worker_payload.get("error", "<unparsable output>")
+                            if isinstance(worker_payload, dict)
+                            else "<unparsable output>"
+                        )
+                        append_skipped(
+                            output_root,
+                            cell_id=cid,
+                            reason="worker_error",
+                            expected="exit_code=0",
+                            actual=str(err)[:200],
+                            extra={"output_path": str(output_path)},
+                        )
+                        m.output_path = str(output_path)
+                        m.output_hash = output_hash
+                        if isinstance(worker_payload, dict):
+                            m.exit_code = int(worker_payload.get("exit_code", 1) or 1)
+                        else:
+                            m.exit_code = 1
+                        # finished_at stays None → --resume retries the cell.
+                        atomic_write_manifest(m, cell_out)
+                        return m, "worker_error"
 
                 m.output_path = str(output_path)
                 m.output_hash = output_hash
@@ -437,6 +523,17 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument("--worker", default="ava-worker-local")
+    parser.add_argument(
+        "--cell-timeout-s", type=float, default=2700.0,
+        help=(
+            "(jobdir) Max seconds to wait for one cell's done/ output "
+            "before giving up (default: 2700 = 45 min)."
+        ),
+    )
+    parser.add_argument(
+        "--poll-interval-s", type=float, default=5.0,
+        help="(jobdir) Seconds between done/ output polls (default: 5).",
+    )
     parser.add_argument(
         "--transport", choices=["stub", "node", "jobdir"], default="node",
         help=(
